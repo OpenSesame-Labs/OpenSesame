@@ -66,7 +66,8 @@ export async function startMintedNats(binary) {
   const made = spawnSync(
     "npm",
     [
-      "-s",
+      "run",
+      "--silent",
       "dev:live-nats",
       "--",
       "--websocket",

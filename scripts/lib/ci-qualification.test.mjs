@@ -260,7 +260,7 @@ describe("upstream CI execution contracts survive tier migration", () => {
   it.each([
     [
       "autofill-browser",
-      "npm run test:e2e", -w @opensesame/browser-extension-autofill
+      "npm run test:e2e -w @opensesame/browser-extension-autofill",
     ],
     ["sync-target-security", "sync-target"],
   ])(

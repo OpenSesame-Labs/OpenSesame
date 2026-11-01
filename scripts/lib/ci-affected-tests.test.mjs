@@ -185,7 +185,7 @@ describe("workflow wiring", () => {
       "utf8",
     );
     const bundle = complete.split("  bundle:")[1]?.split("  rust:")[0];
-    expect(bundle).toContain("npm run verify:keyboard"); -w @opensesame/pages
+    expect(bundle).toContain("npm run verify:keyboard -w @opensesame/pages");
     expect(workflow).toContain("ci-affected-builds.mjs plan-ts");
     expect(workflow).toContain("ci-affected-builds.mjs run-ts");
     expect(workflow).toContain("ci-affected-builds.mjs plan-cargo");
