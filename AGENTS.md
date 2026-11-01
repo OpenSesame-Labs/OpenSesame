@@ -29,7 +29,7 @@ Generic cloud-agent environment notes live in [cloud agents](docs/contributing/c
 All scripts are defined in the root `package.json` unless noted. Full reference (per-plane run commands and every Pages `verify:*` trigger and behaviour contract): [commands](docs/contributing/commands.md). Script catalogue: [scripts](scripts/README.md).
 
 ```bash
-mise install --locked  # Node, npm, Rust, Go, and Java from mise.toml / mise.lock
+mise install --locked  # Node, npm, Rust, Go, Java, and skill CLIs from mise.toml / mise.lock
 mise run deps          # fingerprinted npm ci
 npm run bootstrap      # deps:install + db:migrate + setup:hooks
 npm run dev            # turbo dev (Identity plane and related packages)
@@ -71,7 +71,7 @@ One-line invariants below; full prose, rationale, and exact gate triggers in [de
 
 - A user-visible change ships with before/after evidence on the PR, from two real builds with browser measurements; persist only approved current-state artifacts under `docs/evidence/<feature>/<project>/<platform>/` ([evidence contract](docs/evidence/README.md)).
 - Local app runs are attached HMR debug sessions; do not replace them with a production `dist/` or headless gate unless that gate was requested.
-- Keyboard access is a core product contract: every arrival leaves visible, useful focus; shell/control/focus changes require `npm run verify:keyboard`. -w @opensesame/pages
+- Keyboard access is a core product contract: every arrival leaves visible, useful focus; shell/control/focus changes require `npm run verify:keyboard -w @opensesame/pages`.
 - A phone is not a narrow desktop: touch geometry is measured, not screenshotted; shell/chrome/coarse-pointer changes require `verify:mobile`. Never pass by clipping a control or lowering a floor.
 - Browser-local IAM must prove an actual sign-in (`verify:local-iam`); a form or mocked success is not authentication evidence.
 - Web Push is proved against a real Identity API (`verify:push-worker` and `verify:push`), never only against a mocked enrolment.
@@ -103,7 +103,7 @@ External/model-based security checkers supplement, never replace, `npm run audit
 
 ## 7. Skills
 
-Skills are canonical in `skills/*/SKILL.md`, mirrored through `.agents/skills/`; tiers are defined in `skills/profiles.json` (core first-party required, optional profiles may be absent). Third-party skills are gitignored install output installed/refreshed to latest (unpinned) by `scripts/dev/install-agent-skills.sh` (`npm run skills:install`, devcontainer post-start) per the `skills-lock.json` catalogue — never stage installed trees. Sync with `scripts/dev/sync-agent-skills.mjs` (and its `--check`), never by multi-target copy. Routing index: [skills](docs/contributing/skills.md). Personal user-scope setup: [agent setup](docs/contributing/agent-setup.md).
+Skills are canonical in `skills/*/SKILL.md`, mirrored through `.agents/skills/`; tiers are defined in `skills/profiles.json` (core first-party required, optional profiles may be absent). Third-party skills are gitignored install output installed/refreshed to latest (unpinned) by `scripts/dev/install-agent-skills.sh` (`npm run skills:install`, devcontainer post-start) per the `skills-lock.json` catalogue. The installer CLIs are pinned in `mise.toml` (`npm:skills`, `npm:impeccable`, `npm:typeui.sh`). Never stage installed trees. Sync with `scripts/dev/sync-agent-skills.mjs` (and its `--check`), never by multi-target copy. Routing index: [skills](docs/contributing/skills.md). Personal user-scope setup: [agent setup](docs/contributing/agent-setup.md).
 
 ## 8. Verification expectations
 

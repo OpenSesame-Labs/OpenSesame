@@ -6,8 +6,9 @@
 # third-party trees were removed from source control. skills-lock.json is
 # the catalogue (which skills, from which sources); skill CONTENT floats
 # to upstream latest on every run (unpinned by design for optional
-# profiles), while the installer CLIs below are version-pinned — bump
-# them deliberately. Tiers live in skills/profiles.json. First-party
+# profiles), while the installer CLIs below are version-pinned in
+# mise.toml (npm:skills, npm:impeccable, npm:typeui.sh) — bump the script
+# and those pins together. Tiers live in skills/profiles.json. First-party
 # skills in skills/ are tracked source and need no install; core
 # validation passes without any of this.
 #
@@ -20,6 +21,8 @@
 set -uo pipefail
 
 # Pinned installer tool versions (skill content still floats to latest).
+# Same versions as mise.toml npm:skills, npm:impeccable, and npm:typeui.sh.
+# `mise install` puts those bins on PATH; npx below uses the same pins.
 SKILLS_CLI="skills@1.7.4"
 IMPECCABLE_CLI="impeccable@4.8.0"
 TYPEUI_CLI="typeui.sh@0.7.1"
@@ -61,6 +64,11 @@ if ! missing=$(node -e "
 "); then
   degrade "could not read skills-lock.json; skipping catalogue install"
   missing=""
+fi
+if ! command -v skills >/dev/null 2>&1 \
+  || ! command -v impeccable >/dev/null 2>&1 \
+  || ! command -v typeui.sh >/dev/null 2>&1; then
+  echo "install-agent-skills: HINT: mise install npm:skills npm:impeccable npm:typeui.sh installs the pinned CLIs; using npx ${SKILLS_CLI}, ${IMPECCABLE_CLI}, ${TYPEUI_CLI}" >&2
 fi
 if [ -n "$missing" ]; then
   while IFS="$(printf '\t')" read -r name source; do
