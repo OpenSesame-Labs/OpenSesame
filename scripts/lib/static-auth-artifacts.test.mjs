@@ -202,7 +202,7 @@ it("keeps both lint entrypoints gated by rebuilt artifacts and source tests", ()
   );
   expect(scripts["lint:artifacts"]).toContain("build-static-auth.mjs --check");
   expect(scripts["lint:artifacts"]).toContain(
-    "npm run test", -w @opensesame/static-auth
+    "npm run test -w @opensesame/static-auth",
   );
   expect(scripts["lint:artifacts"]).toContain("src/lib/auth-client.test.ts");
 });

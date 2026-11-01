@@ -37,6 +37,7 @@ test("builds changed packages and transitive consumers, leaving unrelated work o
   assert.equal(command.command, "npm");
   assert.deepEqual(command.args, [
     "exec",
+    "--",
     "turbo",
     "run",
     "build",
@@ -202,7 +203,8 @@ test("shared compiler, dependency and embedded-spec inputs compile the whole gra
     {
       command: "npm",
       args: [
-        "exec", "--",
+        "exec",
+        "--",
         "turbo",
         "run",
         "build",

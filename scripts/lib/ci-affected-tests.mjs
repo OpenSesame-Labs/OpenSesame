@@ -79,7 +79,7 @@ function runListed(command, args, options = {}) {
 
 /** Keep real KDF suites from competing with other packages for runner CPU. */
 export function turboTestArgs() {
-  return ["exec", "turbo", "run", "test", "--concurrency=1"];
+  return ["exec", "--", "turbo", "run", "test", "--concurrency=1"];
 }
 
 /** Complete typechecking before starting CPU-bound crypto integration tests. */
@@ -109,7 +109,8 @@ async function runTs(plan) {
   const typecheck = {
     command: "npm",
     args: [
-      "exec", "--",
+      "exec",
+      "--",
       "turbo",
       "run",
       "typecheck",

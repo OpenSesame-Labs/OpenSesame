@@ -20,7 +20,8 @@ export function unitTestCommands(root, packages, plans) {
     commands.push({
       command: "npm",
       args: [
-        "exec", "--",
+        "exec",
+        "--",
         "turbo",
         "run",
         "test",
@@ -36,7 +37,7 @@ export function unitTestCommands(root, packages, plans) {
 }
 
 function scopedCommands(root, entry) {
-  const vitest = ["--filter", entry.name, "exec", "vitest"];
+  const vitest = ["exec", "-w", entry.name, "--", "vitest"];
   const commands = [];
   if (entry.related.length > 0) {
     commands.push({
@@ -64,7 +65,7 @@ function scopedCommands(root, entry) {
   if (entry.extra !== undefined && entry.extraRuns) {
     commands.push({
       command: "npm",
-      args: ["--filter", entry.name, "exec", "sh", "-c", entry.extra],
+      args: ["exec", "-w", entry.name, "--", "sh", "-c", entry.extra],
     });
   }
   return commands;

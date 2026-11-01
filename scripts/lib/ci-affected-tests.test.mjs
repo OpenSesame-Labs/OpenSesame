@@ -160,6 +160,7 @@ describe("scope all", () => {
   it("finishes typecheck before running one package at a time", () => {
     expect(turboTestArgs()).toEqual([
       "exec",
+      "--",
       "turbo",
       "run",
       "test",
