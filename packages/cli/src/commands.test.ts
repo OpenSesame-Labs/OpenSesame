@@ -4,7 +4,10 @@ import { join } from "node:path";
 import {
   type BoundaryValue,
   type JsonObject,
+  type JsonValue,
   overlapCast,
+  readJsonObject,
+  readString,
 } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadSession } from "./identity-session.js";
@@ -130,6 +133,16 @@ describe("runCli — help and parse failures", () => {
   it("prints help and exits 0", async () => {
     expect(await runCli(["--help"])).toBe(0);
     expect(out).toContain("opensesame-id");
+  });
+
+  it("prints the published package version", async () => {
+    const raw: JsonValue = JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    const version = readString(readJsonObject(raw)?.version);
+    if (version === undefined) throw new Error("package version missing");
+    expect(await runCli(["--version"])).toBe(0);
+    expect(out).toBe(`${version}\n`);
   });
 
   it("reports an unknown command on stderr and exits 1", async () => {

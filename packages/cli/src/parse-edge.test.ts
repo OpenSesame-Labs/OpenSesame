@@ -33,6 +33,15 @@ describe("parseArgs — help and unknown commands", () => {
   });
 });
 
+describe("parseArgs — version", () => {
+  it("accepts --version, -v, and version", () => {
+    const flags = { json: false };
+    expect(parseArgs(["--version"])).toEqual({ name: "version", flags });
+    expect(parseArgs(["-v"])).toEqual({ name: "version", flags });
+    expect(parseArgs(["version"])).toEqual({ name: "version", flags });
+  });
+});
+
 describe("parseArgs — global flags", () => {
   it("parses --api and --client-id", () => {
     const cmd = parseArgs([

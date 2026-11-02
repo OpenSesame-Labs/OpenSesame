@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   type JsonValue,
   configuredEndpoint,
@@ -46,6 +47,26 @@ import { type VaultSyncDependencies, runVaultSync } from "./vault-sync.js";
 function defaultIssuer(): string {
   return process.env.OPENSESAME_ISSUER ?? "http://127.0.0.1:8788";
 }
+
+/** Same shape CD smoke accepts from `opensesame --version`. */
+const PUBLISHED_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+
+/**
+ * Published version. CD staging rewrites package.json after the bundle is
+ * built, so this is the package.json next to the running file (dist/../).
+ */
+async function publishedPackageVersion(): Promise<string> {
+  const manifestPath = fileURLToPath(
+    new URL("../package.json", import.meta.url),
+  );
+  const raw: JsonValue = JSON.parse(await readFile(manifestPath, "utf8"));
+  const version = readString(readJsonObject(raw)?.version);
+  if (version === undefined || !PUBLISHED_VERSION.test(version)) {
+    throw new Error("CLI package version is missing.");
+  }
+  return version;
+}
+
 type StoredSession = NonNullable<Awaited<ReturnType<typeof loadSession>>>;
 /**
  * Revoke an OIDC session at its issuer (RFC 7009). The provisional endpoint
@@ -227,6 +248,9 @@ async function dispatch(
   const { issuer, api, clientId, fetchImpl, deps } = ctx;
 
   switch (command.name) {
+    case "version":
+      process.stdout.write(`${await publishedPackageVersion()}\n`);
+      return 0;
     case "canary-serve": {
       const { runAgentCanaryService } = await import(
         "./agent-canary-service.js"
