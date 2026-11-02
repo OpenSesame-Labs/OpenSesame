@@ -50,12 +50,12 @@ fn agent_path(path: &str, operations: &[&str]) -> bool {
     let id = parts.next().unwrap_or("");
     let operation = parts.next().unwrap_or("");
     !id.is_empty()
-  && id.len() <= 128
-  && id
+        && id.len() <= 128
+        && id
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_:".contains(&b))
-  && parts.next().is_none()
-  && operations.contains(&operation)
+        && parts.next().is_none()
+        && operations.contains(&operation)
 }
 
 fn driver_path(path: &str) -> bool {
@@ -83,7 +83,7 @@ fn pairing_path(path: &str) -> bool {
 
 fn public_path(method: &Method, path: &str) -> bool {
     method == Method::GET
-  && matches!(
+        && matches!(
             path,
             "/health/live" | "/health/ready" | "/pair" | "/.well-known/oauth-protected-resource"
         )
@@ -195,7 +195,7 @@ async fn authenticate(
         required_capability(method, path).ok_or_else(|| refusal("capability_denied"))?;
     if !claims.valid_for(&st.resource, now)
         || (!capability.is_empty()
-  && !claims
+            && !claims
                 .capability_ceiling
                 .iter()
                 .any(|cap| cap == capability))

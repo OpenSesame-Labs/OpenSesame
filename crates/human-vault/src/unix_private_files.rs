@@ -192,7 +192,7 @@ impl PrivateDirectory {
             || actual.st_dev != original.st_dev
             || actual.st_ino != original.st_ino
             || (target.get(..count) != Some(expected.as_slice())
-  && target.get(..count) != Some(absolute_expected.as_slice()))
+                && target.get(..count) != Some(absolute_expected.as_slice()))
         {
             return Err(refused());
         }

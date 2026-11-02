@@ -135,6 +135,6 @@ fn is_removable(
     observed: &ObservedGuild,
 ) -> bool {
     registration.owns(role)
-  && !live_role_names.contains(&role.name)
-  && assert_mutable(registration, role, observed.bot_highest_position).is_ok()
+        && !live_role_names.contains(&role.name)
+        && assert_mutable(registration, role, observed.bot_highest_position).is_ok()
 }

@@ -50,8 +50,8 @@ pub fn validate_resource_uri(
     }
 
     let same_origin = request.scheme() == audience.scheme()
-  && request.host_str() == audience.host_str()
-  && request.port_or_known_default() == audience.port_or_known_default();
+        && request.host_str() == audience.host_str()
+        && request.port_or_known_default() == audience.port_or_known_default();
     if !same_origin {
         return Err(denied());
     }

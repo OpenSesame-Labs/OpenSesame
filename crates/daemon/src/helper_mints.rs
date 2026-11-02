@@ -217,7 +217,7 @@ fn read(path: &Path, key: Option<&GrantKey>) -> (Grants, Stored) {
         return refused(path, Stored::Unreadable);
     }
     let verified = file.version == VERSION
-  && key
+        && key
             .zip(file.mac.as_deref())
             .is_some_and(|(key, tag)| key.verifies(VERSION, &grants, tag));
     if verified {

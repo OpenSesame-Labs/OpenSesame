@@ -63,8 +63,8 @@ pub fn from_env(db: Db) -> anyhow::Result<Router> {
     let routes: BTreeSet<String> = registered.split(',').map(str::to_owned).collect();
     anyhow::ensure!(
         !routes.is_empty()
-  && routes.len() <= 128
-  && routes.iter().all(|r| signature::registered_route(r)),
+            && routes.len() <= 128
+            && routes.iter().all(|r| signature::registered_route(r)),
         "invalid callback routes"
     );
     Ok(router(Arc::new(EdgeState { master, db, routes })))

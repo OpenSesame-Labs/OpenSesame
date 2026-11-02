@@ -154,8 +154,8 @@ fn replacement(approver_ref: Option<&str>, clear: bool) -> Result<String> {
     let value = match (approver_ref, clear) {
         (Some(handle), false) => {
             let plausible = handle.starts_with("inbox_")
-  && (8..=256).contains(&handle.len())
-  && handle
+                && (8..=256).contains(&handle.len())
+                && handle
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'));
             if !plausible {

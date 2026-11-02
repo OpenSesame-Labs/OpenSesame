@@ -81,8 +81,8 @@ pub struct ConfigKeyMeta {
 #[must_use]
 pub fn valid_slug(slug: &str) -> bool {
     !slug.is_empty()
-  && slug.len() <= 64
-  && slug
+        && slug.len() <= 64
+        && slug
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
@@ -92,12 +92,12 @@ pub fn valid_slug(slug: &str) -> bool {
 #[must_use]
 pub fn valid_key_name(name: &str) -> bool {
     !name.is_empty()
-  && name.len() <= 128
-  && name
+        && name.len() <= 128
+        && name
             .chars()
             .next()
             .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-  && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 // ---- secret referencing (§4.7) ---------------------------------------------

@@ -154,18 +154,18 @@ fn config_has_secret_shaped_key(value: &serde_json::Value) -> bool {
 
 fn valid_repo_segment(value: &str) -> bool {
     !value.is_empty()
-  && value.len() <= 100
-  && value
+        && value.len() <= 100
+        && value
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
 fn valid_branch(value: &str) -> bool {
     !value.is_empty()
-  && value.len() <= 200
-  && !value.contains("..")
-  && !value.contains('\\')
-  && value
+        && value.len() <= 200
+        && !value.contains("..")
+        && !value.contains('\\')
+        && value
             .chars()
             .all(|c| c.is_ascii() && !c.is_control() && c != ' ' && c != '?')
 }

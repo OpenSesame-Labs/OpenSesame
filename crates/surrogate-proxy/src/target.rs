@@ -115,7 +115,7 @@ impl Target {
             None => true,
             Some(authority) => {
                 parts.uri.scheme_str() == Some("https")
-  && Self::from_authority(authority.as_str(), HTTPS_PORT).as_ref() == Some(self)
+                    && Self::from_authority(authority.as_str(), HTTPS_PORT).as_ref() == Some(self)
             }
         }
     }
@@ -145,10 +145,10 @@ pub(crate) fn normalize_host(host: &str) -> Option<String> {
     }
     let host = host.to_ascii_lowercase();
     let valid = !host.is_empty()
-  && host.len() <= 253
-  && host.split('.').all(|label| {
+        && host.len() <= 253
+        && host.split('.').all(|label| {
             (1..=63).contains(&label.len())
-  && label
+                && label
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
         });

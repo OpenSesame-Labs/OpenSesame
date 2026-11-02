@@ -183,7 +183,7 @@ pub fn is_handshake(text: &str) -> bool {
     let body = text.trim_end_matches('\u{1e}');
     serde_json::from_str::<serde_json::Value>(body).is_ok_and(|v| {
         v.get("protocol").and_then(serde_json::Value::as_str) == Some("messagepack")
-  && v.get("version").and_then(serde_json::Value::as_i64) == Some(1)
+            && v.get("version").and_then(serde_json::Value::as_i64) == Some(1)
     })
 }
 

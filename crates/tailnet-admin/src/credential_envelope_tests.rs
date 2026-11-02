@@ -31,12 +31,7 @@ fn raw(store: &AdminStore) -> String {
     std::fs::read_to_string(store.dir.join(SECRET_FILE)).unwrap()
 }
 
-fn unwrap(
-    store: &AdminStore,
-    config: &TailnetConfig,
-    value: &str,
-    expected: &[u8],
-) -> Vec<u8> {
+fn unwrap(store: &AdminStore, config: &TailnetConfig, value: &str, expected: &[u8]) -> Vec<u8> {
     let root = hex::decode(
         std::fs::read_to_string(store.dir.join(KEY_FILE))
             .unwrap()
@@ -105,7 +100,10 @@ fn fresh_data_keys_and_restart_preserve_only_encrypted_credentials() {
     let expected = secret.expose_secret().as_bytes();
     let dek = unwrap(&store, &config, &first, expected);
     let restarted = AdminStore::at(dir.path());
-    assert_eq!(restarted.secret(&config).unwrap().expose_secret(), secret.expose_secret());
+    assert_eq!(
+        restarted.secret(&config).unwrap().expose_secret(),
+        secret.expose_secret()
+    );
     let (_, next) = connected(dir.path(), "customer-a.example", &secret);
     assert_ne!(dek, unwrap(&store, &next, &raw(&store), expected));
 }
@@ -208,12 +206,7 @@ fn missing_root_never_mints_a_replacement_for_existing_ciphertext() {
     assert!(store.secret(&config).is_err());
     assert!(!store.dir.join(KEY_FILE).exists());
     assert!(store
-        .connect(
-            &config.tailnet,
-            config.credential.clone(),
-            &secret,
-            8
-        )
+        .connect(&config.tailnet, config.credential.clone(), &secret, 8)
         .is_err());
     assert!(!store.dir.join(KEY_FILE).exists());
 }
@@ -228,12 +221,7 @@ fn damaged_marker_and_missing_root_cannot_authorize_reconnect_root_creation() {
     for damaged in [plaintext, "Xsev2.damaged", "osev3.damaged", ""] {
         write_private(&store.dir.join(SECRET_FILE), damaged.as_bytes()).unwrap();
         assert!(store
-            .connect(
-                &config.tailnet,
-                config.credential.clone(),
-                &secret,
-                8
-            )
+            .connect(&config.tailnet, config.credential.clone(), &secret, 8)
             .is_err());
         assert!(!store.dir.join(KEY_FILE).exists());
     }
@@ -258,15 +246,25 @@ fn validated_private_legacy_config_migrates_once_and_restarts() {
         &serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
-    write_private(&store.dir.join(SECRET_FILE), secret.expose_secret().as_bytes()).unwrap();
+    write_private(
+        &store.dir.join(SECRET_FILE),
+        secret.expose_secret().as_bytes(),
+    )
+    .unwrap();
     assert!(!store.dir.join(KEY_FILE).exists());
-    assert_eq!(store.secret(&config).unwrap().expose_secret(), secret.expose_secret());
+    assert_eq!(
+        store.secret(&config).unwrap().expose_secret(),
+        secret.expose_secret()
+    );
     let current = store.config().unwrap().unwrap();
     assert_eq!(current.v, FILE_VERSION);
     let sealed = raw(&store);
     assert!(sealed.starts_with("osev2."));
     let restarted = AdminStore::at(dir.path());
-    assert_eq!(restarted.secret(&current).unwrap().expose_secret(), secret.expose_secret());
+    assert_eq!(
+        restarted.secret(&current).unwrap().expose_secret(),
+        secret.expose_secret()
+    );
     assert_eq!(raw(&store), sealed, "migration is idempotent");
 }
 
@@ -314,7 +312,11 @@ fn legacy_plaintext_with_unknown_or_unprotected_provenance_cannot_mint_a_root() 
         &serde_json::to_vec(&config).unwrap(),
     )
     .unwrap();
-    write_private(&store.dir.join(SECRET_FILE), secret.expose_secret().as_bytes()).unwrap();
+    write_private(
+        &store.dir.join(SECRET_FILE),
+        secret.expose_secret().as_bytes(),
+    )
+    .unwrap();
     let path = store.dir.join(SECRET_FILE);
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
     assert!(store.secret(&config).is_err());

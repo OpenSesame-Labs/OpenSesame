@@ -39,10 +39,10 @@ pub(crate) fn is_daemon_url(raw: &str) -> bool {
         return false;
     };
     let clean = url.username().is_empty()
-  && url.password().is_none()
-  && url.query().is_none()
-  && url.fragment().is_none()
-  && url.path() == "/";
+        && url.password().is_none()
+        && url.query().is_none()
+        && url.fragment().is_none()
+        && url.path() == "/";
     let Some(host) = url.host_str().map(str::to_ascii_lowercase) else {
         return false;
     };

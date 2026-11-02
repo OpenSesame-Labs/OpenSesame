@@ -75,7 +75,7 @@ fn resource_selector_contains(parent: &str, child: &str) -> bool {
         }
         if let Some(child_prefix) = child.strip_suffix(&suffix) {
             if child_prefix.starts_with(parent_prefix)
-  && (child_prefix.len() == parent_prefix.len()
+                && (child_prefix.len() == parent_prefix.len()
                     || child_prefix.as_bytes().get(parent_prefix.len()) == Some(&(sep as u8)))
             {
                 return true;

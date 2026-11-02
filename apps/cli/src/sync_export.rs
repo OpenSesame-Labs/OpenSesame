@@ -65,8 +65,8 @@ pub async fn pull(
         for blob in &page.blobs {
             anyhow::ensure!(
                 !blob.id.is_empty()
-  && blob.id.len() <= 128
-  && blob.ciphertext_b64.len() <= 2_796_204,
+                    && blob.id.len() <= 128
+                    && blob.ciphertext_b64.len() <= 2_796_204,
                 "invalid sync blob"
             );
             anyhow::ensure!(
@@ -78,7 +78,7 @@ pub async fn pull(
         if let Some(next) = &page.next_after {
             anyhow::ensure!(
                 (next.epoch, next.id.as_str()) == previous
-  && previous > (after.epoch, after.id.as_str()),
+                    && previous > (after.epoch, after.id.as_str()),
                 "invalid sync continuation"
             );
         }

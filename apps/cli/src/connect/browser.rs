@@ -35,10 +35,10 @@ fn authorization_url_may_open_in_browser(url: &str) -> bool {
 fn is_nonproduction_loopback(url: &url::Url) -> bool {
     let host = url.host_str().unwrap_or_default();
     matches!(host, "127.0.0.1" | "localhost" | "[::1]")
-  && !std::env::var("OPENSESAME_ENV")
+        && !std::env::var("OPENSESAME_ENV")
             .map(|value| value.eq_ignore_ascii_case("production"))
             .unwrap_or(false)
-  && !std::env::var("NODE_ENV")
+        && !std::env::var("NODE_ENV")
             .map(|value| value.eq_ignore_ascii_case("production"))
             .unwrap_or(false)
 }

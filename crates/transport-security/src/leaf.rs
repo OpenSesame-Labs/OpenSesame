@@ -123,7 +123,7 @@ impl ParsedLeaf {
             .iter()
             .filter(|ext| {
                 ext.critical
-  && matches!(
+                    && matches!(
                         ext.parsed_extension(),
                         ParsedExtension::UnsupportedExtension { .. }
                     )

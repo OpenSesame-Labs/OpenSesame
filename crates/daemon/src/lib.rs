@@ -185,10 +185,10 @@ fn url_matches_host_api_origin(host_api: &str, url: &str) -> bool {
         return false;
     };
     target.scheme() == base.scheme()
-  && target.host_str() == base.host_str()
-  && target.port_or_known_default() == base.port_or_known_default()
-  && target.username().is_empty()
-  && target.password().is_none()
+        && target.host_str() == base.host_str()
+        && target.port_or_known_default() == base.port_or_known_default()
+        && target.username().is_empty()
+        && target.password().is_none()
 }
 
 /// [`operator_forward`] for non-POST methods (the promotion handshake lists,

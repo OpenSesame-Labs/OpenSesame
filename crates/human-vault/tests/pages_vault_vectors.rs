@@ -198,8 +198,8 @@ fn every_vector_opens_to_its_recorded_summary_and_lists_no_value() {
         }
         values.retain(|value| {
             value.chars().count() >= 6
-  && !ids.contains(value)
-  && !VOCABULARY.contains(&value.as_str())
+                && !ids.contains(value)
+                && !VOCABULARY.contains(&value.as_str())
         });
         assert!(!values.is_empty(), "{name}: the vector holds values");
         for value in values {

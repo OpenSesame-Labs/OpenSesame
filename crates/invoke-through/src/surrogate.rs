@@ -90,7 +90,7 @@ impl SurrogateSite {
         match self {
             Self::Authorization => value.split_once(' ').is_some_and(|(scheme, rest)| {
                 (scheme.eq_ignore_ascii_case("bearer") || scheme.eq_ignore_ascii_case("token"))
-  && rest == surrogate
+                    && rest == surrogate
             }),
             Self::Header(_) => value == surrogate,
         }

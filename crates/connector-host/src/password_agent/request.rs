@@ -32,11 +32,11 @@ pub fn describe(
     let url = url::Url::parse(href).map_err(|_| anyhow::anyhow!("Invalid request URL"))?;
     anyhow::ensure!(
         url.scheme() == "https"
-  && url.host_str().is_some()
-  && url.username().is_empty()
-  && url.password().is_none()
-  && url.port_or_known_default() == Some(443)
-  && url.fragment().is_none(),
+            && url.host_str().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+            && url.port_or_known_default() == Some(443)
+            && url.fragment().is_none(),
         "Request requires HTTPS on port 443 without userinfo or fragment"
     );
     reference_location(reference)?;
@@ -68,12 +68,12 @@ impl Binding {
     #[must_use]
     pub fn matches(&self, other: &Self) -> bool {
         self.capability == other.capability
-  && self.method == other.method
-  && self.reference == other.reference
-  && self.destination == other.destination
-  && self.destination_fingerprint == other.destination_fingerprint
-  && self.header == other.header
-  && self.prefix == other.prefix
+            && self.method == other.method
+            && self.reference == other.reference
+            && self.destination == other.destination
+            && self.destination_fingerprint == other.destination_fingerprint
+            && self.header == other.header
+            && self.prefix == other.prefix
     }
     /// # Errors
     /// Verify the private URL agrees with all public authority fields.
@@ -159,8 +159,8 @@ pub fn public_address(ip: IpAddr) -> bool {
         .any(|(base, bits)| subnet4(ip, *base, *bits)),
         IpAddr::V6(ip) => {
             subnet6(ip, "2000::", 3)
-  && ip.to_ipv4_mapped().is_none()
-  && ![
+                && ip.to_ipv4_mapped().is_none()
+                && ![
                     ("::", 128),
                     ("::1", 128),
                     ("64:ff9b::", 96),

@@ -26,9 +26,9 @@ pub fn validate_setup(
         let (n, unit) = duration.split_at(duration.len().saturating_sub(1));
         anyhow::ensure!(
             !n.starts_with('0')
-  && n.bytes().all(|b| b.is_ascii_digit())
-  && n.parse::<u64>().is_ok_and(|n| n > 0)
-  && ["s", "m", "h", "d", "w"].contains(&unit),
+                && n.bytes().all(|b| b.is_ascii_digit())
+                && n.parse::<u64>().is_ok_and(|n| n > 0)
+                && ["s", "m", "h", "d", "w"].contains(&unit),
             "Invalid expiration duration"
         );
     }
@@ -57,7 +57,7 @@ pub fn validate_destination(vault: &Value, backup_id: &str) -> anyhow::Result<()
         vault["id"]
             .as_str()
             .is_some_and(|id| !id.is_empty() && id != backup_id)
-  && vault["name"].as_str().is_some_and(|name| !built_in(name)),
+            && vault["name"].as_str().is_some_and(|name| !built_in(name)),
         "Use a dedicated automation vault separate from backup"
     );
     Ok(())
@@ -67,7 +67,7 @@ pub fn validate_destination(vault: &Value, backup_id: &str) -> anyhow::Result<()
 pub fn grant(vault_id: &str, write: bool) -> anyhow::Result<String> {
     anyhow::ensure!(
         vault_id.len() == 26
-  && vault_id
+            && vault_id
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()),
         "Invalid automation vault identifier"

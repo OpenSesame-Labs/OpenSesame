@@ -133,10 +133,10 @@ pub(crate) fn login_of(name: &str, trailer: &str) -> String {
 /// store confines paths itself; this refuses the shapes before they reach it.
 pub(crate) fn valid_reference(reference: &str) -> bool {
     !reference.is_empty()
-  && reference.len() <= MAX_REFERENCE_LEN
-  && !reference.contains('\\')
-  && !reference.chars().any(char::is_control)
-  && reference
+        && reference.len() <= MAX_REFERENCE_LEN
+        && !reference.contains('\\')
+        && !reference.chars().any(char::is_control)
+        && reference
             .split('/')
             .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
 }

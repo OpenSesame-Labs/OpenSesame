@@ -296,7 +296,7 @@ pub(crate) fn override_var(id: &str) -> String {
 fn is_off(value: &str) -> bool {
     let value = value.trim();
     !value.is_empty()
-  && !matches!(
+        && !matches!(
             value.to_ascii_lowercase().as_str(),
             "on" | "1" | "true" | "yes"
         )

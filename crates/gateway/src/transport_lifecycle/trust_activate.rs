@@ -145,8 +145,8 @@ fn deployment_plane_trust(
         .filter(|(profile, bundle)| {
             boot.contains_key(*profile)
                 || (spiffe
-  && bundle.kind() == TrustProfileKind::SpiffeTrustDomain
-  && !stored_names.contains(*profile))
+                    && bundle.kind() == TrustProfileKind::SpiffeTrustDomain
+                    && !stored_names.contains(*profile))
         })
         .map(|(profile, bundle)| (profile.clone(), bundle.clone()))
         .collect()

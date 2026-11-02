@@ -362,7 +362,7 @@ fn check_dc(
     let rendered = components.join(",");
     let sequence_matches = || {
         rule.components.len() == components.len()
-  && rule
+            && rule
                 .components
                 .iter()
                 .zip(components)

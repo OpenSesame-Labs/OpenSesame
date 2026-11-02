@@ -79,7 +79,7 @@ fn verified_peer_never_derives_or_implements_deserialize() {
         }
         assert!(
             !src.contains("Deserialize for VerifiedPeer")
-  && !src.contains("Deserialize<'de> for VerifiedPeer"),
+                && !src.contains("Deserialize<'de> for VerifiedPeer"),
             "{rel} implements Deserialize for VerifiedPeer"
         );
         assert!(

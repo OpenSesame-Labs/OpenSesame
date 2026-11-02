@@ -70,11 +70,11 @@ impl PasswordHashScheme for Argon2idScheme {
 
     fn is_current(&self, stored: &PasswordHash<'_>) -> bool {
         stored.algorithm.as_str() == self.id()
-  && stored.version == Some(Version::V0x13.into())
-  && Params::try_from(stored).is_ok_and(|p| {
+            && stored.version == Some(Version::V0x13.into())
+            && Params::try_from(stored).is_ok_and(|p| {
                 p.m_cost() == self.params.m_cost()
-  && p.t_cost() == self.params.t_cost()
-  && p.p_cost() == self.params.p_cost()
+                    && p.t_cost() == self.params.t_cost()
+                    && p.p_cost() == self.params.p_cost()
             })
     }
 }

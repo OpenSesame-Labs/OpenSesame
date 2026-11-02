@@ -39,7 +39,7 @@ pub fn parse_oci_ref(reference: &str) -> anyhow::Result<OciRef> {
         .context("OCI digest must be sha256:<hex>")?;
     anyhow::ensure!(
         hex.len() == 64
-  && hex
+            && hex
                 .chars()
                 .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
         "OCI digest must be 64 lowercase hex characters"

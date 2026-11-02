@@ -624,7 +624,7 @@ impl HostRuntime {
 /// a connector's typed operations.
 fn is_constrained_http(level: InvokeLevel, req: &InvokeRequest) -> bool {
     level == InvokeLevel::ConstrainedHttp
-  && (req.operation == "http.authorized" || req.parameters.get("placeholder").is_some())
+        && (req.operation == "http.authorized" || req.parameters.get("placeholder").is_some())
 }
 
 /// Host-side Wasm guest loader boundary.

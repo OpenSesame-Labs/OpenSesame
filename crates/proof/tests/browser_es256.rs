@@ -8,7 +8,7 @@ fn browser_proof() -> String {
         .args(["--input-type=module", "-e"])
         .arg(include_str!("browser_es256_fixture.mjs"))
         .output()
-        .expect("Node 24 or newer is required for the WebCrypto interoperability oracle");
+        .expect("Node 22 or newer is required for the WebCrypto interoperability oracle");
     assert!(
         output.status.success(),
         "WebCrypto fixture generation failed"

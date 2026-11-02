@@ -48,7 +48,7 @@ pub fn normalize_key(key: &str) -> String {
 pub fn is_authenticator_key(key: &str) -> bool {
     let key = normalize_key(key);
     (16..=128).contains(&key.len())
-  && BASE32_NOPAD
+        && BASE32_NOPAD
             .decode(key.as_bytes())
             .is_ok_and(|bytes| bytes.len() >= 10)
 }

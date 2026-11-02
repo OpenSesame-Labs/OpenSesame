@@ -20,8 +20,8 @@ pub(super) fn allowed_capabilities(capabilities: &[String]) -> bool {
         return true;
     }
     !capabilities.is_empty()
-  && capabilities.len() <= 2
-  && capabilities
+        && capabilities.len() <= 2
+        && capabilities
             .iter()
             .all(|cap| matches!(cap.as_str(), "host.sync.read" | "host.sync.write"))
 }

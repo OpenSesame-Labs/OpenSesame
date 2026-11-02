@@ -154,8 +154,8 @@ pub fn parse_assume_role(body: &[u8]) -> Result<AssumeRoleAnswer, StsFailure> {
     let well_formed = shaped(&access_key_id, 16, 128, |b| {
         b.is_ascii_uppercase() || b.is_ascii_digit()
     }) && shaped(&secret_access_key, 16, 128, base64ish)
-  && shaped(&session_token, 16, MAX_VALUE, base64ish)
-  && shaped(&request_id, 1, 64, |b| {
+        && shaped(&session_token, 16, MAX_VALUE, base64ish)
+        && shaped(&request_id, 1, 64, |b| {
             b.is_ascii_alphanumeric() || b == b'-'
         });
     if !well_formed {

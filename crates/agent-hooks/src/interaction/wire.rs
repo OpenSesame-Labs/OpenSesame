@@ -156,9 +156,9 @@ pub fn created(body: Option<&Value>) -> Option<Created> {
     let path_safe = reference
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
-  && !reference.starts_with('.')
-  && !reference.ends_with('.')
-  && !reference.contains("..");
+        && !reference.starts_with('.')
+        && !reference.ends_with('.')
+        && !reference.contains("..");
     if reference.is_empty() || reference.len() > MAX_REF || !path_safe || request_digest.is_empty()
     {
         return None;
@@ -203,7 +203,7 @@ pub fn consumed_binding(
 ) -> ApprovalBinding {
     let consumed = body.is_some_and(|b| {
         b.get("status").and_then(Value::as_str) == Some("consumed")
-  && b.get("kind").and_then(Value::as_str) == Some(INTERACTION_KIND)
+            && b.get("kind").and_then(Value::as_str) == Some(INTERACTION_KIND)
     });
     let bound_digest = body
         .filter(|_| consumed)

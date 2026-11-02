@@ -96,9 +96,9 @@ impl TransportRuntime {
         resolver: &dyn ManagedIdentityResolver,
     ) -> Result<Option<Arc<Self>>, TransportError> {
         if config.listener.is_none()
-  && config.service_bindings_file.is_none()
-  && config.mapping_auth != AuthMode::Mtls
-  && config.callout_auth != AuthMode::Mtls
+            && config.service_bindings_file.is_none()
+            && config.mapping_auth != AuthMode::Mtls
+            && config.callout_auth != AuthMode::Mtls
         {
             return Ok(None);
         }

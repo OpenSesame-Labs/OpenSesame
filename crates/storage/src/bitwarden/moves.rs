@@ -125,11 +125,11 @@ impl Db {
     ) -> anyhow::Result<ArrivalOutcome> {
         anyhow::ensure!(
             arrival.folders.iter().all(|f| f.user_id == arrival.user.id)
-  && arrival
+                && arrival
                     .ciphers
                     .iter()
                     .all(|c| c.user_id.as_deref() == Some(arrival.user.id.as_str())
-  && c.organization_id.is_none()),
+                        && c.organization_id.is_none()),
             "every folder and cipher must belong to the arriving account"
         );
         let mut tx = self.pool.begin().await?;

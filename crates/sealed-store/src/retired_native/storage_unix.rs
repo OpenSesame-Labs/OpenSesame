@@ -165,7 +165,7 @@ impl Directory {
             || actual.st_dev != original.st_dev
             || actual.st_ino != original.st_ino
             || (target.get(..count) != Some(expected.as_slice())
-  && target.get(..count) != Some(absolute_expected.as_slice()))
+                && target.get(..count) != Some(absolute_expected.as_slice()))
         {
             return Err(refused());
         }
@@ -223,12 +223,12 @@ fn private_regular(file: &File) -> io::Result<Metadata> {
 
 fn unchanged(before: &Metadata, after: &Metadata) -> bool {
     before.dev() == after.dev()
-  && before.ino() == after.ino()
-  && before.len() == after.len()
-  && before.mtime() == after.mtime()
-  && before.mtime_nsec() == after.mtime_nsec()
-  && before.ctime() == after.ctime()
-  && before.ctime_nsec() == after.ctime_nsec()
+        && before.ino() == after.ino()
+        && before.len() == after.len()
+        && before.mtime() == after.mtime()
+        && before.mtime_nsec() == after.mtime_nsec()
+        && before.ctime() == after.ctime()
+        && before.ctime_nsec() == after.ctime_nsec()
 }
 
 fn read_bounded(file: &mut File) -> io::Result<Vec<u8>> {

@@ -174,7 +174,7 @@ impl Grant {
             ));
         }
         if replacement.constraints.raw_credential_export
-  && !current.constraints.raw_credential_export
+            && !current.constraints.raw_credential_export
         {
             return Err(DomainError::GrantAttenuation(
                 "replacement adds export privilege".into(),

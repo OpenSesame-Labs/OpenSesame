@@ -103,10 +103,10 @@ pub(crate) async fn verified_recipe(
     let unexpired = DateTime::parse_from_rfc3339(&document.expires_at)
         .is_ok_and(|expires| expires.with_timezone(&Utc) > now);
     let proven = document.verify(&key).is_ok()
-  && document.signer_key_id().ok() == named_by_the_row
-  && document.digest().ok() == record.digest
-  && document.origin == origin
-  && unexpired;
+        && document.signer_key_id().ok() == named_by_the_row
+        && document.digest().ok() == record.digest
+        && document.origin == origin
+        && unexpired;
     if !proven {
         return Err(Unrunnable::NoRecipe);
     }

@@ -842,7 +842,7 @@ fn external_issuer_label(kind: IssuerKind) -> &'static str {
 
 fn eligible_issuer(connection: &ConnectionView) -> bool {
     connection.status == ConnectionStatus::Active
-  && crate::cert_issuers::issuer_for_provider(&connection.provider_id).is_some()
+        && crate::cert_issuers::issuer_for_provider(&connection.provider_id).is_some()
 }
 
 async fn select_external_issuer(
@@ -1181,7 +1181,7 @@ async fn issue_acme(
         .into_iter()
         .find(|candidate| {
             candidate.status == ConnectionStatus::Active
-  && crate::cert_issuers::dns_shape_for_provider(&candidate.provider_id).is_some()
+                && crate::cert_issuers::dns_shape_for_provider(&candidate.provider_id).is_some()
         })
         .ok_or_else(|| {
             (

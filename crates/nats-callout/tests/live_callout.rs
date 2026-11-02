@@ -26,7 +26,7 @@ use opensesame_nats_callout::response::ResponseClaims;
 
 fn enabled() -> bool {
     std::env::var("OPENSESAME_MTLS_FIXTURES").as_deref() == Ok("1")
-  && std::env::var("OPENSESAME_MTLS_BIN_NATS_SERVER").is_ok()
+        && std::env::var("OPENSESAME_MTLS_BIN_NATS_SERVER").is_ok()
 }
 
 #[tokio::test]

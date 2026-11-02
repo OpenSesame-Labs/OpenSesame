@@ -58,8 +58,8 @@ pub(super) fn component_policy(value: &str) -> io::Result<()> {
     let stem = value.split('.').next().unwrap_or("").to_ascii_uppercase();
     if ["CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$"].contains(&stem.as_str())
         || (stem.starts_with("COM") || stem.starts_with("LPT"))
-  && stem[3..].chars().count() == 1
-  && "123456789¹²³".contains(&stem[3..])
+            && stem[3..].chars().count() == 1
+            && "123456789¹²³".contains(&stem[3..])
     {
         return Err(refused());
     }

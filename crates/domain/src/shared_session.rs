@@ -383,9 +383,9 @@ impl SessionGrant {
         now: DateTime<Utc>,
     ) -> bool {
         self.subject_principal_id == subject_principal_id
-  && self.assert_active(now).is_ok()
-  && self.role.covers(wanted)
-  && self.scope.admits(vault_id, item_id)
+            && self.assert_active(now).is_ok()
+            && self.role.covers(wanted)
+            && self.scope.admits(vault_id, item_id)
     }
 
     /// Whether this grant reaches no further than `ceiling`, in scope, role
@@ -393,8 +393,8 @@ impl SessionGrant {
     #[must_use]
     pub fn narrows_to(&self, ceiling: &Self) -> bool {
         self.scope.narrows_to(&ceiling.scope)
-  && ceiling.role.covers(self.role)
-  && self.expires_at <= ceiling.expires_at
+            && ceiling.role.covers(self.role)
+            && self.expires_at <= ceiling.expires_at
     }
 }
 

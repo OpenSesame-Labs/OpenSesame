@@ -23,7 +23,7 @@ pub(super) fn allowed_global_read(logical: &str) -> bool {
         .and_then(|v| v.strip_suffix(".v1"))
         .is_some_and(|v| {
             v.len() == 64
-  && v.bytes()
+                && v.bytes()
                     .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
         }))
 }

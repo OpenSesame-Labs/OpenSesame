@@ -64,10 +64,10 @@ impl Approvals {
         requests.retain(|request| request.expires_at > now);
         if let Some(index) = requests.iter().position(|request| {
             request.extension_origin == caller.origin
-  && request.token_digest == digest
-  && request.origin == origin
-  && request.reference.as_deref() == value.map(|(reference, _)| reference)
-  && request.field == value.map(|(_, field)| field)
+                && request.token_digest == digest
+                && request.origin == origin
+                && request.reference.as_deref() == value.map(|(reference, _)| reference)
+                && request.field == value.map(|(_, field)| field)
         }) {
             if !requests[index].approved {
                 return Ok(false);

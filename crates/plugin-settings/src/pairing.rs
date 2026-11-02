@@ -203,8 +203,8 @@ impl PluginPairings {
             return Err(PairingError::Unknown);
         };
         if file.pending[index].expires_at > now
-  && file.pending[index].origin == origin
-  && file.paired.len() >= MAX_PAIRED
+            && file.pending[index].origin == origin
+            && file.paired.len() >= MAX_PAIRED
         {
             return Err(PairingError::Full);
         }

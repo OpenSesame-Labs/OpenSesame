@@ -363,7 +363,7 @@ fn validate_hook_body(body: &HookBody) -> Result<(), Response> {
         // Asked through the shared filter rather than by comparing strings, so
         // the bare `*` wildcard — which does select every agent event — is not
         // refused for not spelling itself "agent.*".
-  && !AGENT_EVENT_TYPES
+        && !AGENT_EVENT_TYPES
             .iter()
             .any(|event| filter::matches(&body.event_types, event))
     {

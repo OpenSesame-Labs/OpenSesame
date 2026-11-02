@@ -235,7 +235,7 @@ impl EgressBinding {
                 None => (allowed.as_str(), None),
             };
             allowed_host == host
-  && (allowed_port == Some(port)
+                && (allowed_port == Some(port)
                     || (allowed_port.is_none() && (loopback || default_port == port)))
         });
         if !ok {

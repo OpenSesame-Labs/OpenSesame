@@ -133,9 +133,9 @@ pub fn should_respond(event: &LifecycleEvent) -> bool {
     // deadlines are never the platform's to extend on its own, and a subject
     // built with the wrong flag must not be able to make one so (ADR 0079).
     event.subject.kind.renewable()
-  && event.is_ladder_event()
-  && event.stage.is_actionable()
-  && event.subject.auto_respond
+        && event.is_ladder_event()
+        && event.stage.is_actionable()
+        && event.subject.auto_respond
 }
 
 #[cfg(test)]

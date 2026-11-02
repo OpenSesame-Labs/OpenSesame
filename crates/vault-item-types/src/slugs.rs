@@ -9,8 +9,8 @@ pub(crate) fn is_lower_slug(value: &str, min_len: usize) -> bool {
         return false;
     };
     value.len() >= min_len
-  && first.is_ascii_lowercase()
-  && value
+        && first.is_ascii_lowercase()
+        && value
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
@@ -21,8 +21,8 @@ pub(crate) fn is_identifier(value: &str) -> bool {
         return false;
     };
     value.len() <= 48
-  && first.is_ascii_alphabetic()
-  && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && first.is_ascii_alphabetic()
+        && value.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 pub(crate) fn is_trailer_key(value: &str) -> bool {
@@ -31,8 +31,8 @@ pub(crate) fn is_trailer_key(value: &str) -> bool {
         return false;
     };
     value.len() <= 32
-  && first.is_ascii_lowercase()
-  && value
+        && first.is_ascii_lowercase()
+        && value
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
 }
@@ -40,7 +40,7 @@ pub(crate) fn is_trailer_key(value: &str) -> bool {
 pub(crate) fn is_semver(value: &str) -> bool {
     let parts: Vec<&str> = value.split('.').collect();
     parts.len() == 3
-  && parts
+        && parts
             .iter()
             .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()))
 }
@@ -50,8 +50,8 @@ pub(crate) fn is_extension(value: &str) -> bool {
         return false;
     };
     !rest.is_empty()
-  && rest.len() <= 12
-  && rest
+        && rest.len() <= 12
+        && rest
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
 }

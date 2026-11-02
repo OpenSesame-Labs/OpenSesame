@@ -60,16 +60,16 @@ fn grammar_ok(input: &str) -> bool {
         return false;
     }
     let date_time_ok = digits(b, 0, 4)
-  && b[4] == b'-'
-  && digits(b, 5, 2)
-  && b[7] == b'-'
-  && digits(b, 8, 2)
-  && b[10] == b'T'
-  && digits(b, 11, 2)
-  && b[13] == b':'
-  && digits(b, 14, 2)
-  && b[16] == b':'
-  && digits(b, 17, 2);
+        && b[4] == b'-'
+        && digits(b, 5, 2)
+        && b[7] == b'-'
+        && digits(b, 8, 2)
+        && b[10] == b'T'
+        && digits(b, 11, 2)
+        && b[13] == b':'
+        && digits(b, 14, 2)
+        && b[16] == b':'
+        && digits(b, 17, 2);
     if !date_time_ok || &b[17..19] == b"60" {
         return false;
     }

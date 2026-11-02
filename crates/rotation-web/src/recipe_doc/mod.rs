@@ -155,11 +155,11 @@ pub struct RecipeDocument {
 pub fn canonical_origin(raw: &str) -> Option<String> {
     let url = url::Url::parse(raw).ok()?;
     let plain = url.scheme() == "https"
-  && url.username().is_empty()
-  && url.password().is_none()
-  && (url.path() == "/" || url.path().is_empty())
-  && url.query().is_none()
-  && url.fragment().is_none();
+        && url.username().is_empty()
+        && url.password().is_none()
+        && (url.path() == "/" || url.path().is_empty())
+        && url.query().is_none()
+        && url.fragment().is_none();
     let host = url.host_str().filter(|_| plain)?;
     Some(match url.port() {
         Some(port) => format!("https://{host}:{port}"),
@@ -175,8 +175,8 @@ fn timestamp(value: &str, member: &'static str) -> Result<DateTime<Utc>, RecipeE
 
 fn selector(value: &str, member: &'static str) -> Result<(), RecipeError> {
     let sound = !value.trim().is_empty()
-  && value.chars().count() <= MAX_SELECTOR_CHARS
-  && !value.chars().any(char::is_control);
+        && value.chars().count() <= MAX_SELECTOR_CHARS
+        && !value.chars().any(char::is_control);
     if sound {
         Ok(())
     } else {
@@ -187,7 +187,7 @@ fn selector(value: &str, member: &'static str) -> Result<(), RecipeError> {
 fn recipe_id_is_sound(id: &str) -> bool {
     id.strip_prefix("rcp_").is_some_and(|rest| {
         (1..=63).contains(&rest.len())
-  && rest
+            && rest
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
     })
@@ -241,9 +241,9 @@ impl RecipeDocument {
         let steps = &self.change_password;
         let on_origin = url::Url::parse(&steps.change_url).is_ok_and(|url| {
             url.scheme() == "https"
-  && url.username().is_empty()
-  && url.password().is_none()
-  && url.origin().ascii_serialization() == self.origin
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.origin().ascii_serialization() == self.origin
         });
         if !on_origin {
             return Err(RecipeError::OffOrigin);

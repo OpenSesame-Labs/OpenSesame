@@ -182,7 +182,7 @@ impl Admission {
     fn admit(&mut self, line: &Vetted) -> bool {
         if line.evidence {
             return self.evidence.len() < MAX_TRIPWIRE_KEYS
-  && self.evidence.insert(line.key.clone());
+                && self.evidence.insert(line.key.clone());
         }
         let now = Instant::now();
         let elapsed = now.duration_since(self.at).as_secs_f64();

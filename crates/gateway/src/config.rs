@@ -220,8 +220,8 @@ pub fn resolve_operator_token() -> Result<String, String> {
 fn required_secret(name: &str, value: Option<&str>) -> Result<String, String> {
     match value {
         Some(value) if value.len() >= 32 && value.trim() == value
-  && value.bytes().all(|byte| byte.is_ascii_graphic())
-  && value.bytes().collect::<std::collections::HashSet<_>>().len() >= 8 => Ok(value.into()),
+            && value.bytes().all(|byte| byte.is_ascii_graphic())
+            && value.bytes().collect::<std::collections::HashSet<_>>().len() >= 8 => Ok(value.into()),
         _ => Err(format!("{name} must contain an explicitly provisioned high-entropy secret of at least 32 bytes")),
     }
 }
@@ -269,9 +269,9 @@ impl StartupSecurity {
         let exposure = classify(&listener_refs, &endpoint_refs)?;
         let deployment = from_env(exposure)?;
         if deployment.production_safeguards()
-  && endpoint_refs.iter().any(|endpoint| {
+            && endpoint_refs.iter().any(|endpoint| {
                 !endpoint.starts_with("https://")
-  && opensesame_host_core::deployment_mode::endpoint_exposure(endpoint)
+                    && opensesame_host_core::deployment_mode::endpoint_exposure(endpoint)
                         != Ok(ExposureClass::LocalOnly)
             })
         {
@@ -286,7 +286,7 @@ impl StartupSecurity {
         let operator_token = resolve_operator_token()?;
         let claim_pepper = resolve_claim_pepper()?;
         if deployment.production_safeguards()
-  && env::var("OPENSESAME_RECEIPT_SIGNING_KEY")
+            && env::var("OPENSESAME_RECEIPT_SIGNING_KEY")
                 .ok()
                 .is_none_or(|key| key.trim().is_empty())
         {

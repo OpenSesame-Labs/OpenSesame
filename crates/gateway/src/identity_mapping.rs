@@ -152,7 +152,7 @@ impl IdentityMappingClient {
         }
         let allow_private = (local && loopback) || private == Some(endpoint.as_str());
         if !allow_private
-  && opensesame_connector_host::is_blocked_host(endpoint.host_str().unwrap_or_default())
+            && opensesame_connector_host::is_blocked_host(endpoint.host_str().unwrap_or_default())
         {
             return Err(refused("mapping destination refused"));
         }
@@ -202,7 +202,7 @@ impl IdentityMappingClient {
             || addresses.len() > 16
             || (self.endpoint.scheme() == "http" && addresses.iter().any(|a| !a.ip().is_loopback()))
             || (!self.allow_private
-  && addresses
+                && addresses
                     .iter()
                     .any(|a| opensesame_connector_host::is_blocked_host(&a.ip().to_string())))
         {

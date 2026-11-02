@@ -56,16 +56,16 @@ fn upload_shape(
 /// URL placements get no encoding, so they keep the strict store charset.
 fn path_is_printable(path: &str) -> bool {
     !path.is_empty()
-  && path.len() <= 1024
-  && path
+        && path.len() <= 1024
+        && path
             .chars()
             .all(|c| c.is_ascii() && !c.is_ascii_control() && c != '\\')
 }
 
 fn path_is_url_safe(path: &str) -> bool {
     !path.is_empty()
-  && path.len() <= 512
-  && path
+        && path.len() <= 512
+        && path
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | '/'))
 }
@@ -121,10 +121,10 @@ fn valid_folder_path(value: &str) -> bool {
         .skip(1) // leading empty segment from the root slash
         .all(|segment| {
             !segment.is_empty()
-  && segment != "."
-  && segment != ".."
-  && !segment.contains(':')
-  && segment.chars().all(|c| !c.is_control())
+                && segment != "."
+                && segment != ".."
+                && !segment.contains(':')
+                && segment.chars().all(|c| !c.is_control())
         })
 }
 

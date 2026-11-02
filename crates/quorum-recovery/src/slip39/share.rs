@@ -121,12 +121,12 @@ pub fn decode_share(mnemonic: &str) -> Result<Share, Slip39Error> {
 
 fn check_ranges(share: &Share) -> Result<(), Slip39Error> {
     let ok = share.identifier < 1 << 15
-  && share.iteration_exponent <= 15
-  && share.group_index < 16
-  && share.member_index < 16
-  && (1..=16).contains(&share.group_count)
-  && (1..=share.group_count).contains(&share.group_threshold)
-  && (1..=16).contains(&share.member_threshold);
+        && share.iteration_exponent <= 15
+        && share.group_index < 16
+        && share.member_index < 16
+        && (1..=16).contains(&share.group_count)
+        && (1..=share.group_count).contains(&share.group_threshold)
+        && (1..=16).contains(&share.member_threshold);
     if ok {
         Ok(())
     } else {

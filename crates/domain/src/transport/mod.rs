@@ -123,7 +123,7 @@ pub fn validate_id(field: &str, value: &str) -> Result<(), TransportError> {
 /// `MalformedConfiguration` naming `field` otherwise.
 pub fn validate_thumbprint(field: &str, value: &str) -> Result<(), TransportError> {
     let ok = value.len() == 64
-  && value
+        && value
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
     if ok {

@@ -177,7 +177,7 @@ fn hint(client_id: Option<&str>) -> Option<String> {
 
 fn configured(provider: &Provider, configuration: &Configuration, sealing_available: bool) -> bool {
     sealing_available
-  && configuration::complete(provider.integration_configuration_fields(), configuration)
+        && configuration::complete(provider.integration_configuration_fields(), configuration)
 }
 
 fn validate_scopes(provider: &Provider, scopes: &[String]) -> Result<()> {
@@ -542,8 +542,8 @@ impl ConnectionBroker {
             .into_iter()
             .find(|integration| {
                 integration.provider_id == "github"
-  && integration.key == key
-  && integration.source == IntegrationSource::Organization
+                    && integration.key == key
+                    && integration.source == IntegrationSource::Organization
             })
         {
             return self

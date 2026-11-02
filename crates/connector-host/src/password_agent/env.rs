@@ -15,7 +15,7 @@ pub(super) fn valid_name(name: &str) -> bool {
     chars
         .next()
         .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-  && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 /// Startup hooks are reserved before credential-bearing helpers and wrappers.
 #[must_use]
@@ -172,7 +172,7 @@ pub fn literal_assignment(line: &str) -> Option<(String, String)> {
 }
 fn unquote(value: &str) -> &str {
     if value.len() >= 2
-  && ((value.starts_with('"') && value.ends_with('"'))
+        && ((value.starts_with('"') && value.ends_with('"'))
             || (value.starts_with('\'') && value.ends_with('\'')))
     {
         &value[1..value.len() - 1]

@@ -32,9 +32,9 @@ impl DpopAdvertisement {
     #[must_use]
     pub fn is_ready(&self) -> bool {
         self.enabled
-  && self.validator_configured
-  && self.replay_store_healthy
-  && self.key_policy_available
+            && self.validator_configured
+            && self.replay_store_healthy
+            && self.key_policy_available
     }
 
     /// Build from explicit readiness signals. Once production `DPoP` middleware

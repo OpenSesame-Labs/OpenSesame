@@ -217,8 +217,8 @@ pub fn parse_request(line: &[u8]) -> Result<RunRequest, SpecError> {
     let mut seen = std::collections::BTreeSet::new();
     let credentials_ok = request.credentials.iter().all(|credential| {
         !credential.connection_ref.is_empty()
-  && !credential.secret.expose_secret().is_empty()
-  && seen.insert(credential.connection_ref.as_str())
+            && !credential.secret.expose_secret().is_empty()
+            && seen.insert(credential.connection_ref.as_str())
     });
     if !credentials_ok {
         return Err(SpecError::Credential);
@@ -230,9 +230,9 @@ pub fn parse_request(line: &[u8]) -> Result<RunRequest, SpecError> {
 #[must_use]
 pub fn is_run_id(run_id: &str) -> bool {
     !run_id.is_empty()
-  && run_id.len() <= MAX_RUN_ID_CHARS
-  && !run_id.starts_with('.')
-  && run_id
+        && run_id.len() <= MAX_RUN_ID_CHARS
+        && !run_id.starts_with('.')
+        && run_id
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
 }
@@ -248,7 +248,7 @@ pub fn parse_site(site: &str) -> Result<SurrogateSite, SpecError> {
     }
     let name = site.strip_prefix("header:").ok_or(SpecError::Site)?;
     let token = !name.is_empty()
-  && name
+        && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'));
     if !token || name.eq_ignore_ascii_case("authorization") {
@@ -285,10 +285,10 @@ pub fn is_bounded_prefix(prefix: &str) -> bool {
     };
     let rest = rest.strip_suffix('/').unwrap_or(rest);
     !rest.is_empty()
-  && rest
+        && rest
             .split('/')
             .all(|segment| !matches!(segment, "" | "." | ".."))
-  && !prefix
+        && !prefix
             .chars()
             .any(|c| c.is_control() || c.is_whitespace() || matches!(c, '?' | '#' | '\\' | ';'))
 }

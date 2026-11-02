@@ -163,7 +163,7 @@ pub fn decode_request(token: &str, expect: &Expectations) -> Result<VerifiedRequ
         return Err(CalloutError::IssuerNotServer);
     }
     if !expect.server_public_keys.is_empty()
-  && !expect.server_public_keys.iter().any(|k| k == issuer)
+        && !expect.server_public_keys.iter().any(|k| k == issuer)
     {
         return Err(CalloutError::ServerUnknown);
     }

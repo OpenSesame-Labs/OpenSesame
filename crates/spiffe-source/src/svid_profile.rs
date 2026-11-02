@@ -275,7 +275,7 @@ fn check_extended_key_usage(
 fn check_no_unknown_critical(cert: &X509Certificate<'_>) -> Result<(), SvidProfileError> {
     let unknown_critical = cert.extensions().iter().any(|ext| {
         ext.critical
-  && matches!(
+            && matches!(
                 ext.parsed_extension(),
                 ParsedExtension::UnsupportedExtension { .. } | ParsedExtension::ParseError { .. }
             )

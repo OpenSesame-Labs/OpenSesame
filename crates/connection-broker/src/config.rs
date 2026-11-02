@@ -281,9 +281,9 @@ impl BrokerConfig {
                 )
             };
             if expected.scheme() == actual.scheme()
-  && expected.port_or_known_default() == actual.port_or_known_default()
-  && expected.path() == actual.path()
-  && loopback_pair(expected.host_str(), actual.host_str())
+                && expected.port_or_known_default() == actual.port_or_known_default()
+                && expected.path() == actual.path()
+                && loopback_pair(expected.host_str(), actual.host_str())
             {
                 return true;
             }
@@ -341,7 +341,7 @@ fn detect_connection_configuration_with(
 ) -> Option<BTreeMap<String, String>> {
     let mut configuration = BTreeMap::new();
     let aws_environment_credentials = is_aws_provider(&provider.id)
-  && ["access_key_id", "secret_access_key"]
+        && ["access_key_id", "secret_access_key"]
             .iter()
             .any(|field| connection_environment_value(provider, field, read_env).is_some());
     for field in provider.connection_configuration_fields() {

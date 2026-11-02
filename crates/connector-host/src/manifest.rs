@@ -234,9 +234,9 @@ impl ConnectorManifest {
 
 fn is_slug(s: &str) -> bool {
     !s.is_empty()
-  && s.len() <= 64
-  && s.chars().next().is_some_and(|c| c.is_ascii_lowercase())
-  && s.chars()
+        && s.len() <= 64
+        && s.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        && s.chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
@@ -251,9 +251,9 @@ fn is_semverish(s: &str) -> bool {
 /// `repository.read`, `pull_request.create` — lowercase dotted slugs.
 fn is_operation_id(s: &str) -> bool {
     !s.is_empty()
-  && s.len() <= 128
-  && s.chars().next().is_some_and(|c| c.is_ascii_lowercase())
-  && s.chars().all(|c| {
+        && s.len() <= 128
+        && s.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        && s.chars().all(|c| {
             c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '_' || c == '-'
         })
 }
@@ -261,7 +261,7 @@ fn is_operation_id(s: &str) -> bool {
 fn is_pinned_digest(s: &str) -> bool {
     s.strip_prefix("sha256:").is_some_and(|hex| {
         hex.len() == 64
-  && hex
+            && hex
                 .chars()
                 .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
     })

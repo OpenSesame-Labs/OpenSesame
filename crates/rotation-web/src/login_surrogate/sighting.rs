@@ -17,7 +17,7 @@ pub(super) fn shaped(haystack: &[u8]) -> Vec<&[u8]> {
     while at + len <= haystack.len() {
         let candidate = &haystack[at..at + len];
         if candidate.starts_with(marker)
-  && candidate[marker.len()..]
+            && candidate[marker.len()..]
                 .iter()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
         {

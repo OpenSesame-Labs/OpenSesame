@@ -52,8 +52,8 @@ pub fn limits(duration: &str, uses: u32) -> anyhow::Result<i64> {
 pub fn inspect(values: &[serde_json::Value], item: &str) -> anyhow::Result<Resource> {
     anyhow::ensure!(
         values.iter().all(|v| v["id"].is_string()
-  && v["title"].is_string()
-  && v["version"].as_u64().is_some_and(|n| n > 0)),
+            && v["title"].is_string()
+            && v["version"].as_u64().is_some_and(|n| n > 0)),
         "Invalid version metadata"
     );
     let matches: Vec<_> = values
@@ -68,7 +68,7 @@ pub fn inspect(values: &[serde_json::Value], item: &str) -> anyhow::Result<Resou
     let id = value["id"].as_str().unwrap_or_default();
     anyhow::ensure!(
         id.len() == 26
-  && id
+            && id
                 .bytes()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
         "Invalid credential item identifier"
@@ -92,14 +92,14 @@ impl Lease {
             .unwrap_or_default();
         anyhow::ensure!(
             (1..=3_600_000).contains(&lifetime)
-  && self.created_at <= now
-  && uuid::Uuid::parse_str(&self.id).is_ok()
-  && uuid::Uuid::parse_str(&self.principal).is_ok()
-  && (1..=10).contains(&self.use_budget)
-  && self.uses_remaining <= self.use_budget
-  && self.resource.version > 0
-  && self.resource.id.len() == 26
-  && self
+                && self.created_at <= now
+                && uuid::Uuid::parse_str(&self.id).is_ok()
+                && uuid::Uuid::parse_str(&self.principal).is_ok()
+                && (1..=10).contains(&self.use_budget)
+                && self.uses_remaining <= self.use_budget
+                && self.resource.version > 0
+                && self.resource.id.len() == 26
+                && self
                     .resource
                     .id
                     .bytes()
@@ -108,10 +108,10 @@ impl Lease {
         );
         anyhow::ensure!(
             self.binding.capability == "request"
-  && self.binding.method == "GET"
-  && ["Authorization", "X-API-Key"].contains(&self.binding.header.as_str())
-  && self.binding.destination_fingerprint.len() == 64
-  && self
+                && self.binding.method == "GET"
+                && ["Authorization", "X-API-Key"].contains(&self.binding.header.as_str())
+                && self.binding.destination_fingerprint.len() == 64
+                && self
                     .binding
                     .destination_fingerprint
                     .bytes()
@@ -137,11 +137,11 @@ impl Lease {
         self.validate(now)?;
         anyhow::ensure!(
             self.principal == principal
-  && self.binding.matches(binding)
-  && self.expires_at > now
-  && !self.revoked
-  && self.uses_remaining > 0
-  && resource.is_none_or(|r| *r == self.resource),
+                && self.binding.matches(binding)
+                && self.expires_at > now
+                && !self.revoked
+                && self.uses_remaining > 0
+                && resource.is_none_or(|r| *r == self.resource),
             "Lease is invalid, expired, revoked, exhausted, stale, or mismatched"
         );
         Ok(())

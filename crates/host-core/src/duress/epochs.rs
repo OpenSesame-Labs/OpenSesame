@@ -41,8 +41,8 @@ impl DurableEpochs {
     #[must_use]
     pub const fn matches(self, other: Self) -> bool {
         self.policy_epoch == other.policy_epoch
-  && self.key_epoch == other.key_epoch
-  && self.incident_epoch == other.incident_epoch
+            && self.key_epoch == other.key_epoch
+            && self.incident_epoch == other.incident_epoch
     }
 }
 

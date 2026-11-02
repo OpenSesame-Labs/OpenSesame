@@ -32,15 +32,15 @@ pub fn broker_target(reference: &str) -> anyhow::Result<BrokerTarget> {
     let segments: Vec<&str> = item.split('/').collect();
     let plain = |segment: &&str| {
         !segment.is_empty()
-  && !segment.starts_with('.')
-  && segment
+            && !segment.starts_with('.')
+            && segment
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
     };
     anyhow::ensure!(
         matches!(segments.len(), 3 | 4)
-  && segments[0] == "connections"
-  && segments.iter().all(plain),
+            && segments[0] == "connections"
+            && segments.iter().all(plain),
         "Only an os:// item under connections/<org>[/<project>]/<provider> can be brokered"
     );
     Ok(BrokerTarget {
@@ -73,10 +73,10 @@ pub fn broker_bounded_prefix(prefix: &str) -> bool {
     };
     let rest = rest.strip_suffix('/').unwrap_or(rest);
     !rest.is_empty()
-  && rest
+        && rest
             .split('/')
             .all(|segment| !matches!(segment, "" | "." | ".."))
-  && !prefix
+        && !prefix
             .chars()
             .any(|c| c.is_control() || c.is_whitespace() || matches!(c, '?' | '#' | '\\' | ';'))
 }

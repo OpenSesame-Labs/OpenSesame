@@ -214,7 +214,7 @@ async fn interaction(
     });
     remember(&mock, "interaction", key.as_ref(), &reply);
     let lose = matches!(mock.fault, Fault::LoseFirstInteractionReply)
-  && !mock.lost.swap(true, Ordering::SeqCst);
+        && !mock.lost.swap(true, Ordering::SeqCst);
     let slow = match mock.fault {
         Fault::SlowInteraction(hold) => Some(hold),
         _ => None,

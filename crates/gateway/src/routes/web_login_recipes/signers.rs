@@ -155,7 +155,7 @@ pub(super) async fn pin(State(st): State<AppState>, headers: HeaderMap, body: Bo
 fn is_key_id(text: &str) -> bool {
     text.strip_prefix("rsk_").is_some_and(|rest| {
         rest.len() == 32
-  && rest
+            && rest
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     })

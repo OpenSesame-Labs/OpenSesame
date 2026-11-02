@@ -209,8 +209,8 @@ impl Db {
         let record = record_from_row(&row)?;
         if let RecipeUse::Unattended { canary_not_before } = usage {
             let proven = REPLAYABLE_TRUST.contains(&record.trust.as_str())
-  && record.canary_result.as_deref() == Some("passed")
-  && record
+                && record.canary_result.as_deref() == Some("passed")
+                && record
                     .canary_at
                     .as_deref()
                     .is_some_and(|at| at >= canary_not_before);

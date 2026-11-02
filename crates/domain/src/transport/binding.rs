@@ -279,9 +279,9 @@ impl ServiceBindingSet {
             .iter()
             .filter(|b| {
                 &b.scope == scope
-  && &b.trust_profile == profile
-  && b.purpose == purpose
-  && presented.contains(&b.peer)
+                    && &b.trust_profile == profile
+                    && b.purpose == purpose
+                    && presented.contains(&b.peer)
             })
             .collect();
         if matching.is_empty() {

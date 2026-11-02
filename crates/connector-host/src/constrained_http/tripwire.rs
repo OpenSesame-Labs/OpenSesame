@@ -45,12 +45,12 @@ pub(super) fn reported_detail(refusal: &Refusal) -> &str {
 
 fn is_reportable(detail: &str) -> bool {
     !detail.is_empty()
-  && detail.len() <= MAX_DETAIL
-  && detail
+        && detail.len() <= MAX_DETAIL
+        && detail
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_'))
-  && !detail.to_ascii_lowercase().contains(SURROGATE_MARKER)
-  && !has_hex_run(detail, SURROGATE_HEX_LEN)
+        && !detail.to_ascii_lowercase().contains(SURROGATE_MARKER)
+        && !has_hex_run(detail, SURROGATE_HEX_LEN)
 }
 
 /// Whether `text` holds `len` hex digits in a row: a placeholder's body,

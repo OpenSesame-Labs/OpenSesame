@@ -75,7 +75,7 @@ pub fn validate_proof_key_transfer(parent: &Grant, child: &Grant) -> Result<(), 
         )),
         (Some(parent_key), Some(child_key))
             if parent_key == child_key
-  && child.beneficiary_principal_id != parent.beneficiary_principal_id =>
+                && child.beneficiary_principal_id != parent.beneficiary_principal_id =>
         {
             Err(DomainError::GrantAttenuation(
                 "parent proof key reused for a different beneficiary".into(),

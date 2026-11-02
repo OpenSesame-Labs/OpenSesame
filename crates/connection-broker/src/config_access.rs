@@ -126,7 +126,7 @@ pub async fn permits(
         ResourcePermission::Metadata => row.get::<Option<bool>, _>("metadata_read") == Some(true),
         ResourcePermission::Keys => {
             row.get::<Option<bool>, _>("metadata_read") == Some(true)
-  && row.get::<Option<bool>, _>("keys_read") == Some(true)
+                && row.get::<Option<bool>, _>("keys_read") == Some(true)
         }
     })
 }

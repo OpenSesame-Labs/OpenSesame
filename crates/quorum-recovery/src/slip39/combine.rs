@@ -86,10 +86,10 @@ pub fn describe(mnemonic: &str) -> Result<ShareHeader, Slip39Error> {
 
 fn same_layout(a: &Share, b: &Share) -> bool {
     a.identifier == b.identifier
-  && a.extendable == b.extendable
-  && a.iteration_exponent == b.iteration_exponent
-  && a.group_threshold == b.group_threshold
-  && a.group_count == b.group_count
+        && a.extendable == b.extendable
+        && a.iteration_exponent == b.iteration_exponent
+        && a.group_threshold == b.group_threshold
+        && a.group_count == b.group_count
 }
 
 fn check_shares(shares: &[Share]) -> Result<&Share, Slip39Error> {

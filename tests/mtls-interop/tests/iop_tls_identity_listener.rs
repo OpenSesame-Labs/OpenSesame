@@ -179,7 +179,7 @@ async fn a_rust_client_against_the_identity_node_listener_separates_transport_fr
 
     record(
         "IOP-TLS-IDENTITY-LISTENER",
-        "node 24 https listener (packages/control-plane) <- rustls reqwest client",
+        "node 22 https listener (packages/control-plane) <- rustls reqwest client",
         "200 allowed / 403 peer_disallowed / 403 peer_not_bound / 3 handshake refusals",
     );
     Ok(())
@@ -245,7 +245,7 @@ async fn identity_server_tls_completes_the_handshake_and_still_admits_nobody() -
 
     record(
         "IOP-TLS-IDENTITY-SERVERTLS",
-        "node 24 https listener (server_tls) <- rustls reqwest client",
+        "node 22 https listener (server_tls) <- rustls reqwest client",
         "handshake ok, admission denies with and without a client certificate",
     );
     Ok(())

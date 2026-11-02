@@ -233,7 +233,7 @@ fn listener_from(
         _ => {}
     }
     if matches!(identity, NativeIdentitySpec::Spiffe { .. })
-  && !matches!(
+        && !matches!(
             client_trust,
             Some(NativeTrustSpec::SpiffeTrustDomain { .. })
         )

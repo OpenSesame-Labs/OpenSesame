@@ -185,9 +185,9 @@ impl SandboxProfile {
     #[must_use]
     pub fn binds_chain(&self, chain: &ValidatedGrantChain) -> bool {
         self.leaf_grant_id == chain.leaf_id()
-  && self.root_grant_id == chain.root_id()
-  && self.organization_id == chain.organization_id()
-  && self.invalidation_generation == chain.invalidation_generation()
+            && self.root_grant_id == chain.root_id()
+            && self.organization_id == chain.organization_id()
+            && self.invalidation_generation == chain.invalidation_generation()
     }
 }
 

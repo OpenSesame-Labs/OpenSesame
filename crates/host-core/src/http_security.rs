@@ -32,13 +32,13 @@ pub fn is_exact_origin(origin: &str) -> bool {
         return false;
     };
     matches!(url.scheme(), "http" | "https")
-  && url.origin().ascii_serialization() == origin
-  && url.username().is_empty()
-  && url.password().is_none()
-  && url.query().is_none()
-  && url.fragment().is_none()
-  && url.host_str().is_some_and(|host| !host.ends_with('.'))
-  && (url.scheme() == "https"
+        && url.origin().ascii_serialization() == origin
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.query().is_none()
+        && url.fragment().is_none()
+        && url.host_str().is_some_and(|host| !host.ends_with('.'))
+        && (url.scheme() == "https"
             || crate::deployment_mode::endpoint_exposure(origin)
                 == Ok(crate::deployment_mode::ExposureClass::LocalOnly))
 }
@@ -185,7 +185,7 @@ pub fn is_hop_or_forwarding_header(name: &str) -> bool {
 pub fn is_safe_path_id(id: &str) -> bool {
     let bytes = id.as_bytes();
     (8..=128).contains(&bytes.len())
-  && bytes
+        && bytes
             .iter()
             .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'.' | b'_' | b'-' | b':'))
 }

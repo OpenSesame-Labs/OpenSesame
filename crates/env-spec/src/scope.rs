@@ -132,10 +132,10 @@ pub fn is_bounded_prefix(prefix: &str) -> bool {
     };
     let rest = rest.strip_suffix('/').unwrap_or(rest);
     !rest.is_empty()
-  && rest
+        && rest
             .split('/')
             .all(|segment| !matches!(segment, "" | "." | ".."))
-  && !prefix
+        && !prefix
             .chars()
             .any(|c| c.is_control() || c.is_whitespace() || matches!(c, '?' | '#' | '\\' | ';'))
 }

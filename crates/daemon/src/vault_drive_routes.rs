@@ -62,7 +62,7 @@ pub(crate) fn slot_key(headers: &HeaderMap) -> Option<&str> {
     let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
     let key = value.strip_prefix("Bearer ")?.trim();
     let shaped = (32..=128).contains(&key.len())
-  && key
+        && key
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
     shaped.then_some(key)

@@ -228,7 +228,7 @@ impl LifecycleState {
         // An identity that has since expired or been revoked is never
         // served from the cache; the next resolve re-checks custody.
         let live = cached.is_valid_at(chrono::Utc::now())
-  && !self.is_denied(&cached.leaf_thumbprint_sha256());
+            && !self.is_denied(&cached.leaf_thumbprint_sha256());
         live.then_some(cached)
     }
 

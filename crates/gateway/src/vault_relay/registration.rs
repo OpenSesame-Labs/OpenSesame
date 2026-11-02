@@ -73,7 +73,7 @@ impl Verifier {
             || url.query().is_some()
             || url.fragment().is_some()
             || (url.scheme() != "https"
-  && opensesame_host_core::deployment_mode::endpoint_exposure(&issuer)
+                && opensesame_host_core::deployment_mode::endpoint_exposure(&issuer)
                     != Ok(opensesame_host_core::deployment_mode::ExposureClass::LocalOnly))
         {
             return Err(fail());

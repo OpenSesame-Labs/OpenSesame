@@ -61,7 +61,7 @@ pub fn matches(filter: &[String], event_type: &str) -> bool {
 #[must_use]
 pub fn is_valid(filter: &[String], known: &[&str]) -> bool {
     !filter.is_empty()
-  && filter.iter().all(|entry| {
+        && filter.iter().all(|entry| {
             if entry == WILDCARD_ALL || known.contains(&entry.as_str()) {
                 return true;
             }

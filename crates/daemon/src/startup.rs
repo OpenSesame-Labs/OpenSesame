@@ -19,8 +19,8 @@ fn resolve_operator_token() -> anyhow::Result<String> {
     let token = env::var("OPENSESAME_OPERATOR_TOKEN").unwrap_or_default();
     anyhow::ensure!(
         token.len() >= 32 && token.trim() == token
-  && token.bytes().all(|byte| byte.is_ascii_graphic())
-  && token.bytes().collect::<std::collections::HashSet<_>>().len() >= 8,
+            && token.bytes().all(|byte| byte.is_ascii_graphic())
+            && token.bytes().collect::<std::collections::HashSet<_>>().len() >= 8,
         "OPENSESAME_OPERATOR_TOKEN requires an explicitly provisioned high-entropy secret of at least 32 bytes"
     );
     Ok(token)

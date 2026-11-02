@@ -162,8 +162,8 @@ pub fn dns_shape_for_provider(provider_id: &str) -> Option<&'static DnsProviderS
 /// meaning. Providers use opaque ids; anything outside this set is refused.
 fn id_is_url_safe(value: &str) -> bool {
     !value.is_empty()
-  && value.len() <= 64
-  && value
+        && value.len() <= 64
+        && value
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }

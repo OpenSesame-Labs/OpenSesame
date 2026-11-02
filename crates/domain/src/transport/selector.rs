@@ -106,7 +106,7 @@ fn validate_spiffe_id(id: &str) -> Result<(), TransportError> {
     };
     let (trust_domain, path) = rest.split_once('/').unwrap_or((rest, ""));
     let domain_ok = !trust_domain.is_empty()
-  && trust_domain.bytes().all(|b| {
+        && trust_domain.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'_')
         });
     if !domain_ok {
@@ -117,9 +117,9 @@ fn validate_spiffe_id(id: &str) -> Result<(), TransportError> {
     }
     for segment in path.split('/') {
         let segment_ok = !segment.is_empty()
-  && segment != "."
-  && segment != ".."
-  && segment
+            && segment != "."
+            && segment != ".."
+            && segment
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'));
         if !segment_ok {
@@ -148,10 +148,10 @@ fn validate_dns_name(name: &str) -> Result<(), TransportError> {
     }
     for label in name.split('.') {
         let label_ok = !label.is_empty()
-  && label.len() <= MAX_LABEL_BYTES
-  && !label.starts_with('-')
-  && !label.ends_with('-')
-  && label
+            && label.len() <= MAX_LABEL_BYTES
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+            && label
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
         if !label_ok {
@@ -179,7 +179,7 @@ fn validate_uri_san(uri: &str) -> Result<(), TransportError> {
         .as_bytes()
         .first()
         .is_some_and(u8::is_ascii_lowercase)
-  && scheme.bytes().all(|b| {
+        && scheme.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'+' | b'.' | b'-')
         });
     if !scheme_ok || rest.is_empty() {

@@ -137,7 +137,7 @@ fn revoke_pending_authorizations(
     for authorization in pending.values_mut() {
         if authorization.approved.as_ref().is_some_and(|approved| {
             same_principal_subject(&approved.principal, principal_id)
-  && approved.organization_id == organization_id
+                && approved.organization_id == organization_id
         }) {
             authorization.approved = None;
             revoked += 1;

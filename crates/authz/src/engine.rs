@@ -80,8 +80,8 @@ impl PolicyEngine {
         // the exact leaf grant + connection binding the verifier constructed.
         let delegated_capability = lineage.is_some_and(|chain| {
             chain.establishes_delegated_eligibility()
-  && grant.is_some_and(|g| chain.binds_grant(g))
-  && req
+                && grant.is_some_and(|g| chain.binds_grant(g))
+                && req
                     .context
                     .get("connection_uuid")
                     .and_then(|value| value.as_str())

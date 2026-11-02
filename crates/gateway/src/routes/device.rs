@@ -154,7 +154,7 @@ pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenReques
     // that bootstrap and must still be able to mint this organization session.
     let boot = st.bootstrap.lock().unwrap().clone().filter(|boot| {
         boot.org == approved.organization_id
-  && same_principal_subject(&approved.principal, &boot.principal.to_string())
+            && same_principal_subject(&approved.principal, &boot.principal.to_string())
     });
     let session_id = format!("sess_{}", uuid::Uuid::new_v4());
     // The session id *is* the bearer; only its digest is retained server-side.

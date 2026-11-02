@@ -31,11 +31,11 @@ pub fn id(raw: &str) -> Result<&str, AdminError> {
 fn is_label(text: &str) -> bool {
     let bytes = text.as_bytes();
     (1..=63).contains(&bytes.len())
-  && bytes
+        && bytes
             .iter()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
-  && bytes[0] != b'-'
-  && bytes[bytes.len() - 1] != b'-'
+        && bytes[0] != b'-'
+        && bytes[bytes.len() - 1] != b'-'
 }
 
 /// A machine name: one lowercase DNS label, or empty to reset it to the
@@ -145,7 +145,7 @@ pub struct KeyRequest {
 pub fn key_request(raw: &KeyRequest, tags_required: bool) -> Result<KeyRequest, AdminError> {
     let description = raw.description.trim().to_string();
     let described = description.len() <= 50
-  && description
+        && description
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b' ' || b == b'-');
     if !described {

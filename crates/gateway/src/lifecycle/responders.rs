@@ -336,7 +336,7 @@ mod tests {
             assert_eq!(
                 has_responder,
                 kind.renewable()
-  && !matches!(
+                    && !matches!(
                         kind,
                         SubjectKind::CertificateAuthority | SubjectKind::Signer
                     ),

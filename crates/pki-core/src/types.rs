@@ -297,12 +297,12 @@ impl SubjectDn {
     /// Whether every attribute is absent.
     pub fn is_empty(&self) -> bool {
         self.cn.is_none()
-  && self.o.is_none()
-  && self.ou.is_none()
-  && self.c.is_none()
-  && self.st.is_none()
-  && self.l.is_none()
-  && self.dc.is_empty()
+            && self.o.is_none()
+            && self.ou.is_none()
+            && self.c.is_none()
+            && self.st.is_none()
+            && self.l.is_none()
+            && self.dc.is_empty()
     }
 }
 

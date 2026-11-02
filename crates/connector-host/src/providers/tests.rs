@@ -296,8 +296,8 @@ fn attachments_are_invisible_to_the_agent_facing_provider() {
     );
     assert!(
         !listed.contains("oschunk")
-  && !listed.contains("osattach")
-  && !listed.contains("attachments"),
+            && !listed.contains("osattach")
+            && !listed.contains("attachments"),
         "no attachment artefact may leak into the listing: {listed}"
     );
 

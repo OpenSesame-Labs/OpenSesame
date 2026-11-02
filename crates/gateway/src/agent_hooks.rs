@@ -128,8 +128,8 @@ pub(crate) fn audit_reason(verdict: &Verdict) -> Option<&str> {
 /// only form a verdict's reason takes in a record, a job detail or a log.
 pub(crate) fn machine_reason(reason: &str) -> &str {
     if !reason.is_empty()
-  && reason.len() <= MAX_AUDIT_REASON
-  && reason.bytes().all(|b| b.is_ascii_graphic())
+        && reason.len() <= MAX_AUDIT_REASON
+        && reason.bytes().all(|b| b.is_ascii_graphic())
     {
         reason
     } else {

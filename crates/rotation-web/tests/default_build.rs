@@ -129,9 +129,9 @@ fn no_workspace_crate_enables_login_surrogate_in_a_normal_build() {
         for dependency in package["dependencies"].as_array().expect("dependencies") {
             let normal = dependency["kind"].is_null();
             let enables = dependency["name"] == CRATE
-  && (names(&dependency["features"]).contains(&FEATURE)
+                && (names(&dependency["features"]).contains(&FEATURE)
                     || dependency["uses_default_features"] == true
-  && names(&this_crate(&metadata)["features"]["default"]).contains(&FEATURE));
+                        && names(&this_crate(&metadata)["features"]["default"]).contains(&FEATURE));
             assert!(
                 !(normal && enables) || owner == PLUGIN_BINARY,
                 "{owner} enables {FEATURE} in a normal build"

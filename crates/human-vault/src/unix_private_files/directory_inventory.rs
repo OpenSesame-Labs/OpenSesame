@@ -57,12 +57,12 @@ fn next(_stream: &Stream) -> io::Result<Option<CString>> {
 }
 fn unchanged(a: &Metadata, b: &Metadata) -> bool {
     a.dev() == b.dev()
-  && a.ino() == b.ino()
-  && a.len() == b.len()
-  && a.mtime() == b.mtime()
-  && a.mtime_nsec() == b.mtime_nsec()
-  && a.ctime() == b.ctime()
-  && a.ctime_nsec() == b.ctime_nsec()
+        && a.ino() == b.ino()
+        && a.len() == b.len()
+        && a.mtime() == b.mtime()
+        && a.mtime_nsec() == b.mtime_nsec()
+        && a.ctime() == b.ctime()
+        && a.ctime_nsec() == b.ctime_nsec()
 }
 impl PrivateDirectory {
     /// Enumerate actual bounded children from an independent description of this original root.

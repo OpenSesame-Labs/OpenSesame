@@ -84,8 +84,8 @@ pub(crate) fn store_path_of(connection_ref: &str) -> Option<String> {
     segments.push(last.split('@').next()?);
     let plain = |segment: &&str| {
         !segment.is_empty()
-  && !segment.starts_with('.')
-  && segment
+            && !segment.starts_with('.')
+            && segment
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
     };

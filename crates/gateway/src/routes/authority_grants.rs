@@ -185,7 +185,7 @@ async fn issue(
         return response;
     }
     if (body.raw_credential_export == Some(true) || entries_include_reserved(&entries))
-  && !who.may_issue_reserved_administration()
+        && !who.may_issue_reserved_administration()
     {
         return (
             StatusCode::FORBIDDEN,

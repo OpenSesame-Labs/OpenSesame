@@ -84,18 +84,18 @@ pub(super) async fn authenticate(
         .map(|PeerExtension(verified)| verified.as_ref())
         .filter(|verified| {
             verified.source() == EvidenceSource::DirectTls
-  && verified.policy() == TransportPolicy::MtlsRequired
-  && verified.is_usable_at(chrono::Utc::now())
-  && st.transport.as_ref().is_none_or(|runtime| {
+                && verified.policy() == TransportPolicy::MtlsRequired
+                && verified.is_usable_at(chrono::Utc::now())
+                && st.transport.as_ref().is_none_or(|runtime| {
                     let generation = runtime.generations.current();
                     generation.withdrawn.is_none()
-  && verified
+                        && verified
                             .require_generations(generation.number, generation.number)
                             .is_ok()
                 })
         });
     let replacing = reenroll
-  && match verified {
+        && match verified {
             Some(verified) => replaces_certificate(st, &profile.organization_id, verified).await?,
             None => false,
         };

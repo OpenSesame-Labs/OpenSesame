@@ -621,9 +621,9 @@ fn validate_scopes(provider: &Provider) -> Result<(), CatalogError> {
 
 fn validate_egress(provider: &Provider) -> Result<(), CatalogError> {
     if matches!(&provider.auth, AuthMethod::Configuration)
-  && provider.egress.scheme == "none"
-  && provider.egress.authorities.is_empty()
-  && provider.egress.path_prefixes.is_empty()
+        && provider.egress.scheme == "none"
+        && provider.egress.authorities.is_empty()
+        && provider.egress.path_prefixes.is_empty()
     {
         return Ok(());
     }
@@ -677,8 +677,8 @@ fn validate_provider_url(provider: &Provider, raw: &str, field: &str) -> Result<
         Url::parse(raw).map_err(|_| provider_error(provider, format!("invalid {field}")))?;
     let allowed = parsed.scheme() == "https"
         || (provider.id == "mock"
-  && parsed.scheme() == "http"
-  && matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "::1")));
+            && parsed.scheme() == "http"
+            && matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "::1")));
     if !allowed
         || parsed.host_str().is_none()
         || !parsed.username().is_empty()

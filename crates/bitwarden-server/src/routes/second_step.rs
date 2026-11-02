@@ -117,7 +117,7 @@ pub(crate) async fn recover(
         .as_deref()
         .is_some_and(|stored| recovery_matches(stored, typed));
     let spent = matches
-  && server
+        && server
             .db
             .bitwarden_replace_recovery_code(&user.id, stored.as_deref(), &new_recovery_code())
             .await?;

@@ -190,9 +190,9 @@ impl ToolRule {
 
 fn reason_ok(reason: &str) -> bool {
     !reason.is_empty()
-  && reason.len() <= MAX_REASON_LEN
-  && reason.bytes().all(|b| b.is_ascii_graphic())
-  && !reason.starts_with("host_error:")
+        && reason.len() <= MAX_REASON_LEN
+        && reason.bytes().all(|b| b.is_ascii_graphic())
+        && !reason.starts_with("host_error:")
 }
 
 impl HookPolicy {

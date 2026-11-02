@@ -354,7 +354,7 @@ async fn fetch(url: &url::Url, allow_private: bool) -> Result<Vec<u8>, EvidenceE
         || addresses.len() > 16
         || (url.scheme() == "http" && addresses.iter().any(|a| !a.ip().is_loopback()))
         || (!allow_private
-  && addresses
+            && addresses
                 .iter()
                 .any(|a| opensesame_connector_host::is_blocked_host(&a.ip().to_string())))
     {

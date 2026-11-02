@@ -228,7 +228,7 @@ fn decode_b64(value: &str) -> Result<Vec<u8>, ()> {
 
 fn is_session_id(value: &str) -> bool {
     value.len() == 32
-  && value
+        && value
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
