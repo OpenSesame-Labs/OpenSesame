@@ -2,6 +2,7 @@ export function helpText(): string {
   return `opensesame-id — OpenSesame identity CLI (alias: opensesame-identity)
 
 Commands:
+  version, --version, -v       Print the published package version
   security canary serve --pairing <file> --state <directory>
                                Run the owner-paired loopback canary receiver
   find <query...> [--vault <vault>] [--account <account>]

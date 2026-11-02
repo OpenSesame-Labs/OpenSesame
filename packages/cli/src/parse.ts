@@ -33,6 +33,7 @@ export type ParsedCommand =
   | PasswordResetCommand
   | SessionCommand
   | { name: "help" }
+  | { name: "version"; flags: GlobalFlags }
   | {
       name: "canary-serve";
       pairingFile: string;
@@ -126,6 +127,10 @@ export function parseArgs(argv: string[]): ParsedCommand {
 
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {
     return { name: "help" };
+  }
+
+  if (cmd === "version" || cmd === "--version" || cmd === "-v") {
+    return { name: "version", flags };
   }
 
   if (cmd === "login") return parseLogin(args, flags);
