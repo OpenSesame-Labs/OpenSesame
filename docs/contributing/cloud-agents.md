@@ -19,8 +19,10 @@ aligned with `rust-toolchain.toml`). Harness-owned rule and tool files under
   harness's secret store.
 
 After checkout, `install` runs `.cursor/install.sh`. That script runs
-`scripts/dev/dotfiles-bootstrap.sh` (personal mise and Grok, from
-`DOTFILES_REPO` or `staging/tyler-dotfiles` when the clone fails), then
+`scripts/dev/dotfiles-bootstrap.sh` (personal mise and Grok, cloned with
+anonymous HTTPS from `DOTFILES_REPO`, default
+`https://github.com/Tyler-R-Kendrick/dotfiles.git`; no GitHub token and no
+credential helper; a failed clone stops the bootstrap), then
 `mise install --locked` and `mise run deps` (fingerprinted `npm ci` via
 `scripts/dev/install-dependencies.sh`), then that install script directly,
 then `cargo +1.88.0 fetch`. Prefer the shared cargo target dir documented in

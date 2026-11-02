@@ -260,7 +260,7 @@ test("bootstrap refuses a HOME it cannot write", (t) => {
   assert.match(result.stderr, /HOME must be a writable directory/);
 });
 
-test("script source is anonymous HTTPS with no staging fallback", () => {
+test("devcontainer and cloud install run dotfiles before npm ci via mise", () => {
   const source = uncommented(read(script));
   assert.match(source, new RegExp(defaultRepo.replaceAll(".", "\\.")));
   assert.doesNotMatch(source, /staging\/tyler-dotfiles/);
@@ -280,4 +280,68 @@ test("script source is anonymous HTTPS with no staging fallback", () => {
     encoding: "utf8",
   });
   assert.equal(syntax.status, 0, syntax.stderr);
+
+  const install = read(".cursor/install.sh");
+  const installBoot = install.indexOf("bash scripts/dev/dotfiles-bootstrap.sh");
+  const installLocked = install.indexOf("mise install --locked");
+  const installDeps = install.indexOf("mise run deps");
+  assert.ok(
+    installBoot >= 0 &&
+      installBoot < installLocked &&
+      installLocked < installDeps,
+  );
+  assert.doesNotMatch(install, /staging\/tyler-dotfiles/);
+  assert.doesNotMatch(install, /\bcorepack\b|pnpm@/);
+  assert.doesNotMatch(install, /curl[^\n]*\|\s*(?:ba)?sh/);
+
+  const devcontainer = JSON.parse(read(".devcontainer/devcontainer.json"));
+  const dockerfile = read(".devcontainer/Dockerfile");
+  const cloud = read(".cursor/Dockerfile");
+  assert.equal(devcontainer.features, undefined);
+  assert.equal(devcontainer.mounts, undefined);
+  assert.equal(JSON.stringify(devcontainer).includes("corepack"), false);
+  assert.equal(JSON.stringify(devcontainer).includes("pnpm"), false);
+  assert.equal(JSON.stringify(devcontainer).includes("features/node"), false);
+  for (const name of [
+    "MISE_VERSION",
+    "MISE_SHA256_LINUX_X64",
+    "MISE_SHA256_LINUX_ARM64",
+  ]) {
+    const pattern = new RegExp(`ARG ${name}=(\\S+)`);
+    assert.equal(
+      dockerfile.match(pattern)?.[1],
+      cloud.match(pattern)?.[1],
+      name,
+    );
+  }
+  assert.match(dockerfile, /sha256sum -c --strict/);
+  assert.match(dockerfile, /mise\.toml and mise\.lock/);
+  assert.doesNotMatch(dockerfile, /mise\.run/);
+  assert.doesNotMatch(dockerfile, /curl[^\n]*\|\s*(?:ba)?sh/);
+  assert.match(
+    dockerfile,
+    /mcr\.microsoft\.com\/devcontainers\/rust:1-1-bookworm@sha256:[a-f0-9]{64}/,
+  );
+  for (const key of ["updateContentCommand", "postCreateCommand"]) {
+    const text = devcontainer[key];
+    const locked = text.indexOf("mise install --locked");
+    const boot = text.indexOf("bash scripts/dev/dotfiles-bootstrap.sh");
+    const deps = text.indexOf("mise run deps");
+    assert.ok(locked >= 0 && locked < boot && boot < deps, key);
+    assert.equal(text.includes("corepack"), false, key);
+    assert.equal(
+      text.includes("npm ci") || text.includes("mise run deps"),
+      true,
+      key,
+    );
+  }
+  assert.ok(
+    devcontainer.postCreateCommand.indexOf("setup-hooks.sh") >
+      devcontainer.postCreateCommand.indexOf("mise run deps"),
+  );
+
+  const cloudAgents = read("docs/contributing/cloud-agents.md");
+  assert.match(cloudAgents, /anonymous HTTPS/);
+  assert.match(cloudAgents, new RegExp(defaultRepo.replaceAll(".", "\\.")));
+  assert.doesNotMatch(cloudAgents, /staging\/tyler-dotfiles/);
 });
