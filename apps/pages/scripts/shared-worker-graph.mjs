@@ -204,30 +204,47 @@ function purePartitions(ctx, roots, previous, pure) {
     throw new Error(
       "Worker dependency partitions need the existing manual-chunk function.",
     );
-  const isolated = new Map();
-  const pending = [...roots];
-  while (pending.length) {
-    const id = pending.pop();
-    if (isolated.has(id) || !pure.test(id.replaceAll("\\", "/"))) continue;
-    const normalized = id.replaceAll("\\", "/");
-    const match = normalized.match(
-      /\/node_modules\/(zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//,
-    );
-    const packageRoot = match
-      ? normalized.slice(0, match.index + match[0].length)
-      : normalized;
-    const identity = createHash("sha256")
-      .update(packageRoot)
-      .digest("hex")
-      .slice(0, 8);
-    isolated.set(
-      id,
-      `native-worker-${(match?.[1] ?? basename(normalized, ".ts")).replaceAll("/", "-").replace("@", "")}-${identity}`,
-    );
-    const info = ctx.getModuleInfo(id);
-    if (info) pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
-  }
-  return (id, api) => isolated.get(id) ?? previous?.(id, api);
+  // Rolldown resolves output options before any resolveId call, so the pure
+  // roots and module graph only exist once chunking starts. Walk lazily on
+  // the first manualChunks invocation instead of at outputOptions time.
+  let isolated;
+  const compute = (getModuleInfo) => {
+    isolated = new Map();
+    const pending = [...roots];
+    while (pending.length) {
+      const id = pending.pop();
+      if (isolated.has(id) || !pure.test(id.replaceAll("\\", "/"))) continue;
+      const normalized = id.replaceAll("\\", "/");
+      const match = normalized.match(
+        /\/node_modules\/(zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//,
+      );
+      const packageRoot = match
+        ? normalized.slice(0, match.index + match[0].length)
+        : normalized;
+      const identity = createHash("sha256")
+        .update(packageRoot)
+        .digest("hex")
+        .slice(0, 8);
+      isolated.set(
+        id,
+        `native-worker-${(match?.[1] ?? basename(normalized, ".ts")).replaceAll("/", "-").replace("@", "")}-${identity}`,
+      );
+      const info = getModuleInfo(id);
+      if (info)
+        pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
+    }
+  };
+  return (id, api) => {
+    // Rolldown's outputOptions context has no getModuleInfo; the
+    // manualChunks api argument carries it on both bundlers.
+    if (!isolated)
+      compute(
+        typeof api?.getModuleInfo === "function"
+          ? (moduleId) => api.getModuleInfo(moduleId)
+          : (moduleId) => ctx.getModuleInfo(moduleId),
+      );
+    return isolated.get(id) ?? previous?.(id, api);
+  };
 }
 function workerClosure(bundle, file, minted, pure, seen = new Set()) {
   if (seen.has(file)) return seen;

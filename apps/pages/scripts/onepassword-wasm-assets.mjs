@@ -140,16 +140,24 @@ function referencesWorker(owner, worker, base) {
     ts.ScriptKind.JS,
   );
   const visit = (node) => {
-    if (
-      ts.isNewExpression(node) &&
-      node.expression.getText(ast) === "URL" &&
-      node.arguments?.length === 2 &&
-      ts.isStringLiteralLike(node.arguments[0]) &&
-      node.arguments[1].getText(ast) === "import.meta.url"
-    ) {
+    if (ts.isNewExpression(node)) {
+      const resolved = (text) =>
+        new URL(text, new URL(owner.file, root)).href === target;
+      // Rollup keeps the source form `new URL(path, import.meta.url)`;
+      // Rolldown emits the already-resolved `new Worker("/assets/...")`.
       if (
-        new URL(node.arguments[0].text, new URL(owner.file, root)).href ===
-        target
+        node.expression.getText(ast) === "URL" &&
+        node.arguments?.length === 2 &&
+        ts.isStringLiteralLike(node.arguments[0]) &&
+        node.arguments[1].getText(ast) === "import.meta.url" &&
+        resolved(node.arguments[0].text)
+      )
+        return true;
+      if (
+        node.expression.getText(ast) === "Worker" &&
+        node.arguments?.length >= 1 &&
+        ts.isStringLiteralLike(node.arguments[0]) &&
+        resolved(node.arguments[0].text)
       )
         return true;
     }

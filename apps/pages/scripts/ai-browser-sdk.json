@@ -22,13 +22,22 @@
     "gatewayDefault": "const gateway = createGateway();",
     "facadeGuard": "!z.safeParse(explicitModel, options.model).success",
     "facadeDelegate": "return sdkGenerateObject(options);",
-    "callerModel": "model: createPromptLanguageModel({ api }),"
+    "callerModel": "model: createPromptLanguageModel({ api }),",
+    "gatewayToolFactory": "= createProviderExecutedToolFactory("
   },
-  "gatewayErrorRenderedBytes": 3128,
   "forbiddenRuntimeFragments": [
     "https://ai-gateway.vercel.sh/v4/ai",
     "ai-gateway-protocol-version",
     "function getGatewayAuthToken(",
-    "function createGateway("
-  ]
+    "function createGateway(",
+    "createProviderExecutedToolFactory(",
+    "gateway.browserbase_fetch",
+    "gateway.browserbase_search",
+    "gateway.exa_search",
+    "gateway.parallel_search",
+    "gateway.perplexity_search",
+    "gateway.tako_search"
+  ],
+  "gatewayToolFactoryCount": 6,
+  "gatewayErrorMaxRenderedBytes": 43000
 }

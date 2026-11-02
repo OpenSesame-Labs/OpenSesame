@@ -96,7 +96,10 @@ export function transformAiBrowserSdk(source) {
 /**
  * The reviewed no-argument factory only allocates a local provider and closures;
  * credentials and HTTP are read by its unused methods. Mark only this exact
- * initializer pure. The official error classes remain unmodified.
+ * initializer pure. The provider-executed tool factories likewise only allocate
+ * closures over lazy schemas and are reachable solely through that provider;
+ * Rolldown retains unannotated calls as bare statements, so mark each reviewed
+ * factory initializer pure as well. The official error classes remain unmodified.
  */
 export function transformAiBrowserGateway(source) {
   requireMatch(
@@ -109,11 +112,21 @@ export function transformAiBrowserGateway(source) {
     1,
     "gateway default",
   );
+  requireMatch(
+    occurrences(source, pins.fragments.gatewayToolFactory),
+    pins.gatewayToolFactoryCount,
+    "gateway tool factories",
+  );
   return {
-    code: source.replace(
-      pins.fragments.gatewayDefault,
-      "const gateway = /* @__PURE__ */ createGateway();",
-    ),
+    code: source
+      .replace(
+        pins.fragments.gatewayDefault,
+        "const gateway = /* @__PURE__ */ createGateway();",
+      )
+      .replaceAll(
+        pins.fragments.gatewayToolFactory,
+        "= /* @__PURE__ */ createProviderExecutedToolFactory(",
+      ),
     map: null,
   };
 }
@@ -162,11 +175,20 @@ export function assertAiBrowserOutput(bundle, input) {
     .filter(([id]) => normalized(id) === input.gatewayPath);
   requireMatch(modules.length, 1, "emitted gateway error module");
   const info = modules[0][1];
-  requireMatch(
-    info.renderedLength,
-    pins.gatewayErrorRenderedBytes,
-    "class-only bytes",
-  );
+  // Rolldown's renderedLength counts graph-included statement ranges before
+  // final pure-call elimination, so it no longer equals emitted module bytes
+  // (Rollup reported 3128 for the identical class-only emission). Bound it:
+  // a surviving provider renders ~127k, far above either bundler's class-only
+  // accounting, and the export/fragment checks below pin the actual surface.
+  if (
+    !(
+      info.renderedLength > 0 &&
+      info.renderedLength <= pins.gatewayErrorMaxRenderedBytes
+    )
+  )
+    throw new Error(
+      `Browser AI SDK pin mismatch: class-only bytes ${info.renderedLength} outside 1..=${pins.gatewayErrorMaxRenderedBytes}`,
+    );
   requireMatch(
     JSON.stringify([...info.renderedExports].sort()),
     JSON.stringify(["GatewayAuthenticationError", "GatewayError"]),
