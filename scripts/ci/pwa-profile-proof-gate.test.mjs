@@ -1,0 +1,217 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+import sharp from "sharp";
+import {
+  assertDistinctHashes,
+  assertProfileProof,
+  proofManifest,
+  stitchPanels,
+} from "./pwa-profile-proof-gate.mjs";
+
+function entry(profile, extra) {
+  return {
+    profile,
+    setupChoice: profile,
+    buildKey: profile,
+    distDigest: extra.dist,
+    pngHash: extra.png,
+    distinguishHash: extra.distinguish,
+    choiceHash: extra.choice,
+    distinguish: extra.distinguishName ?? "features",
+    switchesOn: extra.switchesOn,
+    ceremonyReached: extra.ceremonyReached === true,
+  };
+}
+
+function sample() {
+  return [
+    entry("minimal-local", {
+      dist: "minimal",
+      png: "p1",
+      distinguish: "d1",
+      choice: "c1",
+      switchesOn: 1,
+    }),
+    entry("default", {
+      dist: "stock",
+      png: "p2",
+      distinguish: "d2",
+      choice: "c2",
+      switchesOn: 4,
+    }),
+    entry("custom", {
+      dist: "stock",
+      png: "p3",
+      distinguish: "d3",
+      choice: "c3",
+      ceremonyReached: true,
+      distinguishName: "setup-capabilities",
+    }),
+    entry("full", {
+      dist: "full",
+      png: "p4",
+      distinguish: "d4",
+      choice: "c4",
+      switchesOn: 9,
+    }),
+  ];
+}
+
+test("profile proof accepts four distinct walks on three builds", () => {
+  assert.doesNotThrow(() => assertProfileProof(sample()));
+});
+
+test("shared profile PNGs fail with both names and the hash", () => {
+  const entries = sample();
+  entries[1].pngHash = entries[2].pngHash;
+  assert.throws(
+    () => assertProfileProof(entries),
+    /profile PNG: default and custom both hash p3/,
+  );
+});
+
+test("shared distinguishing screenshots fail even when composites differ", () => {
+  const entries = sample();
+  entries[0].distinguishHash = entries[3].distinguishHash;
+  assert.throws(
+    () => assertProfileProof(entries),
+    /distinguishing screenshot: minimal-local and full both hash d4/,
+  );
+});
+
+test("default and custom must share the stock dist", () => {
+  const entries = sample();
+  entries[2].distDigest = "other";
+  assert.throws(
+    () => assertProfileProof(entries),
+    /default and custom must share the stock build/,
+  );
+});
+
+test("capability profile dists must differ from stock", () => {
+  const entries = sample();
+  entries[0].distDigest = "stock";
+  assert.throws(
+    () => assertProfileProof(entries),
+    /minimal-local, stock, and full dists must differ/,
+  );
+});
+
+test("feature switches must increase minimal, default, full", () => {
+  const entries = sample();
+  entries[3].switchesOn = entries[1].switchesOn;
+  assert.throws(
+    () => assertProfileProof(entries),
+    /Features switches must increase/,
+  );
+});
+
+test("custom must reach the capabilities ceremony", () => {
+  const entries = sample();
+  entries[2].ceremonyReached = false;
+  assert.throws(
+    () => assertProfileProof(entries),
+    /custom did not reach the capabilities ceremony/,
+  );
+});
+
+test("manifest records profile, dist digest, and png hash", () => {
+  const manifest = proofManifest(sample());
+  assert.deepEqual(
+    manifest.profiles.map((item) => ({
+      profile: item.profile,
+      distDigest: item.distDigest,
+      pngHash: item.pngHash,
+    })),
+    [
+      { profile: "minimal-local", distDigest: "minimal", pngHash: "p1" },
+      { profile: "default", distDigest: "stock", pngHash: "p2" },
+      { profile: "custom", distDigest: "stock", pngHash: "p3" },
+      { profile: "full", distDigest: "full", pngHash: "p4" },
+    ],
+  );
+  assert.equal(manifest.profiles[2].ceremonyReached, true);
+  assert.equal(manifest.profiles[2].switchesOn, null);
+});
+
+test("distinct hash rows reject a collision", () => {
+  assert.throws(
+    () =>
+      assertDistinctHashes([
+        { profile: "default", hash: "abc", label: "profile PNG" },
+        { profile: "custom", hash: "abc", label: "profile PNG" },
+      ]),
+    /default and custom both hash abc/,
+  );
+});
+
+test("stitch stacks both panels into a taller png", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pwa-proof-"));
+  try {
+    const top = join(dir, "top.png");
+    const bottom = join(dir, "bottom.png");
+    const out = join(dir, "out.png");
+    const other = join(dir, "other.png");
+    await sharp({
+      create: {
+        width: 8,
+        height: 4,
+        channels: 3,
+        background: { r: 17, g: 34, b: 51 },
+      },
+    })
+      .png()
+      .toFile(top);
+    await sharp({
+      create: {
+        width: 8,
+        height: 6,
+        channels: 3,
+        background: { r: 170, g: 187, b: 204 },
+      },
+    })
+      .png()
+      .toFile(bottom);
+    await sharp({
+      create: {
+        width: 8,
+        height: 6,
+        channels: 3,
+        background: { r: 200, g: 20, b: 20 },
+      },
+    })
+      .png()
+      .toFile(other);
+    await stitchPanels(
+      [
+        { path: top, label: "Front door" },
+        { path: bottom, label: "Features" },
+      ],
+      out,
+    );
+    const stitched = await sharp(out).metadata();
+    assert.equal(stitched.width, 8);
+    assert.ok((stitched.height ?? 0) > 10);
+    const again = join(dir, "again.png");
+    await stitchPanels(
+      [
+        { path: top, label: "Front door" },
+        { path: other, label: "Features" },
+      ],
+      again,
+    );
+    const first = createHash("sha256")
+      .update(await readFile(out))
+      .digest("hex");
+    const second = createHash("sha256")
+      .update(await readFile(again))
+      .digest("hex");
+    assert.notEqual(first, second);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
