@@ -16,6 +16,7 @@ import {
   parseHtmlEntry,
   workerRealmSource,
 } from "./capability-graph.mjs";
+import { emittedWorkerChunks } from "../shared-worker-graph.mjs";
 import { secretBackendSdkChunk } from "./capability-lazy-leaves.mjs";
 import { itemTypePackChunk } from "./item-type-pack-chunks.mjs";
 
@@ -78,9 +79,14 @@ function collectOutputs(bundle, state, base, classify) {
   const assets = [];
   const entries = [];
   const moduleWorkers = [];
-  for (const [file, output] of Object.entries(bundle).sort(([a], [b]) =>
+  for (const [file, bundleOutput] of Object.entries(bundle).sort(([a], [b]) =>
     a < b ? -1 : 1,
   )) {
+    let output = bundleOutput;
+    const workerChunk = emittedWorkerChunks.get(file);
+    if (workerChunk && output.type === "asset") {
+      output = { ...output, opensesameWorkerChunk: workerChunk };
+    }
     if (output.type === "chunk") {
       chunks.push(chunkRecord(file, output, classify));
       continue;

@@ -8,6 +8,8 @@ import { workerRealmSource } from "./lib/capability-graph.mjs";
 import { defaultWorkers, workerPlanOwners } from "./shared-worker-plans.mjs";
 
 const PREFIX = "\0opensesame-worker:";
+/** Rolldown rejects in-place bundle mutation; post-emit worker metadata lives here. */
+export const emittedWorkerChunks = new Map();
 const purePackages =
   /\/node_modules\/(?:zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//;
 const closedLeaves = [
@@ -244,8 +246,18 @@ function workerClosure(bundle, file, minted, pure, seen = new Set()) {
       pure,
     );
   seen.add(file);
-  for (const next of [...output.imports, ...output.dynamicImports])
+  for (const next of [...output.imports, ...output.dynamicImports]) {
+    const nested = bundle[next];
+    if (nested?.type !== "chunk") continue;
+    if (
+      Object.keys(nested.modules).some(
+        (id) => !minted.has(id) && !pure.test(id.replaceAll("\\", "/")),
+      )
+    ) {
+      continue;
+    }
     workerClosure(bundle, next, minted, pure, seen);
+  }
   for (const next of [
     ...(output.viteMetadata?.importedCss ?? []),
     ...(output.viteMetadata?.importedAssets ?? []),
@@ -292,16 +304,15 @@ function attachWorkerClosures(ctx, bundle, owners, minted, pure) {
       }
     }
   }
-  for (const chunk of privateChunks)
-    bundle[chunk.fileName] = {
+  for (const chunk of privateChunks) {
+    emittedWorkerChunks.set(chunk.fileName, chunk);
+    ctx.emitFile({
       type: "asset",
       fileName: chunk.fileName,
-      names: [],
-      originalFileNames: [],
-      needsCodeReference: false,
       source: chunk.code,
-      opensesameWorkerChunk: chunk,
-    };
+    });
+    delete bundle[chunk.fileName];
+  }
 }
 
 /** Share audited library/codec bytes, not realm instances. @returns {import("vite").Plugin} */
@@ -323,6 +334,7 @@ export function sharedWorkerGraph({ workers } = {}) {
       minted.clear();
       refs.clear();
       owners.clear();
+      emittedWorkerChunks.clear();
     },
     configResolved(config) {
       pure = pureSources(config.root);
