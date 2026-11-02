@@ -34,7 +34,7 @@
     "handlebars": "4.7.10",
     "jsdom": "26.1.0",
     "typescript": "7.0.2",
-    "vitest": "4.1.12",
+    "vitest": "5.0.5",
     "xml-crypto": "6.4.0"
   },
   "dependencies": {

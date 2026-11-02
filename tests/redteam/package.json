@@ -21,7 +21,7 @@
     "promptfoo": "0.125.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "4.1.12"
+    "vitest": "5.0.5"
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
