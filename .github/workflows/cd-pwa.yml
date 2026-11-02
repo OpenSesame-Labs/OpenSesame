@@ -1,6 +1,6 @@
 # GitHub Pages PWA CD. One build, then automatic preview, then Production.
 # Preview publishes npm alpha and deploys Pages with no reviewer wait.
-# Production downloads those artifacts, verifies the live site, and publishes next via OIDC.
+# Production promotes the same artifacts when automated gates pass.
 name: CD PWA
 
 on:
@@ -17,6 +17,10 @@ on:
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
       - "scripts/release/cd-release-meta.mjs"
+      - "scripts/release/cd-main-ci-gate.mjs"
+      - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-promotion-notify.mjs"
+      - "scripts/ci/pwa-install-profile-proof.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-pwa.yml"
   workflow_dispatch:
@@ -29,6 +33,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
   attestations: write
@@ -45,8 +50,24 @@ env:
   VITE_BASE: ${{ vars.VITE_BASE || '/OpenSesame/' }}
 
 jobs:
+  main_ci:
+    name: Main CI gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Require trunk CI for this commit
+        run: node scripts/release/cd-main-ci-gate.mjs
+
   proof:
     name: Build install profiles
+    needs: main_ci
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -69,7 +90,7 @@ jobs:
 
   build:
     name: Build Pages and stage npm
-    needs: proof
+    needs: [main_ci, proof]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -78,8 +99,8 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 0
           persist-credentials: false
+          fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -118,8 +139,6 @@ jobs:
           VERSION: ${{ steps.plan.outputs.version }}
           NPM_DIST_TAG: ${{ steps.plan.outputs.npm_dist_tag }}
         run: node scripts/release/cd-release-meta.mjs write artifacts/cd-pwa-meta/release.json
-      # deploy-pages reads the github-pages artifact. The other uploads are the
-      # same bytes Production downloads. Nothing downstream runs npm run build.
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: apps/pages/dist
@@ -165,7 +184,6 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-pwa-meta/release.json apps/pages/release/package.json
-      # No Preview environment. Repository NPM_TOKEN or OIDC, same action as main.
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release
@@ -181,18 +199,42 @@ jobs:
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
-      # github-pages is the Pages site deploy, not the Preview environment.
-      # It has no required reviewers. deploy-pages preview mode is not public,
-      # so this job publishes the immutable artifact to the live Pages URL.
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v4.0.5
 
+  preview_smoke:
+    name: Preview deploy smoke
+    needs: [build, deploy, npm_preview]
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            .github/actions/publish-npm-package
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Prove alpha npm and live Pages for this revision
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+          NPM_PACKAGE_NAME: "@opensesame-labs/cli"
+          NPM_DIST_TAG: alpha
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+        run: node scripts/release/cd-preview-smoke.mjs
+
   production:
     name: Production promotion
-    needs: [build, deploy, npm_preview]
+    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke]
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment:
@@ -236,3 +278,24 @@ jobs:
           working-directory: apps/pages/release
           npm-dist-tag: next
           npm-token: ""
+
+  promotion_failed:
+    name: Promotion blocked notice
+    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke, production]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Notify that promotion was blocked
+        env:
+          PROMOTION_FAIL_REASON: Automated CD promotion stopped because a gate failed (main CI, profile proof, preview publish, Pages deploy, preview smoke, or Production promotion).
+        run: node scripts/release/cd-promotion-notify.mjs

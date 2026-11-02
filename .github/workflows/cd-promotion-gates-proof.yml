@@ -1,0 +1,80 @@
+# Pull-request proof for automated CD promotion gates (unit tests + forced failure).
+name: CD promotion gates proof
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cd-npm-cli.yml"
+      - ".github/workflows/cd-pwa.yml"
+      - ".github/workflows/cd-promotion-gates-proof.yml"
+      - "scripts/release/cd-*.mjs"
+      - "scripts/release/npm-cd-workflows.test.mjs"
+  workflow_dispatch:
+    inputs:
+      force_smoke_fail:
+        description: When true, the simulated preview smoke gate fails and blocks promotion.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-promotion-gates-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Promotion gate unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - run: npm ci
+      - name: Gate script tests
+        run: |
+          set -euo pipefail
+          node --test \
+            scripts/release/cd-main-ci-gate.test.mjs \
+            scripts/release/cd-preview-smoke.test.mjs \
+            scripts/release/npm-cd-workflows.test.mjs
+
+  simulated_smoke_gate:
+    name: Simulated preview smoke gate
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Enforce preview smoke (simulated)
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_smoke_fail }}" = "true" ]; then
+            export CD_PREVIEW_SMOKE_FORCE_FAIL=1
+          else
+            export CD_PREVIEW_SMOKE_FORCE_FAIL=0
+          fi
+          export NPM_DIST_TAG=alpha
+          export CD_PREVIEW_SMOKE_SIMULATED=1
+          node scripts/release/cd-preview-smoke.mjs
+
+  simulated_production:
+    name: Simulated Production promotion
+    needs: simulated_smoke_gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: echo "Production promotion would run here after every gate succeeded."
