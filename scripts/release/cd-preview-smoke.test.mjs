@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CLI_PACKAGE,
   CLI_SPEC,
   assertExpectedVersion,
   assertPagesRelease,
@@ -9,6 +10,7 @@ import {
   distTagVersion,
   outputHasVersion,
   runPreviewSmoke,
+  waitForPublishedVersion,
 } from "./cd-preview-smoke.mjs";
 
 const version = "0.0.0-alpha.4";
@@ -26,6 +28,19 @@ function jsonResponse(status, body) {
 
 function distTags(alpha = version) {
   return jsonResponse(200, { alpha });
+}
+
+const viewArgs = [
+  "view",
+  `${CLI_PACKAGE}@${version}`,
+  "version",
+  "--prefer-online",
+  "--registry",
+  "https://registry.npmjs.org",
+];
+
+function viewResult(stdout, status = 0) {
+  return { status, stdout, stderr: "" };
 }
 
 function page(status = 200, body = "<!doctype html><title>OpenSesame</title>") {
@@ -74,9 +89,57 @@ test("opensesame --version must exit 0 and report the resolved version", () => {
   );
 });
 
-test("preview smoke installs cli@alpha and checks the command", async () => {
+test("waitForPublishedVersion accepts only the exact trimmed version", async () => {
   const calls = [];
+  const seen = await waitForPublishedVersion(
+    version,
+    async (command, args) => {
+      calls.push([command, args]);
+      return viewResult(`  ${version}\n`);
+    },
+    async () => {
+      throw new Error("sleep");
+    },
+    1,
+  );
+  assert.equal(seen, version);
+  assert.equal(calls[0][0], "npm");
+  assert.deepEqual(calls[0][1], viewArgs);
+  await assert.rejects(
+    () =>
+      waitForPublishedVersion(
+        version,
+        async () => viewResult("0.0.0-alpha.40\n"),
+        async () => {
+          throw new Error("sleep");
+        },
+        1,
+      ),
+    /returned 0\.0\.0-alpha\.40 != 0\.0\.0-alpha\.4/,
+  );
+  await assert.rejects(
+    () =>
+      waitForPublishedVersion(
+        version,
+        async () => viewResult("", 1),
+        async () => {
+          throw new Error("sleep");
+        },
+        1,
+      ),
+    /exited 1/,
+  );
+});
+
+test("preview smoke calls npm view --prefer-online before dist-tags", async () => {
+  const calls = [];
+  let fetched = false;
   const fetcher = async (url) => {
+    assert.equal(
+      calls.some((call) => call[1][0] === "view"),
+      true,
+    );
+    fetched = true;
     assert.match(String(url), /@opensesame-labs%2fcli\/dist-tags/);
     return distTags();
   };
@@ -89,17 +152,103 @@ test("preview smoke installs cli@alpha and checks the command", async () => {
       },
       run: async (command, args) => {
         calls.push([command, args]);
-        if (command === "npm") return { status: 0, stdout: "", stderr: "" };
-        return { status: 0, stdout: `${version}\n`, stderr: "" };
+        if (command === "npm" && args[0] === "view") {
+          assert.equal(fetched, false);
+          return viewResult(`${version}\n`);
+        }
+        if (command === "npm") return viewResult("");
+        return viewResult(`${version}\n`);
       },
     },
   );
   assert.equal(versionSeen, version);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.equal(calls[0][0], "npm");
-  assert.ok(calls[0][1].includes(CLI_SPEC));
-  assert.deepEqual(calls[1][1], ["--version"]);
-  assert.match(calls[1][0], /opensesame$/u);
+  assert.deepEqual(calls[0][1], viewArgs);
+  assert.ok(calls[1][1].includes(CLI_SPEC));
+  assert.deepEqual(calls[2][1], ["--version"]);
+  assert.match(calls[2][0], /opensesame$/u);
+});
+
+test("preview smoke does not accept a wrong npm view version", async () => {
+  let fetches = 0;
+  await assert.rejects(
+    () =>
+      runPreviewSmoke(
+        { EXPECTED_VERSION: version, SMOKE_ATTEMPTS: "1" },
+        {
+          fetch: async () => {
+            fetches += 1;
+            return distTags();
+          },
+          run: async (command, args) => {
+            assert.equal(command, "npm");
+            assert.equal(args[0], "view");
+            return viewResult("0.0.0-alpha.0\n");
+          },
+        },
+      ),
+    /returned 0\.0\.0-alpha\.0 != 0\.0\.0-alpha\.4/,
+  );
+  assert.equal(fetches, 0);
+});
+
+test("preview smoke fails when registry propagation does not catch up", async () => {
+  let views = 0;
+  let fetches = 0;
+  let slept = 0;
+  await assert.rejects(
+    () =>
+      runPreviewSmoke(
+        { EXPECTED_VERSION: version, SMOKE_ATTEMPTS: "2" },
+        {
+          fetch: async () => {
+            fetches += 1;
+            return distTags();
+          },
+          sleep: async (ms) => {
+            assert.equal(ms, 5_000);
+            slept += 1;
+          },
+          run: async (command, args) => {
+            assert.equal(command, "npm");
+            assert.deepEqual(args, viewArgs);
+            views += 1;
+            return viewResult("0.0.0-alpha.0\n");
+          },
+        },
+      ),
+    /returned 0\.0\.0-alpha\.0 != 0\.0\.0-alpha\.4/,
+  );
+  assert.equal(views, 2);
+  assert.equal(slept, 1);
+  assert.equal(fetches, 0);
+});
+
+test("preview smoke retries npm view then fetches dist-tags", async () => {
+  let views = 0;
+  let fetches = 0;
+  await runPreviewSmoke(
+    { EXPECTED_VERSION: version, SMOKE_ATTEMPTS: "2" },
+    {
+      fetch: async () => {
+        assert.equal(views, 2);
+        fetches += 1;
+        return distTags();
+      },
+      sleep: async () => {},
+      run: async (command, args) => {
+        if (command === "npm" && args[0] === "view") {
+          views += 1;
+          if (views === 1) return viewResult("0.0.0-alpha.0\n");
+          return viewResult(`${version}\n`);
+        }
+        if (command === "npm") return viewResult("");
+        return viewResult(`${version}\n`);
+      },
+    },
+  );
+  assert.equal(fetches, 1);
 });
 
 test("preview smoke refuses an alpha version other than EXPECTED_VERSION", async () => {
@@ -112,13 +261,19 @@ test("preview smoke refuses an alpha version other than EXPECTED_VERSION", async
           fetch: async () => distTags(),
           run: async (command, args) => {
             calls.push([command, args]);
-            return { status: 0, stdout: version, stderr: "" };
+            if (args[0] === "view") {
+              return viewResult("0.0.0-alpha.9\n");
+            }
+            return viewResult(version);
           },
         },
       ),
-    /!= expected 0\.0\.0-alpha\.9/,
+    /alpha 0\.0\.0-alpha\.4 != expected 0\.0\.0-alpha\.9/,
   );
-  assert.equal(calls.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1][0], "view");
+  assert.equal(calls[0][1][1], `${CLI_PACKAGE}@0.0.0-alpha.9`);
+  assert.ok(calls[0][1].includes("--prefer-online"));
 });
 
 test("preview smoke retries a missing package then accepts it", async () => {
