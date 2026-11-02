@@ -163,7 +163,7 @@
     "vite": "6.4.5",
     "vitest": "4.1.12",
     "wxt": "0.21.5",
-    "zod": "4.6.7"
+    "zod": "4.6.6"
   },
   "overrides": {
     "vitest": "4.1.12",
@@ -226,7 +226,7 @@
     "undici@^6": "6.29.1",
     "undici@^7": "7.30.1",
     "@azure/msal-node": "7.1.0",
-    "zod": "4.6.7",
+    "zod": "4.6.6",
     "body-parser": "2.4.0",
     "ip-address": "10.7.4",
     "dts-bundle-generator": {

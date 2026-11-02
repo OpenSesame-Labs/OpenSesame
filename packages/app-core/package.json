@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The client application core shared by the Pages PWA, the CLIs and Android (ADR 0133) \u2014 no React, no DOM shell",
+  "description": "The client application core shared by the Pages PWA, the CLIs and Android (ADR 0133) — no React, no DOM shell",
   "exports": {
     "./*.js": {
       "types": "./src/*.ts",
@@ -87,7 +87,7 @@
     "xml-core": "3.0.0",
     "xmldsigjs": "3.0.0",
     "yaml": "2.9.1",
-    "zod": "4.6.7"
+    "zod": "^4.6.6"
   },
   "license": "MIT",
   "repository": {
