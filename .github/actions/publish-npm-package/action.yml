@@ -1,9 +1,10 @@
 name: Publish npm package
 description: >-
-  Publish a staged release directory to npm with optional provenance. A
-  non-empty npm-token is passed only as NODE_AUTH_TOKEN for that command. An
-  empty token leaves registry auth to OIDC trusted publishing (id-token: write).
-  Never prints tokens.
+  Publish a staged release directory to npm with provenance. A non-empty
+  npm-token is passed only as NODE_AUTH_TOKEN for that command. An empty
+  token leaves registry auth to OIDC trusted publishing (id-token: write).
+  Preview publishes 0.0.0-alpha.N on alpha. Production publishes the same
+  staged payload as 0.0.0-next.N on next. Never prints tokens.
 
 inputs:
   working-directory:
@@ -11,8 +12,9 @@ inputs:
     required: true
   npm-dist-tag:
     description: >-
-      npm dist-tag for this publish. The stage dry-run uses alpha.
-      This action refuses latest. Production publishes with next.
+      npm dist-tag for this publish. Preview passes alpha with version
+      0.0.0-alpha.N. Production passes next after package.json is rewritten
+      to 0.0.0-next.N. This action refuses latest.
     required: true
   npm-token:
     description: Optional npm token from the GitHub Environment. Leave empty for OIDC.
@@ -53,15 +55,15 @@ runs:
         set -euo pipefail
         test -n "$NPM_DIST_TAG"
         if [ "$NPM_DIST_TAG" = "latest" ]; then
-          echo "Refusing dist-tag latest. Trunk CD publishes 0.0.0-alpha.N with alpha on the stage dry-run and next from Production." >&2
+          echo "Refusing dist-tag latest. Preview publishes alpha; Production publishes 0.0.0-next.N on next." >&2
           exit 1
         fi
         version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
         test -n "$version"
-        case "$version" in
-          *-*) ;;
+        case "$NPM_DIST_TAG:$version" in
+          alpha:0.0.0-alpha.[0-9]*|next:0.0.0-next.[0-9]*) ;;
           *)
-            echo "Refusing stable ${version}. Trunk CD publishes 0.0.0-alpha.N only." >&2
+            echo "Refusing ${NPM_DIST_TAG} for ${version}. Trunk CD publishes 0.0.0-alpha.N on alpha or 0.0.0-next.N on next." >&2
             exit 1
             ;;
         esac

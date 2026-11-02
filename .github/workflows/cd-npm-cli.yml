@@ -1,6 +1,6 @@
 # Publish @opensesame-labs/cli after main merges.
-# Stage once. Preview publishes alpha with no environment wait.
-# Production promotes when automated gates pass.
+# Stage once. Preview publishes 0.0.0-alpha.N on alpha under environment Preview (no reviewer wait).
+# Production OIDC-publishes 0.0.0-next.N on next when automated gates pass.
 name: CD npm CLI
 
 on:
@@ -16,6 +16,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-npm-cli.yml"
@@ -23,6 +24,11 @@ on:
     inputs:
       dry_run:
         description: Stop after staging (before preview publish and Production).
+        required: false
+        type: boolean
+        default: false
+      proof_gate_fail:
+        description: When true, preview smoke fails on purpose (live gate proof on main only).
         required: false
         type: boolean
         default: false
@@ -45,8 +51,6 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -67,7 +71,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
           fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
@@ -118,10 +121,10 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment:
+      name: Preview
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-cli-release-${{ github.run_id }}
@@ -138,8 +141,8 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-npm-cli-meta/release.json packages/cli/release/package.json
-      # No Preview environment: this publish must not wait for a reviewer.
-      # Repository NPM_TOKEN when set; otherwise OIDC trusted publishing.
+      # Preview environment supplies NPM_TOKEN (publish-npm-package → NODE_AUTH_TOKEN + .npmrc).
+      # No required reviewers on Preview; otherwise OIDC trusted publishing under the same environment.
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
@@ -155,7 +158,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
           sparse-checkout: |
             scripts/release
             scripts/lib
@@ -166,6 +168,7 @@ jobs:
       - name: Prove alpha npm resolves and runs
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
+          CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
         run: node scripts/release/cd-preview-smoke.mjs
 
   production:
@@ -177,8 +180,6 @@ jobs:
       name: Production
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-cli-release-${{ github.run_id }}
@@ -195,7 +196,10 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-npm-cli-meta/release.json packages/cli/release/package.json
-      - uses: ./.github/actions/publish-npm-package
+      - name: Rewrite alpha version to 0.0.0-next.N
+        run: node scripts/release/cd-production-npm-version.mjs rewrite packages/cli/release/package.json
+      - name: Publish 0.0.0-next.N with OIDC
+        uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
           npm-dist-tag: next
@@ -212,8 +216,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true

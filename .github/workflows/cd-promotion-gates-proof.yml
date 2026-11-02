@@ -49,6 +49,7 @@ jobs:
             scripts/release/npm-cd-workflows.test.mjs \
             scripts/release/cd-main-ci-gate.test.mjs \
             scripts/release/cd-preview-smoke.test.mjs \
+            scripts/release/cd-production-npm-version.test.mjs \
             scripts/release/cd-promotion-notify.test.mjs
 
   simulate_blocked:

@@ -45,7 +45,8 @@ async function readJson(path) {
 
 /**
  * The staged package, the metadata file, and this run must name one version.
- * Preview publishes `alpha`. Production adds `next` later and does not rebuild.
+ * Preview publishes `alpha`. Production rewrites to `0.0.0-next.N` after
+ * this check and does not rebuild.
  */
 export async function checkReleaseMeta(metaPath, packagePath, env) {
   const meta = await readJson(metaPath);

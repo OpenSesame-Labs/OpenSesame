@@ -1,9 +1,12 @@
 /**
- * Smoke the Preview publish before Production adds the next dist-tag.
+ * Smoke the Preview publish before Production publishes `0.0.0-next.N`.
  *
  * Resolves `@opensesame-labs/cli@alpha`, installs it, and requires
  * `opensesame --version` to exit 0. When EXPECTED_VERSION is set, both the
  * dist-tag and the command output must match it.
+ *
+ * `CD_PROOF_GATE_FAIL=1` (workflow_dispatch `proof_gate_fail`) throws
+ * `intentional promotion gate proof failure` before any registry call.
  *
  * cd-pwa also sets PAGES_URL. That URL must load, and the Pages release
  * marker must match GITHUB_SHA (`pages-release` verify).
@@ -189,7 +192,14 @@ async function installAndRun(version, runner) {
   }
 }
 
+export function assertNotProofGateFail(env) {
+  if (readString(env.CD_PROOF_GATE_FAIL) === "1") {
+    throw new Error("intentional promotion gate proof failure");
+  }
+}
+
 export async function runPreviewSmoke(env, deps = {}) {
+  assertNotProofGateFail(env);
   const fetcher = deps.fetch ?? fetch;
   const runner = deps.run ?? spawnCaptured;
   const verify = deps.verifyPages ?? verifyRelease;
