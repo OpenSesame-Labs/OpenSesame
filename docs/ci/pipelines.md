@@ -15,24 +15,21 @@ The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is publi
 
 ## npm versioning (trunk CD)
 
-Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes **`0.0.0-alpha.N`** with dist-tag **`alpha`**. **Production** rewrites that staged `package.json` to **`0.0.0-next.N`** (same numeric suffix) and OIDC-publishes it with **`--tag next --provenance`**. Prereleases never receive **`latest`**. Production does not run `npm dist-tag add`.
+Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes with dist-tag **`alpha`**; **Production** adds **`next`**. Prereleases never receive **`latest`**.
 
 The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again.
-
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof** (PWA CD), **preview publish and Pages deploy**, **preview smoke** (alpha npm resolves and `opensesame --version`; PWA CD also verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
 
 ## Workflows
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production OIDC publish of **`0.0.0-next.N`** on **`next`**. |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof, one Pages/npm build, Preview **`alpha`** and **github-pages** deploy, preview smoke, automatic Production OIDC publish of **`0.0.0-next.N`** on **`next`**. |
-| `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Stage once. Preview publishes **`alpha`** with no environment wait. **Production** adds **`next`**. |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Four install profiles prove in parallel. A gate checks distinct hashes, then one Pages/npm build runs. Preview publishes **`alpha`** and deploys **github-pages** with no reviewer wait. **Production** downloads the same artifacts, verifies the live site, and adds **`next`**. |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
-`github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is not a human approval gate; workflow jobs enforce promotion. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production. A live blocked promotion on `main` uses `workflow_dispatch` with `proof_gate_fail: true` on `cd-pwa.yml` or `cd-npm-cli.yml`. That sets `CD_PROOF_GATE_FAIL=1`, and `cd-preview-smoke.mjs` throws `intentional promotion gate proof failure` so Production is skipped. See [post-2400 CD failures](post-2400-cd-failures.md).
+`github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is the only required-reviewer gate. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production.
 
-Environment protection uses main-only branch policies with no required reviewers on Preview, Production, or github-pages. Preview publish uses the repository `NPM_TOKEN` when that secret exists, otherwise OIDC trusted publishing with no GitHub environment (trusted publisher environment left empty). Production selects the **Production** environment so the npm trusted publisher can bind to it, and publishes with an empty `npm-token` (OIDC only). Production does not read `NPM_TOKEN`. Publisher rows and the incident RCA: `github-setup-spec.json` → `npm_trusted_publishing` and [post-2400-cd-failures.md](post-2400-cd-failures.md).
+Tyler removes the Preview required reviewers with the commands in `github-setup-spec.json` (`github_environment_changes_via_gh`). Production keeps its reviewer. Preview publish uses the repository `NPM_TOKEN` when that secret exists, otherwise OIDC trusted publishing.
 
 ## OpenPacker mapping (abbreviated)
 
