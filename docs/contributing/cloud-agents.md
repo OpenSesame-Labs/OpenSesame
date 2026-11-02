@@ -34,9 +34,9 @@ defaults `CARGO_TARGET_DIR` to `$HOME/.cache/packages/cargo-target`.
 
 `.devcontainer/devcontainer.json` builds on the pinned Rust devcontainer
 image. The image installs the same checksum-pinned mise release as the
-Cursor image. It does not use a Node feature, Corepack, or a pnpm store
-volume. `updateContentCommand` and `postCreateCommand` install the locked
-toolchain from `mise.toml` and `mise.lock` (`mise install --locked`), run
+Cursor image. It does not use a Node feature. `updateContentCommand` and
+`postCreateCommand` install the locked toolchain from `mise.toml` and
+`mise.lock` (`mise install --locked`), run
 `scripts/dev/dotfiles-bootstrap.sh`, then `mise run deps` (`npm ci`).
 `postCreateCommand` also runs `scripts/dev/setup-hooks.sh`.
 `postStartCommand` still runs `scripts/dev/install-agent-skills.sh`.
