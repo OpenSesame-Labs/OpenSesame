@@ -23,8 +23,8 @@
   },
   "devDependencies": {
     "@opensesame/testing": "*",
-    "@peculiar/x509": "1.14.3",
-    "@types/node": "22.15.29",
+    "@peculiar/x509": "3.1.0",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/whatwg-url": "13.0.0",
     "better-auth": "1.7.14",
@@ -85,7 +85,7 @@
     "kdbxweb": "2.1.1",
     "whatwg-url": "14.2.0",
     "xml-core": "3.0.0",
-    "xmldsigjs": "2.8.8",
+    "xmldsigjs": "3.0.0",
     "yaml": "2.9.1",
     "zod": "4.6.6"
   },
