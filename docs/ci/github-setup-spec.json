@@ -6,24 +6,46 @@
     "required_status_check_contexts": ["TypeScript", "Rust", "Bundle budgets"],
     "note": "Reported by .github/workflows/ci.yml jobs typescript, rust-check, and bundle-check on pull_request and merge_group."
   },
+  "promotion_model": {
+    "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts.",
+    "preview": "npm dist-tag alpha and the github-pages deploy run with no GitHub environment approval.",
+    "production": "The Production environment is the only required-reviewer gate. It downloads the same artifacts, verifies live Pages, and publishes dist-tag next via OIDC. It does not run npm dist-tag add or npm run build.",
+    "pages_split": "github-pages is the live Pages deploy (actions/deploy-pages). It is not the Preview environment. deploy-pages preview:true is not available to the public, so there is no second Pages environment. Do not add required reviewers to github-pages."
+  },
+  "github_environment_changes_via_gh": {
+    "preview_required_reviewers": "remove",
+    "production_required_reviewers": "keep Tyler-R-Kendrick (user id 145080887), rule 70926080",
+    "github_pages": "keep branch policy main only (rule 62085543). No required reviewers and no wait timer.",
+    "npm_token": "Preview jobs no longer select an environment, so they cannot read the Preview environment secret. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance). Production publishes with an empty token via OIDC and does not read NPM_TOKEN.",
+    "commands": [
+      "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-protection-rules/70926078",
+      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Preview --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
+      "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-branch-policies -f name=main -f type=branch",
+      "gh api repos/OpenSesame-Labs/OpenSesame/environments/Preview --jq '{wait_timer,rules:[.protection_rules[].type]}'",
+      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Production --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[{\"type\":\"User\",\"id\":145080887}],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
+      "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-branch-policies -f name=main -f type=branch",
+      "gh api repos/OpenSesame-Labs/OpenSesame/environments/Production --jq '{wait_timer,reviewers:[.protection_rules[]|select(.type==\"required_reviewers\")|.reviewers[].reviewer.login]}'",
+      "gh api repos/OpenSesame-Labs/OpenSesame/environments/github-pages --jq '{wait_timer,rules:[.protection_rules[].type]}'"
+    ]
+  },
   "environments": [
     {
       "name": "Preview",
-      "used_by": [
-        ".github/workflows/cd-npm-cli.yml",
-        ".github/workflows/cd-pwa.yml"
-      ],
+      "used_by": [],
+      "note": "No CD job selects this environment. Delete required-reviewer rule 70926078 so a leftover reference cannot wait. See github_environment_changes_via_gh.",
       "deployment_branch_policy": {
         "protected_branches": false,
         "custom_branch_policies": true,
         "allowed_branch": "main"
       },
       "protection_rules": {
-        "required_reviewers": ["Tyler Kendrick"],
+        "required_reviewers": [],
         "wait_timer_minutes": 0,
         "prevent_self_review": false
       },
-      "secrets": {},
+      "secrets": {
+        "NPM_TOKEN": "Unused by current workflows. Preview publish reads the repository secret or uses OIDC. Do not rely on this environment secret."
+      },
       "variables": {}
     },
     {
@@ -48,10 +70,12 @@
     {
       "name": "github-pages",
       "used_by": [".github/workflows/cd-pwa.yml"],
-      "deployment_branch_policy": "GitHub Pages default (workflow build from main)",
+      "role": "Automatic live Pages deploy of the immutable artifact from cd-pwa.yml job deploy. Not the Preview environment. No second Preview Pages environment: actions/deploy-pages input preview is not public.",
+      "deployment_branch_policy": "custom branch policy, main only (rule 62085543)",
       "protection_rules": {
-        "required_reviewers": ["Tyler Kendrick"],
-        "note": "Optional; pair with Preview approval before deploy job runs."
+        "required_reviewers": [],
+        "wait_timer_minutes": 0,
+        "note": "Do not add required reviewers. That would put a human wait back on the Pages deploy. Production is the only approval gate."
       },
       "secrets": {},
       "variables": {}
@@ -74,7 +98,7 @@
     "prerelease_id": "alpha",
     "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
     "dist_tags": {
-      "preview_publish": "alpha (stage dry-run tag; Preview is approval-only and does not publish)",
+      "preview_publish": "alpha (Preview publishes 0.0.0-alpha.N with no environment wait)",
       "production_promotion": "next (Production npm publish --tag next via OIDC; never latest, never dist-tag add)"
     }
   },
@@ -86,7 +110,7 @@
       "bins": ["opensesame"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "stage dry-run tag (preid); Preview does not publish",
+        "alpha": "Preview npm publish",
         "next": "Production OIDC publish --tag next"
       }
     },
@@ -97,14 +121,14 @@
       "bins": ["opensesame-pages"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "stage dry-run tag (preid); Preview does not publish",
-        "next": "Production OIDC publish --tag next"
+        "alpha": "cd-pwa.yml Preview npm job",
+        "next": "cd-pwa.yml Production OIDC publish --tag next"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "Production publishes with an empty token: id-token: write and npm trusted publishing with --provenance. Preview does not publish. CD never runs npm dist-tag add. A version already on the registry is skipped and is not retagged.",
+    "oidc_fallback": "Preview publishes with the repository NPM_TOKEN when set, otherwise id-token: write and npm trusted publishing with --provenance. Production publishes with an empty token. CD never runs npm dist-tag add.",
     "repository": "OpenSesame-Labs/OpenSesame",
     "permissions": "id-token: write",
     "environment": "Production",
