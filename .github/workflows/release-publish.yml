@@ -77,7 +77,7 @@ jobs:
           scripts/lib
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node@24
     - name: Require existing owner-approved release environment protection
       run: node .ci-control/scripts/release/release-environment.mjs
@@ -115,7 +115,7 @@ jobs:
           scripts/lib
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node@24
     - name: Require existing owner-approved release environment protection
       run: node .ci-control/scripts/release/release-environment.mjs
@@ -170,7 +170,7 @@ jobs:
           scripts/lib
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node@24
     - name: Require existing owner-approved release environment protection
       run: node .ci-control/scripts/release/release-environment.mjs
@@ -252,7 +252,7 @@ jobs:
           scripts/lib
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node@24
     - name: Require existing owner-approved release environment protection
       run: node .ci-control/scripts/release/release-environment.mjs
