@@ -10,10 +10,9 @@ import {
   type BoatAccount,
   type BoatClaimStart,
   createBoatCheckout,
-  exchangeBoatAssertion,
   pollBoatClaim,
   readBoatAccount,
-  readBoatAssertion,
+  refreshBoatAccount,
   saveBoatConnection,
   savedBoatConnection,
   startBoatClaim,
@@ -54,14 +53,9 @@ async function accountFor(connectionId: string): Promise<{
   accessToken: string;
   current: BoatAccount;
 }> {
-  const assertion = readBoatAssertion(connectionId);
-  if (!assertion) throw new Error("No Boat identity is sealed here.");
   const { fetch: fetchImpl } = boatCeremonyDependencies.transport();
-  const accessToken = await exchangeBoatAssertion(fetchImpl, assertion);
-  return {
-    accessToken,
-    current: await readBoatAccount(fetchImpl, accessToken),
-  };
+  const refreshed = await refreshBoatAccount(fetchImpl, connectionId);
+  return { accessToken: refreshed.accessToken, current: refreshed.account };
 }
 
 async function pollUntilClaimed(
@@ -96,16 +90,25 @@ async function runClaimFlow(flow: ClaimFlow): Promise<BoatAccount | null> {
   flow.onStarted(started);
   const claimed = await pollUntilClaimed(started, flow.isCurrent);
   if (!claimed || !flow.isCurrent()) return null;
+  // Seal the identity before any other call: if the account read
+  // fails, the claimed assertion must not be lost with the ceremony.
+  const sealed = await saveBoatConnection({
+    email: flow.email.trim(),
+    login: flow.email.trim(),
+    identityAssertion: claimed.identityAssertion,
+    ...(flow.existingId ? { existingId: flow.existingId } : {}),
+  });
   const current = await readBoatAccount(
     boatCeremonyDependencies.transport().fetch,
     claimed.accessToken,
   );
-  await saveBoatConnection({
-    email: flow.email.trim(),
-    login: current.login || current.email,
-    identityAssertion: claimed.identityAssertion,
-    ...(flow.existingId ? { existingId: flow.existingId } : {}),
-  });
+  if (current.login && current.login !== flow.email.trim())
+    await saveBoatConnection({
+      email: flow.email.trim(),
+      login: current.login,
+      identityAssertion: claimed.identityAssertion,
+      existingId: sealed.connectionId,
+    });
   return current;
 }
 
@@ -124,43 +127,57 @@ interface SavedActions {
 
 function useBoatSavedActions(actions: SavedActions) {
   const { saved, setBusy, setFailure, setAccount, setStage, fail } = actions;
+  // The row this hook last rendered with can lag the ceremony that
+  // just sealed one; always resolve the saved row at action time.
+  const currentSaved = useCallback(
+    () => savedBoatConnection(saved?.connectionId) ?? saved,
+    [saved],
+  );
   const onCheckBilling = useCallback(() => {
-    if (!saved) return;
+    const row = currentSaved();
+    if (!row) return;
     setBusy(true);
     setFailure("");
-    void accountFor(saved.connectionId)
+    void accountFor(row.connectionId)
       .then(({ current }) => {
         setAccount(current);
         setStage(current.blockedReason ? "billing" : "ready");
         setBusy(false);
       })
       .catch(fail);
-  }, [fail, saved, setAccount, setBusy, setFailure, setStage]);
+  }, [currentSaved, fail, setAccount, setBusy, setFailure, setStage]);
   const onOpenCheckout = useCallback(() => {
-    if (!saved) return;
+    const row = currentSaved();
+    if (!row) return;
     setBusy(true);
     setFailure("");
+    // Open the tab inside the click's activation window; pointing an
+    // already-open tab at the minted URL survives popup blockers.
+    const tab = window.open("about:blank", "_blank");
     void (async () => {
       try {
-        const { accessToken, current } = await accountFor(saved.connectionId);
+        const { accessToken, current } = await accountFor(row.connectionId);
         setAccount(current);
         const url = await createBoatCheckout(
           boatCeremonyDependencies.transport().fetch,
           accessToken,
         );
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (tab) tab.location.href = url;
+        else window.open(url, "_blank", "noopener,noreferrer");
         setBusy(false);
       } catch (caught) {
+        tab?.close();
         fail(caught);
       }
     })();
-  }, [fail, saved, setAccount, setBusy, setFailure]);
+  }, [currentSaved, fail, setAccount, setBusy, setFailure]);
   const onForget = useCallback(() => {
-    if (!saved) return;
+    const row = currentSaved();
+    if (!row) return;
     setBusy(true);
     setFailure("");
     actions.stopPolling();
-    void revokeDeviceConnection(saved.connectionId)
+    void revokeDeviceConnection(row.connectionId)
       .then(() => {
         setStage("email");
         setAccount(null);
@@ -170,7 +187,7 @@ function useBoatSavedActions(actions: SavedActions) {
         actions.onChanged();
       })
       .catch(fail);
-  }, [actions, fail, saved, setAccount, setBusy, setFailure, setStage]);
+  }, [actions, currentSaved, fail, setAccount, setBusy, setFailure, setStage]);
   return { onCheckBilling, onOpenCheckout, onForget };
 }
 

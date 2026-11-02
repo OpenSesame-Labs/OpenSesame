@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   createBoatCheckout,
   exchangeBoatAssertion,
   pollBoatClaim,
   readBoatAccount,
+  readBoatAssertion,
+  refreshBoatAccount,
+  saveBoatConnection,
   startBoatClaim,
 } from "./boat-ceremony.js";
+import { kvForgetAll } from "./kv.js";
+
+beforeEach(kvForgetAll);
 
 function fakeBoat(pollResults: ("pending" | "claimed")[]) {
   const calls: string[] = [];
@@ -26,7 +32,10 @@ function fakeBoat(pollResults: ("pending" | "claimed")[]) {
     if (url.endsWith("/api/boat/oauth2/token")) {
       const form = new URLSearchParams(String(init?.body ?? ""));
       if (form.get("grant_type")?.includes("jwt-bearer"))
-        return Response.json({ access_token: "tok_exchanged" });
+        return Response.json({
+          access_token: "tok_exchanged",
+          identity_assertion: "assertion_rotated",
+        });
       const next = pollResults[pollIndex++] ?? "claimed";
       if (next === "pending")
         return Response.json(
@@ -101,11 +110,31 @@ describe("boat claim ceremony client", () => {
     ).resolves.toBe("https://checkout.stripe.com/c/pay/cs_test_123");
   });
 
-  it("exchanges the sealed assertion for a fresh access token", async () => {
+  it("exchanges the sealed assertion and surfaces the rotated one", async () => {
     const fake = fakeBoat([]);
     await expect(
       exchangeBoatAssertion(fake.fetchImpl, "assertion_test"),
-    ).resolves.toBe("tok_exchanged");
+    ).resolves.toEqual({
+      accessToken: "tok_exchanged",
+      identityAssertion: "assertion_rotated",
+    });
+  });
+
+  it("persists the rotated assertion when refreshing a saved account", async () => {
+    const fake = fakeBoat([]);
+    const saved = await saveBoatConnection({
+      email: "person@example.test",
+      login: "person@example.test",
+      identityAssertion: "assertion_test",
+    });
+    expect(readBoatAssertion(saved.connectionId)).toBe("assertion_test");
+    const refreshed = await refreshBoatAccount(
+      fake.fetchImpl,
+      saved.connectionId,
+    );
+    expect(refreshed.account.login).toBe("person@example.test");
+    // Assertions are one-use: the rotated one must replace the sealed one.
+    expect(readBoatAssertion(saved.connectionId)).toBe("assertion_rotated");
   });
 
   it("refuses a claim URL that does not point at Boat's claim path", async () => {

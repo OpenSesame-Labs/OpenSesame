@@ -25,6 +25,7 @@ import type { Connection } from "./connections.js";
 import { readDeviceSecrets } from "./device-connector-records.js";
 import {
   listDeviceConnections,
+  publicConnectorFields,
   saveDeviceConnectorConfigurationDurable,
 } from "./device-connectors.js";
 
@@ -250,11 +251,17 @@ export async function createBoatCheckout(
   return url.href;
 }
 
+export interface BoatExchange {
+  accessToken: string;
+  /** Assertions are one-use and rotate: persist this before anything else. */
+  identityAssertion?: string;
+}
+
 /** Exchange the sealed identity assertion for a short-lived access token. */
 export async function exchangeBoatAssertion(
   fetchImpl: FetchImpl,
   identityAssertion: string,
-): Promise<string> {
+): Promise<BoatExchange> {
   const form = new URLSearchParams({
     grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
     assertion: identityAssertion,
@@ -270,13 +277,44 @@ export async function exchangeBoatAssertion(
   const accessToken = stringField(parsed, "access_token");
   if (!response.ok || !accessToken)
     throw new Error("Boat refused the saved identity. Claim Boat again.");
-  return accessToken;
+  const rotated = stringField(parsed, "identity_assertion");
+  return rotated ? { accessToken, identityAssertion: rotated } : { accessToken };
 }
 
 /** The sealed identity assertion for one saved Boat connection. */
 export function readBoatAssertion(connectionId: string): string | null {
   const assertion = readDeviceSecrets()[connectionId]?.identity_assertion;
   return assertion && assertion.length > 0 ? assertion : null;
+}
+
+/**
+ * Exchange the sealed assertion, persist its rotation before any
+ * other call can race it, then read the account. Losing a rotated
+ * assertion would strand the connection: assertions are one-use.
+ */
+export async function refreshBoatAccount(
+  fetchImpl: FetchImpl,
+  connectionId: string,
+): Promise<{ accessToken: string; account: BoatAccount }> {
+  const assertion = readBoatAssertion(connectionId);
+  if (!assertion) throw new Error("No Boat identity is sealed here.");
+  const exchanged = await exchangeBoatAssertion(fetchImpl, assertion);
+  if (
+    exchanged.identityAssertion &&
+    exchanged.identityAssertion !== assertion
+  ) {
+    const fields = publicConnectorFields(connectionId);
+    await saveBoatConnection({
+      email: fields.account_email ?? "",
+      login: fields.account_login ?? fields.account_email ?? "",
+      identityAssertion: exchanged.identityAssertion,
+      existingId: connectionId,
+    });
+  }
+  return {
+    accessToken: exchanged.accessToken,
+    account: await readBoatAccount(fetchImpl, exchanged.accessToken),
+  };
 }
 
 /** The saved Boat connection on this device, when the ceremony finished. */
