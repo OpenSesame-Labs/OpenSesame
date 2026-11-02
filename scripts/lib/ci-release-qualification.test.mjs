@@ -133,7 +133,7 @@ describe("release qualification evidence", () => {
       expect(body).not.toContain("continue-on-error");
     }
     expect(job(release, "security")).toContain(
-      "pnpm install --frozen-lockfile --ignore-scripts",
+      "npm ci --ignore-scripts",
     );
     const record = job(release, "record");
     expect(record).toContain(
@@ -171,7 +171,7 @@ function fixture() {
   mkdirSync(bin);
   const log = join(directory, "commands.log");
   writeFileSync(
-    join(bin, "pnpm"),
+    join(bin, "npm"),
     '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\nif [ "${FAKE_MUTATE:-0}" = 1 ]; then printf changed >> tracked.txt; fi\nexit "${FAKE_STATUS:-0}"\n',
     { mode: 0o755 },
   );
@@ -257,11 +257,11 @@ describe("complete coverage and publication boundaries", () => {
       expect(workflow).not.toContain("continue-on-error");
     }
     expect(read("ci-coverage.yml")).toContain("suite: [typescript, rust]");
-    expect(read("ci-coverage.yml")).toContain("pnpm test:coverage:ts");
-    expect(read("ci-coverage.yml")).toContain("pnpm test:coverage:rust");
+    expect(read("ci-coverage.yml")).toContain("npm run test:coverage:ts");
+    expect(read("ci-coverage.yml")).toContain("npm run test:coverage:rust");
     expect(
       read("complete-verify.yml").indexOf("await loadTailscaleAssets();"),
-    ).toBeLessThan(read("complete-verify.yml").indexOf("pnpm verify 2>&1"));
+    ).toBeLessThan(read("complete-verify.yml").indexOf("npm run verify 2>&1"));
   });
 });
 

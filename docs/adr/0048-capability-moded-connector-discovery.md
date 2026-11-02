@@ -201,7 +201,7 @@ settings-file reader behind `/v1/plugins`, whose own dependencies
 (`directories`, `hex`, `sha2`, `serde`, `serde_json`, `thiserror`) were
 already in the daemon's tree. `rcgen`, `tokio-rustls`'s server half used for
 TLS termination, and the proxy crate itself stay outside it.
-`pnpm audit:plugin-boundary` (`scripts/audit/plugin-boundary-gate.sh`) fails
+`npm run audit:plugin-boundary` (`scripts/audit/plugin-boundary-gate.sh`) fails
 if `opensesame-daemon`'s normal tree — default features or `tailscale` —
 reaches `opensesame-surrogate-proxy` or `rcgen`, and its negative control
-(`pnpm test:plugin-boundary`) proves the gate fails on a tree that does.
+(`npm run test:plugin-boundary`) proves the gate fails on a tree that does.

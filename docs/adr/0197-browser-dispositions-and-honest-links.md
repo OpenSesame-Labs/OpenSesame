@@ -64,10 +64,10 @@ the "Docs" of 31 services that publish none.
 4. **A key is never proven by a public call.** A model list that answers without a
    key is `no-key-check`, not a verify contract. Saving a key OpenSesame has not
    proven would repeat the failure ADR 0185 exists to prevent.
-5. **Evidence is re-runnable.** `pnpm audit:browser-dispositions` re-probes every
+5. **Evidence is re-runnable.** `npm run audit:browser-dispositions` re-probes every
    recorded request from the audited origin, sends no credential, and exits 1 when
    an answer has moved (a refusal that now admits, or the reverse). It needs the
-   network, so it is not in `pnpm verify`.
+   network, so it is not in `npm run verify`.
 6. **A link says what its address is.** `docs_url` is the product's own
    documentation. fnox's pages stay as `provenance_url` and, where fnox is the only
    source (a plaintext file, a sealed file, an encrypted remote, a command, the OS

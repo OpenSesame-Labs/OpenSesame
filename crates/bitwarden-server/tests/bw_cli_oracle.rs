@@ -5,7 +5,7 @@
 //! the other side with `OpenSesame`'s native Bitwarden client, so a value `bw`
 //! wrote is read back by an independent implementation of the key schedule.
 //!
-//! `#[ignore]`d: `pnpm test:bitwarden-oracle` installs the pinned CLI and runs
+//! `#[ignore]`d: `npm run test:bitwarden-oracle` installs the pinned CLI and runs
 //! these with `--ignored`. Without `OPENSESAME_BW_CLI` they fail, never skip.
 mod common;
 
@@ -251,7 +251,7 @@ async fn assert_zero_knowledge(harness: &Harness, alice: &Account) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_manages_a_personal_vault_end_to_end() {
     let harness = Harness::start().await;
     let alice = Account::register(&harness.http_url, "Alice@Example.com", PASSWORD, ARGON2ID).await;
@@ -270,7 +270,7 @@ async fn bw_manages_a_personal_vault_end_to_end() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_import_lands_whole() {
     let harness = Harness::start().await;
     Account::register(

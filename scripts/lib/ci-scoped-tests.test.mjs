@@ -43,7 +43,7 @@ describe("ci scoped tests", () => {
   it("treats manifests, configs and lockfiles as infrastructure", () => {
     for (const path of [
       "packages/a/package.json",
-      "pnpm-lock.yaml",
+      "package-lock.json",
       "packages/a/tsconfig.json",
       "packages/a/vitest.config.ts",
       "packages/a/vite.config.ts",

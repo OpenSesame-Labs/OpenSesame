@@ -47,9 +47,9 @@ reasons live in `src/exclusions.ts`.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/capability-registry test
-pnpm --filter @opensesame/capability-registry typecheck
-pnpm --filter @opensesame/capability-registry generate   # rewrite capabilities.json, surface-gaps.json, pwa-summaries.json
+npm run test -w @opensesame/capability-registry
+npm run typecheck -w @opensesame/capability-registry
+npm run generate -w @opensesame/capability-registry   # rewrite capabilities.json, surface-gaps.json, pwa-summaries.json
 ```
 
 After editing `CAPABILITIES`, run `generate` and commit the JSON; the sync

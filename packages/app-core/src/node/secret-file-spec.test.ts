@@ -2,8 +2,8 @@
  * `spec/secret-files/*.schema.json` is the file format's definition for every
  * plane (ADR 0139, ADR 0182), generated from the schemas the TypeScript plane
  * reads with. A change to a schema that is not regenerated fails here:
- * `UPDATE_SECRET_FILE_SPEC=1 pnpm --filter @opensesame/app-core exec vitest run src/node/secret-file-spec.test.ts`,
- * then `pnpm exec biome format --write spec/secret-files`.
+ * `UPDATE_SECRET_FILE_SPEC=1 npm exec -w @opensesame/app-core -- vitest run src/node/secret-file-spec.test.ts`,
+ * then `npm exec -- biome format --write spec/secret-files`.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

@@ -20,9 +20,9 @@ these are in-page WebMCP tools.
 ## Reproduce against shipped bytes
 
 ```bash
-VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 PLAYWRIGHT_CHROMIUM=/path/to/webmcp-capable/chrome \
-  pnpm --filter @opensesame/pages verify:webmcp
+  npm run verify:webmcp -w @opensesame/pages
 ```
 
 A browser without the `WebMCP` DevTools domain (the Chromium 141 in the

@@ -101,7 +101,7 @@ flag day: no forced password reset and no re-encryption.
 - A person can move from Bitwarden or vaultwarden to their own Host without
   changing apps: with the importer (ADR 0148), or by exporting the vault from
   the old server and importing it with `bw import`.
-- `pnpm test:bitwarden-oracle` installs `@bitwarden/cli@2026.9.0` into
+- `npm run test:bitwarden-oracle` installs `@bitwarden/cli@2026.9.0` into
   `.cache/bitwarden-oracle/` and runs the oracle suites; they fail rather than
   skip without it. `tests/protocol.rs` covers refusals, isolation and wire
   shapes in ordinary CI. Raising the pinned client is a deliberate change made

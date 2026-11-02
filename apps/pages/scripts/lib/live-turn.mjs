@@ -1,7 +1,7 @@
 /**
  * The TURN server the relayed walks use for TCP and TLS (ADR 0150 §6):
  * `live-turn`, a pion/turn server (scripts/test/live-turn, built into
- * .cache/live-fixtures/bin by `pnpm test:live-fixtures`) that speaks UDP, TCP
+ * .cache/live-fixtures/bin by `npm run test:live-fixtures`) that speaks UDP, TCP
  * and TLS at once and says, over a control endpoint, what each transport saw.
  * node-turn, which the UDP walk keeps, is UDP only.
  *

@@ -2,7 +2,7 @@
  * Workspace discovery -- turns both planes into one comparable component graph.
  *
  * A "component" here is what Robert C. Martin calls a package: the granule of
- * release. In this repo that is a pnpm workspace package or a Cargo crate, so
+ * release. In this repo that is an npm workspace package or a Cargo crate, so
  * both are read from their own authoritative manifest and normalised into the
  * same shape for scripts/lib/martin-metrics.mjs to score.
  */
@@ -34,9 +34,19 @@ export function typescriptComponents(root) {
     ),
   );
 
-  const components = [];
+  const manifestsByPath = new Map();
   for (const manifestPath of [...manifests].sort()) {
     const manifest = JSON.parse(readFileSync(join(root, manifestPath), "utf8"));
+    manifestsByPath.set(manifestPath, manifest);
+  }
+  const workspaceNames = new Set(
+    [...manifestsByPath.values()]
+      .map((manifest) => manifest.name)
+      .filter((name) => name !== undefined),
+  );
+
+  const components = [];
+  for (const [manifestPath, manifest] of manifestsByPath) {
     // The workspace globs can match a manifest with no name (a private
     // scratch package); it is not a component, so skip it.
     if (manifest.name === undefined) continue;
@@ -44,18 +54,27 @@ export function typescriptComponents(root) {
       name: manifest.name,
       dir: dirname(manifestPath),
       plane: "ts",
-      deps: internalDeps(manifest.dependencies, manifest.peerDependencies),
-      devDeps: internalDeps(manifest.devDependencies),
+      deps: internalDeps(
+        workspaceNames,
+        manifest.dependencies,
+        manifest.peerDependencies,
+      ),
+      devDeps: internalDeps(workspaceNames, manifest.devDependencies),
     });
   }
   return components;
 }
 
-function internalDeps(...groups) {
+function internalDeps(workspaceNames, ...groups) {
   const names = new Set();
   for (const group of groups) {
     for (const [name, range] of Object.entries(group ?? {})) {
-      if (String(range).startsWith(WORKSPACE_PROTOCOL)) names.add(name);
+      const spec = String(range);
+      // npm workspaces link by package name (`*`). The workspace: protocol
+      // remains an internal edge so older fixtures still count.
+      if (spec.startsWith(WORKSPACE_PROTOCOL) || workspaceNames.has(name)) {
+        names.add(name);
+      }
     }
   }
   return [...names].sort();
@@ -76,7 +95,7 @@ export function rustComponents(root) {
     // while saying nothing about 55 crates. Fail, but say what to install.
     throw new Error(
       cause.code === "ENOENT"
-        ? "cargo not found. The component-coupling gate scores both planes, so it needs the Rust toolchain even for a TypeScript-only change.\nInstall it with rustup (https://rustup.rs), or run the TypeScript half alone with `pnpm quality:gate`."
+        ? "cargo not found. The component-coupling gate scores both planes, so it needs the Rust toolchain even for a TypeScript-only change.\nInstall it with rustup (https://rustup.rs), or run the TypeScript half alone with `npm run quality:gate`."
         : `cargo metadata failed: ${cause.message}`,
       { cause },
     );

@@ -168,7 +168,7 @@ tree against a fixed allowlist, plus banned crates (`sqlx`, `oauth2`,
 in the daemon's manifest and depth-1 resolved tree and in the `invoke-through` /
 `tailscale-authn` / `uds-authn` trees. A workspace member the daemon does not
 depend on appears in none of those, which is what makes this topology legal without amending
-ADR 0048 §5 — and what makes `pnpm audit:daemon-deps` the regression alarm
+ADR 0048 §5 — and what makes `npm run audit:daemon-deps` the regression alarm
 if someone later wires a bridge into the daemon. Full argument in
 [ADR 0053](../adr/0053-pm-bridge-binaries.md) §2.
 
@@ -218,7 +218,7 @@ Three endpoints are machine-wide singletons and are never taken by default
 ## Manual interop smoke test
 
 Not automated (each step needs a third-party client), and not part of
-`pnpm verify`. Run it before claiming a bridge works with real software;
+`npm run verify`. Run it before claiming a bridge works with real software;
 record the result and the client versions in the PR.
 
 Prerequisites: a temp sealed store with at least one entry carrying a

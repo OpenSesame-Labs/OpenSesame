@@ -1,7 +1,7 @@
 /**
  * Source that names a path inside a workspace member's own node_modules (the
  * member's directory, then `node_modules/<dependency>`) holds only under
- * pnpm's isolated layout. Under a hoisted or nested layout the member has no
+ * npm's isolated layout. Under a hoisted or nested layout the member has no
  * such directory, and the build, the tool or the harness fails. Such code asks
  * Node's resolution instead (`apps/pages/scripts/lib/dependency-root.mjs`,
  * `tests/mtls-interop/harness/tsx-cli.mjs`).

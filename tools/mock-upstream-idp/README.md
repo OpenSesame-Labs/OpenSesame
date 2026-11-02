@@ -6,11 +6,11 @@ Deterministic local OIDC provider for OpenSesame upstream auth tests. Jose-signe
 
 ```bash
 # from repo root
-pnpm --filter @opensesame/mock-upstream-idp build
-pnpm --filter @opensesame/mock-upstream-idp start
+npm run build -w @opensesame/mock-upstream-idp
+npm run start -w @opensesame/mock-upstream-idp
 
 # or with tsx (dev)
-pnpm --filter @opensesame/mock-upstream-idp dev
+npm run dev -w @opensesame/mock-upstream-idp
 ```
 
 Default listen address: `http://127.0.0.1:9090`. A non-loopback `OPENSESAME_MOCK_IDP_HOST` is refused at startup unless `OPENSESAME_ALLOW_NONLOCAL=1` (or `OPENSESAME_DAEMON_ALLOW_NONLOCAL=1`) is set.
@@ -75,5 +75,5 @@ for these clients.
 ## Tests
 
 ```bash
-pnpm --filter @opensesame/mock-upstream-idp test
+npm run test -w @opensesame/mock-upstream-idp
 ```

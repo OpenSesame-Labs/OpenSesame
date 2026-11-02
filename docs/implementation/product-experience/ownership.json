@@ -2,7 +2,7 @@
   "baselineSha": "041aad7955fac098b0dad5adc615a3d7e7492428",
   "shared": {
     "package.json": "STEWARD",
-    "pnpm-lock.yaml": "STEWARD",
+    "package-lock.json": "STEWARD",
     ".github/workflows/ci.yml": "STEWARD",
     "apps/pages/package.json": "STEWARD"
   },

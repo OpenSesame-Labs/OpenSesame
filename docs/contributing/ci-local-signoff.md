@@ -20,6 +20,6 @@ local attestation that the agent already ran the relevant commands on a
 machine. Leave `gh signoff install` unused: that command would add another
 required status, and this repository does not use sign-off as a merge rule.
 
-The pre-push hook remains the local static gate (`pnpm setup:hooks`). Full
-verification is `OPENSESAME_PREPUSH=full` or `pnpm verify`. After the pull
+The pre-push hook remains the local static gate (`npm run setup:hooks`). Full
+verification is `OPENSESAME_PREPUSH=full` or `npm run verify`. After the pull
 request is open, wait for the GitHub CI checks named above.

@@ -19,5 +19,5 @@ Branch: `chore/audit-tick17`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/mobile-mfa test typecheck
+npm run test -w @opensesame/mobile-mfa typecheck
 ```

@@ -45,10 +45,10 @@ try {
 
 
 ```bash
-pnpm --filter @opensesame/testing test
-pnpm --filter @opensesame/testing test:security   # src/security.test.ts only
-pnpm --filter @opensesame/testing typecheck
-pnpm test:security                                # the same, from the root
+npm run test -w @opensesame/testing
+npm run test:security -w @opensesame/testing   # src/security.test.ts only
+npm run typecheck -w @opensesame/testing
+npm run test:security                                # the same, from the root
 ```
 
 The package's own suite also holds one repository check that is not about

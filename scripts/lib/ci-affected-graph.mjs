@@ -33,7 +33,7 @@ const BITWARDEN = new Set([
 ]);
 const PACKAGE_ALL = new Set([
   "package.json",
-  "pnpm-lock.yaml",
+  "package-lock.json",
   "pnpm-workspace.yaml",
   "turbo.json",
 ]);

@@ -12,7 +12,7 @@
 # validation passes without any of this.
 #
 # Runs on every devcontainer start (postStartCommand, which also covers
-# first creation) and via `pnpm skills:install`. Safe to re-run; a lock
+# first creation) and via `npm run skills:install`. Safe to re-run; a lock
 # file (override: OPENSESAME_SKILLS_LOCK_FILE) serializes concurrent
 # runs. Per-skill failures warn and continue (optional profiles may be
 # absent, e.g. offline); the outcome is recorded in

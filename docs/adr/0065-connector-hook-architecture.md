@@ -29,7 +29,7 @@ express `secrets.get`. `crates/connector-host` has the `Connector` trait,
 and a stubbed `wasm_guest` module; a wasmtime workspace pin sat unused
 (activated by this ADR on the 36 LTS line — the 33 line it originally
 named carries RUSTSEC advisories including a critical sandbox escape,
-which `pnpm audit:cargo-audit` now guards); `spec/connectors/mock/connector.yaml` specifies a manifest nobody
+which `npm run audit:cargo-audit` now guards); `spec/connectors/mock/connector.yaml` specifies a manifest nobody
 parses; and `crates/gateway/src/routes/intents.rs` carries the literal
 comment "When per-provider components land, this becomes the lookup."
 
@@ -242,11 +242,11 @@ connector operation superseding the Tier 2 snapshot target.
   catalog row today, as a sandboxed component where logic is required —
   without any path to raw secrets, because the seams chosen are ciphertext-
   or metadata-only and credentials are injected host-side.
-- `pnpm verify`'s full-feature Clippy pass now compiles wasmtime/cranelift
+- `npm run verify`'s full-feature Clippy pass now compiles wasmtime/cranelift
   (minutes added). Accepted: the gate design intentionally builds every
   feature.
 - The gateway grows the only Wasm surface; the daemon provably gains
-  nothing (`pnpm audit:daemon-deps` stays green and now also bans
+  nothing (`npm run audit:daemon-deps` stays green and now also bans
   wasmtime).
 - Trust decisions concentrate where they are reviewable: digests in
   operator config, issuer rows and trust classes in platform code,

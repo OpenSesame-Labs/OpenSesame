@@ -267,7 +267,7 @@ actions, this is the operation where a human must be the one who decides.
 `assertsNoSecretTools` (`apps/mcp-host/src/tools.ts`) and the registry parity
 suites enforce it mechanically.
 
-Gate: `pnpm --filter @opensesame/capability-registry test`
+Gate: `npm run test` -w @opensesame/capability-registry
 
 ## Alternatives considered
 

@@ -44,7 +44,7 @@ test.each([
     ".ts",
   ],
   ["/repo/packages/app-core/src/lib/zod-jitless.ts", ".ts"],
-  ["/repo/node_modules/.pnpm/zod@4.4.3/node_modules/zod/index.js", ".js"],
+  ["/repo/node_modules/zod/index.js", ".js"],
   [
     "/repo/packages/app-core/src/lib/secret-backends/onepassword-artifacts.json",
     ".json",

@@ -169,7 +169,7 @@ hold — do not just restate the item back as a finding.
 - A security review never becomes a GitHub Actions job (see
   `ops/routines/pr-security-review.md`). `.github/workflows/` holds `ci.yml`
   (the required pull-request checks), `deploy-pages.yml`, `full-suite.yml` and
-  `password-parity.yml`, and none of them runs the `pnpm audit:*` gates; those
+  `password-parity.yml`, and none of them runs the `npm run audit:*` gates; those
   run from the local git hooks and the Routines.
 - No new paid dependencies or services introduced to satisfy a finding.
 - Never commit, log, or quote a real secret value in a PR description, commit message,

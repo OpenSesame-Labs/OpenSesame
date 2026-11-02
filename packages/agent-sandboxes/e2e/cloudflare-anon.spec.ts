@@ -32,8 +32,8 @@ export default {
     if (url.pathname === "/reset" && request.method === "POST") {
       const form = await request.formData();
       const ok = form.get("current_password") === state.current
-        && String(form.get("new_password") ?? "").length >= 8
-        && form.get("new_password") === form.get("confirm_password");
+  && String(form.get("new_password") ?? "").length >= 8
+  && form.get("new_password") === form.get("confirm_password");
       if (!ok) return new Response("Rejected", { status: 400 });
       state.submissions += 1;
       state.current = String(form.get("new_password"));

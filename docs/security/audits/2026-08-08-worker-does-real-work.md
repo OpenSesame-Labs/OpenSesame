@@ -46,5 +46,5 @@ clock that does not reach the store would be testing a different TTL.
   differing from an empty prune)
 - Confirmed by running it: with `DATABASE_URL` unset the worker logs the reason and
   exits instead of looping
-- `pnpm -r typecheck`, `packages/database` tests, biome — green
+- `npm run -r typecheck`, `packages/database` tests, biome — green
 - cve-lite, osv-scanner, gitleaks, semgrep, ast-grep, clippy, cargo-deny — clean

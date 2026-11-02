@@ -6,7 +6,7 @@ alwaysApply: true
 # Anti-slop
 
 This repo vendors [anti-slop](https://github.com/dmmulroy/anti-slop) at
-`tools/oxlint/anti-slop/` and runs it via `pnpm lint:anti-slop`.
+`tools/oxlint/anti-slop/` and runs it via `npm run lint:anti-slop`.
 
 - Do not add `as` assertions without a preceding `SAFETY:` comment that states
   the checked invariant.
@@ -17,5 +17,5 @@ This repo vendors [anti-slop](https://github.com/dmmulroy/anti-slop) at
   narrowed check (this repo enables `exactOptionalPropertyTypes`).
 - Do not chain type assertions or widen a known value and assert it back.
 - Prefer `satisfies` and inference over explicit broad target types.
-- Run `pnpm lint:anti-slop` on TypeScript you touch. Do not disable these
+- Run `npm run lint:anti-slop` on TypeScript you touch. Do not disable these
   rules or launder types to silence them.

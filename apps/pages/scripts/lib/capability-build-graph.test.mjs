@@ -53,14 +53,14 @@ describe("classification", () => {
       },
     );
   });
-  test("pnpm node_modules paths normalize to node_modules/<pkg>", () => {
+  test("npm run node_modules paths normalize to node_modules/<pkg>", () => {
     const entry = classify(
-      "/repo/node_modules/.pnpm/@vercel+connect@2.2.0/node_modules/@vercel/connect/dist/index.js?commonjs-entry",
+      "/repo/node_modules/@vercel/connect/dist/index.js?commonjs-entry",
     );
     assert.equal(entry.id, "node_modules/@vercel/connect/dist/index.js");
     assert.equal(entry.capability, "connectors.external");
     assert.equal(
-      classify("/repo/node_modules/.pnpm/zod@4/node_modules/zod/index.js")
+      classify("/repo/node_modules/zod/index.js")
         .rationale,
       "unclassified dependency",
     );

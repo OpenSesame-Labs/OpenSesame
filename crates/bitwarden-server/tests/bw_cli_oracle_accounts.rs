@@ -2,7 +2,7 @@
 //! change from PBKDF2 to Argon2id, an imported legacy server hash upgraded on
 //! sign-in, token refresh, and the operator's signup policy.
 //!
-//! `#[ignore]`d like `bw_cli_oracle.rs`; `pnpm test:bitwarden-oracle` runs it.
+//! `#[ignore]`d like `bw_cli_oracle.rs`; `npm run test:bitwarden-oracle` runs it.
 mod common;
 
 use std::time::Duration;
@@ -33,7 +33,7 @@ async fn prelogin(harness: &Harness, email: &str) -> Value {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn a_pbkdf2_account_moves_to_argon2id_and_bw_follows() {
     let harness = Harness::start().await;
     let mut bob = Account::register(&harness.http_url, "bob@example.com", PASSWORD, PBKDF2).await;
@@ -87,7 +87,7 @@ async fn a_pbkdf2_account_moves_to_argon2id_and_bw_follows() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn an_imported_legacy_server_hash_upgrades_on_bw_sign_in() {
     let harness = Harness::start().await;
     let carol = Account::register(&harness.http_url, "carol@example.com", PASSWORD, ARGON2ID).await;
@@ -140,7 +140,7 @@ async fn an_imported_legacy_server_hash_upgrades_on_bw_sign_in() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_refreshes_short_lived_access_tokens() {
     let harness = Harness::start_with(|mut config| {
         config.access_token_ttl = Duration::from_secs(60);

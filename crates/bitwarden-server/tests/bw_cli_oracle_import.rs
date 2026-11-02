@@ -2,7 +2,7 @@
 //! on one server is moved by the importer, and a fresh `bw` signed in to the
 //! new server with the same master password reads every item back.
 //!
-//! `#[ignore]`d like the other oracle suites; `pnpm test:bitwarden-oracle` runs
+//! `#[ignore]`d like the other oracle suites; `npm run test:bitwarden-oracle` runs
 //! it with the pinned CLI and fails, never skips, without it.
 mod common;
 
@@ -25,7 +25,7 @@ impl Ask for Never {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn a_vault_bw_wrote_moves_and_bw_reads_it_back_on_the_new_server() {
     let old = Harness::start().await;
     Account::register(&old.http_url, "mover@example.com", PASSWORD, ARGON2ID).await;
@@ -90,7 +90,7 @@ async fn a_vault_bw_wrote_moves_and_bw_reads_it_back_on_the_new_server() {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_signs_in_to_a_moved_vaultwarden_account_with_its_old_password() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("db.sqlite3");

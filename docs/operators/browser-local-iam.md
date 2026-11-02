@@ -244,11 +244,11 @@ production origin isolation.
 ## Verify
 
 ```sh
-VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
-pnpm --filter @opensesame/pages verify:local-iam
-pnpm --filter @opensesame/pages verify:siop
-pnpm --filter @opensesame/pages exec vitest run scripts/local-iam-headers.test.mjs
-pnpm --filter @opensesame/static-auth test
+VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
+npm run verify:local-iam -w @opensesame/pages
+npm run verify:siop -w @opensesame/pages
+npm exec -w @opensesame/pages -- vitest run scripts/local-iam-headers.test.mjs
+npm run test -w @opensesame/static-auth
 ```
 
 The browser verifier uses two intercepted HTTPS origins, real encrypted storage,

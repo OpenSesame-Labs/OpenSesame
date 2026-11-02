@@ -61,7 +61,7 @@ your job is to **finish, correct, and prove** it — not to rubber-stamp it.
 
 8. **Design-system landmines.** Word-verb buttons, status text pills, explainer
    captions, and the word “Host” in Pages copy/comments/identifiers fail
-   `pnpm lint:design` and ADR 0128. Icon keys + `StatusMark` only.
+   `npm run lint:design` and ADR 0128. Icon keys + `StatusMark` only.
 
 9. **“Tests pass” ≠ production.** Seam-stubbed sync tests that never hit
    `git-backup-put.mjs` request shaping leave Bitbucket form encoding, GitLab
@@ -84,7 +84,7 @@ your job is to **finish, correct, and prove** it — not to rubber-stamp it.
 - GitHub keeps App Manifest + local PEM + `/api/github-app/put-contents`.
 - GitLab / Bitbucket / Codeberg / Origin / generic `git` use GitConnectForm +
   sealed HTTPS credentials + `/api/git-backup/put`.
-- Module size ≤ 400 lines; `pnpm lint:anti-slop` clean; no unjustified `as`.
+- Module size ≤ 400 lines; `npm run lint:anti-slop` clean; no unjustified `as`.
 
 ---
 
@@ -109,14 +109,14 @@ your job is to **finish, correct, and prove** it — not to rubber-stamp it.
 | `crates/connection-broker/src/catalog.json` | Provider authorities/scopes |
 | `packages/app-core/src/lib/embedded-catalog.ts`, `vercel-connect-catalog.ts` | Pages catalog |
 
-**Toolchain:** Node ≥ 22, pnpm 9.15 via Corepack, Vitest for Pages, `node --test`
+**Toolchain:** Node ≥ 22, npm run 9.15 via npm, Vitest for Pages, `node --test`
 for connect-backend. No `sudo`.
 
 **Validation commands (must all pass on touched surfaces):**
 
 ```bash
-pnpm --filter @opensesame/connect-backend test
-pnpm --filter @opensesame/pages exec vitest run \
+npm run test -w @opensesame/connect-backend
+npm exec -w @opensesame/pages -- vitest run \
   src/lib/backup.test.ts \
   src/lib/backup-target-local.ts \
   src/lib/git-backup-forges.test.ts \
@@ -127,11 +127,11 @@ pnpm --filter @opensesame/pages exec vitest run \
   src/sections/connections/BackupEnableSwitch.tsx \
   src/sections/connections/SettingsPage.backup-switch.test.tsx \
   src/sections/settings/FeatureBindingsPanel.test.tsx
-pnpm lint:anti-slop:files <every touched .ts/.tsx>
-pnpm lint:design
+npm run lint:anti-slop:files <every touched .ts/.tsx>
+npm run lint:design
 # After Pages UI touch affecting boot/settings/connections:
-VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium pnpm --filter @opensesame/pages verify:static
+VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium npm run verify:static -w @opensesame/pages
 ```
 
 Add focused tests you introduce to the vitest list. Do not lower quality baselines.
@@ -215,7 +215,7 @@ are the definition of done.
 8. Webhook pending queue: enqueue + drain tests; document in-module that memory
    is non-durable on serverless.
 
-**Acceptance:** `pnpm --filter @opensesame/connect-backend test` green; at least
+**Acceptance:** `npm run test` -w @opensesame/connect-backend green; at least
 one node:test case per forge dialect including Origin.
 
 **Forbidden:** returning tokens to the browser; logging PEM/token; calling Host.
@@ -247,7 +247,7 @@ one node:test case per forge dialect including Origin.
    needed).
 
 **Acceptance:** Vitest suites for forges, target CRUD, sync success/fail/disabled,
-observer publish. `pnpm lint:anti-slop:files` on owned files.
+observer publish. `npm run lint:anti-slop:files` on owned files.
 
 **Forbidden:** importing `identity.js` `hostFetch`; ADR 0128 Host vocabulary in
 identifiers/comments/copy.
@@ -277,7 +277,7 @@ identifiers/comments/copy.
 6. Design lint clean: icon keys, StatusMark, no Host word, no explainer captions.
 
 **Acceptance:** GitConnectForm test binds gitlab remote → `putBackupTarget`
-called with owner/repo; Settings backup-switch tests; `pnpm lint:design` on
+called with owner/repo; Settings backup-switch tests; `npm run lint:design` on
 touched UI.
 
 ---

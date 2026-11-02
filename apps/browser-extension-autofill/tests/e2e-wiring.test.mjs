@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { readyWorker } from "../e2e/harness/worker.mjs";
 
 // The browser end-to-end suite (`e2e/`) is wired into the repository's e2e
-// aggregation and nowhere else: `pnpm test` needs no browser, no port and no
-// build. This runs in `pnpm test` and reads files only.
+// aggregation and nowhere else: `npm test` needs no browser, no port and no
+// build. This runs in `npm test` and reads files only.
 const here = dirname(fileURLToPath(import.meta.url));
 const companion = join(here, "..");
 const root = join(companion, "../..");

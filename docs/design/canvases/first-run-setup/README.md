@@ -107,7 +107,7 @@ constraints of its own.
   said exactly that beside a working Okta sign-in, which is what this redraw
   answers.
 - **The commit is an ink square,** the shared `.go` control — not a wide text
-  button. See `docs/design/controls.md`, enforced by `pnpm lint:design`.
+  button. See `docs/design/controls.md`, enforced by `npm run lint:design`.
 
 ## Open questions
 

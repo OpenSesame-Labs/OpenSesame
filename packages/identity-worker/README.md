@@ -7,7 +7,7 @@ The Host plane's workload connector host is a different thing, served by
 
 ## Where it fits
 
-- **Used by:** the root `pnpm dev` starts it. Nothing in the workspace
+- **Used by:** the root `npm run dev` starts it. Nothing in the workspace
   imports the package.
 - **Builds on:** [`@opensesame/database`](../../packages/database)
   (repositories, Drizzle, the OIDC store), [`@opensesame/webhooks`](../../packages/webhooks),
@@ -39,12 +39,12 @@ unusable one; see
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/identity-worker dev          # tsx watch src/main.ts
-pnpm --filter @opensesame/identity-worker start
-pnpm --filter @opensesame/identity-worker typecheck
-pnpm --filter @opensesame/identity-worker test         # vitest, src/**/*.test.ts
-DATABASE_URL=postgres://… pnpm --filter @opensesame/identity-worker test:postgres  # Web Push tick on a real Postgres
-pnpm test:nats-dogfood                        # real nats-server
+npm run dev -w @opensesame/identity-worker          # tsx watch src/main.ts
+npm run start -w @opensesame/identity-worker
+npm run typecheck -w @opensesame/identity-worker
+npm run test -w @opensesame/identity-worker         # vitest, src/**/*.test.ts
+DATABASE_URL=postgres://… npm run test:postgres -w @opensesame/identity-worker  # Web Push tick on a real Postgres
+npm run test:nats-dogfood                        # real nats-server
 ```
 
 ## Related

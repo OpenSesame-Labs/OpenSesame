@@ -88,7 +88,7 @@ import { localStore, sessionStore } from "../ports.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 const originalNetworkEligibility = localNetworkFetchSeams.eligible;
 
-/** Node 22 shadows Storage with an unavailable experimental global. */
+/** Node 24 shadows Storage with an unavailable experimental global. */
 function ensureWebStorage(): void {
   const memory = (): Storage => {
     const map = new Map<string, string>();

@@ -91,6 +91,6 @@ them onto `PeerIdentitySelector` from `@opensesame/os-domain` when binding.
 
 ## Tests
 
-`pnpm --filter @opensesame/ingress-evidence test` runs the shared corpus and a
+`npm run test` -w @opensesame/ingress-evidence runs the shared corpus and a
 verifier suite that builds a disposable PKI with the `openssl` CLI in a temp
 directory (an oracle independent of Node) and deletes it afterwards.

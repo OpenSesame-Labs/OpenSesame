@@ -20,7 +20,7 @@ cargo +1.88.0 clippy -p opensesame-collab-adapter --all-targets --all-features -
 ```
 
 Result at the time of writing: **39 passed, 0 failed, 1 ignored** (the ignored
-one is `tests/live.rs`), Clippy clean under the flags `pnpm audit:clippy` uses.
+one is `tests/live.rs`), Clippy clean under the flags `npm run audit:clippy` uses.
 Every module is inside ADR 0093's 400-line budget, and
 `node scripts/quality/quality-gate.mjs` reports no regression attributable to this
 crate.

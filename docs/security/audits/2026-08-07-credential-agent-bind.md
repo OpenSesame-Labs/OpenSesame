@@ -20,5 +20,5 @@ Branch: `chore/audit-tick11`
 
 ```bash
 cargo +1.88.0 clippy -p opensesame-credential-agent -- -D warnings
-pnpm audit:ast-grep
+npm run audit:ast-grep
 ```

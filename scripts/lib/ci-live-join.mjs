@@ -1,6 +1,6 @@
 /**
  * Paths outside the Pages build that the live-join walk (ADR 0150) stands on:
- * the servers it runs, built or fetched pinned (`pnpm test:live-fixtures`).
+ * the servers it runs, built or fetched pinned (`npm run test:live-fixtures`).
  * `selectGates` counts them, as it does the relay-join walk's
  * (ci-relay-join.mjs), so a change to one runs the walk that uses it.
  */

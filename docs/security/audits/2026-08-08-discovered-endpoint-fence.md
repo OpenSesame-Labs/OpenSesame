@@ -52,6 +52,6 @@ choice, and loopback is the point of it in development.
   schemes; a public cross-host key set and a loopback-issuer pair still accepted)
 - `packages/sdk-cli` — 16 passed (2 new: a remote issuer naming a loopback
   `token_endpoint` refused; a loopback issuer's loopback endpoints untouched)
-- `packages/sdk-browser` — 11 passed; `pnpm -r typecheck` and the full workspace
+- `packages/sdk-browser` — 11 passed; `npm run -r typecheck` and the full workspace
   suite green
 - cve-lite, osv-scanner, gitleaks, semgrep, ast-grep — clean

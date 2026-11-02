@@ -123,5 +123,5 @@ or a payload someone has already copied.
 - Claim page: drop branch renders reveal after present; second visit shows
   the consumed line.
 
-Gates: `pnpm --filter @opensesame/pages test`, `tsc --noEmit`, per-file
+Gates: `npm run test`, -w @opensesame/pages `tsc --noEmit`, per-file
 oxlint anti-slop, biome.

@@ -68,7 +68,7 @@ installed app.
   card, beside the facts that justify it (the artboards draw it as a
   `.btn--primary`; the build uses an `icon-btn`); the foot bar keeps its `.go`
   square reading "Finish setup". See
-  [`docs/design/controls.md`](../../controls.md), enforced by `pnpm lint:design`.
+  [`docs/design/controls.md`](../../controls.md), enforced by `npm run lint:design`.
 
 ## Building and re-seeding
 

@@ -2,7 +2,7 @@
 //! two-step challenge with an authenticator code, and signs in with a
 //! personal API key and then unlocks with the master password.
 //!
-//! `#[ignore]`d like the other oracle suites; `pnpm test:bitwarden-oracle` runs
+//! `#[ignore]`d like the other oracle suites; `npm run test:bitwarden-oracle` runs
 //! it with the pinned CLI and fails, never skips, without it.
 mod common;
 
@@ -43,7 +43,7 @@ async fn call(
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_answers_an_authenticator_challenge() {
     let harness = Harness::start().await;
     let person =
@@ -105,7 +105,7 @@ async fn bw_answers_an_authenticator_challenge() {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_signs_in_with_an_api_key_and_unlocks_with_the_password() {
     let harness = Harness::start().await;
     let person =

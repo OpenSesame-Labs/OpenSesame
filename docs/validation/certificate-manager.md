@@ -20,7 +20,7 @@ number, or a number carried over from
   integration time._
 - Implementation head: _pending: fill from `git rev-parse HEAD` at integration
   time._
-- Toolchain: Rust 1.88 (`cargo +1.88.0`), Node ≥ 22, pnpm 9.15.0, Turbo 2.9.14,
+- Toolchain: Rust 1.88 (`cargo +1.88.0`), Node ≥ 22, npm run 9.15.0, Turbo 2.9.14,
   Biome 1.9.4, Vitest (see `package.json`), Playwright 1.64.1 — versions are canonical in `package.json` / `rust-toolchain.toml` (`AGENTS.md` §2 points there).
 
 ## Delivered behavior
@@ -281,12 +281,12 @@ exact-pinned (the ACME client, gateway). `cryptoki` (HSM client), `kube` and
 `k8s-openapi` (Kubernetes issuer) are not dependencies of any crate in this
 checkout; ADR 0071 and ADR 0072 would add them. The planned syncs and external
 adapters would send third-party egress through
-`ConnectionBroker::authorized_json` (ADR 0048 D5). `pnpm audit:daemon-deps` must
+`ConnectionBroker::authorized_json` (ADR 0048 D5). `npm run audit:daemon-deps` must
 stay green: none of `cryptoki`, `kube`, or `k8s-openapi` may reach a
 daemon-adjacent tree.
 
 - Dependency review date and findings: _pending: record at integration time,
-  with the output of `pnpm audit:cargo-audit` and `pnpm audit:osv`._
+  with the output of `npm run audit:cargo-audit` and `npm run audit:osv`._
 
 ## Security findings and regression proof
 
@@ -322,18 +322,18 @@ Global gate — all _pending: fill from the run of each command_:
 
 | Command | Result |
 |---|---|
-| `pnpm verify` | _pending_ |
+| `npm run verify` | _pending_ |
 | `cargo +1.88.0 test --workspace --all-targets` | _pending_ |
-| `pnpm test:coverage` (TS floors 94/88/94/95 + 50% per-package lines; Rust 69/67 lines/functions) | _pending_ |
-| `pnpm audit:clippy` | _pending_ |
-| `pnpm audit:semgrep` | _pending_ |
-| `pnpm audit:cargo-audit` | _pending_ |
-| `pnpm audit:gitleaks` | _pending_ |
-| `pnpm audit:daemon-deps` | _pending_ |
-| `pnpm generate:openapi` (must produce no tracked diff) | _pending_ |
+| `npm run test:coverage` (TS floors 94/88/94/95 + 50% per-package lines; Rust 69/67 lines/functions) | _pending_ |
+| `npm run audit:clippy` | _pending_ |
+| `npm run audit:semgrep` | _pending_ |
+| `npm run audit:cargo-audit` | _pending_ |
+| `npm run audit:gitleaks` | _pending_ |
+| `npm run audit:daemon-deps` | _pending_ |
+| `npm run generate:openapi` (must produce no tracked diff) | _pending_ |
 
 Parity suites that must stay green — _pending: fill from the run of
-`pnpm test`_:
+`npm test`_:
 
 `packages/capability-registry/src/registry.test.ts`,
 `packages/mcp-host/src/registry-parity.test.ts`,
@@ -363,7 +363,7 @@ average rather than drawing on its headroom.
 Per-file coverage of the security-critical modules — these are the files where a
 surviving mutant is a security defect rather than a style nit. `policy.rs`,
 `revocation.rs`, `bundle.rs` and `crates/storage/src/lib.rs` are registered in the
-mutation gate (`pnpm test:mutation:rust`); `x509.rs` is not:
+mutation gate (`npm run test:mutation:rust`); `x509.rs` is not:
 
 | File | Lines | Functions |
 |---|---|---|
@@ -424,23 +424,23 @@ Per-crate and per-package done-commands — _pending each_:
 `cargo +1.88.0 test -p opensesame-storage`,
 `cargo +1.88.0 test -p opensesame-gateway`,
 `cargo +1.88.0 test -p opensesame-cli`,
-`pnpm --filter @opensesame/capability-registry test`,
-`pnpm --filter @opensesame/mcp-host test`,
-`pnpm --filter @opensesame/api-client test`,
-`pnpm --filter @opensesame/pages test`.
+`npm run test`, -w @opensesame/capability-registry
+`npm run test`, -w @opensesame/mcp-host
+`npm run test`, -w @opensesame/api-client
+`npm run test`. -w @opensesame/pages
 
 Depth gates:
 
-- TypeScript coverage: _pending: fill from the run of `pnpm test:coverage:ts`._
-- Rust coverage: _pending: fill from the run of `pnpm test:coverage:rust`._
-- TypeScript mutation: _pending: fill from the run of `pnpm test:mutation:ts`._
-- Rust mutation: _pending: fill from the run of `pnpm test:mutation:rust`._
+- TypeScript coverage: _pending: fill from the run of `npm run test:coverage:ts`._
+- Rust coverage: _pending: fill from the run of `npm run test:coverage:rust`._
+- TypeScript mutation: _pending: fill from the run of `npm run test:mutation:ts`._
+- Rust mutation: _pending: fill from the run of `npm run test:mutation:rust`._
 - Fuzz — certificate-manager targets registered in `tests/fuzz/cargo/Cargo.toml`:
   `certmgr_filter_parse`, `pki_csr_parse`, `pki_pkcs12_parse`, `pki_crl_parse`,
   `pki_ocsp_request_parse` (no SCEP CMS or ACME JWS target exists, as neither
   server does). Executions and duration:
-  _pending: fill from the run of `pnpm audit:fuzz` (short pass) and
-  `pnpm audit:fuzz:batch`._
+  _pending: fill from the run of `npm run audit:fuzz` (short pass) and
+  `npm run audit:fuzz:batch`._
 - Kani / Miri / Shuttle: not extended to `opensesame-pki-core` or the
   certificate-manager storage code; `scripts/audit/kani-gate.sh`,
   `miri-gate.sh` and `shuttle-gate.sh` name other crates (see

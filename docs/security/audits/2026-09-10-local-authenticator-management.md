@@ -44,7 +44,7 @@ browser journeys passed again. The same reviewer inspected the four refreshed
 desktop/mobile captures and scored the sole focus finding resolved, with a
 `ship` disposition restricted to that correction in offline Devices.
 
-The final Pages suite (`pnpm --filter @opensesame/pages exec vitest run
+The final Pages suite (`npm exec -w @opensesame/pages -- vitest run
 --maxWorkers=1`) passed all 3,608 tests across 297 files in 421.98 seconds.
 An earlier run exposed a module-load timestamp assumption in ConnectivityBar's
 freshness test; its clock and expected age are now explicit. A sandboxed rerun

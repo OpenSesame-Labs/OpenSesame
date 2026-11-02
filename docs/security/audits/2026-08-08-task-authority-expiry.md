@@ -37,4 +37,4 @@ version they validated.
 Tests: `capability_assertion_expires_with_the_task` and
 `superseded_result_buffer_stays_held_after_a_later_commit` in
 `crates/task-access/src/tests.rs`. `cargo test --workspace`, clippy,
-`cargo fmt --check`, `pnpm run test:task-access` and semgrep are clean.
+`cargo fmt --check`, `npm run test:task-access` and semgrep are clean.

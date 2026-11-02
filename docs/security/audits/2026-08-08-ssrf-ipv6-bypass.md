@@ -25,7 +25,7 @@ DNS rebinding remains out of scope for a pre-resolution denylist.
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/oauth-provider test
-pnpm --filter @opensesame/oauth-provider typecheck
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/oauth-provider
+npm run typecheck -w @opensesame/oauth-provider
+npm run test -w @opensesame/control-plane
 ```

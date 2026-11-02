@@ -55,9 +55,9 @@ configuration is out of scope for this repository.
 After a production build:
 
 ```bash
-VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:siop
+  npm run verify:siop -w @opensesame/pages
 ```
 
 The harness registers local applications, walks SIOP consent with virtual

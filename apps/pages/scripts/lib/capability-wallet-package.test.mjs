@@ -31,7 +31,7 @@ test("owns the real wallet pass protocol package under connectors", () => {
       workspace,
       workspace.replaceAll("/", "\\"),
       `${root}/node_modules/@opensesame/wallet/src/${name}`,
-      `${root}/node_modules/.pnpm/@opensesame+wallet@0.1.0/node_modules/@opensesame/wallet/src/${name}`,
+      `${root}/node_modules/@opensesame/wallet/src/${name}`,
     ]) {
       const owner = classify(id);
       assert.equal(owner.classification, "optional", id);

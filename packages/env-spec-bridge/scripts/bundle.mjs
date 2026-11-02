@@ -11,7 +11,7 @@
  * map, no clock, and module paths in the output's comments are written as they
  * sit under this package's node_modules (symlinks kept, not resolved into the
  * package manager's store). Which esbuild and parser those are is decided by
- * pnpm-lock.yaml; the root pnpm.overrides rewrite esbuild's specifier, so this
+ * package-lock.json; the root npm.overrides rewrite esbuild's specifier, so this
  * package's package.json does not pin it. `keepNames` matters: the bridge tells
  * the parser's classes apart by `constructor.name`.
  */

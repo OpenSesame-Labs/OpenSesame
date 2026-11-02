@@ -33,11 +33,11 @@ not call the Identity API.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/example-rp-beta dev        # vite on :5175 (strict port)
-pnpm --filter @opensesame/example-rp-beta test
-pnpm --filter @opensesame/example-rp-beta typecheck
-pnpm --filter @opensesame/example-rp-beta build      # tsc --noEmit && vite build
-pnpm --filter @opensesame/example-rp-beta preview    # serves dist/ on :5175
+npm run dev -w @opensesame/example-rp-beta        # vite on :5175 (strict port)
+npm run test -w @opensesame/example-rp-beta
+npm run typecheck -w @opensesame/example-rp-beta
+npm run build -w @opensesame/example-rp-beta      # tsc --noEmit && vite build
+npm run preview -w @opensesame/example-rp-beta    # serves dist/ on :5175
 ```
 
 `src/RpApp.tsx`, `src/sdk-browser.ts` and `src/rp.css` are identical to

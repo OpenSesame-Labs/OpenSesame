@@ -2,15 +2,15 @@
 
 Branch: `chore/audit-cargo-audit-gate`
 
-Tool: **cargo-audit** (RustSec) via `pnpm run audit:cargo-audit` / `scripts/audit/cargo-audit-gate.sh`.
+Tool: **cargo-audit** (RustSec) via `npm run audit:cargo-audit` / `scripts/audit/cargo-audit-gate.sh`.
 
 ## Scanners
 
 | Check | Result |
 |------|--------|
-| `pnpm run audit:cargo-audit` (pre-fix; missing gate script) | FAIL (script absent; package.json already pointed at it) |
+| `npm run audit:cargo-audit` (pre-fix; missing gate script) | FAIL (script absent; package.json already pointed at it) |
 | `cargo +1.88.0 audit` (raw, no ignore) | FAIL — `RUSTSEC-2023-0071` (`rsa@0.9.10`) |
-| `pnpm run audit:cargo-audit` (post-fix + `.cargo/audit.toml`) | CLEAN |
+| `npm run audit:cargo-audit` (post-fix + `.cargo/audit.toml`) | CLEAN |
 | `cargo deny check advisories` | ok |
 
 ## Findings
@@ -28,5 +28,5 @@ Tool: **cargo-audit** (RustSec) via `pnpm run audit:cargo-audit` / `scripts/audi
 ## Gate
 
 ```bash
-pnpm run audit:cargo-audit
+npm run audit:cargo-audit
 ```

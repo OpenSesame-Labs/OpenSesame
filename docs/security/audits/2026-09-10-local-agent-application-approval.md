@@ -22,10 +22,10 @@ completed full-IAM assessment.
 
 ## Verification
 
-Node 22.23.1, pnpm 9.15.0:
+Node release 22.23.1, npm run 9.15.0:
 
 ```sh
-pnpm --filter @opensesame/pages exec vitest run \
+npm exec -w @opensesame/pages -- vitest run \
   src/lib/local-agent-authorization.test.ts src/lib/local-grant-store.test.ts \
   src/lib/local-authorization.test.ts src/lib/local-sessions.test.ts \
   src/lib/local-issuer-channel.test.ts
@@ -54,7 +54,7 @@ completion claim.
 
 The same five-file Pages command now passes **60 tests**, including real agent
 signatures over MessageChannel and refusal after human revocation.
-`pnpm --filter @opensesame/static-auth test` passes **71 tests**. SDK regressions
+`npm run test` -w @opensesame/static-auth passes **71 tests**. SDK regressions
 refuse mismatched principal/key/origin/expiry before invoking the signer and
 reject authorization codes received before agent proof. Pages typechecking and
 the structural gate pass without baseline changes. No new browser-rendered
@@ -81,9 +81,8 @@ were added to the harness; the intermittent cause remains unproven. Do not label
 that failure fixed, count the failed run as a pass, or infer whole-IAM completion
 from this bounded browser result. No full repository gate or scanner ran here.
 
-After the consent and authored-help changes, `pnpm --filter @opensesame/pages
-test` passed **3,544 tests across 289 files** in 63.33 seconds. Scoped anti-slop
+After the consent and authored-help changes, `npm run test` -w @opensesame/pages passed **3,544 tests across 289 files** in 63.33 seconds. Scoped anti-slop
 lint, Pages typechecking, the production Pages build and structural quality
 checks passed. Existing jsdom navigation-not-implemented diagnostics remained
 in the test output; the suite exited successfully. Bundle budgets and the
-root `pnpm verify` command have not been cleared by these results.
+root `npm run verify` command have not been cleared by these results.

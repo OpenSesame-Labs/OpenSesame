@@ -38,9 +38,9 @@ HTTP Message Signatures subset.
 
 ```bash
 cargo +1.88.0 test -p opensesame-proof
-pnpm audit:shuttle   # includes the shuttle_replay model check
-pnpm audit:miri      # includes the replay cache unit tests under Miri
-pnpm test:task-access
+npm run audit:shuttle   # includes the shuttle_replay model check
+npm run audit:miri      # includes the replay cache unit tests under Miri
+npm run test:task-access
 ```
 
 `tests/browser_es256.rs` runs `node` with

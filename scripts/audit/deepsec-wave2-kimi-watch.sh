@@ -69,7 +69,7 @@ while true; do
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $progress remaining=$remaining"
 
   if tail -30 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'FINISH COMPLETE' \
-    && ! tail -30 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'SKIP docs export'; then
+  && ! tail -30 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'SKIP docs export'; then
     echo "=== FINISH COMPLETE $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
     exit 0
   fi

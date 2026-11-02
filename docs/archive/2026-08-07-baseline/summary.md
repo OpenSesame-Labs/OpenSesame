@@ -7,10 +7,10 @@ The current cross-language coverage and test-type matrix is in
 ## Commands (2026-08-07)
 
 ```bash
-pnpm -r --filter '@opensesame/*' test
-pnpm --filter @opensesame/control-plane test
-pnpm generate:openapi
-pnpm generate:sbom
+npm run test --workspaces --if-present
+npm run test -w @opensesame/control-plane
+npm run generate:openapi
+npm run generate:sbom
 ./scripts/test/battle-test.sh
 ```
 

@@ -51,7 +51,7 @@ the agent-surface parity work (ADR 0065); profile obligations from ADR 0023.
   fail-closed cases, 401 without/with wrong token and non-bearer scheme,
   PRM pointer in `WWW-Authenticate`, successful initialize with session id,
   health/404 behavior, and the source oracle for threat 3.
-- `pnpm --filter @opensesame/mcp-host test` full suite; redteam structural
+- `npm run test` -w @opensesame/mcp-host full suite; redteam structural
   suite continues to exercise the stdio path (`tests/redteam`).
 
 ## Residual risk

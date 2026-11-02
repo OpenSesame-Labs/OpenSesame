@@ -38,7 +38,7 @@ certificate (`auth/cert`).
 ```bash
 cargo +1.88.0 test -p opensesame-provider-openbao
 # The live certificate-auth run against the pinned `bao` binary is #[ignore]d
-pnpm test:mtls:fixtures
+npm run test:mtls:fixtures
 OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-provider-openbao -- --ignored
 ```
 

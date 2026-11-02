@@ -62,7 +62,7 @@ const { provider, admission, metadataFetcher } = createOpenSesameProvider({
 ## Tests
 
 ```bash
-pnpm --filter @opensesame/oauth-provider test
+npm run test -w @opensesame/oauth-provider
 ```
 
 When dynamic registration is enabled, `/reg` requires an adapter-backed initial

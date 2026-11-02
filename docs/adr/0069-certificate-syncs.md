@@ -115,7 +115,7 @@ key without ever holding one. `packages/capability-registry`'s parity test fails
 if a future change maps one of these onto an agent surface, so the exclusion
 cannot rot.
 
-Gate: `pnpm --filter @opensesame/capability-registry test`
+Gate: `npm run test` -w @opensesame/capability-registry
 
 ### 3. What a sync is
 

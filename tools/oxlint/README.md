@@ -1,6 +1,6 @@
 # tools/oxlint
 
-Home of the vendored Oxlint anti-slop plugin, the pnpm workspace package
+Home of the vendored Oxlint anti-slop plugin, the npm workspace package
 `@opensesame/anti-slop` in [`anti-slop/`](anti-slop). Its rules reject patterns
 that hide type holes: unsafe or chained type assertions, `unknown` leaking
 through parameters, returns and aliases, runtime `typeof` checks, `Reflect`
@@ -14,11 +14,11 @@ lint gate beside Biome.
   and sets each `anti-slop/*` rule to `error`. The same config also loads the
   `@gdp-ts/core` lint that bans forging an authorization proof
   ([ADR 0178](../../docs/adr/0178-authorization-checks-are-proofs-the-compiler-can-see.md)),
-  so `pnpm lint:anti-slop` enforces both.
-- **Run by:** `pnpm lint:anti-slop`, `.githooks/pre-commit` (staged files),
-  `.githooks/pre-push`, and `pnpm verify`.
+  so `npm run lint:anti-slop` enforces both.
+- **Run by:** `npm run lint:anti-slop`, `.githooks/pre-commit` (staged files),
+  `.githooks/pre-push`, and `npm run verify`.
 - **Mirrored in:** [`skills/install-anti-slop/assets/anti-slop`](../../skills/install-anti-slop/assets/anti-slop),
-  the copy the install skill ships to other repositories. `pnpm test:anti-slop`
+  the copy the install skill ships to other repositories. `npm run test:anti-slop`
   fails unless the two trees are identical (ignoring `package.json`,
   `vitest.config.ts`, build output, and the two files only the shipped copy
   carries, `MANIFEST.sha256` and `verify.mjs`).
@@ -38,16 +38,16 @@ lint gate beside Biome.
 ## Develop
 
 ```bash
-pnpm lint:anti-slop                          # lint the whole repository
-pnpm lint:anti-slop:files <path>...          # lint specific files
-pnpm test:anti-slop                          # mirror parity + typecheck + RuleTester suites
-pnpm typecheck:anti-slop                     # tsc over index.ts and effect/index.ts
-pnpm --filter @opensesame/anti-slop test     # RuleTester suites only
+npm run lint:anti-slop                          # lint the whole repository
+npm run lint:anti-slop:files <path>...          # lint specific files
+npm run test:anti-slop                          # mirror parity + typecheck + RuleTester suites
+npm run typecheck:anti-slop                     # tsc over index.ts and effect/index.ts
+npm run test -w @opensesame/anti-slop     # RuleTester suites only
 ```
 
 Change a rule in `anti-slop/` and copy the same change into
-`skills/install-anti-slop/assets/anti-slop/`, then run `pnpm anti-slop:manifest`
-to re-hash the shipped copy, all in one commit, or `pnpm test:anti-slop` fails. A new rule needs its RuleTester suite, an entry in
+`skills/install-anti-slop/assets/anti-slop/`, then run `npm run anti-slop:manifest`
+to re-hash the shipped copy, all in one commit, or `npm run test:anti-slop` fails. A new rule needs its RuleTester suite, an entry in
 `index.ts`, and an `error` line in `oxlint.config.ts`. The lint runs with
 `--deny-warnings` and `--report-unused-disable-directives-severity=error`, so an
 unused `oxlint-disable` comment fails it too. The RuleTester suites need Vitest
@@ -63,9 +63,9 @@ copies it, with its `LICENSE`, to `tools/oxlint/anti-slop` (or `dest`); add
 unknown option or a second destination exits 2 before anything is written. `node <dest>/verify.mjs`
 (with `--no-tests` for that install) checks the copy against its
 `MANIFEST.sha256` offline and exits 1 with one sentence per missing, modified or
-extra file. After changing a rule here, `pnpm anti-slop:manifest` rewrites the
+extra file. After changing a rule here, `npm run anti-slop:manifest` rewrites the
 manifest and `node skills/install-anti-slop/scripts/manifest.mjs --check` (run
-by `pnpm test:anti-slop`) fails when it is stale.
+by `npm run test:anti-slop`) fails when it is stale.
 
 ## Related
 

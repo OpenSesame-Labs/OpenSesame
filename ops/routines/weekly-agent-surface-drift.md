@@ -22,7 +22,7 @@ job.
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 
@@ -76,7 +76,7 @@ agent surfaces (implementing the tool if it is a straightforward read that
 follows the existing pattern in `packages/mcp-host/src/tools.ts` — Zod response
 allowlist, `forAgent` fence, registry-parity test will force the catalog
 update) or **excludes** it with a reason and an ADR citation. Run
-`pnpm --filter @opensesame/capability-registry generate` to refresh
+`npm run generate` -w @opensesame/capability-registry to refresh
 `capabilities.json`, then the verification below. If the right decision is
 not obvious (a write with blast radius, a new secret-adjacent surface), file
 the gap as a GitHub issue titled `agent-surface gap: <feature>` instead of
@@ -86,11 +86,11 @@ guessing — an explicit issue beats a wrong mapping.
 
 ```bash
 export NODE_OPTIONS="--max-old-space-size=8192"
-pnpm --filter @opensesame/capability-registry test
-pnpm --filter @opensesame/mcp-host test && pnpm --filter @opensesame/mcp-client test
-pnpm --filter @opensesame/pages test && pnpm --filter @opensesame/cli test
+npm run test -w @opensesame/capability-registry
+npm run test -w @opensesame/mcp-host && npm run test -w @opensesame/mcp-client
+npm run test -w @opensesame/pages && npm run test -w @opensesame/cli
 cargo +1.88.0 test -p opensesame-cli --test capability_parity
-pnpm lint && pnpm typecheck
+npm run lint && npm run typecheck
 ```
 
 Open a PR titled `chore(agent-surface): weekly drift sweep <date>` describing

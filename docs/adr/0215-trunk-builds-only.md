@@ -39,6 +39,6 @@ and candidate-admission change.
 
 A buildable change can integrate before its tests qualify an environment.
 Delivery failure stops promotion of that candidate while main keeps moving.
-Contributors install hooks through bootstrap or `pnpm setup:hooks`; they may
+Contributors install hooks through bootstrap or `npm run setup:hooks`; they may
 explicitly request the full local verify suite. Hosted runs are still needed to
 measure latency and establish actual candidate qualification.

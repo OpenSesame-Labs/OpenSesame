@@ -55,8 +55,8 @@ export function workerRealmSource(id) {
 
 /**
  * Turn a Rollup module id into the repo-relative form the graph records:
- * `apps/pages/src/...`, `packages/...`, or `node_modules/<pkg>/...` (pnpm's
- * `.pnpm/<pkg>@<ver>/node_modules/` prefix removed). Virtual and `\0` ids
+ * `apps/pages/src/...`, `packages/...`, or `node_modules/<pkg>/...` (npm's
+ * `.npm/<pkg>@<ver>/node_modules/` prefix removed). Virtual and `\0` ids
  * are kept verbatim minus the null byte.
  */
 /** The shared core's sources, laid out as `apps/pages/src` was. */

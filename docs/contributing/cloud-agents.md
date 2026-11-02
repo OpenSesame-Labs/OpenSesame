@@ -18,7 +18,7 @@ aligned with `rust-toolchain.toml`). Harness-owned rule and tool files under
 - **Never commit API keys** or other secrets; inject them through the
   harness's secret store.
 
-After checkout, `install` runs `.cursor/install.sh` (`corepack` + the
+After checkout, `install` runs `.cursor/install.sh` (`npm` + the
 fingerprinted frozen dependency install + `cargo +1.88.0 fetch`). Prefer the
 shared cargo target dir documented in [shipping](shipping.md) when compiling
 Rust. Login and non-login shells source `/etc/profile.d/cargo.sh`, which

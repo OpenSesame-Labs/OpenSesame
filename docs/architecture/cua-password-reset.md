@@ -262,5 +262,5 @@ For WorkflowAgent adapters, bound the loop, serialize reset effects and disable
 automatic side-effect retry. For CUA-JEV-style adapters, prove candidate
 freshness, guarded execution and independent terminal verification. Research
 benchmarks supplement, but never replace, these adversarial and crash oracles.
-Security-sensitive slices require `pnpm verify`, relevant audits and the Pages
+Security-sensitive slices require `npm run verify`, relevant audits and the Pages
 static/keyboard/mobile gates and evidence for their UI changes.

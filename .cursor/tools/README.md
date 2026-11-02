@@ -1,6 +1,6 @@
 # Cloud tooling pins
 
-The Cursor image uses the official Node 22 Bookworm image pinned by its OCI
+The Cursor image uses the official Node 24 Bookworm image pinned by its OCI
 manifest digest. The native compose and OSS-Fuzz images are pinned the same way.
 Each digest was checked against the SHA-256 of the registry's manifest payload.
 

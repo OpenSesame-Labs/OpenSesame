@@ -232,7 +232,7 @@ and the first working code for phases 1–3:
 - `packages/app-core/src/lib/vault-relay/client.ts` pushes and pulls a
   sealed snapshot. Live join does not call it. A pages integration test
   shows a second device receiving the first device's ciphertext metadata.
-  `pnpm --filter @opensesame/pages verify:relay-join` repeats that with two
+  `npm run verify:relay-join` -w @opensesame/pages repeats that with two
   browser contexts against a relay HTTP harness: A joins and publishes, B
   joins and reads the ciphertext. The item name is not in the snapshot.
   `verify:live-join` stays the live-session walk.
@@ -245,7 +245,7 @@ attachment parts, and `opensesame-id vault sync`.
 
 **Phase 0 — this commit.** Decision, audit rows, address parser.
 
-Gate: `pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/org-vault-ref.test.ts`
+Gate: `npm exec -w @opensesame/os-domain -- vitest run src/__tests__/org-vault-ref.test.ts`
 and `node scripts/quality/docs-index.mjs --check`.
 
 **Phase 1 — relay profile and the binding purpose (A1).** Add
@@ -280,7 +280,7 @@ Two stores converge on edits, a purge, a lost race, and a tombstone. The
 slot file contains no item name and no PIN wrap. A join-only session still
 writes nothing. Relay profile still answers `404` for `POST /api/v1/sync/pull`.
 
-Gate: those tests. `pnpm --filter @opensesame/pages verify:live-join` remains
+Gate: those tests. `npm run verify:live-join` -w @opensesame/pages remains
 the live-session walk. It is not retargeted at the replica.
 
 **Phase 4 — parts and the CLI.** After phase 3's gates. Attachment parts

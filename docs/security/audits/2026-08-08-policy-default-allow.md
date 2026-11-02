@@ -27,7 +27,7 @@ Scanners: cve-lite, semgrep, clippy, gitleaks, ast-grep, cargo-audit, osv-scanne
 
 ## Verification
 
-- `pnpm --filter @opensesame/policy test` — 6 passed (2 new)
-- `pnpm --filter @opensesame/device-auth test` — 5 passed (1 new)
-- `pnpm run typecheck`, `pnpm test` — clean
+- `npm run test` -w @opensesame/policy — 6 passed (2 new)
+- `npm run test` -w @opensesame/device-auth — 5 passed (1 new)
+- `npm run typecheck`, `npm test` — clean
 - semgrep, gitleaks, cve-lite, ast-grep, clippy, cargo-audit, osv-scanner, cargo-deny — clean

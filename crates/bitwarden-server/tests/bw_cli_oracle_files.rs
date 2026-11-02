@@ -2,7 +2,7 @@
 //! attaches, downloads and deletes a file, and makes, lists, reads and deletes
 //! Sends, against this server.
 //!
-//! `#[ignore]`d like the other oracle suites; `pnpm test:bitwarden-oracle` runs
+//! `#[ignore]`d like the other oracle suites; `npm run test:bitwarden-oracle` runs
 //! it with the pinned CLI and fails, never skips, without it.
 mod common;
 
@@ -21,7 +21,7 @@ async fn signed_in(harness: &Harness, email: &str) -> Bw {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_attaches_downloads_and_deletes_a_file() {
     let harness = Harness::start().await;
     let bw = signed_in(&harness, "files@example.com").await;
@@ -81,7 +81,7 @@ async fn bw_attaches_downloads_and_deletes_a_file() {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_makes_lists_receives_and_deletes_sends() {
     // bw trusts a Send link only from the web vault's own origin, so a
     // non-interactive receive needs the server at the root of one (behind a

@@ -14,7 +14,7 @@ cd "$ROOT"
 
 if [[ ! -d "$WS/node_modules/deepsec" ]]; then
   echo "==> installing .deepsec workspace"
-  (cd "$WS" && pnpm install)
+  (cd "$WS" && npm install)
 fi
 
 DEEPSEC="${WS}/node_modules/.bin/deepsec"

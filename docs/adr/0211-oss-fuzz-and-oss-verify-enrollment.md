@@ -14,7 +14,7 @@
 
 The fuzz estate is already built: 48 cargo-fuzz targets with committed seed
 corpora, 16 Jazzer.js targets, local CFL-analogue gates
-(`pnpm audit:fuzz*`), and a ClusterFuzzLite submission pack under
+(`npm run audit:fuzz*`), and a ClusterFuzzLite submission pack under
 `tests/fuzz/clusterfuzzlite/`. ADR 0036 wrote that pack in OSS-Fuzz's own
 format but deferred filing it upstream until the project could make an
 acceptance case, because at the time the repository had no `.github/`
@@ -59,7 +59,7 @@ binary rather than the source.
 4. **The submission packs stay in-tree and stay the source of truth.** Both
    upstream PRs are generated from this repository; a change to the fuzz
    estate updates the packs here in the same commit. The packs' local
-   continue-to-run duty (the `pnpm audit:fuzz*` gates and the nightly batch
+   continue-to-run duty (the `npm run audit:fuzz*` gates and the nightly batch
    routine) is unchanged — hosted enrollment adds a layer, it does not
    replace one.
 5. **Crash intake**: ClusterFuzz and OSS Verify report to the

@@ -1,7 +1,7 @@
 import { webcrypto } from "node:crypto";
 
 if (Number(process.versions.node.split(".")[0]) < 22)
-  throw new Error("Node 22 or newer is required for the WebCrypto oracle");
+  throw new Error("Node 24 or newer is required for the WebCrypto oracle");
 
 const keys = await webcrypto.subtle.generateKey(
   { name: "ECDSA", namedCurve: "P-256" },

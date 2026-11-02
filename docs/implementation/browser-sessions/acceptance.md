@@ -1,9 +1,9 @@
 # Browser-session acceptance
 
 > Status (2026-10-08): a point-in-time proof record. The walk it describes is
-> still `pnpm test:browser-sessions` (`apps/pages/scripts/verify-browser-sessions.mjs`);
+> still `npm run test:browser-sessions` (`apps/pages/scripts/verify-browser-sessions.mjs`);
 > the `pageshow` and bfcache claim comes from the separate
-> `pnpm --filter @opensesame/pages verify:browser-session-lifecycle`. The
+> `npm run verify:browser-session-lifecycle`. -w @opensesame/pages The
 > Measurements table is that commit's numbers and ceilings, not today's:
 > `tools/quality/bundle-budgets.json` now holds `apps/pages` at
 > 17900 / 5630 / 1739 / 168 / 12800 and both hardened profiles at
@@ -14,7 +14,7 @@ Status: local proof against the shipped Pages build. `pageshow.persisted=true` b
 
 ## What this proves
 
-`pnpm test:browser-sessions` builds the rich Pages app and drives three isolated Chromium processes against that build:
+`npm run test:browser-sessions` builds the rich Pages app and drives three isolated Chromium processes against that build:
 
 - Startup Join on a device with no vault (ADR 0150).
 - The always-on drop claim ceremony (`/claim`, "Accept a claim") on that same empty device.

@@ -180,7 +180,7 @@ drain naturally; new sessions use the new one.
 matching the sync exclusion in ADR 0069 §2(d). Connector reads never project
 the PIN.
 
-Gate: `pnpm --filter @opensesame/capability-registry test`
+Gate: `npm run test` -w @opensesame/capability-registry
 
 ### 6. SoftHSM2 is the CI validation target, and the honest limit of that
 

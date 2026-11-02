@@ -327,7 +327,7 @@ State these to the people who rely on it.
 
 ## Verification
 
-- `pnpm --filter @opensesame/app-core exec vitest run src/lib/quorum` — 179
+- `npm exec -w @opensesame/app-core -- vitest run src/lib/quorum` — 179
   tests: the SLIP-0039 and HPKE vectors; an end-to-end 3-of-5 with a backup key;
   two-level recovery; action-only circles; a quorum grant against a real vault
   tomb; the attacks (wrong request, wrong phase, replayed or forged assertion,
@@ -358,8 +358,7 @@ State these to the people who rely on it.
   TypeScript write a fresh two-epoch circle, the native reader open it and write a
   bundle, shares and releases of its own, and TypeScript open those. Changing a
   derivation constant on the Rust side fails the fixture suite.
-- **A real browser's WebAuthn and PRF.** `pnpm --filter @opensesame/pages
-  verify:quorum-browser` runs five Chromium contexts, each with its own CDP
+- **A real browser's WebAuthn and PRF.** `npm run verify:quorum-browser` -w @opensesame/pages runs five Chromium contexts, each with its own CDP
   virtual authenticator that does PRF, the real desk in each page over
   `navigator.credentials`, and nothing between the people but packet strings:
   a 2-of-3 recovery to the recovered payload, and the refusals only a browser's
@@ -378,8 +377,7 @@ State these to the people who rely on it.
   a file key alone on its row, which is now a labelled row. `verify:tutorials`
   walks the four goals at both widths. The four capability profiles build, the
   capability graph holds, and the bundle ceilings are the measured sizes.
-- **The screens, with five browsers.** `pnpm --filter @opensesame/pages
-  verify:trusted-contacts` runs an owner, three contacts and a recipient in
+- **The screens, with five browsers.** `npm run verify:trusted-contacts` -w @opensesame/pages runs an owner, three contacts and a recipient in
   separate Chromium contexts, each with a virtual security key that does PRF and
   one clock moved for every page together, and passes only text between them by
   the clipboard. It walks a 2-of-3 recovery key by key through the real screens

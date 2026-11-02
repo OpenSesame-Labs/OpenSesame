@@ -32,8 +32,8 @@ module.exports = async function handler(req, res) {
   if (req.method === "POST") {
     const form = new URLSearchParams(await readBody(req));
     const ok = form.get("current_password") === state.current
-      && String(form.get("new_password") ?? "").length >= 8
-      && form.get("new_password") === form.get("confirm_password");
+  && String(form.get("new_password") ?? "").length >= 8
+  && form.get("new_password") === form.get("confirm_password");
     if (!ok) return res.status(400).send("Rejected");
     state.submissions += 1;
     state.current = String(form.get("new_password"));

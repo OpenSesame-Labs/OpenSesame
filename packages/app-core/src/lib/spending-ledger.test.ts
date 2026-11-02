@@ -12,7 +12,7 @@ import {
   updateBudget,
 } from "./spending-ledger.js";
 
-/** Node 22 shadows Storage with an unavailable experimental global. */
+/** Node 24 shadows Storage with an unavailable experimental global. */
 function ensureLocalStorage(): void {
   const map = new Map<string, string>();
   vi.stubGlobal("localStorage", {

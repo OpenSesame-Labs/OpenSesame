@@ -4,13 +4,13 @@ You are repairing CI on one branch of the OpenSesame deepsec P0 fix stack. You M
 - Repository: OpenSesame (TypeScript + Rust monorepo). Read AGENTS.md at repo root.
 - This worktree is checked out to branch: **${BRANCH}**
 - Draft PR: **#${PR_NUM}** (stacked; never merge, never mark ready).
-- Required checks: TypeScript (includes `pnpm quality:gate`), Bundle budgets, Rust.
+- Required checks: TypeScript (includes `npm run quality:gate`), Bundle budgets, Rust.
 
 ## Known failure (TypeScript / quality gate)
-CI job "TypeScript tests" failed on `pnpm quality:gate`:
+CI job "TypeScript tests" failed on `npm run quality:gate`:
 - File `packages/app-core/src/lib/vault/unlock-methods.ts` improved: max-lines **577 → 575**
 - Ratchet rule: commit tightened `tools/quality/quality-baseline.json` (**575**, never raise budgets).
-- Fix command when deps exist: `pnpm quality:gate --update` (only records improvements).
+- Fix command when deps exist: `npm run quality:gate --update` (only records improvements).
 
 ## Stack (base → head) — propagate ratchet upward if missing on this branch
 `main` → #831 → #835 → #836 → #837 → #838 → #840 → #850 → #849 → #867 → #870 → #871 → #869 → #868
@@ -24,9 +24,9 @@ If this branch is above #871 in the stack, ensure it includes the quality baseli
 
 ## Your tasks
 1. `git fetch origin` and confirm you are on `${BRANCH}`.
-2. If `node_modules` missing, run `pnpm install` (use existing pnpm store; no sudo).
+2. If `node_modules` missing, run `npm install` (use existing npm cache; no sudo).
 3. Fix quality gate and any other failures scoped to this branch only.
-4. Run `pnpm quality:gate` (and targeted tests if you changed behavior).
+4. Run `npm run quality:gate` (and targeted tests if you changed behavior).
 5. **Small commits** (e.g. ratchet separate from product code). Push: `git push -u origin ${BRANCH}`.
 6. Do **not** merge, force-push, or raise quality/bundle baselines except tightening recorded max-lines.
 

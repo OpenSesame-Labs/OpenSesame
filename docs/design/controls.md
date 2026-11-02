@@ -2,7 +2,7 @@
 
 Read [`DESIGN.md`](../../DESIGN.md) before drawing a control. An action that
 executes is an icon key. A word on a button face is a design failure.
-`scripts/quality/design-lint.mjs` (`pnpm lint:design`) and `impeccable detect` hold
+`scripts/quality/design-lint.mjs` (`npm run lint:design`) and `impeccable detect` hold
 new code to that, and both run in `.githooks/pre-commit` (impeccable only
 when the optional skill is installed; the design lint always runs).
 
@@ -11,9 +11,9 @@ when the optional skill is installed; the design lint always runs).
 Keep native selection and keyboard behavior. Popup options and groups pair
 opaque `--surface` backgrounds with `--ink` text in `native-controls.css`;
 the root color scheme follows the selected theme, including system mode.
-Never hard-code white/black dropdown colors. `pnpm lint:design` checks both
+Never hard-code white/black dropdown colors. `npm run lint:design` checks both
 the shared popup pair and component overrides; browser checks cover contrast.
-A connector panel head is a title. `pnpm lint:design` rejects a hint caption
+A connector panel head is a title. `npm run lint:design` rejects a hint caption
 under it, and rejects explainer sentences that describe the panel instead of
 showing the account, grant, or repository. An in-page `note` or `conn-flash`
 box is rejected the same way: a failure is a `StatusMark`, never a paragraph.
@@ -84,7 +84,7 @@ validate (a malformed address, a name already taken) is not a failed operation.
 It is a `StatusMark` on the field and nothing is sent to the tray; a notice is
 for something that was attempted and did not work.
 
-`pnpm lint:design` holds both. Explainer sentences are matched by content in
+`npm run lint:design` holds both. Explainer sentences are matched by content in
 the connector panels, and by shape everywhere (`no-hint-caption`, rule 17).
 In-page failures are a plain failure
 (`no-in-page-error` for markup, `no-error-box-css` for CSS that paints one) with
@@ -219,7 +219,7 @@ as the address it is — not only JSX text.
 
 ## What is enforced
 
-`scripts/quality/design-lint.mjs`, run by `pnpm lint:design`, the `pre-commit` hook,
+`scripts/quality/design-lint.mjs`, run by `npm run lint:design`, the `pre-commit` hook,
 and a Claude Code `PostToolUse` hook:
 
 1. **No text-labelled primary in a commit bar.** A `*__foot` element containing
@@ -315,7 +315,7 @@ second layout row that shifts one icon above another. All controls form one
 left-aligned strip; no utility group is pushed to the opposite edge. Static-origin
 browser checks compare actual hit areas, glyph centers, group gaps, and surface styles.
 
-`pnpm lint:design` also rejects a `<button>` whose face carries an executing
+`npm run lint:design` also rejects a `<button>` whose face carries an executing
 verb (`Revoke`, `Rename`, `Review`, `Sync`, `Use`, `Approve`, `Load N more`,
 and the rest of the list in `scripts/quality/design-lint-verbs.mjs`) unless the
 control is `icon-btn` or `.go`. The face is every JSX text run *and* every

@@ -23,7 +23,7 @@ paths = [
   '''(^|/)artifacts(?:/|$)''',
   '''(^|/)target(?:/|$)''',
   '''(^|/)node_modules(?:/|$)''',
-  '''(^|/)\.pnpm-store(?:/|$)''',
+  '''(^|/)\.npm-cache(?:/|$)''',
   '''(^|/)dist(?:/|$)''',
   '''(^|/)dist-identity-verify(?:/|$)''',
   '''(^|/)dist-secret-backends-verify(?:/|$)''',

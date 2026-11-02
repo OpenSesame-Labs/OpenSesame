@@ -6,7 +6,7 @@
  * and checks every entry it expects.
  *
  * Regenerate after an intended format change:
- *   UPDATE_STORE_MANIFEST=1 pnpm --filter @opensesame/app-core exec \
+ *   UPDATE_STORE_MANIFEST=1 npm exec -w @opensesame/app-core -- \
  *     vitest run src/sections/vault/import/store-manifest.conformance.test.ts
  */
 import { writeFileSync } from "node:fs";

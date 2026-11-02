@@ -91,9 +91,9 @@ export function buildCommand(kind, plan, options = {}) {
     return { command: "cargo", args };
   }
   return {
-    command: "pnpm",
+    command: "npm",
     args: [
-      "exec",
+      "exec", "--",
       "turbo",
       "run",
       "build",

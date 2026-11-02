@@ -13,7 +13,7 @@ CLI and a bare V8 isolate on Android all read vaults through the same code.
 - **Builds on:** [`@opensesame/os-domain`](../os-domain) and [`@opensesame/vault-item-types`](../vault-item-types) — no other workspace package. Its one third-party dependency is `@noble/hashes`, used by `derive.ts` for HKDF-SHA256.
 - Vault cryptography is WebCrypto only: master password → PBKDF2-SHA256 → master key, which wraps a random 256-bit vault key with AES-GCM; PIN and passkey PRF are further wraps of the same key.
 - `openVaultFile` reads a sealed export or offline backup down to what may be shown — tomb, binding, revision, and each item's name, kind and path. No field value leaves the module.
-- `pnpm quality:app-core` gates it with no browser global outside the runtime contract, no reach into an app, and no import cycle ([ADR 0133](../../docs/adr/0133-shared-app-core.md)).
+- `npm run quality:app-core` gates it with no browser global outside the runtime contract, no reach into an app, and no import cycle ([ADR 0133](../../docs/adr/0133-shared-app-core.md)).
 
 ## Surface
 
@@ -41,9 +41,9 @@ Import from the root: `import { openVaultFile } from "@opensesame/vault-core"`.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/vault-core test
-pnpm --filter @opensesame/vault-core typecheck
-pnpm quality:app-core
+npm run test -w @opensesame/vault-core
+npm run typecheck -w @opensesame/vault-core
+npm run quality:app-core
 ```
 
 [`spec/conformance/vault-vectors.json`](../../spec/conformance/vault-vectors.json)

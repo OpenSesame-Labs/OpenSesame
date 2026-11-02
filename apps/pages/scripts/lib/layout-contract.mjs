@@ -43,8 +43,8 @@ export const LAYOUT_AUDIT =
     if (shown.has(el)) return shown.get(el);
     const s = getComputedStyle(el);
     const ok = s.display !== "none" && s.visibility !== "hidden"
-      && !el.hasAttribute("hidden") && !el.classList.contains("visually-hidden")
-      && visibleUp(el.parentElement);
+  && !el.hasAttribute("hidden") && !el.classList.contains("visually-hidden")
+  && visibleUp(el.parentElement);
     shown.set(el, ok);
     return ok;
   };

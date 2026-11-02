@@ -76,26 +76,26 @@ OPENSESAME_HOST_API="$VITE_HOST_API" \
 OPENSESAME_CONTROL_PLANE_PORT="$OPENSESAME_CONTROL_PLANE_PORT" \
 OPENSESAME_CORS_ORIGINS="$OPENSESAME_CORS_ORIGINS" \
 OPENSESAME_CLIENT_APP_URL="$OPENSESAME_CLIENT_APP_URL" \
-pnpm --filter @opensesame/control-plane start &
+npm run start -w @opensesame/control-plane &
 IDENTITY_PID=$!
 export OPENSESAME_MOCK_IDP_PORT="${OPENSESAME_MOCK_IDP_PORT:-9090}"
 MOCK_IDP_URL="http://127.0.0.1:${OPENSESAME_MOCK_IDP_PORT}"
-pnpm --filter @opensesame/mock-upstream-idp dev &
+npm run dev -w @opensesame/mock-upstream-idp &
 MOCK_IDP_PID=$!
 # One mock instance per demo social provider (issuers above). The GitHub leg is
 # OAuth2-shaped, so its instance shares the client the registry is configured
 # with; the OIDC ones need nothing but their port.
 SOCIAL_IDP_PIDS=()
-OPENSESAME_MOCK_IDP_PORT=9091 pnpm --filter @opensesame/mock-upstream-idp dev &
+OPENSESAME_MOCK_IDP_PORT=9091 npm run dev -w @opensesame/mock-upstream-idp &
 SOCIAL_IDP_PIDS+=($!)
 OPENSESAME_MOCK_IDP_PORT=9092 \
 OPENSESAME_MOCK_IDP_OAUTH2_CLIENT_ID="$OPENSESAME_PROVIDER_GITHUB_CLIENT_ID" \
 OPENSESAME_MOCK_IDP_OAUTH2_CLIENT_SECRET="$OPENSESAME_PROVIDER_GITHUB_CLIENT_SECRET" \
-  pnpm --filter @opensesame/mock-upstream-idp dev &
+  npm run dev -w @opensesame/mock-upstream-idp &
 SOCIAL_IDP_PIDS+=($!)
-OPENSESAME_MOCK_IDP_PORT=9093 pnpm --filter @opensesame/mock-upstream-idp dev &
+OPENSESAME_MOCK_IDP_PORT=9093 npm run dev -w @opensesame/mock-upstream-idp &
 SOCIAL_IDP_PIDS+=($!)
-OPENSESAME_MOCK_IDP_PORT=9094 pnpm --filter @opensesame/mock-upstream-idp dev &
+OPENSESAME_MOCK_IDP_PORT=9094 npm run dev -w @opensesame/mock-upstream-idp &
 SOCIAL_IDP_PIDS+=($!)
 trap 'kill "$HOST_PID" "$IDENTITY_PID" "$MOCK_IDP_PID" "${SOCIAL_IDP_PIDS[@]}" 2>/dev/null || true' EXIT INT TERM
 
@@ -137,4 +137,4 @@ done
 echo "Pages UI: http://localhost:5180  (use localhost, not 127.0.0.1, for passkeys)" >&2
 echo "Mock IdP (guest claim): $MOCK_IDP_URL" >&2
 
-pnpm --filter @opensesame/pages dev:web "$@"
+npm run dev:web -w @opensesame/pages "$@"

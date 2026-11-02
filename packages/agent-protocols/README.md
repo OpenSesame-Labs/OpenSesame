@@ -31,8 +31,8 @@ the agent registration, claim, token and revoke routes.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/agent-protocols test
-pnpm --filter @opensesame/agent-protocols typecheck
+npm run test -w @opensesame/agent-protocols
+npm run typecheck -w @opensesame/agent-protocols
 ```
 
 `src/render.test.ts` snapshots the rendered documents

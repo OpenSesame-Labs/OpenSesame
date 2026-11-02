@@ -18,42 +18,42 @@ date -u +%Y-%m-%dT%H:%M:%SZ > "$report_root/started-at.txt"
 case "$check" in
   mutation-typescript)
     rm -f artifacts/mutation/typescript.json
-    pnpm test:mutation:ts
+    npm run test:mutation:ts
     node scripts/release/deep-mutation-report.mjs typescript artifacts/mutation/typescript.json tools/mutation/stryker.config.json
     ;;
   mutation-duress)
     rm -f artifacts/mutation/duress-unlock.json
-    pnpm test:mutation:duress
+    npm run test:mutation:duress
     node scripts/release/deep-mutation-report.mjs typescript artifacts/mutation/duress-unlock.json tools/mutation/stryker.duress.config.json
     ;;
   mutation-rust)
-    pnpm test:mutation:rust
+    npm run test:mutation:rust
     node scripts/release/deep-mutation-report.mjs artifacts/mutation/rust
     ;;
   dependencies)
-    pnpm audit:osv
-    pnpm audit:cargo-audit
+    npm run audit:osv
+    npm run audit:cargo-audit
     cargo +1.88.0 deny check
-    pnpm exec vitest run scripts/lib/dependency-compatibility.test.mjs
+    npm exec -- vitest run scripts/lib/dependency-compatibility.test.mjs
     ;;
   sast)
-    pnpm audit:ast-grep
-    pnpm audit:semgrep
+    npm run audit:ast-grep
+    npm run audit:semgrep
     ;;
   secrets)
     test "${OPENSESAME_GITLEAKS_HISTORY_FAIL:-0}" = 1
-    pnpm audit:gitleaks
+    npm run audit:gitleaks
     ;;
-  kani) pnpm audit:kani ;;
-  miri) pnpm audit:miri ;;
-  shuttle) pnpm audit:shuttle ;;
+  kani) npm run audit:kani ;;
+  miri) npm run audit:miri ;;
+  shuttle) npm run audit:shuttle ;;
   fuzz-rust)
     test -z "${FUZZ_BATCH_BUDGET:-}"
-    pnpm audit:fuzz:batch
+    npm run audit:fuzz:batch
     ;;
   fuzz-typescript)
     test "${JAZZER_ALLOW_FALLBACK:-0}" = 0
-    pnpm test:fuzz:batch
+    npm run test:fuzz:batch
     ;;
 esac
 git diff --exit-code

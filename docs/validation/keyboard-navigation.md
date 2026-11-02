@@ -60,7 +60,7 @@ Enter, then checks immediate navigation without preparatory Tab or focus calls.
 Run after a fresh `VITE_BASE=/OpenSesame/` Pages build:
 
 ```bash
-pnpm --filter @opensesame/pages verify:keyboard
+npm run verify:keyboard -w @opensesame/pages
 ```
 
 Set `PLAYWRIGHT_CHROMIUM` to the installed browser when needed. Before the fix,

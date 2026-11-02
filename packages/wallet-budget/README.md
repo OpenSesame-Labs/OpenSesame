@@ -28,15 +28,15 @@ network, no EVM.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/wallet-budget test
-pnpm --filter @opensesame/wallet-budget typecheck
-pnpm wallet:test:domain     # os-domain wallet + wallet-budget + wallet-policy
-pnpm wallet:test:security   # domain targets (this package included), the mainnet-deny test, then wallet-evm, wallet-consent and wallet-x402
+npm run test -w @opensesame/wallet-budget
+npm run typecheck -w @opensesame/wallet-budget
+npm run wallet:test:domain     # os-domain wallet + wallet-budget + wallet-policy
+npm run wallet:test:security   # domain targets (this package included), the mainnet-deny test, then wallet-evm, wallet-consent and wallet-x402
 ```
 
 `conservation.test.ts` is a fast-check property over the conservation
 identity; `conservation-concurrent.test.ts` races concurrent reserves. The
-`pnpm wallet:*` gates are described in [`scripts/wallet/README.md`](../../scripts/wallet/README.md).
+`npm run wallet:*` gates are described in [`scripts/wallet/README.md`](../../scripts/wallet/README.md).
 
 ## Related
 

@@ -30,8 +30,8 @@ subpath.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/webhooks test
-pnpm --filter @opensesame/webhooks typecheck
+npm run test -w @opensesame/webhooks
+npm run typecheck -w @opensesame/webhooks
 ```
 
 A change to the signed content or header names must land in the Rust mirror

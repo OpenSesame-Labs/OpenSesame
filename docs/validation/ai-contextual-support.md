@@ -32,7 +32,7 @@ architecture does not depend on it; what is demonstrated is the blast radius,
 not the likelihood. If a reader takes one thing from this document, it should
 be the residual gaps rather than the pass counts.
 
-## `pnpm --filter @opensesame/guide-lang test`
+## `npm run test` -w @opensesame/guide-lang
 
 **Proves.** The language is what ADR 0088 §1 says it is.
 
@@ -75,7 +75,7 @@ Unicode is asserted at the specific hazards, not exhaustively. Nothing here is
 in the `tools/mutation/stryker.config.json` mutation slice, so a surviving mutant in the
 parser would not currently fail a gate.
 
-## `pnpm --filter @opensesame/guide-runtime test`
+## `npm run test` -w @opensesame/guide-runtime
 
 **Proves.** The runtime re-derives its own safety rather than trusting the
 compiler. `runtime.test.ts` feeds it programs a parser would never have emitted
@@ -107,7 +107,7 @@ proved is the state machine's logic, not real timer behaviour. The ports are
 There is no concurrency model-checker for TypeScript here (no Shuttle
 analogue), so interleavings beyond the ones the suite scripts are unexamined.
 
-## `pnpm --filter @opensesame/support-agent test`
+## `npm run test` -w @opensesame/support-agent
 
 **Proves.** `egress.test.ts` exercises the last code that runs before anything
 reaches a model. The sanitizer **rebuilds** rather than copies — mutating the
@@ -152,14 +152,14 @@ reach the awkward provider states other suites depend on.
 prove a model obeys it, and is not meant to. Nothing here exercises a real
 provider.
 
-## `pnpm --filter @opensesame/pages test`
+## `npm run test` -w @opensesame/pages
 
 This command runs the whole `apps/pages` suite. The parts belonging to this
 work are below.
 
 **The registries.** `catalog.test.ts` (in
 `packages/app-core/src/tutorial/registry/`, so run by
-`pnpm --filter @opensesame/app-core test`) holds the invariants
+`npm run test`) -w @opensesame/app-core holds the invariants
 that make the catalog safe to hand to a model: every control has a unique
 semantic id within budget, every target is scoped to routes the route registry
 actually declares, every cited capability exists in the ADR 0065 registry, and
@@ -276,8 +276,8 @@ speaks to a real AG-UI server.
 
 ## The WebMCP and capability-registry suites
 
-`pnpm --filter @opensesame/webmcp test`,
-`pnpm --filter @opensesame/capability-registry test`
+`npm run test`, -w @opensesame/webmcp
+`npm run test` -w @opensesame/capability-registry
 
 **Proves.** The WebMCP package probes `document.modelContext` first and the
 legacy `navigator.modelContext` second, normalizes both, and no-ops when
@@ -290,7 +290,7 @@ function** and keeps `executeTool` unreachable even when the browser implements
 it. The capability-registry self-tests hold the ADR 0065 invariants that the
 new `client.support` and `client.tutorial` capabilities now participate in.
 
-**Native browser gate.** `pnpm --filter @opensesame/pages verify:webmcp`
+**Native browser gate.** `npm run verify:webmcp` -w @opensesame/pages
 uses Chrome's `WebMCP` DevTools Protocol domain against the built PWA.
 The existing required Bundle budgets job runs it with the runner's Chrome
 and experimental Web Platform features enabled. It fails if the native API
@@ -301,10 +301,10 @@ are no longer the only registration evidence.
 
 ## The lint, typecheck and build gates
 
-`pnpm lint:design`, `npx biome check` over the new packages and
-`apps/pages/src/tutorial`, `pnpm lint:anti-slop`,
-`pnpm --filter @opensesame/pages typecheck`,
-`pnpm --filter @opensesame/pages build`. The integration gate runs
+`npm run lint:design`, `npx biome check` over the new packages and
+`apps/pages/src/tutorial`, `npm run lint:anti-slop`,
+`npm run typecheck`, -w @opensesame/pages
+`npm run build`. -w @opensesame/pages The integration gate runs
 `npx biome check .` across the whole repository; the run recorded here was
 scoped to this work's files so a formatting problem in somebody else's
 in-flight code could not be reported as ours.
@@ -328,7 +328,7 @@ statically imported by the entry. ADR 0163 has since removed Driver.js, along
 with its `rendering/` adapter and `rendering-contract.test.ts`: the tutorial
 card is a lazy React chunk loaded the first time a tutorial has a step to
 draw, behind the same `lazy` boundary as the panel, and
-`pnpm --filter @opensesame/pages verify:tutorials` walks it in a real browser.
+`npm run verify:tutorials` -w @opensesame/pages walks it in a real browser.
 
 **Residual gap.** That inspection is manual and one-off. Nothing in CI asserts
 it, so a bundler configuration change could pull the AG-UI library or the
@@ -343,18 +343,18 @@ quoted from a run that did not happen.
 
 | Command | Files | Tests | Outcome |
 |---|---|---|---|
-| `pnpm --filter @opensesame/guide-lang test` | 4 | 126 | pass |
-| `pnpm --filter @opensesame/guide-runtime test` | 3 | 30 | pass |
-| `pnpm --filter @opensesame/support-agent test` | 5 | 82 | pass |
-| `pnpm --filter @opensesame/webmcp test` | 5 | 40 | pass |
-| `pnpm --filter @opensesame/capability-registry test` | 1 | 11 | pass |
-| `pnpm --filter @opensesame/pages test` | 189 | 2548 | pass |
+| `npm run test` -w @opensesame/guide-lang | 4 | 126 | pass |
+| `npm run test` -w @opensesame/guide-runtime | 3 | 30 | pass |
+| `npm run test` -w @opensesame/support-agent | 5 | 82 | pass |
+| `npm run test` -w @opensesame/webmcp | 5 | 40 | pass |
+| `npm run test` -w @opensesame/capability-registry | 1 | 11 | pass |
+| `npm run test` -w @opensesame/pages | 189 | 2548 | pass |
 | …narrowed to `vitest run src/tutorial src/webmcp` | 39 | 332 | pass |
-| `pnpm --filter @opensesame/pages typecheck` | — | — | pass |
-| `pnpm lint:design` | — | — | pass |
+| `npm run typecheck` -w @opensesame/pages | — | — | pass |
+| `npm run lint:design` | — | — | pass |
 | `npx biome check` over the new packages and `apps/pages/src/tutorial` | — | — | pass |
-| `pnpm lint:anti-slop` (repository-wide) | — | — | pass |
-| `pnpm --filter @opensesame/pages build` | — | — | pass |
+| `npm run lint:anti-slop` (repository-wide) | — | — | pass |
+| `npm run build` -w @opensesame/pages | — | — | pass |
 
 The `apps/pages` row is the whole application suite; the row under it is the
 same suite narrowed to this work's directories, run separately so the figure is
@@ -406,8 +406,8 @@ a payload class nobody tested. Folding these cases into `tests/redteam`
 alongside the existing structural pact suite would put them under the same
 sweep as the other agent surfaces, and that has not been done.
 
-**The Playwright visual and e2e suites were not run.** `pnpm test:visual` and
-`pnpm test:e2e` need a served build and a browser. No pixel baseline exists for
+**The Playwright visual and e2e suites were not run.** `npm run test:visual` and
+`npm run test:e2e` need a served build and a browser. No pixel baseline exists for
 the support panel or for a highlighted control, so a visual regression in the
 overlay would not be caught — and `tests/visual-contract` is where the
 browser-driven half that `reflow.test.tsx` cannot cover would go: legibility at
@@ -415,7 +415,7 @@ browser-driven half that `reflow.test.tsx` cannot cover would go: legibility at
 beside the control it names.
 
 **No coverage or mutation figure is claimed for the new packages.**
-`pnpm test:coverage` and `pnpm test:mutation` were not re-run, and none of
+`npm run test:coverage` and `npm run test:mutation` were not re-run, and none of
 `guide-lang`, `guide-runtime` or `support-agent` is in the
 `tools/mutation/stryker.config.json` mutate list. Per [`test-coverage.md`](test-coverage.md)
 the per-package 50% lines floor applies to any measured package, so these will

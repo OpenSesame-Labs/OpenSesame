@@ -38,8 +38,8 @@ boundary value.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/api-client test
-pnpm --filter @opensesame/api-client typecheck
+npm run test -w @opensesame/api-client
+npm run typecheck -w @opensesame/api-client
 ```
 
 The Host API's OpenAPI description is

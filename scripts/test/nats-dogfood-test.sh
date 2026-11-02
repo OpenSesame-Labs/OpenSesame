@@ -107,8 +107,8 @@ cargo +1.88.0 test -p opensesame-gateway --lib
 cargo +1.88.0 test --manifest-path tests/fuzz/cargo/Cargo.toml --lib oracle_smoke
 
 echo "==> nats-dogfood: TypeScript contracts + worker"
-pnpm --filter @opensesame/contracts test
-pnpm --filter @opensesame/identity-worker test
+npm run test -w @opensesame/contracts
+npm run test -w @opensesame/identity-worker
 
 if command -v cargo-fuzz >/dev/null 2>&1; then
   echo "==> nats-dogfood: libFuzzer short pass (dogfood targets)"
@@ -130,6 +130,6 @@ echo "==> nats-dogfood: live Host operator TaskBus against JetStream"
 cargo +1.88.0 test -p opensesame-gateway --lib live_nats -- --ignored --nocapture
 
 echo "==> nats-dogfood: Jazzer/local contract fuzz (taskbus)"
-FUZZ_SECONDS="${FUZZ_SECONDS:-3}" pnpm --filter @opensesame/fuzz exec tsx src/run.ts taskbus
+FUZZ_SECONDS="${FUZZ_SECONDS:-3}" npm exec -w @opensesame/fuzz -- tsx src/run.ts taskbus
 
 echo "nats-dogfood: OK"

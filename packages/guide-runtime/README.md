@@ -39,8 +39,8 @@ injected clock, so a test drives a whole guide without sleeping.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/guide-runtime test
-pnpm --filter @opensesame/guide-runtime typecheck
+npm run test -w @opensesame/guide-runtime
+npm run typecheck -w @opensesame/guide-runtime
 ```
 
 ## Related

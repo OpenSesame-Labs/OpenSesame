@@ -28,8 +28,8 @@ through it.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/trust-broker test
-pnpm --filter @opensesame/trust-broker typecheck
+npm run test -w @opensesame/trust-broker
+npm run typecheck -w @opensesame/trust-broker
 ```
 
 ## Related

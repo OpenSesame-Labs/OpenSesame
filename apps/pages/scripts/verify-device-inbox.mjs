@@ -2,8 +2,8 @@
 // with NO Identity API and NO Host (ADR 0162), under the production origin, at
 // desktop and phone width, with the keyboard.
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-//   pnpm --filter @opensesame/pages verify:device-inbox
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+//   npm run verify:device-inbox -w @opensesame/pages
 //
 // Same harness as `verify:local-iam`: every request to the origin is served
 // from `dist/`, every other origin is refused, and the run fails on any page

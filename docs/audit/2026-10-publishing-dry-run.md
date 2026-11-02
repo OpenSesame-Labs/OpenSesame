@@ -14,7 +14,7 @@ Recorded on the Cursor Cloud agent VM after PR #776 workflows landed. No secrets
 ## Commands
 
 ```bash
-VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 cd packages/os-domain && npm publish --dry-run
 ```
 

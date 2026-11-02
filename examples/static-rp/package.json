@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm run dev:4101",
+    "dev": "npm run dev:4101",
     "dev:4101": "vite --port 4101 --strictPort",
     "dev:4102": "vite --port 4102 --strictPort",
     "preview:4101": "vite preview --port 4101 --strictPort",
@@ -13,8 +13,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@opensesame/sdk-browser": "workspace:*",
-    "@opensesame/static-auth": "workspace:*"
+    "@opensesame/sdk-browser": "*",
+    "@opensesame/static-auth": "*"
   },
   "devDependencies": {
     "@types/node": "22.15.29",

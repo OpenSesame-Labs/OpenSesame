@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Short libFuzzer pass over targets whose crates changed vs origin/main.
-# This is the ClusterFuzzLite "PR" analogue. It is not wired into pnpm verify.
+# This is the ClusterFuzzLite "PR" analogue. It is not wired into npm run verify.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

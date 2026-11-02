@@ -1,4 +1,4 @@
-# Dependency updates. The audit gates (pnpm audit:osv, audit:cargo-audit,
+# Dependency updates. The audit gates (npm run audit:osv, audit:cargo-audit,
 # audit:cve-lite) remain the security loop; Dependabot only proposes version
 # bumps so the routine dependency triage has a reviewed, ready-made PR.
 version: 2

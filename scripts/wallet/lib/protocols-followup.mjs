@@ -33,11 +33,8 @@ import { readWalletClaims } from "./evidence.mjs";
  */
 export function runShippedAdapterLive(run, input) {
   const live = run(
-    "pnpm",
-    [
-      "--filter",
-      "@opensesame/wallet-x402",
-      "exec",
+    "npm", [
+      "exec", "-w", "@opensesame/wallet-x402", "--",
       "vitest",
       "run",
       "src/exact-settle.live.test.ts",
@@ -66,7 +63,7 @@ export function runShippedAdapterLive(run, input) {
           ? null
           : "shipped prepareX402Payment/executeX402Payment live vitest failed",
       command:
-        "pnpm --filter @opensesame/wallet-x402 exec vitest run src/exact-settle.live.test.ts",
+        "npm exec -w @opensesame/wallet-x402 -- vitest run src/exact-settle.live.test.ts",
       durationMs: live.durationMs,
     },
   };
@@ -75,8 +72,7 @@ export function runShippedAdapterLive(run, input) {
 /** @param {RunFn} run @param {string} root */
 export function runMandates(run, root) {
   const mandates = run(
-    "pnpm",
-    ["--filter", "@opensesame/wallet-mandates", "test"],
+    "npm", ["run", "test", "-w", "@opensesame/wallet-mandates"],
     root,
   );
   const ok = mandates.exitCode === 0;
@@ -121,7 +117,7 @@ function bumpX402(claims, evidenceRel) {
     status: "local_execution_verified",
     productionEnabled: false,
     evidenceRefs: [
-      "pnpm wallet:test:protocols",
+      "npm run wallet:test:protocols",
       "packages/wallet-x402/forge/src/EIP3009Mock.sol",
       "packages/wallet-x402/src/adapter.ts",
       evidenceRel,
@@ -163,7 +159,7 @@ function bumpMandates(claims, evidenceRel) {
     productionEnabled: false,
     trust: "fixture-local",
     evidenceRefs: [
-      "pnpm wallet:test:protocols",
+      "npm run wallet:test:protocols",
       "packages/wallet-mandates",
       evidenceRel,
     ],

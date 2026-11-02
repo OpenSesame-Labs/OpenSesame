@@ -14,11 +14,11 @@ Branch: `chore/audit-tick10`
 | Severity | Finding | Fix |
 |----------|---------|-----|
 | High | Production MFA passkey register trusted client-supplied `credentialId`/`publicKey` | Require `RegistrationResponseJSON` verified via SimpleWebAuthn against `/passkey/registration-options` challenge (`attestationType: direct`) |
-| Process | Stale CI security-job docs (workflows removed in #26) | Left historical; local `pnpm audit:*` checklist remains |
+| Process | Stale CI security-job docs (workflows removed in #26) | Left historical; local `npm run audit:*` checklist remains |
 
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/auth-upstream build test
-pnpm --filter @opensesame/control-plane test
+npm run build -w @opensesame/auth-upstream test
+npm run test -w @opensesame/control-plane
 ```

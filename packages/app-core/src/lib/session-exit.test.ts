@@ -35,7 +35,7 @@ const clearFederation = vi.fn();
 const originalIdentity = { ...identitySeams };
 const originalFederation = { ...federationSeams };
 
-/** Node 22 shadows Storage with an unavailable experimental global. */
+/** Node 24 shadows Storage with an unavailable experimental global. */
 function ensureWebStorage(): void {
   const memory = (): Storage => {
     const map = new Map<string, string>();

@@ -4,7 +4,7 @@ OpenSesame is a **dual-plane** product (ADR 0007):
 
 | Plane | Stack | Role |
 |-------|--------|------|
-| **Identity** | Node.js / TypeScript / pnpm | Principals, claims, OIDC issuer, ceremony pages, SDKs |
+| **Identity** | Node.js / TypeScript / npm | Principals, claims, OIDC issuer, ceremony pages, SDKs |
 | **Authority** | Rust / Cargo | ConnectionRef, broker, OpenBao/OpenFGA, WASM host |
 
 ```text

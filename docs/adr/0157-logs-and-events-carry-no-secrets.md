@@ -79,7 +79,7 @@ JWTs, `osc_` tokens and PEM blocks were invisible to it.
    passes that check. Telemetry drops a value shaped like a credential whole.
 5. **Debug never prints a credential.** The six structs that derived `Debug`
    over a plaintext secret print `[REDACTED]`, each with a test.
-6. **The ways round it are counted.** `pnpm quality:log-hygiene` counts
+6. **The ways round it are counted.** `npm run quality:log-hygiene` counts
    `console.*`, a hand-built `pino(...)` and a tracing subscriber without the
    scrubbing writer in production code. A file or kind with no entry is
    allowed zero, and a recorded number only falls. The one sanctioned

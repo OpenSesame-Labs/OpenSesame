@@ -51,7 +51,7 @@ continuation before it can satisfy the full bearer-handling requirements.
 
 ## Validation
 
-Passed: `pnpm install --offline`; TypeScript coverage with 92.23% statements,
+Passed: `npm install --offline`; TypeScript coverage with 92.23% statements,
 85.52% branches, 93.07% functions, and 93.29% lines; 1,263-test Stryker dry
 run; Rust mutation (67/68 caught, 1 unviable); fuzz discovery (7/7) and all
 13 fuzz targets; red-team structural Pact (15/15); security tests (3/3);
@@ -67,9 +67,9 @@ are concentrated in pre-existing Pages guest/notices and provisional-policy
 files; the new assurance evaluator has contract, chaos, monotonicity, and
 snapshot coverage but is not yet in the Stryker mutation list.
 
-`pnpm test:integration` reaches the visual-contract webserver after OAuth and
+`npm run test:integration` reaches the visual-contract webserver after OAuth and
 upstream-auth build repairs, then fails because the existing Pages build has a
-large TypeScript error set. Full `pnpm typecheck` similarly reaches existing
+large TypeScript error set. Full `npm run typecheck` similarly reaches existing
 visual-contract and agent-protocols typing failures. The red-team live model
 evaluation is not reproducible here because its Claude Code OAuth credential
 is expired; the structural suite is green without cloud credentials.

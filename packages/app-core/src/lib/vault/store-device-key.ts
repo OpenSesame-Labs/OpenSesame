@@ -11,7 +11,7 @@
  * not hand out its body: the store registers it here (`registerBodyPort`) and
  * installs the carrier (`installDeviceKeyCarrier`), and a test asks for it by
  * store (`bodyPortOf`). Those three are for `store.ts`, this module and tests
- * only; `pnpm quality:app-core` fails on any other importer, in any package or
+ * only; `npm run quality:app-core` fails on any other importer, in any package or
  * app (`scripts/lib/app-core-seams.mjs`). Everything else asks the device
  * identity key for the key and the store for its own methods.
  */

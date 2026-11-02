@@ -8,7 +8,7 @@
  *   node scripts/audit/browser-disposition-probes.mjs bitwarden  # only these provider ids
  *
  * Unauthenticated, from the audited origin; no credential is ever sent. It
- * needs the network, so it is not part of `pnpm verify`. When a provider that
+ * needs the network, so it is not part of `npm run verify`. When a provider that
  * was refusing starts to admit the origin (or the reverse), the row's kind is
  * out of date: re-author it, then record with --write.
  *
@@ -75,7 +75,7 @@ if (write) {
   spec.checked_date = new Date().toISOString().slice(0, 10);
   writeFileSync(specPath, `${JSON.stringify(spec, null, 2)}\n`);
   console.log(
-    "Recorded. Run `pnpm exec biome format --write spec/connectors/browser-dispositions.json` and `pnpm --filter @opensesame/app-core generate:dispositions`.",
+    "Recorded. Run `npm exec -- biome format --write spec/connectors/browser-dispositions.json` and `npm run generate:dispositions`.", -w @opensesame/app-core
   );
 }
 console.log(`${probed} probe(s), ${drifted.length} moved.`);

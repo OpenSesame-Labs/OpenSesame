@@ -19,7 +19,7 @@ already been accepted or fixed.
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 
@@ -68,25 +68,25 @@ either ship a small fix PR or record why it is not being fixed.
 ## Exact commands, in order
 
 Run from the repo root, after a normal clone (do **not** run a full
-`pnpm install`/`cargo build` unless a specific gate below requires it — the
+`npm install`/`cargo build` unless a specific gate below requires it — the
 gate scripts install what they need):
 
 ```bash
 git status
 git log -3 --oneline
 
-pnpm run audit:cve-lite       # bash ./scripts/audit/cve-lite-gate.sh
-pnpm run audit:osv            # bash ./scripts/audit/osv-scanner-gate.sh (osv-scanner.toml)
-pnpm run audit:cargo-audit    # bash ./scripts/audit/cargo-audit-gate.sh (.cargo/audit.toml)
-pnpm run audit:gitleaks       # bash ./scripts/audit/gitleaks-gate.sh (.gitleaks.toml)
-pnpm audit                    # native pnpm advisory scan (no wrapper script)
+npm run audit:cve-lite       # bash ./scripts/audit/cve-lite-gate.sh
+npm run audit:osv            # bash ./scripts/audit/osv-scanner-gate.sh (osv-scanner.toml)
+npm run audit:cargo-audit    # bash ./scripts/audit/cargo-audit-gate.sh (.cargo/audit.toml)
+npm run audit:gitleaks       # bash ./scripts/audit/gitleaks-gate.sh (.gitleaks.toml)
+npm audit                    # native npm run advisory scan (no wrapper script)
 cargo deny check              # deny.toml — licenses, bans, RustSec advisories
 ```
 
 If any of the six commands above is missing or fails to execute at all (not a
 finding, but a broken gate — e.g. the script file is gone or a binary is
 missing from `PATH`), that is itself a finding: note it and, if the fix is
-small (a script path correction, a missing `pnpm dlx` install step), fix it
+small (a script path correction, a missing `npm run dlx` install step), fix it
 in the same PR as any dependency bumps; otherwise write it up under "Genuinely
 new, unfixable this run" below.
 
@@ -114,15 +114,15 @@ For every finding reported by the six commands:
    release yet" may have changed), it is **not** new. Skip it.
 
 2. **For a genuinely new, actionable advisory** (a real CVE/GHSA/RUSTSEC
-   against a package actually in `Cargo.lock` or `pnpm-lock.yaml`, with a
+   against a package actually in `Cargo.lock` or `package-lock.json`, with a
    fixed version available): upgrade the affected dependency to the fixed
    version (or the latest compatible version if no exact fix version is
-   pinned), re-run the specific gate that flagged it plus `pnpm typecheck`
+   pinned), re-run the specific gate that flagged it plus `npm run typecheck`
    and the affected package's test suite, and open a small fix PR:
    ```bash
    git checkout -b fix/deps-<short-package-name>-<date>
    # edit package.json / Cargo.toml as needed, then:
-   pnpm install --lockfile-only    # or the Rust equivalent: cargo update -p <crate>
+   npm install --lockfile-only    # or the Rust equivalent: cargo update -p <crate>
    git add <changed files>
    git commit -m "fix(deps): bump <package> to <version> (<ADVISORY-ID>)"
    git push -u origin HEAD
@@ -137,7 +137,7 @@ EOF
    land the commit with `createCommitOnBranch` as described above and use the
    commands here for the branch and the pull request.
    Keep each PR to one advisory/package family unless multiple advisories
-   share one fix commit naturally (e.g. one `pnpm install` moves several
+   share one fix commit naturally (e.g. one `npm install` moves several
    transitive deps at once) — do not bundle unrelated bumps.
 
 3. **For a false positive or an advisory you are accepting as risk** (no

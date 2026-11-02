@@ -5,7 +5,7 @@ the existing ADB server transport. It lists devices and uses shell, sync file
 listing/upload, activity launch and port forwarding. It does not parse Android
 public keys or create a TCP-to-USB bridge.
 
-The pnpm adbkit patch defers exactly two imports until `parsePublicKey` or
+The npm run adbkit patch defers exactly two imports until `parsePublicKey` or
 `createTcpUsbBridge` is called. All transport implementations and the public
 client factory, default binary, configured host/port and environment handling
 remain upstream code. The `@devicefarmer/adbkit>node-forge` exclusion removes
@@ -20,8 +20,7 @@ redistribution of every optional promptfoo or adbkit feature.
 
 ## Regression checks
 
-Run `node --test scripts/security/adbkit-transport.test.mjs` after a frozen pnpm
-install. The suite resolves adbkit through the extension's actual WXT and
+Run `node --test scripts/security/adbkit-transport.test.mjs` after a frozen npm install. The suite resolves adbkit through the extension's actual WXT and
 web-ext-run dependencies, proves node-forge is absent, and exercises the real
 installed library against a fragmented loopback ADB peer. It checks device
 states, shell output, file LIST/SEND completion and errors, activity failure

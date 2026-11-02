@@ -2,14 +2,14 @@
 
 Branch: `feat/task-access-model` (workspace at scan time)
 
-Tool: **Google OSV-Scanner v2.5.0** (`pnpm run audit:osv`). Not used in prior loops (those used gitleaks / cargo-deny / pnpm audit / Semgrep SAST / cve-lite / ast-grep / clippy). Semgrep MCP supply-chain was attempted first but requires a Semgrep daemon unavailable here.
+Tool: **Google OSV-Scanner v2.5.0** (`npm run audit:osv`). Not used in prior loops (those used gitleaks / cargo-deny / npm audit / Semgrep SAST / cve-lite / ast-grep / clippy). Semgrep MCP supply-chain was attempted first but requires a Semgrep daemon unavailable here.
 
 ## Scanners
 
 | Check | Result |
 |------|--------|
-| `osv-scanner scan source` on `Cargo.lock` + `pnpm-lock.yaml` (pre-fix) | 2 vulns |
-| `pnpm run audit:osv` (post-fix + `osv-scanner.toml` ignores) | CLEAN |
+| `osv-scanner scan source` on `Cargo.lock` + `package-lock.json` (pre-fix) | 2 vulns |
+| `npm run audit:osv` (post-fix + `osv-scanner.toml` ignores) | CLEAN |
 | `cargo deny check advisories` | ok (did not surface GHSA-h395; not in RustSec DB) |
 | `cargo test -p opensesame-proof --lib` | 12 passed |
 
@@ -23,7 +23,7 @@ Tool: **Google OSV-Scanner v2.5.0** (`pnpm run audit:osv`). Not used in prior lo
 ## Follow-ups closed in this loop
 
 1. **DPoP validation config** — `Validation::new(header.alg)` with `validate_exp`/`validate_nbf` off and cleared `required_spec_claims` (proofs use custom `iat` checks).
-2. **Gate** — `scripts/audit/osv-scanner-gate.sh` + `pnpm run audit:osv` (auto-downloads pinned binary into `.tools/bin`).
+2. **Gate** — `scripts/audit/osv-scanner-gate.sh` + `npm run audit:osv` (auto-downloads pinned binary into `.tools/bin`).
 3. **Tooling matrix** — OSV-Scanner added under “Use now” in `tooling-evaluation.md`.
 
 ## Residual (tracked)
@@ -34,5 +34,5 @@ Tool: **Google OSV-Scanner v2.5.0** (`pnpm run audit:osv`). Not used in prior lo
 ## Gate
 
 ```bash
-pnpm run audit:osv
+npm run audit:osv
 ```

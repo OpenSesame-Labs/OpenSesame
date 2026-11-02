@@ -84,7 +84,7 @@ Phase 3 depends on 2. Phase 4 depends on 1 and 3. Phases 6 and 7 depend on 4.
   violations as a ledger that may only shrink, so phase 3 can be measured.
 
 **Exit:** `cargo test -p opensesame-daemon -p opensesame-credential-helpers`,
-`pnpm audit:daemon-deps` (new ledger), the new helper integration test.
+`npm run audit:daemon-deps` (new ledger), the new helper integration test.
 
 ### Phase 1 — The principal is a key
 
@@ -106,7 +106,7 @@ Phase 3 depends on 2. Phase 4 depends on 1 and 3. Phases 6 and 7 depend on 4.
 - Key rotation: a `principal.rotate` statement signed by the old key,
   verified in both languages.
 
-**Exit:** `pnpm --filter @opensesame/pages verify:auth`, `verify:local-iam`,
+**Exit:** `npm run verify:auth`, -w @opensesame/pages `verify:local-iam`,
 `verify:static`, `verify:keyboard`; vault-core golden vectors pass in Rust
 and TypeScript; the guest tests (`SignInPanel.test.tsx`,
 `UnlockScreen.test.tsx`, `store.test.ts`) unchanged and green.
@@ -126,7 +126,7 @@ and TypeScript; the guest tests (`SignInPanel.test.tsx`,
 
 **Exit:** `cargo test -p opensesame-gateway` with new cases (self-issued
 accepted, wrong audience, replayed assertion, rotated key);
-`pnpm --filter @opensesame/pages verify:auth`; a Join journey against a
+`npm run verify:auth`; -w @opensesame/pages a Join journey against a
 local gateway with no Identity API; a security audit note under
 `docs/security/audits/`.
 
@@ -162,9 +162,9 @@ local gateway with no Identity API; a security audit note under
   `daemon install` writing a unit (today it only prints how to run
   `opensesame daemon run` as a login item).
 
-**Exit:** `cargo +1.88.0 test --workspace --all-targets`; `pnpm test:live-stack`,
+**Exit:** `cargo +1.88.0 test --workspace --all-targets`; `npm run test:live-stack`,
 `test:nats-dogfood`, `test:task-access`, `test:mtls`, `test:mtls:integration`
-against `opensesame daemon run`; `pnpm audit:daemon-deps` at zero; the
+against `opensesame daemon run`; `npm run audit:daemon-deps` at zero; the
 browserpass and KeePassXC bridge tests through the argv[0] entry points.
 
 ### Phase 4 — The host is a local OpenID provider
@@ -206,8 +206,8 @@ host.
   `apps/cli/tests/capability_parity.rs` follow. Delete `packages/mcp-host` and
   `packages/mcp-client`.
 
-**Exit:** the registry parity suites; `pnpm test:redteam` against
-`opensesame mcp serve`; `pnpm --filter @opensesame/pages verify:webmcp`.
+**Exit:** the registry parity suites; `npm run test:redteam` against
+`opensesame mcp serve`; `npm run verify:webmcp`. -w @opensesame/pages
 
 ### Phase 6 — The web apps collapse into Pages
 
@@ -224,7 +224,7 @@ host.
   (`opensesame vault verify | ls`, `crates/human-vault` `pages_vault`);
   `packages/cli` is still in the tree.
 
-**Exit:** `pnpm quality:bundle`, `verify:keyboard`, `verify:mobile`,
+**Exit:** `npm run quality:bundle`, `verify:keyboard`, `verify:mobile`,
 before/after evidence for the moved screens (`skills/visual-evidence`).
 
 ### Phase 7 — The hosted identity service becomes optional packaging
@@ -239,11 +239,11 @@ before/after evidence for the moved screens (`skills/visual-evidence`).
   loop runs inside the hosted identity deployment.
 - `ops/hosted-identity/`: the deployment recipe (container and database),
   documented as optional in `docs/operators/`.
-- Delete `packages/control-plane` and `packages/identity-worker`; `pnpm dev`
+- Delete `packages/control-plane` and `packages/identity-worker`; `npm run dev`
   no longer starts an Identity API.
 
 **Exit:** the control-plane's test suite runs green against the hosted
-deployment; `pnpm --filter @opensesame/pages verify:static` still shows no
+deployment; `npm run verify:static` -w @opensesame/pages still shows no
 "No Identity API" copy anywhere; the Settings override (ADR 0118 §3)
 tested against the hosted deployment.
 

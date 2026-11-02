@@ -33,5 +33,5 @@ for this repository by `packages/app-core/src/lib/quorum/recovery-fixture.test.t
 Every key and share in it is generated for the fixture and protects nothing
 (test-only keys). The TypeScript suite and `crates/quorum-recovery/tests/fixture.rs`
 both open it; `UPDATE_QUORUM_RECOVERY_FIXTURE=1` rewrites it (then
-`pnpm exec biome format --write` on the file), and only a deliberate change to
+`npm exec -- biome format --write` on the file), and only a deliberate change to
 the bundle format should.

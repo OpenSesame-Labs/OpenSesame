@@ -431,8 +431,8 @@ node apps/pages/scripts/verify-capability-graph.mjs --dist dist \
   --profile capability-profiles/family-local.json --mode hardened
 ```
 
-The package scripts `pnpm --filter @opensesame/pages build:profile` and
-`pnpm --filter @opensesame/pages verify:capability-graph` run the same two
+The package scripts `npm run build:profile` -w @opensesame/pages and
+`npm run verify:capability-graph` -w @opensesame/pages run the same two
 files; invoke them through `node` when you need to pass flags.
 
 The three environment variables the Vite config reads are
@@ -508,7 +508,7 @@ Consequences an operator should expect:
     `fetch`. Every call to the Identity API and the browser's `subscribe` is
     bounded (15 s and 30 s).
 
-  `pnpm --filter @opensesame/pages verify:push-worker` walks approval, a second
+  `npm run verify:push-worker` -w @opensesame/pages walks approval, a second
   tab, a push delivered through CDP and removal in a real browser.
 - **Caches are namespaced** `opensesame-pages:<scopePath>:<releaseId>:<variant>`,
   and cleanup touches only names matching that application and scope path.

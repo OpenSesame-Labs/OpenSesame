@@ -70,11 +70,11 @@ case "$check" in
     cargo +nightly-2026-08-01 fuzz --version
     ;;
   fuzz-typescript)
-    pnpm --filter @opensesame/fuzz rebuild
+    npm run rebuild -w @opensesame/fuzz
     (cd tests/fuzz/jazzer && node -e 'import("@jazzer.js/core")')
     ;;
 esac
 node --version
-pnpm --version
+npm --version
 rustc +1.88.0 --version
 date -u +%Y-%m-%dT%H:%M:%SZ

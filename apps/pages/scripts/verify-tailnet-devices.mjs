@@ -4,9 +4,9 @@
 // credential.
 //
 //   cargo build -p opensesame-cli --features tailnet-admin-test-upstream
-//   VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build:live-dedicated
+//   VITE_BASE=/OpenSesame/ npm run build:live-dedicated -w @opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:tailnet-devices
+//     npm run verify:tailnet-devices -w @opensesame/pages
 //
 // The page is the deployment of one's own (`dedicated_origin`): the shared
 // GitHub Pages origin may not hold tailnet authority at all, and says so

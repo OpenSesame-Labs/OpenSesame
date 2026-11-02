@@ -58,12 +58,12 @@ PHC parsers take, so the scheme reads such a record itself.
 
 ```bash
 cargo +1.88.0 test -p opensesame-bitwarden-server   # unit + tests/protocol.rs
-pnpm test:bitwarden-oracle                          # + the bw CLI oracle suites
+npm run test:bitwarden-oracle                          # + the bw CLI oracle suites
 ```
 
 `tests/import.rs` runs the importer end to end in ordinary CI.
 The `tests/bw_cli_oracle*.rs` suites are `#[ignore]`d and need
-`OPENSESAME_BW_CLI`; the pnpm script installs the pinned CLI into
+`OPENSESAME_BW_CLI`; the npm run script installs the pinned CLI into
 `.cache/bitwarden-oracle/` and sets it. `tests/bw_cli_oracle_hub.rs` drives the
 live-sync hub with a pinned SignalR client instead (`OPENSESAME_SIGNALR_DIR`,
 installed by the same script). They fail, never skip, without them.

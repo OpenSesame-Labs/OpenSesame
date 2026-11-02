@@ -28,9 +28,9 @@ const REPO_ROOT = resolve(EXAMPLES, "../../../../..");
  * `testdata/invalid/<code>.json` is generated from `INVALID_FIXTURES`. A
  * normal run only compares the checked-in files with it and fails on drift;
  * the flag rewrites them, formatted by the repository's Biome so the output
- * is byte-for-byte what `pnpm lint` accepts:
+ * is byte-for-byte what `npm run lint` accepts:
  *
- *   UPDATE_DURESS_FIXTURES=1 pnpm --filter @opensesame/contracts exec \
+ *   UPDATE_DURESS_FIXTURES=1 npm exec -w @opensesame/contracts -- \
  *     vitest run src/duress/fixtures.test.ts
  */
 const UPDATE = process.env.UPDATE_DURESS_FIXTURES !== undefined;
@@ -81,7 +81,7 @@ beforeAll(() => {
     writeFileSync(invalidFixturePath(code), invalidFixtureText(code));
     return invalidFixturePath(code);
   });
-  execFileSync("pnpm", ["exec", "biome", "format", "--write", ...paths], {
+  execFileSync("npm", ["exec", "--", "biome", "format", "--write", ...paths], {
     cwd: REPO_ROOT,
     stdio: "inherit",
   });

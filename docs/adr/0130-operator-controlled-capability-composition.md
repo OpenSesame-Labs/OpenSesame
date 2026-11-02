@@ -190,6 +190,6 @@ capability changes nothing.
   fixture that proves its absence — in addition to ADR 0065's registry entry.
 - Legacy full-surface tests run under the explicit `rich-explicit` fixture;
   minimal tests run under `minimal-local`. Neither family is deleted.
-- `pnpm --filter @opensesame/pages build:profile` and
+- `npm run build:profile` -w @opensesame/pages and
   `verify:capability-graph` are part of the merge gate for changes to the
   bootstrap, modules, workers or the build.

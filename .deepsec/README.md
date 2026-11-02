@@ -13,7 +13,7 @@ Currently configured project: `opensesame` (target: `..`).
 install, exact Vercel project link, Sandbox/model probes, threat model,
 coverage-guided scans, custom matchers, and first AI processing run.
 
-If setup was interrupted, run `pnpm deepsec setup` here or re-run the
+If setup was interrupted, run `npm run deepsec setup` here or re-run the
 original init command. Checkpoints in `data/opensesame/setup/setup-state.json`
 skip completed work. The linked Vercel project is always in Sandbox scope.
 
@@ -26,10 +26,10 @@ env vars needed.
 ## Daily commands
 
 ```bash
-pnpm deepsec scan
-pnpm deepsec process     --concurrency 5
-pnpm deepsec revalidate  --concurrency 5                  # cuts FP rate
-pnpm deepsec export      --format md-dir --out ./findings
+npm run deepsec scan
+npm run deepsec process     --concurrency 5
+npm run deepsec revalidate  --concurrency 5                  # cuts FP rate
+npm run deepsec export      --format md-dir --out ./findings
 ```
 
 ### Grok Build (subscription, `grok-4.7`)
@@ -57,7 +57,7 @@ DEEPSEC_LIMIT=50 ../scripts/audit/deepsec-grok-scan.sh process
 ../scripts/audit/deepsec-grok-scan.sh export
 ```
 
-Default Pi + Vercel AI Gateway (`pnpm audit:deepsec` with
+Default Pi + Vercel AI Gateway (`npm run audit:deepsec` with
 `DEEPSEC_PROCESS=1`) is unchanged.
 
 `--project-id` is auto-resolved while there's only one project in
@@ -72,7 +72,7 @@ on Opus by default). Run state goes to `data/opensesame/`.
 To scan another codebase from this same `.deepsec/`:
 
 ```bash
-pnpm deepsec init-project ../some-other-package   # path relative to .deepsec/
+npm run deepsec init-project ../some-other-package   # path relative to .deepsec/
 ```
 
 Appends an entry to `deepsec.config.ts` and writes
@@ -96,7 +96,7 @@ AGENTS.md                Pointer for coding agents
 
 ## Docs
 
-After `pnpm install`:
+After `npm install`:
 
 - Skill: `node_modules/deepsec/SKILL.md`
 - Full docs: `node_modules/deepsec/dist/docs/{getting-started,configuration,models,writing-matchers,plugins,architecture,data-layout,vercel-setup,faq}.md`

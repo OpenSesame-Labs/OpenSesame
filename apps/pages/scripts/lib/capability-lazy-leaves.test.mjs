@@ -10,7 +10,7 @@ import {
 
 test("keeps the NATS signer with its carrier instead of connector metadata", () => {
   const file =
-    "/repo/node_modules/.pnpm/tweetnacl@1.0.3/node_modules/tweetnacl/nacl-fast.js";
+    "/repo/node_modules/tweetnacl/nacl-fast.js";
   const owner = classifyModule(file, PACKAGE_RULES, { repoRoot: "/repo" });
   assert.equal(owner.classification, "optional");
   assert.equal(owner.capability, "sharing.live");
@@ -357,7 +357,7 @@ test("keeps the directory sign-in model off the bootstrap without promoting its 
 
 test("keeps the real NKeys signer with NATS without claiming virtual wrappers or connector credentials", () => {
   const root = "/workspace";
-  const source = `${root}/node_modules/.pnpm/tweetnacl@1.0.3/node_modules/tweetnacl/nacl-fast.js`;
+  const source = `${root}/node_modules/tweetnacl/nacl-fast.js`;
   const entry = classifyModule(source, PACKAGE_RULES, { repoRoot: root });
   assert.equal(entry.classification, "optional");
   assert.equal(entry.capability, "sharing.live");

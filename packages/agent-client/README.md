@@ -35,8 +35,8 @@ approved launch.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/agent-client test
-pnpm --filter @opensesame/agent-client typecheck
+npm run test -w @opensesame/agent-client
+npm run typecheck -w @opensesame/agent-client
 ```
 
 `src/uds.test.ts` starts a real HTTP server on a Unix socket and checks the

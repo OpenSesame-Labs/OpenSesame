@@ -22,5 +22,5 @@ unusual non-whitespace credential could be only partly redacted.
 ```bash
 cargo +1.88.0 test -p opensesame-redaction
 cargo +nightly fuzz run redaction --fuzz-dir fuzz -- -max_total_time=60
-pnpm audit:fuzz
+npm run audit:fuzz
 ```

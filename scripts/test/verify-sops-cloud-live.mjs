@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm verify:sops-cloud-live` — the optional, independently reported
+ * `npm run verify:sops-cloud-live` — the optional, independently reported
  * live-provider gate (SB-058).
  *
  * It uses only disposable resources a human explicitly supplied. It never
@@ -46,7 +46,7 @@ const records = PROVIDERS.map((provider) => {
     status: missing.length > 0 ? "blocked-external" : "not-run",
     evidenceKind: "real-browser",
     test: "verify:sops-cloud-live",
-    command: "pnpm verify:sops-cloud-live",
+    command: "npm run verify:sops-cloud-live",
     runtime: "static origin, real browser",
     artifact: "work/evidence/sops/pages/browser/cloud-live.json",
     reason:
@@ -63,7 +63,7 @@ records.push({
     : "not-run",
   evidenceKind: "real-browser",
   test: "verify:sops-cloud-live",
-  command: "pnpm verify:sops-cloud-live",
+  command: "npm run verify:sops-cloud-live",
   runtime: "static origin, real browser",
   artifact: "work/evidence/sops/pages/browser/cloud-live.json",
   reason:

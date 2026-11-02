@@ -18,5 +18,5 @@ Branch: `chore/audit-tick9`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/sdk-browser test
+npm run test -w @opensesame/sdk-browser
 ```

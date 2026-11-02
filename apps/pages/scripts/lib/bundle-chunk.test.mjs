@@ -14,7 +14,7 @@ const matches = [
   ["/repo/node_modules/react-router/index.js", "react-router"],
   ["/repo/node_modules/react-router-dom/dist/index.js", "react-router"],
   [
-    "/repo/node_modules/.pnpm/react@19.2.3/node_modules/react/index.js",
+    "/repo/node_modules/react/index.js",
     "react-dom",
   ],
   ["/repo/node_modules/react/index.js?commonjs-proxy", "react-dom"],

@@ -51,7 +51,7 @@ Two prerequisites:
   disagrees with reality by so much as a trailing scheme or port, the provider will refuse the
   redirect URI you registered.
 - Secrets go in the environment, never in git. Every `_CLIENT_SECRET` and `_PRIVATE_KEY` is
-  annotated `@sensitive` in `.env.schema`. `pnpm audit:gitleaks` is the backstop, not the
+  annotated `@sensitive` in `.env.schema`. `npm run audit:gitleaks` is the backstop, not the
   policy.
 
 **This covers every leg, not just the four providers below.** An organization's own OIDC

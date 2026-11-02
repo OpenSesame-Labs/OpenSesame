@@ -86,8 +86,8 @@ export function turboTestArgs() {
 export function allScopeLanes() {
   return [
     [
-      { command: "pnpm", args: ["typecheck"] },
-      { command: "pnpm", args: turboTestArgs() },
+      { command: "npm", args: ["run", "typecheck"] },
+      { command: "npm", args: turboTestArgs() },
     ],
   ];
 }
@@ -107,9 +107,9 @@ async function runTs(plan) {
     process.exit(1);
   }
   const typecheck = {
-    command: "pnpm",
+    command: "npm",
     args: [
-      "exec",
+      "exec", "--",
       "turbo",
       "run",
       "typecheck",

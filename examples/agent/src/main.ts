@@ -2,8 +2,8 @@
 /**
  * Anonymous agent registration + claim poll demo.
  *
- *   OPENSESAME_IDENTITY_API=http://127.0.0.1:8788 pnpm --filter @opensesame/example-agent start
- *   MOCK_AGENT_FLOW=1 pnpm --filter @opensesame/example-agent start
+ *   OPENSESAME_IDENTITY_API=http://127.0.0.1:8788 npm run start -w @opensesame/example-agent
+ *   MOCK_AGENT_FLOW=1 npm run start -w @opensesame/example-agent
  */
 import { createHash, randomBytes } from "node:crypto";
 import { renderAgentCard, renderAuthMd } from "@opensesame/agent-protocols";

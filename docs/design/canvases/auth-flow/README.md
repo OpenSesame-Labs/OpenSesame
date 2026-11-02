@@ -9,8 +9,7 @@ and an authenticator-code enrollment that can no longer brick a vault.
 Published canvas:
 <https://claude.ai/code/artifact/c1b6217c-62d1-4ba9-8d0d-af5d83ed2b66>
 
-> Status (2026-10-08): built, and walked by `pnpm --filter @opensesame/pages
-> verify:auth`. Two things the artboards still draw differ from the build.
+> Status (2026-10-08): built, and walked by `npm run > -w @opensesame/pages verify:auth`. Two things the artboards still draw differ from the build.
 > They name a master password beside the PIN and passkey, which
 > [ADR 0180](../../../adr/0180-vaults-are-sealed-by-passkey-not-password.md)
 > removed from new vaults and from Settings › Security (an existing password
@@ -153,7 +152,7 @@ generated `.dc.html`, unless reconciling an edit made in the canvas editor.
 
 ## Verified in a browser
 
-`pnpm --filter @opensesame/pages verify:auth` drives the built bundle in
+`npm run verify:auth` -w @opensesame/pages drives the built bundle in
 headless Chromium through both roads on the canvas — guest → key → code and
 password → code — including lock, reload, a wrong code, and the unlock
 screen's tabs and step rail. Screenshots land in `artifacts/auth-flow/`.

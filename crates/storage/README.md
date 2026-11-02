@@ -16,7 +16,7 @@ across one module per responsibility.
   [`opensesame-connection-broker`](../connection-broker)
   (dev-dependency), the fuzz crate [`tests/fuzz/cargo`](../../tests/fuzz/cargo)
   (`certmgr_filter_parse`), and the authority-fabric gate
-  (`pnpm test:authority-fabric`).
+  (`npm run test:authority-fabric`).
 - **Builds on:** [`opensesame-domain`](../domain) (records and IDs),
   [`opensesame-lifecycle`](../lifecycle) (the watermark and fence vocabulary),
   [`opensesame-event-seal`](../event-seal) (event and audit rows rest sealed,
@@ -47,7 +47,7 @@ Row types are the `Stored*` structs exported from [`src/lib.rs`](src/lib.rs).
 
 ```bash
 cargo +1.88.0 test -p opensesame-storage
-pnpm test:mutation:rust   # src/lib.rs is in the mutation scope
+npm run test:mutation:rust   # src/lib.rs is in the mutation scope
 ```
 
 A schema change is a new file `migrations/NNNN_<name>.sql` plus an entry
@@ -59,7 +59,7 @@ New methods go in the module for their responsibility, not in `lib.rs`.
 `lib.rs` (2,069 lines) and a few modules carry recorded numbers in
 [`tools/quality/quality-baseline.json`](../../tools/quality/quality-baseline.json)
 that may only fall; new files meet the 400-line budget outright
-(`pnpm quality:gate`). The `insta` snapshots in
+(`npm run quality:gate`). The `insta` snapshots in
 [`tests/snapshots`](tests/snapshots) pin certificate-manager wire shapes.
 
 ## Related

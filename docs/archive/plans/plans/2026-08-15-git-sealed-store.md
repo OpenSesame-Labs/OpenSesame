@@ -503,7 +503,7 @@ describe("store-sync mapping", () => {
 });
 ```
 
-- [ ] **Step 2:** `pnpm --filter @opensesame/pages test` — expect FAIL
+- [ ] **Step 2:** `npm run test` -w @opensesame/pages — expect FAIL
 
 - [ ] **Step 3:** Implement mapping + Settings buttons (honest copy: ciphertext only)
 

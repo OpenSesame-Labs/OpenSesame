@@ -62,7 +62,19 @@ export function cargoLockVersions(lockText, name) {
   return out;
 }
 
-/** Every resolved version of `name` in pnpm-lock.yaml's `packages:` section. */
+/** Every resolved version of `name` in an npm package-lock.json `packages` map. */
+export function npmLockVersions(lock, name) {
+  const packages = lock.packages ?? {};
+  const suffix = `node_modules/${name}`;
+  const out = new Set();
+  for (const [key, value] of Object.entries(packages)) {
+    if (key !== suffix && !key.endsWith(`/${suffix}`)) continue;
+    if (typeof value?.version === "string") out.add(value.version);
+  }
+  return [...out];
+}
+
+/** Every resolved version of `name` in package-lock.json's `packages:` section. */
 export function pnpmLockVersions(lockText, name) {
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(
@@ -98,7 +110,7 @@ export function fixtureVersions(root) {
 
 export function collectVersions(root) {
   const cargoLock = readFileSync(join(root, "Cargo.lock"), "utf8");
-  const pnpmLock = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
+  const npmLock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
   const cargo = {};
   for (const name of CARGO_PACKAGES) {
     const v = cargoLockVersions(cargoLock, name);
@@ -106,14 +118,14 @@ export function collectVersions(root) {
   }
   const npm = {};
   for (const name of NPM_PACKAGES) {
-    const v = pnpmLockVersions(pnpmLock, name);
+    const v = npmLockVersions(npmLock, name);
     npm[name] = v.length === 0 ? null : v.join(",");
   }
   return {
     rustc: firstLine(run("rustc", ["+1.88.0", "--version"], root)),
     cargo: firstLine(run("cargo", ["+1.88.0", "--version"], root)),
     node: firstLine(run("node", ["--version"], root)),
-    pnpm: firstLine(run("pnpm", ["--version"], root)),
+    npm: firstLine(run("npm", ["--version"], root)),
     chromium: process.env.PLAYWRIGHT_CHROMIUM
       ? firstLine(run(process.env.PLAYWRIGHT_CHROMIUM, ["--version"], root))
       : null,

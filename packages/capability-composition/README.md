@@ -39,12 +39,12 @@ same plan and the same digest.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/capability-composition test
-pnpm --filter @opensesame/capability-composition typecheck
+npm run test -w @opensesame/capability-composition
+npm run typecheck -w @opensesame/capability-composition
 ```
 
 A change to the resolver or a document parser also affects the Pages
-capability build: run `pnpm --filter @opensesame/pages build:profile` and
+capability build: run `npm run build:profile` -w @opensesame/pages and
 `verify:capability-graph` as AGENTS.md §5 requires.
 
 ## Related

@@ -6,18 +6,18 @@ they explicitly require a live service.
 
 | Test type | Evidence | Command |
 | --- | --- | --- |
-| Atomic unit | Vitest suites in 67 TypeScript workspaces; Rust unit tests across the workspace | `pnpm test`; `cargo +1.88.0 test --workspace --all-targets` |
-| Snapshot / characterization | Vitest `__snapshots__` (Verify equivalent) for the Pages keymap, app-core guest surfaces, duress unlock and vault import formats, agent-protocols rendering, audit redaction and control-plane pages; `insta` snapshots in the daemon and the CLI's browserpass/gopass golden tests; Playwright pixel baselines | `pnpm --filter @opensesame/pages test`; `pnpm --filter @opensesame/app-core test`; `pnpm --filter @opensesame/agent-protocols test`; `pnpm test:visual` |
-| Contract | OpenAPI/WIT schemas and PACT transport/adversarial suites documented in `pact.md` | `pnpm test:integration`; `pnpm test:task-access` |
-| Chaos | Concurrent append, replay, fail-closed, stale-state, partial-failure, and outbox retry scenarios in the PACT suites | `pnpm test`; `pnpm test:integration` |
-| Fuzz / property | Rust libFuzzer targets (including the connector-discovery parsers: `mcp_config`, `ini_parse`, `whois_response`, `promote_request`), Jazzer.js targets, proptest, and bounded proof gates | `pnpm audit:fuzz`; `pnpm test:fuzz`; `pnpm audit:kani`; `pnpm audit:shuttle` |
-| Dependency budget | Daemon/discovery dependency closure pinned against the ADR 0048 §5 allowlist; credential-exchange surface (sqlx, oauth2, jsonwebtoken, chacha20poly1305, task bus) kept off the daemon and the invoke-through/authn crates | `pnpm audit:daemon-deps` |
-| Behavior / functional | `*.behavior.test.ts` Given/When/Then journeys (control-plane ceremonies, guest login); Playwright and live battle tests | `pnpm test`; `pnpm test:e2e`; `pnpm verify` |
-| Mutation | Stryker/Vitest over credential redaction, URL trust boundaries, and the audit metadata redaction + tamper-evidence chain (`packages/audit`); cargo-mutants over a scoped set of Rust files (redaction, task-bus validation, relay, connection-detect, human-vault, sealed-store attachments, PKI policy/revocation/bundle, the certificate issuer model and the storage crate, per `pnpm test:mutation:rust`). Duress unlock gates are covered by unit/PACT/behaviour suites first — add to `tools/mutation/stryker.config.json` only after a scoped `pnpm test:mutation:ts` proves 100% kill. | `pnpm test:mutation` |
+| Atomic unit | Vitest suites in 67 TypeScript workspaces; Rust unit tests across the workspace | `npm test`; `cargo +1.88.0 test --workspace --all-targets` |
+| Snapshot / characterization | Vitest `__snapshots__` (Verify equivalent) for the Pages keymap, app-core guest surfaces, duress unlock and vault import formats, agent-protocols rendering, audit redaction and control-plane pages; `insta` snapshots in the daemon and the CLI's browserpass/gopass golden tests; Playwright pixel baselines | `npm run test`; -w @opensesame/pages `npm run test`; -w @opensesame/app-core `npm run test`; -w @opensesame/agent-protocols `npm run test:visual` |
+| Contract | OpenAPI/WIT schemas and PACT transport/adversarial suites documented in `pact.md` | `npm run test:integration`; `npm run test:task-access` |
+| Chaos | Concurrent append, replay, fail-closed, stale-state, partial-failure, and outbox retry scenarios in the PACT suites | `npm test`; `npm run test:integration` |
+| Fuzz / property | Rust libFuzzer targets (including the connector-discovery parsers: `mcp_config`, `ini_parse`, `whois_response`, `promote_request`), Jazzer.js targets, proptest, and bounded proof gates | `npm run audit:fuzz`; `npm run test:fuzz`; `npm run audit:kani`; `npm run audit:shuttle` |
+| Dependency budget | Daemon/discovery dependency closure pinned against the ADR 0048 §5 allowlist; credential-exchange surface (sqlx, oauth2, jsonwebtoken, chacha20poly1305, task bus) kept off the daemon and the invoke-through/authn crates | `npm run audit:daemon-deps` |
+| Behavior / functional | `*.behavior.test.ts` Given/When/Then journeys (control-plane ceremonies, guest login); Playwright and live battle tests | `npm test`; `npm run test:e2e`; `npm run verify` |
+| Mutation | Stryker/Vitest over credential redaction, URL trust boundaries, and the audit metadata redaction + tamper-evidence chain (`packages/audit`); cargo-mutants over a scoped set of Rust files (redaction, task-bus validation, relay, connection-detect, human-vault, sealed-store attachments, PKI policy/revocation/bundle, the certificate issuer model and the storage crate, per `npm run test:mutation:rust`). Duress unlock gates are covered by unit/PACT/behaviour suites first — add to `tools/mutation/stryker.config.json` only after a scoped `npm run test:mutation:ts` proves 100% kill. | `npm run test:mutation` |
 
 ## Measured non-regression gates
 
-`pnpm test:coverage` measures every package directly under `apps/`,
+`npm run test:coverage` measures every package directly under `apps/`,
 `packages/`, `examples/`, `tests/` and `tools/` whose test script runs
 `vitest run` (65 today), plus all Rust workspace targets. Packages whose test
 script does not run `vitest run` (today `apps/android` and
@@ -77,7 +77,7 @@ environment at all, so its mutants were never really being measured. A
 mutate-list entry whose gate has not run reads as covered while measuring
 nothing, which is the one failure mode this gate exists to prevent.
 
-So: **re-run `pnpm test:mutation:ts` whenever you add a file to
+So: **re-run `npm run test:mutation:ts` whenever you add a file to
 `tools/mutation/stryker.config.json`, and update the figure above.** The gate is cheap
 relative to what a stale entry costs.
 
@@ -116,7 +116,7 @@ literal source no longer matches and the dry run fails with an opaque
 `packages/control-plane/src/__tests__/federated-leg.pact.test.ts`.
 
 Snapshot updates are always explicit. Use Vitest's `-u` or
-`VISUAL_UPDATE=1 pnpm test:visual`, inspect the diff, and commit only intended
+`VISUAL_UPDATE=1 npm run test:visual`, inspect the diff, and commit only intended
 behavior changes.
 
 ## Measured 2026-09-15 — SIOP
@@ -129,7 +129,7 @@ behavior changes.
 Focused `@opensesame/siop-v2` coverage (v8, `src/**/*.ts` only):
 
 ```bash
-pnpm --dir packages/siop-v2 exec vitest run --coverage --coverage.provider=v8 \
+npm run --dir packages/siop-v2 exec vitest run --coverage --coverage.provider=v8 \
   --coverage.include='src/**/*.ts' --coverage.reporter=text-summary \
   --coverage.reporter=json --coverage.reportsDirectory=../../coverage/siop-v2
 ```
@@ -146,7 +146,7 @@ Well above the 50% per-package lines floor. Property coverage lives in
 `security.adversarial.test.ts` and `token.adversarial.test.ts`; fragment
 contract coverage in `response.test.ts`. Identity hosted bridge PACT lives in
 `packages/control-plane/src/__tests__/siop-bridge.pact.test.ts`
-(`pnpm --filter @opensesame/control-plane verify:siop`).
+(`npm run verify:siop`). -w @opensesame/control-plane
 
 Approximate CRAP (branch-outcome complexity × uncovered³) after the response
 and validity extractions — lower is better; pure decision modules sit at their
@@ -175,10 +175,10 @@ single `--mutate` path per invocation:
 Scoped runs (2026-09-15):
 
 ```bash
-pnpm exec stryker run --mutate packages/siop-v2/src/issuer.ts
-pnpm exec stryker run --mutate packages/siop-v2/src/audience.ts
-pnpm exec stryker run --mutate packages/siop-v2/src/validity.ts
-pnpm exec stryker run --mutate packages/siop-v2/src/link-profile.ts
+npm exec -- stryker run --mutate packages/siop-v2/src/issuer.ts
+npm exec -- stryker run --mutate packages/siop-v2/src/audience.ts
+npm exec -- stryker run --mutate packages/siop-v2/src/validity.ts
+npm exec -- stryker run --mutate packages/siop-v2/src/link-profile.ts
 ```
 
 `packages/siop-v2` unit tests: **88** cases across issuer, audience, validity,

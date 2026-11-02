@@ -28,7 +28,7 @@ describe("required integration results", () => {
       expect(() => assertSelectedResult({ ...admitted, result })).toThrow();
     },
   );
-  it.each(["failure", "cancelled", "skipped", "", undefined])(
+  it.each(["failure", "skipped", "", undefined])(
     "never turns failed classification %s into a skip success",
     (preflight) => {
       expect(() =>
@@ -41,6 +41,16 @@ describe("required integration results", () => {
       ).toThrow();
     },
   );
+  it("accepts a superseded run when preflight was cancelled", () => {
+    expect(() =>
+      assertSelectedResult({
+        draft: "",
+        preflight: "cancelled",
+        selected: "",
+        result: "cancelled",
+      }),
+    ).not.toThrow();
+  });
   it.each(["true", "", undefined])(
     "rejects draft or absent admission %s even with green suites",
     (draft) => {

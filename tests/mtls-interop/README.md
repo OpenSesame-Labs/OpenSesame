@@ -9,7 +9,7 @@ The crate holds no production code, and nothing that ships depends on it.
 
 ## Where it fits
 
-- **Run by:** `pnpm test:mtls:integration`
+- **Run by:** `npm run test:mtls:integration`
   ([`scripts/mtls/mtls-integration-test.sh`](../../scripts/mtls/mtls-integration-test.sh)),
   as its `it-mtls-interop` step. The crate is a Cargo workspace member but is
   commented out of `scripts/mtls/mtls-required-packages.txt`, so today that
@@ -42,13 +42,13 @@ The crate holds no production code, and nothing that ships depends on it.
 (`s_client`), `node.rs` (runs the Node scripts in `harness/`), `proc.rs`
 (bounded children, kernel-allocated ports). `harness/browser-cert-endpoint.mjs`
 also serves `apps/pages/scripts/verify-browser-cert.mjs` in
-`pnpm test:mtls:browser`.
+`npm run test:mtls:browser`.
 
 ## Develop
 
 ```bash
-pnpm test:mtls:integration       # fetch and verify fixtures, start servers, run every ignored mTLS suite
-pnpm test:mtls:fixtures          # fetch and sha256-verify nats-server, OpenBao, SPIRE, Caddy only
+npm run test:mtls:integration       # fetch and verify fixtures, start servers, run every ignored mTLS suite
+npm run test:mtls:fixtures          # fetch and sha256-verify nats-server, OpenBao, SPIRE, Caddy only
 OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-mtls-interop -- --ignored
 ```
 

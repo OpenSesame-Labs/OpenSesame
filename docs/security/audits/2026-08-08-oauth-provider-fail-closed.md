@@ -67,7 +67,7 @@ silently skipped.
 a database is configured. Signing keys already came from `OPENSESAME_JWKS_JSON`
 with production refusing an ephemeral keypair.
 
-## Also fixed — `pnpm run test:all` was red
+## Also fixed — `npm run test:all` was red
 
 `packages/cli` still called `pollClaim(claimId)` with one argument after tick 25
 made the claim token mandatory, so the workspace `typecheck` (and therefore
@@ -76,8 +76,8 @@ made the claim token mandatory, so the workspace `typecheck` (and therefore
 
 ## Verification
 
-- `pnpm --filter @opensesame/oauth-provider test` — 18 tests, incl. new
+- `npm run test` -w @opensesame/oauth-provider — 18 tests, incl. new
   canonicalization, allowlist and fail-closed cases.
-- `pnpm --filter @opensesame/oauth-provider typecheck` / `build`.
-- `pnpm --filter @opensesame/control-plane test` — unchanged (dev path).
+- `npm run typecheck` -w @opensesame/oauth-provider / `build`.
+- `npm run test` -w @opensesame/control-plane — unchanged (dev path).
 - `errors.InvalidTarget` confirmed present in the installed `oidc-provider`.

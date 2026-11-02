@@ -49,12 +49,11 @@ Do not use multi-target copy installations or copy dependency trees to worktrees
 
 Session startup is lightweight. Dependency bootstrap requires explicit opt-in;
 the installer fingerprints manifests, patches and lock/config inputs and reuses
-a current install. Reuse pnpm's store, the shared Cargo target and installed
+a current install. Reuse npm's store, the shared Cargo target and installed
 browsers. Database migration generation, baseline updates and scanner execution
 are deliberate task commands, never startup side effects. Do not manually remove
-packages from pnpm's dependency tree to reduce size; use a validated install
-configuration when changing native-platform or tool profiles. The pinned pnpm
-configuration selects the current OS, CPU and libc. The existing lockfile lacks
+packages from npm's dependency tree to reduce size; use a validated install
+configuration when changing native-platform or tool profiles. The pinned npm run configuration selects the current OS, CPU and libc. The existing lockfile lacks
 libc metadata; refresh that metadata with the normal registry available before
 claiming the old GNU/musl duplication has been removed.
 

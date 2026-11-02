@@ -15,8 +15,8 @@ cargo build -p opensesame-cli
 ./target/debug/opensesame daemon install   # prints how to run the daemon (no files copied)
 
 # Client / identity CLI (TypeScript, run through tsx; no build step)
-pnpm install
-pnpm --filter @opensesame/cli start -- --help
+npm install
+npm run start -w @opensesame/cli -- --help
 ```
 
 ## Configure
@@ -33,7 +33,7 @@ export OPENSESAME_ENV=development                      # deployment mode (develo
 
 `source scripts/dev/local-env.sh` sets the mode and loopback URLs and generates the
 operator token, claim pepper and signing keys (under
-`~/.local/state/opensesame/development/`, never printed); `pnpm dev:host`,
+`~/.local/state/opensesame/development/`, never printed); `npm run dev:host`,
 `dev:daemon` and `dev:cli` source it. The Host also needs `OPENSESAME_CLAIM_PEPPER`
 and a loopback `OPENSESAME_RESOURCE` / `OPENSESAME_ISSUER` for a local run. The
 Identity API needs a mode and `OPENSESAME_CLAIM_PEPPER`, or
@@ -45,10 +45,10 @@ Identity API needs a mode and `OPENSESAME_CLAIM_PEPPER`, or
 source scripts/dev/local-env.sh
 ./target/debug/opensesame daemon start
 ./target/debug/opensesame daemon status
-./target/debug/opensesame host run --listen 127.0.0.1:8787   # or `pnpm dev:host`
+./target/debug/opensesame host run --listen 127.0.0.1:8787   # or `npm run dev:host`
 # In a shell that has not sourced local-env.sh:
 OPENSESAME_ENV=development OPENSESAME_ALLOW_DEV_DEFAULTS=1 \
-  pnpm --filter @opensesame/control-plane start               # :8788
+  npm run start -w @opensesame/control-plane               # :8788
 ```
 
 ## Use
@@ -84,9 +84,9 @@ REF=$(./target/debug/opensesame connect token github/acme-gh)
 ./target/debug/opensesame invoke --connection-ref "$REF" --operation get --resource /user
 
 # Client
-pnpm --filter @opensesame/cli start -- login --device --issuer http://127.0.0.1:8788
-pnpm --filter @opensesame/cli start -- host health --host http://127.0.0.1:8787
-pnpm --filter @opensesame/cli start -- host discover --host http://127.0.0.1:8787
+npm run start -w @opensesame/cli -- login --device --issuer http://127.0.0.1:8788
+npm run start -w @opensesame/cli -- host health --host http://127.0.0.1:8787
+npm run start -w @opensesame/cli -- host discover --host http://127.0.0.1:8787
 
 # Use the connections an operator saved in their PWA, through their open tab (ADR 0196).
 # The operator hosts a live session with "Devices: May ask" over a NATS relay; this is a bearer link,
@@ -94,6 +94,6 @@ pnpm --filter @opensesame/cli start -- host discover --host http://127.0.0.1:878
 # in their tab, and every call is made there. No credential ever reaches the terminal.
 export OPENSESAME_LIVE_LINK='https://…#live=v1.…'
 export OPENSESAME_LIVE_CODE='BCDF-GHJK'     # invite sessions only
-pnpm --filter @opensesame/cli start -- session list
-pnpm --filter @opensesame/cli start -- session invoke <connection> provider.repositories.read --json
+npm run start -w @opensesame/cli -- session list
+npm run start -w @opensesame/cli -- session invoke <connection> provider.repositories.read --json
 ```

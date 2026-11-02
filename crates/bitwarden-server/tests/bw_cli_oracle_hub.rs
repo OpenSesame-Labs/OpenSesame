@@ -4,7 +4,7 @@
 //! hub, hears "sync" when the vault changes and "log out" when the security
 //! stamp does, and is refused with a stale token.
 //!
-//! `#[ignore]`d like the other oracle suites; `pnpm test:bitwarden-oracle`
+//! `#[ignore]`d like the other oracle suites; `npm run test:bitwarden-oracle`
 //! installs the pinned client and runs it, and fails, never skips, without
 //! it.
 mod common;
@@ -41,7 +41,7 @@ impl HubClient {
     fn start_at(harness: &Harness, path: &str, token: &str) -> Self {
         let dir = std::env::var_os("OPENSESAME_SIGNALR_DIR").expect(
             "OPENSESAME_SIGNALR_DIR must name the pinned @microsoft/signalr install; run \
-             `pnpm test:bitwarden-oracle`",
+             `npm run test:bitwarden-oracle`",
         );
         let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../scripts/test/bitwarden-hub-client.mjs");
@@ -83,7 +83,7 @@ impl HubClient {
 }
 
 #[tokio::test]
-#[ignore = "needs the pinned SignalR client: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the pinned SignalR client: npm run test:bitwarden-oracle"]
 async fn bitwardens_signalr_client_hears_sync_and_log_out() {
     let harness = Harness::start().await;
     let (account, api) = account(&harness, "live@example.com").await;
@@ -121,7 +121,7 @@ async fn bitwardens_signalr_client_hears_sync_and_log_out() {
 }
 
 #[tokio::test]
-#[ignore = "needs the pinned SignalR client: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the pinned SignalR client: npm run test:bitwarden-oracle"]
 async fn bitwardens_signalr_client_hears_a_sign_in_request_and_its_answer() {
     let harness = Harness::start().await;
     let (account, api) = account(&harness, "live@example.com").await;

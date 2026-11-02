@@ -140,7 +140,7 @@ capability still means "all of them".
 - The entry bundle no longer carries 18 definitions (44 KB → 8 KB embedded,
   plus a 7.7 KB index); a pack is a separate hashed chunk.
 - A definition change is a corpus change: re-run
-  `pnpm --filter @opensesame/vault-item-types generate`. The drift test fails
+  `npm run generate`. -w @opensesame/vault-item-types The drift test fails
   on any stale output, and on a pack present in both core and index.
 - Test suites that assume the whole corpus load every pack in their setup; a
   suite about packs drops them first.

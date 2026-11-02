@@ -199,7 +199,7 @@ export default class McpHostStructuralProvider {
       const message = e instanceof Error ? e.message : String(e);
       // Degrade to a clear, structured provider error rather than hanging or
       // throwing a raw stack trace into the eval — e.g. this fires cleanly if
-      // the workspace hasn't been `pnpm install`-ed yet (tsx / the SDK missing).
+      // the workspace hasn't been `npm install`-ed yet (tsx / the SDK missing).
       return {
         error: `mcp-host structural probe failed: ${message}`,
       };

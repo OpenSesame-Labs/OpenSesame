@@ -79,7 +79,7 @@ function stage(workdir, standing) {
     cpSync(BUILD, target, { recursive: true });
   } catch (cause) {
     throw new Error(
-      `no build at ${BUILD}: run \`pnpm --filter @opensesame/browser-extension-bridge build\` (${cause.code})`,
+      `no build at ${BUILD}: run \`npm run build\` -w @opensesame/browser-extension-bridge (${cause.code})`,
     );
   }
   const file = path.join(target, "manifest.json");

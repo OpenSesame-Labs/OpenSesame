@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Biome over the files changed since `origin/main` — the `pnpm lint` gate.
+ * Biome over the files changed since `origin/main` — the `npm run lint` gate.
  *
  * Biome 1.9's own `--changed --since=origin/main` hands every path the diff
  * names to the checker, deleted ones included, and then fails the run with
@@ -40,8 +40,7 @@ if (files.length === 0) {
   process.exit(0);
 }
 const result = spawnSync(
-  "pnpm",
-  ["exec", "biome", "check", "--no-errors-on-unmatched", ...files],
+  "npm", ["exec", "--", "biome", "check", "--no-errors-on-unmatched", ...files],
   { stdio: "inherit" },
 );
 process.exit(result.status ?? 1);

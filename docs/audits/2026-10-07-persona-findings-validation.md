@@ -155,7 +155,7 @@ live-session grant lines found in share/drop/live modules.
 ## Tests run (this audit)
 
 ```bash
-pnpm exec vitest run \
+npm exec -- vitest run \
   packages/app-core/src/lib/vault/drop-present.test.ts \
   packages/app-core/src/lib/vault/local-drop-claims.test.ts \
   apps/pages/src/modules/identity.ceremonies/DropClaimScreen.test.tsx \
@@ -207,7 +207,7 @@ for this document).
 | Item | Why |
 |------|-----|
 | PF-10 cross-browser message variance | Persona saw both hint and bare ×; needs controlled multi-browser repro on built PWA. |
-| PF-12 carrier auto-delivery | ntfy / carrier path needs live join with fixtures (`pnpm test:live-fixtures`). |
+| PF-12 carrier auto-delivery | ntfy / carrier path needs live join with fixtures (`npm run test:live-fixtures`). |
 | PF-30 link parse failure | Bitwarden one-off; `parseLiveLink` + boot fragment stripping need repro with exact URL. |
 | Copy-only value hiding | No successful join in persona run; code paths untested end-to-end. |
 | Grok-assisted cross-check | CLI auth blocked; resume after device login. |

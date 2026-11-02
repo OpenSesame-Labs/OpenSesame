@@ -146,9 +146,9 @@ Severity is the reviewer's, stated for the deployment the code ships in.
 
 ## Dependencies
 
-30. `pnpm audit` reported 4 high and 15 moderate advisories (nodemailer on an
+30. `npm audit` reported 4 high and 15 moderate advisories (nodemailer on an
     address path, hono, yaml, ws, sharp, adm-zip, vitest). All are cleared;
-    `pnpm audit` reports none.
+    `npm audit` reports none.
 
 ## Later passes
 

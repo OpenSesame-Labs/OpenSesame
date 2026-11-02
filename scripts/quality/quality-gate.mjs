@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Structural-complexity ratchet -- the `pnpm quality:gate` gate.
+ * Structural-complexity ratchet -- the `npm run quality:gate` gate.
  *
  * The repo carries real structural debt: files of 10k+ lines, functions of
  * several hundred, `impl` blocks with 200+ methods. Turning a 400-line budget
@@ -27,7 +27,7 @@
  *     scripts/audit/clippy-gate.sh and is deliberately not duplicated.
  *
  * Usage:
- *   node scripts/quality/quality-gate.mjs            # check (CI / pnpm verify)
+ *   node scripts/quality/quality-gate.mjs            # check (CI / npm run verify)
  *   node scripts/quality/quality-gate.mjs --update   # record improvements
  *   node scripts/quality/quality-gate.mjs --update --accept-new-debt
  *                                            # ... and let numbers rise
@@ -114,7 +114,7 @@ function serializeBaseline(counts) {
     $comment: [
       "Structural-complexity debt ledger -- see scripts/quality/quality-gate.mjs.",
       "These numbers may only ever go DOWN. Regenerate with:",
-      "  pnpm quality:gate --update",
+      "  npm run quality:gate --update",
       "Do not hand-edit, and do not raise a number to make the gate pass.",
       "max-lines records the file's line count; every other rule counts occurrences.",
     ],
@@ -206,7 +206,7 @@ if (update) {
       "\nand RELOCATION: splitting one oversized file into several leaves the pieces",
       "\nlooking like new entries even when nothing got worse. Check the totals line",
       "\nin the baseline diff to tell them apart, then say so explicitly:",
-      "\n\n  pnpm quality:gate --update --accept-new-debt\n",
+      "\n\n  npm run quality:gate --update --accept-new-debt\n",
     );
     for (const { file, rule, allowed, count } of regressions
       .sort((a, b) => a.file.localeCompare(b.file))
@@ -259,7 +259,7 @@ if (improvements.length > 0) {
   );
   console.error(
     "The ratchet only works if it tightens. These files got better; commit the",
-    "\ntightened baseline alongside them:\n\n  pnpm quality:gate --update\n",
+    "\ntightened baseline alongside them:\n\n  npm run quality:gate --update\n",
   );
   for (const { file, rule, allowed, count } of improvements
     .sort((a, b) => a.file.localeCompare(b.file))

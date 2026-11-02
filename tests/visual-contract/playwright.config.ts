@@ -40,7 +40,7 @@ const chromiumPath = resolveChromium(
     join(homedir(), ".cache", "ms-playwright"),
 );
 const VISUAL_OUT_DIR = "../../work/visual-contract-dist";
-const previewCommand = `pnpm --filter @opensesame/pages exec vite preview --outDir ${VISUAL_OUT_DIR} --host ${HOST} --port ${PORT} --strictPort`;
+const previewCommand = `npm exec -w @opensesame/pages -- vite preview --outDir ${VISUAL_OUT_DIR} --host ${HOST} --port ${PORT} --strictPort`;
 const usePrebuilt = process.env.PAGES_VISUAL_PREBUILT === "1";
 if (usePrebuilt) {
   const index = new URL(
@@ -103,11 +103,11 @@ export default defineConfig({
   },
   webServer: {
     // turbo builds the workspace packages Pages imports first; a bare
-    // `pnpm --filter @opensesame/pages build` fails on a fresh checkout whose
+    // `npm run build` -w @opensesame/pages fails on a fresh checkout whose
     // dependencies have never been built.
     command: usePrebuilt
       ? previewCommand
-      : `pnpm exec turbo run build --filter=@opensesame/pages^... && pnpm --filter @opensesame/pages exec node scripts/stamped-build.mjs 'vite build --outDir ${VISUAL_OUT_DIR} --emptyOutDir && PAGES_OUT_DIR=${VISUAL_OUT_DIR} node scripts/build-workers.mjs' && pnpm --filter @opensesame/pages exec vite preview --outDir ${VISUAL_OUT_DIR} --host ${HOST} --port ${PORT} --strictPort`,
+      : `npm exec -- turbo run build --filter=@opensesame/pages^... && npm exec -w @opensesame/pages -- node scripts/stamped-build.mjs 'vite build --outDir ${VISUAL_OUT_DIR} --emptyOutDir && PAGES_OUT_DIR=${VISUAL_OUT_DIR} node scripts/build-workers.mjs' && npm exec -w @opensesame/pages -- vite preview --outDir ${VISUAL_OUT_DIR} --host ${HOST} --port ${PORT} --strictPort`,
     // Playwright 1.55.1 rejects a webServer config specifying both `port`
     // and `url` ("Either 'port' or 'url' should be specified"); `url` alone
     // both pins the readiness check and matches `use.baseURL` above, so it's

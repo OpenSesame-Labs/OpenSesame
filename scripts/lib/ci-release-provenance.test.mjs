@@ -20,7 +20,7 @@ import {
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const { parse } = createRequire(
-  new URL("../../node_modules/.pnpm/node_modules/", import.meta.url),
+  new URL("../../node_modules/node_modules/", import.meta.url),
 )("yaml");
 const workflow = (name) =>
   parse(

@@ -290,7 +290,7 @@ export function fakeBundle(appRoot, html) {
     main: `${appRoot}/src/main.tsx`,
     table: "\0virtual:opensesame-capability-modules",
     drops: `${appRoot}/src/modules/sharing.drops/runtime.ts`,
-    react: `${appRoot}/../../node_modules/.pnpm/react@19/node_modules/react/index.js`,
+    react: `${appRoot}/../../node_modules/react/index.js`,
   };
   const info = {
     [ids.main]: {

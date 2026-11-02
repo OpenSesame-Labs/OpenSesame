@@ -6,7 +6,7 @@ asked to set a project up.
 
 ## Common tasks
 
-- **Set up or resume a project**: run `pnpm deepsec setup`. For a
+- **Set up or resume a project**: run `npm run deepsec setup`. For a
   scaffold-only/manual setup, read `data/<id>/SETUP.md` and follow it.
 - **Add a new project**: run `deepsec init-project <root>` — it
   scaffolds `data/<id>/` and prints/writes the setup prompt for the
@@ -18,5 +18,5 @@ asked to set a project up.
 ## Reference
 
 The deepsec skill is at `node_modules/deepsec/SKILL.md` (after
-`pnpm install`). The full docs ship at
+`npm install`). The full docs ship at
 `node_modules/deepsec/dist/docs/`.

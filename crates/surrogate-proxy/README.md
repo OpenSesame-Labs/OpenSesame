@@ -16,7 +16,7 @@ surrogate text never becomes the credential; it only selects one.
   (ADR 0150 §7, [plugins guide](../../docs/operators/plugins.md)).
   `opensesame dev run --agent` spawns it per run while it is switched on.
   Neither `opensesame` nor the daemon links this crate;
-  `pnpm audit:plugin-boundary` fails if either does, so ADR 0048 §5's budget
+  `npm run audit:plugin-boundary` fails if either does, so ADR 0048 §5's budget
   is unchanged.
 - **Builds on:** [`opensesame-invoke-through`](../invoke-through) — the ledger,
   the fence, the invoker and the reflection scrub;

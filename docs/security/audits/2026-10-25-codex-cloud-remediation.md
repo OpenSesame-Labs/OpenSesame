@@ -81,7 +81,7 @@ subject to the PR's required checks; no Cloud occurrence was closed.
 
 ### Ordered verification
 
-1. Syntax, types and static checks: `pnpm lint` passed; `pnpm typecheck`
+1. Syntax, types and static checks: `npm run lint` passed; `npm run typecheck`
    passed all 69 tasks, and the affected package typechecks passed again after
    fixture/helper edits. Rust formatting and `cargo +1.88.0 check -p
    opensesame-cli` passed. Strict Clippy passed for all six changed Rust packages
@@ -111,7 +111,7 @@ subject to the PR's required checks; no Cloud occurrence was closed.
    checks passed 1,000 Vitest
    and 75 Node tests. The extension production build passed. Broader workspace
    test runs hit timing failures; the mock IdP's 60 tests and redteam's 40 tests
-   passed separate lower-concurrency reruns. `pnpm verify` as a whole has not
+   passed separate lower-concurrency reruns. `npm run verify` as a whole has not
    passed, and the full workspace/all-feature Clippy audit was not completed.
 
 The initial database pass used PGlite. Follow-up verification passed all 474

@@ -77,7 +77,7 @@ GA-* ownership above; they are not a second programme.
 | SESSION | GA-H + GA-P | shared_session + `0035_session_coordination.sql` |
 | ENFORCER / DNS / COLLAB / SANDBOX | GA-H adapters | `crates/{dns-enforcement,collab-adapter,sandbox}` |
 | PORTAL | GA-P | `apps/pages` LocalAuthorityTemplates, Access sections |
-| VERIFICATION | GA-Q | `scripts/authority-fabric*.mjs`, `pnpm test:authority-fabric` |
+| VERIFICATION | GA-Q | `scripts/authority-fabric*.mjs`, `npm run test:authority-fabric` |
 | ADVERSARIAL | GA-Q | domain/storage adversarial modules + AT matrix |
 | OPERATIONS | GA-O | support matrix, runbooks, evidence packaging |
 

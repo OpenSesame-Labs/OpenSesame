@@ -357,7 +357,7 @@ its constraints are not rediscovered.
   store and the rate limit), and the single-page flow with injected storage,
   clock and `fetch` and a real at-rest key (sealed storage, another tab, a
   wrong binding, no key).
-- `pnpm --filter @opensesame/pages verify:siop`: the example Node RP as its own
+- `npm run verify:siop`: -w @opensesame/pages the example Node RP as its own
   process and the example SPA on its own origin sign in against the built
   Pages app with a virtual authenticator. The Node RP is signed in to through
   its own `<form>` in the browser, so Chromium submits it, receives the RP's

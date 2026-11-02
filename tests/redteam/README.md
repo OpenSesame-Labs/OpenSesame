@@ -15,7 +15,7 @@ human-only tools are tested as unavailable, while response-minimization and
 prompt-injection tests exercise retained task tools. These local fixtures do
 not claim to validate a live deployment or constitute a model-backed scan.
 
-This package is part of the default `pnpm test` run (`vitest` covers the
+This package is part of the default `npm test` run (`vitest` covers the
 corpus PACT plus a live `packages/mcp-host` structural pass of confused-deputy,
 credential-exfiltration, malformed-input, and prompt-injection-as-data); that
 structural pact suite (`src/structural.pact.test.ts`) is also the package's
@@ -23,8 +23,8 @@ structural pact suite (`src/structural.pact.test.ts`) is also the package's
 attack trees (`attack-trees.test.ts`, `compiler-fuzz.test.ts`,
 `gaps.honest.test.ts`). The full promptfoo eval, including the Anthropic
 prompt-injection class, still runs on its own via
-`pnpm --filter @opensesame/redteam redteam` and the root-level
-`pnpm test:redteam` alias.
+`npm run redteam` -w @opensesame/redteam and the root-level
+`npm run test:redteam` alias.
 
 ## What this tests, and why
 
@@ -120,40 +120,38 @@ calls a model.
 ```bash
 # Full suite (starts the fixed-port stub upstream, runs promptfoo eval, tears
 # the stub down afterward — see scripts/run-redteam.mjs):
-pnpm --filter @opensesame/redteam redteam
+npm run redteam -w @opensesame/redteam
 
 # Same, from the repo root:
-pnpm test:redteam
+npm run test:redteam
 
 # View the last run's results in promptfoo's local UI:
-pnpm --filter @opensesame/redteam redteam:report
+npm run redteam:report -w @opensesame/redteam
 
 # Run `promptfoo eval` directly (skips the supervisor script above — fine for
 # the three structural classes; the prompt-injection cases will fail with a
 # connection error unless something is already listening on 127.0.0.1:8787
 # and :18790, e.g. a manually-started `redteam:mock-upstream` — see below):
-pnpm --filter @opensesame/redteam redteam:eval
+npm run redteam:eval -w @opensesame/redteam
 
 # Start just the fixed-port stub upstream, standalone, for manual poking:
-pnpm --filter @opensesame/redteam redteam:mock-upstream
+npm run redteam:mock-upstream -w @opensesame/redteam
 ```
 
 ### Graceful degradation
 
-- **No `pnpm install` yet**: every provider fails per-test with a clear
+- **No `npm install` yet**: every provider fails per-test with a clear
   `mcp-host structural probe failed: ...` (or an equivalent promptfoo
   provider-connection error for `claude-live-mcp`) rather than hanging — the
   harness wraps its connect/call steps in explicit timeouts
   (`src/mcp-provider.ts`) precisely so a missing dependency shows up as a
   fast, readable per-test failure instead of a stuck `promptfoo eval`.
-- **No model credentials available**: `pnpm --filter @opensesame/redteam
-  redteam:eval` still runs the confused-deputy, credential-exfiltration, and
+- **No model credentials available**: `npm run redteam:eval` -w @opensesame/redteam still runs the confused-deputy, credential-exfiltration, and
   malformed-input classes cleanly (14 cases, zero model dependency). Only the
   prompt-injection cases — and the llm-rubric grading calls within them — will
   report a provider auth error, which is expected and self-explanatory in
   promptfoo's output.
-- **Ports 8787 / 18790 already in use**: `pnpm --filter @opensesame/redteam
-  redteam` (the supervisor script) fails fast with a message naming the exact
+- **Ports 8787 / 18790 already in use**: `npm run redteam` -w @opensesame/redteam (the supervisor script) fails fast with a message naming the exact
   ports and suggesting what to stop, rather than eval'ing against whatever
   real service happens to be listening there.
 
@@ -182,7 +180,7 @@ prompt-injection class.
 ## Scheduled runs
 
 None of the Routines in [`ops/routines/`](../../ops/routines) invokes this
-suite, and no GitHub Actions workflow does. `pnpm test:redteam` runs locally or
+suite, and no GitHub Actions workflow does. `npm run test:redteam` runs locally or
 inside a Claude Code session; see
 [`docs/contributing/ai-automation-roadmap.md`](../../docs/contributing/ai-automation-roadmap.md)
 for how it is meant to be authenticated there, and
@@ -196,7 +194,7 @@ prompt-injection cases also exist as Vitest tests in
 `src/structural.pact.test.ts`, which drive the real, unmodified
 `packages/mcp-host` through the same probe (`src/structural-probe.ts` over
 `src/mcp-provider.ts`) and assert on its raw MCP responses and on the requests
-its stub upstream received, so `pnpm test` checks them against the live server:
+its stub upstream received, so `npm test` checks them against the live server:
 
 - The zod validation error strings asserted on in `tests/malformed-input.yaml`
   (for example `Too big: expected array to have <=64 items at capabilities`) are
@@ -211,16 +209,16 @@ its stub upstream received, so `pnpm test` checks them against the live server:
   (refused) and in an unrecognized plain field (omitted, call still succeeds).
 
 The model-backed `claude-live-mcp` class (`tests/prompt-injection.yaml`) is not
-part of `pnpm test`; it needs live model access (see "Auth") and runs only
+part of `npm test`; it needs live model access (see "Auth") and runs only
 through the promptfoo eval.
 
 To run the full promptfoo eval once the workspace is installed and either auth
 path above is available:
 
 ```bash
-pnpm install
-pnpm --filter @opensesame/redteam exec promptfoo eval --help   # sanity: CLI resolves
-pnpm --filter @opensesame/redteam redteam                       # full suite
+npm install
+npm exec -w @opensesame/redteam -- promptfoo eval --help   # sanity: CLI resolves
+npm run redteam -w @opensesame/redteam                       # full suite
 ```
 
 The `claude-live-mcp` provider's `config.mcp` field names (`enabled`,

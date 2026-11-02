@@ -5,26 +5,26 @@ security gates that measure its behaviour. The decision behind the structural
 ones, and why each threshold is what it is, is
 [ADR 0093](../adr/0093-structural-quality-gates.md).
 
-| Gate | Command | In `pnpm verify` | In CI |
+| Gate | Command | In `npm run verify` | In CI |
 | --- | --- | --- | --- |
-| Gate self-tests | `pnpm quality:test` | yes | yes (TypeScript job) |
-| Module size + complexity | `pnpm quality:gate` | yes | yes (TypeScript job) |
-| Log hygiene | `pnpm quality:log-hygiene` | yes | yes (TypeScript job) |
-| Component coupling | `pnpm quality:packages` | yes | yes (TypeScript job) |
-| Shared core | `pnpm quality:app-core` | yes | yes (TypeScript job) |
-| Bundle budgets | `pnpm quality:bundle` | no (needs builds) | yes (its own job) |
+| Gate self-tests | `npm run quality:test` | yes | yes (TypeScript job) |
+| Module size + complexity | `npm run quality:gate` | yes | yes (TypeScript job) |
+| Log hygiene | `npm run quality:log-hygiene` | yes | yes (TypeScript job) |
+| Component coupling | `npm run quality:packages` | yes | yes (TypeScript job) |
+| Shared core | `npm run quality:app-core` | yes | yes (TypeScript job) |
+| Bundle budgets | `npm run quality:bundle` | no (needs builds) | yes (its own job) |
 
-`pnpm quality` runs the first five together; bundle budgets need a build and
-run apart. `pnpm quality:report` prints the structure, coupling and bundle
+`npm run quality` runs the first five together; bundle budgets need a build and
+run apart. `npm run quality:report` prints the structure, coupling and bundle
 measurements without gating.
 
-`pnpm quality:test` runs the Vitest suites under `scripts/lib` and the
+`npm run quality:test` runs the Vitest suites under `scripts/lib` and the
 `node --test` suites under `scripts/security`. They include
 `scripts/lib/martin-metrics.test.mjs` — the Tarjan cycle search and the
 coupling arithmetic. A gate that silently stops detecting is worse than no
 gate, so the detection logic is tested like any other code.
 
-## 1. Module size and complexity — `pnpm quality:gate`
+## 1. Module size and complexity — `npm run quality:gate`
 
 Budgets. The function-length, parameter and nesting values deliberately
 mirror `clippy.toml` (`too-many-lines-threshold`, `too-many-arguments-threshold`,
@@ -42,7 +42,7 @@ mirror `clippy.toml` (`too-many-lines-threshold`, `too-many-arguments-threshold`
 
 TypeScript is measured by Oxlint through `tools/quality/oxlint.complexity.jsonc`. Rust file
 size is counted by the gate — Clippy has no per-file lint. Rust *function*
-complexity is `pnpm audit:clippy`'s job and is not duplicated here.
+complexity is `npm run audit:clippy`'s job and is not duplicated here.
 
 ### The ratchet
 
@@ -68,7 +68,7 @@ quality gate: FAIL -- 1 improvement(s) not recorded
 A file got better and the ledger still claims the old number. Record it:
 
 ```bash
-pnpm quality:gate --update
+npm run quality:gate --update
 ```
 
 Commit the tightened baseline with the change that earned it. This is what
@@ -84,7 +84,7 @@ quality gate: refusing to update -- 1 recorded number(s) would go UP
 ```
 
 Split the file instead. If the debt is genuinely unavoidable, say so
-explicitly with `pnpm quality:gate --update --accept-new-debt` — which is
+explicitly with `npm run quality:gate --update --accept-new-debt` — which is
 greppable in CI logs, and shows up as a number going *up* in the diff.
 
 **Relocation needs the same override.** Splitting one oversized file into
@@ -106,7 +106,7 @@ changes path — `git mv`, content unchanged or improved — carry its recorded
 entry instead of re-accepting it:
 
 ```bash
-pnpm quality:gate --relocate relocation-map.json
+npm run quality:gate --relocate relocation-map.json
 # relocation-map.json: { "moves": { "old/path.ts": "new/path.ts" } }
 ```
 
@@ -120,11 +120,11 @@ improvement.
 For `max-lines` the recorded number is the file's line count, so partial
 progress counts. Every other rule records occurrences.
 
-`pnpm quality:gate --summary` lists the worst files without gating.
+`npm run quality:gate --summary` lists the worst files without gating.
 
-## 2. Component coupling — `pnpm quality:packages`
+## 2. Component coupling — `npm run quality:packages`
 
-Scores all 137 components — pnpm workspace packages and Cargo crates — against
+Scores all 137 components — npm workspace packages and Cargo crates — against
 Robert C. Martin's component principles. See `scripts/lib/martin-metrics.mjs`
 for the definitions.
 
@@ -133,23 +133,23 @@ for the definitions.
 - **ADP — a dependency cycle.** Components in a cycle cannot be built, tested,
   versioned or released independently.
 - **A phantom dependency** — source imports `@opensesame/<name>` but the manifest
-  does not declare it. It works only while pnpm's store hoists it. Checked for
+  does not declare it. It works only while npm's store hoists it. Checked for
   the TypeScript plane; rustc already refuses an undeclared crate.
 
 **Ratcheted against `tools/quality/package-metrics-baseline.json`** (same tighten-or-fail
-rule as above, via `pnpm quality:packages --update`):
+rule as above, via `npm run quality:packages --update`):
 
 - **SDP violations** — an edge from a more stable component to a less stable
   one, so a change ripples backwards.
 - **Unused declared workspace dependencies** — CRP/REP debt.
 
-**Reported, not gated:** `pnpm quality:packages --report` prints Ca, Ce, I, A
+**Reported, not gated:** `npm run quality:packages --report` prints Ca, Ce, I, A
 and D per component, sorted by distance from the main sequence. Abstractness is
 counted syntactically, which is enough to spot a component drifting into the
 zone of pain (stable and concrete, high Ca with low A) and not enough to fail
 a merge over. D shows `n/a` for a component with no couplings, where I is 0/0.
 
-## 3. The shared core — `pnpm quality:app-core`
+## 3. The shared core — `npm run quality:app-core`
 
 Checks `packages/app-core` and `packages/vault-core` (ADR 0133). Every rule
 is a hard failure except the lazy-cycle ledger, which only shrinks.
@@ -181,7 +181,7 @@ imports every module with no host installed (a port read at import fails),
 and `src/sandbox/bare-isolate.test.ts` runs the portable entry in an empty V8
 context against the golden vault vectors.
 
-## 4. Bundle budgets — `pnpm quality:bundle`
+## 4. Bundle budgets — `npm run quality:bundle`
 
 Builds `apps/pages`, then measures `total`,
 `javascript`, `javascriptGzip`, `css` and `largestAsset` against
@@ -197,15 +197,15 @@ every installing device downloads. It is budgeted on `javascriptGzip` as well
 as `total` because 83% of that total is one 12.5 MiB Wasm file, and a
 JavaScript regression would be invisible inside it.
 
-## 5. Anti-slop ledger — `pnpm lint:anti-slop`
+## 5. Anti-slop ledger — `npm run lint:anti-slop`
 
 The anti-slop rules in the root `oxlint.config.ts` apply at two scopes:
 
-- **Touched files, zero tolerance.** `pnpm lint:anti-slop:files <paths>` fails
+- **Touched files, zero tolerance.** `npm run lint:anti-slop:files <paths>` fails
   on any finding. `.githooks/pre-commit` runs it on staged sources, so any file
   a commit touches has to be clean.
-- **The whole tree, ratcheted.** `pnpm lint:anti-slop`
-  (`scripts/quality/anti-slop-gate.mjs`, in `pnpm verify` and the default
+- **The whole tree, ratcheted.** `npm run lint:anti-slop`
+  (`scripts/quality/anti-slop-gate.mjs`, in `npm run verify` and the default
   pre-push hook) lints every file and compares the per-file, per-rule counts
   with `tools/quality/anti-slop-baseline.json`. That ledger records the findings
   the tree still had when the full-repository gate was introduced.
@@ -217,7 +217,7 @@ The gate fails on:
 - an unused disable directive, which is never ledgered;
 - a count below its recorded number that has not been recorded yet.
 
-`pnpm lint:anti-slop --update` records improvements: it lowers counts, drops
+`npm run lint:anti-slop --update` records improvements: it lowers counts, drops
 entries that reach zero, and drops deleted files. It refuses a run that would
 raise a count or add an entry, and it has no override. Fix a finding by
 rewriting the flagged construct, never with a disable comment.
@@ -227,9 +227,9 @@ The full run takes several minutes. Most of that time is
 each file. The gate therefore splits the file list across one single-threaded
 Oxlint process per core; `ANTI_SLOP_JOBS=<n>` overrides the number of
 processes. The comparison logic is tested in
-`scripts/lib/anti-slop-ledger.test.mjs`, which `pnpm quality:test` runs.
+`scripts/lib/anti-slop-ledger.test.mjs`, which `npm run quality:test` runs.
 
-## 6. Log hygiene — `pnpm quality:log-hygiene`
+## 6. Log hygiene — `npm run quality:log-hygiene`
 
 Keeps every log line behind the shared scrubber (ADR 0157).
 `scripts/quality/log-hygiene-gate.mjs` counts, per production file, the ways
@@ -237,7 +237,7 @@ code goes around the shared logger: `console.*`, a hand-built `pino(...)`, a
 direct `process.stdout`/`process.stderr` write, and a tracing subscriber or
 fmt layer built without the scrubbing writer. A file or kind with no entry in
 `tools/quality/log-hygiene-baseline.json` is allowed zero, and a recorded
-number only falls: `pnpm quality:log-hygiene --update` records improvements and
+number only falls: `npm run quality:log-hygiene --update` records improvements and
 refuses to raise a number. `--update --accept-new-debt` records only the sites
 a widened detector newly counts (a file or kind with no entry yet).
 
@@ -245,10 +245,10 @@ a widened detector newly counts (a file or kind with no entry yet).
 
 Adding a feature to an already-oversized file:
 
-1. `pnpm quality:gate` tells you what you exceeded.
+1. `npm run quality:gate` tells you what you exceeded.
 2. Move the new code into a new module under 400 lines, or split a seam out of
    the old one first.
-3. If the file shrank, `pnpm quality:gate --update` and commit the ledger.
+3. If the file shrank, `npm run quality:gate --update` and commit the ledger.
 
 Adding a workspace package: declare every `@opensesame/*` you import, and
 import every one you declare. The gate checks both directions.

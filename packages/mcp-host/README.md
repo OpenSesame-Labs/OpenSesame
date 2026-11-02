@@ -51,10 +51,10 @@ the operator token, and there is no tool that reads a secret.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/mcp-host start              # stdio server
-pnpm --filter @opensesame/mcp-host typecheck
-pnpm --filter @opensesame/mcp-host test
-pnpm --filter @opensesame/mcp-host test:integration   # pact + tools suites
+npm run start -w @opensesame/mcp-host              # stdio server
+npm run typecheck -w @opensesame/mcp-host
+npm run test -w @opensesame/mcp-host
+npm run test:integration -w @opensesame/mcp-host   # pact + tools suites
 ```
 
 `src/registry-parity.test.ts` holds the tool list to

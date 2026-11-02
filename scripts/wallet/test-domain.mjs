@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pnpm wallet:test:domain — run domain unit tests when packages exist.
+ * npm run wallet:test:domain — run domain unit tests when packages exist.
  *
  * Discovers:
  *   - packages/os-domain/src/wallet/**
@@ -8,7 +8,7 @@
  *   - packages/wallet-policy
  *
  * Missing packages → blocked (exit 1). Never reports a green pass without a
- * real vitest/pnpm test exit 0.
+ * real vitest/npm test exit 0.
  */
 
 import { dirname, resolve } from "node:path";
@@ -32,7 +32,7 @@ const mainnet = assertNoMainnet(
 );
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:domain",
+    invokedAs: "npm run wallet:test:domain",
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -131,8 +131,8 @@ const ok = allPassed && !anyMissing && !anyFailed;
 
 writeWalletEvidence(root, {
   invokedAs: dryRun
-    ? "pnpm wallet:test:domain --dry-run"
-    : "pnpm wallet:test:domain",
+    ? "npm run wallet:test:domain --dry-run"
+    : "npm run wallet:test:domain",
   mainnet: { ok: true, message: null, denials: [] },
   results,
   ok,

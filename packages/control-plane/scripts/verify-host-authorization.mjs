@@ -1,5 +1,5 @@
 // Real Chromium WebAuthn + real Identity signature validation, all network intercepted.
-// Run with: pnpm --filter @opensesame/control-plane exec tsx scripts/verify-host-authorization.mjs
+// Run with: npm exec -w @opensesame/control-plane -- tsx scripts/verify-host-authorization.mjs
 import assert from "node:assert/strict";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { chromium } from "@playwright/test";

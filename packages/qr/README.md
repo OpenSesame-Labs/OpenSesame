@@ -32,8 +32,8 @@ const svg = encodeQrSvg("https://example.test/device?user_code=ABCD-EFGH");
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/qr test
-pnpm --filter @opensesame/qr typecheck
+npm run test -w @opensesame/qr
+npm run typecheck -w @opensesame/qr
 ```
 
 ## Related

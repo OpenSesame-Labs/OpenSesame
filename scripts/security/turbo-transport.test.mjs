@@ -38,7 +38,7 @@ function fixture(t, policy) {
   mkdirSync(join(folder, "task"));
   mkdirSync(join(folder, "bin"));
   writeFileSync(
-    join(folder, "bin/pnpm"),
+    join(folder, "bin/npm"),
     `#!${process.execPath}
 import {spawnSync} from "node:child_process";
 if (process.argv[2] === "--version") console.log("9.15.0");
@@ -54,7 +54,7 @@ else {
     JSON.stringify({
       name: "transport-fixture",
       private: true,
-      packageManager: "pnpm@9.15.0",
+      packageManager: "npm@9.15.0",
     }),
   );
   writeFileSync(join(folder, "pnpm-workspace.yaml"), "packages:\n  - task\n");

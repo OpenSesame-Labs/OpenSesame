@@ -1,6 +1,6 @@
 # Trusted contacts: the hardware pass
 
-What `pnpm --filter @opensesame/pages verify:quorum-browser` proves, what it
+What `npm run verify:quorum-browser` -w @opensesame/pages proves, what it
 cannot, and the manual protocol for the rest. ADR 0187 states the limit this
 page closes: *"Not exercised against physical hardware."*
 
@@ -8,10 +8,10 @@ page closes: *"Not exercised against physical hardware."*
 
 | Layer | How | Where it runs |
 |---|---|---|
-| The protocol (SLIP-0039, HPKE, policy, ledger, epochs, packets) | 45 official SLIP-0039 vectors, RFC 9180 Appendix A.1/A.2, ~300 unit tests, mutation checks | `pnpm --filter @opensesame/app-core exec vitest run src/lib/quorum` |
+| The protocol (SLIP-0039, HPKE, policy, ledger, epochs, packets) | 45 official SLIP-0039 vectors, RFC 9180 Appendix A.1/A.2, ~300 unit tests, mutation checks | `npm exec -w @opensesame/app-core -- vitest run src/lib/quorum` |
 | The ceremonies end to end, many devices, hostile pastes | the desk, one in-memory device per person, a JS virtual authenticator | `src/lib/quorum/desk/desk.*.test.ts` |
-| **A real browser's WebAuthn stack with PRF** | five Chromium contexts, five CDP virtual authenticators with `hasPrf`, the real desk in each page, only packets between them; refusals are the browser's own (`NotAllowedError`) | `pnpm --filter @opensesame/pages verify:quorum-browser` (CI: `sign-in` shard) |
-| Trusted-contact **vault unlock** | people created in the identity directory, real Chromium WebAuthn enrollment and assertions, 2-of-3 and 3-of-3 policies; one below the threshold stays locked, the threshold opens the vault | `pnpm --filter @opensesame/pages verify:trusted-unlock` |
+| **A real browser's WebAuthn stack with PRF** | five Chromium contexts, five CDP virtual authenticators with `hasPrf`, the real desk in each page, only packets between them; refusals are the browser's own (`NotAllowedError`) | `npm run verify:quorum-browser` -w @opensesame/pages (CI: `sign-in` shard) |
+| Trusted-contact **vault unlock** | people created in the identity directory, real Chromium WebAuthn enrollment and assertions, 2-of-3 and 3-of-3 policies; one below the threshold stays locked, the threshold opens the vault | `npm run verify:trusted-unlock` -w @opensesame/pages |
 | The Settings screens | Pages tests and the local browser walk (keyboard, touch, tutorials) | see the screens' own gates |
 
 Trusted-contact vault unlock is a local application policy applied after the

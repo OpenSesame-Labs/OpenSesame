@@ -11,7 +11,7 @@
  *     the exact origin served here) over a real localhost socket.
  *
  * It imports TypeScript sources, so the script that uses it runs under `tsx`
- * (`pnpm --filter @opensesame/control-plane exec tsx …`, see the package
+ * (`npm exec -w @opensesame/control-plane -- tsx …`, see the package
  * scripts). The origins are fixed because the Pages build stamps its own
  * origin: `loopback_development` is honoured only where the page's origin is
  * exactly the one the build was told (`resolveDeploymentProfile`).

@@ -166,7 +166,14 @@ describe("Pages graph and required check names", () => {
       mtls: true,
       push: false,
     });
-    expect(areas(["pnpm-lock.yaml"])).toEqual({
+    expect(areas(["package-lock.json"])).toEqual({
+      typescript: true,
+      bundle: true,
+      rust: false,
+      mtls: true,
+      push: true,
+    });
+    expect(areas(["package-lock.json"])).toEqual({
       typescript: true,
       bundle: true,
       rust: false,

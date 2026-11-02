@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Component-coupling gate -- the `pnpm quality:packages` gate.
+ * Component-coupling gate -- the `npm run quality:packages` gate.
  *
  * Scores both release planes against Robert C. Martin's component principles
  * (see scripts/lib/martin-metrics.mjs for the definitions) and enforces the
@@ -12,7 +12,7 @@
  *        that makes them components.
  *
  *   phantom dependencies  a package that imports @opensesame/x without
- *        declaring it -- hard failure. It resolves today only because pnpm's
+ *        declaring it -- hard failure. It resolves today only because npm's
  *        store happens to hoist it, and it breaks the moment the graph shifts.
  *
  * SDP violations and unused declared dependencies are real but negotiable, so
@@ -178,7 +178,7 @@ if (update) {
         $comment: [
           "Accepted component-coupling debt -- see scripts/quality/package-metrics-gate.mjs.",
           "These lists may only ever SHRINK. Regenerate with:",
-          "  pnpm quality:packages --update",
+          "  npm run quality:packages --update",
           "sdp:    edges that depend toward instability (Martin's SDP).",
           "unused: declared workspace dependencies nothing imports (CRP/REP).",
         ],
@@ -233,7 +233,7 @@ for (const [kind, label] of [
   }
   if (!update && removed.length > 0) {
     failures.push(
-      `Fixed ${label} not recorded -- run \`pnpm quality:packages --update\`:\n${removed
+      `Fixed ${label} not recorded -- run \`npm run quality:packages --update\`:\n${removed
         .map((edge) => `      ${edge}`)
         .join("\n")}`,
     );

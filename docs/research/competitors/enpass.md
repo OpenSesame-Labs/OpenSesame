@@ -168,9 +168,9 @@ Proof: [`spec/conformance/vault-drive-protocol.json`](../../../spec/conformance/
 (snapshots and attachment parts, replayed by the daemon and the Pages
 client), the device suites in `packages/app-core/src/lib/tailnet-sync/`
 (two devices, clock skew and field merge, passwords, project vaults,
-attachments), `pnpm --filter @opensesame/pages verify:tailnet-sync` (a real
+attachments), `npm run verify:tailnet-sync` -w @opensesame/pages (a real
 daemon behind a `*.ts.net` TLS name and two browsers with Chrome's Local
-Network Access check on) and `pnpm test:tailnet-sync:real` (the same over a
+Network Access check on) and `npm run test:tailnet-sync:real` (the same over a
 real WireGuard tailnet: headscale, two `tailscaled` nodes, `tailscale serve`).
 
 | Enpass capability | OpenSesame before | OpenSesame after ADR 0144 |

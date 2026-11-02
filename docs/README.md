@@ -67,7 +67,7 @@ A few words carry specific meaning everywhere in these documents.
   a table somebody looks things up in goes in `reference/`.
 - **Add it to the section index.** Each section's `README.md` lists every page
   with one line. The ADR, audit and evidence indexes are generated: run
-  `pnpm docs:index`.
+  `npm run docs:index`.
 - **Link relatively**, so links work on GitHub and in a checkout alike.
 - **Decisions go in ADRs**, dated audits in `security/audits/`. Persist only
   approved current-state artifacts in `evidence/<feature>/<project>/<platform>/`,

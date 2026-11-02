@@ -23,7 +23,7 @@ parent-supported versions during this review.
 Pages uses `kdbxweb@2.1.1`, whose published manifest requests xmldom `^0.7.4`.
 The npm registry still reports 2.1.1 as latest. Upstream's unpublished master
 manifest says 2.2.0 and requests xmldom `^0.8.10`, but also declares Node
-`^18.18.0`; that is not an installable, verified Node 22 upgrade recommendation.
+`^18.18.0`; that is not an installable, verified Node 24 upgrade recommendation.
 See the [upstream manifest](https://github.com/keeweb/kdbxweb/blob/master/package.json).
 
 `@stryker-mutator/core@10.0.0` supplies `typed-rest-client@2.3.1`, which requests
@@ -41,10 +41,10 @@ compatibility. The secure containment overrides remain necessary meanwhile.
 
 ## Regression evidence
 
-On the integration checkout with Node 22.23.1 and Vitest 4.1.10:
+On the integration checkout with Node release 22.23.1 and Vitest 4.1.10:
 
 ```text
-pnpm --filter @opensesame/pages exec vitest run \
+npm exec -w @opensesame/pages -- vitest run \
   src/lib/vault/import/formats/kdbx.test.ts \
   src/lib/vault/import/formats/kdbx.characterization.test.ts --maxWorkers=2
 2 files passed, 28 tests passed (1.17 seconds)

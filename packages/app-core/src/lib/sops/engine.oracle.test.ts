@@ -6,7 +6,7 @@
  * SB-039, SB-080).
  *
  * These cases are skipped unless the verified binary is present;
- * `pnpm verify:sops-conformance` provisions it and reports an incomplete
+ * `npm run verify:sops-conformance` provisions it and reports an incomplete
  * result rather than a pass when it cannot.
  */
 import { describe, expect, it } from "vitest";

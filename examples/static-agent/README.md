@@ -5,7 +5,7 @@ server (ADR 0092). No client secret, no token-exchange route, no application
 server.
 
 ```bash
-pnpm --filter @opensesame/example-static-agent dev
+npm run dev -w @opensesame/example-static-agent
 ```
 
 Agents fetch `/auth.md` and `/.well-known/oauth-protected-resource`, then call

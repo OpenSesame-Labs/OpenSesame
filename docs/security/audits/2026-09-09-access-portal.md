@@ -40,11 +40,11 @@ additional focused and aggregate reruns are recorded separately below.
 - Gateway all-target/all-feature Clippy with warnings, pedantic and excessive
   function length denied: passed.
 - Identity authorization-request and administration API tests: 15 passed.
-- `pnpm typecheck`: 61 workspace tasks passed.
-- `pnpm test`: all 65 workspace test tasks passed (57 cached).
-- `pnpm lint:all`, focused anti-slop, `pnpm lint:design`, `pnpm quality`,
-  `pnpm audit:ast-grep`, `pnpm test:security`, `pnpm test:task-access`: passed.
-- `pnpm audit:gitleaks`: working tree clean. Its non-blocking history stage
+- `npm run typecheck`: 61 workspace tasks passed.
+- `npm test`: all 65 workspace test tasks passed (57 cached).
+- `npm run lint:all`, focused anti-slop, `npm run lint:design`, `npm run quality`,
+  `npm run audit:ast-grep`, `npm run test:security`, `npm run test:task-access`: passed.
+- `npm run audit:gitleaks`: working tree clean. Its non-blocking history stage
   reported 102 historical findings; these were not reclassified as resolved.
 - Production Pages build and existing bundle-budget checks: passed without
   increasing budgets. Static-origin and authentication Chromium harnesses:
@@ -58,7 +58,7 @@ additional focused and aggregate reruns are recorded separately below.
 
 ### Hosted-passkey correction
 
-- `pnpm --filter @opensesame/control-plane exec vitest run --config
+- `npm exec -w @opensesame/control-plane -- vitest run --config
   vitest.authentication.config.ts e2e/approval-portal.test.ts`: two real-Chromium
   tests passed. A different-origin opener, actual passkey enrollment and
   cryptographic assertion verification approve and deny the reviewed requests.
@@ -77,9 +77,9 @@ additional focused and aggregate reruns are recorded separately below.
   not increased; package metrics retain zero cycles and phantom dependencies.
 - Final three-app bundle-budget gate, static-origin and authentication browser
   harnesses passed. Deterministic ast-grep security rules passed again.
-- Full-repository `pnpm lint:all` completed successfully, supplemented by strict
+- Full-repository `npm run lint:all` completed successfully, supplemented by strict
   focused lint on the final hosted-approval and timer files. The final
-  `pnpm lint:design` and `pnpm quality` checks passed. No diagnostics were
+  `npm run lint:design` and `npm run quality` checks passed. No diagnostics were
   suppressed and no source or test file was excluded to obtain these results.
 
 ## Incomplete aggregate evidence
@@ -89,7 +89,7 @@ expands a cache-relative `askama.toml` path that cannot be read through the
 environment's symlinked Cargo registry. The initial shared target also failed
 to load `const_oid`; an isolated target built and tested Gateway successfully.
 Neither issue was suppressed or worked around by weakening source checks.
-`pnpm verify` reaches the same UniFFI failure and is not green.
+`npm run verify` reaches the same UniFFI failure and is not green.
 
 The red-team harness passed 14 deterministic cases. Four model-backed cases
 could not run because its Claude OAuth credential was expired. Fixture ports

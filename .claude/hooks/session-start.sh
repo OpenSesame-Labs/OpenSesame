@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # This sandbox's inherited NODE_OPTIONS can be poisoned (e.g. a malformed
-# "--import tsx" flag combo) which makes plain node/pnpm/corepack invocations
+# "--import tsx" flag combo) which makes plain node/npm/npm invocations
 # fail outright. Unset it defensively so a broken inherited env var can never
 # silently break this hook.
 unset NODE_OPTIONS

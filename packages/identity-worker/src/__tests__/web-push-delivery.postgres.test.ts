@@ -22,7 +22,7 @@ import {
  * the dispatcher leans on.
  *
  * Runs when `DATABASE_URL` names a server whose role can create databases
- * (`pnpm --filter @opensesame/identity-worker test:postgres`, which refuses to
+ * (`npm run test:postgres`, -w @opensesame/identity-worker which refuses to
  * run without it, and CI); a plain `test` shows it as skipped. Each run builds
  * and drops a database of its own.
  */

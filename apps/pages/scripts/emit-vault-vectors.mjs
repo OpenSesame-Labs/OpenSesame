@@ -7,7 +7,7 @@
  * `src/host/boot.ts` installs from Vite's `import.meta.env`, so they load
  * through Vite's SSR module runner rather than plain Node, with the host
  * installed first. Run once; the fixture is the contract:
- *   pnpm --filter @opensesame/pages vectors:vault -- --force
+ *   npm run vectors:vault -w @opensesame/pages -- --force
  *
  * `--add device-identity` adds the one vector the device identity key needs
  * (ADR 0160 §5) to the file as it stands, leaving every other byte alone; it
@@ -74,7 +74,7 @@ try {
     }
     Object.assign(fixture.vectors, added);
     writeFileSync(out, `${JSON.stringify(fixture, null, 2)}\n`);
-    execFileSync("pnpm", ["exec", "biome", "format", "--write", out], {
+    execFileSync("npm", ["exec", "--", "biome", "format", "--write", out], {
       stdio: "inherit",
     });
     console.log(`wrote ${out}`);
@@ -94,7 +94,7 @@ try {
     }
     Object.assign(fixture.vectors, added);
     writeFileSync(out, `${JSON.stringify(fixture, null, 2)}\n`);
-    execFileSync("pnpm", ["exec", "biome", "format", "--write", out], {
+    execFileSync("npm", ["exec", "--", "biome", "format", "--write", out], {
       stdio: "inherit",
     });
     console.log(`wrote ${out}`);
@@ -120,7 +120,7 @@ try {
     fixture.accountPepper = added.accountPepper;
     fixture.accountPepperAbout = added.accountPepperAbout;
     writeFileSync(out, `${JSON.stringify(fixture, null, 2)}\n`);
-    execFileSync("pnpm", ["exec", "biome", "format", "--write", out], {
+    execFileSync("npm", ["exec", "--", "biome", "format", "--write", out], {
       stdio: "inherit",
     });
     console.log(`wrote ${out}`);
@@ -139,7 +139,7 @@ try {
       await emit.emitDeviceIdentityVector();
     writeFileSync(out, `${JSON.stringify(fixture, null, 2)}\n`);
     // The repository's formatter keeps a short array on one line.
-    execFileSync("pnpm", ["exec", "biome", "format", "--write", out], {
+    execFileSync("npm", ["exec", "--", "biome", "format", "--write", out], {
       stdio: "inherit",
     });
   } else {

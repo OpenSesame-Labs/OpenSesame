@@ -576,8 +576,8 @@ Resolve submitted `connection_ref` in `routes/intents.rs` /
 `routes/tasks.rs` instead of `demo-conn`; route the invoke path through
 `authorize_authority_use`; move identity-plane claim/provisional stores
 onto the existing Postgres repos; add the claim-completion outbox event
-the docs already promise. Gates: `pnpm verify`, `cargo +1.88.0 test
---workspace`, `pnpm audit:ast-grep`, `pnpm audit:semgrep`.
+the docs already promise. Gates: `npm run verify`, `cargo +1.88.0 test
+--workspace`, `npm run audit:ast-grep`, `npm run audit:semgrep`.
 
 **Phase 1 — authority-plane delegation core (item-shaped from day one).**
 Migrations for the three tables; broker methods

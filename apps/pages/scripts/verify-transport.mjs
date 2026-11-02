@@ -2,9 +2,9 @@
 // STATIC-CORE and BROWSER-BOUNDARY invariants). Host transport stays on
 // the authority plane.
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:transport
+//     npm run verify:transport -w @opensesame/pages
 //
 // Served out of `dist/` under the production origin exactly as
 // `verify-static-origin.mjs` serves it; every other origin is refused.

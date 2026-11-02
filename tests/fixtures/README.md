@@ -27,7 +27,7 @@ package (for example `crates/provider-bitwarden/tests/fixtures/`).
 ```bash
 cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance
 cargo +1.88.0 test -p opensesame-env-spec bridge_roundtrip_fixture   # skips itself when node is absent
-pnpm --filter @opensesame/app-core exec vitest run src/lib/vault/import/formats/kdbx
+npm exec -w @opensesame/app-core -- vitest run src/lib/vault/import/formats/kdbx
 cargo run -p opensesame-cli -- dev check --schema tests/fixtures/demo.env.schema
 ```
 

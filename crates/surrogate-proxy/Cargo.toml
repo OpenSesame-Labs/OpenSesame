@@ -12,7 +12,7 @@ name = "opensesame_surrogate_proxy"
 path = "src/lib.rs"
 
 # The installable plugin (ADR 0150 §7). Never a dependency of `opensesame` or
-# the daemon; `pnpm audit:plugin-boundary` fails if either tree reaches it.
+# the daemon; `npm run audit:plugin-boundary` fails if either tree reaches it.
 [[bin]]
 name = "opensesame-surrogate-proxy"
 path = "src/bin/opensesame-surrogate-proxy.rs"

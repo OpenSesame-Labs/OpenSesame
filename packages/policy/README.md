@@ -27,8 +27,8 @@ types; nothing here does I/O.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/policy test
-pnpm --filter @opensesame/policy typecheck
+npm run test -w @opensesame/policy
+npm run typecheck -w @opensesame/policy
 ```
 
 Tests live in `src/__tests__/`, including PACT suites built on

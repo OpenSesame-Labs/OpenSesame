@@ -28,5 +28,5 @@ routes that mint and check user codes.
 ## Gates
 
 `cargo test --workspace`, `cargo clippy --workspace --all-targets -D warnings`,
-`pnpm test`, `pnpm run typecheck`, task-security-battle-test, cargo-audit,
+`npm test`, `npm run typecheck`, task-security-battle-test, cargo-audit,
 cargo-deny, semgrep, ast-grep, osv-scanner, gitleaks, cve-lite — all clean.

@@ -1,8 +1,8 @@
 // Hermetic ambient SSO checks against the built Pages bundle.
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:ambient-sso
+//     npm run verify:ambient-sso -w @opensesame/pages
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

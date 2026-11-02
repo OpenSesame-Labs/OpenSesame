@@ -17,7 +17,7 @@ or seals a credential.
   `mcp_config`, `promote_request`).
 - **Builds on:** no workspace crates. Its only direct dependencies are `serde`,
   `serde_json` and `thiserror` (plus std) — the budget ADR 0048 §5 sets for code
-  that ships onto a loopback agent. `pnpm audit:daemon-deps` fails if the
+  that ships onto a loopback agent. `npm run audit:daemon-deps` fails if the
   transitive tree grows beyond its allowlist.
 - Environment, filesystem, keychain and command access are injected by the
   caller, so a scan runs the same against a real process, another process's
@@ -38,7 +38,7 @@ or seals a credential.
 
 ```bash
 cargo +1.88.0 test -p opensesame-connection-detect
-pnpm audit:daemon-deps   # pins this crate's dependency closure
+npm run audit:daemon-deps   # pins this crate's dependency closure
 ```
 
 `tests/one_catalog.rs` fails if a provider discovery names is not a row of

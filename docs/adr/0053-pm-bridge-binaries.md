@@ -115,7 +115,7 @@ The gate is also the **regression alarm**. If someone later wires a bridge
 into the daemon "just to reuse the listener", the banned-crate check on the
 daemon's depth-1 tree is the tripwire — and any bridge dependency that
 transitively pulls `chacha20poly1305` (a realistic outcome for AEAD-using
-crypto crates) fails it loudly. `pnpm audit:daemon-deps` staying green is
+crypto crates) fails it loudly. `npm run audit:daemon-deps` staying green is
 therefore an explicit acceptance criterion on every Rust task in this work,
 not a formality.
 
@@ -127,7 +127,7 @@ Two honest limits of the gate, recorded so nobody over-reads it:
   rule; it does not replace reading the diff.
 - Passing the gate is not evidence that a new crate is fine — it is
   evidence that the daemon is unchanged. The new crate's own dependencies
-  are policed by `deny.toml` and `pnpm audit:cargo-audit` / `audit:osv`.
+  are policed by `deny.toml` and `npm run audit:cargo-audit` / `audit:osv`.
 
 ### 3. Bridge bins reach the sealed store in-process, at the CLI's trust position
 
@@ -229,7 +229,7 @@ it is not in the daemon's tree. `crates/provider-bitwarden` and the
 stretch `crates/provider-passbolt` mirror that structure.
 
 The daemon's own `reqwest` call sites are unchanged by this work, and
-`pnpm audit:daemon-deps` is the check that keeps that true.
+`npm run audit:daemon-deps` is the check that keeps that true.
 
 ## Consequences
 
@@ -255,7 +255,7 @@ The daemon's own `reqwest` call sites are unchanged by this work, and
   the sealed store in-process is the same authority as
   `opensesame pass show --reveal`; what gates it is the ADR 0052 §2
   ceremony, which is where review attention belongs.
-- **`pnpm audit:daemon-deps` is now load-bearing for this work.** It is the
+- **`npm run audit:daemon-deps` is now load-bearing for this work.** It is the
   single command that detects the most likely future mistake — someone
   wiring a bridge into the daemon for convenience — and it must be run and
   green on every change in this area.
@@ -273,7 +273,7 @@ recorded off, verified against its pin at every launch, and spawned by
 **The daemon still gains zero dependencies.** It reads the plugin settings
 file through `opensesame-plugin-settings`, whose dependencies were already in
 its tree, and links no plugin. §2's gate is joined by
-`pnpm audit:plugin-boundary`, which checks what `daemon-deps` cannot see: that
+`npm run audit:plugin-boundary`, which checks what `daemon-deps` cannot see: that
 neither `opensesame-cli` nor `opensesame-daemon` reaches the plugin crate
 through a normal edge, that the daemon reaches no `rcgen`, and that the CLI
 reaches `rcgen` only through the Host role's existing PKI parents.

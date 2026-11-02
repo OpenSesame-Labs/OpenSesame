@@ -70,7 +70,7 @@ git ls-files -z > "$OPENSESAME_AUDIT_DIR/tracked-files"
 lockfiles=()
 while IFS= read -r -d '' file; do
   case "${file##*/}" in
-    Cargo.lock|pnpm-lock.yaml|go.mod|package-lock.json|npm-shrinkwrap.json|yarn.lock)
+    Cargo.lock|go.mod|package-lock.json|npm-shrinkwrap.json|yarn.lock)
       lockfiles+=("--lockfile=$file") ;;
   esac
 done < "$OPENSESAME_AUDIT_DIR/tracked-files"

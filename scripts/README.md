@@ -1,6 +1,6 @@
 # scripts/
 
-The implementations behind `pnpm <task>`, grouped by what they guard. Run them
+The implementations behind `npm <task>`, grouped by what they guard. Run them
 through the `package.json` script rather than directly, so the environment and
 arguments match what CI and the hooks use. Entry points find the repository
 root from their own location, so they also work from any working directory
@@ -9,22 +9,22 @@ repository root).
 
 | Folder | What lives there | Run by |
 |---|---|---|
-| [`quality/`](quality) | Structural gates and linters | `pnpm quality`, `pnpm lint`, `pnpm lint:design`, `pnpm lint:anti-slop`, `pnpm docs:index` |
-| [`audit/`](audit) | One gate per security scanner or proof tool | `pnpm audit:*` |
-| [`fuzz/`](fuzz) | cargo-fuzz and Jazzer.js passes | `pnpm audit:fuzz*`, `pnpm test:fuzz*` |
-| [`test/`](test) | Cross-cutting suites, smoke tests and evidence gates | `pnpm test:*`, `pnpm verify:*`, `pnpm verify` |
-| [`mtls/`](mtls) | The optional-mTLS suites and their pinned fixtures | `pnpm test:mtls*` |
-| [`wallet/`](wallet) | Wallet spending-authority harness ([README](wallet/README.md)) | `pnpm wallet:*` |
+| [`quality/`](quality) | Structural gates and linters | `npm run quality`, `npm run lint`, `npm run lint:design`, `npm run lint:anti-slop`, `npm run docs:index` |
+| [`audit/`](audit) | One gate per security scanner or proof tool | `npm run audit:*` |
+| [`fuzz/`](fuzz) | cargo-fuzz and Jazzer.js passes | `npm run audit:fuzz*`, `npm run test:fuzz*` |
+| [`test/`](test) | Cross-cutting suites, smoke tests and evidence gates | `npm run test:*`, `npm run verify:*`, `npm run verify` |
+| [`mtls/`](mtls) | The optional-mTLS suites and their pinned fixtures | `npm run test:mtls*` |
+| [`wallet/`](wallet) | Wallet spending-authority harness ([README](wallet/README.md)) | `npm run wallet:*` |
 | [`release/`](release) | Pages release, the release kit's archives, commit-signature check, signed-stack replay, connector and marketplace pins | CI, Deploy Pages, a terminal ([README](release/README.md)) |
-| [`dev/`](dev) | Local development launchers and git hook setup | `pnpm dev:cli`, `dev:host`, `dev:daemon`, `dev:live-nats`, `pnpm setup:hooks`, `pnpm --filter @opensesame/pages dev` |
-| [`security/`](security) | Exposure policy, advisory gates and dependency regressions | `pnpm audit:exposure`, `pnpm audit:osv`, `pnpm quality:test` |
-| [`lib/`](lib) | Pure logic shared by the entry points, with Vitest tests beside it | `pnpm quality:test` |
+| [`dev/`](dev) | Local development launchers and git hook setup | `npm run dev:cli`, `dev:host`, `dev:daemon`, `dev:live-nats`, `npm run setup:hooks`, `npm run dev` -w @opensesame/pages |
+| [`security/`](security) | Exposure policy, advisory gates and dependency regressions | `npm run audit:exposure`, `npm run audit:osv`, `npm run quality:test` |
+| [`lib/`](lib) | Pure logic shared by the entry points, with Vitest tests beside it | `npm run quality:test` |
 
 Keep an entry point thin: parse arguments, call into `lib/`, set the exit
-code. Logic that deserves a test goes in `lib/`, where `pnpm quality:test`
+code. Logic that deserves a test goes in `lib/`, where `npm run quality:test`
 runs it.
 
-## quality/ — `pnpm quality`, `pnpm lint`
+## quality/ — `npm run quality`, `npm run lint`
 
 | Script | Task | Checks |
 |---|---|---|
@@ -39,7 +39,7 @@ runs it.
 | `design-lint.mjs` (+ `design-lint-{copy,corners,failures,hints,ink,layout,sheets,verbs}.mjs`, `prose-lint.mjs`) | `lint:design` | Word-verb buttons, status pills, explainer captions, in-page failure boxes, round corners, red control ink, confirmation-sheet shapes, key placement and field widths ([docs/design/controls.md](../docs/design/controls.md)). |
 | `docs-index.mjs` | `docs:index` | Regenerates the ADR, security-audit and evidence indexes; `--check` fails when they are stale. |
 
-## audit/ — `pnpm audit:*`
+## audit/ — `npm run audit:*`
 
 One `*-gate.sh` per tool: `cve-lite`, `ast-grep-security`, `clippy`,
 `osv-scanner`, `cargo-audit`, `gitleaks`, `semgrep`, `deepsec`, `daemon-deps`
@@ -86,7 +86,7 @@ the others report on the terminal (`deepsec` keeps its state under
 | `pepper-position-reference.py` | — | Writes `spec/conformance/pepper-position-vectors.json` from Python's own slicing; `--check` only compares the file on disk ([ADR 0174](../docs/adr/0174-the-pepper-is-the-persons-and-passwords-are-produced-by-one-facade.md)). |
 | `env-spec-dev-smoke.sh`, `wasm-client-core-smoke.sh` | — | Smoke tests for env-spec resolution and the Wasm client core (the second runs inside `battle-test.sh`). |
 
-## mtls/ — `pnpm test:mtls*`
+## mtls/ — `npm run test:mtls*`
 
 | Script | Task | Runs |
 |---|---|---|
@@ -113,14 +113,14 @@ the others report on the terminal (`deepsec` keeps its state under
 
 | Script | Used by |
 |---|---|
-| `setup-hooks.sh` | `pnpm setup:hooks`: points git at [`.githooks/`](../.githooks). |
-| `dev-cli.sh`, `dev-host.sh`, `dev-daemon.sh` | `pnpm dev:cli`, `pnpm dev:host`, `pnpm dev:daemon`: the native CLI, the Host API and the daemon from source, after sourcing `local-env.sh`. |
+| `setup-hooks.sh` | `npm run setup:hooks`: points git at [`.githooks/`](../.githooks). |
+| `dev-cli.sh`, `dev-host.sh`, `dev-daemon.sh` | `npm run dev:cli`, `npm run dev:host`, `npm run dev:daemon`: the native CLI, the Host API and the daemon from source, after sourcing `local-env.sh`. |
 | `local-env.sh` | Sourced by the three launchers above: the development environment they share. |
-| `pages-dev.sh` | `pnpm --filter @opensesame/pages dev`: the app with Host, Identity and mock IdP behind it. |
+| `pages-dev.sh` | `npm run dev`: -w @opensesame/pages the app with Host, Identity and mock IdP behind it. |
 | `start-native-deps.sh` | User-space OpenFGA and OpenBao for `test:live-stack`, no root. |
 | `connect-dev-proxy.mjs` | Local HTTPS front door for Connect OAuth callbacks ([the app's relay](../apps/pages/server/README.md)). |
 | `validate-tailscale-pairing.sh` | Checks a running daemon's health report for Tailscale Serve pairing prerequisites. |
-| `live-nats-operator.ts` | `pnpm dev:live-nats`: a nats-server configuration in operator mode whose credentials live sessions mint, and the account signing key for Routes ([ADR 0167](../docs/adr/0167-nats-live-session-route.md)). |
+| `live-nats-operator.ts` | `npm run dev:live-nats`: a nats-server configuration in operator mode whose credentials live sessions mint, and the account signing key for Routes ([ADR 0167](../docs/adr/0167-nats-live-session-route.md)). |
 
 ## security/
 

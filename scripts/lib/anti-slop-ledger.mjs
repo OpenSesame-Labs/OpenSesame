@@ -10,7 +10,7 @@
  * allowed zero, so new code meets every rule outright. Recorded numbers only
  * fall: a count above its entry fails, and so does a count below it until the
  * ledger is tightened in the same commit. Unused disable directives are never
- * ledgered; they always fail, as `pnpm lint:anti-slop:files` fails them.
+ * ledgered; they always fail, as `npm run lint:anti-slop:files` fails them.
  */
 
 /** Oxlint prints this for a directive that suppressed nothing. */
@@ -145,15 +145,15 @@ export function serializeLedger(files) {
   }
   return {
     $comment: [
-      "Anti-slop debt ledger -- see scripts/quality/anti-slop-gate.mjs (pnpm lint:anti-slop).",
+      "Anti-slop debt ledger -- see scripts/quality/anti-slop-gate.mjs (npm run lint:anti-slop).",
       "Findings of the root oxlint.config.ts rules that the tree carried when the full-repo",
       "gate was turned on, per file and rule. These numbers may only ever go DOWN:",
       "a file or rule with no entry is allowed zero, and a count that falls must be",
       "recorded in the same commit with:",
-      "  pnpm lint:anti-slop --update",
+      "  npm run lint:anti-slop --update",
       "--update never raises a count or adds an entry. Do not hand-edit to make the gate pass;",
       "rewrite the flagged construct. Staged files are held to zero by the pre-commit hook",
-      "(pnpm lint:anti-slop:files), so a file someone touches leaves this ledger.",
+      "(npm run lint:anti-slop:files), so a file someone touches leaves this ledger.",
     ],
     totals: {
       files: Object.keys(files).length,

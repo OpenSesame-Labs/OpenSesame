@@ -107,9 +107,9 @@ syncs, Chrome asks whether the site may reach devices on your local network.
 
 ```bash
 cargo build -p opensesame-cli
-VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:tailnet-sync
+  npm run verify:tailnet-sync -w @opensesame/pages
 ```
 
 Runs a real drive behind a TLS proxy at a `*.ts.net` name and two isolated
@@ -118,7 +118,7 @@ pairs, B adopts from the link and unlocks with A's password, B's edit reaches
 A, a file A attaches downloads byte for byte on B, and a device left at the
 prompt or refused is told what to do.
 
-`pnpm test:tailnet-sync:real` runs the same walk over a real tailnet (pinned
+`npm run test:tailnet-sync:real` runs the same walk over a real tailnet (pinned
 headscale and two `tailscaled` nodes, one on a kernel TUN, `tailscale serve`
 in front of the drive). It needs `/dev/net/tun` and `CAP_NET_ADMIN`.
 

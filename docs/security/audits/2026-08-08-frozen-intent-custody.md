@@ -27,6 +27,6 @@ the task routes in `crates/gateway/src/routes/tasks.rs`.
 ## Gates
 
 `cargo test --workspace` (70 suites), `cargo clippy --workspace --all-targets --
--D warnings`, `pnpm test`, `pnpm run typecheck`, task-security-battle-test,
+-D warnings`, `npm test`, `npm run typecheck`, task-security-battle-test,
 cargo-audit, cargo-deny, semgrep, ast-grep, osv-scanner, gitleaks, cve-lite —
 all clean.

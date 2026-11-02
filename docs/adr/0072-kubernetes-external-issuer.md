@@ -45,7 +45,7 @@ more prior art for exactly this component. It was still rejected:
 - **It would be the first Go in this repository.** A third toolchain means a
   third linter, a third formatter, a third dependency-audit story, a third
   cache in CI, and a third set of version pins to keep current — against
-  `pnpm audit:*` and `cargo +1.88.0` gates that today cover everything. That
+  `npm run audit:*` and `cargo +1.88.0` gates that today cover everything. That
   cost is permanent and is paid by every contributor, not just the ones
   touching this binary.
 - **The API client already exists in Rust.** The controller's non-Kubernetes

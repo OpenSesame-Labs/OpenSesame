@@ -176,7 +176,7 @@ Apple) only ever carry ciphertext.
 **1. Generate a VAPID key pair, once.**
 
 ```bash
-pnpm --filter @opensesame/notification-adapters generate:vapid mailto:ops@example.com
+npm run generate:vapid -w @opensesame/notification-adapters mailto:ops@example.com
 ```
 
 It prints the three `NAME=value` lines named in the table below on stdout, so

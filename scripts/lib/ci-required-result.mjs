@@ -4,6 +4,9 @@ import { isJsonObject } from "./json-boundary.mjs";
 
 /** A skipped job is acceptable only after a successful, explicit classification. */
 export function assertSelectedResult({ draft, preflight, selected, result }) {
+  // Concurrency cancels an in-flight run after a newer push; do not fail required
+  // checks on the superseded workflow when classification never ran.
+  if (preflight === "cancelled") return;
   if (draft !== "false") throw new Error("draft or missing draft admission");
   if (preflight !== "success") throw new Error(`preflight: ${preflight}`);
   if (!["true", "false"].includes(selected)) {

@@ -38,14 +38,14 @@
  *    **relayed-rest-wrong** is its negative control: the server holds another
  *    secret, refuses every authentication, and the browsers never meet.
  * 5. **nats-always**, **nats-fallback** — a real nats-server in operator
- *    mode (`pnpm dev:live-nats`), named in Routes with an account signing
+ *    mode (`npm run dev:live-nats`), named in Routes with an account signing
  *    key: each session mints its credentials, and the session itself crosses
  *    the server sealed — always, or once the browsers find no route
  *    (`lib/live-join-nats.mjs`, ADR 0167).
  *
  * The carrier, declined and relayed walks (each passes its codes through a
  * carrier on loopback) run on `dist-live-dedicated`
- * (`pnpm build:live-dedicated`), a build stamped `dedicated_origin`.
+ * (`npm run build:live-dedicated`), a build stamped `dedicated_origin`.
  *
  * **Browsers.** The owner runs in one engine (`LIVE_OWNER`, default
  * chromium) and every walk is taken once for each joiner engine

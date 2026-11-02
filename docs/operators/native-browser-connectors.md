@@ -21,7 +21,7 @@ prove a key (`no-key-check`), this vault already does it (`built-in`), or OpenSe
 own rules refuse it (`policy`). Each authored reason cites a dated probe or a page. The
 probes were taken from the audited origin in
 `spec/connectors/browser-dispositions.json`; **if you deploy at another origin, run
-`pnpm audit:browser-dispositions` there** — a provider that refuses one origin may
+`npm run audit:browser-dispositions` there** — a provider that refuses one origin may
 admit another, and an operator who configures a provider's CORS (a self-hosted
 instance, for example) changes the answer for their own origin only.
 
@@ -35,7 +35,7 @@ endpoint. The page is still static and has no server of ours behind it.
 
 Whether a web page can read the provider's token, account and revocation endpoints
 is recorded in [`spec/connectors/oauth-reach.json`](../../spec/connectors/oauth-reach.json)
-(`pnpm audit:oauth-reach` re-probes it from the audited origin; **run it from your
+(`npm run audit:oauth-reach` re-probes it from the audited origin; **run it from your
 own origin if you deploy elsewhere**). Where a page can, nothing else is needed.
 Where it cannot, install the optional [connector bridge](../../apps/browser-extension-bridge/README.md),
 switch it on for the app and allow the hosts the form names; for a provider that

@@ -7,20 +7,20 @@ does not run — why, so the absence is a decision rather than an oversight.
 
 | Kind | Where | How it runs |
 |---|---|---|
-| Atomic unit | beside the code: `#[cfg(test)] mod tests` in Rust, `*.test.ts` in TS | `cargo test`, `pnpm test` |
+| Atomic unit | beside the code: `#[cfg(test)] mod tests` in Rust, `*.test.ts` in TS | `cargo test`, `npm test` |
 | Property | `property: …` cases in the PACT suites | with the unit tests |
 | Adversarial | `adversarial: …` cases — the ones that assert a refusal | with the unit tests |
 | Chaos | `chaos: …` cases — retries, races, partial state, superseded work; scripted-fault network chaos in `crates/invoke-through/tests/chaos.rs` (+ daemon route cases) | with the unit tests |
 | Contract | `contract: …` cases, plus `packages/contracts` schema tests | with the unit tests |
 | Characterization / snapshot | `insta` snapshots in Rust (`src/snapshots/`), Vitest snapshots in TS (`__snapshots__/`) | with the unit tests |
 | Behaviour (BDD) | `*.behavior.test.ts` — Given/When/Then journeys | with the unit tests |
-| Integration | `test:integration` targets | `pnpm test:integration` |
-| End-to-end | Playwright specs; `scripts/test/battle-test.sh`; `scripts/test/task-security-battle-test.sh` | `pnpm test:e2e`, `pnpm verify`, `pnpm test:task-access` |
-| Fuzz | `cargo-fuzz` targets; Jazzer.js | `pnpm audit:fuzz`, `pnpm test:fuzz` |
-| Mutation | Stryker (TS), `cargo-mutants` (Rust) | `pnpm test:mutation` |
-| Model checking | Kani proofs, Miri, Shuttle | `pnpm audit:kani`, `audit:miri`, `audit:shuttle` |
-| Security scanning | Semgrep, ast-grep, gitleaks, OSV, cargo-audit, CVE-lite | `pnpm audit:*` |
-| Coverage measurement | `scripts/quality/ts-coverage-gate.mjs`, `cargo llvm-cov` | `pnpm test:coverage` |
+| Integration | `test:integration` targets | `npm run test:integration` |
+| End-to-end | Playwright specs; `scripts/test/battle-test.sh`; `scripts/test/task-security-battle-test.sh` | `npm run test:e2e`, `npm run verify`, `npm run test:task-access` |
+| Fuzz | `cargo-fuzz` targets; Jazzer.js | `npm run audit:fuzz`, `npm run test:fuzz` |
+| Mutation | Stryker (TS), `cargo-mutants` (Rust) | `npm run test:mutation` |
+| Model checking | Kani proofs, Miri, Shuttle | `npm run audit:kani`, `audit:miri`, `audit:shuttle` |
+| Security scanning | Semgrep, ast-grep, gitleaks, OSV, cargo-audit, CVE-lite | `npm run audit:*` |
+| Coverage measurement | `scripts/quality/ts-coverage-gate.mjs`, `cargo llvm-cov` | `npm run test:coverage` |
 
 The PACT naming convention (`property:`, `adversarial:`, `chaos:`,
 `contract:`) is load-bearing: it tells a reader which failure a case is about,
@@ -29,7 +29,7 @@ and it makes the adversarial cases — the ones asserting that something is
 
 ## What the numbers mean, and what they do not
 
-`pnpm test:coverage` runs a ratchet: a TypeScript gate
+`npm run test:coverage` runs a ratchet: a TypeScript gate
 (`scripts/quality/ts-coverage-gate.mjs`) and a Rust one (`cargo llvm-cov` with
 `--fail-under-lines`). The thresholds exist to stop coverage sliding
 backwards, which is the one thing a number is genuinely good for.
@@ -58,7 +58,7 @@ line were wrong, which is the property this repo actually depends on: nearly
 every security-relevant test exists to assert a refusal, and a refusal that
 stops refusing still executes the same lines.
 
-`pnpm test:mutation` runs Stryker over the TypeScript planes and
+`npm run test:mutation` runs Stryker over the TypeScript planes and
 `cargo-mutants` over a scoped set of Rust files in the decision crates —
 redaction, task-bus, relay, connection-detect, human-vault, sealed-store,
 gateway, pki-core and storage (the exact `--file` list is
@@ -67,7 +67,7 @@ than workspace-wide on purpose: a surviving mutant in a decision function is a
 fence with no test behind it, while a surviving mutant in glue code is usually
 noise, and drowning the first in the second helps nobody.
 
-It is optional and not part of `pnpm verify`, which has to stay fast enough to
+It is optional and not part of `npm run verify`, which has to stay fast enough to
 run before every push.
 
 Measured when the gate was introduced:
@@ -116,7 +116,7 @@ pattern: capture once, fail on drift, accept the diff deliberately) is:
 - **Pixels:** Playwright baselines in `tests/visual-contract`.
 
 Update is always explicit: Vitest `-u`, `INSTA_UPDATE=1`, or
-`VISUAL_UPDATE=1 pnpm test:visual`. Read the diff before accepting it.
+`VISUAL_UPDATE=1 npm run test:visual`. Read the diff before accepting it.
 
 Snapshots pin what a surface *currently* produces so a change has to be looked
 at and accepted. They do not assert the behavior is correct — the tests beside

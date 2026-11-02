@@ -220,7 +220,7 @@ applies to the inspected snapshot and classified boundaries.
 ## Run the check
 
 ```bash
-pnpm audit:exposure
+npm run audit:exposure
 node scripts/security/exposure-matrix-gate.mjs --staged
 ```
 
@@ -251,7 +251,7 @@ selected. Hook and checker errors are failures, not clean results.
    reviewed fingerprints deliberately. Include the reason, test results and
    remaining limits in the review. There is no automatic fingerprint-refresh
    or accept-new-debt command.
-5. Run `pnpm audit:exposure`, stage the intended source and policy together, and
+5. Run `npm run audit:exposure`, stage the intended source and policy together, and
    run staged validation. Run the applicable package, security and repository
    checks before shipping.
 

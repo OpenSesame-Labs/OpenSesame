@@ -28,7 +28,7 @@ from).
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 
@@ -73,7 +73,7 @@ on the spot.
 ## Step 0 — optional Miri / Kani
 
 If `cargo kani --version` or a nightly+Miri toolchain is present, run
-`pnpm audit:kani` and/or `pnpm audit:miri`. A proof or UB failure becomes
+`npm run audit:kani` and/or `npm run audit:miri`. A proof or UB failure becomes
 this week's audit surface. If the toolchain is missing, skip without
 installing one.
 
@@ -131,18 +131,18 @@ only at the end:
 
 ```bash
 # TypeScript surfaces:
-pnpm --filter <package-name> test
-pnpm --filter <package-name> typecheck
-pnpm run audit:ast-grep
-pnpm run audit:semgrep
+npm run --filter <package-name> test
+npm run --filter <package-name> typecheck
+npm run audit:ast-grep
+npm run audit:semgrep
 
 # Rust surfaces:
 cargo test -p <crate-name>
 cargo clippy -p <crate-name> --all-targets -- -D warnings
 
 # Always, regardless of surface:
-pnpm run audit:cve-lite
-pnpm run audit:gitleaks
+npm run audit:cve-lite
+npm run audit:gitleaks
 ```
 
 (Only run the Rust commands if the chosen surface is a Rust crate — do not

@@ -19,7 +19,7 @@ Branch: `chore/audit-tick25`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/control-plane
 cargo +1.88.0 clippy -p opensesame-gateway -- -D warnings
-pnpm --filter @opensesame/mcp-client test
+npm run test -w @opensesame/mcp-client
 ```

@@ -2,8 +2,7 @@
 
 use crate::synthetic;
 
-const TEMPLATE: &str =
-    include_str!("../../../spec/conformance/tailnet-admin-protocol.json.hbs");
+const TEMPLATE: &str = include_str!("../../../spec/conformance/tailnet-admin-protocol.json.hbs");
 
 pub struct ProtocolFixture {
     pub mint_auth_key_id: String,

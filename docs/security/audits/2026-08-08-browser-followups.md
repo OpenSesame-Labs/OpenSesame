@@ -61,5 +61,5 @@ the token is only ever sent to a loopback gateway.
 ## Verification
 
 - `apps/pages` 18 tests, `packages/client-core` 7, `apps/control-plane` 34 (1 new)
-- `pnpm -r typecheck`, full workspace tests green
-- `pnpm --filter @opensesame/console build` refuses with the token set, builds without it
+- `npm run -r typecheck`, full workspace tests green
+- `npm run build` -w @opensesame/console refuses with the token set, builds without it

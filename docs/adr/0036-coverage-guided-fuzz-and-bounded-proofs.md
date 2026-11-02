@@ -24,10 +24,10 @@ adoption or a critical-infrastructure argument the project cannot yet make.
    `scripts/fuzz/fuzz-pr-gate.sh` and `scripts/fuzz/fuzz-batch.sh` plus
    `ops/routines/nightly-fuzz-batch.md`. No GitHub Actions workflows.
 3. **Jazzer.js** targets live in `tests/fuzz/jazzer` and run via
-   `scripts/fuzz/jazzer-gate.sh` / `pnpm test:fuzz`. Same crash-triage convention
+   `scripts/fuzz/jazzer-gate.sh` / `npm run test:fuzz`. Same crash-triage convention
    as Rust. No Actions job.
 4. **Kani** proofs sit next to the functions they check (`#[cfg(kani)]`).
-   They are not part of `pnpm verify`.
+   They are not part of `npm run verify`.
 5. **Miri** runs periodically (`scripts/audit/miri-gate.sh`) on crates without
    Wasmtime/sqlx/reqwest FFI.
 6. **Shuttle** explores grant/idempotency/replay/rotation schedules behind
@@ -35,7 +35,7 @@ adoption or a critical-infrastructure argument the project cannot yet make.
    that is not dual-writer SQLite (ADR 0031) is worth the runtime change.
 7. **OSS-Fuzz**: the in-repo CFL files *are* the submission pack. Do not
    file `google/oss-fuzz` until there is a convincing acceptance case.
-8. Long fuzz, Kani, Miri, and Shuttle stay out of `pnpm verify`.
+8. Long fuzz, Kani, Miri, and Shuttle stay out of `npm run verify`.
 
 ## Consequences
 - Security oracles (attenuation, intersection, replay, bindings,
@@ -43,4 +43,4 @@ adoption or a critical-infrastructure argument the project cannot yet make.
   redaction) are shared code, not comments in individual harnesses.
 - A crash is minimized into `tests/fuzz/cargo/regressions/<target>/` (Rust) or
   `tests/fuzz/jazzer/artifacts/` (TS) and fixed like any other bug.
-- Agents and humans opt into `pnpm audit:fuzz` on authority-plane PRs.
+- Agents and humans opt into `npm run audit:fuzz` on authority-plane PRs.

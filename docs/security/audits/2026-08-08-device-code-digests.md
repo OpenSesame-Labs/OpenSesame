@@ -6,7 +6,7 @@ Branch: `chore/audit-tick27`
 
 | Check | Result |
 |------|--------|
-| ast-grep / semgrep / pnpm audit | CLEAN |
+| ast-grep / semgrep / npm audit | CLEAN |
 | task-security-battle-test / battle-test | CLEAN |
 | Residual review | Host API device flow held `device_code` / `user_code` in cleartext and compared codes with `==` |
 

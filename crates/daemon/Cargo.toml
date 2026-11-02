@@ -11,7 +11,7 @@ opensesame-connection-detect = { path = "../../crates/connection-detect" }
 opensesame-invoke-through = { path = "../../crates/invoke-through" }
 # Fill by reference (ADR 0150 §6.4) reads the human-plane sealed store. It is
 # already in this tree through host-core → broker → connector-host; the direct
-# edge adds no crate to the closure `pnpm audit:daemon-deps` guards.
+# edge adds no crate to the closure `npm run audit:daemon-deps` guards.
 opensesame-sealed-store = { path = "../../crates/sealed-store" }
 opensesame-host-core = { path = "../../crates/host-core" }
 opensesame-uds-authn = { path = "../../crates/uds-authn" }
@@ -22,7 +22,7 @@ opensesame-trusted-exec = { path = "../../crates/trusted-exec" }
 # `/v1/plugins`, and the switch `/v1/fill` answers behind (it answers only
 # while the `browser-autofill` plugin is on). serde + sha2 + hex +
 # directories, all already in this tree; the daemon never links a plugin
-# (`pnpm audit:plugin-boundary`).
+# (`npm run audit:plugin-boundary`).
 opensesame-plugin-settings = { path = "../../crates/plugin-settings" }
 opensesame-tailscale-authn = { path = "../../crates/tailscale-authn", optional = true }
 # Tailnet device management (ADR 0169): the credential, role pairings, the
@@ -43,7 +43,7 @@ serde_json = { workspace = true }
 hex = { workspace = true }
 # HMAC-SHA256 under an HKDF-derived key authenticates the helper-mint grant
 # file (ADR 0138 §2). Both are already in this tree through
-# cli-app-integration, so the closure `pnpm audit:daemon-deps` guards is
+# cli-app-integration, so the closure `npm run audit:daemon-deps` guards is
 # unchanged.
 hkdf = { workspace = true }
 hmac = { workspace = true }

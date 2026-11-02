@@ -3,7 +3,7 @@ import { overlapCast } from "@opensesame/os-domain";
 /**
  * Headless device-login demo against the identity control plane.
  *
- *   OPENSESAME_ISSUER=http://127.0.0.1:8788 pnpm --filter @opensesame/example-headless start
+ *   OPENSESAME_ISSUER=http://127.0.0.1:8788 npm run start -w @opensesame/example-headless
  *
  * Set MOCK_DEVICE_FLOW=1 to exercise the client against an in-process mock
  * (no control-plane required).

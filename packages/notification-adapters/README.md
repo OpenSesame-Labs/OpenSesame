@@ -44,9 +44,9 @@ an adapter produced.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/notification-adapters test
-pnpm --filter @opensesame/notification-adapters typecheck
-pnpm --filter @opensesame/notification-adapters generate:vapid [mailto:you@example.com]
+npm run test -w @opensesame/notification-adapters
+npm run typecheck -w @opensesame/notification-adapters
+npm run generate:vapid -w @opensesame/notification-adapters [mailto:you@example.com]
 ```
 
 `@opensesame/notification-adapters/test-support` is a stand-in Web Push service

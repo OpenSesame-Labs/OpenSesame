@@ -36,7 +36,7 @@ let dir = "";
 let found = [];
 
 // Builds a TypeScript program with the DOM lib: under a second alone, but on
-// a loaded runner it outlasted the 10s hook default and failed pnpm quality.
+// a loaded runner it outlasted the 10s hook default and failed npm run quality.
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), "app-core-portability-"));
   mkdirSync(join(dir, "src/lib"), { recursive: true });

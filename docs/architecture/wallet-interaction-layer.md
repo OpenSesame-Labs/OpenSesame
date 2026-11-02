@@ -140,7 +140,7 @@ construction.
 This is the default. With no Google credentials configured:
 
 ```bash
-pnpm --filter @opensesame/control-plane start   # :8788
+npm run start -w @opensesame/control-plane   # :8788
 ```
 
 The provider reports `available: false`, `issuePass` refuses with a typed

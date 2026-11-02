@@ -22,19 +22,19 @@ weaken a rule to obtain a green result.
 
 Use the scripts already declared in `package.json`:
 
-- TypeScript/JavaScript: `pnpm lint`, `pnpm lint:anti-slop`, and the affected
-  package's typecheck/tests. Use `pnpm lint:all` for a repository-wide lint.
-- Rust: `cargo fmt --all -- --check` and `pnpm audit:clippy`. Clippy is
+- TypeScript/JavaScript: `npm run lint`, `npm run lint:anti-slop`, and the affected
+  package's typecheck/tests. Use `npm run lint:all` for a repository-wide lint.
+- Rust: `cargo fmt --all -- --check` and `npm run audit:clippy`. Clippy is
   full-feature, all-target, pedantic/complexity enforcement.
-- Security boundaries: `pnpm test:security`, `pnpm test:redteam`, and
-  `pnpm test:task-access` when task or agent authority is involved.
-- SAST/secrets/dependencies: the applicable `pnpm audit:cve-lite`,
+- Security boundaries: `npm run test:security`, `npm run test:redteam`, and
+  `npm run test:task-access` when task or agent authority is involved.
+- SAST/secrets/dependencies: the applicable `npm run audit:cve-lite`,
   `audit:ast-grep`, `audit:osv`, `audit:cargo-audit`, `audit:gitleaks`,
   `audit:semgrep`, and `audit:daemon-deps` gates.
 - Parser, crypto, concurrency, or policy changes: run the applicable fuzz,
   mutation, Kani, Miri, Shuttle, coverage, behavior, contract, chaos, snapshot,
   and atomic unit suites listed in the root `AGENTS.md`.
-- Before landing security-sensitive work, run `pnpm verify`. Test-depth and
+- Before landing security-sensitive work, run `npm run verify`. Test-depth and
   several audit suites are intentionally outside `verify`; run them explicitly
   when their boundary changed.
 

@@ -20,4 +20,4 @@
 
 **Rejected for core:** Clerk, Descope, Auth0 Marketplace installs (ADR 0004, ADR 0008).
 
-Generate SBOM: `pnpm generate:sbom`
+Generate SBOM: `npm run generate:sbom`

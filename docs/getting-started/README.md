@@ -8,9 +8,9 @@ what it needs, so you can stop at the first one that covers your task.
 | Tool | Version | Needed for |
 |---|---|---|
 | Node.js | 22 or newer | Everything TypeScript |
-| pnpm | 9.15 — `corepack enable` picks the pinned version | Workspace installs and scripts |
+| npm | 9.15 — `` picks the pinned version | Workspace installs and scripts |
 | Rust | 1.88 — `rust-toolchain.toml` pins it | The Host plane (`crates/gateway`, `crates/daemon`, `apps/cli`, `crates/`) |
-| PostgreSQL | any supported release | Only for `pnpm bootstrap` / `pnpm db:migrate`; the Identity API runs in memory without it |
+| PostgreSQL | any supported release | Only for `npm run bootstrap` / `npm run db:migrate`; the Identity API runs in memory without it |
 | Docker | optional | The Compose stacks in [`ops/compose`](../../ops/compose) |
 | Chromium | optional | Browser gates (`verify:*`); Playwright finds `PLAYWRIGHT_CHROMIUM` |
 
@@ -23,14 +23,14 @@ macOS and Windows use their own platform keychain APIs.
 ## 2. Install
 
 ```bash
-corepack enable
-pnpm install
-pnpm setup:hooks        # point git at .githooks/ (lint, anti-slop, secret scan)
+
+npm install
+npm run setup:hooks        # point git at .githooks/ (lint, anti-slop, secret scan)
 ```
 
-`pnpm bootstrap` installs dependencies, sets up hooks, and applies existing
+`npm run bootstrap` installs dependencies, sets up hooks, and applies existing
 Identity database migrations. After a schema change, first run
-`pnpm --filter @opensesame/database db:generate` and review the generated
+`npm run db:generate` -w @opensesame/database and review the generated
 migration. Bootstrap needs `DATABASE_URL` set to a Postgres instance
 (see [`.env.schema`](../../.env.schema)).
 
@@ -39,7 +39,7 @@ migration. Bootstrap needs `DATABASE_URL` set to a Postgres instance
 ### The app, with no backend
 
 ```bash
-pnpm --filter @opensesame/pages dev:web
+npm run dev:web -w @opensesame/pages
 ```
 
 Open <http://localhost:5180> — `localhost`, not `127.0.0.1`, or passkeys will
@@ -51,7 +51,7 @@ the browser; no server is involved. This is the same build GitHub Pages serves
 ### The app with its backends
 
 ```bash
-pnpm --filter @opensesame/pages dev
+npm run dev -w @opensesame/pages
 ```
 
 `scripts/dev/pages-dev.sh` starts the Host API (`:18787`), the Identity API
@@ -64,8 +64,8 @@ so run `cargo +1.88.0 fetch` once first.
 ### The Identity plane alone
 
 ```bash
-pnpm --filter @opensesame/mock-upstream-idp dev          # :9090
-OPENSESAME_ALLOW_DEV_DEFAULTS=1 pnpm --filter @opensesame/control-plane start   # :8788
+npm run dev -w @opensesame/mock-upstream-idp          # :9090
+OPENSESAME_ALLOW_DEV_DEFAULTS=1 npm run start -w @opensesame/control-plane   # :8788
 curl -s http://127.0.0.1:8788/v1/health/live
 ```
 
@@ -80,10 +80,10 @@ production (or on a networked listener) it requires an
 ### The Host plane alone
 
 ```bash
-pnpm dev:host                        # Host API on 127.0.0.1:8787
-pnpm dev:daemon                      # daemon on 127.0.0.1:18790
-pnpm dev:cli -- daemon status
-pnpm dev:cli -- login --flow device --no-browser
+npm run dev:host                        # Host API on 127.0.0.1:8787
+npm run dev:daemon                      # daemon on 127.0.0.1:18790
+npm run dev:cli -- daemon status
+npm run dev:cli -- login --flow device --no-browser
 ```
 
 Run the first two in their own terminals. `dev:host`, `dev:daemon` and
@@ -111,24 +111,24 @@ OpenSesame from the outside: a relying party signing a user in, an agent
 registering and being claimed, a headless device login.
 
 ```bash
-pnpm --filter @opensesame/example-rp-alpha dev   # :5174, signs in against :8788 (start the Identity plane first)
-MOCK_DEVICE_FLOW=1 pnpm --filter @opensesame/example-headless start
+npm run dev -w @opensesame/example-rp-alpha   # :5174, signs in against :8788 (start the Identity plane first)
+MOCK_DEVICE_FLOW=1 npm run start -w @opensesame/example-headless
 ```
 
 ## 4. Test
 
 ```bash
-pnpm typecheck                                  # all TypeScript workspaces
-pnpm test                                       # all TypeScript tests (Vitest)
+npm run typecheck                                  # all TypeScript workspaces
+npm test                                       # all TypeScript tests (Vitest)
 cargo +1.88.0 test --workspace --all-targets    # all Rust tests
-pnpm lint && pnpm quality                       # what CI checks besides tests
+npm run lint && npm run quality                       # what CI checks besides tests
 ```
 
 One package at a time is faster while you work:
 
 ```bash
-pnpm --filter @opensesame/app-core test
-pnpm --filter @opensesame/app-core exec vitest run src/lib/vault
+npm run test -w @opensesame/app-core
+npm exec -w @opensesame/app-core -- vitest run src/lib/vault
 cargo +1.88.0 test -p opensesame-sealed-store
 ```
 
@@ -148,10 +148,10 @@ they drive a real build in Chromium.
 
 | Symptom | Cause and fix |
 |---|---|
-| A `node` or `pnpm` command fails on `NODE_OPTIONS` | Your shell exports `NODE_OPTIONS` with a flag such as `--import tsx` that Node refuses there (the git hooks `unset` it for the same reason). Run with `NODE_OPTIONS=` in front, or unset it. |
+| A `node` or `npm` command fails on `NODE_OPTIONS` | Your shell exports `NODE_OPTIONS` with a flag such as `--import tsx` that Node refuses there (the git hooks `unset` it for the same reason). Run with `NODE_OPTIONS=` in front, or unset it. |
 | Passkey prompts fail on the dev server | Use `http://localhost:5180`, not `127.0.0.1`. |
-| `db:migrate` exits with `DATABASE_URL is required` | Only migrations need Postgres. Skip `pnpm bootstrap`, or export `DATABASE_URL`. |
+| `db:migrate` exits with `DATABASE_URL is required` | Only migrations need Postgres. Skip `npm run bootstrap`, or export `DATABASE_URL`. |
 | Identity API refuses to start | Set `OPENSESAME_ALLOW_DEV_DEFAULTS=1` for local runs (exactly `1`; `true` is refused). |
-| `host run` or `daemon run` exits on a missing secret or mode | Start them with `pnpm dev:host` / `pnpm dev:daemon`, which provision development secrets. |
-| `pnpm quality` fails with "improvement not recorded" | You made a file smaller or simpler. Run `pnpm quality:gate --update` and commit the baseline. |
-| `pnpm quality` fails on the docs index | You added an ADR, an audit or an evidence directory. Run `pnpm docs:index`. |
+| `host run` or `daemon run` exits on a missing secret or mode | Start them with `npm run dev:host` / `npm run dev:daemon`, which provision development secrets. |
+| `npm run quality` fails with "improvement not recorded" | You made a file smaller or simpler. Run `npm run quality:gate --update` and commit the baseline. |
+| `npm run quality` fails on the docs index | You added an ADR, an audit or an evidence directory. Run `npm run docs:index`. |

@@ -14,10 +14,10 @@ Detail moved from `AGENTS.md` §6. `AGENTS.md` §6 keeps the pointer index and t
 - `docs/security/audits/YYYY-MM-DD-<topic>.md` — a running series of
   point-in-time audit docs, each documenting a specific vulnerability that
   was found and fixed. Add a new dated file rather than editing history, then
-  `pnpm docs:index` (the index is checked by `pnpm quality`).
+  `npm run docs:index` (the index is checked by `npm run quality`).
 - `docs/security/tooling-evaluation.md` — evaluation of the audit gate
   tooling.
-- Gate scripts (invoked via the `pnpm audit:*` scripts in §3):
+- Gate scripts (invoked via the `npm run audit:*` scripts in §3):
   `scripts/audit/cve-lite-gate.sh`, `scripts/audit/ast-grep-security-gate.sh`,
   `scripts/audit/clippy-gate.sh`, `scripts/audit/osv-scanner-gate.sh`,
   `scripts/audit/cargo-audit-gate.sh`, `scripts/audit/gitleaks-gate.sh`,
@@ -29,7 +29,7 @@ Detail moved from `AGENTS.md` §6. `AGENTS.md` §6 keeps the pointer index and t
 ### Codex Security checker
 
 `codex-security` is an external, model-backed review tool. It supplements the
-deterministic `pnpm audit:*` gates; it does not replace them. CLI `0.1.20` with
+deterministic `npm run audit:*` gates; it does not replace them. CLI `0.1.20` with
 bundled plugin `0.1.37` was the latest release validated in this repository on
 2026-08-25.
 

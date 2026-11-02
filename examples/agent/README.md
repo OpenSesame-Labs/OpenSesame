@@ -31,10 +31,10 @@ API and printing the `auth.md`'s first line and the card's name.
 
 ```bash
 # Against a local Identity API (see ../README.md to start it)
-pnpm --filter @opensesame/example-agent start
+npm run start -w @opensesame/example-agent
 
 # No Identity API: an in-process mock answers, and the claim completes on the second poll
-MOCK_AGENT_FLOW=1 pnpm --filter @opensesame/example-agent start
+MOCK_AGENT_FLOW=1 npm run start -w @opensesame/example-agent
 ```
 
 | Variable | Default | Description |
@@ -50,8 +50,8 @@ with their own `fetchImpl`, `sleep` and poll count.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/example-agent test
-pnpm --filter @opensesame/example-agent typecheck
+npm run test -w @opensesame/example-agent
+npm run typecheck -w @opensesame/example-agent
 ```
 
 Like every example, it depends only on SDK and contract packages; see the

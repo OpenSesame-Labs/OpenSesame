@@ -26,9 +26,9 @@ budget engine ([ADR 0123](../../docs/adr/0123-wallet-spending-authority.md)).
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/wallet-mandates test
-pnpm --filter @opensesame/wallet-mandates typecheck
-pnpm wallet:evidence:blocked-adapters
+npm run test -w @opensesame/wallet-mandates
+npm run typecheck -w @opensesame/wallet-mandates
+npm run wallet:evidence:blocked-adapters
 ```
 
 `src/verify.test.ts` holds the positive and negative fixtures.
@@ -37,4 +37,4 @@ pnpm wallet:evidence:blocked-adapters
 
 - [ADR 0123](../../docs/adr/0123-wallet-spending-authority.md) — wallet spending authority
 - [Wallet protocol compatibility](../../docs/reference/wallet-protocol-compatibility.md) — the support row and its limits
-- [`scripts/wallet/README.md`](../../scripts/wallet/README.md) — the `pnpm wallet:*` gates
+- [`scripts/wallet/README.md`](../../scripts/wallet/README.md) — the `npm run wallet:*` gates

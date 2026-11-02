@@ -70,8 +70,8 @@ Source areas under `src/`: `routes/` (one module per group), `middleware/`
 ```bash
 cargo +1.88.0 test -p opensesame-gateway
 cargo +1.88.0 run -p opensesame-cli -- host run --listen 127.0.0.1:8787
-pnpm test:live-stack    # live OpenFGA / OpenBao / gateway
-pnpm test:mtls          # transport-security contract suites
+npm run test:live-stack    # live OpenFGA / OpenBao / gateway
+npm run test:mtls          # transport-security contract suites
 ```
 
 A configuration refusal comes before SQLite or a listener starts:

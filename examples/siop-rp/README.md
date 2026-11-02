@@ -6,7 +6,7 @@ Connect provider** ([ADR 0161](../../docs/adr/0161-what-a-static-origin-can-be-a
 
 | | Where | Needs |
 |---|---|---|
-| An **Express** server | `src/app.ts` (routes), `src/callback-page.ts`, `src/rate-limit.ts`, `src/config.ts`, entry `src/server.ts` | Node 22 |
+| An **Express** server | `src/app.ts` (routes), `src/callback-page.ts`, `src/rate-limit.ts`, `src/config.ts`, entry `src/server.ts` | Node 24 |
 | A **single-page app** | `src/spa` (`login.ts` is the logic, `sealed-login.ts` the sealed tab storage, `main.ts` the wiring) | any static host |
 
 Both use [`@opensesame/siop-v2`](../../packages/siop-v2): `SiopRelyingParty`
@@ -35,7 +35,7 @@ SIOP_RP_CLIENT_ID=local_<uuid> \
 SIOP_RP_REDIRECT_URI=http://127.0.0.1:4110/callback \
 SIOP_RP_ALLOW_LOOPBACK_HTTP=1 \
 SIOP_RP_DISCOVER=1 \
-  pnpm --filter @opensesame/example-siop-rp dev
+  npm run dev -w @opensesame/example-siop-rp
 # open http://127.0.0.1:4110
 ```
 
@@ -77,8 +77,8 @@ in-memory store and replay ledger. Behind more than one instance, pass your own
 ```bash
 OPENSESAME_PAGES_BASE=https://opensesame-labs.github.io/OpenSesame \
 SIOP_RP_CLIENT_ID=local_<uuid> \
-  pnpm --filter @opensesame/example-siop-rp dev:spa    # http://127.0.0.1:4111
-pnpm --filter @opensesame/example-siop-rp build:spa     # dist/spa
+  npm run dev:spa -w @opensesame/example-siop-rp    # http://127.0.0.1:4111
+npm run build:spa -w @opensesame/example-siop-rp     # dist/spa
 ```
 
 The page is its own callback, so register its address (`http://127.0.0.1:4111/`)
@@ -95,9 +95,9 @@ popup SDK.
 ## Tests
 
 ```bash
-pnpm --filter @opensesame/example-siop-rp test        # the app over real HTTP; the SPA flow
+npm run test -w @opensesame/example-siop-rp        # the app over real HTTP; the SPA flow
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:siop         # both, cross-origin, against the built Pages app
+  npm run verify:siop -w @opensesame/pages         # both, cross-origin, against the built Pages app
 ```
 
 `verify:siop` starts this server as its own process and signs in against the

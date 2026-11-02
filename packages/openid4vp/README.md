@@ -39,8 +39,8 @@ tokens.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/openid4vp test
-pnpm --filter @opensesame/openid4vp typecheck
+npm run test -w @opensesame/openid4vp
+npm run typecheck -w @opensesame/openid4vp
 ```
 
 `src/__fixtures__/holder.ts` is a test holder that mints presentations.

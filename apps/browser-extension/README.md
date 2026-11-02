@@ -83,13 +83,13 @@ plugin's registry rows to the companion's own parity test.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/browser-extension dev            # wxt dev
-pnpm --filter @opensesame/browser-extension build          # wxt build
-pnpm --filter @opensesame/browser-extension typecheck      # wxt prepare + tsc
-pnpm --filter @opensesame/browser-extension test           # vitest (runner/) + node --test tests/*.mjs
-pnpm --filter @opensesame/browser-extension test:install   # playwright install chromium
+npm run dev -w @opensesame/browser-extension            # wxt dev
+npm run build -w @opensesame/browser-extension          # wxt build
+npm run typecheck -w @opensesame/browser-extension      # wxt prepare + tsc
+npm run test -w @opensesame/browser-extension           # vitest (runner/) + node --test tests/*.mjs
+npm run test:install -w @opensesame/browser-extension   # playwright install chromium
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:8787 \
-  pnpm --filter @opensesame/browser-extension test:e2e     # live-gateway suite
+  npm run test:e2e -w @opensesame/browser-extension     # live-gateway suite
 ```
 
 `tests/pact.test.mjs` checks the source order of the loopback fence (normalize

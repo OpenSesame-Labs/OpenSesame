@@ -186,7 +186,7 @@ describe("MANIFEST.sha256", () => {
     const stale = run(generator, ["--check", "--dir", copy], root);
     expect(stale.status).toBe(1);
     expect(stale.stderr).toContain("MANIFEST.sha256 is stale");
-    expect(stale.stderr).toContain('Run "pnpm anti-slop:manifest"');
+    expect(stale.stderr).toContain('Run "npm run anti-slop:manifest"');
     expect(stale.stderr).toContain(
       "Modified file: rules/no-widen-then-assert.ts",
     );

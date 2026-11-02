@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 /**
  * The directory of the copy of `name` that a workspace member resolves, found
  * through Node's own resolution from the member's package.json. A config that
- * names `<member>/node_modules/<name>` holds only under pnpm's isolated
+ * names `<member>/node_modules/<name>` holds only under npm's isolated
  * layout; this holds under any node_modules layout: the member's own copy, a
  * hoisted copy at the root, or a copy nested under the member because the
  * root's does not satisfy it. `specifier` is what is resolved, for a package

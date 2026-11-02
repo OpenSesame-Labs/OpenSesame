@@ -29,8 +29,7 @@ ceremony steps. Pure logic: no React, no storage of its own, no ambient
   ownership. That is the claim ceremony, kept apart by ADR 0009.
 - Origin, fetch and bearer storage are parameters; each app keeps its own JSX.
 - Every ceremony path comes from `spec/config/ceremony-routes.json`
-  (ADR 0139, ADR 0140 §3): `pnpm --filter @opensesame/ceremony-kit
-  generate:routes` rewrites `src/ceremony-routes.generated.ts`, and
+  (ADR 0139, ADR 0140 §3): `npm run generate:routes` -w @opensesame/ceremony-kit rewrites `src/ceremony-routes.generated.ts`, and
   `ceremony-routes.test.ts` fails when the two disagree.
 
 ## Surface
@@ -59,8 +58,8 @@ ceremony steps. Pure logic: no React, no storage of its own, no ambient
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/ceremony-kit test
-pnpm --filter @opensesame/ceremony-kit typecheck
+npm run test -w @opensesame/ceremony-kit
+npm run typecheck -w @opensesame/ceremony-kit
 ```
 
 ## Related

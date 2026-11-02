@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm test:connect-preflight` — every connector's real endpoints, read-only
+ * `npm run test:connect-preflight` — every connector's real endpoints, read-only
  * (ADR 0147; logic in `scripts/lib/connect-preflight.mjs`).
  *
  *   node scripts/test/connect-preflight.mjs [--out <file.json>]

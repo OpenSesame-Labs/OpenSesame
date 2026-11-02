@@ -105,7 +105,7 @@ Regression anchors include `crates/gateway/src/host_authorization_tests.rs`,
 `crates/gateway/src/routes/agent_run_stream_tests.rs`.
 
 No fresh full Codex Security, DeepSec AI or Mantis campaign is claimed in this
-record. No full `pnpm verify`, clean dependency scan, production deployment,
+record. No full `npm run verify`, clean dependency scan, production deployment,
 repository-governance activation or production-readiness claim follows from the
 focused results above.
 

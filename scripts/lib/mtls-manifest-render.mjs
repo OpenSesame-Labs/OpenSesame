@@ -30,7 +30,7 @@ export function renderMarkdown(manifest) {
     `- source_commit: \`${manifest.source_commit}\`${manifest.dirty ? " (dirty tree)" : ""}`,
     `- tested_tree: \`${manifest.tested_tree}\``,
     `- started: ${manifest.started_at}, finished: ${manifest.finished_at}`,
-    `- toolchain: ${v.rustc} · ${v.cargo} · node ${v.node} · pnpm ${v.pnpm}`,
+    `- toolchain: ${v.rustc} · ${v.cargo} · node ${v.node} · npm ${v.npm}`,
     `- rustls ${v.cargo_lock.rustls} · tokio-rustls ${v.cargo_lock["tokio-rustls"]} · async-nats ${v.cargo_lock["async-nats"]} · oidc-provider ${v.pnpm_lock["oidc-provider"]}`,
     `- fixtures: ${fx || "none pinned"}`,
     `- verdict: **${manifest.verdict}** (${manifest.counts.passed} passed, ${manifest.counts.failed} failed, ${manifest.counts.not_executed} not_executed, ${manifest.counts.unsupported} unsupported)`,

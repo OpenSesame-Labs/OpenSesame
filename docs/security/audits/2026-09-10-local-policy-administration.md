@@ -19,8 +19,8 @@ reloads the policy, and verifies that the actual RP's next check is refused.
 Both 1280px and 390px journeys pass alongside the existing person, agent and
 custodian revocation journeys: eight browser flows in total.
 
-`pnpm --filter @opensesame/pages test`: **3564 tests pass in 292 files**, 70.92s.
-Pages build/typecheck, full-repository `pnpm lint:anti-slop`, scoped strict
+`npm run test`: -w @opensesame/pages **3564 tests pass in 292 files**, 70.92s.
+Pages build/typecheck, full-repository `npm run lint:anti-slop`, scoped strict
 anti-slop and Biome pass. Structural quality
 required tightening AccessSection's max-lines baseline from 3688 to 3687; no
 threshold was increased. `git diff --check` passes.
@@ -28,7 +28,7 @@ threshold was increased. `git diff --check` passes.
 The independent Impeccable review requested stable application references and
 measured introductory prose. Both were fixed together and recaptured at both
 viewports; its verdict pass marked both resolved. This is a scoped UI verdict,
-not a security certification. `pnpm lint:design` passes across 291 files.
+not a security certification. `npm run lint:design` passes across 291 files.
 
 This does not establish full IAM completion, bundle-budget clearance, complete
 repository verification, external scanner execution, or release readiness.

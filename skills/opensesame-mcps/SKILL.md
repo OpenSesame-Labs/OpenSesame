@@ -17,7 +17,7 @@ implementation, the registry or the lists in this file drift apart.
 ## Install
 
 ```bash
-pnpm install
+npm install
 # Both servers are packages served by the client CLI (no build step):
 #   opensesame-id mcp client   — packages/mcp-client
 #   opensesame-id mcp host     — packages/mcp-host
@@ -65,7 +65,7 @@ Optional mcp-host tool-call telemetry: `OPENSESAME_TELEMETRY_KEY`
 ## Init
 
 Register stdio servers in your MCP client config with the client CLI's
-commands (in the workspace, `pnpm --filter @opensesame/cli start -- mcp host`),
+commands (in the workspace, `npm run start -w @opensesame/cli -- mcp host`),
 started through the launch ceremony above:
 
 - `opensesame-id mcp client` (`packages/mcp-client`) — client-plane tools over

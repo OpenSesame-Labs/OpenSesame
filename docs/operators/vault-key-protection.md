@@ -183,7 +183,7 @@ not part of the browser workflow.
 
 ## Evidence
 
-`pnpm verify:key-protection` writes
+`npm run verify:key-protection` writes
 `work/evidence/key-protection/pages/browser/verify-key-protection.json`
 with `passed | failed | blocked` (live cloud/PIV blocked without test env).
 This output is temporary; only approved current-state evidence may be promoted

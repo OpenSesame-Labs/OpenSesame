@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
  * The comparison operators (`lte`, `gt`, `gte`, `lt`) run the value through the
  * column's mapper and work on both engines. This is the cheap tripwire that
  * needs no server; the proof is the same suites run against a real one
- * (`DATABASE_URL=… pnpm --filter @opensesame/database test:postgres`, wired into
+ * (`DATABASE_URL=… npm run test:postgres`, -w @opensesame/database wired into
  * CI), which `createPgTestContext` switches to by itself.
  */
 

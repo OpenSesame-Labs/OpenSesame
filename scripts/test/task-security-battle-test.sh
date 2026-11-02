@@ -18,6 +18,6 @@ echo "== cli + proof + task-access =="
 cargo +1.88.0 test -p opensesame-proof -p opensesame-task-access -p opensesame-cli --quiet
 
 echo "== mcp-host =="
-pnpm --filter @opensesame/mcp-host test
+npm run test -w @opensesame/mcp-host
 
 echo "task-security-battle-test: OK"

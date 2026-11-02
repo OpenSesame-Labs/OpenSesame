@@ -35,7 +35,7 @@ None for this slice. Live Postgres multi-node against a real cluster is exercise
 
 ```bash
 ./scripts/test/task-security-battle-test.sh
-pnpm --filter @opensesame/mcp-host test
-pnpm --filter @opensesame/console test
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/mcp-host
+npm run test -w @opensesame/console
+npm run test -w @opensesame/control-plane
 ```

@@ -19,7 +19,7 @@ Where a provider has no browser connection, its row says why and cites the evide
 [`spec/connectors/browser-dispositions.json`](../../spec/connectors/browser-dispositions.json)
 holds a dated probe of the provider's own servers from the audited origin, or the
 documentation that backs a statement ([ADR 0197](../adr/0197-browser-dispositions-and-honest-links.md)).
-`pnpm audit:browser-dispositions` re-runs every probe and reports where an answer has moved.
+`npm run audit:browser-dispositions` re-runs every probe and reports where an answer has moved.
 A provider with no authored row is described only by what OpenSesame's own catalog lacks.
 The Link column says what its address is: documentation, the provider's website,
 fnox's documentation (where fnox is the only source), or MCP server metadata.

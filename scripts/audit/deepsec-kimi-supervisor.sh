@@ -18,8 +18,8 @@ while true; do
   fi
   near="${DEEPSEC_ERROR_NEAR_ZERO:-25}"
   if [[ "$wave_ok" -eq 1 ]] && [[ "$errs" -le "$near" ]] \
-    && tail -5 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'FINISH COMPLETE' \
-    && ! tail -30 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'SKIP docs export'; then
+  && tail -5 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'FINISH COMPLETE' \
+  && ! tail -30 /tmp/deepsec-grok-finish.log 2>/dev/null | grep -q 'SKIP docs export'; then
     echo "=== supervisor done errors=$errs $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
     exit 0
   fi

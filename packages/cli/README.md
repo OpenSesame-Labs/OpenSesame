@@ -151,9 +151,9 @@ opensesame-id session invoke c-github provider.repositories.read --json
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/cli start help            # prints the command list
-pnpm --filter @opensesame/cli test
-pnpm --filter @opensesame/cli typecheck
+npm run start -w @opensesame/cli help            # prints the command list
+npm run test -w @opensesame/cli
+npm run typecheck -w @opensesame/cli
 ```
 
 `src/capability-parity.test.ts` checks the verbs against
@@ -196,12 +196,12 @@ child runs in the caller's working directory after the provider token is removed
 
 ## Installed delivery and local security
 
-`pnpm --filter @opensesame/cli build` emits a bundled Node22 ESM CLI and
+`npm run build` -w @opensesame/cli emits a bundled Node22 ESM CLI and
 its declaration files; it does not require `tsx` at runtime. Source development
-uses `pnpm --filter @opensesame/cli dev -- <command>`.
+uses `npm run dev -w @opensesame/cli -- <command>`.
 
 Build the native `opensesame` release binary with the pinned Rust toolchain and
-`CARGO_TARGET_DIR`, then run `pnpm --filter @opensesame/cli pack:release`.
+`CARGO_TARGET_DIR`, then run `npm run pack:release`. -w @opensesame/cli
 The release build requires and copies that platform's native companion into
 `dist/native/<platform>-<architecture>/`. The generated installable tarball
 contains the bundled CLI and companion, and no unresolved workspace dependencies.
@@ -209,7 +209,7 @@ Create separate release artifacts for each supported platform. A missing native
 companion fails release packaging. Public declarations inline the workspace
 and Zod type closure; the archive declares the pinned Node type dependency.
 After prefetching its declared dependencies into the npm cache, validate the
-actual archive with `pnpm --filter @opensesame/cli test:archive <archive.tgz>`.
+actual archive with `npm run test:archive -w @opensesame/cli <archive.tgz>`.
 This installs offline outside the workspace, checks normal JavaScript and strict
 TypeScript imports, and exercises the packaged companion through public commands.
 

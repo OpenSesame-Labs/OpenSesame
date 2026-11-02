@@ -46,5 +46,4 @@ including a provisional one — the internal Host API host/port and connection
 diagnostics. Both fields are gone; the failure is logged through `ctx.log`.
 
 Tests: five new cases in `crates/redaction` (DSN, labelled values, `Basic`,
-JSON, no-op). `cargo test --workspace`, `pnpm run test:all`, `pnpm run
-typecheck`, clippy and `cargo fmt --check` are clean.
+JSON, no-op). `cargo test --workspace`, `npm run test:all`, `npm run typecheck`, clippy and `cargo fmt --check` are clean.

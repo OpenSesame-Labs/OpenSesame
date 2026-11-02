@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mtls-test.sh — the fast mTLS suite (`pnpm test:mtls`). No network, no fixtures.
+# mtls-test.sh — the fast mTLS suite (`npm run test:mtls`). No network, no fixtures.
 #
 # Runs the pure/unit layers of the optional mTLS work and the static-bundle
 # boundary check, recording every step in artifacts/mtls/ through
@@ -97,7 +97,7 @@ step --id ts-src-entries --claim OPS-RUNNERS --runner marker --required true --t
 step --id ts-cli-installed-entry --claim OPS-RUNNERS --runner marker --required true --timeout 900 \
   --profile unit --target "installed Client CLI" --paths packages/cli/scripts/test-installed.mjs \
   --expected "emitted Client CLI runs outside the workspace without a development loader" -- \
-  bash -c 'pnpm --filter @opensesame/cli test:installed && echo "MTLS_TESTS passed=1 failed=0"'
+  bash -c 'npm run test:installed -w @opensesame/cli && echo "MTLS_TESTS passed=1 failed=0"'
 
 ts_step() { # id required-default path-that-must-exist command...
   local id="$1" req="$2" need="$3"; shift 3
@@ -109,13 +109,13 @@ ts_step() { # id required-default path-that-must-exist command...
     step --id "ts-${id}" --claim "ts:${id}" --runner vitest --required "${req}" --skip "${need} does not exist"
   fi
 }
-ts_step os-domain true packages/os-domain/src pnpm --filter @opensesame/os-domain exec vitest run
-ts_step contracts true packages/contracts/src pnpm --filter @opensesame/contracts exec vitest run
-ts_step oauth-provider true packages/oauth-provider/src pnpm --filter @opensesame/oauth-provider exec vitest run
-ts_step ingress-evidence false packages/ingress-evidence/src pnpm --filter @opensesame/ingress-evidence exec vitest run
-ts_step control-plane-transport false packages/control-plane/src/transport pnpm --filter @opensesame/control-plane exec vitest run src/transport
-ts_step core-transport false packages/app-core/src/lib/transport-status.ts pnpm --filter @opensesame/app-core exec vitest run src/lib/transport
-ts_step pages-transport false apps/pages/src/sections/settings/transport pnpm --filter @opensesame/pages exec vitest run src/sections/settings/transport
+ts_step os-domain true packages/os-domain/src npm exec -w @opensesame/os-domain -- vitest run
+ts_step contracts true packages/contracts/src npm exec -w @opensesame/contracts -- vitest run
+ts_step oauth-provider true packages/oauth-provider/src npm exec -w @opensesame/oauth-provider -- vitest run
+ts_step ingress-evidence false packages/ingress-evidence/src npm exec -w @opensesame/ingress-evidence -- vitest run
+ts_step control-plane-transport false packages/control-plane/src/transport npm exec -w @opensesame/control-plane -- vitest run src/transport
+ts_step core-transport false packages/app-core/src/lib/transport-status.ts npm exec -w @opensesame/app-core -- vitest run src/lib/transport
+ts_step pages-transport false apps/pages/src/sections/settings/transport npm exec -w @opensesame/pages -- vitest run src/sections/settings/transport
 
 # ---- 4. static bundle boundary ---------------------------------------------
 static_args=(); [[ ${SKIP_BUILD} -eq 1 ]] && static_args+=(--no-build)

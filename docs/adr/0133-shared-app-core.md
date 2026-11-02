@@ -118,7 +118,7 @@ What stands in the way was measured on 2026-09-22:
    They drive the ports, then the split into domain packages bottom-up,
    with `vault-core` (the tomb crypto and format kernel) first.
 6. **Relocation keeps the structural baseline honest.**
-   - `pnpm quality:gate --relocate <map>` re-keys recorded entries from the
+   - `npm run quality:gate --relocate <map>` re-keys recorded entries from the
      old path to the new one.
    - It refuses if any count at the new path exceeds the number recorded at
      the old path.
@@ -211,7 +211,7 @@ over `@noble/hashes` and `@noble/ciphers`), UTF-8 codecs, `atob`/`btoa` and
 `getRandomValues` throws. `assertHostIntl` refuses an isolate that cannot
 NFKC-normalise.
 
-**Gates** (`pnpm quality:app-core`, `docs/validation/code-quality-gates.md`
+**Gates** (`npm run quality:app-core`, `docs/validation/code-quality-gates.md`
 §3). The planned portability *ledger* became a zero-violation rule: no value
 use of a browser-only global outside `src/browser/**`, worker entries and
 tests. The layering ledger became: no static import cycle at all (nine were

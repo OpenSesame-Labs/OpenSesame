@@ -6,8 +6,8 @@
  * To reuse a manual flag build:
  *
  *   VITE_BASE=/OpenSesame/ VITE_PWA_OFFER_PASSWORDS_ONBOARDING=1 \
- *     pnpm --filter @opensesame/pages build
- *   VERIFY_SKIP_BUILD=1 pnpm --filter @opensesame/pages verify:fresh-vault-login
+ *     npm run build -w @opensesame/pages
+ *   VERIFY_SKIP_BUILD=1 npm run verify:fresh-vault-login -w @opensesame/pages
  */
 
 import { spawnSync } from "node:child_process";

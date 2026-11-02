@@ -292,7 +292,7 @@ allowlist with a protocol-endpoint category comment, so a reviewer sees that the
 session exemption is deliberate. Each is also excluded from every agent surface:
 an enrollment endpoint is spoken by a protocol client, not by an agent.
 
-Gate: `pnpm --filter @opensesame/capability-registry test`
+Gate: `npm run test` -w @opensesame/capability-registry
 
 ## Consequences
 

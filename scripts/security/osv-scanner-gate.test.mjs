@@ -40,11 +40,10 @@ function fixture(t) {
   );
   const inputs = [
     "Cargo.lock",
-    "pnpm-lock.yaml",
-    ".deepsec/pnpm-lock.yaml",
+    ".deepsec/package-lock.json",
     "tests/fuzz/cargo/Cargo.lock",
     "scripts/test/live-turn/go.mod",
-    "nested space/pnpm-lock.yaml",
+    "nested space/package-lock.json",
   ];
   for (const file of inputs) {
     mkdirSync(dirname(join(repo, file)), { recursive: true });
@@ -56,7 +55,7 @@ function fixture(t) {
   );
   execFileSync("git", ["init", "-q"], { cwd: repo });
   execFileSync("git", ["add", "."], { cwd: repo });
-  for (const file of ["node_modules/tool/pnpm-lock.yaml", "work/Cargo.lock"]) {
+  for (const file of ["node_modules/tool/package-lock.json", "work/Cargo.lock"]) {
     mkdirSync(dirname(join(repo, file)), { recursive: true });
     writeFileSync(join(repo, file), "untracked\n");
   }
@@ -170,7 +169,7 @@ test("nested-workspace advisories fail even when scanner exits successfully", (t
   const report = JSON.stringify({
     results: [
       {
-        source: { path: ".deepsec/pnpm-lock.yaml" },
+        source: { path: ".deepsec/package-lock.json" },
         packages: [
           {
             package: { name: "affected", version: "1.0.0", ecosystem: "npm" },
@@ -187,7 +186,7 @@ test("nested-workspace advisories fail even when scanner exits successfully", (t
     });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /GHSA-fixture/);
-    assert.match(result.stderr, /\.deepsec\/pnpm-lock.yaml/);
+    assert.match(result.stderr, /\.deepsec\/package-lock.json/);
     assert.doesNotMatch(result.stdout, /CLEAN/);
   }
 });

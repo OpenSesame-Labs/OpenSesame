@@ -21,7 +21,7 @@ what goes over each wire, and what it is built on.
 | [Daemon socket](daemon-socket.md) | The daemon's TCP and Unix-socket contract, environment variables and routes. |
 | [WIT task contracts](wit-task-contracts.md) | Versioned task-scoped WIT packages and their compatibility rules. |
 | [Host OpenAPI](../../spec/openapi/host-api.yaml) | The Host API, route by route. |
-| Identity OpenAPI | Generated to `packages/control-plane/openapi.json` by `pnpm generate:openapi`. |
+| Identity OpenAPI | Generated to `packages/control-plane/openapi.json` by `npm run generate:openapi`. |
 | [Vault format v1](../architecture/vault-format-v1.md) | The vault file format and its golden vectors. |
 
 ## Dependencies and licensing
@@ -29,7 +29,7 @@ what goes over each wire, and what it is built on.
 | Page | Contents |
 |---|---|
 | [Foundations we reuse](reuse.md) | What OpenSesame builds on instead of reinventing, the pinned choice, and its license stance. |
-| [Identity-plane dependencies](identity-dependencies.md) | The third-party libraries the Identity plane's packages build on and why each is there. `pnpm generate:sbom` writes a CycloneDX SBOM. |
+| [Identity-plane dependencies](identity-dependencies.md) | The third-party libraries the Identity plane's packages build on and why each is there. `npm run generate:sbom` writes a CycloneDX SBOM. |
 
 Command-line and API usage is documented where agents and people look for it:
 the [`skills/`](../../skills/README.md) directory has one guide each for the

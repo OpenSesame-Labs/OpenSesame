@@ -16,9 +16,9 @@ for that gate.
 ## Attach
 
 1. Start the HMR server as a long-lived attached process. Keep it running.
-   - Pages UI, no backend (ADR 0090): `pnpm dev:pwa`
+   - Pages UI, no backend (ADR 0090): `npm run dev:pwa`
      (`http://localhost:5180` — localhost, not `127.0.0.1`, for passkeys).
-   - Pages plus Host/Identity/mock IdPs: `pnpm --filter @opensesame/pages dev`
+   - Pages plus Host/Identity/mock IdPs: `npm run dev` -w @opensesame/pages
      (`scripts/dev/pages-dev.sh`).
    - Other Vite surfaces: that package's `dev` script, same attach rule.
 2. Open the same origin in a browser/debug session the agent can read

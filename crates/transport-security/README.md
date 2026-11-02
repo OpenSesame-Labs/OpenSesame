@@ -52,8 +52,8 @@ checking off.
 
 ```bash
 cargo +1.88.0 test -p opensesame-transport-security
-pnpm test:mtls              # fast suite; this crate is required
-pnpm test:mtls:integration  # pinned nats-server / OpenBao / SPIRE / Caddy fixtures
+npm run test:mtls              # fast suite; this crate is required
+npm run test:mtls:integration  # pinned nats-server / OpenBao / SPIRE / Caddy fixtures
 ```
 
 `tests/openssl_oracle.rs` drives `openssl s_client` against the listener as an

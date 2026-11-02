@@ -35,8 +35,8 @@ it lists what is implemented and, with a reason each, what is not.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/siop-v2 test
-pnpm --filter @opensesame/siop-v2 typecheck
+npm run test -w @opensesame/siop-v2
+npm run typecheck -w @opensesame/siop-v2
 ```
 
 `src/matrix.test.ts` pins the support matrix; the `*.adversarial.test.ts` and
@@ -44,7 +44,7 @@ pnpm --filter @opensesame/siop-v2 typecheck
 `rp*.test.ts` (`rp.binding.test.ts` holds the binding and the every-check-fails-alone
 table) and `rp-store.test.ts` cover the metadata and the relying-party kit.
 The browser journey, including the example relying parties on other origins, is
-`pnpm --filter @opensesame/pages verify:siop`. The copy-ready examples are
+`npm run verify:siop`. -w @opensesame/pages The copy-ready examples are
 [`examples/siop-rp`](../../examples/siop-rp) and the guide is
 [Use OpenSesame Pages as your login](../../docs/operators/use-pages-as-your-login.md).
 

@@ -343,8 +343,8 @@ login delivers nothing at all: no surrogate, no placeholder, no password.
 ## The boundary gate
 
 ```bash
-pnpm audit:plugin-boundary   # scripts/audit/plugin-boundary-gate.sh
-pnpm test:plugin-boundary    # its negative control, then the gate (part of pnpm verify)
+npm run audit:plugin-boundary   # scripts/audit/plugin-boundary-gate.sh
+npm run test:plugin-boundary    # its negative control, then the gate (part of npm run verify)
 ```
 
 The gate fails if the normal dependency tree of `opensesame-cli`, or of

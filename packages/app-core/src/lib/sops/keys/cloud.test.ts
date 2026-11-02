@@ -3,7 +3,7 @@
  * SB-051 … SB-057: the cloud adapters' wire contract, key binding, and
  * honest failure reporting. These are contract tests against a mocked
  * transport — a different evidence class from a live cross-origin call,
- * which `pnpm verify:sops-cloud-live` reports separately.
+ * which `npm run verify:sops-cloud-live` reports separately.
  */
 import { describe, expect, it, vi } from "vitest";
 import { SopsError } from "../errors.js";

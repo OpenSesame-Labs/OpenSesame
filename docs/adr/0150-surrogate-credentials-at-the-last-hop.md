@@ -444,7 +444,7 @@ not silently get something else.
 **Landed with this ADR.** `cargo +1.88.0 test -p opensesame-invoke-through`
 passes 45 unit tests. Clippy passes at the gate's pedantic settings. The quality
 gate is clean, and `invoke.rs`'s ceiling was retired now that it is under 400
-lines. `pnpm audit:daemon-deps` is clean: `base64` was already in the daemon's
+lines. `npm run audit:daemon-deps` is clean: `base64` was already in the daemon's
 tree.
 
 - **Admission** (`surrogate_tests.rs`, `surrogate_lifecycle_tests.rs`). One test

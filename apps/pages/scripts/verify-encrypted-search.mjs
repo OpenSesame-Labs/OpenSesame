@@ -1,8 +1,8 @@
 // Prove the Encrypted search capability in the built app, under the real
 // production origin, at desktop and phone widths (ADR 0175).
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-//   pnpm --filter @opensesame/pages verify:encrypted-search
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+//   npm run verify:encrypted-search -w @opensesame/pages
 //
 // Same harness as `verify:static`: every request to the origin is served from
 // `dist/`, every other origin is refused, and the run fails on any page error,

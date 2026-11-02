@@ -39,7 +39,7 @@ authority or suppress the suite's unhandled-error gate.
 
 Verification after these changes:
 
-- `pnpm --filter @opensesame/pages test`: 3575 tests in 293 files pass, 117.06s.
+- `npm run test`: -w @opensesame/pages 3575 tests in 293 files pass, 117.06s.
 - Focused passkey/session verification: 36 tests pass; connector lifecycle and
   existing Connections coverage: 60 tests pass.
 - Pages production build/typecheck passes. All eight real Chromium IAM journeys

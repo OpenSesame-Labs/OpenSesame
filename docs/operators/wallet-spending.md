@@ -6,14 +6,14 @@ point these gates at mainnet or spend real funds.
 ## How to run
 
 ```bash
-CHAIN_ID=31337 pnpm wallet:verify   # fail-closed full gate
-pnpm wallet:verify -- --dry-run     # inventory only (still non-zero)
-pnpm wallet:test:domain             # os-domain wallet + budget + policy
-pnpm wallet:test:contracts          # forge enforcer suites + wallet-evm
-pnpm wallet:test:protocols          # Anvil Exact EIP-3009 + AP2/UCP fixtures
-pnpm wallet:test:browser            # Pages WalletSection + spending-ledger
-pnpm wallet:test:security           # conservation + policy + domain parsers
-pnpm wallet:evidence                # refresh work/evidence/wallet/wallet/cross-platform/last-run.json
+CHAIN_ID=31337 npm run wallet:verify   # fail-closed full gate
+npm run wallet:verify -- --dry-run     # inventory only (still non-zero)
+npm run wallet:test:domain             # os-domain wallet + budget + policy
+npm run wallet:test:contracts          # forge enforcer suites + wallet-evm
+npm run wallet:test:protocols          # Anvil Exact EIP-3009 + AP2/UCP fixtures
+npm run wallet:test:browser            # Pages WalletSection + spending-ledger
+npm run wallet:test:security           # conservation + policy + domain parsers
+npm run wallet:evidence                # refresh work/evidence/wallet/wallet/cross-platform/last-run.json
 ```
 
 Gate output is temporary. Persist only approved current-state artifacts under

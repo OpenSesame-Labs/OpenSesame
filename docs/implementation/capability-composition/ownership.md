@@ -23,14 +23,14 @@ loader, registry or vocabulary.
   `f1c1e7a`; it adds SOPS/KMS protectors, Activity, GitHub backup combobox).
 - Untracked at start: `packages/database/drizzle/0029_*` (session-start
   `db:generate` artefacts; not part of this change, never committed).
-- Node `v22.22.2`, pnpm `9.15.0`, Vite `6.4.3`, vite-plugin-pwa `1.0.3`,
+- Node `v22.22.2`, npm `9.15.0`, Vite `6.4.3`, vite-plugin-pwa `1.0.3`,
   React `19.2.8`, React Router `8.3.0`, TypeScript `5.8.3`, Vitest `4.1.10`,
   Playwright `1.55.1`, Chromium at `/opt/pw-browsers/chromium`.
 - **Environment quirk:** the session's `NODE_OPTIONS` contains `--import tsx`,
   which this Node build refuses (`node: --import tsx is not allowed in
   NODE_OPTIONS`). Every shell command that runs Node must first
   `export NODE_OPTIONS="--max-old-space-size=8192"`.
-- Baseline Pages production build (`VITE_BASE=/OpenSesame/ pnpm exec turbo run
+- Baseline Pages production build (`VITE_BASE=/OpenSesame/ npm exec -- turbo run
   build --filter=@opensesame/pages`, 34 s): `dist/` 3.6 MB, 78 assets; the
   eager entry chunk `assets/main-*.js` is **1,189,653 bytes**; `sw.js` 8,901
   bytes. `index.html` references only `main-*.js` and the modulepreload
@@ -84,7 +84,7 @@ and are the only definitions.
 
 Shared-hotspot rule: only the owner rewrites a file; everyone else sends a
 narrowly scoped patch (a new export, a hook call, a filtered list). Files
-stay under 400 lines (`pnpm quality:gate`). New files start at zero debt.
+stay under 400 lines (`npm run quality:gate`). New files start at zero debt.
 
 ## 4. Runtime contracts (Pages)
 

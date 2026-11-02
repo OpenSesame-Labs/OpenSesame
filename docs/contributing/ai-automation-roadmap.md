@@ -45,10 +45,10 @@ Verified at commit `0608ccc` (the base of this branch); reproduce each claim wit
 
 ### P0 — CI as the substrate for everything else
 
-Thirteen gate scripts (`scripts/*-gate.sh`, `battle-test.sh`) plus `pnpm verify` exist and run **only on developer machines**. Every downstream automation (agent PR review, autonomous fix loops, preview deploys) needs CI as its verification oracle — current practice is unambiguous that agent output must land behind CI + human review, not instead of it.
+Thirteen gate scripts (`scripts/*-gate.sh`, `battle-test.sh`) plus `npm run verify` exist and run **only on developer machines**. Every downstream automation (agent PR review, autonomous fix loops, preview deploys) needs CI as its verification oracle — current practice is unambiguous that agent output must land behind CI + human review, not instead of it.
 
 Do:
-1. Add `.github/workflows/ci.yml`: typecheck + vitest + cargo test (lib) + clippy, on PR and main. Cache pnpm/cargo; use turbo remote caching if available.
+1. Add `.github/workflows/ci.yml`: typecheck + vitest + cargo test (lib) + clippy, on PR and main. Cache npm/cargo; use turbo remote caching if available.
 2. Add `security.yml`: the existing `audit:*` gates (gitleaks, osv, cargo-audit/deny, ast-grep, semgrep, cve-lite) — they are already written as CI-shaped pass/fail scripts.
 3. Note the `PRODUCT.md` constraint applies to **deploy** ("no custom GitHub Actions runners for deploy"), not to checks.
 
@@ -122,7 +122,7 @@ The P0 recommendation above ("Add `.github/workflows/ci.yml`" and `security.yml`
 
 What actually runs instead, as of this build-out:
 
-- **Local git hooks** — `pre-commit` and `pre-push` hooks under `.githooks/`, installed via `scripts/dev/setup-hooks.sh` (`git config core.hooksPath .githooks`). These run the same gate scripts this roadmap's P0 wanted in CI (`scripts/*-gate.sh`, `pnpm verify`) — see `CONTRIBUTING.md`'s "Local gates (no CI)" section for the full list and how to opt in. They run on the contributor's or agent's own machine at commit/push time, not on GitHub's infrastructure.
+- **Local git hooks** — `pre-commit` and `pre-push` hooks under `.githooks/`, installed via `scripts/dev/setup-hooks.sh` (`git config core.hooksPath .githooks`). These run the same gate scripts this roadmap's P0 wanted in CI (`scripts/*-gate.sh`, `npm run verify`) — see `CONTRIBUTING.md`'s "Local gates (no CI)" section for the full list and how to opt in. They run on the contributor's or agent's own machine at commit/push time, not on GitHub's infrastructure.
 - **Scheduled Claude Code cloud Routines** — for the deeper, recurring work this roadmap originally slated for nightly/weekly CI jobs (dependency triage, security-gate audits, docs-drift checks against commit reality), see `docs/contributing/agent-routines.md`. Routines are Claude Code sessions on a cron-style schedule; they are not GitHub Actions and do not consume Actions minutes.
 - **promptfoo red-team suite** (`tests/redteam`) — runs either as a local script or inside a scheduled Claude session, authenticating via the `apiKeyRequired: false` session-auth path documented in that package's README. It is never invoked from a GitHub Actions workflow.
 - **CodeRabbit** remains the PR reviewer. It was already installed pre-build-out, is free-tier, and runs on its own infrastructure (a GitHub App webhook integration, not an Actions workflow) — no change needed here.

@@ -17,7 +17,7 @@ the command that produced it. Anything that could not run says why.
 | Base at the time of this report | `8a47abd49b9bbd29eca5c8d0b06f1163fe18a233`, merged in after the duress profiles landed on `main`; that work claimed ADR numbers 0130 and 0131, so this decision record was renumbered to 0132 |
 | Branch | `claude/new-session-j3usv4`, pull request #453 |
 | Size of the change | 635 files, about 76 900 insertions, measured against the merged base |
-| Toolchain | rustc/cargo 1.88.0, Node 22.22.2, pnpm 9.15.0 |
+| Toolchain | rustc/cargo 1.88.0, Node release 22.22.2, npm run 9.15.0 |
 | Relevant resolved libraries | rustls 0.23.43 (ring provider), tokio-rustls 0.26.4, rustls-webpki 0.103.13, async-nats 0.50.0, nkeys 0.4.5, spiffe 0.16.1, sfv 0.15.0, oidc-provider 9.11.2, structured-headers 2.1.0 |
 | Pinned disposable servers | nats-server 2.11.17, OpenBao 2.3.2, SPIRE 1.12.6, Caddy 2.11.4 — all fetched and sha256-verified by `scripts/mtls/mtls-fixtures.sh`; pinned for linux-amd64 and linux-arm64 (the arm64 set added 2026-09-23, cross-checked against the same upstream checksum files except OpenBao's, which publishes only a cosign signature) |
 
@@ -38,7 +38,7 @@ application keeps working with none of this present. It does.
 
 | Property | Evidence |
 |---|---|
-| An empty device with no endpoints configured completes guest, vault and settings journeys with no network setup prompt; Settings › Security draws no Transport panel at all — no form, no status rows, no Refresh key, no verify key (`AT-STATIC-EMPTY`, amended 2026-09-28 and again 2026-10-02 below) | `pnpm --filter @opensesame/pages verify:transport`, 109 checks, exit 0; fails on any loopback request |
+| An empty device with no endpoints configured completes guest, vault and settings journeys with no network setup prompt; Settings › Security draws no Transport panel at all — no form, no status rows, no Refresh key, no verify key (`AT-STATIC-EMPTY`, amended 2026-09-28 and again 2026-10-02 below) | `npm run verify:transport`, -w @opensesame/pages 109 checks, exit 0; fails on any loopback request |
 | A remote target with broken TLS degrades only that target | same harness, the bad-remote journey: exactly one status request and one verify request leave the tab, only the observed row degrades |
 | No native TLS, filesystem, workload-socket or process adapter reaches the shipped bundle | `scripts/mtls/mtls-static-imports.mjs`, 69 chunks scanned plus the transitive dependency graph, exit 0 |
 | Touch, keyboard, local sign-in and self-issued identity journeys unchanged | `verify:mobile`, `verify:keyboard`, `verify:local-iam`, `verify:siop`, all exit 0 |
@@ -160,7 +160,7 @@ rejected every genuine callout.
 | NATS operator mode | not exercised; its issuer, audience and account rules differ from configuration mode and no claim is made about it |
 | The callout xkey envelope | **closed 2026-09-23 (§8).** At this record it was unit-tested but not live-tested; the live server had not been configured with it |
 | Real certificate provisioning in a browser | the browser fixture proves harness-provisioned TLS only, and says nothing about how a person obtains or selects a certificate |
-| `pnpm verify` and the whole-repository clippy gate | both stop on pre-existing debt, measured rather than assumed — see below |
+| `npm run verify` and the whole-repository clippy gate | both stop on pre-existing debt, measured rather than assumed — see below |
 | A Host secure-listener test in the gateway binary | none exists. The listener's real-handshake behaviour is covered by `opensesame-transport-security`'s own listener tests and by the interop crate's 21 scenarios, including the gateway process refusing to start rather than downgrade. The integration suite no longer implies a gateway test that was never written. Status (2026-10-08): the gateway crate now has in-crate tests that drive a real `SecureListener` with a real rustls client (`crates/gateway/src/transport/revocation_handshake_tests.rs`) and that a configured secure profile with unusable material stops the process (`transport/boot_tests.rs`) |
 
 ### Three steps that reported a result they had not earned
@@ -240,10 +240,10 @@ provider-openbao, task-bus and the interop crate.
 ## 7. Reproducing this
 
 ```bash
-pnpm test:mtls                 # fast suites, no network
-pnpm test:mtls:fixtures        # fetch and verify the pinned servers
-pnpm test:mtls:integration     # real nats-server, OpenBao, SPIRE, Caddy
-pnpm test:mtls:browser         # Playwright client-certificate fixtures
+npm run test:mtls                 # fast suites, no network
+npm run test:mtls:fixtures        # fetch and verify the pinned servers
+npm run test:mtls:integration     # real nats-server, OpenBao, SPIRE, Caddy
+npm run test:mtls:browser         # Playwright client-certificate fixtures
 ```
 
 Sanitized machine-readable results are written under `artifacts/mtls/`, with
@@ -294,7 +294,7 @@ call; `a_sealing_server_never_serves_a_bridge_without_the_xkey` does exactly
 that.
 
 Still not run, unchanged from §6: NATS operator mode (unsupported and not
-claimed), real certificate provisioning in a browser, `pnpm verify` and the
+claimed), real certificate provisioning in a browser, `npm run verify` and the
 whole-repository clippy gate (pre-existing debt — the scoped clippy in this pass
 stops at the same `doc_markdown` finding in `crates/enforcement` unless scoped
 with `--no-deps`, where the gate's exact deny set reports `opensesame-nats-callout`

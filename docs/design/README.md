@@ -10,7 +10,7 @@ at the repository root; the product's users and voice are in
 | Page | Covers |
 |---|---|
 | [Design tooling](tooling.md) | Storybook defines the system, Figma sets the look, Stitch prototypes alternatives; per-agent skill and MCP configuration. |
-| [Controls](controls.md) | The control vocabulary: icon keys, which glyph means what, and why a verb is never painted on a button. Enforced by `pnpm lint:design`. |
+| [Controls](controls.md) | The control vocabulary: icon keys, which glyph means what, and why a verb is never painted on a button. Enforced by `npm run lint:design`. |
 | [Access screen](access-screen.md) | The Access section — the PAM plane (original Host-bound design, with the as-built tabs). |
 | [Access domains](access-domain-forest.md) | Access domains as a realm-bound forest. |
 | [Identity screen](identity-screen.md) | People, agents, providers, devices, applications and organizations. |

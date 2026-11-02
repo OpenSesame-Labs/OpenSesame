@@ -81,7 +81,7 @@ Every OIDC issuer, by contrast, must honour `prompt=login` (Core §3.1.2.1).
    its own the moment the key exists. A person who came for a second factor
    is walked into the first, not sent to find it. The whole road — guest →
    key → scan → confirm → codes → lock → key → code → open — is driven in a
-   real browser by `pnpm --filter @opensesame/pages verify:auth`.
+   real browser by `npm run verify:auth`. -w @opensesame/pages
 
 4. **Sign out is one operation** (`lib/session-exit.ts`): forget the upstream
    assertion, drop any link waiting on an unlock, revoke the Identity session,

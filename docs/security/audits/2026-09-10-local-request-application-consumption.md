@@ -22,7 +22,7 @@ completion claim.
 
 ## Focused evidence
 
-`pnpm --filter @opensesame/pages exec vitest run
+`npm exec -w @opensesame/pages -- vitest run
 src/lib/local-request-authorization.test.ts
 src/lib/local-access-requests.test.ts
 src/lib/local-issuer-channel.test.ts

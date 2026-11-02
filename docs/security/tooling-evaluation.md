@@ -6,22 +6,22 @@ Evaluation of candidate scanners/harnesses for OpenSesame (polyglot Rust/TS, aut
 
 | Tool | Why | How we use it |
 |------|-----|----------------|
-| **cve-lite** | OSV CVE scan + override hygiene (OA*/PD*) | `pnpm run audit:cve-lite` (`scripts/audit/cve-lite-gate.sh`) |
-| **OSV-Scanner** | Google OSV across Cargo + pnpm lockfiles (catches GHSA not yet in RustSec) | `pnpm run audit:osv` (`scripts/audit/osv-scanner-gate.sh`, `osv-scanner.toml`) |
-| **cargo-audit** | RustSec advisory scan of `Cargo.lock` (dedicated CLI) | `pnpm run audit:cargo-audit` (`scripts/audit/cargo-audit-gate.sh`) |
-| **ast-grep** | Structural SAST for XSS/crypto/injection antipatterns | `pnpm run audit:ast-grep` (`tools/security/ast-grep-rules.yml`) |
-| **cargo clippy** | Rust correctness / suspicious patterns (`-D warnings`, pedantic) | `pnpm run audit:clippy` (`scripts/audit/clippy-gate.sh`; also part of `pnpm verify`; no CI workflow runs it) |
-| **gitleaks** | Secret scanning; catches accidental keys in source | `pnpm run audit:gitleaks` (`.gitleaks.toml` prunes `target`/`node_modules`) |
-| **cargo-deny** | RustSec advisories, license, source policy | `cargo deny check` + workspace `deny.toml` (run by the nightly dependency-triage routine; no `pnpm` script) |
-| **pnpm audit** | npm advisory DB for TS apps/packages | `pnpm audit` after dep bumps |
-| **Semgrep** | Static rules (`p/rust`, `p/typescript`, `p/javascript`) on source trees | `pnpm run audit:semgrep` (apps/crates/packages only) |
+| **cve-lite** | OSV CVE scan + override hygiene (OA*/PD*) | `npm run audit:cve-lite` (`scripts/audit/cve-lite-gate.sh`) |
+| **OSV-Scanner** | Google OSV across Cargo + npm run lockfiles (catches GHSA not yet in RustSec) | `npm run audit:osv` (`scripts/audit/osv-scanner-gate.sh`, `osv-scanner.toml`) |
+| **cargo-audit** | RustSec advisory scan of `Cargo.lock` (dedicated CLI) | `npm run audit:cargo-audit` (`scripts/audit/cargo-audit-gate.sh`) |
+| **ast-grep** | Structural SAST for XSS/crypto/injection antipatterns | `npm run audit:ast-grep` (`tools/security/ast-grep-rules.yml`) |
+| **cargo clippy** | Rust correctness / suspicious patterns (`-D warnings`, pedantic) | `npm run audit:clippy` (`scripts/audit/clippy-gate.sh`; also part of `npm run verify`; no CI workflow runs it) |
+| **gitleaks** | Secret scanning; catches accidental keys in source | `npm run audit:gitleaks` (`.gitleaks.toml` prunes `target`/`node_modules`) |
+| **cargo-deny** | RustSec advisories, license, source policy | `cargo deny check` + workspace `deny.toml` (run by the nightly dependency-triage routine; no `npm` script) |
+| **npm audit** | npm advisory DB for TS apps/packages | `npm audit` after dep bumps |
+| **Semgrep** | Static rules (`p/rust`, `p/typescript`, `p/javascript`) on source trees | `npm run audit:semgrep` (apps/crates/packages only) |
 | **Manual auth-path review** | Catches design bugs scanners miss | Bearer bypass, unauthenticated sync, prod fail-closed |
-| **cargo-fuzz / libFuzzer** | Persistent coverage-guided Rust fuzz | `pnpm audit:fuzz` / `pnpm audit:fuzz:batch` (`scripts/fuzz/fuzz-pr-gate.sh`, `scripts/fuzz/fuzz-batch.sh`) |
-| **Jazzer.js** | Coverage-guided TS parse/normalize fuzz | `pnpm test:fuzz` (`tests/fuzz/jazzer`, `scripts/fuzz/jazzer-gate.sh`) |
-| **Kani** | Bounded proofs on capability/grant/rotation | `pnpm audit:kani` (not in `verify`) |
-| **Miri** | UB on selected lib tests | `pnpm audit:miri` (nightly; weekly routine) |
-| **Shuttle** | Schedule exploration of idempotency/replay | `pnpm audit:shuttle` (`concurrency-test` feature) |
-| **deepsec** | Pattern SAST + AI triage (`zai/glm-5.2` via AI Gateway) | `pnpm audit:deepsec`; AI process done 2026-08-18 — `docs/security/audits/2026-08-17-deepsec.md` |
+| **cargo-fuzz / libFuzzer** | Persistent coverage-guided Rust fuzz | `npm run audit:fuzz` / `npm run audit:fuzz:batch` (`scripts/fuzz/fuzz-pr-gate.sh`, `scripts/fuzz/fuzz-batch.sh`) |
+| **Jazzer.js** | Coverage-guided TS parse/normalize fuzz | `npm run test:fuzz` (`tests/fuzz/jazzer`, `scripts/fuzz/jazzer-gate.sh`) |
+| **Kani** | Bounded proofs on capability/grant/rotation | `npm run audit:kani` (not in `verify`) |
+| **Miri** | UB on selected lib tests | `npm run audit:miri` (nightly; weekly routine) |
+| **Shuttle** | Schedule exploration of idempotency/replay | `npm run audit:shuttle` (`concurrency-test` feature) |
+| **deepsec** | Pattern SAST + AI triage (`zai/glm-5.2` via AI Gateway) | `npm run audit:deepsec`; AI process done 2026-08-18 — `docs/security/audits/2026-08-17-deepsec.md` |
 
 ## Adopt later (CI / when credentials exist)
 
@@ -51,14 +51,14 @@ Evaluation of candidate scanners/harnesses for OpenSesame (polyglot Rust/TS, aut
 ## Findings applied from this pass
 
 0. **cargo-audit loop (2026-08-07)** — restored missing `scripts/audit/cargo-audit-gate.sh`; `RUSTSEC-2023-0071` (`rsa` via sqlx lockfile edge, no fixed release) ignored in `.cargo/audit.toml` (aligned with `osv-scanner.toml`). sqlx 0.9 / Rust 1.94 upgrade still tracked — see `audits/2026-08-07-cargo-audit.md`.
-0c. **clippy/semgrep/ast-grep loop (2026-08-07)** — removed `new Function` crypto fallback in `@opensesame/api-client`; restored `pnpm verify` to Rust 1.88.0 — see `audits/2026-08-07-clippy-semgrep.md`.
-0d. **supply-chain / CI loop (2026-08-07)** — gitleaks/osv/cargo-audit/deny/pnpm-audit CLEAN; wired those gates (+ ast-grep, semgrep) into CI `security` job — see `audits/2026-08-07-supply-chain-ci.md`.
+0c. **clippy/semgrep/ast-grep loop (2026-08-07)** — removed `new Function` crypto fallback in `@opensesame/api-client`; restored `npm run verify` to Rust 1.88.0 — see `audits/2026-08-07-clippy-semgrep.md`.
+0d. **supply-chain / CI loop (2026-08-07)** — gitleaks/osv/cargo-audit/deny/npm-audit CLEAN; wired those gates (+ ast-grep, semgrep) into CI `security` job — see `audits/2026-08-07-supply-chain-ci.md`.
 
-    **Correction (2026-08-10):** the "CI `security` job" described above does not exist in this repository and never has — `git ls-files .github` returns nothing at commit `0608ccc` (the base of the `claude/ai-subscriptions-optimization-1gtbyx` branch), and no `.github/` directory has ever been committed to this tree. The gates themselves (gitleaks/osv/cargo-audit/deny/pnpm-audit/ast-grep/semgrep) are real and still CLEAN as scripted; only the "wired into CI" framing was inaccurate — they were, and remain, local scripts (`scripts/*-gate.sh`) invoked by developers/agents, not by any CI job. As of this build-out the repo's posture is now **explicit and permanent: zero GitHub Actions**. The same gates run instead through: (1) local git hooks under `.githooks/` (installed via `scripts/dev/setup-hooks.sh`, see `CONTRIBUTING.md`'s "Local gates (no CI)" section) on `pre-commit`/`pre-push`; and (2) scheduled Claude Code cloud sessions ("Routines") for the deeper recurring work — dependency triage, security audits, docs-drift checks — documented in `docs/contributing/agent-routines.md`. See also `docs/contributing/ai-automation-roadmap.md`'s "Amendment — no-GitHub-Actions posture (2026-08)" section, which supersedes that roadmap's original CI-workflow recommendation.
+    **Correction (2026-08-10):** the "CI `security` job" described above does not exist in this repository and never has — `git ls-files .github` returns nothing at commit `0608ccc` (the base of the `claude/ai-subscriptions-optimization-1gtbyx` branch), and no `.github/` directory has ever been committed to this tree. The gates themselves (gitleaks/osv/cargo-audit/deny/npm-audit/ast-grep/semgrep) are real and still CLEAN as scripted; only the "wired into CI" framing was inaccurate — they were, and remain, local scripts (`scripts/*-gate.sh`) invoked by developers/agents, not by any CI job. As of this build-out the repo's posture is now **explicit and permanent: zero GitHub Actions**. The same gates run instead through: (1) local git hooks under `.githooks/` (installed via `scripts/dev/setup-hooks.sh`, see `CONTRIBUTING.md`'s "Local gates (no CI)" section) on `pre-commit`/`pre-push`; and (2) scheduled Claude Code cloud sessions ("Routines") for the deeper recurring work — dependency triage, security audits, docs-drift checks — documented in `docs/contributing/agent-routines.md`. See also `docs/contributing/ai-automation-roadmap.md`'s "Amendment — no-GitHub-Actions posture (2026-08)" section, which supersedes that roadmap's original CI-workflow recommendation.
 
     > Status (2026-10-08): the zero-Actions posture no longer holds. `.github/workflows/` now holds `ci.yml`, `deploy-pages.yml`, `full-suite.yml` and `password-parity.yml`. None of them runs an `audit:*` gate, `cargo clippy` or `cargo deny`; those remain local scripts, git hooks and routines (`docs/contributing/agent-routines.md`).
 
-    > Status (2026-10-23): `.github/workflows/security.yml` adds a scheduled (weekly, plus on-demand) pass of OSV-Scanner over every lockfile, gitleaks over full history, and the OpenSSF Scorecard, reporting to the Security tab. It does not gate a merge and does not replace the local `pnpm audit:*` gates — the same engines (`osv-scanner`, `gitleaks`) with the same configs (`osv-scanner.toml`, `.gitleaks.toml`) run here on a clock so a hidden red is visible without a local checkout. `.github/dependabot.yml` proposes dependency bumps for the routine triage to review. The fuzz suites' enrollment in hosted OSS-Fuzz and OSS Verify is recorded in [ADR 0211](../adr/0211-oss-fuzz-and-oss-verify-enrollment.md).
+    > Status (2026-10-23): `.github/workflows/security.yml` adds a scheduled (weekly, plus on-demand) pass of OSV-Scanner over every lockfile, gitleaks over full history, and the OpenSSF Scorecard, reporting to the Security tab. It does not gate a merge and does not replace the local `npm run audit:*` gates — the same engines (`osv-scanner`, `gitleaks`) with the same configs (`osv-scanner.toml`, `.gitleaks.toml`) run here on a clock so a hidden red is visible without a local checkout. `.github/dependabot.yml` proposes dependency bumps for the routine triage to review. The fuzz suites' enrollment in hosted OSS-Fuzz and OSS Verify is recorded in [ADR 0211](../adr/0211-oss-fuzz-and-oss-verify-enrollment.md).
 
 0e. **ast-grep after UX (#23)** — extension popup `innerHTML` → `textContent` — see `audits/2026-08-07-ast-grep-popup.md`.
 0f. **Pages PWA (#25)** — removed `localStorage` for settings/outbox; OPFS + session-only operator token — see `audits/2026-08-07-pages-localstorage.md`.
@@ -120,15 +120,15 @@ Evaluation of candidate scanners/harnesses for OpenSesame (polyglot Rust/TS, aut
 
 0ay. **Temporary project expiry** — an activated temporary project outlived its own TTL because cleanup only looked at `provisional`, approval could resurrect a lapsed project, and the dev-only XOR seal's production guard was inert in browsers — see `audits/2026-08-08-project-expiry.md`.
 0az. **Code-scanning dependency triage (2026-10-27)** — updated Better Auth to 1.7.7 and qs to 6.16.1 in both npm lockfiles; pinned the legacy AI SDK's Undici 5.29.0 edge to 6.29.1. Pinned Log4js's Deepmerge edge to unaffected 4.1.2 because `GHSA-gcqx-w48m-w2h4` affects 4.2.0–4.3.1 and has no patched release. Accepted `GHSA-qwgh-2vcv-g2f7` as non-reachable: exploitation requires catching a compression/generator panic and reusing the same hash buffer, while existing `catch_unwind` sites cover unrelated chrono, logging and recipe callbacks. Revisit if hash-buffer recovery is introduced or a compatible RustCrypto digest upgrade lands.
-0b. **OSV-Scanner loop (2026-08-07)** — `jsonwebtoken` GHSA-h395 type-confusion → `10.4.0` + `aws_lc_rs`; gate at `pnpm run audit:osv` (see `audits/2026-08-07-osv-scanner.md`).
+0b. **OSV-Scanner loop (2026-08-07)** — `jsonwebtoken` GHSA-h395 type-confusion → `10.4.0` + `aws_lc_rs`; gate at `npm run audit:osv` (see `audits/2026-08-07-osv-scanner.md`).
 1. **Auth bypass** — `Bearer prn_…` accepted unconditionally → gated behind `OPENSESAME_ALLOW_PRINCIPAL_BEARER`, disabled in production; production requires real claim pepper.
 2. **Unauthenticated sync** — gateway `POST /api/v1/sync/push|pull` required session bearer.
 3. **gitleaks noise** — connector-host test placeholders renamed off `sk_test_*` / `sk_live_*` patterns.
-4. **Dependency CVEs** — bumped `hono`, `drizzle-orm`, `@modelcontextprotocol/sdk`, `react-router-dom`, `@hono/node-server`, workspace `vitest`; pnpm overrides for `shell-quote` / `adm-zip`; `deny.toml` updated for cargo-deny 0.20.
+4. **Dependency CVEs** — bumped `hono`, `drizzle-orm`, `@modelcontextprotocol/sdk`, `react-router-dom`, `@hono/node-server`, workspace `vitest`; npm run overrides for `shell-quote` / `adm-zip`; `deny.toml` updated for cargo-deny 0.20.
 5. **Session expiry** — gateway sync auth now enforces opaque-session `expires_at` and evicts expired entries.
 6. **Fail-closed config** — default claim pepper and `prn_` bearer require explicit dev/test mode (`OPENSESAME_ALLOW_DEV_DEFAULTS`, `NODE_ENV`/`OPENSESAME_ENV` development|test, or Vitest); production asserts reject unsafe merges.
 
-Re-run checklist: `pnpm run audit:cve-lite`, `pnpm run audit:osv`, `pnpm run audit:cargo-audit`, `pnpm run audit:ast-grep`, `pnpm run audit:clippy`, `pnpm run audit:gitleaks`, `pnpm run audit:semgrep`, `cargo deny check`, `pnpm audit`, control-plane + connector-host tests, gateway `cargo check`.
+Re-run checklist: `npm run audit:cve-lite`, `npm run audit:osv`, `npm run audit:cargo-audit`, `npm run audit:ast-grep`, `npm run audit:clippy`, `npm run audit:gitleaks`, `npm run audit:semgrep`, `cargo deny check`, `npm audit`, control-plane + connector-host tests, gateway `cargo check`.
 
 ## Residual (tracked, not blocking this pass)
 

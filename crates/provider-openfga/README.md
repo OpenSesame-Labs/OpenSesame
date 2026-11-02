@@ -36,7 +36,7 @@ cargo +1.88.0 test -p opensesame-provider-openfga
 # The live check is #[ignore]d and needs a running OpenFGA
 OPENSESAME_OPENFGA_URL=http://127.0.0.1:8080 \
   cargo +1.88.0 test -p opensesame-provider-openfga -- --ignored
-pnpm test:live-stack   # live OpenFGA/OpenBao/gateway
+npm run test:live-stack   # live OpenFGA/OpenBao/gateway
 ```
 
 The authorization model and baseline tuples live in

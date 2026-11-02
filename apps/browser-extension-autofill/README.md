@@ -37,8 +37,8 @@ extension.
 ## Build and install
 
 ```bash
-pnpm --filter @opensesame/browser-extension-autofill build   # .output/chrome-mv3/
-pnpm --filter @opensesame/browser-extension-autofill zip     # .output/browser-autofill-0.1.0-chrome.zip
+npm run build -w @opensesame/browser-extension-autofill   # .output/chrome-mv3/
+npm run zip -w @opensesame/browser-extension-autofill     # .output/browser-autofill-0.1.0-chrome.zip
 sha256sum apps/browser-extension-autofill/.output/browser-autofill-0.1.0-chrome.zip
 ```
 
@@ -91,9 +91,9 @@ has exactly its scheme, host and port.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/browser-extension-autofill dev        # wxt dev
-pnpm --filter @opensesame/browser-extension-autofill typecheck  # wxt prepare + tsc
-pnpm --filter @opensesame/browser-extension-autofill test       # vitest + node:test pacts
+npm run dev -w @opensesame/browser-extension-autofill        # wxt dev
+npm run typecheck -w @opensesame/browser-extension-autofill  # wxt prepare + tsc
+npm run test -w @opensesame/browser-extension-autofill       # vitest + node:test pacts
 ```
 
 `tests/placement.test.mjs` pins where the code lives (no content script, no
@@ -102,17 +102,17 @@ standing host permission, no overlay, nothing in the default extension);
 `browser-autofill` rows of
 [`packages/capability-registry`](../../packages/capability-registry), which
 exclude every agent surface: a model never triggers a fill.
-`tests/e2e-wiring.test.mjs` keeps the browser suite below out of `pnpm test`.
+`tests/e2e-wiring.test.mjs` keeps the browser suite below out of `npm test`.
 
 ## Browser end-to-end suite
 
 ```bash
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/browser-extension-autofill test:e2e   # wxt build, then e2e/*.e2e.mjs
-pnpm test:e2e                                                     # the repository aggregation (turbo)
+  npm run test:e2e -w @opensesame/browser-extension-autofill   # wxt build, then e2e/*.e2e.mjs
+npm run test:e2e                                                     # the repository aggregation (turbo)
 ```
 
-`pnpm test` never needs a browser. `test:e2e` builds the extension and loads
+`npm test` never needs a browser. `test:e2e` builds the extension and loads
 that build, unpacked, into a real Chromium in its new headless mode (extensions
 do not run in the headless shell; without `PLAYWRIGHT_CHROMIUM` it falls back
 to `/opt/pw-browsers/chromium`, then to Playwright's `chromium` channel). It

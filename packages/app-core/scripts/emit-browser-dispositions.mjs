@@ -3,7 +3,7 @@
  *
  * The app ships what it says (the reason, its sources and where to go instead).
  * The evidence behind each row (the dated probes, the kind definitions) stays in
- * the spec for the tests and `pnpm audit:browser-dispositions`; a browser never
+ * the spec for the tests and `npm run audit:browser-dispositions`; a browser never
  * reads it, so it is not in the bundle.
  */
 import { readFileSync, writeFileSync } from "node:fs";

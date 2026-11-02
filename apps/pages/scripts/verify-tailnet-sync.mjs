@@ -2,9 +2,9 @@
 // the drive, and two devices that share nothing but the pairing code.
 //
 //   cargo build -p opensesame-cli
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:tailnet-sync
+//     npm run verify:tailnet-sync -w @opensesame/pages
 //
 // The daemon listens on loopback with a throwaway slot directory, and is
 // reached the way Tailscale Serve exposes it: HTTPS at a `*.ts.net` name,

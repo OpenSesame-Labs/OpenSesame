@@ -14,7 +14,7 @@ const gdpLint = gdp({
 });
 
 export default defineConfig({
-  // `pnpm lint:anti-slop` is the anti-slop gate. Built-in Oxlint categories
+  // `npm run lint:anti-slop` is the anti-slop gate. Built-in Oxlint categories
   // stay off here; Biome remains the repo's general lint.
   categories: {
     correctness: "off",
@@ -53,7 +53,7 @@ export default defineConfig({
     "artifacts/**",
     "sbom/**",
     // The plugin and its installer mirror contain the syntax they diagnose.
-    // `pnpm test:anti-slop` validates both implementations and exact parity.
+    // `npm run test:anti-slop` validates both implementations and exact parity.
     "skills/install-anti-slop/**",
     "tools/oxlint/anti-slop/**",
   ],

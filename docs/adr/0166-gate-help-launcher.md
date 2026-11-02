@@ -122,7 +122,7 @@ Neither screen's controls, messages to the opener or navigation change.
 
 ### 6. `verify:tutorials` walks the gates
 
-`pnpm --filter @opensesame/pages verify:tutorials` gains a gate pass at both
+`npm run verify:tutorials` -w @opensesame/pages gains a gate pass at both
 widths: the door, setup (the choice, then each tab that has a tour), sign-in
 and the seal, unlock (a typed key, the passkey tab, the account menu), and — in
 the context the shell pass switches every capability on in — the broker popup

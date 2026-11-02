@@ -19,7 +19,7 @@ import {
  * This lives here rather than in `tests/fuzz/jazzer` on purpose. Every target in
  * that package imports from `packages/*`; wiring it to an app would invert the
  * dependency direction for one parser. The trade-off is real and worth naming:
- * these cases do not run under `pnpm test:fuzz`'s coverage-guided Jazzer gate,
+ * these cases do not run under `npm run test:fuzz`'s coverage-guided Jazzer gate,
  * so they explore a seeded, bounded space rather than being guided toward new
  * branches. If the codec ever moves into a package, move this with it.
  *

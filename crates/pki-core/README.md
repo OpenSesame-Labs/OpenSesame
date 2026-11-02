@@ -47,7 +47,7 @@ cargo +1.88.0 test -p opensesame-pki-core
 The `pact` tests pin wire shapes as `insta` snapshots in
 [`src/snapshots`](src/snapshots); a changed snapshot is a changed contract with
 storage and the API. `policy.rs`, `revocation.rs` and `bundle.rs` are in the
-Rust mutation scope (`pnpm test:mutation:rust`).
+Rust mutation scope (`npm run test:mutation:rust`).
 
 ## Related
 

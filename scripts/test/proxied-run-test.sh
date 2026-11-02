@@ -17,7 +17,7 @@
 # test's own sandbox ever installs it.
 #
 # Needs: cargo (+1.88.0), node, git, and a resolvable @env-spec/parser, one of
-#   - `pnpm install` having run (packages/env-spec-bridge/node_modules), or
+#   - `npm install` having run (packages/env-spec-bridge/node_modules), or
 #   - OPENSESAME_E2E_ENVSPEC_DIR naming a directory that holds
 #     node_modules/@env-spec/parser (any package manager's layout will do).
 #     NODE_PATH cannot stand in: the bridge is an ES module, and ES module
@@ -49,7 +49,7 @@ built="$(cargo +1.88.0 build -q -p opensesame-surrogate-proxy \
       process.stdin.on("end", () => {
         const found = out.split("\n").filter(Boolean).map((l) => JSON.parse(l))
           .filter((m) => m.reason === "compiler-artifact" && m.executable
-            && m.target.name === "opensesame-surrogate-proxy");
+  && m.target.name === "opensesame-surrogate-proxy");
         if (!found.length) process.exit(1);
         process.stdout.write(found[found.length - 1].executable);
       });')" || fail "cargo did not report the plugin binary"
@@ -72,7 +72,7 @@ elif [[ -n "${OPENSESAME_E2E_ENVSPEC_DIR:-}" ]]; then
   export OPENSESAME_E2E_ENV_PARSE="$WORK/bridge/opensesame-env-parse.mjs"
   echo "proxied-run: using $OPENSESAME_E2E_ENVSPEC_DIR/node_modules"
 else
-  fail "no @env-spec/parser: run pnpm install, or set OPENSESAME_E2E_ENVSPEC_DIR to a directory holding node_modules/@env-spec/parser"
+  fail "no @env-spec/parser: run npm install, or set OPENSESAME_E2E_ENVSPEC_DIR to a directory holding node_modules/@env-spec/parser"
 fi
 
 # 3. The tests. `--include-ignored` because a plain `cargo test` has neither piece.

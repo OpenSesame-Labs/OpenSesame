@@ -1,5 +1,5 @@
 // Regenerates capabilities.json from the TypeScript source of truth.
-// Run `pnpm --filter @opensesame/capability-registry generate` after editing
+// Run `npm run generate` -w @opensesame/capability-registry after editing
 // CAPABILITIES; the sync test fails until the committed JSON matches.
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

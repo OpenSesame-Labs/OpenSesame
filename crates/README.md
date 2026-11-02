@@ -11,11 +11,11 @@ plugin `opensesame-surrogate-proxy`).
 ```bash
 cargo +1.88.0 test -p opensesame-sealed-store      # one crate
 cargo +1.88.0 test --workspace --all-targets       # everything (CI scopes it to the crates a diff reaches)
-pnpm audit:clippy                                  # rustfmt + pedantic Clippy
+npm run audit:clippy                                  # rustfmt + pedantic Clippy
 ```
 
 Complexity limits come from [`clippy.toml`](../clippy.toml) and match the
-TypeScript ones; files stay under 400 lines. `pnpm quality:packages` fails on a
+TypeScript ones; files stay under 400 lines. `npm run quality:packages` fails on a
 dependency cycle between crates.
 
 ## SDK facades
@@ -128,7 +128,7 @@ The libraries behind the roles of the one `opensesame` binary
 | Crate | Purpose |
 |---|---|
 | [`gateway`](gateway) | The Host API, served by `opensesame host run`: routes, background actors, transports, signed provider callbacks. |
-| [`daemon`](daemon) | The local host agent, served by `opensesame daemon run`. Its direct dependencies are budgeted ([ADR 0048](../docs/adr/0048-capability-moded-connector-discovery.md) §5, `pnpm audit:daemon-deps`). |
+| [`daemon`](daemon) | The local host agent, served by `opensesame daemon run`. Its direct dependencies are budgeted ([ADR 0048](../docs/adr/0048-capability-moded-connector-discovery.md) §5, `npm run audit:daemon-deps`). |
 | [`worker`](worker) | The workload connector host, served by `opensesame worker run` ([ADR 0132](../docs/adr/0132-optional-mtls-and-workload-identity.md)). |
 | [`credential-helpers`](credential-helpers) | git, Docker, AWS and kubectl credential helpers — `opensesame` answers as each under its link name ([ADR 0049](../docs/adr/0049-derived-short-lived-materialization.md)). |
 | [`pm-bridges`](pm-bridges) | browserpass, gopass and keepassxc-protocol bridges, each a cargo feature of `opensesame`, all off by default ([ADR 0053](../docs/adr/0053-pm-bridge-binaries.md)). |

@@ -1,6 +1,6 @@
 # gitleaks gate — negative control
 
-`pnpm audit:gitleaks` reports the working tree clean. Reviewed synthetic
+`npm run audit:gitleaks` reports the working tree clean. Reviewed synthetic
 fixtures have exemptions, so this confirms the scanner still works and
 explains what those exemptions cost. Historical findings are reported
 separately; working-tree cleanliness does not claim clean git history.
@@ -22,9 +22,9 @@ export const gh = "ghp_$(rand 36)";
 export const sk = "sk_$(printf 'live')_$(rand 24)";
 EOF
 
-pnpm audit:gitleaks     # expect: FAIL — github-pat and stripe-access-token
+npm run audit:gitleaks     # expect: FAIL — github-pat and stripe-access-token
 rm apps/pages/src/lib/leak-probe.ts
-pnpm audit:gitleaks     # expect: CLEAN
+npm run audit:gitleaks     # expect: CLEAN
 ```
 
 The Stripe half of that probe matters most. `packages/env-spec-bridge/test/parse.test.mjs`

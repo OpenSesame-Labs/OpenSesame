@@ -23,9 +23,9 @@ import { privateTempDir } from "./lib/private-files.mjs";
  * A step whose control is missing degrades to text for a person; here it is a
  * failure, because a tutorial that points at nothing is the bug.
  *
- *   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+ *   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
  *   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
- *     pnpm --filter @opensesame/pages verify:tutorials
+ *     npm run verify:tutorials -w @opensesame/pages
  *
  * `TUTORIALS_DEV_URL=http://localhost:5180` walks a running dev server
  * instead of `dist/`; `TUTORIALS_ONLY=vault.lock,vault.export` narrows it.

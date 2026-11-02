@@ -160,7 +160,7 @@ from a state where either the agent never stopped (a withdrawn request) or a
 re-assertion just ran. A lease that expires, a viewer that vanishes, and a failed
 re-assertion all land in `Suspended`, and `Suspended → AgentDriving` does not
 exist. A Kani harness states it:
-`autonomy_resumes_only_through_a_withdrawal_or_a_reassertion`. `pnpm audit:kani`
+`autonomy_resumes_only_through_a_withdrawal_or_a_reassertion`. `npm run audit:kani`
 covers `opensesame-domain` and `opensesame-rotation` only, so this one is run by
 hand (`cargo kani -p opensesame-session-observe --lib`).
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Writes, or with --check verifies, assets/anti-slop/MANIFEST.sha256: one
 // `<sha256>  <path>` line per file the installer ships. Run it (as
-// `pnpm anti-slop:manifest`) after any change to the asset, in the same commit.
+// `npm run anti-slop:manifest`) after any change to the asset, in the same commit.
 //
 //   node manifest.mjs                  rewrite the manifest
 //   node manifest.mjs --check          exit 1 when the committed manifest is stale
@@ -49,7 +49,7 @@ if (!check) {
   console.log(`${MANIFEST_NAME} is current (${lines} files).`);
 } else {
   console.error(
-    `${manifest} is stale: it differs from the files beside it. Run "pnpm anti-slop:manifest" and commit the result.`,
+    `${manifest} is stale: it differs from the files beside it. Run "npm run anti-slop:manifest" and commit the result.`,
   );
   for (const problem of verifyTree(dir).problems.slice(0, 10))
     console.error(problem);

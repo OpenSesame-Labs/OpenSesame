@@ -18,9 +18,9 @@ capture the evidence (`skills/visual-evidence/SKILL.md`).
 ## Storybook
 
 ```bash
-pnpm --filter @opensesame/pages storybook            # :6006, MCP at /mcp
-pnpm --filter @opensesame/pages build-storybook      # apps/pages/storybook-static
-pnpm --filter @opensesame/pages typecheck:storybook  # the config and every story
+npm run storybook -w @opensesame/pages            # :6006, MCP at /mcp
+npm run build-storybook -w @opensesame/pages      # apps/pages/storybook-static
+npm run typecheck:storybook -w @opensesame/pages  # the config and every story
 ```
 
 - **Browse it without a checkout.** A static build is published as a Claude

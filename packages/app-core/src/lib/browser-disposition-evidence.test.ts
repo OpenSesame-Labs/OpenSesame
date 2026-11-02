@@ -1,7 +1,7 @@
 /**
  * The evidence behind every authored disposition (ADR 0197). A browser ships
  * the reasons and not this: the probes live in the spec for these tests and for
- * `pnpm audit:browser-dispositions`, so they cost the bundle nothing.
+ * `npm run audit:browser-dispositions`, so they cost the bundle nothing.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

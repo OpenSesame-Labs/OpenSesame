@@ -120,7 +120,7 @@ Related prior agent prompt (different problem):
 | `.osseal` framing | `OSSEAL1\n` + authenticated envelopes. Do not rename to a fake v2 just for root protectors. | [R12] |
 | Host provider execution | `providers.rs` declares Encrypt/Decrypt/Test for age, FIDO2, YubiKey, AWS/Azure/GCP KMS; `crypto_plan` has age/AWS/GCP branches, not FIDO2/YubiKey/Azure Keys. Raw CLI encrypt ≠ browser vault-key wrapping. | [R13] |
 | Product positioning | Age = primitive; SOPS = structured-file interop; sealed store = hierarchical vault. Remove ambiguous user-facing “key SOP.” | [R14] |
-| Toolchain | Pages Vitest/Playwright; root `pnpm` gates; Rust `+1.88.0` — recheck checkout toolchain files. | [R09], [R15] |
+| Toolchain | Pages Vitest/Playwright; root `npm` gates; Rust `+1.88.0` — recheck checkout toolchain files. | [R09], [R15] |
 
 ### Corrections (requirements, not commentary)
 
@@ -383,7 +383,7 @@ INT arbitrates ownership conflicts in the ledger. Fixture/mock adapters must not
 
 ### Swarm work items (atomic)
 
-**INT:** Map checkout vs baseline + dirty paths; publish package/module names + fixture locations; eliminate duplicate registries/PRF helpers/parallel “encryption selected” truth; trace button/CLI → auth → adapter → proof → durable commit → lock → unlock → audit; own `pnpm verify:key-protection` + ledger (`passed|failed|blocked`).
+**INT:** Map checkout vs baseline + dirty paths; publish package/module names + fixture locations; eliminate duplicate registries/PRF helpers/parallel “encryption selected” truth; trace button/CLI → auth → adapter → proof → durable commit → lock → unlock → audit; own `npm run verify:key-protection` + ledger (`passed|failed|blocked`).
 
 **MODEL:** Versioned per-kind schemas; authenticated metadata + canonicalization + capsule; adapter contracts + shared cloud wrapping-secret envelope; language-independent vectors (valid/corrupt/reorder/dupes/bounds/tamper/wrong-vault/epoch + legacy samples). TS↔Rust agree on claimed encodings.
 
@@ -487,25 +487,25 @@ ADV findings append to this matrix with owners.
 
 ### Local deterministic gate
 
-Add **`pnpm verify:key-protection`** (new) aggregating focused suites without production credentials. Emit machine-readable summary: `passed` / `failed` / `blocked`. Required local failure → nonzero exit. Missing optional live infra must not drop unrelated local tests.
+Add **`npm run verify:key-protection`** (new) aggregating focused suites without production credentials. Emit machine-readable summary: `passed` / `failed` / `blocked`. Required local failure → nonzero exit. Missing optional live infra must not drop unrelated local tests.
 
 Cover: schema/codec vectors; real local crypto; browser/native persisted reload; lifecycle/migration failures; provider contracts with fake transports; auth regressions; local age/SOPS suites.
 
 Also run (reconcile names with checkout):
 
 ```bash
-pnpm --filter @opensesame/pages typecheck
-pnpm --filter @opensesame/pages test
-pnpm --filter @opensesame/pages build
-pnpm --filter @opensesame/pages verify:keyboard
-pnpm --filter @opensesame/pages verify:mobile
-pnpm --filter @opensesame/pages verify:experience
-pnpm lint
-pnpm lint:anti-slop
-pnpm quality
-pnpm typecheck
-pnpm test:security
-pnpm audit:gitleaks
+npm run typecheck -w @opensesame/pages
+npm run test -w @opensesame/pages
+npm run build -w @opensesame/pages
+npm run verify:keyboard -w @opensesame/pages
+npm run verify:mobile -w @opensesame/pages
+npm run verify:experience -w @opensesame/pages
+npm run lint
+npm run lint:anti-slop
+npm run quality
+npm run typecheck
+npm run test:security
+npm run audit:gitleaks
 cargo +1.88.0 test -p opensesame-human-vault -p opensesame-sealed-store
 ```
 

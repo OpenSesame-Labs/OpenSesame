@@ -15,8 +15,8 @@ description: Install, configure, initialize, and use OpenSesame Host and Identit
 
 ```bash
 cargo build -p opensesame-cli
-pnpm install
-pnpm --filter @opensesame/control-plane build
+npm install
+npm run build -w @opensesame/control-plane
 ```
 
 ## Configure
@@ -41,11 +41,11 @@ mode and `OPENSESAME_CLAIM_PEPPER`; `OPENSESAME_ALLOW_DEV_DEFAULTS=1` (exactly
 ## Init
 
 ```bash
-pnpm dev:host      # Host API, 127.0.0.1:8787 (sources scripts/dev/local-env.sh)
-pnpm dev:daemon    # local agent, 127.0.0.1:18790 (same environment)
+npm run dev:host      # Host API, 127.0.0.1:8787 (sources scripts/dev/local-env.sh)
+npm run dev:daemon    # local agent, 127.0.0.1:18790 (same environment)
 # In a shell that has not sourced local-env.sh:
 OPENSESAME_ENV=development OPENSESAME_ALLOW_DEV_DEFAULTS=1 \
-  pnpm --filter @opensesame/control-plane start   # Identity API, :8788
+  npm run start -w @opensesame/control-plane   # Identity API, :8788
 ```
 
 ## Use

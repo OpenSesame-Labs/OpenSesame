@@ -22,7 +22,7 @@ export OPENSESAME_QUORUM_INTEROP_DIR
 trap 'rm -rf "$OPENSESAME_QUORUM_INTEROP_DIR"' EXIT
 
 ts_phase() {
-  OPENSESAME_QUORUM_INTEROP_PHASE="$1" pnpm --filter @opensesame/app-core exec \
+  OPENSESAME_QUORUM_INTEROP_PHASE="$1" npm exec -w @opensesame/app-core -- \
     vitest run src/lib/quorum/recovery-fixture.test.ts
 }
 

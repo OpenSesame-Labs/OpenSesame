@@ -177,7 +177,6 @@ settings or the Identity session.
 
 1. Export **policy preview** (no trigger secrets) and compiler diagnostics.
 2. Confirm feature flag / enrollment manifest `armed` vs import `enabled`.
-3. Run the Pages duress verify scripts (`pnpm --filter @opensesame/pages
-   verify:duress`, `verify:duress:offline`, `verify:duress:browser`); attach
+3. Run the Pages duress verify scripts (`npm run verify:duress`, -w @opensesame/pages `verify:duress:offline`, `verify:duress:browser`); attach
    `verification.json` outcomes (COORD fills results — do not invent pass
    marks).

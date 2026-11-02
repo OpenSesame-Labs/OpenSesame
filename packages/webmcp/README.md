@@ -29,8 +29,8 @@ page works as before.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/webmcp test
-pnpm --filter @opensesame/webmcp typecheck
+npm run test -w @opensesame/webmcp
+npm run typecheck -w @opensesame/webmcp
 ```
 
 Every tool registered here must map to a

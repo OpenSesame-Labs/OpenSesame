@@ -69,7 +69,7 @@ function fixture(t) {
     mkdirSync(dirname(join(checkout, file)), { recursive: true });
     copyFileSync(join(root, file), join(checkout, file));
   }
-  writeFileSync(join(checkout, "pnpm-lock.yaml"), "fixture\n");
+  writeFileSync(join(checkout, "package-lock.json"), "fixture\n");
   execFileSync("git", ["init", "-q"], { cwd: checkout });
   execFileSync("git", ["add", "."], { cwd: checkout });
   const executable = join(directory, "scanner");

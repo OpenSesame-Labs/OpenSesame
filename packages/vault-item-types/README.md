@@ -37,9 +37,9 @@ on demand ([ADR 0165](../../docs/adr/0165-item-type-packs-on-demand.md)).
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/vault-item-types test
-pnpm --filter @opensesame/vault-item-types typecheck
-pnpm --filter @opensesame/vault-item-types generate   # rewrite src/definitions.generated.ts, src/packs.generated.ts and src/packs/
+npm run test -w @opensesame/vault-item-types
+npm run typecheck -w @opensesame/vault-item-types
+npm run generate -w @opensesame/vault-item-types   # rewrite src/definitions.generated.ts, src/packs.generated.ts and src/packs/
 ```
 
 Adding or changing a built-in type is a JSON edit under

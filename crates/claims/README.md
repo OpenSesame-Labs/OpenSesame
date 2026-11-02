@@ -36,7 +36,7 @@ purpose and a context, so one recovered code says nothing about another.
 
 ```bash
 cargo +1.88.0 test -p opensesame-claims
-pnpm audit:miri      # runs this crate's lib tests under Miri, among others
+npm run audit:miri      # runs this crate's lib tests under Miri, among others
 ```
 
 The gateway reads the pepper from `OPENSESAME_CLAIM_PEPPER` (declared in

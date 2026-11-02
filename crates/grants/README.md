@@ -12,7 +12,7 @@ organization, depth — is refused.
 - **Used by:** no workspace crate or app. Its callers are the fuzz harness in
   [`tests/fuzz/cargo`](../../tests/fuzz/cargo) — `fuzz_grant_attenuation`
   (target `grant_attenuation`) calls `delegate` — and the Miri gate
-  (`pnpm audit:miri`, [`scripts/audit/miri-gate.sh`](../../scripts/audit/miri-gate.sh)),
+  (`npm run audit:miri`, [`scripts/audit/miri-gate.sh`](../../scripts/audit/miri-gate.sh)),
   which runs this crate's lib tests. The PR fuzz gate
   ([`scripts/fuzz/fuzz-pr-gate.sh`](../../scripts/fuzz/fuzz-pr-gate.sh)) runs
   the grant targets when `crates/grants/` changes. The attenuation rules
@@ -33,7 +33,7 @@ organization, depth — is refused.
 
 ```bash
 cargo +1.88.0 test -p opensesame-grants
-pnpm audit:miri
+npm run audit:miri
 ```
 
 ## Related

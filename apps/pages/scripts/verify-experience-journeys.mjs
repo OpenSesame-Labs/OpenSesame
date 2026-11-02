@@ -2,7 +2,7 @@
 // can drive without Host/Identity. Starts with J-CONFIG (prefs save
 // surviving lock/unlock/reload).
 //
-//   VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+//   VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=... node apps/pages/scripts/verify-experience-journeys.mjs
 import fs from "node:fs";
 import path from "node:path";

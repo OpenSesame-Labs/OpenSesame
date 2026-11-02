@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm verify:sops-browser` — the mandatory local product gate for
+ * `npm run verify:sops-browser` — the mandatory local product gate for
  * browser-local SOPS.
  *
  * It runs the engine's type and unit suites and records one
@@ -40,10 +40,8 @@ function record(caseId, status, detail) {
 // ── 1. the engine's own suites, against checked-in upstream fixtures ──
 {
   // The engine lives in @opensesame/app-core (ADR 0133).
-  const engine = run("engine unit and fixture suites", "pnpm", [
-    "--filter",
-    "@opensesame/app-core",
-    "exec",
+  const engine = run("engine unit and fixture suites", "npm", [
+    "exec", "-w", "@opensesame/app-core", "--",
     "vitest",
     "run",
     "src/lib/sops",
@@ -113,7 +111,7 @@ function record(caseId, status, detail) {
     record(caseId, ok ? "passed" : "failed", {
       evidenceKind: "unit-contract",
       test: "vitest app-core src/lib/sops",
-      command: "pnpm verify:sops-browser",
+      command: "npm run verify:sops-browser",
       runtime: `node ${process.version}`,
       artifact: "work/evidence/sops/pages/browser/results.json",
       reason: ok ? "Suite passed." : "Suite failed; see the run output.",

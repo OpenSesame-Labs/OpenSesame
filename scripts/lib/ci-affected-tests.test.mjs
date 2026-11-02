@@ -91,7 +91,8 @@ describe("affected packages", () => {
   });
 
   it("tests every package when the lockfile or turbo config changes", () => {
-    expect(planPackages(["pnpm-lock.yaml"], packages).scope).toBe("all");
+    expect(planPackages(["package-lock.json"], packages).scope).toBe("all");
+    expect(planPackages(["package-lock.json"], packages).scope).toBe("all");
     expect(planPackages(["turbo.json"], packages).scope).toBe("all");
     expect(planPackages(["package.json"], packages).lintArtifacts).toBe(true);
     expect(planPackages(["tsconfig.json"], packages).scope).toBe("all");
@@ -166,8 +167,8 @@ describe("scope all", () => {
     ]);
     expect(allScopeLanes()).toEqual([
       [
-        { command: "pnpm", args: ["typecheck"] },
-        { command: "pnpm", args: turboTestArgs() },
+        { command: "npm", args: ["run", "typecheck"] },
+        { command: "npm", args: turboTestArgs() },
       ],
     ]);
   });
@@ -184,7 +185,7 @@ describe("workflow wiring", () => {
       "utf8",
     );
     const bundle = complete.split("  bundle:")[1]?.split("  rust:")[0];
-    expect(bundle).toContain("pnpm --filter @opensesame/pages verify:keyboard");
+    expect(bundle).toContain("npm run verify:keyboard"); -w @opensesame/pages
     expect(workflow).toContain("ci-affected-builds.mjs plan-ts");
     expect(workflow).toContain("ci-affected-builds.mjs run-ts");
     expect(workflow).toContain("ci-affected-builds.mjs plan-cargo");

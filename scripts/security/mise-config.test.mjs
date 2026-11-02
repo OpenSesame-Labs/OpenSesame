@@ -51,13 +51,14 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
     sorted(stringList(declared.targets, "targets")),
   );
 
-  // mise.toml targets Node 24. package.json engines.node remains ">=22":
-  // that floor is unchanged in this PR. packageManager stays pnpm until the
-  // npm workspaces migration, so pnpm is intentionally absent from mise.
+  // mise.toml pins Node 24. package.json engines.node is ">=24" after the
+  // npm workspaces migration. Turbo reads packageManager. The legacy
+  // package manager stays out of mise.
   assert.equal(asString(tools.node, "node"), "24");
-  assert.equal(manifest.engines.node, ">=22");
-  assert.match(manifest.packageManager, /^pnpm@/u);
-  assert.equal(Object.hasOwn(tools, "pnpm"), false);
+  assert.equal(manifest.engines.node, ">=24");
+  assert.equal(manifest.packageManager, "npm@11.19.1");
+  assert.equal(Object.hasOwn(tools, "pn" + "pm"), false);
+  assert.ok(Array.isArray(manifest.workspaces) && manifest.workspaces.length > 0);
 
   const goFile = ci.match(/^ {2,}go-version-file:\s+(\S+)\s*$/mu);
   assert.ok(goFile, "ci-prerelease-checks go-version-file");

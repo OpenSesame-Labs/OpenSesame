@@ -83,14 +83,14 @@ const TS_ROOTS = [
 const TS_EXT = [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx"];
 const TS_FILES = new Set([
   "package.json",
-  "pnpm-lock.yaml",
+  "package-lock.json",
   "pnpm-workspace.yaml",
   "turbo.json",
   "biome.json",
 ]);
 const NODE_INSTALL = new Set([
   "package.json",
-  "pnpm-lock.yaml",
+  "package-lock.json",
   "pnpm-workspace.yaml",
 ]);
 

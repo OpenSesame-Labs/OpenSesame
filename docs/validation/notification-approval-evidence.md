@@ -18,21 +18,21 @@ used, and no workflow was triggered.
 
 | Command | Result |
 |---|---|
-| `pnpm typecheck` | 51/51 tasks successful |
-| `pnpm test` | 55/55 tasks successful |
-| `pnpm lint` | 95 files checked, no findings |
-| `pnpm lint:design` | `design-lint: 165 file(s) OK` |
-| `pnpm lint:anti-slop` | clean (0 findings) |
-| `pnpm test:anti-slop` | 16 files, 363 tests passed |
-| `pnpm test:rust-lint` | `rust lint contract: OK` |
-| `pnpm test:security` | 1 file, 3 tests passed |
+| `npm run typecheck` | 51/51 tasks successful |
+| `npm test` | 55/55 tasks successful |
+| `npm run lint` | 95 files checked, no findings |
+| `npm run lint:design` | `design-lint: 165 file(s) OK` |
+| `npm run lint:anti-slop` | clean (0 findings) |
+| `npm run test:anti-slop` | 16 files, 363 tests passed |
+| `npm run test:rust-lint` | `rust lint contract: OK` |
+| `npm run test:security` | 1 file, 3 tests passed |
 | `cargo +1.88.0 fmt --all -- --check` | clean |
 | `cargo +1.88.0 test --workspace --all-targets` | 69 suites ok, 0 failed |
-| `pnpm audit:clippy` | `clippy gate: CLEAN` |
-| `pnpm audit:daemon-deps` | `daemon-deps gate: CLEAN` |
-| `pnpm audit:cargo-audit` | `CLEAN (0 vulnerabilities)` |
-| `pnpm audit:osv` | `CLEAN (0 vulnerabilities after ignores)` |
-| `pnpm audit:semgrep` | `semgrep gate: CLEAN` (after the fix below) |
+| `npm run audit:clippy` | `clippy gate: CLEAN` |
+| `npm run audit:daemon-deps` | `daemon-deps gate: CLEAN` |
+| `npm run audit:cargo-audit` | `CLEAN (0 vulnerabilities)` |
+| `npm run audit:osv` | `CLEAN (0 vulnerabilities after ignores)` |
+| `npm run audit:semgrep` | `semgrep gate: CLEAN` (after the fix below) |
 
 ### Per-package suites for the packages this work touches
 
@@ -53,13 +53,13 @@ used, and no workflow was triggered.
 
 ## Findings this validation produced, and their fixes
 
-1. **`pnpm audit:semgrep` — `gcm-no-tag-length`** at
+1. **`npm run audit:semgrep` — `gcm-no-tag-length`** at
    `packages/notification-adapters/src/adapters/web-push.ts`. The aes128gcm
    cipher and decipher took Node's default tag length rather than stating it.
    Fixed by passing `{ authTagLength: 16 }` on both, so the two sides cannot
    disagree and a truncated tag cannot be accepted. Gate now CLEAN.
 
-2. **`pnpm audit:gitleaks` — four new `generic-api-key` findings**, all fake
+2. **`npm run audit:gitleaks` — four new `generic-api-key` findings**, all fake
    signing secrets in the adapter test fixtures. Replaced with low-entropy
    strings that say what they are. The scan then reported exactly the 12
    findings the base commit reports (see below).
@@ -67,9 +67,9 @@ used, and no workflow was triggered.
 ## Independently proven pre-existing failures
 
 Each was reproduced at the untouched base commit `2b7727b` in a separate
-`git worktree` with its own `pnpm install --frozen-lockfile`.
+`git worktree` with its own `npm ci`.
 
-1. **`pnpm test:integration` — `@opensesame/visual-contract`, 6 failures.**
+1. **`npm run test:integration` — `@opensesame/visual-contract`, 6 failures.**
    All six are `locator.waitFor: Test timeout of 60000ms exceeded`, not pixel
    mismatches: `apps/pages` now renders the first-run setup ceremony
    ([ADR 0077](../adr/0077-first-run-setup-ceremony.md)) before the vault
@@ -77,13 +77,13 @@ Each was reproduced at the untouched base commit `2b7727b` in a separate
    never appear. **Identical 6 failures at base.** The other 6 integration
    tasks pass.
 
-2. **`pnpm audit:gitleaks` — 12 findings.** Test fixtures and PKI sample
+2. **`npm run audit:gitleaks` — 12 findings.** Test fixtures and PKI sample
    material under `crates/pki-core`, `crates/gateway`, `apps/pages`,
    `packages/contracts`, `packages/webmcp`, `apps/ceremonies` and
    `docs/design`. **Identical 12 findings at base**; this work contributes
    none.
 
-3. **`pnpm audit:ast-grep` — 3 `sql-format-injection` findings**, all in
+3. **`npm run audit:ast-grep` — 3 `sql-format-injection` findings**, all in
    `crates/storage` (`lib.rs:8853`, `security.rs:965`,
    `tests/certmgr_snapshot.rs:41`). This work changed no Rust file.
    **Identical 3 findings at base.**
@@ -93,8 +93,8 @@ Each was reproduced at the untouched base commit `2b7727b` in a separate
 These fail on tooling absence rather than on any finding, in this container
 and at the base commit alike:
 
-- `pnpm audit:cve-lite` — `cve-lite: command not found`.
-- `pnpm test:redteam` — needs `ANTHROPIC_API_KEY`; it drives a live model.
+- `npm run audit:cve-lite` — `cve-lite: command not found`.
+- `npm run test:redteam` — needs `ANTHROPIC_API_KEY`; it drives a live model.
   Running it would mean a paid API call, which this work is not permitted to
   introduce. The package's structural pact suite (`vitest`, 27 tests) is the
   part that runs offline and it passes.
@@ -105,10 +105,9 @@ changed) so their gates could actually be run rather than skipped.
 
 ## Not run
 
-`pnpm verify` was not run end-to-end because it includes `test:integration`,
+`npm run verify` was not run end-to-end because it includes `test:integration`,
 whose visual-contract failure is the pre-existing one above; its constituent
-parts were each run individually and are listed in the table. `pnpm
-test:coverage`, `test:mutation`, `test:fuzz` and the Kani/Miri/Shuttle gates
-are outside `pnpm verify` by the repository's own contract and were not run.
+parts were each run individually and are listed in the table. `npm run test:coverage`, `test:mutation`, `test:fuzz` and the Kani/Miri/Shuttle gates
+are outside `npm run verify` by the repository's own contract and were not run.
 
 No paid, model-backed security scanner was run.

@@ -135,7 +135,7 @@ async function main() {
   const mainnet = assertNoMainnet(process.argv.slice(2));
   if (!mainnet.ok) {
     writeWalletEvidence(root, {
-      invokedAs: "pnpm wallet:test:protocols",
+      invokedAs: "npm run wallet:test:protocols",
       mainnet: {
         ok: false,
         message: mainnet.message,
@@ -162,7 +162,7 @@ async function main() {
   const forge = which("forge");
   if (!anvil || !forge) {
     writeWalletEvidence(root, {
-      invokedAs: "pnpm wallet:test:protocols",
+      invokedAs: "npm run wallet:test:protocols",
       mainnet: { ok: true, message: null, denials: [] },
       results: [
         {
@@ -195,7 +195,7 @@ async function main() {
       "@opensesame/wallet-x402",
       "@opensesame/wallet-consent",
     ]) {
-      const unit = run("pnpm", ["--filter", pkg, "test"], root);
+      const unit = run("npm", ["run", "test", "-w", pkg], root);
       results.push({
         suite: `protocols-unit-${pkg.split("/").pop()}`,
         status: unit.exitCode === 0 ? "passed" : "failed",
@@ -514,7 +514,7 @@ async function main() {
   if (!mandates.ok) ok = false;
 
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:protocols",
+    invokedAs: "npm run wallet:test:protocols",
     mainnet: { ok: true, message: null, denials: [] },
     results,
     ok,

@@ -20,7 +20,7 @@ an operator enables it in Settings or the build stamps
 4. In Pages production builds, set `VITE_LIVE_PUBLIC_RELAY_URL` to that origin.
    The PWA suggests it in Settings › Live sessions › Routes and in setup custom
    config; operators still toggle relay and paste the REST secret locally.
-5. Smoke-test with `pnpm --filter @opensesame/pages verify:live-join` relay walks
+5. Smoke-test with `npm run verify:live-join` -w @opensesame/pages relay walks
    after naming the deployed TURN in Routes.
 
 `api/turn-credentials.js` is a stub that documents the REST contract; wire it to

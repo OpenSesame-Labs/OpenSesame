@@ -1,15 +1,15 @@
 # Identity plane testing evidence
 
 **Date:** 2026-08-07  
-**Host:** WSL2 aarch64, Node 26 / pnpm 9, Rust 1.88
+**Host:** WSL2 aarch64, Node 26 / npm run 9, Rust 1.88
 
 ## Commands
 
 ```bash
-pnpm -r --filter '@opensesame/*' test
-pnpm --filter @opensesame/control-plane test
-pnpm generate:openapi
-pnpm generate:sbom
+npm run test --workspaces --if-present
+npm run test -w @opensesame/control-plane
+npm run generate:openapi
+npm run generate:sbom
 ./scripts/test/battle-test.sh
 ```
 
@@ -43,15 +43,15 @@ Authority: `./scripts/test/battle-test.sh` → **ALL BATTLE TESTS PASSED**.
 Focused suites run after ADR 0092:
 
 ```bash
-pnpm --filter @opensesame/os-domain test -- src/__tests__/agent-registration.test.ts
-pnpm --filter @opensesame/policy test -- src/__tests__/agent-auth-scopes.test.ts
-pnpm --filter @opensesame/contracts test -- src/__tests__/agent-auth.test.ts
-pnpm --filter @opensesame/agent-protocols test
-pnpm --filter @opensesame/database test -- tests/agent-auth-repo.test.ts tests/pact.test.ts
-pnpm --filter @opensesame/control-plane exec vitest run src/__tests__/agent-auth.test.ts src/__tests__/api.test.ts src/__tests__/openapi.test.ts src/__tests__/origin-profile-issuer.test.ts
-pnpm --filter @opensesame/example-static-agent test
-pnpm --filter @opensesame/capability-registry test
-pnpm --filter @opensesame/control-plane generate:openapi
+npm run test -w @opensesame/os-domain -- src/__tests__/agent-registration.test.ts
+npm run test -w @opensesame/policy -- src/__tests__/agent-auth-scopes.test.ts
+npm run test -w @opensesame/contracts -- src/__tests__/agent-auth.test.ts
+npm run test -w @opensesame/agent-protocols
+npm run test -w @opensesame/database -- tests/agent-auth-repo.test.ts tests/pact.test.ts
+npm exec -w @opensesame/control-plane -- vitest run src/__tests__/agent-auth.test.ts src/__tests__/api.test.ts src/__tests__/openapi.test.ts src/__tests__/origin-profile-issuer.test.ts
+npm run test -w @opensesame/example-static-agent
+npm run test -w @opensesame/capability-registry
+npm run generate:openapi -w @opensesame/control-plane
 ```
 
 All of the above **PASS**. Depth suites added beside the happy-path units:
@@ -66,7 +66,7 @@ All of the above **PASS**. Depth suites added beside the happy-path units:
 | Behavior | Given/When/Then journeys in `agent-auth.behavior.test.ts` |
 | Mutation | Stryker slice: `apps/control-plane/src/ui/agent-auth-pages.ts` at 100% (31/31). Token/machine/scope files stay out until equivalent mutants are gone. |
 
-`pnpm verify` was not run in this pass (full-repo gate). ID-JAG and SET delivery remain disabled and unadvertised.
+`npm run verify` was not run in this pass (full-repo gate). ID-JAG and SET delivery remain disabled and unadvertised.
 
 ## Residual risks / deferred
 

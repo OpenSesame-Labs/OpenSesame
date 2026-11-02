@@ -8,7 +8,7 @@ crypto dependency.
 
 ## Where it fits
 
-- **Used by:** [`packages/wallet-x402`](../wallet-x402) (`ConstraintEnforcement` in its bounded x402 assessment); run by `pnpm wallet:test:domain` through [`scripts/wallet`](../../scripts/wallet).
+- **Used by:** [`packages/wallet-x402`](../wallet-x402) (`ConstraintEnforcement` in its bounded x402 assessment); run by `npm run wallet:test:domain` through [`scripts/wallet`](../../scripts/wallet).
 - **Builds on:** nothing in the workspace; it has no runtime dependencies.
 - Natural-language instructions are not constraints. Only the six `CONSTRAINT_KINDS` — `amount`, `recipient`, `period`, `fee`, `redelegation`, `asset` — may enter `assess`.
 - Amounts are `AmountUnits`: canonical non-negative integer strings in the smallest subunit, never a JS number.
@@ -28,13 +28,13 @@ crypto dependency.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/wallet-policy test
-pnpm --filter @opensesame/wallet-policy typecheck
-pnpm wallet:test:domain   # os-domain wallet + wallet-budget + wallet-policy
+npm run test -w @opensesame/wallet-policy
+npm run typecheck -w @opensesame/wallet-policy
+npm run wallet:test:domain   # os-domain wallet + wallet-budget + wallet-policy
 ```
 
 ## Related
 
 - [ADR 0123](../../docs/adr/0123-wallet-spending-authority.md) — §2: approval, external enforcement and observation stay distinct
 - [`packages/wallet-budget`](../wallet-budget) — the budget journal these constraints are counted against
-- [`scripts/wallet/README.md`](../../scripts/wallet/README.md) — the `pnpm wallet:*` gates
+- [`scripts/wallet/README.md`](../../scripts/wallet/README.md) — the `npm run wallet:*` gates

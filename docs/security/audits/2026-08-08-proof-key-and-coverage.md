@@ -36,5 +36,5 @@ message signature validator.
 ## Gates
 
 `cargo test --workspace` (70 suites), `cargo clippy --workspace --all-targets --
--D warnings`, `pnpm test`, `pnpm run typecheck`, task-security-battle-test,
+-D warnings`, `npm test`, `npm run typecheck`, task-security-battle-test,
 semgrep, ast-grep, osv-scanner, gitleaks, cve-lite — all clean.

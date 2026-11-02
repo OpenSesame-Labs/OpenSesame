@@ -141,7 +141,7 @@ function ensureVendor() {
 const mainnet = assertNoMainnet(process.argv.slice(2));
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:contracts",
+    invokedAs: "npm run wallet:test:contracts",
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -168,7 +168,7 @@ const forge = which("forge");
 const anvil = which("anvil");
 if (!forge || !anvil) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:contracts",
+    invokedAs: "npm run wallet:test:contracts",
     mainnet: { ok: true, message: null, denials: [] },
     results: [
       {
@@ -193,7 +193,7 @@ if (!forge || !anvil) {
 
 if (!ensureVendor()) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:contracts",
+    invokedAs: "npm run wallet:test:contracts",
     mainnet: { ok: true, message: null, denials: [] },
     results: [
       {
@@ -234,7 +234,7 @@ if (!existsSync(forgeE04Src)) {
 copyFileSync(forgeE04Src, forgeE04Dst);
 
 const results = [];
-const unit = run("pnpm", ["--filter", "@opensesame/wallet-evm", "test"], root);
+const unit = run("npm", ["run", "test", "-w", "@opensesame/wallet-evm"], root);
 results.push({
   suite: "contracts-unit-simulation",
   status: unit.exitCode === 0 ? "passed" : "failed",
@@ -328,7 +328,7 @@ const evidenceExtra = {
 };
 
 writeWalletEvidence(root, {
-  invokedAs: "pnpm wallet:test:contracts",
+  invokedAs: "npm run wallet:test:contracts",
   mainnet: { ok: true, message: null, denials: [] },
   results,
   ok,
@@ -363,7 +363,7 @@ if (ok) {
           "forge SiblingSharedPeriodCapTest + ERC20PeriodTransferEnforcerTest against MetaMask pin bff4b08; shared parent hash enforces aggregate; substituted independent roots (WAL-E03) do not inherit the approved counter",
         productionEnabled: false,
         evidenceRefs: [
-          "pnpm wallet:test:contracts",
+          "npm run wallet:test:contracts",
           "packages/wallet-evm/forge/test/SiblingSharedPeriodCap.t.sol",
           EVIDENCE_REL,
         ],
@@ -378,7 +378,7 @@ if (ok) {
         "forge WalE06E09MethodAndExpiryTest + upstream invalid-method: approve/transferFrom rejected by ERC20PeriodTransferEnforcer",
       productionEnabled: false,
       evidenceRefs: [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE06E09MethodAndExpiry.t.sol",
         EVIDENCE_REL,
       ],
@@ -392,7 +392,7 @@ if (ok) {
         "forge WalE06E09MethodAndExpiryTest: TimestampEnforcer refuses execution after validUntil (expired-delegation)",
       productionEnabled: false,
       evidenceRefs: [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE06E09MethodAndExpiry.t.sol",
         EVIDENCE_REL,
       ],
@@ -405,7 +405,7 @@ if (ok) {
         "forge WalE05RecipientAndValueTest: ExactCalldataEnforcer rejects alternate transfer recipient; ValueLteEnforcer(0) rejects nonzero native value with token calldata",
       productionEnabled: false,
       evidenceRefs: [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE05RecipientAndValue.t.sol",
         EVIDENCE_REL,
       ],
@@ -418,7 +418,7 @@ if (ok) {
         "forge WalE04MixedAssetCaveatTest: ERC20PeriodTransferEnforcer keyed only by delegationHash shares period counter across mixed token terms and duplicate caveats — activation must refuse mixed-asset composition; harness proves shared-key hazard + single-hash aggregate",
       productionEnabled: false,
       evidenceRefs: [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE04MixedAssetCaveat.t.sol",
         EVIDENCE_REL,
       ],

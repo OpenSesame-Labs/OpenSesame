@@ -57,7 +57,7 @@ EVIDENCE_DIST=/absolute/path/to/base-worktree/apps/pages/dist \
   node apps/pages/scripts/capture-evidence.mjs capture before "$J"
 
 # Capture the actual branch build with the same journey.
-VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
   node apps/pages/scripts/capture-evidence.mjs capture after "$J"
 

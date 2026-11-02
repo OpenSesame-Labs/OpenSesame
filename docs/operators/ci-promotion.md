@@ -55,7 +55,7 @@ JavaScript through its normal compiler.
 
 Trunk does not start databases, tests, browser journeys, quality ratchets,
 standalone typechecks, lint, budget measurements or security scans. Install local
-Git hooks with `pnpm setup:hooks` (also part of bootstrap). The commit hook checks
+Git hooks with `npm run setup:hooks` (also part of bootstrap). The commit hook checks
 staged source; the default push hook runs static lint, quality, typechecking and
 relevant Rust formatting/Clippy without test suites. Full local verification
 remains an explicit opt-in. GitHub's required-signatures ruleset enforces commit

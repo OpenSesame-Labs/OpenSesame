@@ -30,9 +30,9 @@ Default redirect URI: `{origin}/opensesame/callback`.
 
 ```bash
 OPENSESAME_ENV=development OPENSESAME_ALLOW_DEV_DEFAULTS=1 OPENSESAME_ORIGIN_CLIENTS_ENABLED=true \
-  pnpm --filter @opensesame/control-plane start   # :8788, origin clients on
-pnpm --filter @opensesame/example-static-rp dev:4101   # http://127.0.0.1:4101
-pnpm --filter @opensesame/example-static-rp dev:4102   # http://127.0.0.1:4102
+  npm run start -w @opensesame/control-plane   # :8788, origin clients on
+npm run dev:4101 -w @opensesame/example-static-rp   # http://127.0.0.1:4101
+npm run dev:4102 -w @opensesame/example-static-rp   # http://127.0.0.1:4102
 ```
 
 The example consumes `@opensesame/static-auth` as ESM. Its immutable, SRI-pinned

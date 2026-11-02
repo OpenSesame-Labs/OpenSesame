@@ -35,8 +35,8 @@ truncated to 256 characters.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/audit test
-pnpm --filter @opensesame/audit typecheck
+npm run test -w @opensesame/audit
+npm run typecheck -w @opensesame/audit
 ```
 
 `src/__tests__/redact.characterization.test.ts` snapshots redaction output and

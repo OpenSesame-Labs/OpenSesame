@@ -5,13 +5,13 @@ client in `@opensesame/sdk-browser`; there is no paid service or separate native
 daemon.
 
 ```bash
-pnpm install
+npm install
 export DATABASE_URL=postgres://user:password@postgres/opensesame
-pnpm db:migrate    # exits 1 without DATABASE_URL
+npm run db:migrate    # exits 1 without DATABASE_URL
 OPENSESAME_PUBLIC_URL=https://identity.example.com \
 OPENSESAME_ISSUER=https://identity.example.com \
 OPENSESAME_SMTP_URL=smtps://user:password@smtp.example.com \
-pnpm --filter @opensesame/control-plane start
+npm run start -w @opensesame/control-plane
 ```
 
 The Pages PWA is static and does **not** take `PAGES_IDENTITY_API` (Tyler

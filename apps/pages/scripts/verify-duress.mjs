@@ -6,7 +6,7 @@
  * Reported (non-blocking while sibling swarms land): contracts fixtures, full
  * duress-*.test.ts, optional Playwright static-origin.
  *
- * Usage: pnpm --filter @opensesame/pages verify:duress
+ * Usage: npm run verify:duress -w @opensesame/pages
  */
 
 import { spawnSync } from "node:child_process";
@@ -117,9 +117,8 @@ function runStaticFeatureChecks() {
 
 run(
   "BUILD-A-F-feature-vitest",
-  "pnpm",
-  [
-    "exec",
+  "npm", [
+    "exec", "--",
     "vitest",
     "run",
     "src/lib/duress/feature/feature.test.ts",
@@ -132,9 +131,8 @@ runStaticFeatureChecks();
 
 run(
   "REDTEAM-vitest",
-  "pnpm",
-  [
-    "exec",
+  "npm", [
+    "exec", "--",
     "vitest",
     "run",
     "src/lib/duress/redteam",
@@ -157,10 +155,8 @@ run(
 );
 
 // Sibling-swarm suites — reported for COORD; do not fail BUILD gate.
-run("REPORT-contracts-duress", "pnpm", [
-  "--filter",
-  "@opensesame/contracts",
-  "test",
+run("REPORT-contracts-duress", "npm", [
+  "run", "test", "-w", "@opensesame/contracts",
   "--",
   "src/duress",
 ]);
@@ -171,8 +167,7 @@ const duressIntegrationTests = readdirSync(join(core, "src/lib/duress"))
 
 run(
   "REPORT-duress-integration-vitest",
-  "pnpm",
-  ["exec", "vitest", "run", ...duressIntegrationTests, "--maxWorkers=2"],
+  "npm", ["exec", "--", "vitest", "run", ...duressIntegrationTests, "--maxWorkers=2"],
   {
     cwd: core,
     blockIf: () =>
@@ -184,8 +179,7 @@ run(
 
 run(
   "REPORT-static-origin-optional",
-  "pnpm",
-  ["--filter", "@opensesame/pages", "verify:static"],
+  "npm", ["run", "verify:static", "-w", "@opensesame/pages"],
   {
     blockIf: () => {
       try {

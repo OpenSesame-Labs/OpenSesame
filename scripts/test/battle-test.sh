@@ -28,7 +28,7 @@ cargo +1.88.0 test -p opensesame-connector-host --features wasm-connectors
 echo "== broker adversarial =="
 cargo +1.88.0 test -p opensesame-broker --test adversarial_broker
 echo "== api-client + MCP =="
-pnpm --filter @opensesame/api-client test
-pnpm --filter @opensesame/mcp-client test
-pnpm --filter @opensesame/mcp-host test
+npm run test -w @opensesame/api-client
+npm run test -w @opensesame/mcp-client
+npm run test -w @opensesame/mcp-host
 echo "ALL BATTLE TESTS PASSED"

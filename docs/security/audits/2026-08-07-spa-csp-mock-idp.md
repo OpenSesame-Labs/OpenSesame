@@ -19,5 +19,5 @@ Branch: `chore/audit-tick21`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/mock-upstream-idp test
+npm run test -w @opensesame/mock-upstream-idp
 ```

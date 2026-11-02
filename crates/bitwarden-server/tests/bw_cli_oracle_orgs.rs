@@ -6,7 +6,7 @@
 //!
 //! The organization is created the way the web vault creates one (`bw`
 //! cannot), with the key made and wrapped on the test's "device".
-//! `#[ignore]`d like the other oracle suites; `pnpm test:bitwarden-oracle`
+//! `#[ignore]`d like the other oracle suites; `npm run test:bitwarden-oracle`
 //! runs it with the pinned CLI and fails, never skips, without it.
 mod common;
 
@@ -37,7 +37,7 @@ fn find<'a>(list: &'a Value, key: &str, value: &str) -> &'a Value {
 }
 
 #[tokio::test]
-#[ignore = "needs the official bw CLI: pnpm test:bitwarden-oracle"]
+#[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_works_an_organization_end_to_end() {
     let harness = Harness::start().await;
     let owner = api(&harness, "owner@example.com").await;
