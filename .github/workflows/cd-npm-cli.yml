@@ -60,6 +60,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require trunk CI for this commit
         env:
@@ -189,6 +191,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Prove alpha npm resolves and runs
         env:
@@ -246,6 +250,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Annotate the run and comment on the commit
         env:
