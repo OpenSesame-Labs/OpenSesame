@@ -95,7 +95,7 @@ test("npm jobs install Node with the pinned mise-action", () => {
       }
       for (const index of miseAt) {
         const step = steps[index];
-        const cacheExpected = expectCacheDisabled ? false : true;
+        const cacheExpected = !expectCacheDisabled;
         assert.equal(step.with?.cache, cacheExpected, label);
         const args = step.with?.install_args;
         assert.equal(typeof args, "string", label);
