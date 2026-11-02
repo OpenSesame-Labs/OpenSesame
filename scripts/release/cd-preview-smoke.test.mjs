@@ -32,6 +32,20 @@ function page(status = 200, body = "<!doctype html><title>OpenSesame</title>") {
   return jsonResponse(status, body);
 }
 
+test("preview smoke refuses intentional proof gate failure", async () => {
+  await assert.rejects(
+    runPreviewSmoke(
+      { CD_PROOF_GATE_FAIL: "1", SMOKE_ATTEMPTS: "1" },
+      {
+        fetch: async () => {
+          throw new Error("fetch");
+        },
+      },
+    ),
+    /intentional promotion gate proof failure/,
+  );
+});
+
 test("dist-tag alpha must be a semver and match EXPECTED_VERSION", () => {
   assert.equal(distTagVersion({ alpha: version }), version);
   assert.throws(

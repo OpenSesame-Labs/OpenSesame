@@ -15,6 +15,9 @@ on:
       - "scripts/release/cd-preview-smoke.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - ".github/workflows/cd-promotion-gates-proof.yml"
+      - "scripts/release/cd-production-npm-version.mjs"
+      - "scripts/release/cd-production-npm-version.test.mjs"
+      - "scripts/release/npm-cd-publish-dry-run-proof.mjs"
       - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
@@ -57,8 +60,9 @@ jobs:
             .github/workflows/cd-pwa-profile-proof.yml \
             .github/workflows/cd-promotion-gates-proof.yml
       - run: npm ci
-      - run: node --test scripts/release/npm-cd-workflows.test.mjs
-      - name: npm publish dry-run (cli and web-pwa, alpha)
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs
+      - name: npm publish dry-run (alpha and production next)
         env:
           NPM_CD_DRY_RUN_LOG: ${{ runner.temp }}/npm-cd-dry-run-proof.log
+          NPM_CD_PRODUCTION_DRY_RUN_LOG: ${{ runner.temp }}/npm-cd-production-dry-run-proof.log
         run: node scripts/release/npm-cd-publish-dry-run-proof.mjs

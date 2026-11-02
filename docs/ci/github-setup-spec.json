@@ -9,10 +9,10 @@
   "promotion_model": {
     "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts.",
     "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success.",
-    "preview": "After main CI passes, npm dist-tag alpha and the github-pages deploy run automatically with no GitHub environment approval.",
+    "preview": "After main CI passes, Preview publishes 0.0.0-alpha.N on dist-tag alpha (repository NPM_TOKEN when set, otherwise OIDC trusted publishing with no GitHub environment) and the github-pages deploy runs automatically with no GitHub environment approval.",
     "preview_smoke": "Before Production, cd-preview-smoke.mjs resolves @opensesame-labs/cli@alpha, runs opensesame --version, and (PWA CD) verifies the live Pages deploy for the commit.",
     "profile_proof": "cd-pwa.yml job proof must succeed (four install profiles) before build and Production.",
-    "production": "When every gate passes, Production downloads the same staged artifacts, verifies live Pages again, and adds dist-tag next. No required reviewers on Preview or Production.",
+    "production": "When every gate passes, Production downloads the same staged artifacts, verifies live Pages again, rewrites package.json from 0.0.0-alpha.N to 0.0.0-next.N, and publishes that version with OIDC npm publish --tag next --provenance (empty npm token). It does not use NPM_TOKEN and does not run npm dist-tag add. The job selects environment Production so the npm trusted publisher can bind to it. No required reviewers on Preview or Production.",
     "failure": "Any gate failure skips Production and promotion_failed posts a commit comment via cd-promotion-notify.mjs.",
     "pages_split": "github-pages is the live Pages deploy (actions/deploy-pages). It is not the Preview environment. deploy-pages preview:true is not available to the public, so there is no second Pages environment. Do not add required reviewers to github-pages."
   },
@@ -20,7 +20,7 @@
     "preview_required_reviewers": "remove rule 70926078 if still present",
     "production_required_reviewers": "remove rule 70926080; Tyler removed required reviewers (2026-11-02)",
     "github_pages": "keep branch policy main only (rule 62085543). No required reviewers and no wait timer.",
-    "npm_token": "Preview jobs no longer select an environment, so they cannot read the Preview environment secret. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance). Production still reads NPM_TOKEN from the Production environment secret when present.",
+    "npm_token": "Preview jobs do not select an environment. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance) with the trusted-publisher environment left empty. Production selects environment Production and publishes 0.0.0-next.N with OIDC only. Production does not read NPM_TOKEN.",
     "commands": [
       "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-protection-rules/70926078",
       "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Preview --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
@@ -69,7 +69,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "Production dist-tag promotion reads this when set; no required reviewers on the environment."
+        "NPM_TOKEN": "Unused by current Production jobs. Production publishes 0.0.0-next.N with OIDC trusted publishing, not an NPM_TOKEN dist-tag update. A publish-scoped token cannot change dist-tags (E401)."
       },
       "variables": {}
     },
@@ -104,8 +104,8 @@
     "prerelease_id": "alpha",
     "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
     "dist_tags": {
-      "preview_publish": "alpha (the prerelease id)",
-      "production_promotion": "next (never latest while versions stay prerelease)"
+      "preview_publish": "alpha (the prerelease id) on 0.0.0-alpha.N",
+      "production_promotion": "next on 0.0.0-next.N (same numeric suffix), OIDC publish, never latest"
     }
   },
   "npm_packages": [
@@ -117,7 +117,7 @@
       "exists_on_npm": false,
       "dist_tags": {
         "alpha": "Preview npm publish",
-        "next": "Production dist-tag promotion"
+        "next": "Production OIDC publish of 0.0.0-next.N"
       }
     },
     {
@@ -128,13 +128,48 @@
       "exists_on_npm": false,
       "dist_tags": {
         "alpha": "cd-pwa.yml Preview npm job",
-        "next": "cd-pwa.yml Production dist-tag job"
+        "next": "cd-pwa.yml Production OIDC publish of 0.0.0-next.N"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
-    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/web-pwa on GitHub Actions for OpenSesame-Labs/OpenSesame."
+    "oidc_fallback": "Preview publish uses the repository NPM_TOKEN when set, otherwise id-token: write and npm publish --provenance with no GitHub environment. Production publishes 0.0.0-next.N with OIDC only (npm-token empty) under environment Production. Production does not use NPM_TOKEN or npm dist-tag add.",
+    "recommended": "Configure npm trusted publishers for each @opensesame-labs package (see publishers[]). Preview rows leave environment empty. Production rows set environment to Production. Allow npm publish.",
+    "first_publish": "Trusted publishing supports the first npm publish once the publisher row exists. Until then, use repository NPM_TOKEN on Preview only. Production always uses OIDC under environment Production.",
+    "publishers": [
+      {
+        "package": "@opensesame-labs/cli",
+        "provider": "github-actions",
+        "owner": "OpenSesame-Labs",
+        "repository": "OpenSesame",
+        "workflow_filename": "cd-npm-cli.yml",
+        "environment": ""
+      },
+      {
+        "package": "@opensesame-labs/cli",
+        "provider": "github-actions",
+        "owner": "OpenSesame-Labs",
+        "repository": "OpenSesame",
+        "workflow_filename": "cd-npm-cli.yml",
+        "environment": "Production"
+      },
+      {
+        "package": "@opensesame-labs/web-pwa",
+        "provider": "github-actions",
+        "owner": "OpenSesame-Labs",
+        "repository": "OpenSesame",
+        "workflow_filename": "cd-pwa.yml",
+        "environment": ""
+      },
+      {
+        "package": "@opensesame-labs/web-pwa",
+        "provider": "github-actions",
+        "owner": "OpenSesame-Labs",
+        "repository": "OpenSesame",
+        "workflow_filename": "cd-pwa.yml",
+        "environment": "Production"
+      }
+    ]
   }
 }

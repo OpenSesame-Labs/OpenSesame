@@ -1,6 +1,6 @@
 # GitHub Pages PWA CD. One build, then automatic preview, then Production.
-# Preview publishes npm alpha and deploys Pages with no reviewer wait.
-# Production promotes the same artifacts when automated gates pass.
+# Preview publishes npm 0.0.0-alpha.N and deploys Pages with no reviewer wait.
+# Production OIDC-publishes the same staged bytes as 0.0.0-next.N when gates pass.
 name: CD PWA
 
 on:
@@ -19,6 +19,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - "scripts/ci/pwa-install-profile-proof.mjs"
       - ".github/actions/publish-npm-package/**"
@@ -27,6 +28,11 @@ on:
     inputs:
       dry_run:
         description: Stop after the build artifacts (before preview publish, Pages deploy, and Production).
+        required: false
+        type: boolean
+        default: false
+      proof_gate_fail:
+        description: When true, preview smoke fails on purpose (live gate proof on main only).
         required: false
         type: boolean
         default: false
@@ -56,8 +62,6 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -74,8 +78,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -101,7 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
           fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
@@ -170,8 +171,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-pages-pwa-release-${{ github.run_id }}
@@ -218,11 +217,9 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
           sparse-checkout: |
             scripts/release
             scripts/lib
-            .github/actions/publish-npm-package
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -230,6 +227,7 @@ jobs:
       - name: Prove alpha npm and live Pages for this revision
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+          CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
         run: node scripts/release/cd-preview-smoke.mjs
 
   production:
@@ -243,7 +241,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          persist-credentials: false
           sparse-checkout: |
             scripts/release
             scripts/lib
@@ -274,7 +271,10 @@ jobs:
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
         run: node scripts/release/pages-release.mjs verify "${{ env.PAGES_URL }}" "${{ github.sha }}"
-      - uses: ./.github/actions/publish-npm-package
+      - name: Rewrite alpha version to 0.0.0-next.N
+        run: node scripts/release/cd-production-npm-version.mjs rewrite apps/pages/release/package.json
+      - name: Publish 0.0.0-next.N with OIDC
+        uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release
           npm-dist-tag: next
@@ -291,8 +291,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true

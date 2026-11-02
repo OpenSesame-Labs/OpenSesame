@@ -23,27 +23,16 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   const pwa = read(".github/workflows/cd-pwa.yml");
   const action = read(".github/actions/publish-npm-package/action.yml");
   assert.match(cli, /@opensesame-labs\/cli/);
-  assert.match(pwa, /@opensesame\/pages/);
-  const publishUses = (text) =>
-    text.split("./.github/actions/publish-npm-package").length - 1;
-  // Preview publishes alpha; Production publishes next via OIDC.
-  assert.equal(publishUses(cli), 2);
-  assert.equal(publishUses(pwa), 2);
   for (const text of [cli, pwa]) {
-    assert.match(text, new RegExp(`npm-dist-tag: ${CD_PRODUCTION_DIST_TAG}`));
-    assert.match(text, /npm-token: ""/);
-    assert.match(text, /secrets\.NPM_TOKEN/);
-    assert.doesNotMatch(text, /npx -y npm@11\.21\.1/);
-    const production = text.slice(text.indexOf("\n  production:"));
-    assert.doesNotMatch(production, /secrets\.NPM_TOKEN/);
-    assert.doesNotMatch(production, /dist-tag add/);
-  }
-  for (const text of [cli, pwa, action]) {
     assert.doesNotMatch(text, /env-spec-bridge/);
     assert.doesNotMatch(text, /--tag\s+latest/);
     assert.doesNotMatch(text, /dist-tag add/);
     assert.doesNotMatch(text, /npm install -g npm@/);
   }
+  assert.doesNotMatch(action, /env-spec-bridge/);
+  assert.doesNotMatch(action, /--tag\s+latest/);
+  assert.doesNotMatch(action, /dist-tag add/);
+  assert.doesNotMatch(action, /npm install -g npm@/);
   assert.match(action, /npx -y npm@11\.21\.1/);
   assert.match(action, /Refusing dist-tag latest/);
   assert.match(
@@ -68,6 +57,60 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   );
 });
 
+test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () => {
+  const cli = read(".github/workflows/cd-npm-cli.yml");
+  const pwa = read(".github/workflows/cd-pwa.yml");
+  const action = read(".github/actions/publish-npm-package/action.yml");
+  const spec = JSON.parse(read("docs/ci/github-setup-spec.json"));
+  for (const text of [cli, pwa]) {
+    assert.doesNotMatch(text, /dist-tag add/);
+    const start = text.indexOf("\n  production:");
+    const end = text.indexOf("\n  promotion_failed:");
+    assert.ok(start > 0 && end > start);
+    const production = text.slice(start, end);
+    assert.match(production, /name: Production\n/);
+    assert.match(production, /cd-release-meta\.mjs check /);
+    assert.match(production, /cd-production-npm-version\.mjs rewrite /);
+    assert.match(production, /publish-npm-package/);
+    assert.match(
+      production,
+      new RegExp(`npm-dist-tag: ${CD_PRODUCTION_DIST_TAG}\\n`),
+    );
+    assert.match(production, /npm-token: ""\n/);
+    assert.doesNotMatch(production, /NPM_TOKEN/);
+    assert.doesNotMatch(production, /NODE_AUTH_TOKEN/);
+  }
+  assert.match(action, /0\.0\.0-next\.N/);
+  assert.match(spec.promotion_model.production, /0\.0\.0-next\.N/);
+  assert.match(spec.promotion_model.production, /OIDC/);
+  assert.match(spec.promotion_model.preview, /NPM_TOKEN/);
+  assert.match(spec.promotion_model.preview, /OIDC/);
+  const productionEnv = spec.environments.find(
+    (entry) => entry.name === "Production",
+  );
+  assert.match(productionEnv.secrets.NPM_TOKEN, /OIDC/);
+  const publishers = spec.npm_trusted_publishing.publishers;
+  assert.equal(Array.isArray(publishers), true);
+  const rows = publishers.map(
+    (row) => `${row.package}:${row.workflow_filename}:${row.environment}`,
+  );
+  assert.ok(rows.includes("@opensesame-labs/cli:cd-npm-cli.yml:"));
+  assert.ok(rows.includes("@opensesame-labs/cli:cd-npm-cli.yml:Production"));
+  assert.ok(rows.includes("@opensesame-labs/web-pwa:cd-pwa.yml:"));
+  assert.ok(rows.includes("@opensesame-labs/web-pwa:cd-pwa.yml:Production"));
+  for (const row of publishers) {
+    assert.equal(row.provider, "github-actions");
+    assert.equal(row.owner, "OpenSesame-Labs");
+    assert.equal(row.repository, "OpenSesame");
+  }
+  const dry = read("scripts/release/npm-cd-publish-dry-run-proof.mjs");
+  assert.match(
+    dry,
+    /\/opt\/cursor\/artifacts\/npm-cd-production-dry-run-proof\.log/,
+  );
+  assert.match(dry, /rewritePackageVersionFile/);
+});
+
 test("npm publish proof lints workflow YAML and stages the alpha dry-run", () => {
   const proof = read(".github/workflows/cd-npm-publish-proof.yml");
   assert.match(proof, /pull_request:/);
@@ -76,6 +119,7 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
     proof,
     /node --test scripts\/release\/npm-cd-workflows\.test\.mjs/,
   );
+  assert.match(proof, /scripts\/release\/cd-production-npm-version\.test\.mjs/);
   assert.match(
     proof,
     /node scripts\/release\/npm-cd-publish-dry-run-proof\.mjs/,
@@ -83,7 +127,6 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
   assert.match(proof, /\.github\/workflows\/cd-npm-cli\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-pwa\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-npm-publish-proof\.yml/);
-  assert.match(proof, /\.github\/workflows\/cd-pwa-profile-proof\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-promotion-gates-proof\.yml/);
   assert.doesNotMatch(proof, /action\.yml/);
 });
@@ -111,10 +154,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   }
   assert.doesNotMatch(pwa, /Preview gate/);
   assert.match(pwa, /name: github-pages\n/);
-  assert.match(
-    pwa,
-    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
-  );
+  assert.match(pwa, /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/);
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,
     3,
@@ -141,8 +181,8 @@ test("CD promotes staged artifacts with automated gates only", () => {
   );
   for (const envName of ["Preview", "Production", "github-pages"]) {
     assert.deepEqual(
-      spec.environments.find((entry) => entry.name === envName).protection_rules
-        .required_reviewers,
+      spec.environments.find((entry) => entry.name === envName)
+        .protection_rules.required_reviewers,
       [],
     );
   }
@@ -171,7 +211,20 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.doesNotMatch(pipelines, /only required-reviewer/);
   assert.match(pipelines, /No required reviewers/);
   assert.match(pwa, /pages-release\.mjs stamp /);
+  assert.match(pwa, /proof_gate_fail:/);
+  assert.match(cli, /proof_gate_fail:/);
+  assert.match(cli, /CD_PROOF_GATE_FAIL:/);
+  assert.match(pwa, /CD_PROOF_GATE_FAIL:/);
+  const rca = read("docs/ci/post-2400-cd-failures.md");
+  assert.match(rca, /41485623019/);
+  assert.match(rca, /41485623157/);
+  assert.match(rca, /pages-release\.mjs stamp/);
+  assert.match(rca, /proof_gate_fail/);
+  assert.match(rca, /intentional promotion gate proof failure/);
+  assert.match(pipelines, /post-2400-cd-failures\.md/);
+  assert.match(pipelines, /proof_gate_fail/);
   const gates = read(".github/workflows/cd-promotion-gates-proof.yml");
+  assert.match(gates, /cd-production-npm-version\.test\.mjs/);
   assert.match(gates, /pull_request:/);
   assert.match(gates, /workflow_dispatch:/);
   assert.match(gates, /force_smoke_fail:/);
