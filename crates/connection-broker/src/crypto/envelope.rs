@@ -1,8 +1,8 @@
 //! Versioned authority envelopes. Customer context derives a KEK from the
 //! operator root; each record receives an independent random data key.
 use chacha20poly1305::{
-    aead::{Aead, KeyInit, OsRng, Payload},
-    AeadCore, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Generate, KeyInit, Payload},
+    XChaCha20Poly1305, XNonce,
 };
 use hkdf::Hkdf;
 use rand::RngCore;
@@ -45,11 +45,12 @@ fn authenticated_context(aad: &[u8], nonce: &[u8]) -> Vec<u8> {
 pub(super) fn seal(master: &[u8; 32], aad: &[u8], plaintext: &[u8]) -> Result<SealedBlob> {
     let key = kek(master, aad)?;
     let mut dek = Zeroizing::new([0u8; 32]);
-    OsRng.fill_bytes(dek.as_mut());
-    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let wrap_nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+    rand::rngs::OsRng.fill_bytes(dek.as_mut());
+    let nonce = XNonce::generate();
+    let wrap_nonce = XNonce::generate();
     let context = authenticated_context(aad, &nonce);
-    let wrapped = XChaCha20Poly1305::new((&*key).into())
+    let wrapped = XChaCha20Poly1305::new_from_slice(key.as_ref())
+        .map_err(|_| unavailable())?
         .encrypt(
             &wrap_nonce,
             Payload {
@@ -65,7 +66,8 @@ pub(super) fn seal(master: &[u8; 32], aad: &[u8], plaintext: &[u8]) -> Result<Se
     let mut payload_ad = context;
     payload_ad.extend_from_slice(&ciphertext);
     ciphertext.extend_from_slice(
-        &XChaCha20Poly1305::new((&*dek).into())
+        &XChaCha20Poly1305::new_from_slice(dek.as_ref())
+            .map_err(|_| unavailable())?
             .encrypt(
                 &nonce,
                 Payload {
@@ -93,7 +95,8 @@ pub(super) fn open(master: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<V
     let key = kek(master, aad)?;
     let mut context = authenticated_context(aad, &blob.nonce);
     let dek = Zeroizing::new(
-        XChaCha20Poly1305::new((&*key).into())
+        XChaCha20Poly1305::new_from_slice(key.as_ref())
+            .map_err(|_| unavailable())?
             .decrypt(
                 XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
                 Payload {
@@ -131,7 +134,8 @@ mod tests {
         let second = seal(&master, aad, b"value").unwrap();
         let unwrap = |blob: &SealedBlob| {
             let key = kek(&master, aad).unwrap();
-            XChaCha20Poly1305::new((&*key).into())
+            XChaCha20Poly1305::new_from_slice(key.as_ref())
+                .unwrap()
                 .decrypt(
                     XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
                     Payload {

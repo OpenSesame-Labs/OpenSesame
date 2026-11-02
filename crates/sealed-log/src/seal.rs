@@ -13,8 +13,8 @@ use std::path::Path;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng, Payload};
-use chacha20poly1305::{AeadCore, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::aead::{Aead, Generate, KeyInit, Payload};
+use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use opensesame_event_seal::{EventSealer, PREFIX};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -55,7 +55,7 @@ impl LogKey {
 
     #[must_use]
     pub fn generate() -> Self {
-        Self::from_bytes(XChaCha20Poly1305::generate_key(&mut OsRng).into())
+        Self::from_bytes(<[u8; 32]>::from(Key::generate()))
     }
 
     /// Read the key at `path`, or create it there (mode 0600, never
@@ -171,7 +171,7 @@ fn key_namespace(path: &Path) -> io::Result<String> {
 
 /// A sibling name no other process shares.
 fn staging_path(path: &Path) -> std::path::PathBuf {
-    let unique = hex::encode(XChaCha20Poly1305::generate_nonce(&mut OsRng));
+    let unique = hex::encode(XNonce::generate());
     let mut name = path.as_os_str().to_owned();
     name.push(format!(".{unique}.tmp"));
     std::path::PathBuf::from(name)
@@ -223,7 +223,8 @@ pub fn open_line(key: &LogKey, sealed: &str) -> Option<String> {
     }
     let (nonce, ciphertext) = packed.split_at(NONCE_LEN);
     let plain = Zeroizing::new(
-        XChaCha20Poly1305::new((&key.bytes).into())
+        XChaCha20Poly1305::new_from_slice(&key.bytes)
+            .ok()?
             .decrypt(
                 XNonce::from_slice(nonce),
                 Payload {
