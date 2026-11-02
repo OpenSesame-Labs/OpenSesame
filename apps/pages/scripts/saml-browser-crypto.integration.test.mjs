@@ -1,4 +1,5 @@
 /** Actual transformed XMLDSIG, independently signed XML and real native WebCrypto. */
+import "reflect-metadata";
 import { X509Certificate, generateKeyPairSync, webcrypto } from "node:crypto";
 import {
   existsSync,
@@ -214,7 +215,7 @@ it("retains the official XML verifier/canonicalizer with one existing certificat
     included.some((id) => id.endsWith("/xmldsigjs/build/esm/canonicalizer.js")),
   ).toBe(true);
   expect(
-    included.filter((id) => id.endsWith("/@peculiar/x509/build/x509.es.js")),
+    included.filter((id) => id.endsWith("/@peculiar/x509/build/index.js")),
   ).toHaveLength(1);
   expect(included.some((id) => /\/(pkijs|bytestreamjs)\//.test(id))).toBe(
     false,

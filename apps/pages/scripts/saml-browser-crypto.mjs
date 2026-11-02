@@ -85,13 +85,17 @@ export function readSamlBrowserCryptoInputs(root) {
   const x509Root = resolve(dirname(x509Path), "..");
   match(
     sha(readFileSync(resolve(x509Root, "package.json"))),
-    "27719c7f479804be63667f9157eed53f3b5ccb44e070067dfcc084ef06996866",
+    "62e7ee55bc254005f6ac592930804213880b0fc0f62e43bb8a34d7573f1b71f8",
     "shared certificate package",
   );
-  const sharedCertificate = resolve(x509Root, "build/x509.es.js");
+  const x509Package = JSON.parse(
+    readFileSync(resolve(x509Root, "package.json"), "utf8"),
+  );
+  const x509Module = x509Package.module ?? x509Package.main;
+  const sharedCertificate = resolve(x509Root, x509Module);
   match(
     sha(readFileSync(sharedCertificate)),
-    "f2cc5db5de63f76b35d9c63cc49fbed40731691313da4ec196dfd06516b8821f",
+    "3c4b3557e06a494350243a9064d16a1b1aecda4863b81cba8b6ba4706cad613a",
     "shared certificate implementation",
   );
   const reflectionOwner = createRequire(sharedCertificate);
