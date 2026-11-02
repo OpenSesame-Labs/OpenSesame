@@ -59,17 +59,35 @@ jobs:
         with:
           cache: true
           install_args: node@24
-      - name: Enforce preview smoke (simulated)
+      - name: Enforce preview smoke (simulated pass)
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_smoke_fail }}" = "true" ]; then
-            export CD_PREVIEW_SMOKE_FORCE_FAIL=1
-          else
-            export CD_PREVIEW_SMOKE_FORCE_FAIL=0
-          fi
-          export NPM_DIST_TAG=alpha
           export CD_PREVIEW_SMOKE_SIMULATED=1
+          export CD_PREVIEW_SMOKE_FORCE_FAIL=0
+          export NPM_DIST_TAG=alpha
           node scripts/release/cd-preview-smoke.mjs
+
+  gate_fail_blocks_promotion:
+    name: Simulated preview smoke gate (must fail)
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Prove forced smoke failure blocks promotion
+        run: |
+          set -euo pipefail
+          export CD_PREVIEW_SMOKE_FORCE_FAIL=1
+          export NPM_DIST_TAG=alpha
+          if node scripts/release/cd-preview-smoke.mjs; then
+            echo "expected preview smoke gate to fail"
+            exit 1
+          fi
+          echo "preview smoke gate failed; Production promotion would not run"
 
   simulated_production:
     name: Simulated Production promotion
@@ -78,3 +96,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: echo "Production promotion would run here after every gate succeeded."
+
+  simulated_production_after_failed_gate:
+    name: Simulated Production promotion (must stay skipped)
+    needs: gate_fail_blocks_promotion
+    if: needs.gate_fail_blocks_promotion.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "Production ran after a failed preview smoke gate"
+          exit 1
