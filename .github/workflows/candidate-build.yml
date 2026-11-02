@@ -131,7 +131,7 @@ jobs:
         path: src
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node
         working_directory: src
     - run: npm ci --ignore-scripts -w @opensesame/env-spec-bridge
@@ -176,7 +176,7 @@ jobs:
         path: src
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node
         working_directory: src
     - run: npm ci
@@ -239,12 +239,12 @@ jobs:
         path: src
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node
         working_directory: src
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: rust
         working_directory: src
     - name: Prepare Linux keychain dependencies without changing system packages
@@ -312,7 +312,7 @@ jobs:
           scripts/lib
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
-        cache: true
+        cache: false
         install_args: node@24
     - name: Download each exact original upload with a failing SHA256 comparison
       run: node .ci-control/scripts/release/collect-build.mjs

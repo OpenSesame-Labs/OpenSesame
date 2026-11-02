@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const workflowDir = join(root, ".github/workflows");
@@ -58,8 +59,10 @@ test("workflows do not set up Node with setup-node, pnpm, or corepack", () => {
 });
 
 test("npm jobs install Node with the pinned mise-action", () => {
+  const cacheDisabled = new Set(workflowsWithMiseCacheDisabled());
   for (const { name, text } of workflows()) {
     const jobs = parse(text).jobs ?? {};
+    const expectCacheDisabled = cacheDisabled.has(name);
     let parsedMise = 0;
     for (const [id, job] of Object.entries(jobs)) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
@@ -92,7 +95,8 @@ test("npm jobs install Node with the pinned mise-action", () => {
       }
       for (const index of miseAt) {
         const step = steps[index];
-        assert.equal(step.with?.cache, true, label);
+        const cacheExpected = expectCacheDisabled ? false : true;
+        assert.equal(step.with?.cache, cacheExpected, label);
         const args = step.with?.install_args;
         assert.equal(typeof args, "string", label);
         const tokens = args.split(/\s+/u).filter((token) => token !== "");

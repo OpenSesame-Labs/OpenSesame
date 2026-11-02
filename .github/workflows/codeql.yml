@@ -70,7 +70,7 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.language == 'go'
         with:
-          cache: true
+          cache: false
           install_args: go
       - name: Isolate Go analysis cache
         if: matrix.language == 'go'
@@ -78,12 +78,12 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.language == 'rust'
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.language == 'java-kotlin'
         with:
-          cache: true
+          cache: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
         if: matrix.language == 'java-kotlin'
@@ -215,7 +215,7 @@ jobs:
           ref: ${{ inputs.source_sha || github.sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install locked audit runtime
         run: npm ci --ignore-scripts
