@@ -38,7 +38,7 @@ describe("keeping it on this device", () => {
     offering("prompt");
     openSetup();
 
-    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
     expect(screen.getByText("Keep it on this device")).toBeDefined();
     expect(
       document

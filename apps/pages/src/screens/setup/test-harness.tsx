@@ -10,6 +10,8 @@
 
 import { resetDouble } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { expect, vi } from "vitest";
 import type { InstallOutcome, InstallState } from "../../lib/install.js";
 import { installViewSeams } from "../../lib/use-install.js";
@@ -85,8 +87,13 @@ export function selectedTab(): string {
   return screen.getByRole("tab", { selected: true }).textContent?.trim() ?? "";
 }
 
+/** Setup lives on a router: feature rows link to their own pages. */
+export function renderSetupScreen(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
 export function openSetup(onDone: () => void = vi.fn()): () => void {
-  render(<SetupScreen onDone={onDone} />);
+  renderSetupScreen(<SetupScreen onDone={onDone} />);
   fireEvent.click(screen.getByRole("button", { name: /^Custom$/ }));
   return onDone;
 }

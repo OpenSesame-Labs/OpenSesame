@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,6 +13,7 @@ import {
   fieldNamed,
   openSetup,
   openWaysIn,
+  renderSetupScreen,
   resetSetupScreen,
   type as typeInto,
   ways,
@@ -46,7 +41,7 @@ describe("two optional ceremonies, never a fork (ADR 0090)", () => {
     expect(
       screen.getByRole("tab", { selected: true }).textContent?.trim(),
     ).toBe("capabilities");
-    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
     expect(screen.getByTestId("capability-setup")).toBeTruthy();
     expect(screen.queryByText("This device is empty")).toBeNull();
   });
@@ -59,7 +54,7 @@ describe("two optional ceremonies, never a fork (ADR 0090)", () => {
   });
 
   it("opens on the configuration choice, and Custom enters the ceremony", () => {
-    render(<SetupScreen onDone={vi.fn()} />);
+    renderSetupScreen(<SetupScreen onDone={vi.fn()} />);
     expect(screen.queryByRole("tab")).toBeNull();
     for (const name of ["Minimal", "Default", "Custom"]) {
       expect(
@@ -74,16 +69,17 @@ describe("two optional ceremonies, never a fork (ADR 0090)", () => {
 });
 
 describe("the setup ceremony", () => {
-  it("is capabilities, then a tab per registered panel, each skippable, with a skip-all (ADR 0114)", () => {
+  it("is capabilities, features, integrations, then a tab per registered panel", () => {
     openSetup();
-    // Four concerns: connectors, ai, identity, mfa (ADR 0128 took the others).
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "capabilities",
+      "features",
+      "integrations",
       "connectors",
       "identity",
       "mfa",
     ]);
-    expect(document.querySelectorAll(".steps__seg")).toHaveLength(4);
+    expect(document.querySelectorAll(".steps__seg")).toHaveLength(6);
     expect(screen.getByRole("button", { name: "Skip this step" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Skip all" })).toBeTruthy();
   });
@@ -319,7 +315,7 @@ describe("an OpenSesame identity service", () => {
 
 describe("where the keyboard lands", () => {
   it("lands the configuration choice on Minimal", () => {
-    render(<SetupScreen onDone={vi.fn()} />);
+    renderSetupScreen(<SetupScreen onDone={vi.fn()} />);
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: /^Minimal$/ }),
     );
@@ -341,12 +337,12 @@ describe("where the keyboard lands", () => {
     fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
     expect(
       screen.getByRole("tab", { selected: true }).textContent?.trim(),
-    ).toBe("connectors");
+    ).toBe("features");
     expect(document.activeElement).toBe(
-      screen.getByRole("tab", { name: "connectors" }),
+      screen.getByRole("tab", { name: "features" }),
     );
     // End jumps to the last step, Home back to the first.
-    fireEvent.keyDown(screen.getByRole("tab", { name: "connectors" }), {
+    fireEvent.keyDown(screen.getByRole("tab", { name: "features" }), {
       key: "End",
     });
     expect(

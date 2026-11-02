@@ -1,8 +1,9 @@
 /**
  * Front door, setup choices, and the no-account road into the vault.
  *
- * Minimal, Default and Full commit and return. Custom opens the capabilities
- * ceremony; Skip all still retires the door onto sign-in.
+ * Minimal, Default and Full commit, then show the Features tab body inside
+ * setup. Finish returns. Custom opens the capabilities ceremony; Skip all
+ * still retires the door onto sign-in.
  */
 
 import { sealLocalOnly } from "./pages-journey.mjs";
@@ -97,9 +98,21 @@ async function finishCustom(page, shot, record) {
   if (!left) await visibleClick(page, "button", "Close", 8_000);
 }
 
+/** A preset lands on the Features body. Finish leaves setup. */
+async function finishPresetReview(page) {
+  const body = page.locator("[data-testid=features-body]");
+  const seen = await body
+    .waitFor({ state: "visible", timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!seen) return;
+  await visibleClick(page, "button", "Finish setup", 8_000);
+}
+
 export async function applySetupChoice(page, shot, record, choice) {
   await visibleClick(page, "button", choice);
   if (choice === "Custom") await finishCustom(page, shot, record);
+  else await finishPresetReview(page);
   const where = await waitPastSetup(page);
   record.landed = where;
   if (where === "sign-in") {

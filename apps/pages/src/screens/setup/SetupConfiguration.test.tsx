@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +9,7 @@ import {
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { SetupScreen } from "../SetupScreen.js";
 import { DEFAULT_EXTENSIONS } from "./default-extensions.js";
-import { resetSetupScreen } from "./test-harness.js";
+import { renderSetupScreen, resetSetupScreen } from "./test-harness.js";
 import { createSetupSeams } from "./test-seams.js";
 
 installDoublePorts();
@@ -33,11 +27,18 @@ beforeEach(() => resetSetupScreen(seams));
 afterEach(cleanup);
 
 describe("the configuration choice (ADR 0154)", () => {
-  it("commits the minimal plan and finishes", async () => {
+  it("commits the minimal plan and opens Features without the vault shell", async () => {
     const onDone = vi.fn();
     const before = double.commits.length;
-    render(<SetupScreen onDone={onDone} />);
+    renderSetupScreen(<SetupScreen onDone={onDone} />);
     fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("features-body")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("features-panel")).toBeNull();
+    expect(document.querySelector(".rail, .set__nav, .command-bar")).toBeNull();
+    expect(onDone).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Finish setup" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const draft = double.commits.at(-1)?.draft;
     expect(double.commits).toHaveLength(before + 1);
@@ -55,8 +56,12 @@ describe("the configuration choice (ADR 0154)", () => {
 
   it("commits the default extensions and asks for them to be fetched", async () => {
     const onDone = vi.fn();
-    render(<SetupScreen onDone={onDone} />);
+    renderSetupScreen(<SetupScreen onDone={onDone} />);
     fireEvent.click(screen.getByRole("button", { name: /^Default$/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("features-body")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Finish setup" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const draft = double.commits.at(-1)?.draft;
     expect(draft?.selectedOptional).toEqual([...DEFAULT_EXTENSIONS]);
@@ -69,8 +74,12 @@ describe("the configuration choice (ADR 0154)", () => {
   it("commits every optional root for the full configuration", async () => {
     const onDone = vi.fn();
     const before = double.commits.length;
-    render(<SetupScreen onDone={onDone} />);
+    renderSetupScreen(<SetupScreen onDone={onDone} />);
     fireEvent.click(screen.getByRole("button", { name: /^Full$/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("features-body")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Finish setup" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const draft = double.commits.at(-1)?.draft;
     expect(double.commits).toHaveLength(before + 1);
@@ -86,7 +95,7 @@ describe("the configuration choice (ADR 0154)", () => {
   });
 
   it("describes custom as picking capabilities, apart from full", () => {
-    render(<SetupScreen onDone={vi.fn()} />);
+    renderSetupScreen(<SetupScreen onDone={vi.fn()} />);
     expect(screen.getByText("pick individual capabilities")).toBeTruthy();
     expect(screen.getByText("everything enabled")).toBeTruthy();
     expect(screen.queryByText("the full setup")).toBeNull();
@@ -94,7 +103,7 @@ describe("the configuration choice (ADR 0154)", () => {
 
   it("walks the configuration choices with the arrow keys", () => {
     const onDone = vi.fn();
-    render(<SetupScreen onDone={onDone} />);
+    renderSetupScreen(<SetupScreen onDone={onDone} />);
     const minimal = screen.getByRole("button", { name: /^Minimal$/ });
     expect(document.activeElement).toBe(minimal);
     fireEvent.keyDown(minimal, { key: "ArrowRight" });
@@ -142,7 +151,7 @@ describe("the configuration choice (ADR 0154)", () => {
     double.commit = refuse;
     try {
       const onDone = vi.fn();
-      render(<SetupScreen onDone={onDone} />);
+      renderSetupScreen(<SetupScreen onDone={onDone} />);
       fireEvent.click(screen.getByRole("button", { name: /^Default$/ }));
       await waitFor(() => expect(settled).toBe(true));
       await waitFor(() =>
@@ -163,7 +172,7 @@ describe("the configuration choice (ADR 0154)", () => {
   it("records a skip without committing a configuration", async () => {
     const onDone = vi.fn();
     const before = double.commits.length;
-    render(<SetupScreen onDone={onDone} />);
+    renderSetupScreen(<SetupScreen onDone={onDone} />);
     fireEvent.click(screen.getByRole("button", { name: "Skip all" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(double.commits).toHaveLength(before);

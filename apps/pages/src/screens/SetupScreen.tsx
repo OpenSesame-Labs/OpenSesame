@@ -8,12 +8,11 @@
  * from the sign-in screen's foot.
  *
  * With no step and no join, the first screen is a configuration choice
- * (ADR 0154): Minimal, Default or Custom. Custom opens this ceremony.
- * Its first tab is always `capabilities` — what this installation runs,
- * as a draft reviewed and applied (CONSENT-03). Every further tab is a
- * `setup-panel` contribution registered by a capability the person has
- * applied: nothing is hardcoded here any more, so a deselected capability
- * has no tab. Every tab writes its record as it is answered — `settings.v1`,
+ * (ADR 0154): Minimal, Default, Full or Custom. Custom opens this ceremony
+ * on capabilities. A preset lands on Features, then Integrations: the
+ * settings tab bodies, with no vault shell. Further tabs are `setup-panel`
+ * contributions, so a deselected capability has no tab. Every tab writes
+ * its record as it is answered — `settings.v1`,
  * or the connector directory's own — every tab is skippable, and "Skip all"
  * takes the whole tour off the table. Skipping is recorded so "looked and
  * passed" stays distinct from "never looked"; it is never consent. The foot
@@ -52,6 +51,10 @@ import {
   type AppliedConfiguration,
   applySetupConfiguration,
 } from "./setup/apply-configuration.js";
+import {
+  featuresStepIndex,
+  settingsSetupSteps,
+} from "./setup/settings-setup-steps.js";
 import { useSetupRoute } from "./setup/use-setup-route.js";
 import { useRovingTabs } from "./use-roving-tabs.js";
 import "./setup.css";
@@ -116,6 +119,7 @@ export function SetupScreen({
       rail: "Capabilities",
       Panel: CapabilitySetup,
     },
+    ...settingsSetupSteps(),
     ...[...contributed].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id),
     ),
@@ -200,8 +204,13 @@ export function SetupScreen({
     setPending(id);
     void applySetupConfiguration(applied)
       .then((result) => {
-        if (result === "applied") finish([]);
-        else setPending(null);
+        if (result !== "applied") {
+          setPending(null);
+          return;
+        }
+        setIndex(featuresStepIndex(STEPS));
+        setPending(null);
+        setPhase("ceremony");
       })
       .catch(() => setPending(null));
   }

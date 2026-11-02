@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +6,7 @@ import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubl
 import { SetupScreen, setupScreenDependencies } from "./SetupScreen.js";
 import {
   openSetup,
+  renderSetupScreen,
   resetSetupScreen,
   selectedTab,
 } from "./setup/test-harness.js";
@@ -32,7 +27,14 @@ afterEach(cleanup);
 describe("the tabs and their skips (ADR 0114)", () => {
   it("walks from capabilities to the last registered panel as steps are skipped, recording each", async () => {
     const onDone = openSetup(vi.fn());
-    for (const tab of ["capabilities", "connectors", "identity", "mfa"]) {
+    for (const tab of [
+      "capabilities",
+      "features",
+      "integrations",
+      "connectors",
+      "identity",
+      "mfa",
+    ]) {
       expect(selectedTab()).toBe(tab);
       fireEvent.click(screen.getByRole("button", { name: "Skip this step" }));
     }
@@ -40,7 +42,14 @@ describe("the tabs and their skips (ADR 0114)", () => {
     expect(completeSetup).toHaveBeenCalledWith({
       ways: ["builtin"],
       service: false,
-      skipped: ["capabilities", "connectors", "identity", "mfa"],
+      skipped: [
+        "capabilities",
+        "features",
+        "integrations",
+        "connectors",
+        "identity",
+        "mfa",
+      ],
     });
   });
 
@@ -58,7 +67,7 @@ describe("the tabs and their skips (ADR 0114)", () => {
   });
 
   it("lands on a named tab when a road asks for it", () => {
-    render(<SetupScreen step="identity" onDone={vi.fn()} />);
+    renderSetupScreen(<SetupScreen step="identity" onDone={vi.fn()} />);
     expect(selectedTab()).toBe("identity");
     expect(
       screen
@@ -70,7 +79,7 @@ describe("the tabs and their skips (ADR 0114)", () => {
   it("back returns to the previous step without recording a skip", () => {
     openSetup();
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(selectedTab()).toBe("connectors");
+    expect(selectedTab()).toBe("features");
     fireEvent.click(screen.getByRole("button", { name: "Previous step" }));
     expect(selectedTab()).toBe("capabilities");
     expect(completeSetup).not.toHaveBeenCalled();
@@ -87,35 +96,41 @@ describe("the tabs and their skips (ADR 0114)", () => {
   it("next advances without calling anything skipped, and stops at the last panel", () => {
     openSetup();
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(selectedTab()).toBe("connectors");
+    expect(selectedTab()).toBe("features");
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
-    expect(selectedTab()).toBe("identity");
+    expect(selectedTab()).toBe("integrations");
     // Browsing is not skipping: the record only hears from Skip and Skip all.
     fireEvent.click(screen.getByRole("button", { name: "Skip all" }));
     expect(completeSetup).toHaveBeenCalledWith({
       ways: ["builtin"],
       service: false,
-      skipped: ["identity", "mfa"],
+      skipped: ["integrations", "connectors", "identity", "mfa"],
     });
     fireEvent.click(screen.getByRole("tab", { name: "mfa" }));
     expect(screen.queryByRole("button", { name: "Next step" })).toBeNull();
   });
 
-  it("shows only the capabilities tab until a capability registers a panel", () => {
+  it("shows the fixed tabs before a capability registers a panel", () => {
     setupScreenDependencies.useSetupPanels = () => [];
     openSetup();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "capabilities",
+      "features",
+      "integrations",
     ]);
-    expect(screen.queryByRole("button", { name: "Next step" })).toBeNull();
     expect(screen.getByTestId("capability-setup")).toBeTruthy();
+    expect(screen.queryByTestId("features-body")).toBeNull();
   });
 
   it("orders contributed panels by `order`, then id, and lands on an unknown step at the top", () => {
-    render(<SetupScreen step="nothing-like-this" onDone={vi.fn()} />);
+    renderSetupScreen(
+      <SetupScreen step="nothing-like-this" onDone={vi.fn()} />,
+    );
     expect(selectedTab()).toBe("capabilities");
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "capabilities",
+      "features",
+      "integrations",
       "connectors",
       "identity",
       "mfa",
