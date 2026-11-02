@@ -167,7 +167,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(pwa, /name: github-pages\n/);
   assert.match(
     pwa,
-    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+    /needs: \[main_ci, proof-gate, build, deploy, npm_preview, preview_smoke\]/,
   );
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,
@@ -194,8 +194,8 @@ test("CD promotes staged artifacts with automated gates only", () => {
   const pwaDeploy = jobSlice(pwa, "deploy", "preview_smoke");
   assert.match(pwaBuild, /\n {4}needs: \[main_ci\]\n/);
   assert.doesNotMatch(pwaBuild, /needs:.*proof/);
-  assert.match(pwaPreview, /needs: \[build, proof\]/);
-  assert.match(pwaDeploy, /needs: \[build, proof\]/);
+  assert.match(pwaPreview, /needs: \[build, proof-gate\]/);
+  assert.match(pwaDeploy, /needs: \[build, proof-gate\]/);
   assert.match(pwaPreview, /actions\/download-artifact@/);
   assert.match(pwaPreview, /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/);
   assert.doesNotMatch(pwaPreview, /npm run build/);
