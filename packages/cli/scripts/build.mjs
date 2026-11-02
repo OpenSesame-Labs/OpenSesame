@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { chmod, cp, mkdir, readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -26,10 +27,11 @@ await build({
     js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
   },
 });
+const require = createRequire(import.meta.url);
 execFileSync(
   process.execPath,
   [
-    join(root, "node_modules/typescript/bin/tsc"),
+    join(dirname(require.resolve("typescript/package.json")), "bin/tsc"),
     "-p",
     join(root, "tsconfig.build.json"),
   ],

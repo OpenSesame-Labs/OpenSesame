@@ -1,5 +1,6 @@
 /** Bundle the advertised public types with the same workspace boundary as JS. */
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { generateDtsBundle } from "dts-bundle-generator";
@@ -65,7 +66,15 @@ export async function bundleDeclarations(root) {
         compilerOptions: {
           rootDir: dirname(packages),
           baseUrl: dirname(packages),
-          typeRoots: [join(root, "node_modules/@types")],
+          typeRoots: [
+            dirname(
+              dirname(
+                createRequire(import.meta.url).resolve(
+                  "@types/node/package.json",
+                ),
+              ),
+            ),
+          ],
           paths,
         },
       }),
