@@ -4,11 +4,11 @@ Full command crib sheet moved from `AGENTS.md` §3. The canonical source of trut
 
 ## 3. Command crib sheet
 
-All scripts below are defined in the root `package.json` unless noted.
+All scripts below are defined in the root `package.json` unless noted. Install the toolchain with `mise install --locked` (pins in `mise.toml`) before these scripts.
 
 ```bash
 npm run bootstrap           # install if needed + db:migrate + setup:hooks
-                          # schema generation is deliberate: npm run db:generate
+                          # schema generation is deliberate: npm run db:generate -w @opensesame/database
 npm run dev                 # turbo dev (control-plane, identity-worker,
                           #   mock-upstream-idp, example-rp-alpha/beta/static-rp)
 npm run dev:pwa             # Pages vite on :5180, no backend
@@ -41,7 +41,7 @@ npm run test:anti-slop      # plugin RuleTester suite + installer-asset parity +
 npm run anti-slop:manifest  # rewrite the installer asset's MANIFEST.sha256 after changing a rule (ADR 0200)
 npm run test:rust-lint      # contract test for rustfmt/Clippy hook + verify wiring
 npm run lint:fix            # fix changed and staged files
-npm test                # turbo test across every workspace test script
+npm run test                # turbo test across every workspace test script
 npm run test:integration    # turbo run test:integration
 npm run test:e2e            # turbo run test:e2e; live suites require their URLs
 npm run test:security       # @opensesame/testing test:security
@@ -129,7 +129,7 @@ npm run test:fuzz              # Jazzer.js short pass (not in verify)
 
 **Identity plane:**
 ```bash
-npm install
+npm ci
 npm run build -w @opensesame/mock-upstream-idp
 npm run start -w @opensesame/mock-upstream-idp        # :9090
 export OPENSESAME_ENV=development OPENSESAME_ALLOW_DEV_DEFAULTS=1   # the dev claim pepper needs the opt-in, and it is 1 or 0
@@ -280,7 +280,7 @@ LIVE_OWNER=chromium LIVE_JOINERS=chromium,firefox,webkit \
 # webkit`; PLAYWRIGHT_CHROMIUM may point Chromium elsewhere). A walk an engine
 # cannot take here prints NOT TAKEN with why (lib/live-engines.mjs). CI runs it
 # as "Live join (<owner> owner)", three shards with every joiner each, folded
-# into the mandatory weekly prerelease gate. Needs a second build first: `npm run # -w @opensesame/pages build:live-dedicated` (dist-live-dedicated, stamped `dedicated_origin` for
+# into the mandatory weekly prerelease gate. Needs a second build first: `npm run build:live-dedicated -w @opensesame/pages` (dist-live-dedicated, stamped `dedicated_origin` for
 # https://opensesame.example.test). The carrier and declined walks run on it,
 # because a carrier on loopback or a LAN is local operator authority the shared
 # github.io origin may not reach (`mayPairLocalAuthority`); verify:live-join
