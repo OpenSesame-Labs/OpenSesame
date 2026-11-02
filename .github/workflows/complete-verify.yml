@@ -37,11 +37,11 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust
       - name: Install Linux keychain build and test dependencies
         run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"

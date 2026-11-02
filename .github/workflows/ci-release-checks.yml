@@ -58,7 +58,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Verify exact candidate and prerelease qualification
         env:
@@ -92,11 +92,11 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
@@ -160,11 +160,11 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
@@ -182,14 +182,14 @@ jobs:
         if: matrix.check == 'miri' || matrix.check == 'fuzz-rust'
         uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust[components=miri]@nightly-2026-08-01
           working_directory: ${{ runner.temp }}
       - name: Install the fuzz tool's build compiler
         if: matrix.check == 'fuzz-rust'
         uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust@1.94.1
           working_directory: ${{ runner.temp }}
       - name: Install pinned tools
@@ -276,7 +276,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Write candidate-bound release evidence
         env:

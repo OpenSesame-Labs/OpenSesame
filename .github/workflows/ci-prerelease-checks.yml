@@ -64,7 +64,7 @@ jobs:
             .github/workflows
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Verify the exact immutable candidate
         env:
@@ -210,7 +210,7 @@ jobs:
         run: node scripts/lib/ci-affected-tests.mjs plan
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         # Not `npm run bootstrap`: that also runs db:migrate (needs a live
@@ -317,7 +317,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -565,7 +565,7 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.shard == 'journeys-1'
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
@@ -659,7 +659,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -693,7 +693,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -729,7 +729,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -766,7 +766,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -807,7 +807,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -860,7 +860,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install
         run: npm ci
@@ -917,13 +917,13 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       # live-turn and ntfy are built from pinned source (go.sum). mise installs
       # the Go version live-turn's go.mod names (mise.toml tools.go).
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: go
       - name: Install
         run: npm ci
@@ -1024,7 +1024,7 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: steps.affected.outputs.scope != 'none'
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
@@ -1038,7 +1038,7 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: steps.affected.outputs.scope == 'all' || contains(format(' {0} ', steps.affected.outputs.packages), ' opensesame-env-spec ')
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Install the env-spec bridge's parser
         # That package and its dependencies only (@env-spec/parser has none
@@ -1084,7 +1084,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
         run: rustup target add --toolchain 1.88.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
@@ -1131,7 +1131,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust
       - name: Install iOS Rust targets
         run: rustup target add --toolchain 1.88.0 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
@@ -1163,11 +1163,11 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
@@ -1403,7 +1403,7 @@ jobs:
             .github/workflows
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node
       - name: Materialize the verified candidate
         id: candidate
@@ -1469,7 +1469,7 @@ jobs:
             .github/workflows
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Require every qualification job to succeed
         env:
@@ -1494,7 +1494,7 @@ jobs:
             .github/workflows
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Record successful candidate qualification
         env:

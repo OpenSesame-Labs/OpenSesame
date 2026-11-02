@@ -13,7 +13,11 @@ fi
 
 if [[ ! -d "$WS/node_modules/deepsec" ]]; then
   echo "==> deepsec-gate: installing workspace deps"
-  (cd "$WS" && npm install)
+  if [[ -f "$WS/package-lock.json" ]]; then
+    (cd "$WS" && npm ci --ignore-scripts)
+  else
+    (cd "$WS" && npm install --ignore-scripts)
+  fi
 fi
 
 echo "==> deepsec-gate: pattern scan (free, no AI)"

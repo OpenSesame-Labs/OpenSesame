@@ -241,8 +241,10 @@ export function samlBrowserCrypto(root) {
       if (peer) return peer;
       if (source !== "reflect-metadata") return null;
       const original = await this.resolve(source, importer, { skipSelf: true });
+      // A side-effect import. Without the flag, code-splitting can drop the
+      // lite polyfill from the @peculiar/x509 chunk and tsyringe throws.
       return original?.id === input.reflection.full
-        ? input.reflection.lite
+        ? { id: input.reflection.lite, moduleSideEffects: true }
         : null;
     },
     transform(source, id) {

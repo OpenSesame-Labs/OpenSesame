@@ -1,16 +1,10 @@
 #!/usr/bin/env node
 /**
- * Build each install profile, serve it at /OpenSesame/, and capture one
- * composite PNG per profile.
- *
- * The front door is the same shell. What differs is the setup choice
- * (Minimal, Default, Custom, Full) and where that choice lands: Features
- * for the three presets, the capabilities ceremony for Custom. A shared
- * PNG hash fails the run. default and custom share the stock dist on
- * purpose — a marker file is not a profile.
+ * Build each install profile and capture one composite PNG.
+ * Each walk is served from its own dist/ on 127.0.0.1 at /OpenSesame/.
+ * The live Pages host is never the navigation target.
  *
  *   node scripts/ci/pwa-install-profile-proof.mjs
- *   VERIFY_SKIP_BUILD=1 node scripts/ci/pwa-install-profile-proof.mjs
  */
 
 import { createHash } from "node:crypto";
@@ -29,7 +23,10 @@ import { pathToFileURL } from "node:url";
 import { findChromium } from "../../apps/pages/scripts/duress/find-chromium.mjs";
 import { awaitCapabilitySections } from "../../apps/pages/scripts/lib/always-on.mjs";
 import { openSettingsCategory } from "../../apps/pages/scripts/lib/pages-journey.mjs";
-import { createHarness } from "../../apps/pages/scripts/lib/static-origin-harness.mjs";
+import {
+  createHarness,
+  serveLoopbackDist,
+} from "../../apps/pages/scripts/lib/static-origin-harness.mjs";
 import {
   WALK_NAMES,
   appPaths,
@@ -43,7 +40,6 @@ import {
 } from "../../apps/pages/scripts/lib/verification-checklist-setup.mjs";
 import {
   BASE,
-  ORIGIN,
   emptyRecord,
   visibleClick,
 } from "../../apps/pages/scripts/lib/verification-checklist-shot.mjs";
@@ -219,7 +215,17 @@ async function finishProfile(page, shot, walk, where, texts) {
   return { distinguish: "features", switchesOn, ceremonyReached: false };
 }
 
+const LIVE_PAGES = "https://opensesame-labs.github.io";
+
+function assertLocalPage(page, name) {
+  const url = page.url();
+  if (url.startsWith(LIVE_PAGES)) {
+    throw new Error(`${name} navigated to live Pages: ${url}`);
+  }
+}
+
 async function failureShot(page, root, name) {
+  console.error(`[pwa-proof] ${name} failed at ${page.url()}`);
   const failed = join(root, `failure-${name}.png`);
   await page
     .screenshot({ path: failed, animations: "disabled" })
@@ -260,13 +266,16 @@ async function composeProfile(walk, stepsDir, root, distinguish) {
 
 async function proveProfile({ browser, walk, dist, distDigest, root }) {
   const stepsDir = await mkdtemp(join(tmpdir(), "pwa-proof-"));
+  const server = await serveLoopbackDist({ dist, base: BASE });
   const harness = createHarness({
     dist,
-    origin: ORIGIN,
+    origin: server.origin,
     base: BASE,
     out: stepsDir,
   });
-  const opened = await harness.newPage(browser);
+  const opened = await harness.newPage(browser, {
+    passthrough: [server.origin],
+  });
   const texts = new Map();
   const record = emptyRecord(walk);
   const shot = proofShot(opened.page, stepsDir, texts, record);
@@ -275,7 +284,8 @@ async function proveProfile({ browser, walk, dist, distDigest, root }) {
   });
   try {
     await opened.page.emulateMedia({ reducedMotion: "reduce" });
-    await openDoor(opened.page, shot, record);
+    await openDoor(opened.page, shot, record, server.href);
+    assertLocalPage(opened.page, walk.name);
     await captureChoice(opened.page, walk, stepsDir);
     const where = await applySetupChoice(
       opened.page,
@@ -305,6 +315,7 @@ async function proveProfile({ browser, walk, dist, distDigest, root }) {
     throw error;
   } finally {
     await opened.context.close();
+    await server.close();
     await rm(stepsDir, { recursive: true, force: true });
   }
 }
@@ -312,12 +323,16 @@ async function proveProfile({ browser, walk, dist, distDigest, root }) {
 async function launchBrowser(dist, root) {
   const harness = createHarness({
     dist,
-    origin: ORIGIN,
+    origin: "http://127.0.0.1",
     base: BASE,
     out: root,
   });
   return harness.launch({
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--host-resolver-rules=MAP opensesame-labs.github.io ~NOTFOUND",
+    ],
   });
 }
 

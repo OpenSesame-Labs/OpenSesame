@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
-    "jose": "6.2.13"
+    "jose": "6.2.14"
   },
   "peerDependencies": {
     "hono": "^4.7.0"

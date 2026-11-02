@@ -15,17 +15,23 @@ The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is publi
 
 ## npm versioning (trunk CD)
 
-Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes with dist-tag **`alpha`**; **Production** adds **`next`**. Prereleases never receive **`latest`**.
+Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes with dist-tag **`alpha`** and no environment wait. **Production** publishes dist-tag **`next`** with OIDC trusted publishing (`--provenance`). Prereleases never receive **`latest`**, and CD never runs `npm dist-tag add`.
+
+The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again.
 
 ## Workflows
 
-| Workflow | Trigger | Environments |
+| Workflow | Trigger | What runs |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | **Preview** → publish **`alpha`**; **Production** → **`next`** dist-tag |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | **Preview** → npm **`alpha`** + **github-pages** deploy → **Production** verify + npm **`next`** |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Stage once. Preview publishes **`alpha`** with no environment wait. **Production** publishes **`next`** via OIDC. |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Profile proof, then one Pages/npm build. Preview publishes **`alpha`** and deploys **github-pages** with no reviewer wait. **Production** downloads the same artifacts, verifies the live site, and publishes **`next`** via OIDC. |
+| `cd-npm-publish-proof.yml` | pull requests touching npm CD | none (actionlint and alpha dry-run) |
+| `cd-pwa-profile-proof.yml` | pull requests touching the install-profile proof | none (loopback Chromium screenshots) |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
-`workflow_dispatch` input `dry_run: true` stops before the first gated environment (**Preview** for npm and PWA).
+`github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is the only required-reviewer gate. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production.
+
+Tyler removes the Preview required reviewers with the commands in `github-setup-spec.json` (`github_environment_changes_via_gh`). Production keeps its reviewer. Preview publish uses the repository `NPM_TOKEN` when that secret exists, otherwise OIDC trusted publishing.
 
 ## OpenPacker mapping (abbreviated)
 
@@ -33,4 +39,4 @@ OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` pub
 
 ## Operator-owned
 
-Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
+Tyler configures environments, npm org **`@opensesame-labs`**, trusted publishers for Production OIDC (no Production `NPM_TOKEN`), merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
