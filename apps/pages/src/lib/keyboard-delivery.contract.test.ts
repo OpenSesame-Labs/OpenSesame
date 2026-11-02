@@ -9,7 +9,7 @@ it("requires a built-page keyboard journey in the existing required CI job", () 
     "../../../../.github/workflows/ci-prerelease-checks.yml",
   );
   const bundle = workflow.split("  bundle:")[1]?.split("  rust:")[0];
-  expect(bundle).toContain("npm run verify:keyboard"); -w @opensesame/pages
+  expect(bundle).toContain("npm run verify:keyboard");
   const manifest = JSON.parse(read("../../package.json"));
   expect(manifest.scripts["verify:keyboard"]).toBe(
     "node scripts/verify-keyboard.mjs",
