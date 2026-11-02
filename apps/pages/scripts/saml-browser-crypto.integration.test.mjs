@@ -209,10 +209,10 @@ afterAll(() => {
 
 it("retains the official XML verifier/canonicalizer with one existing certificate parser and no PKIjs", () => {
   expect(
-    included.some((id) => id.endsWith("/xmldsigjs/build/esm/signed_xml.js")),
+    included.some((id) => id.endsWith("/xmldsigjs/build/signed_xml.js")),
   ).toBe(true);
   expect(
-    included.some((id) => id.endsWith("/xmldsigjs/build/esm/canonicalizer.js")),
+    included.some((id) => id.endsWith("/xmldsigjs/build/canonicalizer.js")),
   ).toBe(true);
   expect(
     included.filter((id) => id.endsWith("/@peculiar/x509/build/index.js")),
