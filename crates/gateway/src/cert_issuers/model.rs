@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use rcgen::{
-    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, Issuer, KeyPair,
+    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, KeyPair,
     KeyUsagePurpose, PublicKeyData, PKCS_ECDSA_P256_SHA256,
 };
 use serde::{Deserialize, Serialize};
@@ -458,6 +458,7 @@ pub enum IssuerError {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use rcgen::Issuer;
 
     fn externally_signed_leaf(request: &CertificateRequest) -> (String, GeneratedLeafRequest) {
         let ca_key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).unwrap();

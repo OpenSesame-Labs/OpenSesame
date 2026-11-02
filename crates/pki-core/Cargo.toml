@@ -34,13 +34,8 @@ name = "opensesame_pki_core"
 path = "src/lib.rs"
 
 [dependencies]
-<<<<<<< HEAD
-rcgen = { version = "0.13.2", default-features = false, features = ["crypto", "aws_lc_rs", "x509-parser", "pem", "zeroize"] }
-x509-parser = { version = "0.18.1", features = ["verify"] }
-=======
 rcgen = { version = "0.14.9", default-features = false, features = ["crypto", "aws_lc_rs", "x509-parser", "pem", "zeroize"] }
-x509-parser = { version = "0.16.0", features = ["verify"] }
->>>>>>> ebd005df0 (build(deps): bump rcgen from 0.13.2 to 0.14.9)
+x509-parser = { version = "0.18.1", features = ["verify"] }
 x509-cert = "0.2.5"
 der = { version = "0.7.10", features = ["oid", "derive", "alloc"] }
 spki = "0.7.3"
