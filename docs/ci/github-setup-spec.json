@@ -27,7 +27,6 @@
       "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-branch-policies -f name=main -f type=branch",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/Preview --jq '{wait_timer,rules:[.protection_rules[].type]}'",
       "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-protection-rules/70926080",
-      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Production --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
       "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-branch-policies -f name=main -f type=branch",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/Production --jq '{wait_timer,rules:[.protection_rules[].type]}'",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/github-pages --jq '{wait_timer,rules:[.protection_rules[].type]}'"

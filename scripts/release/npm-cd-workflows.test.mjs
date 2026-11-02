@@ -84,6 +84,7 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
   assert.match(proof, /\.github\/workflows\/cd-pwa\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-npm-publish-proof\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-pwa-profile-proof\.yml/);
+  assert.match(proof, /\.github\/workflows\/cd-promotion-gates-proof\.yml/);
   assert.doesNotMatch(proof, /action\.yml/);
 });
 
@@ -102,6 +103,11 @@ test("CD promotes staged artifacts with automated gates only", () => {
     assert.match(text, /cd-release-meta\.mjs write /);
     assert.match(text, /cd-release-meta\.mjs check /);
     assert.match(text, /cd-main-ci-gate\.mjs/);
+    assert.match(text, /cd-preview-smoke\.mjs/);
+    assert.match(text, /if: failure\(\) && !cancelled\(\)/);
+    assert.equal((text.match(/promotion_failed:/g) ?? []).length, 1);
+    assert.doesNotMatch(text, /self-hosted/);
+    assert.match(text, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   }
   assert.doesNotMatch(pwa, /Preview gate/);
   assert.match(pwa, /name: github-pages\n/);
@@ -147,6 +153,30 @@ test("CD promotes staged artifacts with automated gates only", () => {
     /DELETE repos\/OpenSesame-Labs\/OpenSesame\/environments\/Production\/deployment-protection-rules\/70926080/,
   );
   assert.doesNotMatch(commands, /"id":145080887/);
+  assert.doesNotMatch(
+    commands,
+    /PUT repos\/OpenSesame-Labs\/OpenSesame\/environments\/Production/,
+  );
   assert.match(commands, /environments\/github-pages/);
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
+  assert.deepEqual(spec.merge_queue.required_status_check_contexts, [
+    "TypeScript",
+    "Rust",
+    "Bundle budgets",
+  ]);
+  const pipelines = read("docs/ci/pipelines.md");
+  assert.doesNotMatch(pipelines, /only required-reviewer/);
+  assert.match(pipelines, /No required reviewers/);
+  assert.match(pwa, /pages-release\.mjs stamp /);
+  const gates = read(".github/workflows/cd-promotion-gates-proof.yml");
+  assert.match(gates, /pull_request:/);
+  assert.match(gates, /workflow_dispatch:/);
+  assert.match(gates, /force_smoke_fail:/);
+  assert.match(gates, /cd-promotion-notify\.test\.mjs/);
+  assert.match(gates, /exit 1/);
+  assert.doesNotMatch(gates, /self-hosted/);
+  const ci = read(".github/workflows/ci.yml");
+  for (const name of ["TypeScript", "Rust", "Bundle budgets"]) {
+    assert.match(ci, new RegExp(`name: ${name}\\n`));
+  }
 });

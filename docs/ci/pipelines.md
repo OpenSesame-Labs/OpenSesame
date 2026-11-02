@@ -34,7 +34,7 @@ Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the sam
 
 `github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is not a human approval gate; workflow jobs enforce promotion. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production.
 
-Environment protection uses main-only branch policies with no required reviewers (Preview, Production, github-pages). Preview publish uses the repository `NPM_TOKEN` when that secret exists, otherwise OIDC trusted publishing.
+Environment protection uses main-only branch policies with no required reviewers on Preview, Production, or github-pages. The Production environment is selected only so the dist-tag job can read `NPM_TOKEN`. Preview publish uses the repository `NPM_TOKEN` when that secret exists, otherwise OIDC trusted publishing.
 
 ## OpenPacker mapping (abbreviated)
 
