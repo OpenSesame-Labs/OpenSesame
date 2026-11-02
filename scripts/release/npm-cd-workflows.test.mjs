@@ -111,7 +111,10 @@ test("CD promotes staged artifacts with automated gates only", () => {
   }
   assert.doesNotMatch(pwa, /Preview gate/);
   assert.match(pwa, /name: github-pages\n/);
-  assert.match(pwa, /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/);
+  assert.match(
+    pwa,
+    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+  );
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,
     3,
@@ -138,8 +141,8 @@ test("CD promotes staged artifacts with automated gates only", () => {
   );
   for (const envName of ["Preview", "Production", "github-pages"]) {
     assert.deepEqual(
-      spec.environments.find((entry) => entry.name === envName)
-        .protection_rules.required_reviewers,
+      spec.environments.find((entry) => entry.name === envName).protection_rules
+        .required_reviewers,
       [],
     );
   }

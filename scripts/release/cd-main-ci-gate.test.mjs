@@ -118,17 +118,19 @@ test("failedChecks requires every required job to succeed", () => {
     /Rust missing/,
   );
   const skipped = succeededJobs().map((job) =>
-    job.name === "Bundle budgets"
-      ? { ...job, conclusion: "skipped" }
-      : job,
+    job.name === "Bundle budgets" ? { ...job, conclusion: "skipped" } : job,
   );
-  assert.match(failedChecks(skipped).join(" "), /Bundle budgets completed\/skipped/);
+  assert.match(
+    failedChecks(skipped).join(" "),
+    /Bundle budgets completed\/skipped/,
+  );
 });
 
 test("waitForMainCi admits the sha after the push run succeeds", async () => {
   let lists = 0;
   const fetcher = async (url) => {
-    if (String(url).includes("/jobs")) return jsonResponse({ jobs: succeededJobs() });
+    if (String(url).includes("/jobs"))
+      return jsonResponse({ jobs: succeededJobs() });
     lists += 1;
     if (lists === 1) {
       return jsonResponse({

@@ -36,9 +36,15 @@ test("promotion message names the failed gate and the skipped followers", () => 
   assert.match(message, /Skipped after the failure: production/);
   assert.match(message, /Workflow: CD npm CLI/);
   assert.doesNotMatch(message, /ghp_test_token/);
-  assert.match(annotationCommand(message), /^::error title=CD promotion blocked::/);
+  assert.match(
+    annotationCommand(message),
+    /^::error title=CD promotion blocked::/,
+  );
   assert.match(annotationCommand(message), /preview_smoke/);
-  assert.throws(() => promotionMessage(gatesFromEnv({ GATE_MAIN_CI: "success" }), env()), /no failed gate/);
+  assert.throws(
+    () => promotionMessage(gatesFromEnv({ GATE_MAIN_CI: "success" }), env()),
+    /no failed gate/,
+  );
 });
 
 test("notify writes an annotation and comments on the commit", async () => {

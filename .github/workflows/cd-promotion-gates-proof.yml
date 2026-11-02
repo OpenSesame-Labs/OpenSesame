@@ -54,6 +54,9 @@ jobs:
   simulate_blocked:
     name: Simulated promotion gates (forced smoke failure)
     needs: unit
+    # Always-fail on pull_request turns the proof workflow red. The blocked
+    # path runs only when someone dispatches the workflow with force_smoke_fail.
+    if: github.event_name == 'workflow_dispatch' && inputs.force_smoke_fail == true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -71,6 +74,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true

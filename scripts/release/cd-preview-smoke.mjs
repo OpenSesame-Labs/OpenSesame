@@ -42,7 +42,10 @@ export function distTagVersion(payload, tag = CLI_DIST_TAG) {
     throw new Error("npm dist-tags response is not an object");
   }
   const version = readString(payload[tag]);
-  if (version === undefined || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)) {
+  if (
+    version === undefined ||
+    !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(version)
+  ) {
     throw new Error(`npm dist-tag ${tag} is missing for ${CLI_PACKAGE}`);
   }
   return version;
@@ -191,7 +194,8 @@ export async function runPreviewSmoke(env, deps = {}) {
   const runner = deps.run ?? spawnCaptured;
   const verify = deps.verifyPages ?? verifyRelease;
   const sleep = deps.sleep ?? delay;
-  const attempts = deps.attempts ?? readCount(env.SMOKE_ATTEMPTS, 6, "SMOKE_ATTEMPTS");
+  const attempts =
+    deps.attempts ?? readCount(env.SMOKE_ATTEMPTS, 6, "SMOKE_ATTEMPTS");
   const expected = readString(env.EXPECTED_VERSION);
   const pagesUrl = readString(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA) ?? "";
@@ -224,7 +228,8 @@ if (
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   main().catch((error) => {
-    const message = error instanceof Error ? error.message : "preview smoke failed";
+    const message =
+      error instanceof Error ? error.message : "preview smoke failed";
     console.error(message);
     process.exit(1);
   });
