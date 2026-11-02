@@ -5,6 +5,8 @@ node_modules/
 /.npm-cache/
 /.tools/
 dist/
+packages/cli/release/
+apps/pages/release/
 *.sqlite
 *.sqlite-*
 .env

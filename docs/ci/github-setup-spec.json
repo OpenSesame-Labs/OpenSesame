@@ -1,0 +1,114 @@
+{
+  "schema": "opensesame-ci-setup/v1",
+  "repository": "OpenSesame-Labs/OpenSesame",
+  "merge_queue": {
+    "base_branch": "main",
+    "required_status_check_contexts": ["TypeScript", "Rust", "Bundle budgets"],
+    "note": "Reported by .github/workflows/ci.yml jobs typescript, rust-check, and bundle-check on pull_request and merge_group."
+  },
+  "environments": [
+    {
+      "name": "Preview",
+      "used_by": [
+        ".github/workflows/cd-npm-cli.yml",
+        ".github/workflows/cd-pwa.yml"
+      ],
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true,
+        "allowed_branch": "main"
+      },
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "wait_timer_minutes": 0,
+        "prevent_self_review": false
+      },
+      "secrets": {
+        "NPM_TOKEN": "npm automation or granular publish token (CLI and web-pwa Preview publish jobs)"
+      },
+      "variables": {}
+    },
+    {
+      "name": "Production",
+      "used_by": [
+        ".github/workflows/cd-npm-cli.yml",
+        ".github/workflows/cd-pwa.yml"
+      ],
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true,
+        "allowed_branch": "main"
+      },
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "wait_timer_minutes": 0,
+        "prevent_self_review": false
+      },
+      "secrets": {
+        "NPM_TOKEN": "same npm token scope as Preview; adds the next dist-tag (never latest for prereleases)"
+      },
+      "variables": {}
+    },
+    {
+      "name": "github-pages",
+      "used_by": [".github/workflows/cd-pwa.yml"],
+      "deployment_branch_policy": "GitHub Pages default (workflow build from main)",
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "note": "Optional; pair with Preview approval before deploy job runs."
+      },
+      "secrets": {},
+      "variables": {}
+    },
+    {
+      "name": "copilot",
+      "used_by": [],
+      "note": "Existing environment; not referenced by new CD workflows. Reserved for Copilot/automation integrations."
+    }
+  ],
+  "repository_variables": {
+    "PAGES_CANONICAL_ORIGIN": "https://opensesame-labs.github.io",
+    "PAGES_DEPLOYMENT_PROFILE": "shared_origin_demo",
+    "PAGES_HEADER_SECURITY": "0",
+    "VITE_BASE": "/OpenSesame/"
+  },
+  "npm_scope": "@opensesame-labs",
+  "npm_versioning": {
+    "initial": "0.0.0-alpha.0",
+    "prerelease_id": "alpha",
+    "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
+    "dist_tags": {
+      "preview_publish": "alpha (the prerelease id)",
+      "production_promotion": "next (never latest while versions stay prerelease)"
+    }
+  },
+  "npm_packages": [
+    {
+      "name": "@opensesame-labs/cli",
+      "workspace_path": "packages/cli",
+      "workspace_name": "@opensesame/cli",
+      "bins": ["opensesame"],
+      "exists_on_npm": false,
+      "dist_tags": {
+        "alpha": "Preview npm publish",
+        "next": "Production dist-tag promotion"
+      }
+    },
+    {
+      "name": "@opensesame-labs/web-pwa",
+      "workspace_path": "apps/pages",
+      "workspace_name": "@opensesame/pages",
+      "bins": ["opensesame-pages"],
+      "exists_on_npm": false,
+      "dist_tags": {
+        "alpha": "cd-pwa.yml Preview npm job",
+        "next": "cd-pwa.yml Production dist-tag job"
+      },
+      "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
+    }
+  ],
+  "npm_trusted_publishing": {
+    "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
+    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/web-pwa on GitHub Actions for OpenSesame-Labs/OpenSesame."
+  }
+}

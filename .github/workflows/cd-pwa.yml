@@ -1,0 +1,190 @@
+# GitHub Pages PWA CD — install-profile proof, npm publish, Pages deploy, Production verification.
+name: CD PWA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/pages/**"
+      - "packages/app-core/**"
+      - "packages/static-auth/**"
+      - "scripts/release/plan-pages-release.mjs"
+      - "scripts/release/plan-npm-cd-release.mjs"
+      - "scripts/release/npm-prerelease-version.mjs"
+      - "scripts/release/prepare-pages-release.mjs"
+      - "scripts/release/npm-publish-names.mjs"
+      - "scripts/release/pages-pwa-serve.mjs"
+      - ".github/actions/publish-npm-package/**"
+      - ".github/workflows/cd-pwa.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Stop after profile proof (before Preview environment).
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: cd-pwa
+  cancel-in-progress: false
+
+env:
+  PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
+  PAGES_DEPLOYMENT_PROFILE: ${{ vars.PAGES_DEPLOYMENT_PROFILE || 'shared_origin_demo' }}
+  PAGES_HEADER_SECURITY: ${{ vars.PAGES_HEADER_SECURITY || '0' }}
+  VITE_BASE: ${{ vars.VITE_BASE || '/OpenSesame/' }}
+
+jobs:
+  proof:
+    name: Build install profiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Profile builds and screenshots
+        run: node scripts/ci/pwa-install-profile-proof.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pwa-profile-proof-${{ github.run_id }}
+          path: artifacts/pwa-profile-proof
+          if-no-files-found: error
+
+  preview:
+    name: Preview gate
+    needs: proof
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    environment:
+      name: Preview
+    steps:
+      - run: echo "Preview approval recorded for PWA and npm promotion."
+
+  build:
+    name: Build Pages and stage npm
+    needs: preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      npm_dist_tag: ${{ steps.plan.outputs.npm_dist_tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Plan version
+        id: plan
+        run: |
+          set -euo pipefail
+          short="$(git rev-parse --short=7 HEAD)"
+          node scripts/release/plan-pages-release.mjs --sha "$short" | tee /tmp/plan.txt
+          version="$(sed -n 's/^version=//p' /tmp/plan.txt)"
+          npm_dist_tag="$(sed -n 's/^npm_dist_tag=//p' /tmp/plan.txt)"
+          test -n "$version"
+          test -n "$npm_dist_tag"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - name: Production Pages build
+        env:
+          PAGES_CANONICAL_ORIGIN: ${{ env.PAGES_CANONICAL_ORIGIN }}
+          PAGES_DEPLOYMENT_PROFILE: ${{ env.PAGES_DEPLOYMENT_PROFILE }}
+          PAGES_HEADER_SECURITY: ${{ env.PAGES_HEADER_SECURITY }}
+          VITE_BASE: ${{ env.VITE_BASE }}
+        run: npm run build -w @opensesame/pages
+      - name: Stage npm publish tree
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: node scripts/release/prepare-pages-release.mjs
+      - name: npm publish dry-run
+        working-directory: apps/pages/release
+        env:
+          NPM_DIST_TAG: ${{ steps.plan.outputs.npm_dist_tag }}
+        run: npm publish --dry-run --access public --tag "$NPM_DIST_TAG"
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: apps/pages/dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-pages-pwa-release-${{ github.run_id }}
+          path: apps/pages/release
+          if-no-files-found: error
+
+  npm_preview:
+    name: Preview npm publish
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: Preview
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-pages-pwa-release-${{ github.run_id }}
+          path: apps/pages/release
+      - uses: ./.github/actions/publish-npm-package
+        with:
+          working-directory: apps/pages/release
+          npm-dist-tag: ${{ needs.build.outputs.npm_dist_tag }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
+
+  deploy:
+    name: Deploy GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v4.0.5
+
+  production:
+    name: Production verification
+    needs: [deploy, npm_preview]
+    runs-on: ubuntu-24.04
+    environment:
+      name: Production
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          sparse-checkout: scripts/release
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Verify live Pages release
+        env:
+          PAGES_URL: ${{ needs.deploy.outputs.page_url }}
+        run: node scripts/release/pages-release.mjs verify "${{ env.PAGES_URL }}" "${{ github.sha }}"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-pages-pwa-release-${{ github.run_id }}
+          path: apps/pages/release
+      - name: Point next at this prerelease (never latest)
+        working-directory: apps/pages/release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.21.1 --no-fund --no-audit
+          name="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")"
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
+          npm dist-tag add "${name}@${version}" next --registry https://registry.npmjs.org

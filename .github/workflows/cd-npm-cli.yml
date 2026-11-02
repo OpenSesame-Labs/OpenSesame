@@ -1,0 +1,121 @@
+# Publish @opensesame-labs/cli after main merges. Preview then Production gates.
+name: CD npm CLI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/cli/**"
+      - "scripts/release/plan-cli-release.mjs"
+      - "scripts/release/plan-npm-cd-release.mjs"
+      - "scripts/release/npm-prerelease-version.mjs"
+      - "scripts/release/prepare-cli-release.mjs"
+      - "scripts/release/npm-publish-names.mjs"
+      - ".github/actions/publish-npm-package/**"
+      - ".github/workflows/cd-npm-cli.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Stop after staging (before the Preview environment).
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: cd-npm-cli
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    name: Stage CLI release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      npm_dist_tag: ${{ steps.plan.outputs.npm_dist_tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Plan version
+        id: plan
+        run: |
+          set -euo pipefail
+          short="$(git rev-parse --short=7 HEAD)"
+          node scripts/release/plan-cli-release.mjs --mode cd --sha "$short" | tee /tmp/plan.txt
+          version="$(sed -n 's/^version=//p' /tmp/plan.txt)"
+          npm_dist_tag="$(sed -n 's/^npm_dist_tag=//p' /tmp/plan.txt)"
+          test -n "$version"
+          test -n "$npm_dist_tag"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm run build -w @opensesame/cli
+      - name: Stage publish tree
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: node scripts/release/prepare-cli-release.mjs
+      - name: npm publish dry-run
+        working-directory: packages/cli/release
+        env:
+          NPM_DIST_TAG: ${{ steps.plan.outputs.npm_dist_tag }}
+        run: npm publish --dry-run --access public --tag "$NPM_DIST_TAG"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-cli-release-${{ github.run_id }}
+          path: packages/cli/release
+          if-no-files-found: error
+
+  preview:
+    name: Preview npm publish
+    needs: stage
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    environment:
+      name: Preview
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-cli-release-${{ github.run_id }}
+          path: packages/cli/release
+      - uses: ./.github/actions/publish-npm-package
+        with:
+          working-directory: packages/cli/release
+          npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
+
+  production:
+    name: Production npm dist-tag
+    needs: preview
+    runs-on: ubuntu-24.04
+    environment:
+      name: Production
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-cli-release-${{ github.run_id }}
+          path: packages/cli/release
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Point next at this prerelease (never latest)
+        working-directory: packages/cli/release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.21.1 --no-fund --no-audit
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
+          npm dist-tag add "@opensesame-labs/cli@${version}" next --registry https://registry.npmjs.org

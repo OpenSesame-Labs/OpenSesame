@@ -1,0 +1,40 @@
+# Fast PR feedback. Merge queue and required checks use ci.yml.
+name: CI advisory
+
+on:
+  pull_request:
+    branches: [main, "cursor/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-advisory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisory:
+    name: Format and anti-slop (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - run: npm ci
+      - run: npx biome check --changed --since=origin/main --no-errors-on-unmatched .
+      - name: Anti-slop on changed source only
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git diff --name-only --diff-filter=d origin/main...HEAD | grep -E '\.(tsx?|mjs|cjs|jsx?)$' || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No TypeScript or JavaScript files changed."
+            exit 0
+          fi
+          npm run lint:anti-slop:files -- "${files[@]}"
