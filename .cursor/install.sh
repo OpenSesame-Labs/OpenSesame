@@ -3,11 +3,18 @@
 set -euo pipefail
 
 . .cursor/cloud-path.sh
-export PATH="/usr/local/cargo/bin:${PATH}"
+export MISE_DATA_DIR="${MISE_DATA_DIR:-/opt/mise}"
+case ":${PATH}:" in
+  *:"${MISE_DATA_DIR}/shims":*) ;;
+  *) PATH="${MISE_DATA_DIR}/shims:${PATH}" ;;
+esac
+export PATH
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/packages/cargo-target}"
 
-
-
+# Node, npm, and Rust come from the locked mise config. `deps` runs the
+# npm workspace install (scripts/dev/install-dependencies.sh).
+mise install --locked
+mise run deps
 bash scripts/dev/install-dependencies.sh
 cargo +1.88.0 fetch
 
