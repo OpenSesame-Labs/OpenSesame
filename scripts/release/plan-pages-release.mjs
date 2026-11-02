@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { formatPlan, planCliRelease } from "./plan-cli-release.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
-const manifestPath = resolve(root, "packages/env-spec-bridge/package.json");
+const manifestPath = resolve(root, "apps/pages/package.json");
 
 function parseArgs(argv) {
   let mode = "";
@@ -35,8 +35,8 @@ function main() {
     packageVersion: manifest.version,
     sha,
     stamp: process.env.RELEASE_STAMP,
-    tagPrefix: "env-spec-v",
-    releaseName: "env-spec-bridge",
+    tagPrefix: "pages-pwa-v",
+    releaseName: "pages-pwa",
   });
   process.stdout.write(`${formatPlan(plan)}\n`);
 }

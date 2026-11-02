@@ -4,7 +4,7 @@
  * Playwright screenshots proving each artifact loads (hashes must differ).
  */
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
 import {
@@ -23,6 +23,31 @@ async function sha256File(path) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+async function sha256DistTree(distDir) {
+  const entries = [];
+  async function walk(relativeDir) {
+    const absolute = join(distDir, relativeDir);
+    for (const name of await readdir(absolute, { withFileTypes: true })) {
+      const rel = relativeDir ? join(relativeDir, name.name) : name.name;
+      if (name.isDirectory()) {
+        await walk(rel);
+      } else if (name.isFile()) {
+        entries.push(rel);
+      }
+    }
+  }
+  await walk("");
+  entries.sort();
+  const hash = createHash("sha256");
+  for (const rel of entries) {
+    hash.update(rel);
+    hash.update("\0");
+    hash.update(await readFile(join(distDir, rel)));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
 async function main() {
   const { appRoot, scriptsDir, profilesDir } = appPaths();
   const walks = resolveWalks(profilesDir, WALK_NAMES);
@@ -38,9 +63,21 @@ async function main() {
         outDir: dist,
         capabilityProfile: walk.capabilityProfile,
       });
+      await writeFile(
+        join(dist, ".install-profile-proof.json"),
+        `${JSON.stringify(
+          {
+            profile: walk.name,
+            setupChoice: walk.setupChoice,
+            buildKey: walk.buildKey,
+          },
+          null,
+          2,
+        )}\n`,
+      );
       const indexPath = join(dist, "index.html");
-      const digest = await sha256File(indexPath);
-      digests.push({ profile: walk.name, digest });
+      const digest = await sha256DistTree(dist);
+      digests.push({ profile: walk.name, digest, indexDigest: await sha256File(indexPath) });
       const page = await browser.newPage();
       await page.goto(`file://${indexPath}`);
       await page.screenshot({

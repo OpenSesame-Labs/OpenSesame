@@ -15,7 +15,6 @@
       "name": "Preview",
       "used_by": [
         ".github/workflows/cd-npm-cli.yml",
-        ".github/workflows/cd-npm-env-spec-bridge.yml",
         ".github/workflows/cd-pwa.yml"
       ],
       "deployment_branch_policy": {
@@ -29,7 +28,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "npm automation or granular publish token (CLI and env-spec-bridge Preview publish jobs only)"
+        "NPM_TOKEN": "npm automation or granular publish token (CLI and Pages PWA Preview publish jobs)"
       },
       "variables": {}
     },
@@ -37,7 +36,6 @@
       "name": "Production",
       "used_by": [
         ".github/workflows/cd-npm-cli.yml",
-        ".github/workflows/cd-npm-env-spec-bridge.yml",
         ".github/workflows/cd-pwa.yml"
       ],
       "deployment_branch_policy": {
@@ -51,7 +49,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "same npm token scope as Preview; used for latest dist-tag publish"
+        "NPM_TOKEN": "same npm token scope as Preview; used for latest dist-tag promotion"
       },
       "variables": {}
     },
@@ -92,19 +90,21 @@
       }
     },
     {
-      "name": "@opensesame-labs/env-spec-bridge",
-      "workspace_path": "packages/env-spec-bridge",
-      "workspace_name": "@opensesame/env-spec-bridge",
-      "bins": ["opensesame-env-parse"],
+      "name": "@opensesame-labs/pages-pwa",
+      "name_note": "Placeholder until Tyler confirms; constant PWA_NPM_PACKAGE_NAME_PLACEHOLDER in scripts/release/npm-publish-names.mjs",
+      "workspace_path": "apps/pages",
+      "workspace_name": "@opensesame/pages",
+      "bins": ["opensesame-pages"],
       "exists_on_npm": false,
       "dist_tags": {
-        "preview": "Preview workflow job",
-        "latest": "Production workflow job"
-      }
+        "preview": "cd-pwa.yml Preview npm job",
+        "latest": "cd-pwa.yml Production dist-tag job"
+      },
+      "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
     "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
-    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/env-spec-bridge on GitHub Actions for OpenSesame-Labs/OpenSesame."
+    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and the Pages PWA npm package on GitHub Actions for OpenSesame-Labs/OpenSesame."
   }
 }

@@ -6,6 +6,7 @@ node_modules/
 /.tools/
 dist/
 packages/cli/release/
+apps/pages/release/
 packages/env-spec-bridge/release/
 *.sqlite
 *.sqlite-*
