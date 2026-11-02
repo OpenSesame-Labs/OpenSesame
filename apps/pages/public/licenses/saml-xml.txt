@@ -4,7 +4,7 @@ The adapter uses native browser DOM and WebCrypto. Its browser library closure
 and locked Node parser peer have the following permissive licenses.
 
 ========================================================================
-xmldsigjs 2.8.8 — LICENSE
+xmldsigjs 3.0.0 — LICENSE
 ========================================================================
 # MIT License
 
@@ -30,7 +30,7 @@ SOFTWARE.
 
 
 ========================================================================
-xml-core 1.2.6 — LICENSE
+xml-core 3.0.0 — LICENSE
 ========================================================================
 # MIT License
 
