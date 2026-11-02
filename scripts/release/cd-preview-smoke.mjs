@@ -10,7 +10,7 @@
  * `npm view @opensesame-labs/cli@<EXPECTED_VERSION> version --prefer-online
  * --registry https://registry.npmjs.org` with the same `npm` binary as the
  * install. Success is stdout trimmed to exactly EXPECTED_VERSION. Tries come
- * from SMOKE_ATTEMPTS (default 6) with 5s between them. cd-pwa preview smoke
+ * from SMOKE_ATTEMPTS (default 12) with 5s between them. cd-pwa preview smoke
  * does not set EXPECTED_VERSION, so it does not wait and does not query
  * `@opensesame-labs/web-pwa`. The dist-tag equality check still runs after
  * the wait.
@@ -261,7 +261,7 @@ export async function runPreviewSmoke(env, deps = {}) {
   const verify = deps.verifyPages ?? verifyRelease;
   const sleep = deps.sleep ?? delay;
   const attempts =
-    deps.attempts ?? readCount(env.SMOKE_ATTEMPTS, 6, "SMOKE_ATTEMPTS");
+    deps.attempts ?? readCount(env.SMOKE_ATTEMPTS, 12, "SMOKE_ATTEMPTS");
   const expected = readString(env.EXPECTED_VERSION);
   const pagesUrl = readString(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA) ?? "";
