@@ -10,6 +10,13 @@ function read(path) {
   return readFileSync(join(root, path), "utf8");
 }
 
+function jobSlice(text, jobKey, nextJobKey) {
+  const start = text.indexOf(`\n  ${jobKey}:`);
+  const end = text.indexOf(`\n  ${nextJobKey}:`);
+  assert.ok(start > 0 && end > start);
+  return text.slice(start, end);
+}
+
 test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   assert.equal(
     existsSync(join(root, ".github/workflows/cd-npm-env-spec-bridge.yml")),
@@ -94,9 +101,9 @@ test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () =>
   const rows = publishers.map(
     (row) => `${row.package}:${row.workflow_filename}:${row.environment}`,
   );
-  assert.ok(rows.includes("@opensesame-labs/cli:cd-npm-cli.yml:"));
+  assert.ok(rows.includes("@opensesame-labs/cli:cd-npm-cli.yml:Preview"));
   assert.ok(rows.includes("@opensesame-labs/cli:cd-npm-cli.yml:Production"));
-  assert.ok(rows.includes("@opensesame-labs/web-pwa:cd-pwa.yml:"));
+  assert.ok(rows.includes("@opensesame-labs/web-pwa:cd-pwa.yml:Preview"));
   assert.ok(rows.includes("@opensesame-labs/web-pwa:cd-pwa.yml:Production"));
   for (const row of publishers) {
     assert.equal(row.provider, "github-actions");
@@ -136,7 +143,6 @@ test("CD promotes staged artifacts with automated gates only", () => {
   const pwa = read(".github/workflows/cd-pwa.yml");
   const spec = JSON.parse(read("docs/ci/github-setup-spec.json"));
   for (const text of [cli, pwa]) {
-    assert.doesNotMatch(text, /name: Preview\n/);
     assert.match(text, /name: Production\n/);
     assert.match(text, /name: Main CI gate\n/);
     assert.match(text, /name: Preview.*smoke\n/);
@@ -178,10 +184,18 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(cli, /needs: \[stage, preview\]/);
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
   assert.match(pwa, /needs: \[build, deploy, npm_preview\]/);
-  assert.equal(
-    spec.environments.find((entry) => entry.name === "Preview").used_by.length,
-    0,
+  const cliPreview = jobSlice(cli, "preview", "preview_smoke");
+  const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
+  for (const slice of [cliPreview, pwaPreview]) {
+    assert.match(slice, /name: Preview npm publish\n/);
+    assert.match(slice, /environment:\n {6}name: Preview\n/);
+    assert.match(slice, /npm-token: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+    assert.match(slice, /publish-npm-package/);
+  }
+  const previewEnv = spec.environments.find(
+    (entry) => entry.name === "Preview",
   );
+  assert.ok(previewEnv.used_by.length >= 2);
   for (const envName of ["Preview", "Production", "github-pages"]) {
     assert.deepEqual(
       spec.environments.find((entry) => entry.name === envName).protection_rules
@@ -221,6 +235,10 @@ test("CD promotes staged artifacts with automated gates only", () => {
   const rca = read("docs/ci/post-2400-cd-failures.md");
   assert.match(rca, /41485623019/);
   assert.match(rca, /41485623157/);
+  assert.match(rca, /41507534648/);
+  assert.match(rca, /41507534446/);
+  assert.match(rca, /ENEEDAUTH/);
+  assert.match(rca, /environment Preview/);
   assert.match(rca, /pages-release\.mjs stamp/);
   assert.match(rca, /proof_gate_fail/);
   assert.match(rca, /intentional promotion gate proof failure/);

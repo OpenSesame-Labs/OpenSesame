@@ -1,6 +1,6 @@
 # GitHub Pages PWA CD. One build, then automatic preview, then Production.
-# Preview publishes npm 0.0.0-alpha.N and deploys Pages with no reviewer wait.
-# Production OIDC-publishes the same staged bytes as 0.0.0-next.N when gates pass.
+# Preview npm publish selects environment Preview (no required reviewers; NPM_TOKEN from that environment).
+# Pages deploy stays on github-pages. Production OIDC-publishes 0.0.0-next.N when gates pass.
 name: CD PWA
 
 on:
@@ -169,6 +169,8 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment:
+      name: Preview
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -187,6 +189,8 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-pwa-meta/release.json apps/pages/release/package.json
+      # Preview environment supplies NPM_TOKEN (publish-npm-package → NODE_AUTH_TOKEN + .npmrc).
+      # No required reviewers on Preview; otherwise OIDC trusted publishing under the same environment.
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release

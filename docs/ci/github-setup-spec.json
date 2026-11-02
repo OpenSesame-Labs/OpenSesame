@@ -9,7 +9,7 @@
   "promotion_model": {
     "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts.",
     "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success.",
-    "preview": "After main CI passes, Preview publishes 0.0.0-alpha.N on dist-tag alpha (repository NPM_TOKEN when set, otherwise OIDC trusted publishing with no GitHub environment) and the github-pages deploy runs automatically with no GitHub environment approval.",
+    "preview": "After main CI passes, Preview publish jobs select environment Preview (no required reviewers) and publish 0.0.0-alpha.N on dist-tag alpha using environment secret NPM_TOKEN via publish-npm-package (NODE_AUTH_TOKEN and .npmrc), otherwise OIDC trusted publishing under the same environment. The github-pages deploy runs automatically with no GitHub environment approval.",
     "preview_smoke": "Before Production, cd-preview-smoke.mjs resolves @opensesame-labs/cli@alpha, runs opensesame --version, and (PWA CD) verifies the live Pages deploy for the commit.",
     "profile_proof": "cd-pwa.yml job proof must succeed (four install profiles) before build and Production.",
     "production": "When every gate passes, Production downloads the same staged artifacts, verifies live Pages again, rewrites package.json from 0.0.0-alpha.N to 0.0.0-next.N, and publishes that version with OIDC npm publish --tag next --provenance (empty npm token). It does not use NPM_TOKEN and does not run npm dist-tag add. The job selects environment Production so the npm trusted publisher can bind to it. No required reviewers on Preview or Production.",
@@ -20,7 +20,7 @@
     "preview_required_reviewers": "remove rule 70926078 if still present",
     "production_required_reviewers": "remove rule 70926080; Tyler removed required reviewers (2026-11-02)",
     "github_pages": "keep branch policy main only (rule 62085543). No required reviewers and no wait timer.",
-    "npm_token": "Preview jobs do not select an environment. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance) with the trusted-publisher environment left empty. Production selects environment Production and publishes 0.0.0-next.N with OIDC only. Production does not read NPM_TOKEN.",
+    "npm_token": "Preview npm publish jobs (cd-npm-cli.yml preview, cd-pwa.yml npm_preview) select environment Preview and pass secrets.NPM_TOKEN to publish-npm-package (NODE_AUTH_TOKEN + .npmrc). When NPM_TOKEN is empty, the same job uses OIDC trusted publishing under environment Preview. Production selects environment Production and publishes 0.0.0-next.N with OIDC only. Production does not read NPM_TOKEN.",
     "commands": [
       "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-protection-rules/70926078",
       "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Preview --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
@@ -35,8 +35,11 @@
   "environments": [
     {
       "name": "Preview",
-      "used_by": [],
-      "note": "No CD job selects this environment. Delete required-reviewer rule 70926078 so a leftover reference cannot wait. See github_environment_changes_via_gh.",
+      "used_by": [
+        ".github/workflows/cd-npm-cli.yml (job preview)",
+        ".github/workflows/cd-pwa.yml (job npm_preview)"
+      ],
+      "note": "Preview npm publish binds here for NPM_TOKEN. Delete required-reviewer rule 70926078 so a leftover reference cannot wait. See github_environment_changes_via_gh.",
       "deployment_branch_policy": {
         "protected_branches": false,
         "custom_branch_policies": true,
@@ -48,7 +51,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "Unused by current workflows. Preview publish reads the repository secret or uses OIDC. Do not rely on this environment secret."
+        "NPM_TOKEN": "Publish-scoped npm token for Preview alpha publish. cd-npm-cli.yml job preview and cd-pwa.yml job npm_preview pass secrets.NPM_TOKEN to publish-npm-package."
       },
       "variables": {}
     },
@@ -134,9 +137,9 @@
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "Preview publish uses the repository NPM_TOKEN when set, otherwise id-token: write and npm publish --provenance with no GitHub environment. Production publishes 0.0.0-next.N with OIDC only (npm-token empty) under environment Production. Production does not use NPM_TOKEN or npm dist-tag add.",
-    "recommended": "Configure npm trusted publishers for each @opensesame-labs package (see publishers[]). Preview rows leave environment empty. Production rows set environment to Production. Allow npm publish.",
-    "first_publish": "Trusted publishing supports the first npm publish once the publisher row exists. Until then, use repository NPM_TOKEN on Preview only. Production always uses OIDC under environment Production.",
+    "oidc_fallback": "Preview publish selects environment Preview. It uses secrets.NPM_TOKEN when set, otherwise id-token: write and npm publish --provenance under that environment. Production publishes 0.0.0-next.N with OIDC only (npm-token empty) under environment Production. Production does not use NPM_TOKEN or npm dist-tag add.",
+    "recommended": "Configure npm trusted publishers for each @opensesame-labs package (see publishers[]). Preview rows set environment to Preview. Production rows set environment to Production. Allow npm publish.",
+    "first_publish": "Trusted publishing supports the first npm publish once the publisher row exists. Until then, configure NPM_TOKEN on environment Preview. Production always uses OIDC under environment Production.",
     "publishers": [
       {
         "package": "@opensesame-labs/cli",
@@ -144,7 +147,7 @@
         "owner": "OpenSesame-Labs",
         "repository": "OpenSesame",
         "workflow_filename": "cd-npm-cli.yml",
-        "environment": ""
+        "environment": "Preview"
       },
       {
         "package": "@opensesame-labs/cli",
@@ -160,7 +163,7 @@
         "owner": "OpenSesame-Labs",
         "repository": "OpenSesame",
         "workflow_filename": "cd-pwa.yml",
-        "environment": ""
+        "environment": "Preview"
       },
       {
         "package": "@opensesame-labs/web-pwa",
