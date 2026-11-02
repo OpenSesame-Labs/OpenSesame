@@ -10,6 +10,7 @@
 
 import { generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import "./expect-timeout.mjs";
@@ -21,6 +22,7 @@ const MIME = {
   ".css": "text/css",
   ".json": "application/json",
   ".svg": "image/svg+xml",
+  ".mjs": "text/javascript",
   ".wasm": "application/wasm",
   ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
@@ -121,6 +123,65 @@ function serveFromDist(route, url, { dist, base, record }) {
   });
 }
 
+function distRelative(base, pathname) {
+  if (pathname.startsWith(base)) return pathname.slice(base.length);
+  return pathname.startsWith("/") ? pathname.slice(1) : pathname;
+}
+
+/** A file under `dist`, or the SPA document. `..` is never a file. */
+function loopbackFile(dist, base, pathname) {
+  const rel = distRelative(base, pathname);
+  if (rel.split("/").includes("..")) return null;
+  if (rel && !rel.endsWith("/")) {
+    const asset = path.join(dist, rel);
+    if (fs.existsSync(asset) && fs.statSync(asset).isFile()) return asset;
+    if (/\.[a-z0-9]+$/i.test(rel)) return null;
+  }
+  return path.join(dist, "index.html");
+}
+
+/**
+ * Serve `dist/` on 127.0.0.1 at `base`. Callers navigate here and passthrough
+ * this origin. Playwright `route.fulfill` of the production hostname is not a
+ * static host: a service worker bypasses it and can reach the live site, and
+ * a large dist blocks the route handler so the document navigation never ends.
+ */
+export function serveLoopbackDist({ dist, base }) {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const file = loopbackFile(dist, base, url.pathname);
+    if (!file) {
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end("not found");
+      return;
+    }
+    response.writeHead(200, {
+      "content-type": MIME[path.extname(file)] ?? "application/octet-stream",
+      "cache-control": "no-store",
+      ...PAGES_CORS,
+    });
+    const stream = fs.createReadStream(file);
+    stream.on("error", () => response.destroy());
+    stream.pipe(response);
+  });
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = address && typeof address === "object" ? address.port : 0;
+      const origin = `http://127.0.0.1:${port}`;
+      resolve({
+        origin,
+        href: `${origin}${base}`,
+        close() {
+          server.closeAllConnections();
+          return new Promise((done) => server.close(() => done()));
+        },
+      });
+    });
+  });
+}
+
 /**
  * Shoo's two CORS-enabled browser endpoints, and nothing else: the token
  * exchange and the session check the return leg depends on. Answers null for
@@ -182,18 +243,21 @@ async function newPage(
   // never a file of the deployment: WebKit offers them to a route ("**/*"
   // matches them; Chromium never routes them) and a blob URL's origin is the
   // page's, so the router would answer one from dist with a 404.
-  const routed = (url) => url.protocol !== "blob:" && url.protocol !== "data:";
+  // A passthrough origin is a real loopback server. Leave it out of the route
+  // so the browser fetches it itself.
+  const routed = (url) =>
+    url.protocol !== "blob:" &&
+    url.protocol !== "data:" &&
+    !passthrough.includes(url.origin);
   await context.route(routed, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin === origin) {
-      return serveFromDist(route, url, { dist, base, record });
-    }
-    // A server the journey itself runs and names (a live session's carrier
-    // on loopback) is reached for real, and recorded as such.
     if (passthrough.includes(url.origin)) {
       record("passthrough-request", `${request.method()} ${request.url()}`);
       return route.continue();
+    }
+    if (url.origin === origin) {
+      return serveFromDist(route, url, { dist, base, record });
     }
     record("external-request", `${request.method()} ${request.url()}`);
     if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)) {
