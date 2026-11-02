@@ -162,8 +162,8 @@ describe("full-suite native preparation", () => {
     const tests = stepFor("npm exec -- turbo run typecheck test");
     expect(tests).not.toMatch(/--filter|continue-on-error:|\n\s+if:/);
     for (const command of [
-      "npm run test:postgres", -w @opensesame/database
-      "npm run test:postgres", -w @opensesame/identity-worker
+      "npm run test:postgres -w @opensesame/database",
+      "npm run test:postgres -w @opensesame/identity-worker",
     ]) {
       const postgres = stepFor(command);
       expect(postgres).toContain(
@@ -266,9 +266,9 @@ describe("complete verify native preparation", () => {
     expect(preparation).not.toMatch(
       /cache-hit|continue-on-error:|timeout-minutes:|\n\s+if:/,
     );
-    expect(
-      completeSteps.indexOf(completeStepFor("npm ci")),
-    ).toBeLessThan(completeSteps.indexOf(preparation));
+    expect(completeSteps.indexOf(completeStepFor("run: npm ci"))).toBeLessThan(
+      completeSteps.indexOf(preparation),
+    );
     expect(completeSteps.indexOf(preparation)).toBeLessThan(
       completeSteps.indexOf(completeStepFor("npm run verify 2>&1")),
     );

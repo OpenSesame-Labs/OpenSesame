@@ -28,7 +28,7 @@ function main() {
     console.error(`> ${step}`);
     const words = step.split(/\s+/);
     // `node scripts/...` runs as written; a bin (`vite build`) resolves through
-    // the package's own node_modules, as it does under `npm run run`.
+    // the package's own node_modules, as it does under `npm exec`.
     const [command, args] =
       words[0] === "node"
         ? ["node", words.slice(1)]

@@ -83,7 +83,9 @@ export function buildCommand(kind, plan, options = {}) {
   const comparisonFilter =
     turboRef.length > 0 ? `--filter=...[${turboRef}]` : undefined;
   const packageFilter = (name) =>
-    turboRef.length > 0 ? `--filter=${name}...[${turboRef}]` : `--filter=${name}`;
+    turboRef.length > 0
+      ? `--filter=${name}...[${turboRef}]`
+      : `--filter=${name}`;
   if (kind === "cargo") {
     const args = ["build", "--locked"];
     if (plan.scope === "all") args.push("--workspace");
@@ -93,7 +95,8 @@ export function buildCommand(kind, plan, options = {}) {
   return {
     command: "npm",
     args: [
-      "exec", "--",
+      "exec",
+      "--",
       "turbo",
       "run",
       "build",

@@ -100,7 +100,7 @@ test("ordinary pushes run static checks and typechecking without test suites", (
   }
   assert.doesNotMatch(
     result.commands,
-    /npm (?:test\b|verify\b|quality\n|lint\n)/,
+    /npm run (?:test\b|verify\b|quality\n|lint\n)/,
   );
   assert.doesNotMatch(result.commands, /npm run audit:clippy/);
 });
@@ -129,7 +129,9 @@ test("toolchain and Cargo configuration changes receive commit-time Rust lint", 
 });
 
 test("a failed static check or unreadable diff stops the push", (t) => {
-  const checks = fixture(t).run("pre-push", { HOOK_FAIL: "npm run quality:gate" });
+  const checks = fixture(t).run("pre-push", {
+    HOOK_FAIL: "npm run quality:gate",
+  });
   assert.equal(checks.status, 17);
   assert.doesNotMatch(checks.commands, /npm run typecheck/);
   assert.doesNotMatch(checks.stdout, /pre-push: OK/);
