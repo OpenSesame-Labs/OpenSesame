@@ -68,9 +68,7 @@ fn capture(body: &[u8], wanted: &[&[&str]]) -> Result<Vec<(usize, String)>, StsF
                 if path.len() >= MAX_DEPTH {
                     return Err(StsFailure::MalformedResponse);
                 }
-                let name = std::str::from_utf8(start.local_name().as_ref())
-                    .map_err(|_| StsFailure::MalformedResponse)?
-                    .to_string();
+                let name = start.local_name().as_ref().to_string();
                 path.push(name);
             }
             Event::End(_) => {
@@ -78,8 +76,7 @@ fn capture(body: &[u8], wanted: &[&[&str]]) -> Result<Vec<(usize, String)>, StsF
             }
             Event::Text(value) => {
                 if let Some(index) = wanted.iter().position(|want| path_is(&path, want)) {
-                    let value = value.decode().map_err(|_| StsFailure::MalformedResponse)?;
-                    keep(&mut found, index, &value)?;
+                    keep(&mut found, index, value.as_ref())?;
                 }
             }
             Event::GeneralRef(_) | Event::CData(_) => {
