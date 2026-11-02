@@ -2,9 +2,9 @@
 # audit:cve-lite) remain the security loop; Dependabot only proposes version
 # bumps so the routine dependency triage has a reviewed, ready-made PR.
 #
-# npm workspaces: one root package-lock.json at /. Do not add per-workspace npm
-# entries — Dependabot resolves every workspace from the root lockfile (npm
-# packageManager in package.json), matching the post–npm-migration layout.
+# npm workspaces use ONE root entry at / with the root package-lock.json.
+# Do not add per-package directories: Dependabot resolves every workspace
+# from that single lockfile.
 version: 2
 updates:
   # Root Cargo workspace (product crates). tests/fuzz/cargo is its own
@@ -57,11 +57,11 @@ updates:
         versions:
           - ">= 3.0.0"
       - dependency-name: vitest
-        update-types: [version-update:semver-major]
+        update-types: ["version-update:semver-major"]
       - dependency-name: testcontainers
-        update-types: [version-update:semver-major]
+        update-types: ["version-update:semver-major"]
       - dependency-name: typescript
-        update-types: [version-update:semver-major]
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         patterns:

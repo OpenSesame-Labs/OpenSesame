@@ -7,13 +7,35 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const config = readFileSync(join(root, ".github/dependabot.yml"), "utf8");
 
+function entries() {
+  return config
+    .split(/\n(?= {2}- package-ecosystem: )/)
+    .slice(1)
+    .map((text) => ({
+      ecosystem: text.match(/package-ecosystem: (\S+)/)[1],
+      directory: text.match(/directory: (\S+)/)[1],
+      text,
+    }));
+}
+
 test("dependabot npm workspaces use a single root directory entry", () => {
-  const npmBlocks = [...config.matchAll(/- package-ecosystem: npm\n([\s\S]*?)(?=\n  - package-ecosystem:|$)/g)];
-  assert.equal(npmBlocks.length, 1);
-  assert.match(npmBlocks[0][0], /directory: \/\n/);
-  assert.match(config, /npm workspaces: one root package-lock\.json at \//);
+  const npm = entries().filter((entry) => entry.ecosystem === "npm");
+  assert.equal(npm.length, 1);
+  assert.equal(npm[0].directory, "/");
+  assert.match(config, /npm workspaces use ONE root entry at \/ /);
+  assert.match(config, /root package-lock\.json/);
+  assert.match(config, /Do not add per-package directories/);
 });
 
-test("dependabot npm group declares patterns for minor and patch", () => {
-  assert.match(config, /npm-minor-and-patch:\n        patterns:\n          - "\*"/);
+test("dependabot groups declare wildcard patterns", () => {
+  const grouped = entries().filter((entry) =>
+    ["npm", "cargo", "github-actions"].includes(entry.ecosystem),
+  );
+  assert.deepEqual(
+    grouped.map((entry) => `${entry.ecosystem} ${entry.directory}`),
+    ["cargo /", "cargo /tests/fuzz/cargo", "npm /", "github-actions /"],
+  );
+  for (const entry of grouped) {
+    assert.match(entry.text, /patterns:\n\s+- "\*"/, entry.ecosystem);
+  }
 });
