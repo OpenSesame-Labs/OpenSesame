@@ -54,7 +54,8 @@ jobs:
             .github/workflows/cd-npm-cli.yml \
             .github/workflows/cd-pwa.yml \
             .github/workflows/cd-npm-publish-proof.yml \
-            .github/workflows/cd-pwa-profile-proof.yml
+            .github/workflows/cd-pwa-profile-proof.yml \
+            .github/workflows/cd-promotion-gates-proof.yml
       - run: npm ci
       - run: node --test scripts/release/npm-cd-workflows.test.mjs
       - name: npm publish dry-run (cli and web-pwa, alpha)

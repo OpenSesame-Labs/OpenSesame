@@ -42,7 +42,7 @@ jobs:
   main_ci:
     name: Main CI gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -52,6 +52,8 @@ jobs:
           cache: true
           install_args: node@24
       - name: Require trunk CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/release/cd-main-ci-gate.mjs
 
   stage:
@@ -112,7 +114,7 @@ jobs:
 
   preview:
     name: Preview npm publish
-    needs: stage
+    needs: [stage, main_ci]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -164,8 +166,6 @@ jobs:
       - name: Prove alpha npm resolves and runs
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
-          NPM_PACKAGE_NAME: "@opensesame-labs/cli"
-          NPM_DIST_TAG: alpha
         run: node scripts/release/cd-preview-smoke.mjs
 
   production:
@@ -202,11 +202,12 @@ jobs:
           npm-token: ""
 
   promotion_failed:
-    name: Promotion blocked notice
+    name: Promotion failure notice
     needs: [main_ci, stage, preview, preview_smoke, production]
-    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    if: failure() && !cancelled()
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
+    # Commit comments need contents: write. The issues permission does not cover them.
     permissions:
       contents: write
     steps:
@@ -217,7 +218,18 @@ jobs:
         with:
           cache: true
           install_args: node@24
-      - name: Notify that promotion was blocked
+      - name: Annotate the run and comment on the commit
         env:
-          PROMOTION_FAIL_REASON: Automated CLI CD promotion stopped because a gate failed (main CI, preview publish, preview smoke, or Production dist-tag).
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GATE_MAIN_CI: ${{ needs.main_ci.result }}
+          GATE_STAGE: ${{ needs.stage.result }}
+          GATE_PREVIEW: ${{ needs.preview.result }}
+          GATE_PREVIEW_SMOKE: ${{ needs.preview_smoke.result }}
+          GATE_PRODUCTION: ${{ needs.production.result }}
         run: node scripts/release/cd-promotion-notify.mjs
