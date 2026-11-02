@@ -219,6 +219,10 @@ test("CD promotes staged artifacts with automated gates only", () => {
   );
   assert.match(commands, /environments\/github-pages/);
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
+  assert.match(
+    spec.promotion_model.preview_smoke,
+    /npm view @opensesame-labs\/cli@EXPECTED_VERSION version --prefer-online/,
+  );
   assert.deepEqual(spec.merge_queue.required_status_check_contexts, [
     "TypeScript",
     "Rust",

@@ -5,6 +5,16 @@
  * `opensesame --version` to exit 0. When EXPECTED_VERSION is set, both the
  * dist-tag and the command output must match it.
  *
+ * When EXPECTED_VERSION is set (CD npm CLI preview smoke), wait for registry
+ * propagation before dist-tags and install. Run
+ * `npm view @opensesame-labs/cli@<EXPECTED_VERSION> version --prefer-online
+ * --registry https://registry.npmjs.org` with the same `npm` binary as the
+ * install. Success is stdout trimmed to exactly EXPECTED_VERSION. Tries come
+ * from SMOKE_ATTEMPTS (default 6) with 5s between them. cd-pwa preview smoke
+ * does not set EXPECTED_VERSION, so it does not wait and does not query
+ * `@opensesame-labs/web-pwa`. The dist-tag equality check still runs after
+ * the wait.
+ *
  * `CD_PROOF_GATE_FAIL=1` (workflow_dispatch `proof_gate_fail`) throws
  * `intentional promotion gate proof failure` before any registry call.
  *
@@ -164,6 +174,52 @@ async function retry(attempts, sleep, fn) {
   throw last;
 }
 
+function viewPublishedVersionArgs(expected) {
+  return [
+    "view",
+    `${CLI_PACKAGE}@${expected}`,
+    "version",
+    "--prefer-online",
+    "--registry",
+    REGISTRY,
+  ];
+}
+
+function assertViewPublished(expected, ran) {
+  const spec = `${CLI_PACKAGE}@${expected}`;
+  if (ran.status !== 0) {
+    throw new Error(`npm view ${spec} version exited ${ran.status}`);
+  }
+  const seen = ran.stdout.trim();
+  if (seen !== expected) {
+    throw new Error(
+      `npm view ${spec} version returned ${seen === "" ? "empty" : seen} != ${expected}`,
+    );
+  }
+  return seen;
+}
+
+/**
+ * Poll until `npm view <package>@<expected> version --prefer-online` prints
+ * exactly `expected`. `attempts` and the 5s pause match SMOKE_ATTEMPTS.
+ */
+export async function waitForPublishedVersion(
+  expected,
+  runner,
+  sleep,
+  attempts,
+) {
+  if (expected === undefined || expected === "") {
+    throw new Error("EXPECTED_VERSION is required");
+  }
+  return retry(attempts, sleep, async () => {
+    const ran = await runner("npm", viewPublishedVersionArgs(expected), {
+      cwd: process.cwd(),
+    });
+    return assertViewPublished(expected, ran);
+  });
+}
+
 async function fetchDistTags(fetcher) {
   const response = await fetcher(DIST_TAGS_URL, {
     headers: { accept: "application/json" },
@@ -209,6 +265,10 @@ export async function runPreviewSmoke(env, deps = {}) {
   const expected = readString(env.EXPECTED_VERSION);
   const pagesUrl = readString(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA) ?? "";
+
+  if (expected !== undefined && expected.length > 0) {
+    await waitForPublishedVersion(expected, runner, sleep, attempts);
+  }
 
   const version = await retry(attempts, sleep, async () => {
     const resolved = distTagVersion(await fetchDistTags(fetcher));
