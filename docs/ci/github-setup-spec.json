@@ -3,11 +3,7 @@
   "repository": "OpenSesame-Labs/OpenSesame",
   "merge_queue": {
     "base_branch": "main",
-    "required_status_check_contexts": [
-      "TypeScript",
-      "Rust",
-      "Bundle budgets"
-    ],
+    "required_status_check_contexts": ["TypeScript", "Rust", "Bundle budgets"],
     "note": "Reported by .github/workflows/ci.yml jobs typescript, rust-check, and bundle-check on pull_request and merge_group."
   },
   "environments": [
