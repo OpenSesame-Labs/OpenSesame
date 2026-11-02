@@ -22,15 +22,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install npm 11.21.1 and configure the npmjs registry
+    - name: Pin npm 11.21.1 and configure the npmjs registry
       shell: bash
       env:
         NPM_TOKEN_INPUT: ${{ inputs.npm-token }}
       run: |
         set -euo pipefail
-        npm install -g npm@11.21.1 --no-fund --no-audit
-        hash -r
-        test "$(npm --version)" = "11.21.1"
+        # npx caches under the runner user. A global install writes
+        # /usr/local/share/man and fails with EACCES (exit 243).
+        test "$(npx -y npm@11.21.1 --version)" = "11.21.1"
         npmrc="${RUNNER_TEMP}/opensesame-npmjs.npmrc"
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
           printf '%s\n' \
@@ -65,14 +65,14 @@ runs:
             exit 1
             ;;
         esac
-        publish_cmd=(npm publish --access public --tag "$NPM_DIST_TAG" --provenance)
+        publish_cmd=(npx -y npm@11.21.1 publish --access public --tag "$NPM_DIST_TAG" --provenance)
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
           export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
         else
           unset NODE_AUTH_TOKEN
         fi
         unset NPM_TOKEN_INPUT
-        if npm view "$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")@${version}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+        if npx -y npm@11.21.1 view "$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")@${version}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
           echo "${version} is already on the registry."
         else
           "${publish_cmd[@]}"

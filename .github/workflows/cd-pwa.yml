@@ -30,9 +30,10 @@ permissions:
   id-token: write
   attestations: write
 
+# Pending runs otherwise stay queued with no jobs until the active run ends.
 concurrency:
   group: cd-pwa
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
@@ -184,7 +185,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          npm install -g npm@11.21.1 --no-fund --no-audit
           name="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-          npm dist-tag add "${name}@${version}" next --registry https://registry.npmjs.org
+          npx -y npm@11.21.1 dist-tag add "${name}@${version}" next --registry https://registry.npmjs.org

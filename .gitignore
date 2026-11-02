@@ -167,6 +167,7 @@ apps/pages/scripts/duress/.ui-artifacts/
 .duress-swarm/
 
 # mTLS fixture downloads (scripts/mtls/mtls-fixtures.sh) and suite artifacts
+.cache/actionlint/
 .cache/mtls-fixtures/
 # verify:live-join servers built from source (scripts/test/live-fixtures.sh)
 .cache/live-fixtures/
