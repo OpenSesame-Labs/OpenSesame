@@ -46,7 +46,9 @@ export function gatesFromEnv(env) {
 }
 
 export function failedGateNames(gates) {
-  return gates.filter((gate) => gate.result === "failure").map((gate) => gate.name);
+  return gates
+    .filter((gate) => gate.result === "failure")
+    .map((gate) => gate.name);
 }
 
 export function promotionMessage(gates, env) {
@@ -144,7 +146,8 @@ if (
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   main().catch((error) => {
-    const message = error instanceof Error ? error.message : "promotion notify failed";
+    const message =
+      error instanceof Error ? error.message : "promotion notify failed";
     console.error(message);
     process.exit(1);
   });

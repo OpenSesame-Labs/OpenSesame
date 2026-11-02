@@ -34,8 +34,14 @@ function page(status = 200, body = "<!doctype html><title>OpenSesame</title>") {
 
 test("dist-tag alpha must be a semver and match EXPECTED_VERSION", () => {
   assert.equal(distTagVersion({ alpha: version }), version);
-  assert.throws(() => distTagVersion({ next: version }), /dist-tag alpha is missing/);
-  assert.throws(() => distTagVersion({ alpha: "latest" }), /dist-tag alpha is missing/);
+  assert.throws(
+    () => distTagVersion({ next: version }),
+    /dist-tag alpha is missing/,
+  );
+  assert.throws(
+    () => distTagVersion({ alpha: "latest" }),
+    /dist-tag alpha is missing/,
+  );
   assert.throws(
     () => assertExpectedVersion(version, "0.0.0-alpha.5"),
     /alpha 0\.0\.0-alpha\.4 != expected 0\.0\.0-alpha\.5/,
@@ -145,7 +151,10 @@ test("pages URL must load over HTTPS and match the release sha", async () => {
     verified = `${url} ${revision}`;
   });
   assert.equal(verified, `${pagesUrl} ${sha}`);
-  await assert.rejects(() => assertPagesRelease(pagesUrl, "abc", async () => {}), /GITHUB_SHA/);
+  await assert.rejects(
+    () => assertPagesRelease(pagesUrl, "abc", async () => {}),
+    /GITHUB_SHA/,
+  );
 });
 
 test("cd-pwa smoke GETs the pages URL and verifies the release", async () => {

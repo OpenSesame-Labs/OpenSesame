@@ -52,7 +52,9 @@ function readDelay(value, fallback) {
   if (value === undefined || value === "") return fallback;
   const text = readString(value);
   if (text === undefined || !/^\d+$/u.test(text)) {
-    throw new Error("CI_GATE_INTERVAL_MS must be a whole number of milliseconds");
+    throw new Error(
+      "CI_GATE_INTERVAL_MS must be a whole number of milliseconds",
+    );
   }
   return Number(text);
 }
@@ -238,9 +240,7 @@ export async function waitForMainCi(config, fetcher, sleep) {
     if (attempt === config.attempts) break;
     await sleep(config.intervalMs);
   }
-  throw new Error(
-    `main CI did not succeed for ${config.sha}: ${lastProblem}`,
-  );
+  throw new Error(`main CI did not succeed for ${config.sha}: ${lastProblem}`);
 }
 
 async function main() {
@@ -256,7 +256,8 @@ if (
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
   main().catch((error) => {
-    const message = error instanceof Error ? error.message : "main CI gate failed";
+    const message =
+      error instanceof Error ? error.message : "main CI gate failed";
     console.error(message);
     process.exit(1);
   });
