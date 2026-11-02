@@ -1,8 +1,13 @@
 /**
  * Tyler CD semver: 0.0.0-<preid>.0 first, then bump the prerelease counter.
- * Dist-tag is the preid (or `next` on Production promotion), never `latest`.
+ * Preview publishes dist-tag `alpha` (the preid). Production adds `next` only.
+ * Prereleases never receive `latest`.
  */
 import { spawnSync } from "node:child_process";
+import { isString } from "../lib/json-boundary.mjs";
+
+export const CD_PREVIEW_DIST_TAG = "alpha";
+export const CD_PRODUCTION_DIST_TAG = "next";
 
 export function normalizeReleaseSha(sha) {
   const text = sha ?? "";
@@ -22,7 +27,7 @@ const semverLine =
  * @param {readonly string[]} versions
  * @param {string} [preid]
  */
-export function nextCdPrereleaseVersion(versions, preid = "alpha") {
+export function nextCdPrereleaseVersion(versions, preid = CD_PREVIEW_DIST_TAG) {
   if (!/^[0-9A-Za-z-]+$/u.test(preid)) {
     throw new Error(`invalid prerelease id: ${preid}`);
   }
@@ -64,9 +69,9 @@ export function listNpmVersions(packageName) {
   }
   const parsed = JSON.parse(result.stdout.trim() || "[]");
   if (Array.isArray(parsed)) {
-    return parsed.filter((entry) => typeof entry === "string");
+    return parsed.filter((entry) => isString(entry));
   }
-  if (typeof parsed === "string") {
+  if (isString(parsed)) {
     return [parsed];
   }
   return [];
@@ -75,7 +80,7 @@ export function listNpmVersions(packageName) {
 /**
  * @param {string} version
  */
-export function npmDistTagForPrerelease(version, preid = "alpha") {
+export function npmDistTagForPrerelease(version, preid = CD_PREVIEW_DIST_TAG) {
   const match = semverLine.exec(version);
   if (!match || !match[4]) {
     throw new Error(`expected a prerelease version, got ${version}`);

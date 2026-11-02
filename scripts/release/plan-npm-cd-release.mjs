@@ -2,6 +2,7 @@
  * Plan a trunk CD npm publish at 0.0.0-<preid>.N with dist-tag <preid>.
  */
 import {
+  CD_PREVIEW_DIST_TAG,
   listNpmVersions,
   nextCdPrereleaseVersion,
   normalizeReleaseSha,
@@ -19,7 +20,7 @@ import {
  * }} input
  */
 export function planNpmCdRelease(input) {
-  const preid = input.preid ?? "alpha";
+  const preid = input.preid ?? CD_PREVIEW_DIST_TAG;
   const npmVersions =
     input.npmVersions ?? listNpmVersions(input.npmPackageName);
   const version = nextCdPrereleaseVersion(npmVersions, preid);

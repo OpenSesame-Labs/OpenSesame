@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { CD_PREVIEW_DIST_TAG } from "./npm-prerelease-version.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 import { formatPlan } from "./plan-cli-release.mjs";
 import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
@@ -29,7 +30,7 @@ function main() {
     sha,
     tagPrefix: "web-pwa-v",
     releaseName: "web-pwa",
-    preid: process.env.NPM_PRERELEASE_ID ?? "alpha",
+    preid: process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG,
   });
   process.stdout.write(`${formatPlan(plan)}\n`);
 }

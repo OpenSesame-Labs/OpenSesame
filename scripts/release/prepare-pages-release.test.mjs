@@ -8,7 +8,10 @@ import { stagePagesRelease } from "./prepare-pages-release.mjs";
 test("stagePagesRelease bundles dist and a local serve bin", async () => {
   const dist = join(process.cwd(), "apps/pages/dist");
   await mkdir(dist, { recursive: true });
-  await writeFile(join(dist, "index.html"), "<!doctype html><title>PWA</title>\n");
+  await writeFile(
+    join(dist, "index.html"),
+    "<!doctype html><title>PWA</title>\n",
+  );
   await writeFile(
     join(dist, "manifest.webmanifest"),
     '{"name":"OpenSesame"}\n',
@@ -19,7 +22,7 @@ test("stagePagesRelease bundles dist and a local serve bin", async () => {
   );
   assert.equal(manifest.name, NPM_PUBLISH.webPwa.name);
   assert.equal(manifest.version, "0.0.0-alpha.0");
-  assert.equal(manifest.bin["opensesame-pages"], "./bin/serve.mjs");
+  assert.equal(manifest.bin["opensesame-pages"], "bin/serve.mjs");
   assert.equal(manifest.publishConfig.access, "public");
   await readFile(join(releaseDir, "dist/index.html"), "utf8");
   await readFile(join(releaseDir, "bin/serve.mjs"), "utf8");

@@ -13,7 +13,7 @@ test("stageCliRelease writes a public publish manifest at the planned version", 
   );
   assert.equal(manifest.name, "@opensesame-labs/cli");
   assert.equal(manifest.version, "0.1.0-nightly.20261102");
-  assert.equal(manifest.bin.opensesame, "./dist/bin.js");
+  assert.equal(manifest.bin.opensesame, "dist/bin.js");
   assert.equal(manifest.publishConfig.access, "public");
   assert.equal(manifest.publishConfig.provenance, true);
 });

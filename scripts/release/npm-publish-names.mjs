@@ -6,13 +6,13 @@ export const NPM_PUBLISH = Object.freeze({
   cli: Object.freeze({
     name: "@opensesame-labs/cli",
     bin: Object.freeze({
-      opensesame: "./dist/bin.js",
+      opensesame: "dist/bin.js",
     }),
   }),
   webPwa: Object.freeze({
     name: "@opensesame-labs/web-pwa",
     bin: Object.freeze({
-      "opensesame-pages": "./bin/serve.mjs",
+      "opensesame-pages": "bin/serve.mjs",
     }),
   }),
 });

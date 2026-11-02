@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { CD_PREVIEW_DIST_TAG } from "./npm-prerelease-version.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 
@@ -142,7 +143,7 @@ function main() {
           sha,
           tagPrefix: "cli-v",
           releaseName: "cli",
-          preid: process.env.NPM_PRERELEASE_ID ?? "alpha",
+          preid: process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG,
         })
       : planCliRelease({
           mode: parsed.mode,

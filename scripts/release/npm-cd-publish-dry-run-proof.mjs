@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
 /**
  * Stage both CD npm packages and run npm publish --dry-run, logging version + dist-tag.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { CD_PRODUCTION_DIST_TAG } from "./npm-prerelease-version.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 import { stageCliRelease } from "./prepare-cli-release.mjs";
@@ -15,20 +16,25 @@ const outLog =
   process.env.NPM_CD_DRY_RUN_LOG ??
   "/opt/cursor/artifacts/npm-cd-dry-run-proof.log";
 
+async function ensureFile(path, contents) {
+  try {
+    await access(path);
+  } catch {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, contents);
+  }
+}
+
 async function ensureCliDist() {
-  const dist = join(process.cwd(), "packages/cli/dist");
-  await mkdir(dist, { recursive: true });
-  await writeFile(
-    join(dist, "bin.js"),
+  await ensureFile(
+    join(process.cwd(), "packages/cli/dist/bin.js"),
     "#!/usr/bin/env node\nconsole.log('stub');\n",
   );
 }
 
 async function ensurePagesDist() {
-  const dist = join(process.cwd(), "apps/pages/dist");
-  await mkdir(dist, { recursive: true });
-  await writeFile(
-    join(dist, "index.html"),
+  await ensureFile(
+    join(process.cwd(), "apps/pages/dist/index.html"),
     "<!doctype html><title>web-pwa</title>\n",
   );
 }
@@ -58,15 +64,18 @@ async function main() {
     sha,
     tagPrefix: "cli-v",
     releaseName: "cli",
-    npmVersions: [],
   });
   const webPlan = planNpmCdRelease({
     npmPackageName: NPM_PUBLISH.webPwa.name,
     sha,
     tagPrefix: "web-pwa-v",
     releaseName: "web-pwa",
-    npmVersions: [],
   });
+  for (const plan of [cliPlan, webPlan]) {
+    if (plan.npmDistTag === "latest" || CD_PRODUCTION_DIST_TAG === "latest") {
+      throw new Error("prerelease CD must not use dist-tag latest");
+    }
+  }
   await ensureCliDist();
   await ensurePagesDist();
   const cliRelease = await stageCliRelease(cliPlan.version);
@@ -74,9 +83,11 @@ async function main() {
   const sections = [
     `cli_version=${cliPlan.version}`,
     `cli_npm_dist_tag=${cliPlan.npmDistTag}`,
+    `cli_production_dist_tag=${CD_PRODUCTION_DIST_TAG}`,
     dryRun(cliRelease, cliPlan.npmDistTag, NPM_PUBLISH.cli.name),
     `web_pwa_version=${webPlan.version}`,
     `web_pwa_npm_dist_tag=${webPlan.npmDistTag}`,
+    `web_pwa_production_dist_tag=${CD_PRODUCTION_DIST_TAG}`,
     dryRun(webRelease, webPlan.npmDistTag, NPM_PUBLISH.webPwa.name),
   ];
   const text = `${sections.join("\n\n")}\n`;
