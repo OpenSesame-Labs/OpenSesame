@@ -339,6 +339,13 @@ test("cd-pwa proves four profiles in parallel and gates them", () => {
   assert.match(gate ?? "", /needs: proof\n/);
   assert.match(gate ?? "", /timeout-minutes: 30/);
   const build = text.split("\n  build:\n")[1]?.split("\n  npm_preview:\n")[0];
-  assert.match(build ?? "", /needs: proof-gate\n/);
+  assert.doesNotMatch(build ?? "", /\n {4}needs:/);
+  const preview = text
+    .split("\n  npm_preview:\n")[1]
+    ?.split("\n  deploy:\n")[0];
+  const deploy = text.split("\n  deploy:\n")[1]?.split("\n  production:\n")[0];
+  assert.match(preview ?? "", /needs: \[build, proof-gate\]/);
+  assert.match(deploy ?? "", /needs: \[build, proof-gate\]/);
+  assert.match(text, /needs: \[build, deploy, npm_preview\]/);
   assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
 });

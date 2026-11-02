@@ -24,7 +24,7 @@ The build job uploads the npm tree, the Pages dist, and a release-metadata file.
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
 | `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Stage once. Preview publishes **`alpha`** with no environment wait. **Production** adds **`next`**. |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Four install profiles prove in parallel. A gate checks distinct hashes, then one Pages/npm build runs. Preview publishes **`alpha`** and deploys **github-pages** with no reviewer wait. **Production** downloads the same artifacts, verifies the live site, and adds **`next`**. |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Four install profiles prove in parallel with the one Pages/npm build. A gate checks distinct hashes. Preview publishes **`alpha`** and deploys **github-pages** only after that gate, with no reviewer wait. **Production** downloads the same artifacts, verifies the live site, and adds **`next`**. |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
 `github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is the only required-reviewer gate. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production.

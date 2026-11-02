@@ -148,8 +148,9 @@ jobs:
           if-no-files-found: error
 
   build:
+    # Starts with the profile matrix. Preview and Production still wait for proof-gate.
     name: Build Pages and stage npm
-    needs: [main_ci, proof-gate]
+    needs: [main_ci]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -237,7 +238,7 @@ jobs:
 
   npm_preview:
     name: Preview npm publish
-    needs: build
+    needs: [build, proof-gate]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -269,7 +270,7 @@ jobs:
 
   deploy:
     name: Deploy GitHub Pages
-    needs: build
+    needs: [build, proof-gate]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -358,7 +359,7 @@ jobs:
 
   promotion_failed:
     name: Promotion failure notice
-    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke, production]
+    needs: [main_ci, proof-gate, build, deploy, npm_preview, preview_smoke, production]
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
