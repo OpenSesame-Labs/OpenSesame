@@ -31,7 +31,7 @@ test("cargo: installs pin Rust 1.88 ahead of the image rustup default", () => {
     rustVersion,
     asString(asTable(toolchain.toolchain, "toolchain").channel, "channel"),
   );
-  assert.equal(rustVersion, "1.88.0");
+  assert.equal(rustVersion, "1.94.0");
 
   const env = asTable(mise.env, "env");
   assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), rustVersion);
@@ -73,7 +73,7 @@ test(
     });
     assert.equal(envRun.status, 0, envRun.stderr);
     const env = JSON.parse(envRun.stdout);
-    assert.equal(env.RUSTUP_TOOLCHAIN, "1.88.0");
+    assert.equal(env.RUSTUP_TOOLCHAIN, "1.94.0");
 
     const path = asString(env.PATH, "PATH").split(":");
     const shimIndex = path.findIndex((entry) => entry.endsWith("/shims"));

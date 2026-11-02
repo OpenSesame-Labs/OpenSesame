@@ -26,7 +26,7 @@ use crate::ConnectionBroker;
 /// `SELECT 1 …` over the jobs of `organization_id` for `origin` that a runner
 /// holds at `now`.
 fn push_held<'a>(
-    query: &mut QueryBuilder<'a, Sqlite>,
+    query: &mut QueryBuilder<Sqlite>,
     organization_id: &'a str,
     origin: &'a str,
     now: &'a str,

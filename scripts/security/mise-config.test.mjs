@@ -88,7 +88,7 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
       asTable(cargoNdkTool.install_env, "cargo-ndk.install_env").RUSTUP_TOOLCHAIN,
       "RUSTUP_TOOLCHAIN",
     ),
-    "1.88.0",
+    "1.94.0",
   );
   assert.doesNotMatch(ci, /cargo install cargo-ndk/u);
 
@@ -97,7 +97,7 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
     asString(env.CARGO_TARGET_DIR, "CARGO_TARGET_DIR"),
     "{{env.HOME}}/.cache/packages/cargo-target",
   );
-  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.88.0");
+  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.94.0");
   assert.equal(
     asString(env.ANDROID_SDK_PLATFORM, "ANDROID_SDK_PLATFORM"),
     "android-36",

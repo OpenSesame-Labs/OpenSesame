@@ -6,7 +6,7 @@ cd "$ROOT"
 
 rg -Fq 'npm run audit:clippy' .githooks/pre-commit
 node -e 'const scripts = require("./package.json").scripts; if (!scripts.verify.includes("npm run audit:clippy")) process.exit(1)'
-rg -Fq 'cargo +1.88.0 fmt --all -- --check' scripts/audit/clippy-gate.sh
+rg -Fq 'cargo +1.94.0 fmt --all -- --check' scripts/audit/clippy-gate.sh
 rg -Fq -- '--workspace --all-targets --all-features' scripts/audit/clippy-gate.sh
 rg -Fq -- '-D clippy::pedantic' scripts/audit/clippy-gate.sh
 rg -Fq -- '-D clippy::cognitive_complexity' scripts/audit/clippy-gate.sh
