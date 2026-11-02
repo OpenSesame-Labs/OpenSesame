@@ -19,7 +19,7 @@
   "dependencies": {
     "@opensesame/browser-at-rest": "*",
     "@opensesame/os-domain": "*",
-    "jose": "6.2.13"
+    "jose": "6.2.14"
   },
   "devDependencies": {
     "@opensesame/testing": "*",
