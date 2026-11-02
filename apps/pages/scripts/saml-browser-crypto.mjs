@@ -153,6 +153,7 @@ export function readSamlBrowserCryptoInputs(root) {
   ]);
   return {
     esm,
+    packageRoot: resolve(esm, "..").replaceAll("\\", "/"),
     sharedCertificate: sharedCertificate.replaceAll("\\", "/"),
     reflection: {
       full: reflection.full.replaceAll("\\", "/"),
@@ -183,20 +184,39 @@ function assertAdapterConsumers(context, input) {
 }
 
 function assertSdkConsumers(context, input, entry, ids) {
+  const sdkRoot = input.packageRoot;
+  const normalizedEntry = entry.replaceAll("\\", "/");
   for (const id of ids) {
     const clean = id.replaceAll("\\", "/");
-    if (
-      clean.includes("/node_modules/xmldsigjs/") &&
-      !id.startsWith(`${input.esm}/`)
-    )
+    if (clean.includes("/node_modules/xmldsigjs/") && !clean.startsWith(`${sdkRoot}/`))
       throw new Error("Unexpected browser XMLDSIG package instance");
-    if (id.startsWith(`${input.esm}/`) && id !== entry) {
+    if (clean.startsWith(`${input.esm}/`) && clean !== normalizedEntry) {
       const module = context.getModuleInfo(id);
       const consumers = [...module.importers, ...module.dynamicImporters];
-      if (consumers.some((consumer) => !consumer.startsWith(`${input.esm}/`)))
+      if (
+        consumers.some(
+          (consumer) => !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
+        )
+      )
         throw new Error("Unexpected browser XMLDSIG consumer");
     }
   }
+}
+
+/** xmldsigjs 3 lists xml-core as a peer; app-core owns the pin. */
+export function resolveXmldsigjsPeerDependencies(root) {
+  const appCore = resolve(root, "packages/app-core/package.json");
+  return {
+    name: "saml-xmldsigjs-peer-resolver",
+    enforce: "pre",
+    async resolveId(source, importer) {
+      if (source !== "xml-core") return null;
+      const normalizedImporter = importer?.replaceAll("\\", "/") ?? "";
+      if (!normalizedImporter.includes("/node_modules/xmldsigjs/")) return null;
+      const resolved = await this.resolve(source, appCore, { skipSelf: true });
+      return resolved?.id ?? null;
+    },
+  };
 }
 
 /** No global package aliases: only the exact pinned SDK modules change their implementation. */
@@ -212,8 +232,14 @@ export function samlBrowserCrypto(root) {
       transformed.clear();
     },
     async resolveId(source, importer) {
-      if (source !== "reflect-metadata") return null;
       if (!input) throw new Error("SAML browser crypto was not initialized");
+      const peer = await resolveXmldsigjsPeerDependencies(root).resolveId.call(
+        this,
+        source,
+        importer,
+      );
+      if (peer) return peer;
+      if (source !== "reflect-metadata") return null;
       const original = await this.resolve(source, importer, { skipSelf: true });
       return original?.id === input.reflection.full
         ? input.reflection.lite

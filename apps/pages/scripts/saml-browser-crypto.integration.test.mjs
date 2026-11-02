@@ -18,6 +18,7 @@ import { build } from "vite";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import {
   readSamlBrowserCryptoInputs,
+  resolveXmldsigjsPeerDependencies,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
 
@@ -68,6 +69,7 @@ async function compile(plugins, name, unowned = false) {
     configFile: false,
     logLevel: "silent",
     plugins: [
+      resolveXmldsigjsPeerDependencies(root),
       {
         name: "test-owned-saml-application-entry",
         resolveId(id, importer) {
