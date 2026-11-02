@@ -41,3 +41,15 @@ OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` pub
 ## Operator-owned
 
 Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
+
+## Install caches
+
+`ci.yml`, `cd-pwa.yml`, `cd-npm-cli.yml`, and `cd-npm-publish-proof.yml` restore an npm download cache and the mise tool cache. The Rust graph also uses `Swatinem/rust-cache`. `node_modules` is not cached. npm still checks the lockfile.
+
+| Cache | Path | Key |
+| --- | --- | --- |
+| npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | `npm-download-<runner.os>-<hashFiles('package-lock.json')>` with restore prefix `npm-download-<runner.os>-` |
+| mise | mise-action default tool directory | prefix `mise-v1` (platform, mise file hash, `install_args` hash, 30-day period) |
+| Rust | `Swatinem/rust-cache` v2 defaults | `save-if` follows `TRUSTED_CACHE_SAVE` |
+
+`TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. Pull requests, including forks, restore and do not save. The npm save step sets `continue-on-error: true` so two jobs writing the same key do not fail the run.
