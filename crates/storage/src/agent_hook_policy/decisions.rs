@@ -82,7 +82,7 @@ fn decision_from_row(row: &sqlx::sqlite::SqliteRow) -> StoredAgentHookDecision {
 }
 
 /// Append `column = value` to the filter clause when the value is present.
-fn narrow<'a>(query: &mut QueryBuilder<'a, Sqlite>, clause: &'static str, value: Option<&'a str>) {
+fn narrow<'a>(query: &mut QueryBuilder<Sqlite>, clause: &'static str, value: Option<&'a str>) {
     if let Some(value) = value {
         query.push(clause).push_bind(value);
     }

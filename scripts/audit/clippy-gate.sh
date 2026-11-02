@@ -6,11 +6,11 @@ cd "$ROOT"
 source "$ROOT/scripts/lib/audit-directory.sh"
 opensesame_audit_directory
 
-echo "==> cargo +1.88.0 fmt --all -- --check"
-cargo +1.88.0 fmt --all -- --check
+echo "==> cargo +1.94.1 fmt --all -- --check"
+cargo +1.94.1 fmt --all -- --check
 
-echo "==> cargo +1.88.0 clippy --workspace --all-targets --all-features"
-if cargo +1.88.0 clippy --workspace --all-targets --all-features --message-format=short -- \
+echo "==> cargo +1.94.1 clippy --workspace --all-targets --all-features"
+if cargo +1.94.1 clippy --workspace --all-targets --all-features --message-format=short -- \
   -D warnings \
   -D clippy::pedantic \
   -D clippy::cognitive_complexity \

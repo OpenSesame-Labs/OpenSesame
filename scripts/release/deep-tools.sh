@@ -66,7 +66,7 @@ case "$check" in
     cargo +nightly-2026-08-01 miri --version
     ;;
   fuzz-rust)
-    cargo +1.94.0 install cargo-fuzz --version 0.13.2 --locked --root "$tools_root"
+    cargo +1.94.1 install cargo-fuzz --version 0.13.2 --locked --root "$tools_root"
     cargo +nightly-2026-08-01 fuzz --version
     ;;
   fuzz-typescript)

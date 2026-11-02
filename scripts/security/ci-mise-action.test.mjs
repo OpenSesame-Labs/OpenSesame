@@ -18,7 +18,7 @@ const allowedArgs = new Set([
   "node",
   "node@24",
   "rust",
-  "rust@1.94.0",
+  "rust@1.94.1",
   "rust[components=miri]@nightly-2026-08-01",
   "go",
   "java",

@@ -22,7 +22,7 @@ Tool: **cargo-audit** (RustSec) via `npm run audit:cargo-audit` / `scripts/audit
 
 ## Residual (tracked)
 
-- Revisit ignore when `sqlx` drops `rsa` or RustCrypto ships a constant-time fix. sqlx 0.9 requires Rust ≥ 1.94; workspace stays on 1.88.0 for now.
+- Revisit ignore when `sqlx` drops `rsa` or RustCrypto ships a constant-time fix. sqlx 0.9 requires Rust ≥ 1.94; workspace pins 1.94.1.
 - Do not remove the ignore without a lockfile re-check.
 
 ## Gate

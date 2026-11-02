@@ -21,7 +21,7 @@ function miseOnPath() {
   return found.status === 0;
 }
 
-test("cargo: installs pin Rust 1.88 ahead of the image rustup default", () => {
+test("cargo: installs pin Rust 1.94.1 ahead of the image rustup default", () => {
   const mise = parseToml(readText("mise.toml"));
   const toolchain = parseToml(readText("rust-toolchain.toml"));
   const tools = asTable(mise.tools, "tools");
@@ -31,7 +31,7 @@ test("cargo: installs pin Rust 1.88 ahead of the image rustup default", () => {
     rustVersion,
     asString(asTable(toolchain.toolchain, "toolchain").channel, "channel"),
   );
-  assert.equal(rustVersion, "1.88.0");
+  assert.equal(rustVersion, "1.94.1");
 
   const env = asTable(mise.env, "env");
   assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), rustVersion);
@@ -62,7 +62,7 @@ test("cargo: installs pin Rust 1.88 ahead of the image rustup default", () => {
 });
 
 test(
-  "mise env keeps Rust 1.88 shims ahead of /usr/local/cargo",
+  "mise env keeps Rust 1.94.1 shims ahead of /usr/local/cargo",
   {
     skip: miseOnPath() ? false : "mise is not installed",
   },
@@ -73,7 +73,7 @@ test(
     });
     assert.equal(envRun.status, 0, envRun.stderr);
     const env = JSON.parse(envRun.stdout);
-    assert.equal(env.RUSTUP_TOOLCHAIN, "1.88.0");
+    assert.equal(env.RUSTUP_TOOLCHAIN, "1.94.1");
 
     const path = asString(env.PATH, "PATH").split(":");
     const shimIndex = path.findIndex((entry) => entry.endsWith("/shims"));
@@ -99,7 +99,7 @@ test(
       { cwd: root, encoding: "utf8" },
     );
     assert.equal(version.status, 0, version.stderr);
-    assert.match(version.stdout, /rustc 1\.88\.0/);
-    assert.match(version.stdout, /cargo 1\.88\.0/);
+    assert.match(version.stdout, /rustc 1\.94\.1/);
+    assert.match(version.stdout, /cargo 1\.94\.1/);
   },
 );
