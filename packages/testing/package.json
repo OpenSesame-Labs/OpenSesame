@@ -16,7 +16,7 @@
     "test:security": "vitest run src/security.test.ts"
   },
   "devDependencies": {
-    "@testcontainers/postgresql": "10.28.0",
+    "@testcontainers/postgresql": "12.2.1",
     "@types/node": "22.15.29",
     "testcontainers": "10.28.0",
     "typescript": "7.0.2",
