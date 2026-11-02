@@ -23,7 +23,7 @@ export async function stagePagesRelease(version) {
   await mkdir(join(releaseDir, "bin"), { recursive: true });
   await cp(distDir, join(releaseDir, "dist"), { recursive: true });
   await cp(serveSource, join(releaseDir, "bin/serve.mjs"));
-  const readme = `# ${NPM_PUBLISH.pagesPwa.name}
+  const readme = `# ${NPM_PUBLISH.webPwa.name}
 
 Built static OpenSesame Pages PWA (GitHub Pages artifact).
 
@@ -31,11 +31,11 @@ After \`npm install\`, run \`npx opensesame-pages\` (or \`opensesame-pages\` whe
 `;
   await writeFile(join(releaseDir, "README.md"), readme);
   const publishManifest = {
-    name: NPM_PUBLISH.pagesPwa.name,
+    name: NPM_PUBLISH.webPwa.name,
     version,
     type: "module",
     description: manifest.description,
-    bin: NPM_PUBLISH.pagesPwa.bin,
+    bin: NPM_PUBLISH.webPwa.bin,
     files: ["dist", "bin"],
     engines: { node: ">=24" },
     publishConfig: { access: "public", provenance: true },

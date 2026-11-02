@@ -9,16 +9,20 @@ Machine-readable GitHub/npm setup: [`github-setup-spec.json`](github-setup-spec.
 | Workspace (dev) | Published name | `bin` on npm |
 | --- | --- | --- |
 | `@opensesame/cli` (`packages/cli`) | **`@opensesame-labs/cli`** | **`opensesame`** |
-| `@opensesame/pages` (`apps/pages`) | **`@opensesame-labs/pages-pwa`** (placeholder — `PWA_NPM_PACKAGE_NAME_PLACEHOLDER`) | **`opensesame-pages`** (serves bundled `dist/`) |
+| `@opensesame/pages` (`apps/pages`) | **`@opensesame-labs/web-pwa`** | **`opensesame-pages`** (serves bundled `dist/`) |
 
 The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is published. Staging scripts in `scripts/release/prepare-*-release.mjs` and `scripts/release/npm-publish-names.mjs` set `publishConfig.access: public` and `provenance: true`.
+
+## npm versioning (trunk CD)
+
+Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes with dist-tag **`alpha`**; **Production** adds **`next`**. Prereleases never receive **`latest`**.
 
 ## Workflows
 
 | Workflow | Trigger | Environments |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | **Preview** → publish `preview` dist-tag; **Production** → move `latest` |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | **Preview** → npm `preview` + **github-pages** deploy → **Production** verify + npm `latest` |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | **Preview** → publish **`alpha`**; **Production** → **`next`** dist-tag |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | **Preview** → npm **`alpha`** + **github-pages** deploy → **Production** verify + npm **`next`** |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
 `workflow_dispatch` input `dry_run: true` stops before the first gated environment (**Preview** for npm and PWA).

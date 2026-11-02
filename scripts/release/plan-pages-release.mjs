@@ -1,42 +1,35 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { formatPlan, planCliRelease } from "./plan-cli-release.mjs";
-
-const root = resolve(import.meta.dirname, "../..");
-const manifestPath = resolve(root, "apps/pages/package.json");
+import { NPM_PUBLISH } from "./npm-publish-names.mjs";
+import { formatPlan } from "./plan-cli-release.mjs";
+import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 
 function parseArgs(argv) {
-  let mode = "";
   let sha = "";
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--mode" || arg === "--sha") {
+    if (arg === "--sha") {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) {
-        throw new Error(`${arg} requires a value`);
+        throw new Error("--sha requires a value");
       }
-      if (arg === "--mode") mode = value;
-      else sha = value;
+      sha = value;
       index += 1;
     }
   }
-  if (!mode) throw new Error("--mode is required");
-  return { mode, sha };
+  return { sha };
 }
 
 function main() {
   const parsed = parseArgs(process.argv.slice(2));
   const sha = parsed.sha !== "" ? parsed.sha : (process.env.GITHUB_SHA ?? "");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const plan = planCliRelease({
-    mode: parsed.mode,
-    packageVersion: manifest.version,
+  const plan = planNpmCdRelease({
+    npmPackageName: NPM_PUBLISH.webPwa.name,
     sha,
-    stamp: process.env.RELEASE_STAMP,
-    tagPrefix: "pages-pwa-v",
-    releaseName: "pages-pwa",
+    tagPrefix: "web-pwa-v",
+    releaseName: "web-pwa",
+    preid: process.env.NPM_PRERELEASE_ID ?? "alpha",
   });
   process.stdout.write(`${formatPlan(plan)}\n`);
 }

@@ -24,7 +24,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "npm automation or granular publish token (CLI and Pages PWA Preview publish jobs)"
+        "NPM_TOKEN": "npm automation or granular publish token (CLI and web-pwa Preview publish jobs)"
       },
       "variables": {}
     },
@@ -45,7 +45,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "same npm token scope as Preview; used for latest dist-tag promotion"
+        "NPM_TOKEN": "same npm token scope as Preview; adds the next dist-tag (never latest for prereleases)"
       },
       "variables": {}
     },
@@ -73,6 +73,15 @@
     "VITE_BASE": "/OpenSesame/"
   },
   "npm_scope": "@opensesame-labs",
+  "npm_versioning": {
+    "initial": "0.0.0-alpha.0",
+    "prerelease_id": "alpha",
+    "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
+    "dist_tags": {
+      "preview_publish": "alpha (the prerelease id)",
+      "production_promotion": "next (never latest while versions stay prerelease)"
+    }
+  },
   "npm_packages": [
     {
       "name": "@opensesame-labs/cli",
@@ -81,26 +90,25 @@
       "bins": ["opensesame"],
       "exists_on_npm": false,
       "dist_tags": {
-        "preview": "Preview workflow job",
-        "latest": "Production workflow job"
+        "alpha": "Preview npm publish",
+        "next": "Production dist-tag promotion"
       }
     },
     {
-      "name": "@opensesame-labs/pages-pwa",
-      "name_note": "Placeholder until Tyler confirms; constant PWA_NPM_PACKAGE_NAME_PLACEHOLDER in scripts/release/npm-publish-names.mjs",
+      "name": "@opensesame-labs/web-pwa",
       "workspace_path": "apps/pages",
       "workspace_name": "@opensesame/pages",
       "bins": ["opensesame-pages"],
       "exists_on_npm": false,
       "dist_tags": {
-        "preview": "cd-pwa.yml Preview npm job",
-        "latest": "cd-pwa.yml Production dist-tag job"
+        "alpha": "cd-pwa.yml Preview npm job",
+        "next": "cd-pwa.yml Production dist-tag job"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
     "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
-    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and the Pages PWA npm package on GitHub Actions for OpenSesame-Labs/OpenSesame."
+    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/web-pwa on GitHub Actions for OpenSesame-Labs/OpenSesame."
   }
 }

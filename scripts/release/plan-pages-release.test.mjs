@@ -1,17 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { planCliRelease } from "./plan-cli-release.mjs";
+import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 
-test("pages-pwa channel plan uses pages-pwa tag prefix", () => {
-  const plan = planCliRelease({
-    mode: "channel",
-    packageVersion: "0.1.0",
+test("web-pwa cd plan uses web-pwa tag prefix", () => {
+  const plan = planNpmCdRelease({
+    npmPackageName: "@opensesame-labs/web-pwa",
     sha: "916d491d83d1889bc2b6bc8b13c2eff09cf704fa",
-    stamp: "20261102",
-    now: new Date("2026-11-02T12:00:00Z"),
-    tagPrefix: "pages-pwa-v",
-    releaseName: "pages-pwa",
+    tagPrefix: "web-pwa-v",
+    releaseName: "web-pwa",
+    npmVersions: ["0.0.0-alpha.0"],
   });
-  assert.equal(plan.tag, "pages-pwa-v0.1.0");
-  assert.equal(plan.npmDistTag, "preview");
+  assert.equal(plan.version, "0.0.0-alpha.1");
+  assert.equal(plan.npmDistTag, "alpha");
+  assert.equal(plan.tag, "web-pwa-v0.0.0-alpha.1");
 });

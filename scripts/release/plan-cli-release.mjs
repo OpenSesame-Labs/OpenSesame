@@ -5,12 +5,16 @@
  * The npm version is semver without +build. npm strips build metadata, so the
  * short git SHA is recorded in the GitHub Release title instead.
  *
+ * `--mode cd` uses 0.0.0-<preid>.N from the npm registry (trunk CD).
+ *
  * Prints KEY=value lines: version, tag, release_title, short_sha,
  * npm_dist_tag, also_github_packages.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { NPM_PUBLISH } from "./npm-publish-names.mjs";
+import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const manifestPath = resolve(root, "packages/cli/package.json");
@@ -28,7 +32,7 @@ function utcStamp(now) {
   return `${year}${month}${day}`;
 }
 
-function normalizeSha(sha) {
+export function normalizeSha(sha) {
   const text = sha ?? "";
   if (text === "") fail("pass --sha or set GITHUB_SHA");
   if (!/^[0-9a-fA-F]{7,}$/u.test(text)) {
@@ -51,7 +55,7 @@ function normalizeSha(sha) {
 export function planCliRelease(input) {
   const mode = input.mode;
   if (mode !== "alpha" && mode !== "nightly" && mode !== "channel") {
-    fail("--mode must be alpha, nightly, or channel");
+    fail("--mode must be alpha, nightly, channel, or cd");
   }
   const packageVersion = input.packageVersion ?? "";
   const match = semver.exec(packageVersion);
@@ -131,13 +135,21 @@ function main() {
   const parsed = parseArgs(process.argv.slice(2));
   const sha = parsed.sha !== "" ? parsed.sha : (process.env.GITHUB_SHA ?? "");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const stamp = process.env.RELEASE_STAMP;
-  const plan = planCliRelease({
-    mode: parsed.mode,
-    packageVersion: manifest.version,
-    sha,
-    stamp,
-  });
+  const plan =
+    parsed.mode === "cd"
+      ? planNpmCdRelease({
+          npmPackageName: NPM_PUBLISH.cli.name,
+          sha,
+          tagPrefix: "cli-v",
+          releaseName: "cli",
+          preid: process.env.NPM_PRERELEASE_ID ?? "alpha",
+        })
+      : planCliRelease({
+          mode: parsed.mode,
+          packageVersion: manifest.version,
+          sha,
+          stamp: process.env.RELEASE_STAMP,
+        });
   process.stdout.write(`${formatPlan(plan)}\n`);
 }
 

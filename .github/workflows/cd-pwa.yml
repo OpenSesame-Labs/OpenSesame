@@ -9,6 +9,8 @@ on:
       - "packages/app-core/**"
       - "packages/static-auth/**"
       - "scripts/release/plan-pages-release.mjs"
+      - "scripts/release/plan-npm-cd-release.mjs"
+      - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/prepare-pages-release.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
@@ -76,6 +78,7 @@ jobs:
     timeout-minutes: 45
     outputs:
       version: ${{ steps.plan.outputs.version }}
+      npm_dist_tag: ${{ steps.plan.outputs.npm_dist_tag }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -89,10 +92,13 @@ jobs:
         run: |
           set -euo pipefail
           short="$(git rev-parse --short=7 HEAD)"
-          node scripts/release/plan-pages-release.mjs --mode channel --sha "$short" | tee /tmp/plan.txt
+          node scripts/release/plan-pages-release.mjs --sha "$short" | tee /tmp/plan.txt
           version="$(sed -n 's/^version=//p' /tmp/plan.txt)"
+          npm_dist_tag="$(sed -n 's/^npm_dist_tag=//p' /tmp/plan.txt)"
           test -n "$version"
+          test -n "$npm_dist_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - name: Production Pages build
         env:
@@ -107,7 +113,9 @@ jobs:
         run: node scripts/release/prepare-pages-release.mjs
       - name: npm publish dry-run
         working-directory: apps/pages/release
-        run: npm publish --dry-run --access public
+        env:
+          NPM_DIST_TAG: ${{ steps.plan.outputs.npm_dist_tag }}
+        run: npm publish --dry-run --access public --tag "$NPM_DIST_TAG"
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: apps/pages/dist
@@ -132,7 +140,7 @@ jobs:
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release
-          npm-dist-tag: preview
+          npm-dist-tag: ${{ needs.build.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
 
   deploy:
@@ -170,7 +178,7 @@ jobs:
         with:
           name: npm-pages-pwa-release-${{ github.run_id }}
           path: apps/pages/release
-      - name: Point latest at this npm version
+      - name: Point next at this prerelease (never latest)
         working-directory: apps/pages/release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -179,4 +187,4 @@ jobs:
           npm install -g npm@11.21.1 --no-fund --no-audit
           name="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-          npm dist-tag add "${name}@${version}" latest --registry https://registry.npmjs.org
+          npm dist-tag add "${name}@${version}" next --registry https://registry.npmjs.org
