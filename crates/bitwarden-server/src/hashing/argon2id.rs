@@ -1,7 +1,7 @@
 //! Argon2id (RFC 9106), the current scheme.
 
-use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::{PasswordHash, PasswordHasher as _, PasswordVerifier as _, SaltString};
+use argon2::password_hash::phc::PasswordHash;
+use argon2::password_hash::{PasswordHasher as _, PasswordVerifier as _};
 use argon2::{Algorithm, Argon2, Params, Version};
 
 use super::{HashError, PasswordHashScheme};
@@ -55,20 +55,19 @@ impl PasswordHashScheme for Argon2idScheme {
     }
 
     fn hash(&self, secret: &[u8]) -> Result<String, HashError> {
-        let salt = SaltString::generate(&mut OsRng);
         self.engine()
-            .hash_password(secret, &salt)
+            .hash_password(secret)
             .map(|hash| hash.to_string())
             .map_err(|e| HashError(e.to_string()))
     }
 
-    fn verify(&self, stored: &PasswordHash<'_>, secret: &[u8]) -> bool {
+    fn verify(&self, stored: &PasswordHash, secret: &[u8]) -> bool {
         // The stored string names its own parameters; the engine's are only
         // the defaults it falls back to.
         self.engine().verify_password(secret, stored).is_ok()
     }
 
-    fn is_current(&self, stored: &PasswordHash<'_>) -> bool {
+    fn is_current(&self, stored: &PasswordHash) -> bool {
         stored.algorithm.as_str() == self.id()
             && stored.version == Some(Version::V0x13.into())
             && Params::try_from(stored).is_ok_and(|p| {

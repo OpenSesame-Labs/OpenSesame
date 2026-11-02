@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::{PasswordHasher as _, SaltString};
+use argon2::password_hash::phc::{PasswordHash, SaltString};
 use sha2::{Digest, Sha256};
 
 use super::*;
@@ -57,21 +56,10 @@ fn raising_argon2_parameters_rehashes_on_the_next_sign_in() {
 
 #[test]
 fn legacy_pbkdf2_verifies_once_and_is_replaced_by_argon2id() {
-    let salt = SaltString::generate(&mut OsRng);
-    let params = pbkdf2::Params {
-        rounds: 1_000,
-        output_length: 32,
-    };
-    let legacy = pbkdf2::Pbkdf2
-        .hash_password_customized(
-            b"secret",
-            Some(pbkdf2::Algorithm::Pbkdf2Sha256.ident()),
-            None,
-            params,
-            &salt,
-        )
-        .unwrap()
-        .to_string();
+    let salt = [9_u8; 16];
+    let mut hash = [0_u8; 32];
+    pbkdf2::pbkdf2_hmac::<Sha256>(b"secret", &salt, 1_000, &mut hash);
+    let legacy = pbkdf2_sha256_record(1_000, &salt, &hash);
     assert!(legacy.starts_with("$pbkdf2-sha256$"), "{legacy}");
 
     let registry = HashRegistry::new(cheap(64)).accept(Arc::new(Pbkdf2Sha256Legacy));
@@ -100,26 +88,27 @@ impl PasswordHashScheme for Successor {
         "successor-test"
     }
     fn hash(&self, secret: &[u8]) -> Result<String, HashError> {
-        let salt = SaltString::generate(&mut OsRng);
+        let salt = argon2::password_hash::phc::Salt::generate();
+        let salt_string = SaltString::from(&salt);
         let digest = Sha256::new()
-            .chain_update(salt.as_str())
+            .chain_update(salt.as_ref())
             .chain_update(secret)
             .finalize();
-        let encoded =
-            argon2::password_hash::Output::new(&digest).map_err(|e| HashError(e.to_string()))?;
-        Ok(format!("$successor-test$v=1${}${encoded}", salt.as_str()))
+        let encoded = argon2::password_hash::phc::Output::new(&digest)
+            .map_err(|e| HashError(e.to_string()))?;
+        Ok(format!("$successor-test$v=1${}${encoded}", salt_string.as_ref()))
     }
-    fn verify(&self, stored: &PasswordHash<'_>, secret: &[u8]) -> bool {
-        let (Some(salt), Some(hash)) = (stored.salt, stored.hash) else {
+    fn verify(&self, stored: &PasswordHash, secret: &[u8]) -> bool {
+        let (Some(salt), Some(hash)) = (stored.salt.as_ref(), stored.hash.as_ref()) else {
             return false;
         };
         let digest = Sha256::new()
-            .chain_update(salt.as_str())
+            .chain_update(salt.as_ref())
             .chain_update(secret)
             .finalize();
-        argon2::password_hash::Output::new(&digest).is_ok_and(|candidate| candidate == hash)
+        argon2::password_hash::phc::Output::new(&digest).is_ok_and(|candidate| &candidate == hash)
     }
-    fn is_current(&self, stored: &PasswordHash<'_>) -> bool {
+    fn is_current(&self, stored: &PasswordHash) -> bool {
         stored.algorithm.as_str() == self.id()
     }
 }
