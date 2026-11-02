@@ -39,8 +39,18 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
     assert.doesNotMatch(text, /env-spec-bridge/);
     assert.doesNotMatch(text, /--tag\s+latest/);
     assert.doesNotMatch(text, /dist-tag add[^\n]*\slatest\b/);
+    assert.doesNotMatch(text, /npm install -g npm@/);
+    assert.match(text, /npx -y npm@11\.21\.1/);
   }
   assert.match(action, /Refusing dist-tag latest/);
+  assert.match(
+    action,
+    /test "\$\(npx -y npm@11\.21\.1 --version\)" = "11\.21\.1"/,
+  );
+  assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
+  assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: true/);
+  assert.doesNotMatch(cli, /cancel-in-progress: false/);
+  assert.doesNotMatch(pwa, /cancel-in-progress: false/);
   assert.doesNotMatch(read(".gitignore"), /env-spec-bridge\/release/);
   const spec = JSON.parse(read("docs/ci/github-setup-spec.json"));
   assert.equal(spec.npm_versioning.initial, "0.0.0-alpha.0");
@@ -53,4 +63,22 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
     spec.npm_packages.map((entry) => entry.name),
     ["@opensesame-labs/cli", "@opensesame-labs/web-pwa"],
   );
+});
+
+test("npm publish proof lints workflow YAML and stages the alpha dry-run", () => {
+  const proof = read(".github/workflows/cd-npm-publish-proof.yml");
+  assert.match(proof, /pull_request:/);
+  assert.match(proof, /download-actionlint\.bash" 1\.7\.7 \.cache\/actionlint/);
+  assert.match(
+    proof,
+    /node --test scripts\/release\/npm-cd-workflows\.test\.mjs/,
+  );
+  assert.match(
+    proof,
+    /node scripts\/release\/npm-cd-publish-dry-run-proof\.mjs/,
+  );
+  assert.match(proof, /\.github\/workflows\/cd-npm-cli\.yml/);
+  assert.match(proof, /\.github\/workflows\/cd-pwa\.yml/);
+  assert.match(proof, /\.github\/workflows\/cd-npm-publish-proof\.yml/);
+  assert.doesNotMatch(proof, /action\.yml/);
 });
