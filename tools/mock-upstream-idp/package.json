@@ -36,7 +36,7 @@
   "devDependencies": {
     "@node-saml/node-saml": "5.2.0",
     "@opensesame/testing": "*",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "ldapjs": "3.0.7",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

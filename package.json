@@ -139,7 +139,7 @@
     "@simplewebauthn/server": "13.3.2",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@typescript/typescript6": "6.0.2",

@@ -22,7 +22,7 @@
     "viem": "2.57.12"
   },
   "devDependencies": {
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2",
     "vitest": "4.1.12"
   },
