@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { readString } from "../lib/json-boundary.mjs";
 import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -42,7 +43,7 @@ function nonComment(text) {
 }
 
 function runText(step) {
-  return typeof step?.run === "string" ? step.run : "";
+  return readString(step?.run) ?? "";
 }
 
 test("workflows do not set up Node with setup-node, pnpm, or corepack", () => {
@@ -97,9 +98,11 @@ test("npm jobs install Node with the pinned mise-action", () => {
         const step = steps[index];
         const cacheExpected = !expectCacheDisabled;
         assert.equal(step.with?.cache, cacheExpected, label);
-        const args = step.with?.install_args;
-        assert.equal(typeof args, "string", label);
-        const tokens = args.split(/\s+/u).filter((token) => token !== "");
+        const args = readString(step.with?.install_args);
+        assert.notEqual(args, undefined, label);
+        const tokens = (args ?? "")
+          .split(/\s+/u)
+          .filter((token) => token !== "");
         assert.ok(tokens.length > 0, label);
         for (const token of tokens) {
           assert.ok(allowedArgs.has(token), `${label} ${token}`);
@@ -148,8 +151,8 @@ test("npm jobs install Node with the pinned mise-action", () => {
 
 function rustTokens(step) {
   if (step?.uses !== miseUses) return [];
-  const args = step.with?.install_args;
-  if (typeof args !== "string") return [];
+  const args = readString(step.with?.install_args);
+  if (args === undefined) return [];
   return args.split(/\s+/u).filter((token) => token !== "");
 }
 
@@ -163,10 +166,8 @@ function installsRust(step) {
 }
 
 function needsRust(step) {
-  if (
-    typeof step?.uses === "string" &&
-    step.uses.startsWith("Swatinem/rust-cache@")
-  ) {
+  const uses = readString(step?.uses);
+  if (uses?.startsWith("Swatinem/rust-cache@")) {
     return true;
   }
   return /\b(?:cargo|rustup)\s+/u.test(runText(step));
