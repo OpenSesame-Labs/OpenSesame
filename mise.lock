@@ -101,9 +101,9 @@ backend = "npm:typeui.sh"
 specifiers = ["0.7.1"]
 
 [[tools.rust]]
-version = "1.94.0"
+version = "1.94.1"
 backend = "core:rust"
-specifiers = ["1.94.0"]
+specifiers = ["1.94.1"]
 
 [tools.rust.options]
 components = "clippy,llvm-tools-preview,rustfmt"
