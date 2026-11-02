@@ -29,9 +29,7 @@ export function alphaVersionToNextProduction(version) {
   }
   const match = ALPHA_VERSION.exec(version);
   if (!match) {
-    throw new Error(
-      `expected 0.0.0-${CD_PREVIEW_DIST_TAG}.N, got ${version}`,
-    );
+    throw new Error(`expected 0.0.0-${CD_PREVIEW_DIST_TAG}.N, got ${version}`);
   }
   return `0.0.0-${CD_PRODUCTION_DIST_TAG}.${match[1]}`;
 }
@@ -65,9 +63,7 @@ async function main(argv) {
     console.log(`version=${next}`);
     return;
   }
-  throw new Error(
-    "Usage: cd-production-npm-version.mjs rewrite PACKAGE.json",
-  );
+  throw new Error("Usage: cd-production-npm-version.mjs rewrite PACKAGE.json");
 }
 
 const invokedDirectly =

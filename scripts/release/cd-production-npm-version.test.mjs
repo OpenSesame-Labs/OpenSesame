@@ -11,10 +11,7 @@ import {
 
 test("alphaVersionToNextProduction keeps the numeric suffix", () => {
   assert.equal(alphaVersionToNextProduction("0.0.0-alpha.0"), "0.0.0-next.0");
-  assert.equal(
-    alphaVersionToNextProduction("0.0.0-alpha.12"),
-    "0.0.0-next.12",
-  );
+  assert.equal(alphaVersionToNextProduction("0.0.0-alpha.12"), "0.0.0-next.12");
   for (const bad of [
     "0.0.0-next.1",
     "0.0.0-alpha",
