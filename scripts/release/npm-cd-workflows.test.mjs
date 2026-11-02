@@ -167,7 +167,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(pwa, /name: github-pages\n/);
   assert.match(
     pwa,
-    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+    /needs: \[main_ci, proof-gate, build, deploy, npm_preview, preview_smoke\]/,
   );
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,

@@ -23,6 +23,10 @@ on:
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - "scripts/ci/pwa-install-profile-proof.mjs"
+      - "scripts/ci/pwa-profile-proof-assert.mjs"
+      - "scripts/ci/pwa-profile-proof-gate.mjs"
+      - "scripts/ci/pwa-profile-proof-merge.mjs"
+      - "scripts/ci/pwa-profile-proof-select.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-pwa.yml"
   workflow_dispatch:
@@ -73,10 +77,16 @@ jobs:
         run: node scripts/release/cd-main-ci-gate.mjs
 
   proof:
-    name: Build install profiles
+    name: Build install profile (${{ matrix.profile }})
     needs: main_ci
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal-local, default, custom, full]
+    env:
+      PWA_PROFILE_PROOF_NAME: ${{ matrix.profile }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
@@ -85,8 +95,32 @@ jobs:
           install_args: node@24
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Profile builds and screenshots
+      - name: Profile build and screenshot
         run: node scripts/ci/pwa-install-profile-proof.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pwa-profile-proof-${{ matrix.profile }}-${{ github.run_id }}
+          path: artifacts/pwa-profile-proof
+          if-no-files-found: error
+
+  proof-gate:
+    name: Gate install profiles
+    needs: proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: pwa-profile-proof-*-${{ github.run_id }}
+          path: artifacts/pwa-profile-proof-parts
+          merge-multiple: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: false
+          install_args: node@24
+      - name: Assert distinct profile proof
+        run: node scripts/ci/pwa-profile-proof-merge.mjs artifacts/pwa-profile-proof-parts artifacts/pwa-profile-proof
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pwa-profile-proof-${{ github.run_id }}
@@ -95,7 +129,7 @@ jobs:
 
   build:
     name: Build Pages and stage npm
-    needs: [main_ci, proof]
+    needs: [main_ci, proof-gate]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -239,7 +273,7 @@ jobs:
 
   production:
     name: Production promotion
-    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke]
+    needs: [main_ci, proof-gate, build, deploy, npm_preview, preview_smoke]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -291,7 +325,7 @@ jobs:
 
   promotion_failed:
     name: Promotion failure notice
-    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke, production]
+    needs: [main_ci, proof, proof-gate, build, deploy, npm_preview, preview_smoke, production]
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -313,7 +347,7 @@ jobs:
           GITHUB_WORKFLOW: ${{ github.workflow }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GATE_MAIN_CI: ${{ needs.main_ci.result }}
-          GATE_PROOF: ${{ needs.proof.result }}
+          GATE_PROOF: ${{ needs.proof.result == 'failure' && 'failure' || needs.proof-gate.result }}
           GATE_BUILD: ${{ needs.build.result }}
           GATE_DEPLOY: ${{ needs.deploy.result }}
           GATE_NPM_PREVIEW: ${{ needs.npm_preview.result }}

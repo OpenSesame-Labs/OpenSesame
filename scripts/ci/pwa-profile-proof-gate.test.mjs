@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -11,6 +12,8 @@ import {
   proofManifest,
   stitchPanels,
 } from "./pwa-profile-proof-gate.mjs";
+import { mergeProfileProof } from "./pwa-profile-proof-merge.mjs";
+import { walksForProof } from "./pwa-profile-proof-select.mjs";
 
 function entry(profile, extra) {
   return {
@@ -214,6 +217,139 @@ test("stitch stacks both panels into a taller png", async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+const walks = [
+  { name: "minimal-local" },
+  { name: "default" },
+  { name: "custom" },
+  { name: "full" },
+];
+
+test("an empty profile request keeps every walk", () => {
+  assert.deepEqual(walksForProof(walks, undefined), walks);
+  assert.deepEqual(walksForProof(walks, ""), walks);
+  assert.deepEqual(walksForProof(walks, "  "), walks);
+});
+
+test("a named profile request keeps that walk", () => {
+  assert.deepEqual(walksForProof(walks, "default"), [{ name: "default" }]);
+  assert.deepEqual(walksForProof(walks, " full "), [{ name: "full" }]);
+});
+
+test("an unknown profile name lists the valid names", () => {
+  assert.throws(
+    () => walksForProof(walks, "nightly"),
+    /unknown profile "nightly"; valid: minimal-local, default, custom, full/,
+  );
+});
+
+async function writePart(dir, entry) {
+  const part = join(dir, entry.profile);
+  await mkdir(part, { recursive: true });
+  await writeFile(join(part, "entry.json"), `${JSON.stringify(entry)}\n`);
+  await writeFile(join(part, `${entry.profile}.png`), entry.pngHash);
+}
+
+test("merge accepts four distinct profile artifacts", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pwa-merge-"));
+  try {
+    const parts = join(dir, "parts");
+    const out = join(dir, "out");
+    for (const entry of sample()) {
+      await writePart(join(parts, "run"), entry);
+    }
+    const manifest = await mergeProfileProof(parts, out);
+    assert.deepEqual(
+      manifest.profiles.map((item) => item.profile),
+      ["minimal-local", "default", "custom", "full"],
+    );
+    assert.equal(await readFile(join(out, "default.png"), "utf8"), "p2");
+    const written = JSON.parse(
+      await readFile(join(out, "manifest.json"), "utf8"),
+    );
+    assert.equal(written.profiles[2].ceremonyReached, true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("merge rejects a shared profile hash", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pwa-merge-"));
+  try {
+    const parts = join(dir, "parts");
+    const entries = sample();
+    entries[1].pngHash = entries[2].pngHash;
+    for (const entry of entries) await writePart(parts, entry);
+    await assert.rejects(
+      () => mergeProfileProof(parts, join(dir, "out")),
+      /profile PNG: default and custom both hash p3/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("merge rejects a duplicate profile entry", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "pwa-merge-"));
+  try {
+    const parts = join(dir, "parts");
+    for (const entry of sample()) await writePart(join(parts, "a"), entry);
+    await writePart(join(parts, "b"), sample()[1]);
+    await assert.rejects(
+      () => mergeProfileProof(parts, join(dir, "out")),
+      /expected 4 profile entries, found 5/,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("assert and merge modules do not import sharp", () => {
+  for (const name of [
+    "pwa-profile-proof-assert.mjs",
+    "pwa-profile-proof-merge.mjs",
+    "pwa-profile-proof-select.mjs",
+  ]) {
+    const source = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /from "sharp"/);
+  }
+});
+
+test("cd-pwa proves four profiles in parallel and gates them", () => {
+  const text = readFileSync(
+    new URL("../../.github/workflows/cd-pwa.yml", import.meta.url),
+    "utf8",
+  );
+  assert.match(text, /fail-fast: false/);
+  assert.match(text, /profile: \[minimal-local, default, custom, full\]/);
+  assert.match(text, /PWA_PROFILE_PROOF_NAME: \$\{\{ matrix\.profile \}\}/);
+  assert.match(
+    text,
+    /name: pwa-profile-proof-\$\{\{ matrix\.profile \}\}-\$\{\{ github\.run_id \}\}/,
+  );
+  assert.match(
+    text,
+    /pattern: pwa-profile-proof-\*-\$\{\{ github\.run_id \}\}/,
+  );
+  assert.match(text, /merge-multiple: false/);
+  assert.match(text, /pwa-profile-proof-merge\.mjs/);
+  assert.match(text, /timeout-minutes: 60/);
+  const gate = text.split("\n  proof-gate:\n")[1]?.split("\n  build:\n")[0];
+  assert.match(gate ?? "", /needs: proof\n/);
+  assert.match(gate ?? "", /timeout-minutes: 30/);
+  const build = text.split("\n  build:\n")[1]?.split("\n  npm_preview:\n")[0];
+  assert.match(build ?? "", /needs: \[main_ci, proof-gate\]\n/);
+  assert.doesNotMatch(build ?? "", /needs: \[main_ci, proof\]\n/);
+  assert.match(
+    text,
+    /needs: \[main_ci, proof, proof-gate, build, deploy, npm_preview, preview_smoke, production\]/,
+  );
+  assert.match(
+    text,
+    /GATE_PROOF: \$\{\{ needs\.proof\.result == 'failure' && 'failure' \|\| needs\.proof-gate\.result \}\}/,
+  );
+  assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
 });
 
 test("profile proof navigates a loopback dist and blocks the live Pages host", async () => {
