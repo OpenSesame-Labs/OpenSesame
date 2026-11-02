@@ -9,8 +9,8 @@
 //! URLs — all public certificate material.
 
 use rcgen::{
-    CertificateParams, CustomExtension, DistinguishedName, DnType, DnValue,
-    ExtendedKeyUsagePurpose, Ia5String, KeyUsagePurpose, OtherNameValue, SanType,
+    string::Ia5String, CertificateParams, CustomExtension, DistinguishedName, DnType, DnValue,
+    ExtendedKeyUsagePurpose, KeyUsagePurpose, OtherNameValue, SanType,
 };
 
 use crate::error::PkiError;

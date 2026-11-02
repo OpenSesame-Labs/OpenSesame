@@ -109,7 +109,7 @@ impl CloudflareOriginApiResponse {
 mod tests {
     use rcgen::{
         BasicConstraints, CertificateParams, CertificateSigningRequestParams, DistinguishedName,
-        DnType, IsCa, KeyPair,
+        DnType, IsCa, Issuer, KeyPair,
     };
 
     use super::super::model::{CertificateRequestInput, TrustClass};
@@ -126,9 +126,10 @@ mod tests {
         params
             .distinguished_name
             .push(DnType::CommonName, "Mock Cloudflare Origin CA");
-        let ca = params.self_signed(&key).unwrap();
+        let ca_cert = params.self_signed(&key).unwrap();
         let csr = CertificateSigningRequestParams::from_pem(leaf.csr_pem()).unwrap();
-        let certificate = csr.signed_by(&ca, &key).unwrap().pem();
+        let issuer = Issuer::from_ca_cert_pem(&ca_cert.pem(), &key).unwrap();
+        let certificate = csr.signed_by(&issuer).unwrap().pem();
         assert_eq!(request.dns_names(), &["example.com"]);
         CloudflareOriginApiResponse {
             success: true,

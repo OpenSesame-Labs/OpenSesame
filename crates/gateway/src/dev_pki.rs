@@ -9,7 +9,8 @@ use std::time::Duration as StdDuration;
 
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
-    KeyPair, KeyUsagePurpose, SanType, SerialNumber, PKCS_ECDSA_P256_SHA256,
+    Issuer, KeyPair, KeyUsagePurpose, PublicKeyData, SanType, SerialNumber,
+    PKCS_ECDSA_P256_SHA256,
 };
 use serde::{Deserialize, Serialize};
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
@@ -121,7 +122,7 @@ pub fn validate_ca(ca: &DevCa) -> Result<(), String> {
         .is_some_and(|usage| usage.value.key_cert_sign());
     if !is_ca
         || !can_sign
-        || certificate.public_key().raw != key.public_key_der()
+        || certificate.public_key().raw != key.subject_public_key_info()
         || certificate.verify_signature(None).is_err()
     {
         return Err("CA certificate and private key do not form a signing authority".into());
@@ -155,8 +156,7 @@ pub fn issue_leaf(ca: &DevCa, request: &IssueRequest) -> Result<IssuedCert, Stri
     }
 
     let ca_key = KeyPair::from_pem(&ca.key_pem).map_err(|e| e.to_string())?;
-    let ca_params = CertificateParams::from_ca_cert_pem(&ca.cert_pem).map_err(|e| e.to_string())?;
-    let issuer_cert = ca_params.self_signed(&ca_key).map_err(|e| e.to_string())?;
+    let issuer = Issuer::from_ca_cert_pem(&ca.cert_pem, &ca_key).map_err(|e| e.to_string())?;
 
     let mut params = CertificateParams::new(dns.clone()).map_err(|e| e.to_string())?;
     params.distinguished_name = DistinguishedName::new();
@@ -181,7 +181,7 @@ pub fn issue_leaf(ca: &DevCa, request: &IssueRequest) -> Result<IssuedCert, Stri
         .unwrap_or_default();
     let leaf_key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).map_err(|e| e.to_string())?;
     let cert = params
-        .signed_by(&leaf_key, &issuer_cert, &ca_key)
+        .signed_by(&leaf_key, &issuer)
         .map_err(|e| e.to_string())?;
 
     Ok(IssuedCert {

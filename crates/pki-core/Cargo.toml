@@ -2,7 +2,7 @@
 #
 # Pins settled after resolving against the workspace lockfile under rustc 1.88:
 #
-# * `rcgen` has no `crl` cargo feature — CRL support is unconditional in 0.13,
+# * `rcgen` has no `crl` cargo feature — CRL support is unconditional in 0.14,
 #   so the brief's `features = ["crl"]` is dropped rather than invented.
 # * `x509-parser` gains `verify`, which `rcgen` also turns on; asking for it
 #   explicitly means this crate's CRL and chain signature checks do not depend
@@ -34,7 +34,7 @@ name = "opensesame_pki_core"
 path = "src/lib.rs"
 
 [dependencies]
-rcgen = { version = "0.13.2", default-features = false, features = ["crypto", "aws_lc_rs", "x509-parser", "pem", "zeroize"] }
+rcgen = { version = "0.14.9", default-features = false, features = ["crypto", "aws_lc_rs", "x509-parser", "pem", "zeroize"] }
 x509-parser = { version = "0.18.1", features = ["verify"] }
 x509-cert = "0.2.5"
 der = { version = "0.7.10", features = ["oid", "derive", "alloc"] }
