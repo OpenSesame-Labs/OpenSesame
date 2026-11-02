@@ -48,6 +48,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -70,7 +72,7 @@ jobs:
     environment:
       name: Preview
     steps:
-      - run: echo "Preview approval recorded for PWA and npm promotion."
+      - run: echo "Preview approval recorded. Production publishes dist-tag next via OIDC after Pages deploy."
 
   build:
     name: Build Pages and stage npm
@@ -84,6 +86,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -126,24 +129,6 @@ jobs:
           path: apps/pages/release
           if-no-files-found: error
 
-  npm_preview:
-    name: Preview npm publish
-    needs: build
-    runs-on: ubuntu-24.04
-    environment:
-      name: Preview
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: npm-pages-pwa-release-${{ github.run_id }}
-          path: apps/pages/release
-      - uses: ./.github/actions/publish-npm-package
-        with:
-          working-directory: apps/pages/release
-          npm-dist-tag: ${{ needs.build.outputs.npm_dist_tag }}
-          npm-token: ${{ secrets.NPM_TOKEN }}
-
   deploy:
     name: Deploy GitHub Pages
     needs: build
@@ -158,15 +143,19 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v4.0.5
 
   production:
-    name: Production verification
-    needs: [deploy, npm_preview]
+    name: Production verify and publish
+    needs: deploy
     runs-on: ubuntu-24.04
     environment:
       name: Production
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          sparse-checkout: scripts/release
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            .github/actions/publish-npm-package
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -179,12 +168,8 @@ jobs:
         with:
           name: npm-pages-pwa-release-${{ github.run_id }}
           path: apps/pages/release
-      - name: Point next at this prerelease (never latest)
-        working-directory: apps/pages/release
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          name="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).name")"
-          version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-          npx -y npm@11.21.1 dist-tag add "${name}@${version}" next --registry https://registry.npmjs.org
+      - uses: ./.github/actions/publish-npm-package
+        with:
+          working-directory: apps/pages/release
+          npm-dist-tag: next
+          npm-token: ""

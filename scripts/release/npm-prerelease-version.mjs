@@ -1,7 +1,8 @@
 /**
  * Tyler CD semver: 0.0.0-<preid>.0 first, then bump the prerelease counter.
- * Preview publishes dist-tag `alpha` (the preid). Production adds `next` only.
- * Prereleases never receive `latest`.
+ * The stage dry-run uses dist-tag `alpha` (the preid). Production publishes
+ * that prerelease once with dist-tag `next` (OIDC). CD never runs
+ * `npm dist-tag add`. Prereleases never receive `latest`.
  */
 import { spawnSync } from "node:child_process";
 import { isString } from "../lib/json-boundary.mjs";
