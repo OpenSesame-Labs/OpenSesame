@@ -8,23 +8,28 @@
   },
   "promotion_model": {
     "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts.",
-    "preview": "npm dist-tag alpha and the github-pages deploy run with no GitHub environment approval.",
-    "production": "The Production environment is the only required-reviewer gate. It downloads the same artifacts, verifies live Pages, and publishes dist-tag next via OIDC. It does not run npm dist-tag add or npm run build.",
+    "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success.",
+    "preview": "After main CI passes, npm dist-tag alpha and the github-pages deploy run automatically with no GitHub environment approval.",
+    "preview_smoke": "Before Production, cd-preview-smoke.mjs resolves @opensesame-labs/cli@alpha, runs opensesame --version, and (PWA CD) verifies the live Pages deploy for the commit.",
+    "profile_proof": "cd-pwa.yml job proof must succeed (four install profiles) before build and Production.",
+    "production": "When every gate passes, Production downloads the same staged artifacts, verifies live Pages again, and adds dist-tag next. No required reviewers on Preview or Production.",
+    "failure": "Any gate failure skips Production and promotion_failed posts a commit comment via cd-promotion-notify.mjs.",
     "pages_split": "github-pages is the live Pages deploy (actions/deploy-pages). It is not the Preview environment. deploy-pages preview:true is not available to the public, so there is no second Pages environment. Do not add required reviewers to github-pages."
   },
   "github_environment_changes_via_gh": {
-    "preview_required_reviewers": "remove",
-    "production_required_reviewers": "keep Tyler-R-Kendrick (user id 145080887), rule 70926080",
+    "preview_required_reviewers": "remove rule 70926078 if still present",
+    "production_required_reviewers": "remove rule 70926080; Tyler removed required reviewers (2026-11-02)",
     "github_pages": "keep branch policy main only (rule 62085543). No required reviewers and no wait timer.",
-    "npm_token": "Preview jobs no longer select an environment, so they cannot read the Preview environment secret. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance). Production publishes with an empty token via OIDC and does not read NPM_TOKEN.",
+    "npm_token": "Preview jobs no longer select an environment, so they cannot read the Preview environment secret. They use the repository NPM_TOKEN when set, otherwise OIDC trusted publishing (id-token: write, --provenance). Production still reads NPM_TOKEN from the Production environment secret when present.",
     "commands": [
       "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-protection-rules/70926078",
       "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Preview --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
       "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-branch-policies -f name=main -f type=branch",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/Preview --jq '{wait_timer,rules:[.protection_rules[].type]}'",
-      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Production --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[{\"type\":\"User\",\"id\":145080887}],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
+      "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-protection-rules/70926080",
+      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Production --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
       "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-branch-policies -f name=main -f type=branch",
-      "gh api repos/OpenSesame-Labs/OpenSesame/environments/Production --jq '{wait_timer,reviewers:[.protection_rules[]|select(.type==\"required_reviewers\")|.reviewers[].reviewer.login]}'",
+      "gh api repos/OpenSesame-Labs/OpenSesame/environments/Production --jq '{wait_timer,rules:[.protection_rules[].type]}'",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/github-pages --jq '{wait_timer,rules:[.protection_rules[].type]}'"
     ]
   },
@@ -60,11 +65,13 @@
         "allowed_branch": "main"
       },
       "protection_rules": {
-        "required_reviewers": ["Tyler Kendrick"],
+        "required_reviewers": [],
         "wait_timer_minutes": 0,
         "prevent_self_review": false
       },
-      "secrets": {},
+      "secrets": {
+        "NPM_TOKEN": "Production dist-tag promotion reads this when set; no required reviewers on the environment."
+      },
       "variables": {}
     },
     {
@@ -75,7 +82,7 @@
       "protection_rules": {
         "required_reviewers": [],
         "wait_timer_minutes": 0,
-        "note": "Do not add required reviewers. That would put a human wait back on the Pages deploy. Production is the only approval gate."
+        "note": "Do not add required reviewers. Production promotion is gated in workflow jobs, not by environment approval."
       },
       "secrets": {},
       "variables": {}
@@ -98,8 +105,8 @@
     "prerelease_id": "alpha",
     "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
     "dist_tags": {
-      "preview_publish": "alpha (Preview publishes 0.0.0-alpha.N with no environment wait)",
-      "production_promotion": "next (Production npm publish --tag next via OIDC; never latest, never dist-tag add)"
+      "preview_publish": "alpha (the prerelease id)",
+      "production_promotion": "next (never latest while versions stay prerelease)"
     }
   },
   "npm_packages": [
@@ -111,7 +118,7 @@
       "exists_on_npm": false,
       "dist_tags": {
         "alpha": "Preview npm publish",
-        "next": "Production OIDC publish --tag next"
+        "next": "Production dist-tag promotion"
       }
     },
     {
@@ -122,32 +129,13 @@
       "exists_on_npm": false,
       "dist_tags": {
         "alpha": "cd-pwa.yml Preview npm job",
-        "next": "cd-pwa.yml Production OIDC publish --tag next"
+        "next": "cd-pwa.yml Production dist-tag job"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "Preview publishes with the repository NPM_TOKEN when set, otherwise id-token: write and npm trusted publishing with --provenance. Production publishes with an empty token. CD never runs npm dist-tag add.",
-    "repository": "OpenSesame-Labs/OpenSesame",
-    "permissions": "id-token: write",
-    "environment": "Production",
-    "allowed_action": "direct npm publish (stage publish alone is not sufficient; dist-tag permission is not used)",
-    "packages": [
-      {
-        "name": "@opensesame-labs/cli",
-        "workflow_filename": "cd-npm-cli.yml"
-      },
-      {
-        "name": "@opensesame-labs/web-pwa",
-        "workflow_filename": "cd-pwa.yml"
-      }
-    ],
-    "npmjs_fields": {
-      "organization_or_user": "OpenSesame-Labs",
-      "repository": "OpenSesame",
-      "workflow_filename": "filename only, including .yml, not the .github/workflows path",
-      "environment_name": "Production"
-    }
+    "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
+    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/web-pwa on GitHub Actions for OpenSesame-Labs/OpenSesame."
   }
 }
