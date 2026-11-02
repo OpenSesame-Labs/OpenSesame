@@ -1207,7 +1207,7 @@
     "packages/app-core/src/lib/vault/drop-present.test.ts": "22a20f243516c6f7785cbbc3fc004df0d0c3255dda4ccfcd984d2ff605904df6",
     "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx": "6fbe86d0f3636d94faa9c03404057f4ef2fa5ea664d74d26bf3fc751c6e9d1f7",
     "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx": "e96f0b0325c2c35554c9201849145117762e276b4c6ce5364f96525127a312bd",
-    "packages/control-plane/package.json": "45bbe89a09088da06aed88a3274151a6db251389da9dee8b7f9fee5be5861e06",
+    "packages/control-plane/package.json": "3a398a96fb37dad8287aa7d0f2ef1726b238e39f5ca083acdadfbb4f45d525b4",
     "packages/os-domain/package.json": "e3dcffdfaa10585dfbd176a11106f308b5967957111d3ad99b36a34b79cb1f02",
     "packages/os-domain/src/index.ts": "8cd85c3947582ea2d0058a021b32eb9d8253941ffc74b80cc3b3ec2d4de5944b",
     "packages/os-domain/src/json.ts": "9432ceaeef200eda5288af141f42a47e968b0293fecf5685861a6aca11163369",
