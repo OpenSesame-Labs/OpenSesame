@@ -51,7 +51,7 @@ const SNAPSHOT_SCRIPT = `(() => {
     const aria = el.getAttribute("aria-label");
     if (aria) return aria.slice(0, 200);
     if (el.id) {
-      const linked = document.querySelector('label[for="' + el.id + '"]');
+      const linked = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
       if (linked && linked.textContent) return linked.textContent.trim().slice(0, 200);
     }
     const wrapping = el.closest("label");
