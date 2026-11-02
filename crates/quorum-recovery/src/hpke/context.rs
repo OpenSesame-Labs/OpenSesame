@@ -2,10 +2,13 @@
 //! opening with the sequence-numbered nonce, and the secret exporter.
 
 use aes_gcm::{
-    aead::{Aead, KeyInit, Payload},
+    aead::{Aead as AesAead, KeyInit as AesKeyInit, Payload as AesPayload},
     Aes128Gcm,
 };
-use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::{
+    aead::{Aead as ChaAead, KeyInit as ChaKeyInit, Payload as ChaPayload},
+    ChaCha20Poly1305, Nonce as ChaNonce,
+};
 
 use super::kdf::{hpke_suite, labeled_expand, labeled_extract};
 use super::{HpkeAead, HpkeError};
@@ -113,29 +116,32 @@ impl Context {
 
     fn crypt(&self, aad: &[u8], input: &[u8], encrypt: bool) -> Result<Vec<u8>, HpkeError> {
         let nonce = self.nonce_at(self.sequence);
-        let payload = Payload { msg: input, aad };
-        let nonce = aes_gcm::Nonce::from_slice(&nonce);
-        let out = match self.aead {
+        match self.aead {
             HpkeAead::Aes128Gcm => {
+                let payload = AesPayload { msg: input, aad };
+                let nonce = aes_gcm::Nonce::from_slice(&nonce);
                 let cipher =
                     Aes128Gcm::new_from_slice(self.key.expose()).map_err(|_| HpkeError::Length)?;
-                if encrypt {
-                    cipher.encrypt(nonce, payload)
+                let out = if encrypt {
+                    AesAead::encrypt(&cipher, nonce, payload)
                 } else {
-                    cipher.decrypt(nonce, payload)
-                }
+                    AesAead::decrypt(&cipher, nonce, payload)
+                };
+                out.map_err(|_| HpkeError::Authentication)
             }
             HpkeAead::ChaCha20Poly1305 => {
+                let payload = ChaPayload { msg: input, aad };
+                let nonce = ChaNonce::from_slice(&nonce);
                 let cipher = ChaCha20Poly1305::new_from_slice(self.key.expose())
                     .map_err(|_| HpkeError::Length)?;
-                if encrypt {
-                    cipher.encrypt(nonce, payload)
+                let out = if encrypt {
+                    ChaAead::encrypt(&cipher, nonce, payload)
                 } else {
-                    cipher.decrypt(nonce, payload)
-                }
+                    ChaAead::decrypt(&cipher, nonce, payload)
+                };
+                out.map_err(|_| HpkeError::Authentication)
             }
-        };
-        out.map_err(|_| HpkeError::Authentication)
+        }
     }
 
     fn advance(&mut self) -> Result<(), HpkeError> {
