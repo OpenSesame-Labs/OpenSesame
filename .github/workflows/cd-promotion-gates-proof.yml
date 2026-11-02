@@ -51,6 +51,41 @@ jobs:
             scripts/release/cd-preview-smoke.test.mjs \
             scripts/release/cd-promotion-notify.test.mjs
 
+  simulate_blocked:
+    name: Simulated promotion gates (forced smoke failure)
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Preview smoke gate fails
+        run: |
+          set -euo pipefail
+          echo "::error title=Promotion blocked::simulated preview smoke failed"
+          exit 1
+
+  promotion_failed_blocked:
+    name: Promotion failure notice (blocked path)
+    needs: simulate_blocked
+    if: failure() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Annotate the simulated failure
+        env:
+          CD_NOTIFY_DRY_RUN: "1"
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GATE_PREVIEW_SMOKE: failure
+        run: node scripts/release/cd-promotion-notify.mjs
+
   simulate:
     name: Simulated promotion gates
     needs: unit
