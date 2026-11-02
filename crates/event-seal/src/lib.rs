@@ -21,8 +21,8 @@ use std::sync::{Arc, PoisonError, RwLock};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use chacha20poly1305::aead::{Aead, KeyInit, OsRng, Payload};
-use chacha20poly1305::{AeadCore, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::aead::{Aead, Generate, KeyInit, Payload};
+use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use zeroize::Zeroizing;
@@ -114,11 +114,13 @@ impl EventSealer {
         Hkdf::<Sha256>::new(Some(ENVELOPE_INFO), self.wrapping_key.as_ref())
             .expand(column.as_bytes(), purpose_key.as_mut())
             .expect("32 bytes is a valid HKDF-SHA256 output length");
-        XChaCha20Poly1305::new(purpose_key.as_ref().into())
+        XChaCha20Poly1305::new_from_slice(purpose_key.as_ref())
+            .expect("32 bytes is a valid AEAD key length")
     }
 
     fn cipher(&self) -> XChaCha20Poly1305 {
-        XChaCha20Poly1305::new(self.key.as_ref().into())
+        XChaCha20Poly1305::new_from_slice(self.key.as_ref())
+            .expect("32 bytes is a valid AEAD key length")
     }
 
     /// Seal `plaintext` for `column` (`table.column`).
@@ -128,11 +130,9 @@ impl EventSealer {
     /// Never in practice: encrypting a buffer cannot fail.
     #[must_use]
     pub fn seal(&self, column: &str, plaintext: &str) -> String {
-        let data_key = Zeroizing::new(<[u8; 32]>::from(XChaCha20Poly1305::generate_key(
-            &mut OsRng,
-        )));
-        let wrap_nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
-        let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+        let data_key = Zeroizing::new(<[u8; 32]>::from(Key::generate()));
+        let wrap_nonce = XNonce::generate();
+        let nonce = XNonce::generate();
         let aad = self.aad(column);
         let wrapped_key = self
             .wrapping_cipher(column)
@@ -144,7 +144,8 @@ impl EventSealer {
                 },
             )
             .expect("encryption of event data key");
-        let ciphertext = XChaCha20Poly1305::new(data_key.as_ref().into())
+        let ciphertext = XChaCha20Poly1305::new_from_slice(data_key.as_ref())
+            .expect("32 bytes is a valid AEAD key length")
             .encrypt(
                 &nonce,
                 Payload {

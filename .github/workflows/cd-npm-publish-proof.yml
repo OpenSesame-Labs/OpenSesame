@@ -1,0 +1,59 @@
+# Pull-request proof for npm CD publish paths. Lints workflow YAML only.
+# Does not publish and does not treat composite actions as workflows.
+name: CD npm publish proof
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/publish-npm-package/**"
+      - ".github/workflows/cd-npm-cli.yml"
+      - ".github/workflows/cd-pwa.yml"
+      - ".github/workflows/cd-npm-publish-proof.yml"
+      - ".github/workflows/cd-pwa-profile-proof.yml"
+      - "scripts/release/npm-cd-*.mjs"
+      - "scripts/release/npm-prerelease-version.mjs"
+      - "scripts/release/npm-publish-names.mjs"
+      - "scripts/release/pages-pwa-serve.mjs"
+      - "scripts/release/plan-*-release.mjs"
+      - "scripts/release/prepare-*-release.mjs"
+      - "docs/ci/github-setup-spec.json"
+      - "docs/ci/pipelines.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-npm-publish-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof:
+    name: actionlint and npm dry-run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: actionlint 1.7.7 on workflow YAML
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/actionlint
+          curl -fsSL -o "${RUNNER_TEMP}/download-actionlint.bash" \
+            https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash
+          bash "${RUNNER_TEMP}/download-actionlint.bash" 1.7.7 .cache/actionlint
+          .cache/actionlint/actionlint -shellcheck= -pyflakes= \
+            .github/workflows/cd-npm-cli.yml \
+            .github/workflows/cd-pwa.yml \
+            .github/workflows/cd-npm-publish-proof.yml \
+            .github/workflows/cd-pwa-profile-proof.yml
+      - run: npm ci
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs
+      - name: npm publish dry-run (cli and web-pwa, alpha)
+        env:
+          NPM_CD_DRY_RUN_LOG: ${{ runner.temp }}/npm-cd-dry-run-proof.log
+        run: node scripts/release/npm-cd-publish-dry-run-proof.mjs

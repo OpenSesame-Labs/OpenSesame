@@ -21,7 +21,7 @@ mod pbkdf2_legacy;
 
 use std::sync::Arc;
 
-pub use argon2::password_hash::PasswordHash;
+pub use argon2::password_hash::phc::PasswordHash;
 pub use argon2id::Argon2idScheme;
 pub use pbkdf2_legacy::{pbkdf2_sha256_record, Pbkdf2Sha256Legacy};
 
@@ -45,11 +45,11 @@ pub trait PasswordHashScheme: Send + Sync {
 
     /// Constant-time check of `secret` against a parsed PHC hash of this
     /// scheme's algorithm.
-    fn verify(&self, stored: &PasswordHash<'_>, secret: &[u8]) -> bool;
+    fn verify(&self, stored: &PasswordHash, secret: &[u8]) -> bool;
 
     /// Whether `stored` was written with exactly this scheme's parameters. A
     /// hash that verifies but is not current is re-hashed.
-    fn is_current(&self, stored: &PasswordHash<'_>) -> bool;
+    fn is_current(&self, stored: &PasswordHash) -> bool;
 
     /// Check `secret` against a stored hash of this scheme's algorithm that
     /// the generic PHC parser refuses. Only a scheme whose records can exceed

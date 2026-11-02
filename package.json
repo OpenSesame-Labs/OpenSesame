@@ -133,13 +133,13 @@
     "@env-spec/parser": "0.6.2",
     "@gdp-ts/core": "0.1.0",
     "@hono/node-server": "2.1.5",
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@oxlint/plugins": "1.90.0",
     "@playwright/test": "1.64.1",
     "@simplewebauthn/server": "13.3.2",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@typescript/typescript6": "6.0.2",
@@ -150,8 +150,8 @@
     "drizzle-orm": "0.45.4",
     "handlebars": "4.7.10",
     "hono": "4.13.14",
-    "jose": "6.2.13",
-    "oidc-provider": "9.13.1",
+    "jose": "6.2.14",
+    "oidc-provider": "9.13.3",
     "oxlint": "1.90.0",
     "pino": "9.7.0",
     "postgres": "4.0.0",
@@ -162,7 +162,7 @@
     "typescript": "7.0.2",
     "vite": "8.3.5",
     "vitest": "4.1.12",
-    "wxt": "0.20.19",
+    "wxt": "0.21.5",
     "zod": "4.6.6"
   },
   "overrides": {
@@ -196,7 +196,25 @@
     "hono": "4.13.14",
     "follow-redirects": "1.16.2",
     "glob@>=11.0.0 <14.0.0": "14.0.2",
+    "glob@^10.0.0": "14.0.2",
+    "glob": "14.0.2",
+    "minimatch": "11.0.1",
+    "archiver-utils": {
+      "glob": "$glob",
+      "minimatch": "$minimatch"
+    },
+    "filelist": {
+      "minimatch": "$minimatch"
+    },
+    "readdir-glob": {
+      "minimatch": "$minimatch"
+    },
     "minimatch@^10.0.0": "11.0.1",
+    "minimatch@~10.2.4": "11.0.1",
+    "minimatch@^10.2.4": "11.0.1",
+    "minimatch@^9.0.4": "11.0.1",
+    "minimatch@^5.1.0": "11.0.1",
+    "minimatch@^5.0.1": "11.0.1",
     "chokidar@^3": "5.0.0",
     "yaml": "2.9.1",
     "@noble/post-quantum": {
@@ -208,7 +226,7 @@
     "js-yaml@^3": "3.15.2",
     "js-yaml@^5": "5.4.1",
     "log4js": "6.4.0",
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "simple-git": "4.0.1",
     "@simple-git/argv-parser": "2.0.1",
     "source-map-js": "1.2.2",

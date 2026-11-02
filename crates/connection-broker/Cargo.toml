@@ -61,7 +61,7 @@ aws-sigv4 = { version = "=1.3.8", default-features = false, features = ["sign-ht
 aws-credential-types = { version = "=1.2.11", default-features = false }
 aws-smithy-runtime-api = { version = "=1.11.3", default-features = false, features = ["client"] }
 # Bounded STS XML reading. Already in the lock through the KDBX bridge.
-quick-xml = { version = "=0.41.0", default-features = false }
+quick-xml = { version = "=0.42.0", default-features = false }
 
 [dev-dependencies]
 axum = { workspace = true }

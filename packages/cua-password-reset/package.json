@@ -17,15 +17,15 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.88",
-    "agent-browser": "0.40.0",
+    "agent-browser": "0.41.0",
     "@opensesame/os-domain": "*",
     "@opensesame/vault-core": "*",
-    "ai": "7.0.155",
+    "ai": "7.0.157",
     "zod": "4.6.6"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2",
     "vitest": "4.1.12"
   },

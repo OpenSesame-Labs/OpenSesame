@@ -14,7 +14,7 @@
 use der::asn1::{BitString, GeneralizedTime, Int, ObjectIdentifier, OctetString};
 use der::{Any, Decode as _, Encode as _, Enumerated, Sequence, Tag, TagNumber, Tagged as _};
 use rcgen::{
-    CertificateParams, CertificateRevocationListParams, RevocationReason, RevokedCertParams,
+    CertificateRevocationListParams, Issuer, KeyIdMethod, RevocationReason, RevokedCertParams,
     SerialNumber,
 };
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,22 @@ pub struct CrlFacts {
     pub serials: Vec<String>,
 }
 
+fn key_identifier_method_from_issuer_pem(issuer_cert_pem: &str) -> Result<KeyIdMethod, PkiError> {
+    let blocks = x509::parse_pem_blocks(issuer_cert_pem, x509::LABEL_CERTIFICATE, 1)?;
+    let der = blocks.first().ok_or(PkiError::InvalidPem)?.to_vec();
+    let (_, certificate) = parse_x509_certificate(&der).map_err(|_| PkiError::InvalidPem)?;
+    let key_identifier_method = certificate
+        .iter_extensions()
+        .find_map(|extension| match extension.parsed_extension() {
+            x509_parser::extensions::ParsedExtension::SubjectKeyIdentifier(key_id) => {
+                Some(KeyIdMethod::PreSpecified(key_id.0.to_vec()))
+            }
+            _ => None,
+        })
+        .unwrap_or(KeyIdMethod::Sha256);
+    Ok(key_identifier_method)
+}
+
 /// Builds a signed RFC 5280 CRL v2 over `entries`.
 ///
 /// # Errors
@@ -104,12 +120,9 @@ pub fn build_crl(
         })
         .collect::<Result<Vec<_>, PkiError>>()?;
 
-    let issuer_params =
-        CertificateParams::from_ca_cert_pem(issuer_cert_pem).map_err(|_| PkiError::InvalidPem)?;
-    let key_identifier_method = issuer_params.key_identifier_method.clone();
-    let issuer = issuer_params
-        .self_signed(issuer_key.rcgen())
-        .map_err(|_| PkiError::CrlBuild)?;
+    let key_identifier_method = key_identifier_method_from_issuer_pem(issuer_cert_pem)?;
+    let issuer = Issuer::from_ca_cert_pem(issuer_cert_pem, issuer_key.rcgen())
+        .map_err(|_| PkiError::InvalidPem)?;
 
     let params = CertificateRevocationListParams {
         this_update,
@@ -120,7 +133,7 @@ pub fn build_crl(
         key_identifier_method,
     };
     let crl = params
-        .signed_by(&issuer, issuer_key.rcgen())
+        .signed_by(&issuer)
         .map_err(|_| PkiError::CrlBuild)?;
     Ok(crl.der().to_vec())
 }

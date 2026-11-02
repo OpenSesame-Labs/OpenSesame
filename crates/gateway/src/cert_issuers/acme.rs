@@ -469,7 +469,7 @@ mod tests {
     use instant_acme::{BodyWrapper, BytesResponse, HttpClient};
     use rcgen::{
         BasicConstraints, CertificateParams, CertificateSigningRequestParams, DistinguishedName,
-        DnType, IsCa, KeyPair,
+        DnType, IsCa, Issuer, KeyPair,
     };
 
     use super::super::model::{CertificateRequestInput, TrustClass};
@@ -613,7 +613,9 @@ mod tests {
                             .decode(finalize["csr"].as_str().unwrap())
                             .unwrap();
                         let csr = CertificateSigningRequestParams::from_der(&csr.into()).unwrap();
-                        let cert = csr.signed_by(&ca.0, &ca.1).unwrap();
+                        let issuer =
+                            Issuer::from_ca_cert_pem(&ca.0.pem(), &ca.1).unwrap();
+                        let cert = csr.signed_by(&issuer).unwrap();
                         *issued_chain.lock().unwrap() = Some(format!("{}{}", cert.pem(), ca.0.pem()));
                         Self::response(
                             StatusCode::OK,

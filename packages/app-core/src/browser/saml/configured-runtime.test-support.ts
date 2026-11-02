@@ -1,6 +1,6 @@
 /** Independent XML signer and verified TLS oracle; receiver/popup remain explicit unit ports. */
 import { execFileSync } from "node:child_process";
-import { X509Certificate, generateKeyPairSync, webcrypto } from "node:crypto";
+import { X509Certificate, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:https";
@@ -23,14 +23,14 @@ export async function configuredSamlOracle() {
     .toString();
   const algorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
   const keys = {
-    privateKey: await webcrypto.subtle.importKey(
+    privateKey: await crypto.subtle.importKey(
       "pkcs8",
       new Uint8Array(pair.privateKey.export({ type: "pkcs8", format: "der" })),
       algorithm,
       false,
       ["sign"],
     ),
-    publicKey: await webcrypto.subtle.importKey(
+    publicKey: await crypto.subtle.importKey(
       "spki",
       new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" })),
       algorithm,

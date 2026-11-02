@@ -7,8 +7,8 @@ mod common;
 
 use std::time::Duration;
 
-use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::{PasswordHasher as _, SaltString};
+use opensesame_bitwarden_server::hashing::pbkdf2_sha256_record;
+use sha2::Sha256;
 use common::bw::Bw;
 use common::client::{http, Account, ARGON2ID, PBKDF2};
 use common::Harness;
@@ -100,21 +100,15 @@ async fn an_imported_legacy_server_hash_upgrades_on_bw_sign_in() {
 
     // What a Bitwarden or vaultwarden server would have stored: PBKDF2-SHA256
     // over the client hash, in PHC form.
-    let salt = SaltString::generate(&mut OsRng);
-    let params = pbkdf2::Params {
-        rounds: 100_000,
-        output_length: 32,
-    };
-    let legacy = pbkdf2::Pbkdf2
-        .hash_password_customized(
-            carol.password_hash().as_bytes(),
-            Some(pbkdf2::Algorithm::Pbkdf2Sha256.ident()),
-            None,
-            params,
-            &salt,
-        )
-        .unwrap()
-        .to_string();
+    let salt: Vec<u8> = (0..16_u8).collect();
+    let mut hash = [0_u8; 32];
+    pbkdf2::pbkdf2_hmac::<Sha256>(
+        carol.password_hash().as_bytes(),
+        &salt,
+        100_000,
+        &mut hash,
+    );
+    let legacy = pbkdf2_sha256_record(100_000, &salt, &hash);
     harness
         .db
         .bitwarden_set_password_hash(&user.id, &user.master_password_hash, &legacy)

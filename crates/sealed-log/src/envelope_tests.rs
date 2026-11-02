@@ -9,7 +9,8 @@ use sha2::Sha256;
 
 fn legacy(root: &[u8; 32], plain: &str) -> String {
     let nonce = [4u8; 24];
-    let ciphertext = XChaCha20Poly1305::new(root.into())
+    let ciphertext = XChaCha20Poly1305::new_from_slice(root)
+        .unwrap()
         .encrypt(
             XNonce::from_slice(&nonce),
             Payload {
@@ -42,7 +43,8 @@ fn unwrap(value: &str) -> Vec<u8> {
     aad.extend_from_slice(context);
     aad.extend_from_slice(b"sealed-log.line");
     let packed = URL_SAFE_NO_PAD.decode(&value[5..]).unwrap();
-    let dek = XChaCha20Poly1305::new((&kek).into())
+    let dek = XChaCha20Poly1305::new_from_slice(&kek)
+        .unwrap()
         .decrypt(
             XNonce::from_slice(&packed[..24]),
             Payload {
@@ -51,7 +53,8 @@ fn unwrap(value: &str) -> Vec<u8> {
             },
         )
         .unwrap();
-    let plaintext = XChaCha20Poly1305::new(dek.as_slice().into())
+    let plaintext = XChaCha20Poly1305::new_from_slice(dek.as_slice())
+        .unwrap()
         .decrypt(
             XNonce::from_slice(&packed[72..96]),
             Payload {

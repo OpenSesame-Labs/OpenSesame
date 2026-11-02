@@ -14,8 +14,8 @@ use opensesame_pki_core::{
     SignatureAlgorithm, SubjectDn,
 };
 use rcgen::{
-    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, Ia5String, KeyPair,
-    KeyUsagePurpose, SanType, SerialNumber, PKCS_ECDSA_P256_SHA256,
+    string::Ia5String, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose,
+    Issuer, KeyPair, KeyUsagePurpose, SanType, SerialNumber, PKCS_ECDSA_P256_SHA256,
 };
 use sha2::{Digest, Sha256};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -150,8 +150,7 @@ pub fn leaf_thumbprint(pem: &str) -> Result<String, String> {
 pub fn mint_leaf(ca: &DevCa, shape: &LeafShape, ttl: Duration) -> Result<IssuedCert, String> {
     crate::dev_pki::validate_ca(ca)?;
     let ca_key = KeyPair::from_pem(&ca.key_pem).map_err(|e| e.to_string())?;
-    let ca_params = CertificateParams::from_ca_cert_pem(&ca.cert_pem).map_err(|e| e.to_string())?;
-    let issuer = ca_params.self_signed(&ca_key).map_err(|e| e.to_string())?;
+    let issuer = Issuer::from_ca_cert_pem(&ca.cert_pem, &ca_key).map_err(|e| e.to_string())?;
     let common_name = shape.common_name();
     let dns_names: Vec<String> = match &shape.selector {
         PeerIdentitySelector::DnsName(name) => vec![name.clone()],
@@ -193,7 +192,7 @@ pub fn mint_leaf(ca: &DevCa, shape: &LeafShape, ttl: Duration) -> Result<IssuedC
         .unwrap_or_default();
     let leaf_key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256).map_err(|e| e.to_string())?;
     let cert = params
-        .signed_by(&leaf_key, &issuer, &ca_key)
+        .signed_by(&leaf_key, &issuer)
         .map_err(|e| e.to_string())?;
     Ok(IssuedCert {
         certificate: cert.pem(),

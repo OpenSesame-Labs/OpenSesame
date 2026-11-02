@@ -14,10 +14,10 @@
     "redteam:mock-upstream": "node scripts/mock-upstream-daemon.mjs"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@opensesame/capability-registry": "*",
     "@opensesame/testing": "*",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "promptfoo": "0.125.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

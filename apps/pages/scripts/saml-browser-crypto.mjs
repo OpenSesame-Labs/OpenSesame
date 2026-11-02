@@ -7,12 +7,12 @@ import { fileURLToPath } from "node:url";
 
 const pins = {
   packageSHA256:
-    "1d274f8a78d3cf667040449d0d97570fc45f8dfb0dedf576cd0a96235000bbe5",
-  esmSHA256: "cdd37d050f29add85b66a0d0f85b74197973c2e7ea984f213887562aad49da64",
+    "974eca0002cf8b1ebee2be042ffa633b058b95a0c7676987471105845211911a",
+  esmSHA256: "e75f7a75cc41a2286b0eebc0f8a459ccb7ac643c4d551f5163125eb4481f5aba",
   applicationSHA256:
-    "da95873203ac9cb977dc9202e44c6910a7bbcf919e5cbd3cef51b3a701795be0",
+    "b3bd8776a9da2d2b10ffaf1ba9d82911b0bdd818abe2b0dda50d18b209f14c82",
   certificateSHA256:
-    "88d8982df0ea584359915df6b2233e49f52e1345555a477eb69a9453322da899",
+    "9e3d49e49a2536323106b5d21266eca2e51431facfe031e774f7ce302dc1032d",
   callers: {
     "xml-signature.ts":
       "3c86a7cad9651b8236bae7650e4afac65650d7dfaa35fcbd47269e00549d499d",
@@ -23,7 +23,8 @@ const pins = {
     "xml-policy.ts":
       "745558c6a3677342c746243c4ae2c60189938759f60e3a9f4729467186da6d3e",
   },
-  esmFiles: 46,
+  esmFiles: 42,
+  xmldsigjsVersion: "3.0.0",
 };
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const implementationRoot = resolve(
@@ -66,8 +67,12 @@ export function readSamlBrowserCryptoInputs(root) {
   match(sha(packageSource), pins.packageSHA256, "package");
   const parsed = JSON.parse(packageSource);
   match(parsed.name, "xmldsigjs", "package name");
-  match(parsed.version, "2.8.8", "version");
-  const esm = resolve(dirname(metadata), "build/esm").replaceAll("\\", "/");
+  match(parsed.version, pins.xmldsigjsVersion, "version");
+  const moduleEntry = parsed.module ?? parsed.main;
+  const esm = resolve(dirname(metadata), dirname(moduleEntry)).replaceAll(
+    "\\",
+    "/",
+  );
   match(
     sha(JSON.stringify(inventory(esm))),
     pins.esmSHA256,
@@ -85,13 +90,17 @@ export function readSamlBrowserCryptoInputs(root) {
   const x509Root = resolve(dirname(x509Path), "..");
   match(
     sha(readFileSync(resolve(x509Root, "package.json"))),
-    "27719c7f479804be63667f9157eed53f3b5ccb44e070067dfcc084ef06996866",
+    "62e7ee55bc254005f6ac592930804213880b0fc0f62e43bb8a34d7573f1b71f8",
     "shared certificate package",
   );
-  const sharedCertificate = resolve(x509Root, "build/x509.es.js");
+  const x509Package = JSON.parse(
+    readFileSync(resolve(x509Root, "package.json"), "utf8"),
+  );
+  const x509Module = x509Package.module ?? x509Package.main;
+  const sharedCertificate = resolve(x509Root, x509Module);
   match(
     sha(readFileSync(sharedCertificate)),
-    "f2cc5db5de63f76b35d9c63cc49fbed40731691313da4ec196dfd06516b8821f",
+    "3c4b3557e06a494350243a9064d16a1b1aecda4863b81cba8b6ba4706cad613a",
     "shared certificate implementation",
   );
   const reflectionOwner = createRequire(sharedCertificate);
@@ -144,6 +153,7 @@ export function readSamlBrowserCryptoInputs(root) {
   ]);
   return {
     esm,
+    packageRoot: resolve(esm, "..").replaceAll("\\", "/"),
     sharedCertificate: sharedCertificate.replaceAll("\\", "/"),
     reflection: {
       full: reflection.full.replaceAll("\\", "/"),
@@ -174,20 +184,39 @@ function assertAdapterConsumers(context, input) {
 }
 
 function assertSdkConsumers(context, input, entry, ids) {
+  const sdkRoot = input.packageRoot;
+  const normalizedEntry = entry.replaceAll("\\", "/");
   for (const id of ids) {
     const clean = id.replaceAll("\\", "/");
-    if (
-      clean.includes("/node_modules/xmldsigjs/") &&
-      !id.startsWith(`${input.esm}/`)
-    )
+    if (clean.includes("/node_modules/xmldsigjs/") && !clean.startsWith(`${sdkRoot}/`))
       throw new Error("Unexpected browser XMLDSIG package instance");
-    if (id.startsWith(`${input.esm}/`) && id !== entry) {
+    if (clean.startsWith(`${input.esm}/`) && clean !== normalizedEntry) {
       const module = context.getModuleInfo(id);
       const consumers = [...module.importers, ...module.dynamicImporters];
-      if (consumers.some((consumer) => !consumer.startsWith(`${input.esm}/`)))
+      if (
+        consumers.some(
+          (consumer) => !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
+        )
+      )
         throw new Error("Unexpected browser XMLDSIG consumer");
     }
   }
+}
+
+/** xmldsigjs 3 lists xml-core as a peer; app-core owns the pin. */
+export function resolveXmldsigjsPeerDependencies(root) {
+  const appCore = resolve(root, "packages/app-core/package.json");
+  return {
+    name: "saml-xmldsigjs-peer-resolver",
+    enforce: "pre",
+    async resolveId(source, importer) {
+      if (source !== "xml-core") return null;
+      const normalizedImporter = importer?.replaceAll("\\", "/") ?? "";
+      if (!normalizedImporter.includes("/node_modules/xmldsigjs/")) return null;
+      const resolved = await this.resolve(source, appCore, { skipSelf: true });
+      return resolved?.id ?? null;
+    },
+  };
 }
 
 /** No global package aliases: only the exact pinned SDK modules change their implementation. */
@@ -203,11 +232,19 @@ export function samlBrowserCrypto(root) {
       transformed.clear();
     },
     async resolveId(source, importer) {
-      if (source !== "reflect-metadata") return null;
       if (!input) throw new Error("SAML browser crypto was not initialized");
+      const peer = await resolveXmldsigjsPeerDependencies(root).resolveId.call(
+        this,
+        source,
+        importer,
+      );
+      if (peer) return peer;
+      if (source !== "reflect-metadata") return null;
       const original = await this.resolve(source, importer, { skipSelf: true });
+      // A side-effect import. Without the flag, code-splitting can drop the
+      // lite polyfill from the @peculiar/x509 chunk and tsyringe throws.
       return original?.id === input.reflection.full
-        ? input.reflection.lite
+        ? { id: input.reflection.lite, moduleSideEffects: true }
         : null;
     },
     transform(source, id) {

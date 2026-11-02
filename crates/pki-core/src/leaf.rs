@@ -12,7 +12,7 @@
 //! managed key is generated it is returned *beside* the leaf as a
 //! [`KeyPair`], which is neither.
 
-use rcgen::{CertificateParams, CrlDistributionPoint, IsCa, SerialNumber};
+use rcgen::{CertificateParams, CrlDistributionPoint, IsCa, Issuer, SerialNumber};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use x509_parser::prelude::parse_x509_certificate;
@@ -176,18 +176,15 @@ fn issued_leaf(certificate_pem: String, chain_pem: String) -> Result<IssuedLeaf,
 }
 
 /// Reconstructs the issuer as a signing context and normalizes its chain.
-fn issuer_context(
+fn issuer_context<'a>(
     issuer_cert_pem: &str,
-    issuer_key: &KeyPair,
-) -> Result<(rcgen::Certificate, String), PkiError> {
+    issuer_key: &'a KeyPair,
+) -> Result<(Issuer<'a, &'a rcgen::KeyPair>, String), PkiError> {
     let chain = bundle::normalize_chain(issuer_cert_pem)?;
     let issuer_leaf = chain.first().ok_or(PkiError::ChainInvalid)?;
     crate::ca::validate_ca(issuer_leaf, Some(issuer_key))?;
-    let issuer_params =
-        CertificateParams::from_ca_cert_pem(issuer_leaf).map_err(|_| PkiError::InvalidPem)?;
-    let issuer = issuer_params
-        .self_signed(issuer_key.rcgen())
-        .map_err(|_| PkiError::CertificateBuild)?;
+    let issuer = Issuer::from_ca_cert_pem(issuer_leaf, issuer_key.rcgen())
+        .map_err(|_| PkiError::InvalidPem)?;
     Ok((issuer, chain.join("")))
 }
 
@@ -240,7 +237,7 @@ fn issue_leaf_from_facts(
     let mut built = leaf_params(params)?;
     built.use_authority_key_identifier_extension = true;
     let certificate = built
-        .signed_by(&public_key, &issuer, issuer_key.rcgen())
+        .signed_by(&public_key, &issuer)
         .map_err(|_| PkiError::CertificateBuild)?;
     issued_leaf(certificate.pem(), chain_pem)
 }
@@ -262,7 +259,7 @@ pub fn issue_leaf_with_generated_key(
     let mut built = leaf_params(params)?;
     built.use_authority_key_identifier_extension = true;
     let certificate = built
-        .signed_by(key.rcgen(), &issuer, issuer_key.rcgen())
+        .signed_by(key.rcgen(), &issuer)
         .map_err(|_| PkiError::CertificateBuild)?;
     Ok((issued_leaf(certificate.pem(), chain_pem)?, key))
 }

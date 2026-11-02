@@ -68,7 +68,8 @@ fn unwrap(store: &AdminStore, config: &TailnetConfig, value: &str, expected: &[u
     let packed = URL_SAFE_NO_PAD
         .decode(value.strip_prefix("osev2.").unwrap())
         .unwrap();
-    let dek = XChaCha20Poly1305::new((&kek).into())
+    let dek = XChaCha20Poly1305::new_from_slice(&kek)
+        .unwrap()
         .decrypt(
             XNonce::from_slice(&packed[..24]),
             Payload {
@@ -77,7 +78,8 @@ fn unwrap(store: &AdminStore, config: &TailnetConfig, value: &str, expected: &[u
             },
         )
         .unwrap();
-    let plaintext = XChaCha20Poly1305::new(dek.as_slice().into())
+    let plaintext = XChaCha20Poly1305::new_from_slice(dek.as_slice())
+        .unwrap()
         .decrypt(
             XNonce::from_slice(&packed[72..96]),
             Payload {

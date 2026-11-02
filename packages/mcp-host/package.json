@@ -19,17 +19,17 @@
   "dependencies": {
     "@opensesame/agent-client": "*",
     "@opensesame/api-client": "*",
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@opensesame/observability": "*",
     "@opensesame/os-domain": "*",
     "@opensesame/telemetry": "*",
-    "posthog-node": "5.57.2",
+    "posthog-node": "5.61.0",
     "zod": "4.6.6"
   },
   "devDependencies": {
     "@opensesame/capability-registry": "*",
     "@opensesame/testing": "*",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "4.1.12"

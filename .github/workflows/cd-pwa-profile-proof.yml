@@ -1,0 +1,48 @@
+# Pull-request proof that each install profile is served from its own dist/
+# on loopback. Does not publish and does not deploy.
+name: CD PWA profile proof
+
+on:
+  pull_request:
+    paths:
+      - "scripts/ci/pwa-*"
+      - "apps/pages/scripts/lib/static-origin-harness.mjs"
+      - "apps/pages/scripts/lib/verification-checklist-setup.mjs"
+      - "apps/pages/scripts/lib/verification-checklist-shot.mjs"
+      - "apps/pages/scripts/lib/verification-checklist-profiles.mjs"
+      - "apps/pages/scripts/lib/pages-journey.mjs"
+      - "apps/pages/scripts/bundle-chunk.mjs"
+      - "apps/pages/scripts/saml-browser-crypto.mjs"
+      - "apps/pages/capability-profiles/**"
+      - ".github/workflows/cd-pwa.yml"
+      - ".github/workflows/cd-pwa-profile-proof.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-pwa-profile-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof:
+    name: Install-profile screenshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: false
+          install_args: node@24
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Profile builds and screenshots
+        run: node scripts/ci/pwa-install-profile-proof.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pwa-profile-proof-${{ github.run_id }}
+          path: artifacts/pwa-profile-proof
+          if-no-files-found: error

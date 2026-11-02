@@ -12,10 +12,10 @@
 node = "24"
 # llvm-tools-preview is for cargo-llvm-cov and native Windows stack dumps.
 # rust-toolchain.toml stays rustfmt and clippy.
-rust = { version = "1.88.0", components = ["rustfmt", "clippy", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] }
+rust = { version = "1.89.0", components = ["rustfmt", "clippy", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] }
 go = "1.26.10"
 java = "temurin-17.0.20+101"
-"cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.88.0" } }
+"cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.89.0" } }
 # Installer CLIs for scripts/dev/install-agent-skills.sh. Skill content stays unpinned.
 "npm:skills" = "1.7.4"
 "npm:impeccable" = "4.8.0"
@@ -23,7 +23,7 @@ java = "temurin-17.0.20+101"
 
 [env]
 CARGO_TARGET_DIR = "{{env.HOME}}/.cache/packages/cargo-target"
-RUSTUP_TOOLCHAIN = "1.88.0"
+RUSTUP_TOOLCHAIN = "1.89.0"
 # sdkmanager packages for the Android jobs. compileSdk is 36.
 ANDROID_SDK_PLATFORM = "android-36"
 ANDROID_BUILD_TOOLS = "35.0.0"

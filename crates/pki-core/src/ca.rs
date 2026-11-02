@@ -14,7 +14,8 @@
 //! carries only public material and is freely serializable.
 
 use rcgen::{
-    BasicConstraints, CertificateParams, CrlDistributionPoint, IsCa, KeyUsagePurpose, SerialNumber,
+    BasicConstraints, CertificateParams, CrlDistributionPoint, IsCa, Issuer, KeyUsagePurpose,
+    SerialNumber,
 };
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -218,14 +219,11 @@ pub fn sign_intermediate(
     built.serial_number = Some(random_serial());
     built.use_authority_key_identifier_extension = true;
 
-    let issuer_params =
-        CertificateParams::from_ca_cert_pem(parent_cert_pem).map_err(|_| PkiError::InvalidPem)?;
-    let issuer = issuer_params
-        .self_signed(parent_key.rcgen())
-        .map_err(|_| PkiError::CertificateBuild)?;
+    let issuer = Issuer::from_ca_cert_pem(parent_cert_pem, parent_key.rcgen())
+        .map_err(|_| PkiError::InvalidPem)?;
 
     let certificate = built
-        .signed_by(&public_key, &issuer, parent_key.rcgen())
+        .signed_by(&public_key, &issuer)
         .map_err(|_| PkiError::CertificateBuild)?;
     Ok(certificate.pem())
 }
@@ -433,10 +431,9 @@ mod tests {
         let leaf_key = keys::generate(KeyAlgorithm::EcdsaP256).unwrap();
         let mut params = CertificateParams::new(vec!["leaf.example.com".to_owned()]).unwrap();
         params.is_ca = IsCa::NoCa;
-        let issuer_params = CertificateParams::from_ca_cert_pem(&root.certificate_pem).unwrap();
-        let issuer = issuer_params.self_signed(root.key.rcgen()).unwrap();
+        let issuer = Issuer::from_ca_cert_pem(&root.certificate_pem, root.key.rcgen()).unwrap();
         let leaf = params
-            .signed_by(leaf_key.rcgen(), &issuer, root.key.rcgen())
+            .signed_by(leaf_key.rcgen(), &issuer)
             .unwrap()
             .pem();
         assert_eq!(

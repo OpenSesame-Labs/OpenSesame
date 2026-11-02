@@ -6,16 +6,16 @@ import { resolve } from "node:path";
 
 const pins = {
   oidcPackage:
-    "7a15c10cedf7f7796c151f211b49277fc50d47da57e66de9835b4e50fd7169e4",
+    "93df4277ebc274e7f83d966a2bf21b487d6e619f1edb80454089b4359b462670",
   oidcBrowser:
     "88827584f41f0ec9833d15c6897dc4a09dd753b6574d0fba6b50831319d65dd8",
-  verifier: "af1abbd1023f7a7e7b55e4cf7e74aa7e18ec676e49b76efb71826e122debf48b",
+  verifier: "4d3d5c3066e0ed6a65c3b0404fbe31e6f12ff85aa10dc81ef3a9f6fb663beac2",
   josePackage:
     "3cb0f73674b50b4e99f35c883e10c9e541e3b8d20368825379515547af1d804d",
   joseBrowser:
     "44c315d5a0ffabb93fa3e70be939e468b1de6c2ca425742e81c8bab826af9ff4",
   connectPackage:
-    "ffd9bf1a42c6fad122cf7910612a29e12ef900dc143d08351eb763422d30efe8",
+    "2c92c0c8c4c475f0375506d5e985cc0da79accb9f7a86e6d46422c61e37e90ec",
 };
 const digest = (source) => createHash("sha256").update(source).digest("hex");
 function equal(actual, expected, name) {
@@ -49,7 +49,7 @@ export function readOidcNamespaceInputs(root) {
   const metadata = JSON.parse(
     checked(resolve(oidcRoot, "package.json"), "oidcPackage"),
   );
-  equal(metadata.version, "3.8.8", "OIDC version");
+  equal(metadata.version, "4.0.5", "OIDC version");
   equal(
     metadata.exports["."].browser,
     "./dist/index-browser.js",

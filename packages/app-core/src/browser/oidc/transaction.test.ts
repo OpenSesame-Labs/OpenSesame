@@ -1,5 +1,6 @@
 import { createHash, generateKeyPairSync, sign, webcrypto } from "node:crypto";
 import type { BoundaryObject } from "@opensesame/os-domain";
+import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { consumeNativeOidcProof } from "./claims.js";
 import { type ConfiguredOidc, prepareConfiguredOidc } from "./transaction.js";
@@ -74,7 +75,7 @@ function oracle(method = "client_secret_basic") {
     });
     let value: BoundaryObject;
     if (url === `${issuer}/.well-known/openid-configuration`) value = discovery;
-    else if (url === `${issuer}/jwks`) value = { keys: [jwk] };
+    else if (url === `${issuer}/jwks`) value = { keys: [overlapCast(jwk)] };
     else if (url === `${issuer}/token`) {
       tokenCount++;
       if (!authorization || tokenCount !== 1)

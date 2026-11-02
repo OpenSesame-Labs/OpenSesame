@@ -25,11 +25,11 @@
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
-    "oidc-provider": "9.13.1"
+    "oidc-provider": "9.13.3"
   },
   "devDependencies": {
     "@opensesame/testing": "*",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2",
     "vitest": "4.1.12"
   },

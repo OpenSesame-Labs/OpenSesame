@@ -89,7 +89,7 @@ fn the_process_wide_sealer_seals_when_installed_and_passes_through_otherwise() {
 }
 
 fn legacy_value(column: &str, text: &str) -> String {
-    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let nonce = XNonce::generate();
     let ciphertext = sealer()
         .cipher()
         .encrypt(

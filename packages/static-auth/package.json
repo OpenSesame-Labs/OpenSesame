@@ -15,10 +15,10 @@
     "@opensesame/browser-at-rest": "*",
     "@opensesame/os-domain": "*",
     "@opensesame/sdk-browser": "*",
-    "jose": "6.2.13"
+    "jose": "6.2.14"
   },
   "devDependencies": {
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2",
     "vitest": "4.1.12"
   },

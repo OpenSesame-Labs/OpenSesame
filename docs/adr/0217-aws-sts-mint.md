@@ -67,7 +67,7 @@ credential STS was built to derive from.
    daemon's `EGRESS_RULES`. No redirect is followed, the body is capped at
    16 KiB, the call times out after 10 s, and the response is scrubbed of the
    source secret and session token.
-6. **The answer is read boundedly and trusted narrowly.** `quick-xml =0.41.0`
+6. **The answer is read boundedly and trusted narrowly.** `quick-xml =0.42.0`
    (already in the lock through the KDBX bridge) reads the body event by event:
    no DTD, depth ≤ 8, ≤ 512 events, values ≤ 4096 bytes, no entity inside a
    captured value, no field twice, each in STS's documented shape. An

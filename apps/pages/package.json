@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "GitHub Pages installable PWA \u2014 offline client shell for OpenSesame",
+  "description": "GitHub Pages installable PWA — offline client shell for OpenSesame",
   "scripts": {
     "dev": "bash ../../scripts/dev/pages-dev.sh",
     "dev:web": "vite --port 5180 --strictPort --host localhost",
@@ -113,12 +113,13 @@
     "@opensesame/webmcp": "*",
     "age-encryption": "0.3.1",
     "mqtt": "5.16.1",
-    "nostr-tools": "2.25.2",
+    "nostr-tools": "2.25.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "8.5.1",
     "simple-icons": "16.36.0",
-    "tinykeys": "4.0.1"
+    "tinykeys": "4.0.1",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@opensesame/connector-bridge": "*",
@@ -130,7 +131,7 @@
     "@tailscale/connect": "1.102.3-3-tb31d8a75a-g5e651e16f",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.8",
-    "@types/node": "22.15.29",
+    "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/ws": "8.18.2",

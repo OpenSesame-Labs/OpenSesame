@@ -5,8 +5,8 @@
 
 use blake3::Hasher;
 use chacha20poly1305::{
-    aead::{Aead, KeyInit},
-    Key, XChaCha20Poly1305, XNonce,
+    aead::{Aead, KeyInit, Payload},
+    XChaCha20Poly1305, XNonce,
 };
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -94,7 +94,7 @@ impl DeviceKey {
 ///
 /// Returns an error when validation or the underlying operation fails.
 pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key.key));
+    let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
     let mut nonce_bytes = [0u8; 24];
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
     let nonce = XNonce::from_slice(&nonce_bytes);
@@ -121,7 +121,7 @@ pub fn open(key: &DeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u8>, Clien
         return Err(ClientCoreError::Aead);
     }
     let (nonce_bytes, ct) = sealed.split_at(24);
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(&key.key));
+    let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
     let nonce = XNonce::from_slice(nonce_bytes);
     cipher
         .decrypt(nonce, chacha20poly1305::aead::Payload { msg: ct, aad })
