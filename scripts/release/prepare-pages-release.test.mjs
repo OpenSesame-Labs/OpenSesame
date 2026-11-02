@@ -8,7 +8,10 @@ import { stagePagesRelease } from "./prepare-pages-release.mjs";
 test("stagePagesRelease bundles dist and a local serve bin", async () => {
   const dist = join(process.cwd(), "apps/pages/dist");
   await mkdir(dist, { recursive: true });
-  await writeFile(join(dist, "index.html"), "<!doctype html><title>PWA</title>\n");
+  await writeFile(
+    join(dist, "index.html"),
+    "<!doctype html><title>PWA</title>\n",
+  );
   await writeFile(
     join(dist, "manifest.webmanifest"),
     '{"name":"OpenSesame"}\n',

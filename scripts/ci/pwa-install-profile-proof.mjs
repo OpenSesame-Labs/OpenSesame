@@ -8,10 +8,10 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
 import {
+  WALK_NAMES,
   appPaths,
   buildDist,
   resolveWalks,
-  WALK_NAMES,
 } from "../../apps/pages/scripts/lib/verification-checklist-profiles.mjs";
 
 const outRoot =
@@ -77,7 +77,11 @@ async function main() {
       );
       const indexPath = join(dist, "index.html");
       const digest = await sha256DistTree(dist);
-      digests.push({ profile: walk.name, digest, indexDigest: await sha256File(indexPath) });
+      digests.push({
+        profile: walk.name,
+        digest,
+        indexDigest: await sha256File(indexPath),
+      });
       const page = await browser.newPage();
       await page.goto(`file://${indexPath}`);
       await page.screenshot({

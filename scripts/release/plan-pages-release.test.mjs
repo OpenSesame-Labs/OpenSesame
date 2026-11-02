@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatPlan, planCliRelease } from "./plan-cli-release.mjs";
+import { planCliRelease } from "./plan-cli-release.mjs";
 
 test("pages-pwa channel plan uses pages-pwa tag prefix", () => {
   const plan = planCliRelease({

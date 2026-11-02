@@ -43,7 +43,8 @@ if (
   const directories = selectedPackages(process.env.NPM_PACKAGES);
   for (const cwd of directories) {
     const result = spawnSync(
-      "npm", ["publish", "--access", "public", "--no-git-checks"],
+      "npm",
+      ["publish", "--access", "public", "--no-git-checks"],
       {
         cwd,
         stdio: "inherit",

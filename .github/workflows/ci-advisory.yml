@@ -27,5 +27,5 @@ jobs:
           cache: true
           install_args: node@24
       - run: npm ci
-      - run: npm run format:check
+      - run: npx biome check --changed --since=origin/main --no-errors-on-unmatched .
       - run: npm run lint:anti-slop

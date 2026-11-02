@@ -20,7 +20,9 @@ export async function stageCliRelease(version) {
   );
   await rm(releaseDir, { recursive: true, force: true });
   await mkdir(releaseDir, { recursive: true });
-  await cp(join(cliRoot, "dist"), join(releaseDir, "dist"), { recursive: true });
+  await cp(join(cliRoot, "dist"), join(releaseDir, "dist"), {
+    recursive: true,
+  });
   await cp(join(cliRoot, "README.md"), join(releaseDir, "README.md"));
   const publishManifest = {
     name: NPM_PUBLISH.cli.name,
