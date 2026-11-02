@@ -1,6 +1,6 @@
 # Publish @opensesame-labs/cli after main merges.
 # Stage once. Preview publishes alpha with no environment wait.
-# Production is the only approval gate and publishes next via OIDC.
+# Production promotes when automated gates pass.
 name: CD npm CLI
 
 on:
@@ -14,6 +14,9 @@ on:
       - "scripts/release/prepare-cli-release.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/cd-release-meta.mjs"
+      - "scripts/release/cd-main-ci-gate.mjs"
+      - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-promotion-notify.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-npm-cli.yml"
   workflow_dispatch:
@@ -26,6 +29,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   id-token: write
   attestations: write
 
@@ -35,8 +39,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  main_ci:
+    name: Main CI gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Require trunk CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/cd-main-ci-gate.mjs
+
   stage:
     name: Stage CLI release
+    needs: main_ci
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -45,8 +67,8 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 0
           persist-credentials: false
+          fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -92,7 +114,7 @@ jobs:
 
   preview:
     name: Preview npm publish
-    needs: stage
+    needs: [stage, main_ci]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -124,9 +146,31 @@ jobs:
           npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
 
+  preview_smoke:
+    name: Preview npm smoke
+    needs: [stage, preview]
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Prove alpha npm resolves and runs
+        env:
+          EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
+        run: node scripts/release/cd-preview-smoke.mjs
+
   production:
     name: Production npm publish
-    needs: [stage, preview]
+    needs: [stage, preview, preview_smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment:
@@ -156,3 +200,36 @@ jobs:
           working-directory: packages/cli/release
           npm-dist-tag: next
           npm-token: ""
+
+  promotion_failed:
+    name: Promotion failure notice
+    needs: [main_ci, stage, preview, preview_smoke, production]
+    if: failure() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Commit comments need contents: write. The issues permission does not cover them.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Annotate the run and comment on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GATE_MAIN_CI: ${{ needs.main_ci.result }}
+          GATE_STAGE: ${{ needs.stage.result }}
+          GATE_PREVIEW: ${{ needs.preview.result }}
+          GATE_PREVIEW_SMOKE: ${{ needs.preview_smoke.result }}
+          GATE_PRODUCTION: ${{ needs.production.result }}
+        run: node scripts/release/cd-promotion-notify.mjs

@@ -1,0 +1,138 @@
+# Pull-request proof for automated CD promotion gates.
+# Unit tests, then a simulated chain. workflow_dispatch input force_smoke_fail
+# exits 1 so Actions shows the promotion blocked.
+name: CD promotion gates proof
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cd-npm-cli.yml"
+      - ".github/workflows/cd-pwa.yml"
+      - ".github/workflows/cd-promotion-gates-proof.yml"
+      - ".github/workflows/cd-npm-publish-proof.yml"
+      - "scripts/release/cd-*.mjs"
+      - "scripts/release/npm-cd-workflows.test.mjs"
+      - "docs/ci/**"
+  workflow_dispatch:
+    inputs:
+      force_smoke_fail:
+        description: When true, the simulated preview smoke exits 1 and blocks promotion.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Each run is its own group so a pass dispatch and a forced failure both finish.
+concurrency:
+  group: cd-promotion-gates-proof-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  unit:
+    name: Promotion gate unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Gate script tests
+        run: |
+          set -euo pipefail
+          node --test \
+            scripts/release/npm-cd-workflows.test.mjs \
+            scripts/release/cd-main-ci-gate.test.mjs \
+            scripts/release/cd-preview-smoke.test.mjs \
+            scripts/release/cd-promotion-notify.test.mjs
+
+  simulate_blocked:
+    name: Simulated promotion gates (forced smoke failure)
+    needs: unit
+    # Always-fail on pull_request turns the proof workflow red. The blocked
+    # path runs only when someone dispatches the workflow with force_smoke_fail.
+    if: github.event_name == 'workflow_dispatch' && inputs.force_smoke_fail == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Preview smoke gate fails
+        run: |
+          set -euo pipefail
+          echo "::error title=Promotion blocked::simulated preview smoke failed"
+          exit 1
+
+  promotion_failed_blocked:
+    name: Promotion failure notice (blocked path)
+    needs: simulate_blocked
+    if: failure() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Annotate the simulated failure
+        env:
+          CD_NOTIFY_DRY_RUN: "1"
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GATE_PREVIEW_SMOKE: failure
+        run: node scripts/release/cd-promotion-notify.mjs
+
+  simulate:
+    name: Simulated promotion gates
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Main CI gate
+        run: echo "main_ci passed"
+      - name: Preview smoke
+        env:
+          FORCE_SMOKE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.force_smoke_fail }}
+        run: |
+          set -euo pipefail
+          if [ "$FORCE_SMOKE_FAIL" = "true" ]; then
+            echo "::error title=Promotion blocked::simulated preview smoke failed"
+            exit 1
+          fi
+          echo "preview_smoke passed"
+      - name: Production
+        run: echo "production would proceed"
+
+  promotion_failed:
+    name: Promotion failure notice
+    needs: simulate
+    if: failure() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Annotate the simulated failure
+        env:
+          CD_NOTIFY_DRY_RUN: "1"
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GATE_PREVIEW_SMOKE: failure
+        run: node scripts/release/cd-promotion-notify.mjs
