@@ -1,6 +1,10 @@
 # Dependency updates. The audit gates (npm run audit:osv, audit:cargo-audit,
 # audit:cve-lite) remain the security loop; Dependabot only proposes version
 # bumps so the routine dependency triage has a reviewed, ready-made PR.
+#
+# npm workspaces use ONE root entry at / with the root package-lock.json.
+# Do not add per-package directories: Dependabot resolves every workspace
+# from that single lockfile.
 version: 2
 updates:
   # Root Cargo workspace (product crates). tests/fuzz/cargo is its own
@@ -10,8 +14,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - security
     groups:
       cargo-minor-and-patch:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
@@ -21,8 +30,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security
     groups:
       cargo-minor-and-patch:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
@@ -32,6 +46,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - security
     ignore:
       # @ai-sdk/openai-compatible 3.x emits provider-spec v4 models, which
       # the pinned ai@6 core (spec v2/v3) cannot accept. Stay on the 2.x
@@ -39,8 +56,16 @@ updates:
       - dependency-name: "@ai-sdk/openai-compatible"
         versions:
           - ">= 3.0.0"
+      - dependency-name: vitest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: testcontainers
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
@@ -50,8 +75,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - ci
     groups:
       actions-minor-and-patch:
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
