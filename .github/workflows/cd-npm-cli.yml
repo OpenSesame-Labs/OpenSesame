@@ -26,9 +26,10 @@ permissions:
   id-token: write
   attestations: write
 
+# Pending runs otherwise stay queued with no jobs until the active run ends.
 concurrency:
   group: cd-npm-cli
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   stage:
@@ -116,6 +117,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          npm install -g npm@11.21.1 --no-fund --no-audit
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-          npm dist-tag add "@opensesame-labs/cli@${version}" next --registry https://registry.npmjs.org
+          npx -y npm@11.21.1 dist-tag add "@opensesame-labs/cli@${version}" next --registry https://registry.npmjs.org
