@@ -56,7 +56,7 @@ export function threadWorker(bundle: string) {
     if (data.fixture) diagnostics.push(data);
     else facade.onmessage?.(new MessageEvent("message", { data }));
   });
-  raw.on("error", (error) =>
+  raw.on("error", (error: NodeJS.ErrnoException) =>
     facade.onerror?.(
       Object.assign(new Event("error"), {
         message: error.message,
