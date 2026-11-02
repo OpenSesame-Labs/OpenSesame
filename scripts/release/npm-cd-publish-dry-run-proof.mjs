@@ -1,12 +1,12 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 /**
  * Stage both CD npm packages and run npm publish --dry-run.
  * Alpha uses the planned dist-tag. Production rewrites 0.0.0-alpha.N to
  * 0.0.0-next.N and dry-runs --tag next on the same payload bytes.
  */
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import {
   alphaVersionToNextProduction,
