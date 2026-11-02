@@ -4,8 +4,8 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use rcgen::{
-    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, KeyPair,
-    KeyUsagePurpose, PKCS_ECDSA_P256_SHA256,
+    CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, Issuer, KeyPair,
+    KeyUsagePurpose, PublicKeyData, PKCS_ECDSA_P256_SHA256,
 };
 use serde::{Deserialize, Serialize};
 use x509_parser::extensions::GeneralName;
@@ -362,7 +362,7 @@ pub(crate) fn normalize_external_certificate(
 
     let (_, certificate) = parse_x509_certificate(&certificates[0])
         .map_err(|_| IssuerError::InvalidCertificateResponse)?;
-    if certificate.public_key().raw != leaf.key_pair.public_key_der() {
+    if certificate.public_key().raw != leaf.key_pair.subject_public_key_info() {
         return Err(IssuerError::CertificateKeyMismatch);
     }
     if !certificate.validity().is_valid() {
@@ -466,7 +466,8 @@ mod tests {
         let ca = ca_params.self_signed(&ca_key).unwrap();
         let leaf = GeneratedLeafRequest::generate(request).unwrap();
         let csr = rcgen::CertificateSigningRequestParams::from_pem(leaf.csr_pem()).unwrap();
-        (csr.signed_by(&ca, &ca_key).unwrap().pem(), leaf)
+        let issuer = Issuer::from_ca_cert_pem(&ca.pem(), &ca_key).unwrap();
+        (csr.signed_by(&issuer).unwrap().pem(), leaf)
     }
 
     proptest! {

@@ -9,8 +9,8 @@
 //! rather than extracting bytes at all.
 
 use rcgen::{
-    SignatureAlgorithm as RcgenSignatureAlgorithm, PKCS_ECDSA_P256_SHA256, PKCS_ECDSA_P384_SHA384,
-    PKCS_ED25519, PKCS_RSA_SHA256,
+    PublicKeyData, SignatureAlgorithm as RcgenSignatureAlgorithm, PKCS_ECDSA_P256_SHA256,
+    PKCS_ECDSA_P384_SHA384, PKCS_ED25519, PKCS_RSA_SHA256,
 };
 
 use zeroize::Zeroizing;
@@ -51,7 +51,7 @@ impl KeyPair {
     ///
     /// Public material: safe to log, store unsealed and return to agents.
     pub fn public_key_der(&self) -> Vec<u8> {
-        self.inner.public_key_der()
+        self.inner.subject_public_key_info()
     }
 
     /// The private key as an unencrypted PKCS#8 PEM document.
