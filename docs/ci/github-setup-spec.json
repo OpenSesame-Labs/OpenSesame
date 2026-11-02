@@ -1,0 +1,110 @@
+{
+  "schema": "opensesame-ci-setup/v1",
+  "repository": "OpenSesame-Labs/OpenSesame",
+  "merge_queue": {
+    "base_branch": "main",
+    "required_status_check_contexts": [
+      "TypeScript",
+      "Rust",
+      "Bundle budgets"
+    ],
+    "note": "Reported by .github/workflows/ci.yml jobs typescript, rust-check, and bundle-check on pull_request and merge_group."
+  },
+  "environments": [
+    {
+      "name": "Preview",
+      "used_by": [
+        ".github/workflows/cd-npm-cli.yml",
+        ".github/workflows/cd-npm-env-spec-bridge.yml",
+        ".github/workflows/cd-pwa.yml"
+      ],
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true,
+        "allowed_branch": "main"
+      },
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "wait_timer_minutes": 0,
+        "prevent_self_review": false
+      },
+      "secrets": {
+        "NPM_TOKEN": "npm automation or granular publish token (CLI and env-spec-bridge Preview publish jobs only)"
+      },
+      "variables": {}
+    },
+    {
+      "name": "Production",
+      "used_by": [
+        ".github/workflows/cd-npm-cli.yml",
+        ".github/workflows/cd-npm-env-spec-bridge.yml",
+        ".github/workflows/cd-pwa.yml"
+      ],
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true,
+        "allowed_branch": "main"
+      },
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "wait_timer_minutes": 0,
+        "prevent_self_review": false
+      },
+      "secrets": {
+        "NPM_TOKEN": "same npm token scope as Preview; used for latest dist-tag publish"
+      },
+      "variables": {}
+    },
+    {
+      "name": "github-pages",
+      "used_by": [".github/workflows/cd-pwa.yml"],
+      "deployment_branch_policy": "GitHub Pages default (workflow build from main)",
+      "protection_rules": {
+        "required_reviewers": ["Tyler Kendrick"],
+        "note": "Optional; pair with Preview approval before deploy job runs."
+      },
+      "secrets": {},
+      "variables": {}
+    },
+    {
+      "name": "copilot",
+      "used_by": [],
+      "note": "Existing environment; not referenced by new CD workflows. Reserved for Copilot/automation integrations."
+    }
+  ],
+  "repository_variables": {
+    "PAGES_CANONICAL_ORIGIN": "https://opensesame-labs.github.io",
+    "PAGES_DEPLOYMENT_PROFILE": "shared_origin_demo",
+    "PAGES_HEADER_SECURITY": "0",
+    "VITE_BASE": "/OpenSesame/"
+  },
+  "npm_scope": "@opensesame-labs",
+  "npm_packages": [
+    {
+      "name": "@opensesame-labs/cli",
+      "workspace_path": "packages/cli",
+      "workspace_name": "@opensesame/cli",
+      "bins": ["opensesame"],
+      "exists_on_npm": false,
+      "dist_tags": {
+        "preview": "Preview workflow job",
+        "latest": "Production workflow job"
+      }
+    },
+    {
+      "name": "@opensesame-labs/env-spec-bridge",
+      "workspace_path": "packages/env-spec-bridge",
+      "workspace_name": "@opensesame/env-spec-bridge",
+      "bins": ["opensesame-env-parse"],
+      "exists_on_npm": false,
+      "dist_tags": {
+        "preview": "Preview workflow job",
+        "latest": "Production workflow job"
+      }
+    }
+  ],
+  "npm_trusted_publishing": {
+    "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
+    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/env-spec-bridge on GitHub Actions for OpenSesame-Labs/OpenSesame."
+  }
+}
