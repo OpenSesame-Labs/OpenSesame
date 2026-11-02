@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@opensesame/agent-client": "*",
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@opensesame/api-client": "*",
     "@opensesame/observability": "*",
     "@opensesame/os-domain": "*",

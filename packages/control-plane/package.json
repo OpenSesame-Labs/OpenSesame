@@ -48,14 +48,14 @@
     "@opensesame/webhooks": "*",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.14",
-    "jose": "6.2.13",
+    "jose": "6.2.14",
     "ldapts": "9.2.0",
-    "nodemailer": "10.2.1",
+    "nodemailer": "10.3.1",
     "openid-client": "6.8.8",
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.12",
+    "@electric-sql/pglite": "0.5.13",
     "@opensesame/browser-at-rest": "*",
     "@opensesame/mock-upstream-idp": "*",
     "@opensesame/static-auth": "*",
