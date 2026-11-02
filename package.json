@@ -196,7 +196,25 @@
     "hono": "4.13.14",
     "follow-redirects": "1.16.2",
     "glob@>=11.0.0 <14.0.0": "14.0.2",
+    "glob@^10.0.0": "14.0.2",
+    "glob": "14.0.2",
+    "minimatch": "11.0.1",
+    "archiver-utils": {
+      "glob": "$glob",
+      "minimatch": "$minimatch"
+    },
+    "filelist": {
+      "minimatch": "$minimatch"
+    },
+    "readdir-glob": {
+      "minimatch": "$minimatch"
+    },
     "minimatch@^10.0.0": "11.0.1",
+    "minimatch@~10.2.4": "11.0.1",
+    "minimatch@^10.2.4": "11.0.1",
+    "minimatch@^9.0.4": "11.0.1",
+    "minimatch@^5.1.0": "11.0.1",
+    "minimatch@^5.0.1": "11.0.1",
     "chokidar@^3": "5.0.0",
     "yaml": "2.9.1",
     "@noble/post-quantum": {
