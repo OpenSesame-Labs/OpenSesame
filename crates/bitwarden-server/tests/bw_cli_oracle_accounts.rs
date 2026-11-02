@@ -7,7 +7,7 @@ mod common;
 
 use std::time::Duration;
 
-use opensesame_bitwarden_server::pbkdf2_sha256_record;
+use opensesame_bitwarden_server::hashing::pbkdf2_sha256_record;
 use sha2::Sha256;
 use common::bw::Bw;
 use common::client::{http, Account, ARGON2ID, PBKDF2};
