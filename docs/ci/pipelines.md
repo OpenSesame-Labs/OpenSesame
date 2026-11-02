@@ -15,14 +15,16 @@ The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is publi
 
 ## npm versioning (trunk CD)
 
-Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes with dist-tag **`alpha`**; **Production** adds **`next`**. Prereleases never receive **`latest`**.
+Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. The stage job dry-runs dist-tag **`alpha`**. **Preview** is an approval gate and does not publish. **Production** is the only registry publish, with dist-tag **`next`**, using OIDC trusted publishing (`--provenance`). Prereleases never receive **`latest`**, and CD never runs `npm dist-tag add`. Only that one publish wins; a version already on the registry is skipped and is not retagged.
 
 ## Workflows
 
 | Workflow | Trigger | Environments |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | **Preview** → publish **`alpha`**; **Production** → **`next`** dist-tag |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | **Preview** → npm **`alpha`** + **github-pages** deploy → **Production** verify + npm **`next`** |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | **Preview** approval only; **Production** publishes **`next`** via OIDC |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | **Preview** approval only; **github-pages** deploy; **Production** verifies Pages and publishes **`next`** via OIDC |
+| `cd-npm-publish-proof.yml` | pull requests touching npm CD | none (actionlint and alpha dry-run) |
+| `cd-pwa-profile-proof.yml` | pull requests touching the install-profile proof | none (loopback Chromium screenshots) |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
 `workflow_dispatch` input `dry_run: true` stops before the first gated environment (**Preview** for npm and PWA).
@@ -33,4 +35,4 @@ OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` pub
 
 ## Operator-owned
 
-Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
+Tyler configures environments, npm org **`@opensesame-labs`**, trusted publishers for Production OIDC (no Production `NPM_TOKEN`), merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.

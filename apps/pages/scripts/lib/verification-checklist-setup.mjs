@@ -16,8 +16,13 @@ import {
 
 const CHOICES = ["Minimal", "Default", "Full", "Custom"];
 
-export async function openDoor(page, shot, record) {
-  await page.goto(`${ORIGIN}${BASE}`, { waitUntil: "domcontentloaded" });
+export async function openDoor(
+  page,
+  shot,
+  record,
+  href = `${ORIGIN}${BASE}`,
+) {
+  await page.goto(href, { waitUntil: "domcontentloaded" });
   await page
     .getByRole("button", { name: "Set up your own", exact: true })
     .waitFor({ state: "visible", timeout: 20_000 });

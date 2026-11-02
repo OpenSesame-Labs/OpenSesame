@@ -51,6 +51,31 @@ test("peer-trust modules shared by live and sharing graphs share one chunk", () 
   );
 });
 
+test("reflect-metadata stays a chunk x509 can import before tsyringe", () => {
+  assert.equal(
+    bundleChunk("/x/node_modules/reflect-metadata/ReflectLite.js"),
+    "reflect-metadata",
+  );
+  assert.equal(
+    bundleChunk("/x/node_modules/reflect-metadata/Reflect.js"),
+    "reflect-metadata",
+  );
+  assert.equal(
+    bundleChunk(
+      "\0/x/node_modules/reflect-metadata/ReflectLite.js?commonjs-module",
+    ),
+    "reflect-metadata",
+  );
+  assert.equal(
+    bundleChunk("/x/node_modules/@peculiar/x509/build/x509.es.js"),
+    "reflect-metadata",
+  );
+  assert.equal(
+    bundleChunk("/x/node_modules/tsyringe/dist/esm2015/index.js"),
+    "reflect-metadata",
+  );
+});
+
 test("windows separators and unmatched modules fall through", () => {
   assert.equal(
     bundleChunk("C:\\x\\node_modules\\react-dom\\client.js"),

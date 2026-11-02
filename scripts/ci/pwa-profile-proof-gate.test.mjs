@@ -215,3 +215,30 @@ test("stitch stacks both panels into a taller png", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("profile proof navigates a loopback dist and blocks the live Pages host", async () => {
+  const root = join(import.meta.dirname, "../..");
+  const proof = await readFile(
+    join(root, "scripts/ci/pwa-install-profile-proof.mjs"),
+    "utf8",
+  );
+  const harness = await readFile(
+    join(root, "apps/pages/scripts/lib/static-origin-harness.mjs"),
+    "utf8",
+  );
+  const setup = await readFile(
+    join(root, "apps/pages/scripts/lib/verification-checklist-setup.mjs"),
+    "utf8",
+  );
+  assert.match(proof, /serveLoopbackDist\(\{ dist, base: BASE \}\)/);
+  assert.match(proof, /passthrough: \[server\.origin\]/);
+  assert.match(proof, /openDoor\([^)]*server\.href\)/);
+  assert.match(proof, /MAP opensesame-labs\.github\.io ~NOTFOUND/);
+  assert.doesNotMatch(proof, /origin: ORIGIN/);
+  const route = harness.slice(harness.indexOf("await context.route"));
+  const passed = route.indexOf("passthrough.includes(url.origin)");
+  const fulfilled = route.indexOf("url.origin === origin");
+  assert.ok(passed >= 0 && fulfilled > passed);
+  assert.match(harness, /export function serveLoopbackDist/);
+  assert.match(setup, /page\.goto\(href/);
+});

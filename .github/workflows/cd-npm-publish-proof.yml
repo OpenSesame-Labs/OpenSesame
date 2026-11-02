@@ -9,12 +9,15 @@ on:
       - ".github/workflows/cd-npm-cli.yml"
       - ".github/workflows/cd-pwa.yml"
       - ".github/workflows/cd-npm-publish-proof.yml"
+      - ".github/workflows/cd-pwa-profile-proof.yml"
       - "scripts/release/npm-cd-*.mjs"
       - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
       - "scripts/release/plan-*-release.mjs"
       - "scripts/release/prepare-*-release.mjs"
+      - "docs/ci/github-setup-spec.json"
+      - "docs/ci/pipelines.md"
 
 permissions:
   contents: read
@@ -30,6 +33,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
@@ -44,7 +49,8 @@ jobs:
           .cache/actionlint/actionlint -shellcheck= -pyflakes= \
             .github/workflows/cd-npm-cli.yml \
             .github/workflows/cd-pwa.yml \
-            .github/workflows/cd-npm-publish-proof.yml
+            .github/workflows/cd-npm-publish-proof.yml \
+            .github/workflows/cd-pwa-profile-proof.yml
       - run: npm ci
       - run: node --test scripts/release/npm-cd-workflows.test.mjs
       - name: npm publish dry-run (cli and web-pwa, alpha)
