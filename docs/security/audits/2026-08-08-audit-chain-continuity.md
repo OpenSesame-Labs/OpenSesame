@@ -49,5 +49,5 @@ all clean. This is a fresh-eyes review of the chain added in
   exactly once under concurrent appends, and an unreadable tip still writes the event)
 - `apps/control-plane` — 34 passed (the verify test now proves the walk covers the
   whole run, using an event belonging to another principal)
-- `packages/database` — 9 passed; `pnpm -r typecheck` and the full workspace suite green
+- `packages/database` — 9 passed; `npm run -r typecheck` and the full workspace suite green
 - cve-lite, osv-scanner, cargo-audit, gitleaks, semgrep, ast-grep, clippy — clean

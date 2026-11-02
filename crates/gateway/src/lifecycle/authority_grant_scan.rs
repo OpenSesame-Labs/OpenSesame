@@ -98,8 +98,8 @@ async fn authority_grant_expiry_reaches_lifecycle_feed_via_scan() {
         .expect("watermarks");
     let expired = marks.iter().find(|row| {
         row.subject_kind == SubjectKind::AuthorityGrant.as_str()
-            && row.subject_id == "grant:expired"
-            && row.stage == ExpiryStage::Expired.as_str()
+  && row.subject_id == "grant:expired"
+  && row.stage == ExpiryStage::Expired.as_str()
     });
     assert!(
         expired.is_some(),

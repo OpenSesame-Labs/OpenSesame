@@ -155,7 +155,7 @@ all give it one.
 | `ntfy` | [ntfy](https://ntfy.sh) | `ntfy serve`; keep its message cache on (the default is 12 hours; do not set `cache-duration: 0`), so a code posted during a reconnect is kept; topics are created on first use. A token or user/password goes in the file. |
 | `nostr` | any NIP-01 relay ([strfry](https://github.com/hoytech/strfry), [nostr-rs-relay](https://github.com/scsibug/nostr-rs-relay)) | Must pass ephemeral kind 25050 events and index the `t` tag. |
 | `mqtt` | Mosquitto, EMQX, NanoMQ, HiveMQ | Mosquitto: `listener 9001` + `protocol websockets`, and a `password_file` or `allow_anonymous true`, since Mosquitto 2 refuses anonymous clients by default. Topic `opensesame/live/<topic>`, QoS 1. |
-| `nats` | [nats-server](https://nats.io) | `pnpm dev:live-nats` writes a server in operator mode whose credentials each session mints ([below](#nats-a-credential-per-session-and-the-session-itself)). Or `websocket { port: 8443, tls { … } }` with a user or token granted `opensesame.live.>`. Subject `opensesame.live.<topic>`. |
+| `nats` | [nats-server](https://nats.io) | `npm run dev:live-nats` writes a server in operator mode whose credentials each session mints ([below](#nats-a-credential-per-session-and-the-session-itself)). Or `websocket { port: 8443, tls { … } }` with a user or token granted `opensesame.live.>`. Subject `opensesame.live.<topic>`. |
 | `broadcast` | this browser | Owner and joiner in two tabs of one browser profile. Nothing leaves the device. |
 
 Publishing a carrier:
@@ -206,7 +206,7 @@ While a session runs, the owner's tab also answers as a NATS service,
 
 ```bash
 # One server, once: operator mode, a WebSocket listener with TLS.
-pnpm dev:live-nats -- --websocket 0.0.0.0:8443 \
+npm run dev:live-nats -- --websocket 0.0.0.0:8443 \
   --tls-cert /etc/nats/live.crt --tls-key /etc/nats/live.key \
   --out ~/live-nats
 nats-server -c ~/live-nats/live-sessions.conf
@@ -341,9 +341,9 @@ like any optional capability, and a carrier is external service egress:
 
 ## Checking a setup
 
-`pnpm --filter @opensesame/pages verify:live-join` runs every road in real
+`npm run verify:live-join` -w @opensesame/pages runs every road in real
 browsers over real WebRTC. Build the app first, and also the dedicated build,
-`pnpm --filter @opensesame/pages build:live-dedicated` (it writes
+`npm run build:live-dedicated` -w @opensesame/pages (it writes
 `apps/pages/dist-live-dedicated`, stamped `dedicated_origin` for
 `https://opensesame.example.test`). The carrier and declined walks run on it:
 their servers are on loopback, which is local operator authority the shared
@@ -351,8 +351,7 @@ GitHub Pages origin may not reach, so the run fails without that build.
 
 Every walk runs once for each joiner's browser: the owner in `LIVE_OWNER`
 (default `chromium`), each joiner in `LIVE_JOINERS` (default the owner's), from
-Chromium, Firefox and WebKit as the pinned Playwright installs them (`pnpm
-exec playwright install --with-deps chromium firefox webkit`). CI runs one
+Chromium, Firefox and WebKit as the pinned Playwright installs them (`npm exec -- playwright install --with-deps chromium firefox webkit`). CI runs one
 shard per owner, each with all three joiners, so every ordered pair walks every
 road. Two things a browser cannot be told on a test machine are not walked
 with it, and the run says so (`NOT TAKEN`): TLS to a TURN server with a
@@ -373,7 +372,7 @@ The roads:
   - Nostr (a relay in the test process);
   - MQTT (aedes);
   - NATS: a real nats-server, set by `LIVE_NATS_SERVER` or the mTLS fixture pin
-    (`pnpm test:mtls:fixtures`);
+    (`npm run test:mtls:fixtures`);
   - ntfy: a real ntfy server, set by `LIVE_NTFY_SERVER`;
   - BroadcastChannel;
 - relay-only through a real TURN server, once for each way to reach one, each
@@ -395,7 +394,7 @@ The roads:
   default-route address, not on loopback: the app refuses a loopback ICE
   server, which no public one is.
 
-- NATS in operator mode (`pnpm dev:live-nats`), named through the Form with
+- NATS in operator mode (`npm run dev:live-nats`), named through the Form with
   its signing key: `nats-always` reveals a value over the server with no
   peer connection up, and `nats-fallback` does the same for a joiner whose
   browser has no route at all. Both check the link carries a minted
@@ -405,8 +404,7 @@ The roads:
 `LIVE_CARRIERS=nostr,mqtt` limits which carriers run, and
 `LIVE_SCENARIOS=relayed,relayed-tcp,relayed-tls` (from `direct`, `carriers`,
 `declined`, `relayed`, `relayed-tcp`, `relayed-tls`, `relayed-rest`,
-`relayed-rest-wrong`, `nats-always`, `nats-fallback`, `tunnel`) limits which walks. `LIVE_TURN_SERVER` names the `live-turn` binary; `pnpm
-test:live-fixtures` builds it (Go is needed) to `.cache/live-fixtures/bin`. A
+`relayed-rest-wrong`, `nats-always`, `nats-fallback`, `tunnel`) limits which walks. `LIVE_TURN_SERVER` names the `live-turn` binary; `npm run test:live-fixtures` builds it (Go is needed) to `.cache/live-fixtures/bin`. A
 missing server fails the run; it is never skipped silently.
 
 - relay-only through a TURN server that authenticates with a REST secret
@@ -421,7 +419,7 @@ missing server fails the run; it is never skipped silently.
   every authentication is refused, nothing is allocated, and the browsers
   never meet (it waits 10 seconds, not the full connection timeout).
 
-`pnpm --filter @opensesame/pages verify:live-netns` checks the address hint on
+`npm run verify:live-netns` -w @opensesame/pages checks the address hint on
 a network it builds rather than one it simulates. The no-address and address
 walks run on the GitHub Pages build; the Nostr relay and TURN walks put their
 servers on a private address, so they run on the dedicated build

@@ -41,7 +41,7 @@ export function clearHostForTest(): void {
  * Node 25+ installs a `localStorage` getter that returns nothing unless
  * `--localstorage-file` is set. jsdom then leaves the global empty. Drop that
  * getter. In a document, install a memory store. A Node suite keeps storage
- * absent, which is what Node 22 CI has.
+ * absent, which is what Node 24 CI has.
  */
 function storageFromGetter(read: () => Storage | null): Storage | null {
   try {

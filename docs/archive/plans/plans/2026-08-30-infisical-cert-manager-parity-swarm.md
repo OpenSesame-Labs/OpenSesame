@@ -21,7 +21,7 @@ auto/manual renewal, network TLS discovery, lifecycle alerting, multi-step appro
 code-signing subsystem (signers, Sign API, PKCS#11 provider module, scoped signing approvals),
 certificate syncs to external destinations, HSM connector plumbing, a Kubernetes cert-manager
 external issuer, and a Certificates dashboard UI — implemented in OpenSesame's existing
-architecture, passing `pnpm verify` and `cargo +1.88.0 test --workspace --all-targets`.
+architecture, passing `npm run verify` and `cargo +1.88.0 test --workspace --all-targets`.
 
 ### 1.2 What already exists (do not rebuild; extend)
 
@@ -98,16 +98,16 @@ surface lives under `/api/v1/certmgr/*`; enrollment-protocol endpoints live at `
    `apps/pwa/src/webmcp.test.ts`, `apps/cli/tests/capability_parity.rs`,
    `packages/cli/src/capability-parity.test.ts`.
 10. **House style.** Rust: `//!` module docs naming the ADR and the secrecy invariant;
-    `/// # Errors` on fallible pub fns (Clippy pedantic is denied — `pnpm audit:clippy`);
+    `/// # Errors` on fallible pub fns (Clippy pedantic is denied — `npm run audit:clippy`);
     `tracing` for logs, never `println!`; errors returned as `{"error": "...", "hint": "..."}`
     without leaking internals (`fn internal(...)` pattern in `routes/backup.rs`). TS: Biome
     2-space, Vitest, Zod at boundaries. No `sudo`. No new `reqwest` dependents (ADR 0048 D5).
 11. **Config.** New env knobs are `pub fn`s in `apps/gateway/src/config.rs` and documented in
     `.env.schema` with `@type`/`@required`/`@sensitive`/`@public` annotations. Never commit live
     secrets.
-12. **Definition of done (global).** `pnpm verify` green, `cargo +1.88.0 test --workspace
-    --all-targets` green, `pnpm test:coverage` floors hold (94/88/94/95 TS; 69/67 Rust lines/functions),
-    relevant `pnpm audit:*` gates green, and each swarm's own done-commands (§5) pass.
+12. **Definition of done (global).** `npm run verify` green, `cargo +1.88.0 test --workspace
+    --all-targets` green, `npm run test:coverage` floors hold (94/88/94/95 TS; 69/67 Rust lines/functions),
+    relevant `npm run audit:*` gates green, and each swarm's own done-commands (§5) pass.
 
 ### 1.4 Coordination model (why there are no phases)
 
@@ -907,8 +907,8 @@ finishes with its done-command green.
   with projection schemas.
 - **Reuse:** `apps/cli/src/certs.rs`, `apps/mcp-host/src/tools-act.ts` `cert_issue`,
   `packages/api-client/src/certs.ts` as templates.
-- **Done:** `cargo +1.88.0 test -p opensesame-cli`; `pnpm --filter @opensesame/mcp-host test`;
-  `pnpm --filter @opensesame/api-client test`; `apps/mcp-host/src/registry-parity.test.ts` green
+- **Done:** `cargo +1.88.0 test -p opensesame-cli`; `npm run test`; -w @opensesame/mcp-host
+  `npm run test`; -w @opensesame/api-client `apps/mcp-host/src/registry-parity.test.ts` green
   after Assembler wiring.
 
 ### 5.19b Certificates dashboard UI (Pages)
@@ -925,7 +925,7 @@ finishes with its done-command green.
   new heavy chart dep unless already in the tree.
 - **Reuse:** `apps/pages/src/sections/SettingsSection.tsx`, `packages/app-core/src/lib/certs.ts`,
   `apps/pages/src/components/AppShell.tsx`.
-- **Done:** `pnpm --filter @opensesame/pages test`; `packages/app-core/src/webmcp/registry-parity.test.ts`
+- **Done:** `npm run test`; -w @opensesame/pages `packages/app-core/src/webmcp/registry-parity.test.ts`
   green after Assembler wiring.
 
 ### 5.20 Assembler & verification swarm
@@ -960,7 +960,7 @@ to its surface. Study the cited exemplar before writing; match its idiom rather 
 | **Snapshot / characterization** (the repo's [Verify](https://github.com/VerifyTests/Verify) equivalent) | **`insta` 1.43.2** (workspace dev-dep, `features = ["redactions", "json"]`) — `crates/kdbx-bridge/tests/snapshots/*.snap`, `crates/provider-bitwarden/tests/snapshots/*.snap`, `crates/human-vault` `envelope_wire_shape_is_pinned` | Vitest snapshots + `__snapshots__/` — `packages/audit/src/__tests__/redact.characterization.test.ts`, `packages/app-core/src/lib/vault/import/formats/kdbx.characterization.test.ts`, `*.approval.test.ts` |
 | **Contract / pact** | `pact` test modules; route↔spec test `apps/gateway/src/routes/contract.rs` | `*pact.test.ts` — `packages/database/tests/pact.test.ts`, `tests/redteam/src/structural.pact.test.ts` |
 | **Chaos** | `crates/invoke-through/tests/chaos.rs` | `*.chaos.test.ts` — `apps/control-plane/src/__tests__/pact-chaos.test.ts`, `packages/app-core/src/lib/guest-auth.chaos.test.ts` |
-| **Fuzz** | `tests/fuzz/cargo/fuzz_targets/*.rs` + `tests/fuzz/cargo/Cargo.toml` — model `certificate_request.rs`; `pnpm audit:fuzz` | Jazzer.js — `tests/fuzz/jazzer`, `pnpm test:fuzz` |
+| **Fuzz** | `tests/fuzz/cargo/fuzz_targets/*.rs` + `tests/fuzz/cargo/Cargo.toml` — model `certificate_request.rs`; `npm run audit:fuzz` | Jazzer.js — `tests/fuzz/jazzer`, `npm run test:fuzz` |
 | **Behavior / BDD** | `tests/*behavior*.rs` with given/when/then test names | `*.behavior.test.ts` — `packages/app-core/src/lib/guest-login.behavior.test.ts` |
 | **Property** | `proptest` (workspace dev-dep) | fast-check where already used |
 
@@ -1010,12 +1010,12 @@ must use `vitest run` as their `test` script or the gate warns.
 Green before any PR merges:
 
 ```
-pnpm verify                                   # lint + anti-slop + rust-lint + clippy + test:all + workspace cargo test + battle-test
+npm run verify                                   # lint + anti-slop + rust-lint + clippy + test:all + workspace cargo test + battle-test
 cargo +1.88.0 test --workspace --all-targets  # every Rust crate incl. the new ones
-pnpm test:coverage                            # TS floors 94/88/94/95 + 50% per-pkg; Rust 69/67
-pnpm test:mutation                            # Stryker (TS) + cargo-mutants (Rust), incl. newly registered files
-pnpm audit:fuzz                               # cargo-fuzz short pass over all targets
-pnpm audit:clippy && pnpm audit:semgrep && pnpm audit:cargo-audit && pnpm audit:gitleaks
+npm run test:coverage                            # TS floors 94/88/94/95 + 50% per-pkg; Rust 69/67
+npm run test:mutation                            # Stryker (TS) + cargo-mutants (Rust), incl. newly registered files
+npm run audit:fuzz                               # cargo-fuzz short pass over all targets
+npm run audit:clippy && npm run audit:semgrep && npm run audit:cargo-audit && npm run audit:gitleaks
 ```
 
 Parity suites that must stay green: `apps/cli/tests/capability_parity.rs`,
@@ -1025,7 +1025,7 @@ Parity suites that must stay green: `apps/cli/tests/capability_parity.rs`,
 `tests/redteam/src/structural.pact.test.ts`.
 
 New fuzz targets registered in `tests/fuzz/cargo/Cargo.toml`: CSR parser, PKCS#12 parser, SCEP CMS parser,
-ACME JWS parser — exercised by `pnpm audit:fuzz` short pass.
+ACME JWS parser — exercised by `npm run audit:fuzz` short pass.
 
 **Honest validation-limits table** (also in `docs/validation/certificate-manager.md`):
 

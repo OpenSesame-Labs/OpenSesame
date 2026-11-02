@@ -92,7 +92,7 @@ fn valid_date(text: &str) -> bool {
         return false;
     }
     if b.len() != 20
-        && (b.len() < 22 || b[19] != b'.' || !b[20..b.len() - 1].iter().all(u8::is_ascii_digit))
+  && (b.len() < 22 || b[19] != b'.' || !b[20..b.len() - 1].iter().all(u8::is_ascii_digit))
     {
         return false;
     }

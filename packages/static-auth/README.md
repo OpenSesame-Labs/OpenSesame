@@ -45,23 +45,23 @@ artifact.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/static-auth test
-pnpm --filter @opensesame/static-auth typecheck
-pnpm lint:artifacts   # rebuild check of the immutable artifacts + these tests
+npm run test -w @opensesame/static-auth
+npm run typecheck -w @opensesame/static-auth
+npm run lint:artifacts   # rebuild check of the immutable artifacts + these tests
 ```
 
 The version in `package.json` names the published artifact directory.
 Existing versioned bytes cannot change: `apps/pages/scripts/build-static-auth.mjs`
 rejects a mismatch, so a behavioural change needs a version bump. Changes to
 local sessions, grants or popup transport also run
-`pnpm --filter @opensesame/pages verify:local-iam`.
+`npm run verify:local-iam`. -w @opensesame/pages
 
 Dependency and bundler updates can change the published bytes too. When a
 locked update changes the hosted bundle, bump this package's patch version,
 commit the build inputs, and run the canonical builder. Keep existing versioned
 files and the frozen root `auth.js` unchanged; add the new artifact to the exact
 Biome override and update the shipped-artifact test's current import. Run
-`pnpm lint:artifacts` before publishing the release.
+`npm run lint:artifacts` before publishing the release.
 
 
 ## Related

@@ -10,7 +10,7 @@ watches the app. It does not replace the merge gates below.
 Before pushing:
 
 ```bash
-pnpm setup:hooks
+npm run setup:hooks
 # Commit: staged lint. Push: static quality + lint + typecheck; tests qualify CD.
 ```
 
@@ -27,7 +27,7 @@ J=work/evidence/unlock/pages/web/journey.json
 EVIDENCE_DIST=/absolute/path/to/base-worktree/apps/pages/dist \
   PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   node apps/pages/scripts/capture-evidence.mjs capture before "$J"
-VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   node apps/pages/scripts/capture-evidence.mjs capture after "$J"
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
@@ -36,11 +36,11 @@ PLAYWRIGHT_CHROMIUM=<chromium-binary> \
 # in docs/evidence/unlock/pages/web/ under docs/evidence/README.md's contract.
 ```
 
-For the full local gate suite (what `pnpm verify` runs — required before
+For the full local gate suite (what `npm run verify` runs — required before
 anything security-sensitive lands):
 
 ```bash
-pnpm verify   # lint + anti-slop (lint and plugin tests) + quality gates
+npm run verify   # lint + anti-slop (lint and plugin tests) + quality gates
               #   + rustfmt/full-feature Clippy + plugin-boundary + test:all
               #   + cargo +1.88.0 test --workspace --all-targets
               #   + ./scripts/test/battle-test.sh
@@ -61,7 +61,7 @@ channels do not have separate Git branches. The operating contract is
   cancel. Missing or unexpectedly skipped selected work fails the reporter.
 - `.githooks/pre-commit` checks staged source. The default push hook runs static
   lint, quality, typechecking and relevant rustfmt/Clippy without test aliases.
-  `OPENSESAME_PREPUSH=full` is an explicit local `pnpm verify` opt-in.
+  `OPENSESAME_PREPUSH=full` is an explicit local `npm run verify` opt-in.
 - `dev-nightly.yml` runs at **00:17 America/Chicago**, or on demand from `main`.
   It selects successful push-main builds, builds or reuses one complete candidate,
   then qualifies the full TypeScript/Postgres suite and stored native/Pages
@@ -72,7 +72,7 @@ channels do not have separate Git branches. The operating contract is
   or cancels that candidate. The `release` and `github-pages` environments protect
   publication and must permit the controller's `main` ref.
 - `ci-prerelease-checks.yml` retains the complete browser/profile/viewport/tutorial/
-  live matrices, Android/Apple, mTLS, `pnpm verify`, parity, native platforms,
+  live matrices, Android/Apple, mTLS, `npm run verify`, parity, native platforms,
   containers, native-Wasm, coverage, sync authorization, autofill and exact-artifact
   smoke. Every declared result must succeed. These suites run for CD, not trunk.
 - `ci-release-checks.yml` retains scoped TS/duress/Rust mutation and full security:

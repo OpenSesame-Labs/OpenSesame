@@ -116,10 +116,10 @@ impl Requirement {
     #[must_use]
     pub fn met_by(&self, guarantee: &Guarantee) -> bool {
         (!self.independent_point || guarantee.point.independent_of_subject())
-            && guarantee.latency.within(self.latency_ceiling)
-            && guarantee.survival.at_least(self.survival_floor)
-            && guarantee.bypass.at_least(self.bypass_floor)
-            && guarantee.observability.at_least(self.observability_floor)
+  && guarantee.latency.within(self.latency_ceiling)
+  && guarantee.survival.at_least(self.survival_floor)
+  && guarantee.bypass.at_least(self.bypass_floor)
+  && guarantee.observability.at_least(self.observability_floor)
     }
 }
 

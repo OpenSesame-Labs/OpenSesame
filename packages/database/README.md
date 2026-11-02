@@ -32,20 +32,20 @@ plane has its own SQLite store in [`crates/storage`](../../crates/storage).
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/database test               # PGlite when DATABASE_URL is unset
-pnpm --filter @opensesame/database test:integration   # tests/pact.test.ts
+npm run test -w @opensesame/database               # PGlite when DATABASE_URL is unset
+npm run test:integration -w @opensesame/database   # tests/pact.test.ts
 DATABASE_URL=postgres://user@127.0.0.1:5432/postgres OPENSESAME_CLAIM_PEPPER=<32+ chars> \
-  pnpm --filter @opensesame/database test:postgres    # the whole suite on a real server
-pnpm --filter @opensesame/database typecheck
-pnpm --filter @opensesame/database db:generate        # drizzle-kit generate from the schema
-pnpm --filter @opensesame/database db:migrate         # needs DATABASE_URL
-pnpm --filter @opensesame/database db:reset           # drops public + drizzle schemas, re-migrates
+  npm run test:postgres -w @opensesame/database    # the whole suite on a real server
+npm run typecheck -w @opensesame/database
+npm run db:generate -w @opensesame/database        # drizzle-kit generate from the schema
+npm run db:migrate -w @opensesame/database         # needs DATABASE_URL
+npm run db:reset -w @opensesame/database           # drops public + drizzle schemas, re-migrates
 ```
 
-The root `pnpm db:migrate` / `pnpm db:reset` call the same scripts, and
-`pnpm bootstrap` installs dependencies and applies existing migrations with
+The root `npm run db:migrate` / `npm run db:reset` call the same scripts, and
+`npm run bootstrap` installs dependencies and applies existing migrations with
 `db:migrate`. After changing the schema, deliberately run
-`pnpm --filter @opensesame/database db:generate` and review the migration
+`npm run db:generate` -w @opensesame/database and review the migration
 before applying it. Tests use a real
 Postgres when `DATABASE_URL` is set and an in-process PGlite otherwise
 (`tests/pg-harness.ts`, `tests/pg-harness-full.ts`). On a real server every

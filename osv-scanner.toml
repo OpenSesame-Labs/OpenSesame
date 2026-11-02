@@ -1,4 +1,4 @@
-# OSV-Scanner config for workspace lockfiles (Cargo.lock / pnpm-lock.yaml).
+# OSV-Scanner config for workspace lockfiles (Cargo.lock / package-lock.json).
 # The affected RSA backend and optional MySQL dependency were removed from
 # both Cargo lockfiles on 2026-10-18. Keep future reintroductions visible.
 IgnoredVulns = [

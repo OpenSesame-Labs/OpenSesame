@@ -39,8 +39,8 @@ not have: the bridge adds a way to read an answer, not a way to obtain a key.
 ## Build and install
 
 ```bash
-pnpm --filter @opensesame/browser-extension-bridge build   # .output/chrome-mv3/
-pnpm --filter @opensesame/browser-extension-bridge zip
+npm run build -w @opensesame/browser-extension-bridge   # .output/chrome-mv3/
+npm run zip -w @opensesame/browser-extension-bridge
 ```
 
 Load `.output/chrome-mv3/` as an unpacked extension (Chrome: `chrome://extensions`
@@ -51,10 +51,10 @@ allow the host the page asked for.
 ## Tests
 
 ```bash
-pnpm --filter @opensesame/browser-extension-bridge test        # unit: decisions, ports, popup
-pnpm --filter @opensesame/browser-extension-bridge typecheck
+npm run test -w @opensesame/browser-extension-bridge        # unit: decisions, ports, popup
+npm run typecheck -w @opensesame/browser-extension-bridge
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/browser-extension-bridge test:e2e  # a real Chromium, the built extension
+  npm run test:e2e -w @opensesame/browser-extension-bridge  # a real Chromium, the built extension
 ```
 
 The end-to-end test starts a provider that answers with no CORS header (a page

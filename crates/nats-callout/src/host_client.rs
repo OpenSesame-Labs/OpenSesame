@@ -135,7 +135,7 @@ pub fn check_echo(
         return Err(CalloutError::ResponseMismatch);
     }
     if resp.decision == "allow"
-        && (resp.permissions.is_none()
+  && (resp.permissions.is_none()
             || resp.exp.is_none()
             || resp.enforcement.as_deref() != Some("verified"))
     {

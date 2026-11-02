@@ -531,8 +531,8 @@ async fn create(
         )
         .await?;
     } else if auth_kind == "oauth2_authorization_code"
-        && provider_flag(provider, "configured")
-        && view["status"].as_str() != Some("active")
+  && provider_flag(provider, "configured")
+  && view["status"].as_str() != Some("active")
     {
         view = authorize_oauth(server, &id, no_browser, yes).await?;
     }
@@ -778,7 +778,7 @@ async fn detach(
     for (kind, target) in wanted {
         let binding = bindings.iter().find(|binding| {
             binding["target_kind"].as_str() == Some(kind)
-                && (binding["target_id"].as_str() == Some(target)
+  && (binding["target_id"].as_str() == Some(target)
                     || binding["target_label"].as_str() == Some(target))
         });
         let Some(binding) = binding else {
@@ -944,7 +944,7 @@ async fn inspect(server: &str, json_out: bool, service: &str) -> anyhow::Result<
         .into_iter()
         .filter(|item| {
             item["provider_id"].as_str() == provider["id"].as_str()
-                && item["status"].as_str() != Some("revoked")
+  && item["status"].as_str() != Some("revoked")
         })
         .collect::<Vec<_>>();
     let cli = local_cli_status(provider["id"].as_str().unwrap_or(service));
@@ -1310,7 +1310,7 @@ pub(crate) async fn api(
             return Ok(last);
         }
         if last_status != reqwest::StatusCode::UNAUTHORIZED
-            && last_status != reqwest::StatusCode::FORBIDDEN
+  && last_status != reqwest::StatusCode::FORBIDDEN
         {
             break;
         }

@@ -1,6 +1,6 @@
 /**
  * Writes `spec/conformance/produce-vectors.json` from `produce-vectors.fixture.ts`
- * (ADR 0139): `EMIT_PRODUCE_VECTORS=1 pnpm --filter @opensesame/vault-core test
+ * (ADR 0139): `EMIT_PRODUCE_VECTORS=1 npm run test -w @opensesame/vault-core
  * -- produce-vectors.emit`. Skipped otherwise. The vectors are a frozen contract
  * between this facade and `crates/sealed-store`; replace them only deliberately.
  */

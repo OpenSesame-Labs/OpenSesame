@@ -20,7 +20,7 @@ release was available. This remediation does not claim a sprintf-js patch.
 The only resolved sprintf-js consumer was argparse 1.0.10, reached through
 js-yaml 3.15.2. The scoped override `js-yaml@3.15.2>argparse: 2.0.1` removes
 that chain while preserving the js-yaml library API. Both `sprintf-js` and
-`argparse@1` are absent from the final `pnpm-lock.yaml`.
+`argparse@1` are absent from the final `package-lock.json`.
 
 Argparse 2 retains the legacy methods used by the js-yaml CLI, but its deprecated
 constructor-version compatibility path silently prints nothing for `--version`.

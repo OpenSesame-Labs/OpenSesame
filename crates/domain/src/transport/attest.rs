@@ -155,8 +155,8 @@ impl AttestedPeer {
         match (self.source, &self.ingress) {
             (EvidenceSource::TrustedIngressAssertion, Some(ingress)) => {
                 let accepted = ingress.source == EvidenceSource::DirectTls
-                    && ingress.policy == TransportPolicy::TrustedIngress
-                    && ingress.ingress.is_none();
+  && ingress.policy == TransportPolicy::TrustedIngress
+  && ingress.ingress.is_none();
                 if !accepted {
                     return Err(TransportError::ForwardedEvidenceUnverified);
                 }

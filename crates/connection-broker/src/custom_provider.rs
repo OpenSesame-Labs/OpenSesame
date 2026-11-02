@@ -71,11 +71,11 @@ fn valid_id(id: &str) -> Result<()> {
         )));
     };
     let ok = !rest.is_empty()
-        && rest
+  && rest
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-        && !rest.starts_with('-')
-        && !rest.ends_with('-');
+  && !rest.starts_with('-')
+  && !rest.ends_with('-');
     if !ok {
         return Err(invalid(
             "id may only contain lowercase letters, digits, and interior dashes",
@@ -187,8 +187,8 @@ pub fn derive_provider(request: &CreateCustomProvider) -> Result<Provider> {
         } => {
             let header = header.trim();
             let header_ok = !header.is_empty()
-                && header.len() <= MAX_HEADER
-                && header
+  && header.len() <= MAX_HEADER
+  && header
                     .chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '-');
             if !header_ok {

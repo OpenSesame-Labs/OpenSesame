@@ -17,9 +17,8 @@
  * than seeded; the committed fixture is the stable half.
  *
  * Regenerate the committed file only when the format changes on purpose:
- * `UPDATE_QUORUM_RECOVERY_FIXTURE=1 pnpm --filter @opensesame/app-core exec
- * vitest run src/lib/quorum/recovery-fixture.test.ts`, then
- * `pnpm exec biome format --write spec/conformance/quorum-recovery-fixture.json`
+ * `UPDATE_QUORUM_RECOVERY_FIXTURE=1 npm exec -w @opensesame/app-core -- * vitest run src/lib/quorum/recovery-fixture.test.ts`, then
+ * `npm exec -- biome format --write spec/conformance/quorum-recovery-fixture.json`
  * (the lint gate formats JSON).
  */
 import { generateKeyPairSync } from "node:crypto";

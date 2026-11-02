@@ -1,8 +1,8 @@
 // Prove the Access path bar's import and export work as a guest with no Host.
 //
-//   VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+//   VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/path/to/chrome \
-//     pnpm --filter @opensesame/pages verify:access-pathbar
+//     npm run verify:access-pathbar -w @opensesame/pages
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

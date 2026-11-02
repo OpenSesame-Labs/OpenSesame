@@ -10,15 +10,15 @@ Requires Foundry (`forge`/`anvil`) on `PATH`; the contracts and protocols harnes
 ## Commands
 
 ```bash
-CHAIN_ID=31337 pnpm wallet:verify   # domain + contracts + protocols + browser + security
-pnpm wallet:verify -- --dry-run     # discovery only (still ok=false)
-pnpm wallet:test:domain             # os-domain wallet + wallet-budget + wallet-policy
-pnpm wallet:test:contracts          # forge enforcer suites + wallet-evm Vitest
-pnpm wallet:test:protocols          # Anvil Exact EIP-3009 settle + x402/consent fixtures
-pnpm wallet:test:browser            # Pages Wallet vitest + Playwright QAB (incl. B03/B05)
-pnpm wallet:test:security           # domain targets + deny-mainnet + wallet-evm + wallet-consent + wallet-x402
-pnpm wallet:evidence                # refresh last-run.json from discovery; claims no pass
-pnpm wallet:evidence:blocked-adapters
+CHAIN_ID=31337 npm run wallet:verify   # domain + contracts + protocols + browser + security
+npm run wallet:verify -- --dry-run     # discovery only (still ok=false)
+npm run wallet:test:domain             # os-domain wallet + wallet-budget + wallet-policy
+npm run wallet:test:contracts          # forge enforcer suites + wallet-evm Vitest
+npm run wallet:test:protocols          # Anvil Exact EIP-3009 settle + x402/consent fixtures
+npm run wallet:test:browser            # Pages Wallet vitest + Playwright QAB (incl. B03/B05)
+npm run wallet:test:security           # domain targets + deny-mainnet + wallet-evm + wallet-consent + wallet-x402
+npm run wallet:evidence                # refresh last-run.json from discovery; claims no pass
+npm run wallet:evidence:blocked-adapters
 ```
 
 ## Honesty

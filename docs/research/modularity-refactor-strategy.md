@@ -341,7 +341,7 @@ including `packages/api-client`.
 
 **Move:** the plane already depends on Zod `3.25.67`. Derive the document from
 route definitions — `@hono/zod-openapi` or equivalent — so the spec is a build
-output, not a maintained file. `pnpm generate:openapi` already exists as the
+output, not a maintained file. `npm run generate:openapi` already exists as the
 emit step; it should emit from routes rather than from a parallel description.
 
 **Interim guard, if the full move is deferred:** a test asserting every
@@ -378,7 +378,7 @@ error instead of a passing substring test.
 
 **Note on risk:** this is the one item where the constraint is real rather than
 organisational. `wasmtime` is banned from daemon dependency trees by
-`pnpm audit:daemon-deps` (ADR 0048 §5), so the binding generation must not drag
+`npm run audit:daemon-deps` (ADR 0048 §5), so the binding generation must not drag
 the runtime into those crates. `wit-bindgen` (guest-side, no wasmtime) or a
 build-script parse using `wit-parser` alone are the paths that respect that
 budget. Confirm against the daemon gate before committing to an approach.
@@ -460,7 +460,7 @@ taken early.
 ### 2.9 Reproducibility — the cache is over-hashing
 
 Toolchain pinning is genuinely good: `rust-toolchain.toml` pins 1.88.0 with
-components and targets, pnpm is pinned via `packageManager`, both lockfiles are
+components and targets, npm run is pinned via `packageManager`, both lockfiles are
 committed, and there is an SBOM target.
 
 The gap is `turbo.json`. Across 68 workspaces, no task declares `inputs`, and
@@ -479,10 +479,10 @@ contents for every task, so a README edit invalidates `build`, `typecheck` and
   Turbo hashes lockfiles specially, so they do not need declaring.)
 
 **Move:** declare `inputs` per task (`src/**`, `package.json`, `tsconfig.json`)
-and `globalDependencies` (`pnpm-lock.yaml`, root configs). Small change,
+and `globalDependencies` (`package-lock.json`, root configs). Small change,
 immediate and measurable effect on both cache hit rate and cache soundness.
 
-Worth noting: `pnpm verify`, the audit gates, and the coverage/mutation suites
+Worth noting: `npm run verify`, the audit gates, and the coverage/mutation suites
 are not in `turbo.json` at all — they are shell scripts outside the graph. That
 is a defensible choice for gates that must not be cached, but it means the
 heavy suites get no dependency-aware scheduling. Not urgent; worth revisiting
@@ -690,7 +690,7 @@ Stated so the gaps are not mistaken for clean bills of health:
 - **No security review was performed.** Several items touch security-relevant
   paths — §2.5 (WIT contract assertions enforcing ADR 0005), §2.7 (subprocess
   construction), §2.3 (agent-facing surfaces). Each needs the relevant
-  `pnpm audit:*` gates and, for §2.7, a `security-review` pass before landing.
+  `npm run audit:*` gates and, for §2.7, a `security-review` pass before landing.
 - **No ADR is proposed here.** These are candidate decisions. §2.2, §2.3 and
   §2.7 change contracts that existing ADRs govern and should each get their own
   ADR before implementation.

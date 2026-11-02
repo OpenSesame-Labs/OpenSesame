@@ -33,7 +33,7 @@ else
     if pgrep -f 'deepsec-grok-reinvestigate-wave.sh' >/dev/null \
       || pgrep -f 'deepsec/dist/cli.mjs process.*--agent grok' >/dev/null; then
       if ! pgrep -f 'deepsec-wave2-kimi-parallel.sh' >/dev/null \
-        && ! pgrep -f 'deepsec/dist/cli.mjs process.*--agent kimi' >/dev/null; then
+  && ! pgrep -f 'deepsec/dist/cli.mjs process.*--agent kimi' >/dev/null; then
         if ! node "${ROOT}/scripts/audit/deepsec-wave2-progress.mjs" "$ROOT" 2 >/dev/null; then
           nohup "${ROOT}/scripts/audit/deepsec-wave2-kimi-parallel.sh" \
             >>/tmp/deepsec-wave2-kimi-parallel.nohup 2>&1 &
@@ -50,7 +50,7 @@ errs="${errs:-0}"
 if [[ -z "$errs" ]]; then errs=0; fi
 if [[ "$errs" -le 25 ]] && ! pgrep -f deepsec-kimi-error-loop.sh >/dev/null; then
   if node "${ROOT}/scripts/audit/deepsec-wave2-progress.mjs" "$ROOT" 2 >/dev/null \
-    && { ! grep -q 'FINISH COMPLETE' /tmp/deepsec-grok-finish.log 2>/dev/null \
+  && { ! grep -q 'FINISH COMPLETE' /tmp/deepsec-grok-finish.log 2>/dev/null \
       || tail -5 /tmp/deepsec-grok-finish.log | grep -q 'SKIP docs export'; }; then
     echo "errors=$errs — running finish $(date -u +%H:%M:%SZ)" >>"$LOG"
     DEEPSEC_CONCURRENCY=2 DEEPSEC_THINKING=high "${ROOT}/scripts/audit/deepsec-grok-finish.sh" >>/tmp/deepsec-grok-finish.nohup 2>&1 &

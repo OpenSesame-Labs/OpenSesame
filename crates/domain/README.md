@@ -48,9 +48,9 @@ Most modules are glob re-exported at the root. `budget` is not: call sites say
 ```bash
 cargo +1.88.0 test -p opensesame-domain
 cargo +1.88.0 test -p opensesame-domain --features concurrency-test --test shuttle_authority
-pnpm audit:kani      # bounded proofs over this crate and opensesame-rotation
-pnpm audit:miri      # lib tests under Miri
-pnpm audit:shuttle   # includes shuttle_authority
+npm run audit:kani      # bounded proofs over this crate and opensesame-rotation
+npm run audit:miri      # lib tests under Miri
+npm run audit:shuttle   # includes shuttle_authority
 ```
 
 Adversarial suites (`*_adversarial.rs`, `honest_attacks.rs`) and the fixture

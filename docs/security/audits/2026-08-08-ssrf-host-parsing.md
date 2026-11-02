@@ -28,6 +28,6 @@ plus the loopback checks in `apps/mcp-host/src/host-api.ts` and
 ## Gates
 
 `cargo test --workspace` (70 suites), `cargo clippy --workspace --all-targets --
--D warnings`, `pnpm test`, `pnpm run typecheck`, task-security-battle-test,
+-D warnings`, `npm test`, `npm run typecheck`, task-security-battle-test,
 semgrep, ast-grep, osv-scanner, gitleaks, cve-lite, cargo-audit, cargo-deny —
 all clean.

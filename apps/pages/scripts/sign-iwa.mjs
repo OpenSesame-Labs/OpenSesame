@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
  * the signing key and passphrase never enter this repository.
  *
  *   IWA_SIGNING_KEY=/secure/private_key.pem \
- *   WEB_BUNDLE_SIGNING_PASSPHRASE=… pnpm run build:iwa:signed
+ *   WEB_BUNDLE_SIGNING_PASSPHRASE=… npm run build:iwa:signed
  */
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

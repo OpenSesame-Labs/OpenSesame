@@ -1,4 +1,4 @@
-// Original frozen pnpm/child custody; every accepted process closes before delivery.
+// Original frozen npm/child custody; every accepted process closes before delivery.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -82,8 +82,8 @@ export async function run(id, command, args, cwd = root) {
 }
 export async function originalPnpm(args, id, cwd) {
   const entry = process.env.npm_execpath;
-  if (!entry || !/pnpm\.(?:cjs|js)$/.test(basename(entry)))
-    throw new Error("Original frozen pnpm entry unavailable.");
+  if (!entry || !/npm\.(?:cjs|js)$/.test(basename(entry)))
+    throw new Error("Original frozen npm run entry unavailable.");
   await run(id, process.execPath, [await realpath(entry), ...args], cwd);
 }
 export async function packageProduct(name, directory) {

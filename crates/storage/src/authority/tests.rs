@@ -1,6 +1,6 @@
 //! Race contracts the authority fabric names by exact path (GA-V-25..27).
 //!
-//! These live under `--lib` so `pnpm test:authority-fabric` can settle them;
+//! These live under `--lib` so `npm run test:authority-fabric` can settle them;
 //! the longer integration suites under `crates/storage/tests/authority_*`
 //! remain the place for broader coverage of the same surfaces.
 

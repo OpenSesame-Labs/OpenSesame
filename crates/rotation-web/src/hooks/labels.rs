@@ -50,7 +50,7 @@ fn namespace(name: Option<String>) -> Option<String> {
     let name = name?;
     let mut chars = name.chars();
     let legal = chars.next().is_some_and(|c| c.is_ascii_lowercase())
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+  && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
     (legal && !RESERVED.contains(&name.as_str())).then_some(name)
 }
 

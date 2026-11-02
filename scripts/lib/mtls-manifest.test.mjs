@@ -301,7 +301,7 @@ describe("mtls versions and tree identity", () => {
     expect(cargoLockVersions(lock, "spiffe")).toEqual([]);
   });
 
-  it("reads resolved npm versions from pnpm-lock.yaml text", () => {
+  it("reads resolved npm versions from package-lock.json text", () => {
     const lock =
       "packages:\n\n  '@playwright/test@1.55.1':\n    resolution: {}\n\n  oidc-provider@9.11.2:\n    resolution: {}\n\n  hono@4.13.1(zod@3.25.67):\n    x: 1\n";
     expect(pnpmLockVersions(lock, "@playwright/test")).toEqual(["1.55.1"]);

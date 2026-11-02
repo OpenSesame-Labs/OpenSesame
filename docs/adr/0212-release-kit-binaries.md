@@ -113,8 +113,8 @@ imports `@env-spec/parser`, so it needed a `node_modules` beside it.
 5. **The bridge ships as one file.** `packages/env-spec-bridge` bundles itself
    and `@env-spec/parser` (no dependencies of its own) with esbuild into one ES
    module that imports only `node:` builtins. Which esbuild and parser build
-   it is decided by `pnpm-lock.yaml`, and the workflow installs with
-   `--frozen-lockfile`: the root `pnpm.overrides` rewrite esbuild's specifier
+   it is decided by `package-lock.json`, and the workflow installs with
+   `--frozen-lockfile`: the root `npm.overrides` rewrite esbuild's specifier
    to `>=0.25.0`, so the version in the package's `package.json` is not what
    pins it. Its tests run the bundle and the unbundled bridge on the
    repository's schemas and compare their output byte for byte, and bundle

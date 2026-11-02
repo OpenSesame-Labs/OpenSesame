@@ -17,7 +17,7 @@
 - OTP on disk: pass-otp `otpauth://` trailer **and** structured field; lossless round-trip.
 - Tombs: portable multi-tomb first; `linux-tomb` adapter optional.
 - Pages update: single-item only in v1; bulk update is CLI-only.
-- Prefer TDD; `cargo +1.88.0 test -p opensesame-sealed-store` and `pnpm --filter @opensesame/pages exec vitest run` for touched areas.
+- Prefer TDD; `cargo +1.88.0 test -p opensesame-sealed-store` and `npm exec -w @opensesame/pages -- vitest run` for touched areas.
 
 ---
 
@@ -93,7 +93,7 @@
 
 - [ ] Tests: vault item with totp ↔ store entry otpauth trailer.
 - [ ] UI: “Update password” / “Update secret” generate-or-enter flow; preserve totp/notes.
-- [ ] `pnpm --filter @opensesame/pages exec vitest run src/lib/vault/`
+- [ ] `npm exec -w @opensesame/pages -- vitest run src/lib/vault/`
 - [ ] Commit: `feat(pages): vault update action + otp store-sync`
 
 ### Task 7: Docs + ADR + PRODUCT
@@ -111,6 +111,6 @@
 ```bash
 cargo +1.88.0 test -p opensesame-sealed-store --all-targets
 cargo +1.88.0 build -p opensesame-cli
-pnpm --filter @opensesame/pages exec vitest run src/lib/vault/
-pnpm --filter @opensesame/pages typecheck
+npm exec -w @opensesame/pages -- vitest run src/lib/vault/
+npm run typecheck -w @opensesame/pages
 ```

@@ -34,7 +34,7 @@ export function listNodeModules(root) {
 
 /**
  * Where Node resolves `name` (through `specifier`) from apps/pages in `root`,
- * as a real path, or null. A hoisted install puts both at the root, pnpm's in
+ * as a real path, or null. A hoisted install puts both at the root, npm's in
  * apps/pages; either way this is what the build in that tree will load.
  */
 function pagesResolves(root, name, specifier = name) {

@@ -687,8 +687,8 @@ pub async fn set_credential(
     // bearer credential (no OAuth App required). Prefer this when the only
     // secret field is `api_key` / the legacy `value` body.
     if body.configuration_clear.is_empty()
-        && configuration_set.len() == 1
-        && (configuration_set.contains_key("api_key")
+  && configuration_set.len() == 1
+  && (configuration_set.contains_key("api_key")
             || configuration_set.contains_key("access_token"))
     {
         if let Ok(view) = st
@@ -838,7 +838,7 @@ pub async fn oauth_callback(
 ) -> Response {
     if let Some(error) = params.get("error") {
         let error = if error.len() <= 64
-            && error
+  && error
                 .chars()
                 .all(|character| character.is_ascii_alphanumeric() || "_.-".contains(character))
         {

@@ -118,7 +118,7 @@ impl SettlementReceipt {
     pub fn reports(&self, actual: &BTreeMap<BudgetKey, Amount>) -> bool {
         let all_keys_known = actual.keys().all(|key| self.settled.contains_key(key));
         all_keys_known
-            && self
+  && self
                 .settled
                 .iter()
                 .all(|(key, recorded)| match actual.get(key) {

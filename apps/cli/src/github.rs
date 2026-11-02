@@ -92,7 +92,7 @@ impl GitHubAppConfig {
     /// True when the environment carries enough to mint without prompting.
     pub fn env_configured() -> bool {
         non_empty_env("GITHUB_APP_ID").is_some()
-            && (non_empty_env("GITHUB_APP_PRIVATE_KEY").is_some()
+  && (non_empty_env("GITHUB_APP_PRIVATE_KEY").is_some()
                 || non_empty_env("GITHUB_APP_PRIVATE_KEY_PATH").is_some())
     }
 }

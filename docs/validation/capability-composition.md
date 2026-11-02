@@ -13,7 +13,7 @@ by something other than the thing that produced them.
 > and were not re-measured. Two things have moved since. The capability runtime
 > (loader, store, authority, dispatch, egress, OpenFeature, trust) is now in
 > `packages/app-core/src/lib/capabilities/`, run by
-> `pnpm --filter @opensesame/app-core test`; `apps/pages/src/lib/capabilities/`
+> `npm run test`; -w @opensesame/app-core `apps/pages/src/lib/capabilities/`
 > keeps the classification, catalog, presets and profile suites. And
 > `packages/capability-composition` has 22 test files, not 10. The build scripts
 > `capability-compose-plugin.mjs`, `verify-capability-graph.mjs` and
@@ -50,7 +50,7 @@ its contract ID, owner, missing test scope and `pending` status; remove that
 status only when a landed test demonstrates the contract. Historical gaps stay
 in the linked matrix until checked against the current source.
 
-### Pure semantics — `cd packages/capability-composition && pnpm exec vitest run`
+### Pure semantics — `cd packages/capability-composition && npm exec -- vitest run`
 
 The resolver, the parsers, the digests and the review are pure over their
 input: no fetch, clock, storage, DOM or dynamic import. That is what makes them
@@ -76,7 +76,7 @@ testable as arithmetic.
 
 Observed 2026-09-22: **10 test files, 60 tests, all passing.**
 
-### Pages runtime — `pnpm --filter @opensesame/app-core exec vitest run src/lib/capabilities` and `pnpm --filter @opensesame/pages exec vitest run src/lib/capabilities`
+### Pages runtime — `npm exec -w @opensesame/app-core -- vitest run src/lib/capabilities` and `npm exec -w @opensesame/pages -- vitest run src/lib/capabilities`
 
 The loader, store, authority, dispatch, trust, egress and OpenFeature suites are
 in `packages/app-core/src/lib/capabilities/`; the profile, preset, catalog and
@@ -134,7 +134,7 @@ sees`, naming three helper files written minutes earlier by concurrent
 module-owner work that have no classification rule yet. It is recorded rather
 than glossed; the check is doing exactly its job.
 
-### Boot — `pnpm --filter @opensesame/app-core exec vitest run src/lib/runtime-config.test.ts` and `pnpm --filter @opensesame/pages exec vitest run src/App.test.tsx`
+### Boot — `npm exec -w @opensesame/app-core -- vitest run src/lib/runtime-config.test.ts` and `npm exec -w @opensesame/pages -- vitest run src/App.test.tsx`
 
 - The shipped `os-runtime-config.json` is an empty object, so the boot fetch is
   a 200 and not a 404.
@@ -200,17 +200,17 @@ does render: `verify:static`, `verify:mobile`, `verify:keyboard`,
 export NODE_OPTIONS="--max-old-space-size=8192"
 
 # Layer 1 + 4 + 6, fastest signal
-cd packages/capability-composition && pnpm exec vitest run
-pnpm --filter @opensesame/app-core exec vitest run src/lib/capabilities src/lib/configuration src/lib/runtime-config.test.ts
-pnpm --filter @opensesame/pages exec vitest run src/lib/capabilities
-pnpm --filter @opensesame/pages exec vitest run src/screens/capabilities src/sections/settings/FeaturesPanel.test.tsx
-pnpm --filter @opensesame/pages exec vitest run src/sw scripts/capability-compose-plugin.test.mjs scripts/verify-capability-graph.test.mjs
+cd packages/capability-composition && npm exec -- vitest run
+npm exec -w @opensesame/app-core -- vitest run src/lib/capabilities src/lib/configuration src/lib/runtime-config.test.ts
+npm exec -w @opensesame/pages -- vitest run src/lib/capabilities
+npm exec -w @opensesame/pages -- vitest run src/screens/capabilities src/sections/settings/FeaturesPanel.test.tsx
+npm exec -w @opensesame/pages -- vitest run src/sw scripts/capability-compose-plugin.test.mjs scripts/verify-capability-graph.test.mjs
 
 # Layer 2, the one that costs a build
 node apps/pages/scripts/build-profile.mjs --all
 
 # Layer 5, against a fresh build
-PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium pnpm --filter @opensesame/pages verify:static
+PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium npm run verify:static -w @opensesame/pages
 ```
 
 Changes to the bootstrap, a module, a worker or the build take

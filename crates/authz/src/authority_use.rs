@@ -70,7 +70,7 @@ pub fn authorize_authority_use(
     }
 
     if (op.requires_export_privilege() || level == InvokeLevel::Materialize)
-        && !grant.constraints.raw_credential_export
+  && !grant.constraints.raw_credential_export
     {
         return Err(AuthzError::Denied(
             "credential materialization denied by default".into(),

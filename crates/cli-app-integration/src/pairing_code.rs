@@ -51,7 +51,7 @@ pub(crate) fn registration_code() -> String {
 
 pub(crate) fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
-        && a.bytes()
+  && a.bytes()
             .zip(b.bytes())
             .fold(0u8, |acc, (x, y)| acc | (x ^ y))
             == 0
@@ -73,7 +73,7 @@ pub(crate) fn find_digest<'a>(
 #[must_use]
 pub fn is_secret_shaped(value: &str) -> bool {
     value.len() == SECRET_LEN
-        && value
+  && value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }

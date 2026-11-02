@@ -24,7 +24,7 @@ Host API:
 | Identity control-plane | 8788 |
 | Mock upstream IdP | 9090 |
 | Authority gateway | 8787 |
-| RP examples | Vite defaults (see `pnpm dev`) |
+| RP examples | Vite defaults (see `npm run dev`) |
 
 ## Backup / restore
 - PostgreSQL logical dump is the identity store backup.
@@ -67,4 +67,4 @@ docker compose -f ops/compose/docker-compose.yml up
 # Keycloak is already in the default compose file for optional enterprise OIDC brokering.
 ```
 
-Identity-plane apps can run via `pnpm dev` without Docker when using memory/local Postgres.
+Identity-plane apps can run via `npm run dev` without Docker when using memory/local Postgres.

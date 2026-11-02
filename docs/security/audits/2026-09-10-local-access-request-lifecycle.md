@@ -26,7 +26,7 @@ execution surface was introduced.
 
 ## Regression evidence
 
-`pnpm --filter @opensesame/pages exec vitest run
+`npm exec -w @opensesame/pages -- vitest run
 src/lib/local-access-requests.test.ts`: **13 passed**. Cases cover real signed
 approval, single-winner consumption, denial, stale/swapped references, forged
 private presentations, cross-vault references, independently changed policy and

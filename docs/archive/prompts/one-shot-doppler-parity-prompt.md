@@ -70,11 +70,11 @@ Finish OpenSesame's Doppler capability parity (ADR 0041, `docs/research/competit
 - Numbering: new ADRs start at **0052** (0051 is the current max). New host
   SQLite migrations start at **`migrations/0011_*.sql`** (0010 is the current
   max). Identity-plane schema changes go through Drizzle in `packages/database`
-  (`pnpm db:generate`, never hand-write files under `packages/database/drizzle/`).
+  (`npm run db:generate`, never hand-write files under `packages/database/drizzle/`).
 
 ## 3. Repo facts (read once; cite paths, don't rediscover)
 
-Toolchain and commands: root `AGENTS.md` §2–§3. Verify gate: `pnpm verify`
+Toolchain and commands: root `AGENTS.md` §2–§3. Verify gate: `npm run verify`
 (changed-file lint + typecheck + test + integration +
 `cargo +1.88.0 test --workspace --all-targets` + `./scripts/test/battle-test.sh`).
 
@@ -469,7 +469,7 @@ own Verify block before declaring done.
 `docs/architecture/` additions if needed.
 **Spec:** write the three ADRs per §4.10 in the repo's existing ADR format
 (Status/Context/Decision/Consequences/Related; see ADR 0041 for shape).
-**Verify:** `pnpm lint` (docs pass Biome's markdown handling untouched — no
+**Verify:** `npm run lint` (docs pass Biome's markdown handling untouched — no
 code gate). **Done when:** ADRs cite the real file paths from §3.
 
 ### WP-2 — Host store layer (migrations + store.rs)
@@ -582,9 +582,9 @@ sanctioned cross-package touch, because the freeze demands one commit).
 **Verify:** durability across pool reopen; unknown-name rejection; freeze
 tests green in all four packages
 (`cargo +1.88.0 test -p opensesame-connection-broker --lib changelog`,
-`pnpm --filter @opensesame/audit test`,
-`pnpm --filter @opensesame/os-domain test`,
-`pnpm --filter @opensesame/pages test`).
+`npm run test`, -w @opensesame/audit
+`npm run test`, -w @opensesame/os-domain
+`npm run test`). -w @opensesame/pages
 
 ### WP-8 — Identity plane: persistent projects + auto personal + audit wiring
 **OWNS:** `packages/database/src/repos/**` (new project/membership stores),
@@ -592,7 +592,7 @@ tests green in all four packages
 (persistence swap only — route contracts stay byte-identical), the control-plane
 session-establishment hook for `ensurePersonal`, their tests.
 **READS:** Drizzle tables (already complete — **no schema change, no
-`pnpm db:generate`**); `packages/audit/src/changelog.ts`.
+`npm run db:generate`**); `packages/audit/src/changelog.ts`.
 **Spec:** `ProjectStore`/`ProjectMembershipStore` interfaces + memory + postgres
 implementations; `ensurePersonal(principalId, organizationId)` as one upsert
 honoring `projects_personal_owner_uidx`; call it on first authenticated
@@ -602,8 +602,8 @@ session per principal, emitting `project.personal.ensured` through
 **Must not:** alter route request/response shapes; import Drizzle into
 os-domain; touch the Host plane.
 **Verify:** existing projects route suites pass against BOTH store impls;
-`pnpm --filter @opensesame/control-plane test`,
-`pnpm --filter @opensesame/database test`; audit chain verification test
+`npm run test`, -w @opensesame/control-plane
+`npm run test`; -w @opensesame/database audit chain verification test
 (`verifyAuditChain`) over a mutation sequence.
 
 ### WP-9 — Rotation: durable policies, scheduler, state machine
@@ -637,8 +637,7 @@ slot only — record as future work); touch `backup.rs`.
 **Verify:** `cargo +1.88.0 test -p opensesame-rotation` (still green),
 `cargo +1.88.0 test -p opensesame-connection-broker --lib rotation`: happy
 path, verify-fail → rollback states, revoke-fail → `ReconciliationRequired`,
-restart-resume from persisted state, due-time math, `pnpm --filter
-@opensesame/worker test`.
+restart-resume from persisted state, due-time math, `npm run test`. -w @opensesame/worker
 
 ### WP-10 — CLI (exclusive owner of `apps/cli/**`) + sealed-store history
 **OWNS:** `apps/cli/**`, `crates/sealed-store/src/history.rs` (new) + the
@@ -658,7 +657,7 @@ fallback envelope; touch gateway or broker code.
 **Verify:** `cargo +1.88.0 test -p opensesame-cli` + integration tests against
 a mock gateway: online fetch, offline + fallback hit, fallback expired,
 `--agent` denial, fallback file contains no plaintext substrings
-(`pnpm audit:gitleaks` on the workspace stays green).
+(`npm run audit:gitleaks` on the workspace stays green).
 
 ### WP-11 — Webhooks on change
 **OWNS:** `apps/gateway/src/routes/webhooks.rs` (new),
@@ -691,16 +690,16 @@ changelog pagination. No plaintext display anywhere; the set-input is
 write-only UI.
 **Must not:** add any response type with a value field; call materialize from
 Pages.
-**Verify:** `pnpm --filter @opensesame/contracts test`,
-`pnpm --filter @opensesame/api-client test`,
-`pnpm --filter @opensesame/pages test` (+ token-leak pact mirrored from
+**Verify:** `npm run test`, -w @opensesame/contracts
+`npm run test`, -w @opensesame/api-client
+`npm run test` -w @opensesame/pages (+ token-leak pact mirrored from
 sync-targets).
 
 ### WP-13 — Per-member vault recipients (crypto track)
 **OWNS:** `crates/sealed-store/src/recipients.rs` (activation),
 the `// RECIPIENTS` marked block in `crates/sealed-store/src/envelope.rs` and
 `lib.rs`, `packages/database/src/schema/index.ts` (`principal_keys` table —
-sole owner of this file in this run) + `pnpm db:generate` output,
+sole owner of this file in this run) + `npm run db:generate` output,
 `apps/control-plane/src/routes/principal-keys.ts` (new), re-wrap hooks in the
 membership mutation path (coordinate signature with WP-8: WP-8 exposes an
 `onMembershipChanged` hook interface; WP-13 implements the re-wrap subscriber),
@@ -716,8 +715,8 @@ never just dropping a wrap).
 bounds; store private keys server-side.
 **Verify:** `cargo +1.88.0 test -p opensesame-sealed-store recipients` —
 wrap/unwrap per member, removed member cannot unwrap post-re-key;
-`pnpm --filter @opensesame/control-plane test`; run `pnpm audit:kani` and
-`pnpm audit:miri` scoped to the touched crates; full audit gate set (§6).
+`npm run test`; -w @opensesame/control-plane run `npm run audit:kani` and
+`npm run audit:miri` scoped to the touched crates; full audit gate set (§6).
 
 ### WP-14 — Pages vault revisions writer
 **OWNS:** `apps/gateway/src/routes/sync_blobs.rs` (revision write-through),
@@ -733,7 +732,7 @@ old revision into the vault (new local edit, new epoch — never a server-side
 rollback).
 **Must not:** decrypt server-side; break the `FORBIDDEN_PLAINTEXT_KEYS` guard.
 **Verify:** `cargo +1.88.0 test -p opensesame-gateway sync_blobs`,
-`pnpm --filter @opensesame/pages test`.
+`npm run test`. -w @opensesame/pages
 
 ### WP-INT — Integrator (runs after all WPs; the only sequenced agent)
 **OWNS:** the four mechanical merge points —
@@ -754,12 +753,12 @@ PR description.
 ## 6. Global verification (WP-INT; the run's definition of done)
 
 ```bash
-pnpm verify                       # lint + typecheck + test + integration
+npm run verify                       # lint + typecheck + test + integration
                                   # + cargo +1.88.0 test --workspace --all-targets
                                   # + ./scripts/test/battle-test.sh
-pnpm audit:clippy && pnpm audit:ast-grep && pnpm audit:semgrep && pnpm audit:gitleaks
-pnpm audit:cargo-audit            # new deps (crypto_box behind feature flag)
-pnpm test:security && pnpm test:redteam
+npm run audit:clippy && npm run audit:ast-grep && npm run audit:semgrep && npm run audit:gitleaks
+npm run audit:cargo-audit            # new deps (crypto_box behind feature flag)
+npm run test:security && npm run test:redteam
 ```
 
 End-to-end smoke (scriptable against debug builds, mock providers):

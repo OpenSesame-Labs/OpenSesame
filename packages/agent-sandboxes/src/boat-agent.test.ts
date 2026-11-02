@@ -14,7 +14,7 @@ describe("Boat bootstrap command", () => {
     );
     expect(command).toContain("git rev-parse HEAD");
     expect(command.indexOf("git rev-parse HEAD")).toBeLessThan(
-      command.indexOf("pnpm install"),
+      command.indexOf("npm install"),
     );
     expect(command).toContain("--frozen-lockfile");
     expect(command).toContain("./node_modules/.bin/tsx");

@@ -6,11 +6,11 @@ import test from "node:test";
 const root = path.resolve(import.meta.dirname, "../..");
 const quotePath = path.join(
   root,
-  "node_modules/.pnpm/shell-quote@1.11.0/node_modules/shell-quote/package.json",
+  "node_modules/shell-quote/package.json",
 );
 const mapPath = path.join(
   root,
-  "node_modules/.pnpm/source-map-js@1.2.2/node_modules/source-map-js/package.json",
+  "node_modules/source-map-js/package.json",
 );
 const quoteRequire = createRequire(quotePath);
 const mapRequire = createRequire(mapPath);

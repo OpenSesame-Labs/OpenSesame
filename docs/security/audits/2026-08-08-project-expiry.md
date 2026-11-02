@@ -24,11 +24,11 @@ Scanners: cargo-audit, cve-lite, semgrep, ast-grep, osv-scanner, gitleaks, cargo
 
 ## Verification
 
-- `pnpm --filter @opensesame/worker test` — 3 passed (1 new: active project expires,
+- `npm run test` -w @opensesame/worker — 3 passed (1 new: active project expires,
   then is reaped after the retention window)
-- `pnpm --filter @opensesame/control-plane test` — 31 passed (1 new: lapsed project is
+- `npm run test` -w @opensesame/control-plane — 31 passed (1 new: lapsed project is
   not activated by approval)
-- `pnpm --filter @opensesame/client-core test` — 4 passed (guard covers the
+- `npm run test` -w @opensesame/client-core — 4 passed (guard covers the
   no-`NODE_ENV` browser case)
-- `pnpm run typecheck`, `pnpm test` — clean
+- `npm run typecheck`, `npm test` — clean
 - semgrep, gitleaks, cargo-audit, cargo-deny, osv-scanner, cve-lite, ast-grep — clean

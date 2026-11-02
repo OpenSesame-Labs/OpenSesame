@@ -115,7 +115,7 @@ The extension targets Chromium and Firefox (MV3); the real-browser test is Chrom
   to send a key *that origin supplies* to a granted provider host; that is no authority the
   origin lacked, since the page could put the same key in its own request if the provider
   allowed it. The bridge adds a way to read the answer, not a way to obtain a key.
-- A provider that changes its CORS policy moves the answer: `pnpm audit:browser-dispositions`
+- A provider that changes its CORS policy moves the answer: `npm run audit:browser-dispositions`
   re-probes dispositions, and the policy's probes are dated; a provider that starts to admit
   the origin should have its rule deleted and the bridge becomes unnecessary for it.
 - Verification against real providers used fake keys only; no real credential was obtained.

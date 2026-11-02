@@ -6,9 +6,9 @@ Branch: `chore/audit-tick7` (post `#23` UX polish)
 
 | Check | Result |
 |------|--------|
-| `pnpm audit:ast-grep` (pre-fix) | FAIL — 3× `ts-innerhtml` in extension popup |
-| `pnpm audit:ast-grep` (post-fix) | CLEAN |
-| `pnpm audit:semgrep` / `gitleaks` / `cve-lite` | CLEAN |
+| `npm run audit:ast-grep` (pre-fix) | FAIL — 3× `ts-innerhtml` in extension popup |
+| `npm run audit:ast-grep` (post-fix) | CLEAN |
+| `npm run audit:semgrep` / `gitleaks` / `cve-lite` | CLEAN |
 
 ## Findings fixed
 
@@ -19,5 +19,5 @@ Branch: `chore/audit-tick7` (post `#23` UX polish)
 ## Gate
 
 ```bash
-pnpm audit:ast-grep
+npm run audit:ast-grep
 ```

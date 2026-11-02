@@ -31,7 +31,7 @@ async fn load_owned(
         // carry an organization claim themselves.
         Ok(Some(stored))
             if caller.owns(&stored.receipt.principal_id)
-                && caller.in_organization(&stored.organization_id) =>
+  && caller.in_organization(&stored.organization_id) =>
         {
             Ok(stored.receipt)
         }

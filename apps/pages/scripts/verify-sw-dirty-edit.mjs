@@ -1,7 +1,7 @@
 // A service-worker release must not wipe an edit in progress (P8-6 / F7).
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-//   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium pnpm --filter @opensesame/pages verify:sw-dirty-edit
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+//   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium npm run verify:sw-dirty-edit -w @opensesame/pages
 //
 // The first load is born controlled before the door is touched: that claim
 // reloads once, by design, because the page does not yet know its release.

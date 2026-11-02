@@ -112,7 +112,7 @@ impl NativeNodeDataReader {
         let _operation = gate(&self.state.operations)?;
         self.check()?;
         if !super::ciphertext_reads::allowed_global_read(logical)
-            && !logical.starts_with(&format!("tomb/{}/", self.tomb))
+  && !logical.starts_with(&format!("tomb/{}/", self.tomb))
         {
             return Err(refused());
         }

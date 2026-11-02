@@ -100,10 +100,10 @@ fn valid_role_arn(arn: &str) -> bool {
         return false;
     };
     matches!(partition, "aws" | "aws-cn" | "aws-us-gov")
-        && account.len() == 12
-        && account.bytes().all(|b| b.is_ascii_digit())
-        && (1..=512).contains(&role.len())
-        && role.bytes().all(|b| {
+  && account.len() == 12
+  && account.bytes().all(|b| b.is_ascii_digit())
+  && (1..=512).contains(&role.len())
+  && role.bytes().all(|b| {
             b.is_ascii_alphanumeric()
                 || matches!(b, b'+' | b'=' | b',' | b'.' | b'@' | b'_' | b'-' | b'/')
         })
@@ -111,7 +111,7 @@ fn valid_role_arn(arn: &str) -> bool {
 
 fn valid_external_id(value: &str) -> bool {
     (2..=MAX_EXTERNAL_ID).contains(&value.len())
-        && value.bytes().all(|b| {
+  && value.bytes().all(|b| {
             b.is_ascii_alphanumeric()
                 || matches!(
                     b,

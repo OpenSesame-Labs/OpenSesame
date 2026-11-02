@@ -42,13 +42,13 @@ test("publication accepts exact workspace names and rejects filter and shell syn
   }
 });
 
-test("invalid selections never start pnpm; valid publication uses argv and a package cwd", () => {
+test("invalid selections never start npm; valid publication uses argv and a package cwd", () => {
   const directory = mkdtempSync(join(tmpdir(), "publish-packages-"));
   try {
     mkdirSync(join(directory, "bin"));
     const log = join(directory, "invocations");
     writeFileSync(
-      join(directory, "bin", "pnpm"),
+      join(directory, "bin", "npm"),
       '#!/bin/sh\npwd >> "$PUBLISH_TEST_LOG"\nprintf "%s\\n" "$@" >> "$PUBLISH_TEST_LOG"\n',
       { mode: 0o755 },
     );

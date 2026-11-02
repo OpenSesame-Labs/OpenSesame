@@ -49,6 +49,6 @@ into an outage.
 
 - `apps/mcp-host` — 13 passed (3 new: token echo scrubbed, credential-shaped
   payloads refused, echo preferred scrubbed over refused)
-- `pnpm -r typecheck`, full workspace tests — green
+- `npm run -r typecheck`, full workspace tests — green
 - cve-lite, osv-scanner, cargo-audit, cargo-deny, gitleaks, semgrep, ast-grep,
   clippy, task-security-battle-test — clean

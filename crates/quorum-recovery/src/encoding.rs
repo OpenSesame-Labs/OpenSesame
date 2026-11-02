@@ -27,7 +27,7 @@ pub fn b64url_decode(text: &str) -> Result<Vec<u8>, NotBase64url> {
 #[must_use]
 pub fn is_b64url_charset(text: &str) -> bool {
     !text.is_empty()
-        && text
+  && text
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }

@@ -176,7 +176,7 @@ impl Db {
                 }
                 Some(ref row)
                     if row.get::<i64, _>("epoch") == epochs[index]
-                        && row.get::<bool, _>("same_ciphertext") =>
+  && row.get::<bool, _>("same_ciphertext") =>
                 {
                     unchanged += 1;
                     SyncWriteOutcome::Accepted

@@ -66,7 +66,7 @@ a feature — runs Wasm component connectors.
 ```bash
 cargo +1.88.0 test -p opensesame-connector-host
 cargo +1.88.0 test -p opensesame-connector-host --features wasm-connectors --test wasm_runtime
-pnpm audit:daemon-deps
+npm run audit:daemon-deps
 ```
 
 `tests/wasm_runtime.rs` uses a hand-written WAT component to exercise the fuel

@@ -6,9 +6,9 @@ the rules themselves are [`AGENTS.md`](../../AGENTS.md).
 
 ## The path of a change
 
-1. **Branch and build.** `pnpm deps:install`, `pnpm setup:hooks`, then work
+1. **Branch and build.** `npm run deps:install`, `npm run setup:hooks`, then work
    against the package you are changing
-   (`pnpm --filter @opensesame/<name> test`).
+   (`npm run test`). -w @opensesame/<name>
 2. **Commit.** The pre-commit hook lints staged files, runs Clippy when Rust
    is staged, scans for secrets and checks the design contract.
 3. **Push.** The pre-push hook runs lint, static quality checks and typechecking,
@@ -57,26 +57,26 @@ delivery contract. Branch protection is maintained in
 
 | Gate | Command | Enforces | Why |
 |---|---|---|---|
-| Lint | `pnpm lint` | Biome formatting and lint on changed files. | One style, no review time spent on it. |
-| Anti-slop | `pnpm lint:anti-slop` | No unsafe casts, no `unknown` leaking through APIs, no module mocking. | Type holes are where security bugs hide. |
-| Structure | `pnpm quality:gate` | Files ≤ 400 lines; function length, parameters and nesting within budget; the ledger only falls. | [ADR 0093](../adr/0093-structural-quality-gates.md); [guide](../validation/code-quality-gates.md). |
-| Coupling | `pnpm quality:packages` | No dependency cycles, no undeclared workspace imports, coupling debt only falls. | Packages that can be understood alone. |
-| Client core | `pnpm quality:app-core` | `app-core` and `vault-core` reach into no app and read no platform global outside `app-core`'s host adapters. | [ADR 0133](../adr/0133-shared-app-core.md): the PWA and the CLI share it. |
-| Design | `pnpm lint:design` | No verb painted on a button, no status pills, no explainer captions. | [DESIGN.md](../../DESIGN.md), [controls](../design/controls.md). |
-| Docs index | part of `pnpm quality` | The ADR, audit and evidence indexes match the files. | So the indexes can be trusted. Fix with `pnpm docs:index`. |
-| Types | `pnpm typecheck` | Strict TypeScript everywhere. | — |
-| Tests | `pnpm test`, `cargo test` | Suites qualify environment delivery; authors can run focused tests locally. | — |
-| Rust lint | `pnpm audit:clippy` | rustfmt, and Clippy pedantic with the complexity limits in `clippy.toml`. | Same budgets as TypeScript. |
-| Browser | `pnpm --filter @opensesame/pages verify:<journey>` | Keyboard access, touch layout, local IAM, static boot, auth flow — in real Chromium against a real build. | Unit tests cannot prove a person can use it. |
-| Security | `pnpm audit:*` | CVEs, SAST, secrets, dependency budgets, fuzzing, proofs. | [Tooling evaluation](../security/tooling-evaluation.md). |
+| Lint | `npm run lint` | Biome formatting and lint on changed files. | One style, no review time spent on it. |
+| Anti-slop | `npm run lint:anti-slop` | No unsafe casts, no `unknown` leaking through APIs, no module mocking. | Type holes are where security bugs hide. |
+| Structure | `npm run quality:gate` | Files ≤ 400 lines; function length, parameters and nesting within budget; the ledger only falls. | [ADR 0093](../adr/0093-structural-quality-gates.md); [guide](../validation/code-quality-gates.md). |
+| Coupling | `npm run quality:packages` | No dependency cycles, no undeclared workspace imports, coupling debt only falls. | Packages that can be understood alone. |
+| Client core | `npm run quality:app-core` | `app-core` and `vault-core` reach into no app and read no platform global outside `app-core`'s host adapters. | [ADR 0133](../adr/0133-shared-app-core.md): the PWA and the CLI share it. |
+| Design | `npm run lint:design` | No verb painted on a button, no status pills, no explainer captions. | [DESIGN.md](../../DESIGN.md), [controls](../design/controls.md). |
+| Docs index | part of `npm run quality` | The ADR, audit and evidence indexes match the files. | So the indexes can be trusted. Fix with `npm run docs:index`. |
+| Types | `npm run typecheck` | Strict TypeScript everywhere. | — |
+| Tests | `npm test`, `cargo test` | Suites qualify environment delivery; authors can run focused tests locally. | — |
+| Rust lint | `npm run audit:clippy` | rustfmt, and Clippy pedantic with the complexity limits in `clippy.toml`. | Same budgets as TypeScript. |
+| Browser | `npm run verify:<journey>` -w @opensesame/pages | Keyboard access, touch layout, local IAM, static boot, auth flow — in real Chromium against a real build. | Unit tests cannot prove a person can use it. |
+| Security | `npm run audit:*` | CVEs, SAST, secrets, dependency budgets, fuzzing, proofs. | [Tooling evaluation](../security/tooling-evaluation.md). |
 
 When a ratchet reports that something **improved**, commit the tightened
-ledger (`pnpm quality:gate --update`). Never raise a recorded number to get a
+ledger (`npm run quality:gate --update`). Never raise a recorded number to get a
 change through.
 
 ## Hooks
 
-`pnpm setup:hooks` points git at [`.githooks/`](../../.githooks).
+`npm run setup:hooks` points git at [`.githooks/`](../../.githooks).
 
 - **pre-commit** — Biome and anti-slop on staged files; rustfmt and Clippy when
   Rust or Cargo configuration is staged; the design lint and (when the
@@ -84,9 +84,9 @@ change through.
   when installed.
 - **pre-push** — `OPENSESAME_PREPUSH=fast` (default: changed-file lint,
   generated-artifact freshness, anti-slop, static quality, typecheck and
-  conditional Clippy), `full` (`pnpm verify`, including tests) or `off`.
-  The default names static commands directly because the aggregate `pnpm lint`
-  and `pnpm quality` aliases also include test suites.
+  conditional Clippy), `full` (`npm run verify`, including tests) or `off`.
+  The default names static commands directly because the aggregate `npm run lint`
+  and `npm run quality` aliases also include test suites.
 
 ## Team runbooks
 

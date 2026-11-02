@@ -44,9 +44,9 @@ launch variables `@opensesame/agent-client` reads
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/mcp-client start       # stdio server
-pnpm --filter @opensesame/mcp-client typecheck
-pnpm --filter @opensesame/mcp-client test        # vitest run
+npm run start -w @opensesame/mcp-client       # stdio server
+npm run typecheck -w @opensesame/mcp-client
+npm run test -w @opensesame/mcp-client        # vitest run
 ```
 
 `src/registry-parity.test.ts` sweeps

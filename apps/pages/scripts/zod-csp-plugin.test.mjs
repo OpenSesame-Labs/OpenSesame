@@ -94,7 +94,7 @@ it.each([false, true])(
 it("matches installed core files without transforming unrelated modules", () => {
   const plugin = zodCsp();
   const file =
-    "/repo/node_modules/.pnpm/zod@4.6.6/node_modules/zod/v4/core/core.js";
+    "/repo/node_modules/zod/v4/core/core.js";
   for (const id of [file, `${file}?v=123`, file.replaceAll("/", "\\")]) {
     const result = plugin.transform("original", id);
     assert.ok(result.code.startsWith("import "));

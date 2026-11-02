@@ -12,8 +12,8 @@ const MAX_TOTAL_BYTES: usize = 24 * 1024;
 
 fn valid_name(name: &str) -> bool {
     !name.is_empty()
-        && name.len() <= MAX_FIELD_NAME_BYTES
-        && name
+  && name.len() <= MAX_FIELD_NAME_BYTES
+  && name
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
 }

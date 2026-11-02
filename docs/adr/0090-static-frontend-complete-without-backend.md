@@ -39,7 +39,7 @@ fork stacked on top of it turned a working static app into a wall.
 
 Beside that, three smaller ways the app assumed a backend or a local host:
 
-1. A loopback tab (`pnpm dev`) defaulted Host, daemon and MFA endpoints to
+1. A loopback tab (`npm run dev`) defaulted Host, daemon and MFA endpoints to
    `127.0.0.1:187xx` addresses nothing had said were running, so a dev tab
    looked paired with services that did not exist.
 2. `continueAsGuest` and `adoptFederatedIdentity` tried to mint or link a
@@ -168,7 +168,7 @@ which is how a quiet hint slipped past the first cut.
   return leg landing unlocked, deep-link asset resolution) with zero page
   errors, zero console errors and zero requests to a loopback address. That
   proof is checked in as `apps/pages/scripts/verify-static-origin.mjs`
-  (`pnpm --filter @opensesame/pages verify:static`) and is the gate for any
+  (`npm run verify:static`) -w @opensesame/pages and is the gate for any
   change on the boot or sign-in path.
 - `SetupScreen`'s "This device is empty" fork, the `setup.choose` tutorial
   target and the `setupRequired` gate are removed. `setup.join` moves to the

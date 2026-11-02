@@ -18,7 +18,7 @@ it's cut), a port or version number changes in one place and not another.
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 
@@ -72,10 +72,10 @@ landed, or has since been renamed/removed"**:
   gates were "wired ... into CI `security` job". No such job exists:
   `.github/workflows/` holds four workflows — `ci.yml` (the required
   `TypeScript`, `Bundle budgets` and `Rust` checks: changed-file lint,
-  `pnpm quality`, the scoped tests and the browser gates), `deploy-pages.yml`,
+  `npm run quality`, the scoped tests and the browser gates), `deploy-pages.yml`,
   `full-suite.yml` (the whole TypeScript suite on a schedule) and
   `password-parity.yml` (the password parity gauntlet) — and none of them runs
-  the `pnpm audit:*` gates. Treat any doc that attributes a gate to CI which
+  the `npm run audit:*` gates. Treat any doc that attributes a gate to CI which
   those workflows do not actually run as this same class of drift — reword it
   to name what really runs it (local git hooks via `scripts/dev/setup-hooks.sh`
   / `.githooks/`, or these Routines). Docs asserting the repo has *no* CI or no
@@ -103,11 +103,10 @@ git status
    that covers all of them; read each doc and check each path it names.
 
 2. **Command references.** For each backtick-quoted shell command in those
-   same docs (`pnpm <script>`, `cargo <subcommand>`, a raw script
+   same docs (`npm <script>`, `cargo <subcommand>`, a raw script
    invocation), confirm the command is real:
-   - `pnpm <x>` — check `<x>` is a key under `"scripts"` in `package.json`,
-     or a documented native pnpm subcommand (e.g. `pnpm audit`, `pnpm
-     install`, `pnpm dlx`).
+   - `npm <x>` — check `<x>` is a key under `"scripts"` in `package.json`,
+     or a documented native npm run subcommand (e.g. `npm audit`, `npm install`, `npm run dlx`).
    - `cargo <x>` — check it's a standard cargo subcommand or one provided by
      an installed cargo extension already referenced elsewhere in the repo
      (e.g. `cargo deny`, `cargo clippy`).
@@ -134,7 +133,7 @@ git status
    rather than guessing which one is right.
 
 4. **Cross-doc consistency.** If the same fact is stated in more than one
-   root doc (e.g. Node version, pnpm version, Rust version, a port number),
+   root doc (e.g. Node version, npm run version, Rust version, a port number),
    confirm all copies agree with each other and with
    `package.json`/`rust-toolchain.toml`.
 

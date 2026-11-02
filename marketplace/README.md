@@ -17,10 +17,10 @@ definition — field types, concealed fields, subtitles, search — is in
 
 1. Edit or add the JSON in `item-types/builtin/`.
 2. Regenerate the TypeScript embedding:
-   `pnpm --filter @opensesame/vault-item-types generate`.
+   `npm run generate`. -w @opensesame/vault-item-types
 3. Add the file to `BUILTIN_DEFINITIONS` in `crates/vault-item-types/src/lib.rs`
    if it is new and the host plane should know the type.
-4. `pnpm --filter @opensesame/vault-item-types test` and
+4. `npm run test` -w @opensesame/vault-item-types and
    `cargo +1.88.0 test -p opensesame-vault-item-types` must both pass — the
    generated module is checked against the JSON.
 
@@ -30,7 +30,7 @@ definition — field types, concealed fields, subtitles, search — is in
    reuse a built-in id, or claim an extension another type already uses.
 2. List its path in `.opensesame/marketplace.json`.
 3. Pin it: `node scripts/release/pin-marketplace.mjs`.
-4. Check it: `pnpm --filter @opensesame/app-core exec vitest run
+4. Check it: `npm exec -w @opensesame/app-core -- vitest run
    src/lib/item-type-marketplace/default-marketplace.test.ts`. That verifies
    every pin, that every definition parses as a community type, and that none
    collides with a built-in.

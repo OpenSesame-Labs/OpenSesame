@@ -8,9 +8,9 @@ alwaysApply: true
 When the human says run the app locally, start the server, attach a browser
 debug session, and keep watching. Do not hand off a URL.
 
-- Pages UI without a backend: `pnpm --filter @opensesame/pages dev:web` on
+- Pages UI without a backend: `npm run dev:web` -w @opensesame/pages on
   `http://localhost:5180` (localhost, not 127.0.0.1, for passkeys).
-- Full stack: `pnpm --filter @opensesame/pages dev`.
+- Full stack: `npm run dev`. -w @opensesame/pages
 - Keep the Vite process attached. Open the origin. Watch console, pageerror,
   and failed requests with full stacks.
 - Patch source so HMR updates the same session. Do not kill it to run

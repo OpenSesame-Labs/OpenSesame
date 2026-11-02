@@ -49,8 +49,8 @@ pub fn verify_create(
     let reference = super::reference(receipt, "credential")?;
     anyhow::ensure!(
         receipt["title"] == template["title"]
-            && receipt["category"] == "API_CREDENTIAL"
-            && (receipt["vault"]["id"] == vault || receipt["vault"]["name"] == vault),
+  && receipt["category"] == "API_CREDENTIAL"
+  && (receipt["vault"]["id"] == vault || receipt["vault"]["name"] == vault),
         "Creation is unverified; inspect before retrying"
     );
     for key in ["id", "title", "category", "vault"] {
@@ -68,7 +68,7 @@ pub fn verify_create(
             .collect();
         anyhow::ensure!(
             fields.len() == 1
-                && expected.as_object().is_some_and(|properties| properties
+  && expected.as_object().is_some_and(|properties| properties
                     .iter()
                     .all(|(key, value)| fields[0].get(key) == Some(value))),
             "Creation is unverified; inspect before retrying"
@@ -95,9 +95,9 @@ fn passwords(item: &Value) -> Vec<&Value> {
         .flatten()
         .filter(|f| {
             f["id"] == "password"
-                && f["purpose"] == "PASSWORD"
-                && f["type"] == "CONCEALED"
-                && f.get("section").is_none()
+  && f["purpose"] == "PASSWORD"
+  && f["type"] == "CONCEALED"
+  && f.get("section").is_none()
         })
         .collect()
 }
@@ -133,7 +133,7 @@ pub fn password_template(item: &Value, input: &str, repair: bool) -> anyhow::Res
             "Cannot safely edit a template containing passkeys; nothing was changed"
         );
         if field["id"].as_str().unwrap_or_default().is_empty()
-            && field["label"].as_str().unwrap_or_default().is_empty()
+  && field["label"].as_str().unwrap_or_default().is_empty()
         {
             anyhow::ensure!(
                 repair,
@@ -144,8 +144,8 @@ pub fn password_template(item: &Value, input: &str, repair: bool) -> anyhow::Res
             field["type"] = json!("CONCEALED");
         }
         if field["id"] == "password"
-            && field["purpose"] == "PASSWORD"
-            && field.get("section").is_none()
+  && field["purpose"] == "PASSWORD"
+  && field.get("section").is_none()
         {
             field["value"] = json!(input);
         }

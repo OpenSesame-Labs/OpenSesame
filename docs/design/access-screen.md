@@ -206,5 +206,5 @@ Rewrite `AccessSection.test.tsx` (hoisted seam mocks, no module mocking):
   under a per-view sentence budget is fine).
 - Lib tests for the new delegation functions (wire mapping, error mapping).
 
-Gates: `pnpm --filter @opensesame/pages test`, `tsc --noEmit`, per-file
+Gates: `npm run test`, -w @opensesame/pages `tsc --noEmit`, per-file
 oxlint anti-slop, biome — all green before reporting.

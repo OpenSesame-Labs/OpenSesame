@@ -5,9 +5,9 @@ TypeScript libraries, each published inside the workspace as
 [`examples/`](../examples/README.md) depend on them with `workspace:*`.
 
 ```bash
-pnpm --filter @opensesame/app-core test         # one package
-pnpm --filter @opensesame/app-core typecheck
-pnpm quality:packages                           # cycles, phantom deps, coupling
+npm run test -w @opensesame/app-core         # one package
+npm run typecheck -w @opensesame/app-core
+npm run quality:packages                           # cycles, phantom deps, coupling
 ```
 
 Every package but two extends [`tsconfig.base.json`](../tsconfig.base.json)
@@ -16,7 +16,7 @@ with Vitest. The exceptions are `app-core`, whose tsconfig mirrors the Pages
 one while its strictness is ratcheted per domain
 ([ADR 0133](../docs/adr/0133-shared-app-core.md)), and `env-spec-bridge`, plain
 ESM JavaScript with no tsconfig, tested with `node --test`.
-`pnpm quality:packages` scores each one against Robert C. Martin's component
+`npm run quality:packages` scores each one against Robert C. Martin's component
 principles and fails on a dependency cycle or an undeclared workspace import.
 
 ## Domain and contracts
@@ -52,8 +52,8 @@ and Android ([ADR 0133](../docs/adr/0133-shared-app-core.md)).
 
 The optional hosted identity deployment ([ADR 0138](../docs/adr/0138-self-issued-identity-one-native-host.md)):
 an operator's choice, never a prerequisite of the products. Run it with
-`pnpm --filter @opensesame/control-plane start` (`:8788`) and
-`pnpm --filter @opensesame/identity-worker start`.
+`npm run start` -w @opensesame/control-plane (`:8788`) and
+`npm run start`. -w @opensesame/identity-worker
 
 | Package | Purpose |
 |---|---|

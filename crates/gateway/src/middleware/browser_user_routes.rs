@@ -146,10 +146,10 @@ const ROUTES: &[(&str, &str, &str)] = &[
 
 fn segment(value: &str, key: bool) -> bool {
     !value.is_empty()
-        && value.len() <= 128
-        && value != "."
-        && value != ".."
-        && value.bytes().all(|byte| {
+  && value.len() <= 128
+  && value != "."
+  && value != ".."
+  && value.bytes().all(|byte| {
             byte.is_ascii_alphanumeric() || b"-_:".contains(&byte) || (key && byte == b'.')
         })
 }

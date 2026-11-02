@@ -5,7 +5,7 @@ import { grokAgentPlugin } from "./grok-agent-plugin.js";
 import { kimiAgentPlugin } from "./kimi-agent-plugin.js";
 
 /**
- * Default AI route (unchanged for `pnpm audit:deepsec` / DEEPSEC_PROCESS=1):
+ * Default AI route (unchanged for `npm run audit:deepsec` / DEEPSEC_PROCESS=1):
  * Pi + Vercel AI Gateway. Rescans use the `kimi` agent (Kimi Code K3 OAuth) when
  * signed in, else fallbacks in `scripts/audit/deepsec-grok-scan.sh`. No API keys.
  */

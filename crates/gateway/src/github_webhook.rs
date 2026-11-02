@@ -45,8 +45,8 @@ async fn configured_webhook_secret(st: &AppState) -> Result<String, Response> {
         .map_err(|_| webhook_error(StatusCode::SERVICE_UNAVAILABLE, "integrations_unavailable"))?;
     let Some(integration) = integrations.iter().find(|row| {
         row.provider_id == "github"
-            && row.enabled
-            && row.source == opensesame_connection_broker::IntegrationSource::Organization
+  && row.enabled
+  && row.source == opensesame_connection_broker::IntegrationSource::Organization
     }) else {
         return Err(webhook_error(
             StatusCode::NOT_FOUND,

@@ -131,7 +131,7 @@ impl Caddy {
                 panic!("caddy exited early with {status}: {log}");
             }
             if TcpStream::connect_timeout(&self.health, Duration::from_millis(200)).is_ok()
-                && TcpStream::connect_timeout(&self.addr, Duration::from_millis(200)).is_ok()
+  && TcpStream::connect_timeout(&self.addr, Duration::from_millis(200)).is_ok()
             {
                 return;
             }

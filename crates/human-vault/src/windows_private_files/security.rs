@@ -38,7 +38,7 @@ impl Drop for Descriptor {
 }
 fn inside(base: *const c_void, size: usize, part: *const c_void, length: usize) -> bool {
     !part.is_null()
-        && part
+  && part
             .addr()
             .checked_sub(base.addr())
             .and_then(|offset| offset.checked_add(length))

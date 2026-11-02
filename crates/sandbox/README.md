@@ -10,7 +10,7 @@ posture for code that has no manifest, pinned digest or fixed WIT world.
 ## Where it fits
 
 - **Used by:** no workspace crate or app depends on it today. It is exercised by
-  its own tests and by the authority-fabric gate (`pnpm test:authority-fabric`),
+  its own tests and by the authority-fabric gate (`npm run test:authority-fabric`),
   whose scenarios `AT-SANDBOX`, `GA-V-60` and others run this crate's
   integration tests with `--features wasm-runtime,fixtures`. It is not a fuzz
   target.
@@ -44,7 +44,7 @@ posture for code that has no manifest, pinned digest or fixed WIT world.
 ```bash
 cargo +1.88.0 test -p opensesame-sandbox
 cargo +1.88.0 test -p opensesame-sandbox --features wasm-runtime,fixtures
-pnpm test:authority-fabric
+npm run test:authority-fabric
 ```
 
 Every file in [`tests/`](tests) is compiled only with both features, so the

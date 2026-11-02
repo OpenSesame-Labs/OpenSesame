@@ -59,11 +59,11 @@ and [`packages/mcp-client`](../packages/mcp-client). Neither exposes
 ## Running
 
 ```bash
-pnpm dev:pwa                                                 # the app on :5180, no backend
-pnpm --filter @opensesame/pages dev                          # app + Host (:18787) + Identity (:18788) + mock IdPs
-pnpm dev:host                                                # Host API on 127.0.0.1:8787
-pnpm dev:daemon                                              # local host agent on 127.0.0.1:18790
-pnpm dev:cli -- --help                                       # host CLI
+npm run dev:pwa                                                 # the app on :5180, no backend
+npm run dev -w @opensesame/pages                          # app + Host (:18787) + Identity (:18788) + mock IdPs
+npm run dev:host                                                # Host API on 127.0.0.1:8787
+npm run dev:daemon                                              # local host agent on 127.0.0.1:18790
+npm run dev:cli -- --help                                       # host CLI
 ```
 
 `dev:host`, `dev:daemon` and `dev:cli` source
@@ -75,12 +75,12 @@ deployment mode (`OPENSESAME_ENV` or `NODE_ENV` of `development`, `test` or
 `production`, or `OPENSESAME_ALLOW_DEV_DEFAULTS=1` on a local-only listener)
 and an `OPENSESAME_OPERATOR_TOKEN` of 32 or more characters; the Host also
 needs `OPENSESAME_CLAIM_PEPPER` of the same strength. The Identity API
-(`pnpm --filter @opensesame/control-plane start`, `:8788`) needs a mode and
+(`npm run start`, -w @opensesame/control-plane `:8788`) needs a mode and
 either `OPENSESAME_CLAIM_PEPPER` or `OPENSESAME_ALLOW_DEV_DEFAULTS=1` (exactly
 `1` or `0`, local-only), which also stands in for the mode and generates a
 random pepper per process.
 
-`pnpm dev` starts the Identity plane, its worker, the mock IdP and the
+`npm run dev` starts the Identity plane, its worker, the mock IdP and the
 example relying parties together. More in
 [getting started](../docs/getting-started/README.md).
 

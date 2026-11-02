@@ -34,7 +34,7 @@ pub fn reference(item: &Value, field: &str) -> anyhow::Result<String> {
     let vault = item["vault"]["id"].as_str().unwrap_or_default();
     anyhow::ensure!(
         [id, vault].iter().all(|id| id.len() == 26
-            && id
+  && id
                 .bytes()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())),
         "Provider returned invalid identifiers"
@@ -51,7 +51,7 @@ pub fn validate_summary(item: &Value) -> anyhow::Result<()> {
         ["id", "title", "category"]
             .iter()
             .all(|key| item[*key].is_string())
-            && item["vault"]["name"].is_string(),
+  && item["vault"]["name"].is_string(),
         "Invalid 1Password item metadata"
     );
     Ok(())

@@ -40,7 +40,7 @@ for slice in slices {
     let prompt = "Work only inside " + worktree + ". Never write under /home/codex/repos/opensesame/ (that checkout is often mid-merge). ";
     prompt += "Do not copy node_modules or target directories. ";
     prompt += "Cargo builds must set CARGO_TARGET_DIR to the home cache at .cache/packages/cargo-target. ";
-    prompt += "pnpm install must use the existing pnpm store. ";
+    prompt += "npm install must use the existing npm cache. ";
     prompt += "Follow docs/contributing/repository-footprint.md: no tracked scanner run histories, raw review transcripts, copied skill trees or caches. Task output stays ignored or private; clean only this task output after review. ";
     prompt += slice.prompt;
     jobs.push(#{

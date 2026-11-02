@@ -248,7 +248,7 @@ async function main() {
   const mainnet = assertNoMainnet(process.argv.slice(2));
   if (!mainnet.ok) {
     writeWalletEvidence(root, {
-      invokedAs: "pnpm wallet:test:browser",
+      invokedAs: "npm run wallet:test:browser",
       mainnet: {
         ok: false,
         message: mainnet.message,
@@ -275,7 +275,7 @@ async function main() {
   const results = [];
   let ok = true;
 
-  const unit = run("pnpm", [
+  const unit = run("npm", [
     "--filter=@opensesame/pages",
     "--filter=@opensesame/app-core",
     "exec",
@@ -325,7 +325,7 @@ async function main() {
   if (!qab.ok) ok = false;
 
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:test:browser",
+    invokedAs: "npm run wallet:test:browser",
     mainnet: { ok: true, message: null, denials: [] },
     results,
     ok,
@@ -351,7 +351,7 @@ async function main() {
           "Playwright on the static origin: with a CDP virtual authenticator attached, Wallet › Spending passes (approved through Settings › Features) shows no pass; the product's lease module, run in the same browser, refuses a forged WebAuthn label (unverified_assurance), an unenrolled key (key_not_enrolled) and spent verifiedBytes replay (assertion_replay). Not phishing-resistant RP ceremony binding.",
         productionEnabled: false,
         evidenceRefs: [
-          "pnpm wallet:test:browser",
+          "npm run wallet:test:browser",
           "scripts/wallet/lib/lease-probe.mjs",
           "src/lib/spending-leases.test.ts",
           EVIDENCE_REL,
@@ -362,7 +362,7 @@ async function main() {
         reason:
           "Playwright QAB-03 lite: evil.example postMessage spend grant does not mutate Wallet authority UI under static origin",
         productionEnabled: false,
-        evidenceRefs: ["pnpm wallet:test:browser", EVIDENCE_REL],
+        evidenceRefs: ["npm run wallet:test:browser", EVIDENCE_REL],
       };
       claims.claims["WAL-B05"] = {
         status: "fixture_verified",
@@ -370,7 +370,7 @@ async function main() {
           "Playwright on the static origin: the product's lease module, run in the browser, refuses an expired lease window (lease_window_invalid); listActiveSpendingLeases withholds expired rows",
         productionEnabled: false,
         evidenceRefs: [
-          "pnpm wallet:test:browser",
+          "npm run wallet:test:browser",
           "scripts/wallet/lib/lease-probe.mjs",
           "src/lib/spending-leases.test.ts",
           EVIDENCE_REL,
@@ -381,7 +381,7 @@ async function main() {
         reason:
           "QAB-01: guest Wallet overview under production base path with no Identity API / loopback",
         productionEnabled: false,
-        evidenceRefs: ["pnpm wallet:test:browser", EVIDENCE_REL],
+        evidenceRefs: ["npm run wallet:test:browser", EVIDENCE_REL],
       };
       writeFileSync(claimsPath, `${JSON.stringify(claims, null, 2)}\n`);
     } catch (err) {

@@ -40,12 +40,12 @@ const tokens = await client.pollUntilComplete();
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/sdk-cli test
-pnpm --filter @opensesame/sdk-cli test:watch
-pnpm --filter @opensesame/sdk-cli typecheck
+npm run test -w @opensesame/sdk-cli
+npm run test:watch -w @opensesame/sdk-cli
+npm run typecheck -w @opensesame/sdk-cli
 ```
 
-`MOCK_DEVICE_FLOW=1 pnpm --filter @opensesame/example-headless start` drives
+`MOCK_DEVICE_FLOW=1 npm run start` -w @opensesame/example-headless drives
 the device flow against an in-process mock, with no Identity API running.
 
 ## Related

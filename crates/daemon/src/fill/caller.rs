@@ -85,7 +85,7 @@ pub(crate) fn is_extension_origin(origin: &str) -> bool {
     if let Some(id) = origin.strip_prefix("moz-extension://") {
         let groups: Vec<&str> = id.split('-').collect();
         return groups.iter().map(|g| g.len()).eq([8, 4, 4, 4, 12])
-            && groups.iter().all(|g| {
+  && groups.iter().all(|g| {
                 g.bytes()
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
             });
@@ -99,7 +99,7 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
     let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
     let token = value.strip_prefix("Bearer ")?;
     let shaped = (43..=128).contains(&token.len())
-        && token
+  && token
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
     shaped.then_some(token)

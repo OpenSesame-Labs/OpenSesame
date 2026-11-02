@@ -44,7 +44,7 @@ else.
 
 ```bash
 cargo +1.88.0 test -p opensesame-invoke-through
-pnpm audit:daemon-deps   # the daemon dependency budget this crate sits inside
+npm run audit:daemon-deps   # the daemon dependency budget this crate sits inside
 ```
 
 `tests/tls_injection.rs` stands up a real mTLS listener with the

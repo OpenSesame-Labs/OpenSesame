@@ -154,7 +154,7 @@ fn split_authority(authority: &str, default_port: u16) -> Option<(String, u16)> 
             None => (authority, None),
         };
         let valid = !host.is_empty()
-            && host
+  && host
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'.');
         if !valid {

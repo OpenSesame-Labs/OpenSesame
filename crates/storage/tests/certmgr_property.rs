@@ -75,27 +75,27 @@ fn expected(seeded: &[StoredManagedCertificate], filter: &CertificateFilter) -> 
                 .status
                 .as_ref()
                 .is_none_or(|status| &record.status == status)
-                && filter
+  && filter
                     .common_name_contains
                     .as_ref()
                     .is_none_or(|needle| record.common_name.contains(needle.as_str()))
-                && filter
+  && filter
                     .san_contains
                     .as_ref()
                     .is_none_or(|needle| record.san_json.contains(needle.as_str()))
-                && filter
+  && filter
                     .profile_id
                     .as_ref()
                     .is_none_or(|id| record.profile_id.as_ref() == Some(id))
-                && filter
+  && filter
                     .application_id
                     .as_ref()
                     .is_none_or(|id| record.application_id.as_ref() == Some(id))
-                && filter
+  && filter
                     .expiring_before
                     .as_ref()
                     .is_none_or(|cutoff| record.expires_at.as_str() <= cutoff.as_str())
-                && filter.metadata_key.as_ref().is_none_or(|key| {
+  && filter.metadata_key.as_ref().is_none_or(|key| {
                     filter.metadata_value.as_ref().is_none_or(|value| {
                         record
                             .metadata_json

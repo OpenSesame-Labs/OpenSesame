@@ -11,7 +11,7 @@ bot credential and talks to a third party, so it is never agent-facing.
 ## Where it fits
 
 - **Used by:** no workspace crate or app yet. It is exercised by its own test
-  suite and by the general-authority gate (`pnpm test:authority-fabric`,
+  suite and by the general-authority gate (`npm run test:authority-fabric`,
   [`scripts/test/authority-fabric-gate.mjs`](../../scripts/test/authority-fabric-gate.mjs)),
   whose scenario registry in `scripts/lib/authority-fabric-scenarios-*.mjs`
   runs `tests/apply.rs`, `tests/reconcile.rs` and `tests/rate_limit.rs`.
@@ -49,7 +49,7 @@ bot credential and talks to a third party, so it is never agent-facing.
 
 ```bash
 cargo +1.88.0 test -p opensesame-collab-adapter
-pnpm test:authority-fabric
+npm run test:authority-fabric
 ```
 
 The default suite drives the real protocol against a loopback fixture in

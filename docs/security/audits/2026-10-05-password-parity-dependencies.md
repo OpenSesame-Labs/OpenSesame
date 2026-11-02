@@ -9,7 +9,7 @@ promptfoo's proxy-agent tooling. Frozen-lockfile installation completed.
 
 Two advisories had no published fixed release: braces 3.0.3
 (GHSA-vfj7-8cjw-p6xm) and node-forge 1.4.0 (GHSA-86w9-cpqp-85rv).
-Local pnpm backports repair their source rather than ignore their advisories.
+Local npm run backports repair their source rather than ignore their advisories.
 Before installation, the regression checks demonstrated that an 8,003-character
 nested brace pattern was accepted and an RSA signature whose nested
 DigestAlgorithm held a third garbage element verified successfully.

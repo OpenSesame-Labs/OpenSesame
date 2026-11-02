@@ -46,7 +46,7 @@ forbids putting a local host in front of a browser capability. A prompt for
    only export the vault into one. No Host, no daemon, no browser extension,
    no installed `sops`, no environment variable, no Node service, no
    serverless function and no separately installed runtime takes part.
-   `pnpm verify:sops-browser` scans the built bundle so no native runtime —
+   `npm run verify:sops-browser` scans the built bundle so no native runtime —
    `OPENSESAME_SOPS_BIN` included — can come back by accident.
 
 2. **Upstream owns the wire format; we match it, we do not define it.** The
@@ -57,7 +57,7 @@ forbids putting a local host in front of a browser capability. A prompt for
    `lastmodified` — the engine reproduces upstream, and
    `docs/security/sops-wire-compatibility.md` records why. A pinned,
    checksum-verified upstream binary is the oracle for
-   `pnpm verify:sops-conformance`; a missing oracle reports **incomplete**
+   `npm run verify:sops-conformance`; a missing oracle reports **incomplete**
    and never a pass.
 
 3. **Refuse rather than reinterpret.** Anything the engine does not
@@ -79,7 +79,7 @@ forbids putting a local host in front of a browser capability. A prompt for
    (AWS KMS, Azure Key Vault, GCP KMS) are wire-contract implementations
    only: they are unit-tested against the documented encodings, they are
    not claimed to work against every provider or tenancy, and
-   `pnpm verify:sops-cloud-live` is optional and reports
+   `npm run verify:sops-cloud-live` is optional and reports
    **blocked-external** when no disposable resource is supplied.
 
 6. **SOPS remains a document format.** It is not a vault root protector.
@@ -97,10 +97,10 @@ forbids putting a local host in front of a browser capability. A prompt for
 - Settings → Security → SOPS document can open, decrypt, edit, encrypt and save a SOPS
   document on `opensesame-labs.github.io/OpenSesame/`, offline, with no
   backend of any kind — which is what ADR 0129 §7 promised.
-- `pnpm verify:sops-browser` (product gate, required) and
-  `pnpm verify:sops-conformance` (compatibility gate, required, incomplete
+- `npm run verify:sops-browser` (product gate, required) and
+  `npm run verify:sops-conformance` (compatibility gate, required, incomplete
   without the oracle) join the local gate set;
-  `pnpm verify:sops-cloud-live` is optional and separately reported.
+  `npm run verify:sops-cloud-live` is optional and separately reported.
 - Fixing this exposed a production bug outside SOPS: the service worker was
   adding `Cross-Origin-Embedder-Policy: require-corp` to navigations while
   serving worker scripts without it, which broke **every** dedicated worker

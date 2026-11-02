@@ -10,8 +10,8 @@ Uses `@opensesame/api-client` against Host API **8787**; optionally probes daemo
 ## Install
 
 ```bash
-pnpm install
-pnpm --filter @opensesame/browser-extension build
+npm install
+npm run build -w @opensesame/browser-extension
 # Load `apps/browser-extension/.output/chrome-mv3` (WXT's output) as an unpacked extension
 ```
 

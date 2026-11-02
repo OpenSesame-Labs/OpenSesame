@@ -2,7 +2,7 @@
   "$comment": [
     "Structural-complexity debt ledger -- see scripts/quality/quality-gate.mjs.",
     "These numbers may only ever go DOWN. Regenerate with:",
-    "  pnpm quality:gate --update",
+    "  npm run quality:gate --update",
     "Do not hand-edit, and do not raise a number to make the gate pass.",
     "max-lines records the file's line count; every other rule counts occurrences."
   ],

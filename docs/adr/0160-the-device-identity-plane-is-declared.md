@@ -314,7 +314,7 @@ leaves the vault as it was.
 `store-device-key.ts` once (`registerBodyPort`) and installs the carrier the
 device host reads and writes through (`installDeviceKeyCarrier`); `bodyPortOf`
 is how a test reaches it. They hand out the whole sealed body, so
-`pnpm quality:app-core` fails on any importer that is not `store.ts`, that module,
+`npm run quality:app-core` fails on any importer that is not `store.ts`, that module,
 the golden-vector generator or a test, in any package or app
 (`scripts/lib/app-core-seams.mjs`).
 

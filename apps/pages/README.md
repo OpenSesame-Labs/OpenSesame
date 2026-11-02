@@ -145,12 +145,12 @@ and a guest vault, are not exported.
 ## Running it
 
 ```bash
-pnpm --filter @opensesame/pages dev:web    # Pages on :5180, no backend (also `pnpm dev:pwa`)
-pnpm --filter @opensesame/pages dev        # Pages :5180 + Host :18787 + Identity :18788 + mock IdPs
-pnpm --filter @opensesame/pages test       # vitest, then the relay's node --test suites
-pnpm --filter @opensesame/pages relay      # the relay alone on :8789
-pnpm --filter @opensesame/pages typecheck
-pnpm --filter @opensesame/pages build
+npm run dev:web -w @opensesame/pages    # Pages on :5180, no backend (also `npm run dev:pwa`)
+npm run dev -w @opensesame/pages        # Pages :5180 + Host :18787 + Identity :18788 + mock IdPs
+npm run test -w @opensesame/pages       # vitest, then the relay's node --test suites
+npm run relay -w @opensesame/pages      # the relay alone on :8789
+npm run typecheck -w @opensesame/pages
+npm run build -w @opensesame/pages
 ```
 
 The local `dev` command starts the Host, the Identity API and the mock upstream

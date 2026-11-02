@@ -1,6 +1,6 @@
 # Repository tour
 
-OpenSesame is one repository holding two build systems: a **pnpm** workspace
+OpenSesame is one repository holding two build systems: a **npm** workspace
 for TypeScript and a **Cargo** workspace for Rust. Both are rooted at the top
 level, and the directory a project lives in says what kind of thing it is.
 
@@ -9,16 +9,16 @@ level, and the directory a project lives in says what kind of thing it is.
 ```text
 apps/          deployable products and services (Rust binaries and TypeScript apps)
 crates/        Rust libraries                          → Cargo workspace members
-packages/      TypeScript libraries and services (@opensesame/*) → pnpm workspace members
+packages/      TypeScript libraries and services (@opensesame/*) → npm workspace members
 examples/      runnable integrations that use OpenSesame from the outside, through its SDKs
 marketplace/   vault item-type definitions (built-in + installable)
 spec/          language-neutral contracts both planes compile against
 tests/         cross-cutting test suites and shared fixtures
 tools/         development tooling: lint plugins, quality baselines, dev servers
-scripts/       the scripts behind `pnpm <task>`: quality/, audit/, fuzz/, test/, mtls/, security/, wallet/, release/, dev/, shared logic in lib/
+scripts/       the scripts behind `npm <task>`: quality/, audit/, fuzz/, test/, mtls/, security/, wallet/, release/, dev/, shared logic in lib/
 ops/           deployment references, repo governance, scheduled routines
 skills/        agent skills (also exposed through .agents/skills)
-patches/       pnpm patches applied to third-party dependencies
+patches/       npm run patches applied to third-party dependencies
 docs/          documentation
 ```
 
@@ -56,7 +56,7 @@ worlds, the Host OpenAPI, the OpenFGA model) and in `packages/os-domain` /
 | Authorization policy | `crates/authz`, `packages/policy`, model in `spec/openfga/model.fga` |
 | A capability (optional feature) | `packages/app-core/src/lib/capabilities/`, module in `apps/pages/src/modules/<id>/` |
 | MCP / WebMCP tools | `packages/mcp-host`, `packages/mcp-client`, `packages/webmcp`; parity in `packages/capability-registry` |
-| A `pnpm` command's implementation | `package.json` → `scripts/<purpose>/` ([index](../../scripts/README.md)) |
+| A `npm` command's implementation | `package.json` → `scripts/<purpose>/` ([index](../../scripts/README.md)) |
 | A CI job | `.github/workflows/ci.yml` |
 
 ## Rules that follow from the layout
@@ -70,12 +70,12 @@ Most of these are enforced by gates, not by convention; the full list is in
 - **`packages/app-core` and `packages/vault-core` reach into no app**, load no
   React and read a browser global only through a port: app-core's `browser/`
   host and worker entries, and none at all in vault-core
-  (`pnpm quality:app-core`).
+  (`npm run quality:app-core`).
 - **No dependency cycles, no undeclared workspace imports** between packages or
-  crates (`pnpm quality:packages`).
+  crates (`npm run quality:packages`).
 - **A source file stays under 400 lines**, and complexity is ratcheted against
   [`tools/quality/quality-baseline.json`](../../tools/quality/quality-baseline.json)
-  — it may only fall (`pnpm quality:gate`).
+  — it may only fall (`npm run quality:gate`).
 - **Optional features never load before consent**: the Pages bootstrap may not
   statically import a capability module (`verify:capability-graph`).
 - **Identity and Host stay separate** — no route of one is proxied through the
@@ -92,4 +92,4 @@ Most of these are enforced by gates, not by convention; the full list is in
 | A test suite spanning packages | `tests/<name>/`, plus a line in `pnpm-workspace.yaml` if it is a TypeScript package. |
 | A vault item type | A JSON file in `marketplace/item-types/` — see [the marketplace guide](../../marketplace/README.md). |
 | A user-facing capability | A `packages/capability-registry` entry mapping it onto every agent surface ([ADR 0065](../adr/0065-agent-surface-parity.md)), and for optional features the five pieces in [ADR 0130](../adr/0130-operator-controlled-capability-composition.md). |
-| A decision | An ADR in `docs/adr/`, then `pnpm docs:index`. |
+| A decision | An ADR in `docs/adr/`, then `npm run docs:index`. |

@@ -2162,8 +2162,8 @@ fn effective_status(
     refreshable: bool,
 ) -> ConnectionStatus {
     if stored == ConnectionStatus::Active
-        && !refreshable
-        && expires_at.is_some_and(|e| Utc::now() >= e)
+  && !refreshable
+  && expires_at.is_some_and(|e| Utc::now() >= e)
     {
         return ConnectionStatus::Expired;
     }

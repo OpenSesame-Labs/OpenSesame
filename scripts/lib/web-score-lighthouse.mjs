@@ -17,8 +17,8 @@ function windowsArg(value) {
 }
 
 function lighthouseCommand(args) {
-  if (process.platform !== "win32") return { command: "pnpm", args };
-  const line = ["pnpm", ...args].map(windowsArg).join(" ");
+  if (process.platform !== "win32") return { command: "npm", args };
+  const line = ["npm", ...args].map(windowsArg).join(" ");
   return {
     command: process.env.ComSpec ?? "cmd.exe",
     args: ["/d", "/s", "/c", line],

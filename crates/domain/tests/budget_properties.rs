@@ -230,7 +230,7 @@ proptest! {
         let later = at + Duration::seconds(offset);
         let same_window = spec.window_at(at) == spec.window_at(later);
         let within = offset < i64::from(period)
-            && spec.window_at(at).ends_at().is_some_and(|end| later < end);
+  && spec.window_at(at).ends_at().is_some_and(|end| later < end);
         prop_assert_eq!(same_window, within);
     }
 

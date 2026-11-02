@@ -31,7 +31,7 @@ tokens or WebAuthn material.
   accept the bearer a page traded a pairing code for, from the exact origin it
   was paired at; `/v1/tailnet/*` accept only that bearer, with the role the route
   needs.
-- The daemon's own direct dependencies are budgeted: `pnpm audit:daemon-deps`
+- The daemon's own direct dependencies are budgeted: `npm run audit:daemon-deps`
   refuses a database, OAuth, JWT, AEAD, task-bus or Wasm-engine crate among
   them, holds the `invoke-through`, `uds-authn` and `tailscale-authn` trees to
   the same list and the `connection-detect` tree to a fixed allowlist
@@ -78,7 +78,7 @@ Source areas under `src/`: `discovery.rs`, `keychain.rs`, `cli_probe.rs`,
 cargo +1.88.0 test -p opensesame-daemon
 cargo +1.88.0 test -p opensesame-daemon --features tailscale
 cargo +1.88.0 run -p opensesame-cli -- daemon run --help
-pnpm audit:daemon-deps
+npm run audit:daemon-deps
 ```
 
 Wire shapes of the refusal and success responses are pinned as `insta`

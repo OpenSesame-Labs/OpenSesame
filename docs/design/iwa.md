@@ -18,7 +18,7 @@ composition. They differ in packaging and in what the browser permits:
 ## Build
 
 ```bash
-pnpm --filter @opensesame/pages run build:iwa
+npm run build:iwa -w @opensesame/pages
 ```
 
 The build uses `VITE_BASE=/`, the `isolated_web_app` deployment profile, and
@@ -30,7 +30,7 @@ Signing is a separate step because the key must not be in the repository:
 ```bash
 IWA_SIGNING_KEY=/secure/private_key.pem \
 WEB_BUNDLE_SIGNING_PASSPHRASE='…' \
-pnpm --filter @opensesame/pages run build:iwa:signed
+npm run build:iwa:signed -w @opensesame/pages
 ```
 
 `wbn` and `wbn-sign` are pinned dev dependencies. The result is

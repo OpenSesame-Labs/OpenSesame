@@ -153,7 +153,7 @@ impl AppState {
 
     pub fn production_bootstrap_misconfigured(&self) -> bool {
         self.deployment.production_safeguards()
-            && (config::dev_bootstrap_enabled() || self.demo_bootstrap_active())
+  && (config::dev_bootstrap_enabled() || self.demo_bootstrap_active())
     }
 }
 

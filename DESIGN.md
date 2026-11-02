@@ -513,8 +513,7 @@ A finger is not a mouse pointer, and the phone is not a narrow desktop.
   row is its name over its choice at the full width of the panel, the reset key
   at the end of the name's line.
 
-None of this is a screenshot review: `pnpm --filter @opensesame/pages
-verify:mobile` walks the phone journey at 320, 390, 430 and landscape in a real
+None of this is a screenshot review: `npm run verify:mobile` -w @opensesame/pages walks the phone journey at 320, 390, 430 and landscape in a real
 coarse-pointer context and measures every rule above — and, at every stop and on
 the tablets' Settings, that no key stands alone on a row
 (`KEY-ALONE-ON-A-ROW`) and no field outgrows its measure
@@ -539,7 +538,7 @@ every control, chip, badge, menu, panel and sheet, and a focus ring follows the
 square. **There are no round corners** — no pill, no circle, no percentage and
 no radius at all, not even 2px. A status dot, a switch knob, a spinner and the
 phone's Add are squares. This is a design violation, not a taste:
-`pnpm lint:design` (`no-round-corners`) resolves every `border-radius` to
+`npm run lint:design` (`no-round-corners`) resolves every `border-radius` to
 pixels and fails any past 0, or any it cannot prove square. The ledger
 `tools/quality/design-radius-baseline.json` is empty and stays empty; a new
 file meets the rule outright. The mark is
@@ -571,7 +570,7 @@ row, a card foot, or an empty state. A form or ceremony that ends in an
 action ends in the `.go` square with its verb beside it (`FormCommit`, and
 `CeremonyShell` for every ceremony card), and a second action on that row —
 deny, keep, close — is a key beside it. A verb handed to a component in a
-prop is still a verb on a button: `pnpm lint:design` fails a text button
+prop is still a verb on a button: `npm run lint:design` fails a text button
 whose face is a prop (`word-slot`).
 
 A confirmation sheet is its mark, its name and its close key, then one card:
@@ -583,7 +582,7 @@ an ask has not failed — and no caption under the title or in a foot
 (`docs/design/controls.md` rules 10–13). A button
 whose words are its choice says so by its role (tab, radio, switch, menu
 entry, pressed toggle) or its class (`road`, `unlock__switch`, `choice`).
-`pnpm lint:design` rejects a word-verb `<button>` that is not an icon key —
+`npm run lint:design` rejects a word-verb `<button>` that is not an icon key —
 reading string literals in its face as well as its text — and the debt
 ledger in `tools/quality/design-button-baseline.json` is empty.
 
@@ -597,7 +596,7 @@ moves nothing around it (a mark inside a link, button or row leaves the tap
 to its parent). The glyph is one of
 the existing icons: check, alert, dismiss, lock. Colour carries the tone
 (ok, warn, err, idle). A name is not a status: a provider, a role, a person,
-or a platform may stay text. `pnpm lint:design` rejects a `.chip` whose face
+or a platform may stay text. `npm run lint:design` rejects a `.chip` whose face
 carries a status word.
 
 An in-page error box is the same violation. A failure is never drawn in the
@@ -610,13 +609,13 @@ through `setStatusNotice` (`retry` / `retryLabel`); the three seam components
 do not. A failure inside an `aria-modal` ceremony sheet is also the sheet's own
 status line (see docs/design/controls.md § Modal ceremonies), and live
 validation of an unsaved draft is a `StatusMark` on the field, not a notice. Pages mount `<FailureNotice>` (or call
-`useFailureNotice`, or use `StatusNote`) and draw nothing. `pnpm lint:design`
+`useFailureNotice`, or use `StatusNote`) and draw nothing. `npm run lint:design`
 fails on every spelling of the box.
 Do not add caption or explainer prose under a title, a button, or a field:
 no sentence that tells the person what the control will do, where it goes,
 or why it exists. The control's `aria-label` and `title` carry that sentence.
 A `.hint` line is a fact (`Enrolled {date}`, `Callback: {url}`), never a
-sentence about the control: `pnpm lint:design` fails any `hint` of five words
+sentence about the control: `npm run lint:design` fails any `hint` of five words
 or more, on every screen (`no-hint-caption`), and `FieldShell` takes no `hint`.
 
 Pages copy never names a Host. A connector action that the browser can do
@@ -627,7 +626,7 @@ The vault pane always retains its top path-strip command group, each an icon
 key with an accessible name and tooltip. Empty and filtered views use **+**,
 import, and export. The trash directory uses restore and delete. That listing
 does not add, import, or export. Replacing a group with text-labelled buttons
-is a hard design violation, enforced by `pnpm lint:design` and the vault
+is a hard design violation, enforced by `npm run lint:design` and the vault
 render tests.
 
 ### Buttons
@@ -644,7 +643,7 @@ A key sits on the row of the thing it acts on, at that row's end — never on
 a row of its own. A row of one or two bare glyphs under a field reads as
 belonging to whatever comes next; on a phone it spends a whole screen-width
 on a mark nobody can name without a long press. Each key has one of these
-homes, and `pnpm lint:design` (`commit-key-has-a-home`) rejects a submit key
+homes, and `npm run lint:design` (`commit-key-has-a-home`) rejects a submit key
 outside them:
 
 - **A panel's keys** (new, reload, delete this vault, prove round-trip) ride
@@ -675,7 +674,7 @@ share its measure, and a matrix of marks (Formats) sizes its columns to what
 they hold rather than spreading them in fractions of the page. A rule that
 restates `width: 100%` for a field restates a `max-width` too — the token, or
 `none` for an overlay that must span exactly what it covers — and
-`pnpm lint:design` (`field-has-a-measure`) rejects one that does not.
+`npm run lint:design` (`field-has-a-measure`) rejects one that does not.
 
 A head's measure belongs to its prose, not to the row: a section or panel
 head spans the document so a key or view switch in it ends the title's row

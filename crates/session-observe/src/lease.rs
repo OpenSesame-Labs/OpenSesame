@@ -211,7 +211,7 @@ impl ControlLease {
         queued_handoff: bool,
     ) -> Option<Self> {
         if matches!(quiescence, Quiescence::Critical)
-            && !matches!(state, ControlState::AgentDriving)
+  && !matches!(state, ControlState::AgentDriving)
         {
             return None;
         }

@@ -3,10 +3,10 @@
 ## Hermetic commands
 
 ```bash
-pnpm --filter @opensesame/app-core test
-pnpm --filter @opensesame/pages test
-pnpm --filter @opensesame/sdk-browser test
-pnpm --filter @opensesame/pages verify:ambient-sso
+npm run test -w @opensesame/app-core
+npm run test -w @opensesame/pages
+npm run test -w @opensesame/sdk-browser
+npm run verify:ambient-sso -w @opensesame/pages
 ```
 
 `verify:ambient-sso` requires a Pages `dist/` build (`VITE_BASE=/OpenSesame/`

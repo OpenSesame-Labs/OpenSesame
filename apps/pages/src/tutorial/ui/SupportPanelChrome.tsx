@@ -3,7 +3,7 @@
  *
  * Nothing here narrates the panel. A sentence that explains what the sheet is,
  * why nothing can answer, or what the browser's model context holds is
- * explainer copy, and `pnpm lint:design` rejects it (`docs/design/controls.md`).
+ * explainer copy, and `npm run lint:design` rejects it (`docs/design/controls.md`).
  * What is left is the one thing a person can act on or watch: downloading the
  * on-device model. A running tutorial is drawn by tutorial mode itself
  * (`coach/CoachHud.tsx`), never inside this sheet.

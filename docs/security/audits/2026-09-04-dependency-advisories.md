@@ -2,15 +2,15 @@
 
 ## Scope
 
-The npm dependency closure recorded in `pnpm-lock.yaml`, and the
-`pnpm.overrides` block in the root `package.json` that pins parts of it.
+The npm dependency closure recorded in `package-lock.json`, and the
+`npm.overrides` block in the root `package.json` that pins parts of it.
 `Cargo.lock` was scanned in the same pass and was already clean.
 
 ## How they were found
 
-`pnpm audit` cannot reach npm's advisory endpoint from the sandboxed build
+`npm audit` cannot reach npm's advisory endpoint from the sandboxed build
 environment, and the GitHub Dependabot alerts API is refused by the same
-proxy. Neither blocks the answer: `pnpm audit:osv`
+proxy. Neither blocks the answer: `npm run audit:osv`
 (`scripts/audit/osv-scanner-gate.sh`) downloads osv-scanner and queries OSV
 directly, which is the advisory corpus the GitHub Advisory Database feeds
 into. Use it as the source of truth here rather than the alert count on the
@@ -81,8 +81,8 @@ xml-encryption `^0.8.5`, ajv `^3.0.1`.
 
 ## Verification
 
-- `pnpm audit:osv` — CLEAN over `Cargo.lock` and `pnpm-lock.yaml`.
-- `pnpm typecheck` (59/59) and `pnpm test` (63/63). The control-plane SAML
+- `npm run audit:osv` — CLEAN over `Cargo.lock` and `package-lock.json`.
+- `npm run typecheck` (59/59) and `npm test` (63/63). The control-plane SAML
   security suite exercises the `@xmldom/xmldom` path specifically, including
   its signature-rejection and audience-mismatch negative cases; the Pages
   KDBX import suite exercises `kdbxweb` against the forced 0.8 line.
@@ -90,9 +90,9 @@ xml-encryption `^0.8.5`, ajv `^3.0.1`.
 ## Residual risk
 
 Overrides are a mitigation, not a resolution: the upstream packages still
-declare the ranges they declare, and a future `pnpm install` that adds a
+declare the ranges they declare, and a future `npm install` that adds a
 consumer with a genuinely incompatible range will resolve against the pin
 without warning. The durable fix is upstream — `typed-rest-client` loosening
 its exact `qs` pin, and `kdbxweb` moving to the 0.8 line — at which point
-both pins can be dropped. Re-check with `pnpm audit:osv`, not with the
+both pins can be dropped. Re-check with `npm run audit:osv`, not with the
 GitHub alert count, which this environment cannot read.

@@ -1,6 +1,6 @@
 //! A driver for the official Bitwarden CLI, the oracle.
 //!
-//! `OPENSESAME_BW_CLI` names the `bw` binary (`pnpm test:bitwarden-oracle`
+//! `OPENSESAME_BW_CLI` names the `bw` binary (`npm run test:bitwarden-oracle`
 //! installs a pinned `@bitwarden/cli` and sets it). Each `Bw` has its own
 //! data directory, trusts only the harness's test CA, and bypasses any proxy
 //! so it talks to the loopback server and nothing else.
@@ -39,7 +39,7 @@ impl Bw {
     /// skips — when the oracle binary is not configured.
     pub async fn new(harness: &Harness) -> Self {
         let bin = std::env::var_os("OPENSESAME_BW_CLI").map(PathBuf::from).expect(
-            "OPENSESAME_BW_CLI must name the official `bw` binary; run `pnpm test:bitwarden-oracle`",
+            "OPENSESAME_BW_CLI must name the official `bw` binary; run `npm run test:bitwarden-oracle`",
         );
         let home = tempfile::tempdir().unwrap();
         let ca = home.path().join("ca.pem");

@@ -27,7 +27,7 @@ if (suite === undefined || !KNOWN.has(suite)) {
 const mainnet = assertNoMainnet(process.argv.slice(3));
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: `pnpm wallet:test:${suite}`,
+    invokedAs: `npm run wallet:test:${suite}`,
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -53,7 +53,7 @@ if (!mainnet.ok) {
 const reason = `wallet:test:${suite} — suite not implemented yet (fail closed). No ${suite} harness exists under scripts/wallet/; do not treat this as a pass.`;
 
 writeWalletEvidence(root, {
-  invokedAs: `pnpm wallet:test:${suite}`,
+  invokedAs: `npm run wallet:test:${suite}`,
   mainnet: { ok: true, message: null, denials: [] },
   results: [
     {

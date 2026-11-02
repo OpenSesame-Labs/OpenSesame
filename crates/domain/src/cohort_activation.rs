@@ -217,8 +217,8 @@ impl CohortActivation {
         now: DateTime<Utc>,
     ) -> bool {
         self.subject_principal_id == principal_id
-            && self.request_digest == request_digest
-            && self.assert_active(now).is_ok()
+  && self.request_digest == request_digest
+  && self.assert_active(now).is_ok()
     }
 
     /// Spend it.

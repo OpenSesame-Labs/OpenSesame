@@ -268,9 +268,9 @@ pub fn grant_to_openfga_tuples(grant: &Grant) -> GrantTupleMappingResult {
     }
 
     if tuples.is_empty()
-        && grant.connection_id.is_none()
-        && grant.project_id.is_none()
-        && !mapped_resource
+  && grant.connection_id.is_none()
+  && grant.project_id.is_none()
+  && !mapped_resource
     {
         return Err(GrantTupleMappingError::UnmappedScope);
     }

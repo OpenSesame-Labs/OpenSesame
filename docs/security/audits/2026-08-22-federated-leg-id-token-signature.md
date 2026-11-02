@@ -60,7 +60,7 @@ A chaos suite injects one fault per case into an otherwise-working broker and
 asserts the interaction does not complete and no session cookie is issued:
 
 ```bash
-pnpm --filter @opensesame/control-plane exec vitest run \
+npm exec -w @opensesame/control-plane -- vitest run \
   src/__tests__/federated-leg.chaos.test.ts
 ```
 
@@ -73,6 +73,6 @@ A structural PACT test pins the ordering so the verify cannot be dropped or
 reordered by a later refactor:
 
 ```bash
-pnpm --filter @opensesame/control-plane exec vitest run \
+npm exec -w @opensesame/control-plane -- vitest run \
   src/__tests__/federated-leg.pact.test.ts
 ```

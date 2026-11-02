@@ -98,11 +98,7 @@ function discoverOsDomainWallet(root) {
     packageDir,
     present: true,
     matchedPaths: unique([...sourceHits, ...testHits]),
-    testCommand: [
-      "pnpm",
-      "--filter",
-      "@opensesame/os-domain",
-      "exec",
+    testCommand: ["npm", "exec", "-w", "@opensesame/os-domain", "--",
       ...filterArgs,
     ],
     missingReason: null,
@@ -134,7 +130,7 @@ function discoverPackage(root, spec) {
     packageDir: spec.packageDir,
     present: true,
     matchedPaths: hits.slice(0, 40),
-    testCommand: ["pnpm", "--filter", spec.packageName, "test"],
+    testCommand: ["npm", "--filter", spec.packageName, "test"],
     missingReason: null,
   };
 }

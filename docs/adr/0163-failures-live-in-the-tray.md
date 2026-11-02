@@ -10,7 +10,7 @@
 
 Nearly every Pages screen carried a red error box. `DESIGN.md`,
 `docs/design/controls.md` and AGENTS.md already said a failure is a `StatusMark`
-on the thing that failed or a notice in the tray, and `pnpm lint:design` ratcheted
+on the thing that failed or a notice in the tray, and `npm run lint:design` ratcheted
 `note--err` per file — but the lint matched only that literal class. A dynamic
 `note--${tone}` (which `StatusNote` built), a `*__error` paragraph, a
 `broker__card--err` card, and any bare `role="alert"` walked past it, so the

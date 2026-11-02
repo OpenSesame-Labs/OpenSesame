@@ -113,7 +113,7 @@ async fn password_grant(
         None => false,
     };
     if !by_device
-        && (form.contains_key("authRequest")
+  && (form.contains_key("authRequest")
             || !server
                 .check_secret_admitted(&admission, &user.id, &user.master_password_hash, secret)
                 .await?)

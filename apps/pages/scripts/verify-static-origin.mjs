@@ -1,6 +1,6 @@
 // Prove the built Pages bundle works as a static front end with NO backend,
 // under the real production origin (ADR 0090).
-//   pnpm --filter @opensesame/pages build   (VITE_BASE=/OpenSesame/)
+//   npm run build -w @opensesame/pages   (VITE_BASE=/OpenSesame/)
 //   node apps/pages/scripts/verify-static-origin.mjs
 // Every request to the production origin is served from `dist/` (unknown
 // paths fall back to index.html with a 404 status, exactly as GitHub Pages

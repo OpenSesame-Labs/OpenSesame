@@ -41,7 +41,7 @@ use; reveal is a human CLI concern.
 
 ```bash
 cargo +1.88.0 test -p opensesame-sealed-store
-pnpm test:mutation:rust   # src/attachment.rs is in the mutation scope
+npm run test:mutation:rust   # src/attachment.rs is in the mutation scope
 ```
 
 `tests/manifest_snapshot.rs` pins the manifest shape with `insta`. The store is

@@ -80,7 +80,7 @@ or a decrypted value on the way, exactly as it never does in service.
   item or folder the parser refuses, is counted and reported per account;
   invited-but-unregistered and disabled vaultwarden accounts are listed with
   the reason; `--dry-run` reports it all without writing.
-- **Proven by the oracle.** `pnpm test:bitwarden-oracle` has the official `bw`
+- **Proven by the oracle.** `npm run test:bitwarden-oracle` has the official `bw`
   write a vault on one server, moves it with the importer, and has a fresh
   `bw` read every item back from the Host with the same password; and it signs
   `bw` in to an account moved from a vaultwarden database with its old

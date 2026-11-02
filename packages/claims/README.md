@@ -33,8 +33,8 @@ transition persisted by compare-and-swap on the session version.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/claims test
-pnpm --filter @opensesame/claims typecheck
+npm run test -w @opensesame/claims
+npm run typecheck -w @opensesame/claims
 ```
 
 ## Related

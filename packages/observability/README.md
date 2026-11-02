@@ -38,8 +38,8 @@ secrets from a payload and refuses one that still looks like a credential.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/observability test
-pnpm --filter @opensesame/observability typecheck
+npm run test -w @opensesame/observability
+npm run typecheck -w @opensesame/observability
 ```
 
 ## Related

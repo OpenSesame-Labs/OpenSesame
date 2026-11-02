@@ -74,7 +74,7 @@ export function npmLockVersions(lock, name) {
   return [...out];
 }
 
-/** Every resolved version of `name` in pnpm-lock.yaml's `packages:` section. */
+/** Every resolved version of `name` in package-lock.json's `packages:` section. */
 export function pnpmLockVersions(lockText, name) {
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(
@@ -125,7 +125,7 @@ export function collectVersions(root) {
     rustc: firstLine(run("rustc", ["+1.88.0", "--version"], root)),
     cargo: firstLine(run("cargo", ["+1.88.0", "--version"], root)),
     node: firstLine(run("node", ["--version"], root)),
-    pnpm: firstLine(run("pnpm", ["--version"], root)),
+    npm: firstLine(run("npm", ["--version"], root)),
     chromium: process.env.PLAYWRIGHT_CHROMIUM
       ? firstLine(run(process.env.PLAYWRIGHT_CHROMIUM, ["--version"], root))
       : null,

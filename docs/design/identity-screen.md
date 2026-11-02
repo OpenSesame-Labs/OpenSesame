@@ -150,5 +150,5 @@ Extend `IdentitySection.test.tsx` (hoisted seam mocks):
 - Prose budget: no multi-sentence paragraphs in any view.
 - Lib tests for `approveDevice` (wire mapping, error mapping).
 
-Gates: `pnpm --filter @opensesame/pages test`, `tsc --noEmit`, per-file
+Gates: `npm run test`, -w @opensesame/pages `tsc --noEmit`, per-file
 oxlint anti-slop, biome — all green before reporting.

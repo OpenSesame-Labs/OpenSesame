@@ -2,9 +2,9 @@
 // against the built Pages bundle served at the production origin with no
 // backend (the same harness as verify-static-origin.mjs).
 //
-//   VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+//   VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:auth
+//     npm run verify:auth -w @opensesame/pages
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

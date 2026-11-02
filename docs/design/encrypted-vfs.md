@@ -85,5 +85,5 @@ Migrate on unlock, per tomb:
 - Boot test: pre-unlock boot path reads only endpoints + header (assert no
   VFS access before unlock).
 
-Gates: `pnpm --filter @opensesame/pages test`, `tsc --noEmit`, per-file
+Gates: `npm run test`, -w @opensesame/pages `tsc --noEmit`, per-file
 oxlint anti-slop, biome.

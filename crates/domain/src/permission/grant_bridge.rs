@@ -71,7 +71,7 @@ pub fn assert_flat_grant_matches_entry(
     for entry in set.entries() {
         for (action, scope) in entry.pairs() {
             if !(approved.permits_action(action)
-                && approved
+  && approved
                     .scopes()
                     .iter()
                     .any(|allowed| allowed.contains(scope)))

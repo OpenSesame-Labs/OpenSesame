@@ -622,7 +622,7 @@ overlay was applied. Four published text files, 64,965 bytes, passed
 unchanged-config Gitleaks with before/after detection controls; JSON is not
 claimed as semantic AST proof. JSON identity, changed-file lint, generated
 index, whitespace and selected-original preservation checks passed. The initial
-full `pnpm lint` stopped on nested-git EPERM before tests and remains recorded;
+full `npm run lint` stopped on nested-git EPERM before tests and remains recorded;
 root reran that identical command with the required local process capability and
 obtained exit zero, 107 existing tests and changed-file lint over 535 files
 without fixes.
@@ -643,7 +643,7 @@ Under the same recorded fallback, PR #1353,
 Conditional assignment of RequestInit.body for a present body fixes the actual
 client CLI TS2375 exact-optional-property failure without adding undefined to
 bodyless requests. All three typechecks, 16 existing controlled HTTP tests, full
-pnpm lint (107 existing tests and 535 files), full quality (557 script plus 17
+npm run lint (107 existing tests and 535 files), full quality (557 script plus 17
 security tests), and the unchanged baseline with zero regressions passed. The
 existing eleven AST rules and Gitleaks covered all 8,508 source bytes with zero
 findings and before/after detection controls. The initial spread/strict-check
@@ -667,7 +667,7 @@ Cursor orchestrator verified `verify:cli-public-site`, lint, commit `49c7683d7`,
 
 **P8-6 (F7)** — Grok Build `grok-4.7` (session ended after implementation landed; stuck
 orchestration loop killed at ~83m with empty stdout log); Cursor ran
-`verify:sw-dirty-edit`, app-core/pages unit tests, `pnpm lint`; no baseline loosening
+`verify:sw-dirty-edit`, app-core/pages unit tests, `npm run lint`; no baseline loosening
 (`quality-baseline.json` tightened 646→645).
 
 **P8-1/P8-2 visual evidence (four install profiles)** — Grok Build `grok-4.7` in worktree

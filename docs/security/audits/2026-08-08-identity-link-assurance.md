@@ -47,7 +47,7 @@ removed (it had no consumers anywhere in the repo).
 
 ## Verification
 
-- `pnpm --filter @opensesame/control-plane test` — new case asserts the 403 in
+- `npm run test` -w @opensesame/control-plane — new case asserts the 403 in
   non-dev config, that the principal stays `provisional`, and that a dev-mode
   collision response does not contain the other principal's id.
-- `pnpm run test:all` and `pnpm run build` green.
+- `npm run test:all` and `npm run build` green.

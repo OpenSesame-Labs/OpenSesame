@@ -156,11 +156,7 @@ function resolveVitest(target, facts) {
       `${path} does not exist; no test asserts this contract`,
     );
   }
-  return runnable([
-    "pnpm",
-    "--filter",
-    target.pkg,
-    "exec",
+  return runnable(["npm", "exec", "-w", target.pkg, "--",
     "vitest",
     "run",
     "--reporter=json",
@@ -194,11 +190,7 @@ function resolveRegistrySweep(target, facts) {
       `no capability id starts with ${target.prefixes.join(" or ")}; GA-C-01 has not landed, so this sweep has nothing to check`,
     );
   }
-  return runnable([
-    "pnpm",
-    "--filter",
-    target.pkg,
-    "exec",
+  return runnable(["npm", "exec", "-w", target.pkg, "--",
     "vitest",
     "run",
     "--reporter=json",
@@ -281,11 +273,7 @@ function resolveFgaAdditivity(target, facts) {
       "OPENSESAME_OPENFGA_URL is unset; GA-V-32 needs a live OpenFGA to replay baseline allows against the delta",
     );
   }
-  return runnable([
-    "pnpm",
-    "--filter",
-    "@opensesame/policy",
-    "exec",
+  return runnable(["npm", "exec", "-w", "@opensesame/policy", "--",
     "vitest",
     "run",
     "--reporter=json",
@@ -322,7 +310,7 @@ export function assembleReport(meta, entries) {
   return {
     $schema: "./authority-fabric-report.schema.json",
     $comment:
-      "Produced by pnpm test:authority-fabric. A scenario is green only when a named test in a wired module ran and passed. 'blocked' means the harness could not settle the contract and fails the gate.",
+      "Produced by npm run test:authority-fabric. A scenario is green only when a named test in a wired module ran and passed. 'blocked' means the harness could not settle the contract and fails the gate.",
     programme: "general-authority",
     swarm: "VERIFICATION",
     workItems: [

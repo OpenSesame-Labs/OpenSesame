@@ -17,7 +17,7 @@
 //!
 //! These tests need the plugin's test build and a resolvable parser, so they
 //! are `#[ignore]`d in a plain `cargo test`. `scripts/test/proxied-run-test.sh`
-//! (`pnpm test:proxied-run`) builds both and runs them with `--include-ignored`;
+//! (`npm run test:proxied-run`) builds both and runs them with `--include-ignored`;
 //! run that way a missing piece fails the run, never skips it.
 #![cfg(unix)]
 

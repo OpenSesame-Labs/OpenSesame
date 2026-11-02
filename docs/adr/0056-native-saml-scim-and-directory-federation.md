@@ -249,7 +249,7 @@ recorded rather than discovered in a diff, which is what this paragraph is.
   wrong-audience, expired, future-dated and replayed assertions is part of the feature, not an
   optional extra.
 - `@node-saml/node-saml` is a new runtime dependency, exact-pinned, MIT, and inside
-  `pnpm audit:osv`'s scope. A finding in its transitive closure is handled by pinning forward,
+  `npm run audit:osv`'s scope. A finding in its transitive closure is handled by pinning forward,
   never by an ignore. One import reaches past the package root
   (`@node-saml/node-saml/lib/xml.js`) for the parser the library itself validates with; the
   package publishes no `exports` map, so the path is stable for the pinned version and must be

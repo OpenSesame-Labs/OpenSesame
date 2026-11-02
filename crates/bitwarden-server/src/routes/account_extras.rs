@@ -269,10 +269,10 @@ async fn set_domains(
     let groups = body.get("equivalentDomains").cloned().unwrap_or(json!([]));
     let well_formed = groups.as_array().is_some_and(|groups| {
         groups.len() <= 100
-            && groups.iter().all(|group| {
+  && groups.iter().all(|group| {
                 group.as_array().is_some_and(|domains| {
                     domains.len() <= 100
-                        && domains
+  && domains
                             .iter()
                             .all(|d| d.as_str().is_some_and(|d| !d.is_empty() && d.len() <= 253))
                 })

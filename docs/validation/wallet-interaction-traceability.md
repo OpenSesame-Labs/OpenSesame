@@ -104,15 +104,15 @@ public key, and asserts the composed invariant.
 | the barcode reference round-trips its MAC and is not a bearer | The reference the pass carries resolves under the minting pepper only (`resolveInteractionRef`); a one-character MAC flip and a foreign pepper both resolve to null. | **passed** |
 | the production issue path refuses a display row smuggling a secret | The production `issuePass` refuses a Luhn-valid PAN in a display row and names a **path**, never the value. | **passed** |
 
-Run standalone: `pnpm --filter @opensesame/wallet exec vitest run
+Run standalone: `npm exec -w @opensesame/wallet -- vitest run
 src/interaction-handoff.q.test.ts` → 3/3, exit 0. Anti-slop:
-`pnpm lint:anti-slop:files packages/wallet/src/interaction-handoff.q.test.ts`
+`npm run lint:anti-slop:files packages/wallet/src/interaction-handoff.q.test.ts`
 → clean.
 
 ## Caveats recorded honestly
 
 - **Package typecheck is red from untracked sibling WIP.**
-  `pnpm --filter @opensesame/wallet exec tsc --noEmit` fails on
+  `npm exec -w @opensesame/wallet -- tsc --noEmit` fails on
   `packages/wallet/src/google-client.ts` and
   `packages/os-domain/src/interaction-proof.ts` — both untracked (`??`, not on
   HEAD) concurrent-swarm work. Swarm Q did not touch either; the Q harness file
@@ -122,7 +122,7 @@ src/interaction-handoff.q.test.ts` → 3/3, exit 0. Anti-slop:
   F12/T-07 durable-store area, on a `interactions_consumed_at_check` constraint
   absent from the dirty-tree schema. It is recorded as `partial_fail`, not
   papered over.
-- **The full-repository `pnpm lint:anti-slop` did not finish** (~13 min over the
+- **The full-repository `npm run lint:anti-slop` did not finish** (~13 min over the
   dirty tree, terminated). The scoped file lint stands in and is clean; no
   repo-wide clean result is claimed.
 - **F06, F07 (router half), F11, F14 and the majority of the T-series** have no

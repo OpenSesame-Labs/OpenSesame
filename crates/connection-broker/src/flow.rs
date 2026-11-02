@@ -377,7 +377,7 @@ fn oauth_error_detail(body: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(body).ok()?;
     let code = value.get("error").and_then(|v| v.as_str())?;
     (code.len() <= 64
-        && code
+  && code
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || "_.-".contains(character)))
     .then(|| code.to_string())

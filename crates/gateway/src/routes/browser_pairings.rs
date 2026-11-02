@@ -171,8 +171,8 @@ pub async fn decision(
         return refusal("invalid_pairing_decision");
     }
     if matches!(req.decision, Decision::Approve)
-        && provisions_membership(&requested)
-        && opensesame_connection_broker::config_access::provision_native_role(
+  && provisions_membership(&requested)
+  && opensesame_connection_broker::config_access::provision_native_role(
             st.db.pool(),
             &org,
             &principal,

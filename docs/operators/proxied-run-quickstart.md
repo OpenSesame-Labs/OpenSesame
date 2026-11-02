@@ -195,7 +195,7 @@ from `gh auth token`.
 ## Check it on your machine
 
 ```bash
-pnpm test:proxied-run     # scripts/test/proxied-run-test.sh
+npm run test:proxied-run     # scripts/test/proxied-run-test.sh
 ```
 
 It builds the plugin's **test** build (cargo feature `upstream-override`),
@@ -205,7 +205,7 @@ that goes through the proxy to a recording TLS server standing in for
 `api.vercel.com`. It asserts every row of the tables above and that the dummy
 token is in no output, file or process command line or environment it can
 read. It needs `cargo`, `node`, `git` and a resolvable `@env-spec/parser`:
-`pnpm install`, or `OPENSESAME_E2E_ENVSPEC_DIR=<dir holding
+`npm install`, or `OPENSESAME_E2E_ENVSPEC_DIR=<dir holding
 node_modules/@env-spec/parser>`. The bridge is an ES module, so `NODE_PATH`
 does not help. Linux only for now.
 

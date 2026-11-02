@@ -63,7 +63,7 @@ impl Connection {
     #[must_use]
     pub fn personal_oauth_is_not_org_shareable_by_default(policy: &ConnectionPolicy) -> bool {
         !(policy.owner_kind == ConnectionOwnerKind::Individual
-            && policy.shareability == Shareability::OrganizationWide)
+  && policy.shareability == Shareability::OrganizationWide)
     }
 }
 

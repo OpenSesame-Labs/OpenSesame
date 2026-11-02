@@ -9,7 +9,7 @@
 ## Run gateway
 
 ```bash
-pnpm dev:host   # scripts/dev/dev-host.sh: sources scripts/dev/local-env.sh, then
+npm run dev:host   # scripts/dev/dev-host.sh: sources scripts/dev/local-env.sh, then
                 # cargo +1.88.0 run -p opensesame-cli -- host run --listen 127.0.0.1:8787
 ```
 
@@ -129,7 +129,7 @@ Run the broker:
 OPENSESAME_ORIGIN_CLIENTS_ENABLED=true \
 OPENSESAME_PUBLIC_URL=http://127.0.0.1:8788 \
 OPENSESAME_ENV=development OPENSESAME_ALLOW_DEV_DEFAULTS=1 \
-pnpm --filter @opensesame/control-plane start
+npm run start -w @opensesame/control-plane
 ```
 
 `OPENSESAME_ALLOW_DEV_DEFAULTS` must be exactly `1` (or `0`), and
@@ -202,7 +202,7 @@ await sesame.signIn({ returnTo: "/" });   // provider: sesame.signIn({ provider:
 `examples/static-rp` is that page, ready to run:
 
 ```bash
-pnpm --filter @opensesame/example-static-rp dev:4101
+npm run dev:4101 -w @opensesame/example-static-rp
 ```
 
 The OpenSesame PWA is a static export (ADR 0090). It does **not** stamp an
@@ -298,8 +298,8 @@ operator seeds or xkey private keys in committed env files.
 Preferred project contract is committed `.env.schema` (not a custom vault env YAML).
 
 ```bash
-# Install the bridge's dependency once (it is a pnpm workspace member)
-pnpm install
+# Install the bridge's dependency once (it is an npm workspace member)
+npm install
 
 # Schema check — metadata only, never secret plaintext
 cargo run -p opensesame-cli -- dev check --schema tests/fixtures/demo.env.schema

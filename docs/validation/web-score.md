@@ -8,7 +8,7 @@ independent scores and fails unless both are perfect:
 - [Is Agentic](https://is-agentic.com/): the public agent-readiness score must
   be exactly `100`.
 
-This gate is separate from `pnpm verify`: it needs the public network, a
+This gate is separate from `npm run verify`: it needs the public network, a
 Chrome/Chromium binary, and the Is Agentic service. It is a delivery check for
 a published site, not a hermetic unit gate.
 
@@ -23,7 +23,7 @@ stream's raw `result.score` can use a different scoring contract.
 
 Lighthouse runs up to two times because lab scores can vary by a point. Set
 `WEB_SCORE_LIGHTHOUSE_ATTEMPTS=1` to require a single run. The script uses
-`pnpm dlx` to run pinned Lighthouse 12.8.2; the first run downloads it.
+`npm run dlx` to run pinned Lighthouse 12.8.2; the first run downloads it.
 
 ## Run
 
@@ -74,5 +74,5 @@ still a failure for people.
 - **OpenSSF Scorecard** — supply-chain posture for the repository, not the
   rendered page; tracked separately from the public-site gate.
 
-Do not add this gate to `pnpm verify` until CI provides a stable pinned
+Do not add this gate to `npm run verify` until CI provides a stable pinned
 Chrome and permits the network calls. It is intentionally opt-in.

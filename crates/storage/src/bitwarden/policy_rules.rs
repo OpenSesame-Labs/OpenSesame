@@ -145,7 +145,7 @@ pub(super) async fn violation(
         return Ok(Some(PolicyViolation::TwoStepLogin));
     }
     if enabled(tx, org_id, policy_type::SINGLE_ORGANIZATION).await?
-        && elsewhere(tx, org_id, user_id).await?
+  && elsewhere(tx, org_id, user_id).await?
     {
         return Ok(Some(PolicyViolation::SingleOrganization));
     }

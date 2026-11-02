@@ -21,7 +21,7 @@ pub(crate) async fn get_snapshot(
     extensions: Extensions,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     if state.mtls.is_some()
-        && super::service_admit::require_vault_relay_caller(
+  && super::service_admit::require_vault_relay_caller(
             &state,
             &extensions,
             operations::VAULT_RELAY_SNAPSHOT_READ,
@@ -58,7 +58,7 @@ pub(crate) async fn put_snapshot(
     Json(body): Json<PutBody>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     if state.mtls.is_some()
-        && super::service_admit::require_vault_relay_caller(
+  && super::service_admit::require_vault_relay_caller(
             &state,
             &extensions,
             operations::VAULT_RELAY_SNAPSHOT_WRITE,
@@ -234,7 +234,7 @@ pub(crate) async fn list_org_vaults(
             continue;
         }
         if state.registration.is_some()
-            && identity
+  && identity
                 .owner
                 .as_ref()
                 .is_some_and(|bound| entry.owner != *bound)

@@ -6,26 +6,26 @@ Branch: `chore/audit-supply-chain`
 
 | Check | Result |
 |------|--------|
-| `pnpm audit:gitleaks` | CLEAN |
-| `pnpm audit:osv` | CLEAN |
-| `pnpm audit:cargo-audit` | CLEAN |
+| `npm run audit:gitleaks` | CLEAN |
+| `npm run audit:osv` | CLEAN |
+| `npm run audit:cargo-audit` | CLEAN |
 | `cargo deny check` | ok (duplicate windows_* warnings only) |
-| `pnpm audit --prod` | No known vulnerabilities |
+| `npm audit --prod` | No known vulnerabilities |
 
 ## Findings fixed
 
 | Severity | Finding | Fix |
 |----------|---------|-----|
-| Process | CI ran clippy only; local `pnpm audit:*` gates were not enforced on PRs | Added `security` job in `.github/workflows/ci.yml` (later removed with Actions in #26 — run gates locally via checklist) |
+| Process | CI ran clippy only; local `npm run audit:*` gates were not enforced on PRs | Added `security` job in `.github/workflows/ci.yml` (later removed with Actions in #26 — run gates locally via checklist) |
 
 ## Residual
 
-- Prefer restoring a CI `security` job if/when Actions return; until then `pnpm audit:*` + `cargo deny check` are local-only.
+- Prefer restoring a CI `security` job if/when Actions return; until then `npm run audit:*` + `cargo deny check` are local-only.
 - `cve-lite` not on npm (private CLI). Keep on the local re-run checklist.
 - cargo-deny duplicate `windows_*` crate noise — non-blocking.
 
 ## Gate
 
 ```bash
-pnpm audit:gitleaks && pnpm audit:osv && pnpm audit:cargo-audit && cargo deny check
+npm run audit:gitleaks && npm run audit:osv && npm run audit:cargo-audit && cargo deny check
 ```

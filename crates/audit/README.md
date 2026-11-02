@@ -36,7 +36,7 @@ at a key other than the one that checks the signature.
 
 ```bash
 cargo +1.88.0 test -p opensesame-audit
-pnpm audit:miri      # runs this crate's lib tests under Miri, among others
+npm run audit:miri      # runs this crate's lib tests under Miri, among others
 ```
 
 ## Related

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pnpm wallet:evidence — refresh work/evidence/wallet/wallet/cross-platform/last-run.json from
+ * npm run wallet:evidence — refresh work/evidence/wallet/wallet/cross-platform/last-run.json from
  * discovery + mainnet check without claiming suite passes.
  *
  * Always exits non-zero while any required suite is missing or stubbed.
@@ -21,7 +21,7 @@ initializeWalletVerification(root);
 const mainnet = assertNoMainnet(process.argv.slice(2));
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:evidence",
+    invokedAs: "npm run wallet:evidence",
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -64,7 +64,7 @@ for (const t of targets) {
     status: "blocked",
     exitCode: 1,
     reason: t.present
-      ? "inventory only — run pnpm wallet:test:domain to execute tests (evidence alone is not a pass)"
+      ? "inventory only — run npm run wallet:test:domain to execute tests (evidence alone is not a pass)"
       : t.missingReason,
     command: t.testCommand ? t.testCommand.join(" ") : null,
     durationMs: null,
@@ -88,13 +88,13 @@ for (const suite of ["contracts", "protocols", "browser", "security"]) {
 }
 
 writeWalletEvidence(root, {
-  invokedAs: "pnpm wallet:evidence",
+  invokedAs: "npm run wallet:evidence",
   mainnet: { ok: true, message: null, denials: [] },
   results,
   ok: false,
   notes: [
     "wallet:evidence never marks ok=true — it only snapshots inventory.",
-    "Run pnpm wallet:verify after real suites exist to earn a pass.",
+    "Run npm run wallet:verify after real suites exist to earn a pass.",
     `Evidence: ${EVIDENCE_REL}`,
   ],
 });

@@ -57,7 +57,7 @@ The complete Pages suite then passed 3,521 tests across 287 files. A preceding
 run had one five-second vault-lock/support timeout under concurrent work; that
 test passed in isolation and the full rerun passed without changing its timeout
 or assertions. This is rerun evidence, not a claim that a timing defect was fixed.
-`pnpm quality`, strict scoped anti-slop lint, capability-registry tests and Pages
+`npm run quality`, strict scoped anti-slop lint, capability-registry tests and Pages
 WebMCP registry parity also passed. The independent Impeccable reviewer returned
 `ship` for this bounded UI extension, followed by design documentation.
 

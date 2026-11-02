@@ -52,12 +52,12 @@ entry for tests in dependents.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/os-domain test
-pnpm --filter @opensesame/os-domain typecheck
+npm run test -w @opensesame/os-domain
+npm run typecheck -w @opensesame/os-domain
 ```
 
 `src/__tests__/browser-entry.test.ts` covers the browser entry. A change here
-reaches almost every package; run `pnpm quality:packages` to see the
+reaches almost every package; run `npm run quality:packages` to see the
 dependency picture.
 
 ## Related

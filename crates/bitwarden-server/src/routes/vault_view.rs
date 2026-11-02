@@ -53,7 +53,7 @@ impl Rights {
 /// Whether a custom role's permissions (the client's JSON) grant `name`.
 pub(crate) fn permitted(member: &BitwardenOrgMember, name: &str) -> bool {
     member.member_type == member_type::CUSTOM
-        && member
+  && member
             .permissions
             .as_deref()
             .and_then(|raw| serde_json::from_str::<Value>(raw).ok())

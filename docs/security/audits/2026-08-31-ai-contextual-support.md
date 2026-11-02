@@ -185,17 +185,17 @@ because a reader should not have to infer it:
 ## Verification
 
 ```bash
-env -u NODE_OPTIONS pnpm --filter @opensesame/pages test -- src/tutorial/__tests__
-env -u NODE_OPTIONS pnpm --filter @opensesame/pages test
-env -u NODE_OPTIONS pnpm --filter @opensesame/pages typecheck
+env -u NODE_OPTIONS npm run test -w @opensesame/pages -- src/tutorial/__tests__
+env -u NODE_OPTIONS npm run test -w @opensesame/pages
+env -u NODE_OPTIONS npm run typecheck -w @opensesame/pages
 env -u NODE_OPTIONS npx biome check apps/pages/src/tutorial/__tests__
-env -u NODE_OPTIONS pnpm lint:anti-slop:files apps/pages/src/tutorial
+env -u NODE_OPTIONS npm run lint:anti-slop:files apps/pages/src/tutorial
 ```
 
 The adversarial directory is 63 tests across 7 files, run eight times
 consecutively to check for order- and timing-dependence. The whole
 `@opensesame/pages` suite is 2,573 tests across 191 files and passes with the
-suite added. `pnpm --filter @opensesame/pages typecheck`, Biome and the
+suite added. `npm run typecheck`, -w @opensesame/pages Biome and the
 anti-slop Oxlint pass over the new files.
 
 Command-level evidence for the rest of the feature, including what each

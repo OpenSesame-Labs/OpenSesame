@@ -56,9 +56,9 @@ fn canonical_scopes(entries: &[String], kind: &str, upper: bool) -> anyhow::Resu
             .ok_or_else(|| anyhow::anyhow!("Run grant --{kind} requires NAME=value entries"))?;
         anyhow::ensure!(
             !name.is_empty()
-                && !raw.is_empty()
-                && !entry.contains(['\r', '\n', '\0'])
-                && !names.contains(&name.to_string()),
+  && !raw.is_empty()
+  && !entry.contains(['\r', '\n', '\0'])
+  && !names.contains(&name.to_string()),
             "Run grant --{kind} names must be unique and named"
         );
         names.push(name.to_string());
@@ -139,11 +139,11 @@ impl RunGrantBinding {
     #[must_use]
     pub fn matches(&self, other: &RunGrantBinding) -> bool {
         self.capability == other.capability
-            && self.agent_proxy == other.agent_proxy
-            && self.assignments == other.assignments
-            && self.mounts == other.mounts
-            && self.paths == other.paths
-            && self.methods == other.methods
+  && self.agent_proxy == other.agent_proxy
+  && self.assignments == other.assignments
+  && self.mounts == other.mounts
+  && self.paths == other.paths
+  && self.methods == other.methods
     }
 
     /// # Errors
@@ -152,10 +152,10 @@ impl RunGrantBinding {
     pub fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.capability == "run"
-                && self.assignments.len() <= 64
-                && self.mounts.len() <= 64
-                && self.paths.len() <= 64
-                && self.methods.len() <= 64,
+  && self.assignments.len() <= 64
+  && self.mounts.len() <= 64
+  && self.paths.len() <= 64
+  && self.methods.len() <= 64,
             "Invalid persisted run-grant binding"
         );
         let canonical = describe(
@@ -183,11 +183,11 @@ impl RunGrant {
             .unwrap_or_default();
         anyhow::ensure!(
             (1..=3_600_000).contains(&lifetime)
-                && self.created_at <= now
-                && uuid::Uuid::parse_str(&self.id).is_ok()
-                && uuid::Uuid::parse_str(&self.principal).is_ok()
-                && (1..=10).contains(&self.use_budget)
-                && self.uses_remaining <= self.use_budget,
+  && self.created_at <= now
+  && uuid::Uuid::parse_str(&self.id).is_ok()
+  && uuid::Uuid::parse_str(&self.principal).is_ok()
+  && (1..=10).contains(&self.use_budget)
+  && self.uses_remaining <= self.use_budget,
             "Invalid persisted run-grant authority"
         );
         self.binding.validate()?;
@@ -206,10 +206,10 @@ impl RunGrant {
         binding.validate()?;
         anyhow::ensure!(
             self.principal == principal
-                && self.binding.matches(binding)
-                && self.expires_at > now
-                && !self.revoked
-                && self.uses_remaining > 0,
+  && self.binding.matches(binding)
+  && self.expires_at > now
+  && !self.revoked
+  && self.uses_remaining > 0,
             "Run grant is invalid, expired, revoked, exhausted, or mismatched"
         );
         Ok(())

@@ -37,14 +37,14 @@ visible without signing in.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/example-rp-alpha dev        # vite on :5174 (strict port)
-pnpm --filter @opensesame/example-rp-alpha test
-pnpm --filter @opensesame/example-rp-alpha typecheck
-pnpm --filter @opensesame/example-rp-alpha build      # tsc --noEmit && vite build
-pnpm --filter @opensesame/example-rp-alpha preview    # serves dist/ on :5174
+npm run dev -w @opensesame/example-rp-alpha        # vite on :5174 (strict port)
+npm run test -w @opensesame/example-rp-alpha
+npm run typecheck -w @opensesame/example-rp-alpha
+npm run build -w @opensesame/example-rp-alpha      # tsc --noEmit && vite build
+npm run preview -w @opensesame/example-rp-alpha    # serves dist/ on :5174
 ```
 
-`pnpm dev` at the repository root starts this app with `rp-beta`, `static-rp`
+`npm run dev` at the repository root starts this app with `rp-beta`, `static-rp`
 and the Identity plane. `index.html` carries a Content-Security-Policy; keep it
 when you add scripts or origins.
 

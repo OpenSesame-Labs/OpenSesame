@@ -191,8 +191,8 @@ impl Quantity {
         let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
         let shaped = !whole.is_empty() || !fraction.is_empty();
         let digits_only = whole.bytes().all(|b| b.is_ascii_digit())
-            && fraction.bytes().all(|b| b.is_ascii_digit())
-            && text.matches('.').count() <= 1;
+  && fraction.bytes().all(|b| b.is_ascii_digit())
+  && text.matches('.').count() <= 1;
         if !shaped || !digits_only {
             return Err(BudgetError::NotADecimal(text.to_string()));
         }

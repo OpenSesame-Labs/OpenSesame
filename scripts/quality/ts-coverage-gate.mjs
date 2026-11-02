@@ -60,7 +60,7 @@ for (const directory of packages) {
   const name = relative(root, directory).replaceAll("/", "-");
   console.log(`\n==> TypeScript coverage: ${relative(root, directory)}`);
   const result = spawnSync(
-    "pnpm",
+    "npm",
     [
       "--dir",
       directory,

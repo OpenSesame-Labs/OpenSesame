@@ -49,10 +49,10 @@ source so a reader can verify the gap still exists before working it:
 1. **Playwright passkey virtual-authenticator full browser matrix is not run
    in the mandatory local suite.** (`docs/archive/2026-08-07-baseline/summary.md`, Residual)
 2. **The real-Postgres suites run only where a Postgres is provided.**
-   `pnpm --filter @opensesame/database test:postgres` and
-   `pnpm --filter @opensesame/identity-worker test:postgres` exit unless
+   `npm run test:postgres` -w @opensesame/database and
+   `npm run test:postgres` -w @opensesame/identity-worker exit unless
    `DATABASE_URL` is set (to a role with `CREATEDB`); the database package's
-   default `pnpm test` uses PGlite. CI starts the server (`.github/workflows/ci.yml`,
+   default `npm test` uses PGlite. CI starts the server (`.github/workflows/ci.yml`,
    `.github/workflows/full-suite.yml`); a local run does not.
    (`packages/database/package.json`, `packages/identity-worker/package.json`;
    the archived baseline's Residual list named Testcontainers, which no

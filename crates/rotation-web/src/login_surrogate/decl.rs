@@ -206,14 +206,14 @@ impl LoginSubstitution {
 
 fn is_exact_path(path: &str) -> bool {
     path.starts_with('/')
-        && !path.contains(['?', '#'])
-        && !path
+  && !path.contains(['?', '#'])
+  && !path
             .bytes()
             .any(|b| b.is_ascii_whitespace() || b.is_ascii_control())
-        && !path
+  && !path
             .split('/')
             .any(|segment| segment == "." || segment == "..")
-        && !path.to_ascii_lowercase().contains("%2e")
+  && !path.to_ascii_lowercase().contains("%2e")
 }
 
 fn sets_a_password(field: &str, control: &FieldSnapshot) -> bool {

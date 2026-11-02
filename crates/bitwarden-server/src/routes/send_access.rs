@@ -29,10 +29,10 @@ async fn available(server: &BitwardenServer, id: &str) -> ApiResult<Option<Bitwa
     let now = Utc::now();
     Ok(server.db.bitwarden_send(id).await?.filter(|s| {
         s.uploaded
-            && !s.disabled
-            && s.deletion_at > now
-            && s.expiration_at.is_none_or(|at| at > now)
-            && s.max_access_count.is_none_or(|max| s.access_count < max)
+  && !s.disabled
+  && s.deletion_at > now
+  && s.expiration_at.is_none_or(|at| at > now)
+  && s.max_access_count.is_none_or(|max| s.access_count < max)
     }))
 }
 
@@ -167,7 +167,7 @@ pub async fn access(
     let body = normalize(body.map_or(Value::Null, |Json(b)| b));
     let send = open(&server, &id, &body).await?;
     if send.send_type == TEXT
-        && !server
+  && !server
             .db
             .bitwarden_count_send_access(&send.id, send.access_count)
             .await?
@@ -198,7 +198,7 @@ pub async fn access_with_token(
 ) -> ApiResult<Json<Value>> {
     let send = by_token(&server, &headers).await?;
     if send.send_type == TEXT
-        && !server
+  && !server
             .db
             .bitwarden_count_send_access(&send.id, send.access_count)
             .await?

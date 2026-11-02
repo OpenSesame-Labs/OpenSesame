@@ -59,11 +59,11 @@ fixture-local; this is not public merchant acceptance.
 
 | Profile | Status | Command evidence |
 |---|---|---|
-| Conserved local journal (shared_counter) | `fixture_verified` | `CHAIN_ID=31337 pnpm wallet:verify` |
-| Digest-bound lease issue (ES256, no forged assurance) | `fixture_verified` | `pnpm wallet:test:browser` |
-| ERC-20 restricted transfer (forge) | `local_execution_verified` | `pnpm wallet:test:contracts` |
-| x402 exact local merchant (Anvil, shipped adapter) | `local_execution_verified` | `pnpm wallet:test:protocols` |
-| AP2/UCP ES256 mandates | `fixture_verified` | `pnpm --filter @opensesame/wallet-mandates test` |
+| Conserved local journal (shared_counter) | `fixture_verified` | `CHAIN_ID=31337 npm run wallet:verify` |
+| Digest-bound lease issue (ES256, no forged assurance) | `fixture_verified` | `npm run wallet:test:browser` |
+| ERC-20 restricted transfer (forge) | `local_execution_verified` | `npm run wallet:test:contracts` |
+| x402 exact local merchant (Anvil, shipped adapter) | `local_execution_verified` | `npm run wallet:test:protocols` |
+| AP2/UCP ES256 mandates | `fixture_verified` | `npm run test` -w @opensesame/wallet-mandates |
 | Prepaid session / Tempo / OWS | `blocked` | No escrow harness |
 | Issuer virtual card | `blocked` | No authorized issuer |
 

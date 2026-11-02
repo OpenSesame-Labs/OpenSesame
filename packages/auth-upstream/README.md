@@ -59,5 +59,5 @@ const { auth, emailLinkPolicy } = createUpstreamAuth({
 ## Tests
 
 ```bash
-pnpm --filter @opensesame/auth-upstream test
+npm run test -w @opensesame/auth-upstream
 ```

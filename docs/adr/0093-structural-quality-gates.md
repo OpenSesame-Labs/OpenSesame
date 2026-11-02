@@ -101,8 +101,7 @@ the count at 1 and reported no improvement.
 
 ### 3. Enforce Martin's component principles on both planes
 
-`scripts/quality/package-metrics-gate.mjs` scores all 115 components — 60 pnpm
-workspace packages and 55 Cargo crates — computing Ca, Ce, I = Ce/(Ca+Ce),
+`scripts/quality/package-metrics-gate.mjs` scores all 115 components — 60 npm workspace packages and 55 Cargo crates — computing Ca, Ce, I = Ce/(Ca+Ce),
 A (abstractness) and D = |A + I − 1|.
 
 Two findings are **hard failures with no baseline**:
@@ -113,7 +112,7 @@ Two findings are **hard failures with no baseline**:
   exponential on a graph where `crates/gateway` depends on forty crates that also
   depend on each other.
 - **A phantom dependency** — importing `@opensesame/x` without declaring it.
-  It resolves only while pnpm's store happens to hoist it. Rust needs no
+  It resolves only while npm's store happens to hoist it. Rust needs no
   equivalent; rustc already refuses it.
 
 Two are real but negotiable, so they ratchet against
@@ -141,8 +140,8 @@ and a JavaScript regression would be invisible inside a total that large.
 
 ## Consequences
 
-- `pnpm quality` (both ratchets, sub-second) joins `pnpm verify` and the CI
-  TypeScript job. `pnpm quality:bundle` builds and measures in its own CI job.
+- `npm run quality` (both ratchets, sub-second) joins `npm run verify` and the CI
+  TypeScript job. `npm run quality:bundle` builds and measures in its own CI job.
 - The opening debt is **850 tracked violations across 507 files**, 2 SDP edges,
   and 0 unused dependencies. Those numbers are in the repo and can only fall.
 - 13 unused declared workspace dependencies were removed rather than recorded

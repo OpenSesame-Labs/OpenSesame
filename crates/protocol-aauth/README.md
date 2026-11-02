@@ -39,7 +39,7 @@ With the feature on:
 
 ```bash
 cargo +1.88.0 test -p opensesame-protocol-aauth --features experimental-aauth
-pnpm test:task-access   # runs the line above among the task-authority suites
+npm run test:task-access   # runs the line above among the task-authority suites
 ```
 
 Without the feature only a pact test runs; it checks that `lib.rs` still gates

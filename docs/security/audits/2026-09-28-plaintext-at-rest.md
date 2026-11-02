@@ -58,7 +58,7 @@ After a Google sign-in, 17 of 17 app-owned values were in the clear.
   `packages/client-core/src/sealed-store-io.test.ts`, which read every store
   raw. The extension's `tests/pact.test.mjs` refuses any
   `chrome.storage.local.set` of `hostApiBase` that is not a sealed value.
-- `pnpm --filter @opensesame/pages verify:static` reads the origin raw after
+- `npm run verify:static` -w @opensesame/pages reads the origin raw after
   the guest road (16 values) and after Google sign-in (17 values). Every one
   is sealed. No guest name, pairwise subject or personal name appears
   anywhere. The key reports `extractable: false`.

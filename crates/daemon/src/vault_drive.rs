@@ -113,10 +113,10 @@ pub fn default_dir() -> Option<PathBuf> {
 #[must_use]
 pub fn valid_slot(slot: &str) -> bool {
     (8..=64).contains(&slot.len())
-        && slot
+  && slot
             .bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        && !slot.starts_with('-')
+  && !slot.starts_with('-')
 }
 
 fn digest_hex(key: &str) -> String {
@@ -131,7 +131,7 @@ fn digest_hex(key: &str) -> String {
 
 fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
-        && a.bytes()
+  && a.bytes()
             .zip(b.bytes())
             .fold(0u8, |acc, (x, y)| acc | (x ^ y))
             == 0

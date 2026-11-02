@@ -31,7 +31,7 @@ line against the actual diff.
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 

@@ -65,7 +65,7 @@ for one), and a sensitive value is materialized only when policy allows it. A sc
 
 ```bash
 cargo +1.88.0 test -p opensesame-env-spec
-pnpm --filter @opensesame/env-spec-bridge test
+npm run test -w @opensesame/env-spec-bridge
 ```
 
 `tests/bridge_isolation.rs` starts this test binary again as the process that
@@ -82,8 +82,7 @@ owner, group and mode combinations the rule decides.
 through the real bridge; locally it prints a skip line when no usable `node`
 resolves or the bridge's dependencies are not installed. With `CI` set either is
 a failure: the Rust job names its `node` with `OPENSESAME_NODE` and installs
-`@env-spec/parser` (`pnpm install --frozen-lockfile --ignore-scripts --filter
-"@opensesame/env-spec-bridge..."`), so the round trip runs there.
+`@env-spec/parser` (`npm ci --ignore-scripts -w @opensesame/env-spec-bridge`), so the round trip runs there.
 
 ## Related
 

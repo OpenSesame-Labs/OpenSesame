@@ -1,6 +1,6 @@
 # ast-grep gate — negative control
 
-`pnpm audit:ast-grep` is green. A green gate is only worth something if it can
+`npm run audit:ast-grep` is green. A green gate is only worth something if it can
 still go red, so this is how to check that it can — and that the test-file
 scoping in `ast-grep-rules.yml` narrows the rules rather than switching them
 off.

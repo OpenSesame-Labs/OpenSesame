@@ -269,7 +269,7 @@ impl ConnectionTransport {
     #[must_use]
     pub fn execution_capability(&self) -> CapabilityOutcome {
         if self.requires_vault_identity()
-            && self.execution_target == ConnectorExecutionTarget::Browser
+  && self.execution_target == ConnectorExecutionTarget::Browser
         {
             CapabilityOutcome::unsupported(BROWSER_VAULT_KEY_INJECTION)
         } else {

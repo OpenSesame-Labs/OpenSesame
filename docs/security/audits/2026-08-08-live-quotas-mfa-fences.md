@@ -21,7 +21,7 @@ Scanners: cargo-audit, cve-lite, semgrep, ast-grep, osv-scanner, gitleaks, cargo
 
 ## Verification
 
-- `pnpm --filter @opensesame/control-plane test` — 30 passed (3 new)
-- `pnpm --filter @opensesame/auth-upstream test` — 12 passed (1 new)
-- `pnpm run typecheck`, `pnpm test`, `cargo test --workspace`, clippy — clean
+- `npm run test` -w @opensesame/control-plane — 30 passed (3 new)
+- `npm run test` -w @opensesame/auth-upstream — 12 passed (1 new)
+- `npm run typecheck`, `npm test`, `cargo test --workspace`, clippy — clean
 - cargo-audit, osv-scanner, cargo-deny, semgrep, gitleaks, cve-lite, ast-grep — clean

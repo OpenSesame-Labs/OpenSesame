@@ -34,7 +34,7 @@ test("builds changed packages and transitive consumers, leaving unrelated work o
   assert.equal(plan.scope, "packages");
   assert.deepEqual(plan.packages, ["app", "service", "shared"]);
   const command = buildCommand("packages", plan);
-  assert.equal(command.command, "pnpm");
+  assert.equal(command.command, "npm");
   assert.deepEqual(command.args, [
     "exec",
     "turbo",
@@ -172,7 +172,6 @@ test("shared compiler, dependency and embedded-spec inputs compile the whole gra
   for (const path of [
     "package.json",
     "package-lock.json",
-    "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "turbo.json",
     "tsconfig.base.json",
@@ -191,8 +190,8 @@ test("shared compiler, dependency and embedded-spec inputs compile the whole gra
     assert.equal(planBuildCrates([path], graph).scope, "all", path);
   }
   assert.deepEqual(buildCommand("packages", { scope: "all", packages: [] }), {
-    command: "pnpm",
-    args: ["exec", "turbo", "run", "build", "--concurrency=4"],
+    command: "npm",
+    args: ["exec", "--", "turbo", "run", "build", "--concurrency=4"],
   });
   assert.deepEqual(
     buildCommand(
@@ -201,9 +200,9 @@ test("shared compiler, dependency and embedded-spec inputs compile the whole gra
       { turboComparisonRef: "origin/main" },
     ),
     {
-      command: "pnpm",
+      command: "npm",
       args: [
-        "exec",
+        "exec", "--",
         "turbo",
         "run",
         "build",
@@ -224,7 +223,7 @@ test("workspace builds do not hide a separate no-emit typecheck", () => {
     assert.doesNotMatch(pkg.scripts.build, /\btsc\b[^&]*--noEmit/, node.name);
     assert.doesNotMatch(
       pkg.scripts.build,
-      /\b(?:pnpm|npm)(?:\s+run)?\s+typecheck\b/,
+      /\b(?:npm|npm)(?:\s+run)?\s+typecheck\b/,
       node.name,
     );
   }

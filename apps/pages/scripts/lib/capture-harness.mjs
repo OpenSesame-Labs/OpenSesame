@@ -9,7 +9,7 @@
  *     delivery and a stand-in push service (`push-stack.mjs`), for the Push
  *     row, which exists only for a person signed in to an Identity API. The
  *     build must be stamped `loopback_development` for that origin
- *     (`pnpm --filter @opensesame/pages build:push-verify`, or the same
+ *     (`npm run build:push-verify`, -w @opensesame/pages or the same
  *     steps into another directory for the base), and the capture runs under
  *     `tsx` because the stack imports the control-plane's TypeScript.
  *

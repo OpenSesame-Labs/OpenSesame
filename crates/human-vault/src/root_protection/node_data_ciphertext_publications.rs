@@ -79,8 +79,8 @@ impl NativeNodeDataWriter {
             .ok_or_else(refused)?;
         tomb_name(tomb)?;
         if logical_key != GLOBAL_KEY
-            && !super::allowed_global_read(logical_key)
-            && !logical_key.starts_with(&format!("tomb/{tomb}/"))
+  && !super::allowed_global_read(logical_key)
+  && !logical_key.starts_with(&format!("tomb/{tomb}/"))
         {
             return Err(refused());
         }

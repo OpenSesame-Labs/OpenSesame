@@ -73,7 +73,7 @@ Never delete baseline tuples that pre-existed the backfill.
 ## 6. Evidence commands
 
 ```bash
-pnpm --filter @opensesame/policy exec vitest run \
+npm exec -w @opensesame/policy -- vitest run \
   src/__tests__/authority-tuple-backfill.test.ts
 ```
 

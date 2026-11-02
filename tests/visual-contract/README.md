@@ -26,19 +26,19 @@ The six baselines it enforces:
 
 ## Running it locally
 
-Run it explicitly — pixel baselines are deliberately *not* part of `pnpm test`
+Run it explicitly — pixel baselines are deliberately *not* part of `npm test`
 or of `.github/workflows/ci.yml`. Screenshots depend on the host's fonts and
 renderer, so a hosted CI runner would fail them for reasons that have nothing
-to do with the diff under review. `pnpm test` in this package runs the unit
+to do with the diff under review. `npm test` in this package runs the unit
 suite (`src/*.test.ts`) only. The package's `test:integration` script is the
-same `playwright test` as `test:visual`, so the root `pnpm test:integration`
-(and therefore `pnpm test:all` and `pnpm verify`) does run the pixel contract.
+same `playwright test` as `test:visual`, so the root `npm run test:integration`
+(and therefore `npm run test:all` and `npm run verify`) does run the pixel contract.
 
 ```bash
-# from the repo root, after `pnpm install`
-pnpm test:visual
+# from the repo root, after `npm install`
+npm run test:visual
 # equivalent to:
-pnpm --filter @opensesame/visual-contract test:visual
+npm run test:visual -w @opensesame/visual-contract
 ```
 
 This drives `playwright test` (config: `playwright.config.ts`), which:
@@ -103,7 +103,7 @@ install or download is needed.
 ## Rebaselining (`VISUAL_UPDATE=1`)
 
 ```bash
-VISUAL_UPDATE=1 pnpm --filter @opensesame/visual-contract test:visual
+VISUAL_UPDATE=1 npm run test:visual -w @opensesame/visual-contract
 ```
 
 In this mode, `src/compare.ts` skips the pixel comparison entirely and
@@ -115,7 +115,7 @@ routine, a bot, or CI runs silently.** The whole point of this contract is
 that a baseline only moves when a human looked at the new pixels and decided
 they're correct. In practice that means:
 
-- Run `VISUAL_UPDATE=1 pnpm test:visual` locally, deliberately, because a
+- Run `VISUAL_UPDATE=1 npm run test:visual` locally, deliberately, because a
   design change under `apps/pages` is expected to move one or more of the
   six screens.
 - The result is a set of changed PNGs under `tests/visual-contract/baselines/`.
@@ -264,9 +264,9 @@ viewport, enrollment assertion or comparison logic changed.
 ## What the orchestrator should do next
 
 If `apps/pages` changes in a way that's expected to alter its rendering,
-run `pnpm --filter @opensesame/visual-contract test:visual`, inspect any
+run `npm run test:visual`, -w @opensesame/visual-contract inspect any
 failure's `output/*-actual.png` / `*-diff.png` against the current
 `tests/visual-contract/baselines/*.png`, and only rebaseline
-(`VISUAL_UPDATE=1 pnpm test:visual`) the specific screens that legitimately
+(`VISUAL_UPDATE=1 npm run test:visual`) the specific screens that legitimately
 moved — reviewing the six PNGs in the resulting diff before committing,
 exactly as this package's own integration pass did.

@@ -26,15 +26,15 @@ dirty worktrees untouched.
 
 The disk stays near full. A new worktree gets source only.
 
-- pnpm: install with the existing store (`pnpm store path`, the user store
-  under `~/.local/share/pnpm/store`). `pnpm install` hardlinks from that
+- npm: install with the existing store (`npm config get cache`, the user store
+  under `~/.local/share/npm/store`). `npm install` hardlinks from that
   store. Do not copy `node_modules` from another checkout.
 - Cargo: `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target` on every
   `cargo` and `cargo +1.88.0` invocation, in every worktree. Do not create a
   per-worktree `target/`.
 - Playwright browsers stay in the existing browser cache. Do not download a
   second browser pack for a worktree.
-- Skip `pnpm install` and Rust builds unless the task's checks need them.
+- Skip `npm install` and Rust builds unless the task's checks need them.
 
 ### Swarm
 

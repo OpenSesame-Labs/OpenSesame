@@ -34,8 +34,8 @@ provider outcome goes to `ReconciliationRequired` instead of being retried.
 
 ```bash
 cargo +1.88.0 test -p opensesame-rotation
-pnpm audit:shuttle   # shared state never takes an illegal edge
-pnpm audit:kani      # bounded proofs in the `kani_proofs` module
+npm run audit:shuttle   # shared state never takes an illegal edge
+npm run audit:kani      # bounded proofs in the `kani_proofs` module
 ```
 
 A new edge must keep the Kani proofs (`completed_is_a_sink`,

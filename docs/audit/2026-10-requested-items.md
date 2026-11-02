@@ -43,7 +43,7 @@ Audited against `origin/main` at `8f70cf43` (2026-10-07), then follow-up fixes o
 | S9 | Shared icon on list items | DONE | `VaultRowDecorations.tsx` | DONE | — |
 | H1 | Help: remove top/bottom explainers | DONE | #774 + support tests | DONE | — |
 | H2 | Walkthrough missing control → notification | DONE | `session.ts` `notifyFailure(GUIDE_ERROR_TEXT[...])` | DONE | — |
-| H3 | Design system lint for explainers / in-panel errors | DONE | `pnpm lint:design`, `design-lint.mjs`, #774 | DONE | — |
+| H3 | Design system lint for explainers / in-panel errors | DONE | `npm run lint:design`, `design-lint.mjs`, #774 | DONE | — |
 | H4 | Programmatic walkthroughs per installed features | DONE | `verify:tutorials` gate in CI; tutorial registry | DONE | Full gate not re-run in this audit |
 | H5 | Feature bundles ship walkthroughs | DONE | ADR 0163 + `feature-goals.ts` | DONE | — |
 | H6 | Ask → Search when AI disabled | DONE | `SupportComposer.tsx`, `support.test.tsx` | DONE | — |
@@ -52,7 +52,7 @@ Audited against `origin/main` at `8f70cf43` (2026-10-07), then follow-up fixes o
 ## Commands run (audit evidence)
 
 ```bash
-cd apps/pages && pnpm exec vitest run \
+cd apps/pages && npm exec -- vitest run \
   src/screens/setup/SetupConfiguration.test.tsx \
   src/components/context-menu/rail-context-menu.test.tsx \
   src/tutorial/ui/support.test.tsx \

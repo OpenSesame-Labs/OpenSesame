@@ -22,7 +22,7 @@ Prose parity tables have already failed in this repository —
 not exist. The only parity mechanisms that have held are literal registries
 swept by tests (`CONNECTOR_IDS` + `ceremony-consistency.test.tsx`), exact
 catalog-equality tests (`apps/mcp-client/src/server.test.ts`), and byte-diff
-gates (`pnpm test:anti-slop`).
+gates (`npm run test:anti-slop`).
 
 ## Decision
 
@@ -32,7 +32,7 @@ gates (`pnpm test:anti-slop`).
    (command line, lib seam/route, tool name) or to `null`, and may carry an
    `excluded` entry per agent surface with a reason and an ADR citation.
    A committed `capabilities.json` mirror (regenerated via
-   `pnpm --filter @opensesame/capability-registry generate`, guarded by a
+   `npm run generate`, -w @opensesame/capability-registry guarded by a
    sync test) lets Rust tests consume the same source of truth through
    `include_str!`.
 

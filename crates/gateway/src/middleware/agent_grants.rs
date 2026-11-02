@@ -99,7 +99,7 @@ pub async fn guard(State(st): State<AppState>, request: Request, next: Next) -> 
         .iter()
         .any(|cap| !CAPABILITIES.contains(&cap.as_str()))
         || (required != "agent:self"
-            && !claims.capability_ceiling.iter().any(|cap| cap == required))
+  && !claims.capability_ceiling.iter().any(|cap| cap == required))
     {
         return refused();
     }

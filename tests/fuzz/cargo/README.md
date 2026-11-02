@@ -7,5 +7,5 @@ This crate is **not** a workspace member. See
 ```bash
 cargo install cargo-fuzz
 rustup toolchain install nightly
-pnpm audit:fuzz
+npm run audit:fuzz
 ```

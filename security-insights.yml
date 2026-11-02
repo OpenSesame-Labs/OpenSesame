@@ -147,7 +147,7 @@ repository:
             location: https://github.com/OpenSesame-Labs/OpenSesame/security/code-scanning
             comment: |
               .github/workflows/security.yml on a weekly schedule; the same
-              engine runs on demand as pnpm audit:osv.
+              engine runs on demand as npm run audit:osv.
       - name: gitleaks
         type: secret
         rulesets:
@@ -179,7 +179,7 @@ repository:
             name: RustSec advisory gate
             predicate-uri: https://intoto.SCA
             location: https://github.com/OpenSesame-Labs/OpenSesame/blob/main/docs/security/tooling-evaluation.md
-            comment: pnpm audit:cargo-audit, run by maintainers and the nightly triage routine.
+            comment: npm run audit:cargo-audit, run by maintainers and the nightly triage routine.
       - name: cargo-fuzz (libFuzzer)
         type: fuzzing
         rulesets:
@@ -194,7 +194,7 @@ repository:
             predicate-uri: https://intoto.fuzzing
             location: https://github.com/OpenSesame-Labs/OpenSesame/blob/main/docs/validation/fuzzing.md
             comment: |
-              48 libFuzzer targets; pnpm audit:fuzz and the release batch
+              48 libFuzzer targets; npm run audit:fuzz and the release batch
               gate. ADR 0211 describes the in-tree OSS-Fuzz submission pack;
               acceptance into hosted OSS-Fuzz is not asserted here.
       - name: Jazzer.js
@@ -210,4 +210,4 @@ repository:
             name: TypeScript fuzz pass
             predicate-uri: https://intoto.fuzzing
             location: https://github.com/OpenSesame-Labs/OpenSesame/blob/main/docs/validation/fuzzing.md
-            comment: 16 Jazzer.js targets over the identity and vault planes; pnpm test:fuzz.
+            comment: 16 Jazzer.js targets over the identity and vault planes; npm run test:fuzz.

@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const { parse } = createRequire(
-  new URL("../../node_modules/.pnpm/node_modules/", import.meta.url),
+  new URL("../../node_modules/node_modules/", import.meta.url),
 )("yaml");
 const workflow = (name) =>
   parse(
@@ -33,7 +33,7 @@ describe("publication authority", () => {
       expect(job.steps[0].run).toContain("::error::");
       expect(job.steps[0].run).toMatch(/^\s*exit 1\s*$/m);
       expect(JSON.stringify(definition)).not.toMatch(
-        /secrets\.|publish-packages\.mjs|\b(?:npm|pnpm)\s+publish|\bdocker\s+(?:login|push|build)|docker\/(?:login|build-push)-action/,
+        /secrets\.|publish-packages\.mjs|\b(?:npm|npm)\s+publish|\bdocker\s+(?:login|push|build)|docker\/(?:login|build-push)-action/,
       );
     },
   );

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * mtls-browser-test.mjs — browser capability scenarios (`pnpm test:mtls:browser`).
+ * mtls-browser-test.mjs — browser capability scenarios (`npm run test:mtls:browser`).
  *
  * Drives the Pages browser harnesses that belong to the mTLS work with the
  * pinned Chromium (PLAYWRIGHT_CHROMIUM, default /opt/pw-browsers/chromium):
@@ -94,8 +94,7 @@ if (!(noBuild && existsSync(distDir))) {
   console.log("==> mtls-browser: building apps/pages (VITE_BASE=/OpenSesame/)");
   try {
     execFileSync(
-      "pnpm",
-      ["exec", "turbo", "run", "build", "--filter=@opensesame/pages"],
+      "npm", ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
       {
         cwd: root,
         env,

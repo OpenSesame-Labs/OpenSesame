@@ -35,8 +35,8 @@ compiler and its YAML/JSON import and export.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/contracts test
-pnpm --filter @opensesame/contracts typecheck
+npm run test -w @opensesame/contracts
+npm run typecheck -w @opensesame/contracts
 ```
 
 A change to a transport-security schema needs the matching fixture in

@@ -130,9 +130,9 @@ fn step_up(st: &AppState, headers: &HeaderMap) -> StepUp {
         return StepUp::Stale;
     };
     if claims.assurance == crate::session_claims::Assurance::PhishingResistant
-        && claims.amr == ["webauthn"]
-        && claims.auth_time <= Utc::now()
-        && claims.auth_time >= Utc::now() - chrono::Duration::seconds(300)
+  && claims.amr == ["webauthn"]
+  && claims.auth_time <= Utc::now()
+  && claims.auth_time >= Utc::now() - chrono::Duration::seconds(300)
     {
         StepUp::Fresh
     } else {

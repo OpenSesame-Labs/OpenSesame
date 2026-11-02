@@ -25,7 +25,7 @@ defaults stay empty; setup seams tests assert no `setupRequired` property).
 ## Evidence
 
 ```bash
-pnpm --filter @opensesame/app-core exec vitest run src/lib/setup.test.ts -t 'never a gate'
+npm exec -w @opensesame/app-core -- vitest run src/lib/setup.test.ts -t 'never a gate'
 rg -n "useHostConfigured|useIdentityServes" apps/pages/src/sections apps/pages/src/modules apps/pages/src/lib
 ```
 

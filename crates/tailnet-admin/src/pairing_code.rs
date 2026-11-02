@@ -103,7 +103,7 @@ pub(crate) fn digest_hex(value: &str) -> String {
 /// Constant-time over equal-length digests.
 pub(crate) fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
-        && a.bytes()
+  && a.bytes()
             .zip(b.bytes())
             .fold(0u8, |acc, (x, y)| acc | (x ^ y))
             == 0

@@ -24,8 +24,8 @@ network reach to loopback; this closes the config path that pointed elsewhere.
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/api-client test
-pnpm --filter @opensesame/api-client typecheck
-pnpm --filter @opensesame/browser-extension build
+npm run test -w @opensesame/api-client
+npm run typecheck -w @opensesame/api-client
+npm run build -w @opensesame/browser-extension
 ./scripts/test/battle-test.sh
 ```

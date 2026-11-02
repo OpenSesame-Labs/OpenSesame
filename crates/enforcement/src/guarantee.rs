@@ -242,7 +242,7 @@ impl Guarantee {
     #[must_use]
     pub const fn self_reported(&self) -> bool {
         matches!(self.observability, Observability::Reported)
-            && !self.point.independent_of_subject()
+  && !self.point.independent_of_subject()
     }
 }
 

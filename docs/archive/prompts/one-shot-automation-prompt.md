@@ -36,7 +36,7 @@ acceptance checks, and commit.
    keys, or `getSecret()` affordances; no sudo.
 5. **Do not touch Rust code or `Cargo.*`.** This build-out is
    tooling/TS/docs-only.
-6. **Formatting/lint:** Biome 1.9.4, 2-space indent (`pnpm lint:fix` before
+6. **Formatting/lint:** Biome 1.9.4, 2-space indent (`npm run lint:fix` before
    finishing). TypeScript 5.8.3 strict, `"type": "module"` everywhere.
    Conventional-commit messages (`feat(scope): …`, `docs(scope): …`).
 7. **File ownership is exclusive.** A subagent may read anything but may only
@@ -45,7 +45,7 @@ acceptance checks, and commit.
 
 ## Repository ground truth (verified at commit `0608ccc`)
 
-- Monorepo: pnpm 9.15.0 (Corepack), Node ≥ 22, Turbo 2.9.14, Biome, Vitest
+- Monorepo: npm run 9.15.0 (npm), Node ≥ 22, Turbo 2.9.14, Biome, Vitest
   4.1.10, Playwright 1.55.1 (already a root devDependency), Rust 1.88 workspace
   (leave alone). `pnpm-workspace.yaml` globs include `packages/*` — a new
   directory under `packages/` joins the workspace automatically.
@@ -59,10 +59,10 @@ acceptance checks, and commit.
   `apps/mcp-host` (`@opensesame/mcp-host`, `@modelcontextprotocol/sdk` 1.30.0 +
   zod, entry `src/server.ts`, started with `node --import tsx src/server.ts`)
   and `apps/mcp-client`.
-- Commands: `pnpm bootstrap` (install + db generate/migrate), `pnpm lint`,
-  `pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm verify`, and
-  security gates `pnpm audit:{cve-lite,ast-grep,clippy,osv,cargo-audit,gitleaks,semgrep}`
-  backed by `scripts/*-gate.sh`. `pnpm generate:openapi` writes
+- Commands: `npm run bootstrap` (install + db generate/migrate), `npm run lint`,
+  `npm run typecheck`, `npm test`, `npm run test:integration`, `npm run verify`, and
+  security gates `npm run audit:{cve-lite,ast-grep,clippy,osv,cargo-audit,gitleaks,semgrep}`
+  backed by `scripts/*-gate.sh`. `npm run generate:openapi` writes
   `apps/control-plane/openapi.json`.
 - Known state to fix (all verified absent/true at `0608ccc`):
   - **No `.github/` directory exists and none may be created** (see hard rule 1).
@@ -99,7 +99,7 @@ reading the repo (do not invent):
 
 1. **What this is** — dual-plane authorization fabric; one-paragraph topology
    with ports 8787/8788/18790/9090 and the host/client split (ADR 0017).
-2. **Toolchain** — Node ≥22, pnpm 9.15.0 via Corepack, Rust 1.88 pinned
+2. **Toolchain** — Node ≥22, npm run 9.15.0 via npm, Rust 1.88 pinned
    (`cargo +1.88.0`), Turbo, Biome (2-space), Vitest, Playwright.
 3. **Command crib sheet** — bootstrap/dev/build/test/verify/gates, per-plane
    test one-liners from `CONTRIBUTING.md`, and how to run each plane locally
@@ -114,7 +114,7 @@ reading the repo (do not invent):
    threat models, the `audit-*` series convention, and the gate scripts.
 7. **Skills** — one line per skill in `skills/*/SKILL.md` with path.
 8. **Verification expectations** — what to run before pushing
-   (`pnpm lint && pnpm typecheck && pnpm test`; `pnpm verify` for full).
+   (`npm run lint && npm run typecheck && npm test`; `npm run verify` for full).
 
 Create `CLAUDE.md` containing exactly one import line (`@AGENTS.md`) plus a
 one-sentence comment that AGENTS.md is the canonical agent context.
@@ -135,21 +135,21 @@ quoted in AGENTS.md exists in `package.json`/`CONTRIBUTING.md`/`scripts/`.
 No Actions allowed, so the gate substrate is git hooks + documented commands:
 
 1. `.githooks/pre-commit` (POSIX sh, executable): run
-   `pnpm biome check --no-errors-on-unmatched --files-ignore-unknown=true`
+   `npm run biome check --no-errors-on-unmatched --files-ignore-unknown=true`
    against staged files only, then `bash scripts/audit/gitleaks-gate.sh` if the
    `gitleaks` binary is on PATH (skip with a notice otherwise). Fail fast,
    print remediation hints.
 2. `.githooks/pre-push`: honor `OPENSESAME_PREPUSH` env — `off` (skip),
-   `fast` (default: `pnpm typecheck && pnpm test`), `full` (`pnpm verify`).
+   `fast` (default: `npm run typecheck && npm test`), `full` (`npm run verify`).
    Print which mode ran and how to change it.
 3. `scripts/dev/setup-hooks.sh`: idempotent; `git config core.hooksPath .githooks`
    plus chmod +x; safe to re-run.
 4. Root `package.json` edits (exclusive to this package — exact keys):
    - `"setup:hooks": "bash scripts/dev/setup-hooks.sh"`
    - append `&& bash scripts/dev/setup-hooks.sh` to the existing `bootstrap` script
-   - `"test:redteam": "pnpm --filter @opensesame/redteam redteam"` (package
+   - `"test:redteam": "npm run redteam"` -w @opensesame/redteam (package
      created by WP6)
-   - `"test:visual": "pnpm --filter @opensesame/visual-contract test:visual"`
+   - `"test:visual": "npm run test:visual"` -w @opensesame/visual-contract
      (package created by WP7)
 5. `CONTRIBUTING.md`: add a short "Local gates (no CI)" section — hooks setup,
    `OPENSESAME_PREPUSH` modes, and the statement that this repo intentionally
@@ -174,8 +174,8 @@ new paid deps, never commit secrets, don't touch Rust unless the finding is in
 Rust).
 
 1. `ops/routines/nightly-dependency-triage.md` — run
-   `pnpm audit:cve-lite`, `pnpm audit:osv`, `pnpm audit:cargo-audit`,
-   `pnpm audit:gitleaks`, `pnpm audit`; triage findings against the existing
+   `npm run audit:cve-lite`, `npm run audit:osv`, `npm run audit:cargo-audit`,
+   `npm run audit:gitleaks`, `npm audit`; triage findings against the existing
    ignore files (`osv-scanner.toml`, `.cargo/audit.toml`, `deny.toml`); open a
    fix PR for actionable advisories, or append a dated note to
    `docs/security/tooling-evaluation.md` for accepted risks.
@@ -211,7 +211,7 @@ checklist items each carry a source citation.
 
 1. `scripts/release/deploy-pages.sh` (bash, executable, `set -euo pipefail`): build and
    publish `apps/pages` to GitHub Pages **without Actions**: require a clean
-   working tree; `pnpm --filter @opensesame/pages build`; honor
+   working tree; `npm run build`; -w @opensesame/pages honor
    `PAGES_BASE_PATH` (default `/OpenSesame/`) passed to the build as the Vite
    `--base`; publish `apps/pages/dist` to the `gh-pages` branch via a temporary
    `git worktree` (init branch if absent, commit with message
@@ -230,7 +230,7 @@ checklist items each carry a source citation.
    documented session-auth path.
 
 **Verify:** `bash -n scripts/release/deploy-pages.sh`; `shellcheck` if available;
-`scripts/release/deploy-pages.sh --dry-run` succeeds after `pnpm install` (build runs,
+`scripts/release/deploy-pages.sh --dry-run` succeeds after `npm install` (build runs,
 no push); both docs still render as valid Markdown (no broken headings).
 
 ## WP5 — Privacy-bounded telemetry (PostHog, off by default)
@@ -277,17 +277,17 @@ configured**, and the allowlist is enforced in code at the capture site.
    allowlist enforced in `packages/telemetry`, see
    `docs/contributing/posthog-setup.md`).
 
-**Verify:** `pnpm --filter @opensesame/telemetry test`,
-`pnpm --filter @opensesame/pages test && pnpm --filter @opensesame/pages build`
+**Verify:** `npm run test`, -w @opensesame/telemetry
+`npm run test -w @opensesame/pages && npm run build` -w @opensesame/pages
 (without the env vars — must build clean and stay no-op),
-`pnpm --filter @opensesame/mcp-host test`.
+`npm run test`. -w @opensesame/mcp-host
 
 ## WP6 — promptfoo red-team suite for the MCP surfaces
 
 **OWNS:** `tests/redteam/**`
 
 `tests/redteam` — `@opensesame/redteam`, private; devDependency `promptfoo`
-(latest stable, pinned). Not part of default `pnpm test` (root wiring is WP2's
+(latest stable, pinned). Not part of default `npm test` (root wiring is WP2's
 `test:redteam`).
 
 1. `promptfooconfig.yaml`: provider `anthropic:messages:claude-sonnet-4-6`
@@ -297,7 +297,7 @@ configured**, and the allowlist is enforced in code at the capture site.
    `ANTHROPIC_API_KEY` unset, or export a Console API key to override; never
    commit keys.
 2. Test corpus (YAML cases + a small TS harness started with `tsx`): launch
-   `apps/mcp-host` as a subprocess (`pnpm --filter @opensesame/mcp-host start`)
+   `apps/mcp-host` as a subprocess (`npm run start`) -w @opensesame/mcp-host
    and drive it over stdio with `@modelcontextprotocol/sdk` client. Attack
    classes, ≥4 cases each, derived from the repo's own history (read
    `docs/security/audits/2026-08-08-mcp-agent-boundary.md`,
@@ -313,7 +313,7 @@ configured**, and the allowlist is enforced in code at the capture site.
    plus `"redteam:report": "promptfoo view"`; README covering auth, local run,
    and that the nightly routine (`ops/routines/`) may invoke it.
 
-**Verify:** `pnpm --filter @opensesame/redteam exec promptfoo eval --help`
+**Verify:** `npm exec -w @opensesame/redteam -- promptfoo eval --help`
 works; config parses (`promptfoo validate` if available, else a dry parse);
 harness typechecks. Model-dependent evals may be skipped in this run if no
 session auth is present — the suite must fail gracefully with a clear message
@@ -328,7 +328,7 @@ devDependencies: `@playwright/test` (match root 1.55.1), `pixelmatch`, `pngjs`
 (all pinned).
 
 1. Playwright config: build+preview `@opensesame/pages` via `webServer`
-   (`pnpm --filter @opensesame/pages preview` on port 5180 after a build), two
+   (`npm run preview` -w @opensesame/pages on port 5180 after a build), two
    projects: `desktop` 1280×800 and `mobile` 390×844 (mobile emulation).
 2. One spec that reproduces the six baseline names exactly
    (`pages-{desktop,mobile}.png` = initial app shell,
@@ -350,7 +350,7 @@ devDependencies: `@playwright/test` (match root 1.55.1), `pixelmatch`, `pngjs`
    unlock-first gate), when to update baselines, and the rule that a baseline
    update must be intentional and reviewed.
 
-**Verify:** `pnpm --filter @opensesame/visual-contract test:visual` passes
+**Verify:** `npm run test:visual` -w @opensesame/visual-contract passes
 locally (Playwright browsers: use the preinstalled Chromium if
 `PLAYWRIGHT_BROWSERS_PATH` is set; otherwise `playwright install chromium`).
 
@@ -378,8 +378,8 @@ locally (Playwright browsers: use the preinstalled Chromium if
    - refuses (exit 0 with a warning) if `OPENSESAME_ENV=production` or any of
      `OPENSESAME_CLAIM_PEPPER`/`OPENSESAME_AUTH_SECRET` are set non-empty —
      production credentials must never feed an automated bootstrap;
-   - runs `corepack enable && pnpm install --frozen-lockfile`, then
-     `pnpm --filter @opensesame/database db:generate` with
+   - runs ` && npm ci`, then
+     `npm run db:generate` -w @opensesame/database with
      `OPENSESAME_ALLOW_DEV_DEFAULTS=true OPENSESAME_ENV=development`; skips
      migrations (needs Postgres);
    - is idempotent and finishes under ~5 minutes; logs each step.
@@ -423,15 +423,15 @@ prompt is authoritative for both).
 ## Orchestrator: merge & acceptance
 
 1. Spawn WP1–WP9 in parallel (isolated worktrees). Ownership is disjoint by
-   construction; the only expected merge friction is `pnpm-lock.yaml`
-   (regenerate with `pnpm install` after merging rather than hand-merging).
-2. After merging: `pnpm install`, then `pnpm lint:fix && pnpm lint`,
-   `pnpm typecheck`, `pnpm test`, `bash scripts/dev/setup-hooks.sh`,
+   construction; the only expected merge friction is `package-lock.json`
+   (regenerate with `npm install` after merging rather than hand-merging).
+2. After merging: `npm install`, then `npm run lint:fix && npm run lint`,
+   `npm run typecheck`, `npm test`, `bash scripts/dev/setup-hooks.sh`,
    `scripts/release/deploy-pages.sh --dry-run`, and each package's verify step that
    wasn't already run.
 3. Confirm the hard rules held: `git status --porcelain .github` shows nothing
    (directory must not exist), `git grep -l "copilot" -- ':!docs/contributing/ai-automation-roadmap.md'`
-   introduces no new hits, no secrets staged (`pnpm audit:gitleaks`).
+   introduces no new hits, no secrets staged (`npm run audit:gitleaks`).
 4. Commit per package (conventional messages) or as one reviewed series, push,
    and open a single PR titled `feat: local-first AI automation build-out
    (agents context, gates, routines, telemetry, red-team, visual contract)`

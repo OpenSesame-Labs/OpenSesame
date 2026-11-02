@@ -2,7 +2,7 @@
 # the copies under .agents/skills/ (skills-lock.json); this file only names
 # the MCP servers the design tooling uses (docs/design/tooling.md).
 
-# Storybook's MCP endpoint, served while `pnpm --filter @opensesame/pages storybook` runs.
+# Storybook's MCP endpoint, served while `npm run storybook` -w @opensesame/pages runs.
 [mcp_servers.storybook]
 url = "http://localhost:6006/mcp"
 

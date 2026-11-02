@@ -314,7 +314,7 @@ async fn set_users(
 async fn delete(server: &BitwardenServer, view: &OrgView, ids: &[String]) -> ApiResult<()> {
     let allowed = |id: &String| {
         view.collections.iter().any(|c| &c.id == id)
-            && (view.manages() || super::vault_view::permitted(&view.member, "deleteAnyCollection"))
+  && (view.manages() || super::vault_view::permitted(&view.member, "deleteAnyCollection"))
     };
     if !ids.iter().all(allowed) {
         return Err(ApiError::bad_request("You may not delete this collection."));

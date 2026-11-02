@@ -150,13 +150,13 @@ impl PasswordResetGrantScope {
 
 fn validate_domain(domain: &str) -> Result<(), DomainError> {
     let valid = domain.len() <= 253
-        && domain.split('.').count() >= 2
-        && domain.split('.').all(|label| {
+  && domain.split('.').count() >= 2
+  && domain.split('.').all(|label| {
             !label.is_empty()
-                && label.len() <= 63
-                && !label.starts_with('-')
-                && !label.ends_with('-')
-                && label
+  && label.len() <= 63
+  && !label.starts_with('-')
+  && !label.ends_with('-')
+  && label
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
         });
@@ -175,8 +175,8 @@ fn validate_run_id(run_id: &str) -> Result<(), DomainError> {
 
 fn validate_segment(name: &str, value: &str) -> Result<(), DomainError> {
     if !value.is_empty()
-        && value.len() <= 128
-        && value
+  && value.len() <= 128
+  && value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
     {

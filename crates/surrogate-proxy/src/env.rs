@@ -51,7 +51,7 @@ pub fn is_valid_name(name: &str) -> bool {
     bytes
         .next()
         .is_some_and(|first| first.is_ascii_alphabetic() || first == b'_')
-        && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+  && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 /// The trust and proxy variables for a child whose CA certificate the caller

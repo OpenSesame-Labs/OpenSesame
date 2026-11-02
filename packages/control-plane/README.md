@@ -63,18 +63,18 @@ production deployment; on a local-only one it also stands in for a missing
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/control-plane dev          # tsx watch src/server.ts
-pnpm --filter @opensesame/control-plane start        # :8788
-pnpm --filter @opensesame/control-plane typecheck
-pnpm --filter @opensesame/control-plane test
-pnpm --filter @opensesame/control-plane verify:siop
-pnpm --filter @opensesame/control-plane test:authentication-browser   # e2e/, real Chromium
-pnpm --filter @opensesame/control-plane generate:openapi              # writes openapi.json
+npm run dev -w @opensesame/control-plane          # tsx watch src/server.ts
+npm run start -w @opensesame/control-plane        # :8788
+npm run typecheck -w @opensesame/control-plane
+npm run test -w @opensesame/control-plane
+npm run verify:siop -w @opensesame/control-plane
+npm run test:authentication-browser -w @opensesame/control-plane   # e2e/, real Chromium
+npm run generate:openapi -w @opensesame/control-plane              # writes openapi.json
 ```
 
-`openapi.json` is generated; regenerate it (or run `pnpm generate:openapi` at
+`openapi.json` is generated; regenerate it (or run `npm run generate:openapi` at
 the root) after changing a route. Browser verifiers in `scripts/` run with
-`pnpm --filter @opensesame/control-plane exec tsx scripts/<name>.mjs`.
+`npm exec -w @opensesame/control-plane -- tsx scripts/<name>.mjs`.
 
 ## Related
 

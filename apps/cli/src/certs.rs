@@ -95,7 +95,7 @@ pub async fn cmd_issue(server: &str, output: &str, options: IssueOptions) -> Res
     }
     let mut ip_addrs = ips;
     if ip_addrs.is_empty()
-        && (common_name == "localhost" || dns_names.iter().any(|d| d == "localhost"))
+  && (common_name == "localhost" || dns_names.iter().any(|d| d == "localhost"))
     {
         ip_addrs.push("127.0.0.1".into());
     }

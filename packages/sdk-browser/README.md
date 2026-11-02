@@ -43,9 +43,9 @@ const session = await sesame.handleRedirectCallback(window.location.href);
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/sdk-browser test
-pnpm --filter @opensesame/sdk-browser test:watch
-pnpm --filter @opensesame/sdk-browser typecheck
+npm run test -w @opensesame/sdk-browser
+npm run test:watch -w @opensesame/sdk-browser
+npm run typecheck -w @opensesame/sdk-browser
 ```
 
 JWT fixtures for the ID-token tests are in `src/test/jwt-fixtures.ts`.

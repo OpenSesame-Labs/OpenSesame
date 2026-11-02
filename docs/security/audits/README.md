@@ -5,7 +5,7 @@ what was scanned or reviewed, what was found, how each finding was fixed at
 its enforcement boundary, and the command that proves it. Audits are history
 — add a new dated file rather than editing an old one.
 
-Name new files `YYYY-MM-DD-<topic>.md` and run `pnpm docs:index` to list them
+Name new files `YYYY-MM-DD-<topic>.md` and run `npm run docs:index` to list them
 here. The architecture-level documents they refine live one level up in
 [`docs/security/`](../README.md).
 

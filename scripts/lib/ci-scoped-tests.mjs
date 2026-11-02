@@ -45,7 +45,7 @@ export function isInfraPath(path) {
   return (
     name === "package.json" ||
     name === "package-lock.json" ||
-    name === "pnpm-lock.yaml" ||
+    name === "package-lock.json" ||
     name === "pnpm-workspace.yaml" ||
     name === "turbo.json" ||
     /^tsconfig(\..+)?\.json$/.test(name) ||

@@ -18,9 +18,9 @@ const dir = join(root, "work/evidence/sops/pages/browser");
 mkdirSync(dir, { recursive: true });
 
 const SOURCES = [
-  ["browser-results.json", "pnpm verify:sops-browser"],
-  ["conformance-results.json", "pnpm verify:sops-conformance"],
-  ["cloud-live.json", "pnpm verify:sops-cloud-live"],
+  ["browser-results.json", "npm run verify:sops-browser"],
+  ["conformance-results.json", "npm run verify:sops-conformance"],
+  ["cloud-live.json", "npm run verify:sops-cloud-live"],
 ];
 
 const TOTAL = 80;

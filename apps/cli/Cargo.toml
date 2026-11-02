@@ -42,7 +42,7 @@ opensesame-rotation-web = { path = "../../crates/rotation-web" }
 opensesame-host-core = { path = "../../crates/host-core" }
 opensesame-worker = { path = "../../crates/worker" }
 # Settings for optional plugins only (ADR 0150 §7). The plugins themselves are
-# separate executables this binary never links (`pnpm audit:plugin-boundary`).
+# separate executables this binary never links (`npm run audit:plugin-boundary`).
 opensesame-plugin-settings = { path = "../../crates/plugin-settings" }
 opensesame-tailnet-admin = { path = "../../crates/tailnet-admin" }
 # The run lease's credential hook (ADR 0150 §6.2): a tripwire ends a dev

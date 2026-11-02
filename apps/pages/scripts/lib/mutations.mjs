@@ -19,7 +19,7 @@ const APP_CORE = "packages/app-core";
 const suite = (filter, ...paths) => ({
   kind: "exit",
   label: `${filter} ${paths.join(" ")}`,
-  command: "pnpm",
+  command: "npm",
   args: ["--filter", filter, "exec", "vitest", "run", ...paths],
 });
 
@@ -34,9 +34,9 @@ const buildNames = (needle) => ({
   kind: "names",
   needle,
   label: `pages build reachability report names ${needle}`,
-  command: "pnpm",
+  command: "npm",
   args: [
-    "exec",
+    "exec", "--",
     "turbo",
     "run",
     "build",

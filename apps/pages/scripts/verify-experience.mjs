@@ -31,8 +31,7 @@ const pages = join(root, "apps/pages");
 
 function run(filter, args) {
   const result = spawnSync(
-    "pnpm",
-    ["--filter", filter, "exec", "vitest", "run", "--maxWorkers=4", ...args],
+    "npm", ["exec", "-w", filter, "--", "vitest", "run", "--maxWorkers=4", ...args],
     { cwd: root, stdio: "inherit", env: process.env },
   );
   if (result.status !== 0) process.exit(result.status ?? 1);

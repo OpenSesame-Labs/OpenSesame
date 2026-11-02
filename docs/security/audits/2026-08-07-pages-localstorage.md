@@ -6,8 +6,8 @@ Branch: `chore/audit-tick8` (post `#25` Pages shell)
 
 | Check | Result |
 |------|--------|
-| `pnpm audit:ast-grep` (pre-fix) | FAIL — `ts-localstorage-set` in `settings.ts` / `queue.ts` |
-| `pnpm audit:ast-grep` (post-fix) | CLEAN |
+| `npm run audit:ast-grep` (pre-fix) | FAIL — `ts-localstorage-set` in `settings.ts` / `queue.ts` |
+| `npm run audit:ast-grep` (post-fix) | CLEAN |
 | semgrep / gitleaks / cve-lite / osv / cargo-audit | CLEAN |
 
 ## Findings fixed
@@ -20,6 +20,6 @@ Branch: `chore/audit-tick8` (post `#25` Pages shell)
 ## Gate
 
 ```bash
-pnpm audit:ast-grep
-pnpm --filter @opensesame/pages typecheck test
+npm run audit:ast-grep
+npm run typecheck -w @opensesame/pages test
 ```

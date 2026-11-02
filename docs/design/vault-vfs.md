@@ -109,5 +109,5 @@ The rail renders the same filesystem one level up, mono:
 - `AppShell.test.tsx`: rail directories + `g`-jump chips, vault entries and
   counts, settings categories under `settings/`, active-row marking.
 
-Gates: `pnpm --filter @opensesame/pages test`, `tsc --noEmit`, per-file
+Gates: `npm run test`, -w @opensesame/pages `tsc --noEmit`, per-file
 oxlint anti-slop, biome, `npx impeccable detect apps/pages/src` = 0.

@@ -48,14 +48,14 @@ fi
 
 if [[ "${JAZZER_ALLOW_FALLBACK:-0}" != "1" ]]; then
   echo "jazzer-gate: native Jazzer.js addon is not loadable." >&2
-  echo "  pnpm --filter @opensesame/fuzz install  # rebuild @jazzer.js/core native addon" >&2
+  echo "  npm run install -w @opensesame/fuzz  # rebuild @jazzer.js/core native addon" >&2
   echo "  (or set JAZZER_ALLOW_FALLBACK=1 to run the uncoverage-guided local runner," >&2
   echo "   which reports DEGRADED, never CLEAN)" >&2
-  echo "This gate is optional and is not part of pnpm verify." >&2
+  echo "This gate is optional and is not part of npm run verify." >&2
   exit 1
 fi
 
 echo "==> jazzer-gate: local runner (${SECONDS_PER_TARGET}s/target; native Jazzer.js addon not loaded)"
-FUZZ_SECONDS="$SECONDS_PER_TARGET" pnpm exec tsx src/run.ts \
+FUZZ_SECONDS="$SECONDS_PER_TARGET" npm exec -- tsx src/run.ts \
   > "$OPENSESAME_AUDIT_DIR/fallback.log" 2>&1
 echo "jazzer-gate: DEGRADED (uncoverage-guided fallback) — not a CLEAN coverage-guided pass"

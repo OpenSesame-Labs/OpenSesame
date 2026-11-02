@@ -23,12 +23,12 @@ Test-only binaries and alternate verification builds are labelled separately and
 | --- | --- | --- |
 | `ci.yml` | Split | Controller `ci.yml` calls `ci-fast-checks.yml`; retain top-level required reporters. `candidate-build.yml` produces artifacts for accepted main source. Move broad browser/native qualification to `ci-prerelease-checks.yml`. |
 | `codeql.yml` | Convert | Six-language `security-extended` matrix becomes candidate-bound work called by `ci-release-checks.yml`; remove duplicate main-push and general PR runs only when replacement coverage is operational. |
-| `complete-verify.yml` | Convert | Preserve the complete `pnpm verify` chain, exact-source assertions and evidence capture in `ci-prerelease-checks.yml`; retire its broad automatic PR trigger. |
+| `complete-verify.yml` | Convert | Preserve the complete `npm run verify` chain, exact-source assertions and evidence capture in `ci-prerelease-checks.yml`; retire its broad automatic PR trigger. |
 | `container-build-pr.yml` | Split | Keep Dockerfile/build-input validation when needed; move the general image-build check to prerelease. It currently builds on every non-draft PR without a path filter. OCI publishing is outside phase one. |
 | `deploy-pages.yml` | Convert | Candidate builder owns preparation/stamping; `release-publish.yml` uploads and deploys the approved payload, then verifies the live release digest. Disable the old main-push rebuild/deploy path at cutover. |
 | `full-suite.yml` | Fold in | `dev-nightly.yml` calls `ci-dev-checks.yml` for the existing whole-TS suite, native-asset preparation and real Postgres checks. Retire the independent nightly schedule after the new controller is proven. |
 | `native-platform-validation.yml` | Convert | Preserve real-host core, CLI and release-artifact matrices under prerelease, including startup/provenance assertions and failure logs. Cross-compilation alone does not replace these tests. |
-| `password-parity.yml` | Convert | Preserve `pnpm test:2password-parity` and assertion reports under prerelease; retire the broad PR-triggered gauntlet. |
+| `password-parity.yml` | Convert | Preserve `npm run test:2password-parity` and assertion reports under prerelease; retire the broad PR-triggered gauntlet. |
 | `publish-containers.yml` | Disable legacy publishing at cutover | Remove its ungated `v*` automatic publisher from the activated path. Later implement candidate-bound OCI publishing; until then this path must not publish around release qualification. |
 | `publish-npm.yml` | Disable legacy publishing at cutover | Its manual rebuild/publish also bypasses qualification. Reintroduce only as a gated candidate publisher, or explicitly exclude and disable it until that implementation exists. |
 | `pwa-native-wasm.yml` | Keep diagnostic | Preserve explicit/manual cold-build proof and owner/source guards. It is not a recurring PR gate and does not authorize deployment. |
@@ -79,7 +79,7 @@ An executable catalog/test must require every existing driver exactly once withi
 except intentional viewport/journey/browser partitions; nightly smoke repetition is explicit, not duplicate catalog membership.
 
 Dev preserves the existing nightly `turbo run typecheck test --concurrency=4`, both real Postgres suites,
-and canonical native-asset preparation. Prerelease preserves complete `pnpm verify`, password parity,
+and canonical native-asset preparation. Prerelease preserves complete `npm run verify`, password parity,
 native matrices, container build validation and measured coverage floors. Coverage is not silently replaced by mutation scores.
 The release tier adds the existing scoped TS/Rust mutation suites and enforced security checks after prerelease passes.
 No mutation or coverage floor is lowered. Targeted trust-boundary regressions stay in the fast affected tests.

@@ -32,11 +32,11 @@ fn source(extensions: &Extensions) -> Result<String, Response> {
         let now = chrono::Utc::now();
         let linked = peer.is_some_and(|proxy| {
             proxy.source() == EvidenceSource::DirectTls
-                && proxy.policy() == TransportPolicy::TrustedIngress
-                && proxy.is_usable_at(now)
-                && origin.ingress().is_some_and(|ingress| {
+  && proxy.policy() == TransportPolicy::TrustedIngress
+  && proxy.is_usable_at(now)
+  && origin.ingress().is_some_and(|ingress| {
                     ingress.leaf_thumbprint_sha256() == proxy.leaf_thumbprint_sha256()
-                        && ingress.listener() == proxy.listener()
+  && ingress.listener() == proxy.listener()
                 })
         });
         if !linked

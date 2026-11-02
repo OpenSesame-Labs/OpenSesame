@@ -36,8 +36,8 @@ half-configured wallet throws at startup.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/wallet test
-pnpm --filter @opensesame/wallet typecheck
+npm run test -w @opensesame/wallet
+npm run typecheck -w @opensesame/wallet
 ```
 
 ## Related

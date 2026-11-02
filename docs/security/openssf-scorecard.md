@@ -8,8 +8,8 @@ claiming a higher score.
 
 ## Dependency findings
 
-`pnpm audit:osv` scans every tracked Cargo, pnpm and npm lockfile, including
-`.deepsec/pnpm-lock.yaml`, `.cursor/tools/package-lock.json` and
+`npm run audit:osv` scans every tracked Cargo, npm run and npm lockfile, including
+`.deepsec/package-lock.json`, `.cursor/tools/package-lock.json` and
 `tests/fuzz/cargo/Cargo.lock`, and the TURN module's `go.mod`.
 Untracked dependency caches and private reports are excluded. Scanner errors,
 missing reports and every reported advisory fail the gate; no new exceptions

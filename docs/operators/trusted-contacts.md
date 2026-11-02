@@ -318,7 +318,7 @@ in the Sharing section, and the section exists only while it is on.
 ## Verifying it
 
 ```bash
-pnpm --filter @opensesame/app-core exec vitest run src/lib/quorum
+npm exec -w @opensesame/app-core -- vitest run src/lib/quorum
 ```
 
 runs the 45 SLIP-0039 vectors (`spec/conformance/slip39/`), the RFC 9180

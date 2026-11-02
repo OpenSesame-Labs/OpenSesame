@@ -99,34 +99,34 @@ The full picture is in [docs/architecture](docs/architecture/README.md).
 
 ## Quick start
 
-Prerequisites: Node 22+, pnpm 9 (via Corepack), and Rust 1.88 for the Host
+Prerequisites: Node 24+, npm run 9 (via npm), and Rust 1.88 for the Host
 plane. Details and troubleshooting: [getting started](docs/getting-started/README.md).
 
 ```bash
-corepack enable
-pnpm install
-pnpm setup:hooks                             # lint + secret-scan hooks
+
+npm install
+npm run setup:hooks                             # lint + secret-scan hooks
 
 # The app, no backend needed — open http://localhost:5180
-pnpm --filter @opensesame/pages dev:web
+npm run dev:web -w @opensesame/pages
 
 # The app with a local Host, Identity API and mock IdP behind it
 # (runs the Host with `cargo run --offline`: run `cargo +1.88.0 fetch` once first)
-pnpm --filter @opensesame/pages dev
+npm run dev -w @opensesame/pages
 ```
 
 Or start the backends one at a time:
 
 ```bash
 # Identity plane (Identity API on :8788, mock upstream IdP on :9090)
-pnpm --filter @opensesame/mock-upstream-idp dev &
-OPENSESAME_ALLOW_DEV_DEFAULTS=1 pnpm --filter @opensesame/control-plane start
+npm run dev -w @opensesame/mock-upstream-idp &
+OPENSESAME_ALLOW_DEV_DEFAULTS=1 npm run start -w @opensesame/control-plane
 
 # Host plane (Host API on :8787, daemon on :18790), one terminal each. The
 # scripts generate the development secrets the binaries refuse to start without.
-pnpm dev:host
-pnpm dev:daemon
-pnpm dev:cli -- login --flow device --no-browser
+npm run dev:host
+npm run dev:daemon
+npm run dev:cli -- login --flow device --no-browser
 ```
 
 ## Repository layout
@@ -141,7 +141,7 @@ pnpm dev:cli -- login --flow device --no-browser
 | [`spec/`](spec/README.md) | Language-neutral contracts: WIT worlds, the Host OpenAPI, the OpenFGA model, connector manifests. |
 | [`tests/`](tests/README.md) | Cross-cutting suites: fuzzing, red team, visual contract, mTLS interop, shared fixtures. |
 | [`tools/`](tools/README.md) | Development tooling: lint plugins, quality baselines, mutation configs, the mock IdP. |
-| [`scripts/`](scripts/README.md) | Task scripts behind `pnpm` commands: gates, audits, release checks. |
+| [`scripts/`](scripts/README.md) | Task scripts behind `npm` commands: gates, audits, release checks. |
 | [`ops/`](ops/README.md) | Compose stacks, ingress and NATS references, repo governance, scheduled routines. |
 | [`skills/`](skills/README.md) | Agent skills for using and developing OpenSesame. |
 | [`docs/`](docs/README.md) | Everything else worth reading. |
@@ -149,12 +149,12 @@ pnpm dev:cli -- login --flow device --no-browser
 ## Everyday commands
 
 ```bash
-pnpm typecheck        # every TypeScript workspace
-pnpm test             # every TypeScript test suite
+npm run typecheck        # every TypeScript workspace
+npm test             # every TypeScript test suite
 cargo +1.88.0 test --workspace --all-targets
-pnpm lint             # Biome on files changed from origin/main
-pnpm quality          # file-size, complexity and package-coupling ratchets
-pnpm verify           # the full local gate: all of the above, Clippy, anti-slop, battle test
+npm run lint             # Biome on files changed from origin/main
+npm run quality          # file-size, complexity and package-coupling ratchets
+npm run verify           # the full local gate: all of the above, Clippy, anti-slop, battle test
 ```
 
 What each gate enforces and why: [contributing](docs/contributing/README.md).

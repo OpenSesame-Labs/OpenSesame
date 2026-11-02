@@ -23,5 +23,5 @@ Scanners: cve-lite, semgrep, ast-grep, gitleaks, clippy, cargo-audit, osv-scanne
 
 - `cargo clippy --workspace --all-targets --all-features` — clean
 - `cargo test -p opensesame-human-vault` — 12 passed (3 new)
-- `pnpm --filter @opensesame/worker test` — 2 passed (1 new)
+- `npm run test` -w @opensesame/worker — 2 passed (1 new)
 - semgrep, gitleaks, cve-lite, ast-grep, cargo-audit, osv-scanner, cargo-deny — clean

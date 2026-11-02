@@ -6,8 +6,8 @@ set -euo pipefail
 export PATH="/usr/local/cargo/bin:${PATH}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/.cache/packages/cargo-target}"
 
-corepack enable
-corepack prepare pnpm@9.15.0 --activate
+
+
 bash scripts/dev/install-dependencies.sh
 cargo +1.88.0 fetch
 

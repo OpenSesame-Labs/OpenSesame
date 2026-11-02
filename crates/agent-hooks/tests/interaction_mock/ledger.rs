@@ -41,7 +41,7 @@ impl Row {
     /// Pending: neither withdrawn nor settled.
     fn live(&self) -> bool {
         !self.cancelled
-            && self
+  && self
                 .interaction
                 .as_ref()
                 .is_none_or(|front| !front.consumed)

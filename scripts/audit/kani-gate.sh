@@ -13,7 +13,7 @@ fi
 if ! cargo kani --version >/dev/null 2>&1; then
   echo "kani-gate: Kani is not installed." >&2
   echo "  cargo install --locked kani-verifier && cargo kani setup" >&2
-  echo "This gate is optional and is not part of pnpm verify." >&2
+  echo "This gate is optional and is not part of npm run verify." >&2
   exit 1
 fi
 

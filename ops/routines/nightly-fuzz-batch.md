@@ -19,7 +19,7 @@ first.
 Follow AGENTS.md §9. Do the work in a copy-on-write git worktree
 `/home/codex/repos/opensesame-<routine>` branched from the latest `origin/main`
 (`git worktree add` shares the object database; do not full-clone). Share the
-pnpm store (`pnpm store path`) and set
+npm cache (`npm config get cache`) and set
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`. Do not copy
 `node_modules` or `target/` into the worktree.
 
@@ -46,7 +46,7 @@ CodeRabbit does not auto-review while the repository has fewer than 10 stars.
   the packs under `tests/fuzz/clusterfuzzlite/` and `tests/fuzz/oss-verify/`
   change only through a reviewed pull request, never from a batch run.
 - **Never commit secrets.** A crash input is a test fixture, not a credential.
-- Do not add hour-long fuzz to `pnpm verify`.
+- Do not add hour-long fuzz to `npm run verify`.
 - Prefer fixing a real oracle violation over silencing a harness.
 
 ## Mission
@@ -58,7 +58,7 @@ CodeRabbit does not auto-review while the repository has fewer than 10 stars.
 2. Run a budgeted batch:
 
    ```bash
-   FUZZ_SECONDS=300 FUZZ_BATCH_BUDGET=7200 pnpm audit:fuzz:batch
+   FUZZ_SECONDS=300 FUZZ_BATCH_BUDGET=7200 npm run audit:fuzz:batch
    ```
 
 3. If a target crashes:
@@ -82,7 +82,7 @@ CodeRabbit does not auto-review while the repository has fewer than 10 stars.
 If time remains inside the budget:
 
 ```bash
-FUZZ_SECONDS=60 pnpm test:fuzz
+FUZZ_SECONDS=60 npm run test:fuzz
 ```
 
 Triage Jazzer crashes the same way; they land in

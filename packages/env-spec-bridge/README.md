@@ -31,12 +31,12 @@ sensitive, required, public, type, value, resolver, decorators }] }`, with
 ## Bundle
 
 ```bash
-pnpm --filter @opensesame/env-spec-bridge bundle   # dist/opensesame-env-parse.mjs
+npm run bundle -w @opensesame/env-spec-bridge   # dist/opensesame-env-parse.mjs
 node packages/env-spec-bridge/scripts/bundle.mjs <out>
 ```
 
 `scripts/bundle.mjs` bundles the bridge and `@env-spec/parser` with esbuild
-(the version `pnpm-lock.yaml` records: the root `pnpm.overrides` rewrite
+(the version `package-lock.json` records: the root `npm.overrides` rewrite
 esbuild's specifier, so `package.json` does not pin it) into one ES module that
 imports only `node:` builtins: the `opensesame-env-parse.mjs` a
 [release kit](../../docs/operators/release-kit.md) ships beside the
@@ -49,7 +49,7 @@ same bytes on any machine.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/env-spec-bridge test     # node --test test/parse.test.mjs test/bundle.test.mjs
+npm run test -w @opensesame/env-spec-bridge     # node --test test/parse.test.mjs test/bundle.test.mjs
 node packages/env-spec-bridge/bin/opensesame-env-parse.mjs tests/fixtures/demo.env.schema
 ```
 

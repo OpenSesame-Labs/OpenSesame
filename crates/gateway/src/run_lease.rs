@@ -92,7 +92,7 @@ pub(crate) async fn settle(state: &AppState, notice: &SecurityNotice) {
     if let Some(run_id) = stopped_run(notice) {
         end_run(state, &run_id);
     } else if notice.event_type == EVENT_SURROGATE_MISDIRECTED
-        && notice.subject_kind == SURROGATE_RUN_SUBJECT_KIND
+  && notice.subject_kind == SURROGATE_RUN_SUBJECT_KIND
     {
         park_watched(state, notice).await;
     }

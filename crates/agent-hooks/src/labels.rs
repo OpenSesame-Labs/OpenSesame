@@ -95,9 +95,9 @@ pub fn is_label(label: &str) -> bool {
     };
     let mut head = namespace.bytes();
     head.next().is_some_and(|b| b.is_ascii_lowercase())
-        && head.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
-        && !name.is_empty()
-        && name.bytes().all(|b| {
+  && head.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+  && !name.is_empty()
+  && name.bytes().all(|b| {
             b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'.' | b':' | b'-')
         })
 }

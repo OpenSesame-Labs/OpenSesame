@@ -11,7 +11,7 @@ fn object_sha(value: &serde_json::Value) -> Result<&str, StepError> {
         .as_str()
         .filter(|sha| {
             matches!(sha.len(), 40 | 64)
-                && sha
+  && sha
                     .bytes()
                     .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         })

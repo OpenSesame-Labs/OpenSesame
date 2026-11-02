@@ -19,7 +19,7 @@
  *
  * The relay and TURN server sit on a private address, local operator
  * authority the shared github.io origin may not reach, so walks 3 and 4 run
- * on `dist-live-dedicated` (`pnpm build:live-dedicated`); 1 and 2 keep the
+ * on `dist-live-dedicated` (`npm run build:live-dedicated`); 1 and 2 keep the
  * shared origin.
  *
  * Needs Linux with unprivileged user namespaces (no root, no sudo), `unshare`,

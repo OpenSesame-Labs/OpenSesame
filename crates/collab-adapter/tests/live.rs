@@ -1,6 +1,6 @@
 //! Live Discord — **opt-in only**, and `#[ignore]`d.
 //!
-//! Nothing in this file runs under `cargo test`, `pnpm verify`, or CI. It exists
+//! Nothing in this file runs under `cargo test`, `npm run verify`, or CI. It exists
 //! because a fixture proves the adapter is self-consistent, not that Discord
 //! agrees with it: only a real guild can catch a renamed field, a changed status
 //! code, or a route Discord has since versioned away.

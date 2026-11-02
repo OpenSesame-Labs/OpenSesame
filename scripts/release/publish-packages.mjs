@@ -7,7 +7,7 @@ import { isString } from "../lib/json-boundary.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 // Resolve exact names to package directories. Never pass a caller-controlled
-// pnpm filter, option, or shell program to publication credentials.
+// npm run filter, option, or shell program to publication credentials.
 export function selectedPackages(input, repository = root) {
   if (!isString(input) || /[\r\n]/.test(input)) {
     throw new Error("Expected a comma-separated package list");
@@ -43,8 +43,7 @@ if (
   const directories = selectedPackages(process.env.NPM_PACKAGES);
   for (const cwd of directories) {
     const result = spawnSync(
-      "pnpm",
-      ["publish", "--access", "public", "--no-git-checks"],
+      "npm", ["publish", "--access", "public", "--no-git-checks"],
       {
         cwd,
         stdio: "inherit",

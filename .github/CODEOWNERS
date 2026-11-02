@@ -15,6 +15,6 @@
 /scripts/security/ @Tyler-R-Kendrick
 /scripts/lib/exposure-*.mjs @Tyler-R-Kendrick
 /*.lock @Tyler-R-Kendrick
-/pnpm-lock.yaml @Tyler-R-Kendrick
+/package-lock.json @Tyler-R-Kendrick
 /package.json @Tyler-R-Kendrick
 /.env.schema @Tyler-R-Kendrick

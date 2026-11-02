@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `pnpm verify:sops-conformance` — the mandatory compatibility gate.
+ * `npm run verify:sops-conformance` — the mandatory compatibility gate.
  *
  * It provisions the pinned upstream SOPS v3.13.3 release, verifies it
  * against the checksums published with that release before executing it,
@@ -47,7 +47,7 @@ function write(status, reason, detail = {}) {
     status,
     evidenceKind: "upstream-oracle",
     test: "packages/app-core/src/lib/sops/engine.conformance.test.ts + engine.oracle.test.ts",
-    command: "pnpm verify:sops-conformance",
+    command: "npm run verify:sops-conformance",
     runtime: `sops ${SOPS_VERSION} (${SOPS_SOURCE_COMMIT.slice(0, 12)})`,
     artifact: "work/evidence/sops/pages/browser/conformance-results.json",
     reason,
@@ -85,11 +85,8 @@ if (fixtures.status !== 0) {
 }
 
 const test = spawnSync(
-  "pnpm",
-  [
-    "--filter",
-    "@opensesame/app-core",
-    "exec",
+  "npm", [
+    "exec", "-w", "@opensesame/app-core", "--",
     "vitest",
     "run",
     "src/lib/sops/engine.conformance.test.ts",

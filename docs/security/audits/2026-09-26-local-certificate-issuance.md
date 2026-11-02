@@ -136,5 +136,5 @@ They included `PEM routines::bad end line` from every parse and 22 bad
 inputs that were accepted.
 
 ```bash
-pnpm --filter @opensesame/app-core exec vitest run src/lib/certs.test.ts src/lib/x509
+npm exec -w @opensesame/app-core -- vitest run src/lib/certs.test.ts src/lib/x509
 ```

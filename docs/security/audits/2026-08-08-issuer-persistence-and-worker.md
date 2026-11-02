@@ -55,4 +55,4 @@ change this note has been deferring — but it no longer claims to have happened
 - `packages/database`: 4 new tests (lookup-key extraction, TTL refusal, consumed
   stamp, no mutation of the stored payload) — 9 total
 - `apps/worker`: 1 new test (a tick with no state says so) — 4 total
-- `pnpm -r typecheck`, full workspace tests green
+- `npm run -r typecheck`, full workspace tests green

@@ -32,7 +32,7 @@ Status against the OpenSesame one-shot implementation brief as of the `feat/brie
 Run:
 
 ```bash
-pnpm --filter @opensesame/control-plane test
-pnpm --filter @opensesame/claims test
-pnpm --filter @opensesame/oauth-provider test
+npm run test -w @opensesame/control-plane
+npm run test -w @opensesame/claims
+npm run test -w @opensesame/oauth-provider
 ```

@@ -2,8 +2,7 @@
  * The embedded mailbox type is the marketplace file, byte for byte. The JSON
  * under `marketplace/item-types/optional/` is the one source (the Rust
  * conformance suite and the marketplace pin read the same bytes); this module
- * is generated from it by `pnpm --filter @opensesame/app-core
- * generate:reset-mail-types`, and fails here when it has drifted.
+ * is generated from it by `npm run * -w @opensesame/app-core generate:reset-mail-types`, and fails here when it has drifted.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

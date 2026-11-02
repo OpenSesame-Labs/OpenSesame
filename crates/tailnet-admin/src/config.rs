@@ -63,7 +63,7 @@ pub struct AdminStore {
 fn valid_tailnet(tailnet: &str) -> bool {
     tailnet == "-"
         || ((1..=128).contains(&tailnet.len())
-            && tailnet
+  && tailnet
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b"._@-".contains(&b)))
 }
@@ -87,7 +87,7 @@ fn valid_secret(kind: CredentialKind, secret: &str) -> bool {
     };
     secret.strip_prefix(prefix).is_some_and(|rest| {
         (8..=200).contains(&rest.len())
-            && rest.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+  && rest.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
     })
 }
 

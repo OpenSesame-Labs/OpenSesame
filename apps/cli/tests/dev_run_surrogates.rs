@@ -94,7 +94,7 @@ impl Sandbox {
             .map(|dir| dir.join("node"))
             .find(|candidate| {
                 candidate.is_absolute()
-                    && std::fs::metadata(candidate)
+  && std::fs::metadata(candidate)
                         .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
             })
             .expect("these tests need a node on PATH or OPENSESAME_NODE")

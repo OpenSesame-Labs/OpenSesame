@@ -12,7 +12,7 @@ Blocky's behaviour was measured against the pinned build.
 
 - **Used by:** no workspace crate or app yet. It is exercised by its own unit
   and protocol tests and by the general-authority gate
-  (`pnpm test:authority-fabric`,
+  (`npm run test:authority-fabric`,
   [`scripts/test/authority-fabric-gate.mjs`](../../scripts/test/authority-fabric-gate.mjs)),
   whose scenario registry in `scripts/lib/authority-fabric-scenarios-*.mjs`
   runs its `coverage`, `blocky::request` and `topology` unit tests and

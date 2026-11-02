@@ -23,7 +23,7 @@
 //!    same reason no environment names the settings file in a shipped build:
 //!    `OPENSESAME_PLUGINS_FILE` is honoured only when this crate is built
 //!    with the `path-override` feature, which the crates' own test builds
-//!    turn on and a release never does (`pnpm audit:plugin-boundary`).
+//!    turn on and a release never does (`npm run audit:plugin-boundary`).
 //!    A same-user process can still redirect `HOME`/`XDG_CONFIG_HOME`; that
 //!    is the user boundary, not a boundary this crate draws.
 //! 3. **A binary is verified at every launch, not only at install.** The

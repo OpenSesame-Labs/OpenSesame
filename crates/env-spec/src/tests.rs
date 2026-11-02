@@ -126,7 +126,7 @@ fn bridge_roundtrip_fixture() {
             assert!(
                 std::env::var_os("CI").is_none(),
                 "CI has not installed the env-spec bridge's dependencies \
-                 (pnpm install --frozen-lockfile --ignore-scripts \
+                 (npm ci --ignore-scripts \
                  --filter @opensesame/env-spec-bridge...), so \
                  bridge_roundtrip_fixture would be vacuous: {msg}"
             );

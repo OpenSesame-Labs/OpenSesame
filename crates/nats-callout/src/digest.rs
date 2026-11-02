@@ -67,7 +67,7 @@ impl RequestDigest {
     #[must_use]
     pub fn parse(hex64: &str) -> Option<Self> {
         let ok = hex64.len() == 64
-            && hex64
+  && hex64
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
         ok.then(|| Self(hex64.to_owned()))

@@ -20,7 +20,7 @@ Branch: `chore/audit-tick16`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/control-plane test
-pnpm --filter @opensesame/mock-upstream-idp test
+npm run test -w @opensesame/control-plane
+npm run test -w @opensesame/mock-upstream-idp
 cargo +1.88.0 clippy -p opensesame-callback-edge -- -D warnings
 ```

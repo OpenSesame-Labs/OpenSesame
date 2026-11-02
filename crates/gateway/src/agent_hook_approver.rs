@@ -60,8 +60,8 @@ pub(crate) const EVENT_APPROVER_UPDATED: &str = "agent_hooks.approver.updated";
 /// a control character toward the Identity API.
 pub(crate) fn valid_approver_ref(handle: &str) -> bool {
     handle.starts_with("inbox_")
-        && (8..=256).contains(&handle.len())
-        && handle
+  && (8..=256).contains(&handle.len())
+  && handle
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
 }

@@ -2,7 +2,7 @@
 /**
  * Measure the engine and write the evidence table (SB-073..SB-078).
  *
- *   SOPS_MEASURE=1 pnpm --filter @opensesame/pages exec vitest run \
+ *   SOPS_MEASURE=1 npm exec -w @opensesame/pages -- vitest run \
  *     src/lib/sops/engine.measure.test.ts
  *
  * Skipped unless `SOPS_MEASURE` is set: it is a measurement, not a
@@ -118,7 +118,7 @@ describe.skipIf(!process.env.SOPS_MEASURE)("engine measurements", () => {
 Regenerate with a fresh \`apps/pages\` build, then:
 
 \`\`\`bash
-SOPS_MEASURE=1 pnpm --filter @opensesame/pages exec vitest run \\
+SOPS_MEASURE=1 npm exec -w @opensesame/pages -- vitest run \\
   src/lib/sops/engine.measure.test.ts
 \`\`\`
 

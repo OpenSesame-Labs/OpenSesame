@@ -46,7 +46,7 @@ without it.
    default install and the default verification are unchanged: tests included,
    same output byte for byte.
 4. **The manifest is generated and its staleness fails the gate.**
-   `pnpm anti-slop:manifest` rewrites it; `pnpm test:anti-slop` runs the same
+   `npm run anti-slop:manifest` rewrites it; `npm run test:anti-slop` runs the same
    script with `--check` after the existing `diff -ru` parity check. That check
    leaves `MANIFEST.sha256` and `verify.mjs` out of the comparison, because the
    in-repository twin under `tools/oxlint/anti-slop` is the plugin source and
@@ -76,7 +76,7 @@ Alternatives not taken:
 - The manifest detects drift, not tampering. Whoever can edit a rule can edit the
   manifest, so a consumer that needs more pins the manifest's own digest wherever
   it pins other inputs.
-- Changing any shipped file means running `pnpm anti-slop:manifest` in the same
+- Changing any shipped file means running `npm run anti-slop:manifest` in the same
   commit, as `tools/oxlint/README.md` already says for the twin tree.
 - The test-only predicate is part of the contract. Widening it changes what
   `--no-tests` leaves out, and `scripts/lib/install-anti-slop.test.mjs` pins it,

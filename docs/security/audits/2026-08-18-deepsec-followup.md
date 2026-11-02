@@ -44,19 +44,19 @@ fuzz runner included ordinary `*.test.ts` files.
 
 Clean:
 
-- `pnpm test:all`
+- `npm run test:all`
 - `cargo +1.88.0 test --workspace --all-targets`
-- `pnpm test:security`
-- `pnpm test:task-access`
-- `pnpm audit:ast-grep`
-- `pnpm audit:clippy`
-- `pnpm audit:semgrep`
-- `pnpm audit:gitleaks` (working tree; 56 historical matches reduce to nine
+- `npm run test:security`
+- `npm run test:task-access`
+- `npm run audit:ast-grep`
+- `npm run audit:clippy`
+- `npm run audit:semgrep`
+- `npm run audit:gitleaks` (working tree; 56 historical matches reduce to nine
   unique public/fake fixtures repeated across commits and generated assets)
-- `pnpm audit:cve-lite`
-- `pnpm audit:osv`
-- `pnpm audit:cargo-audit`
-- `FUZZ_SECONDS=1 pnpm test:fuzz`
+- `npm run audit:cve-lite`
+- `npm run audit:osv`
+- `npm run audit:cargo-audit`
+- `FUZZ_SECONDS=1 npm run test:fuzz`
 
 The changed-file Biome gate remains blocked by 236 formatting diagnostics in
 the pre-existing broad PACT branch diff (206 files). This audit did not apply a

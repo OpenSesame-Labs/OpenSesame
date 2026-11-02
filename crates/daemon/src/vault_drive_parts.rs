@@ -23,7 +23,7 @@ pub const MAX_PARTS_BYTES_PER_SLOT: u64 = 4 * 1024 * 1024 * 1024;
 #[must_use]
 pub fn valid_part(part: &str) -> bool {
     part.len() == 16
-        && part
+  && part
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }

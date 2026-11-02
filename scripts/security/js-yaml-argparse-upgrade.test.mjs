@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "../..");
-const installed = path.join(root, "node_modules/.pnpm");
+const installed = path.join(root, "node_modules");
 const patched = readdirSync(installed).filter((name) =>
   name.startsWith("js-yaml@3.15.2_patch_hash="),
 );

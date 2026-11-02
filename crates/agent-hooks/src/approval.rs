@@ -93,9 +93,9 @@ impl ApprovalBinding {
     #[must_use]
     pub fn holds_for(&self, context_identity: &str) -> bool {
         !self.request_digest.is_empty()
-            && !context_identity.is_empty()
-            && self.bound_digest.as_deref() == Some(self.request_digest.as_str())
-            && self.carried_identity.as_deref() == Some(context_identity)
+  && !context_identity.is_empty()
+  && self.bound_digest.as_deref() == Some(self.request_digest.as_str())
+  && self.carried_identity.as_deref() == Some(context_identity)
     }
 }
 

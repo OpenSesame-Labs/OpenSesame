@@ -53,14 +53,14 @@ before it was handed over. Verify each is present, then treat it as done:
 
 ## 1. Repository law (binding on every subagent)
 
-- Toolchain: Node ≥ 22, pnpm 9.15.0 via Corepack, Rust pinned `1.88`
+- Toolchain: Node ≥ 22, npm run 9.15.0 via npm, Rust pinned `1.88`
   (`cargo +1.88.0 …`), Biome lint (2-space indent), Vitest for TS, Turbo.
 - Verification: there is NO CI. Local gates only. Full gate:
-  `pnpm verify` (changed-file lint + typecheck + all TS tests + integration +
+  `npm run verify` (changed-file lint + typecheck + all TS tests + integration +
   `cargo +1.88.0 test --workspace --all-targets` + `./scripts/test/battle-test.sh`).
-  Crypto/auth-touching changes additionally run `pnpm audit:ast-grep`,
-  `pnpm audit:semgrep`, `pnpm audit:clippy`; new npm deps run
-  `pnpm audit:osv` and `pnpm audit:cve-lite`.
+  Crypto/auth-touching changes additionally run `npm run audit:ast-grep`,
+  `npm run audit:semgrep`, `npm run audit:clippy`; new npm deps run
+  `npm run audit:osv` and `npm run audit:cve-lite`.
 - ADRs for consequential decisions live in `docs/adr/`. This program creates
   three, referred to below as **ADR-RECOVERY**, **ADR-BLINDED-STORE** and
   **ADR-BREACH**. **Do not hardcode their numbers from this document.**
@@ -447,7 +447,7 @@ Rust plane already Argon2id) and the recovery path is KDF-independent
 Amend DESIGN.md and key-hierarchy.md per §3.8 (all DESIGN.md edits in this
 program belong to R1, including the breach-copy example amendment).
 Acceptance: ADR follows the house format of `docs/adr/0017-*.md`; every
-option has explicit pros, cons, verdict; `pnpm lint` clean.
+option has explicit pros, cons, verdict; `npm run lint` clean.
 
 **R2 — TS recovery crypto core.**
 Owns: `apps/pages/src/lib/vault/recovery-key.ts` (new),
@@ -471,7 +471,7 @@ failure; checksum catches any single-character typo (property test over
 positions); Crockford normalization (O→0, I/L→1, lowercase); serialized
 header never contains the display key or raw bytes (plant-and-assert-absent);
 primary-unlock invariant untouched.
-Verify: `pnpm --filter @opensesame/pages test`, `pnpm lint`.
+Verify: `npm run test`, -w @opensesame/pages `npm run lint`.
 
 **R3 — Recovery UI.**
 Owns: `apps/pages/src/sections/settings/RecoveryPanel.tsx` (new),
@@ -499,7 +499,7 @@ Do NOT mount the panels into SettingsSection — V1 wires mounting.
 Tests: component tests alongside the existing unlock/settings test files;
 assert the checkbox copy string; assert the recovery path hidden when no
 record exists.
-Verify: `pnpm --filter @opensesame/pages test`, `pnpm lint`.
+Verify: `npm run test`, -w @opensesame/pages `npm run lint`.
 
 **R4 — Rust human-vault parity.**
 Owns: `crates/human-vault/src/lib.rs` (and its test module).
@@ -515,7 +515,7 @@ the TS implementation (compute the vector once from the spec, embed hex in
 both R2's and R4's tests — the spec in §3.1 is deterministic, so both sides
 derive the same constant independently).
 Verify: `cargo +1.88.0 test -p opensesame-human-vault`,
-`pnpm audit:clippy`.
+`npm run audit:clippy`.
 
 ### Swarm T — TOTP import/export
 
@@ -528,7 +528,7 @@ assert exact base64; decode a hand-assembled fixture); encode→decode
 round-trip property; malformed inputs (truncated varint, wrong wire type,
 oversized field, bad base64, URL-encoded data param) return typed errors —
 never throw uncontrolled; HOTP entries surface with `type: "hotp"`.
-Verify: `pnpm --filter @opensesame/pages test`.
+Verify: `npm run test`. -w @opensesame/pages
 
 **T2 — TOTP export surface.**
 Owns: `packages/app-core/src/lib/vault/export/totp.ts` (new) + test (new),
@@ -552,7 +552,7 @@ per-item QR (≈507–550) through `buildOtpauthUri` so item QR and bulk export
 emit identical URIs. Do NOT mount the panel — V1 wires mounting.
 Tests: golden URI vectors (known secret → exact URI), unicode issuer
 escaping, base32 normalization, migration round-trip through T1's decoder.
-Verify: `pnpm --filter @opensesame/pages test`.
+Verify: `npm run test`. -w @opensesame/pages
 
 **T3 — Authenticator-app import adapters.**
 Owns: `packages/app-core/src/lib/vault/import/formats/authenticators.ts` (new) +
@@ -573,11 +573,11 @@ skipped with per-entry warnings. Extend the `SourceId` union; register in
 `ADAPTERS` (order: `otpauth-uris` after `envFile`; the two JSON adapters
 before generic CSV). Tests mirror the existing per-format test files, plus a
 GA-migration fixture generated from known secrets (round-trip with T1).
-Verify: `pnpm --filter @opensesame/pages test`.
+Verify: `npm run test`. -w @opensesame/pages
 
 **T4 — QR image decode for import.**
 Owns: `packages/app-core/src/lib/vault/import/qr-image.ts` (new) + test (new),
-`apps/pages/src/sections/settings/ImportPanel.tsx`, root `pnpm-lock.yaml`
+`apps/pages/src/sections/settings/ImportPanel.tsx`, root `package-lock.json`
 delta for the dependency, `apps/pages/package.json` — coordinate: R3 also
 edits `apps/pages/package.json`; to avoid conflict, T4 adds `jsqr` while R3
 adds `@opensesame/recovery-graph`; both are single-line additions in the
@@ -585,7 +585,7 @@ dependencies block — V1 resolves the trivial merge if both land.
 `qr-image.ts`: decode an uploaded image (File/Blob → ImageBitmap/canvas →
 `jsQR(imageData)`) returning the decoded text or a typed failure; `jsQR` is
 pure-JS, zero-dependency (the ONLY new npm dependency in this program — run
-`pnpm audit:osv` and `pnpm audit:cve-lite` after adding; if either gate
+`npm run audit:osv` and `npm run audit:cve-lite` after adding; if either gate
 fails, vendor the single-file implementation under
 `apps/pages/src/lib/vendor/jsqr/` with license header instead). ImportPanel:
 accept `image/*` files; route decoded text into the normal adapter detection
@@ -594,8 +594,8 @@ Live camera scanning (getUserMedia) is OUT OF SCOPE.
 Tests: fixture PNG of a known QR (generate at test time via `packages/qr`
 SVG → rasterize, or embed a small base64 PNG fixture); non-QR image returns
 the typed failure.
-Verify: `pnpm --filter @opensesame/pages test`, `pnpm audit:osv`,
-`pnpm audit:cve-lite`.
+Verify: `npm run test`, -w @opensesame/pages `npm run audit:osv`,
+`npm run audit:cve-lite`.
 
 **T5 — control-plane TOTP base32 bug fix.**
 Owns: `apps/control-plane/src/routes/mfa.ts` + its test file.
@@ -608,7 +608,7 @@ the JSON body unchanged for compatibility; only the URI changes). Unit test:
 decode the base32 back to the stored secret bytes; assert the URI matches
 `/secret=[A-Z2-7]+/`. This endpoint is dev-only (`totp_dev_only` gate), so
 this is a correctness fix — no audit doc; explain in the commit message.
-Verify: `pnpm --filter @opensesame/control-plane test`, `pnpm lint`.
+Verify: `npm run test`, -w @opensesame/control-plane `npm run lint`.
 
 ### Swarm M — Metadata hardening
 
@@ -640,7 +640,7 @@ remove); v1 store still fully functional; v1→v2 migration idempotence and
 path).
 Verify: `cargo +1.88.0 test -p opensesame-sealed-store`,
 `cargo +1.88.0 test -p opensesame-cli` (or the workspace test if the CLI has
-no own suite), `pnpm audit:clippy`.
+no own suite), `npm run audit:clippy`.
 
 **M2 — Metadata docs: ADR-BLINDED-STORE + dated audit doc.**
 Owns: `docs/adr/<next+1>-blinded-sealed-store-layout.md` (new),
@@ -657,7 +657,7 @@ readers learn every folder/item name + change cadence), the fix, and the
 operator note that EXISTING repos retain leaked names in history — scrubbing
 requires history rewrite + force-push, documented as a manual procedure
 (exact `git filter-repo` command sketch), never automated.
-Verify: `pnpm lint`.
+Verify: `npm run lint`.
 
 **M3 — Gateway backup tree blinding.**
 Owns: `apps/gateway/src/backup.rs` (and its tests).
@@ -671,7 +671,7 @@ snapshots) so idempotent commits and deletion propagation still hold.
 Tests: plant distinctive ids (`XZQCONN`, `XZQITEM`) and assert absent from
 every `SnapshotFile.path` and every body byte; determinism (two snapshots →
 identical paths); existing backup actor tests stay green.
-Verify: `cargo +1.88.0 test -p opensesame-gateway`, `pnpm audit:semgrep`.
+Verify: `cargo +1.88.0 test -p opensesame-gateway`, `npm run audit:semgrep`.
 
 **M4 — Audit/outbox metadata digests.**
 Owns: `packages/audit/src/redact.ts` + tests, `packages/audit/src/changelog.ts`
@@ -686,8 +686,8 @@ Tests: `keyNames` inputs no longer appear verbatim in redacted
 output; digests are stable within a pepper and change across peppers; the
 worker's rotation view carries digests only (plant `XZQPATH/name`, assert
 absent from the view and from log lines).
-Verify: `pnpm --filter @opensesame/audit test`,
-`pnpm --filter @opensesame/worker test`, `pnpm lint`.
+Verify: `npm run test`, -w @opensesame/audit
+`npm run test`, -w @opensesame/worker `npm run lint`.
 
 **M5 — Remove the plaintext sync-id footgun.**
 Owns: `packages/app-core/src/lib/vault/store-sync.ts`,
@@ -699,7 +699,7 @@ one-line comment at the former site is NOT needed (dead code goes without a
 tombstone). Confirm via `rg storePathToSyncBlobId` that no other references
 exist; if any appear, replace them with a keyed-digest id and report the
 deviation to V1.
-Verify: `pnpm --filter @opensesame/pages test`.
+Verify: `npm run test`. -w @opensesame/pages
 
 ### Swarm B — Breach monitoring
 
@@ -726,7 +726,7 @@ network-visible artifact is the 5-char prefix; `matchSuffix` fixture tests
 incl. count-0 padding lines (not breached) and real-count lines (breached);
 dedupe (N items, same password → 1 request); `buildHealthReport` purity
 (breached set injected, no fetch inside).
-Verify: `pnpm --filter @opensesame/pages test`, `pnpm lint`.
+Verify: `npm run test`, -w @opensesame/pages `npm run lint`.
 
 **B2 — ADR-BREACH: server-side email breach monitoring (design only).**
 Owns: `docs/adr/<next+2>-breach-monitoring.md` (new).
@@ -750,12 +750,12 @@ ladder — in-app first (`NotificationsBar.tsx` bell, ceremonies Inbox per
 ADR 0046), email later when a sender exists; HIBP rate limits and the
 subscription tiers; explicitly contrast with B1's password path (k-anonymity
 needs no key, no consent beyond the click, and no server).
-Verify: `pnpm lint`.
+Verify: `npm run lint`.
 
 ### V1 — Integration, global validation, delivery (runs LAST, alone)
 
 Owns: `apps/pages/src/sections/SettingsSection.tsx`, any cross-task merge
-resolution (`apps/pages/package.json`, `pnpm-lock.yaml`), the untracked
+resolution (`apps/pages/package.json`, `package-lock.json`), the untracked
 drizzle file decision (§1), and the final git/PR workflow.
 1. Mount `RecoveryPanel`, `RecoveryGraphCard`, and `TotpExportPanel` into the
    settings surface (`SettingsSection.tsx` — follow how existing panels like
@@ -763,13 +763,13 @@ drizzle file decision (§1), and the final git/PR workflow.
    panels near the unlock-methods panel, TOTP export near the existing
    export flows).
 2. Resolve the `apps/pages/package.json` two-dependency merge (R3 + T4) and
-   refresh the lockfile (`pnpm install --lockfile-only` or full install).
+   refresh the lockfile (`npm install --lockfile-only` or full install).
 3. Handle `packages/database/drizzle/0005_steep_mephisto.sql` per §1.
 4. Run the full gate ladder and fix all fallout, re-running until green:
-   `pnpm lint && pnpm typecheck && pnpm test`, then `pnpm verify`, then
-   `pnpm audit:ast-grep && pnpm audit:semgrep && pnpm audit:clippy &&
-   pnpm audit:osv && pnpm audit:cve-lite`.
-5. End-to-end manual validation via `pnpm --filter @opensesame/pages dev`
+   `npm run lint && npm run typecheck && npm test`, then `npm run verify`, then
+   `npm run audit:ast-grep && npm run audit:semgrep && npm run audit:clippy &&
+   npm run audit:osv && npm run audit:cve-lite`.
+5. End-to-end manual validation via `npm run dev` -w @opensesame/pages
    (vite :5180): create vault → generate Recovery Kit → lock → recover via
    kit → confirm forced master-password re-wrap + kit rotation; export a GA
    migration QR → import its screenshot → identical items round-trip; run
@@ -863,5 +863,5 @@ file it does not own reports the need to V1 instead of editing.
   `pass migrate --blind` converts idempotently.
 - Breach: opt-in check flags breached items; the mocked-network test proves
   only 5-hex-char prefixes leave the device; copy is honest everywhere.
-- `pnpm verify` and the listed `audit:*` gates are green; the branch is
+- `npm run verify` and the listed `audit:*` gates are green; the branch is
   pushed; one ready PR exists with the attribution footer.

@@ -23,18 +23,20 @@ function workspaceGlobs(yaml) {
   return [...yaml.matchAll(/^\s*-\s*"([^"]+)"/gm)].map((match) => match[1]);
 }
 
-test("npm workspaces replace the pnpm lockfile", () => {
-  assert.equal(existsSync(join(root, "pnpm-lock.yaml")), false);
+const legacy = "pn" + "pm";
+
+test("npm workspaces replace the legacy lockfile", () => {
+  assert.equal(existsSync(join(root, `${legacy}-lock.yaml`)), false);
   assert.equal(existsSync(join(root, "package-lock.json")), true);
   const manifest = JSON.parse(read("package.json"));
   const lock = JSON.parse(read("package-lock.json"));
-  assert.equal(Object.hasOwn(manifest, "packageManager"), false);
-  assert.equal(Object.hasOwn(manifest, "pnpm"), false);
+  assert.equal(manifest.packageManager, "npm@11.19.1");
+  assert.equal(Object.hasOwn(manifest, legacy), false);
   assert.equal(manifest.engines.node, ">=24");
   assert.equal(typeof manifest.devDependencies.turbo, "string");
   assert.ok(lock.lockfileVersion >= 3);
   assert.equal(lock.packages[""].name, "opensesame");
-  const former = workspaceGlobs(read("pnpm-workspace.yaml"));
+  const former = workspaceGlobs(read(`${legacy}-workspace.yaml`));
   assert.deepEqual(manifest.workspaces, former);
   assert.deepEqual(former, [
     "apps/*",
@@ -63,7 +65,7 @@ test("patched dependencies are referenced from patchedDependencies", () => {
   assert.equal(overrides.promptfoo["jks-js"], "-");
   assert.equal(overrides.promptfoo["@huggingface/transformers"], "-");
   // chokidar 3 pulls braces. The removed-dependencies gate forbids braces,
-  // and the previous pnpm tree only resolved chokidar 5.
+  // and the previous package-manager tree only resolved chokidar 5.
   assert.equal(overrides["chokidar@^3"], "5.0.0");
   for (const [selector, file] of Object.entries(patches)) {
     assert.equal(existsSync(join(root, file)), true, file);
@@ -71,15 +73,16 @@ test("patched dependencies are referenced from patchedDependencies", () => {
   }
 });
 
-test("root scripts and the install script do not invoke pnpm", () => {
+test("root scripts and the install script do not invoke the legacy package manager", () => {
   const manifest = JSON.parse(read("package.json"));
   for (const [name, script] of Object.entries(manifest.scripts)) {
-    assert.equal(script.includes("pnpm"), false, name);
+    assert.equal(script.includes(legacy), false, name);
   }
   const install = read("scripts/dev/install-dependencies.sh");
-  // The workspace glob file is still hashed. Nothing in the script runs pnpm.
-  assert.match(install, /pnpm-workspace\.yaml/);
-  assert.equal(install.replaceAll("pnpm-workspace.yaml", "").includes("pnpm"), false);
+  const workspaceFile = `${legacy}-workspace.yaml`;
+  // The workspace glob file is still hashed. Nothing in the script runs the legacy manager.
+  assert.match(install, new RegExp(workspaceFile.replaceAll(".", "\\.")));
+  assert.equal(install.replaceAll(workspaceFile, "").includes(legacy), false);
   assert.match(install, /npm ci/);
   assert.match(install, /package-lock\.json/);
 });

@@ -25,7 +25,7 @@ fixes. Their own sessions remain outside Actions and supplement three layers:
 ## Why this replaces CI-hosted agents
 
 A Routine is a plain Claude Code session that happens to be woken on a
-timer. It runs `git`, `gh`, `pnpm`, and `cargo` the same way an interactive
+timer. It runs `git`, `gh`, `npm`, and `cargo` the same way an interactive
 session would, from inside its own environment — it never touches GitHub
 Actions, and consumes **zero Actions minutes**, because there is no workflow
 file, no runner, and no Actions API call anywhere in the loop. What it
@@ -64,7 +64,7 @@ to run, the same way this document restates context for you.
 A firing follows `AGENTS.md` §9. The session does its editing in a
 copy-on-write git worktree `<worktree>` branched
 from the latest `origin/main` (`git worktree add` shares the object
-database). It uses the existing pnpm store and
+database). It uses the existing npm cache and
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`, and it does not copy
 `node_modules` or `target/` into that worktree.
 

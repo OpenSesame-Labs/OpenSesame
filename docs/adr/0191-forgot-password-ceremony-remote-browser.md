@@ -140,7 +140,7 @@ must never be in a page. So:
   it: today they list runs by credential ownership and a browser grant).
 - It is **not** the Host (which is value-blind by design: it holds hook records
   of verb names, not values), **not** the daemon (its dependency budget,
-  `pnpm audit:daemon-deps`, forbids a WebSocket, TLS and mail stack, and
+  `npm run audit:daemon-deps`, forbids a WebSocket, TLS and mail stack, and
   `crates/rotation-web` is not a daemon dependency), and **not** a cloud worker
   (that would put the secrets with a second third party, beside the browser's).
 - It is given only what a forgot-run needs, per origin, in a **delegation**

@@ -64,7 +64,7 @@ elsewhere is refused unless you say it is a mirror (`allowMirror: true`), and
 plaintext `http` is refused unless it is loopback **and** you opted in
 (`allowLoopbackHttp: true`). The document says `conventional_oidc: false` and
 lists no `token_endpoint` or `jwks_uri` on purpose. The deployment builds it
-from `PAGES_CANONICAL_ORIGIN` (see *Forks*). `pnpm dev:pwa` serves the same
+from `PAGES_CANONICAL_ORIGIN` (see *Forks*). `npm run dev:pwa` serves the same
 path.
 
 ## A server relying party (Node, Express)
@@ -148,7 +148,7 @@ key the limit on the address the proxy vouches for.
 OPENSESAME_PAGES_BASE=https://opensesame-labs.github.io/OpenSesame \
 SIOP_RP_CLIENT_ID=local_… SIOP_RP_REDIRECT_URI=https://app.example/callback \
 SIOP_RP_DISCOVER=1 \
-  pnpm --filter @opensesame/example-siop-rp dev
+  npm run dev -w @opensesame/example-siop-rp
 ```
 
 For local development add `SIOP_RP_ALLOW_LOOPBACK_HTTP=1` and register
@@ -158,8 +158,7 @@ is a mirror at another origin than the issuer.
 
 ## A single-page relying party (no back end)
 
-`examples/siop-rp/src/spa` (`pnpm --filter @opensesame/example-siop-rp
-dev:spa`, `build:spa`): the page reads the metadata, redirects, and verifies the
+`examples/siop-rp/src/spa` (`npm run dev:spa`, -w @opensesame/example-siop-rp `build:spa`): the page reads the metadata, redirects, and verifies the
 token in the browser. The redirect is a full navigation, so the login's state,
 nonce and binding live in the tab's `sessionStorage`, **sealed** with
 `@opensesame/browser-at-rest` ([ADR 0149](../adr/0149-nothing-stored-in-the-clear.md)):
@@ -233,7 +232,7 @@ re-enrolling passkeys.
 ## Developing locally
 
 ```bash
-pnpm dev:pwa                       # Pages on http://localhost:5180
+npm run dev:pwa                       # Pages on http://localhost:5180
 # issuer: http://localhost:5180/OpenSesame/identity/siop  (metadata: …/siop-metadata.json)
 ```
 
@@ -245,8 +244,8 @@ example's default). A production build leaves the opt-in off.
 ## Verification
 
 ```bash
-VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
-PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium pnpm --filter @opensesame/pages verify:siop
+VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
+PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium npm run verify:siop -w @opensesame/pages
 ```
 
 `verify:siop` runs the example Node relying party as its own process and the

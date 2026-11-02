@@ -65,7 +65,7 @@ impl RootTrustRecord {
 
 fn is_lowercase_hex_fingerprint(value: &str) -> bool {
     value.len() == 64
-        && value
+  && value
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }

@@ -48,11 +48,10 @@ providers:
       mcp:
         enabled: true
         server:
-          # `pnpm --filter` resolves the workspace root by walking up from
+          # `npm run --filter` resolves the workspace root by walking up from
           # wherever it's invoked, so this doesn't depend on promptfoo's own
           # cwd the way a bare relative path would.
-          command: pnpm
-          args: ["--filter", "@opensesame/mcp-host", "start"]
+          command: npm run args: ["--filter", "@opensesame/mcp-host", "start"]
           name: opensesame-mcp-host
 
   - id: file://src/mcp-provider.ts

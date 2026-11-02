@@ -5,7 +5,7 @@ choice is upstream's rather than ours, and what it deliberately refuses.
 
 **Target:** SOPS **v3.13.3**, source commit
 `26e2f4784ca61353082c32dbd987c25eda086dc9`. That exact release is the
-oracle for `pnpm verify:sops-conformance`; it is downloaded once, verified
+oracle for `npm run verify:sops-conformance`; it is downloaded once, verified
 against the checksums published with the release, and executed with an
 empty environment, a private `HOME` and config directory, explicit identity
 files, and no plugin or key-service discovery. The shipped browser never
@@ -94,7 +94,7 @@ attaches comments by source offset so they survive a round trip in place.
   `SHA-256("sops")` (`MACOnlyEncryptedInitialization`) and feeds only the
   encrypted values.
 - A MAC mismatch is a refusal to open. The engine never returns a document
-  it could not authenticate, and `pnpm verify:sops-conformance` checks the
+  it could not authenticate, and `npm run verify:sops-conformance` checks the
   reverse direction too: upstream rejects a browser-written file whose MAC
   we deliberately broke.
 
@@ -173,9 +173,9 @@ them the engine reports the limit by name.
 
 | Gate | What it proves | Failure mode |
 | --- | --- | --- |
-| `pnpm verify:sops-conformance` | Both wire directions and both edit directions against the pinned, checksum-verified binary; 17 committed fixtures still match the digests it produced | **incomplete** (exit 2) when the oracle is absent — never a pass |
-| `pnpm verify:sops-browser` | The whole workflow in a real browser on a static origin, online and offline, at a subpath and at a domain root; no request leaves the origin; the bundle names no native runtime | fail |
-| `pnpm verify:sops-cloud-live` | Optional, opt-in, against disposable cloud resources | **blocked-external** when none is supplied |
+| `npm run verify:sops-conformance` | Both wire directions and both edit directions against the pinned, checksum-verified binary; 17 committed fixtures still match the digests it produced | **incomplete** (exit 2) when the oracle is absent — never a pass |
+| `npm run verify:sops-browser` | The whole workflow in a real browser on a static origin, online and offline, at a subpath and at a domain root; no request leaves the origin; the bundle names no native runtime | fail |
+| `npm run verify:sops-cloud-live` | Optional, opt-in, against disposable cloud resources | **blocked-external** when none is supplied |
 
 Upstream can change its format. The pin makes that a visible failure rather
 than a silent incompatibility — but a SOPS release newer than the pin is

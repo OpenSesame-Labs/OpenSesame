@@ -19,5 +19,5 @@ Branch: `chore/audit-tick19`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/control-plane
 ```

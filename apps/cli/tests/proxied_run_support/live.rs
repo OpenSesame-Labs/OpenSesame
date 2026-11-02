@@ -74,8 +74,8 @@ impl<'a> Live<'a> {
     /// run directory.
     pub fn plugin_is_gone(&self, sandbox: &Sandbox) -> bool {
         TcpStream::connect(&self.proxy).is_err()
-            && plugin_pids(sandbox).is_empty()
-            && sandbox.run_dirs().is_empty()
+  && plugin_pids(sandbox).is_empty()
+  && sandbox.run_dirs().is_empty()
     }
 
     /// When `opensesame` did not wait for the plugin (it was killed, or died

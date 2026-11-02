@@ -41,8 +41,8 @@ prompt-injected model cannot ask for an operation the grammar cannot express.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/guide-lang test
-pnpm --filter @opensesame/guide-lang typecheck
+npm run test -w @opensesame/guide-lang
+npm run typecheck -w @opensesame/guide-lang
 ```
 
 An authored guide is compiled by the same parser and validator as model

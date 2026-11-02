@@ -169,7 +169,7 @@ impl PermissionEntry {
             .actions
             .iter()
             .all(|action| self.permits_action(action))
-            && child
+  && child
                 .scopes
                 .iter()
                 .all(|scope| self.scopes.iter().any(|mine| mine.contains(scope)))

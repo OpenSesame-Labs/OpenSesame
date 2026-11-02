@@ -65,7 +65,7 @@ impl ModelResponse {
 fn well_formed_messages(messages: &[Value]) -> bool {
     messages.iter().all(|message| {
         message["role"].is_string()
-            && matches!(message["content"], Value::String(_) | Value::Object(_))
+  && matches!(message["content"], Value::String(_) | Value::Object(_))
     })
 }
 

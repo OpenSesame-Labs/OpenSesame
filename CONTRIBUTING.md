@@ -6,12 +6,12 @@ a merge are in [`AGENTS.md`](AGENTS.md) — read §5 before your first change.
 
 ## Set up
 
-Node 22+, pnpm 9 via Corepack, Rust 1.88 (pinned by `rust-toolchain.toml`).
+Node 24+, npm run 9 via npm, Rust 1.88 (pinned by `rust-toolchain.toml`).
 
 ```bash
-corepack enable
-pnpm install
-pnpm setup:hooks      # git uses .githooks/: lint, quality, types, Clippy, gitleaks
+
+npm install
+npm run setup:hooks      # git uses .githooks/: lint, quality, types, Clippy, gitleaks
 ```
 
 [Getting started](docs/getting-started/README.md) covers running each plane;
@@ -31,11 +31,10 @@ vulnerabilities go through [SECURITY.md](SECURITY.md) private reporting instead.
 
 - Coding standards are enforced by tooling, not convention: Biome (lint +
   format) and the anti-slop Oxlint preset on TypeScript, rustfmt and Clippy on
-  Rust (the hooks run them; `pnpm lint`, `pnpm audit:clippy`).
+  Rust (the hooks run them; `npm run lint`, `npm run audit:clippy`).
 - New functionality includes automated tests that fail without it, beside the
   existing suites for the plane it touches.
-- Test commands: `pnpm test` (every TypeScript workspace), `pnpm
-  test:integration`, and `cargo +1.88.0 test --workspace --all-targets` for
+- Test commands: `npm test` (every TypeScript workspace), `npm run test:integration`, and `cargo +1.88.0 test --workspace --all-targets` for
   Rust.
 
 ## Before you push
@@ -48,12 +47,12 @@ The default pre-push hook runs changed-file lint, generated-artifact freshness,
 anti-slop, static quality gates and typechecking, plus Clippy when Rust or its
 configuration changed. Tests qualify delivery to environments; trunk CI builds
 the affected dependency graph. Run focused tests locally while developing as
-needed. `OPENSESAME_PREPUSH=full git push` explicitly opts into `pnpm verify`,
+needed. `OPENSESAME_PREPUSH=full git push` explicitly opts into `npm run verify`,
 including tests and the battle test (`OPENSESAME_PREPUSH=off|fast|full`).
 
 Browser gates run against a fresh Pages build during delivery qualification.
 To exercise a changed boot, sign-in, shell, control, keyboard or touch path
-locally: `pnpm --filter @opensesame/pages verify:<keyboard|mobile|static|auth|local-iam>`.
+locally: `npm run verify:<keyboard|mobile|static|auth|local-iam>`. -w @opensesame/pages
 
 ## Your pull request
 
@@ -69,10 +68,10 @@ locally: `pnpm --filter @opensesame/pages verify:<keyboard|mobile|static|auth|lo
   provenance. Use commit-SHA links for history; do not carry historical media
   forward into `main`. See the [persistence contract](docs/evidence/README.md).
 - **A consequential decision gets an ADR** in `docs/adr/`, then
-  `pnpm docs:index`.
+  `npm run docs:index`.
 - **A new user-facing capability gets a `packages/capability-registry` entry**
   mapping it to every agent surface, or an ADR-cited exclusion.
-- **Ratchets only tighten.** If `pnpm quality` says something improved, commit
+- **Ratchets only tighten.** If `npm run quality` says something improved, commit
   the updated baseline; never raise a recorded number.
 
 Merges are squash-only, with review threads resolved, through GitHub's merge

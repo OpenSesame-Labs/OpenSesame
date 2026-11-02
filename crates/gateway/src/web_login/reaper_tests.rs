@@ -308,7 +308,7 @@ async fn the_periodic_actor_closes_what_it_finds_on_its_own_clock() {
     let mut swept = false;
     for _ in 0..600 {
         if run_row(&world, &run.id).await.closed_at.is_some()
-            && job_state(&world).await.0 == "reconciliation_required"
+  && job_state(&world).await.0 == "reconciliation_required"
         {
             swept = true;
             break;

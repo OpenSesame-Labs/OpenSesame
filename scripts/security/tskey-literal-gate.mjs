@@ -15,7 +15,6 @@ import { fileURLToPath } from "node:url";
 const SKIP_SEGMENTS = new Set(["node_modules", "target", "dist", ".git"]);
 const SKIP_BASENAMES = new Set([
   "package-lock.json",
-  "pnpm-lock.yaml",
   "Cargo.lock",
 ]);
 const SKIP_SUFFIXES = [

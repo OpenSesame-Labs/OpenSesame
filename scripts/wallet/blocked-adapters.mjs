@@ -78,7 +78,7 @@ for (const id of channelClaimIds) {
     productionEnabled: false,
     evidenceRefs: [
       "work/evidence/wallet/wallet/cross-platform/adapters/channel-blocked.json",
-      "pnpm wallet:evidence:blocked-adapters",
+      "npm run wallet:evidence:blocked-adapters",
     ],
   };
 }
@@ -119,7 +119,7 @@ claims.adapters["ap2-ucp-vi"] = {
 writeFileSync(claimsPath, `${JSON.stringify(claims, null, 2)}\n`);
 
 writeWalletEvidence(root, {
-  invokedAs: "pnpm wallet:evidence:blocked-adapters",
+  invokedAs: "npm run wallet:evidence:blocked-adapters",
   mainnet: { ok: true, message: null, denials: [] },
   results: [
     {

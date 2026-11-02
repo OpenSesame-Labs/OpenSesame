@@ -77,7 +77,7 @@ if (suite === undefined || !(suite in SUITES)) {
 const mainnet = assertNoMainnet(process.argv.slice(3));
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: `pnpm wallet:test:${suite}`,
+    invokedAs: `npm run wallet:test:${suite}`,
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -109,7 +109,7 @@ if (suite === "security") {
   for (const target of targets) {
     if (!target.present || target.testCommand === null) {
       writeWalletEvidence(root, {
-        invokedAs: `pnpm wallet:test:${suite}`,
+        invokedAs: `npm run wallet:test:${suite}`,
         mainnet: { ok: true, message: null, denials: [] },
         results: [
           {
@@ -132,12 +132,11 @@ if (suite === "security") {
     commands.push([cmd, args]);
   }
   commands.push([
-    "pnpm",
-    ["exec", "vitest", "run", "scripts/wallet/lib/deny-mainnet.test.mjs"],
+    "npm", ["exec", "--", "vitest", "run", "scripts/wallet/lib/deny-mainnet.test.mjs"],
   ]);
-  commands.push(["pnpm", ["--filter", "@opensesame/wallet-evm", "test"]]);
-  commands.push(["pnpm", ["--filter", "@opensesame/wallet-consent", "test"]]);
-  commands.push(["pnpm", ["--filter", "@opensesame/wallet-x402", "test"]]);
+  commands.push(["npm", ["run", "test", "-w", "@opensesame/wallet-evm"]]);
+  commands.push(["npm", ["run", "test", "-w", "@opensesame/wallet-consent"]]);
+  commands.push(["npm", ["run", "test", "-w", "@opensesame/wallet-x402"]]);
 }
 
 const started = Date.now();
@@ -167,7 +166,7 @@ for (const [cmd, args] of commands) {
 }
 
 writeWalletEvidence(root, {
-  invokedAs: `pnpm wallet:test:${suite}`,
+  invokedAs: `npm run wallet:test:${suite}`,
   mainnet: { ok: true, message: null, denials: [] },
   results: commandResults,
   ok,

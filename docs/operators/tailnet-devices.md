@@ -168,7 +168,7 @@ page; this drops the bearer on both sides.
 
 ## Verify it
 
-`pnpm --filter @opensesame/pages verify:tailnet-devices` runs the whole flow
+`npm run verify:tailnet-devices` -w @opensesame/pages runs the whole flow
 against a real daemon, a stand-in for the Tailscale API, and a
 dedicated-origin build. It covers:
 
@@ -185,9 +185,9 @@ its log, or in the page's storage. To run it:
 
 ```bash
 cargo build -p opensesame-cli --features tailnet-admin-test-upstream
-VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build:live-dedicated
+VITE_BASE=/OpenSesame/ npm run build:live-dedicated -w @opensesame/pages
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:tailnet-devices
+  npm run verify:tailnet-devices -w @opensesame/pages
 ```
 
 A shipped build ignores `OPENSESAME_TAILSCALE_API_BASE`. Only a debug build

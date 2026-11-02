@@ -190,8 +190,8 @@ fn demoted_since<'a>(
 ) -> Option<&'a StoredRecipeRecord> {
     existing.filter(|old| {
         old.canary_result.as_deref() == Some("failed")
-            && old.recipe_json == write.recipe_json
-            && old
+  && old.recipe_json == write.recipe_json
+  && old
                 .canary_at
                 .as_deref()
                 .is_some_and(|failed_at| not_before(failed_at, attested_at))
@@ -233,8 +233,8 @@ pub(super) fn derive_canary(
     match existing {
         Some(old)
             if old.recipe_json == write.recipe_json
-                && old.canary_result.as_deref() == Some("passed")
-                && old.canary_source.as_deref() == Some("run") =>
+  && old.canary_result.as_deref() == Some("passed")
+  && old.canary_source.as_deref() == Some("run") =>
         {
             (
                 old.canary_result.clone(),

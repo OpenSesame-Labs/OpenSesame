@@ -123,20 +123,20 @@ pub(crate) async fn prepare_for(
 pub(crate) fn recipe_is_sound(recipe: &ChangePasswordRecipe, origin: &str) -> bool {
     let on_origin = url::Url::parse(&recipe.change_url).is_ok_and(|url| {
         url.scheme() == "https"
-            && url.username().is_empty()
-            && url.password().is_none()
-            && url.origin().ascii_serialization() == origin
+  && url.username().is_empty()
+  && url.password().is_none()
+  && url.origin().ascii_serialization() == origin
     });
     let selector =
         |value: &str| !value.trim().is_empty() && value.chars().count() <= MAX_SELECTOR_CHARS;
     on_origin
-        && selector(&recipe.new_password_selector)
-        && selector(&recipe.submit_selector)
-        && recipe
+  && selector(&recipe.new_password_selector)
+  && selector(&recipe.submit_selector)
+  && recipe
             .current_password_selector
             .as_deref()
             .is_none_or(selector)
-        && recipe
+  && recipe
             .confirm_password_selector
             .as_deref()
             .is_none_or(selector)

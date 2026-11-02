@@ -45,7 +45,7 @@ plus `candidate.json`:
 | Payload path | Role | Target |
 | --- | --- | --- |
 | `production/opensesame-pages_v<version>.tar.gz` | Production | Hosted Pages PWA |
-| `production/opensesame-env-parse.mjs` | Production | Node 22 bridge |
+| `production/opensesame-env-parse.mjs` | Production | Node 24 bridge |
 | `production/opensesame-kit_v<version>_x86_64-unknown-linux-gnu.tar.gz` | Production | Linux x86_64 |
 | `production/opensesame-kit_v<version>_aarch64-unknown-linux-gnu.tar.gz` | Production | Linux aarch64 |
 | `test-only/opensesame-surrogate-proxy-TEST-upstream-override_v<version>_x86_64-unknown-linux-gnu.tar.gz` | Test only | Linux x86_64 |
@@ -154,7 +154,7 @@ stamps, followed by the same whole-artifact verification.
 ### Pages
 
 The recipe follows `.github/workflows/deploy-pages.yml`: install the frozen
-pnpm lockfile, build through Turbo so workspace dependencies are built first,
+npm run lockfile, build through Turbo so workspace dependencies are built first,
 copy `index.html` to `404.html`, write permitted runtime configuration, and
 stamp the release SHA. The proposed producer also includes `.nojekyll` before
 freezing and packages the entire output, preserving hidden build files inside
@@ -196,12 +196,12 @@ The simplest browser consumers need no source build:
 
 | Existing command | Artifact integration |
 | --- | --- |
-| `pnpm --filter @opensesame/pages verify:static` | Set absolute `PAGES_VERIFY_DIST`; set production `PAGES_ORIGIN` and `VITE_BASE` |
-| `pnpm --filter @opensesame/pages verify:device-identity` | Same existing dist/origin/base hooks |
-| `pnpm --filter @opensesame/pages verify:cli-public-site` | Same hooks; the script explicitly does not rebuild |
-| `pnpm --filter @opensesame/pages verify:push-worker` | Currently reads `apps/pages/dist`; extract there unchanged or add a dist-path option |
-| `pnpm --filter @opensesame/pages verify:sw-dirty-edit` | Same fixed-dist assumption; its scenario serves a worker override without rewriting the stored candidate |
-| `pnpm --filter @opensesame/pages verify:relay-join-live` | Set `OPENSESAME_RELAY_BIN` to the unpacked candidate CLI; otherwise it can fall back to a debug binary or `cargo run` |
+| `npm run verify:static` -w @opensesame/pages | Set absolute `PAGES_VERIFY_DIST`; set production `PAGES_ORIGIN` and `VITE_BASE` |
+| `npm run verify:device-identity` -w @opensesame/pages | Same existing dist/origin/base hooks |
+| `npm run verify:cli-public-site` -w @opensesame/pages | Same hooks; the script explicitly does not rebuild |
+| `npm run verify:push-worker` -w @opensesame/pages | Currently reads `apps/pages/dist`; extract there unchanged or add a dist-path option |
+| `npm run verify:sw-dirty-edit` -w @opensesame/pages | Same fixed-dist assumption; its scenario serves a worker override without rewriting the stored candidate |
+| `npm run verify:relay-join-live` -w @opensesame/pages | Set `OPENSESAME_RELAY_BIN` to the unpacked candidate CLI; otherwise it can fall back to a debug binary or `cargo run` |
 
 The production-origin browser harness serves the candidate's files through
 Playwright routing. It tests the production origin assumptions without

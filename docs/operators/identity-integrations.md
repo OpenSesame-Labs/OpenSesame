@@ -79,9 +79,9 @@ ordinary members can take the saved sign-in route.
 
 ## Verification
 
-`pnpm --filter @opensesame/pages build:identity-verify` builds a loopback
+`npm run build:identity-verify` -w @opensesame/pages builds a loopback
 development deployment for the local fixture origin. Then run
-`pnpm --filter @opensesame/pages verify:identity-connections`. It exercises
+`npm run verify:identity-connections`. -w @opensesame/pages It exercises
 the real browser UI, real Better Auth and OIDC servers, a signed GoTrue
 protocol fixture, configuration reloads and provider sign-out. The server
 tests in `enterprise-configured-signin.test.ts` additionally configure and

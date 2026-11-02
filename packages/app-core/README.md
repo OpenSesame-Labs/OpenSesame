@@ -33,7 +33,7 @@ Android's, but `apps/android` does not build on it yet.
   Standard web APIs (`crypto`, `fetch`, `URL`, timers) are the runtime
   contract, not ports. `src/no-host-import.test.ts` imports every module with
   no host installed and fails on one that touches a port while loading.
-- **Boundary gate.** `pnpm quality:app-core` fails on any reach into an app,
+- **Boundary gate.** `npm run quality:app-core` fails on any reach into an app,
   any React value, `import.meta.env`, a Vite virtual module, `node:*` outside
   `src/node` (and tests), a browser global outside `src/browser` (worker
   entries and tests aside), or a static import cycle. Lazy cycle edges are
@@ -59,9 +59,9 @@ example `@opensesame/app-core/lib/vault/store.js`.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/app-core test
-pnpm --filter @opensesame/app-core typecheck
-pnpm quality:app-core
+npm run test -w @opensesame/app-core
+npm run typecheck -w @opensesame/app-core
+npm run quality:app-core
 ```
 
 Tests run in Node with `src/test-setup.ts` installing a test host;

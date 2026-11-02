@@ -1,7 +1,7 @@
 # Fuzzing, proofs, and concurrency verification
 
 This is the operator guide for cargo-fuzz, ClusterFuzzLite-style local runs,
-Jazzer.js, Kani, Miri, and Shuttle. Product tests stay on `pnpm verify`.
+Jazzer.js, Kani, Miri, and Shuttle. Product tests stay on `npm run verify`.
 These tools are opt-in gates.
 
 ## Toolchain
@@ -12,7 +12,7 @@ These tools are opt-in gates.
 | cargo-fuzz / libFuzzer | nightly rustc + `cargo-fuzz` | Install the CLI with a new-enough rustc (`cargo +1.94.0 install cargo-fuzz`). Builds themselves need nightly because cargo-fuzz passes `-Zsanitizer=address`. `rustup toolchain install nightly && rustup default` is **not** required — keep `rust-toolchain.toml` on 1.88 and invoke `cargo +nightly fuzz …`. |
 | Kani | Kani’s own toolchain | `cargo install --locked kani-verifier && cargo kani setup` |
 | Miri | nightly + `miri` component | `rustup toolchain install nightly && rustup component add miri --toolchain nightly` |
-| Jazzer.js | Node ≥ 22; native `@jazzer.js/core` when the addon builds | `pnpm install`. `scripts/fuzz/jazzer-gate.sh` fails closed when the addon is not loadable; `JAZZER_ALLOW_FALLBACK=1` runs the local `tsx` runner that calls the same `fuzz(Buffer)` exports and reports `DEGRADED`, never `CLEAN`. |
+| Jazzer.js | Node ≥ 22; native `@jazzer.js/core` when the addon builds | `npm install`. `scripts/fuzz/jazzer-gate.sh` fails closed when the addon is not loadable; `JAZZER_ALLOW_FALLBACK=1` runs the local `tsx` runner that calls the same `fuzz(Buffer)` exports and reports `DEGRADED`, never `CLEAN`. |
 | Shuttle | same 1.88, feature `concurrency-test` | pulled in as an optional dependency of each crate that has a Shuttle test |
 
 Do not change `rust-toolchain.toml` to nightly.
@@ -20,13 +20,13 @@ Do not change `rust-toolchain.toml` to nightly.
 ## Commands
 
 ```bash
-pnpm audit:fuzz            # 60s/changed target (CFL PR analogue)
-pnpm audit:fuzz:batch      # long run; FUZZ_SECONDS / FUZZ_BATCH_BUDGET
-pnpm test:fuzz             # Jazzer.js 30s/target
-pnpm test:fuzz:batch       # Jazzer.js longer
-pnpm audit:kani
-pnpm audit:miri
-pnpm audit:shuttle
+npm run audit:fuzz            # 60s/changed target (CFL PR analogue)
+npm run audit:fuzz:batch      # long run; FUZZ_SECONDS / FUZZ_BATCH_BUDGET
+npm run test:fuzz             # Jazzer.js 30s/target
+npm run test:fuzz:batch       # Jazzer.js longer
+npm run audit:kani
+npm run audit:miri
+npm run audit:shuttle
 ```
 
 Override duration with `FUZZ_SECONDS`. Override the Miri nightly with
@@ -41,7 +41,7 @@ Override duration with `FUZZ_SECONDS`. Override the Miri nightly with
   stays
 - `tests/fuzz/cargo/artifacts/` — gitignored; `tests/fuzz/clusterfuzzlite/build.sh`
   puts built targets and seed-corpus zips there when `OUT` is unset. Crashes
-  from `pnpm audit:fuzz*` and `pnpm test:fuzz*` land in a private audit
+  from `npm run audit:fuzz*` and `npm run test:fuzz*` land in a private audit
   directory instead (a fresh `opensesame-audit.*` directory under
   `OPENSESAME_AUDIT_DIR`, default `$TMPDIR`; the gate prints its path)
 - `tests/fuzz/cargo/regressions/<target>/` — minimized crashing inputs to
@@ -117,13 +117,13 @@ Proofs live in `#[cfg(kani)]` modules next to the code. Current bounds:
 - Session control (`crates/session-observe/src/lease.rs`): exhaustive
   `ControlState` enum
 
-`pnpm audit:kani` runs `cargo kani` over `opensesame-domain` and
+`npm run audit:kani` runs `cargo kani` over `opensesame-domain` and
 `opensesame-rotation` only; the session-observe proofs are not part of it.
 
 ## Shuttle vs Turmoil
 
-Shuttle tests are behind `--features concurrency-test` so `pnpm verify`
-does not explore schedules. `pnpm audit:shuttle` runs the tests in
+Shuttle tests are behind `--features concurrency-test` so `npm run verify`
+does not explore schedules. `npm run audit:shuttle` runs the tests in
 `opensesame-broker` (`shuttle_idempotency`, which drives the production
 idempotency store, `opensesame_storage::Db`, from Shuttle threads),
 `opensesame-proof` (`shuttle_replay`), `opensesame-rotation`
@@ -169,6 +169,6 @@ cluster.
 | ingress-evidence | `transport_ingress_fields` |
 
 `map_targets` in `scripts/fuzz/fuzz-pr-gate.sh` decides which of these
-`pnpm audit:fuzz` runs for a diff; targets it does not map (such as
+`npm run audit:fuzz` runs for a diff; targets it does not map (such as
 `attachment_chunk` and the PKI parsers) run only when a change touches
-`tests/fuzz/cargo/` or through `pnpm audit:fuzz:batch`.
+`tests/fuzz/cargo/` or through `npm run audit:fuzz:batch`.

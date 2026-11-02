@@ -17,9 +17,9 @@ pub fn looks_like_legacy_password_wrapper(value: &Value) -> bool {
         return false;
     }
     obj.contains_key("salt")
-        && obj.contains_key("wrapped_vrk")
-        && obj.contains_key("nonce")
-        && obj.contains_key("params_m_kib")
+  && obj.contains_key("wrapped_vrk")
+  && obj.contains_key("nonce")
+  && obj.contains_key("params_m_kib")
 }
 
 /// Parse a legacy password wrapper with precise structural errors.

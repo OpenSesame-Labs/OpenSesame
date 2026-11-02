@@ -42,14 +42,14 @@ bundle. Everywhere else the fields are stripped.
 ```bash
 cargo +1.88.0 test -p opensesame-ingress-evidence
 # The Caddy reference-proxy tests are #[ignore]d; fetch the pinned fixtures first
-pnpm test:mtls:fixtures
+npm run test:mtls:fixtures
 OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-ingress-evidence -- --ignored
 ```
 
 A change to an error code or a limit changes the shared corpus: update
 [`fixtures/`](fixtures) and run the TypeScript mirror's tests too. The crate is
 listed in [`scripts/mtls/mtls-required-packages.txt`](../../scripts/mtls/mtls-required-packages.txt),
-so `pnpm test:mtls` fails if it disappears.
+so `npm run test:mtls` fails if it disappears.
 
 ## Related
 

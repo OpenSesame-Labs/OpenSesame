@@ -1,5 +1,5 @@
 /**
- * pnpm dev:live-nats — a nats-server that live sessions mint credentials for
+ * npm run dev:live-nats — a nats-server that live sessions mint credentials for
  * (ADR 0167). Writes, into `--out` (default `.cache/live-nats`):
  *
  * - `live-sessions.conf` — nats-server in operator mode, the WebSocket
@@ -24,7 +24,7 @@ const root = path.resolve(
   "../..",
 );
 const { values } = parseArgs({
-  // pnpm passes its own `--` through.
+  // npm run passes its own `--` through.
   args: process.argv.slice(2).filter((arg) => arg !== "--"),
   options: {
     websocket: { type: "string", default: "127.0.0.1:4223" },

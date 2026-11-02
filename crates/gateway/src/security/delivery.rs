@@ -298,8 +298,8 @@ fn classify(status: reqwest::StatusCode) -> Result<(), Failure> {
     }
     let detail = format!("endpoint returned {status}");
     if status.is_client_error()
-        && status != reqwest::StatusCode::REQUEST_TIMEOUT
-        && status != reqwest::StatusCode::TOO_MANY_REQUESTS
+  && status != reqwest::StatusCode::REQUEST_TIMEOUT
+  && status != reqwest::StatusCode::TOO_MANY_REQUESTS
     {
         Err(Failure::Permanent(detail))
     } else {

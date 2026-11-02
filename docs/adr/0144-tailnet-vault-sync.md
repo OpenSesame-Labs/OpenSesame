@@ -225,12 +225,12 @@ and nothing else in Pages speaks to a daemon.
   and `parts.test.ts` (same folder) prove items 13–16 through the store; the
   skew and field cases fail with the stamp disabled. The parts exchanges are
   in the conformance spec and both sides replay them.
-- `pnpm --filter @opensesame/pages verify:tailnet-sync` does it for real: the
+- `npm run verify:tailnet-sync` -w @opensesame/pages does it for real: the
   `opensesame` daemon as the drive, reached as Tailscale Serve exposes it
   (HTTPS at a `*.ts.net` name), two isolated browsers with Chrome's Local
   Network Access check on, a file sealed on one and downloaded on the other,
   and a page held at `prompt` and one refused.
-- `pnpm test:tailnet-sync:real` runs the same walk over a real tailnet:
+- `npm run test:tailnet-sync:real` runs the same walk over a real tailnet:
   pinned headscale, two `tailscaled` nodes, the browser's on a kernel TUN so
   Chrome classes the drive's 100.x address itself, and `tailscale serve`
   forwarding 443 to the drive. Headscale cannot issue Serve's certificate, so

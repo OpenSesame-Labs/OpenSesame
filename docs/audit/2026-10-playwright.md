@@ -35,13 +35,13 @@ The default command is shard 1/3 at desktop (1280) and phone (390), including th
 
 ```bash
 PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:tutorials-profiles
+  npm run verify:tutorials-profiles -w @opensesame/pages
 ```
 
 ```bash
 TUTORIALS_PROFILES_FULL=1 \
   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-  pnpm --filter @opensesame/pages verify:tutorials-profiles
+  npm run verify:tutorials-profiles -w @opensesame/pages
 ```
 
 `VERIFY_SKIP_BUILD=1` reuses `apps/pages/dist-profiles/tutorials-<name>/` when `index.html` is already there.

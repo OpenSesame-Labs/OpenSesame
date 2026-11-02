@@ -1,7 +1,7 @@
 // Prove CLI pairing on the public static site (P8-5 / FIX-BRIEF F5).
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-//   pnpm --filter @opensesame/pages verify:cli-public-site
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+//   npm run verify:cli-public-site -w @opensesame/pages
 //
 // The Pages build is the one CI already produced (`scripts/lib/ci-pages-build.mjs`).
 // This walk does not rebuild. A guest on https://opensesame-labs.github.io

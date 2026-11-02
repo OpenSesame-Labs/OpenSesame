@@ -12,7 +12,7 @@ TOOLCHAIN="${MIRI_TOOLCHAIN:-nightly}"
 if ! rustup toolchain list | grep -q "^${TOOLCHAIN}"; then
   echo "miri-gate: toolchain $TOOLCHAIN is not installed." >&2
   echo "  rustup toolchain install nightly && rustup component add miri --toolchain nightly" >&2
-  echo "This gate is optional and is not part of pnpm verify." >&2
+  echo "This gate is optional and is not part of npm run verify." >&2
   exit 1
 fi
 

@@ -73,7 +73,7 @@ describe("every target, one registry (ADR 0139)", () => {
     );
     expect(
       ledger,
-      "surface-gaps.json is stale: run `pnpm --filter @opensesame/capability-registry generate` and review the diff",
+      "surface-gaps.json is stale: run `npm run generate` -w @opensesame/capability-registry and review the diff",
     ).toEqual(surfaceGaps());
   });
 });

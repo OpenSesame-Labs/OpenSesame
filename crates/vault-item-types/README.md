@@ -50,7 +50,7 @@ cargo +1.88.0 test -p opensesame-vault-item-types
 A new built-in type is a JSON file in `marketplace/item-types/builtin/` plus an
 `include_str!` entry in `BUILTIN_DEFINITIONS` in [`src/lib.rs`](src/lib.rs);
 the TypeScript package regenerates its copy with
-`pnpm --filter @opensesame/vault-item-types generate`. Run both planes' tests
+`npm run generate`. -w @opensesame/vault-item-types Run both planes' tests
 after changing the parser.
 
 ## Related

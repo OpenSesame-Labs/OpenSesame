@@ -166,7 +166,7 @@ async fn discovery_configures_complete_host_credentials_once() {
             connections
                 .iter()
                 .any(|connection| connection["provider_id"] == "workos"
-                    && connection["status"] == "active"),
+  && connection["status"] == "active"),
             "{body}"
         );
         assert!(!body.to_string().contains("route-do-not-return"));

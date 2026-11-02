@@ -92,8 +92,7 @@ function build() {
   console.log("==> building apps/pages with VITE_BASE=/OpenSesame/");
   try {
     execFileSync(
-      "pnpm",
-      ["exec", "turbo", "run", "build", "--filter=@opensesame/pages"],
+      "npm", ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
       {
         cwd: root,
         stdio: "inherit",
@@ -158,7 +157,7 @@ function transitiveDeps(components, name, seen = new Set()) {
 /**
  * A browser package's sources, without tests and without a Node-host
  * platform subpath (`src/node/**`, ADR 0133): that is the CLI's host, which
- * `pnpm quality:app-core` keeps as the only place `node:*` may appear and
+ * `npm run quality:app-core` keeps as the only place `node:*` may appear and
  * which no browser entry reaches — the bundle scan above checks the chunks
  * a browser actually loads.
  */

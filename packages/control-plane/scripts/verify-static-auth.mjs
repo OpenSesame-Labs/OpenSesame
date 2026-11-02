@@ -1,5 +1,5 @@
 // Real Chromium, real Identity HTTP, and the immutable SDK artifact with browser SRI.
-// pnpm --filter @opensesame/control-plane exec tsx scripts/verify-static-auth.mjs
+// npm exec -w @opensesame/control-plane -- tsx scripts/verify-static-auth.mjs
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { startFixture } from "./static-auth-browser-fixture.mjs";

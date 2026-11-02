@@ -44,7 +44,6 @@ describe("ci scoped tests", () => {
     for (const path of [
       "packages/a/package.json",
       "package-lock.json",
-      "pnpm-lock.yaml",
       "packages/a/tsconfig.json",
       "packages/a/vitest.config.ts",
       "packages/a/vite.config.ts",

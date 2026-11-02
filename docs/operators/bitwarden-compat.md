@@ -253,5 +253,5 @@ features as they do against a server that has them turned off.
 ## Verify
 
 ```bash
-pnpm test:bitwarden-oracle   # drives the pinned official bw CLI and SignalR client against the surface
+npm run test:bitwarden-oracle   # drives the pinned official bw CLI and SignalR client against the surface
 ```

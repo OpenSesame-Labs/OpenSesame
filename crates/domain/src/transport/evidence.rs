@@ -113,7 +113,7 @@ impl VerifiedPeer {
         current_credential: u64,
     ) -> Result<(), TransportError> {
         if self.trust_generation == current_trust
-            && self.credential_generation == current_credential
+  && self.credential_generation == current_credential
         {
             Ok(())
         } else {

@@ -49,7 +49,7 @@ a static `jwt` and `seed` (a `.creds` file's halves), or a user, password or
 token; those travel in the link as before, and the Routes panel says so. A
 signing key and a static credential are not named together.
 
-`pnpm dev:live-nats` (`scripts/dev/live-nats-operator.ts`, over
+`npm run dev:live-nats` (`scripts/dev/live-nats-operator.ts`, over
 `lib/live/nats-operator.ts`) writes a server configuration in operator mode
 with the operator, system and live accounts preloaded (`resolver: MEMORY`), a
 WebSocket listener (`wss://` when given a certificate), the mint pair for
@@ -111,7 +111,7 @@ file, as before.
   (that a session ran, its frames' sizes and times), and now also the
   session's traffic volume.
 - `verify:live-join` gains `nats-always` and `nats-fallback`: a real
-  nats-server in operator mode configured by `pnpm dev:live-nats`, the
+  nats-server in operator mode configured by `npm run dev:live-nats`, the
   signing key typed into the Routes Form, a value revealed with no peer
   connection up, the service answering `$SRV.PING` and `info`, and no
   plaintext in anything the server passed.

@@ -49,7 +49,7 @@ catalogue, but almost none could be used:
   the header and scheme (or Basic pair), a key prefix, the API base, the
   instructions a person sees, and one read-only verify call. Researched from
   providers' discovery documents and docs, then held to
-  `pnpm test:connect-preflight` (§4).
+  `npm run test:connect-preflight` (§4).
 - Rows of the integration catalog (`catalog.json`) the presets do not cover
   are derived from its own OAuth block; a drift test keeps presets and the
   catalog in agreement wherever both describe a provider.
@@ -112,7 +112,7 @@ hold: a blank secret keeps the stored one.
   token proof then acquires the person's token and the provider's verify call
   answers yes. Negative controls (wrong client authentication, wrong secret,
   PKCE dropped, a token the service refuses) fail the way a provider would.
-- `pnpm test:connect-preflight` checks every real endpoint read-only: each
+- `npm run test:connect-preflight` checks every real endpoint read-only: each
   OAuth authorization endpoint answers as a live server, each discovery
   document agrees with its preset, each MCP server's metadata chain resolves,
   and each API-key verify endpoint demands a key.

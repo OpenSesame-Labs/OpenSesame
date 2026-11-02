@@ -21,5 +21,5 @@ Branch: `chore/audit-tick24`
 
 ```bash
 cargo +1.88.0 clippy -p opensesame-gateway -p opensesame-host-core -- -D warnings
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/control-plane
 ```

@@ -35,7 +35,7 @@ and authorizes the answer against an explicit user and tag allowlist.
 ```bash
 cargo +1.88.0 test -p opensesame-tailscale-authn
 cargo +1.88.0 build -p opensesame-cli --features tailscale
-pnpm audit:daemon-deps
+npm run audit:daemon-deps
 ```
 
 ## Related

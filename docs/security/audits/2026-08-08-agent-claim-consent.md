@@ -26,4 +26,4 @@ Scanners: cargo-audit, cve-lite, ast-grep, clippy, semgrep, gitleaks, osv-scanne
 - `cargo clippy --workspace --all-targets --all-features` — clean
 - `cargo test --workspace` — clean
 - gitleaks, osv-scanner, cargo-deny, cargo-audit, cve-lite, ast-grep, semgrep — clean
-- `pnpm run test:task-access` — clean
+- `npm run test:task-access` — clean

@@ -97,7 +97,7 @@ impl LocalSoftwareKeyCustodyProvider {
             ));
         }
         if request.purpose != ProofPurpose::ResourceAccess
-            && request.purpose != ProofPurpose::IntentAttestation
+  && request.purpose != ProofPurpose::IntentAttestation
         {
             return Err(ProofError::UnauthorizedProofRequest(format!(
                 "purpose {:?} not allowed for local signing",

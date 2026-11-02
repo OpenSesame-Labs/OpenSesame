@@ -40,8 +40,8 @@ It persists ciphertext only; the AEAD itself belongs to the Rust crate
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/client-core test
-pnpm --filter @opensesame/client-core typecheck
+npm run test -w @opensesame/client-core
+npm run typecheck -w @opensesame/client-core
 ```
 
 ## Related

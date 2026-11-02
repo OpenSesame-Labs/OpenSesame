@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Anti-slop ratchet -- the `pnpm lint:anti-slop` gate.
+ * Anti-slop ratchet -- the `npm run lint:anti-slop` gate.
  *
  * The root `oxlint.config.ts` rules are a hard error on any file a commit
- * touches (`pnpm lint:anti-slop:files`, run by `.githooks/pre-commit` on
+ * touches (`npm run lint:anti-slop:files`, run by `.githooks/pre-commit` on
  * staged files). The tree as a whole carried findings from before the rules
  * were turned on, so the full-repository run records them in
  * `tools/quality/anti-slop-baseline.json` and refuses to let them grow, the way
@@ -15,7 +15,7 @@
  *   - an unused disable directive always fails; it is never ledgered
  *
  * Usage:
- *   node scripts/quality/anti-slop-gate.mjs            # check (pnpm verify, pre-push)
+ *   node scripts/quality/anti-slop-gate.mjs            # check (npm run verify, pre-push)
  *   node scripts/quality/anti-slop-gate.mjs --update   # record improvements only
  *   node scripts/quality/anti-slop-gate.mjs --seed     # write the first ledger; refuses if one exists
  *
@@ -239,7 +239,7 @@ if (regressions.length > 0) {
 if (improvements.length > 0) {
   failed = true;
   printList(
-    `anti-slop gate: FAIL -- ${improvements.length} improvement(s) not recorded.\nThe ratchet only works if it tightens; commit the tightened ledger with them:\n\n  pnpm lint:anti-slop --update`,
+    `anti-slop gate: FAIL -- ${improvements.length} improvement(s) not recorded.\nThe ratchet only works if it tightens; commit the tightened ledger with them:\n\n  npm run lint:anti-slop --update`,
     improvements,
     change,
   );

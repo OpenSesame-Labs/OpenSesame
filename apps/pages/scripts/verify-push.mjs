@@ -26,8 +26,8 @@
 // service; `lib/push-browser-shim.mjs` answers `subscribe`/`getSubscription`/
 // `unsubscribe` with real subscriptions the stand-in can decrypt for).
 //
-// Build first:  pnpm --filter @opensesame/pages build:push-verify
-// Run:          pnpm --filter @opensesame/pages verify:push   (under tsx: it
+// Build first:  npm run build:push-verify -w @opensesame/pages
+// Run:          npm run verify:push -w @opensesame/pages   (under tsx: it
 //               imports the control-plane's TypeScript)
 
 import assert from "node:assert/strict";

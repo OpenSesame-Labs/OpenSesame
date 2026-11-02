@@ -151,7 +151,7 @@ pub fn client_profile_from(
             }
         };
     if kind == TrustProfileKind::SpiffeTrustDomain
-        && matches!(server_name, ServerNamePolicy::Dns(_))
+  && matches!(server_name, ServerNamePolicy::Dns(_))
     {
         return Err(misconfigured(format!(
             "{prefix}: a SPIFFE bundle needs {prefix}_SERVER_SPIFFE_ID"

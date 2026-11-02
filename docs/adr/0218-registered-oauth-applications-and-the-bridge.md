@@ -50,7 +50,7 @@ things:
 2. **The bridge carries what a page cannot read, and only that.**
    `spec/connectors/oauth-reach.json` records, from the audited origin and with
    fake credentials, whether a page can read each provider's token, account and
-   revocation endpoint (`pnpm audit:oauth-reach`). An endpoint that answers
+   revocation endpoint (`npm run audit:oauth-reach`). An endpoint that answers
    with an allowing `Access-Control-Allow-Origin` (and, where the request has a
    custom header, a preflight that names it: `*` does not cover `Authorization`)
    is **direct**. One that does not is a host in the bridge's table for that
@@ -135,5 +135,5 @@ cryptography Bitwarden's clients do is Web Crypto:
 - The bridge's table grows by OAuth hosts and tenant families; the extension's
   manifest and permissions are unchanged (optional, per host, on the person's
   click).
-- `pnpm audit:oauth-reach` re-probes the evidence; a verdict that moves is
+- `npm run audit:oauth-reach` re-probes the evidence; a verdict that moves is
   reported and the table regenerates (`node packages/connector-bridge/scripts/emit-table.mjs`).

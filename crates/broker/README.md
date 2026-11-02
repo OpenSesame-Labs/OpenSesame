@@ -45,7 +45,7 @@ none, instead of running twice.
 ```bash
 cargo +1.88.0 test -p opensesame-broker
 cargo +1.88.0 test -p opensesame-broker --features concurrency-test --test shuttle_idempotency
-pnpm audit:shuttle   # runs the shuttle suite above with the other crates'
+npm run audit:shuttle   # runs the shuttle suite above with the other crates'
 ```
 
 `tests/adversarial_broker.rs` covers idempotency, organization isolation,

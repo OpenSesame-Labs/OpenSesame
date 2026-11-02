@@ -22,7 +22,7 @@
 # adding a fourth still turns this red.
 #
 # `tools/security/ast-grep-negative-control.md` explains how to confirm the gate can
-# still fail; `pnpm audit:ast-grep` runs it.
+# still fail; `npm run audit:ast-grep` runs it.
 id: sql-format-injection
 language: rust
 severity: error

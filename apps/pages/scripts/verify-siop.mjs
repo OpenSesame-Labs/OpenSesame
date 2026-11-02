@@ -1,9 +1,9 @@
 // Prove native SIOPv2 consent, passkey gating, and fragment redirects against
 // the built Pages bundle on the production origin with no backend (ADR 0116).
 //
-//   VITE_BASE=/OpenSesame/ pnpm --filter @opensesame/pages build
+//   VITE_BASE=/OpenSesame/ npm run build -w @opensesame/pages
 //   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
-//     pnpm --filter @opensesame/pages verify:siop
+//     npm run verify:siop -w @opensesame/pages
 //
 // Fails on page errors, console errors, loopback requests, or a token that
 // does not verify through @opensesame/siop-v2 verifySelfIssuedIdToken.

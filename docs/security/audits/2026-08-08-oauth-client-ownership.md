@@ -55,11 +55,11 @@ credentials. Applied to both create and patch.
 
 ## Verification
 
-- `pnpm --filter @opensesame/control-plane test` — new test proves a second
+- `npm run test` -w @opensesame/control-plane — new test proves a second
   principal cannot list, repoint, rotate or revoke another's client, that the
   owner still can, and that `javascript:` is refused with 400.
-- `pnpm --filter @opensesame/contracts test` — scheme allow/deny table.
-- `pnpm run test:all` green across 22 packages; `pnpm run build` 14/14.
-- `pnpm --filter @opensesame/database db:generate` → `0001_yielding_wildside.sql`
+- `npm run test` -w @opensesame/contracts — scheme allow/deny table.
+- `npm run test:all` green across 22 packages; `npm run build` 14/14.
+- `npm run db:generate` -w @opensesame/database → `0001_yielding_wildside.sql`
   (nullable column + FK + index; no backfill needed since the control plane
   keeps clients in memory today).

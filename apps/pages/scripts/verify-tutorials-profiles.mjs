@@ -14,11 +14,11 @@ import { privateTempDir } from "./lib/private-files.mjs";
  * `TUTORIALS_PROFILES_FULL=1` (CI, when a runner can spend the time).
  *
  *   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
- *     pnpm --filter @opensesame/pages verify:tutorials-profiles
+ *     npm run verify:tutorials-profiles -w @opensesame/pages
  *
  *   TUTORIALS_PROFILES_FULL=1 \
  *     PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
- *     pnpm --filter @opensesame/pages verify:tutorials-profiles
+ *     npm run verify:tutorials-profiles -w @opensesame/pages
  *
  * `VERIFY_SKIP_BUILD=1` reuses `dist-profiles/tutorials-<name>/` when
  * `index.html` is already there.
@@ -88,6 +88,6 @@ console.log(
 );
 if (!full) {
   console.log(
-    "[tutorials-profiles] shard 1/3. Full library: TUTORIALS_PROFILES_FULL=1 pnpm --filter @opensesame/pages verify:tutorials-profiles",
+    "[tutorials-profiles] shard 1/3. Full library: TUTORIALS_PROFILES_FULL=1 npm run verify:tutorials-profiles", -w @opensesame/pages
   );
 }

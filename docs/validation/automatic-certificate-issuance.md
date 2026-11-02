@@ -117,20 +117,20 @@ path scope remain explicit coverage limitations.
 
 Clean disposable checkout results:
 
-- `pnpm install --offline --frozen-lockfile`: pass.
-- `pnpm lint:all`, `pnpm lint:anti-slop`, `cargo fmt --all -- --check`: pass.
-- `pnpm build`: 13/13 tasks; `pnpm typecheck`: 46/46 tasks.
-- `pnpm test`: 48/48 tasks; Pages 119 files / 1,701 tests; red-team 19/19;
+- `npm install --offline --frozen-lockfile`: pass.
+- `npm run lint:all`, `npm run lint:anti-slop`, `cargo fmt --all -- --check`: pass.
+- `npm run build`: 13/13 tasks; `npm run typecheck`: 46/46 tasks.
+- `npm test`: 48/48 tasks; Pages 119 files / 1,701 tests; red-team 19/19;
   visual 6/6.
 - `cargo +1.88.0 test --workspace --all-targets`: pass.
-- `pnpm test:integration`: 6/6 tasks, including database 5/5, MCP Host 21/21,
+- `npm run test:integration`: 6/6 tasks, including database 5/5, MCP Host 21/21,
   structural red-team 15/15, and visual 6/6.
-- `pnpm test:security`: 3/3.
-- `pnpm test:e2e` with the documented local Gateway fixture: 2/2 Playwright
+- `npm run test:security`: 3/3.
+- `npm run test:e2e` with the documented local Gateway fixture: 2/2 Playwright
   journeys plus 3/3 extension contract checks.
-- `pnpm generate:openapi`: pass and produces no tracked diff; certificate
+- `npm run generate:openapi`: pass and produces no tracked diff; certificate
   issuance remains on the separate Host API.
-- `pnpm verify`: pass, including changed-file lint, `test:all`, the complete
+- `npm run verify`: pass, including changed-file lint, `test:all`, the complete
   Rust workspace, Wasm client smoke, adversarial broker checks, and battle
   tests.
 

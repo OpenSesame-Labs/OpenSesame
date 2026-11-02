@@ -15,7 +15,7 @@ export default defineConfig({
      * starts at once, while Vitest's default `hookTimeout` stays at 10s — so
      * the expensive half of the file had the tighter deadline, and the margin
      * shrinks every time the schema gains a migration. Under a full
-     * `pnpm test`, with every workspace suite running concurrently, that is
+     * `npm test`, with every workspace suite running concurrently, that is
      * where it ran out.
      *
      * Raising it removes a deadline that was measuring machine load rather

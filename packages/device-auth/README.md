@@ -30,8 +30,8 @@ a client session; ownership transfer is the separate claim flow in
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/device-auth test
-pnpm --filter @opensesame/device-auth typecheck
+npm run test -w @opensesame/device-auth
+npm run typecheck -w @opensesame/device-auth
 ```
 
 ## Related

@@ -37,7 +37,7 @@ case is upstream: never put a secret in a message. Log an id.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/log-scrub test
+npm run test -w @opensesame/log-scrub
 ```
 
 Add a shape by adding a rule and a vector to the spec; the Rust side picks it up

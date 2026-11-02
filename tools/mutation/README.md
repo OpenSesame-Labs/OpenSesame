@@ -1,6 +1,6 @@
 # tools/mutation
 
-The Stryker configurations behind the TypeScript half of `pnpm test:mutation`,
+The Stryker configurations behind the TypeScript half of `npm run test:mutation`,
 and the Vitest configs Stryker drives. Each Stryker config names a small
 `mutate` list of files where a surviving mutant means a security decision
 stopped being made and nothing noticed. The break threshold is 100: one
@@ -8,11 +8,11 @@ surviving mutant fails the run.
 
 ## Where it fits
 
-- **Read by:** `pnpm test:mutation:ts`, `pnpm test:mutation:duress` (root
-  [`package.json`](../../package.json)). `pnpm test:mutation` runs
+- **Read by:** `npm run test:mutation:ts`, `npm run test:mutation:duress` (root
+  [`package.json`](../../package.json)). `npm run test:mutation` runs
   `test:mutation:ts` and then the Rust half, `test:mutation:rust`
   (cargo-mutants, configured inline in `package.json`, not here).
-- Not part of `pnpm verify` or the fast PR gate. The weekly release pipeline
+- Not part of `npm run verify` or the fast PR gate. The weekly release pipeline
   requires all three scoped suites after prerelease; they can also run locally.
 - Reports land in `artifacts/mutation/`, which is gitignored.
 
@@ -28,9 +28,9 @@ surviving mutant fails the run.
 ## Develop
 
 ```bash
-pnpm test:mutation:ts                 # the main slice
-pnpm test:mutation:duress             # the duress-unlock slice alone
-pnpm test:mutation                    # TypeScript, then cargo-mutants
+npm run test:mutation:ts                 # the main slice
+npm run test:mutation:duress             # the duress-unlock slice alone
+npm run test:mutation                    # TypeScript, then cargo-mutants
 ```
 
 Adding a file to a `mutate` list is a claim that it is covered. Run the gate in

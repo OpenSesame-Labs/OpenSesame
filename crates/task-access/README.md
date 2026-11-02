@@ -44,7 +44,7 @@ implementations.
 cargo +1.88.0 test -p opensesame-task-access
 OPENSESAME_TEST_DATABASE_URL=postgres://… \
   cargo +1.88.0 test -p opensesame-task-access --features postgres-integration
-pnpm test:task-access
+npm run test:task-access
 ```
 
 The SQL schemas live in [`migrations/`](migrations), one per backend; change

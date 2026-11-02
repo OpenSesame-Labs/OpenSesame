@@ -168,7 +168,7 @@ opaque, and is set by the server.
 - `lib/at-rest/at-rest.test.ts`, `at-rest-stores.test.ts`: the seal, the
   key states, each store raw, the two-tab key race, legacy migration,
   the CLI key file.
-- `pnpm --filter @opensesame/pages verify:static` reads the origin's storage
+- `npm run verify:static` -w @opensesame/pages reads the origin's storage
   raw after the guest road and again after Google sign-in
   (`scripts/lib/at-rest-contract.mjs`). Every app-owned value, file and row
   must be `osr1.`. The guest's name, the pairwise subject and the person's

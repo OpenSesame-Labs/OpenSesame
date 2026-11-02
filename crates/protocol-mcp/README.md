@@ -9,7 +9,7 @@ MCP token be reused as a downstream credential.
 ## Where it fits
 
 - **Used by:** no workspace crate or app depends on it today. It is exercised by
-  its own unit tests, by `pnpm test:task-access`
+  its own unit tests, by `npm run test:task-access`
   ([`scripts/test/task-security-battle-test.sh`](../../scripts/test/task-security-battle-test.sh)),
   and by the fuzz crate [`tests/fuzz/cargo`](../../tests/fuzz/cargo)
   (`mcp_authz`, `resource_match`, which call `validate_audience` and
@@ -39,11 +39,11 @@ MCP token be reused as a downstream credential.
 
 ```bash
 cargo +1.88.0 test -p opensesame-protocol-mcp
-pnpm test:task-access
+npm run test:task-access
 ```
 
 A change under `crates/protocol-mcp/` maps to the `mcp_authz` and
-`resource_match` targets in `pnpm audit:fuzz`.
+`resource_match` targets in `npm run audit:fuzz`.
 
 ## Related
 

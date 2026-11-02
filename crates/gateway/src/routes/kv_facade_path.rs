@@ -145,11 +145,11 @@ pub fn parse_kv_path(mount: &str, raw: &str) -> Result<KvPath, KvPathError> {
 pub fn kv_path_is_confined(parsed: &KvPath) -> bool {
     let name = parsed.name.as_str();
     !name.is_empty()
-        && name.len() <= MAX_KV_NAME_BYTES
-        && !name.contains('/')
-        && !name.contains('\\')
-        && !name.contains("..")
-        && !name.starts_with('.')
-        && !name.contains('\0')
-        && valid_kv_name(name)
+  && name.len() <= MAX_KV_NAME_BYTES
+  && !name.contains('/')
+  && !name.contains('\\')
+  && !name.contains("..")
+  && !name.starts_with('.')
+  && !name.contains('\0')
+  && valid_kv_name(name)
 }

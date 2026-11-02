@@ -40,8 +40,8 @@ Errors: `Openid4vciError`.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/openid4vci test
-pnpm --filter @opensesame/openid4vci typecheck
+npm run test -w @opensesame/openid4vci
+npm run typecheck -w @opensesame/openid4vci
 ```
 
 ## Related

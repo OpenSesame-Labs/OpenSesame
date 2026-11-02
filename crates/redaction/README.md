@@ -38,8 +38,8 @@ table, run by both planes.
 
 ```bash
 cargo +1.88.0 test -p opensesame-redaction
-pnpm audit:miri             # runs this crate's tests under Miri
-pnpm test:mutation:rust     # src/lib.rs is in the mutation scope
+npm run audit:miri             # runs this crate's tests under Miri
+npm run test:mutation:rust     # src/lib.rs is in the mutation scope
 ```
 
 `redact_json` censors by whole key and also runs `redact_text` over every string

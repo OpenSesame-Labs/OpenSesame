@@ -42,7 +42,7 @@ fn request_allowed(fields: &BTreeMap<String, String>, allowed_hosts: &str) -> bo
         return false;
     };
     !host.is_empty()
-        && allowed_hosts
+  && allowed_hosts
             .split(',')
             .map(|entry| entry.trim().to_ascii_lowercase())
             .any(|entry| entry == host)

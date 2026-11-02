@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pnpm test:authority-fabric — the general-authority verification gate.
+ * npm run test:authority-fabric — the general-authority verification gate.
  *
  * Reads the tree, resolves every scenario in the registry against what is
  * actually wired, runs the tests that exist, and writes the report under
@@ -76,7 +76,7 @@ const report = assembleReport(
     // with each other, so the report says so instead of implying one snapshot.
     treeChangedDuringRun: treeBefore !== treeAfter,
     executed: !noRun,
-    command: "pnpm test:authority-fabric",
+    command: "npm run test:authority-fabric",
     cargoExecution:
       "one `cargo test -p <crate> --lib -- --format terse` per crate; each scenario reads its own test's line",
   },
@@ -253,7 +253,7 @@ function runVitest(command, scenario) {
 }
 
 /**
- * pnpm prints its own failure lines after vitest's JSON, so the report is sliced
+ * npm run prints its own failure lines after vitest's JSON, so the report is sliced
  * between the first brace and the last rather than read to end of stream.
  */
 function parseVitestJson(stdout) {

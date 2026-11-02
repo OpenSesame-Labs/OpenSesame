@@ -106,8 +106,8 @@ pub fn parse_base(raw: &str) -> Result<Url, InteractionConfigError> {
 pub(super) fn join_endpoint(base: &Url, path: &str) -> Option<Url> {
     let relative = path.strip_prefix('/')?;
     let plain = !relative.is_empty()
-        && !relative.contains(['?', '#', '\\'])
-        && relative
+  && !relative.contains(['?', '#', '\\'])
+  && relative
             .split('/')
             .all(|segment| !matches!(segment, "" | "." | ".."));
     if !plain {

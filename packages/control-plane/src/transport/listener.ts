@@ -15,7 +15,7 @@
  * Session state on the client-authenticating profiles is a product choice
  * (CONTRACT §4): stateless tickets are off (`SSL_OP_NO_TICKET`), the
  * `resumeSession` hook answers "no session" so the stateful path cannot
- * resume either, and `sessionTimeout` is the one-second floor. Node 22 has
+ * resume either, and `sessionTimeout` is the one-second floor. Node 24 has
  * no switch that turns the OpenSSL server cache off outright; this trio is
  * what it supports, and the listener test asserts `isSessionReused()` is
  * false on a reconnect that offers the previous session.

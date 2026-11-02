@@ -8,12 +8,12 @@ use super::{DirEntry, Shared, Store, ORG_ROLE, OWNER_KIND, PRINCIPAL, SLOT_KEY, 
 pub(crate) fn valid_segment(value: &str) -> bool {
     let bytes = value.as_bytes();
     (1..=63).contains(&bytes.len())
-        && bytes
+  && bytes
             .iter()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
-        && !value.starts_with('-')
-        && !value.ends_with('-')
-        && value != "guest"
+  && !value.starts_with('-')
+  && !value.ends_with('-')
+  && value != "guest"
 }
 
 pub(crate) fn address(owner: &str, slug: &str) -> Option<String> {
@@ -156,7 +156,7 @@ pub(crate) fn snapshot_ok(value: &Value) -> bool {
         return false;
     };
     object.get("format").and_then(Value::as_str) == Some(SNAPSHOT_FORMAT)
-        && object.get("v").and_then(Value::as_u64) == Some(1)
+  && object.get("v").and_then(Value::as_u64) == Some(1)
 }
 
 pub(crate) fn lock(store: &Shared) -> std::sync::MutexGuard<'_, Store> {

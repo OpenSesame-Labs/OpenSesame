@@ -42,11 +42,11 @@ real HTTP authorization-code/PKCE exchange with signed-token and replay checks.
 
 Validation on the integrated working tree:
 
-- `pnpm test`: final rerun passed all 65 workspace tasks, including 3,347 Pages tests.
+- `npm test`: final rerun passed all 65 workspace tasks, including 3,347 Pages tests.
 - Final Identity UI regression run: 35 tests passed, including application-edit
   serialization; final SCIM/management run: 13 passed.
-- `pnpm typecheck`: 61 tasks passed.
-- `pnpm lint`, `pnpm lint:anti-slop`, `pnpm quality` and `pnpm lint:design`: passed without
+- `npm run typecheck`: 61 tasks passed.
+- `npm run lint`, `npm run lint:anti-slop`, `npm run quality` and `npm run lint:design`: passed without
   suppressions or increased baselines.
 - Pages production build, `verify:static` and `verify:auth`: passed.
 - Bundle-budget check: all existing budgets retained and satisfied; Pages was
@@ -55,7 +55,7 @@ Validation on the integrated working tree:
   directory user, registered an agent, and created/edited an OIDC application.
   At 390px width all six views remained reachable without horizontal overflow.
 
-The complete Rust-inclusive `pnpm verify` is not claimed: its preceding run
+The complete Rust-inclusive `npm run verify` is not claimed: its preceding run
 stopped on a Cargo `const_oid` dependency/cache compilation error. No Rust code
 changed in this administration work.
 

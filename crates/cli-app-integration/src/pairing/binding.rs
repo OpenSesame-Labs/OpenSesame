@@ -207,8 +207,8 @@ impl CliAppIntegrationPairings {
             .iter()
             .find(|p| {
                 same(p.code_sha256.as_str(), digest.as_str())
-                    && p.expires_at > now
-                    && p.origin == origin
+  && p.expires_at > now
+  && p.origin == origin
             })
             .map(|p| p.pairing_challenge)
     }

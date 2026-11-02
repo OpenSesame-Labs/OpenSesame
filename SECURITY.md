@@ -35,8 +35,8 @@ Good-faith security research that follows this policy and avoids privacy violati
 ## Supported local verification
 
 ```bash
-pnpm -r --filter '@opensesame/*' test
-pnpm test:security
+npm run test --workspaces --if-present
+npm run test:security
 ./scripts/test/battle-test.sh
 ```
 

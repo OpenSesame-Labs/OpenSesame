@@ -1,8 +1,8 @@
 // Prove a portable drop opens on a second browser that never held the
 // sender's vault (P8-1).
 //
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
-//   pnpm --filter @opensesame/pages verify:portable-drop
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
+//   npm run verify:portable-drop -w @opensesame/pages
 //
 // Same harness as `verify:static`: every request to the origin is served from
 // `dist/`, every other origin is refused, and the run fails on any page error,

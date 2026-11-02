@@ -34,6 +34,6 @@ Tick 57. Scope: the newer control-plane routes —
 
 ## Gates
 
-`pnpm test`, `pnpm run typecheck`, `cargo test --workspace`, `cargo clippy
+`npm test`, `npm run typecheck`, `cargo test --workspace`, `cargo clippy
 --workspace --all-targets -- -D warnings`, task-security-battle-test, semgrep,
 ast-grep, osv-scanner, gitleaks, cve-lite, cargo-audit — all clean.

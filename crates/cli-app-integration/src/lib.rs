@@ -201,7 +201,7 @@ impl CliAppIntegrationStore {
         let hard_ms = policy().hard_limit_seconds * 1000;
         self.approved.retain(|_, session| {
             now_ms.saturating_sub(session.last_activity_ms) <= idle_ms
-                && now_ms.saturating_sub(session.approved_at_ms) <= hard_ms
+  && now_ms.saturating_sub(session.approved_at_ms) <= hard_ms
         });
     }
 

@@ -14,12 +14,12 @@ import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { entryClosure, parseHtmlEntry } from "./capability-graph.mjs";
 
-/** es-module-lexer ships inside Vite's pnpm store; resolve it from there. */
+/** es-module-lexer ships inside Vite's npm cache; resolve it from there. */
 export async function loadLexer(repoRoot) {
   try {
     return await import("es-module-lexer");
   } catch {
-    const store = join(repoRoot, "node_modules/.pnpm");
+    const store = join(repoRoot, "node_modules");
     const candidates = existsSync(store)
       ? readdirSync(store)
           .filter((name) => name.startsWith("es-module-lexer@"))
@@ -28,7 +28,7 @@ export async function loadLexer(repoRoot) {
     const pick = candidates.at(-1);
     if (!pick)
       throw new Error(
-        "es-module-lexer is not installed anywhere under node_modules/.pnpm",
+        "es-module-lexer is not installed anywhere under node_modules",
       );
     const require = createRequire(
       join(store, pick, "node_modules/es-module-lexer/package.json"),

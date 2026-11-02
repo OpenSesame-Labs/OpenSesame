@@ -18,10 +18,10 @@ import { areasForPaths, repoRootFromHere } from "./ci-changed-areas.mjs";
 import { driverReach, gatesForPath } from "./ci-gates.mjs";
 import { readString } from "./json-boundary.mjs";
 
-// The `yaml` package pnpm hoists privately, loaded the way
+// The `yaml` package npm run hoists privately, loaded the way
 // scripts/security/verified-backports.mjs loads it.
 const { parse } = createRequire(
-  new URL("../../node_modules/.pnpm/node_modules/", import.meta.url),
+  new URL("../../node_modules/node_modules/", import.meta.url),
 )("yaml");
 
 const root = repoRootFromHere();
@@ -214,7 +214,7 @@ describe("artifact publication workflow", () => {
   it("promotes the exact existing archive without source builds or stamping", () => {
     const bodies = runScripts(publisherText).join("\n");
     expect(bodies).not.toMatch(
-      /cargo .*build|turbo .*build|pnpm .*build|pages-release\.mjs stamp/,
+      /cargo .*build|turbo .*build|npm run .*build|pages-release\.mjs stamp/,
     );
     expect(bodies).toContain(
       'gzip -dc "$PAGES_ARCHIVE" > hosting/artifact.tar',

@@ -6,7 +6,7 @@ Payment-adapter foundation for EVM wallet spending
 delegation adapter, `createDirectErc20DelegationAdapter`. The source is pure
 TypeScript. The adapter's live mode stays fail-closed (its readiness is
 `awaiting_harness`); the Solidity enforcer tests in `forge/test/` run through
-`pnpm wallet:test:contracts`, not through this package's TypeScript.
+`npm run wallet:test:contracts`, not through this package's TypeScript.
 
 ## Candidate pin (not a deployment certificate)
 
@@ -22,7 +22,7 @@ under `work/evidence/wallet/wallet/cross-platform/`.
 
 ## Contract tests
 
-`pnpm wallet:test:contracts` runs this package's Vitest **simulation** suite
+`npm run wallet:test:contracts` runs this package's Vitest **simulation** suite
 (in-memory shared-ancestor counter), then the Foundry suites in `forge/test/`
 (`SiblingSharedPeriodCap`, `WalE04MixedAssetCaveat`, `WalE05RecipientAndValue`,
 `WalE06E09MethodAndExpiry`) and the upstream `ERC20PeriodTransferEnforcerTest`,

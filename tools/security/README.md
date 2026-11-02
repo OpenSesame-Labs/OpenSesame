@@ -9,14 +9,14 @@ finding.
 ## Where it fits
 
 - **Read by:** [`scripts/audit/ast-grep-security-gate.sh`](../../scripts/audit/ast-grep-security-gate.sh)
-  (`pnpm audit:ast-grep`) reads `ast-grep-rules.yml`. The routines
+  (`npm run audit:ast-grep`) reads `ast-grep-rules.yml`. The routines
   [`ops/routines/pr-security-review.md`](../../ops/routines/pr-security-review.md)
   and [`ops/routines/weekly-security-audit.md`](../../ops/routines/weekly-security-audit.md)
   read `claude-review-checklist.md`.
 - The gitleaks configuration itself is [`.gitleaks.toml`](../../.gitleaks.toml)
-  at the root, read by `scripts/audit/gitleaks-gate.sh` (`pnpm audit:gitleaks`);
+  at the root, read by `scripts/audit/gitleaks-gate.sh` (`npm run audit:gitleaks`);
   only its negative control lives here.
-- [`exposure-matrix.json`](exposure-matrix.json) records observer/artifact combinations and reviewed implementation bindings. `pnpm audit:exposure`, commit/push hooks and the existing CI admission job enforce [the exposure policy](../../docs/security/exposure-matrix.md). Source drift and missing classifications fail closed; fingerprints supplement behavioral tests.
+- [`exposure-matrix.json`](exposure-matrix.json) records observer/artifact combinations and reviewed implementation bindings. `npm run audit:exposure`, commit/push hooks and the existing CI admission job enforce [the exposure policy](../../docs/security/exposure-matrix.md). Source drift and missing classifications fail closed; fingerprints supplement behavioral tests.
 - A gate that is permanently red reports nothing, so each suppression is made
   at its call site with a reason, not by widening a rule's scope.
 
@@ -26,14 +26,14 @@ finding.
 |---|---|
 | `ast-grep-rules.yml` | Eleven error-level rules: SQL string formatting and shell command construction in Rust; `eval`, `innerHTML` (TS and TSX), `dangerouslySetInnerHTML`, `document.write`, web-storage writes (TS and TSX), `Math.random` and `child_process` exec in TypeScript. The browser-risk rules (innerHTML, web storage, `Math.random`) carry a test-file ignore list; the injection rules do not. |
 | `ast-grep-negative-control.md` | Five cases that show the rules can still fail and that the test-file scoping narrows the browser-risk rules without switching the injection rules off. Also describes the production findings suppressed in place with `// ast-grep-ignore: <rule-id>`, and why. |
-| `gitleaks-negative-control.md` | How to plant generated, correctly shaped credentials and watch `pnpm audit:gitleaks` fail, and what each exemption in `.gitleaks.toml` costs: `// gitleaks:allow` must be trailing on the same line, and path entries are whole-file. |
+| `gitleaks-negative-control.md` | How to plant generated, correctly shaped credentials and watch `npm run audit:gitleaks` fail, and what each exemption in `.gitleaks.toml` costs: `// gitleaks:allow` must be trailing on the same line, and path entries are whole-file. |
 | `claude-review-checklist.md` | Nine sections of diff-checkable items (bind fences and CORS, fail-closed production paths, token and DPoP custody, CSRF, sealed-store integrity, log redaction, SSRF, quotas, audit chain and grant scope) plus the non-negotiables, each citing the security doc or audit it came from. |
 
 ## Develop
 
 ```bash
-pnpm audit:ast-grep       # needs ast-grep on PATH; fails on any error-level finding
-pnpm audit:gitleaks       # needs gitleaks on PATH
+npm run audit:ast-grep       # needs ast-grep on PATH; fails on any error-level finding
+npm run audit:gitleaks       # needs gitleaks on PATH
 ```
 
 The ast-grep gate scans `apps`, `crates` and `packages`, and the script passes

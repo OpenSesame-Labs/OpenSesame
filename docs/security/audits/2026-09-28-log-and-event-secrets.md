@@ -67,7 +67,7 @@ URL, under an unlisted key.
   wallet export and the CLI's errors scrubbed.
 - Delivery failures drop the URL and are scrubbed before they are stored.
 - The six structs print `[REDACTED]`.
-- `pnpm quality:log-hygiene` counts the ways round the logger; the ledger only
+- `npm run quality:log-hygiene` counts the ways round the logger; the ledger only
   falls.
 - Logs and events rest sealed (ADR 0157 items 7–9): an encrypted, rotating,
   owner-only log file for the Host and the TypeScript services

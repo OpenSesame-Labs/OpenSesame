@@ -22,7 +22,7 @@
     "build": "node scripts/build.mjs",
     "build:release": "node scripts/build.mjs --native",
     "dev": "node --import tsx src/bin.ts",
-    "pack:release": "pnpm build:release && node scripts/pack.mjs",
+    "pack:release": "npm run build:release && node scripts/pack.mjs",
     "test:native": "vitest run --config vitest.native.config.ts",
     "test:installed": "node scripts/build.mjs && node scripts/test-installed.mjs",
     "test:archive": "node scripts/test-archive.mjs",

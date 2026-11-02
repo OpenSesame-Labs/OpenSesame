@@ -150,7 +150,7 @@ pub(super) fn op(
         anyhow::ensure!(
             super::credential::DESKTOP.load(std::sync::atomic::Ordering::Relaxed)
                 || (std::env::var_os("OP_SERVICE_ACCOUNT_TOKEN").is_none()
-                    && !super::credential::configured()),
+  && !super::credential::configured()),
             "Account selection is unavailable with service-account authentication"
         );
         command.args(["--account", account]);
@@ -256,7 +256,7 @@ pub(super) fn doctor() -> Value {
         .map(|s| s.trim().to_owned())
         .filter(|s| {
             s.len() < 80
-                && s.chars()
+  && s.chars()
                     .all(|c| c.is_ascii_digit() || ['.', '-'].contains(&c))
         });
     let accounts = version

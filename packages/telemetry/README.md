@@ -28,8 +28,8 @@ configured.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/telemetry test
-pnpm --filter @opensesame/telemetry typecheck
+npm run test -w @opensesame/telemetry
+npm run typecheck -w @opensesame/telemetry
 ```
 
 The allowlist must match the contract in

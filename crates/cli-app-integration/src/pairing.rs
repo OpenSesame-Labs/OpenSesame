@@ -33,7 +33,7 @@ pub const MAX_PIN_PROOF_FAILURES: u32 = 8;
 #[must_use]
 pub fn is_vault_session_root_digest_shaped(value: &str) -> bool {
     value.len() == 64
-        && value
+  && value
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'A'..=b'F').contains(&b) || (b'a'..=b'f').contains(&b))
 }

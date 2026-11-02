@@ -27,7 +27,7 @@ fn js_len(text: &str) -> usize {
 /// `^[A-Za-z0-9._:-]{1,64}$`
 fn is_id(text: &str) -> bool {
     (1..=64).contains(&text.len())
-        && text
+  && text
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'-'))
 }
@@ -75,9 +75,9 @@ fn is_offset(rest: &str) -> bool {
     };
     let digits = digits.replacen(':', "", 1);
     matches!(digits.len(), 2 | 4)
-        && digits.bytes().all(|b| b.is_ascii_digit())
-        && number_at(&digits, 0, 2).is_some_and(|h| h < 24)
-        && (digits.len() == 2 || number_at(&digits, 2, 2).is_some_and(|m| m < 60))
+  && digits.bytes().all(|b| b.is_ascii_digit())
+  && number_at(&digits, 0, 2).is_some_and(|h| h < 24)
+  && (digits.len() == 2 || number_at(&digits, 2, 2).is_some_and(|m| m < 60))
 }
 
 /// `YYYY-MM-DDTHH:MM:SS(.fff)?(Z|+HH:MM)`, with a real calendar date.
@@ -94,10 +94,10 @@ fn is_instant(text: &str) -> bool {
     };
     let shape = text.as_bytes();
     let punctuation = shape.get(4) == Some(&b'-')
-        && shape.get(7) == Some(&b'-')
-        && shape.get(10) == Some(&b'T')
-        && shape.get(13) == Some(&b':')
-        && shape.get(16) == Some(&b':');
+  && shape.get(7) == Some(&b'-')
+  && shape.get(10) == Some(&b'T')
+  && shape.get(13) == Some(&b':')
+  && shape.get(16) == Some(&b':');
     let rest = &text[19..];
     let (fraction, offset) = match rest.strip_prefix('.') {
         Some(after) => {
@@ -107,13 +107,13 @@ fn is_instant(text: &str) -> bool {
         None => (true, rest),
     };
     punctuation
-        && fraction
-        && (1..=12).contains(&month)
-        && (1..=days_in_month(year, month)).contains(&day)
-        && hour < 24
-        && minute < 60
-        && second < 60
-        && is_offset(offset)
+  && fraction
+  && (1..=12).contains(&month)
+  && (1..=days_in_month(year, month)).contains(&day)
+  && hour < 24
+  && minute < 60
+  && second < 60
+  && is_offset(offset)
 }
 
 fn check_credential(credential: &GuardianCredential) -> Result<(), PolicyError> {

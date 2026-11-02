@@ -25,7 +25,7 @@ the boundary contract.
 
 Maintain the observer, artifact, proof and lifecycle classifications in
 `tools/security/exposure-matrix.json`. Run the local deterministic checker at
-`scripts/security/exposure-matrix-gate.mjs` through `pnpm audit:exposure`.
+`scripts/security/exposure-matrix-gate.mjs` through `npm run audit:exposure`.
 The checker uses Node and checked-out source; it sends no source to an external
 model or scanner and requires no remote service.
 

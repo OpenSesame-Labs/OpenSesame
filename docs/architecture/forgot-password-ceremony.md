@@ -353,8 +353,8 @@ offered first.
 
 ## 9. Phases and gates
 
-Each gate is the repository's own: tests green, `pnpm verify`, and the audits that
-apply (`pnpm audit:daemon-deps` unchanged, `pnpm audit:plugin-boundary`, Clippy).
+Each gate is the repository's own: tests green, `npm run verify`, and the audits that
+apply (`npm run audit:daemon-deps` unchanged, `npm run audit:plugin-boundary`, Clippy).
 
 | Phase | Delivers | Exit |
 |---|---|---|

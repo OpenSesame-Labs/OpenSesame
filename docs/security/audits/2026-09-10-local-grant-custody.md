@@ -17,7 +17,7 @@ the operation without silently deleting unrelated data.
 Validation:
 
 ```sh
-pnpm --filter @opensesame/pages exec vitest run \
+npm exec -w @opensesame/pages -- vitest run \
   src/lib/local-grant-admin.test.ts src/lib/local-authorization.test.ts \
   src/lib/local-agent-authorization.test.ts src/lib/local-grant-store.test.ts
 ```

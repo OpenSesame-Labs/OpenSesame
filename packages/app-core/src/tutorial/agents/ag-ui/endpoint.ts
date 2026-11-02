@@ -131,7 +131,7 @@ export const agUiEndpointSeams = {
 
 /**
  * Baked at build time. A static Pages deploy never sets `VITE_*`, which is why
- * the runtime file above exists; a `pnpm dev` session or a self-hosted build
+ * the runtime file above exists; a `npm run dev` session or a self-hosted build
  * can use this instead and needs no boot fetch at all.
  */
 function builtSupportAgentUrl(): string | undefined {

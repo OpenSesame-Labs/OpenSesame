@@ -23,8 +23,8 @@ open, so an unchecked base URL is a way to aim a local secret at a remote listen
 
 ## Verification
 
-- `pnpm --filter @opensesame/mcp-host test` — 8 passed (3 new: base refusal, operator
+- `npm run test` -w @opensesame/mcp-host — 8 passed (3 new: base refusal, operator
   token withheld from remote, daemon auth + loopback)
-- `pnpm --filter @opensesame/api-client test` — 8 passed (1 new)
-- `pnpm run typecheck`, `pnpm test` — clean
+- `npm run test` -w @opensesame/api-client — 8 passed (1 new)
+- `npm run typecheck`, `npm test` — clean
 - semgrep, gitleaks, cargo-audit, cargo-deny, osv-scanner, cve-lite, ast-grep — clean

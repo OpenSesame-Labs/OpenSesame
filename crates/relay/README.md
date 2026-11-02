@@ -34,7 +34,7 @@ the gateway and the holder cannot disagree.
 
 ```bash
 cargo +1.88.0 test -p opensesame-relay
-pnpm test:mutation:rust   # src/lib.rs is in the mutation scope
+npm run test:mutation:rust   # src/lib.rs is in the mutation scope
 ```
 
 The liveness rule is stated outright rather than derived from `class` and

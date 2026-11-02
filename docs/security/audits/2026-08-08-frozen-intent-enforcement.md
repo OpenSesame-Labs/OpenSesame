@@ -26,5 +26,5 @@ Scanners: cve-lite, gitleaks, semgrep, security battle test, clippy, cargo-audit
 
 - `cargo clippy --workspace --all-targets --all-features` — clean
 - `cargo test --workspace` — clean (new `claims_task_authority` unit tests)
-- `pnpm --filter @opensesame/mcp-host test` — clean
+- `npm run test` -w @opensesame/mcp-host — clean
 - semgrep, gitleaks, cve-lite, security battle test — clean

@@ -32,7 +32,7 @@ key allowlist), this was diagnostic logging only — the split ADR 0015 draws.
   referential object from stalling the logger; non-plain objects (Error, Date,
   Buffer) are left to pino's serializers.
 
-## Also fixed this tick — `pnpm run build` was red on `main`
+## Also fixed this tick — `npm run build` was red on `main`
 
 `apps/console`, `apps/pwa`, `apps/mobile-mfa`, `examples/rp-alpha` and
 `examples/rp-beta` had no `build.target`, so Vite used its legacy default
@@ -42,8 +42,8 @@ All five now carry the same modern target `apps/pages` already documented
 
 ## Verification
 
-- `pnpm --filter @opensesame/observability test` — deep nesting, arrays and
+- `npm run test` -w @opensesame/observability — deep nesting, arrays and
   cycles covered by new cases.
-- `pnpm --filter @opensesame/control-plane test`, `--filter @opensesame/worker
+- `npm run test`, -w @opensesame/control-plane `--filter @opensesame/worker
   test`, `--filter @opensesame/audit test` — consumers unchanged.
 - Scanner rotation (ast-grep, semgrep, osv-scanner) clean this tick.

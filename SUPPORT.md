@@ -23,5 +23,5 @@ channel and no guaranteed response time.
 
 A maintainer triages issues and pull requests in their local time zone as
 availability allows. An issue that includes a minimal reproduction and the
-output of the relevant gate (`pnpm verify`, or the specific `pnpm audit:*`
+output of the relevant gate (`npm run verify`, or the specific `npm run audit:*`
 gate) is the fastest path to a fix.

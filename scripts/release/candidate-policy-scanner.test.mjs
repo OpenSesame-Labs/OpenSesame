@@ -62,7 +62,6 @@ test("scanner configuration, ignores and helpers are part of policy compatibilit
     "crates/example/build.rs",
     "rust-toolchain.toml",
     "package-lock.json",
-    "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "apps/example/package.json",
     "apps/example/.npmrc",

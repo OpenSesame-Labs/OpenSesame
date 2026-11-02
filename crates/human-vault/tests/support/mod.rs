@@ -70,9 +70,9 @@ pub fn assert_derived_methods(name: &str, body: &Value) {
     assert_eq!(methods.len(), 2, "{name}: two derived passwords");
     let has_params = |m: &&Value| {
         m["secret"].as_str().is_some_and(|root| !root.is_empty())
-            && m["generator"]["counter"].is_number()
-            && m["generator"]["rules"].is_object()
-            && m["sealed"].is_null()
+  && m["generator"]["counter"].is_number()
+  && m["generator"]["rules"].is_object()
+  && m["sealed"].is_null()
     };
     assert!(
         methods

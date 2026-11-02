@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-rg -Fq 'pnpm audit:clippy' .githooks/pre-commit
-node -e 'const scripts = require("./package.json").scripts; if (!scripts.verify.includes("pnpm audit:clippy")) process.exit(1)'
+rg -Fq 'npm run audit:clippy' .githooks/pre-commit
+node -e 'const scripts = require("./package.json").scripts; if (!scripts.verify.includes("npm run audit:clippy")) process.exit(1)'
 rg -Fq 'cargo +1.88.0 fmt --all -- --check' scripts/audit/clippy-gate.sh
 rg -Fq -- '--workspace --all-targets --all-features' scripts/audit/clippy-gate.sh
 rg -Fq -- '-D clippy::pedantic' scripts/audit/clippy-gate.sh

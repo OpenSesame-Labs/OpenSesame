@@ -24,7 +24,7 @@ fn admitted_email(server: &BitwardenServer, body: &Map<String, Value>) -> ApiRes
     // Exactly one `@`: a domain allow-list reads the part after the last one,
     // so `x@evil.example@corp.example` must never reach it.
     let well_formed = email.matches('@').count() == 1
-        && email
+  && email
             .split_once('@')
             .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'));
     if !well_formed {

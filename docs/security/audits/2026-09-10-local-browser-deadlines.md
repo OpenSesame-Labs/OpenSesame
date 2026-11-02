@@ -40,7 +40,7 @@ replay checks were not bypassed to make repeat sign-in pass.
 
 Final repetition: three consecutive runs passed both viewport journeys (six
 journeys total), each including explicit rollback refusal. Static-auth
-typecheck, scoped strict anti-slop, `pnpm quality`, and `git diff --check` pass.
+typecheck, scoped strict anti-slop, `npm run quality`, and `git diff --check` pass.
 
 No security check was relaxed to make the browser journey pass. These are
 controlled-clock browser results, not a claim of repeated success with an

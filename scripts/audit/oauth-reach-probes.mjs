@@ -10,7 +10,7 @@
  *   node scripts/audit/oauth-reach-probes.mjs asana box  # only these provider ids
  *
  * Unauthenticated and with fake credentials: nothing is ever granted. It needs
- * the network, so it is not part of `pnpm verify`. Behind an HTTPS proxy, run
+ * the network, so it is not part of `npm run verify`. Behind an HTTPS proxy, run
  * with NODE_USE_ENV_PROXY=1.
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -174,7 +174,7 @@ if (write) {
   };
   writeFileSync(specPath, `${JSON.stringify(next, null, 2)}\n`);
   console.log(
-    "Recorded. Run `pnpm exec biome format --write spec/connectors/oauth-reach.json`.",
+    "Recorded. Run `npm exec -- biome format --write spec/connectors/oauth-reach.json`.",
   );
 }
 if (drifted.length) {

@@ -79,7 +79,7 @@ fn from_report(report: RunReport, refusal: Option<&Refusal>, promoted: bool) -> 
         }
         RunOutcome::ReconciliationRequired(_)
             if !report.steps.contains(&ActionStep::Submitted)
-                && refusal.is_some_and(|r| r.point == InterceptionPoint::PreToolCall) =>
+  && refusal.is_some_and(|r| r.point == InterceptionPoint::PreToolCall) =>
         {
             // Every earlier refusal blocks the run before it reaches the
             // submit, so the refusal on record is the submit's own, made

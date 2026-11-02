@@ -42,7 +42,7 @@ const ALLOWED = [
     path: "packages/agent-sandboxes/src/boat-agent.ts",
     text: "packages/cua-password-reset/node_modules/.bin/agent-browser",
     reason:
-      "runs inside a remote sandbox after the same script's `pnpm install --frozen-lockfile`, which makes that layout; never against this checkout",
+      "runs inside a remote sandbox after the same script's `npm ci`, which makes that layout; never against this checkout",
   },
   {
     path: "packages/agent-sandboxes/src/boat-agent.test.ts",

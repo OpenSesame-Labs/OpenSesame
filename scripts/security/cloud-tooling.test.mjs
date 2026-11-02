@@ -22,7 +22,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const helper = "scripts/dev/install-cloud-cli.mjs";
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const { parse: parseYaml } = createRequire(
-  new URL("../../node_modules/.pnpm/node_modules/", import.meta.url),
+  new URL("../../node_modules/node_modules/", import.meta.url),
 )("yaml");
 
 function fixture(t, tool, payload) {
@@ -210,7 +210,7 @@ test("scheduled native auditing fails closed on the real production graph after 
   assert.equal(job.if, undefined);
   assert.equal(job.needs, undefined);
   const install = job.steps.findIndex((step) =>
-    step.run?.startsWith("pnpm install "),
+    step.run?.startsWith("npm install "),
   );
   const audit = job.steps.findIndex(
     (step) =>
@@ -256,9 +256,9 @@ test("scheduled native auditing fails closed on the real production graph after 
   );
   assert.match(
     deep,
-    /dependencies\)\n +pnpm audit:osv\n +pnpm audit:cargo-audit/,
+    /dependencies\)\n +npm run audit:osv\n +npm run audit:cargo-audit/,
   );
-  assert.doesNotMatch(deep, /pnpm audit:osv[^\n]*\|\|/);
+  assert.doesNotMatch(deep, /npm run audit:osv[^\n]*\|\|/);
 });
 
 function imageProfile(dockerfile, name) {
@@ -296,7 +296,7 @@ function shellFixture(t) {
       join(root, ".cursor/cloud-path.sh"),
       join(folder, ".cursor/cloud-path.sh"),
     );
-  for (const name of ["corepack", "cargo"])
+  for (const name of ["npm", "cargo"])
     writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   symlinkSync(process.execPath, join(bin, "node"));
   writeFileSync(

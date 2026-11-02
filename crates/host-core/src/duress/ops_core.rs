@@ -156,9 +156,9 @@ pub fn accept_independent_hold(
             return Err(DuressOpError::AuthorityMismatch);
         }
         let same_terms = existing.hold_id == hold.hold_id
-            && existing.epochs.matches(hold.epochs)
-            && existing.duration == hold.duration
-            && existing.ceiling_ref == hold.ceiling_ref;
+  && existing.epochs.matches(hold.epochs)
+  && existing.duration == hold.duration
+  && existing.ceiling_ref == hold.ceiling_ref;
         return if same_terms {
             Ok(existing.clone())
         } else {

@@ -26,7 +26,7 @@ pub(super) fn probe_local_in(provider: &ProviderDefinition, lookup: &Lookup) -> 
     if provider.adapter == "http:github-app" {
         let has = |name: &str| std::env::var(name).map(|v| !v.is_empty()).unwrap_or(false);
         let configured = has("GITHUB_APP_ID")
-            && (has("GITHUB_APP_PRIVATE_KEY") || has("GITHUB_APP_PRIVATE_KEY_PATH"));
+  && (has("GITHUB_APP_PRIVATE_KEY") || has("GITHUB_APP_PRIVATE_KEY_PATH"));
         return ProviderProbe {
             available: configured,
             adapter: provider.adapter.clone(),

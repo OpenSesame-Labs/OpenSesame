@@ -111,7 +111,7 @@ cyber-access restriction. No attempt was made to bypass that restriction.
   they were not rewritten or individually adjudicated in this pass.
 - The live red-team runner could not bind its fixture ports because existing
   services own them. Those services were left running.
-- Full `pnpm verify` stopped at 107 anti-slop errors. Its later gates did not
+- Full `npm run verify` stopped at 107 anti-slop errors. Its later gates did not
   run; focused successes are not a substitute for complete verification.
 - The refreshed full anti-slop run reports 104 errors after three fixture
   assertions were removed. No lint suppression or baseline increase was used.

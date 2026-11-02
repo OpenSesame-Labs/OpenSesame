@@ -121,7 +121,7 @@ export OPENSESAME_NODE="$(readlink -f "$(command -v node)")"
 "$kit/opensesame" dev --schema .env.schema check
 ```
 
-- **`node`.** The bridge needs Node 22 or later. `opensesame` runs a `node`
+- **`node`.** The bridge needs Node 24 or later. `opensesame` runs a `node`
   only from a `PATH` directory nobody else could write; a hosted CI image keeps
   its `node` where anyone can, so name it with `OPENSESAME_NODE`
   ([proxied-run quickstart](proxied-run-quickstart.md)).

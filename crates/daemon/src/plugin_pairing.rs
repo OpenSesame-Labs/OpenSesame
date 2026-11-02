@@ -212,7 +212,7 @@ pub(crate) async fn cors(State(st): State<App>, request: Request, next: Next) ->
     let origin = admitted(&st, &origin).then_some(origin);
     let headers = request.headers();
     if request.method() == Method::OPTIONS
-        && headers.contains_key(header::ACCESS_CONTROL_REQUEST_METHOD)
+  && headers.contains_key(header::ACCESS_CONTROL_REQUEST_METHOD)
     {
         let private = headers
             .get(PRIVATE_NETWORK_REQUEST)

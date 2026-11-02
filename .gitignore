@@ -2,7 +2,7 @@
 tests/fuzz/cargo/target/
 tests/fuzz/cargo/artifacts/
 node_modules/
-/.pnpm-store/
+/.npm-cache/
 /.tools/
 dist/
 *.sqlite

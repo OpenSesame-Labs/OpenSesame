@@ -29,7 +29,7 @@ silently downgrade to a mock success.
 ## Operator notes
 
 - Set `OPENSESAME_OPENFGA_URL` (e.g. `http://127.0.0.1:18081`) before
-  `pnpm test:authority-fabric` so GA-V-32 can settle.
+  `npm run test:authority-fabric` so GA-V-32 can settle.
 - Do not claim zero residual exposure for providers that only offer eventual
   role removal.
 - Expiry on the authorization path is the deny boundary; lifecycle notifications

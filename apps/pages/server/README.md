@@ -13,8 +13,8 @@ the deployment `VERCEL_TOKEN` server-side — see ADR 0127.
 
 | Path | What it holds |
 |------|---------------|
-| `server/` | The relay itself: the callback, management, GitHub App and git-backup handlers, the `return_to` allowlist, the forge host guard, the pinned fetch, and the JSON boundary checks the connector handlers parse their input with (`json-boundary.mjs`). `server/server.mjs` serves all of them on `:8789` for local use (`pnpm --filter @opensesame/pages relay`); the Vite dev server mounts the GitHub App and git-backup handlers directly (`scripts/github-app-relay-plugin.mjs`). There is no serverless shape — the app deploys as static `dist/` only. |
-| `server/test/` | `node --test` suites (`pnpm --filter @opensesame/pages test:relay`, also part of `test`). |
+| `server/` | The relay itself: the callback, management, GitHub App and git-backup handlers, the `return_to` allowlist, the forge host guard, the pinned fetch, and the JSON boundary checks the connector handlers parse their input with (`json-boundary.mjs`). `server/server.mjs` serves all of them on `:8789` for local use (`npm run relay`); -w @opensesame/pages the Vite dev server mounts the GitHub App and git-backup handlers directly (`scripts/github-app-relay-plugin.mjs`). There is no serverless shape — the app deploys as static `dist/` only. |
+| `server/test/` | `node --test` suites (`npm run test:relay`, -w @opensesame/pages also part of `test`). |
 
 ## What it does
 

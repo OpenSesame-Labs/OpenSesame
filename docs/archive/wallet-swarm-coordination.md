@@ -19,7 +19,7 @@
 | UI | `apps/pages` `/wallet` | Guest-safe section |
 | REGISTRY/AGENT | capability-registry + webmcp | wallet.* capabilities |
 | DOCS | ADR 0123 + threat/compat | Claim truthfulness |
-| BUILD | `scripts/wallet/` + pnpm scripts | Fail-closed verify |
+| BUILD | `scripts/wallet/` + npm run scripts | Fail-closed verify |
 
 ## Historical evidence rule
 

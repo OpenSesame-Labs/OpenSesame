@@ -41,7 +41,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-grant.test.ts",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-grant.test.ts",
           "result": "ok. 6 passed \u2014 AuthorityGrant/AuthorityRecord + attenuation + resource match"
         }
       ],
@@ -56,7 +56,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-grant.test.ts",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-grant.test.ts",
           "result": "ok. INV-GA-01/02/04/06/07/08 asserts exercised"
         }
       ],
@@ -71,7 +71,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-grant.test.ts",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-grant.test.ts",
           "result": "ok. DEFAULT_MAXIMUM_DELEGATION_DEPTH=2; assertInvGa04FiniteDepth defaults to it"
         }
       ],
@@ -86,7 +86,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/contracts exec vitest run src/__tests__/authority-grant.test.ts",
+          "command": "npm exec -w @opensesame/contracts -- vitest run src/__tests__/authority-grant.test.ts",
           "result": "ok. 5 passed \u2014 Host-shaped Grant wire schema; AccessLease alias; strict secret refusal; depth ceiling"
         }
       ],
@@ -111,7 +111,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/policy exec vitest run src/__tests__/authority-tuples.test.ts",
+          "command": "npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-tuples.test.ts",
           "result": "ok. 6 passed \u2014 connection/project/vault tuples; cohort refuse; revoked refuse"
         }
       ],
@@ -124,7 +124,7 @@
       "title": "Additivity test harness",
       "status": "verified",
       "verification": "command-backed",
-      "evidence": "OPENSESAME_OPENFGA_URL=http://127.0.0.1:18081 pnpm --filter @opensesame/policy exec vitest run src/__tests__/authority-additivity.test.ts (1 passed, live PDP); pnpm test:authority-fabric twice \u2192 GA-V-32 pass",
+      "evidence": "OPENSESAME_OPENFGA_URL=http://127.0.0.1:18081 npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-additivity.test.ts (1 passed, live PDP); npm run test:authority-fabric twice \u2192 GA-V-32 pass",
       "blockedBy": [],
       "notes": "Live replay against pinned OpenFGA v1.8.12 (compose pin) + fga CLI v0.6.6 model transform. Structural half still runs without a URL."
     },
@@ -136,7 +136,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/policy exec vitest run src/__tests__/authority-tuple-backfill.test.ts",
+          "command": "npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-tuple-backfill.test.ts",
           "result": "ok \u2014 dry-run plan/quarantine/rollback"
         },
         {
@@ -217,7 +217,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/control-plane exec vitest run src/__tests__/authority-routes.test.ts",
+          "command": "npm exec -w @opensesame/control-plane -- vitest run src/__tests__/authority-routes.test.ts",
           "result": "ok \u2014 spawn wasmtime, refuse native, orchestrator=caller, PoP realm-admin + refuse without membership + audit"
         }
       ],
@@ -232,15 +232,15 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-membership-reconcile.test.ts",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-membership-reconcile.test.ts",
           "result": "ok. 4 passed \u2014 upsert, invalidate removed, refuse personal, role drift upsert"
         },
         {
-          "command": "pnpm --filter @opensesame/database exec vitest run tests/authority-membership-edges.test.ts",
+          "command": "npm exec -w @opensesame/database -- vitest run tests/authority-membership-edges.test.ts",
           "result": "ok. 1 passed \u2014 memory upsert/drift/invalidate"
         },
         {
-          "command": "pnpm --filter @opensesame/control-plane exec vitest run src/__tests__/authority-membership-reconcile-live.test.ts",
+          "command": "npm exec -w @opensesame/control-plane -- vitest run src/__tests__/authority-membership-reconcile-live.test.ts",
           "result": "ok. 1 passed \u2014 live apply + authority.membership.reconciled audit"
         }
       ],
@@ -255,7 +255,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/control-plane exec vitest run src/__tests__/authority-routes.test.ts",
+          "command": "npm exec -w @opensesame/control-plane -- vitest run src/__tests__/authority-routes.test.ts",
           "result": "ok. authority.workload.spawned + authority.enrollment.pop audit events"
         }
       ],
@@ -270,11 +270,11 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm test:authority-fabric:report",
+          "command": "npm run test:authority-fabric:report",
           "result": "ok. GA-V-31 pass \u2014 one local authority ledger classified"
         },
         {
-          "command": "pnpm --filter @opensesame/pages exec vitest run src/sections/access/LocalAuthorityTemplates.test.tsx",
+          "command": "npm exec -w @opensesame/pages -- vitest run src/sections/access/LocalAuthorityTemplates.test.tsx",
           "result": "ok. audience templates with honest support statuses"
         },
         {
@@ -310,7 +310,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/pages exec vitest run src/lib/setup.test.ts -t 'never a gate'",
+          "command": "npm exec -w @opensesame/pages -- vitest run src/lib/setup.test.ts -t 'never a gate'",
           "result": "ok. 1 passed | 15 skipped \u2014 setup seams have no setupRequired"
         },
         {
@@ -329,7 +329,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/pages exec vitest run src/screens/unlock/SignInPanel.test.tsx src/screens/UnlockScreen.test.tsx src/lib/vault/store.test.ts",
+          "command": "npm exec -w @opensesame/pages -- vitest run src/screens/unlock/SignInPanel.test.tsx src/screens/UnlockScreen.test.tsx src/lib/vault/store.test.ts",
           "result": "ok. guest roads present; guest tomb isolation covered in store tests (part of 126 pass suite with LocalAuthorityTemplates)"
         }
       ],
@@ -342,9 +342,9 @@
       "title": "Capability-registry entries",
       "status": "verified",
       "verification": "command-backed",
-      "evidence": "pnpm --filter @opensesame/capability-registry test; OPENSESAME_OPENFGA_URL=\u2026 pnpm test:authority-fabric:report \u2192 GA-V-30 pass",
+      "evidence": "npm run test; -w @opensesame/capability-registry OPENSESAME_OPENFGA_URL=\u2026 npm run test:authority-fabric:report \u2192 GA-V-30 pass",
       "blockedBy": ["GA-I-01", "GA-P-02"],
-      "notes": "pnpm --filter @opensesame/capability-registry test; OPENSESAME_OPENFGA_URL=\u2026 pnpm test:authority-fabric:report \u2192 GA-V-30 pass"
+      "notes": "npm run test; -w @opensesame/capability-registry OPENSESAME_OPENFGA_URL=\u2026 npm run test:authority-fabric:report \u2192 GA-V-30 pass"
     },
     {
       "id": "GA-C-02",
@@ -354,19 +354,19 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/mcp-host exec vitest run src/registry-parity.test.ts",
+          "command": "npm exec -w @opensesame/mcp-host -- vitest run src/registry-parity.test.ts",
           "result": "ok. 4 passed"
         },
         {
-          "command": "pnpm --filter @opensesame/mcp-client exec vitest run src/registry-parity.test.ts",
+          "command": "npm exec -w @opensesame/mcp-client -- vitest run src/registry-parity.test.ts",
           "result": "ok. 3 passed"
         },
         {
-          "command": "pnpm --filter @opensesame/pages exec vitest run src/webmcp/registry-parity.test.ts",
+          "command": "npm exec -w @opensesame/pages -- vitest run src/webmcp/registry-parity.test.ts",
           "result": "ok. 14 passed"
         },
         {
-          "command": "pnpm --filter @opensesame/cli exec vitest run src/capability-parity.test.ts",
+          "command": "npm exec -w @opensesame/cli -- vitest run src/capability-parity.test.ts",
           "result": "ok. 1 passed"
         },
         {
@@ -430,11 +430,11 @@
       "verification": "none",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/policy exec vitest run src/__tests__/authority-tuples.test.ts",
+          "command": "npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-tuples.test.ts",
           "result": "ok \u2014 typedObject refuses connection:connection: double-prefix"
         },
         {
-          "command": "pnpm --filter @opensesame/control-plane exec vitest run src/__tests__/authority-routes.test.ts",
+          "command": "npm exec -w @opensesame/control-plane -- vitest run src/__tests__/authority-routes.test.ts",
           "result": "ok \u2014 spawn refuses foreign orchestrator; OpenAPI lists /v1/authority/*"
         }
       ],
@@ -641,7 +641,7 @@
           "result": "ok. 49 passed; empty-group disable refused; DNS-only coverage"
         },
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-59 pass \u2014 blocky::request::tests::a_disable_cannot_be_built_without_groups"
         }
       ]
@@ -675,7 +675,7 @@
           "result": "ok across registry(6)/refusals(11)/reconcile(6)/portal(5)/rate_limit(5)/apply(6); live_apply ignored/optional"
         },
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-61 pass \u2014 apply_creates_scopes_then_assigns_in_that_order against the HTTP fixture"
         }
       ],
@@ -689,7 +689,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-35..39 pass on Blocky opposite-unit isolation, screen-time refusal, empty-group disable refuse, exclusive DNS deadline, usage/egress claim refusal"
         }
       ],
@@ -704,7 +704,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-40..43 pass on issuance absent-platform refuse, invoke action-outside-child deny, revoke-ends-exercise, independent authority survives reconcile"
         }
       ],
@@ -719,7 +719,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-44..46 pass on Discord HTTP apply, reconcile-only-owned, rate-limited create-once"
         }
       ],
@@ -734,7 +734,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm test:authority-fabric",
+          "command": "npm run test:authority-fabric",
           "result": "GA-V-47..49 pass on native-binary spawn refuse, looping-guest fuel exhaust, ambient WASI refuse"
         }
       ],
@@ -749,7 +749,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-templates.test.ts -t 'loads declarative templates without audience-specific engine branches'",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-templates.test.ts -t 'loads declarative templates without audience-specific engine branches'",
           "result": "1 passed | 11 skipped"
         }
       ],
@@ -772,7 +772,7 @@
           "result": "ok. 1 passed; fabric GA-V-25 pass"
         },
         {
-          "command": "pnpm --filter @opensesame/os-domain exec vitest run src/__tests__/authority-membership-lineage.test.ts",
+          "command": "npm exec -w @opensesame/os-domain -- vitest run src/__tests__/authority-membership-lineage.test.ts",
           "result": "ok \u2014 nested_cohort eligibility lineage blocks invalidated ancestors"
         }
       ],
@@ -828,7 +828,7 @@
           "note": "invoke path fences via intents_projection::authorize_openfga"
         },
         {
-          "command": "pnpm --filter @opensesame/database exec vitest run tests/authority-projection-state.test.ts",
+          "command": "npm exec -w @opensesame/database -- vitest run tests/authority-projection-state.test.ts",
           "result": "ok \u2014 Identity projection fence: absent/partial/ahead/backwards/model/error deny"
         }
       ],

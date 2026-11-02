@@ -258,7 +258,7 @@ fn anchored(pem: &str) -> Result<PassthroughClient, LoginError> {
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     !needle.is_empty()
-        && haystack
+  && haystack
             .windows(needle.len())
             .any(|window| window == needle)
 }

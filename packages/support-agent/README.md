@@ -35,8 +35,8 @@ which is a real implementation of the port.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/support-agent test
-pnpm --filter @opensesame/support-agent typecheck
+npm run test -w @opensesame/support-agent
+npm run typecheck -w @opensesame/support-agent
 ```
 
 ## Related

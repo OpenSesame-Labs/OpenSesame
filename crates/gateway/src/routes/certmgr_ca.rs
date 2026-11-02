@@ -375,9 +375,9 @@ fn validate_urls(urls: &[String], limit: usize, error: &str) -> Result<(), Respo
     }
     for url in urls {
         let acceptable = (url.starts_with("https://") || url.starts_with("http://"))
-            && url.len() <= MAX_URL_LEN
-            && url.is_ascii()
-            && !url.chars().any(char::is_whitespace);
+  && url.len() <= MAX_URL_LEN
+  && url.is_ascii()
+  && !url.chars().any(char::is_whitespace);
         if !acceptable {
             return Err(bad_request(
                 error,
@@ -1823,7 +1823,7 @@ pub async fn patch_signing_config(
         }
     };
     if key_source == Some("hsm")
-        && (body.hsm_connector_id.is_none() || body.hsm_key_label.is_none())
+  && (body.hsm_connector_id.is_none() || body.hsm_key_label.is_none())
     {
         return bad_request(
             "hsm_reference_required",

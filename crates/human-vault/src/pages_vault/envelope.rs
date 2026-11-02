@@ -165,7 +165,7 @@ fn read_vault_part(vault: Option<&Value>) -> Result<(&Value, &Value)> {
         .get("body")
         .filter(|body| {
             body.get("ivB64").is_some_and(Value::is_string)
-                && body.get("ctB64").is_some_and(Value::is_string)
+  && body.get("ctB64").is_some_and(Value::is_string)
         })
         .ok_or(MISSING_VAULT)?;
     Ok((header, body))
@@ -188,8 +188,8 @@ fn count_sync_blobs(value: Option<&Value>) -> Result<usize> {
             .and_then(Value::as_str)
             .filter(|ciphertext| !ciphertext.is_empty());
         let well_formed = blob.get("id").is_some_and(Value::is_string)
-            && blob.get("epoch").is_some_and(Value::is_number)
-            && ciphertext.is_some();
+  && blob.get("epoch").is_some_and(Value::is_number)
+  && ciphertext.is_some();
         let Some(ciphertext) = ciphertext.filter(|_| well_formed) else {
             return Err(MALFORMED_SYNC_BLOB);
         };

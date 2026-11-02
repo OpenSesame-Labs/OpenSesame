@@ -69,7 +69,7 @@ with the root bytes also acting as the content key on some paths.
   (`ItemDataKey(vrk.0)` paths); rewrap alone is not revocation of historical
   ciphertext.
 - Live AWS/Azure/GCP/PIV proofs are opt-in and may be `blocked` without failing
-  the deterministic local gate (`pnpm verify:key-protection`).
+  the deterministic local gate (`npm run verify:key-protection`).
 - Mixed-client: older clients ignore unknown fields; new clients reject unknown
   *critical* manifest versions. `minReaderVersion` cannot force already-shipped
   clients.

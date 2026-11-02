@@ -44,8 +44,8 @@ OpenSesame. Nothing file-shaped exists in the repo today. Build, in one pass:
 
 ## 1. Repository ground truth (verified; re-verify only if an edit fails)
 
-Toolchain: Rust pinned `1.88` (`cargo +1.88.0 …`), Node ≥ 22, pnpm 9.15.0 via
-Corepack, Biome lint, Vitest. Full local gate: `pnpm verify` (changed-file
+Toolchain: Rust pinned `1.88` (`cargo +1.88.0 …`), Node ≥ 22, npm run 9.15.0 via
+npm, Biome lint, Vitest. Full local gate: `npm run verify` (changed-file
 lint + typecheck/test/integration + `cargo +1.88.0 test --workspace
 --all-targets` + `./scripts/test/battle-test.sh`). No GitHub Actions — keep it
 that way.
@@ -193,7 +193,7 @@ generated duplicates; never commit them.
    before plaintext release; GC aborts (removing nothing) if any manifest
    fails to open; `attach get` writes via temp file + rename so no partial
    output ever looks complete.
-7. **Tokens never in argv or logs**; existing gates (`pnpm audit:ast-grep`,
+7. **Tokens never in argv or logs**; existing gates (`npm run audit:ast-grep`,
    `audit:semgrep`, `audit:clippy`) must stay green.
 
 ## 3. Normative design specification
@@ -466,7 +466,7 @@ edit another's files. Each swarm: read AGENTS.md + this document + its owned
 files first; write code matching surrounding idiom; add its tests in the
 same change; run its own crate/package checks before finishing
 (`cargo +1.88.0 test -p <crate>`, `cargo +1.88.0 clippy -p <crate>`,
-or `pnpm --filter <pkg> test`). Swarm H runs last and owns integration.
+or `npm run --filter <pkg> test`). Swarm H runs last and owns integration.
 
 ### Swarm A — Chunk crypto (`crates/human-vault/`)
 
@@ -620,7 +620,7 @@ Tasks:
    can be added via `opensesame pass attach`. One warning path + its unit
    test — no importer behavior change.
 
-Acceptance: `pnpm --filter @opensesame/pages test` green; markdown lint
+Acceptance: `npm run test` -w @opensesame/pages green; markdown lint
 clean.
 
 ### Swarm H — Integration & validation
@@ -633,8 +633,8 @@ Tasks:
 1. Resolve interface drift against §3.9 (frozen signatures win unless a
    compile error proves the doc wrong — then fix minimally and note it in
    the PR body).
-2. Full gates: `pnpm verify`; `pnpm audit:clippy`; `pnpm audit:ast-grep`;
-   `pnpm audit:semgrep`; `cargo fuzz build`; targeted
+2. Full gates: `npm run verify`; `npm run audit:clippy`; `npm run audit:ast-grep`;
+   `npm run audit:semgrep`; `cargo fuzz build`; targeted
    `cargo +1.88.0 test --workspace --all-targets`.
 3. End-to-end scenario on a throwaway store: init → attach a multi-chunk
    file → clone the store repo to a second directory → unlock with the
@@ -682,6 +682,6 @@ Tasks:
 - [ ] `--to-dir` sync copies only ciphertext units; no plaintext, no key
       files' plaintext, no revision maps required.
 - [ ] No new dependency was added to any crate without justification in
-      the PR body; `pnpm audit:cargo-audit` unaffected.
+      the PR body; `npm run audit:cargo-audit` unaffected.
 - [ ] `store_ad_in` refactor leaves every existing `.osseal` readable
       (legacy + bound forms) — existing envelope tests untouched and green.

@@ -84,7 +84,6 @@ const TS_EXT = [".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx"];
 const TS_FILES = new Set([
   "package.json",
   "package-lock.json",
-  "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "turbo.json",
   "biome.json",
@@ -92,7 +91,6 @@ const TS_FILES = new Set([
 const NODE_INSTALL = new Set([
   "package.json",
   "package-lock.json",
-  "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
 ]);
 

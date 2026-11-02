@@ -22,7 +22,7 @@
 // contract `{ kind, action, ref }` (`src/lib/push.ts`, `src/sw/push-handlers.ts`).
 //
 // Build first, with the base this serves:
-//   VITE_BASE=/OpenSesame/ pnpm exec turbo run build --filter=@opensesame/pages
+//   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 import assert from "node:assert/strict";
 import path from "node:path";
 import { chromium } from "@playwright/test";

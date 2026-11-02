@@ -37,7 +37,7 @@ pub(super) async fn cors(
         .unwrap_or(false)
         .then_some(origin);
     if request.method() == Method::OPTIONS
-        && request
+  && request
             .headers()
             .contains_key(header::ACCESS_CONTROL_REQUEST_METHOD)
     {

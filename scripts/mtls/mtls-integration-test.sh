@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mtls-integration-test.sh — real-protocol mTLS suite (`pnpm test:mtls:integration`).
+# mtls-integration-test.sh — real-protocol mTLS suite (`npm run test:mtls:integration`).
 #
 # Fetches the pinned fixtures (scripts/mtls/mtls-fixtures.sh), proves each binary
 # starts, brings up a loopback JetStream nats-server and an OpenBao dev server
@@ -178,7 +178,7 @@ if [[ -d packages/control-plane/src/transport ]]; then
   step --id it-identity-tls --claim ts:control-plane-transport-live --runner vitest --required "${req}" --timeout $((STEP_TIMEOUT + 60)) \
     --profile "identity receiver (node tls, mtls_required)" --target vitest --paths packages/control-plane/src/transport \
     --expected "Identity accepts a bound client certificate and rejects a missing/unbound one over real TLS" -- \
-    "${BOUNDED[@]}" pnpm --filter @opensesame/control-plane exec vitest run src/transport
+    "${BOUNDED[@]}" npm exec -w @opensesame/control-plane -- vitest run src/transport
 else
   step --id it-identity-tls --claim ts:control-plane-transport-live --runner vitest --required false --skip "packages/control-plane/src/transport not present"
 fi

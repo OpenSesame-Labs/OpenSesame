@@ -46,9 +46,9 @@ app.get("/me", (c) => c.json({ sub: c.get("identity").sub }));
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/sdk-server test
-pnpm --filter @opensesame/sdk-server test:watch
-pnpm --filter @opensesame/sdk-server typecheck
+npm run test -w @opensesame/sdk-server
+npm run test:watch -w @opensesame/sdk-server
+npm run typecheck -w @opensesame/sdk-server
 ```
 
 Tests mint keys with `jose` and pass a local `jwks`, so they need no network.

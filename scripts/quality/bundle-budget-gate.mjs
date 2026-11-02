@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 /**
- * Shipped-bundle budget -- the `pnpm quality:bundle` gate.
+ * Shipped-bundle budget -- the `npm run quality:bundle` gate.
  *
  * The other two quality gates ratchet: their recorded numbers may only shrink.
  * Bundles are different. A bundle legitimately grows when a feature lands, so
@@ -169,7 +169,7 @@ if (skippedProfiles.length > 0) {
   for (const { name, dist } of skippedProfiles)
     console.log(`  ${name}: ${dist}`);
   console.log(
-    "Run `pnpm --filter @opensesame/pages build:profile --profile" +
+    "Run `npm run build:profile -w @opensesame/pages --profile" +
       " capability-profiles/<name>.json --mode hardened` to measure one.\n",
   );
 }
@@ -178,7 +178,7 @@ if (missing.length > 0) {
   console.error("Not measured -- no build output at:");
   for (const { app, dist } of missing) console.error(`  ${app}: ${dist}`);
   console.error(
-    "Run `pnpm quality:bundle` (which builds first), or `pnpm build`.\n",
+    "Run `npm run quality:bundle` (which builds first), or `npm run build`.\n",
   );
 }
 

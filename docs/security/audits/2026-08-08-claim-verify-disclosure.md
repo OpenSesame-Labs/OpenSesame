@@ -22,6 +22,6 @@ Daemon `/v1/*` handlers re-checked: every mutation and read (`list_sessions`, `m
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/control-plane test
-pnpm --filter @opensesame/control-plane typecheck
+npm run test -w @opensesame/control-plane
+npm run typecheck -w @opensesame/control-plane
 ```

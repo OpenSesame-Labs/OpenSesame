@@ -297,7 +297,7 @@ descriptor therefore requests `user:email`, which is read-only and grants nothin
   `nodemailer` (magic-link delivery), and `better-auth` (already pinned, now actually mounted).
   The reference LDAP *server* used by tests is `ldapjs`, a devDependency of
   `tools/mock-upstream-idp` only — upstream is sunset but protocol-complete, and the pin moves
-  forward if `pnpm audit:osv` ever objects.
+  forward if `npm run audit:osv` ever objects.
 - The identity `kind` union widens to `oidc | oauth2 | saml | ldap | email`, which is free in
   the database (`kind` is free text with no CHECK) and load-bearing everywhere a lookup spans
   kinds — back-channel logout and SCIM deprovisioning both iterate the full set, because an

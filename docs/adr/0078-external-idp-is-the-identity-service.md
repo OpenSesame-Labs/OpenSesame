@@ -167,7 +167,7 @@ fields they carry are simply ignored, which is all they were ever read for.
 
 The commit is unchanged: the shared `.go` ink square with its verb beside it,
 pinned to the foot bar, per [`docs/design/controls.md`](../design/controls.md)
-and enforced by `pnpm lint:design`.
+and enforced by `npm run lint:design`.
 
 ### 6. A provider is verified before it is kept
 

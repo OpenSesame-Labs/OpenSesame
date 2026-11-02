@@ -28,11 +28,11 @@ hashed aliases are not disclosed in the admin user response.
 Focused proof:
 
 ```bash
-pnpm --filter @opensesame/auth-upstream test -- authentication-service.test.ts
-pnpm --filter @opensesame/database test -- authentication-service-store.test.ts
-pnpm --filter @opensesame/control-plane test -- authentication-service.test.ts
-pnpm --filter @opensesame/sdk-browser test -- authentication-service.test.ts
-pnpm --filter @opensesame/control-plane test:authentication-browser
+npm run test -w @opensesame/auth-upstream -- authentication-service.test.ts
+npm run test -w @opensesame/database -- authentication-service-store.test.ts
+npm run test -w @opensesame/control-plane -- authentication-service.test.ts
+npm run test -w @opensesame/sdk-browser -- authentication-service.test.ts
+npm run test:authentication-browser -w @opensesame/control-plane
 ```
 
 The browser proof may set `OPENSESAME_TEST_CHROMIUM_PATH` to a locally installed

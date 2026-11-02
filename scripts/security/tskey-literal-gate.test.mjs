@@ -89,7 +89,6 @@ test("minters, templates, lockfiles, and build dirs are not scanned", () => {
     "scripts/security/tskey-literal-gate.mjs",
     "spec/conformance/tailnet-admin-protocol.json.hbs",
     "package-lock.json",
-    "pnpm-lock.yaml",
     "Cargo.lock",
     "node_modules/pkg/index.js",
     "target/debug/out.rs",

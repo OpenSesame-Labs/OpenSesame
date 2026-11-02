@@ -4,7 +4,7 @@
  * Emits machine-readable passed | failed | blocked summary.
  *
  * Usage: node scripts/test/verify-key-protection.mjs
- *        pnpm verify:key-protection
+ *        npm run verify:key-protection
  */
 
 import { spawnSync } from "node:child_process";
@@ -55,28 +55,22 @@ function run(id, command, args, opts = {}) {
   });
 }
 
-run("KP-model-ts", "pnpm", [
-  "--filter",
-  "@opensesame/app-core",
-  "exec",
+run("KP-model-ts", "npm", [
+  "exec", "-w", "@opensesame/app-core", "--",
   "vitest",
   "run",
   "src/lib/vault/protection",
 ]);
 
-run("KP-cloud-adapters", "pnpm", [
-  "--filter",
-  "@opensesame/app-core",
-  "exec",
+run("KP-cloud-adapters", "npm", [
+  "exec", "-w", "@opensesame/app-core", "--",
   "vitest",
   "run",
   "src/lib/vault/protection/adapters",
 ]);
 
-run("KP-age-keys", "pnpm", [
-  "--filter",
-  "@opensesame/app-core",
-  "exec",
+run("KP-age-keys", "npm", [
+  "exec", "-w", "@opensesame/app-core", "--",
   "vitest",
   "run",
   "src/lib/age-keys",
@@ -104,11 +98,8 @@ run("KP-rust-sealed-store", "cargo", [
 
 run(
   "KP-live-aws",
-  "pnpm",
-  [
-    "--filter",
-    "@opensesame/app-core",
-    "exec",
+  "npm", [
+    "exec", "-w", "@opensesame/app-core", "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/aws-kms.test.ts",
@@ -125,11 +116,8 @@ run(
 
 run(
   "KP-live-azure",
-  "pnpm",
-  [
-    "--filter",
-    "@opensesame/app-core",
-    "exec",
+  "npm", [
+    "exec", "-w", "@opensesame/app-core", "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/azure-key-vault-keys.test.ts",
@@ -146,11 +134,8 @@ run(
 
 run(
   "KP-live-gcp",
-  "pnpm",
-  [
-    "--filter",
-    "@opensesame/app-core",
-    "exec",
+  "npm", [
+    "exec", "-w", "@opensesame/app-core", "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/gcp-kms.test.ts",

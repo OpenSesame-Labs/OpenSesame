@@ -99,8 +99,8 @@ fn metadata_reply(scenario: Scenario, message: &dbus::Message) -> (String, dbus:
     let path = message.path().expect("method path").to_string();
     let mut call = format!("{path} {interface}.{member}");
     let reply = if interface == "org.freedesktop.Secret.Service"
-        && member == "ReadAlias"
-        && path == SERVICE
+  && member == "ReadAlias"
+  && path == SERVICE
     {
         let alias: String = message.read1().expect("alias argument");
         write!(call, " {alias}").expect("record alias");

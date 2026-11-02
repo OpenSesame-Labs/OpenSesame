@@ -736,7 +736,7 @@ impl<S: TaskStore> TaskAccessEngine<S> {
         // releasing it here would let a result escape the fence that held it.
         if let Some(mut buffer) = self.store.get_result_buffer(task_run_id)? {
             if buffer.transition_id == transition.id.to_string()
-                && buffer.state_version == transition.to_state_version
+  && buffer.state_version == transition.to_state_version
             {
                 buffer.released = true;
                 self.store.save_result_buffer(&buffer)?;

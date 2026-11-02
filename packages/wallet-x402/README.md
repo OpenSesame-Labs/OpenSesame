@@ -69,6 +69,6 @@ harness once a local merchant exists.
 ## Scripts
 
 ```bash
-pnpm --filter @opensesame/wallet-x402 test
-pnpm --filter @opensesame/wallet-x402 typecheck
+npm run test -w @opensesame/wallet-x402
+npm run typecheck -w @opensesame/wallet-x402
 ```

@@ -19,10 +19,10 @@ another device. It prints that a token arrived, never the token itself.
 
 ```bash
 # Against a local Identity API (see ../README.md to start it)
-pnpm --filter @opensesame/example-headless start
+npm run start -w @opensesame/example-headless
 
 # No Identity API: an in-process mock answers `authorization_pending` once, then a token
-MOCK_DEVICE_FLOW=1 pnpm --filter @opensesame/example-headless start
+MOCK_DEVICE_FLOW=1 npm run start -w @opensesame/example-headless
 ```
 
 | Variable | Default | Description |
@@ -38,8 +38,8 @@ with their own `fetchImpl` and `sleep`.
 ## Develop
 
 ```bash
-pnpm --filter @opensesame/example-headless test
-pnpm --filter @opensesame/example-headless typecheck
+npm run test -w @opensesame/example-headless
+npm run typecheck -w @opensesame/example-headless
 ```
 
 ## Related

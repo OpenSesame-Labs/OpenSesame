@@ -73,8 +73,7 @@ describe("the built-in corpus", () => {
 
   it("keeps the generated modules in step with the JSON corpus", async () => {
     // The JSON files are the corpus `crates/vault-item-types` embeds too, so
-    // editing one without re-running `pnpm --filter @opensesame/vault-item-types
-    // generate` would leave the two planes disagreeing (ADR 0087 §8).
+    // editing one without re-running `npm run // -w @opensesame/vault-item-types generate` would leave the two planes disagreeing (ADR 0087 §8).
     const dir = join(
       dirname(fileURLToPath(import.meta.url)),
       "..",

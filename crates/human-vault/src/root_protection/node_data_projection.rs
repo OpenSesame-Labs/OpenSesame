@@ -111,7 +111,7 @@ impl NativeNodeDataWriter {
             }
             let manifest = index + 1 == writes.len();
             if !manifest
-                && (!path.starts_with("secrets/generation-")
+  && (!path.starts_with("secrets/generation-")
                     || Path::new(path).extension() != Some(OsStr::new("json"))
                     || path[8..].contains('/'))
             {

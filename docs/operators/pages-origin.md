@@ -40,8 +40,7 @@ API at the deployment that serves them:
 
 The retired ceremonies (`:5181`) and console (`OPENSESAME_CONSOLE_ORIGIN`)
 origins are read by nothing, and a drop link is always this deployment's
-`/claim` (`VITE_OPENSESAME_CEREMONIES` is gone). `pnpm --filter
-@opensesame/pages dev` sets both Identity API variables for the local stack.
+`/claim` (`VITE_OPENSESAME_CEREMONIES` is gone). `npm run dev` -w @opensesame/pages sets both Identity API variables for the local stack.
 
 ## Static authentication
 
@@ -91,11 +90,11 @@ legacy `/auth.js` alias is the same secure implementation, without automatic
 unverified sign-in. Self-host the exact artifact or import the workspace package.
 SRI pins bytes, not publisher trust or absence of vulnerabilities.
 
-`pnpm lint:artifacts` verifies the exact manifest inventory, regular files (no
+`npm run lint:artifacts` verifies the exact manifest inventory, regular files (no
 symlinks), SHA-384 sidecars, JavaScript syntax, and byte-for-byte rebuilds from
 the current checkout. Published hashes in the base branch are an immutable floor;
 changing a bundle and its local hash together still fails. It also runs the SDK source tests and shipped-artifact
-behavior tests. Both `pnpm lint` and `pnpm lint:all` require this gate. Only the
+behavior tests. Both `npm run lint` and `npm run lint:all` require this gate. Only the
 two explicit generated bundles use this policy in place of authored-code Biome
 rules; their source and all other files retain normal lint. Undeclared artifacts
 or broader exceptions fail the gate. The recorded source commit identifies the

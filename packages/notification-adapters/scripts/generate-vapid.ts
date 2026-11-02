@@ -1,7 +1,7 @@
 /**
  * Generate a VAPID application server key pair for Web Push (RFC 8292).
  *
- *   pnpm --filter @opensesame/notification-adapters generate:vapid [contact]
+ *   npm run generate:vapid -w @opensesame/notification-adapters [contact]
  *
  * Prints the three environment lines the Identity API and the identity worker
  * read (see `src/webpush-env.ts`). The private key goes to stdout because that

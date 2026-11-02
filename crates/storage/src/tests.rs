@@ -1492,9 +1492,9 @@ async fn certmgr_managed_key_custody_never_widens_the_inventory_row() {
         .collect();
     assert!(columns.iter().all(|column| {
         !column.contains("private")
-            && !column.contains("ciphertext")
-            && !column.contains("nonce")
-            && !column.contains("sealed")
+  && !column.contains("ciphertext")
+  && !column.contains("nonce")
+  && !column.contains("sealed")
     }));
 
     // Private key material lives in exactly three tables: the pre-0016

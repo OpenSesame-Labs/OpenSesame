@@ -44,7 +44,7 @@ Successful command (installed browser override, no downloads):
 
 ```sh
 PLAYWRIGHT_CHROMIUM=/home/codex/.cache/ms-playwright/chromium-1223/chrome-linux/chrome \
-  pnpm --filter @opensesame/control-plane exec tsx scripts/verify-host-authorization.mjs
+  npm exec -w @opensesame/control-plane -- tsx scripts/verify-host-authorization.mjs
 ```
 
 Regression files cover wrong popup/source/origin/state, duplicate result,

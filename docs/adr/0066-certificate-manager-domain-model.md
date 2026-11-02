@@ -225,7 +225,7 @@ ADR fixes, so individual swarms do not relitigate it:
 `assertsNoSecretTools` (`apps/mcp-host/src/tools.ts`) and `assertsNoSecretNames`
 (`packages/capability-registry`) remain the mechanical backstop.
 
-Gate: `pnpm --filter @opensesame/capability-registry test`
+Gate: `npm run test` -w @opensesame/capability-registry
 
 ### 7. Positioning: the "(dev TLS)" qualifier is retired
 
@@ -243,7 +243,7 @@ deterministic issuer resolution, no external-to-private trust downgrade, sealed
 custody with organization/purpose AAD, and one-time acknowledged leaf delivery.
 Those remain in force and every new enrollment path inherits them.
 
-Gate: `pnpm --filter @opensesame/pages test`
+Gate: `npm run test` -w @opensesame/pages
 
 ## Non-goals and roadmap
 

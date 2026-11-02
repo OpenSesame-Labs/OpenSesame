@@ -31,7 +31,7 @@ allowlist.
 
 ```bash
 cargo +1.88.0 test -p opensesame-uds-authn
-pnpm audit:daemon-deps
+npm run audit:daemon-deps
 ```
 
 ## Related

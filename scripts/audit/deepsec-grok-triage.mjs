@@ -39,13 +39,13 @@ process.env.GROK_DEPLOYMENT_KEY = undefined;
 process.env.MOONSHOT_API_KEY = undefined;
 
 function resolveJitiEntry() {
-  const pnpm = path.join(ws, "node_modules/.pnpm");
-  const dir = fs.readdirSync(pnpm).find((d) => d.startsWith("jiti@"));
-  if (!dir)
+  const entry = path.join(ws, "node_modules/jiti/lib/jiti.mjs");
+  if (!fs.existsSync(entry)) {
     throw new Error(
-      "jiti not found under .deepsec (run pnpm install in .deepsec)",
+      "jiti not found under .deepsec (run npm install in .deepsec)",
     );
-  return path.join(pnpm, dir, "node_modules/jiti/lib/jiti.mjs");
+  }
+  return entry;
 }
 const jitiPkg = resolveJitiEntry();
 const { createJiti } = await import(pathToFileURL(jitiPkg).href);

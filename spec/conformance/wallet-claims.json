@@ -16,14 +16,14 @@
       "status": "specified",
       "reason": "formatUnits + amount parsers cover integer subunits; no float path in spending-ledger.test / os-domain wallet-domain",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser", "pnpm wallet:test:domain"]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:domain"]
     },
     "WAL-D02": {
       "status": "specified",
       "reason": "AssetRef binds chain/contract/decimals/deploymentFingerprint (not display/ticker); wallet-domain rejects destination display-only and wrong decimal scale; WAL-D02 unit coverage in wallet-domain.test.ts",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
+        "npm run wallet:test:domain",
         "packages/os-domain/src/__tests__/wallet-domain.test.ts"
       ]
     },
@@ -31,14 +31,14 @@
       "status": "specified",
       "reason": "shared_counter sibling reserve: 700 then 400 against 1000 refuses second; WalletSection + wallet-budget conservation tests",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser", "pnpm wallet:test:security"]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:security"]
     },
     "WAL-D04": {
       "status": "specified",
-      "reason": "wallet-budget exclusive_allocation + shared_counter conservation tests refuse sibling over-allocation; pnpm wallet:test:security",
+      "reason": "wallet-budget exclusive_allocation + shared_counter conservation tests refuse sibling over-allocation; npm run wallet:test:security",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-budget/src/ledger.test.ts"
       ]
     },
@@ -47,8 +47,8 @@
       "reason": "assertRedistributedCapacity refuses child mint; wallet-policy intersectAncestors keeps inherited amount when child omits required budget constraint",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
-        "pnpm wallet:test:security",
+        "npm run wallet:test:domain",
+        "npm run wallet:test:security",
         "packages/wallet-policy/src/assess.test.ts"
       ]
     },
@@ -57,7 +57,7 @@
       "reason": "wallet-policy assess refuses widening (later expiry, broader recipient, export) even with adjustmentAllowed; isNoBroaderThan / tighten",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-policy/src/assess.test.ts"
       ]
     },
@@ -65,14 +65,14 @@
       "status": "specified",
       "reason": "localStorage hydrate survives cache reset (same-origin only; not hostile-owner)",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser"]
+      "evidenceRefs": ["npm run wallet:test:browser"]
     },
     "WAL-D08": {
       "status": "specified",
       "reason": "spending-ledger.test: clearing localStorage drops household projection after cache reset \u2014 local-only mode does not claim hostile-owner resistance; independent enforcement remains on-chain (WAL-E*)",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/spending-ledger.test.ts"
       ]
     },
@@ -81,7 +81,7 @@
       "reason": "wallet-policy PERIOD_SEMANTICS_UNSUPPORTED when calendar approved but only fixed_interval capability; no local-clock-created allowance",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-policy/src/assess.test.ts"
       ]
     },
@@ -90,7 +90,7 @@
       "reason": "wallet-budget: after commit under pass-v1, reserve under rotated instrument id pass-v2 against same root refuses when remainder insufficient \u2014 new identifier alone cannot reset posted spending",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-budget/src/ledger.test.ts"
       ]
     },
@@ -99,7 +99,7 @@
       "reason": "After committing 900 on x402-path via child-a, other-adapter-path reserve of 200 via child-b throws; shared household remainder is 100",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/spending-ledger.test.ts"
       ]
     },
@@ -108,7 +108,7 @@
       "reason": "wallet-budget ledger is idempotent on logical payment attempt id; repeated reserve/commit under same attemptId does not double-spend",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-budget/src/ledger.test.ts"
       ]
     },
@@ -117,7 +117,7 @@
       "reason": "payment lifecycle allows reserved\u2192unknown on timeout uncertainty; refuses inventing settled from not_started",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
+        "npm run wallet:test:domain",
         "packages/os-domain/src/__tests__/wallet-domain.test.ts"
       ]
     },
@@ -126,7 +126,7 @@
       "reason": "reserved attempt cannot jump to settled without authorized path; same-attempt idempotent reserve covered by WAL-D12",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
+        "npm run wallet:test:domain",
         "packages/os-domain/src/__tests__/wallet-domain.test.ts"
       ]
     },
@@ -135,7 +135,7 @@
       "reason": "wallet-policy assess widening/omitted-limit suites reject child escalation of budget, recovery destination, or owner approval records",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-policy/src/assess.test.ts"
       ]
     },
@@ -144,7 +144,7 @@
       "reason": "ExecutablePaymentIntent refuses empty domainRef; foreign/empty domain substitution fails closed before execution",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
+        "npm run wallet:test:domain",
         "packages/os-domain/src/__tests__/wallet-domain.test.ts"
       ]
     },
@@ -153,7 +153,7 @@
       "reason": "spending-ledger persists best-effort; QuotaExceeded on setItem keeps in-memory ledger without inventing durable success (WAL-D17)",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/spending-ledger.test.ts"
       ]
     },
@@ -162,7 +162,7 @@
       "reason": "wallet-policy assess/intersect: tightening ancestor ceilings applies to new requests; widening refused (POLICY_WIDENING_REFUSED); outstanding exposure not silently expanded",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-policy/src/assess.test.ts"
       ]
     },
@@ -177,7 +177,7 @@
       "reason": "budgetLabelFor / fundingCadenceImpliesSpendingCeiling keep funding cadence copy from being labeled as a spending ceiling (WAL-D20)",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/wallet-budget-labels.test.ts"
       ]
     },
@@ -192,7 +192,7 @@
       "reason": "Distinct chain assets require distinct rootAccountingRef identities; no fictitious shared counter across eip155:1 vs eip155:137 intents",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:domain",
+        "npm run wallet:test:domain",
         "packages/os-domain/src/__tests__/wallet-domain.test.ts"
       ]
     },
@@ -201,7 +201,7 @@
       "reason": "forge SiblingSharedPeriodCapTest + ERC20PeriodTransferEnforcerTest against MetaMask pin bff4b08; shared parent hash enforces aggregate; substituted independent roots (WAL-E03) do not inherit the approved counter",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/SiblingSharedPeriodCap.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -212,7 +212,7 @@
       "reason": "forge SiblingSharedPeriodCapTest + ERC20PeriodTransferEnforcerTest against MetaMask pin bff4b08; shared parent hash enforces aggregate; substituted independent roots (WAL-E03) do not inherit the approved counter",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/SiblingSharedPeriodCap.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -223,7 +223,7 @@
       "reason": "forge SiblingSharedPeriodCapTest + ERC20PeriodTransferEnforcerTest against MetaMask pin bff4b08; shared parent hash enforces aggregate; substituted independent roots (WAL-E03) do not inherit the approved counter",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/SiblingSharedPeriodCap.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -234,7 +234,7 @@
       "reason": "forge WalE04MixedAssetCaveatTest: ERC20PeriodTransferEnforcer keyed only by delegationHash shares period counter across mixed token terms and duplicate caveats \u2014 activation must refuse mixed-asset composition; harness proves shared-key hazard + single-hash aggregate",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE04MixedAssetCaveat.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -245,7 +245,7 @@
       "reason": "forge WalE05RecipientAndValueTest: ExactCalldataEnforcer rejects alternate transfer recipient; ValueLteEnforcer(0) rejects nonzero native value with token calldata",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE05RecipientAndValue.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -256,7 +256,7 @@
       "reason": "forge WalE06E09MethodAndExpiryTest + upstream invalid-method: approve/transferFrom rejected by ERC20PeriodTransferEnforcer",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE06E09MethodAndExpiry.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -273,7 +273,7 @@
       "reason": "Local profile does not claim external nontransferability/depth. Amount remains bounded under shared parent delegationHash (WAL-E01/E02 forge SiblingSharedPeriodCap). Further-delegation depth without independent enforcer stays unclaimed.",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/SiblingSharedPeriodCap.t.sol"
       ]
     },
@@ -282,7 +282,7 @@
       "reason": "forge WalE06E09MethodAndExpiryTest: TimestampEnforcer refuses execution after validUntil (expired-delegation)",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:contracts",
+        "npm run wallet:test:contracts",
         "packages/wallet-evm/forge/test/WalE06E09MethodAndExpiry.t.sol"
       ],
       "profileId": "local-test.direct-erc20-period-delegation",
@@ -293,7 +293,7 @@
       "reason": "directErc20Delegation.assess refuses fee_on_transfer/rebase/callback/unusual_return/upgradeable transferSemantics (WAL-E10); activation blocked until proven",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "packages/wallet-evm/src/direct-erc20-delegation.test.ts"
       ]
     },
@@ -301,7 +301,7 @@
       "status": "specified",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-x402/forge/src/EIP3009Mock.sol",
         "packages/wallet-x402/src/adapter.ts"
       ],
@@ -316,14 +316,14 @@
       "evidenceRefs": [
         "packages/wallet-x402/src/cors.ts",
         "packages/wallet-x402/src/cors.test.ts",
-        "pnpm wallet:test:protocols"
+        "npm run wallet:test:protocols"
       ]
     },
     "WAL-E13": {
       "status": "specified",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-x402/forge/src/EIP3009Mock.sol",
         "packages/wallet-x402/src/adapter.ts"
       ],
@@ -335,7 +335,7 @@
       "status": "specified",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-x402/forge/src/EIP3009Mock.sol",
         "packages/wallet-x402/src/adapter.ts"
       ],
@@ -347,31 +347,31 @@
       "status": "blocked",
       "reason": "No OSS prepaid session/channel counterparty harness in-repo yet (WAL-E19\u2013E22). Refuse to claim escrow/voucher enforcement without Anvil+facilitator evidence.",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:evidence:blocked-adapters"]
+      "evidenceRefs": ["npm run wallet:evidence:blocked-adapters"]
     },
     "WAL-E20": {
       "status": "blocked",
       "reason": "No OSS prepaid session/channel counterparty harness in-repo yet (WAL-E19\u2013E22). Refuse to claim escrow/voucher enforcement without Anvil+facilitator evidence.",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:evidence:blocked-adapters"]
+      "evidenceRefs": ["npm run wallet:evidence:blocked-adapters"]
     },
     "WAL-E21": {
       "status": "blocked",
       "reason": "No OSS prepaid session/channel counterparty harness in-repo yet (WAL-E19\u2013E22). Refuse to claim escrow/voucher enforcement without Anvil+facilitator evidence.",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:evidence:blocked-adapters"]
+      "evidenceRefs": ["npm run wallet:evidence:blocked-adapters"]
     },
     "WAL-E22": {
       "status": "blocked",
       "reason": "No OSS prepaid session/channel counterparty harness in-repo yet (WAL-E19\u2013E22). Refuse to claim escrow/voucher enforcement without Anvil+facilitator evidence.",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:evidence:blocked-adapters"]
+      "evidenceRefs": ["npm run wallet:evidence:blocked-adapters"]
     },
     "WAL-E23": {
       "status": "blocked",
       "reason": "No OSS prepaid session/channel counterparty harness in-repo yet (WAL-E19\u2013E22). Refuse to claim escrow/voucher enforcement without Anvil+facilitator evidence.",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:evidence:blocked-adapters"]
+      "evidenceRefs": ["npm run wallet:evidence:blocked-adapters"]
     },
     "WAL-E24": {
       "status": "blocked",
@@ -393,21 +393,21 @@
         "packages/wallet-budget/src/fee-exposure.ts",
         "packages/wallet-budget/src/fee-exposure.test.ts",
         "apps/pages/src/lib/wallet-agent-broker.ts",
-        "pnpm wallet:test:domain"
+        "npm run wallet:test:domain"
       ]
     },
     "WAL-B01": {
       "status": "specified",
       "reason": "assessLocalPaymentApproval refuses mechanism/assurance without verified bytes; dummy bytes are signature_invalid; matching ES256 admits verifiedMechanism es256",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser", "pnpm wallet:test:protocols"]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:protocols"]
     },
     "WAL-B02": {
       "status": "specified",
       "reason": "spending-consent WebCrypto digest changes when amount/recipient change; matches Node wallet-consent encoding",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "src/lib/spending-consent.test.ts"
       ]
     },
@@ -416,7 +416,7 @@
       "reason": "Playwright on the static origin: with a CDP virtual authenticator attached, Wallet \u203a Spending passes (approved through Settings \u203a Capabilities) shows no pass; the product's lease module, run in the same browser, refuses a forged WebAuthn label (unverified_assurance), an unenrolled key (key_not_enrolled) and spent verifiedBytes replay (assertion_replay). Not phishing-resistant RP ceremony binding.",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "scripts/wallet/lib/lease-probe.mjs",
         "src/lib/spending-leases.test.ts"
       ]
@@ -425,14 +425,14 @@
       "status": "specified",
       "reason": "Playwright QAB-03 lite: evil.example postMessage spend grant does not mutate Wallet authority UI under static origin",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser"]
+      "evidenceRefs": ["npm run wallet:test:browser"]
     },
     "WAL-B05": {
       "status": "specified",
       "reason": "Playwright on the static origin: the product's lease module, run in the browser, refuses an expired lease window (lease_window_invalid); listActiveSpendingLeases withholds expired rows",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "scripts/wallet/lib/lease-probe.mjs",
         "src/lib/spending-leases.test.ts"
       ]
@@ -442,7 +442,7 @@
       "reason": "safeMerchantLabel strips HTML/angle markup and bidi controls; PassesPanel renders sanitized recipient; wallet-safe-label.test.ts",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/wallet-safe-label.test.ts"
       ]
     },
@@ -451,7 +451,7 @@
       "reason": "assessWorkerRootKeyIsolation never claims independent origin boundary or root-key isolation for same-origin Workers",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/wallet-isolation-claims.test.ts"
       ]
     },
@@ -460,7 +460,7 @@
       "reason": "assessRootWalletOperation refuses insecure_http and opaque_origin root key ops with UNSUPPORTED_STATIC_SECURITY_PROFILE; secure contexts allowed",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:browser",
+        "npm run wallet:test:browser",
         "apps/pages/src/lib/wallet-origin-profile.test.ts"
       ]
     },
@@ -472,7 +472,7 @@
         "apps/pages/src/lib/wallet-sw-payment.ts",
         "apps/pages/src/lib/wallet-sw-payment.test.ts",
         "apps/pages/src/lib/wallet-agent-broker.ts",
-        "pnpm wallet:test:browser"
+        "npm run wallet:test:browser"
       ]
     },
     "WAL-B10": {
@@ -480,7 +480,7 @@
       "productionEnabled": false,
       "trust": "fixture-local",
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-mandates"
       ],
       "reason": "AP2/UCP ES256 local verifier accepts fixture-local checkout; alg none / issuer substitution refused. Not a public merchant."
@@ -490,7 +490,7 @@
       "productionEnabled": false,
       "trust": "fixture-local",
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-mandates"
       ],
       "reason": "Constraint stripping and protection downgrade are refused; negotiated protection does not fall back to unprotected checkout."
@@ -500,7 +500,7 @@
       "productionEnabled": false,
       "trust": "fixture-local",
       "evidenceRefs": [
-        "pnpm wallet:test:protocols",
+        "npm run wallet:test:protocols",
         "packages/wallet-mandates"
       ],
       "reason": "LocalMandateLedger refuses a second individually valid mandate that would exceed the shared remainder (700+400 against 1000)."
@@ -519,7 +519,7 @@
       "reason": "assertNoMainnet refuses CHAIN_ID=1 and --chain-id 1; wallet suites hard-deny before activation; deny-mainnet.test.mjs",
       "productionEnabled": false,
       "evidenceRefs": [
-        "pnpm wallet:test:security",
+        "npm run wallet:test:security",
         "scripts/wallet/lib/deny-mainnet.test.mjs"
       ]
     },
@@ -529,14 +529,14 @@
       "productionEnabled": false,
       "evidenceRefs": [
         "scripts/wallet/lib/deny-mainnet.test.mjs",
-        "pnpm wallet:test:security"
+        "npm run wallet:test:security"
       ]
     },
     "WAL-B16": {
       "status": "specified",
       "reason": "Temporary card UNAVAILABLE without issuer; no PAN digits in WalletSection tests",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser"]
+      "evidenceRefs": ["npm run wallet:test:browser"]
     },
     "WAL-B17": {
       "status": "specified",
@@ -546,7 +546,7 @@
         "packages/wallet-consent/src/redact.ts",
         "packages/wallet-consent/src/redact.test.ts",
         "apps/pages/src/lib/wallet-agent-broker.test.ts",
-        "pnpm wallet:test:security"
+        "npm run wallet:test:security"
       ]
     },
     "WAL-B18": {
@@ -556,14 +556,14 @@
       "evidenceRefs": [
         "packages/wallet-consent/src/wrap.ts",
         "packages/wallet-consent/src/wrap.test.ts",
-        "pnpm wallet:test:security"
+        "npm run wallet:test:security"
       ]
     },
     "WAL-B19": {
       "status": "specified",
       "reason": "QAB-01: guest Wallet overview under production base path with no Identity API / loopback",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:browser"]
+      "evidenceRefs": ["npm run wallet:test:browser"]
     },
     "WAL-B20": {
       "status": "specified",
@@ -571,7 +571,7 @@
       "productionEnabled": false,
       "evidenceRefs": [
         "scripts/wallet/browser-harness.mjs",
-        "pnpm wallet:test:browser"
+        "npm run wallet:test:browser"
       ]
     },
     "wallet.capabilities.read": {
@@ -581,7 +581,7 @@
       "evidenceRefs": [
         "apps/pages/src/webmcp/wallet-tools.ts",
         "apps/pages/src/webmcp/wallet-tools.test.ts",
-        "pnpm wallet:test:browser"
+        "npm run wallet:test:browser"
       ]
     },
     "wallet.budgets.read": {
@@ -591,7 +591,7 @@
       "evidenceRefs": [
         "apps/pages/src/webmcp/wallet-tools.ts",
         "apps/pages/src/webmcp/wallet-tools.test.ts",
-        "pnpm wallet:test:browser"
+        "npm run wallet:test:browser"
       ]
     },
     "wallet.allocations.read": {
@@ -601,7 +601,7 @@
       "evidenceRefs": [
         "apps/pages/src/webmcp/wallet-tools.ts",
         "apps/pages/src/webmcp/wallet-tools.test.ts",
-        "pnpm wallet:test:browser"
+        "npm run wallet:test:browser"
       ]
     },
     "wallet.payment.propose": {
@@ -662,7 +662,7 @@
       "status": "specified",
       "reason": "Shared parent period/amount cap proven by forge SiblingSharedPeriodCapTest (WAL-E01/E02); not an agent spend tool",
       "productionEnabled": false,
-      "evidenceRefs": ["pnpm wallet:test:contracts"]
+      "evidenceRefs": ["npm run wallet:test:contracts"]
     }
   },
   "adapters": {

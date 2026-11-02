@@ -52,8 +52,8 @@ NODE
 }
 
 if [[ -f "$installed_lock" && -f "$marker" ]] \
-   && lock_matches \
-   && [[ "$(cat "$marker")" == "$fingerprint" ]]; then
+  && lock_matches \
+  && [[ "$(cat "$marker")" == "$fingerprint" ]]; then
   echo "dependencies: current lockfile already installed"
   exit 0
 fi

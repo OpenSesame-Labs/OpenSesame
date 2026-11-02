@@ -20,5 +20,5 @@ Branch: `chore/audit-tick15`
 
 ```bash
 cargo +1.88.0 test -p opensesame-host-core --lib
-pnpm --filter @opensesame/control-plane test
+npm run test -w @opensesame/control-plane
 ```

@@ -130,8 +130,8 @@ impl ValidatedGrantChain {
     #[must_use]
     pub fn binds_grant(&self, grant: &Grant) -> bool {
         self.leaf().id == grant.id
-            && self.leaf().version == grant.version
-            && self.leaf().organization_id == grant.organization_id
+  && self.leaf().version == grant.version
+  && self.leaf().organization_id == grant.organization_id
     }
 }
 

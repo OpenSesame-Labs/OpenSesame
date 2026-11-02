@@ -87,48 +87,48 @@ impl HostSessionClaims {
     /// Validation runs on every use, not merely at insertion.
     pub fn valid_for(&self, audience: &str, now: DateTime<Utc>) -> bool {
         !self.principal_id.as_uuid().is_nil()
-            && (self.credential_kind == CredentialKind::BrowserGrant) == self.dpop_jkt.is_some()
-            && !self.organization_id.as_uuid().is_nil()
-            && !self.client_id.is_empty()
-            && self.client_id.len() <= 256
-            && self.audience == audience
-            && !self.audience.is_empty()
-            && self.issued_at <= now
-            && self.auth_time <= now
-            && self.auth_time <= self.issued_at
-            && self.expires_at > now
-            && self.expires_at > self.issued_at
-            && !self.capability_ceiling.is_empty()
-            && self.capability_ceiling.len() <= 64
-            && self
+  && (self.credential_kind == CredentialKind::BrowserGrant) == self.dpop_jkt.is_some()
+  && !self.organization_id.as_uuid().is_nil()
+  && !self.client_id.is_empty()
+  && self.client_id.len() <= 256
+  && self.audience == audience
+  && !self.audience.is_empty()
+  && self.issued_at <= now
+  && self.auth_time <= now
+  && self.auth_time <= self.issued_at
+  && self.expires_at > now
+  && self.expires_at > self.issued_at
+  && !self.capability_ceiling.is_empty()
+  && self.capability_ceiling.len() <= 64
+  && self
                 .capability_ceiling
                 .iter()
                 .all(|cap| !cap.is_empty() && cap.len() <= 128)
-            && (!self.amr.is_empty()
+  && (!self.amr.is_empty()
                 || (self.assurance == Assurance::LocalUnverified
-                    && self
+  && self
                         .capability_ceiling
                         .iter()
                         .all(|cap| cap == "host.sync.read")))
-            && self.amr.len() <= 16
-            && self
+  && self.amr.len() <= 16
+  && self
                 .amr
                 .iter()
                 .all(|method| !method.is_empty() && method.len() <= 64)
-            && self.origin.is_some() == self.dpop_jkt.is_some()
-            && self.origin.as_ref().is_none_or(|origin| {
+  && self.origin.is_some() == self.dpop_jkt.is_some()
+  && self.origin.as_ref().is_none_or(|origin| {
                 url::Url::parse(origin).is_ok_and(|url| {
                     matches!(url.scheme(), "https" | "http")
-                        && url.origin().ascii_serialization() == *origin
+  && url.origin().ascii_serialization() == *origin
                 })
             })
-            && self.dpop_jkt.as_ref().is_none_or(|key| {
+  && self.dpop_jkt.as_ref().is_none_or(|key| {
                 key.len() == 43
-                    && key
+  && key
                         .bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
             })
-            && self.last_step_up_at.is_none_or(|at| {
+  && self.last_step_up_at.is_none_or(|at| {
                 at <= now && at >= self.auth_time && self.assurance == Assurance::PhishingResistant
             })
     }

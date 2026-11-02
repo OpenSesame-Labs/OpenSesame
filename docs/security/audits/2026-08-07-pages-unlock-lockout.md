@@ -18,5 +18,5 @@ Branch: `chore/audit-tick13`
 ## Gate
 
 ```bash
-pnpm --filter @opensesame/pages test
+npm run test -w @opensesame/pages
 ```

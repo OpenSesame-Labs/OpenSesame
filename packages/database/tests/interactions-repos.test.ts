@@ -380,7 +380,7 @@ describe("InteractionRepository patch type", () => {
     // A type-level assertion, not a runtime one: the guarantee is that no
     // caller can compile a patch that rewrites what was consented to. If the
     // `Pick<>` in `interfaces.ts` ever widens, `@ts-expect-error` becomes an
-    // unused suppression and `pnpm typecheck` fails here.
+    // unused suppression and `npm run typecheck` fails here.
     const patch: Parameters<InteractionRepository["updateWithVersion"]>[2] = {
       status: "consumed",
       // @ts-expect-error `requestDigest` is what the approver consented to.

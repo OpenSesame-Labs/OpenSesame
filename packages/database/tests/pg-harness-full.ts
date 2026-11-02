@@ -35,9 +35,9 @@ export interface PgTestContext {
  * postgres-js cannot, so a raw-SQL fragment with a `Date` parameter passes on
  * one and throws `ERR_INVALID_ARG_TYPE` on the other. Run the suites on both:
  *
- *     pnpm --filter @opensesame/database test                      # PGlite
+ *     npm run test -w @opensesame/database                      # PGlite
  *     DATABASE_URL=postgres://… OPENSESAME_CLAIM_PEPPER=… \
- *       pnpm --filter @opensesame/database test:postgres           # real server
+ *       npm run test:postgres -w @opensesame/database           # real server
  *
  * The role in `DATABASE_URL` needs `CREATEDB`.
  */

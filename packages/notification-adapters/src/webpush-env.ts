@@ -13,8 +13,7 @@
  * present must be usable, because a half-working signing identity fails one
  * push at a time, far from the cause: it refuses the boot instead.
  *
- * Generate the pair once with `pnpm --filter @opensesame/notification-adapters
- * generate:vapid`.
+ * Generate the pair once with `npm run * -w @opensesame/notification-adapters generate:vapid`.
  */
 
 import { createECDH } from "node:crypto";

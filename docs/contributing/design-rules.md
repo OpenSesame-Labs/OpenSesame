@@ -39,7 +39,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   requests with full stacks. Fix against the hot-reloaded session; do not
   kill it to run a production `dist/` or a headless `verify:*` harness
   unless that gate was the request. Pages UI without a backend is
-  `pnpm dev:pwa` on `:5180`. Procedure:
+  `npm run dev:pwa` on `:5180`. Procedure:
   `skills/local-debug-session/SKILL.md`.
 - **Keyboard access is a core product contract, not optional polish.** Every
   arrival (cold load, reload, guest/unlock, deep link, route change and modal
@@ -52,7 +52,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   Escape leaves a text field for its parent pane before closing a closable
   pane. Preserve vim/tree arrows, counts, section chords and guest access.
   Changes to boot, routing, shell, controls or focus require
-  `pnpm --filter @opensesame/pages verify:keyboard` against a fresh Pages
+  `npm run verify:keyboard` -w @opensesame/pages against a fresh Pages
   build, at desktop and mobile widths. This keyboard-only browser journey
   must start at page load without clicks, injected focus, synthetic keydown
   events or mocked keymap registrations. Handler spies and snapshots alone
@@ -65,7 +65,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   well as pointer.** The 44px floor, the 16px field floor that keeps iOS from
   zooming a focused field and never zooming back, the single-row statusline,
   the safe-area insets and the landscape arrangement are all measured by
-  `pnpm --filter @opensesame/pages verify:mobile` against a fresh Pages build,
+  `npm run verify:mobile` -w @opensesame/pages against a fresh Pages build,
   at 320, 390, 430 and landscape, with a settings file open at each. Changes to
   the shell, the chrome, any shared control, or any block under
   `(pointer: coarse)` require it. A screenshot is
@@ -75,7 +75,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   lowering a floor — DESIGN.md § Touch is the contract it enforces.
 - **Browser-local IAM must prove an actual application sign-in.** Changes to
   local identity sessions, application grants, popup transport or consent
-  require `pnpm --filter @opensesame/pages verify:local-iam` against a fresh
+  require `npm run verify:local-iam` -w @opensesame/pages against a fresh
   Pages build, alongside the focused IAM tests. This required Bundle budgets
   check uses separate browser origins, real encrypted storage and virtual
   WebAuthn, with keyboard-only explicit consent, session check, revocation
@@ -86,7 +86,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
 - **Web Push is proved against a real Identity API.** Changes to push
   enrolment, the push worker or its controller, the Identity API's push routes,
   the Web Push adapters or the Host's delivery require
-  `pnpm --filter @opensesame/pages verify:push-worker` and `verify:push`
+  `npm run verify:push-worker` -w @opensesame/pages and `verify:push`
   against fresh builds (`build:push-verify` for the second). `verify:push` is
   its own CI job, folded into the required Bundle budgets check, and runs
   for the server code it exercises as well as for Pages. A push worker that is
@@ -188,9 +188,9 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   and a vector to the spec, never to one target. Log through `createLogger`
   (TypeScript) or a subscriber whose writer is `ScrubMakeWriter` (Rust); never
   `console.*`, a hand-built `pino(...)` or a bare `tracing_subscriber::fmt()`.
-  `pnpm quality:log-hygiene` counts those and the ledger only falls. A struct
+  `npm run quality:log-hygiene` counts those and the ledger only falls. A struct
   holding a secret never derives `Debug`: write `impl fmt::Debug` and print
-  `[REDACTED]` for it; `scripts/lib/secret-debug.test.mjs` (in `pnpm quality`) fails on a
+  `[REDACTED]` for it; `scripts/lib/secret-debug.test.mjs` (in `npm run quality`) fails on a
   derived `Debug` over a field named like a credential. Log an id, never the secret.
 - **Logs and events rest sealed** (ADR 0157 items 7–9). A log file a process
   writes goes through `crates/sealed-log` / `packages/observability`'s sealed
@@ -404,7 +404,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   statically, and never read a pack's text from the entry; a type the open
   vault holds items of is installed for the document and has no switch. After
   editing `marketplace/item-types/builtin/*.json`, re-run
-  `pnpm --filter @opensesame/vault-item-types generate`. A suite that assumes
+  `npm run generate`. -w @opensesame/vault-item-types A suite that assumes
   the whole corpus loads every pack in its setup.
 - **A password is produced by one facade, and a pepper is never asked for or
   stored** ([ADR 0174](../adr/0174-the-pepper-is-the-persons-and-passwords-are-produced-by-one-facade.md)).
@@ -432,7 +432,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   add the row to `spec/connectors/catalog.json` (aliases for other names),
   regenerate the view (`UPDATE_CATALOG_VIEW=1 cargo +1.88.0 test -p
   opensesame-connection-broker --test catalog_view`) and the client module
-  (`pnpm --filter @opensesame/app-core generate:catalog`). A target shows a
+  (`npm run generate:catalog`). -w @opensesame/app-core A target shows a
   subset only as an ordered selection of catalog ids.
 - **A surrogate selects a credential; it never becomes one**
   ([ADR 0150](../adr/0150-surrogate-credentials-at-the-last-hop.md)).
@@ -511,7 +511,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   tutorials scoped to its own route (`gate-goals.ts`, `useSupportRoute`'s
   `/unlock/door`, `/setup/identity` and the rest; ADR 0166), and is offered
   none of the shell's. Changes to a tutorial, the Support sheet, the tutorial card or
-  the target registry require `pnpm --filter @opensesame/pages verify:tutorials`
+  the target registry require `npm run verify:tutorials` -w @opensesame/pages
   against a fresh Pages build (every tutorial, desktop and phone, Next and
   Back and Replay and Done, keyboard and mouse, focus handed back), and keep it
   in the required Bundle budgets job.
@@ -558,7 +558,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   of an excluded module from any entry. Scopes only narrow — distribution,
   instance, workspace, installation, vault session — so a smaller permitted
   set can never enlarge the approved one. Changes to the bootstrap, a module,
-  a worker or the build run `pnpm --filter @opensesame/pages build:profile`
+  a worker or the build run `npm run build:profile` -w @opensesame/pages
   and `verify:capability-graph`; a contract with no landed test is recorded
   `pending` in the maintained uncovered-contract list in
   `docs/validation/capability-composition.md`
@@ -566,14 +566,14 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   `docs/operators/capability-composition.md`; verification method:
   `docs/validation/capability-composition.md`.
 - **A source file stays under 400 lines and the debt ledger only falls**
-  ([ADR 0093](../adr/0093-structural-quality-gates.md)). `pnpm quality`
+  ([ADR 0093](../adr/0093-structural-quality-gates.md)). `npm run quality`
   measures module size and TypeScript complexity against thresholds that mirror
-  `clippy.toml`, and scores every pnpm package and Cargo crate against Robert
+  `clippy.toml`, and scores every npm run package and Cargo crate against Robert
   C. Martin's component principles. A dependency cycle (ADP) and an import of
   an undeclared workspace package are hard failures. Everything else ratchets
   against `tools/quality/quality-baseline.json` and `tools/quality/package-metrics-baseline.json`: a file
   may not exceed its recorded number, **and a file that improves must have its
-  baseline tightened in the same commit** (`pnpm quality:gate --update`). Never
+  baseline tightened in the same commit** (`npm run quality:gate --update`). Never
   raise a recorded number to make the gate pass — split the file. New files get
   a recorded number of zero, so new code meets the budget outright.
   `docs/validation/code-quality-gates.md` is the working guide.
@@ -602,7 +602,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   an unframed popup) gets the corner bell, `NoticeCorner`, mounted by `AppRoot`
   ([ADR 0163](../adr/0163-failures-live-in-the-tray.md)). Do not add explainer or caption prose. Pages copy never
   names a Host, and a browser-local connector action never asks the person to
-  pair one. `pnpm lint:design` (`scripts/quality/design-lint.mjs`) rejects word-verb
+  pair one. `npm run lint:design` (`scripts/quality/design-lint.mjs`) rejects word-verb
   buttons, status pills, explainer captions, and any in-page failure
   (`no-in-page-error`, `no-error-box-css`; no ledger, the count is zero); `impeccable detect`
   enforces the same design file when the optional skill is installed. Both run in `.githooks/pre-commit` (impeccable skips when absent). The

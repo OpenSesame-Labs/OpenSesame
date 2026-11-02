@@ -119,8 +119,7 @@ home or a feature with no tour.
 
 ### 5. `verify:tutorials` walks every tutorial in a real browser
 
-The unit tests prove the runtime and the card; `pnpm --filter
-@opensesame/pages verify:tutorials` proves the product. It starts each
+The unit tests prove the runtime and the card; `npm run verify:tutorials` -w @opensesame/pages proves the product. It starts each
 tutorial from the library, gets through it with Next alone (mouse on one
 step, keyboard on the next), and fails on any step whose card is outside the
 viewport, whose Next is missing, whose steps are not numbered 1..N with none

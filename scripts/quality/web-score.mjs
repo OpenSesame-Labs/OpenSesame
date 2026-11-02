@@ -3,7 +3,7 @@
  * Public web-score gate.
  *
  * Measures a deployed URL with Lighthouse and the public Is Agentic report.
- * The gate is intentionally separate from `pnpm verify`: it needs the network,
+ * The gate is intentionally separate from `npm run verify`: it needs the network,
  * a Chrome binary, and the public Is Agentic service, so it is a delivery check
  * for a published site rather than a hermetic unit gate.
  *

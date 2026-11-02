@@ -26,8 +26,8 @@ fn read_bounded(reader: impl std::io::Read, limit: usize) -> Option<Vec<u8>> {
 /// Reject percent escapes too: an ID is also interpolated into an API URL.
 pub(super) fn safe_component(value: &str) -> bool {
     !value.is_empty()
-        && value.len() <= 255
-        && value
+  && value.len() <= 255
+  && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }

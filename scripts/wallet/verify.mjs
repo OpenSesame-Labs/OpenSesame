@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pnpm wallet:verify — orchestrate wallet BUILD gates (fail closed).
+ * npm run wallet:verify — orchestrate wallet BUILD gates (fail closed).
  *
  * Runs mainnet deny, domain tests, then package suite runners
  * (contracts/protocols/browser/security). Always writes
@@ -38,7 +38,7 @@ const mainnet = assertNoMainnet(
 );
 if (!mainnet.ok) {
   writeWalletEvidence(root, {
-    invokedAs: "pnpm wallet:verify",
+    invokedAs: "npm run wallet:verify",
     mainnet: {
       ok: false,
       message: mainnet.message,
@@ -133,7 +133,7 @@ try {
 const ok = results.every((r) => r.status === "passed");
 
 writeWalletEvidence(root, {
-  invokedAs: dryRun ? "pnpm wallet:verify --dry-run" : "pnpm wallet:verify",
+  invokedAs: dryRun ? "npm run wallet:verify --dry-run" : "npm run wallet:verify",
   mainnet: { ok: true, message: null, denials: [] },
   results,
   ok,

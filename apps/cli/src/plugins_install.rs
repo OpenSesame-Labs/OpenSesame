@@ -64,9 +64,9 @@ pub(crate) fn normalize_pin(raw: &str) -> anyhow::Result<String> {
 /// A version names a directory, so it is one plain path segment.
 pub(crate) fn check_segment(what: &str, value: &str) -> anyhow::Result<()> {
     let plain = !value.is_empty()
-        && value.len() <= 64
-        && !value.starts_with('.')
-        && value
+  && value.len() <= 64
+  && !value.starts_with('.')
+  && value
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'+'));
     if !plain {
@@ -193,8 +193,8 @@ async fn fetch(from: &str, partial: &Path) -> anyhow::Result<()> {
 /// https.
 pub(crate) fn redirect_allowed(host: &str, next: &reqwest::Url, hops: usize) -> bool {
     hops < MAX_REDIRECTS
-        && next.scheme() == "https"
-        && next
+  && next.scheme() == "https"
+  && next
             .host_str()
             .is_some_and(|h| h.eq_ignore_ascii_case(host))
 }
