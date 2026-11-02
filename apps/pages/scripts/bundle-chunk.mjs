@@ -54,5 +54,16 @@ export function bundleChunk(id) {
   ) {
     return "peer-trust";
   }
+  // @peculiar/x509 imports reflect-metadata, then tsyringe. The lite
+  // polyfill is under experimentalMinChunkSize, so Rollup folds it into a
+  // parent and the shared x509 chunk runs tsyringe's check first. That throw
+  // is a vite:preloadError, and the full profile reloads forever. One manual
+  // chunk keeps the polyfill ahead of the check. Profiles that never load
+  // x509 do not emit it.
+  if (
+    /\/node_modules\/(?:reflect-metadata|tsyringe|@peculiar\/x509)\//.test(path)
+  ) {
+    return "reflect-metadata";
+  }
   return undefined;
 }

@@ -14,7 +14,11 @@ cd "$ROOT"
 
 if [[ ! -d "$WS/node_modules/deepsec" ]]; then
   echo "==> installing .deepsec workspace"
-  (cd "$WS" && npm install)
+  if [[ -f "$WS/package-lock.json" ]]; then
+    (cd "$WS" && npm ci --ignore-scripts)
+  else
+    (cd "$WS" && npm install --ignore-scripts)
+  fi
 fi
 
 DEEPSEC="${WS}/node_modules/.bin/deepsec"

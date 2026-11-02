@@ -23,25 +23,24 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   const pwa = read(".github/workflows/cd-pwa.yml");
   const action = read(".github/actions/publish-npm-package/action.yml");
   assert.match(cli, /@opensesame-labs\/cli/);
-  assert.match(
-    cli,
-    new RegExp(
-      `dist-tag add "@opensesame-labs/cli@\\$\\{version\\}" ${CD_PRODUCTION_DIST_TAG}`,
-    ),
-  );
-  assert.match(
-    pwa,
-    new RegExp(
-      `dist-tag add "\\$\\{name\\}@\\$\\{version\\}" ${CD_PRODUCTION_DIST_TAG}`,
-    ),
-  );
+  assert.match(pwa, /@opensesame\/pages/);
+  const publishUses = (text) =>
+    text.split("./.github/actions/publish-npm-package").length - 1;
+  assert.equal(publishUses(cli), 1);
+  assert.equal(publishUses(pwa), 1);
+  for (const text of [cli, pwa]) {
+    assert.match(text, new RegExp(`npm-dist-tag: ${CD_PRODUCTION_DIST_TAG}`));
+    assert.match(text, /npm-token: ""/);
+    assert.doesNotMatch(text, /secrets\.NPM_TOKEN/);
+    assert.doesNotMatch(text, /npx -y npm@11\.21\.1/);
+  }
   for (const text of [cli, pwa, action]) {
     assert.doesNotMatch(text, /env-spec-bridge/);
     assert.doesNotMatch(text, /--tag\s+latest/);
-    assert.doesNotMatch(text, /dist-tag add[^\n]*\slatest\b/);
+    assert.doesNotMatch(text, /dist-tag add/);
     assert.doesNotMatch(text, /npm install -g npm@/);
-    assert.match(text, /npx -y npm@11\.21\.1/);
   }
+  assert.match(action, /npx -y npm@11\.21\.1/);
   assert.match(action, /Refusing dist-tag latest/);
   assert.match(
     action,
@@ -80,5 +79,6 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
   assert.match(proof, /\.github\/workflows\/cd-npm-cli\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-pwa\.yml/);
   assert.match(proof, /\.github\/workflows\/cd-npm-publish-proof\.yml/);
+  assert.match(proof, /\.github\/workflows\/cd-pwa-profile-proof\.yml/);
   assert.doesNotMatch(proof, /action\.yml/);
 });

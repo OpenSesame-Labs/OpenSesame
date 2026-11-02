@@ -23,9 +23,7 @@
         "wait_timer_minutes": 0,
         "prevent_self_review": false
       },
-      "secrets": {
-        "NPM_TOKEN": "npm automation or granular publish token (CLI and web-pwa Preview publish jobs)"
-      },
+      "secrets": {},
       "variables": {}
     },
     {
@@ -44,9 +42,7 @@
         "wait_timer_minutes": 0,
         "prevent_self_review": false
       },
-      "secrets": {
-        "NPM_TOKEN": "same npm token scope as Preview; adds the next dist-tag (never latest for prereleases)"
-      },
+      "secrets": {},
       "variables": {}
     },
     {
@@ -78,8 +74,8 @@
     "prerelease_id": "alpha",
     "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
     "dist_tags": {
-      "preview_publish": "alpha (the prerelease id)",
-      "production_promotion": "next (never latest while versions stay prerelease)"
+      "preview_publish": "alpha (stage dry-run tag; Preview is approval-only and does not publish)",
+      "production_promotion": "next (Production npm publish --tag next via OIDC; never latest, never dist-tag add)"
     }
   },
   "npm_packages": [
@@ -90,8 +86,8 @@
       "bins": ["opensesame"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "Preview npm publish",
-        "next": "Production dist-tag promotion"
+        "alpha": "stage dry-run tag (preid); Preview does not publish",
+        "next": "Production OIDC publish --tag next"
       }
     },
     {
@@ -101,14 +97,33 @@
       "bins": ["opensesame-pages"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "cd-pwa.yml Preview npm job",
-        "next": "cd-pwa.yml Production dist-tag job"
+        "alpha": "stage dry-run tag (preid); Preview does not publish",
+        "next": "Production OIDC publish --tag next"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "When NPM_TOKEN is empty, publish jobs use id-token: write and npm trusted publishing with --provenance.",
-    "recommended": "Configure npm trusted publishers for @opensesame-labs/cli and @opensesame-labs/web-pwa on GitHub Actions for OpenSesame-Labs/OpenSesame."
+    "oidc_fallback": "Production publishes with an empty token: id-token: write and npm trusted publishing with --provenance. Preview does not publish. CD never runs npm dist-tag add. A version already on the registry is skipped and is not retagged.",
+    "repository": "OpenSesame-Labs/OpenSesame",
+    "permissions": "id-token: write",
+    "environment": "Production",
+    "allowed_action": "direct npm publish (stage publish alone is not sufficient; dist-tag permission is not used)",
+    "packages": [
+      {
+        "name": "@opensesame-labs/cli",
+        "workflow_filename": "cd-npm-cli.yml"
+      },
+      {
+        "name": "@opensesame-labs/web-pwa",
+        "workflow_filename": "cd-pwa.yml"
+      }
+    ],
+    "npmjs_fields": {
+      "organization_or_user": "OpenSesame-Labs",
+      "repository": "OpenSesame",
+      "workflow_filename": "filename only, including .yml, not the .github/workflows path",
+      "environment_name": "Production"
+    }
   }
 }

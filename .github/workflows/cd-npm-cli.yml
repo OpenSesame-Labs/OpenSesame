@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -77,14 +78,25 @@ jobs:
           if-no-files-found: error
 
   preview:
-    name: Preview npm publish
+    name: Preview approval
     needs: stage
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     environment:
       name: Preview
     steps:
+      - run: echo "Preview approval recorded. Production publishes dist-tag next via OIDC."
+
+  production:
+    name: Production npm publish
+    needs: preview
+    runs-on: ubuntu-24.04
+    environment:
+      name: Production
+    steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-cli-release-${{ github.run_id }}
@@ -92,30 +104,5 @@ jobs:
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
-          npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
-          npm-token: ${{ secrets.NPM_TOKEN }}
-
-  production:
-    name: Production npm dist-tag
-    needs: preview
-    runs-on: ubuntu-24.04
-    environment:
-      name: Production
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: npm-cli-release-${{ github.run_id }}
-          path: packages/cli/release
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
-        with:
-          cache: false
-          install_args: node@24
-      - name: Point next at this prerelease (never latest)
-        working-directory: packages/cli/release
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-          npx -y npm@11.21.1 dist-tag add "@opensesame-labs/cli@${version}" next --registry https://registry.npmjs.org
+          npm-dist-tag: next
+          npm-token: ""
