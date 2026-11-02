@@ -11,7 +11,7 @@
 //! the 64 characters generic PHC parsers accept — so a string they refuse is
 //! read here instead ([`PasswordHashScheme::verify_unparsed`]).
 
-use argon2::password_hash::{PasswordHash, PasswordVerifier as _};
+use argon2::password_hash::phc::PasswordHash;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine as _;
 use sha2::Sha256;
@@ -78,8 +78,8 @@ impl PasswordHashScheme for Pbkdf2Sha256Legacy {
         ))
     }
 
-    fn verify(&self, stored: &PasswordHash<'_>, secret: &[u8]) -> bool {
-        pbkdf2::Pbkdf2.verify_password(secret, stored).is_ok()
+    fn verify(&self, stored: &PasswordHash, secret: &[u8]) -> bool {
+        self.verify_unparsed(&stored.to_string(), secret)
     }
 
     fn verify_unparsed(&self, stored: &str, secret: &[u8]) -> bool {
@@ -91,7 +91,7 @@ impl PasswordHashScheme for Pbkdf2Sha256Legacy {
         derived.ct_eq(&hash).into()
     }
 
-    fn is_current(&self, _stored: &PasswordHash<'_>) -> bool {
+    fn is_current(&self, _stored: &PasswordHash) -> bool {
         false
     }
 
