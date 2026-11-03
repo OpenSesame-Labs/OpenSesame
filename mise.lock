@@ -32,6 +32,36 @@ url = "https://dl.google.com/go/go1.26.10.darwin-amd64.tar.gz"
 checksum = "sha256:7ecd2d7260e82c59bcbd7f1077a07cee2dea607295b858df67195a1e4e09629b"
 url = "https://dl.google.com/go/go1.26.10.windows-amd64.zip"
 
+[[tools.hurl]]
+version = "8.1.0"
+backend = "aqua:Orange-OpenSource/hurl"
+specifiers = ["8.1.0"]
+
+[tools.hurl."platforms.linux-arm64"]
+checksum = "sha256:33c39409d4a24febb91d3766d3a5cb4074b7b86ad89d612f26fa35ab5e8cec79"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974520"
+
+[tools.hurl."platforms.linux-x64"]
+checksum = "sha256:b497e7ab328100c507f1f3323ebe7cc5990d831ae4f9473b74d40b02971da4ca"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974496"
+
+[tools.hurl."platforms.macos-arm64"]
+checksum = "sha256:f5c6bf73172779e9d22b87249727d1c0ac232137f07df0c7d73b3ec4bcaa9f3b"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974554"
+
+[tools.hurl."platforms.macos-x64"]
+checksum = "sha256:54b1101ab2a8912b9ec5730981ed59900dc4d9de3cdd8bdd2d457df5258b961e"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974548"
+
+[tools.hurl."platforms.windows-x64"]
+checksum = "sha256:dd4eb70d966f37f872d5df9be3926ea18d97e9a93f216cd0875bf0db447d7798"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974595"
+
 [[tools.java]]
 version = "temurin-17.0.20+101"
 backend = "core:java"

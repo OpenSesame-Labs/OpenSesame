@@ -13,18 +13,20 @@ import { pathToFileURL } from "node:url";
 import {
   CLI_PACKAGE,
   registryBudget,
+  publishedPackageForWait,
   spawnCaptured,
   waitForPublishedVersion,
 } from "./cd-preview-smoke.mjs";
 
 async function main() {
   const { deadlineMs, pollMs } = registryBudget(process.env);
+  const pkg = publishedPackageForWait(process.env);
   const seen = await waitForPublishedVersion(
     process.env.EXPECTED_VERSION,
     spawnCaptured,
-    { deadlineMs, pollMs },
+    { deadlineMs, pollMs, pkg },
   );
-  console.log(`registry visible ${CLI_PACKAGE}@${seen}`);
+  console.log(`registry visible ${pkg}@${seen}`);
 }
 
 if (

@@ -47,9 +47,9 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
     /test "\$\(npx -y npm@11\.21\.1 --version\)" = "11\.21\.1"/,
   );
   assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
-  assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: true/);
+  assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: false/);
   assert.doesNotMatch(cli, /cancel-in-progress: false/);
-  assert.doesNotMatch(pwa, /cancel-in-progress: false/);
+  assert.doesNotMatch(pwa, /cancel-in-progress: true/);
   assert.doesNotMatch(read(".gitignore"), /env-spec-bridge\/release/);
   const spec = JSON.parse(read("docs/ci/github-setup-spec.json"));
   assert.equal(spec.npm_versioning.initial, "0.0.0-alpha.0");
@@ -180,22 +180,23 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.equal(
     (pwa.match(/npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/g) ?? [])
       .length,
-    3,
+    4,
   );
   assert.equal(
     (pwa.match(/pages-dist-\$\{\{ github\.run_id \}\}/g) ?? []).length,
-    2,
+    3,
   );
   assert.match(cli, /needs: \[stage, preview\]/);
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
-  assert.match(pwa, /needs: \[build, deploy, npm_preview\]/);
+  assert.match(pwa, /needs: \[main_ci, build, deploy, npm_preview\]/);
   const pwaBuild = jobSlice(pwa, "build", "npm_preview");
+  const pwaProof = jobSlice(pwa, "proof", "build");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
   const pwaDeploy = jobSlice(pwa, "deploy", "preview_smoke");
-  assert.match(pwaBuild, /\n {4}needs: \[main_ci\]\n/);
-  assert.doesNotMatch(pwaBuild, /needs:.*proof/);
-  assert.match(pwaPreview, /needs: \[build, proof\]/);
-  assert.match(pwaDeploy, /needs: \[build, proof\]/);
+  assert.doesNotMatch(pwaProof, /needs: main_ci/);
+  assert.doesNotMatch(pwaBuild, /needs: main_ci/);
+  assert.match(pwaPreview, /needs: \[main_ci, build, proof\]/);
+  assert.match(pwaDeploy, /needs: \[main_ci, build, proof\]/);
   assert.match(pwaPreview, /actions\/download-artifact@/);
   assert.match(pwaPreview, /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/);
   assert.doesNotMatch(pwaPreview, /npm run build/);
@@ -243,10 +244,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   );
   assert.match(commands, /environments\/github-pages/);
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
-  assert.match(
-    spec.promotion_model.preview_smoke,
-    /npm view @opensesame-labs\/cli@EXPECTED_VERSION version --prefer-online/,
-  );
+  assert.match(spec.promotion_model.preview_smoke, /Hurl 8\.1\.0 HTTP asserts/);
   assert.match(
     spec.promotion_model.preview_smoke,
     /SMOKE_REGISTRY_DEADLINE_MS/,
@@ -263,12 +261,16 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.doesNotMatch(cliSmoke, /SMOKE_PUBLISHED_PACKAGE/);
   assert.match(
     pwaSmoke,
-    /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
+    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,
   );
-  assert.match(
-    pwaSmoke,
-    /SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs\/web-pwa"/,
-  );
+  assert.match(pwaSmoke, /cd-pwa-preview-smoke\/run\.mjs/);
+  assert.match(pwaSmoke, /install_args: node@24 hurl@8\.1\.0/);
+  assert.doesNotMatch(pwaSmoke, /cd-preview-smoke\.mjs/);
+  assert.match(pwaSmoke, /pages-dist-\$\{\{ github\.run_id \}\}/);
+  assert.match(pwaSmoke, /STAGED_DIST: apps\/pages\/dist/);
+  assert.match(pwaSmoke, /SMOKE_EVIDENCE_OUT: artifacts\/cd-pwa-preview-smoke/);
+  assert.match(pwaSmoke, /npx playwright install chromium/);
+  assert.match(pwaSmoke, /cd-pwa-preview-smoke-\$\{\{ github\.run_id \}\}/);
   const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");
   assert.match(proofPaths, /scripts\/release\/cd-registry-wait\.mjs/);
   assert.deepEqual(spec.merge_queue.required_status_check_contexts, [
@@ -316,6 +318,8 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
   const stage = jobSlice(cli, "stage", "preview");
   const preview = jobSlice(cli, "preview", "preview_smoke");
   const smoke = jobSlice(cli, "preview_smoke", "production");
+  const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
+  const pwaSmoke = jobSlice(pwa, "preview_smoke", "production");
   assert.match(stage, /CLI_RELEASE_PACK: "1"\n/);
   assert.match(stage, /npm run build -w @opensesame\/cli\n/);
   assert.equal((cli.match(/run: npm run build/g) ?? []).length, 1);
@@ -333,7 +337,17 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
     /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.preview\.result == 'success' && '1' \|\| '' \}\}/,
   );
   assert.match(smoke, /cd-preview-smoke\.mjs/);
-  assert.doesNotMatch(pwa, /CD_REGISTRY_VERSION_CONFIRMED/);
+  const pwaPublishAt = pwaPreview.lastIndexOf("publish-npm-package");
+  const pwaWaitAt = pwaPreview.indexOf("scripts/release/cd-registry-wait.mjs");
+  assert.ok(pwaPublishAt > 0 && pwaWaitAt > pwaPublishAt);
+  assert.match(
+    pwaPreview,
+    /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
+  );
+  assert.match(
+    pwaSmoke,
+    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,
+  );
   assert.doesNotMatch(pwa, /CLI_RELEASE_PACK/);
   const wait = read("scripts/release/cd-registry-wait.mjs");
   assert.match(wait, /waitForPublishedVersion/);

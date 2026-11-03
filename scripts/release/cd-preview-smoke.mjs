@@ -326,6 +326,11 @@ function publishedPackageName(env) {
   return raw;
 }
 
+/** Package targeted by cd-registry-wait.mjs (CLI CD default, PWA when set). */
+export function publishedPackageForWait(env) {
+  return publishedPackageName(env);
+}
+
 export function registryBudget(env, deps = {}) {
   const deadlineMs =
     deps.deadlineMs ??
@@ -382,7 +387,7 @@ export async function runPreviewSmoke(env, deps = {}) {
   }
 
   const cliExpected = pkg === CLI_PACKAGE ? expected : undefined;
-  const version = await poll(async () => {
+  const cliPoll = poll(async () => {
     const resolved = distTagVersion(await fetchDistTags(fetcher));
     assertExpectedVersion(resolved, cliExpected);
     await installAndRun(resolved, runner);
@@ -390,12 +395,15 @@ export async function runPreviewSmoke(env, deps = {}) {
   });
 
   if (pagesUrl !== undefined && pagesUrl.length > 0) {
-    await poll(async () => {
+    const pagesPoll = poll(async () => {
       await assertPagesUrlLoads(pagesUrl, fetcher);
       await assertPagesRelease(pagesUrl, sha, verify);
     });
+    const [version] = await Promise.all([cliPoll, pagesPoll]);
+    return version;
   }
-  return version;
+
+  return cliPoll;
 }
 
 async function main() {
