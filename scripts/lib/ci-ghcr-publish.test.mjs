@@ -140,6 +140,55 @@ describe("GHCR publish workflow", () => {
     assert.doesNotMatch(workflow, /\n\s*push: true\n/);
   });
 
+  it("transfers the loaded amd64 web-pwa image to arm64 when not publishing", () => {
+    const gate =
+      "if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR != 'true'";
+    const amd64 = workflow.slice(
+      workflow.indexOf("  web-pwa-amd64:"),
+      workflow.indexOf("# id: web-pwa-arm64"),
+    );
+    const arm64 = workflow.slice(workflow.indexOf("# id: web-pwa-arm64"));
+    const saveAt = amd64.indexOf(
+      "docker save -o web-pwa-amd64-runtime.tar web-pwa:local",
+    );
+    const smokeAt = amd64.indexOf("name: Smoke image");
+    const uploadAt = amd64.indexOf("actions/upload-artifact@");
+    assert.ok(smokeAt >= 0 && saveAt > smokeAt);
+    assert.ok(amd64.lastIndexOf(gate, saveAt) > smokeAt);
+    assert.ok(uploadAt > saveAt);
+    assert.ok(amd64.lastIndexOf(gate, uploadAt) > saveAt);
+    assert.match(
+      amd64,
+      /uses: actions\/upload-artifact@[0-9a-f]{40} # v7\.0\.2/,
+    );
+    assert.match(
+      amd64,
+      /name: web-pwa-amd64-runtime\n {10}path: web-pwa-amd64-runtime\.tar/,
+    );
+
+    const downloadAt = arm64.indexOf("actions/download-artifact@");
+    const loadAt = arm64.indexOf("docker load -i web-pwa-amd64-runtime.tar");
+    const buildAt = arm64.indexOf("name: Build");
+    assert.ok(downloadAt >= 0 && loadAt > downloadAt && buildAt > loadAt);
+    assert.ok(arm64.lastIndexOf(gate, downloadAt) >= 0);
+    assert.ok(arm64.lastIndexOf(gate, loadAt) > downloadAt);
+    assert.match(arm64, /name: web-pwa-amd64-runtime/);
+    assert.match(
+      arm64,
+      /driver: \$\{\{ env\.PUBLISH_GHCR == 'true' && 'docker-container' \|\| 'docker' \}\}/,
+    );
+    assert.match(
+      arm64,
+      /PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+    const localBuild = arm64.slice(arm64.indexOf("push: false"));
+    assert.match(localBuild, /load: true/);
+    assert.match(
+      localBuild,
+      /PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+  });
+
   it("uses cargo-chef and BuildKit caches for the native host image", () => {
     const dockerfile = readFileSync(
       join(root, "ops/compose/Dockerfile"),
