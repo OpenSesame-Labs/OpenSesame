@@ -8,11 +8,12 @@
  *
  * Registry, dist-tag, install, `--version`, and Pages checks poll until
  * SMOKE_REGISTRY_DEADLINE_MS (default 300000, five minutes) with
- * SMOKE_REGISTRY_POLL_MS (default 10000) between tries. Each check has its
- * own deadline. The version wait runs
- * `npm view <package>@<EXPECTED_VERSION> version --prefer-online
- * --registry https://registry.npmjs.org` with the same `npm` binary as the
- * install. Success is stdout trimmed to exactly EXPECTED_VERSION.
+ * SMOKE_REGISTRY_POLL_MS (default 2500) between tries. Each check has its
+ * own deadline. The version wait GETs
+ * `<registry>/<package>/<EXPECTED_VERSION>?_cd_wait=<nonce>`. The nonce is
+ * monotonic so a cached miss cannot hide a published version. Success is
+ * the JSON `version` field equal to EXPECTED_VERSION. The deadline is not
+ * shortened and a miss is not treated as success.
  *
  * CLI CD starts that version wait in the Preview publish job
  * (`cd-registry-wait.mjs`) on the same deadline. When
@@ -53,7 +54,7 @@ export const CLI_DIST_TAG = "alpha";
 export const CLI_SPEC = `${CLI_PACKAGE}@${CLI_DIST_TAG}`;
 export const CLI_BIN = "opensesame";
 export const DEFAULT_REGISTRY_DEADLINE_MS = 300_000;
-export const DEFAULT_REGISTRY_POLL_MS = 10_000;
+export const DEFAULT_REGISTRY_POLL_MS = 2_500;
 const REGISTRY = "https://registry.npmjs.org";
 const DIST_TAGS_URL = `${REGISTRY}/-/package/@opensesame-labs%2fcli/dist-tags`;
 
@@ -225,54 +226,85 @@ export async function pollUntilDeadline(
   throw last;
 }
 
-export function viewPublishedVersionArgs(pkg, expected) {
-  return [
-    "view",
-    `${pkg}@${expected}`,
-    "version",
-    "--prefer-online",
-    "--registry",
-    REGISTRY,
-  ];
+const PUBLISHED_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+let registryPollNonce = 0;
+
+/** Monotonic token. The counter survives a repeated timestamp. */
+export function registryPollNonceToken(nowMs) {
+  registryPollNonce += 1;
+  const stamp = Number.isInteger(nowMs) && nowMs >= 0 ? nowMs : 0;
+  return `${stamp.toString(36)}-${registryPollNonce.toString(36)}`;
 }
 
-function assertViewPublished(pkg, expected, ran) {
-  const spec = `${pkg}@${expected}`;
-  if (ran.status !== 0) {
-    throw new Error(`npm view ${spec} version exited ${ran.status}`);
+/**
+ * Exact-version document. `npm view` reads the packument, which the registry
+ * CDN can keep stale after publish. A new `_cd_wait` query misses that cache.
+ */
+export function exactPublishedVersionUrl(pkg, expected, nonce) {
+  if (pkg !== CLI_PACKAGE && pkg !== WEB_PWA_PACKAGE) {
+    throw new Error(
+      "published package must be @opensesame-labs/cli or @opensesame-labs/web-pwa",
+    );
   }
-  const seen = ran.stdout.trim();
+  if (!PUBLISHED_VERSION.test(expected)) {
+    throw new Error("EXPECTED_VERSION is not a semver");
+  }
+  if (!/^[0-9a-z]+-[0-9a-z]+$/u.test(nonce)) {
+    throw new Error("registry cache bust nonce is invalid");
+  }
+  const url = new URL(`${REGISTRY}/${pkg.replace("/", "%2f")}/${expected}`);
+  url.searchParams.set("_cd_wait", nonce);
+  return url.href;
+}
+
+async function readExactPublishedVersion(pkg, expected, nonce, fetcher) {
+  const href = exactPublishedVersionUrl(pkg, expected, nonce);
+  const response = await fetcher(href, {
+    headers: { accept: "application/json" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(20_000),
+  });
+  const spec = `${pkg}@${expected}`;
+  if (!response.ok) {
+    throw new Error(`registry ${spec} HTTP ${response.status}`);
+  }
+  const payload = await response.json();
+  if (!isJsonObject(payload)) {
+    throw new Error(`registry ${spec} response is not an object`);
+  }
+  const seen = readString(payload.version) ?? "";
   if (seen !== expected) {
     throw new Error(
-      `npm view ${spec} version returned ${seen === "" ? "empty" : seen} != ${expected}`,
+      `registry ${spec} version returned ${seen === "" ? "empty" : seen} != ${expected}`,
     );
   }
   return seen;
 }
 
 /**
- * Poll until `npm view <package>@<expected> version --prefer-online` prints
- * exactly `expected`.
+ * Poll until the exact-version registry document's `version` equals `expected`.
  */
-export async function waitForPublishedVersion(expected, runner, options = {}) {
+export async function waitForPublishedVersion(expected, options = {}) {
   if (expected === undefined || expected === "") {
     throw new Error("EXPECTED_VERSION is required");
   }
   const pkg = options.pkg ?? CLI_PACKAGE;
   const sleep = options.sleep ?? delay;
   const now = options.now ?? Date.now;
+  const fetcher = options.fetch ?? fetch;
   const deadlineMs = options.deadlineMs ?? DEFAULT_REGISTRY_DEADLINE_MS;
   const pollMs = options.pollMs ?? DEFAULT_REGISTRY_POLL_MS;
   return pollUntilDeadline(
     deadlineMs,
     pollMs,
     sleep,
-    async () => {
-      const ran = await runner("npm", viewPublishedVersionArgs(pkg, expected), {
-        cwd: process.cwd(),
-      });
-      return assertViewPublished(pkg, expected, ran);
-    },
+    async () =>
+      readExactPublishedVersion(
+        pkg,
+        expected,
+        registryPollNonceToken(now()),
+        fetcher,
+      ),
     now,
   );
 }
@@ -377,12 +409,13 @@ export async function runPreviewSmoke(env, deps = {}) {
     expected.length > 0 &&
     !registryVersionConfirmed(env)
   ) {
-    await waitForPublishedVersion(expected, runner, {
+    await waitForPublishedVersion(expected, {
       sleep,
       deadlineMs,
       pollMs,
       now,
       pkg,
+      fetch: fetcher,
     });
   }
 
