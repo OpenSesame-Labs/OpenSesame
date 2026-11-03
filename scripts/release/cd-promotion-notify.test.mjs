@@ -32,7 +32,7 @@ test("promotion message names the failed gate and the skipped followers", () => 
   assert.deepEqual(failedGateNames(gates), ["preview_smoke"]);
   const message = promotionMessage(gates, env());
   assert.match(message, new RegExp(`CD promotion blocked on ${sha}`));
-  assert.match(message, /Failed gate: preview_smoke/);
+  assert.match(message, /Failed gate: Preview deploy smoke/);
   assert.match(message, /Skipped after the failure: production/);
   assert.match(message, /Workflow: CD npm CLI/);
   assert.doesNotMatch(message, /ghp_test_token/);
@@ -40,11 +40,28 @@ test("promotion message names the failed gate and the skipped followers", () => 
     annotationCommand(message),
     /^::error title=CD promotion blocked::/,
   );
-  assert.match(annotationCommand(message), /preview_smoke/);
+  assert.match(annotationCommand(message), /Preview deploy smoke/);
   assert.throws(
     () => promotionMessage(gatesFromEnv({ GATE_MAIN_CI: "success" }), env()),
     /no failed gate/,
   );
+});
+
+test("build_full_profile failure maps to the job label even when build succeeded", () => {
+  const gates = gatesFromEnv({
+    GATE_MAIN_CI: "success",
+    GATE_BUILD_FULL_PROFILE: "failure",
+    GATE_BUILD: "success",
+    GATE_PROOF: "skipped",
+    GATE_DEPLOY: "skipped",
+    GATE_NPM_PREVIEW: "skipped",
+    GATE_PREVIEW_SMOKE: "skipped",
+    GATE_PRODUCTION: "skipped",
+  });
+  assert.deepEqual(failedGateNames(gates), ["build_full_profile"]);
+  const message = promotionMessage(gates, env({ GITHUB_WORKFLOW: "CD PWA" }));
+  assert.match(message, /Failed gate: Build full install profile dist/);
+  assert.match(annotationCommand(message), /Build full install profile dist/);
 });
 
 test("notify writes an annotation and comments on the commit", async () => {
@@ -58,7 +75,7 @@ test("notify writes an annotation and comments on the commit", async () => {
     },
   });
   assert.match(lines[0], /^::error title=CD promotion blocked::/);
-  assert.match(lines[0], /preview_smoke/);
+  assert.match(lines[0], /Preview deploy smoke/);
   assert.equal(
     posted.url,
     `https://api.github.com/repos/${repository}/commits/${sha}/comments`,
