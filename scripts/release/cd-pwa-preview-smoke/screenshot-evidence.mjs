@@ -1,9 +1,9 @@
+import { createHash } from "node:crypto";
 /**
  * Deterministic headless screenshots of the live Pages Preview deploy.
  * Single browser, single context, one page — no retry sleeps (Hurl already polled CDN).
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readString } from "../../lib/json-boundary.mjs";
@@ -17,9 +17,8 @@ async function sha256File(path) {
 
 async function loadFindChromium(repoRoot) {
   const mod = await import(
-    pathToFileURL(
-      join(repoRoot, "apps/pages/scripts/duress/find-chromium.mjs"),
-    ).href
+    pathToFileURL(join(repoRoot, "apps/pages/scripts/duress/find-chromium.mjs"))
+      .href
   );
   return mod.findChromium;
 }
@@ -96,7 +95,9 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     if (guestContinue !== 0) {
       throw new Error("Full profile sign-in must not offer Continue as guest");
     }
-    const withoutAccount = await page.getByText("Use without an account").count();
+    const withoutAccount = await page
+      .getByText("Use without an account")
+      .count();
     if (withoutAccount === 0) {
       throw new Error("Full profile sign-in road missing on live Pages");
     }

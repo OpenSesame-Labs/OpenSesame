@@ -89,7 +89,8 @@ export function buildHurlVariables(env) {
   };
   for (const file of EXTRA_LIVE_FILES) {
     const path = join(distDir, file);
-    const key = file === "manifest.webmanifest" ? "sha256_manifest" : "sha256_sw";
+    const key =
+      file === "manifest.webmanifest" ? "sha256_manifest" : "sha256_sw";
     variables[key] = digestFile(path);
   }
   return variables;

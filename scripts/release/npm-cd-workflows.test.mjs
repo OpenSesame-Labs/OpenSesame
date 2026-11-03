@@ -165,7 +165,10 @@ test("CD promotes staged artifacts with automated gates only", () => {
   }
   assert.doesNotMatch(pwa, /Preview gate/);
   assert.match(pwa, /name: github-pages\n/);
-  assert.match(pwa, /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/);
+  assert.match(
+    pwa,
+    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+  );
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,
     3,
@@ -241,10 +244,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   );
   assert.match(commands, /environments\/github-pages/);
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
-  assert.match(
-    spec.promotion_model.preview_smoke,
-    /Hurl 8\.1\.0 HTTP asserts/,
-  );
+  assert.match(spec.promotion_model.preview_smoke, /Hurl 8\.1\.0 HTTP asserts/);
   assert.match(
     spec.promotion_model.preview_smoke,
     /SMOKE_REGISTRY_DEADLINE_MS/,
