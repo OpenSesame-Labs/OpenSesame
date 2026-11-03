@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
+const trunkInventoryCommand =
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
+
 const root = repoRootFromHere();
 const read = (name) =>
   readFileSync(join(root, ".github/workflows", name), "utf8");
@@ -67,7 +70,9 @@ describe("integration compiles only the impacted graph", () => {
       .split(/\n {6}- /)
       .filter((step) => /\n {8}run:/.test(step))
       .map((step) => step.split(/\n {8}run:/)[1])
-      .join("\n");
+      .join("\n")
+      .replaceAll(trunkInventoryCommand, "");
+    expect(source).toContain(trunkInventoryCommand);
     expect(commands).not.toMatch(
       /ci-affected-tests|\b(?:test|typecheck|lint|quality|verify|audit)(?::|\b)|vitest|playwright|clippy|rustfmt|bundle-budget|evidence-gate|repository-size-gate|sync-agent-skills|check-(?:pr|merge-group)-signature/,
     );

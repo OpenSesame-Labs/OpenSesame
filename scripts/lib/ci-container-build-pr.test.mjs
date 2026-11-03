@@ -1,9 +1,21 @@
+/**
+ * Trunk CI (`typescript-build` in ci.yml) only runs
+ * `ci-affected-builds.mjs run-ts`. It does not run `npm run quality:test`.
+ * Pre-push fast mode (`.githooks/pre-push`) skips that aggregate suite too.
+ * On main this file failed `expect(automatic).toEqual(["ci.yml"])` and nothing
+ * in CI or the default push hook executed it, so the gate was dead. The
+ * TypeScript job runs this file alone after `npm ci` (well under five
+ * minutes). The assertion below keeps that invocation from drifting.
+ */
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { expectedInspect } from "../ci/oci-image-config.mjs";
 import { areasForPaths, repoRootFromHere } from "./ci-changed-areas.mjs";
+
+const trunkInventoryCommand =
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
 
 const root = repoRootFromHere();
 const file = join(root, ".github/workflows/container-build-pr.yml");
@@ -154,5 +166,20 @@ describe("heavy auxiliary suites are CD concerns", () => {
     expect(ci).toContain(
       "draft: ${{ github.event.pull_request.draft == true && 'true' || 'false' }}",
     );
+  });
+
+  it("runs this file from typescript-build after npm ci", () => {
+    const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
+    const job = ci
+      .split("\n  typescript-build:\n")[1]
+      .split("\n  rust-build:\n")[0];
+    expect(job).toContain(trunkInventoryCommand);
+    expect(job).not.toContain("npm run quality:test");
+    const installAt = job.indexOf("run: npm ci");
+    const gateAt = job.indexOf(trunkInventoryCommand);
+    expect(installAt).toBeGreaterThan(-1);
+    expect(gateAt).toBeGreaterThan(installAt);
+    const gateStep = job.slice(job.lastIndexOf("\n      - ", gateAt), gateAt);
+    expect(gateStep).toContain("timeout-minutes: 5");
   });
 });

@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 import { loadShards } from "./ci-gates.mjs";
 
+const trunkInventoryCommand =
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
+
 const root = repoRootFromHere();
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
@@ -236,7 +239,8 @@ describe("affected Pages build preparation", () => {
     );
     expect(scopedSteps.indexOf(cache)).toBeLessThan(scopedSteps.indexOf(build));
     expect(build).toContain("VITE_BASE: /OpenSesame/");
-    expect(scopedJob).not.toMatch(
+    expect(scopedJob).toContain(trunkInventoryCommand);
+    expect(scopedJob.replaceAll(trunkInventoryCommand, "")).not.toMatch(
       /ci-affected-tests|npm run quality|npm run lint|npm run typecheck|verify:|vitest/,
     );
   });

@@ -167,6 +167,12 @@ jobs:
             npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install the frozen dependency graph
         run: npm ci
+      # Trigger inventory for this one file. Trunk only runs run-ts, and
+      # pre-push fast mode skips the aggregate scripts/lib suite, so the
+      # file stayed red on main. Capped at five minutes.
+      - name: Workflow inventory gate
+        timeout-minutes: 5
+        run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs
       - name: Save npm download cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
         continue-on-error: true
