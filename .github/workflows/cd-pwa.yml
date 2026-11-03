@@ -599,6 +599,7 @@ jobs:
           sparse-checkout: |
             scripts/release
             scripts/lib
+            scripts/ci/ensure-chrome-headless-shell.mjs
             apps/pages/scripts/duress
             package.json
             package-lock.json
