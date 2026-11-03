@@ -95,10 +95,7 @@ describe("trusted install caches", () => {
         .filter((line) => line.includes("jdx/mise-action@"));
       assert.ok(mise.length > 0, name);
       assert.ok(text.includes("cache_key_prefix: mise-v1"), name);
-      assert.ok(
-        text.includes("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}"),
-        name,
-      );
+      assert.ok(text.includes("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}"), name);
       assert.equal(
         (text.match(/cache_save: \$\{\{ env\.TRUSTED_CACHE_SAVE \}\}/g) ?? [])
           .length,
