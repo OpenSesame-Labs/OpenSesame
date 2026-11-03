@@ -52,5 +52,30 @@ describe("typescript and rust graphs share one parallel edge", () => {
     );
     assert.equal(needsLine(current["rust-check"]), "[changes, rust-build]");
     assert.equal(ci.match(/ {4}if: always\(\)/g)?.length, 3);
+    assert.ok(current["rust-build"].includes("fail-fast: false"));
+    assert.ok(
+      current["rust-build"].includes(
+        "shard: ${{ fromJSON(needs.changes.outputs.rust_shards) }}",
+      ),
+    );
+    assert.ok(
+      current["rust-build"].includes("CARGO_SHARD: ${{ matrix.shard }}"),
+    );
+    assert.ok(current["rust-build"].includes("CARGO_SHARD_COUNT: 4"));
+    assert.ok(
+      current["rust-build"].includes(
+        "matrix.shard == 0 && steps.affected.outputs.bitwarden == 'true'",
+      ),
+    );
+    assert.ok(
+      current["rust-build"].includes(
+        "runs-on: ${{ fromJSON(needs.changes.outputs.linux_runner) }}",
+      ),
+    );
+    assert.doesNotMatch(
+      current["rust-build"],
+      /^ {4}runs-on: ubuntu-latest-[0-9]+-cores/m,
+    );
+    assert.ok(current["rust-build"].includes("Tyler has not approved them."));
   });
 });

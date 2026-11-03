@@ -50,6 +50,14 @@ Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trus
 | --- | --- | --- |
 | npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | Primary `npm-download-v2-<runner.os>-lock-<hashFiles('package-lock.json')>`. Restore prefix `npm-download-v2-<runner.os>-seed-main-`. |
 | mise | `~/.local/share/mise` | Primary `mise-v2-<runner.os>-<tool>-lock-<hashFiles('mise.toml','mise.lock')>`. Restore prefixes `mise-v2-<runner.os>-seed-main-<tool>-` and the historical main prefix `mise-v1-linux-`. mise-action stays `cache: true` with `cache_save: false` and a run-scoped key so it does not write. |
-| Rust | `Swatinem/rust-cache` v2 | Primary `v0-rust-<job>-<os>-<arch>-<env>-<lock>`. The action restore key drops the lock hash (`v0-rust-<job>-`). `save-if` follows `TRUSTED_CACHE_SAVE`. |
+| Rust | `Swatinem/rust-cache` v2 | Primary `v0-rust-<job>-<os>-<arch>-<env>-<lock>`. The action restore key drops the lock hash (`v0-rust-<job>-`). `save-if` is `TRUSTED_CACHE_SAVE` on rust-build shard 0 only. |
 
 `TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. `MAIN_CACHE_SEED` is true only for `push` and `workflow_dispatch` of `refs/heads/main`, so the `seed-main` prefix is written from the default branch. Pull requests, including forks, restore and do not save. Each restore logs `primary key hit`, `restore-key fallback to main prefix`, or `miss` via `scripts/lib/ci-cache-seed.mjs`. Save steps set `continue-on-error: true` so two jobs writing the same key do not fail the run.
+
+## Rust compile shards
+
+`rust-build` splits the selected crates across four hosted runners. The union is the same set `cargo build --locked --workspace` (or the affected `-p` list) compiles today. Crates that enable a feature on another workspace member stay on one shard. `CARGO_SHARD` unset still builds that whole set in one invocation. Empty shards are omitted and do not run a bare `cargo build`. The Bitwarden feature build stays on shard 0. The required check name stays **Rust**. `fail-fast` is false, and the reporter fails when any shard fails.
+
+Shard 0 is the only leg that may save the Swatinem cache, and only when `TRUSTED_CACHE_SAVE` is true. Pull requests still do not save. Every shard restores `v0-rust-rust-build-`.
+
+GitHub-hosted larger runners are not enabled. Tyler has not approved them. The opt-in in `ci.yml` is a comment and stays off (`ubuntu-latest-4-cores`, `ubuntu-latest-8-cores`). Public list prices for Linux x64, which are billed on public repositories: 4-core `linux_4_core` $0.012 per minute, 8-core `linux_8_core` $0.022 per minute. Standard `ubuntu-latest` is `actions_linux` at $0.006 per minute and is free on public repositories. Source: <https://docs.github.com/en/billing/reference/actions-runner-pricing>.

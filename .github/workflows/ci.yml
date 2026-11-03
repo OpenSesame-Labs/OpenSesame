@@ -43,6 +43,7 @@ jobs:
       head_sha: ${{ steps.scope.outputs.head_sha }}
       typescript: ${{ github.event.pull_request.draft == true && 'false' || steps.packages.outputs.selected }}
       rust: ${{ github.event.pull_request.draft == true && 'false' || steps.crates.outputs.selected }}
+      rust_shards: ${{ steps.crates.outputs.shards }}
       draft: ${{ github.event.pull_request.draft == true && 'true' || 'false' }}
       linux_runner: ${{ steps.runner.outputs.linux }}
       # The native PWA compiler requires Linux AMD64 on a cold build.
@@ -226,11 +227,19 @@ jobs:
 
   rust-build:
     # After `changes` only. No edge to typescript-build and no concurrency key.
+    # Package shards stay disjoint. Workspace feature edges share a shard.
     name: Build affected Rust graph
     needs: [changes]
     if: needs.changes.outputs.rust == 'true'
+    # GitHub-hosted larger runners stay off. Tyler has not approved them.
+    # Opt-in, default off: runs-on ubuntu-latest-4-cores or ubuntu-latest-8-cores,
+    # and raise CARGO_BUILD_JOBS to that core count. Do not enable this.
     runs-on: ${{ fromJSON(needs.changes.outputs.linux_runner) }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.changes.outputs.rust_shards) }}
     env:
       CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 0
@@ -290,7 +299,7 @@ jobs:
         with:
           prefix-key: v0-rust
           shared-key: ${{ github.job }}
-          save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' }}
+          save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' && matrix.shard == 0 }}
       - name: Log Rust cache hit
         env:
           CACHE_NAME: rust
@@ -304,11 +313,13 @@ jobs:
         env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
           HEAD_SHA: ${{ needs.changes.outputs.head_sha }}
+          CARGO_SHARD: ${{ matrix.shard }}
+          CARGO_SHARD_COUNT: 4
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
           node scripts/lib/ci-affected-builds.mjs run-cargo
       - name: Build the affected Bitwarden bridge feature
-        if: steps.affected.outputs.bitwarden == 'true'
+        if: matrix.shard == 0 && steps.affected.outputs.bitwarden == 'true'
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
           cargo build --locked -p opensesame-gateway -p opensesame-cli --features bitwarden-compat

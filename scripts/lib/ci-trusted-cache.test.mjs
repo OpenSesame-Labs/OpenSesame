@@ -102,7 +102,9 @@ describe("trusted install caches", () => {
     assert.ok(cache?.includes("prefix-key: v0-rust"));
     assert.ok(cache?.includes("shared-key: ${{ github.job }}"));
     assert.ok(
-      cache?.includes("save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' }}"),
+      cache?.includes(
+        "save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' && matrix.shard == 0 }}",
+      ),
     );
     assert.equal(cache?.includes("lookup-only: true"), false);
     assert.ok(rust.includes("CACHE_NAME: rust"));
