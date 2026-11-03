@@ -6,7 +6,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { chromium } from "playwright";
 import { readString } from "../../lib/json-boundary.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
 
@@ -45,6 +44,7 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
 
   await mkdir(outRoot, { recursive: true });
   const started = Date.now();
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({
     headless: true,
     executablePath: discovery.path,
