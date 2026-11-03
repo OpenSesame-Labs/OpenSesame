@@ -239,8 +239,8 @@ describe("affected Pages build preparation", () => {
     );
     expect(scopedSteps.indexOf(cache)).toBeLessThan(scopedSteps.indexOf(build));
     expect(build).toContain("VITE_BASE: /OpenSesame/");
-    expect(scopedJob).toContain(trunkInventoryCommand);
-    expect(scopedJob.replaceAll(trunkInventoryCommand, "")).not.toMatch(
+    expect(scopedJob).not.toContain(trunkInventoryCommand);
+    expect(scopedJob).not.toMatch(
       /ci-affected-tests|npm run quality|npm run lint|npm run typecheck|verify:|vitest/,
     );
   });

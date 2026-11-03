@@ -1,11 +1,20 @@
 /**
- * Trunk CI (`typescript-build` in ci.yml) only runs
- * `ci-affected-builds.mjs run-ts`. It does not run `npm run quality:test`.
- * Pre-push fast mode (`.githooks/pre-push`) skips that aggregate suite too.
- * On main this file failed `expect(automatic).toEqual(["ci.yml"])` and nothing
- * in CI or the default push hook executed it, so the gate was dead. The
- * TypeScript job runs this file alone after `npm ci` (well under five
- * minutes). The assertion below keeps that invocation from drifting.
+ * Workflow inventory for container and CD triggers.
+ *
+ * The gate moved off `typescript-build` because that job is optional: it
+ * runs only when the affected graph selects TypeScript. PR #2440 and #2441
+ * never executed this file. `workflow-inventory-gate` has no draft or
+ * TypeScript `if:`, starts with `needs: []` beside `changes`, and runs this
+ * file after `npm ci` on every CI `pull_request` and `merge_group`.
+ *
+ * #2437 must merge before this stack. That change leaves
+ * `cd-headless-browser-benchmark.yml` on `workflow_dispatch` only, so the
+ * automatic pull_request/push/merge_group inventory omits it. This slice
+ * does not yet contain `cd-ghcr-publish.yml`; the later slice adds that
+ * name when the workflow file lands.
+ *
+ * Trunk still does not run `npm run quality:test`. Pre-push fast mode
+ * (`.githooks/pre-push`) skips that aggregate suite too.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
@@ -124,8 +133,10 @@ describe("heavy auxiliary suites are CD concerns", () => {
         ),
       )
       .sort();
+    // #2437 must merge before this stack: the benchmark workflow is
+    // dispatch-only, so it is omitted. cd-ghcr-publish.yml joins this list
+    // when that workflow file lands.
     expect(workflowsWithAutomaticPrPushOrMergeGroup).toEqual([
-      "cd-headless-browser-benchmark.yml",
       "cd-npm-cli.yml",
       "cd-npm-publish-proof.yml",
       "cd-promotion-gates-proof.yml",
@@ -168,18 +179,27 @@ describe("heavy auxiliary suites are CD concerns", () => {
     );
   });
 
-  it("runs this file from typescript-build after npm ci", () => {
+  it("runs this file from workflow-inventory-gate after npm ci", () => {
     const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
     const job = ci
-      .split("\n  typescript-build:\n")[1]
-      .split("\n  rust-build:\n")[0];
+      .split("\n  workflow-inventory-gate:\n")[1]
+      .split("\n  changes:\n")[0];
+    expect(job).toContain("name: Workflow inventory");
+    expect(job).toContain("needs: []");
+    expect(job).toContain("timeout-minutes: 5");
+    expect(job).toContain("contents: read");
+    expect(job).not.toMatch(/packages:\s*write/);
+    expect(job).not.toMatch(/\n {4}if:/);
+    expect(job).not.toContain("needs.changes.outputs.typescript");
     expect(job).toContain(trunkInventoryCommand);
     expect(job).not.toContain("npm run quality:test");
     const installAt = job.indexOf("run: npm ci");
     const gateAt = job.indexOf(trunkInventoryCommand);
     expect(installAt).toBeGreaterThan(-1);
     expect(gateAt).toBeGreaterThan(installAt);
-    const gateStep = job.slice(job.lastIndexOf("\n      - ", gateAt), gateAt);
-    expect(gateStep).toContain("timeout-minutes: 5");
+    const typescriptBuild = ci
+      .split("\n  typescript-build:\n")[1]
+      .split("\n  rust-build:\n")[0];
+    expect(typescriptBuild).not.toContain(trunkInventoryCommand);
   });
 });

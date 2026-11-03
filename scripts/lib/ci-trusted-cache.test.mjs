@@ -49,46 +49,74 @@ describe("trusted install caches", () => {
   it("restores the lockfile npm cache and saves it only when trusted", () => {
     for (const name of workflows) {
       const text = read(name);
-      const chunks = text.split(/\n {6}- (?=name:|uses:)/);
-      const installs = chunks
-        .map((step, at) => ({ step, at }))
-        .filter(({ step }) => /\n {8}run: npm ci\b/.test(`\n${step}`));
-      assert.ok(installs.length > 0, name);
-      for (const { at } of installs) {
-        const restore = chunks[at - 1] ?? "";
-        const save = chunks[at + 1] ?? "";
-        assert.ok(
-          restore.includes(
-            "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
-          ),
-          name,
-        );
-        assert.ok(restore.includes("path: .npm-cache"), name);
-        assert.ok(restore.includes(npmPrimary), name);
-        assert.ok(restore.includes(npmSeedPrefix), name);
-        assert.ok(save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
-        assert.ok(save.includes("continue-on-error: true"), name);
-        assert.ok(
-          save.includes(
-            "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
-          ),
-          name,
-        );
-        assert.ok(save.includes(npmPrimary), name);
-        assert.equal(save.includes("seed-main"), false, name);
-        assert.equal(save.includes("path: node_modules"), false, name);
-        const seed = chunks[at + 2] ?? "";
-        const log = chunks[at + 3] ?? "";
-        assert.ok(seed.includes("if: env.MAIN_CACHE_SEED == 'true'"), name);
-        assert.ok(
-          seed.includes(
-            `key: ${npmSeedPrefix}\${{ hashFiles('package-lock.json') }}`,
-          ),
-          name,
-        );
-        assert.ok(log.includes("node scripts/lib/ci-cache-seed.mjs"), name);
-        assert.ok(log.includes("CACHE_NAME: npm"), name);
+      const jobs =
+        name === "ci.yml"
+          ? [
+              ...text.split("\njobs:\n")[1].matchAll(
+                /^ {2}([a-z][a-z0-9-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gm,
+              ),
+            ].map((match) => ({ id: match[1], body: match[2] }))
+          : [{ id: name, body: text }];
+      let installsSeen = 0;
+      for (const { id, body } of jobs) {
+        const chunks = body.split(/\n {6}- (?=name:|uses:)/);
+        const installs = chunks
+          .map((step, at) => ({ step, at }))
+          .filter(({ step }) => /\n {8}run: npm ci\b/.test(`\n${step}`));
+        installsSeen += installs.length;
+        if (id === "workflow-inventory-gate") {
+          // contents: read only, so this job restores and does not save.
+          assert.equal(installs.length, 1, id);
+          const restore = chunks[installs[0].at - 1] ?? "";
+          assert.ok(
+            restore.includes(
+              "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+            ),
+            id,
+          );
+          assert.ok(restore.includes("path: .npm-cache"), id);
+          assert.ok(restore.includes(npmPrimary), id);
+          assert.ok(restore.includes(npmSeedPrefix), id);
+          assert.equal(body.includes("actions/cache/save@"), false, id);
+          continue;
+        }
+        for (const { at } of installs) {
+          const restore = chunks[at - 1] ?? "";
+          const save = chunks[at + 1] ?? "";
+          assert.ok(
+            restore.includes(
+              "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+            ),
+            name,
+          );
+          assert.ok(restore.includes("path: .npm-cache"), name);
+          assert.ok(restore.includes(npmPrimary), name);
+          assert.ok(restore.includes(npmSeedPrefix), name);
+          assert.ok(save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
+          assert.ok(save.includes("continue-on-error: true"), name);
+          assert.ok(
+            save.includes(
+              "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+            ),
+            name,
+          );
+          assert.ok(save.includes(npmPrimary), name);
+          assert.equal(save.includes("seed-main"), false, name);
+          assert.equal(save.includes("path: node_modules"), false, name);
+          const seed = chunks[at + 2] ?? "";
+          const log = chunks[at + 3] ?? "";
+          assert.ok(seed.includes("if: env.MAIN_CACHE_SEED == 'true'"), name);
+          assert.ok(
+            seed.includes(
+              `key: ${npmSeedPrefix}\${{ hashFiles('package-lock.json') }}`,
+            ),
+            name,
+          );
+          assert.ok(log.includes("node scripts/lib/ci-cache-seed.mjs"), name);
+          assert.ok(log.includes("CACHE_NAME: npm"), name);
+        }
       }
+      assert.ok(installsSeen > 0, name);
     }
   });
 

@@ -38,6 +38,7 @@ describe("integration compiles only the impacted graph", () => {
   it("runs one build per language and retains the protected check names", () => {
     const fast = jobs(source);
     expect(Object.keys(fast)).toEqual([
+      "workflow-inventory-gate",
       "changes",
       "typescript-build",
       "rust-build",

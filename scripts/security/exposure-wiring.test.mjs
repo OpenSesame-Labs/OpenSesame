@@ -94,6 +94,7 @@ test("a native commit rejects an unsafe index even when the working guard is rep
 test("existing CI prerequisite checks the immutable tree before selecting builds", () => {
   const current = jobs(workflow);
   assert.deepEqual(Object.keys(current), [
+    "workflow-inventory-gate",
     "changes",
     "typescript-build",
     "rust-build",

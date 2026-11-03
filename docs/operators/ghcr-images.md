@@ -27,6 +27,9 @@ Hermetic pull-request validation of the native Dockerfile stays in
 `workflow_call` only, `push: false`, context `.`, file `ops/compose/Dockerfile`.
 That workflow does not publish.
 
+#2437 must merge before this stack so the automatic workflow inventory
+matches the dispatch-only headless browser benchmark.
+
 ## Tags
 
 [`.github/workflows/cd-ghcr-publish.yml`](../../.github/workflows/cd-ghcr-publish.yml)
