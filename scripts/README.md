@@ -101,6 +101,7 @@ the others report on the terminal (`deepsec` keeps its state under
 | Script | Used by |
 |---|---|
 | `check-pr-signatures.mjs` | CI: every commit on a pull request is signed. |
+| `check-pr-grok-commits.mjs` | CI: every PR commit is GitHub-verified and Grok-authored. |
 | `pages-release.mjs` | Deploy Pages: stamps `release.json` and verifies the live site serves that exact build. |
 | `deploy-pages.sh` | Manual fallback publisher for Pages. |
 | `pin-connect-services.mjs` | Re-pins [`spec/connectors/connect-services.json`](../spec/connectors/connect-services.json): Vercel Connect's public service registry and each MCP server's live OAuth discovery (`lib/oauth-discovery.mjs`). |

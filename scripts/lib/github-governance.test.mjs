@@ -69,6 +69,7 @@ describe("repository governance default-branch rules", () => {
     ).parameters;
     expect(checks.strict_required_status_checks_policy).toBe(false);
     expect(checks.required_status_checks).toEqual([
+      { context: "Grok signed commits", integration_id: 15368 },
       { context: "TypeScript", integration_id: 15368 },
       { context: "Bundle budgets", integration_id: 15368 },
       { context: "Rust", integration_id: 15368 },
