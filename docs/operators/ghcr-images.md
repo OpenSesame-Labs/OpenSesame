@@ -1,11 +1,16 @@
 # GHCR images
 
 Hostable OpenSesame images. The registry is `ghcr.io/opensesame-labs`. Builds
-use the repository root as the Docker context. CI publishes `linux/amd64`.
-Add `linux/arm64` with `docker buildx build --platform linux/amd64,linux/arm64`
-when the CD runner has a native or QEMU builder; the Rust image stays amd64
-until that builder exists, because a full Rust release under emulation does
-not finish in a normal CD window.
+use the repository root as the Docker context. Each publish job builds one
+image and one platform, in parallel, with a 10 minute cap. `opensesame` is
+`linux/amd64` only (no QEMU). Node images (`cli`, `web-pwa`,
+`control-plane`) build `linux/amd64` and `linux/arm64` as separate matrix
+rows. QEMU is set up only on the `linux/arm64` rows. A manifest job publishes
+the shared tag from those platform images. Layer cache is GitHub Actions
+(`type=gha`, `mode=max`), scoped by matrix id so rows do not clobber each
+other. A cold cache on the first publish can still miss the 10 minute cap.
+Retry with `workflow_dispatch` after that attempt has filled the cache. Do
+not raise the timeout to get a cold build through.
 
 Every image runs as uid `10001`, carries the same OCI labels (`source`,
 `version` from the `VERSION` build-arg, `licenses=MIT`, `title`, and
@@ -33,18 +38,34 @@ automatic workflow inventory omits it.
 ## Tags
 
 [`.github/workflows/cd-ghcr-publish.yml`](../../.github/workflows/cd-ghcr-publish.yml)
-pushes on `main` and on `v*` tags. It is not a job in `ci.yml`.
+pushes on `main` and on `v*` tags. It is not a job in `ci.yml`. There is no
+`pull_request` trigger and no `continue-on-error`.
 
-| Git ref | Tags |
-|---|---|
-| `main` | `:next` and `:sha-<GITHUB_SHA>` |
-| `v*` (for example `v1.2.3`) | `:<semver>` (`1.2.3`, the tag without `v`) and `:latest` |
+| Git ref | Shared tags (manifest job) | Platform tags (one build job each) |
+|---|---|---|
+| `main` | `:next` and `:sha-<GITHUB_SHA>` | `:sha-<GITHUB_SHA>-amd64` and, for Node images, `:sha-<GITHUB_SHA>-arm64` |
+| `v*` (for example `v1.2.3`) | `:<semver>` (`1.2.3`, the tag without `v`) and `:latest` | `:<semver>-amd64` and, for Node images, `:<semver>-arm64` |
+
+Pull the shared tags. The platform tags exist so parallel jobs do not
+overwrite each other before the manifest job runs. `opensesame` has no arm64
+platform tag.
+
+Every matrix job, build and manifest, sets `timeout-minutes: 10`. Cache on
+each build is `cache-from: type=gha` and `cache-to: type=gha,mode=max`, with
+`scope` set to the row id (`opensesame-amd64`, `cli-amd64`, `cli-arm64`, and
+the same pattern for `web-pwa` and `control-plane`).
 
 A matrix row whose Dockerfile is not in that revision is skipped, so the
-workflow can land before the Node Dockerfiles. Login uses `GITHUB_TOKEN`
-against `ghcr.io`. `GHCR_PUBLISH_TOKEN` in the `container-release` environment
-is an optional override and is not wired in. Do not dispatch the retired
+workflow can land before the Node Dockerfiles. The manifest job skips that
+image too. Login uses `GITHUB_TOKEN` against `ghcr.io`. `GHCR_PUBLISH_TOKEN`
+in the `container-release` environment is an optional override and is not
+wired in. Do not dispatch the retired
 [`.github/workflows/publish-containers.yml`](../../.github/workflows/publish-containers.yml).
+
+The first publish on a cold GitHub Actions cache may fail the 10 minute
+budget even though a warm cache fits. That failure is honest: the cap stays
+10 minutes. Run the workflow again from Actions (`workflow_dispatch` on
+`main`). The retry reuses the layer cache the first attempt wrote.
 
 ## `opensesame` environment
 
@@ -132,9 +153,12 @@ tag, does not run `workflow_dispatch`, and does not open a GitHub release.
    GHCR package is private until an owner changes it. Link each package to
    the OpenSesame repository so the Actions token can keep publishing.
 3. **First manual run.** Actions → CD GHCR publish → Run workflow, on
-   `main`. That is the first `workflow_dispatch`. Confirm the four matrix
-   rows. A row whose Dockerfile is not on that commit is skipped. The run
-   pushes `:next` and `:sha-<commit>`. It does not push `:latest`.
+   `main`. That is the first `workflow_dispatch`. Confirm one job per image
+   and platform (`opensesame-amd64`, plus `cli`, `web-pwa`, and
+   `control-plane` each as amd64 and arm64) and a manifest job per image.
+   A row whose Dockerfile is not on that commit is skipped. The run pushes
+   `:next` and `:sha-<commit>`. It does not push `:latest`. A cold cache
+   can fail the 10 minute cap; run the workflow again.
 4. **Version tags.** Create and push `v*` yourself when a release should
    move `:latest`. The tag `v1.2.3` publishes `:1.2.3` and `:latest`. This
    document does not create that tag.
@@ -149,10 +173,11 @@ tag, does not run `workflow_dispatch`, and does not open a GitHub release.
    grant it `packages: write`, and delete any leftover GHCR package that an
    older publish path created under a different name once the four packages
    above are the ones you keep.
-7. **Arm64.** The Node images request `linux/amd64,linux/arm64` on publish.
-   The host image stays `linux/amd64` until a native arm64 builder exists.
-   If the arm64 Node build is too slow under QEMU, narrow `platforms` for
-   that row and record the digest from the amd64 run.
+7. **Arm64.** Node images build `linux/arm64` as their own parallel jobs,
+   with QEMU only on those rows and a separate GHA cache scope. The host
+   image stays `linux/amd64`. The manifest job joins the platform tags into
+   the shared tags. Do not fold amd64 and arm64 back into one build to save
+   a job: that build does not fit the 10 minute cap.
 
 Image size is not in this commit. The first successful CD run records it in
 the build log (`docker/build-push-action` output). Cloud agents without

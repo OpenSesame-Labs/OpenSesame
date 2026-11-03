@@ -2,6 +2,12 @@
 # Push to main and v* tags, or workflow_dispatch. Not part of ci.yml.
 # Do not revive .github/workflows/publish-containers.yml.
 #
+# One matrix row builds one image and one platform, with a 10 minute cap.
+# GitHub Actions layer cache is scoped per row. QEMU runs only for
+# linux/arm64. opensesame is linux/amd64 only. A cold cache can still miss
+# the cap; retry with workflow_dispatch. The manifest job only retags the
+# platform images, so it stays inside the same cap.
+#
 # Login uses GITHUB_TOKEN. Optional override, not wired here: set
 # GHCR_PUBLISH_TOKEN on the container-release environment (main and v* tags)
 # and replace the login password. An editable workflow cannot enforce the
@@ -21,6 +27,8 @@ on:
 permissions:
   contents: read
   packages: write
+  # type=gha cache writes go through the Actions cache API.
+  actions: write
   id-token: write
   attestations: write
 
@@ -30,25 +38,41 @@ concurrency:
 
 jobs:
   images:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.id }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: opensesame
+          - id: opensesame-amd64
+            name: opensesame
             file: ops/compose/Dockerfile
-            platforms: linux/amd64
-          - name: cli
+            platform: linux/amd64
+          - id: cli-amd64
+            name: cli
             file: ops/containers/cli/Dockerfile
-            platforms: linux/amd64,linux/arm64
-          - name: web-pwa
+            platform: linux/amd64
+          - id: cli-arm64
+            name: cli
+            file: ops/containers/cli/Dockerfile
+            platform: linux/arm64
+          - id: web-pwa-amd64
+            name: web-pwa
             file: ops/containers/web-pwa/Dockerfile
-            platforms: linux/amd64,linux/arm64
-          - name: control-plane
+            platform: linux/amd64
+          - id: web-pwa-arm64
+            name: web-pwa
+            file: ops/containers/web-pwa/Dockerfile
+            platform: linux/arm64
+          - id: control-plane-amd64
+            name: control-plane
             file: ops/containers/control-plane/Dockerfile
-            platforms: linux/amd64,linux/arm64
+            platform: linux/amd64
+          - id: control-plane-arm64
+            name: control-plane
+            file: ops/containers/control-plane/Dockerfile
+            platform: linux/arm64
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -62,7 +86,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::${{ matrix.file }} is absent on this revision; skipping ${{ matrix.name }}"
+            echo "::notice::${{ matrix.file }} is absent on this revision; skipping ${{ matrix.id }}"
           fi
 
       - name: Image tags
@@ -70,23 +94,23 @@ jobs:
         if: steps.dockerfile.outputs.present == 'true'
         env:
           IMAGE_NAME: ${{ matrix.name }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
           image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          arch="${PLATFORM#linux/}"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             version="${GITHUB_REF#refs/tags/v}"
-            primary="${image}:${version}"
-            extra="${image}:latest"
+            primary="${image}:${version}-${arch}"
           else
             version="0.0.0-next"
-            primary="${image}:next"
-            extra="${image}:sha-${GITHUB_SHA}"
+            primary="${image}:sha-${GITHUB_SHA}-${arch}"
           fi
           {
             echo "version=${version}"
             echo "primary=${primary}"
             echo "list<<EOF"
-            printf '%s\n' "${primary}" "${extra}"
+            printf '%s\n' "${primary}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -101,7 +125,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        if: steps.dockerfile.outputs.present == 'true'
+        if: steps.dockerfile.outputs.present == 'true' && matrix.platform == 'linux/arm64'
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - name: Set up Buildx
@@ -116,8 +140,80 @@ jobs:
           context: .
           file: ${{ matrix.file }}
           push: true
-          platforms: ${{ matrix.platforms }}
+          platforms: ${{ matrix.platform }}
           tags: ${{ steps.tags.outputs.list }}
           build-args: VERSION=${{ steps.tags.outputs.version }}
           provenance: true
           sbom: false
+          cache-from: type=gha,scope=${{ matrix.id }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.id }}
+
+  manifests:
+    name: manifest-${{ matrix.name }}
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: opensesame
+            file: ops/compose/Dockerfile
+            platforms: amd64
+          - name: cli
+            file: ops/containers/cli/Dockerfile
+            platforms: amd64 arm64
+          - name: web-pwa
+            file: ops/containers/web-pwa/Dockerfile
+            platforms: amd64 arm64
+          - name: control-plane
+            file: ops/containers/control-plane/Dockerfile
+            platforms: amd64 arm64
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Publish manifest
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+          DOCKERFILE: ${{ matrix.file }}
+          PLATFORMS: ${{ matrix.platforms }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${DOCKERFILE}" ]]; then
+            echo "::notice::${DOCKERFILE} is absent on this revision; skipping ${IMAGE_NAME}"
+            exit 0
+          fi
+          image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          sources=()
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            canonical=("${image}:${version}" "${image}:latest")
+            for arch in ${PLATFORMS}; do
+              sources+=("${image}:${version}-${arch}")
+            done
+          else
+            canonical=("${image}:next" "${image}:sha-${GITHUB_SHA}")
+            for arch in ${PLATFORMS}; do
+              sources+=("${image}:sha-${GITHUB_SHA}-${arch}")
+            done
+          fi
+          for source in "${sources[@]}"; do
+            docker buildx imagetools inspect "${source}" >/dev/null
+          done
+          args=()
+          for tag in "${canonical[@]}"; do
+            args+=(-t "${tag}")
+          done
+          docker buildx imagetools create "${args[@]}" "${sources[@]}"

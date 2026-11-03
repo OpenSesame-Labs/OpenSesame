@@ -22,8 +22,11 @@ describe("GHCR publish workflow", () => {
     assert.match(workflow, /tags: \["v\*"\]/);
     assert.doesNotMatch(workflow, /pull_request/);
     assert.doesNotMatch(workflow, /continue-on-error/);
-    assert.match(workflow, /timeout-minutes: 45/);
-    assert.doesNotMatch(workflow, /timeout-minutes:\s*120/);
+    const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map(
+      (match) => match[1],
+    );
+    assert.deepEqual([...new Set(timeouts)], ["10"]);
+    assert.doesNotMatch(workflow, /timeout-minutes:\s*(?:45|120)/);
     assert.match(workflow, /ops\/containers\/\*\*/);
     assert.match(workflow, /ops\/compose\/Dockerfile/);
     assert.match(workflow, /\.github\/workflows\/cd-ghcr-publish\.yml/);
@@ -45,8 +48,37 @@ describe("GHCR publish workflow", () => {
     for (const name of ["opensesame", "cli", "web-pwa", "control-plane"]) {
       assert.match(workflow, new RegExp(`name: ${name}`));
     }
-    assert.match(workflow, /linux\/amd64,linux\/arm64/);
-    assert.match(workflow, /platforms: linux\/amd64\n/);
+    assert.match(
+      workflow,
+      /cache-from: type=gha,scope=\$\{\{ matrix\.id \}\}/,
+    );
+    assert.match(
+      workflow,
+      /cache-to: type=gha,mode=max,scope=\$\{\{ matrix\.id \}\}/,
+    );
+    assert.match(
+      workflow,
+      /matrix\.platform == 'linux\/arm64'/,
+    );
+    assert.equal(workflow.match(/docker\/setup-qemu-action@/g)?.length, 1);
+    assert.doesNotMatch(workflow, /linux\/amd64,linux\/arm64/);
+    assert.match(
+      workflow,
+      /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n/,
+    );
+    assert.doesNotMatch(workflow, /opensesame-arm64/);
+    for (const id of [
+      "cli-amd64",
+      "cli-arm64",
+      "web-pwa-amd64",
+      "web-pwa-arm64",
+      "control-plane-amd64",
+      "control-plane-arm64",
+    ]) {
+      assert.match(workflow, new RegExp(`id: ${id}\\b`));
+    }
+    assert.match(workflow, /docker buildx imagetools create/);
+    assert.match(workflow, /name: manifest-\$\{\{ matrix\.name \}\}/);
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
