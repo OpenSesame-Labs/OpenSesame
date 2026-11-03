@@ -11,6 +11,11 @@ const { describe, it } =
 const root = repoRootFromHere();
 const trusted =
   "TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}";
+const mainSeed =
+  "MAIN_CACHE_SEED: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}";
+const npmPrimary =
+  "key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}";
+const npmSeedPrefix = "npm-download-v2-${{ runner.os }}-seed-main-";
 const workflows = [
   "ci.yml",
   "cd-pwa.yml",
@@ -31,6 +36,7 @@ describe("trusted install caches", () => {
     for (const name of workflows) {
       const text = read(name);
       assert.ok(text.includes(trusted), name);
+      assert.ok(text.includes(mainSeed), name);
       assert.ok(
         text.includes("NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache"),
         name,
@@ -58,12 +64,8 @@ describe("trusted install caches", () => {
           name,
         );
         assert.ok(restore.includes("path: .npm-cache"), name);
-        assert.ok(
-          restore.includes(
-            "key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}",
-          ),
-          name,
-        );
+        assert.ok(restore.includes(npmPrimary), name);
+        assert.ok(restore.includes(npmSeedPrefix), name);
         assert.ok(save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
         assert.ok(save.includes("continue-on-error: true"), name);
         assert.ok(
@@ -72,7 +74,20 @@ describe("trusted install caches", () => {
           ),
           name,
         );
+        assert.ok(save.includes(npmPrimary), name);
+        assert.equal(save.includes("seed-main"), false, name);
         assert.equal(save.includes("path: node_modules"), false, name);
+        const seed = chunks[at + 2] ?? "";
+        const log = chunks[at + 3] ?? "";
+        assert.ok(seed.includes("if: env.MAIN_CACHE_SEED == 'true'"), name);
+        assert.ok(
+          seed.includes(
+            `key: ${npmSeedPrefix}\${{ hashFiles('package-lock.json') }}`,
+          ),
+          name,
+        );
+        assert.ok(log.includes("node scripts/lib/ci-cache-seed.mjs"), name);
+        assert.ok(log.includes("CACHE_NAME: npm"), name);
       }
     }
   });
@@ -84,27 +99,37 @@ describe("trusted install caches", () => {
     const cache = rustSteps.find((step) =>
       step.includes("Swatinem/rust-cache@"),
     );
+    assert.ok(cache?.includes("prefix-key: v0-rust"));
+    assert.ok(cache?.includes("shared-key: ${{ github.job }}"));
     assert.ok(
       cache?.includes("save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' }}"),
     );
     assert.equal(cache?.includes("lookup-only: true"), false);
+    assert.ok(rust.includes("CACHE_NAME: rust"));
+    assert.ok(rust.includes("CACHE_PROBE_DIR"));
     for (const name of workflows) {
       const text = read(name);
       const mise = text
         .split("\n")
         .filter((line) => line.includes("jdx/mise-action@"));
       assert.ok(mise.length > 0, name);
-      assert.ok(text.includes("cache_key_prefix: mise-v1"), name);
-      assert.ok(
-        text.includes("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}"),
-        name,
-      );
+      assert.ok(text.includes("cache: true"), name);
+      assert.ok(text.includes("cache_save: false"), name);
+      assert.ok(text.includes("mise-v1-nosave-${{ github.run_id }}"), name);
       assert.equal(
-        (text.match(/cache_save: \$\{\{ env\.TRUSTED_CACHE_SAVE \}\}/g) ?? [])
-          .length,
-        mise.length,
+        text.includes("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}"),
+        false,
         name,
       );
+      const saves = text
+        .split("\n")
+        .filter((line) => line.includes("actions/cache/save@"));
+      assert.ok(saves.length > 0, name);
+      assert.ok(text.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
+      assert.ok(text.includes("if: env.MAIN_CACHE_SEED == 'true'"), name);
+      assert.ok(text.includes("mise-v2-${{ runner.os }}-seed-main-"), name);
+      assert.ok(text.includes("node scripts/lib/ci-cache-seed.mjs"), name);
+      assert.doesNotMatch(text, /path: node_modules/, name);
     }
   });
 });
