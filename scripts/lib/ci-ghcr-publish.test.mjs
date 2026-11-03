@@ -36,8 +36,18 @@ describe("GHCR publish workflow", () => {
     assert.match(workflow, /packages: write/);
     assert.match(workflow, /id-token: write/);
     assert.match(workflow, /attestations: write/);
-    assert.match(workflow, /push: true/);
-    assert.match(workflow, /provenance: true/);
+    assert.match(workflow, /PUBLISH_GHCR:/);
+    assert.match(workflow, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
+    assert.match(workflow, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
+    assert.match(workflow, /oci-image-smoke\.mjs/);
+    assert.match(
+      workflow,
+      /if: needs\.images\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\)/,
+    );
+    assert.match(
+      workflow,
+      /provenance: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/,
+    );
     assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
     assert.match(workflow, /GHCR_PUBLISH_TOKEN/);
     assert.match(workflow, /container-release/);
@@ -76,6 +86,22 @@ describe("GHCR publish workflow", () => {
     assert.match(workflow, /if: needs\.images\.result == 'success'/);
   });
 
+  it("does not push to ghcr.io from non-main refs", () => {
+    assert.match(
+      workflow,
+      /github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)/,
+    );
+    assert.match(
+      workflow,
+      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR != 'true'/,
+    );
+    assert.match(
+      workflow,
+      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR == 'true'/,
+    );
+    assert.doesNotMatch(workflow, /\n\s*push: true\n/);
+  });
+
   it("uses cargo-chef and BuildKit caches for the native host image", () => {
     const dockerfile = readFileSync(
       join(root, "ops/compose/Dockerfile"),
@@ -85,6 +111,18 @@ describe("GHCR publish workflow", () => {
     assert.match(dockerfile, /cargo chef prepare/);
     assert.match(dockerfile, /cargo chef cook/);
     assert.match(dockerfile, /type=cache,target=\/src\/target/);
+    assert.match(
+      dockerfile,
+      /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,
+    );
+    assert.match(
+      dockerfile,
+      /COPY --from=builder \/usr\/local\/bin\/opensesame/,
+    );
+    assert.doesNotMatch(
+      dockerfile,
+      /COPY --from=builder \/src\/target\/release\/opensesame/,
+    );
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {

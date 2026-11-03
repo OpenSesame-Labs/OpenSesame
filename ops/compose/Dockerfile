@@ -24,7 +24,8 @@ COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
   --mount=type=cache,target=/src/target,sharing=locked \
-  cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}"
+  cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}" \
+  && install -m 0755 target/release/opensesame /usr/local/bin/opensesame
 
 FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 RUN useradd -u 10001 -m app \
@@ -33,7 +34,7 @@ RUN useradd -u 10001 -m app \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame
-COPY --from=builder /src/target/release/opensesame /usr/local/bin/opensesame
+COPY --from=builder /usr/local/bin/opensesame /usr/local/bin/opensesame
 # Default inspect version. CD passes --build-arg VERSION from the git tag or 0.0.0-next.
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \
