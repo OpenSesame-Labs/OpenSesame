@@ -11,6 +11,7 @@
 #   docker buildx build --platform linux/arm64 --target runtime-from-prebuilt \
 #     --build-arg PREBUILT_IMAGE=<published web-pwa image> \
 #     -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
+ARG PREBUILT_IMAGE=scratch
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git python3 make g++ zlib1g-dev \
@@ -23,7 +24,6 @@ ENV VERSION=${VERSION} \
   NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build -w @opensesame/pages \
   && node scripts/release/prepare-pages-release.mjs
-ARG PREBUILT_IMAGE=scratch
 FROM --platform=linux/amd64 ${PREBUILT_IMAGE} AS prebuilt
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime-from-prebuilt
 RUN useradd -u 10001 -m app

@@ -97,6 +97,18 @@ describe("GHCR publish workflow", () => {
       join(root, "ops/containers/web-pwa/Dockerfile"),
       "utf8",
     );
+    assert.match(
+      webPwaDockerfile,
+      /ARG PREBUILT_IMAGE=scratch\nFROM --platform=\$BUILDPLATFORM/,
+    );
+    const webPwaAmd64 = workflow.slice(
+      workflow.indexOf("web-pwa-amd64:"),
+      workflow.indexOf("# id: web-pwa-arm64"),
+    );
+    assert.doesNotMatch(
+      webPwaAmd64,
+      /web-pwa-amd64:[\s\S]*?build-args:[\s\S]*?PREBUILT_IMAGE/,
+    );
     assert.match(webPwaDockerfile, /ARG PREBUILT_IMAGE=scratch/);
     assert.match(webPwaDockerfile, / AS runtime\n/);
     assert.doesNotMatch(
