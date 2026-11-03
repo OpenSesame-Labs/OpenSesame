@@ -81,6 +81,32 @@ describe("GHCR publish workflow", () => {
     ]) {
       assert.match(workflow, new RegExp(`id: ${id}\\b`));
     }
+    assert.match(
+      workflow,
+      /web-pwa-amd64:[\s\S]*?target: runtime\n[\s\S]*?platforms: linux\/amd64/,
+    );
+    assert.match(
+      workflow,
+      /web-pwa-arm64:[\s\S]*?Require amd64 prebuilt image[\s\S]*?PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+    assert.match(
+      workflow,
+      /web-pwa-arm64:[\s\S]*?target: runtime-from-prebuilt/,
+    );
+    const webPwaDockerfile = readFileSync(
+      join(root, "ops/containers/web-pwa/Dockerfile"),
+      "utf8",
+    );
+    assert.match(webPwaDockerfile, /ARG PREBUILT_IMAGE=scratch/);
+    assert.match(webPwaDockerfile, / AS runtime\n/);
+    assert.doesNotMatch(
+      webPwaDockerfile,
+      /ARG PREBUILT_IMAGE\nFROM --platform=linux\/amd64 \$\{PREBUILT_IMAGE\}/,
+    );
+    assert.match(
+      webPwaDockerfile,
+      /--target runtime -t web-pwa:local \./,
+    );
     assert.match(workflow, /docker buildx imagetools create/);
     assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
     assert.match(workflow, /if: needs\.images\.result == 'success'/);
