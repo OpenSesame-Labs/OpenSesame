@@ -7,7 +7,7 @@ import { repoRootFromHere } from "./ci-changed-areas.mjs";
 import { loadShards } from "./ci-gates.mjs";
 
 const trunkInventoryCommand =
-  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs";
 
 const root = repoRootFromHere();
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");

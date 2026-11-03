@@ -23,7 +23,7 @@ import { expectedInspect } from "../ci/oci-image-config.mjs";
 import { areasForPaths, repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const trunkInventoryCommand =
-  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs";
 
 const root = repoRootFromHere();
 const file = join(root, ".github/workflows/container-build-pr.yml");

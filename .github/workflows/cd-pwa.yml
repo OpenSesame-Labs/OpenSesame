@@ -81,6 +81,16 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/release
+            /mise.toml
+            /mise.lock
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -131,6 +141,37 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - name: Resolve main CI workflow run for artifact download
         id: main_ci_run
         env:
@@ -287,6 +328,35 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: pwa-full-profile-dist-${{ github.run_id }}
@@ -358,8 +428,36 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          fetch-depth: 0
+          persist-credentials: false
+          fetch-depth: 1
           filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -510,6 +608,19 @@ jobs:
       name: Preview
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            .github/actions/publish-npm-package
+            /mise.toml
+            /mise.lock
+            /package.json
+            /package-lock.json
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-pages-pwa-release-${{ github.run_id }}
@@ -596,15 +707,19 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
             scripts/release
             scripts/lib
             scripts/ci
             apps/pages/scripts/duress
             package.json
-            package-lock.json
-            mise.toml
-            mise.lock
+            /package-lock.json
+            /mise.toml
+            /mise.lock
       - name: Restore npm download cache
         id: npm-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -695,10 +810,18 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
             scripts/release
             scripts/lib
             .github/actions/publish-npm-package
+            /mise.toml
+            /mise.lock
+            /package.json
+            /package-lock.json
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -780,6 +903,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/release
+            /mise.toml
+            /mise.lock
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

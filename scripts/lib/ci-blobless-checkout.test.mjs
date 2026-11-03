@@ -42,7 +42,9 @@ describe("full-history checkouts are blobless", () => {
         );
       }
     }
-    expect(sites).toBe(17);
+    // cd-npm-cli and cd-pwa plan releases from HEAD only, so those checkouts
+    // are fetch-depth 1. The remaining full-history sites stay blobless.
+    expect(sites).toBe(15);
   });
 
   it("keeps ancestry, name-only diffs, and a clean worktree without historical blobs", () => {
