@@ -177,15 +177,15 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.equal(
     (pwa.match(/npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/g) ?? [])
       .length,
-    3,
+    4,
   );
   assert.equal(
     (pwa.match(/pages-dist-\$\{\{ github\.run_id \}\}/g) ?? []).length,
-    2,
+    3,
   );
   assert.match(cli, /needs: \[stage, preview\]/);
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
-  assert.match(pwa, /needs: \[build, deploy, npm_preview\]/);
+  assert.match(pwa, /needs: \[main_ci, build, deploy, npm_preview\]/);
   const pwaBuild = jobSlice(pwa, "build", "npm_preview");
   const pwaProof = jobSlice(pwa, "proof", "build");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
@@ -243,11 +243,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
   assert.match(
     spec.promotion_model.preview_smoke,
-    /npm view <package>@EXPECTED_VERSION version --prefer-online/,
-  );
-  assert.match(
-    spec.promotion_model.preview_smoke,
-    /CD_REGISTRY_VERSION_CONFIRMED=1 on preview smoke when the publish job succeeded/,
+    /Hurl 8\.1\.0 HTTP asserts/,
   );
   assert.match(
     spec.promotion_model.preview_smoke,
@@ -265,12 +261,16 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.doesNotMatch(cliSmoke, /SMOKE_PUBLISHED_PACKAGE/);
   assert.match(
     pwaSmoke,
-    /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
+    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,
   );
-  assert.match(
-    pwaSmoke,
-    /SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs\/web-pwa"/,
-  );
+  assert.match(pwaSmoke, /cd-pwa-preview-smoke\/run\.mjs/);
+  assert.match(pwaSmoke, /install_args: node@24 hurl@8\.1\.0/);
+  assert.doesNotMatch(pwaSmoke, /cd-preview-smoke\.mjs/);
+  assert.match(pwaSmoke, /pages-dist-\$\{\{ github\.run_id \}\}/);
+  assert.match(pwaSmoke, /STAGED_DIST: apps\/pages\/dist/);
+  assert.match(pwaSmoke, /SMOKE_EVIDENCE_OUT: artifacts\/cd-pwa-preview-smoke/);
+  assert.match(pwaSmoke, /npx playwright install chromium/);
+  assert.match(pwaSmoke, /cd-pwa-preview-smoke-\$\{\{ github\.run_id \}\}/);
   const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");
   assert.match(proofPaths, /scripts\/release\/cd-registry-wait\.mjs/);
   assert.deepEqual(spec.merge_queue.required_status_check_contexts, [

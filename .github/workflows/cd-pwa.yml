@@ -20,6 +20,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-pwa-preview-smoke/**"
       - "scripts/release/cd-registry-wait.mjs"
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
@@ -428,7 +429,7 @@ jobs:
 
   preview_smoke:
     name: Preview deploy smoke
-    needs: [build, deploy, npm_preview]
+    needs: [main_ci, build, deploy, npm_preview]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -438,6 +439,27 @@ jobs:
           sparse-checkout: |
             scripts/release
             scripts/lib
+            apps/pages/scripts/duress
+            package.json
+            package-lock.json
+            mise.toml
+            mise.lock
+      - name: Restore npm download cache
+        id: npm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-download-v2-${{ runner.os }}-seed-main-
+      - name: Restore Playwright browser cache
+        id: pw-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-1.64.1-${{ runner.os }}
+          restore-keys: |
+            playwright-browsers-1.64.1-${{ runner.os }}-
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -447,42 +469,54 @@ jobs:
           restore-keys: |
             mise-v2-${{ runner.os }}-seed-main-node-24-
             mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
-          install_args: node@24
-      - name: Save mise cache
+          install_args: node@24 hurl@8.1.0
+      - name: Install the frozen dependency graph
+        run: npm ci
+      - name: Install Chromium for preview smoke evidence
+        run: npx playwright install chromium
+      - name: Save Playwright browser cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-1.64.1-${{ runner.os }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Prove alpha npm and live Pages for this revision
+          name: pages-dist-${{ github.run_id }}
+          path: apps/pages/dist
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: npm-pages-pwa-release-${{ github.run_id }}
+          path: apps/pages/release
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: cd-pwa-meta-${{ github.run_id }}
+          path: artifacts/cd-pwa-meta
+      - name: Fast Preview deploy smoke
         env:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
-          SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs/web-pwa"
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          STAGED_DIST: apps/pages/dist
+          STAGED_META: artifacts/cd-pwa-meta/release.json
+          STAGED_PACKAGE: apps/pages/release/package.json
+          SMOKE_EVIDENCE_OUT: artifacts/cd-pwa-preview-smoke
           CD_REGISTRY_VERSION_CONFIRMED: ${{ needs.npm_preview.result == 'success' && '1' || '' }}
           CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
-        run: node scripts/release/cd-preview-smoke.mjs
+        run: node scripts/release/cd-pwa-preview-smoke/run.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cd-pwa-preview-smoke-${{ github.run_id }}
+          path: artifacts/cd-pwa-preview-smoke
+          if-no-files-found: error
 
   production:
     name: Production promotion

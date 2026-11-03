@@ -18,6 +18,7 @@ java = "temurin-17.0.20+101"
 "cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.94.1" } }
 # Installer CLIs for scripts/dev/install-agent-skills.sh. Skill content stays unpinned.
 "npm:skills" = "1.7.4"
+"hurl" = "8.1.0"
 "npm:impeccable" = "4.8.0"
 "npm:typeui.sh" = "0.7.1"
 
