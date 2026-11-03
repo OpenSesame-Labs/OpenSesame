@@ -53,12 +53,12 @@ describe("GHCR publish workflow", () => {
       workflow,
       /cache-to: type=gha,mode=max,scope=\$\{\{ matrix\.id \}\}/,
     );
-    assert.match(workflow, /matrix\.platform == 'linux\/arm64'/);
-    assert.equal(workflow.match(/docker\/setup-qemu-action@/g)?.length, 1);
+    assert.doesNotMatch(workflow, /docker\/setup-qemu-action@/);
+    assert.match(workflow, /runner: ubuntu-24.04-arm/);
     assert.doesNotMatch(workflow, /linux\/amd64,linux\/arm64/);
     assert.match(
       workflow,
-      /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n/,
+      /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n {12}runner: ubuntu-latest/,
     );
     assert.doesNotMatch(workflow, /opensesame-arm64/);
     for (const id of [
@@ -72,7 +72,19 @@ describe("GHCR publish workflow", () => {
       assert.match(workflow, new RegExp(`id: ${id}\\b`));
     }
     assert.match(workflow, /docker buildx imagetools create/);
-    assert.match(workflow, /name: manifest-\$\{\{ matrix\.name \}\}/);
+    assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
+    assert.match(workflow, /if: needs\.images\.result == 'success'/);
+  });
+
+  it("uses cargo-chef and BuildKit caches for the native host image", () => {
+    const dockerfile = readFileSync(
+      join(root, "ops/compose/Dockerfile"),
+      "utf8",
+    );
+    assert.match(dockerfile, /cargo-chef/);
+    assert.match(dockerfile, /cargo chef prepare/);
+    assert.match(dockerfile, /cargo chef cook/);
+    assert.match(dockerfile, /type=cache,target=\/src\/target/);
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {

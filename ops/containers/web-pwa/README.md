@@ -13,7 +13,11 @@ The server port is `PORT`, default `5180`. The script binds `HOST`, default
 `localhost`, so a local `node` run stays on loopback. This image sets
 `HOST=0.0.0.0` and exposes `5180`. It runs as uid `10001`.
 
-CI publishes `linux/amd64`. Add `linux/arm64` with:
+The build stage installs `curl` because the Pages Vite build downloads wasm
+tooling during compilation. CI publishes `linux/arm64` on native
+`ubuntu-24.04-arm` runners and `linux/amd64` on `ubuntu-latest`. Add both
+platforms locally with:
+
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \

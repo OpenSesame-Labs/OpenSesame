@@ -3,9 +3,9 @@
 Hostable OpenSesame images. The registry is `ghcr.io/opensesame-labs`. Builds
 use the repository root as the Docker context. Each publish job builds one
 image and one platform, in parallel, with a 10 minute cap. `opensesame` is
-`linux/amd64` only (no QEMU). Node images (`cli`, `web-pwa`,
+`linux/amd64` only. Node images (`cli`, `web-pwa`,
 `control-plane`) build `linux/amd64` and `linux/arm64` as separate matrix
-rows. QEMU is set up only on the `linux/arm64` rows. A manifest job publishes
+rows on `ubuntu-latest` and `ubuntu-24.04-arm` (no QEMU). A manifest job publishes
 the shared tag from those platform images. Layer cache is GitHub Actions
 (`type=gha`, `mode=max`), scoped by matrix id so rows do not clobber each
 other. A cold cache on the first publish can still miss the 10 minute cap.
@@ -173,8 +173,8 @@ tag, does not run `workflow_dispatch`, and does not open a GitHub release.
    grant it `packages: write`, and delete any leftover GHCR package that an
    older publish path created under a different name once the four packages
    above are the ones you keep.
-7. **Arm64.** Node images build `linux/arm64` as their own parallel jobs,
-   with QEMU only on those rows and a separate GHA cache scope. The host
+7. **Arm64.** Node images build `linux/arm64` on `ubuntu-24.04-arm` runners
+   (native, no QEMU) with a separate GHA cache scope. The host
    image stays `linux/amd64`. The manifest job joins the platform tags into
    the shared tags. Do not fold amd64 and arm64 back into one build to save
    a job: that build does not fit the 10 minute cap.
