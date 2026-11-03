@@ -7,11 +7,11 @@
  * TypeScript `if:`, starts with `needs: []` beside `changes`, and runs this
  * file after `npm ci` on every CI `pull_request` and `merge_group`.
  *
- * #2437 must merge before this stack. That change leaves
- * `cd-headless-browser-benchmark.yml` on `workflow_dispatch` only, so the
- * automatic pull_request/push/merge_group inventory omits it. This slice
- * does not yet contain `cd-ghcr-publish.yml`; the later slice adds that
- * name when the workflow file lands.
+ * The headless browser benchmark on main is `workflow_dispatch` only, so the
+ * automatic pull_request/push/merge_group inventory omits
+ * `cd-headless-browser-benchmark.yml`. This slice does not yet contain
+ * `cd-ghcr-publish.yml`; the later slice adds that name when the workflow
+ * file lands.
  *
  * Trunk still does not run `npm run quality:test`. Pre-push fast mode
  * (`.githooks/pre-push`) skips that aggregate suite too.
@@ -133,9 +133,8 @@ describe("heavy auxiliary suites are CD concerns", () => {
         ),
       )
       .sort();
-    // #2437 must merge before this stack: the benchmark workflow is
-    // dispatch-only, so it is omitted. cd-ghcr-publish.yml joins this list
-    // when that workflow file lands.
+    // The benchmark workflow on main is dispatch-only, so it is omitted.
+    // cd-ghcr-publish.yml joins this list when that workflow file lands.
     expect(workflowsWithAutomaticPrPushOrMergeGroup).toEqual([
       "cd-npm-cli.yml",
       "cd-npm-publish-proof.yml",
