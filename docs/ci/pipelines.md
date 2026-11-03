@@ -61,3 +61,14 @@ Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trus
 Shard 0 is the only leg that may save the Swatinem cache, and only when `TRUSTED_CACHE_SAVE` is true. Pull requests still do not save. Every shard restores `v0-rust-rust-build-`.
 
 GitHub-hosted larger runners are not enabled. Tyler has not approved them. The opt-in in `ci.yml` is a comment and stays off (`ubuntu-latest-4-cores`, `ubuntu-latest-8-cores`). Public list prices for Linux x64, which are billed on public repositories: 4-core `linux_4_core` $0.012 per minute, 8-core `linux_8_core` $0.022 per minute. Standard `ubuntu-latest` is `actions_linux` at $0.006 per minute and is free on public repositories. Source: <https://docs.github.com/en/billing/reference/actions-runner-pricing>.
+
+## tsgo typecheck benchmark
+
+`scripts/ci/tsgo-benchmark.mjs` compares pinned TypeScript 7.0.2 `tsc` with `@typescript/native-preview` `tsgo`. Output matched on the local run (67 packages, script-sum baseline 31161 ms, candidate 28987 ms). That sum is not a CI job. The preview is an older native build, so `turbo run typecheck` stays on `tsc`.
+
+CI wall time from `gh run view` on the pull request checks. Neither check selected TypeScript packages, so **Build affected TypeScript graph** was skipped.
+
+| | Run | TypeScript | Rust | Bundle budgets | Affected build graph |
+| --- | --- | --- | --- | --- | --- |
+| Before | [41559786830](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559786830) (PR #2412) | 9s | 7s | 10s | 14s |
+| After | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
