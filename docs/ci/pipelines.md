@@ -48,8 +48,8 @@ Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trus
 
 | Cache | Path | Key |
 | --- | --- | --- |
-| npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | `npm-download-<runner.os>-<hashFiles('package-lock.json')>` with restore prefix `npm-download-<runner.os>-` |
-| mise | mise-action default tool directory | prefix `mise-v1` (platform, mise file hash, `install_args` hash, 30-day period) |
-| Rust | `Swatinem/rust-cache` v2 defaults | `save-if` follows `TRUSTED_CACHE_SAVE` |
+| npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | Primary `npm-download-v2-<runner.os>-lock-<hashFiles('package-lock.json')>`. Restore prefix `npm-download-v2-<runner.os>-seed-main-`. |
+| mise | `~/.local/share/mise` | Primary `mise-v2-<runner.os>-<tool>-lock-<hashFiles('mise.toml','mise.lock')>`. Restore prefixes `mise-v2-<runner.os>-seed-main-<tool>-` and the historical main prefix `mise-v1-linux-`. mise-action stays `cache: true` with `cache_save: false` and a run-scoped key so it does not write. |
+| Rust | `Swatinem/rust-cache` v2 | Primary `v0-rust-<job>-<os>-<arch>-<env>-<lock>`. The action restore key drops the lock hash (`v0-rust-<job>-`). `save-if` follows `TRUSTED_CACHE_SAVE`. |
 
-`TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. Pull requests, including forks, restore and do not save. The npm save step sets `continue-on-error: true` so two jobs writing the same key do not fail the run.
+`TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. `MAIN_CACHE_SEED` is true only for `push` and `workflow_dispatch` of `refs/heads/main`, so the `seed-main` prefix is written from the default branch. Pull requests, including forks, restore and do not save. Each restore logs `primary key hit`, `restore-key fallback to main prefix`, or `miss` via `scripts/lib/ci-cache-seed.mjs`. Save steps set `continue-on-error: true` so two jobs writing the same key do not fail the run.
