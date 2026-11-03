@@ -347,7 +347,7 @@ jobs:
           GITHUB_WORKFLOW: ${{ github.workflow }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GATE_MAIN_CI: ${{ needs.main_ci.result }}
-          GATE_PROOF: ${{ needs.proof.result == 'failure' && 'failure' || needs.proof-gate.result }}
+          GATE_PROOF: ${{ needs.proof.result == 'failure' && 'failure' || needs['proof-gate'].result }}
           GATE_BUILD: ${{ needs.build.result }}
           GATE_DEPLOY: ${{ needs.deploy.result }}
           GATE_NPM_PREVIEW: ${{ needs.npm_preview.result }}

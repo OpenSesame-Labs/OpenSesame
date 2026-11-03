@@ -347,7 +347,7 @@ test("cd-pwa proves four profiles in parallel and gates them", () => {
   );
   assert.match(
     text,
-    /GATE_PROOF: \$\{\{ needs\.proof\.result == 'failure' && 'failure' \|\| needs\.proof-gate\.result \}\}/,
+    /GATE_PROOF: \$\{\{ needs\.proof\.result == 'failure' && 'failure' \|\| needs\['proof-gate'\]\.result \}\}/,
   );
   assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
 });
