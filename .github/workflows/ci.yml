@@ -229,33 +229,6 @@ jobs:
           TURBO_COMPARISON_REF: ${{ steps.turbo_base.outputs.turbo_comparison_ref }}
           VITE_BASE: /OpenSesame/
         run: node scripts/lib/ci-affected-builds.mjs run-ts
-      - name: Restore full install profile dist cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages'))
-        id: ci-full-profile-dist-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/pages/dist-profiles/pwa-proof/full
-          key: pwa-full-profile-dist-${{ hashFiles('apps/pages/capability-profiles/full.json', 'apps/pages/package.json', 'package-lock.json', 'tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
-          restore-keys: |
-            pwa-full-profile-dist-
-      - name: Build full install profile dist for CD promotion
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages'))
-        env:
-          VERIFY_SKIP_BUILD: ${{ steps.ci-full-profile-dist-cache.outputs.cache-hit == 'true' && '1' || '' }}
-        run: node scripts/ci/pwa-full-profile-dist-build.mjs
-      - name: Save full install profile dist cache
-        if: env.TRUSTED_CACHE_SAVE == 'true' && (steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages'))
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/pages/dist-profiles/pwa-proof/full
-          key: pwa-full-profile-dist-${{ hashFiles('apps/pages/capability-profiles/full.json', 'apps/pages/package.json', 'package-lock.json', 'tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && (steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages'))
-        with:
-          name: ci-pwa-full-profile-dist-${{ github.run_id }}
-          path: apps/pages/dist-profiles/pwa-proof/full
-          if-no-files-found: error
 
   rust-build:
     # After `changes` only. No edge to typescript-build and no concurrency key.
