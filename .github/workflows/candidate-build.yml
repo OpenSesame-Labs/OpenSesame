@@ -65,6 +65,7 @@ jobs:
       with:
         ref: ${{ github.workflow_sha }}
         fetch-depth: 0
+        filter: blob:none
         persist-credentials: false
         path: .ci-control
     - name: Resolve exact identity and successful fast-CI evidence

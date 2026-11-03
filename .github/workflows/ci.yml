@@ -73,6 +73,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          filter: blob:none
       - name: Resolve the cumulative integration diff
         id: scope
         env:
@@ -109,6 +110,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          filter: blob:none
       - name: Select affected packages
         id: affected
         env:
@@ -249,6 +251,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          filter: blob:none
       - name: Select affected crates
         id: affected
         env:
