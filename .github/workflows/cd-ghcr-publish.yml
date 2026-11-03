@@ -1,0 +1,123 @@
+# Publish OpenSesame images to ghcr.io/opensesame-labs.
+# Push to main and v* tags, or workflow_dispatch. Not part of ci.yml.
+# Do not revive .github/workflows/publish-containers.yml.
+#
+# Login uses GITHUB_TOKEN. Optional override, not wired here: set
+# GHCR_PUBLISH_TOKEN on the container-release environment (main and v* tags)
+# and replace the login password. An editable workflow cannot enforce the
+# package ACL by itself.
+name: CD GHCR publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "ops/containers/**"
+      - "ops/compose/Dockerfile"
+      - ".github/workflows/cd-ghcr-publish.yml"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: cd-ghcr-publish
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: opensesame
+            file: ops/compose/Dockerfile
+            platforms: linux/amd64
+          - name: cli
+            file: ops/containers/cli/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: web-pwa
+            file: ops/containers/web-pwa/Dockerfile
+            platforms: linux/amd64,linux/arm64
+          - name: control-plane
+            file: ops/containers/control-plane/Dockerfile
+            platforms: linux/amd64,linux/arm64
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Check Dockerfile
+        id: dockerfile
+        run: |
+          set -euo pipefail
+          if [[ -f "${{ matrix.file }}" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ matrix.file }} is absent on this revision; skipping ${{ matrix.name }}"
+          fi
+
+      - name: Image tags
+        id: tags
+        if: steps.dockerfile.outputs.present == 'true'
+        env:
+          IMAGE_NAME: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            primary="${image}:${version}"
+            extra="${image}:latest"
+          else
+            version="0.0.0-next"
+            primary="${image}:next"
+            extra="${image}:sha-${GITHUB_SHA}"
+          fi
+          {
+            echo "version=${version}"
+            echo "primary=${primary}"
+            echo "list<<EOF"
+            printf '%s\n' "${primary}" "${extra}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Optional override: password: ${{ secrets.GHCR_PUBLISH_TOKEN }} from
+      # the container-release environment. Default remains GITHUB_TOKEN.
+      - name: Login to GHCR
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Buildx
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build
+        id: build
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          platforms: ${{ matrix.platforms }}
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: VERSION=${{ steps.tags.outputs.version }}
+          provenance: true
+          sbom: false

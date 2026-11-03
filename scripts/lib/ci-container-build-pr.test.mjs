@@ -9,9 +9,8 @@
  *
  * The headless browser benchmark on main is `workflow_dispatch` only, so the
  * automatic pull_request/push/merge_group inventory omits
- * `cd-headless-browser-benchmark.yml`. This slice does not yet contain
- * `cd-ghcr-publish.yml`; the later slice adds that name when the workflow
- * file lands.
+ * `cd-headless-browser-benchmark.yml`.
+ * `cd-ghcr-publish.yml` is listed because this workflow pushes to main.
  *
  * Trunk still does not run `npm run quality:test`. Pre-push fast mode
  * (`.githooks/pre-push`) skips that aggregate suite too.
@@ -100,7 +99,7 @@ describe("opensesame image metadata", () => {
 });
 
 /** CD workflows that push to main and do not run on pull_request. */
-const cdPushMainOnly = ["cd-npm-cli.yml", "cd-pwa.yml"];
+const cdPushMainOnly = ["cd-ghcr-publish.yml", "cd-npm-cli.yml", "cd-pwa.yml"];
 
 const auxiliaries = [
   "autofill-browser.yml",
@@ -109,7 +108,11 @@ const auxiliaries = [
 ];
 describe("heavy auxiliary suites are CD concerns", () => {
   it("keeps push-to-main CD workflows off pull requests", () => {
-    expect(cdPushMainOnly).toEqual(["cd-npm-cli.yml", "cd-pwa.yml"]);
+    expect(cdPushMainOnly).toEqual([
+      "cd-ghcr-publish.yml",
+      "cd-npm-cli.yml",
+      "cd-pwa.yml",
+    ]);
     expect(cdPushMainOnly).not.toContain("cd-headless-browser-benchmark.yml");
     for (const name of cdPushMainOnly) {
       const workflow = readFileSync(
@@ -134,8 +137,9 @@ describe("heavy auxiliary suites are CD concerns", () => {
       )
       .sort();
     // The benchmark workflow on main is dispatch-only, so it is omitted.
-    // cd-ghcr-publish.yml joins this list when that workflow file lands.
+    // cd-ghcr-publish.yml pushes to main.
     expect(workflowsWithAutomaticPrPushOrMergeGroup).toEqual([
+      "cd-ghcr-publish.yml",
       "cd-npm-cli.yml",
       "cd-npm-publish-proof.yml",
       "cd-promotion-gates-proof.yml",

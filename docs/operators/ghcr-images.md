@@ -115,9 +115,45 @@ node scripts/ci/oci-image-smoke.mjs opensesame:local cli:local web-pwa:local
 CLI images and expects HTTP 200 from the PWA. The Identity API curl runs
 only when the container stays up; without the operator env it skips.
 
-## Operator checklist
+## Tyler operator checklist
 
-See the Tyler steps at the bottom of this page on the CD branch. Package
-visibility, the first manual run, and Actions package permissions are
-operator steps. This repository does not create `v*` tags, dispatch the
-publisher, or open a GitHub release from the change that adds the workflow.
+Do these by hand. The change that adds the workflow does not create a `v*`
+tag, does not run `workflow_dispatch`, and does not open a GitHub release.
+
+1. **Actions permission.** On the repository, Settings → Actions → General →
+   Workflow permissions: allow GitHub Actions to create and approve pull
+   requests is unchanged. Under the same page, grant workflows `Read and
+   write` permissions, or set the `packages: write` permission this workflow
+   already requests and confirm the organization allows it. The workflow
+   token is `GITHUB_TOKEN`.
+2. **Package visibility.** After the first publish, open each
+   `ghcr.io/opensesame-labs/<name>` package (`opensesame`, `cli`, `web-pwa`,
+   `control-plane`) and set visibility to **public** or **internal**. A new
+   GHCR package is private until an owner changes it. Link each package to
+   the OpenSesame repository so the Actions token can keep publishing.
+3. **First manual run.** Actions → CD GHCR publish → Run workflow, on
+   `main`. That is the first `workflow_dispatch`. Confirm the four matrix
+   rows. A row whose Dockerfile is not on that commit is skipped. The run
+   pushes `:next` and `:sha-<commit>`. It does not push `:latest`.
+4. **Version tags.** Create and push `v*` yourself when a release should
+   move `:latest`. The tag `v1.2.3` publishes `:1.2.3` and `:latest`. This
+   document does not create that tag.
+5. **Optional publish token.** To stop the default `GITHUB_TOKEN` from
+   writing the official packages, create `GHCR_PUBLISH_TOKEN` in the
+   `container-release` environment (limited to `main` and `v*` tags) and
+   point the login step at it. The workflow comments name that override.
+   Configuring the environment does not by itself publish.
+6. **Remove the duplicate publisher path.** Do not run
+   `.github/workflows/publish-containers.yml`. It stays a retired manual
+   failure so qualification tests still reject an ungated publisher. Do not
+   grant it `packages: write`, and delete any leftover GHCR package that an
+   older publish path created under a different name once the four packages
+   above are the ones you keep.
+7. **Arm64.** The Node images request `linux/amd64,linux/arm64` on publish.
+   The host image stays `linux/amd64` until a native arm64 builder exists.
+   If the arm64 Node build is too slow under QEMU, narrow `platforms` for
+   that row and record the digest from the amd64 run.
+
+Image size is not in this commit. The first successful CD run records it in
+the build log (`docker/build-push-action` output). Cloud agents without
+Docker skip `scripts/ci/oci-image-smoke.mjs`.
