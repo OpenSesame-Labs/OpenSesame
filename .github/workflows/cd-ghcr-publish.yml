@@ -5,9 +5,13 @@
 #
 # One matrix row builds one image and one platform, with a 10 minute cap.
 # GitHub Actions layer cache is scoped per row. linux/arm64 rows run on
-# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 only. A cold cache
-# can still miss the cap; retry with workflow_dispatch. The manifest job
-# publishes :next / :sha-* (or semver tags) from the platform images.
+# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 only. web-pwa is
+# outside that matrix: amd64 publishes the image, then arm64 builds target
+# runtime-from-prebuilt from PREBUILT_IMAGE and does not rerun npm or the
+# Pages build. Arm64 jobs use ubuntu-24.04-arm, so this file installs no
+# QEMU. A cold cache can still miss the cap; retry with workflow_dispatch.
+# The manifest job publishes :next / :sha-* (or semver tags) from the
+# platform images.
 #
 # Login uses GITHUB_TOKEN. Optional override, not wired here: set
 # GHCR_PUBLISH_TOKEN on the container-release environment (main and v* tags)
@@ -61,16 +65,6 @@ jobs:
           - id: cli-arm64
             name: cli
             file: ops/containers/cli/Dockerfile
-            platform: linux/arm64
-            runner: ubuntu-24.04-arm
-          - id: web-pwa-amd64
-            name: web-pwa
-            file: ops/containers/web-pwa/Dockerfile
-            platform: linux/amd64
-            runner: ubuntu-latest
-          - id: web-pwa-arm64
-            name: web-pwa
-            file: ops/containers/web-pwa/Dockerfile
             platform: linux/arm64
             runner: ubuntu-24.04-arm
           - id: control-plane-amd64
@@ -170,10 +164,215 @@ jobs:
         if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR != 'true'
         run: node scripts/ci/oci-image-smoke.mjs ${{ matrix.name }}:local
 
+  # id: web-pwa-amd64
+  web-pwa-amd64:
+    name: web-pwa-amd64
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      primary: ${{ steps.tags.outputs.primary }}
+      version: ${{ steps.tags.outputs.version }}
+    env:
+      PUBLISH_GHCR: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Check Dockerfile
+        id: dockerfile
+        env:
+          DOCKERFILE: ops/containers/web-pwa/Dockerfile
+          IMAGE_ID: web-pwa-amd64
+        run: |
+          set -euo pipefail
+          if [[ -f "${DOCKERFILE}" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${DOCKERFILE} is absent on this revision; skipping ${IMAGE_ID}"
+          fi
+
+      - name: Image tags
+        id: tags
+        if: steps.dockerfile.outputs.present == 'true'
+        env:
+          IMAGE_NAME: web-pwa
+          PLATFORM: linux/amd64
+          PUBLISH_GHCR: ${{ env.PUBLISH_GHCR }}
+        run: |
+          set -euo pipefail
+          if [[ "${PUBLISH_GHCR}" != "true" ]]; then
+            {
+              echo "version=0.0.0-local"
+              echo "primary=${IMAGE_NAME}:local"
+              echo "list<<EOF"
+              printf '%s\n' "${IMAGE_NAME}:local"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          arch="${PLATFORM#linux/}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            primary="${image}:${version}-${arch}"
+          else
+            version="0.0.0-next"
+            primary="${image}:sha-${GITHUB_SHA}-${arch}"
+          fi
+          {
+            echo "version=${version}"
+            echo "primary=${primary}"
+            echo "list<<EOF"
+            printf '%s\n' "${primary}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Optional override: password: ${{ secrets.GHCR_PUBLISH_TOKEN }} from
+      # the container-release environment. Default remains GITHUB_TOKEN.
+      - name: Login to GHCR
+        if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build
+        id: build
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ops/containers/web-pwa/Dockerfile
+          push: ${{ env.PUBLISH_GHCR == 'true' }}
+          load: ${{ env.PUBLISH_GHCR != 'true' }}
+          platforms: linux/amd64
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: VERSION=${{ steps.tags.outputs.version }}
+          provenance: ${{ env.PUBLISH_GHCR == 'true' }}
+          sbom: false
+          cache-from: type=gha,scope=web-pwa-amd64
+          cache-to: type=gha,mode=max,scope=web-pwa-amd64
+
+      - name: Smoke image
+        if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR != 'true'
+        run: node scripts/ci/oci-image-smoke.mjs web-pwa:local
+
+  # id: web-pwa-arm64
+  # Native ubuntu-24.04-arm, same as the other arm64 rows. No QEMU action:
+  # runtime-from-prebuilt only copies PREBUILT_IMAGE; it does not emulate.
+  web-pwa-arm64:
+    name: web-pwa-arm64
+    needs: web-pwa-amd64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    env:
+      PUBLISH_GHCR: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Check Dockerfile
+        id: dockerfile
+        env:
+          DOCKERFILE: ops/containers/web-pwa/Dockerfile
+          IMAGE_ID: web-pwa-arm64
+        run: |
+          set -euo pipefail
+          if [[ -f "${DOCKERFILE}" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${DOCKERFILE} is absent on this revision; skipping ${IMAGE_ID}"
+          fi
+
+      - name: Image tags
+        id: tags
+        if: steps.dockerfile.outputs.present == 'true'
+        env:
+          IMAGE_NAME: web-pwa
+          PLATFORM: linux/arm64
+          PUBLISH_GHCR: ${{ env.PUBLISH_GHCR }}
+        run: |
+          set -euo pipefail
+          if [[ "${PUBLISH_GHCR}" != "true" ]]; then
+            {
+              echo "version=0.0.0-local"
+              echo "primary=${IMAGE_NAME}:local"
+              echo "list<<EOF"
+              printf '%s\n' "${IMAGE_NAME}:local"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          arch="${PLATFORM#linux/}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            primary="${image}:${version}-${arch}"
+          else
+            version="0.0.0-next"
+            primary="${image}:sha-${GITHUB_SHA}-${arch}"
+          fi
+          {
+            echo "version=${version}"
+            echo "primary=${primary}"
+            echo "list<<EOF"
+            printf '%s\n' "${primary}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Optional override: password: ${{ secrets.GHCR_PUBLISH_TOKEN }} from
+      # the container-release environment. Default remains GITHUB_TOKEN.
+      - name: Login to GHCR
+        if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build
+        id: build
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ops/containers/web-pwa/Dockerfile
+          target: runtime-from-prebuilt
+          push: ${{ env.PUBLISH_GHCR == 'true' }}
+          load: ${{ env.PUBLISH_GHCR != 'true' }}
+          platforms: linux/arm64
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: |
+            VERSION=${{ needs['web-pwa-amd64'].outputs.version }}
+            PREBUILT_IMAGE=${{ needs['web-pwa-amd64'].outputs.primary }}
+          provenance: ${{ env.PUBLISH_GHCR == 'true' }}
+          sbom: false
+          cache-from: |
+            type=gha,scope=web-pwa-amd64
+            type=gha,scope=web-pwa-arm64
+          cache-to: type=gha,mode=max,scope=web-pwa-arm64
+
+      - name: Smoke image
+        if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR != 'true'
+        run: node scripts/ci/oci-image-smoke.mjs web-pwa:local
+
   manifests:
     name: Manifest ${{ matrix.name }}
-    needs: images
-    if: needs.images.result == 'success' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [images, web-pwa-amd64, web-pwa-arm64]
+    if: needs.images.result == 'success' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && needs['web-pwa-amd64'].result == 'success' && needs['web-pwa-arm64'].result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
