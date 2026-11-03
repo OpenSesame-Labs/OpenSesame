@@ -14,6 +14,12 @@
  * --registry https://registry.npmjs.org` with the same `npm` binary as the
  * install. Success is stdout trimmed to exactly EXPECTED_VERSION.
  *
+ * CLI CD starts that version wait in the Preview publish job
+ * (`cd-registry-wait.mjs`) on the same deadline. When
+ * CD_REGISTRY_VERSION_CONFIRMED=1, this script skips only that duplicate
+ * wait. Dist-tag equality, `npm install @alpha`, and `opensesame --version`
+ * still run.
+ *
  * SMOKE_PUBLISHED_PACKAGE defaults to `@opensesame-labs/cli`. CD PWA sets it
  * to `@opensesame-labs/web-pwa` and passes EXPECTED_VERSION from the PWA
  * build. That wait targets web-pwa, then the CLI alpha install still runs.
@@ -305,6 +311,10 @@ export function assertNotProofGateFail(env) {
   }
 }
 
+function registryVersionConfirmed(env) {
+  return readString(env.CD_REGISTRY_VERSION_CONFIRMED) === "1";
+}
+
 function publishedPackageName(env) {
   const raw = readString(env.SMOKE_PUBLISHED_PACKAGE);
   if (raw === undefined || raw === "") return CLI_PACKAGE;
@@ -316,7 +326,7 @@ function publishedPackageName(env) {
   return raw;
 }
 
-function registryBudget(env, deps) {
+export function registryBudget(env, deps = {}) {
   const deadlineMs =
     deps.deadlineMs ??
     readNonNegativeInt(
@@ -357,7 +367,11 @@ export async function runPreviewSmoke(env, deps = {}) {
     );
   }
 
-  if (expected !== undefined && expected.length > 0) {
+  if (
+    expected !== undefined &&
+    expected.length > 0 &&
+    !registryVersionConfirmed(env)
+  ) {
     await waitForPublishedVersion(expected, runner, {
       sleep,
       deadlineMs,

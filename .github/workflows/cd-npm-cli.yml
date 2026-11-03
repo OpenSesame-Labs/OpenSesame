@@ -16,6 +16,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-registry-wait.mjs"
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - ".github/actions/publish-npm-package/**"
@@ -194,7 +195,10 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
-      - run: npm run build -w @opensesame/cli
+      - name: Build the CLI for npm publish
+        env:
+          CLI_RELEASE_PACK: "1"
+        run: npm run build -w @opensesame/cli
       - name: Stage publish tree
         env:
           VERSION: ${{ steps.plan.outputs.version }}
@@ -286,6 +290,15 @@ jobs:
           working-directory: packages/cli/release
           npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
+      - name: Wait until the published version is visible
+        env:
+          EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
+        run: |
+          set -euo pipefail
+          # publish-npm-package leaves NPM_CONFIG_USERCONFIG on a token npmrc.
+          # This view is anonymous, same as preview smoke.
+          unset NPM_CONFIG_USERCONFIG NODE_AUTH_TOKEN
+          node scripts/release/cd-registry-wait.mjs
 
   preview_smoke:
     name: Preview npm smoke
@@ -339,6 +352,7 @@ jobs:
       - name: Prove alpha npm resolves and runs
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
+          CD_REGISTRY_VERSION_CONFIRMED: ${{ needs.preview.result == 'success' && '1' || '' }}
           CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
         run: node scripts/release/cd-preview-smoke.mjs
 

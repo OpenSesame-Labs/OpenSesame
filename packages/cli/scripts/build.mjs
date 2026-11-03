@@ -12,6 +12,8 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 // Workspace packages expose TypeScript sources. Bundle those sources so an
 // installed CLI needs neither tsx nor the workspace's development dependencies.
+// CLI_RELEASE_PACK=1 is the npm publish build. Sourcemaps stay out of that tarball.
+const releasePack = process.env.CLI_RELEASE_PACK === "1";
 await build({
   entryPoints: {
     bin: join(root, "src/bin.ts"),
@@ -22,7 +24,7 @@ await build({
   platform: "node",
   target: "node22",
   format: "esm",
-  sourcemap: true,
+  sourcemap: !releasePack,
   banner: {
     js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
   },
