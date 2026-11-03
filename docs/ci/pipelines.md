@@ -28,6 +28,7 @@ Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the sam
 | `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, **full** install-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
+| `cd-headless-browser-benchmark.yml` | `workflow_dispatch`, weekly schedule, or PR touching only the benchmark workflow/script | Capped loopback screenshot matrix (`HEADLESS_BENCH_BACKENDS`, wall clock limit). **Not** a required check and **not** triggered by CD/PWA path filters. |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
 `github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is not a human approval gate; workflow jobs enforce promotion. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production. A live blocked promotion on `main` uses `workflow_dispatch` with `proof_gate_fail: true` on `cd-pwa.yml` or `cd-npm-cli.yml`. That sets `CD_PROOF_GATE_FAIL=1`, and `cd-preview-smoke.mjs` throws `intentional promotion gate proof failure` so Production is skipped. See [post-2400 CD failures](post-2400-cd-failures.md).
@@ -72,6 +73,21 @@ CI wall time from `gh run view` on the pull request checks. Neither check select
 | --- | --- | --- | --- | --- | --- |
 | Before | [41559786830](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559786830) (PR #2412) | 9s | 7s | 10s | 14s |
 | After | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
+
+## Headless browser benchmark (optional)
+
+The benchmark compares install and three-screenshot capture time for CD headless stacks. It is **not** a merge gate (`ops/github/default-branch.json` required checks are TypeScript, Rust, and Bundle budgets only).
+
+Before #2427 it ran on broad CD path filters (including `cd-pwa-preview-smoke/**`), so PWA CD pull requests paid for a ~7.7 minute job in parallel with required checks. #2427 removed it from those paths; this workflow runs only on `workflow_dispatch`, the weekly schedule, or pull requests that edit the benchmark files. The job caps backends (`system,cft,pw-hshell` by default) and `HEADLESS_BENCH_WALL_SEC`.
+
+Parallel PR check wall (latest job finish minus push time on the same commit push):
+
+| | Push | Slowest check | Wall |
+| --- | --- | --- | --- |
+| Before (#2426 era, `cursor/cd-pwa-proof-fast-ee3b`) | [41574322910](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41574322910) et al. | **Headless browser benchmark** 7m39s | **~7.7m** |
+| After (#2427, `cursor/cd-pwa-proof-sharp-only-ee3b`, benchmark removed from CD paths) | [41577428442](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41577428442) et al. | CD PWA profile proof 5m45s (required CI ~48s) | **~5.8m** |
+
+Target for required trunk checks alone remains under five minutes on typical CD-only diffs; optional CD proof workflows can run longer without blocking merge.
 
 ## Vitest isolation
 
