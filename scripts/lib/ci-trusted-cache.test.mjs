@@ -1,7 +1,12 @@
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import * as nodeTest from "node:test";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
+
+// quality:test loads this file with Vitest. The CD contract also runs under node --test.
+const { describe, it } =
+  process.env.VITEST === "true" ? await import("vitest") : nodeTest;
 
 const root = repoRootFromHere();
 const trusted =
@@ -25,12 +30,13 @@ describe("trusted install caches", () => {
   it("saves only on main, merge_group, and workflow_dispatch of main", () => {
     for (const name of workflows) {
       const text = read(name);
-      expect(text, name).toContain(trusted);
-      expect(text, name).toContain(
-        "NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache",
+      assert.ok(text.includes(trusted), name);
+      assert.ok(
+        text.includes("NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache"),
+        name,
       );
-      expect(text, name).not.toMatch(/actions\/setup-node|setup-node/);
-      expect(text, name).not.toMatch(/path: node_modules/);
+      assert.doesNotMatch(text, /actions\/setup-node|setup-node/, name);
+      assert.doesNotMatch(text, /path: node_modules/, name);
     }
   });
 
@@ -41,23 +47,32 @@ describe("trusted install caches", () => {
       const installs = chunks
         .map((step, at) => ({ step, at }))
         .filter(({ step }) => /\n {8}run: npm ci\b/.test(`\n${step}`));
-      expect(installs.length, name).toBeGreaterThan(0);
+      assert.ok(installs.length > 0, name);
       for (const { at } of installs) {
         const restore = chunks[at - 1] ?? "";
         const save = chunks[at + 1] ?? "";
-        expect(restore, name).toContain(
-          "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+        assert.ok(
+          restore.includes(
+            "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+          ),
+          name,
         );
-        expect(restore, name).toContain("path: .npm-cache");
-        expect(restore, name).toContain(
-          "key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}",
+        assert.ok(restore.includes("path: .npm-cache"), name);
+        assert.ok(
+          restore.includes(
+            "key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}",
+          ),
+          name,
         );
-        expect(save, name).toContain("if: env.TRUSTED_CACHE_SAVE == 'true'");
-        expect(save, name).toContain("continue-on-error: true");
-        expect(save, name).toContain(
-          "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+        assert.ok(save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
+        assert.ok(save.includes("continue-on-error: true"), name);
+        assert.ok(
+          save.includes(
+            "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+          ),
+          name,
         );
-        expect(save, name).not.toContain("path: node_modules");
+        assert.equal(save.includes("path: node_modules"), false, name);
       }
     }
   });
@@ -69,21 +84,27 @@ describe("trusted install caches", () => {
     const cache = rustSteps.find((step) =>
       step.includes("Swatinem/rust-cache@"),
     );
-    expect(cache).toContain("save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' }}");
-    expect(cache).not.toContain("lookup-only: true");
+    assert.ok(
+      cache?.includes("save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' }}"),
+    );
+    assert.equal(cache?.includes("lookup-only: true"), false);
     for (const name of workflows) {
       const text = read(name);
       const mise = text
         .split("\n")
         .filter((line) => line.includes("jdx/mise-action@"));
-      expect(mise.length, name).toBeGreaterThan(0);
-      expect(text, name).toContain("cache_key_prefix: mise-v1");
-      expect(text, name).toContain("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}");
-      expect(
+      assert.ok(mise.length > 0, name);
+      assert.ok(text.includes("cache_key_prefix: mise-v1"), name);
+      assert.ok(
+        text.includes("cache_save: ${{ env.TRUSTED_CACHE_SAVE }}"),
+        name,
+      );
+      assert.equal(
         (text.match(/cache_save: \$\{\{ env\.TRUSTED_CACHE_SAVE \}\}/g) ?? [])
           .length,
+        mise.length,
         name,
-      ).toBe(mise.length);
+      );
     }
   });
 });

@@ -19,14 +19,14 @@ Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alp
 
 The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again.
 
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof** (PWA CD), **preview publish and Pages deploy**, **preview smoke** (polls the registry for up to 5 minutes; CLI CD requires `@opensesame-labs/cli@EXPECTED_VERSION`, PWA CD waits for `@opensesame-labs/web-pwa@EXPECTED_VERSION` before `opensesame --version`, and verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
+Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof overlapped with the Pages/npm build** (PWA CD), **preview publish and Pages deploy** after proof (they reuse the staged artifacts), **preview smoke** (polls the registry for up to 5 minutes; CLI CD requires `@opensesame-labs/cli@EXPECTED_VERSION`, PWA CD waits for `@opensesame-labs/web-pwa@EXPECTED_VERSION` before `opensesame --version`, and verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
 
 ## Workflows
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
 | `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof, one Pages/npm build, Preview **`alpha`** and **github-pages** deploy, preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
@@ -41,3 +41,15 @@ OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` pub
 ## Operator-owned
 
 Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
+
+## Install caches
+
+`ci.yml`, `cd-pwa.yml`, `cd-npm-cli.yml`, and `cd-npm-publish-proof.yml` restore an npm download cache and the mise tool cache. The Rust graph also uses `Swatinem/rust-cache`. `node_modules` is not cached. npm still checks the lockfile.
+
+| Cache | Path | Key |
+| --- | --- | --- |
+| npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | `npm-download-<runner.os>-<hashFiles('package-lock.json')>` with restore prefix `npm-download-<runner.os>-` |
+| mise | mise-action default tool directory | prefix `mise-v1` (platform, mise file hash, `install_args` hash, 30-day period) |
+| Rust | `Swatinem/rust-cache` v2 defaults | `save-if` follows `TRUSTED_CACHE_SAVE` |
+
+`TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. Pull requests, including forks, restore and do not save. The npm save step sets `continue-on-error: true` so two jobs writing the same key do not fail the run.

@@ -189,8 +189,27 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(cli, /needs: \[stage, preview\]/);
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
   assert.match(pwa, /needs: \[build, deploy, npm_preview\]/);
-  const cliPreview = jobSlice(cli, "preview", "preview_smoke");
+  const pwaBuild = jobSlice(pwa, "build", "npm_preview");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
+  const pwaDeploy = jobSlice(pwa, "deploy", "preview_smoke");
+  assert.match(pwaBuild, /\n {4}needs: \[main_ci\]\n/);
+  assert.doesNotMatch(pwaBuild, /needs:.*proof/);
+  assert.match(pwaPreview, /needs: \[build, proof\]/);
+  assert.match(pwaDeploy, /needs: \[build, proof\]/);
+  assert.match(pwaPreview, /actions\/download-artifact@/);
+  assert.match(pwaPreview, /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/);
+  assert.doesNotMatch(pwaPreview, /npm run build/);
+  const pwaProduction = jobSlice(pwa, "production", "promotion_failed");
+  assert.match(pwaProduction, /actions\/download-artifact@/);
+  assert.match(pwaProduction, /pages-dist-\$\{\{ github\.run_id \}\}/);
+  assert.match(
+    pwaProduction,
+    /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/,
+  );
+  assert.match(pwaProduction, /npm-token: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.match(pwaProduction, /npm-dist-tag: next/);
+  assert.doesNotMatch(pwaProduction, /npm run build/);
+  const cliPreview = jobSlice(cli, "preview", "preview_smoke");
   for (const slice of [cliPreview, pwaPreview]) {
     assert.match(slice, /name: Preview npm publish\n/);
     assert.match(slice, /environment:\n {6}name: Preview\n/);
