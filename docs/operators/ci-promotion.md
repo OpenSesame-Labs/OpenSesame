@@ -76,6 +76,52 @@ was created at 12:16:40Z and the first job started at 12:20:13Z because the
 `cd-pwa` concurrency group sets `cancel-in-progress: false` and that run waited
 for run 41633648450. That concurrency setting stays as it is.
 
+## CD npm CLI wall time
+
+`cd-npm-cli.yml` used to run as a chain: Main CI gate, then Stage CLI release,
+then Preview npm publish, Preview npm smoke, and Production npm publish. Durations
+are Actions job `started_at` to `completed_at`. Wall time is the gate start
+through Production completion.
+
+| Run | Wall | Main CI gate | Stage CLI | Preview publish | Preview smoke | Production |
+| --- | --- | --- | --- | --- | --- | --- |
+| [41644273655](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41644273655) | 4m50s (13:26:00Z–13:30:50Z) | 46s | 96s | 88s | 19s | 28s |
+| [41633648420](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41633648420) | 8m01s (12:11:42Z–12:19:43Z) | 141s | 96s | 175s | 14s | 43s |
+| [41575412805](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41575412805) | 9m03s (03:59:24Z–04:08:27Z) | 226s | 91s | 166s | 21s | 28s |
+
+On run 41644273655 the npm download cache was a primary-key hit
+(`npm-download-v2-Linux-lock-…`) and `npm ci` still took 47s to add 1872
+packages. Preview does not run `npm ci`. `node_modules` stays uncached, and
+`TRUSTED_CACHE_SAVE` is unchanged. The long Preview steps on the two slower
+runs are `Wait until the published version is visible` (145s and 135s). That
+wait keeps its 300000 ms deadline and 2500 ms poll. The same step on
+41644273655 was 58s. The gate step slept on the default 30s interval for 32s,
+123s, and 213s.
+
+The CLI gate job now sets `CI_GATE_INTERVAL_MS=5000` and `CI_GATE_ATTEMPTS=475`.
+Script defaults stay 80 attempts and 30000 ms. Maximum sleep is the same:
+`(475 - 1) * 5000 = (80 - 1) * 30000` milliseconds. The job still admits only a
+successful `ci.yml` push on that SHA whose TypeScript, Rust, and Bundle budgets
+jobs succeeded. Stage starts with the gate. Preview still needs both, so a
+failed gate does not publish.
+
+The after column is critical-path arithmetic on those measured durations, not a
+new Actions run. Overlap removes the shorter of the gate and stage from the
+wall (and the few seconds of queue between them). A 5s poll can also trim up
+to one former 30s sleep (25s) from the gate when the checks turn green during
+that sleep. It does not shorten the checks themselves. When stage is already
+the longer of the two, that 25s stays off the critical path.
+
+| Run | Measured wall | After overlap | Overlap plus up to 25s less gate tail |
+| --- | --- | --- | --- |
+| 41644273655 | 4m50s (290s) | about 4m04s (290 − 46) | about 4m04s (stage is longer than the gate) |
+| 41633648420 | 8m01s (481s) | about 6m25s (481 − 96) | about 6m00s–6m25s |
+| 41575412805 | 9m03s (543s) | about 7m32s (543 − 91) | about 7m07s–7m32s |
+
+When trunk CI is already green, as in 41644273655, the estimate is about four
+minutes. The slow measured case stays under eight minutes in this estimate.
+The registry deadline and the three required checks are unchanged.
+
 ## Build and identity
 
 The producer accepts a source SHA and exact successful push-main CI run/attempt.

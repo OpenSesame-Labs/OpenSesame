@@ -378,3 +378,27 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
   assert.match(build, /CLI_RELEASE_PACK === "1"/);
   assert.match(build, /sourcemap: !releasePack/);
 });
+
+test("CLI gate polls every 5s and stage overlaps it without a shorter deadline", () => {
+  const cli = read(".github/workflows/cd-npm-cli.yml");
+  const gate = read("scripts/release/cd-main-ci-gate.mjs");
+  const mainCi = jobSlice(cli, "main_ci", "stage");
+  const stage = jobSlice(cli, "stage", "preview");
+  const preview = jobSlice(cli, "preview", "preview_smoke");
+  assert.match(mainCi, /CI_GATE_INTERVAL_MS: "5000"\n/);
+  assert.match(mainCi, /CI_GATE_ATTEMPTS: "475"\n/);
+  assert.match(mainCi, /node scripts\/release\/cd-main-ci-gate\.mjs/);
+  assert.match(gate, /readCount\(env\.CI_GATE_ATTEMPTS, 80,/);
+  assert.match(gate, /readDelay\(env\.CI_GATE_INTERVAL_MS, 30_000\)/);
+  assert.equal((475 - 1) * 5000, (80 - 1) * 30_000);
+  assert.deepEqual(
+    ["TypeScript", "Rust", "Bundle budgets"].every((name) =>
+      gate.includes(`"${name}"`),
+    ),
+    true,
+  );
+  assert.doesNotMatch(stage, /\n {4}needs:/);
+  assert.match(preview, /needs: \[stage, main_ci\]/);
+  assert.match(cli, /TRUSTED_CACHE_SAVE:/);
+  assert.doesNotMatch(cli, /path: node_modules/);
+});
