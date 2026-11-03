@@ -20,6 +20,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-registry-wait.mjs"
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - "scripts/ci/pwa-install-profile-proof.mjs"
@@ -48,10 +49,11 @@ permissions:
   id-token: write
   attestations: write
 
-# Pending runs otherwise stay queued with no jobs until the active run ends.
+# Queue overlapping main pushes so an in-flight Production promotion is not
+# cancelled mid-environment (exact Preview artifact must still promote).
 concurrency:
   group: cd-pwa
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   # Save primary install caches on main, merge_group, and workflow_dispatch of main.
@@ -112,11 +114,11 @@ jobs:
       - name: Require trunk CI for this commit
         env:
           GH_TOKEN: ${{ github.token }}
+          CI_GATE_INTERVAL_MS: "10000"
         run: node scripts/release/cd-main-ci-gate.mjs
 
   proof:
     name: Build install profile (full)
-    needs: main_ci
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -202,9 +204,8 @@ jobs:
           if-no-files-found: error
 
   build:
-    # Starts with the full install-profile proof, overlapped with this job. Preview and Pages deploy wait for proof and reuse these artifacts.
+    # Overlaps main_ci gate and full install-profile proof. Preview and Pages deploy wait for all three.
     name: Build Pages and stage npm
-    needs: [main_ci]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -340,7 +341,7 @@ jobs:
 
   npm_preview:
     name: Preview npm publish
-    needs: [build, proof]
+    needs: [main_ci, build, proof]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -404,10 +405,15 @@ jobs:
           working-directory: apps/pages/release
           npm-dist-tag: ${{ needs.build.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
+      - name: Confirm web-pwa on the registry
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+          SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs/web-pwa"
+        run: node scripts/release/cd-registry-wait.mjs
 
   deploy:
     name: Deploy GitHub Pages
-    needs: [build, proof]
+    needs: [main_ci, build, proof]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -474,6 +480,7 @@ jobs:
           PAGES_URL: ${{ needs.deploy.outputs.page_url }}
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
           SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs/web-pwa"
+          CD_REGISTRY_VERSION_CONFIRMED: ${{ needs.npm_preview.result == 'success' && '1' || '' }}
           CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
         run: node scripts/release/cd-preview-smoke.mjs
 
