@@ -5,6 +5,7 @@ Release and merge-gate tooling run from a terminal or CI.
 | File | Role |
 |------|------|
 | `check-pr-signatures.mjs` | Fails a PR whose commits are not GitHub-verified (`scripts/lib/pr-signatures.mjs`) |
+| `check-pr-grok-commits.mjs` | Fails a PR whose commits are not Grok-authored and verified (`scripts/lib/pr-grok-commits.mjs`) |
 | `land-signed-stack.mjs` | Replays a local branch stack as GitHub-verified commits |
 | `candidate.mjs`, `lib/candidate-*.mjs` | Select and admit immutable candidates; verify source, provenance, qualification receipts and existing publication |
 | `artifact-transfer.mjs`, `archive-safe.py` | Verify immutable artifact identity and downloaded bytes before safe extraction |
@@ -40,10 +41,13 @@ With `--apply` each `<branch><suffix>` (default `-signed`) is created through
 the REST refs API at the previous branch's new head, the first at the remote
 head of `--base` (which must equal the local `--base`). Every commit is then
 replayed with `expectedHeadOid` threaded from the previous mutation, and the
-verification state and tree of each created commit is printed. The exit status
-is non-zero if any is unverified or differs from the local tree. It never
-force-pushes, deletes a branch or merges; open the PRs from the `-signed`
-branches.
+verification state, tree, and Grok attribution of each created commit is
+printed. The exit status is non-zero if any is unverified, differs from the
+local tree, or is not Grok-attributed. Attribution is author
+`Grok <noreply@x.ai>` or `Co-authored-by: Grok <noreply@x.ai>`, which the
+mutation appends because `createCommitOnBranch` cannot set the author.
+It never force-pushes, deletes a branch or merges; open the PRs from the
+`-signed` branches.
 
 The mutation cannot express symlinks, submodules, executable-bit changes or
 merge commits; the planner refuses them by name before anything is sent.

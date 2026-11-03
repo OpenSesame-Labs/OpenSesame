@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { grokCoAuthorTrailer } from "./grok-commit-identity.mjs";
 import { buildMutation, planStack, splitMessage } from "./signed-replay.mjs";
 
 const CLI = join(import.meta.dirname, "../release/land-signed-stack.mjs");
@@ -169,7 +170,10 @@ describe("buildMutation", () => {
           repositoryNameWithOwner: "owner/repo",
           branchName: "two-signed",
         },
-        message: { headline: "Add binary", body: "" },
+        message: {
+          headline: "Add binary",
+          body: grokCoAuthorTrailer(),
+        },
         fileChanges: {
           additions: [
             { path: "blob.bin", contents: BINARY.toString("base64") },

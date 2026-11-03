@@ -52,7 +52,7 @@ request targets `main`, and each next pull request targets the previous
 branch.
 
 Only the bottom of a stack runs CI. Open every pull request above it as a
-draft: a draft runs no suite, and the three required checks fail on it by
+draft: a draft runs no suite, and the required checks fail on it by
 design so a draft's head SHA can never read green. Mark a pull request ready
 for review (`ready_for_review` starts CI) only once the one below has merged
 and you have restacked it. Push at checkpoints, not per file: each push to an
@@ -61,7 +61,9 @@ open, non-draft pull request restarts CI.
 Commits are created with GitHub's GraphQL `createCommitOnBranch` so the
 committer is GitHub and the ruleset sees a verified signature. A local
 `git commit`, including an SSH signature from `<signing-key>`,
-is `unknown_key` and cannot merge. Omit an author override on the mutation.
+is `unknown_key` and cannot merge. Replay through
+`land-signed-stack.mjs`, which appends `Co-authored-by: Grok <noreply@x.ai>`
+to each replayed commit because `createCommitOnBranch` cannot set author.
 `expectedHeadOid` is `origin/main` for the first commit and the previous
 commit on the stack after that. The local git identity, when a tool needs
 one, is your own configured identity and signing key; it is never recorded
@@ -86,8 +88,8 @@ When every pull request in the stack is open:
    does not auto-review while the repository has fewer than 10 stars. The
    self-review is the review that has to land.
 3. Squash-merge only after the required checks are green and the pull request
-   is up to date with `main`: TypeScript, Rust, and Bundle budgets. The
-   ruleset is squash-only. Do not pass `--admin`.
+   is up to date with `main`: Grok signed commits, TypeScript, Rust, and
+   Bundle budgets. The ruleset is squash-only. Do not pass `--admin`.
 4. Merge from the bottom of the stack. After each squash, restack the next
    branch onto the new `main` with another verified `createCommitOnBranch`
    (full file contents of that slice, `expectedHeadOid` the new main tip)

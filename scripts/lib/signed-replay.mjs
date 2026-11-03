@@ -4,6 +4,8 @@
 // call goes through an injected runner `git(args, { binary }) => string |
 // Buffer`, so the logic is testable against a throwaway repository.
 
+import { appendGrokCoAuthorTrailer } from "./grok-commit-identity.mjs";
+
 const MUTATION = `mutation($input: CreateCommitOnBranchInput!) {
   createCommitOnBranch(input: $input) {
     commit { oid url }
@@ -141,7 +143,10 @@ export function buildMutation({ repo, branch, expectedHeadOid, change }) {
     variables: {
       input: {
         branch: { repositoryNameWithOwner: repo, branchName: branch },
-        message: { headline: change.headline, body: change.body },
+        message: {
+          headline: change.headline,
+          body: appendGrokCoAuthorTrailer(change.body),
+        },
         fileChanges: {
           additions: change.additions.map(({ path, contents }) => ({
             path,
