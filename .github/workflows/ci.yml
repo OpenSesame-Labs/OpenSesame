@@ -34,6 +34,49 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  workflow-inventory-gate:
+    # typescript-build is optional, so a pull request that does not select
+    # TypeScript never reached this file (#2440, #2441). This job starts with
+    # the workflow, in parallel with changes, on every pull_request and
+    # merge_group. It only restores install caches: contents read cannot save.
+    name: Workflow inventory
+    needs: []
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Restore mise cache
+        id: mise-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          cache_save: false
+          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          install_args: node
+      - name: Restore npm download cache
+        id: npm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-download-v2-${{ runner.os }}-seed-main-
+      - name: Install the frozen dependency graph
+        run: npm ci
+      - name: Workflow inventory gate
+        run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs
+
   changes:
     name: Affected build graph
     runs-on: ubuntu-latest

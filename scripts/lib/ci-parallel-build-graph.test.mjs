@@ -38,6 +38,13 @@ describe("typescript and rust graphs share one parallel edge", () => {
     assert.doesNotMatch(current["rust-build"], /\n {4}concurrency:/);
     assert.doesNotMatch(needsLine(current["typescript-build"]), /rust-build/);
     assert.doesNotMatch(needsLine(current["rust-build"]), /typescript-build/);
+    assert.equal(needsLine(current["workflow-inventory-gate"]), "[]");
+    assert.equal(
+      current["workflow-inventory-gate"].includes(
+        "needs.changes.outputs.typescript",
+      ),
+      false,
+    );
   });
 
   it("keeps the required reporter names and their always() edges", () => {
