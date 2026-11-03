@@ -15,6 +15,7 @@ import { readString } from "../lib/json-boundary.mjs";
 
 export const GATE_FIELDS = Object.freeze([
   ["GATE_MAIN_CI", "main_ci"],
+  ["GATE_BUILD_FULL_PROFILE", "build_full_profile"],
   ["GATE_STAGE", "stage"],
   ["GATE_PREVIEW", "preview"],
   ["GATE_PROOF", "proof"],
@@ -24,6 +25,20 @@ export const GATE_FIELDS = Object.freeze([
   ["GATE_PREVIEW_SMOKE", "preview_smoke"],
   ["GATE_PRODUCTION", "production"],
 ]);
+
+/** GitHub Actions job `name:` labels for failed-gate messages. */
+export const GATE_JOB_LABELS = Object.freeze({
+  main_ci: "Main CI gate",
+  build_full_profile: "Build full install profile dist",
+  stage: "Stage npm publish tree",
+  preview: "Preview npm publish",
+  proof: "Build install profile (full)",
+  build: "Build Pages and stage npm",
+  deploy: "Deploy GitHub Pages",
+  npm_preview: "Preview npm publish",
+  preview_smoke: "Preview deploy smoke",
+  production: "Production promotion",
+});
 
 const API = "https://api.github.com";
 
@@ -51,9 +66,13 @@ export function failedGateNames(gates) {
     .map((gate) => gate.name);
 }
 
+export function failedGateJobLabels(gates) {
+  return failedGateNames(gates).map((name) => GATE_JOB_LABELS[name] ?? name);
+}
+
 export function promotionMessage(gates, env) {
-  const failed = failedGateNames(gates);
-  if (failed.length === 0) {
+  const failedLabels = failedGateJobLabels(gates);
+  if (failedLabels.length === 0) {
     throw new Error("promotion notify found no failed gate");
   }
   const sha = requireText(env.GITHUB_SHA, "GITHUB_SHA");
@@ -63,7 +82,7 @@ export function promotionMessage(gates, env) {
   const workflow = readString(env.GITHUB_WORKFLOW) ?? "CD";
   const lines = [
     `CD promotion blocked on ${sha}.`,
-    `Failed gate: ${failed.join(", ")}.`,
+    `Failed gate: ${failedLabels.join(", ")}.`,
     `Workflow: ${workflow}.`,
   ];
   const runId = readString(env.GITHUB_RUN_ID);

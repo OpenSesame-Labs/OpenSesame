@@ -769,7 +769,7 @@ jobs:
 
   promotion_failed:
     name: Promotion failure notice
-    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke, production]
+    needs: [main_ci, build_full_profile, proof, build, deploy, npm_preview, preview_smoke, production]
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -824,6 +824,7 @@ jobs:
           GITHUB_WORKFLOW: ${{ github.workflow }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GATE_MAIN_CI: ${{ needs.main_ci.result }}
+          GATE_BUILD_FULL_PROFILE: ${{ needs.build_full_profile.result }}
           GATE_PROOF: ${{ needs.proof.result }}
           GATE_BUILD: ${{ needs.build.result }}
           GATE_DEPLOY: ${{ needs.deploy.result }}
