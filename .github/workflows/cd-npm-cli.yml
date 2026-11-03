@@ -1,6 +1,6 @@
 # Publish @opensesame-labs/cli after main merges.
 # Stage once. Preview publishes 0.0.0-alpha.N on alpha under environment Preview (no reviewer wait).
-# Production OIDC-publishes 0.0.0-next.N on next when automated gates pass.
+# Production publishes 0.0.0-next.N on next with NPM_TOKEN (OIDC when that token is empty).
 name: CD npm CLI
 
 on:
@@ -40,12 +40,6 @@ permissions:
   attestations: write
 
 # Pending runs otherwise stay queued with no jobs until the active run ends.
-env:
-  # Save install caches on main, merge_group, and workflow_dispatch of main.
-  # Pull requests, including forks, restore and do not save.
-  TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
-  NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
-
 concurrency:
   group: cd-npm-cli
   cancel-in-progress: true
@@ -60,8 +54,6 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require trunk CI for this commit
         env:
@@ -82,9 +74,7 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
+          cache: false
           install_args: node@24
       - name: Plan version
         id: plan
@@ -98,22 +88,7 @@ jobs:
           test -n "$npm_dist_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
-      - name: Restore npm download cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-download-${{ runner.os }}-
-      - name: Install the frozen dependency graph
-        run: npm ci
-      - name: Save npm download cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
       - run: npm run build -w @opensesame/cli
       - name: Stage publish tree
         env:
@@ -161,8 +136,6 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require the staged metadata
         env:
@@ -181,9 +154,7 @@ jobs:
     needs: [stage, preview]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      SMOKE_ATTEMPTS: "12"
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -193,8 +164,6 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Prove alpha npm resolves and runs
         env:
@@ -222,8 +191,6 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require the staged metadata
         env:
@@ -231,12 +198,14 @@ jobs:
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-npm-cli-meta/release.json packages/cli/release/package.json
       - name: Rewrite alpha version to 0.0.0-next.N
         run: node scripts/release/cd-production-npm-version.mjs rewrite packages/cli/release/package.json
-      - name: Publish 0.0.0-next.N with OIDC
+      # Production environment secret NPM_TOKEN. Empty token keeps OIDC.
+      # Same staged tarball, tag next, provenance. Never latest.
+      - name: Publish 0.0.0-next.N on next
         uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
           npm-dist-tag: next
-          npm-token: ""
+          npm-token: ${{ secrets.NPM_TOKEN }}
 
   promotion_failed:
     name: Promotion failure notice
@@ -252,8 +221,6 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          cache_key_prefix: mise-v1
-          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Annotate the run and comment on the commit
         env:

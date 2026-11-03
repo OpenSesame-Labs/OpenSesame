@@ -15,24 +15,24 @@ The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is publi
 
 ## npm versioning (trunk CD)
 
-Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes **`0.0.0-alpha.N`** with dist-tag **`alpha`**. **Production** rewrites that staged `package.json` to **`0.0.0-next.N`** (same numeric suffix) and OIDC-publishes it with **`--tag next --provenance`**. Prereleases never receive **`latest`**. Production does not run `npm dist-tag add`.
+Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes **`0.0.0-alpha.N`** with dist-tag **`alpha`**. **Production** rewrites that staged `package.json` to **`0.0.0-next.N`** (same numeric suffix) and publishes it with **`--tag next --provenance`** using the Production **`NPM_TOKEN`** (OIDC only when that token is empty). Prereleases never receive **`latest`**. Production does not run `npm dist-tag add`.
 
 The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again.
 
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof** (PWA CD), **preview publish and Pages deploy**, **preview smoke** (alpha npm resolves and `opensesame --version`; PWA CD also verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
+Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof** (PWA CD), **preview publish and Pages deploy**, **preview smoke** (polls the registry for up to 5 minutes; CLI CD requires `@opensesame-labs/cli@EXPECTED_VERSION`, PWA CD waits for `@opensesame-labs/web-pwa@EXPECTED_VERSION` before `opensesame --version`, and verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
 
 ## Workflows
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production OIDC publish of **`0.0.0-next.N`** on **`next`**. |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof, one Pages/npm build, Preview **`alpha`** and **github-pages** deploy, preview smoke, automatic Production OIDC publish of **`0.0.0-next.N`** on **`next`**. |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof, one Pages/npm build, Preview **`alpha`** and **github-pages** deploy, preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
 `github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is not a human approval gate; workflow jobs enforce promotion. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production. A live blocked promotion on `main` uses `workflow_dispatch` with `proof_gate_fail: true` on `cd-pwa.yml` or `cd-npm-cli.yml`. That sets `CD_PROOF_GATE_FAIL=1`, and `cd-preview-smoke.mjs` throws `intentional promotion gate proof failure` so Production is skipped. See [post-2400 CD failures](post-2400-cd-failures.md).
 
-Environment protection uses main-only branch policies with no required reviewers on Preview, Production, or github-pages. Preview publish jobs select environment **Preview** and use that environment's `NPM_TOKEN` when set (via `publish-npm-package`), otherwise OIDC trusted publishing under the same environment. Production selects the **Production** environment so the npm trusted publisher can bind to it, and publishes with an empty `npm-token` (OIDC only). Production does not read `NPM_TOKEN`. Publisher rows and the incident RCA: `github-setup-spec.json` → `npm_trusted_publishing` and [post-2400-cd-failures.md](post-2400-cd-failures.md).
+Environment protection uses main-only branch policies with no required reviewers on Preview, Production, or github-pages. Preview publish jobs select environment **Preview** and use that environment's `NPM_TOKEN` when set (via `publish-npm-package`), otherwise OIDC trusted publishing under the same environment. Production selects the **Production** environment and passes that environment's `NPM_TOKEN` into `publish-npm-package` (OIDC trusted publishing only when the token is empty). Publisher rows and the incident RCA: `github-setup-spec.json` → `npm_trusted_publishing` and [post-2400-cd-failures.md](post-2400-cd-failures.md).
 
 ## OpenPacker mapping (abbreviated)
 
@@ -41,15 +41,3 @@ OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` pub
 ## Operator-owned
 
 Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
-
-## Install caches
-
-`ci.yml`, `cd-pwa.yml`, `cd-npm-cli.yml`, and `cd-npm-publish-proof.yml` restore an npm download cache and the mise tool cache. The Rust graph also uses `Swatinem/rust-cache`. `node_modules` is not cached. npm still checks the lockfile.
-
-| Cache | Path | Key |
-| --- | --- | --- |
-| npm download | `.npm-cache` (`NPM_CONFIG_CACHE`) | `npm-download-<runner.os>-<hashFiles('package-lock.json')>` with restore prefix `npm-download-<runner.os>-` |
-| mise | mise-action default tool directory | prefix `mise-v1` (platform, mise file hash, `install_args` hash, 30-day period) |
-| Rust | `Swatinem/rust-cache` v2 defaults | `save-if` follows `TRUSTED_CACHE_SAVE` |
-
-`TRUSTED_CACHE_SAVE` is true for `merge_group`, `push` to `refs/heads/main`, and `workflow_dispatch` on `refs/heads/main`. Pull requests, including forks, restore and do not save. The npm save step sets `continue-on-error: true` so two jobs writing the same key do not fail the run.

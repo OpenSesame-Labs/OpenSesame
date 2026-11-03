@@ -1,10 +1,11 @@
 name: Publish npm package
 description: >-
   Publish a staged release directory to npm with provenance. A non-empty
-  npm-token is passed only as NODE_AUTH_TOKEN for that command. An empty
-  token leaves registry auth to OIDC trusted publishing (id-token: write).
-  Preview publishes 0.0.0-alpha.N on alpha. Production publishes the same
-  staged payload as 0.0.0-next.N on next. Never prints tokens.
+  npm-token is the only registry credential (NODE_AUTH_TOKEN). That path
+  does not attempt OIDC trusted publishing. An empty token leaves registry
+  auth to OIDC (id-token: write). Preview publishes 0.0.0-alpha.N on alpha.
+  Production publishes the same staged payload as 0.0.0-next.N on next.
+  Never prints tokens. Never publishes latest.
 
 inputs:
   working-directory:
@@ -17,7 +18,9 @@ inputs:
       to 0.0.0-next.N. This action refuses latest.
     required: true
   npm-token:
-    description: Optional npm token from the GitHub Environment. Leave empty for OIDC.
+    description: >-
+      npm token from the GitHub Environment. Non-empty values publish with
+      NODE_AUTH_TOKEN only. Leave empty for OIDC trusted publishing.
     required: false
     default: ""
 
@@ -68,6 +71,8 @@ runs:
             ;;
         esac
         publish_cmd=(npx -y npm@11.21.1 publish --access public --tag "$NPM_DIST_TAG" --provenance)
+        # Non-empty token: NODE_AUTH_TOKEN only. Do not try OIDC first.
+        # Empty token: OIDC trusted publishing (id-token: write) only.
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
           export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
         else

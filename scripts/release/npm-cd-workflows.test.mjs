@@ -83,12 +83,17 @@ test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () =>
       production,
       new RegExp(`npm-dist-tag: ${CD_PRODUCTION_DIST_TAG}\\n`),
     );
-    assert.match(production, /npm-token: ""\n/);
-    assert.doesNotMatch(production, /NPM_TOKEN/);
+    assert.match(production, /npm-token: \$\{\{ secrets\.NPM_TOKEN \}\}\n/);
+    assert.doesNotMatch(production, /npm-token: ""/);
     assert.doesNotMatch(production, /NODE_AUTH_TOKEN/);
   }
   assert.match(action, /0\.0\.0-next\.N/);
+  assert.match(action, /--provenance/);
+  assert.match(action, /export NODE_AUTH_TOKEN="\$NPM_TOKEN_INPUT"/);
+  assert.match(action, /unset NODE_AUTH_TOKEN/);
   assert.match(spec.promotion_model.production, /0\.0\.0-next\.N/);
+  assert.match(spec.promotion_model.production, /NPM_TOKEN/);
+  assert.match(spec.promotion_model.production, /provenance/);
   assert.match(spec.promotion_model.production, /OIDC/);
   assert.match(spec.promotion_model.preview, /NPM_TOKEN/);
   assert.match(spec.promotion_model.preview, /OIDC/);
@@ -222,6 +227,28 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(
     spec.promotion_model.preview_smoke,
     /npm view @opensesame-labs\/cli@EXPECTED_VERSION version --prefer-online/,
+  );
+  assert.match(
+    spec.promotion_model.preview_smoke,
+    /SMOKE_REGISTRY_DEADLINE_MS/,
+  );
+  assert.match(spec.promotion_model.preview_smoke, /@opensesame-labs\/web-pwa/);
+  assert.doesNotMatch(cli, /SMOKE_ATTEMPTS/);
+  assert.doesNotMatch(pwa, /SMOKE_ATTEMPTS/);
+  const cliSmoke = jobSlice(cli, "preview_smoke", "production");
+  const pwaSmoke = jobSlice(pwa, "preview_smoke", "production");
+  assert.match(
+    cliSmoke,
+    /EXPECTED_VERSION: \$\{\{ needs\.stage\.outputs\.version \}\}/,
+  );
+  assert.doesNotMatch(cliSmoke, /SMOKE_PUBLISHED_PACKAGE/);
+  assert.match(
+    pwaSmoke,
+    /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
+  );
+  assert.match(
+    pwaSmoke,
+    /SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs\/web-pwa"/,
   );
   assert.deepEqual(spec.merge_queue.required_status_check_contexts, [
     "TypeScript",
