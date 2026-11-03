@@ -50,6 +50,11 @@ export function planBuildCrates(paths, nodes) {
 }
 
 export function readBuildPlan(root, kind, base, head) {
+  // A dispatch proof builds both graphs even when the diff selects neither.
+  // Pull requests and merge groups leave this unset.
+  if (process.env.CI_EXERCISE_PARALLEL_GRAPH_BUILDS === "1") {
+    return fallbackPlan(kind);
+  }
   try {
     if (!/^[a-f0-9]{40}$/.test(base) || !/^[a-f0-9]{40}$/.test(head)) {
       throw new Error("BASE_SHA and HEAD_SHA must be commit shas");

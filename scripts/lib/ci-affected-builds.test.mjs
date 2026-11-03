@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "vitest";
+import * as nodeTest from "node:test";
 import {
   buildCommand,
   planBuildCrates,
@@ -17,10 +17,15 @@ import {
   readBuildPlan,
 } from "./ci-affected-builds.mjs";
 import {
+  fallbackPlan,
   loadCrateNodes,
   loadPackageNodes,
   repoRootFromHere,
 } from "./ci-affected-graph.mjs";
+
+// quality:test loads this file with Vitest. The plan contract also runs under node --test.
+const { test } =
+  process.env.VITEST === "true" ? await import("vitest") : nodeTest;
 
 const graph = [
   { name: "shared", dir: "packages/shared", deps: [] },
@@ -295,6 +300,78 @@ test("removed package manifests trigger compilation instead of disappearing from
       "all",
     );
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CI_EXERCISE_PARALLEL_GRAPH_BUILDS builds the whole graph for a CI-only diff", () => {
+  const root = mkdtempSync(join(tmpdir(), "affected-builds-exercise-"));
+  const exercise = "CI_EXERCISE_PARALLEL_GRAPH_BUILDS";
+  const previous = process.env[exercise];
+  const git = (...args) =>
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Tyler Kendrick",
+        "-c",
+        "user.email=145080887+Tyler-R-Kendrick@users.noreply.github.com",
+        "-c",
+        "core.hooksPath=/dev/null",
+        ...args,
+      ],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
+  try {
+    mkdirSync(join(root, "packages/shared"), { recursive: true });
+    mkdirSync(join(root, ".github/workflows"), { recursive: true });
+    writeFileSync(
+      join(root, "pnpm-workspace.yaml"),
+      'packages:\n  - "packages/*"\n',
+    );
+    writeFileSync(join(root, "Cargo.toml"), "[workspace]\nmembers = []\n");
+    writeFileSync(
+      join(root, "packages/shared/package.json"),
+      JSON.stringify({ name: "shared" }),
+    );
+    writeFileSync(join(root, ".github/workflows/ci.yml"), "name: CI\n");
+    git("init");
+    git("add", ".");
+    git("commit", "-m", "fixture base");
+    const base = git("rev-parse", "HEAD");
+    writeFileSync(
+      join(root, ".github/workflows/ci.yml"),
+      "name: CI\n# proof\n",
+    );
+    git("add", ".");
+    git("commit", "-m", "ci only");
+    const head = git("rev-parse", "HEAD");
+
+    delete process.env[exercise];
+    for (const kind of ["packages", "cargo"]) {
+      const plan = readBuildPlan(root, kind, base, head);
+      assert.equal(plan.scope, "none", kind);
+      assert.equal(buildCommand(kind, plan), undefined, kind);
+    }
+    process.env[exercise] = "true";
+    assert.equal(readBuildPlan(root, "packages", base, head).scope, "none");
+
+    process.env[exercise] = "1";
+    const packages = readBuildPlan(root, "packages", base, head);
+    const cargo = readBuildPlan(root, "cargo", base, head);
+    assert.deepEqual(packages, fallbackPlan("packages"));
+    assert.deepEqual(cargo, fallbackPlan("cargo"));
+    assert.equal(packages.scope, "all");
+    assert.equal(cargo.scope, "all");
+    assert.deepEqual(buildCommand("cargo", cargo)?.args, [
+      "build",
+      "--locked",
+      "--workspace",
+    ]);
+    assert.ok(buildCommand("packages", packages));
+  } finally {
+    if (previous === undefined) delete process.env[exercise];
+    else process.env[exercise] = previous;
     rmSync(root, { recursive: true, force: true });
   }
 });

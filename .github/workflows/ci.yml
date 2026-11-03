@@ -9,6 +9,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      proof_parallel_graph_builds:
+        description: When true, build both graphs even if the diff selects neither.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,8 +45,9 @@ jobs:
     outputs:
       base_sha: ${{ steps.scope.outputs.base_sha }}
       head_sha: ${{ steps.scope.outputs.head_sha }}
-      typescript: ${{ github.event.pull_request.draft == true && 'false' || steps.packages.outputs.selected }}
-      rust: ${{ github.event.pull_request.draft == true && 'false' || steps.crates.outputs.selected }}
+      # A CI-only diff selects neither graph. A dispatch proof still starts both.
+      typescript: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && 'true' || (github.event.pull_request.draft == true && 'false' || steps.packages.outputs.selected) }}
+      rust: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && 'true' || (github.event.pull_request.draft == true && 'false' || steps.crates.outputs.selected) }}
       draft: ${{ github.event.pull_request.draft == true && 'true' || 'false' }}
       linux_runner: ${{ steps.runner.outputs.linux }}
       # The native PWA compiler requires Linux AMD64 on a cold build.
@@ -101,6 +108,8 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.typescript_runner) }}
     timeout-minutes: 45
+    env:
+      CI_EXERCISE_PARALLEL_GRAPH_BUILDS: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && '1' || '' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -186,6 +195,7 @@ jobs:
       CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_DEV_DEBUG: 0
+      CI_EXERCISE_PARALLEL_GRAPH_BUILDS: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && '1' || '' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

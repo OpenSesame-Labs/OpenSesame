@@ -53,4 +53,32 @@ describe("typescript and rust graphs share one parallel edge", () => {
     assert.equal(needsLine(current["rust-check"]), "[changes, rust-build]");
     assert.equal(ci.match(/ {4}if: always\(\)/g)?.length, 3);
   });
+
+  it("starts both graphs on a dispatch proof even when the diff selects neither", () => {
+    const force =
+      "github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && 'true'";
+    const exercise =
+      "CI_EXERCISE_PARALLEL_GRAPH_BUILDS: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_parallel_graph_builds == true && '1' || '' }}";
+    const current = jobs(ci);
+    assert.match(
+      ci,
+      /proof_parallel_graph_builds:\n {8}description:.*\n {8}required: false\n {8}type: boolean\n {8}default: false/,
+    );
+    assert.ok(
+      current.changes.includes(
+        `typescript: \${{ ${force} || (github.event.pull_request.draft == true && 'false' || steps.packages.outputs.selected) }}`,
+      ),
+    );
+    assert.ok(
+      current.changes.includes(
+        `rust: \${{ ${force} || (github.event.pull_request.draft == true && 'false' || steps.crates.outputs.selected) }}`,
+      ),
+    );
+    assert.ok(current["typescript-build"].includes(exercise));
+    assert.ok(current["rust-build"].includes(exercise));
+    assert.equal(
+      (ci.match(/CI_EXERCISE_PARALLEL_GRAPH_BUILDS:/g) ?? []).length,
+      2,
+    );
+  });
 });
