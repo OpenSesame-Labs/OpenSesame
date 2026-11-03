@@ -19,14 +19,14 @@ Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alp
 
 The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again. The CLI stage build sets `CLI_RELEASE_PACK=1` so esbuild omits sourcemaps, and `prepare-cli-release.mjs` deletes `*.map` from the publish tree.
 
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **full install-profile proof overlapped with the Pages/npm build** (PWA CD), **preview publish and Pages deploy** after proof (they reuse the staged artifacts), **preview smoke** (polls the registry for up to 5 minutes; CLI CD starts that version wait in the Preview publish job on the same deadline and skips the duplicate when `CD_REGISTRY_VERSION_CONFIRMED=1`, then still requires `@opensesame-labs/cli@EXPECTED_VERSION`, the alpha install, and `opensesame --version`; PWA CD waits for `@opensesame-labs/web-pwa@EXPECTED_VERSION` before `opensesame --version` and verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
+Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit), **four-profile proof overlapped with the Pages/npm build** (PWA CD), **preview publish and Pages deploy** after proof (they reuse the staged artifacts), **preview smoke** (polls the registry for up to 5 minutes; CLI CD starts that version wait in the Preview publish job on the same deadline and skips the duplicate when `CD_REGISTRY_VERSION_CONFIRMED=1`, then still requires `@opensesame-labs/cli@EXPECTED_VERSION`, the alpha install, and `opensesame --version`; PWA CD waits for `@opensesame-labs/web-pwa@EXPECTED_VERSION` before `opensesame --version` and verifies the live Pages revision), then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
 
 ## Workflows
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
 | `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, **full** install-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, four-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
@@ -61,3 +61,25 @@ Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trus
 Shard 0 is the only leg that may save the Swatinem cache, and only when `TRUSTED_CACHE_SAVE` is true. Pull requests still do not save. Every shard restores `v0-rust-rust-build-`.
 
 GitHub-hosted larger runners are not enabled. Tyler has not approved them. The opt-in in `ci.yml` is a comment and stays off (`ubuntu-latest-4-cores`, `ubuntu-latest-8-cores`). Public list prices for Linux x64, which are billed on public repositories: 4-core `linux_4_core` $0.012 per minute, 8-core `linux_8_core` $0.022 per minute. Standard `ubuntu-latest` is `actions_linux` at $0.006 per minute and is free on public repositories. Source: <https://docs.github.com/en/billing/reference/actions-runner-pricing>.
+
+## tsgo typecheck benchmark
+
+`scripts/ci/tsgo-benchmark.mjs` compares pinned TypeScript 7.0.2 `tsc` with `@typescript/native-preview` `tsgo`. Output matched on the local run (67 packages, script-sum baseline 31161 ms, candidate 28987 ms). That sum is not a CI job. The preview is an older native build, so `turbo run typecheck` stays on `tsc`.
+
+CI wall time from `gh run view` on the pull request checks. Neither check selected TypeScript packages, so **Build affected TypeScript graph** was skipped.
+
+| | Run | TypeScript | Rust | Bundle budgets | Affected build graph |
+| --- | --- | --- | --- | --- | --- |
+| Before | [41559786830](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559786830) (PR #2412) | 9s | 7s | 10s | 14s |
+| After | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
+
+## Vitest isolation
+
+`isolate: false` is not used. One local run of `npx vitest run` in `packages/app-core` with `isolate: false` and an `afterEach` that clears mocks, timers, stubs, and env overrides finished red: 27 files failed, 108 tests failed, and 4 unhandled errors in 443s (13415 tests passed). That 443s is the local process time, not a GitHub Actions job. Leaked state included a locked vault tomb, a guest principal left in place of `principal_1`, and a missing bearer token. The package config was reverted. The full `npm run test` suite was not switched over and was not run three times.
+
+The pull request checks do not run Vitest. `gh run view` wall time on those checks, with **Build affected TypeScript graph** and **Build affected Rust graph** skipped on both:
+
+| | Run | TypeScript | Rust | Bundle budgets | Affected build graph |
+| --- | --- | --- | --- | --- | --- |
+| Before | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
+| After | [41560110820](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41560110820) (PR #2410) | 8s | 11s | 11s | 14s |
