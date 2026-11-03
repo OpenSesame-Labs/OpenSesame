@@ -9,6 +9,8 @@ on:
       - ".github/workflows/cd-npm-cli.yml"
       - ".github/workflows/cd-pwa.yml"
       - ".github/workflows/cd-promotion-gates-proof.yml"
+      - ".github/workflows/cd-headless-browser-benchmark.yml"
+      - "scripts/ci/headless-browser-benchmark.mjs"
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
       - "scripts/release/npm-cd-workflows.test.mjs"
@@ -59,6 +61,7 @@ jobs:
             scripts/ci/pwa-install-profile-proof.test.mjs \
             scripts/ci/cd-pwa-pages-workspace-install.test.mjs \
             scripts/ci/cd-pwa-proof-sharp-install.test.mjs \
+            scripts/ci/headless-browser-benchmark.test.mjs \
             scripts/lib/workflow-script-paths.test.mjs \
             scripts/ci/ensure-chrome-headless-shell.test.mjs \
             scripts/release/cd-production-npm-version.test.mjs \
