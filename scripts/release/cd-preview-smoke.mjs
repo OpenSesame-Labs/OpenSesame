@@ -2,18 +2,23 @@
  * Smoke the Preview publish before Production publishes `0.0.0-next.N`.
  *
  * Resolves `@opensesame-labs/cli@alpha`, installs it, and requires
- * `opensesame --version` to exit 0. When EXPECTED_VERSION is set, both the
- * dist-tag and the command output must match it.
+ * `opensesame --version` to exit 0. When EXPECTED_VERSION is set and
+ * SMOKE_PUBLISHED_PACKAGE is unset (CD npm CLI), both the dist-tag and the
+ * command output must match it.
  *
- * When EXPECTED_VERSION is set (CD npm CLI preview smoke), wait for registry
- * propagation before dist-tags and install. Run
- * `npm view @opensesame-labs/cli@<EXPECTED_VERSION> version --prefer-online
+ * Registry, dist-tag, install, `--version`, and Pages checks poll until
+ * SMOKE_REGISTRY_DEADLINE_MS (default 300000, five minutes) with
+ * SMOKE_REGISTRY_POLL_MS (default 10000) between tries. Each check has its
+ * own deadline. The version wait runs
+ * `npm view <package>@<EXPECTED_VERSION> version --prefer-online
  * --registry https://registry.npmjs.org` with the same `npm` binary as the
- * install. Success is stdout trimmed to exactly EXPECTED_VERSION. Tries come
- * from SMOKE_ATTEMPTS (default 12) with 5s between them. cd-pwa preview smoke
- * does not set EXPECTED_VERSION, so it does not wait and does not query
- * `@opensesame-labs/web-pwa`. The dist-tag equality check still runs after
- * the wait.
+ * install. Success is stdout trimmed to exactly EXPECTED_VERSION.
+ *
+ * SMOKE_PUBLISHED_PACKAGE defaults to `@opensesame-labs/cli`. CD PWA sets it
+ * to `@opensesame-labs/web-pwa` and passes EXPECTED_VERSION from the PWA
+ * build. That wait targets web-pwa, then the CLI alpha install still runs.
+ * The CLI dist-tag is compared to EXPECTED_VERSION only when the published
+ * package is the CLI.
  *
  * `CD_PROOF_GATE_FAIL=1` (workflow_dispatch `proof_gate_fail`) throws
  * `intentional promotion gate proof failure` before any registry call.
@@ -22,7 +27,9 @@
  * marker must match GITHUB_SHA (`pages-release` verify).
  *
  *   EXPECTED_VERSION=0.0.0-alpha.4 node scripts/release/cd-preview-smoke.mjs
- *   PAGES_URL=https://host/OpenSesame/ GITHUB_SHA=<40 hex> \
+ *   EXPECTED_VERSION=0.0.0-alpha.4 \
+ *     SMOKE_PUBLISHED_PACKAGE=@opensesame-labs/web-pwa \
+ *     PAGES_URL=https://host/OpenSesame/ GITHUB_SHA=<40 hex> \
  *     node scripts/release/cd-preview-smoke.mjs
  */
 import { spawn } from "node:child_process";
@@ -35,13 +42,25 @@ import { isJsonObject, readString } from "../lib/json-boundary.mjs";
 import { verifyRelease } from "../lib/pages-release.mjs";
 
 export const CLI_PACKAGE = "@opensesame-labs/cli";
+export const WEB_PWA_PACKAGE = "@opensesame-labs/web-pwa";
 export const CLI_DIST_TAG = "alpha";
 export const CLI_SPEC = `${CLI_PACKAGE}@${CLI_DIST_TAG}`;
 export const CLI_BIN = "opensesame";
+export const DEFAULT_REGISTRY_DEADLINE_MS = 300_000;
+export const DEFAULT_REGISTRY_POLL_MS = 10_000;
 const REGISTRY = "https://registry.npmjs.org";
 const DIST_TAGS_URL = `${REGISTRY}/-/package/@opensesame-labs%2fcli/dist-tags`;
 
-function readCount(value, fallback, label) {
+function readNonNegativeInt(value, fallback, label) {
+  if (value === undefined || value === "") return fallback;
+  const text = readString(value);
+  if (text === undefined || !/^\d+$/u.test(text)) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+  return Number(text);
+}
+
+function readPositiveInt(value, fallback, label) {
   if (value === undefined || value === "") return fallback;
   const text = readString(value);
   if (text === undefined || !/^[1-9]\d*$/u.test(text)) {
@@ -160,24 +179,50 @@ export function spawnCaptured(command, args, options) {
   });
 }
 
-async function retry(attempts, sleep, fn) {
+/**
+ * Retry `fn` until it returns or `deadlineMs` elapses from the start.
+ * Sleep `pollMs` between failures when another try still fits in the deadline.
+ * A deadline of 0 is a single attempt.
+ */
+export async function pollUntilDeadline(
+  deadlineMs,
+  pollMs,
+  sleep,
+  fn,
+  now = Date.now,
+) {
+  if (!Number.isInteger(deadlineMs) || deadlineMs < 0) {
+    throw new Error(
+      "SMOKE_REGISTRY_DEADLINE_MS must be a non-negative integer",
+    );
+  }
+  if (!Number.isInteger(pollMs) || pollMs < 1) {
+    throw new Error("SMOKE_REGISTRY_POLL_MS must be a positive integer");
+  }
+  const started = now();
+  const deadline = started + deadlineMs;
+  const maxAttempts = Math.floor(deadlineMs / pollMs) + 1;
   let last = new Error("preview smoke failed");
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       return await fn();
     } catch (error) {
       last = error instanceof Error ? error : new Error("preview smoke failed");
-      if (attempt === attempts) break;
-      await sleep(5_000);
+      if (attempt === maxAttempts) break;
+      // The next try has to start at or before the deadline. A deadline of 0
+      // is one attempt: now() + pollMs is already past it.
+      if (now() + pollMs > deadline) break;
+      await sleep(pollMs);
+      if (now() > deadline) break;
     }
   }
   throw last;
 }
 
-function viewPublishedVersionArgs(expected) {
+export function viewPublishedVersionArgs(pkg, expected) {
   return [
     "view",
-    `${CLI_PACKAGE}@${expected}`,
+    `${pkg}@${expected}`,
     "version",
     "--prefer-online",
     "--registry",
@@ -185,8 +230,8 @@ function viewPublishedVersionArgs(expected) {
   ];
 }
 
-function assertViewPublished(expected, ran) {
-  const spec = `${CLI_PACKAGE}@${expected}`;
+function assertViewPublished(pkg, expected, ran) {
+  const spec = `${pkg}@${expected}`;
   if (ran.status !== 0) {
     throw new Error(`npm view ${spec} version exited ${ran.status}`);
   }
@@ -201,23 +246,29 @@ function assertViewPublished(expected, ran) {
 
 /**
  * Poll until `npm view <package>@<expected> version --prefer-online` prints
- * exactly `expected`. `attempts` and the 5s pause match SMOKE_ATTEMPTS.
+ * exactly `expected`.
  */
-export async function waitForPublishedVersion(
-  expected,
-  runner,
-  sleep,
-  attempts,
-) {
+export async function waitForPublishedVersion(expected, runner, options = {}) {
   if (expected === undefined || expected === "") {
     throw new Error("EXPECTED_VERSION is required");
   }
-  return retry(attempts, sleep, async () => {
-    const ran = await runner("npm", viewPublishedVersionArgs(expected), {
-      cwd: process.cwd(),
-    });
-    return assertViewPublished(expected, ran);
-  });
+  const pkg = options.pkg ?? CLI_PACKAGE;
+  const sleep = options.sleep ?? delay;
+  const now = options.now ?? Date.now;
+  const deadlineMs = options.deadlineMs ?? DEFAULT_REGISTRY_DEADLINE_MS;
+  const pollMs = options.pollMs ?? DEFAULT_REGISTRY_POLL_MS;
+  return pollUntilDeadline(
+    deadlineMs,
+    pollMs,
+    sleep,
+    async () => {
+      const ran = await runner("npm", viewPublishedVersionArgs(pkg, expected), {
+        cwd: process.cwd(),
+      });
+      return assertViewPublished(pkg, expected, ran);
+    },
+    now,
+  );
 }
 
 async function fetchDistTags(fetcher) {
@@ -254,31 +305,78 @@ export function assertNotProofGateFail(env) {
   }
 }
 
+function publishedPackageName(env) {
+  const raw = readString(env.SMOKE_PUBLISHED_PACKAGE);
+  if (raw === undefined || raw === "") return CLI_PACKAGE;
+  if (raw !== CLI_PACKAGE && raw !== WEB_PWA_PACKAGE) {
+    throw new Error(
+      "SMOKE_PUBLISHED_PACKAGE must be @opensesame-labs/cli or @opensesame-labs/web-pwa",
+    );
+  }
+  return raw;
+}
+
+function registryBudget(env, deps) {
+  const deadlineMs =
+    deps.deadlineMs ??
+    readNonNegativeInt(
+      env.SMOKE_REGISTRY_DEADLINE_MS,
+      DEFAULT_REGISTRY_DEADLINE_MS,
+      "SMOKE_REGISTRY_DEADLINE_MS",
+    );
+  const pollMs =
+    deps.pollMs ??
+    readPositiveInt(
+      env.SMOKE_REGISTRY_POLL_MS,
+      DEFAULT_REGISTRY_POLL_MS,
+      "SMOKE_REGISTRY_POLL_MS",
+    );
+  return { deadlineMs, pollMs };
+}
+
 export async function runPreviewSmoke(env, deps = {}) {
   assertNotProofGateFail(env);
   const fetcher = deps.fetch ?? fetch;
   const runner = deps.run ?? spawnCaptured;
   const verify = deps.verifyPages ?? verifyRelease;
   const sleep = deps.sleep ?? delay;
-  const attempts =
-    deps.attempts ?? readCount(env.SMOKE_ATTEMPTS, 12, "SMOKE_ATTEMPTS");
+  const now = deps.now ?? Date.now;
+  const { deadlineMs, pollMs } = registryBudget(env, deps);
   const expected = readString(env.EXPECTED_VERSION);
+  const pkg = publishedPackageName(env);
   const pagesUrl = readString(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA) ?? "";
+  const poll = (fn) => pollUntilDeadline(deadlineMs, pollMs, sleep, fn, now);
 
-  if (expected !== undefined && expected.length > 0) {
-    await waitForPublishedVersion(expected, runner, sleep, attempts);
+  if (
+    pkg !== CLI_PACKAGE &&
+    (expected === undefined || expected.length === 0)
+  ) {
+    throw new Error(
+      "EXPECTED_VERSION is required when SMOKE_PUBLISHED_PACKAGE is set",
+    );
   }
 
-  const version = await retry(attempts, sleep, async () => {
+  if (expected !== undefined && expected.length > 0) {
+    await waitForPublishedVersion(expected, runner, {
+      sleep,
+      deadlineMs,
+      pollMs,
+      now,
+      pkg,
+    });
+  }
+
+  const cliExpected = pkg === CLI_PACKAGE ? expected : undefined;
+  const version = await poll(async () => {
     const resolved = distTagVersion(await fetchDistTags(fetcher));
-    assertExpectedVersion(resolved, expected);
+    assertExpectedVersion(resolved, cliExpected);
     await installAndRun(resolved, runner);
     return resolved;
   });
 
   if (pagesUrl !== undefined && pagesUrl.length > 0) {
-    await retry(attempts, sleep, async () => {
+    await poll(async () => {
       await assertPagesUrlLoads(pagesUrl, fetcher);
       await assertPagesRelease(pagesUrl, sha, verify);
     });
