@@ -40,6 +40,12 @@ permissions:
   attestations: write
 
 # Pending runs otherwise stay queued with no jobs until the active run ends.
+env:
+  # Save install caches on main, merge_group, and workflow_dispatch of main.
+  # Pull requests, including forks, restore and do not save.
+  TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
+
 concurrency:
   group: cd-npm-cli
   cancel-in-progress: true
@@ -54,6 +60,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require trunk CI for this commit
         env:
@@ -74,7 +82,9 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: false
+          cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Plan version
         id: plan
@@ -88,7 +98,22 @@ jobs:
           test -n "$npm_dist_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
-      - run: npm ci
+      - name: Restore npm download cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-download-${{ runner.os }}-
+      - name: Install the frozen dependency graph
+        run: npm ci
+      - name: Save npm download cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run build -w @opensesame/cli
       - name: Stage publish tree
         env:
@@ -136,6 +161,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require the staged metadata
         env:
@@ -166,6 +193,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Prove alpha npm resolves and runs
         env:
@@ -193,6 +222,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require the staged metadata
         env:
@@ -221,6 +252,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Annotate the run and comment on the commit
         env:

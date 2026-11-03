@@ -50,6 +50,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Save install caches on main, merge_group, and workflow_dispatch of main.
+  # Pull requests, including forks, restore and do not save.
+  TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
   PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
   PAGES_DEPLOYMENT_PROFILE: ${{ vars.PAGES_DEPLOYMENT_PROFILE || 'shared_origin_demo' }}
   PAGES_HEADER_SECURITY: ${{ vars.PAGES_HEADER_SECURITY || '0' }}
@@ -65,6 +69,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require trunk CI for this commit
         env:
@@ -80,9 +86,26 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: false
+          cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
-      - run: npm ci
+      - name: Restore npm download cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-download-${{ runner.os }}-
+      - name: Install the frozen dependency graph
+        run: npm ci
+      - name: Save npm download cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - name: Profile builds and screenshots
         run: node scripts/ci/pwa-install-profile-proof.mjs
@@ -106,7 +129,9 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: false
+          cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Plan version
         id: plan
@@ -120,7 +145,22 @@ jobs:
           test -n "$npm_dist_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
-      - run: npm ci
+      - name: Restore npm download cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-download-${{ runner.os }}-
+      - name: Install the frozen dependency graph
+        run: npm ci
+      - name: Save npm download cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .npm-cache
+          key: npm-download-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Production Pages build
         env:
           PAGES_CANONICAL_ORIGIN: ${{ env.PAGES_CANONICAL_ORIGIN }}
@@ -184,6 +224,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Require the staged metadata
         env:
@@ -229,6 +271,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Prove alpha npm and live Pages for this revision
         env:
@@ -253,7 +297,9 @@ jobs:
             .github/actions/publish-npm-package
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: false
+          cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
@@ -300,6 +346,8 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
+          cache_key_prefix: mise-v1
+          cache_save: ${{ env.TRUSTED_CACHE_SAVE }}
           install_args: node@24
       - name: Annotate the run and comment on the commit
         env:
