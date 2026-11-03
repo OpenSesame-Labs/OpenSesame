@@ -5,39 +5,60 @@
  * @puppeteer/browsers (same Chrome for Testing version as Playwright 1.64).
  *
  * Prints the executable path on stdout for GITHUB_ENV / PLAYWRIGHT_CHROMIUM.
+ * CD_PWA_SMOKE_REQUIRE_HEADLESS_SHELL=1 skips system Chromium, including
+ * /usr/bin/chromium, and uses the cached or downloaded chrome-headless-shell.
+ * Installer stdout is discarded so that path is the only stdout line.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const CHROME_VERSION = "156.0.8078.4";
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
-function findSystemChromium() {
+const SYSTEM_CHROMIUM = [
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/usr/bin/google-chrome-stable",
+];
+
+export function requiresHeadlessShell(env) {
+  return env.CD_PWA_SMOKE_REQUIRE_HEADLESS_SHELL === "1";
+}
+
+export function findSystemChromium(env, exists = existsSync) {
+  if (requiresHeadlessShell(env)) return null;
   const candidates = [
-    process.env.PLAYWRIGHT_CHROMIUM,
-    process.env.CHROME_HEADLESS_SHELL_PATH,
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/google-chrome-stable",
+    env.PLAYWRIGHT_CHROMIUM,
+    env.CHROME_HEADLESS_SHELL_PATH,
+    ...SYSTEM_CHROMIUM,
   ];
   for (const candidate of candidates) {
     if (candidate === undefined || candidate === null) continue;
     const path = String(candidate);
     if (path.length === 0) continue;
-    if (!existsSync(path)) continue;
+    if (!exists(path)) continue;
     return path;
   }
   return null;
 }
 
-function installHeadlessShell(cacheRoot) {
-  mkdirSync(cacheRoot, { recursive: true });
-  const ran = spawnSync(
-    "npx",
-    [
+export function headlessShellCachePath(cacheRoot) {
+  return join(
+    cacheRoot,
+    "chrome-headless-shell",
+    `linux-${CHROME_VERSION}`,
+    "chrome-headless-shell-linux64",
+    "chrome-headless-shell",
+  );
+}
+
+/** Install argv. Stdout is ignored so this process prints only the binary path. */
+export function headlessShellInstallPlan(cacheRoot) {
+  return {
+    command: "npx",
+    args: [
       "--yes",
       "@puppeteer/browsers@3.2.6",
       "install",
@@ -45,19 +66,34 @@ function installHeadlessShell(cacheRoot) {
       "--path",
       cacheRoot,
     ],
-    { cwd: repoRoot, stdio: "inherit", env: process.env },
-  );
+    stdio: ["ignore", "ignore", "inherit"],
+  };
+}
+
+export function resolveHeadlessShellBinary(env, exists, install) {
+  const system = findSystemChromium(env, exists);
+  if (system !== null) return system;
+  const cacheRoot =
+    env.CD_CHROME_HEADLESS_CACHE ??
+    join(repoRoot, ".cache", "cd-chrome-headless-shell");
+  const cached = headlessShellCachePath(cacheRoot);
+  if (exists(cached)) return cached;
+  return install(cacheRoot);
+}
+
+function installHeadlessShell(cacheRoot) {
+  mkdirSync(cacheRoot, { recursive: true });
+  const plan = headlessShellInstallPlan(cacheRoot);
+  const ran = spawnSync(plan.command, plan.args, {
+    cwd: repoRoot,
+    stdio: plan.stdio,
+    env: process.env,
+  });
   if (ran.error) throw ran.error;
   if (ran.status !== 0) {
     throw new Error("chrome-headless-shell install failed");
   }
-  const binary = join(
-    cacheRoot,
-    "chrome-headless-shell",
-    `linux-${CHROME_VERSION}`,
-    "chrome-headless-shell-linux64",
-    "chrome-headless-shell",
-  );
+  const binary = headlessShellCachePath(cacheRoot);
   if (!existsSync(binary)) {
     throw new Error(`missing chrome-headless-shell after install: ${binary}`);
   }
@@ -65,25 +101,11 @@ function installHeadlessShell(cacheRoot) {
 }
 
 function main() {
-  const system = findSystemChromium();
-  if (system !== null) {
-    process.stdout.write(`${system}\n`);
-    return;
-  }
-  const cacheRoot =
-    process.env.CD_CHROME_HEADLESS_CACHE ??
-    join(repoRoot, ".cache", "cd-chrome-headless-shell");
-  const cached = join(
-    cacheRoot,
-    "chrome-headless-shell",
-    `linux-${CHROME_VERSION}`,
-    "chrome-headless-shell-linux64",
-    "chrome-headless-shell",
+  const path = resolveHeadlessShellBinary(
+    process.env,
+    existsSync,
+    installHeadlessShell,
   );
-  const path =
-    existsSync(cached) && cached.length > 0
-      ? cached
-      : installHeadlessShell(cacheRoot);
   process.stdout.write(`${path}\n`);
 }
 

@@ -12,6 +12,10 @@ on:
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
       - "scripts/release/npm-cd-workflows.test.mjs"
+      - "scripts/lib/workflow-script-paths.mjs"
+      - "scripts/lib/workflow-script-paths.test.mjs"
+      - "scripts/ci/ensure-chrome-headless-shell.mjs"
+      - "scripts/ci/ensure-chrome-headless-shell.test.mjs"
       - "docs/ci/**"
   workflow_dispatch:
     inputs:
@@ -55,6 +59,8 @@ jobs:
             scripts/ci/pwa-install-profile-proof.test.mjs \
             scripts/ci/cd-pwa-pages-workspace-install.test.mjs \
             scripts/ci/cd-pwa-proof-sharp-install.test.mjs \
+            scripts/lib/workflow-script-paths.test.mjs \
+            scripts/ci/ensure-chrome-headless-shell.test.mjs \
             scripts/release/cd-production-npm-version.test.mjs \
             scripts/release/cd-promotion-notify.test.mjs
 
