@@ -6,6 +6,7 @@ import {
   classifyRuns,
   failedChecks,
   readGateConfig,
+  resolveAdmittedMainCiRun,
   waitForMainCi,
 } from "./cd-main-ci-gate.mjs";
 
@@ -191,4 +192,14 @@ test("waitForMainCi keeps polling when no ci.yml run exists yet", async () => {
     /did not succeed/,
   );
   assert.equal(lists, 2);
+});
+
+test("resolveAdmittedMainCiRun returns the admitted run id in one pass", async () => {
+  const fetcher = async (url) => {
+    if (String(url).includes("/jobs"))
+      return jsonResponse({ jobs: succeededJobs() });
+    return jsonResponse({ workflow_runs: [run({ id: 99 })] });
+  };
+  const admitted = await resolveAdmittedMainCiRun(config(), fetcher);
+  assert.deepEqual(admitted, { runId: "99", sha });
 });

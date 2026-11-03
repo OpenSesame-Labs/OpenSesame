@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { launchHeadlessPlaywright } from "../../../apps/pages/scripts/duress/headless-playwright.mjs";
 import { readString } from "../../lib/json-boundary.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
 
@@ -36,19 +37,23 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
   const outRoot = resolve(outRaw);
   const repoRoot = resolve(readString(env.GITHUB_WORKSPACE) ?? process.cwd());
   const findChromium = deps.findChromium ?? (await loadFindChromium(repoRoot));
-  const discovery = findChromium();
-  if (!discovery.path) {
-    throw new Error("no Chromium binary for preview smoke screenshots");
+  if (deps.launchHeadlessPlaywright === undefined) {
+    const discovery = findChromium();
+    if (!discovery.path) {
+      throw new Error("no Chromium binary for preview smoke screenshots");
+    }
+    process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   }
 
   await mkdir(outRoot, { recursive: true });
   const started = Date.now();
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: discovery.path,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
+  const launch =
+    deps.launchHeadlessPlaywright ??
+    (async () =>
+      launchHeadlessPlaywright({
+        args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      }));
+  const { browser } = await launch();
   try {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },

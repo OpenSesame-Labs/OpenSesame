@@ -153,7 +153,6 @@ test("CD promotes staged artifacts with automated gates only", () => {
     assert.match(text, /name: Preview.*smoke\n/);
     assert.match(text, /promotion_failed:/);
     assert.match(text, /cd-promotion-notify\.mjs/);
-    assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
     assert.match(text, /cd-release-meta\.mjs write /);
     assert.match(text, /cd-release-meta\.mjs check /);
     assert.match(text, /cd-main-ci-gate\.mjs/);
@@ -163,12 +162,18 @@ test("CD promotes staged artifacts with automated gates only", () => {
     assert.doesNotMatch(text, /self-hosted/);
     assert.match(text, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   }
+  assert.equal((cli.match(/run: npm run build/g) ?? []).length, 1);
+  assert.match(pwa, /ci-pages-build\.mjs/);
+  assert.doesNotMatch(pwa, /run: npm run build -w @opensesame\/pages/);
   assert.doesNotMatch(pwa, /Preview gate/);
   assert.match(pwa, /name: github-pages\n/);
   assert.match(
     pwa,
     /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
   );
+  assert.match(pwa, /name: Build full install profile dist/);
+  assert.match(pwa, /pwa-full-profile-dist-\$\{\{ github\.run_id \}\}/);
+  assert.match(pwa, /cd-pwa-pages-workspace-install\.mjs/);
   assert.equal(
     (cli.match(/npm-cli-release-\$\{\{ github\.run_id \}\}/g) ?? []).length,
     3,
@@ -190,11 +195,24 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
   assert.match(pwa, /needs: \[main_ci, build, deploy, npm_preview\]/);
   const pwaBuild = jobSlice(pwa, "build", "npm_preview");
+  const pwaBuildFull = jobSlice(pwa, "build_full_profile", "proof");
   const pwaProof = jobSlice(pwa, "proof", "build");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
   const pwaDeploy = jobSlice(pwa, "deploy", "preview_smoke");
   assert.doesNotMatch(pwaProof, /needs: main_ci/);
+  assert.match(pwaProof, /needs: \[build_full_profile\]/);
+  assert.match(pwaProof, /PWA_PROFILE_PROOF_DIST/);
+  assert.doesNotMatch(pwaProof, /playwright install --with-deps/);
+  assert.match(pwaBuildFull, /pwa-full-profile-dist-build\.mjs/);
+  assert.match(pwaBuildFull, /needs: \[main_ci\]/);
+  assert.match(
+    pwaBuildFull,
+    /ci-pwa-full-profile-dist-\$\{\{ steps\.main_ci_run\.outputs\.run_id \}\}/,
+  );
+  assert.match(pwaBuildFull, /cd-resolve-main-ci-run\.mjs/);
+  assert.doesNotMatch(pwaBuildFull, /playwright install/);
   assert.doesNotMatch(pwaBuild, /needs: main_ci/);
+  assert.match(pwaBuild, /ci-pages-build\.mjs/);
   assert.match(pwaPreview, /needs: \[main_ci, build, proof\]/);
   assert.match(pwaDeploy, /needs: \[main_ci, build, proof\]/);
   assert.match(pwaPreview, /actions\/download-artifact@/);
@@ -269,7 +287,9 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(pwaSmoke, /pages-dist-\$\{\{ github\.run_id \}\}/);
   assert.match(pwaSmoke, /STAGED_DIST: apps\/pages\/dist/);
   assert.match(pwaSmoke, /SMOKE_EVIDENCE_OUT: artifacts\/cd-pwa-preview-smoke/);
-  assert.match(pwaSmoke, /npx playwright install chromium/);
+  assert.match(pwaSmoke, /ensure-chrome-headless-shell\.mjs/);
+  assert.match(pwaSmoke, /cd-chrome-headless-shell/);
+  assert.doesNotMatch(pwaSmoke, /npx playwright install chromium/);
   assert.match(pwaSmoke, /cd-pwa-preview-smoke-\$\{\{ github\.run_id \}\}/);
   const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");
   assert.match(proofPaths, /scripts\/release\/cd-registry-wait\.mjs/);

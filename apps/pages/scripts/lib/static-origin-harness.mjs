@@ -12,7 +12,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium } from "playwright-core";
 import "./expect-timeout.mjs";
 import { observeHttpFailures } from "./http-failures.mjs";
 
@@ -168,7 +168,7 @@ export function serveLoopbackDist({ dist, base }) {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
-      const port = address && typeof address === "object" ? address.port : 0;
+      const port = address !== null && "port" in address ? address.port : 0;
       const origin = `http://127.0.0.1:${port}`;
       resolve({
         origin,

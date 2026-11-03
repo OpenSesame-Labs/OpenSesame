@@ -1,0 +1,49 @@
+# CD headless browser benchmark
+#
+# Runs on pull requests that touch CD screenshot legs. Compares install size/time and
+# three-screenshot capture time on loopback-served `apps/pages/dist`.
+
+name: CD headless browser benchmark
+
+on:
+  pull_request:
+    paths:
+      - "scripts/ci/headless-browser-benchmark.mjs"
+      - "scripts/ci/ensure-chrome-headless-shell.mjs"
+      - "apps/pages/scripts/duress/**"
+      - "scripts/release/cd-pwa-preview-smoke/**"
+      - ".github/workflows/cd-headless-browser-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Headless browser benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Install workspace for Pages build
+        run: npm ci
+      - name: Build Pages dist for loopback bench
+        env:
+          PAGES_CANONICAL_ORIGIN: https://opensesame-labs.github.io
+          PAGES_DEPLOYMENT_PROFILE: shared_origin_demo
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Run headless browser benchmark
+        env:
+          OPENSESAME_HEADLESS_BENCH_DIST: apps/pages/dist
+          HEADLESS_BENCH_OUT: artifacts/headless-browser-benchmark.json
+        run: node scripts/ci/headless-browser-benchmark.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: headless-browser-benchmark-${{ github.run_id }}
+          path: artifacts/headless-browser-benchmark.json
+          if-no-files-found: error

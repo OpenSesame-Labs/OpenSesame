@@ -41,7 +41,7 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: true
-          install_args: node@24
+          install_args: node@24 hurl@8.1.0
       - name: Gate script tests
         run: |
           set -euo pipefail
@@ -50,7 +50,9 @@ jobs:
             scripts/release/cd-main-ci-gate.test.mjs \
             scripts/release/cd-preview-smoke.test.mjs \
             scripts/release/cd-pwa-preview-smoke/prepare-vars.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
+            scripts/ci/pwa-install-profile-proof.test.mjs \
             scripts/release/cd-production-npm-version.test.mjs \
             scripts/release/cd-promotion-notify.test.mjs
 

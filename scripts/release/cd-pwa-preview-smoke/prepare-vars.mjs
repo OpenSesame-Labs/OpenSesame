@@ -95,3 +95,19 @@ export function buildHurlVariables(env) {
   }
   return variables;
 }
+
+/** Hurl `--variables-file` expects Java-properties lines (`key=value`), not JSON. */
+export function serializeHurlVariables(variables) {
+  const lines = [];
+  for (const [key, value] of Object.entries(variables)) {
+    const text = readString(value);
+    if (text === undefined || text.length === 0) {
+      throw new Error(`Hurl variable ${key} must be a non-empty string`);
+    }
+    if (text.includes("\n") || text.includes("\r")) {
+      throw new Error(`Hurl variable ${key} must not contain newlines`);
+    }
+    lines.push(`${key}=${text}`);
+  }
+  return `${lines.join("\n")}\n`;
+}

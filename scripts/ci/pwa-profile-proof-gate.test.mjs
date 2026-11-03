@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import sharp from "sharp";
 import {
-  assertDistinctHashes,
   assertFullProfileProof,
   assertProfileProof,
-  proofManifest,
   stitchPanels,
 } from "./pwa-profile-proof-gate.mjs";
 import {
@@ -88,10 +86,7 @@ test("full profile proof accepts one full walk", () => {
 test("full profile proof rejects wrong profile name", () => {
   const wrong = fullEntry();
   wrong.profile = "default";
-  assert.throws(
-    () => assertFullProfileProof([wrong]),
-    /expected profile full/,
-  );
+  assert.throws(() => assertFullProfileProof([wrong]), /expected profile full/);
 });
 
 test("full profile proof rejects missing screenshot fields", () => {
@@ -212,13 +207,21 @@ test("cd-pwa proves the full install profile only", () => {
     "utf8",
   );
   assert.match(text, /name: Build install profile \(full\)/);
+  assert.match(text, /name: Build full install profile dist/);
   assert.match(text, /PWA_PROFILE_PROOF_NAME: full/);
+  assert.match(text, /PWA_PROFILE_PROOF_DIST:/);
   assert.match(text, /name: pwa-profile-proof-\$\{\{ github\.run_id \}\}/);
-  assert.doesNotMatch(text, /profile: \[minimal-local, default, custom, full\]/);
+  assert.match(text, /pwa-full-profile-dist-\$\{\{ github\.run_id \}\}/);
+  assert.doesNotMatch(
+    text,
+    /profile: \[minimal-local, default, custom, full\]/,
+  );
   assert.doesNotMatch(text, /proof-gate:/);
-  assert.match(text, /timeout-minutes: 60/);
+  assert.match(
+    text,
+    /timeout-minutes: 10\n {4}env:\n {6}PWA_PROFILE_PROOF_NAME: full/s,
+  );
   const build = text.split("\n  build:\n")[1]?.split("\n  npm_preview:\n")[0];
-  assert.match(build ?? "", /\n {4}needs: \[main_ci\]\n/);
   assert.doesNotMatch(build ?? "", /needs:.*proof/);
   const preview = text
     .split("\n  npm_preview:\n")[1]
@@ -226,8 +229,11 @@ test("cd-pwa proves the full install profile only", () => {
   const deploy = text
     .split("\n  deploy:\n")[1]
     ?.split("\n  preview_smoke:\n")[0];
-  assert.match(preview ?? "", /needs: \[build, proof\]/);
-  assert.match(deploy ?? "", /needs: \[build, proof\]/);
+  assert.match(preview ?? "", /needs: \[main_ci, build, proof\]/);
+  assert.match(deploy ?? "", /needs: \[main_ci, build, proof\]/);
+  const proof = text.split("\n  proof:\n")[1]?.split("\n  build:\n")[0];
+  assert.match(proof ?? "", /needs: \[build_full_profile\]/);
+  assert.doesNotMatch(proof ?? "", /playwright install --with-deps/);
   const smoke = text
     .split("\n  preview_smoke:\n")[1]
     ?.split("\n  production:\n")[0];
@@ -236,7 +242,8 @@ test("cd-pwa proves the full install profile only", () => {
     text,
     /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
   );
-  assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
+  assert.match(text, /ci-pages-build\.mjs/);
+  assert.doesNotMatch(text, /npm run build -w @opensesame\/pages/);
 });
 
 test("pull-request profile proof uses the full profile only", () => {
@@ -249,7 +256,10 @@ test("pull-request profile proof uses the full profile only", () => {
   );
   assert.match(text, /name: Install-profile screenshot \(full\)/);
   assert.match(text, /PWA_PROFILE_PROOF_NAME: full/);
-  assert.doesNotMatch(text, /profile: \[minimal-local, default, custom, full\]/);
+  assert.doesNotMatch(
+    text,
+    /profile: \[minimal-local, default, custom, full\]/,
+  );
   assert.doesNotMatch(text, /proof-gate:/);
   assert.match(text, /timeout-minutes: 60/);
   assert.match(text, /cache: false/);
