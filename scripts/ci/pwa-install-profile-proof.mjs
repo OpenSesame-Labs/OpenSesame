@@ -5,6 +5,12 @@
  * The live Pages host is never the navigation target.
  *
  *   node scripts/ci/pwa-install-profile-proof.mjs
+ *   VERIFY_SKIP_BUILD=1 node scripts/ci/pwa-install-profile-proof.mjs
+ *   PWA_PROFILE_PROOF_NAME=full node scripts/ci/pwa-install-profile-proof.mjs
+ *
+ * CD and pull-request workflows set PWA_PROFILE_PROOF_NAME=full only.
+ * A named profile writes full.png and manifest.json after assertFullProfileProof.
+ * An empty name keeps every walk for local runs and runs the four-profile assert.
  */
 
 import { createHash } from "node:crypto";
@@ -45,12 +51,17 @@ import {
 } from "../../apps/pages/scripts/lib/verification-checklist-shot.mjs";
 import { isString } from "../lib/json-boundary.mjs";
 import {
+  assertFullProfileProof,
   assertProfileProof,
   proofManifest,
   readImageWidth,
   stitchPanels,
   widenTo,
 } from "./pwa-profile-proof-gate.mjs";
+import {
+  FULL_INSTALL_PROFILE_PROOF_NAME,
+  walksForProof,
+} from "./pwa-profile-proof-select.mjs";
 
 const outRoot =
   process.env.PWA_PROFILE_PROOF_OUT ??
@@ -119,7 +130,11 @@ async function prepareOut(root) {
   await mkdir(root, { recursive: true });
   await rm(join(root, "dist"), { recursive: true, force: true });
   for (const name of await readdir(root)) {
-    if (name.endsWith(".png") || name === "manifest.json") {
+    if (
+      name.endsWith(".png") ||
+      name === "manifest.json" ||
+      name === "entry.json"
+    ) {
       await rm(join(root, name), { force: true });
     }
   }
@@ -367,15 +382,37 @@ async function walkAll(walks, built, root) {
 
 async function main() {
   const paths = appPaths();
-  const walks = resolveWalks(paths.profilesDir, WALK_NAMES);
-  const names = walks.map((walk) => walk.name).join(",");
+  const resolved = resolveWalks(paths.profilesDir, WALK_NAMES);
+  const names = resolved.map((walk) => walk.name).join(",");
   if (names !== WALK_NAMES.join(",")) {
     throw new Error(`expected ${WALK_NAMES.join(",")}, got ${names}`);
   }
+  const walks = walksForProof(resolved, process.env.PWA_PROFILE_PROOF_NAME);
   await prepareOut(outRoot);
   prepareChromium();
   const built = await buildAll(walks, paths);
   const entries = await walkAll(walks, built, outRoot);
+  if (
+    walks.length === 1 &&
+    walks[0]?.name === FULL_INSTALL_PROFILE_PROOF_NAME
+  ) {
+    assertFullProfileProof(entries);
+    const manifest = proofManifest(entries);
+    await writeFile(
+      join(outRoot, "manifest.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    process.stdout.write(`${JSON.stringify(manifest, null, 2)}\n`);
+    return;
+  }
+  if (walks.length === 1) {
+    await writeFile(
+      join(outRoot, "entry.json"),
+      `${JSON.stringify(entries[0], null, 2)}\n`,
+    );
+    process.stdout.write(`${JSON.stringify(entries[0], null, 2)}\n`);
+    return;
+  }
   assertProfileProof(entries);
   const manifest = proofManifest(entries);
   await writeFile(

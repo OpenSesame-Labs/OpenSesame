@@ -1,4 +1,4 @@
-# Pull-request proof that each install profile is served from its own dist/
+# Pull-request proof that the full install profile is served from its dist/
 # on loopback. Does not publish and does not deploy.
 name: CD PWA profile proof
 
@@ -26,9 +26,11 @@ concurrency:
 
 jobs:
   proof:
-    name: Install-profile screenshots
+    name: Install-profile screenshot (full)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      PWA_PROFILE_PROOF_NAME: full
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -39,7 +41,7 @@ jobs:
           install_args: node@24
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Profile builds and screenshots
+      - name: Profile build and screenshot
         run: node scripts/ci/pwa-install-profile-proof.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

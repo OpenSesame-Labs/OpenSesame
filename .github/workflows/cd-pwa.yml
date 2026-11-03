@@ -23,6 +23,9 @@ on:
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - "scripts/ci/pwa-install-profile-proof.mjs"
+      - "scripts/ci/pwa-profile-proof-assert.mjs"
+      - "scripts/ci/pwa-profile-proof-gate.mjs"
+      - "scripts/ci/pwa-profile-proof-select.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-pwa.yml"
   workflow_dispatch:
@@ -112,10 +115,12 @@ jobs:
         run: node scripts/release/cd-main-ci-gate.mjs
 
   proof:
-    name: Build install profiles
+    name: Build install profile (full)
     needs: main_ci
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      PWA_PROFILE_PROOF_NAME: full
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Restore mise cache
@@ -188,7 +193,7 @@ jobs:
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
       - run: npx playwright install --with-deps chromium
-      - name: Profile builds and screenshots
+      - name: Profile build and screenshot
         run: node scripts/ci/pwa-install-profile-proof.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -197,7 +202,7 @@ jobs:
           if-no-files-found: error
 
   build:
-    # Starts with profile proof. Preview and Pages deploy wait for proof and reuse these artifacts.
+    # Starts with the full install-profile proof, overlapped with this job. Preview and Pages deploy wait for proof and reuse these artifacts.
     name: Build Pages and stage npm
     needs: [main_ci]
     runs-on: ubuntu-24.04

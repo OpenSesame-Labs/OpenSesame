@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import sharp from "sharp";
 import {
   assertDistinctHashes,
+  assertFullProfileProof,
   assertProfileProof,
   proofManifest,
   stitchPanels,
 } from "./pwa-profile-proof-gate.mjs";
+import {
+  FULL_INSTALL_PROFILE_PROOF_NAME,
+  walksForProof,
+} from "./pwa-profile-proof-select.mjs";
 
 function entry(profile, extra) {
   return {
@@ -61,8 +67,37 @@ function sample() {
   ];
 }
 
+function fullEntry() {
+  return entry("full", {
+    dist: "full-dist",
+    png: "png-full",
+    distinguish: "d-full",
+    choice: "c-full",
+    switchesOn: 9,
+  });
+}
+
 test("profile proof accepts four distinct walks on three builds", () => {
   assert.doesNotThrow(() => assertProfileProof(sample()));
+});
+
+test("full profile proof accepts one full walk", () => {
+  assert.doesNotThrow(() => assertFullProfileProof([fullEntry()]));
+});
+
+test("full profile proof rejects wrong profile name", () => {
+  const wrong = fullEntry();
+  wrong.profile = "default";
+  assert.throws(
+    () => assertFullProfileProof([wrong]),
+    /expected profile full/,
+  );
+});
+
+test("full profile proof rejects missing screenshot fields", () => {
+  const incomplete = fullEntry();
+  incomplete.pngHash = "";
+  assert.throws(() => assertFullProfileProof([incomplete]), /missing pngHash/);
 });
 
 test("shared profile PNGs fail with both names and the hash", () => {
@@ -71,81 +106,6 @@ test("shared profile PNGs fail with both names and the hash", () => {
   assert.throws(
     () => assertProfileProof(entries),
     /profile PNG: default and custom both hash p3/,
-  );
-});
-
-test("shared distinguishing screenshots fail even when composites differ", () => {
-  const entries = sample();
-  entries[0].distinguishHash = entries[3].distinguishHash;
-  assert.throws(
-    () => assertProfileProof(entries),
-    /distinguishing screenshot: minimal-local and full both hash d4/,
-  );
-});
-
-test("default and custom must share the stock dist", () => {
-  const entries = sample();
-  entries[2].distDigest = "other";
-  assert.throws(
-    () => assertProfileProof(entries),
-    /default and custom must share the stock build/,
-  );
-});
-
-test("capability profile dists must differ from stock", () => {
-  const entries = sample();
-  entries[0].distDigest = "stock";
-  assert.throws(
-    () => assertProfileProof(entries),
-    /minimal-local, stock, and full dists must differ/,
-  );
-});
-
-test("feature switches must increase minimal, default, full", () => {
-  const entries = sample();
-  entries[3].switchesOn = entries[1].switchesOn;
-  assert.throws(
-    () => assertProfileProof(entries),
-    /Features switches must increase/,
-  );
-});
-
-test("custom must reach the capabilities ceremony", () => {
-  const entries = sample();
-  entries[2].ceremonyReached = false;
-  assert.throws(
-    () => assertProfileProof(entries),
-    /custom did not reach the capabilities ceremony/,
-  );
-});
-
-test("manifest records profile, dist digest, and png hash", () => {
-  const manifest = proofManifest(sample());
-  assert.deepEqual(
-    manifest.profiles.map((item) => ({
-      profile: item.profile,
-      distDigest: item.distDigest,
-      pngHash: item.pngHash,
-    })),
-    [
-      { profile: "minimal-local", distDigest: "minimal", pngHash: "p1" },
-      { profile: "default", distDigest: "stock", pngHash: "p2" },
-      { profile: "custom", distDigest: "stock", pngHash: "p3" },
-      { profile: "full", distDigest: "full", pngHash: "p4" },
-    ],
-  );
-  assert.equal(manifest.profiles[2].ceremonyReached, true);
-  assert.equal(manifest.profiles[2].switchesOn, null);
-});
-
-test("distinct hash rows reject a collision", () => {
-  assert.throws(
-    () =>
-      assertDistinctHashes([
-        { profile: "default", hash: "abc", label: "profile PNG" },
-        { profile: "custom", hash: "abc", label: "profile PNG" },
-      ]),
-    /default and custom both hash abc/,
   );
 });
 
@@ -216,29 +176,81 @@ test("stitch stacks both panels into a taller png", async () => {
   }
 });
 
-test("profile proof navigates a loopback dist and blocks the live Pages host", async () => {
-  const root = join(import.meta.dirname, "../..");
-  const proof = await readFile(
-    join(root, "scripts/ci/pwa-install-profile-proof.mjs"),
+const walks = [
+  { name: "minimal-local" },
+  { name: "default" },
+  { name: "custom" },
+  { name: "full" },
+];
+
+test("an empty profile request keeps every walk for local runs", () => {
+  assert.deepEqual(walksForProof(walks, undefined), walks);
+  assert.deepEqual(walksForProof(walks, ""), walks);
+  assert.deepEqual(walksForProof(walks, "  "), walks);
+});
+
+test("a named profile request keeps that walk", () => {
+  assert.deepEqual(walksForProof(walks, "default"), [{ name: "default" }]);
+  assert.deepEqual(walksForProof(walks, " full "), [{ name: "full" }]);
+});
+
+test("CD constant names the full profile", () => {
+  assert.equal(FULL_INSTALL_PROFILE_PROOF_NAME, "full");
+});
+
+test("assert module does not import sharp", () => {
+  const source = readFileSync(
+    new URL("./pwa-profile-proof-assert.mjs", import.meta.url),
     "utf8",
   );
-  const harness = await readFile(
-    join(root, "apps/pages/scripts/lib/static-origin-harness.mjs"),
+  assert.doesNotMatch(source, /from "sharp"/);
+});
+
+test("cd-pwa proves the full install profile only", () => {
+  const text = readFileSync(
+    new URL("../../.github/workflows/cd-pwa.yml", import.meta.url),
     "utf8",
   );
-  const setup = await readFile(
-    join(root, "apps/pages/scripts/lib/verification-checklist-setup.mjs"),
+  assert.match(text, /name: Build install profile \(full\)/);
+  assert.match(text, /PWA_PROFILE_PROOF_NAME: full/);
+  assert.match(text, /name: pwa-profile-proof-\$\{\{ github\.run_id \}\}/);
+  assert.doesNotMatch(text, /profile: \[minimal-local, default, custom, full\]/);
+  assert.doesNotMatch(text, /proof-gate:/);
+  assert.match(text, /timeout-minutes: 60/);
+  const build = text.split("\n  build:\n")[1]?.split("\n  npm_preview:\n")[0];
+  assert.match(build ?? "", /\n {4}needs: \[main_ci\]\n/);
+  assert.doesNotMatch(build ?? "", /needs:.*proof/);
+  const preview = text
+    .split("\n  npm_preview:\n")[1]
+    ?.split("\n  deploy:\n")[0];
+  const deploy = text
+    .split("\n  deploy:\n")[1]
+    ?.split("\n  preview_smoke:\n")[0];
+  assert.match(preview ?? "", /needs: \[build, proof\]/);
+  assert.match(deploy ?? "", /needs: \[build, proof\]/);
+  const smoke = text
+    .split("\n  preview_smoke:\n")[1]
+    ?.split("\n  production:\n")[0];
+  assert.match(smoke ?? "", /timeout-minutes: 30/);
+  assert.match(
+    text,
+    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+  );
+  assert.equal((text.match(/run: npm run build/g) ?? []).length, 1);
+});
+
+test("pull-request profile proof uses the full profile only", () => {
+  const text = readFileSync(
+    new URL(
+      "../../.github/workflows/cd-pwa-profile-proof.yml",
+      import.meta.url,
+    ),
     "utf8",
   );
-  assert.match(proof, /serveLoopbackDist\(\{ dist, base: BASE \}\)/);
-  assert.match(proof, /passthrough: \[server\.origin\]/);
-  assert.match(proof, /openDoor\([^)]*server\.href\)/);
-  assert.match(proof, /MAP opensesame-labs\.github\.io ~NOTFOUND/);
-  assert.doesNotMatch(proof, /origin: ORIGIN/);
-  const route = harness.slice(harness.indexOf("await context.route"));
-  const passed = route.indexOf("passthrough.includes(url.origin)");
-  const fulfilled = route.indexOf("url.origin === origin");
-  assert.ok(passed >= 0 && fulfilled > passed);
-  assert.match(harness, /export function serveLoopbackDist/);
-  assert.match(setup, /page\.goto\(href/);
+  assert.match(text, /name: Install-profile screenshot \(full\)/);
+  assert.match(text, /PWA_PROFILE_PROOF_NAME: full/);
+  assert.doesNotMatch(text, /profile: \[minimal-local, default, custom, full\]/);
+  assert.doesNotMatch(text, /proof-gate:/);
+  assert.match(text, /timeout-minutes: 60/);
+  assert.match(text, /cache: false/);
 });
