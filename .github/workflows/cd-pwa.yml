@@ -117,9 +117,8 @@ jobs:
           if-no-files-found: error
 
   build:
-    # Starts with profile proof. Preview and Pages deploy wait for proof and reuse these artifacts.
     name: Build Pages and stage npm
-    needs: [main_ci]
+    needs: [main_ci, proof]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:
@@ -207,7 +206,7 @@ jobs:
 
   npm_preview:
     name: Preview npm publish
-    needs: [build, proof]
+    needs: build
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -243,7 +242,7 @@ jobs:
 
   deploy:
     name: Deploy GitHub Pages
-    needs: [build, proof]
+    needs: build
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
