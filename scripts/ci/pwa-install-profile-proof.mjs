@@ -49,7 +49,7 @@ import {
   emptyRecord,
   visibleClick,
 } from "../../apps/pages/scripts/lib/verification-checklist-shot.mjs";
-import { isString } from "../lib/json-boundary.mjs";
+import { isString, readString } from "../lib/json-boundary.mjs";
 import {
   assertFullProfileProof,
   assertProfileProof,
@@ -141,6 +141,28 @@ async function prepareOut(root) {
 }
 
 async function buildAll(walks, paths) {
+  const proofDistRaw = readString(process.env.PWA_PROFILE_PROOF_DIST);
+  if (proofDistRaw !== undefined && proofDistRaw.length > 0) {
+    if (
+      walks.length !== 1 ||
+      walks[0]?.name !== FULL_INSTALL_PROFILE_PROOF_NAME
+    ) {
+      throw new Error(
+        "PWA_PROFILE_PROOF_DIST is only for the full CD profile proof",
+      );
+    }
+    const walk = walks[0];
+    const dist = resolve(proofDistRaw);
+    if (!existsSync(join(dist, "index.html"))) {
+      throw new Error(`PWA_PROFILE_PROOF_DIST missing index.html: ${dist}`);
+    }
+    await removeMarker(dist);
+    const digest = await sha256DistTree(dist);
+    const dists = new Map([[walk.buildKey, dist]]);
+    const digests = new Map([[walk.buildKey, digest]]);
+    console.error(`[pwa-proof] reuse dist ${walk.buildKey} ${digest}`);
+    return { dists, digests };
+  }
   const dists = new Map();
   const digests = new Map();
   for (const walk of buildsNeeded(walks)) {
@@ -381,6 +403,7 @@ async function walkAll(walks, built, root) {
 }
 
 async function main() {
+  const started = Date.now();
   const paths = appPaths();
   const resolved = resolveWalks(paths.profilesDir, WALK_NAMES);
   const names = resolved.map((walk) => walk.name).join(",");
@@ -403,6 +426,9 @@ async function main() {
       `${JSON.stringify(manifest, null, 2)}\n`,
     );
     process.stdout.write(`${JSON.stringify(manifest, null, 2)}\n`);
+    console.error(
+      `[pwa-proof] finished in ${Date.now() - started}ms (screenshot-only=${readString(process.env.PWA_PROFILE_PROOF_DIST) !== undefined})`,
+    );
     return;
   }
   if (walks.length === 1) {

@@ -208,6 +208,35 @@ async function listJobs(config, runId, fetcher) {
   throw new Error("job list exceeded 5 pages");
 }
 
+/** One-shot lookup after main CI has already completed (CD build_full_profile). */
+export async function resolveAdmittedMainCiRun(config, fetcher) {
+  const classified = classifyRuns(
+    await listRuns(config, fetcher),
+    config.sha,
+    config.repository,
+  );
+  let lastProblem = `no completed successful ${CI_WORKFLOW_PATH} push on main`;
+  for (const run of classified.successful) {
+    const problems = failedChecks(
+      await listJobs(config, readRunId(run), fetcher),
+    );
+    if (problems.length === 0) {
+      return { runId: readRunId(run), sha: config.sha };
+    }
+    lastProblem = problems.join("; ");
+  }
+  if (
+    classified.completedFailure &&
+    classified.successful.length === 0 &&
+    !classified.pending
+  ) {
+    throw new Error(
+      `main CI failed for ${config.sha}: ci.yml push completed without success`,
+    );
+  }
+  throw new Error(`main CI not admitted for ${config.sha}: ${lastProblem}`);
+}
+
 export async function waitForMainCi(config, fetcher, sleep) {
   let lastProblem = `no completed successful ${CI_WORKFLOW_PATH} push on main`;
   for (let attempt = 1; attempt <= config.attempts; attempt += 1) {

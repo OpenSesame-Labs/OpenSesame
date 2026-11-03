@@ -14,7 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertNotProofGateFail } from "../cd-preview-smoke.mjs";
 import { checkReleaseMeta } from "../cd-release-meta.mjs";
-import { buildHurlVariables } from "./prepare-vars.mjs";
+import { buildHurlVariables, serializeHurlVariables } from "./prepare-vars.mjs";
 import { cdnRetryBudget, registryRetryBudget } from "./retry-budget.mjs";
 import { captureLiveSmokeEvidence } from "./screenshot-evidence.mjs";
 
@@ -54,8 +54,8 @@ async function main() {
   );
   const variables = buildHurlVariables(process.env);
   const varDir = mkdtempSync(join(tmpdir(), "cd-pwa-hurl-"));
-  const varPath = join(varDir, "vars.json");
-  writeFileSync(varPath, `${JSON.stringify(variables, null, 2)}\n`);
+  const varPath = join(varDir, "vars.properties");
+  writeFileSync(varPath, serializeHurlVariables(variables));
 
   const registry = registryRetryBudget(process.env);
   const hurlStarted = Date.now();

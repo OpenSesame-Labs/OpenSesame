@@ -3,7 +3,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { buildHurlVariables, normalizePagesBase } from "./prepare-vars.mjs";
+import {
+  buildHurlVariables,
+  normalizePagesBase,
+  serializeHurlVariables,
+} from "./prepare-vars.mjs";
 import { cdnRetryBudget, registryRetryBudget } from "./retry-budget.mjs";
 
 const sha = "c".repeat(40);
@@ -59,6 +63,17 @@ test("buildHurlVariables reads stamped release digests and local PWA assets", ()
   assert.equal(vars.sha256_os_runtime, "bb".repeat(32));
   assert.match(vars.sha256_manifest, /^[a-f0-9]{64}$/);
   assert.match(vars.sha256_sw, /^[a-f0-9]{64}$/);
+});
+
+test("serializeHurlVariables uses Hurl properties syntax not JSON", () => {
+  const text = serializeHurlVariables({
+    pages_base: "https://example.github.io/OpenSesame/",
+    github_sha: sha,
+    expected_version: version,
+    sha256_index: "aa".repeat(32),
+  });
+  assert.match(text, /^pages_base=https:\/\//m);
+  assert.doesNotMatch(text, /^\{/m);
 });
 
 test("registry retry is a single attempt when publish already confirmed", () => {
