@@ -202,7 +202,10 @@ test("CD promotes staged artifacts with automated gates only", () => {
   const pwaProduction = jobSlice(pwa, "production", "promotion_failed");
   assert.match(pwaProduction, /actions\/download-artifact@/);
   assert.match(pwaProduction, /pages-dist-\$\{\{ github\.run_id \}\}/);
-  assert.match(pwaProduction, /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/);
+  assert.match(
+    pwaProduction,
+    /npm-pages-pwa-release-\$\{\{ github\.run_id \}\}/,
+  );
   assert.match(pwaProduction, /npm-token: \$\{\{ secrets\.NPM_TOKEN \}\}/);
   assert.match(pwaProduction, /npm-dist-tag: next/);
   assert.doesNotMatch(pwaProduction, /npm run build/);
