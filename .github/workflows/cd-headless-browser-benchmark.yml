@@ -1,0 +1,56 @@
+# Optional headless browser benchmark — not a PR merge gate.
+#
+# Runs on a schedule, manual dispatch, or when this workflow/script changes.
+# CD pull requests use the decision in #2427 (playwright-core + chrome-headless-shell);
+# they must not pay for a seven-minute matrix on every push.
+
+name: CD headless browser benchmark
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cd-headless-browser-benchmark.yml"
+      - "scripts/ci/headless-browser-benchmark.mjs"
+      - "scripts/ci/headless-browser-benchmark.test.mjs"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-headless-browser-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Headless browser benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: true
+          install_args: node@24
+      - name: Install Pages workspace for bench build
+        run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
+      - name: Build Pages dist for loopback bench
+        env:
+          PAGES_CANONICAL_ORIGIN: https://opensesame-labs.github.io
+          PAGES_DEPLOYMENT_PROFILE: shared_origin_demo
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Run capped headless browser benchmark
+        env:
+          OPENSESAME_HEADLESS_BENCH_DIST: apps/pages/dist
+          HEADLESS_BENCH_OUT: artifacts/headless-browser-benchmark.json
+          HEADLESS_BENCH_BACKENDS: system,cft,pw-hshell
+          HEADLESS_BENCH_WALL_SEC: "480"
+        run: node scripts/ci/headless-browser-benchmark.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: headless-browser-benchmark-${{ github.run_id }}
+          path: artifacts/headless-browser-benchmark.json
+          if-no-files-found: error
