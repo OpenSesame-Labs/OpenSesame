@@ -599,7 +599,7 @@ jobs:
           sparse-checkout: |
             scripts/release
             scripts/lib
-            scripts/ci/ensure-chrome-headless-shell.mjs
+            scripts/ci
             apps/pages/scripts/duress
             package.json
             package-lock.json
@@ -639,6 +639,8 @@ jobs:
       - name: Install the frozen dependency graph
         run: npm ci
       - name: Resolve headless Chromium for preview smoke evidence
+        env:
+          CD_PWA_SMOKE_REQUIRE_HEADLESS_SHELL: "1"
         run: |
           set -euo pipefail
           path="$(node scripts/ci/ensure-chrome-headless-shell.mjs)"

@@ -10,6 +10,18 @@ import { launchHeadlessPlaywright } from "../../../apps/pages/scripts/duress/hea
 import { readString } from "../../lib/json-boundary.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
 
+/**
+ * The shell document `pages.hurl` proves:
+ * `{{pages_base}}index.html?release={{github_sha}}`.
+ * The directory URL stays cacheable on its own; this request carries the same
+ * release query so the CDN cannot answer with a stale shell.
+ */
+export function smokeBrowserEntryUrl(pagesBase, sha) {
+  const url = new URL("index.html", normalizePagesBase(pagesBase));
+  url.searchParams.set("release", sha);
+  return url.href;
+}
+
 async function sha256File(path) {
   const { readFile } = await import("node:fs/promises");
   const bytes = await readFile(path);
@@ -25,7 +37,7 @@ async function loadFindChromium(repoRoot) {
 }
 
 export async function captureLiveSmokeEvidence(env, deps = {}) {
-  const pagesUrl = normalizePagesBase(env.PAGES_URL);
+  const pagesBase = normalizePagesBase(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA);
   if (sha === undefined || !/^[0-9a-f]{40}$/u.test(sha)) {
     throw new Error("Pages smoke requires GITHUB_SHA");
@@ -58,10 +70,12 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       reducedMotion: "reduce",
+      serviceWorkers: "block",
     });
     const page = await context.newPage();
-    await page.goto(pagesUrl, {
-      waitUntil: "domcontentloaded",
+    const entryUrl = smokeBrowserEntryUrl(pagesBase, sha);
+    await page.goto(entryUrl, {
+      waitUntil: "load",
       timeout: 45_000,
     });
     const setupOwn = page.getByRole("button", {
@@ -80,6 +94,9 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     }
 
     await setupOwn.click();
+    await page
+      .getByRole("button", { name: "Minimal", exact: true })
+      .waitFor({ state: "visible", timeout: 15_000 });
     const fullChoice = page.getByRole("button", { name: "Full", exact: true });
     await fullChoice.waitFor({ state: "visible", timeout: 15_000 });
     const choicesPath = join(outRoot, "live-setup-choices-full.png");
@@ -113,7 +130,8 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
       format: "cd-pwa-preview-smoke-evidence",
       version: 1,
       revision: sha,
-      pages_url: pagesUrl,
+      pages_url: pagesBase,
+      browser_entry_url: entryUrl,
       captured_ms: Date.now() - started,
       shots: {
         "live-front-door.png": await sha256File(frontPath),
