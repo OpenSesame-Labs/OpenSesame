@@ -19,7 +19,7 @@ Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alp
 
 The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again. The CLI stage build sets `CLI_RELEASE_PACK=1` so esbuild omits sourcemaps, and `prepare-cli-release.mjs` deletes `*.map` from the publish tree.
 
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit). On PWA CD the gate overlaps **Build full install profile dist** (reuses the full-profile dist artifact from main CI when present), the Pages/npm **build**, and the fast **Build install profile (full)** screenshot job (reuses the uploaded dist; no Vite rebuild). **Preview smoke** for PWA CD runs pinned **[Hurl](https://hurl.dev/)** HTTP checks plus headless screenshots via `playwright-core` and chrome-headless-shell (`scripts/release/cd-pwa-preview-smoke/`). CLI CD still uses `cd-preview-smoke.mjs`. PWA CD uses concurrency group `cd-pwa` with `cancel-in-progress: false`. Then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
+Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit). On PWA CD the gate overlaps **Build full install profile dist** (built in `cd-pwa.yml`, optionally reusing a legacy main CI artifact when present), the Pages/npm **build**, and the fast **Build install profile (full)** screenshot job (reuses the uploaded dist; no Vite rebuild). **Preview smoke** for PWA CD runs pinned **[Hurl](https://hurl.dev/)** HTTP checks plus headless screenshots via `playwright-core` and chrome-headless-shell (`scripts/release/cd-pwa-preview-smoke/`). CLI CD still uses `cd-preview-smoke.mjs`. PWA CD uses concurrency group `cd-pwa` with `cancel-in-progress: false`. Then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
 
 ## Workflows
 
@@ -60,6 +60,18 @@ Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trus
 `rust-build` splits the selected crates across four hosted runners. The union is the same set `cargo build --locked --workspace` (or the affected `-p` list) compiles today. Crates that enable a feature on another workspace member stay on one shard. `CARGO_SHARD` unset still builds that whole set in one invocation. Empty shards are omitted and do not run a bare `cargo build`. The Bitwarden feature build stays on shard 0. The required check name stays **Rust**. `fail-fast` is false, and the reporter fails when any shard fails.
 
 Shard 0 is the only leg that may save the Swatinem cache, and only when `TRUSTED_CACHE_SAVE` is true. Pull requests still do not save. Every shard restores `v0-rust-rust-build-`.
+
+## Main CI wall time (push to main)
+
+On #2426 (`3bf158652`), **Build affected TypeScript graph** ran (~2m54s) because CD-only paths under `apps/pages/scripts/duress/` and `scripts/release/cd-*` selected `@opensesame/pages`, and the job also built the full install-profile dist for CD. The **CI** workflow wall reached **3m28s** ([run 41575412832](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41575412832)) even though required reporter jobs only report compile success.
+
+| | Commit / run | Build affected TypeScript graph | **CI workflow wall** |
+| --- | --- | --- | --- |
+| Before | `fd68fbef` [41569316856](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41569316856) | skipped | **~42s** |
+| Regressed | `3bf158652` (#2426) [41575412832](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41575412832) | **2m54s** | **3m28s** |
+| CD-only follow-up | `975ff9ffb` [41577060235](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41577060235) | skipped | **~32s** |
+
+Trunk CI excludes CD-only paths from the TypeScript compile selector and keeps full-profile dist work in `cd-pwa.yml` only.
 
 GitHub-hosted larger runners are not enabled. Tyler has not approved them. The opt-in in `ci.yml` is a comment and stays off (`ubuntu-latest-4-cores`, `ubuntu-latest-8-cores`). Public list prices for Linux x64, which are billed on public repositories: 4-core `linux_4_core` $0.012 per minute, 8-core `linux_8_core` $0.022 per minute. Standard `ubuntu-latest` is `actions_linux` at $0.006 per minute and is free on public repositories. Source: <https://docs.github.com/en/billing/reference/actions-runner-pricing>.
 

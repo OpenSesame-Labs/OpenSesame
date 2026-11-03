@@ -63,6 +63,21 @@ test("builds changed packages and transitive consumers, leaving unrelated work o
   ]);
 });
 
+test("CD-only paths do not select trunk TypeScript builds", () => {
+  const root = repoRootFromHere();
+  const nodes = loadPackageNodes(root);
+  const plan = planBuildPackages(
+    [
+      "scripts/release/cd-pwa-preview-smoke/run.mjs",
+      "apps/pages/scripts/duress/find-chromium.mjs",
+      "scripts/ci/ensure-chrome-headless-shell.mjs",
+    ],
+    nodes,
+  );
+  assert.equal(plan.scope, "none");
+  assert.deepEqual(plan.packages, []);
+});
+
 test("the real package and Cargo graphs include downstream deployables", () => {
   const root = repoRootFromHere();
   const packages = planBuildPackages(
