@@ -52,9 +52,11 @@ describe("trusted install caches", () => {
       const jobs =
         name === "ci.yml"
           ? [
-              ...text.split("\njobs:\n")[1].matchAll(
-                /^ {2}([a-z][a-z0-9-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gm,
-              ),
+              ...text
+                .split("\njobs:\n")[1]
+                .matchAll(
+                  /^ {2}([a-z][a-z0-9-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gm,
+                ),
             ].map((match) => ({ id: match[1], body: match[2] }))
           : [{ id: name, body: text }];
       let installsSeen = 0;
@@ -92,7 +94,10 @@ describe("trusted install caches", () => {
           assert.ok(restore.includes("path: .npm-cache"), name);
           assert.ok(restore.includes(npmPrimary), name);
           assert.ok(restore.includes(npmSeedPrefix), name);
-          assert.ok(save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"), name);
+          assert.ok(
+            save.includes("if: env.TRUSTED_CACHE_SAVE == 'true'"),
+            name,
+          );
           assert.ok(save.includes("continue-on-error: true"), name);
           assert.ok(
             save.includes(
