@@ -72,3 +72,14 @@ CI wall time from `gh run view` on the pull request checks. Neither check select
 | --- | --- | --- | --- | --- | --- |
 | Before | [41559786830](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559786830) (PR #2412) | 9s | 7s | 10s | 14s |
 | After | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
+
+## Vitest isolation
+
+`isolate: false` is not used. One local run of `npx vitest run` in `packages/app-core` with `isolate: false` and an `afterEach` that clears mocks, timers, stubs, and env overrides finished red: 27 files failed, 108 tests failed, and 4 unhandled errors in 443s (13415 tests passed). That 443s is the local process time, not a GitHub Actions job. Leaked state included a locked vault tomb, a guest principal left in place of `principal_1`, and a missing bearer token. The package config was reverted. The full `npm run test` suite was not switched over and was not run three times.
+
+The pull request checks do not run Vitest. `gh run view` wall time on those checks, with **Build affected TypeScript graph** and **Build affected Rust graph** skipped on both:
+
+| | Run | TypeScript | Rust | Bundle budgets | Affected build graph |
+| --- | --- | --- | --- | --- | --- |
+| Before | [41559897362](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41559897362) (PR #2409) | 8s | 8s | 9s | 12s |
+| After | [41560110820](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/41560110820) (PR #2410) | 8s | 11s | 11s | 14s |
