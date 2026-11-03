@@ -48,18 +48,12 @@ describe("GHCR publish workflow", () => {
     for (const name of ["opensesame", "cli", "web-pwa", "control-plane"]) {
       assert.match(workflow, new RegExp(`name: ${name}`));
     }
-    assert.match(
-      workflow,
-      /cache-from: type=gha,scope=\$\{\{ matrix\.id \}\}/,
-    );
+    assert.match(workflow, /cache-from: type=gha,scope=\$\{\{ matrix\.id \}\}/);
     assert.match(
       workflow,
       /cache-to: type=gha,mode=max,scope=\$\{\{ matrix\.id \}\}/,
     );
-    assert.match(
-      workflow,
-      /matrix\.platform == 'linux\/arm64'/,
-    );
+    assert.match(workflow, /matrix\.platform == 'linux\/arm64'/);
     assert.equal(workflow.match(/docker\/setup-qemu-action@/g)?.length, 1);
     assert.doesNotMatch(workflow, /linux\/amd64,linux\/arm64/);
     assert.match(
