@@ -21,6 +21,7 @@ introduces its own (mTLS, plugins) names them where they are used.
 | [Proxied run quickstart](proxied-run-quickstart.md) | Running a command with a surrogate in place of a provider token: install the plugin, seal the token, declare the connection, what the child sees, what is refused, how a run ends and is revoked. |
 | [CI and artifact promotion](ci-promotion.md) | Fast trunk integration, nightly candidates, weekly qualification/publication and recovery. |
 | [Release kit](release-kit.md) | The qualified prebuilt Linux binaries the weekly pipeline publishes: what is in a kit, verifying it with `sha256sum` and `gh attestation verify`, and running it in a lane with the bridge beside the binary. |
+| [GHCR images](ghcr-images.md) | Container images for the host, client CLI, Pages PWA, and Identity API: ports, build context, tags, and the operator checklist. |
 
 ## Identity
 
