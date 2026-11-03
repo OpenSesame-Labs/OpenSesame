@@ -189,8 +189,14 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(cli, /needs: \[stage, preview\]/);
   assert.match(cli, /needs: \[stage, preview, preview_smoke\]/);
   assert.match(pwa, /needs: \[build, deploy, npm_preview\]/);
+  const pwaBuild = jobSlice(pwa, "build", "npm_preview");
+  assert.match(pwaBuild, /needs: \[main_ci\]\n/);
+  assert.doesNotMatch(pwaBuild, /needs:.*proof/);
   const cliPreview = jobSlice(cli, "preview", "preview_smoke");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
+  const pwaDeploy = jobSlice(pwa, "deploy", "preview_smoke");
+  assert.match(pwaPreview, /needs: \[build, proof\]/);
+  assert.match(pwaDeploy, /needs: \[build, proof\]/);
   for (const slice of [cliPreview, pwaPreview]) {
     assert.match(slice, /name: Preview npm publish\n/);
     assert.match(slice, /environment:\n {6}name: Preview\n/);
