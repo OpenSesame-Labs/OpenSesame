@@ -243,7 +243,11 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.equal(spec.promotion_model.preview_smoke.includes("opensesame"), true);
   assert.match(
     spec.promotion_model.preview_smoke,
-    /npm view @opensesame-labs\/cli@EXPECTED_VERSION version --prefer-online/,
+    /npm view <package>@EXPECTED_VERSION version --prefer-online/,
+  );
+  assert.match(
+    spec.promotion_model.preview_smoke,
+    /CD_REGISTRY_VERSION_CONFIRMED=1 on preview smoke when the publish job succeeded/,
   );
   assert.match(
     spec.promotion_model.preview_smoke,
