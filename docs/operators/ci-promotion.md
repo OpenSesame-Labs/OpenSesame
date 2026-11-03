@@ -71,6 +71,11 @@ qualification adds mutation and security. Those reusable workflows have no PR,
 merge-group or main-push triggers. Scheduled repository monitoring and manual
 investigations remain independent.
 
+CD PWA run 41634347519 waited about 3.5 minutes before its first job. The run
+was created at 12:16:40Z and the first job started at 12:20:13Z because the
+`cd-pwa` concurrency group sets `cancel-in-progress: false` and that run waited
+for run 41633648450. That concurrency setting stays as it is.
+
 ## Build and identity
 
 The producer accepts a source SHA and exact successful push-main CI run/attempt.

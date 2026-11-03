@@ -12,9 +12,10 @@ import {
   assertVersionOutput,
   distTagVersion,
   outputHasVersion,
+  exactPublishedVersionUrl,
   pollUntilDeadline,
+  registryPollNonceToken,
   runPreviewSmoke,
-  viewPublishedVersionArgs,
   waitForPublishedVersion,
 } from "./cd-preview-smoke.mjs";
 
@@ -39,10 +40,16 @@ function distTags(alpha = version) {
   return jsonResponse(200, { alpha });
 }
 
-const viewArgs = viewPublishedVersionArgs(CLI_PACKAGE, version);
-
 function viewResult(stdout, status = 0) {
   return { status, stdout, stderr: "" };
+}
+
+function versionDoc(seen = version, status = 200) {
+  return jsonResponse(status, { version: seen });
+}
+
+function cacheBustOf(url) {
+  return new URL(String(url)).searchParams.get("_cd_wait");
 }
 
 function page(status = 200, body = "<!doctype html><title>OpenSesame</title>") {
@@ -69,9 +76,9 @@ const oneRetry = {
   SMOKE_REGISTRY_POLL_MS: "10000",
 };
 
-test("registry wait defaults are five minutes and ten seconds", () => {
+test("registry wait defaults are five minutes and 2.5 seconds", () => {
   assert.equal(DEFAULT_REGISTRY_DEADLINE_MS, 300_000);
-  assert.equal(DEFAULT_REGISTRY_POLL_MS, 10_000);
+  assert.equal(DEFAULT_REGISTRY_POLL_MS, 2_500);
 });
 
 test("pollUntilDeadline retries on the poll interval until the deadline", async () => {
@@ -137,50 +144,84 @@ test("opensesame --version must exit 0 and report the resolved version", () => {
   );
 });
 
-test("waitForPublishedVersion accepts only the exact trimmed version", async () => {
-  const calls = [];
-  const seen = await waitForPublishedVersion(
-    version,
-    async (command, args) => {
-      calls.push([command, args]);
-      return viewResult(`  ${version}\n`);
+test("waitForPublishedVersion accepts only the exact version", async () => {
+  const urls = [];
+  const noSleep = async () => {
+    throw new Error("sleep");
+  };
+  const seen = await waitForPublishedVersion(version, {
+    fetch: async (url) => {
+      urls.push(String(url));
+      return versionDoc(version);
     },
-    {
-      sleep: async () => {
-        throw new Error("sleep");
-      },
-      deadlineMs: 0,
-      pollMs: DEFAULT_REGISTRY_POLL_MS,
-    },
-  );
+    sleep: noSleep,
+    deadlineMs: 0,
+    pollMs: DEFAULT_REGISTRY_POLL_MS,
+  });
   assert.equal(seen, version);
-  assert.equal(calls[0][0], "npm");
-  assert.deepEqual(calls[0][1], viewArgs);
+  assert.match(
+    urls[0],
+    /@opensesame-labs%2fcli\/0\.0\.0-alpha\.4\?_cd_wait=[0-9a-z]+-[0-9a-z]+$/u,
+  );
   await assert.rejects(
     () =>
-      waitForPublishedVersion(
-        version,
-        async () => viewResult("0.0.0-alpha.40\n"),
-        {
-          sleep: async () => {
-            throw new Error("sleep");
-          },
-          deadlineMs: 0,
-          pollMs: DEFAULT_REGISTRY_POLL_MS,
-        },
-      ),
+      waitForPublishedVersion(version, {
+        fetch: async () => versionDoc("0.0.0-alpha.40"),
+        sleep: noSleep,
+        deadlineMs: 0,
+        pollMs: DEFAULT_REGISTRY_POLL_MS,
+      }),
     /returned 0\.0\.0-alpha\.40 != 0\.0\.0-alpha\.4/,
   );
   await assert.rejects(
     () =>
-      waitForPublishedVersion(version, async () => viewResult("", 1), {
-        sleep: async () => {
-          throw new Error("sleep");
-        },
+      waitForPublishedVersion(version, {
+        fetch: async () => versionDoc("", 404),
+        sleep: noSleep,
         deadlineMs: 0,
         pollMs: DEFAULT_REGISTRY_POLL_MS,
       }),
-    /exited 1/,
+    /HTTP 404/,
+  );
+  await assert.rejects(
+    () =>
+      waitForPublishedVersion(version, {
+        fetch: async () => versionDoc(`  ${version}`),
+        sleep: noSleep,
+        deadlineMs: 0,
+        pollMs: DEFAULT_REGISTRY_POLL_MS,
+      }),
+    /!= 0\.0\.0-alpha\.4/,
+  );
+});
+
+test("exact version polls use a fresh monotonic cache-bust query", async () => {
+  const clock = manualClock();
+  const queries = [];
+  const before = registryPollNonceToken(0);
+  await waitForPublishedVersion(version, {
+    now: clock.now,
+    deadlineMs: 5_000,
+    pollMs: 2_500,
+    sleep: async (ms) => {
+      await clock.sleep(ms);
+    },
+    fetch: async (url) => {
+      queries.push(cacheBustOf(url));
+      if (queries.length < 3) return versionDoc("0.0.0-alpha.0");
+      return versionDoc(version);
+    },
+  });
+  assert.equal(queries.length, 3);
+  const counters = [before, ...queries].map((query) =>
+    Number.parseInt(query.split("-")[1], 36),
+  );
+  assert.ok(counters[1] > counters[0]);
+  assert.ok(counters[2] > counters[1]);
+  assert.ok(counters[3] > counters[2]);
+  assert.equal(
+    exactPublishedVersionUrl(CLI_PACKAGE, version, queries[0]),
+    `https://registry.npmjs.org/@opensesame-labs%2fcli/${version}?_cd_wait=${queries[0]}`,
   );
 });
 
@@ -239,8 +280,9 @@ test("confirmed registry version still requires the alpha dist-tag", async () =>
   );
 });
 
-test("registry confirmation other than 1 still waits for npm view", async () => {
+test("registry confirmation other than 1 still waits for the exact version", async () => {
   const calls = [];
+  const urls = [];
   await runPreviewSmoke(
     {
       EXPECTED_VERSION: version,
@@ -248,90 +290,89 @@ test("registry confirmation other than 1 still waits for npm view", async () => 
       ...oneShot,
     },
     {
-      fetch: async () => distTags(),
+      fetch: async (url) => {
+        urls.push(String(url));
+        if (String(url).includes("_cd_wait=")) return versionDoc(version);
+        return distTags();
+      },
       sleep: async () => {
         throw new Error("sleep");
       },
       run: async (command, args) => {
         calls.push([command, args]);
-        if (command === "npm" && args[0] === "view") {
-          return viewResult(`${version}\n`);
-        }
         if (command === "npm") return viewResult("");
         return viewResult(`${version}\n`);
       },
     },
   );
-  assert.equal(calls[0][1][0], "view");
-  assert.deepEqual(calls[0][1], viewArgs);
+  assert.match(urls[0], /_cd_wait=/u);
+  assert.equal(calls[0][1][0], "install");
 });
 
-test("preview smoke calls npm view --prefer-online before dist-tags", async () => {
+test("preview smoke GETs the exact version before dist-tags", async () => {
   const calls = [];
-  let fetched = false;
-  const fetcher = async (url) => {
-    assert.equal(
-      calls.some((call) => call[1][0] === "view"),
-      true,
-    );
-    fetched = true;
-    assert.match(String(url), /@opensesame-labs%2fcli\/dist-tags/);
-    return distTags();
-  };
+  const urls = [];
   const versionSeen = await runPreviewSmoke(
     { EXPECTED_VERSION: version, ...oneShot },
     {
-      fetch: fetcher,
+      fetch: async (url) => {
+        const href = String(url);
+        urls.push(href);
+        if (href.includes("_cd_wait=")) {
+          assert.equal(calls.length, 0);
+          return versionDoc(version);
+        }
+        assert.match(href, /@opensesame-labs%2fcli\/dist-tags/);
+        return distTags();
+      },
       sleep: async () => {
         throw new Error("sleep");
       },
       run: async (command, args) => {
         calls.push([command, args]);
-        if (command === "npm" && args[0] === "view") {
-          assert.equal(fetched, false);
-          return viewResult(`${version}\n`);
-        }
         if (command === "npm") return viewResult("");
         return viewResult(`${version}\n`);
       },
     },
   );
   assert.equal(versionSeen, version);
-  assert.equal(calls.length, 3);
-  assert.equal(calls[0][0], "npm");
-  assert.deepEqual(calls[0][1], viewArgs);
-  assert.ok(calls[1][1].includes(CLI_SPEC));
-  assert.deepEqual(calls[2][1], ["--version"]);
-  assert.match(calls[2][0], /opensesame$/u);
+  assert.match(urls[0], /\/0\.0\.0-alpha\.4\?_cd_wait=/u);
+  assert.match(urls[1], /dist-tags/);
+  assert.equal(calls.length, 2);
+  assert.ok(calls[0][1].includes(CLI_SPEC));
+  assert.deepEqual(calls[1][1], ["--version"]);
+  assert.match(calls[1][0], /opensesame$/u);
 });
 
-test("preview smoke does not accept a wrong npm view version", async () => {
-  let fetches = 0;
+test("preview smoke does not accept a wrong registry version", async () => {
+  let distTagsFetched = 0;
   await assert.rejects(
     () =>
       runPreviewSmoke(
         { EXPECTED_VERSION: version, ...oneShot },
         {
-          fetch: async () => {
-            fetches += 1;
-            return distTags();
+          fetch: async (url) => {
+            if (String(url).includes("dist-tags")) {
+              distTagsFetched += 1;
+              return distTags();
+            }
+            return versionDoc("0.0.0-alpha.0");
           },
-          run: async (command, args) => {
-            assert.equal(command, "npm");
-            assert.equal(args[0], "view");
-            return viewResult("0.0.0-alpha.0\n");
+          run: async () => {
+            throw new Error("npm");
           },
         },
       ),
     /returned 0\.0\.0-alpha\.0 != 0\.0\.0-alpha\.4/,
   );
-  assert.equal(fetches, 0);
+  assert.equal(distTagsFetched, 0);
 });
 
 test("preview smoke fails when registry propagation does not catch up", async () => {
   const clock = manualClock();
-  let views = 0;
-  let fetches = 0;
+  let polls = 0;
+  const queries = [];
+  let distTagsFetched = 0;
   const slept = [];
   await assert.rejects(
     () =>
@@ -339,63 +380,67 @@ test("preview smoke fails when registry propagation does not catch up", async ()
         { EXPECTED_VERSION: version, ...oneRetry },
         {
           now: clock.now,
-          fetch: async () => {
-            fetches += 1;
-            return distTags();
+          fetch: async (url) => {
+            const href = String(url);
+            if (href.includes("dist-tags")) {
+              distTagsFetched += 1;
+              return distTags();
+            }
+            polls += 1;
+            queries.push(cacheBustOf(href));
+            return versionDoc("0.0.0-alpha.0");
           },
           sleep: async (ms) => {
             slept.push(ms);
             await clock.sleep(ms);
           },
-          run: async (command, args) => {
-            assert.equal(command, "npm");
-            assert.deepEqual(args, viewArgs);
-            views += 1;
-            return viewResult("0.0.0-alpha.0\n");
+          run: async () => {
+            throw new Error("npm");
           },
         },
       ),
     /returned 0\.0\.0-alpha\.0 != 0\.0\.0-alpha\.4/,
   );
-  assert.equal(views, 2);
+  assert.equal(polls, 2);
+  assert.notEqual(queries[0], queries[1]);
   assert.deepEqual(slept, [10_000]);
-  assert.equal(fetches, 0);
+  assert.equal(distTagsFetched, 0);
 });
 
-test("preview smoke retries npm view then fetches dist-tags", async () => {
+test("preview smoke retries the exact version then fetches dist-tags", async () => {
   const clock = manualClock();
-  let views = 0;
-  let fetches = 0;
+  let polls = 0;
+  let distTagsFetched = 0;
   await runPreviewSmoke(
     { EXPECTED_VERSION: version, ...oneRetry },
     {
       now: clock.now,
-      fetch: async () => {
-        assert.equal(views, 2);
-        fetches += 1;
-        return distTags();
+      fetch: async (url) => {
+        if (String(url).includes("dist-tags")) {
+          assert.equal(polls, 2);
+          distTagsFetched += 1;
+          return distTags();
+        }
+        polls += 1;
+        if (polls === 1) return versionDoc("0.0.0-alpha.0");
+        return versionDoc(version);
       },
       sleep: async (ms) => {
         assert.equal(ms, 10_000);
         await clock.sleep(ms);
       },
-      run: async (command, args) => {
-        if (command === "npm" && args[0] === "view") {
-          views += 1;
-          if (views === 1) return viewResult("0.0.0-alpha.0\n");
-          return viewResult(`${version}\n`);
-        }
+      run: async (command) => {
         if (command === "npm") return viewResult("");
         return viewResult(`${version}\n`);
       },
     },
   );
-  assert.equal(fetches, 1);
+  assert.equal(distTagsFetched, 1);
 });
 
-test("unset smoke env polls for five minutes at ten second intervals", async () => {
+test("unset smoke env polls for five minutes at 2.5 second intervals", async () => {
   const clock = manualClock();
-  let views = 0;
+  let polls = 0;
   const slept = [];
   await runPreviewSmoke(
     { EXPECTED_VERSION: version },
@@ -405,48 +450,55 @@ test("unset smoke env polls for five minutes at ten second intervals", async () 
         slept.push(ms);
         await clock.sleep(ms);
       },
-      fetch: async () => distTags(),
-      run: async (command, args) => {
-        if (args[0] === "view") {
-          views += 1;
+      fetch: async (url) => {
+        if (String(url).includes("_cd_wait=")) {
+          polls += 1;
           if (clock.now() < DEFAULT_REGISTRY_DEADLINE_MS) {
-            return viewResult("0.0.0-alpha.0\n");
+            return versionDoc("0.0.0-alpha.0");
           }
-          return viewResult(`${version}\n`);
+          return versionDoc(version);
         }
+        return distTags();
+      },
+      run: async (command) => {
         if (command === "npm") return viewResult("");
         return viewResult(`${version}\n`);
       },
     },
   );
-  assert.equal(views, 31);
-  assert.equal(slept.length, 30);
+  const attempts =
+    Math.floor(DEFAULT_REGISTRY_DEADLINE_MS / DEFAULT_REGISTRY_POLL_MS) + 1;
+  assert.equal(polls, attempts);
+  assert.equal(slept.length, attempts - 1);
   assert.ok(slept.every((ms) => ms === DEFAULT_REGISTRY_POLL_MS));
 });
 
 test("preview smoke refuses an alpha version other than EXPECTED_VERSION", async () => {
   const calls = [];
+  const urls = [];
   await assert.rejects(
     () =>
       runPreviewSmoke(
         { EXPECTED_VERSION: "0.0.0-alpha.9", ...oneShot },
         {
-          fetch: async () => distTags(),
+          fetch: async (url) => {
+            urls.push(String(url));
+            if (String(url).includes("_cd_wait=")) {
+              return versionDoc("0.0.0-alpha.9");
+            }
+            return distTags();
+          },
           run: async (command, args) => {
             calls.push([command, args]);
-            if (args[0] === "view") {
-              return viewResult("0.0.0-alpha.9\n");
-            }
             return viewResult(version);
           },
         },
       ),
     /alpha 0\.0\.0-alpha\.4 != expected 0\.0\.0-alpha\.9/,
   );
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0][1][0], "view");
-  assert.equal(calls[0][1][1], `${CLI_PACKAGE}@0.0.0-alpha.9`);
-  assert.ok(calls[0][1].includes("--prefer-online"));
+  assert.equal(calls.length, 0);
+  assert.match(urls[0], /@opensesame-labs%2fcli\/0\.0\.0-alpha\.9\?_cd_wait=/u);
+  assert.match(urls[1], /dist-tags/);
 });
 
 test("preview smoke retries a missing package then accepts it", async () => {
@@ -489,9 +541,11 @@ test("install and version retries use the registry deadline", async () => {
         assert.equal(ms, 10_000);
         await clock.sleep(ms);
       },
-      fetch: async () => distTags(),
-      run: async (command, args) => {
-        if (args[0] === "view") return viewResult(`${version}\n`);
+      fetch: async (url) => {
+        if (String(url).includes("_cd_wait=")) return versionDoc(version);
+        return distTags();
+      },
+      run: async (command) => {
         if (command === "npm") {
           installs += 1;
           if (installs === 1) return { status: 1, stdout: "", stderr: "nope" };
@@ -604,8 +658,10 @@ test("PWA preview smoke waits for web-pwa before the CLI alpha install", async (
     },
     {
       fetch: async (url) => {
-        urls.push(String(url));
-        if (String(url).includes("dist-tags")) return distTags(version);
+        const href = String(url);
+        urls.push(href);
+        if (href.includes("_cd_wait=")) return versionDoc(webVersion);
+        if (href.includes("dist-tags")) return distTags(version);
         return page();
       },
       sleep: async () => {
@@ -613,9 +669,6 @@ test("PWA preview smoke waits for web-pwa before the CLI alpha install", async (
       },
       run: async (command, args) => {
         calls.push([command, args]);
-        if (command === "npm" && args[0] === "view") {
-          return viewResult(`${webVersion}\n`);
-        }
         if (command === "npm") return viewResult("");
         return viewResult(`${version}\n`);
       },
@@ -626,14 +679,13 @@ test("PWA preview smoke waits for web-pwa before the CLI alpha install", async (
     },
   );
   assert.equal(seen, version);
-  assert.deepEqual(
-    calls[0][1],
-    viewPublishedVersionArgs(WEB_PWA_PACKAGE, webVersion),
+  assert.match(
+    urls[0],
+    /@opensesame-labs%2fweb-pwa\/0\.0\.0-alpha\.9\?_cd_wait=/u,
   );
-  assert.ok(calls[0][1].includes("--prefer-online"));
-  assert.ok(calls[1][1].includes(CLI_SPEC));
-  assert.deepEqual(calls[2][1], ["--version"]);
-  assert.match(urls[0], /dist-tags/);
+  assert.ok(calls[0][1].includes(CLI_SPEC));
+  assert.deepEqual(calls[1][1], ["--version"]);
+  assert.match(urls[1], /dist-tags/);
   assert.ok(urls.includes(pagesUrl));
 });
 
@@ -648,17 +700,16 @@ test("PWA preview smoke does not install the CLI when web-pwa is missing", async
           ...oneShot,
         },
         {
-          fetch: async () => distTags(),
+          fetch: async () => versionDoc("0.0.0-alpha.0"),
           run: async (command, args) => {
             calls.push([command, args]);
-            return viewResult("0.0.0-alpha.0\n");
+            return viewResult(`${version}\n`);
           },
         },
       ),
-    /npm view @opensesame-labs\/web-pwa@0\.0\.0-alpha\.4 version returned 0\.0\.0-alpha\.0/,
+    /registry @opensesame-labs\/web-pwa@0\.0\.0-alpha\.4 version returned 0\.0\.0-alpha\.0/,
   );
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0][1][0], "view");
+  assert.equal(calls.length, 0);
 });
 
 test("SMOKE_PUBLISHED_PACKAGE rejects unknown names and requires a version", async () => {
