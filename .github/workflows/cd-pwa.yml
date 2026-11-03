@@ -27,7 +27,6 @@ on:
       - "scripts/release/cd-promotion-notify.mjs"
       - "scripts/ci/pwa-install-profile-proof.mjs"
       - "scripts/ci/pwa-full-profile-dist-build.mjs"
-      - "scripts/ci/headless-browser-benchmark.mjs"
       - "scripts/ci/ensure-chrome-headless-shell.mjs"
       - "scripts/ci/cd-pwa-pages-workspace-install.mjs"
       - "scripts/ci/pwa-profile-proof-assert.mjs"

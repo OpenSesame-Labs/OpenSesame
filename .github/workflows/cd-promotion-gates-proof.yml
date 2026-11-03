@@ -53,6 +53,7 @@ jobs:
             scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
             scripts/ci/pwa-install-profile-proof.test.mjs \
+            scripts/ci/cd-pwa-pages-workspace-install.test.mjs \
             scripts/release/cd-production-npm-version.test.mjs \
             scripts/release/cd-promotion-notify.test.mjs
 
