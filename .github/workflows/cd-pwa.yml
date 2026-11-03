@@ -29,6 +29,7 @@ on:
       - "scripts/ci/pwa-full-profile-dist-build.mjs"
       - "scripts/ci/ensure-chrome-headless-shell.mjs"
       - "scripts/ci/cd-pwa-pages-workspace-install.mjs"
+      - "scripts/ci/cd-pwa-proof-sharp-install.mjs"
       - "scripts/ci/pwa-profile-proof-assert.mjs"
       - "scripts/ci/pwa-profile-proof-gate.mjs"
       - "scripts/ci/pwa-profile-proof-select.mjs"
@@ -315,6 +316,8 @@ jobs:
             npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install Pages workspace dependencies
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
+      - name: Install sharp for install-profile proof gate
+        run: node scripts/ci/cd-pwa-proof-sharp-install.mjs
       - name: Restore chrome-headless-shell cache
         id: chrome-shell-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
