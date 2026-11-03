@@ -1,11 +1,12 @@
 # The one native binary. Every native role is a subcommand of it:
 # `opensesame host run` (Host API), `opensesame worker run`, `opensesame daemon run`.
-FROM rust:1.88.0-bookworm@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0 AS chef
+FROM rust:1.94.1-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6e6621506ba959f9685b308a55 AS chef
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config \
   && rm -rf /var/lib/apt/lists/* \
   && cargo install cargo-chef --locked
 WORKDIR /src
+COPY rust-toolchain.toml rust-toolchain.toml
 
 FROM chef AS planner
 COPY . .
