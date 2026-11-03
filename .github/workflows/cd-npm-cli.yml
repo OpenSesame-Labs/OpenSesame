@@ -1,5 +1,6 @@
 # Publish @opensesame-labs/cli after main merges.
-# Stage once. Preview publishes 0.0.0-alpha.N on alpha under environment Preview (no reviewer wait).
+# Stage once, beside the Main CI gate. Preview waits for both.
+# Preview publishes 0.0.0-alpha.N on alpha under environment Preview (no reviewer wait).
 # Production publishes 0.0.0-next.N on next with NPM_TOKEN (OIDC when that token is empty).
 name: CD npm CLI
 
@@ -100,11 +101,16 @@ jobs:
       - name: Require trunk CI for this commit
         env:
           GH_TOKEN: ${{ github.token }}
+          # 5s polls. Attempts keep the default sleep budget:
+          # (475 - 1) * 5000 ms = (80 - 1) * 30000 ms.
+          # Still requires TypeScript, Rust, and Bundle budgets on this SHA.
+          CI_GATE_INTERVAL_MS: "5000"
+          CI_GATE_ATTEMPTS: "475"
         run: node scripts/release/cd-main-ci-gate.mjs
 
   stage:
     name: Stage CLI release
-    needs: main_ci
+    # Overlaps the gate. Preview needs both jobs, so a red gate does not publish.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     outputs:

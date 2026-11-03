@@ -25,7 +25,7 @@ Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the sam
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate, stage once, Preview **`alpha`**, preview npm smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate and stage run together (stage does not wait). Preview **`alpha`** waits for both, then preview npm smoke and automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). The gate job polls every 5s (`CI_GATE_ATTEMPTS` 475) and still requires TypeScript, Rust, and Bundle budgets on the same SHA. |
 | `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, **full** install-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
 | `cd-headless-browser-benchmark.yml` | `workflow_dispatch` only | Capped loopback screenshot matrix (`HEADLESS_BENCH_BACKENDS`, wall clock limit). **Not** a required check and **not** triggered by CD/PWA path filters. |
