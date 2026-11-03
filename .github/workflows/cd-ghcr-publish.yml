@@ -3,10 +3,10 @@
 # Do not revive .github/workflows/publish-containers.yml.
 #
 # One matrix row builds one image and one platform, with a 10 minute cap.
-# GitHub Actions layer cache is scoped per row. QEMU runs only for
-# linux/arm64. opensesame is linux/amd64 only. A cold cache can still miss
-# the cap; retry with workflow_dispatch. The manifest job only retags the
-# platform images, so it stays inside the same cap.
+# GitHub Actions layer cache is scoped per row. linux/arm64 rows run on
+# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 only. A cold cache
+# can still miss the cap; retry with workflow_dispatch. The manifest job
+# publishes :next / :sha-* (or semver tags) from the platform images.
 #
 # Login uses GITHUB_TOKEN. Optional override, not wired here: set
 # GHCR_PUBLISH_TOKEN on the container-release environment (main and v* tags)
@@ -39,7 +39,7 @@ concurrency:
 jobs:
   images:
     name: ${{ matrix.id }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -49,30 +49,37 @@ jobs:
             name: opensesame
             file: ops/compose/Dockerfile
             platform: linux/amd64
+            runner: ubuntu-latest
           - id: cli-amd64
             name: cli
             file: ops/containers/cli/Dockerfile
             platform: linux/amd64
+            runner: ubuntu-latest
           - id: cli-arm64
             name: cli
             file: ops/containers/cli/Dockerfile
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
           - id: web-pwa-amd64
             name: web-pwa
             file: ops/containers/web-pwa/Dockerfile
             platform: linux/amd64
+            runner: ubuntu-latest
           - id: web-pwa-arm64
             name: web-pwa
             file: ops/containers/web-pwa/Dockerfile
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
           - id: control-plane-amd64
             name: control-plane
             file: ops/containers/control-plane/Dockerfile
             platform: linux/amd64
+            runner: ubuntu-latest
           - id: control-plane-arm64
             name: control-plane
             file: ops/containers/control-plane/Dockerfile
             platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -124,10 +131,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        if: steps.dockerfile.outputs.present == 'true' && matrix.platform == 'linux/arm64'
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
-
       - name: Set up Buildx
         if: steps.dockerfile.outputs.present == 'true'
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -149,8 +152,9 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.id }}
 
   manifests:
-    name: manifest-${{ matrix.name }}
+    name: Manifest ${{ matrix.name }}
     needs: images
+    if: needs.images.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:

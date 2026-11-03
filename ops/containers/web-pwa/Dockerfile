@@ -4,7 +4,7 @@
 # CI publishes linux/amd64. arm64: docker buildx build --platform linux/amd64,linux/arm64
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git python3 make g++ \
+  && apt-get install -y --no-install-recommends ca-certificates curl git python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
