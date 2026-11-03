@@ -11,6 +11,8 @@ import { fileURLToPath } from "node:url";
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = join(packageRoot, "dist");
 const port = Number(process.env.PORT ?? "5180");
+// Local `node` stays on loopback. The container image sets HOST=0.0.0.0.
+const host = process.env.HOST ?? "localhost";
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -53,8 +55,8 @@ const server = createServer(async (request, response) => {
   createReadStream(path).pipe(response);
 });
 
-server.listen(port, "localhost", () => {
+server.listen(port, host, () => {
   process.stdout.write(
-    `OpenSesame Pages PWA at http://localhost:${port}/ (dist: ${distRoot})\n`,
+    `OpenSesame Pages PWA at http://${host}:${port}/ (dist: ${distRoot})\n`,
   );
 });
