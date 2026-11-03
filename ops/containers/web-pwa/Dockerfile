@@ -1,12 +1,13 @@
 # Static Pages PWA plus scripts/release/pages-pwa-serve.mjs.
 # Context is the repository root:
 #   docker build -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
-# Cold native WASM prep executes only on linux/amd64. npm, Vite, and that
-# prep run on the BuildKit build platform ($BUILDPLATFORM). The runtime
-# image follows TARGETPLATFORM.
+# Cold native WASM prep executes only on linux/amd64. The build stage is
+# pinned to that platform so npm, Vite, and that prep do not follow
+# BUILDPLATFORM (it equals the target under --platform linux/arm64). The
+# runtime image follows TARGETPLATFORM.
 #   docker buildx build --platform linux/amd64,linux/arm64 \
 #     -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
-FROM --platform=$BUILDPLATFORM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM --platform=linux/amd64 node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git python3 make g++ zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
