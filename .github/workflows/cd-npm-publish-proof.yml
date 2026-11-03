@@ -13,6 +13,7 @@ on:
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-registry-wait.mjs"
       - "scripts/release/cd-promotion-notify.mjs"
       - ".github/workflows/cd-promotion-gates-proof.yml"
       - "scripts/release/cd-production-npm-version.mjs"

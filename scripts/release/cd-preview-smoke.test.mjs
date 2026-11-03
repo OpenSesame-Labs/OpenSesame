@@ -184,6 +184,88 @@ test("waitForPublishedVersion accepts only the exact trimmed version", async () 
   );
 });
 
+test("confirmed registry version skips npm view and still installs", async () => {
+  const calls = [];
+  const versionSeen = await runPreviewSmoke(
+    {
+      EXPECTED_VERSION: version,
+      CD_REGISTRY_VERSION_CONFIRMED: "1",
+      ...oneShot,
+    },
+    {
+      fetch: async (url) => {
+        assert.match(String(url), /dist-tags/);
+        return distTags();
+      },
+      sleep: async () => {
+        throw new Error("sleep");
+      },
+      run: async (command, args) => {
+        calls.push([command, args]);
+        if (command === "npm" && args[0] === "view") {
+          throw new Error("view");
+        }
+        if (command === "npm") return viewResult("");
+        return viewResult(`${version}\n`);
+      },
+    },
+  );
+  assert.equal(versionSeen, version);
+  assert.equal(calls.length, 2);
+  assert.equal(
+    calls.some((call) => call[1][0] === "view"),
+    false,
+  );
+  assert.ok(calls[0][1].includes(CLI_SPEC));
+  assert.deepEqual(calls[1][1], ["--version"]);
+  assert.match(calls[1][0], /opensesame$/u);
+});
+
+test("confirmed registry version still requires the alpha dist-tag", async () => {
+  await assert.rejects(
+    () =>
+      runPreviewSmoke(
+        {
+          EXPECTED_VERSION: version,
+          CD_REGISTRY_VERSION_CONFIRMED: "1",
+          ...oneShot,
+        },
+        {
+          fetch: async () => distTags("0.0.0-alpha.0"),
+          run: async () => viewResult(""),
+        },
+      ),
+    /alpha 0\.0\.0-alpha\.0 != expected 0\.0\.0-alpha\.4/,
+  );
+});
+
+test("registry confirmation other than 1 still waits for npm view", async () => {
+  const calls = [];
+  await runPreviewSmoke(
+    {
+      EXPECTED_VERSION: version,
+      CD_REGISTRY_VERSION_CONFIRMED: "yes",
+      ...oneShot,
+    },
+    {
+      fetch: async () => distTags(),
+      sleep: async () => {
+        throw new Error("sleep");
+      },
+      run: async (command, args) => {
+        calls.push([command, args]);
+        if (command === "npm" && args[0] === "view") {
+          return viewResult(`${version}\n`);
+        }
+        if (command === "npm") return viewResult("");
+        return viewResult(`${version}\n`);
+      },
+    },
+  );
+  assert.equal(calls[0][1][0], "view");
+  assert.deepEqual(calls[0][1], viewArgs);
+});
+
 test("preview smoke calls npm view --prefer-online before dist-tags", async () => {
   const calls = [];
   let fetched = false;

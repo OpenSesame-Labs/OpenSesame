@@ -269,6 +269,8 @@ test("CD promotes staged artifacts with automated gates only", () => {
     pwaSmoke,
     /SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs\/web-pwa"/,
   );
+  const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");
+  assert.match(proofPaths, /scripts\/release\/cd-registry-wait\.mjs/);
   assert.deepEqual(spec.merge_queue.required_status_check_contexts, [
     "TypeScript",
     "Rust",
@@ -306,4 +308,39 @@ test("CD promotes staged artifacts with automated gates only", () => {
   for (const name of ["TypeScript", "Rust", "Bundle budgets"]) {
     assert.match(ci, new RegExp(`name: ${name}\\n`));
   }
+});
+
+test("CLI publish drops sourcemaps and confirms the registry version before smoke", () => {
+  const cli = read(".github/workflows/cd-npm-cli.yml");
+  const pwa = read(".github/workflows/cd-pwa.yml");
+  const stage = jobSlice(cli, "stage", "preview");
+  const preview = jobSlice(cli, "preview", "preview_smoke");
+  const smoke = jobSlice(cli, "preview_smoke", "production");
+  assert.match(stage, /CLI_RELEASE_PACK: "1"\n/);
+  assert.match(stage, /npm run build -w @opensesame\/cli\n/);
+  assert.equal((cli.match(/run: npm run build/g) ?? []).length, 1);
+  const publishAt = preview.lastIndexOf("publish-npm-package");
+  const waitAt = preview.indexOf("scripts/release/cd-registry-wait.mjs");
+  assert.ok(publishAt > 0 && waitAt > publishAt);
+  assert.match(
+    preview,
+    /EXPECTED_VERSION: \$\{\{ needs\.stage\.outputs\.version \}\}/,
+  );
+  assert.doesNotMatch(cli, /SMOKE_REGISTRY_DEADLINE_MS/);
+  assert.doesNotMatch(cli, /SMOKE_REGISTRY_POLL_MS/);
+  assert.match(
+    smoke,
+    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.preview\.result == 'success' && '1' \|\| '' \}\}/,
+  );
+  assert.match(smoke, /cd-preview-smoke\.mjs/);
+  assert.doesNotMatch(pwa, /CD_REGISTRY_VERSION_CONFIRMED/);
+  assert.doesNotMatch(pwa, /CLI_RELEASE_PACK/);
+  const wait = read("scripts/release/cd-registry-wait.mjs");
+  assert.match(wait, /waitForPublishedVersion/);
+  assert.match(wait, /registryBudget/);
+  const prepare = read("scripts/release/prepare-cli-release.mjs");
+  assert.match(prepare, /!dist\/\*\*\/\*\.map/);
+  const build = read("packages/cli/scripts/build.mjs");
+  assert.match(build, /CLI_RELEASE_PACK === "1"/);
+  assert.match(build, /sourcemap: !releasePack/);
 });
