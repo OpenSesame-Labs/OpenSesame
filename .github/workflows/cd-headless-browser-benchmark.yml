@@ -1,20 +1,13 @@
 # Optional headless browser benchmark — not a PR merge gate.
 #
-# Runs on a schedule, manual dispatch, or when this workflow/script changes.
+# Runs on manual dispatch only.
 # CD pull requests use the decision in #2427 (playwright-core + chrome-headless-shell);
 # they must not pay for a seven-minute matrix on every push.
 
 name: CD headless browser benchmark
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/cd-headless-browser-benchmark.yml"
-      - "scripts/ci/headless-browser-benchmark.mjs"
-      - "scripts/ci/headless-browser-benchmark.test.mjs"
   workflow_dispatch:
-  schedule:
-    - cron: "0 14 * * 1"
 
 permissions:
   contents: read
