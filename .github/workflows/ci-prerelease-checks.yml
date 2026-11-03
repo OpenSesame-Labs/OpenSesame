@@ -129,6 +129,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
           # The classifier diffs the pull request against its merge base.
           fetch-depth: 0
+          filter: blob:none
       - name: Select affected TypeScript packages
         id: packages
         env:
@@ -202,6 +203,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
           # pnpm lint diffs changed files against origin/main.
           fetch-depth: 0
+          filter: blob:none
       - name: Select affected packages
         id: affected
         env:
@@ -1012,6 +1014,7 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
           fetch-depth: 0
+          filter: blob:none
       - name: Select affected crates
         id: affected
         env:
