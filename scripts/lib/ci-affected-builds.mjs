@@ -16,6 +16,30 @@ import { readString } from "./json-boundary.mjs";
 
 const PACKAGE_INPUTS = new Set([".npmrc", ".pnpmfile.cjs"]);
 
+/** Paths that qualify CD workflows but not the trunk TypeScript compile graph. */
+export const TRUNK_BUILD_CD_ONLY_PREFIXES = [
+  ".github/workflows/cd-",
+  "docs/ci/",
+  "scripts/ci/",
+  "scripts/release/cd-",
+  "scripts/release/npm-cd-",
+  "apps/pages/scripts/duress/",
+];
+
+const TRUNK_BUILD_CD_ONLY_FILES = new Set([
+  "apps/pages/scripts/lib/static-origin-harness.mjs",
+]);
+
+export function isTrunkBuildCdOnlyPath(path) {
+  const normalized = path.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (TRUNK_BUILD_CD_ONLY_FILES.has(normalized)) {
+    return true;
+  }
+  return TRUNK_BUILD_CD_ONLY_PREFIXES.some(
+    (prefix) => normalized === prefix || normalized.startsWith(prefix),
+  );
+}
+
 function normalizedPaths(paths) {
   return paths.map((path) => path.replaceAll("\\", "/").replace(/^\.\//, ""));
 }
@@ -36,9 +60,12 @@ export function planBuildPackages(paths, nodes) {
     if (!path.endsWith("/package.json")) return false;
     return !nodes.some((node) => path === `${node.dir}/package.json`);
   });
+  const compilePaths = normalized.filter(
+    (path) => !isTrunkBuildCdOnlyPath(path),
+  );
   return sharedInput
     ? fallbackPlan("packages")
-    : planPackages(normalized, nodes);
+    : planPackages(compilePaths, nodes);
 }
 
 /** Cargo compiles prerequisites itself; the graph selects all reverse dependents. */
