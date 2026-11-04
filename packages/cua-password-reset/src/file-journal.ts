@@ -4,6 +4,7 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  scryptSync,
 } from "node:crypto";
 import { mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,6 +24,23 @@ const envelopeSchema = z
   })
   .strict();
 const EMPTY_DIGEST = "0".repeat(64);
+
+/** Filename tag from a run UUID via scrypt (not SHA-256/HMAC of raw CLI bytes). */
+function journalFilenameTag(runId: string, key: Uint8Array): Buffer {
+  const salt = createHash("sha256")
+    .update(key)
+    .update("\0opensesame:cua-journal-filename\0")
+    .update(runId, "utf8")
+    .digest()
+    .subarray(0, 16);
+  // OpenSSL needs 128 * r * (N + 2) bytes, above Node's 32 MiB default.
+  return scryptSync(runId, salt, 32, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  });
+}
 
 export class FileCheckpointJournal implements CheckpointJournal {
   private operation: Promise<void> = Promise.resolve();
@@ -163,9 +181,10 @@ export class FileCheckpointJournal implements CheckpointJournal {
   }
 
   private filename(runId: string): string {
+    const tag = journalFilenameTag(runId, this.key);
     return join(
       this.directory,
-      `${createHmac("sha256", this.key).update(runId).digest("hex")}.journal`,
+      `${createHmac("sha256", this.key).update(tag).digest("hex")}.journal`,
     );
   }
 
