@@ -39,9 +39,9 @@ jobs:
     # TypeScript never reached this file (#2440, #2441). This job starts with
     # the workflow, in parallel with changes, on every pull_request and
     # merge_group. It restores install caches only on a trusted ref.
-    # contents: read cannot save, and untrusted refs get cache-mode none.
+    # contents: read cannot save, and untrusted refs get no cache restore/save
+    # via `if: env.TRUSTED_CACHE_SAVE == 'true'`.
     name: Workflow inventory
-    needs: []
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
