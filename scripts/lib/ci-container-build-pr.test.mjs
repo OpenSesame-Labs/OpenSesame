@@ -15,12 +15,60 @@
  * Trunk still does not run `npm run quality:test`. Pre-push fast mode
  * (`.githooks/pre-push`) skips that aggregate suite too.
  */
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import * as nodeTest from "node:test";
 import { expectedInspect } from "../ci/oci-image-config.mjs";
 import { areasForPaths, repoRootFromHere } from "./ci-changed-areas.mjs";
+
+// quality:test loads this file with Vitest. The pin contract also runs under node --test.
+const { describe, it, expect } =
+  process.env.VITEST === "true"
+    ? await import("vitest")
+    : {
+        describe: nodeTest.describe,
+        it: Object.assign((name, fn) => nodeTest.it(name, fn), {
+          each: (cases) => (name, fn) => {
+            for (const item of cases) {
+              nodeTest.it(name.replaceAll("%s", String(item)), () => fn(item));
+            }
+          },
+        }),
+        expect(actual, message) {
+          const fail = (detail) => assert.fail(message ?? detail);
+          return {
+            toBe: (expected) => assert.equal(actual, expected, message),
+            toEqual: (expected) => assert.deepEqual(actual, expected, message),
+            toContain: (expected) => {
+              if (!actual.includes(expected)) {
+                fail(
+                  `expected ${JSON.stringify(actual)} to contain ${JSON.stringify(expected)}`,
+                );
+              }
+            },
+            toMatch: (expected) => assert.match(actual, expected, message),
+            toHaveLength: (expected) =>
+              assert.equal(actual?.length, expected, message),
+            toBeGreaterThan: (expected) => {
+              if (!(actual > expected))
+                fail(`expected ${actual} > ${expected}`);
+            },
+            not: {
+              toContain: (expected) => {
+                if (actual.includes(expected)) {
+                  fail(
+                    `expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(expected)}`,
+                  );
+                }
+              },
+              toMatch: (expected) =>
+                assert.doesNotMatch(actual, expected, message),
+            },
+          };
+        },
+      };
 
 const trunkInventoryCommand =
   "npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs";
@@ -204,5 +252,19 @@ describe("heavy auxiliary suites are CD concerns", () => {
       .split("\n  typescript-build:\n")[1]
       .split("\n  rust-build:\n")[0];
     expect(typescriptBuild).not.toContain(trunkInventoryCommand);
+  });
+});
+
+describe("GitHub Actions SHA pins", () => {
+  it("requires a 40-character SHA on actions, docker, and github uses", () => {
+    // quality:test sets VITEST. Spawn would make the child import vitest
+    // outside a runner, so the child stays on node:test.
+    const env = { ...process.env, VITEST: undefined };
+    const ran = spawnSync(
+      process.execPath,
+      ["--test", join(root, "scripts/lib/ci-github-actions-sha-pin.test.mjs")],
+      { encoding: "utf8", env },
+    );
+    expect(ran.status, `${ran.stdout}\n${ran.stderr}`).toBe(0);
   });
 });
