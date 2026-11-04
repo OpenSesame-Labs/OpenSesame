@@ -141,6 +141,18 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-ghcr-publish.yml": Object.freeze([
+    Object.freeze({
+      paths: [
+        ".github",
+        "apps",
+        "tools",
+        "scripts",
+        "/package.json",
+        "/package-lock.json",
+        "/mise.toml",
+        "/mise.lock",
+      ],
+    }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),

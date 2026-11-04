@@ -78,11 +78,15 @@ describe("GHCR publish workflow", () => {
       workflow,
       /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64 arm64/,
     );
+    assert.match(workflow, /web-pwa-tailscale-wasm:/);
+    assert.match(workflow, /loadTailscaleAssets/);
     const nativeWebPwaArm = workflow.slice(
       workflow.indexOf("\n  web-pwa-arm64:\n"),
       workflow.indexOf("# id: web-pwa-arm64"),
     );
-    assert.doesNotMatch(nativeWebPwaArm, /\n {4}needs:/);
+    assert.match(nativeWebPwaArm, /needs: web-pwa-tailscale-wasm/);
+    assert.match(nativeWebPwaArm, /actions\/download-artifact@/);
+    assert.match(nativeWebPwaArm, /web-pwa-tailscale-distributions/);
     assert.match(nativeWebPwaArm, /target: runtime\n/);
     assert.match(nativeWebPwaArm, /platforms: linux\/arm64\n/);
     assert.match(nativeWebPwaArm, /cache-from: type=gha,scope=web-pwa-arm64\n/);
@@ -92,7 +96,6 @@ describe("GHCR publish workflow", () => {
     );
     assert.doesNotMatch(nativeWebPwaArm, /PREBUILT_IMAGE/);
     assert.doesNotMatch(nativeWebPwaArm, /scope=web-pwa-amd64/);
-    assert.doesNotMatch(nativeWebPwaArm, /actions\/download-artifact@/);
     assert.doesNotMatch(nativeWebPwaArm, /Require amd64 prebuilt image/);
     for (const id of [
       "cli-amd64",
@@ -110,11 +113,11 @@ describe("GHCR publish workflow", () => {
     );
     assert.match(
       workflow,
-      /web-pwa-arm64:[\s\S]*?Require amd64 prebuilt image[\s\S]*?PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+      /web-pwa-arm64-proof:[\s\S]*?Require amd64 prebuilt image[\s\S]*?PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
     );
     assert.match(
       workflow,
-      /web-pwa-arm64:[\s\S]*?target: runtime-from-prebuilt/,
+      /web-pwa-arm64-proof:[\s\S]*?target: runtime-from-prebuilt/,
     );
     const webPwaDockerfile = readFileSync(
       join(root, "ops/containers/web-pwa/Dockerfile"),
@@ -128,6 +131,8 @@ describe("GHCR publish workflow", () => {
       workflow.indexOf("web-pwa-amd64:"),
       workflow.indexOf("# id: web-pwa-arm64"),
     );
+    assert.match(webPwaAmd64, /needs: web-pwa-tailscale-wasm/);
+    assert.match(webPwaAmd64, /web-pwa-tailscale-distributions/);
     assert.doesNotMatch(
       webPwaAmd64,
       /web-pwa-amd64:[\s\S]*?build-args:[\s\S]*?PREBUILT_IMAGE/,
@@ -138,12 +143,13 @@ describe("GHCR publish workflow", () => {
       webPwaDockerfile,
       /ARG PREBUILT_IMAGE\nFROM --platform=linux\/amd64 \$\{PREBUILT_IMAGE\}/,
     );
-    assert.match(
-      webPwaDockerfile,
-      /--target runtime -t web-pwa:local \./,
-    );
+    assert.match(webPwaDockerfile, /--target runtime -t web-pwa:local \./);
     assert.match(workflow, /docker buildx imagetools create/);
     assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
+    assert.match(
+      workflow,
+      /needs: \[images, web-pwa-tailscale-wasm, web-pwa-amd64, web-pwa-arm64\]/,
+    );
     assert.match(workflow, /if: needs\.images\.result == 'success'/);
   });
 
@@ -170,6 +176,8 @@ describe("GHCR publish workflow", () => {
       workflow.indexOf("  web-pwa-amd64:"),
       workflow.indexOf("# id: web-pwa-arm64"),
     );
+    assert.match(amd64, /needs: web-pwa-tailscale-wasm/);
+    assert.match(amd64, /web-pwa-tailscale-distributions/);
     const arm64 = workflow.slice(workflow.indexOf("# id: web-pwa-arm64"));
     const saveAt = amd64.indexOf(
       "docker save -o web-pwa-amd64-runtime.tar web-pwa:local",
