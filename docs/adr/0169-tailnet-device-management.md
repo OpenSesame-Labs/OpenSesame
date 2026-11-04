@@ -54,7 +54,7 @@ credential, copied into the daemon's own state:
   (`devices:core`, `devices:routes`, `auth_keys`, or their `:read` forms) and
   it never expires on its own; the daemon trades it for an hour's access token
   at `/api/v2/oauth/token` and keeps that token in memory only; or
-- an **API access token** (`tskey-api-…`), which carries its owner's full
+- an **API access token** (provider prefix, kind `api`, then the secret), which carries its owner's full
   rights and expires within 90 days.
 
 Custody, stated truthfully: the secret is a `0600` file in a `0700`

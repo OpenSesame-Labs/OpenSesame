@@ -8,7 +8,7 @@ import {
 } from "./synthetic-tailscale-key.js";
 
 const gateHref = new URL(
-  "../../../../scripts/security/tskey-literal-gate.mjs",
+  "../../../../scripts/security/tailscale-key-material-gate.mjs",
   import.meta.url,
 ).href;
 
@@ -23,10 +23,11 @@ it("mints synthetic Tailscale keys that satisfy the production format check", ()
   }
 });
 
-it("keeps Tailscale tskey literals out of tracked source, docs, and spec", async () => {
+it("keeps Tailscale key material out of tracked source, docs, and spec", async () => {
+  // SAFETY: dynamic import boundary; the gate module's contract exports this scanner.
   const gate = (await import(gateHref)) as {
-    findTskeyLiteralViolations: () => string[];
+    findTailscaleKeyMaterialViolations: () => string[];
   };
-  const violations = gate.findTskeyLiteralViolations();
+  const violations = gate.findTailscaleKeyMaterialViolations();
   expect(violations, violations.join("\n")).toEqual([]);
 });

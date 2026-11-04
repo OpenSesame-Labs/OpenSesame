@@ -10,10 +10,12 @@
 // what reached Tailscale.
 import { randomBytes, randomInt } from "node:crypto";
 import http from "node:http";
+import { tailscaleKindPrefix } from "../../../../scripts/security/provider-secret-patterns.mjs";
 
 export const TAILNET = "example.com";
 
-const TOKEN_PATTERN = /^tskey-api-[A-Za-z0-9_-]{8,300}$/;
+const API_PREFIX = tailscaleKindPrefix("api");
+const TOKEN_PATTERN = new RegExp(`^${API_PREFIX}[A-Za-z0-9_-]{8,300}$`);
 
 /** Mint a synthetic API token at harness start; never commit literals. */
 export function createTailscaleStubApiToken() {
@@ -24,7 +26,7 @@ export function createTailscaleStubApiToken() {
   for (const byte of bytes) {
     tail += alphabet.charAt(byte % alphabet.length);
   }
-  const token = `${["ts", "key"].join("")}-api-${tail}`;
+  const token = `${API_PREFIX}${tail}`;
   if (!TOKEN_PATTERN.test(token)) {
     throw new Error("Synthetic stub API token failed format check");
   }
@@ -208,7 +210,7 @@ function routeKeys(tailnet, method, rest, body, response) {
       ).toISOString(),
       invalid: false,
       capabilities: body?.capabilities,
-      secret: `tskey-auth-${id}-${crypto.randomUUID().replaceAll("-", "")}`,
+      secret: `${tailscaleKindPrefix("auth")}${id}-${crypto.randomUUID().replaceAll("-", "")}`,
     };
     tailnet.keys.push(key);
     return ok(response, { ...keyView(key), key: key.secret });

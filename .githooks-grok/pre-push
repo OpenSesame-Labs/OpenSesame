@@ -6,6 +6,12 @@ cd "$ROOT"
 ZERO="0000000000000000000000000000000000000000"
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ "$local_sha" == "$ZERO" ]] && continue
+  if [[ "$remote_ref" == refs/heads/*-signed ]]; then
+    printf '%s\n' \
+      "Grok Build refuses direct git push to signed branch ${remote_ref#refs/heads/}." \
+      "Replay with createCommitOnBranch (scripts/lib/signed-replay.mjs, scripts/release/land-signed-stack.mjs)." >&2
+    exit 1
+  fi
   if [[ "$remote_sha" == "$ZERO" ]]; then
     RANGE="origin/main..$local_sha"
   else

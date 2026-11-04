@@ -5,8 +5,8 @@
  */
 
 import { TOKEN as TOKEN_PATTERN } from "./native-tailscale-api.js";
+import { tailscaleKindPrefix } from "./tailscale-key-prefix.js";
 
-const KEY_PREFIX = ["ts", "key"].join("");
 const ALPHANUM =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -24,7 +24,8 @@ function randomChars(length: number, alphabet = ALPHANUM): string {
 
 function randomTailscaleSegment(min: number, max: number): string {
   const span = max - min + 1;
-  const length = min + (randomChars(1, "0123456789").charCodeAt(0)! % span);
+  const code = randomChars(1, "0123456789").charCodeAt(0) ?? 0;
+  const length = min + (code % span);
   let rest = randomChars(length);
   rest = rest.replaceAll(/[^A-Za-z0-9]/g, "A");
   return rest;
@@ -34,15 +35,15 @@ type SyntheticTailscaleKeyKind = "api" | "client" | "auth";
 
 function mintSyntheticTailscaleKey(kind: SyntheticTailscaleKeyKind): string {
   const rest = randomTailscaleSegment(8, 48);
-  return `${KEY_PREFIX}-${kind}-${rest}`;
+  return `${tailscaleKindPrefix(kind)}${rest}`;
 }
 
-/** Mint a synthetic Tailscale API access token (`tskey-api-…`). */
+/** Mint a synthetic Tailscale API access token. */
 export function syntheticTailscaleApiKey(): string {
   return mintSyntheticTailscaleKey("api");
 }
 
-/** Mint a synthetic Tailscale OAuth client secret (`tskey-client-…`). */
+/** Mint a synthetic Tailscale OAuth client secret. */
 export function syntheticTailscaleClientKey(): string {
   return mintSyntheticTailscaleKey("client");
 }
@@ -52,13 +53,15 @@ export function syntheticTailscaleAuthKeyControlId(): string {
   return `k${randomChars(11).toUpperCase()}`;
 }
 
-/** Full auth key for a given control id (`tskey-auth-{id}-…`). */
-export function syntheticTailscaleAuthKeyForControlId(controlId: string): string {
+/** Full auth key for a given control id. */
+export function syntheticTailscaleAuthKeyForControlId(
+  controlId: string,
+): string {
   const tail = randomTailscaleSegment(12, 32);
-  return `${KEY_PREFIX}-auth-${controlId}-${tail}`;
+  return `${tailscaleKindPrefix("auth")}${controlId}-${tail}`;
 }
 
-/** Mint a synthetic Tailscale auth key (`tskey-auth-…`). */
+/** Mint a synthetic Tailscale auth key. */
 export function syntheticTailscaleAuthKey(): string {
   const controlId = syntheticTailscaleAuthKeyControlId();
   return syntheticTailscaleAuthKeyForControlId(controlId);

@@ -1,5 +1,6 @@
 /** What the Tailscale connection form draws (ADR 0218). */
 import type { NativeKeyField, NativeKeyUi } from "./native-key-types.js";
+import { tailscaleKindPrefix } from "./tailscale-key-prefix.js";
 
 export const API_TOKEN = "api_token";
 export const CLIENT_ID = "client_id";
@@ -40,7 +41,7 @@ const TAILSCALE_UI: NativeKeyUi = {
       kind: "text",
       secret: true,
       required: false,
-      placeholder: "tskey-api-…",
+      placeholder: `${tailscaleKindPrefix("api")}…`,
       help: "Use this, or the OAuth client below.",
     },
     {
@@ -56,7 +57,7 @@ const TAILSCALE_UI: NativeKeyUi = {
       kind: "text",
       secret: true,
       required: false,
-      placeholder: "tskey-client-…",
+      placeholder: `${tailscaleKindPrefix("client")}…`,
     },
   ],
   links: [

@@ -21,6 +21,7 @@
 mod audit;
 mod config;
 mod error;
+mod key_prefix;
 pub mod ops;
 mod pairing;
 mod pairing_code;

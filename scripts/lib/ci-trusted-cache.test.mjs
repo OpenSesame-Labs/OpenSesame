@@ -16,12 +16,7 @@ const mainSeed =
 const npmPrimary =
   "key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}";
 const npmSeedPrefix = "npm-download-v2-${{ runner.os }}-seed-main-";
-const workflows = [
-  "ci.yml",
-  "cd-pwa.yml",
-  "cd-npm-cli.yml",
-  "cd-npm-publish-proof.yml",
-];
+const workflows = ["ci.yml", "cd-npm-publish-proof.yml"];
 
 function read(name) {
   return readFileSync(join(root, ".github/workflows", name), "utf8");

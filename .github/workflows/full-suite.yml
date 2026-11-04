@@ -47,12 +47,6 @@ jobs:
           install_args: node
       - name: Install
         run: npm ci
-      - name: Cache the pinned native PWA distribution
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          lookup-only: true
-          path: .cache/pwa-tailscale-native-http/distributions
-          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Prepare and verify native PWA assets before package concurrency
         # Uses the normal Vite asset loader, including verification on cache hits.
         # Cold preparation keeps its original deadlines, pins and resource limits.

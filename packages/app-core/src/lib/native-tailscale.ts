@@ -33,6 +33,7 @@ import {
   CLIENT_SECRET,
   nativeTailscaleUi,
 } from "./native-tailscale-ui.js";
+import { tailscaleKindPrefix } from "./tailscale-key-prefix.js";
 
 const OAUTH_ID = /^[A-Za-z0-9]{6,64}$/;
 const OAUTH_SECRET = /^[!-~]{8,512}$/;
@@ -64,7 +65,9 @@ function tailscaleCredentials(
 ): NativeKeyTarget["credentials"] {
   if (token && !clientId && !clientSecret) {
     if (!TOKEN.test(token))
-      throw new Error("Enter a Tailscale API access token (tskey-api-…)");
+      throw new Error(
+        `Enter a Tailscale API access token (${tailscaleKindPrefix("api")}…)`,
+      );
     return { [API_TOKEN]: token };
   }
   if (!token && clientId && clientSecret) {

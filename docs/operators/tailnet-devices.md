@@ -27,7 +27,7 @@ on every request and writes each change to an audit log.
     Use the `:read` forms for a daemon that only reads. Tailscale requires
     every auth key minted through an OAuth client to carry a tag. The page
     says so, and does not mint a key until a tag is given.
-  - **An API access token** (`tskey-api-…`). Any key it mints may be
+  - **An API access token** (provider prefix, kind `api`, then the secret). Any key it mints may be
     untagged. It expires on Tailscale's schedule, so plan to replace it.
 - A deployment of the web app at its own address. The shared demo at
   `opensesame-labs.github.io` cannot hold tailnet authority and says so. A

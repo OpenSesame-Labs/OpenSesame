@@ -23,7 +23,11 @@ fn random_segment(min: usize, max: usize) -> String {
 }
 
 fn mint(kind: &str) -> String {
-    format!("tskey-{kind}-{}", random_segment(8, 48))
+    format!(
+        "{}{}",
+        crate::key_prefix::kind_prefix(kind),
+        random_segment(8, 48)
+    )
 }
 
 pub fn api_token() -> SecretString {
@@ -43,7 +47,11 @@ pub fn auth_control_id() -> String {
 }
 
 pub fn auth_key_for_control_id(control_id: &str) -> String {
-    format!("tskey-auth-{control_id}-{}", random_segment(12, 32))
+    format!(
+        "{}{control_id}-{}",
+        crate::key_prefix::AUTH_PREFIX,
+        random_segment(12, 32)
+    )
 }
 
 pub fn auth_key() -> String {

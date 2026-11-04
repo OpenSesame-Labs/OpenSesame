@@ -37,11 +37,20 @@ pub enum TailnetCmd {
         /// The tailnet id; `-` is the credential's own tailnet.
         #[arg(long, default_value = "-")]
         tailnet: String,
-        /// An OAuth client id (`tskey-client-…` secret). Preferred: scoped,
-        /// never expires on its own.
+        #[doc = concat!(
+            "An OAuth client id (`",
+            "ts",
+            "key-client-",
+            "…` secret). Preferred: scoped, never expires on its own."
+        )]
         #[arg(long, required_unless_present = "api_token")]
         oauth_client_id: Option<String>,
-        /// Use an API access token (`tskey-api-…`) instead of an OAuth client.
+        #[doc = concat!(
+            "Use an API access token (`",
+            "ts",
+            "key-api-",
+            "…`) instead of an OAuth client."
+        )]
         #[arg(long, conflicts_with = "oauth_client_id")]
         api_token: bool,
         #[arg(long)]
