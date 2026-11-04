@@ -133,6 +133,40 @@ export function assertNativeSourceBlob(mode, blob, path, bytes, info) {
   assert.equal(current, blob, `Source bytes differ: ${path}`);
 }
 
+/** Map a verified native distribution manifest into Pages deployment metadata. */
+export function publishNativeTailscalePagesMetadata(
+  previous,
+  manifest,
+  sourceMetadataSha256,
+  manifestSha256,
+) {
+  return {
+    sdk: {
+      version: previous.sdk.version,
+      browserSDKVersion: previous.sdk.browserSDKVersion,
+      browserSDKHash: previous.sdk.browserSDKHash,
+      gzipHash: manifest.assets.wasm.sha256,
+      wasmHash: manifest.rawWasm.sha256,
+      runtimeHash: manifest.assets.runtime.sha256,
+      nativeHTTPHash: manifest.assets.nativeHTTP.sha256,
+    },
+    native: {
+      sourceMetadataSha256,
+      manifestSha256,
+      sourceCommit: manifest.sourceCommit,
+      compilerCommit: manifest.compilerCommit,
+      publicRootsVersion: manifest.publicRootsVersion,
+    },
+    assets: {
+      wasm: manifest.assets.wasm.path,
+      runtime: manifest.assets.runtime.path,
+      nativeHTTP: manifest.assets.nativeHTTP.path,
+      license: manifest.license.path,
+      notices: manifest.upstreamNotices.path,
+    },
+  };
+}
+
 export function assertNativePublishedPins(metadata, manifest) {
   assert.equal(
     metadata.sdk.wasmHash,
