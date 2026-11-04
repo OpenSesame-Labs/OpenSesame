@@ -61,6 +61,7 @@ services:
     build:
       context: ../..
       dockerfile: ops/compose/Dockerfile
+      target: runtime
       args:
         # Optional bridges compiled into the Host, e.g. `bitwarden-compat`.
         OPENSESAME_FEATURES: ${OPENSESAME_FEATURES:-}
@@ -81,6 +82,7 @@ services:
     build:
       context: ../..
       dockerfile: ops/compose/Dockerfile
+      target: runtime
     command: ["worker", "run"]
     environment:
       # Comma-separated provider ids this workload may host; required.
