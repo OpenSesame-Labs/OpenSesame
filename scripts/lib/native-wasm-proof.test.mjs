@@ -22,6 +22,7 @@ import {
   assertNativePublishedPins,
   assertNativeSourceBlob,
   nativeCIAdmissionBytes,
+  publishNativeTailscalePagesMetadata,
 } from "./native-wasm-proof.mjs";
 
 const root =
@@ -289,6 +290,24 @@ test("all published consumer asset hashes, paths and native lineage remain exact
     compilerCommit: "compiler",
     publicRootsVersion: "roots",
   };
+  const previous = {
+    sdk: {
+      version: "version",
+      browserSDKVersion: "browser",
+      browserSDKHash: "hash",
+    },
+  };
+  const published = publishNativeTailscalePagesMetadata(
+    previous,
+    manifest,
+    "source-meta",
+    "manifest-meta",
+  );
+  for (const key of ["version", "browserSDKVersion", "browserSDKHash"])
+    assert.equal(published.sdk[key], previous.sdk[key]);
+  assert.equal(published.native.sourceMetadataSha256, "source-meta");
+  assert.equal(published.native.manifestSha256, "manifest-meta");
+  assertNativePublishedPins(published, manifest);
   const metadata = {
     sdk: {
       wasmHash: "raw",
