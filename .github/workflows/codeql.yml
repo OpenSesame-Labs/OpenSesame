@@ -111,7 +111,7 @@ jobs:
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
         if: matrix.language == 'java-kotlin'
-        run: rustup target add --toolchain 1.88.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+        run: rustup target add --toolchain 1.94.1 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       - name: Prepare Android SDK and pinned Gradle
         if: matrix.language == 'java-kotlin'
         shell: bash
@@ -132,6 +132,7 @@ jobs:
         env:
           OPENSESAME_BINDGEN_CARGO_HOME: ${{ runner.temp }}/authenticator-bindgen-cargo-home
           OPENSESAME_BINDGEN_TARGET_DIR: ${{ runner.temp }}/authenticator-bindgen
+          RUSTUP_TOOLCHAIN: 1.94.1
         run: apps/android/scripts/build-core.sh android
       - name: Initialize analysis
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
