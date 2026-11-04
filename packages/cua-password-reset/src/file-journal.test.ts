@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -85,5 +86,21 @@ describe("sealed atomic file journal", () => {
       { sequence: 1 },
       { sequence: 2 },
     ]);
+  });
+
+  it("derives the journal file name from the run identifier", async () => {
+    const key = randomBytes(32);
+    const runId = "run-7f3c1a9e0b24-🔐";
+    const journal = await FileCheckpointJournal.open(directory, key);
+    await journal.append(runId, { type: "checkpoint" });
+    const expected = `${createHmac("sha256", key).update(runId).digest("hex")}.journal`;
+    const names = (await readdir(directory)).filter((name) =>
+      name.endsWith(".journal"),
+    );
+    expect(names).toEqual([expected]);
+    expect(expected).not.toContain(runId);
+    expect(await journal.load("other-run")).toEqual([]);
+    const reopened = await FileCheckpointJournal.open(directory, key);
+    expect(await reopened.load(runId)).toEqual([{ type: "checkpoint" }]);
   });
 });
