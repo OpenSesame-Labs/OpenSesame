@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -93,7 +93,9 @@ describe("sealed atomic file journal", () => {
     const runId = "run-7f3c1a9e0b24-🔐";
     const journal = await FileCheckpointJournal.open(directory, key);
     await journal.append(runId, { type: "checkpoint" });
-    const expected = `${createHmac("sha256", key).update(runId).digest("hex")}.journal`;
+    const expected = `${createHmac("sha256", key)
+      .update(journalFilenameTag(runId, key))
+      .digest("hex")}.journal`;
     const names = (await readdir(directory)).filter((name) =>
       name.endsWith(".journal"),
     );
@@ -104,3 +106,20 @@ describe("sealed atomic file journal", () => {
     expect(await reopened.load(runId)).toEqual([{ type: "checkpoint" }]);
   });
 });
+
+/** Filename tag from a run UUID via scrypt (not SHA-256/HMAC of raw CLI bytes). */
+function journalFilenameTag(runId: string, key: Uint8Array): Buffer {
+  const salt = createHash("sha256")
+    .update(key)
+    .update("\0opensesame:cua-journal-filename\0")
+    .update(runId, "utf8")
+    .digest()
+    .subarray(0, 16);
+  // OpenSSL needs 128 * r * (N + 2) bytes, above Node's 32 MiB default.
+  return scryptSync(runId, salt, 32, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  });
+}
