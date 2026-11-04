@@ -210,6 +210,17 @@ describe("GHCR publish workflow", () => {
       rust,
       /save-if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main' \}\}\n/,
     );
+    assert.match(
+      rust,
+      /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
+    );
+    assert.equal(
+      join(
+        "/home/runner/work/OpenSesame-Labs/OpenSesame",
+        "../../../.cache/packages/cargo-target",
+      ),
+      "/home/runner/.cache/packages/cargo-target",
+    );
     assert.match(rust, /cargo build --release -p opensesame-cli\n/);
     assert.match(rust, /name: opensesame-amd64-binary\n/);
     assert.match(
@@ -246,6 +257,13 @@ describe("GHCR publish workflow", () => {
     assert.match(dockerfile, /cargo-chef/);
     assert.match(dockerfile, /cargo chef prepare/);
     assert.match(dockerfile, /cargo chef cook/);
+    assert.match(
+      dockerfile,
+      /FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS debian-runtime\n/,
+    );
+    assert.match(dockerfile, /FROM debian-runtime AS runtime\n/);
+    assert.match(dockerfile, /FROM debian-runtime AS runtime-from-prebuilt\n/);
+    assert.doesNotMatch(dockerfile, /debian:bookworm-slim/);
     assert.equal(
       dockerfile.match(
         /--mount=type=cache,target=\/src\/target,sharing=locked/g,

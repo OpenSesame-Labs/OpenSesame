@@ -134,18 +134,22 @@ jobs:
           cache: false
           install_args: rust
       # Save on workflow_dispatch and on push to main. Tag pushes restore only.
+      # mise.toml sets CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target.
+      # rust-cache v2 joins `workspaces` `$target` onto the workspace root, so
+      # the target is the relative path from $GITHUB_WORKSPACE
+      # ($HOME/work/<owner>/<repo>) to that directory.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           prefix-key: v0-rust
           shared-key: ghcr-opensesame-amd64
           save-if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+          workspaces: . -> ../../../.cache/packages/cargo-target
       - name: Build opensesame release binary
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
           cargo build --release -p opensesame-cli
-      # mise.toml sets CARGO_TARGET_DIR outside the workspace. Swatinem/rust-cache
-      # still keys ./target, and a job-level override is replaced when mise
-      # exports [env], so the binary cargo wrote is $CARGO_TARGET_DIR/release.
+      # mise.toml CARGO_TARGET_DIR is outside the workspace. Upload that
+      # release binary. rust-cache above restores the same directory.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opensesame-amd64-binary
