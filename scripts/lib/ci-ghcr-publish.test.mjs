@@ -63,6 +63,7 @@ describe("GHCR publish workflow", () => {
       workflow,
       /cache-to: type=gha,mode=max,scope=\$\{\{ matrix\.id \}\}/,
     );
+    assert.doesNotMatch(workflow, /opensesame-arm64/);
     assert.doesNotMatch(workflow, /docker\/setup-qemu-action@/);
     assert.match(workflow, /runner: ubuntu-24.04-arm/);
     assert.doesNotMatch(workflow, /linux\/amd64,linux\/arm64/);
@@ -72,11 +73,7 @@ describe("GHCR publish workflow", () => {
     );
     assert.match(
       workflow,
-      /id: opensesame-arm64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/arm64\n {12}runner: ubuntu-24.04-arm/,
-    );
-    assert.match(
-      workflow,
-      /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64 arm64/,
+      /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64\n/,
     );
     assert.match(workflow, /web-pwa-tailscale-wasm:/);
     assert.match(workflow, /loadTailscaleAssets/);
@@ -232,7 +229,7 @@ describe("GHCR publish workflow", () => {
     assert.match(dockerfile, /cargo-chef/);
     assert.match(dockerfile, /cargo chef prepare/);
     assert.match(dockerfile, /cargo chef cook/);
-    assert.match(dockerfile, /type=cache,target=\/src\/target/);
+    assert.doesNotMatch(dockerfile, /type=cache,target=\/src\/target/);
     assert.match(
       dockerfile,
       /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,

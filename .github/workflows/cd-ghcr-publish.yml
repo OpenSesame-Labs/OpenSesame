@@ -5,7 +5,7 @@
 #
 # One matrix row builds one image and one platform, with a 10 minute cap.
 # GitHub Actions layer cache is scoped per row. linux/arm64 rows run on
-# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 and linux/arm64.
+# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 only.
 # web-pwa is outside that matrix. web-pwa-tailscale-wasm prepares pinned native
 # distributions on amd64 once; web-pwa-amd64 and publish web-pwa-arm64 download
 # that artifact before Docker (slice 2). Publish web-pwa-arm64 still does not wait on amd64.
@@ -102,11 +102,6 @@ jobs:
             file: ops/compose/Dockerfile
             platform: linux/amd64
             runner: ubuntu-latest
-          - id: opensesame-arm64
-            name: opensesame
-            file: ops/compose/Dockerfile
-            platform: linux/arm64
-            runner: ubuntu-24.04-arm
           - id: cli-amd64
             name: cli
             file: ops/containers/cli/Dockerfile
@@ -696,7 +691,7 @@ jobs:
         include:
           - name: opensesame
             file: ops/compose/Dockerfile
-            platforms: amd64 arm64
+            platforms: amd64
           - name: cli
             file: ops/containers/cli/Dockerfile
             platforms: amd64 arm64
