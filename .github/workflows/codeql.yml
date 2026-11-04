@@ -78,6 +78,7 @@ jobs:
             scripts
             tools
             spec
+            tests/mtls-interop
             /package.json
             /package-lock.json
             /mise.toml
