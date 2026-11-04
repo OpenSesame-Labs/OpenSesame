@@ -2,13 +2,15 @@
 # `opensesame host run` (Host API), `opensesame worker run`, `opensesame daemon run`.
 FROM rust:1.94.1-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6e6621506ba959f9685b308a55 AS chef
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config \
+  && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config mold \
   && rm -rf /var/lib/apt/lists/* \
   && cargo install cargo-chef --locked
 WORKDIR /src
 COPY rust-toolchain.toml rust-toolchain.toml
 
 ENV CARGO_PROFILE_RELEASE_LTO=false
+ENV CARGO_PROFILE_RELEASE_CODEGEN_UNITS=32
+ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
 
 FROM chef AS planner
 COPY . .
@@ -21,10 +23,12 @@ COPY --from=planner /src/recipe.json recipe.json
 ARG OPENSESAME_FEATURES=""
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+  --mount=type=cache,target=/src/target,sharing=locked \
   cargo chef cook --release --recipe-path recipe.json -p opensesame-cli --features "${OPENSESAME_FEATURES}"
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+  --mount=type=cache,target=/src/target,sharing=locked \
   cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}" \
   && install -m 0755 target/release/opensesame /usr/local/bin/opensesame
 
