@@ -47,7 +47,7 @@ jobs:
     steps:
     - name: Refuse a caller or manual dispatch outside main
       run: '[ "$GITHUB_REF" = refs/heads/main ]'
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         fetch-depth: 0
@@ -102,7 +102,7 @@ jobs:
     timeout-minutes: 15
     steps:
     - name: Check out trusted pipeline helpers
-      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -111,7 +111,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
@@ -124,7 +124,7 @@ jobs:
     - run: npm ci --ignore-scripts -w @opensesame/env-spec-bridge
     - run: npm run test -w @opensesame/env-spec-bridge
     - run: node packages/env-spec-bridge/scripts/bundle.mjs dist/opensesame-env-parse.mjs
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ needs.resolve.outputs.candidate_id }}-bridge
         path: src/dist/opensesame-env-parse.mjs
@@ -147,7 +147,7 @@ jobs:
       PAGES_HEADER_SECURITY: '0'
     steps:
     - name: Check out trusted pipeline helpers
-      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -156,7 +156,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
@@ -178,7 +178,7 @@ jobs:
         mkdir -p packed
         tar -C apps/pages/dist --format=ustar --sort=name --mtime="@$SOURCE_DATE_EPOCH" \
           --owner=0 --group=0 --numeric-owner -cf - . | gzip -n -9 > "packed/opensesame-pages_${TAG}.tar.gz"
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ needs.resolve.outputs.candidate_id }}-pages
         path: src/packed/*.tar.gz
@@ -209,7 +209,7 @@ jobs:
       CARGO_TERM_COLOR: never
     steps:
     - name: Check out trusted pipeline helpers
-      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -219,7 +219,7 @@ jobs:
           scripts/release
           scripts/lib
           scripts/ci
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
@@ -259,13 +259,13 @@ jobs:
         OPENSESAME_RELEASE_LICENSE="$PWD/LICENSE" ../.ci-control/scripts/release/kit-archive.sh pack "$TAG" "$TARGET" bins bridge/opensesame-env-parse.mjs dist
     - name: Smoke the actual archived kit and reject a writable bridge
       run: bash ../.ci-control/scripts/release/smoke-kit.sh "dist/opensesame-kit_${TAG}_${TARGET}.tar.gz"
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ needs.resolve.outputs.candidate_id }}-kit-${{ matrix.target }}
         path: src/dist/opensesame-kit_*.tar.gz
         if-no-files-found: error
         retention-days: 7
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ needs.resolve.outputs.candidate_id }}-test-proxy-${{ matrix.target }}
         path: src/dist/opensesame-surrogate-proxy-TEST-upstream-override_*.tar.gz
@@ -288,7 +288,7 @@ jobs:
       payload_digest: ${{ steps.manifest.outputs.payload_digest }}
     steps:
     - name: Check out trusted pipeline helpers
-      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -309,12 +309,12 @@ jobs:
         python3 .ci-control/scripts/release/build-manifest.py payload
         node .ci-control/scripts/release/provenance.mjs prepare payload build-predicate.json build-subjects.sha256
     - name: Sign original build evidence for the selected snapshot
-      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
       with:
         subject-checksums: build-subjects.sha256
         predicate-type: https://opensesame.dev/attestations/candidate-build/v1
         predicate-path: build-predicate.json
-    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       id: upload
       with:
         name: ${{ needs.resolve.outputs.candidate_id }}-complete
