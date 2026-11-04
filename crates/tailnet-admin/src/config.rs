@@ -79,11 +79,11 @@ fn valid_credential(credential: &Credential) -> bool {
     }
 }
 
-/// `tskey-client-…` for an OAuth client, `tskey-api-…` for an access token.
+/// Client secrets use the client kind prefix; access tokens use the api kind prefix.
 fn valid_secret(kind: CredentialKind, secret: &str) -> bool {
     let prefix = match kind {
-        CredentialKind::Oauth => "tskey-client-",
-        CredentialKind::ApiKey => "tskey-api-",
+        CredentialKind::Oauth => crate::key_prefix::CLIENT_PREFIX,
+        CredentialKind::ApiKey => crate::key_prefix::API_PREFIX,
     };
     secret.strip_prefix(prefix).is_some_and(|rest| {
         (8..=200).contains(&rest.len())

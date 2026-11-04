@@ -218,7 +218,7 @@ pub fn key_ids(raw: &Value) -> Vec<(String, Option<KeyView>)> {
 pub fn created_key(raw: &Value) -> Option<Value> {
     let view = key(raw)?;
     let secret = raw.get("key").and_then(Value::as_str)?;
-    if !secret.starts_with("tskey-auth-") || secret.len() > MAX_TEXT {
+    if !secret.starts_with(crate::key_prefix::AUTH_PREFIX) || secret.len() > MAX_TEXT {
         return None;
     }
     let mut out = serde_json::to_value(view).ok()?;

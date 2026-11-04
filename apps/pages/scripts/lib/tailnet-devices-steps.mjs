@@ -1,6 +1,7 @@
 // The changes `verify-tailnet-devices.mjs` makes through the page, each
 // checked twice: on screen, and in what the Tailscale stub received.
 import { expect } from "@playwright/test";
+import { tailscaleKindPrefix } from "../../../../scripts/security/provider-secret-patterns.mjs";
 
 function region(page) {
   return page.getByRole("region", { name: "Tailnet devices" });
@@ -128,7 +129,12 @@ export async function mintAndJoin({ page, stub, shot, until }) {
   await shot(page, "1280-add-device");
   await sheet.getByRole("button", { name: "Mint an auth key" }).click();
   const field = sheet.getByLabel("Auth key", { exact: true });
-  await expect(field).toHaveValue(/^tskey-auth-/, { timeout: 20_000 });
+  await expect(field).toHaveValue(
+    new RegExp(`^${tailscaleKindPrefix("auth")}`),
+    {
+      timeout: 20_000,
+    },
+  );
   const secret = await field.inputValue();
   await expect(sheet.getByLabel("Join command", { exact: true })).toHaveValue(
     `tailscale up --auth-key=${secret}`,

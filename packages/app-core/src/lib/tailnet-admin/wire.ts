@@ -14,6 +14,7 @@ import {
   isNumber,
   isString,
 } from "@opensesame/os-domain";
+import { tailscaleKindPrefix } from "../tailscale-key-prefix.js";
 import { type TailnetRole, isTailnetRole } from "./pairing.js";
 
 const ID = /^[A-Za-z0-9]{1,64}$/;
@@ -186,7 +187,8 @@ export function parseKeys(raw: BoundaryValue): readonly TailnetKey[] | null {
 export function parseCreatedKey(raw: BoundaryValue): CreatedTailnetKey | null {
   const view = parseKey(raw);
   if (!view || !isJsonObject(raw) || !isString(raw.key)) return null;
-  if (!raw.key.startsWith("tskey-auth-") || raw.key.length > 255) return null;
+  if (!raw.key.startsWith(tailscaleKindPrefix("auth")) || raw.key.length > 255)
+    return null;
   return { ...view, key: raw.key };
 }
 

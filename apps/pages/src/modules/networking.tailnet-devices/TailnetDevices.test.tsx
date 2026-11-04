@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { registerContributionForTest } from "@opensesame/app-core/lib/contributions.js";
 import { tailnetAdminSeams } from "@opensesame/app-core/lib/tailnet-admin/client.js";
+import { tailscaleKindPrefix } from "@opensesame/app-core/lib/tailscale-key-prefix.js";
 import { TAILNET_DEVICES_TARGETS } from "@opensesame/app-core/tutorial/registry/tailnet-devices-catalog.js";
 import {
   cleanup,
@@ -13,13 +14,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TailnetDevices } from "./TailnetDevices.js";
 import {
+  TEST_MINT_AUTH_KEY,
   fakeDaemon,
   originalSeams,
   pairedClient,
   pending,
   router,
   rowOf,
-  TEST_MINT_AUTH_KEY,
   wireDevice,
 } from "./fake-daemon.test-support.js";
 
@@ -159,13 +160,9 @@ describe("Tailnet devices", () => {
     await userEvent.click(
       sheet.getByRole("button", { name: "Mint an auth key" }),
     );
+    expect(await sheet.findByDisplayValue(TEST_MINT_AUTH_KEY)).toBeTruthy();
     expect(
-      await sheet.findByDisplayValue(TEST_MINT_AUTH_KEY),
-    ).toBeTruthy();
-    expect(
-      sheet.getByDisplayValue(
-        `tailscale up --auth-key=${TEST_MINT_AUTH_KEY}`,
-      ),
+      sheet.getByDisplayValue(`tailscale up --auth-key=${TEST_MINT_AUTH_KEY}`),
     ).toBeTruthy();
     expect(daemon.calls).toContainEqual({
       method: "POST",
@@ -180,7 +177,9 @@ describe("Tailnet devices", () => {
       },
     });
     await userEvent.click(sheet.getByRole("button", { name: "Done" }));
-    expect(screen.queryByDisplayValue(/tskey-auth-/)).toBeNull();
+    expect(
+      screen.queryByDisplayValue(new RegExp(tailscaleKindPrefix("auth"))),
+    ).toBeNull();
     expect(
       await screen.findByRole("heading", { name: "sams phone" }),
     ).toBeTruthy();
