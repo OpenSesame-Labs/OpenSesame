@@ -212,7 +212,11 @@ describe("GHCR publish workflow", () => {
     );
     assert.match(rust, /cargo build --release -p opensesame-cli\n/);
     assert.match(rust, /name: opensesame-amd64-binary\n/);
-    assert.match(rust, /path: target\/release\/opensesame\n/);
+    assert.match(
+      rust,
+      /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/release\/opensesame\n/,
+    );
+    assert.doesNotMatch(rust, /path: target\/release\/opensesame\n/);
     assert.match(image, /needs: opensesame-amd64-rust\n/);
     assert.match(image, /timeout-minutes: 10\n/);
     assert.match(image, /name: opensesame-amd64-binary\n/);
