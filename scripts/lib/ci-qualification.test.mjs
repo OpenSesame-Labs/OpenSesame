@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const trunkInventoryCommand =
-  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs";
+  "npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs";
 
 const root = repoRootFromHere();
 const read = (name) =>

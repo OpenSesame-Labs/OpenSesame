@@ -49,6 +49,19 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github/workflows
+            scripts/lib
+            scripts/ci
+            /ops/compose/Dockerfile
+            package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
       - name: Restore mise cache
         id: mise-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -75,7 +88,7 @@ jobs:
       - name: Install the frozen dependency graph
         run: npm ci
       - name: Workflow inventory gate
-        run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs
+        run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs
 
   changes:
     name: Affected build graph
@@ -112,11 +125,39 @@ jobs:
             linux='["self-hosted","linux","ARM64","os-devbox"]'
           fi
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
+      # checkout-history: merge-base and name-only diffs for the affected graph need full history.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - name: Resolve the cumulative integration diff
         id: scope
         env:
@@ -152,11 +193,39 @@ jobs:
       contents: read
       actions: write
     steps:
+      # checkout-history: merge-base and name-only diffs for the affected graph need full history.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - name: Select affected packages
         id: affected
         env:
@@ -293,11 +362,39 @@ jobs:
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_DEV_DEBUG: 0
     steps:
+      # checkout-history: merge-base and name-only diffs for the affected graph need full history.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           fetch-depth: 0
           filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
       - name: Select affected crates
         id: affected
         env:
@@ -384,6 +481,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
       - name: Report the required build check
         env:
           DRAFT: ${{ needs.changes.outputs.draft }}
@@ -404,6 +506,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
       - name: Report the required build check
         env:
           DRAFT: ${{ needs.changes.outputs.draft }}
@@ -423,6 +530,11 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
       - name: Report the required build check
         env:
           DRAFT: ${{ needs.changes.outputs.draft }}
