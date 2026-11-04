@@ -30,8 +30,13 @@ describe("GHCR publish workflow", () => {
     assert.match(workflow, /ops\/containers\/\*\*/);
     assert.match(workflow, /ops\/compose\/Dockerfile/);
     assert.match(workflow, /\.github\/workflows\/cd-ghcr-publish\.yml/);
-    assert.match(workflow, /group: cd-ghcr-publish/);
-    assert.match(workflow, /cancel-in-progress: false/);
+    assert.match(
+      workflow,
+      /github\.event_name == 'workflow_dispatch' && github\.ref != 'refs\/heads\/main' && format\('cd-ghcr-publish-dispatch-\{0\}', github\.ref\) \|\| format\('cd-ghcr-publish-prod-\{0\}', github\.ref\)/,
+    );
+    assert.match(workflow, /cancel-in-progress: true/);
+    assert.doesNotMatch(workflow, /cancel-in-progress: false/);
+    assert.doesNotMatch(workflow, /group: cd-ghcr-publish\s*$/m);
     assert.match(workflow, /contents: read/);
     assert.match(workflow, /packages: write/);
     assert.match(workflow, /id-token: write/);

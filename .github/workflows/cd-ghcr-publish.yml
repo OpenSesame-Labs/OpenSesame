@@ -39,9 +39,12 @@ permissions:
   id-token: write
   attestations: write
 
+# Prod (push to main, v* tags, and workflow_dispatch on main) shares
+# cd-ghcr-publish-prod-<ref> and cancels an older run of that ref. Branch
+# proof dispatches use cd-ghcr-publish-dispatch-<ref> and do not block prod.
 concurrency:
-  group: cd-ghcr-publish
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && format('cd-ghcr-publish-dispatch-{0}', github.ref) || format('cd-ghcr-publish-prod-{0}', github.ref) }}
+  cancel-in-progress: true
 
 jobs:
   web-pwa-tailscale-wasm:
