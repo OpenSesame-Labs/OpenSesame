@@ -138,10 +138,7 @@ async function resumeWeeklySelection(action) {
     action.ctx.workflow === ".github/workflows/release-weekly-qualify.yml",
     "Untrusted continuation workflow",
   );
-  demand(
-    action.options["--selection-file"],
-    "--selection-file is required",
-  );
+  demand(action.options["--selection-file"], "--selection-file is required");
   const path = action.options["--selection-file"];
   const record = JSON.parse(await readFile(path, "utf8"));
   const validated = await validateContinuationSelection(
@@ -159,10 +156,7 @@ async function resumeDevSelection(action) {
     action.ctx.workflow === ".github/workflows/dev-nightly-qualify.yml",
     "Untrusted continuation workflow",
   );
-  demand(
-    action.options["--selection-file"],
-    "--selection-file is required",
-  );
+  demand(action.options["--selection-file"], "--selection-file is required");
   const path = action.options["--selection-file"];
   const record = JSON.parse(await readFile(path, "utf8"));
   const selected = await validateDevContinuationSelection(
