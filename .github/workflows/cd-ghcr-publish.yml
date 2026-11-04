@@ -6,8 +6,9 @@
 # One matrix row builds one image and one platform, with a 10 minute cap.
 # GitHub Actions layer cache is scoped per row. linux/arm64 rows run on
 # ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 and linux/arm64.
-# web-pwa is outside that matrix. When PUBLISH_GHCR is true, web-pwa-arm64
-# builds target runtime on ubuntu-24.04-arm and does not wait for amd64.
+# web-pwa is outside that matrix. web-pwa-tailscale-wasm prepares pinned native
+# distributions on amd64 once; web-pwa-amd64 and publish web-pwa-arm64 download
+# that artifact before Docker (slice 2). Publish web-pwa-arm64 still does not wait on amd64.
 # When PUBLISH_GHCR is not true, web-pwa-arm64-proof needs web-pwa-amd64:
 # amd64 saves web-pwa:local and uploads artifact web-pwa-amd64-runtime;
 # the proof job downloads it, docker-loads it, and builds target
@@ -47,6 +48,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  web-pwa-tailscale-wasm:
+    name: web-pwa-tailscale-wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            tools
+            scripts
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: false
+          install_args: node
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/pwa-tailscale-native-http/distributions
+          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
+      - name: Prepare pinned Tailscale native distributions
+        run: node --input-type=module -e 'import { loadTailscaleAssets } from "./apps/pages/scripts/tailscale-wasm-assets.mjs"; await loadTailscaleAssets();'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-pwa-tailscale-distributions
+          path: .cache/pwa-tailscale-native-http/distributions
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
   images:
     name: ${{ matrix.id }}
     runs-on: ${{ matrix.runner }}
@@ -205,6 +245,7 @@ jobs:
   # id: web-pwa-amd64
   web-pwa-amd64:
     name: web-pwa-amd64
+    needs: web-pwa-tailscale-wasm
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -245,6 +286,12 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
+
+      - name: Restore prepared Tailscale WASM distributions
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: web-pwa-tailscale-distributions
+          path: .cache/pwa-tailscale-native-http/distributions
 
       - name: Check Dockerfile
         id: dockerfile
@@ -351,6 +398,7 @@ jobs:
   # Cache scope is web-pwa-arm64 only. Build-args are VERSION only.
   web-pwa-arm64:
     name: web-pwa-arm64
+    needs: web-pwa-tailscale-wasm
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
@@ -389,6 +437,12 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
+
+      - name: Restore prepared Tailscale WASM distributions
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: web-pwa-tailscale-distributions
+          path: .cache/pwa-tailscale-native-http/distributions
 
       - name: Check Dockerfile
         id: dockerfile
@@ -632,7 +686,7 @@ jobs:
 
   manifests:
     name: Manifest ${{ matrix.name }}
-    needs: [images, web-pwa-amd64, web-pwa-arm64]
+    needs: [images, web-pwa-tailscale-wasm, web-pwa-amd64, web-pwa-arm64]
     if: needs.images.result == 'success' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && needs['web-pwa-amd64'].result == 'success' && needs['web-pwa-arm64'].result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10

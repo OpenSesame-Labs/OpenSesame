@@ -66,18 +66,17 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   }
   const continuation =
     command === "resume-dev-selection" || command === "resume-weekly-selection";
-  const ctx = context(env, {
+  const contextOptions = {
     requireToken: command !== "receipt-envelope",
-    ...(continuation
-      ? {
-          events: ["workflow_run"],
-          workflows: [
-            ".github/workflows/dev-nightly-qualify.yml",
-            ".github/workflows/release-weekly-qualify.yml",
-          ],
-        }
-      : {}),
-  });
+  };
+  if (continuation) {
+    contextOptions.events = ["workflow_run"];
+    contextOptions.workflows = [
+      ".github/workflows/dev-nightly-qualify.yml",
+      ".github/workflows/release-weekly-qualify.yml",
+    ];
+  }
+  const ctx = context(env, contextOptions);
   const service = new Candidates(ctx);
   const directory = () => {
     demand(options["--directory"], "--directory is required");
