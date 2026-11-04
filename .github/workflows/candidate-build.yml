@@ -28,20 +28,6 @@ name: Candidate build
         value: ${{ jobs.manifest.outputs.artifact_digest }}
       payload_digest:
         value: ${{ jobs.manifest.outputs.payload_digest }}
-  workflow_dispatch:
-    inputs:
-      source_sha:
-        description: Exact main commit; 40 lowercase hex
-        required: true
-        type: string
-      source_ci_run_id:
-        description: Successful push-main CI run
-        required: true
-        type: string
-      source_ci_run_attempt:
-        description: Exact successful CI attempt
-        required: true
-        type: string
 permissions:
   contents: read
   actions: read

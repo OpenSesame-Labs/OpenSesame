@@ -1,0 +1,121 @@
+# Continuation of nightly dev qualification under workflow_run (no default-branch cache write).
+name: Nightly dev qualification (continuation)
+
+on:
+  workflow_run:
+    workflows: ["Nightly dev qualification"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  attestations: read
+
+concurrency:
+  group: candidate-dev-qualify-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    name: Resume dev selection
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      source_sha: ${{ steps.load.outputs.source_sha }}
+      source_ci_run_id: ${{ steps.load.outputs.source_ci_run_id }}
+      source_ci_run_attempt: ${{ steps.load.outputs.source_ci_run_attempt }}
+      reuse: ${{ steps.load.outputs.reuse }}
+      candidate_id: ${{ steps.load.outputs.candidate_id }}
+      run_id: ${{ steps.load.outputs.run_id }}
+      run_attempt: ${{ steps.load.outputs.run_attempt }}
+      artifact_id: ${{ steps.load.outputs.artifact_id }}
+      artifact_digest: ${{ steps.load.outputs.artifact_digest }}
+      payload_digest: ${{ steps.load.outputs.payload_digest }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            .github/workflows
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: false
+          install_args: node
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: dev-selection-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/dev-selection
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Load the frozen dev selection
+        id: load
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_RUN_ID: ${{ github.event.workflow_run.id }}
+          CONTROLLER_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONTROLLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/dev-nightly.yml@refs/heads/main
+          CONTROLLER_WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >-
+          node scripts/release/candidate.mjs resume-dev-selection
+          --selection-file "$RUNNER_TEMP/dev-selection/selection.json"
+          --controller-run-id "$CONTROLLER_RUN_ID"
+          --controller-run-attempt "$CONTROLLER_RUN_ATTEMPT"
+          --controller-workflow-ref "$CONTROLLER_WORKFLOW_REF"
+          --controller-workflow-sha "$CONTROLLER_WORKFLOW_SHA"
+          --output "$GITHUB_OUTPUT"
+
+  build:
+    needs: resume
+    if: ${{ needs.resume.outputs.reuse == 'false' }}
+    uses: ./.github/workflows/candidate-build.yml
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    with:
+      source_sha: ${{ needs.resume.outputs.source_sha }}
+      source_ci_run_id: ${{ needs.resume.outputs.source_ci_run_id }}
+      source_ci_run_attempt: ${{ needs.resume.outputs.source_ci_run_attempt }}
+
+  qualify:
+    needs: [resume, build]
+    if: >-
+      ${{ always() && needs.resume.result == 'success' &&
+          (needs.build.result == 'success' ||
+           (needs.build.result == 'skipped' && needs.resume.outputs.reuse == 'true')) }}
+    uses: ./.github/workflows/ci-dev-checks.yml
+    with:
+      source_sha: ${{ needs.resume.outputs.source_sha }}
+      candidate_id: ${{ needs.build.outputs.candidate_id || needs.resume.outputs.candidate_id }}
+      run_id: ${{ needs.build.outputs.run_id || needs.resume.outputs.run_id }}
+      run_attempt: ${{ needs.build.outputs.run_attempt || needs.resume.outputs.run_attempt }}
+      artifact_id: ${{ needs.build.outputs.artifact_id || needs.resume.outputs.artifact_id }}
+      artifact_digest: ${{ needs.build.outputs.artifact_digest || needs.resume.outputs.artifact_digest }}
+      payload_digest: ${{ needs.build.outputs.payload_digest || needs.resume.outputs.payload_digest }}
+      receipt_retention_days: 35
+
+  result:
+    name: Nightly qualification result
+    needs: [resume, build, qualify]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      RESUME_RESULT: ${{ needs.resume.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
+      QUALIFY_RESULT: ${{ needs.qualify.result }}
+      REUSE: ${{ needs.resume.outputs.reuse }}
+    steps:
+      - name: Reject incomplete or unexpectedly skipped qualification
+        run: |
+          test "$RESUME_RESULT" = success
+          test "$QUALIFY_RESULT" = success
+          case "$REUSE:$BUILD_RESULT" in
+            true:skipped|false:success) ;;
+            *) exit 1 ;;
+          esac

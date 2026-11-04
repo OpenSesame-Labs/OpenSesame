@@ -145,7 +145,7 @@ describe("release qualification evidence", () => {
     );
     expect(record).not.toContain("if: always()");
     expect(job(release, "codeql")).toContain("security-events: write");
-    expect(job(read("release-weekly.yml"), "security")).toContain(
+    expect(job(read("release-weekly-qualify.yml"), "security")).toContain(
       "security-events: write",
     );
   });

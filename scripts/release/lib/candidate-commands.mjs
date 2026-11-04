@@ -1,5 +1,13 @@
+import { readFile } from "node:fs/promises";
 import { receiptEnvelope, writeReceipt } from "./candidate-evidence.mjs";
-import { retainSelection, selectWeekly } from "./candidate-freeze.mjs";
+import {
+  resumeSelection,
+  retainDevSelection,
+  retainSelection,
+  selectWeekly,
+  validateContinuationSelection,
+  validateDevContinuationSelection,
+} from "./candidate-freeze.mjs";
 import { candidateOutputs } from "./candidate-model.mjs";
 import { demand, digest, identifier, stageKey } from "./candidate-policy.mjs";
 import { verifyPromotion } from "./candidate-publication.mjs";
@@ -7,11 +15,32 @@ import { selectIntegration } from "./candidate-selection.mjs";
 
 export const COMMAND_OPTIONS = {
   policy: ["--controller"],
-  "select-integration": ["--workflow", "--reuse-complete", "--output"],
+  "select-integration": [
+    "--workflow",
+    "--reuse-complete",
+    "--selection-file",
+    "--output",
+  ],
   "select-dev": [
     "--workflow",
     "--max-age-hours",
     "--selection-file",
+    "--output",
+  ],
+  "resume-weekly-selection": [
+    "--selection-file",
+    "--controller-run-id",
+    "--controller-run-attempt",
+    "--controller-workflow-ref",
+    "--controller-workflow-sha",
+    "--output",
+  ],
+  "resume-dev-selection": [
+    "--selection-file",
+    "--controller-run-id",
+    "--controller-run-attempt",
+    "--controller-workflow-ref",
+    "--controller-workflow-sha",
     "--output",
   ],
   verify: ["--directory", "--prerequisite-env", "--output"],
@@ -34,6 +63,13 @@ async function integration(action) {
   const selected = await selectIntegration(action.service, {
     reuse: action.options["--reuse-complete"] === true,
   });
+  if (action.options["--selection-file"]) {
+    await retainDevSelection(
+      action.service,
+      selected,
+      action.options["--selection-file"],
+    );
+  }
   await action.output(selected);
   await action.summary(selected, "Nightly integration selection");
 }
@@ -64,6 +100,76 @@ async function dev(action) {
         ? `Resuming selection from attempt ${selected.resumed_from_attempt}`
         : "Weekly candidate selected";
   await action.summary(selected, title);
+}
+
+function continuationOption(action, flag, label) {
+  const value = action.options[flag];
+  demand(value, label);
+  return value;
+}
+
+function continuationController(action) {
+  return {
+    run_id: continuationOption(
+      action,
+      "--controller-run-id",
+      "controller run id",
+    ),
+    run_attempt: continuationOption(
+      action,
+      "--controller-run-attempt",
+      "controller run attempt",
+    ),
+    workflow_ref: continuationOption(
+      action,
+      "--controller-workflow-ref",
+      "controller workflow ref",
+    ),
+    workflow_sha: continuationOption(
+      action,
+      "--controller-workflow-sha",
+      "controller workflow sha",
+    ),
+  };
+}
+
+async function resumeWeeklySelection(action) {
+  demand(
+    action.ctx.workflow === ".github/workflows/release-weekly-qualify.yml",
+    "Untrusted continuation workflow",
+  );
+  const path = demand(
+    action.options["--selection-file"],
+    "--selection-file is required",
+  );
+  const record = JSON.parse(await readFile(path, "utf8"));
+  const validated = await validateContinuationSelection(
+    action.service,
+    record,
+    continuationController(action),
+  );
+  const selected = await resumeSelection(action.service, validated);
+  await action.output(selected);
+  await action.summary(selected, "Weekly selection resumed");
+}
+
+async function resumeDevSelection(action) {
+  demand(
+    action.ctx.workflow === ".github/workflows/dev-nightly-qualify.yml",
+    "Untrusted continuation workflow",
+  );
+  const path = demand(
+    action.options["--selection-file"],
+    "--selection-file is required",
+  );
+  const record = JSON.parse(await readFile(path, "utf8"));
+  const selected = await validateDevContinuationSelection(
+    action.service,
+    record,
+    continuationController(action),
+  );
+  await action.output(selected);
+  await action.summary(selected, "Dev selection resumed");
 }
 
 async function verify(action) {
@@ -135,6 +241,8 @@ export const COMMANDS = {
   policy: (action) => action.service.admission(action.options["--controller"]),
   "select-integration": integration,
   "select-dev": dev,
+  "resume-weekly-selection": resumeWeeklySelection,
+  "resume-dev-selection": resumeDevSelection,
   verify,
   receipt,
   "receipt-envelope": receiptOutput,
