@@ -21,6 +21,14 @@ const targets = {
     "cmd/tsconnect/wasm/wasm_js.go",
     "net/tlsdial/tlsdial.go",
   ],
+  "codeql-wasm-security.patch": [
+    "ipn/ipnlocal/c2n.go",
+    "ipn/ipnlocal/peerapi.go",
+    "ipn/ipnlocal/local.go",
+    "control/controlclient/direct.go",
+    "net/tlsdial/tlsdial.go",
+    "net/dns/resolver/debug.go",
+  ],
 };
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 function requireValue(condition) {
@@ -92,6 +100,11 @@ function specification(pins, name) {
             afterSha256: pins.nativeSSH.tlsVerification.afterSha256,
           },
         ],
+      };
+    case "codeql-wasm-security.patch":
+      return {
+        digest: pins.codeqlWasmSecurity.patch.sha256,
+        files: pins.codeqlWasmSecurity.patchTargets,
       };
     default:
       throw new Error("Native patch is outside the fixed reviewed scope.");

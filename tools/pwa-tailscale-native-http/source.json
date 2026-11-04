@@ -528,7 +528,7 @@
       },
       {
         "path": "compose-native.mjs",
-        "sha256": "70446a3b4691f657ac768c0067870d6193642d80abfa26abbb765e7889db363d"
+        "sha256": "b6bf067fabdc069a12310f04f9acee4bb9f2acfa5ce930a13319d5e2337cd785"
       },
       {
         "path": "native-assets.mjs",
@@ -536,7 +536,7 @@
       },
       {
         "path": "compose-native.test.mjs",
-        "sha256": "f5711e4a14a6c5905de2095309906748b847e9726db300f757487bc284c04582"
+        "sha256": "1ae1d8f5a8326b0124e4b4f8a7dd60c5ac1a0d7c233a069ded4d16c4098fd030"
       },
       {
         "path": "compress-wasm.mjs",
@@ -568,11 +568,11 @@
       },
       {
         "path": "apply-native-patch.mjs",
-        "sha256": "509adc30f47f3b10152de63c94f59574b2b1955be455c662d629cb85d4f579cc"
+        "sha256": "0f2d63110acbe6f50e59cd8ad216a5e5cce1d52389a636387f01fb88014e8033"
       },
       {
         "path": "apply-native-patch.test.mjs",
-        "sha256": "029916fb098baaf411a49b8f3b2565201c73f3595d4b21a555c91c8d674ce192"
+        "sha256": "e7f119f9429367e77a9a8c8855ecdd33e08fb641240930edc217818cbd366c68"
       },
       {
         "path": "compressor-archive.mjs",
@@ -580,7 +580,7 @@
       },
       {
         "path": "compressor-archive.test.mjs",
-        "sha256": "04864cf6310db43eda9c12c9bbf17fb61647387b0418c4b010a7806d5b5a39a3"
+        "sha256": "74801263aa47d288c067ff0756494afaa3d80a4e4489a3fdc499285926e15927"
       },
       {
         "path": "pigz-2.8.tar.gz",
@@ -588,7 +588,7 @@
       },
       {
         "path": "distribution-cache.mjs",
-        "sha256": "82221f57593ce10270c1b6bc8a60a841225079d6a50a7ed396a82664b252d69e"
+        "sha256": "bc80556143bcbc42e6fffc3fcbdc4974a4610dca5adca5a60c7d62399075f9af"
       },
       {
         "path": "stage-peer-get.mjs",
@@ -604,7 +604,7 @@
       },
       {
         "path": "distribution-cache.test.mjs",
-        "sha256": "7149da5d9cd58931eaa5d97507909778ac9c81da2ee886e165ef11c2bd78e3a8"
+        "sha256": "3db4696a19b9d483d90966c60e70080235095631b2ab04632a11117ee2a4f606"
       },
       {
         "path": "native-audit.mjs",
@@ -628,7 +628,7 @@
       },
       {
         "path": "prepare-native-audit.test.mjs",
-        "sha256": "7eb3252549e079c065b39a3d8c38011a46cf964b00a0023664919fc182021c83"
+        "sha256": "b9dacba83cee43aedc891f69d274fa6fb2aff5d93082e6f80027d959ac035369"
       },
       {
         "path": "owned-process-group.mjs",
@@ -736,5 +736,49 @@
       "sha256": "53edf87bc57b28ea8c08307615ac281cf50faa60ed89c1f2af3737892082c06d"
     },
     "scope": "The raw ssh method only connects to a currently authorized direct tailnet peer advertising its host public key. Ordinary SSH, unadvertised keys, exit-node or route-all configurations, unavailable peer authority and changed peer keys fail closed. Original selected peer identity and route must remain current for the session."
+  },
+  "codeqlWasmSecurity": {
+    "patch": {
+      "path": "codeql-wasm-security.patch",
+      "sha256": "2b3d601aafe0daf10340fa09bc25792932aa6f59b2bd5f88b63e5502ebc566ac",
+      "beforeSha256": "dd5eae4dc32111fba41d81b51fcbc560f88e98f370e3ccd09687f9d9ee48f9e7",
+      "afterSha256": "dd5eae4dc32111fba41d81b51fcbc560f88e98f370e3ccd09687f9d9ee48f9e7"
+    },
+    "patchTargets": [
+      {
+        "path": "ipn/ipnlocal/c2n.go",
+        "beforeSha256": "27856304c7d16781783dadb2147bc27dff146555d1919e86ca6ad2b2cecd3477",
+        "afterSha256": "56bf95db6759b18a7d4fdc33f44f7eaf80416fb2f9038447f3c9305a53c8395d"
+      },
+      {
+        "path": "ipn/ipnlocal/peerapi.go",
+        "beforeSha256": "196158d7c2af81e59b00f9f8db9c17bac8c0fb3666d919c5328d9d8966c131b8",
+        "afterSha256": "d6fc315e4367781debdba7446e4f0bec16217a2e2f127cdbf66609393911f6b6"
+      },
+      {
+        "path": "ipn/ipnlocal/local.go",
+        "beforeSha256": "a20964a6ece8d80a4f8aaf571ef43690034aac98b8d84fef07ecb7376e303233",
+        "afterSha256": "b25adab7fda6ff9bdfb4acaec05b5bce9e8ca42cd614212490405a758498f593"
+      },
+      {
+        "path": "control/controlclient/direct.go",
+        "beforeSha256": "f407704da5752a6276f989dffad1c208707d652bf05bd9924659aa27c795968d",
+        "afterSha256": "b1a766e66fa52ba992b17732d5c2d17c40d168d8cfb4b61fda1380aa72205e1c"
+      },
+      {
+        "path": "net/tlsdial/tlsdial.go",
+        "beforeSha256": "f4a27ef3abd5826dbb5fd54e6dc94b6d58e77329f127642946eab907c97cedb1",
+        "afterSha256": "344d42c5dbea0b412e663c39b876d2db74bfb20634f395c6fb74fe775a7318b2"
+      },
+      {
+        "path": "net/dns/resolver/debug.go",
+        "beforeSha256": "82a789e6b9702b25471ba9d9e858ad73ce2e00e4a11429df10f914164bbfb7aa",
+        "afterSha256": "48157613f0e54293e3b697ba3e2f7f39e75fd85a775e48ff05347cf0c29216ce"
+      }
+    ],
+    "stagingHelper": {
+      "path": "stage-codeql-wasm-security.mjs",
+      "sha256": "5b558275308d7b109612375df4361024bf1d2d8f723a6f921a312c30e80eb967"
+    }
   }
 }

@@ -1,0 +1,149 @@
+--- a/ipn/ipnlocal/c2n.go
++++ b/ipn/ipnlocal/c2n.go
+@@ -6,7 +6,6 @@
+ import (
+ 	"encoding/json"
+ 	"fmt"
+-	"io"
+ 	"net/http"
+ 	"path"
+ 	"reflect"
+@@ -161,9 +160,8 @@
+ }
+ 
+ func handleC2NEcho(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+-	// Test handler.
+-	body, _ := io.ReadAll(r.Body)
+-	w.Write(body)
++	// Fail closed. The request body is not written back into the response.
++	http.Error(w, "forbidden", http.StatusForbidden)
+ }
+ 
+ func handleC2NLogtailFlush(b *LocalBackend, w http.ResponseWriter, r *http.Request) {
+--- a/ipn/ipnlocal/peerapi.go
++++ b/ipn/ipnlocal/peerapi.go
+@@ -805,7 +805,7 @@
+ 
+ 	if pretty {
+ 		// Non-standard response for interactive debugging.
+-		w.Header().Set("Content-Type", "application/json")
++		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+ 		writePrettyDNSReply(w, res)
+ 		return
+ 	}
+@@ -873,13 +873,14 @@
+ 	return msg
+ }
+ 
+-func writePrettyDNSReply(w io.Writer, res []byte) (err error) {
++func writePrettyDNSReply(w http.ResponseWriter, res []byte) (err error) {
+ 	defer func() {
+ 		if err != nil {
+ 			j, _ := json.Marshal(struct {
+ 				Error string
+ 			}{err.Error()})
+ 			j = append(j, '\n')
++			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+ 			w.Write(j)
+ 			return
+ 		}
+@@ -938,6 +939,7 @@
+ 	}
+ 	j, _ := json.Marshal(gotIPs)
+ 	j = append(j, '\n')
++	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+ 	w.Write(j)
+ 	return nil
+ }
+--- a/ipn/ipnlocal/local.go
++++ b/ipn/ipnlocal/local.go
+@@ -8377,7 +8377,11 @@
+ 	}
+ 	// Make a best-effort to remove the profile-specific data directory, if one exists.
+ 	if pd := b.profileDataPathLocked(p); pd != "" {
+-		if err := os.RemoveAll(pd); err != nil {
++		pd = filepath.Clean(pd)
++		base := filepath.Clean(filepath.Join(b.TailscaleVarRoot(), ProfileDataDir))
++		if strings.Contains(pd, "..") || !strings.HasPrefix(pd, base+string(filepath.Separator)) {
++			b.logf("warning: refusing to remove profile data outside the profile directory")
++		} else if err := os.RemoveAll(pd); err != nil {
+ 			b.logf("warning: removing profile data for %q: %v", p, err)
+ 		}
+ 	}
+--- a/control/controlclient/direct.go
++++ b/control/controlclient/direct.go
+@@ -1515,8 +1515,8 @@
+ 	return nil
+ }
+ 
+-// encode JSON encodes v as JSON, logging tailcfg.MapRequest values if
+-// debugMap is set.
++// encode JSON encodes v as JSON. MapRequest bodies are not logged: they can
++// include an AuthKey.
+ func encode(v any) ([]byte, error) {
+ 	b, err := json.Marshal(v)
+ 	if err != nil {
+@@ -1524,7 +1524,7 @@
+ 	}
+ 	if DevKnob.DumpNetMaps() {
+ 		if _, ok := v.(*tailcfg.MapRequest); ok {
+-			log.Printf("MapRequest: %s", b)
++			log.Printf("MapRequest: redacted")
+ 		}
+ 	}
+ 	return b, nil
+--- a/net/tlsdial/tlsdial.go
++++ b/net/tlsdial/tlsdial.go
+@@ -251,23 +251,13 @@
+ 	extraRoots := c.RootCAs
+ 	c.RootCAs = nil
+ 
+-	// Set InsecureSkipVerify to prevent crypto/tls from doing its
+-	// own cert verification, but do the same work that it'd do
+-	// (but using certDNSName) in the VerifyPeerCertificate hook.
+-	c.InsecureSkipVerify = true // CodeQL[go/disabled-certificate-check]: VerifyPeerCertificate below enforces certificate and hostname validation.
+-	c.VerifyConnection = nil
+-	c.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+-		if len(rawCerts) == 0 {
++	// Keep certificate verification enabled. VerifyConnection checks certDNSName
++	// and the same root fallback when the presented name differs from SNI.
++	c.VerifyConnection = func(cs tls.ConnectionState) error {
++		certs := cs.PeerCertificates
++		if len(certs) == 0 {
+ 			return errors.New("no certs presented")
+ 		}
+-		certs := make([]*x509.Certificate, len(rawCerts))
+-		for i, asn1Data := range rawCerts {
+-			cert, err := x509.ParseCertificate(asn1Data)
+-			if err != nil {
+-				return err
+-			}
+-			certs[i] = cert
+-		}
+ 		opts := x509.VerifyOptions{
+ 			CurrentTime:   time.Now(),
+ 			DNSName:       certDNSName,
+--- a/net/dns/resolver/debug.go
++++ b/net/dns/resolver/debug.go
+@@ -24,12 +24,18 @@
+ 		n, _ := strconv.Atoi(r.FormValue("n"))
+ 		if n <= 0 {
+ 			n = 100
+-		} else if n > 10000 {
+-			n = 10000
++		}
++		const maxForwardLog = 256
++		if n > maxForwardLog {
++			n = maxForwardLog
+ 		}
+ 		fl := fwdLogAtomic.Load()
+ 		if fl == nil || n != len(fl.ent) {
+-			fl = &fwdLog{ent: make([]fwdLogEntry, n)}
++			ent := make([]fwdLogEntry, maxForwardLog)
++			if n < len(ent) {
++				ent = ent[:n]
++			}
++			fl = &fwdLog{ent: ent}
+ 			fwdLogAtomic.Store(fl)
+ 		}
+ 		fl.ServeHTTP(w, r)

@@ -155,6 +155,11 @@ test("checks exact source overlays, rejects tampering and rejects overlay traver
       patch: { path: "exit-route.patch", sha256: hash(patch) },
       stagingHelper: { path: "nativehttp.go", sha256: hash(overlay) },
     },
+    codeqlWasmSecurity: {
+      patch: { path: "exit-route.patch", sha256: hash(patch) },
+      stagingHelper: { path: "nativehttp.go", sha256: hash(overlay) },
+      patchTargets: [],
+    },
     composition: { files: [] },
     patch: { sha256: hash(patch) },
   };
@@ -191,6 +196,11 @@ test("cache validation checks peer overlay, patch and staging helper before reus
     nativeSSH: {
       patch: entry("exit-route.patch"),
       stagingHelper: entry(names[2]),
+    },
+    codeqlWasmSecurity: {
+      patch: entry("exit-route.patch"),
+      stagingHelper: entry(names[2]),
+      patchTargets: [],
     },
     composition: { files: [] },
     peerGET: {

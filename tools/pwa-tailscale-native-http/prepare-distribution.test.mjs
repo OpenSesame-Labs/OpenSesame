@@ -42,6 +42,11 @@ async function fixture(t) {
       patch: { path: "exit-route.patch", sha256: hash(patch) },
       stagingHelper: { path: "nativehttp.go", sha256: hash(overlay) },
     },
+    codeqlWasmSecurity: {
+      patch: { path: "exit-route.patch", sha256: hash(patch) },
+      stagingHelper: { path: "nativehttp.go", sha256: hash(overlay) },
+      patchTargets: [],
+    },
     composition: { files: [] },
     patch: { sha256: hash(patch) },
   };

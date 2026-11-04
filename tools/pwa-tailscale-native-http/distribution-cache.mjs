@@ -63,6 +63,12 @@ export async function assertNativeSourceInputs(here, expectedSourceSha256) {
       : []),
     source.nativeSSH.patch,
     source.nativeSSH.stagingHelper,
+    ...(source.codeqlWasmSecurity
+      ? [
+          source.codeqlWasmSecurity.patch,
+          source.codeqlWasmSecurity.stagingHelper,
+        ]
+      : []),
     ...source.composition.files,
     { path: "exit-route.patch", sha256: source.patch.sha256 },
   ];

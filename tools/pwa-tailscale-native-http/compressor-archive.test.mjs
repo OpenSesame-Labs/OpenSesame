@@ -34,6 +34,11 @@ async function fixture(t) {
     privateLogging: { files: [] },
     publicTrust: { files: [] },
     nativeSSH: { patch: file, stagingHelper: file },
+    codeqlWasmSecurity: {
+      patch: file,
+      stagingHelper: file,
+      patchTargets: [],
+    },
     composition: {
       files: [
         {
