@@ -9,11 +9,12 @@
  * Registry, dist-tag, install, `--version`, and Pages checks poll until
  * SMOKE_REGISTRY_DEADLINE_MS (default 300000, five minutes) with
  * SMOKE_REGISTRY_POLL_MS (default 2500) between tries. Each check has its
- * own deadline. The version wait GETs
- * `<registry>/<package>/<EXPECTED_VERSION>?_cd_wait=<nonce>`. The nonce is
- * monotonic so a cached miss cannot hide a published version. Success is
- * the JSON `version` field equal to EXPECTED_VERSION. The deadline is not
- * shortened and a miss is not treated as success.
+ * own deadline. The version wait, on every try, cache-busts three reads
+ * with a fresh `_cd_wait` nonce: the exact version document, the packument,
+ * and that package's dist-tags. A try succeeds only when the document's
+ * `version` equals EXPECTED_VERSION, the packument lists it under `versions`
+ * or `time`, and some dist-tag value (including `latest`) equals it. The
+ * deadline is not shortened and a miss is not treated as success.
  *
  * CLI CD starts that version wait in the Preview publish job
  * (`cd-registry-wait.mjs`) on the same deadline. When
@@ -236,25 +237,84 @@ export function registryPollNonceToken(nowMs) {
   return `${stamp.toString(36)}-${registryPollNonce.toString(36)}`;
 }
 
-/**
- * Exact-version document. `npm view` reads the packument, which the registry
- * CDN can keep stale after publish. A new `_cd_wait` query misses that cache.
- */
-export function exactPublishedVersionUrl(pkg, expected, nonce) {
+function assertAllowedPublishedPackage(pkg) {
   if (pkg !== CLI_PACKAGE && pkg !== WEB_PWA_PACKAGE) {
     throw new Error(
       "published package must be @opensesame-labs/cli or @opensesame-labs/web-pwa",
     );
   }
-  if (!PUBLISHED_VERSION.test(expected)) {
-    throw new Error("EXPECTED_VERSION is not a semver");
-  }
+}
+
+function assertRegistryNonce(nonce) {
   if (!/^[0-9a-z]+-[0-9a-z]+$/u.test(nonce)) {
     throw new Error("registry cache bust nonce is invalid");
   }
-  const url = new URL(`${REGISTRY}/${pkg.replace("/", "%2f")}/${expected}`);
+}
+
+function encodedRegistryPackage(pkg) {
+  assertAllowedPublishedPackage(pkg);
+  return pkg.replace("/", "%2f");
+}
+
+/** Registry URL with a `_cd_wait` nonce so a cached miss cannot stick. */
+function registryCacheBustUrl(path, nonce) {
+  assertRegistryNonce(nonce);
+  const url = new URL(`${REGISTRY}/${path}`);
   url.searchParams.set("_cd_wait", nonce);
   return url.href;
+}
+
+/**
+ * Exact-version document. `npm view` reads the packument, which a registry
+ * CDN can keep stale after a 202 accept. A new `_cd_wait` query misses that
+ * cache. The version wait also reads the packument and dist-tags; this URL
+ * stays the version document.
+ */
+export function exactPublishedVersionUrl(pkg, expected, nonce) {
+  const encoded = encodedRegistryPackage(pkg);
+  if (!PUBLISHED_VERSION.test(expected)) {
+    throw new Error("EXPECTED_VERSION is not a semver");
+  }
+  return registryCacheBustUrl(`${encoded}/${expected}`, nonce);
+}
+
+/** Packument document. npm clients resolve a version from `versions`. */
+export function publishedPackumentUrl(pkg, nonce) {
+  return registryCacheBustUrl(encodedRegistryPackage(pkg), nonce);
+}
+
+/** Dist-tags document for one allowed package, cache-busted per try. */
+export function publishedDistTagsUrl(pkg, nonce) {
+  const encoded = encodedRegistryPackage(pkg);
+  return registryCacheBustUrl(`-/package/${encoded}/dist-tags`, nonce);
+}
+
+function recordListsVersion(record, expected) {
+  return isJsonObject(record) && Object.hasOwn(record, expected);
+}
+
+/**
+ * npm packument shape: `versions[expected]` or a `time[expected]` stamp
+ * means the registry has listed the version.
+ */
+export function publishedPackumentListsVersion(payload, expected) {
+  if (!isJsonObject(payload)) return false;
+  if (recordListsVersion(payload.versions, expected)) return true;
+  return recordListsVersion(payload.time, expected);
+}
+
+/**
+ * A dist-tag map lists the version when `latest` or any other tag value
+ * equals it. Preview publishes `alpha`, production publishes `next`, and
+ * `latest` counts when that is the tag that moved.
+ */
+export function publishedDistTagsIncludeVersion(payload, expected) {
+  if (!isJsonObject(payload)) return false;
+  if (readString(payload.latest) === expected) return true;
+  for (const value of Object.values(payload)) {
+    if (readString(value) === expected) return true;
+  }
+  return false;
 }
 
 async function readExactPublishedVersion(pkg, expected, nonce, fetcher) {
@@ -281,8 +341,75 @@ async function readExactPublishedVersion(pkg, expected, nonce, fetcher) {
   return seen;
 }
 
+async function readRegistryObject(href, fetcher, label) {
+  const response = await fetcher(href, {
+    headers: { accept: "application/json" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) {
+    throw new Error(`${label} HTTP ${response.status}`);
+  }
+  const payload = await response.json();
+  if (!isJsonObject(payload)) {
+    throw new Error(`${label} response is not an object`);
+  }
+  return payload;
+}
+
+async function readPackumentListsVersion(pkg, expected, nonce, fetcher) {
+  const label = `registry ${pkg} packument`;
+  const payload = await readRegistryObject(
+    publishedPackumentUrl(pkg, nonce),
+    fetcher,
+    label,
+  );
+  if (!publishedPackumentListsVersion(payload, expected)) {
+    throw new Error(`${label} has no ${expected}`);
+  }
+}
+
+async function readDistTagsIncludeVersion(pkg, expected, nonce, fetcher) {
+  const label = `registry ${pkg} dist-tags`;
+  const payload = await readRegistryObject(
+    publishedDistTagsUrl(pkg, nonce),
+    fetcher,
+    label,
+  );
+  if (!publishedDistTagsIncludeVersion(payload, expected)) {
+    throw new Error(`${label} have no ${expected}`);
+  }
+}
+
 /**
- * Poll until the exact-version registry document's `version` equals `expected`.
+ * One try: version document, then packument, then dist-tags. Each request
+ * gets its own nonce. A miss throws so the deadline poll can try again.
+ */
+async function readPublishedVersionOnce(pkg, expected, fetcher, now) {
+  const seen = await readExactPublishedVersion(
+    pkg,
+    expected,
+    registryPollNonceToken(now()),
+    fetcher,
+  );
+  await readPackumentListsVersion(
+    pkg,
+    expected,
+    registryPollNonceToken(now()),
+    fetcher,
+  );
+  await readDistTagsIncludeVersion(
+    pkg,
+    expected,
+    registryPollNonceToken(now()),
+    fetcher,
+  );
+  return seen;
+}
+
+/**
+ * Poll until the version document, packument, and dist-tags all list
+ * `expected`. Deadline and poll interval stay the registry smoke budget.
  */
 export async function waitForPublishedVersion(expected, options = {}) {
   if (expected === undefined || expected === "") {
@@ -298,13 +425,7 @@ export async function waitForPublishedVersion(expected, options = {}) {
     deadlineMs,
     pollMs,
     sleep,
-    async () =>
-      readExactPublishedVersion(
-        pkg,
-        expected,
-        registryPollNonceToken(now()),
-        fetcher,
-      ),
+    () => readPublishedVersionOnce(pkg, expected, fetcher, now),
     now,
   );
 }

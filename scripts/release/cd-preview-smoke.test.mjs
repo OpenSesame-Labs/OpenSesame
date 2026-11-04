@@ -48,6 +48,18 @@ function versionDoc(seen = version, status = 200) {
   return jsonResponse(status, { version: seen });
 }
 
+function packumentDoc(seen = version) {
+  return jsonResponse(200, { versions: { [seen]: { version: seen } } });
+}
+
+function registryReadKind(url) {
+  const { pathname } = new URL(String(url));
+  if (pathname.endsWith("/dist-tags")) return "dist-tags";
+  if (/^\/@opensesame-labs%2f[^/]+$/u.test(pathname)) return "packument";
+  if (/^\/@opensesame-labs%2f[^/]+\/[^/]+$/u.test(pathname)) return "version";
+  return "other";
+}
+
 function cacheBustOf(url) {
   return new URL(String(url)).searchParams.get("_cd_wait");
 }
@@ -152,6 +164,9 @@ test("waitForPublishedVersion accepts only the exact version", async () => {
   const seen = await waitForPublishedVersion(version, {
     fetch: async (url) => {
       urls.push(String(url));
+      const kind = registryReadKind(url);
+      if (kind === "packument") return packumentDoc(version);
+      if (kind === "dist-tags") return distTags();
       return versionDoc(version);
     },
     sleep: noSleep,
@@ -207,7 +222,11 @@ test("exact version polls use a fresh monotonic cache-bust query", async () => {
       await clock.sleep(ms);
     },
     fetch: async (url) => {
-      queries.push(cacheBustOf(url));
+      const href = String(url);
+      const kind = registryReadKind(href);
+      if (kind === "packument") return packumentDoc(version);
+      if (kind === "dist-tags") return distTags();
+      queries.push(cacheBustOf(href));
       if (queries.length < 3) return versionDoc("0.0.0-alpha.0");
       return versionDoc(version);
     },
@@ -223,6 +242,117 @@ test("exact version polls use a fresh monotonic cache-bust query", async () => {
     exactPublishedVersionUrl(CLI_PACKAGE, version, queries[0]),
     `https://registry.npmjs.org/@opensesame-labs%2fcli/${version}?_cd_wait=${queries[0]}`,
   );
+});
+
+test("waitForPublishedVersion polls until the packument lists the version", async () => {
+  const clock = manualClock();
+  const kinds = [];
+  const slept = [];
+  let packumentReads = 0;
+  const seen = await waitForPublishedVersion(version, {
+    now: clock.now,
+    deadlineMs: 5_000,
+    pollMs: 2_500,
+    sleep: async (ms) => {
+      slept.push(ms);
+      await clock.sleep(ms);
+    },
+    fetch: async (url) => {
+      const kind = registryReadKind(url);
+      kinds.push(kind);
+      if (kind === "version") return versionDoc(version);
+      if (kind === "packument") {
+        packumentReads += 1;
+        if (packumentReads < 3) {
+          return jsonResponse(200, {
+            versions: { "0.0.0-alpha.0": { version: "0.0.0-alpha.0" } },
+          });
+        }
+        return packumentDoc(version);
+      }
+      return distTags();
+    },
+  });
+  assert.equal(seen, version);
+  assert.equal(packumentReads, 3);
+  assert.deepEqual(slept, [2_500, 2_500]);
+  assert.equal(clock.now(), 5_000);
+  assert.deepEqual(kinds, [
+    "version",
+    "packument",
+    "version",
+    "packument",
+    "version",
+    "packument",
+    "dist-tags",
+  ]);
+});
+
+test("waitForPublishedVersion polls until a dist-tag lists the version", async () => {
+  const clock = manualClock();
+  const slept = [];
+  let tagReads = 0;
+  const seen = await waitForPublishedVersion(version, {
+    now: clock.now,
+    deadlineMs: 5_000,
+    pollMs: 2_500,
+    sleep: async (ms) => {
+      slept.push(ms);
+      await clock.sleep(ms);
+    },
+    fetch: async (url) => {
+      const kind = registryReadKind(url);
+      if (kind === "version") return versionDoc(version);
+      if (kind === "packument") return packumentDoc(version);
+      tagReads += 1;
+      if (tagReads < 3) {
+        return jsonResponse(200, {
+          latest: "1.2.3",
+          alpha: "0.0.0-alpha.0",
+          next: "0.0.0-next.1",
+        });
+      }
+      return jsonResponse(200, { latest: "1.2.3", next: version });
+    },
+  });
+  assert.equal(seen, version);
+  assert.equal(tagReads, 3);
+  assert.deepEqual(slept, [2_500, 2_500]);
+  assert.equal(clock.now(), 5_000);
+});
+
+test("waitForPublishedVersion succeeds when version, packument, and dist-tags agree", async () => {
+  const urls = [];
+  const seen = await waitForPublishedVersion(version, {
+    fetch: async (url) => {
+      const href = String(url);
+      urls.push(href);
+      const kind = registryReadKind(href);
+      if (kind === "version") return versionDoc(version);
+      if (kind === "packument") return packumentDoc(version);
+      return distTags();
+    },
+    sleep: async () => {
+      throw new Error("sleep");
+    },
+    deadlineMs: 0,
+    pollMs: DEFAULT_REGISTRY_POLL_MS,
+  });
+  assert.equal(seen, version);
+  assert.equal(urls.length, 3);
+  assert.match(
+    urls[0],
+    /@opensesame-labs%2fcli\/0\.0\.0-alpha\.4\?_cd_wait=[0-9a-z]+-[0-9a-z]+$/u,
+  );
+  assert.match(
+    urls[1],
+    /@opensesame-labs%2fcli\?_cd_wait=[0-9a-z]+-[0-9a-z]+$/u,
+  );
+  assert.match(
+    urls[2],
+    /\/-\/package\/@opensesame-labs%2fcli\/dist-tags\?_cd_wait=[0-9a-z]+-[0-9a-z]+$/u,
+  );
+  assert.equal(new Set(urls.map(cacheBustOf)).size, 3);
 });
 
 test("confirmed registry version skips npm view and still installs", async () => {
@@ -292,7 +422,9 @@ test("registry confirmation other than 1 still waits for the exact version", asy
     {
       fetch: async (url) => {
         urls.push(String(url));
-        if (String(url).includes("_cd_wait=")) return versionDoc(version);
+        const kind = registryReadKind(url);
+        if (kind === "version") return versionDoc(version);
+        if (kind === "packument") return packumentDoc(version);
         return distTags();
       },
       sleep: async () => {
@@ -318,10 +450,10 @@ test("preview smoke GETs the exact version before dist-tags", async () => {
       fetch: async (url) => {
         const href = String(url);
         urls.push(href);
-        if (href.includes("_cd_wait=")) {
-          assert.equal(calls.length, 0);
-          return versionDoc(version);
-        }
+        const kind = registryReadKind(href);
+        assert.equal(calls.length, 0);
+        if (kind === "version") return versionDoc(version);
+        if (kind === "packument") return packumentDoc(version);
         assert.match(href, /@opensesame-labs%2fcli\/dist-tags/);
         return distTags();
       },
@@ -337,7 +469,9 @@ test("preview smoke GETs the exact version before dist-tags", async () => {
   );
   assert.equal(versionSeen, version);
   assert.match(urls[0], /\/0\.0\.0-alpha\.4\?_cd_wait=/u);
-  assert.match(urls[1], /dist-tags/);
+  assert.match(urls[1], /@opensesame-labs%2fcli\?_cd_wait=/u);
+  assert.match(urls[2], /dist-tags\?_cd_wait=/u);
+  assert.match(urls[3], /\/dist-tags$/u);
   assert.equal(calls.length, 2);
   assert.ok(calls[0][1].includes(CLI_SPEC));
   assert.deepEqual(calls[1][1], ["--version"]);
@@ -416,11 +550,14 @@ test("preview smoke retries the exact version then fetches dist-tags", async () 
     {
       now: clock.now,
       fetch: async (url) => {
-        if (String(url).includes("dist-tags")) {
+        const href = String(url);
+        const kind = registryReadKind(href);
+        if (kind === "dist-tags") {
           assert.equal(polls, 2);
           distTagsFetched += 1;
           return distTags();
         }
+        if (kind === "packument") return packumentDoc(version);
         polls += 1;
         if (polls === 1) return versionDoc("0.0.0-alpha.0");
         return versionDoc(version);
@@ -435,7 +572,7 @@ test("preview smoke retries the exact version then fetches dist-tags", async () 
       },
     },
   );
-  assert.equal(distTagsFetched, 1);
+  assert.equal(distTagsFetched, 2);
 });
 
 test("unset smoke env polls for five minutes at 2.5 second intervals", async () => {
@@ -451,13 +588,15 @@ test("unset smoke env polls for five minutes at 2.5 second intervals", async () 
         await clock.sleep(ms);
       },
       fetch: async (url) => {
-        if (String(url).includes("_cd_wait=")) {
+        const kind = registryReadKind(url);
+        if (kind === "version") {
           polls += 1;
           if (clock.now() < DEFAULT_REGISTRY_DEADLINE_MS) {
             return versionDoc("0.0.0-alpha.0");
           }
           return versionDoc(version);
         }
+        if (kind === "packument") return packumentDoc(version);
         return distTags();
       },
       run: async (command) => {
@@ -482,9 +621,13 @@ test("preview smoke refuses an alpha version other than EXPECTED_VERSION", async
         { EXPECTED_VERSION: "0.0.0-alpha.9", ...oneShot },
         {
           fetch: async (url) => {
-            urls.push(String(url));
-            if (String(url).includes("_cd_wait=")) {
-              return versionDoc("0.0.0-alpha.9");
+            const href = String(url);
+            urls.push(href);
+            const kind = registryReadKind(href);
+            if (kind === "version") return versionDoc("0.0.0-alpha.9");
+            if (kind === "packument") return packumentDoc("0.0.0-alpha.9");
+            if (kind === "dist-tags" && href.includes("_cd_wait=")) {
+              return distTags("0.0.0-alpha.9");
             }
             return distTags();
           },
@@ -498,7 +641,7 @@ test("preview smoke refuses an alpha version other than EXPECTED_VERSION", async
   );
   assert.equal(calls.length, 0);
   assert.match(urls[0], /@opensesame-labs%2fcli\/0\.0\.0-alpha\.9\?_cd_wait=/u);
-  assert.match(urls[1], /dist-tags/);
+  assert.match(urls[3], /\/dist-tags$/u);
 });
 
 test("preview smoke retries a missing package then accepts it", async () => {
@@ -542,7 +685,9 @@ test("install and version retries use the registry deadline", async () => {
         await clock.sleep(ms);
       },
       fetch: async (url) => {
-        if (String(url).includes("_cd_wait=")) return versionDoc(version);
+        const kind = registryReadKind(url);
+        if (kind === "version") return versionDoc(version);
+        if (kind === "packument") return packumentDoc(version);
         return distTags();
       },
       run: async (command) => {
@@ -660,8 +805,14 @@ test("PWA preview smoke waits for web-pwa before the CLI alpha install", async (
       fetch: async (url) => {
         const href = String(url);
         urls.push(href);
-        if (href.includes("_cd_wait=")) return versionDoc(webVersion);
-        if (href.includes("dist-tags")) return distTags(version);
+        const kind = registryReadKind(href);
+        if (kind === "version") return versionDoc(webVersion);
+        if (kind === "packument") return packumentDoc(webVersion);
+        if (kind === "dist-tags") {
+          return href.includes("_cd_wait=")
+            ? distTags(webVersion)
+            : distTags(version);
+        }
         return page();
       },
       sleep: async () => {
@@ -683,9 +834,14 @@ test("PWA preview smoke waits for web-pwa before the CLI alpha install", async (
     urls[0],
     /@opensesame-labs%2fweb-pwa\/0\.0\.0-alpha\.9\?_cd_wait=/u,
   );
+  assert.match(urls[1], /@opensesame-labs%2fweb-pwa\?_cd_wait=/u);
+  assert.match(
+    urls[2],
+    /\/-\/package\/@opensesame-labs%2fweb-pwa\/dist-tags\?_cd_wait=/u,
+  );
   assert.ok(calls[0][1].includes(CLI_SPEC));
   assert.deepEqual(calls[1][1], ["--version"]);
-  assert.match(urls[1], /dist-tags/);
+  assert.match(urls[3], /\/-\/package\/@opensesame-labs%2fcli\/dist-tags$/u);
   assert.ok(urls.includes(pagesUrl));
 });
 
