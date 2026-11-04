@@ -21,12 +21,10 @@ COPY --from=planner /src/recipe.json recipe.json
 ARG OPENSESAME_FEATURES=""
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-  --mount=type=cache,target=/src/target,sharing=locked \
   cargo chef cook --release --recipe-path recipe.json -p opensesame-cli --features "${OPENSESAME_FEATURES}"
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-  --mount=type=cache,target=/src/target,sharing=locked \
   cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}" \
   && install -m 0755 target/release/opensesame /usr/local/bin/opensesame
 
