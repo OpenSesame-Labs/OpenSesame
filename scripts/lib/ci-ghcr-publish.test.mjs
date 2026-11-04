@@ -206,6 +206,7 @@ describe("GHCR publish workflow", () => {
     );
     assert.match(rust, /prefix-key: v0-rust\n/);
     assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+    assert.match(rust, /cache-on-failure: true\n/);
     assert.match(
       rust,
       /save-if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main' \}\}\n/,
@@ -214,6 +215,14 @@ describe("GHCR publish workflow", () => {
       rust,
       /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
     );
+    assert.match(rust, /name: Install mold and clang\n/);
+    assert.match(rust, /command -v mold/);
+    assert.match(rust, /command -v clang/);
+    assert.doesNotMatch(rust, /\bsudo\b/);
+    assert.match(
+      rust,
+      /CARGO_INCREMENTAL: "0"\n {10}CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"\n {10}CARGO_PROFILE_RELEASE_DEBUG: "0"\n {10}CARGO_PROFILE_RELEASE_STRIP: symbols\n {10}RUSTFLAGS: "-C link-arg=-fuse-ld=mold"\n/,
+    );
     assert.equal(
       join(
         "/home/runner/work/OpenSesame-Labs/OpenSesame",
@@ -221,7 +230,11 @@ describe("GHCR publish workflow", () => {
       ),
       "/home/runner/.cache/packages/cargo-target",
     );
-    assert.match(rust, /cargo build --release -p opensesame-cli\n/);
+    assert.match(
+      rust,
+      /cargo build --release --locked -p opensesame-cli --bin opensesame\n/,
+    );
+    assert.doesNotMatch(rust, /cargo build --release -p opensesame-cli\n/);
     assert.match(rust, /name: opensesame-amd64-binary\n/);
     assert.match(
       rust,
