@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Install Pages workspace for bench build
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs

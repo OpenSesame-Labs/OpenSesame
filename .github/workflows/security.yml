@@ -13,6 +13,7 @@
 #     unresolved advisories remain visible, with no configured exceptions)
 #   - gitleaks over full history (same engine as `pnpm audit:gitleaks` and
 #     the pre-commit hook; .gitleaks.toml carries the allowlists)
+#   - Tailscale key literals (`node scripts/security/tskey-literal-gate.mjs`)
 #   - OpenSSF Scorecard (checks the repo against the OpenSSF supply-chain
 #     criteria and publishes the score to the code-scanning dashboard and
 #     the badge on the README)
@@ -162,3 +163,16 @@ jobs:
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
         with:
           sarif_file: scorecard-results.sarif
+
+  tskey-literals:
+    name: Tailscale key literal gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Reject committed Tailscale key literals
+        run: node scripts/security/tskey-literal-gate.mjs

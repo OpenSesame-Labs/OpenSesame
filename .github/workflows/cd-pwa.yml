@@ -63,11 +63,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Save primary install caches on main, merge_group, and workflow_dispatch of main.
-  # Save the main seed only on push and workflow_dispatch of main.
-  # Pull requests, including forks, restore and do not save.
-  TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
-  MAIN_CACHE_SEED: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
+  # Job-local npm downloads. This workflow does not restore or save the Actions cache.
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
   PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
   PAGES_DEPLOYMENT_PROFILE: ${{ vars.PAGES_DEPLOYMENT_PROFILE || 'shared_origin_demo' }}
@@ -91,43 +87,10 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
       - name: Require trunk CI for this commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -193,122 +156,17 @@ jobs:
           else
             echo "No CI full-profile artifact (compile locally)"
           fi
-      - name: Restore mise cache
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: steps.ci_full_profile_dist.outcome != 'success'
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true' && steps.ci_full_profile_dist.outcome != 'success'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true' && steps.ci_full_profile_dist.outcome != 'success'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Restore npm download cache
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        id: npm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install Pages workspace dependencies
         if: steps.ci_full_profile_dist.outcome != 'success'
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
-      - name: Save npm download cache
-        if: env.TRUSTED_CACHE_SAVE == 'true' && steps.ci_full_profile_dist.outcome != 'success'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-      - name: Save npm main seed
-        if: env.MAIN_CACHE_SEED == 'true' && steps.ci_full_profile_dist.outcome != 'success'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-seed-main-${{ hashFiles('package-lock.json') }}
-      - name: Log npm cache hit
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        env:
-          CACHE_NAME: npm
-          CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.npm-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
-        run: node scripts/lib/ci-cache-seed.mjs
-      - name: Prepare the local Turborepo cache key
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        id: turbo_local_meta
-        env:
-          RUNNER_OS: ${{ runner.os }}
-        run: node scripts/lib/ci-turbo-local-cache.mjs
-      - name: Cache the local Turborepo task cache
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .turbo
-          key: ${{ steps.turbo_local_meta.outputs.turbo_local_cache_key }}
-          restore-keys: |
-            ${{ steps.turbo_local_meta.outputs.turbo_local_restore_prefix }}
-      - name: Cache the pinned native PWA distribution
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/pwa-tailscale-native-http/distributions
-          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
-      - name: Restore full install profile dist cache
-        if: steps.ci_full_profile_dist.outcome != 'success'
-        id: full-profile-dist-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/pages/dist-profiles/pwa-proof/full
-          key: pwa-full-profile-dist-${{ hashFiles('apps/pages/capability-profiles/full.json', 'apps/pages/package.json', 'package-lock.json', 'tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
-          restore-keys: |
-            pwa-full-profile-dist-
       - name: Compile full install profile dist
         if: steps.ci_full_profile_dist.outcome != 'success'
-        env:
-          VERIFY_SKIP_BUILD: ${{ steps.full-profile-dist-cache.outputs.cache-hit == 'true' && '1' || '' }}
         run: node scripts/ci/pwa-full-profile-dist-build.mjs
-      - name: Save full install profile dist cache
-        if: env.TRUSTED_CACHE_SAVE == 'true' && steps.ci_full_profile_dist.outcome != 'success'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: apps/pages/dist-profiles/pwa-proof/full
-          key: pwa-full-profile-dist-${{ hashFiles('apps/pages/capability-profiles/full.json', 'apps/pages/package.json', 'package-lock.json', 'tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pwa-full-profile-dist-${{ github.run_id }}
@@ -361,54 +219,20 @@ jobs:
         with:
           name: pwa-full-profile-dist-${{ github.run_id }}
           path: apps/pages/dist-profiles/pwa-proof/full
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Restore npm download cache
-        id: npm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install Pages workspace dependencies
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
       - name: Install sharp for install-profile proof gate
         run: node scripts/ci/cd-pwa-proof-sharp-install.mjs
-      - name: Restore chrome-headless-shell cache
-        id: chrome-shell-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/cd-chrome-headless-shell
-          key: cd-chrome-headless-shell-${{ runner.os }}-156.0.8078.4
-          restore-keys: |
-            cd-chrome-headless-shell-${{ runner.os }}-
       - name: Resolve headless Chromium for screenshots
         id: chrome_shell
         run: |
           set -euo pipefail
           path="$(node scripts/ci/ensure-chrome-headless-shell.mjs)"
           echo "PLAYWRIGHT_CHROMIUM=$path" >> "$GITHUB_ENV"
-      - name: Save chrome-headless-shell cache
-        if: steps.chrome-shell-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/cd-chrome-headless-shell
-          key: cd-chrome-headless-shell-${{ runner.os }}-156.0.8078.4
       - name: Full install profile screenshot
         run: node scripts/ci/pwa-install-profile-proof.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -458,43 +282,10 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
       - name: Plan version
         id: plan
         run: |
@@ -507,55 +298,8 @@ jobs:
           test -n "$npm_dist_tag"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
-      - name: Restore npm download cache
-        id: npm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install the frozen dependency graph
         run: npm ci
-      - name: Save npm download cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-      - name: Save npm main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-seed-main-${{ hashFiles('package-lock.json') }}
-      - name: Log npm cache hit
-        env:
-          CACHE_NAME: npm
-          CACHE_HIT: ${{ steps.npm-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.npm-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
-        run: node scripts/lib/ci-cache-seed.mjs
-      - name: Prepare the local Turborepo cache key
-        id: turbo_local_meta
-        env:
-          RUNNER_OS: ${{ runner.os }}
-        run: node scripts/lib/ci-turbo-local-cache.mjs
-      - name: Cache the local Turborepo task cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .turbo
-          key: ${{ steps.turbo_local_meta.outputs.turbo_local_cache_key }}
-          restore-keys: |
-            ${{ steps.turbo_local_meta.outputs.turbo_local_restore_prefix }}
-      - name: Cache the pinned native PWA distribution
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/pwa-tailscale-native-http/distributions
-          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Production Pages build
         env:
           PAGES_CANONICAL_ORIGIN: ${{ env.PAGES_CANONICAL_ORIGIN }}
@@ -629,43 +373,10 @@ jobs:
         with:
           name: cd-pwa-meta-${{ github.run_id }}
           path: artifacts/cd-pwa-meta
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
       - name: Require the staged metadata
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
@@ -720,36 +431,9 @@ jobs:
             /package-lock.json
             /mise.toml
             /mise.lock
-      - name: Restore npm download cache
-        id: npm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .npm-cache
-          key: npm-download-v2-${{ runner.os }}-lock-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            npm-download-v2-${{ runner.os }}-seed-main-
-      - name: Restore chrome-headless-shell cache
-        id: chrome-shell-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/cd-chrome-headless-shell
-          key: cd-chrome-headless-shell-${{ runner.os }}-156.0.8078.4
-          restore-keys: |
-            cd-chrome-headless-shell-${{ runner.os }}-
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24 hurl@8.1.0
       - name: Install the frozen dependency graph
         run: npm ci
@@ -760,13 +444,6 @@ jobs:
           set -euo pipefail
           path="$(node scripts/ci/ensure-chrome-headless-shell.mjs)"
           echo "PLAYWRIGHT_CHROMIUM=$path" >> "$GITHUB_ENV"
-      - name: Save chrome-headless-shell cache
-        if: env.TRUSTED_CACHE_SAVE == 'true' && steps.chrome-shell-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cache/cd-chrome-headless-shell
-          key: cd-chrome-headless-shell-${{ runner.os }}-156.0.8078.4
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: pages-dist-${{ github.run_id }}
@@ -822,43 +499,10 @@ jobs:
             /mise.lock
             /package.json
             /package-lock.json
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: pages-dist-${{ github.run_id }}
@@ -913,43 +557,10 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - name: Restore mise cache
-        id: mise-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-24-
-            mise-v1-linux-
-      - name: Log mise cache hit
-        env:
-          CACHE_NAME: mise
-          CACHE_HIT: ${{ steps.mise-cache.outputs.cache-hit }}
-          CACHE_MATCHED_KEY: ${{ steps.mise-cache.outputs.cache-matched-key }}
-          CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
-          MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
-        run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
-          cache_save: false
-          cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          cache: false
           install_args: node@24
-      - name: Save mise cache
-        if: env.TRUSTED_CACHE_SAVE == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-24-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-      - name: Save mise main seed
-        if: env.MAIN_CACHE_SEED == 'true'
-        continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-seed-main-node-24-${{ hashFiles('mise.toml', 'mise.lock') }}
       - name: Annotate the run and comment on the commit
         env:
           GH_TOKEN: ${{ github.token }}

@@ -288,7 +288,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assert.match(pwaSmoke, /STAGED_DIST: apps\/pages\/dist/);
   assert.match(pwaSmoke, /SMOKE_EVIDENCE_OUT: artifacts\/cd-pwa-preview-smoke/);
   assert.match(pwaSmoke, /ensure-chrome-headless-shell\.mjs/);
-  assert.match(pwaSmoke, /cd-chrome-headless-shell/);
+  assert.doesNotMatch(pwaSmoke, /uses:\s+actions\/cache/);
   assert.doesNotMatch(pwaSmoke, /npx playwright install chromium/);
   assert.match(pwaSmoke, /cd-pwa-preview-smoke-\$\{\{ github\.run_id \}\}/);
   const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");
@@ -399,6 +399,7 @@ test("CLI gate polls every 5s and stage overlaps it without a shorter deadline",
   );
   assert.doesNotMatch(stage, /\n {4}needs:/);
   assert.match(preview, /needs: \[stage, main_ci\]/);
-  assert.match(cli, /TRUSTED_CACHE_SAVE:/);
+  assert.doesNotMatch(cli, /uses:\s+actions\/cache/);
+  assert.doesNotMatch(cli, /TRUSTED_CACHE_SAVE:/);
   assert.doesNotMatch(cli, /path: node_modules/);
 });

@@ -218,13 +218,6 @@ jobs:
         # Not `npm run bootstrap`: that also runs db:migrate (needs a live
         # DATABASE_URL) and installs git hooks, neither of which belongs in CI.
         run: npm ci
-      - name: Cache the pinned native PWA distribution
-        if: steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages')
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          lookup-only: true
-          path: .cache/pwa-tailscale-native-http/distributions
-          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Prepare and verify native PWA assets before package tests
         if: steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages')
         # The canonical loader verifies cache hits and owns cold four-phase builds.
@@ -948,14 +941,6 @@ jobs:
                 fs.accessSync(engine.executablePath(), fs.constants.X_OK);
               }
             '
-      - name: Cache the live servers
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          lookup-only: true
-          path: |
-            .cache/live-fixtures/bin
-            .cache/mtls-fixtures
-          key: live-fixtures-${{ hashFiles('scripts/test/live-fixtures.sh', 'scripts/test/live-turn/**', 'scripts/mtls/mtls-fixtures.sh') }}
       - name: The servers the walk runs (nats-server, ntfy, live-turn)
         # Fails, never skips: a missing server fails the walk that needs it.
         run: npm run test:live-fixtures
@@ -1176,12 +1161,6 @@ jobs:
         with:
           lookup-only: true
           save-if: false
-      - name: Cache pinned native fixtures
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          lookup-only: true
-          path: .cache/mtls-fixtures
-          key: mtls-fixtures-${{ hashFiles('scripts/mtls/mtls-fixtures.sh') }}
       - name: Prepare Linux keychain build dependencies
         # The real gateway-process interop test compiles the default host CLI.
         run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"

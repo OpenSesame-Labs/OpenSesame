@@ -142,21 +142,10 @@ describe("full-suite native preparation", () => {
     expect(preparation).not.toContain("cache-hit");
   });
 
-  it("only looks up the exact native distribution pin before cold verification", () => {
-    const cache = stepFor("name: Cache the pinned native PWA distribution");
-    expect(cache).toContain(
-      "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
-    );
-    expect(cache).toContain(
-      "path: .cache/pwa-tailscale-native-http/distributions\n",
-    );
-    expect(cache).toContain(
-      "hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json')",
-    );
-    expect(cache).not.toContain("restore-keys:");
-    expect(cache).not.toContain("/work");
+  it("does not restore a shared Actions cache before cold verification", () => {
+    expect(fullWorkflow).not.toMatch(/uses:\s+actions\/cache/);
     const preparation = stepFor("await loadTailscaleAssets();");
-    expect(fullSteps.indexOf(cache)).toBeLessThan(
+    expect(fullSteps.indexOf(stepFor("run: npm ci"))).toBeLessThan(
       fullSteps.indexOf(preparation),
     );
   });
@@ -278,23 +267,9 @@ describe("complete verify native preparation", () => {
     );
   });
 
-  it("only looks up the exact native distribution pin before the complete gate", () => {
-    const cache = completeStepFor(
-      "name: Cache the pinned native PWA distribution",
-    );
-    expect(cache).toContain(
-      "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
-    );
-    expect(cache).toContain(
-      "path: .cache/pwa-tailscale-native-http/distributions\n",
-    );
-    expect(cache).toContain(
-      "key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}",
-    );
-    expect(cache).not.toMatch(
-      /restore-keys:|\/work|continue-on-error:|\n\s+if:/,
-    );
-    expect(completeSteps.indexOf(cache)).toBeLessThan(
+  it("does not restore a shared Actions cache before the complete gate", () => {
+    expect(completeWorkflow).not.toMatch(/uses:\s+actions\/cache/);
+    expect(completeSteps.indexOf(completeStepFor("run: npm ci"))).toBeLessThan(
       completeSteps.indexOf(completeStepFor("await loadTailscaleAssets();")),
     );
   });
@@ -304,10 +279,10 @@ describe("lookup-only qualification caches", () => {
   it("never schedules a cache save while retaining the lookup", () => {
     const workflows = [
       ["ci-coverage.yml", 0, 1],
-      ["ci-prerelease-checks.yml", 3, 3],
+      ["ci-prerelease-checks.yml", 0, 3],
       ["ci-release-checks.yml", 0, 2],
-      ["complete-verify.yml", 1, 0],
-      ["full-suite.yml", 1, 0],
+      ["complete-verify.yml", 0, 0],
+      ["full-suite.yml", 0, 0],
       ["password-parity.yml", 0, 1],
     ];
     for (const [filename, directCount, rustCount] of workflows) {

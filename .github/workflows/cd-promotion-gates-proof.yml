@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24 hurl@8.1.0
       - name: Gate script tests
         run: |
@@ -94,7 +94,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Annotate the simulated failure
         env:
@@ -140,7 +140,7 @@ jobs:
           persist-credentials: false
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
-          cache: true
+          cache: false
           install_args: node@24
       - name: Annotate the simulated failure
         env:
