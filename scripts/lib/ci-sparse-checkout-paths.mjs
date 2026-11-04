@@ -149,6 +149,8 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
+    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
+    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_GHCR_MANIFEST }),
   ]),
 });
