@@ -4,8 +4,9 @@
  * The gate moved off `typescript-build` because that job is optional: it
  * runs only when the affected graph selects TypeScript. PR #2440 and #2441
  * never executed this file. `workflow-inventory-gate` has no draft or
- * TypeScript `if:`, starts with `needs: []` beside `changes`, and runs this
- * file after `npm ci` on every CI `pull_request` and `merge_group`.
+ * TypeScript `if:`, has no `needs:` key and starts with the workflow like
+ * `changes`, and runs this file after `npm ci` on every CI `pull_request`
+ * and `merge_group`.
  *
  * The headless browser benchmark on main is `workflow_dispatch` only, so the
  * automatic pull_request/push/merge_group inventory omits
@@ -236,7 +237,7 @@ describe("heavy auxiliary suites are CD concerns", () => {
       .split("\n  workflow-inventory-gate:\n")[1]
       .split("\n  changes:\n")[0];
     expect(job).toContain("name: Workflow inventory");
-    expect(job).toContain("needs: []");
+    expect(job).not.toMatch(/\n {4}needs:/);
     expect(job).toContain("timeout-minutes: 5");
     expect(job).toContain("contents: read");
     expect(job).not.toMatch(/packages:\s*write/);
