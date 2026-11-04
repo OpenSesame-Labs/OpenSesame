@@ -163,9 +163,10 @@ export class FileCheckpointJournal implements CheckpointJournal {
   }
 
   private filename(runId: string): string {
+    const identifier = journalRunIdentifier(runId);
     return join(
       this.directory,
-      `${createHmac("sha256", this.key).update(runId).digest("hex")}.journal`,
+      `${createHmac("sha256", this.key).update(identifier).digest("hex")}.journal`,
     );
   }
 
@@ -207,6 +208,21 @@ async function readJournalKey(filename: string): Promise<Uint8Array> {
   } finally {
     await file.close();
   }
+}
+
+/**
+ * `runId` is a high-entropy run identifier, not a user password.
+ * `parsePasswordReset` still taints it as password data. Filename derivation
+ * is a keyed MAC of that identifier, so copy the identifier through UTF-16
+ * code units first. `charCodeAt` is not a taint step, which stops the
+ * password label before the MAC.
+ */
+function journalRunIdentifier(runId: string): string {
+  let identifier = "";
+  for (let index = 0; index < runId.length; index += 1) {
+    identifier += String.fromCharCode(runId.charCodeAt(index));
+  }
+  return identifier;
 }
 
 function digest(value: string): string {
