@@ -229,7 +229,12 @@ describe("GHCR publish workflow", () => {
     assert.match(dockerfile, /cargo-chef/);
     assert.match(dockerfile, /cargo chef prepare/);
     assert.match(dockerfile, /cargo chef cook/);
-    assert.doesNotMatch(dockerfile, /type=cache,target=\/src\/target/);
+    assert.equal(
+      dockerfile.match(
+        /--mount=type=cache,target=\/src\/target,sharing=locked/g,
+      )?.length,
+      2,
+    );
     assert.match(
       dockerfile,
       /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,
