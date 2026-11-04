@@ -66,7 +66,7 @@ jobs:
     steps:
     - name: Require the trusted main controller
       run: '[ "$GITHUB_REF" = refs/heads/main ]'
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -104,7 +104,7 @@ jobs:
     steps:
     - name: Require the trusted main controller
       run: '[ "$GITHUB_REF" = refs/heads/main ]'
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -125,7 +125,7 @@ jobs:
     - name: Stage the exact product bytes and current qualification evidence
       run: node .ci-control/scripts/release/stage-release.mjs candidate candidate-evidence release-files
     - name: Sign promotion evidence without claiming a new build
-      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
       with:
         subject-path: release-files/SHA256SUMS
         predicate-type: https://opensesame.dev/attestations/release-promotion/v1
@@ -159,7 +159,7 @@ jobs:
     steps:
     - name: Require the trusted main controller
       run: '[ "$GITHUB_REF" = refs/heads/main ]'
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
@@ -192,7 +192,7 @@ jobs:
         gzip -dc "$PAGES_ARCHIVE" > hosting/artifact.tar
     - name: Upload the original tar in the Pages hosting transport
       id: hosting
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: ${{ env.PAGES_ARTIFACT }}
         path: hosting/artifact.tar
@@ -217,7 +217,7 @@ jobs:
       run: node .ci-control/scripts/release/release-environment.mjs
     - name: Deploy the verified original Pages artifact
       id: deployment
-      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346
+      uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
       with:
         artifact_name: ${{ env.PAGES_ARTIFACT }}
     - name: Verify every served candidate file after deployment
@@ -241,7 +241,7 @@ jobs:
     steps:
     - name: Require the trusted main controller
       run: '[ "$GITHUB_REF" = refs/heads/main ]'
-    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
