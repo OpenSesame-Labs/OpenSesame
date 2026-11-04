@@ -93,12 +93,6 @@ export const SPARSE_GHCR_MANIFEST = Object.freeze([
   "/ops/containers/control-plane/Dockerfile",
 ]);
 
-/** Non-publish web-pwa arm64 proof: runtime-from-prebuilt + oci smoke only. */
-export const SPARSE_GHCR_WEB_PWA_ARM64 = Object.freeze([
-  "/ops/containers/web-pwa/Dockerfile",
-  "scripts/ci",
-]);
-
 export const AFFECTED_GRAPH_HISTORY =
   "merge-base and name-only diffs for the affected graph need full history.";
 
@@ -155,8 +149,6 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_GHCR_WEB_PWA_ARM64 }),
     Object.freeze({ paths: SPARSE_GHCR_MANIFEST }),
   ]),
 });
