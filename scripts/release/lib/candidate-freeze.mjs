@@ -28,6 +28,10 @@ export function selectionName(runId, attempt) {
   return `weekly-selection-${identifier(runId)}-${identifier(attempt)}`;
 }
 
+export function devSelectionName(runId, attempt) {
+  return `dev-selection-${identifier(runId)}-${identifier(attempt)}`;
+}
+
 export async function validateSelection(service, record, attempt) {
   demand(
     record?.format === "opensesame-weekly-selection" &&
@@ -65,6 +69,95 @@ export async function validateSelection(service, record, attempt) {
     "Frozen selection cutoff is in the future",
   );
   return { ...record, candidate, dev_receipt: dev };
+}
+
+/** Validate a frozen weekly selection loaded from a controller run (workflow_run continuation). */
+export async function validateContinuationSelection(service, record, controller) {
+  demand(
+    record?.format === "opensesame-weekly-selection" &&
+      record.schema_version === 1,
+    "Unknown weekly selection schema",
+  );
+  demand(
+    record.repository === service.ctx.repository,
+    "Selection repository mismatch",
+  );
+  demand(
+    record.producer?.run_id === String(controller.run_id) &&
+      record.producer?.run_attempt === String(controller.run_attempt),
+    "Selection controller invocation mismatch",
+  );
+  demand(
+    record.producer?.workflow_ref === controller.workflow_ref &&
+      record.producer?.workflow_sha === controller.workflow_sha,
+    "Selection controller revision mismatch",
+  );
+  demand(
+    record.policy_sha256 === (await service.policyHash()),
+    "Frozen selection policy changed",
+  );
+  const candidate = envelope(record.candidate);
+  const dev = receiptEnvelope(record.dev_receipt);
+  demand(
+    dev.stage === "dev" && !dev.suite,
+    "Frozen selection requires dev evidence",
+  );
+  sha(record.selected_main_sha);
+  demand(
+    timestamp(record.selection_cutoff) <= service.ctx.now,
+    "Frozen selection cutoff is in the future",
+  );
+  return { ...record, candidate, dev_receipt: dev };
+}
+
+export async function retainDevSelection(service, selected, path) {
+  demand(path, "--selection-file is required for dev selection");
+  const record = {
+    format: "opensesame-dev-selection",
+    schema_version: 1,
+    repository: service.ctx.repository,
+    producer: {
+      run_id: service.ctx.runId,
+      run_attempt: service.ctx.runAttempt,
+      workflow_ref: service.ctx.workflowRef,
+      workflow_sha: service.ctx.workflowSha,
+    },
+    policy_sha256: await service.policyHash(),
+    selection: selected,
+  };
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(record)}\n`, { flag: "wx" });
+}
+
+export async function validateDevContinuationSelection(
+  service,
+  record,
+  controller,
+) {
+  demand(
+    record?.format === "opensesame-dev-selection" &&
+      record.schema_version === 1,
+    "Unknown dev selection schema",
+  );
+  demand(
+    record.repository === service.ctx.repository,
+    "Selection repository mismatch",
+  );
+  demand(
+    record.producer?.run_id === String(controller.run_id) &&
+      record.producer?.run_attempt === String(controller.run_attempt),
+    "Selection controller invocation mismatch",
+  );
+  demand(
+    record.producer?.workflow_sha === controller.workflow_sha &&
+      record.producer?.workflow_ref === controller.workflow_ref,
+    "Selection controller revision mismatch",
+  );
+  demand(
+    record.policy_sha256 === (await service.policyHash()),
+    "Frozen selection policy changed",
+  );
+  return record.selection;
 }
 
 async function readSelection(service, run, gate, attempt) {

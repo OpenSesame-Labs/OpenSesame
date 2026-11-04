@@ -65,114 +65,12 @@ jobs:
           if-no-files-found: error
           retention-days: 35
 
-  prerelease:
-    needs: select
-    if: ${{ needs.select.outputs.promote == 'true' }}
-    uses: ./.github/workflows/ci-prerelease-checks.yml
-    with:
-      source_sha: ${{ needs.select.outputs.source_sha }}
-      candidate_id: ${{ needs.select.outputs.candidate_id }}
-      run_id: ${{ needs.select.outputs.run_id }}
-      run_attempt: ${{ needs.select.outputs.run_attempt }}
-      artifact_id: ${{ needs.select.outputs.artifact_id }}
-      artifact_digest: ${{ needs.select.outputs.artifact_digest }}
-      payload_digest: ${{ needs.select.outputs.payload_digest }}
-      prerequisite_receipt: ${{ needs.select.outputs.dev_receipt }}
-      # Qualification channel: run acceptance against the exact artifact. Any
-      # real staging host must be explicitly configured and its payload verified.
-
-  mutation:
-    needs: [select, prerelease]
-    uses: ./.github/workflows/ci-release-checks.yml
-    permissions:
-      actions: read
-      contents: read
-      attestations: read
-      security-events: write
-    with:
-      suite: mutation
-      source_sha: ${{ needs.select.outputs.source_sha }}
-      candidate_id: ${{ needs.select.outputs.candidate_id }}
-      run_id: ${{ needs.select.outputs.run_id }}
-      run_attempt: ${{ needs.select.outputs.run_attempt }}
-      artifact_id: ${{ needs.select.outputs.artifact_id }}
-      artifact_digest: ${{ needs.select.outputs.artifact_digest }}
-      payload_digest: ${{ needs.select.outputs.payload_digest }}
-      prerequisite_receipt: ${{ needs.prerelease.outputs.receipt }}
-      # Mutation builds are disposable test products, never production inputs.
-
-  security:
-    needs: [select, prerelease]
-    uses: ./.github/workflows/ci-release-checks.yml
-    permissions:
-      actions: read
-      contents: read
-      attestations: read
-      security-events: write
-    with:
-      suite: security
-      source_sha: ${{ needs.select.outputs.source_sha }}
-      candidate_id: ${{ needs.select.outputs.candidate_id }}
-      run_id: ${{ needs.select.outputs.run_id }}
-      run_attempt: ${{ needs.select.outputs.run_attempt }}
-      artifact_id: ${{ needs.select.outputs.artifact_id }}
-      artifact_digest: ${{ needs.select.outputs.artifact_digest }}
-      payload_digest: ${{ needs.select.outputs.payload_digest }}
-      prerequisite_receipt: ${{ needs.prerelease.outputs.receipt }}
-
-  publish:
-    needs: [select, prerelease, mutation, security]
-    uses: ./.github/workflows/release-publish.yml
-    permissions:
-      actions: read
-      contents: write
-      pages: write
-      id-token: write
-      attestations: write
-    with:
-      source_sha: ${{ needs.select.outputs.source_sha }}
-      candidate_id: ${{ needs.select.outputs.candidate_id }}
-      run_id: ${{ needs.select.outputs.run_id }}
-      run_attempt: ${{ needs.select.outputs.run_attempt }}
-      artifact_id: ${{ needs.select.outputs.artifact_id }}
-      artifact_digest: ${{ needs.select.outputs.artifact_digest }}
-      payload_digest: ${{ needs.select.outputs.payload_digest }}
-      prerelease_receipt: ${{ needs.prerelease.outputs.receipt }}
-      mutation_receipt: ${{ needs.mutation.outputs.receipt }}
-      security_receipt: ${{ needs.security.outputs.receipt }}
-      # Reusable's credential-bearing jobs use release / github-pages environment
-      # protections. Test jobs above receive no environment deployment secrets.
-      # Recheck monotonicity, tag/version binding and all receipts before writes.
-      # Pages: download exact dist; upload-pages-artifact may repackage it into
-      # this run, then deploy-pages. Payload bytes/hash stay fixed; no rebuild or
-      # restamping. Use existing pinned actions and the live revision verifier.
-      # Publish native runtime packages from production/ only. Preserve explicitly
-      # named TEST archives for downstream validation through a separate asset
-      # allowlist; never install them as production executables or wildcard-upload.
-
   result:
-    name: Weekly promotion result
-    needs: [select, prerelease, mutation, security, publish]
+    name: Weekly selection result
+    needs: [select]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    env:
-      SELECT_RESULT: ${{ needs.select.result }}
-      PROMOTE: ${{ needs.select.outputs.promote }}
-      PRERELEASE_RESULT: ${{ needs.prerelease.result }}
-      MUTATION_RESULT: ${{ needs.mutation.result }}
-      SECURITY_RESULT: ${{ needs.security.result }}
-      PUBLISH_RESULT: ${{ needs.publish.result }}
     steps:
-      - name: Accept only complete publication or the explicit identical-release no-op
-        run: |
-          test "$SELECT_RESULT" = success
-          case "$PROMOTE" in
-            true) expected=success ;;
-            false) expected=skipped ;;
-            *) exit 1 ;;
-          esac
-          test "$PRERELEASE_RESULT" = "$expected"
-          test "$MUTATION_RESULT" = "$expected"
-          test "$SECURITY_RESULT" = "$expected"
-          test "$PUBLISH_RESULT" = "$expected"
+      - name: Require successful selection
+        run: test "${{ needs.select.result }}" = success

@@ -106,7 +106,10 @@ export function stageKey(stage, suite) {
   return stage;
 }
 
-export function context(env = process.env, { requireToken = true } = {}) {
+export function context(
+  env = process.env,
+  { requireToken = true, events, workflows } = {},
+) {
   demand(
     env.GITHUB_ACTIONS === "true",
     "Candidate operations require GitHub Actions",
@@ -117,7 +120,9 @@ export function context(env = process.env, { requireToken = true } = {}) {
     "Candidate controller must run from main",
   );
   demand(
-    ["schedule", "workflow_dispatch"].includes(env.GITHUB_EVENT_NAME),
+    (events ?? ["schedule", "workflow_dispatch"]).includes(
+      env.GITHUB_EVENT_NAME,
+    ),
     "Untrusted controller event",
   );
   const workflowRef = String(env.GITHUB_WORKFLOW_REF ?? "");
@@ -128,9 +133,12 @@ export function context(env = process.env, { requireToken = true } = {}) {
   );
   const workflow = workflowRef.slice(prefix.length, -"@refs/heads/main".length);
   demand(
-    [...POLICY.producers, ".github/workflows/release-weekly.yml"].includes(
-      workflow,
-    ),
+    (
+      workflows ?? [
+        ...POLICY.producers,
+        ".github/workflows/release-weekly.yml",
+      ]
+    ).includes(workflow),
     "Untrusted controller",
   );
   if (requireToken)
