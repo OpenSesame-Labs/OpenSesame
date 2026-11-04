@@ -399,7 +399,7 @@ jobs:
   web-pwa-arm64:
     name: web-pwa-arm64
     needs: web-pwa-tailscale-wasm
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     env:

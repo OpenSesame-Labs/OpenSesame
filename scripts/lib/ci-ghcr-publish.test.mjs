@@ -97,6 +97,10 @@ describe("GHCR publish workflow", () => {
     assert.doesNotMatch(nativeWebPwaArm, /PREBUILT_IMAGE/);
     assert.doesNotMatch(nativeWebPwaArm, /scope=web-pwa-amd64/);
     assert.doesNotMatch(nativeWebPwaArm, /Require amd64 prebuilt image/);
+    assert.match(
+      nativeWebPwaArm,
+      /if: github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\) \|\| \(github\.event_name == 'workflow_dispatch' && github\.ref != 'refs\/heads\/main'\)/,
+    );
     for (const id of [
       "cli-amd64",
       "cli-arm64",
