@@ -22,7 +22,7 @@ env:
   TURBO_REMOTE_CACHE_READ_ONLY: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   # Save primary install caches on main, merge_group, and workflow_dispatch of main.
   # Save the main seed only on push and workflow_dispatch of main.
-  # Pull requests, including forks, restore and do not save.
+  # Pull requests and other untrusted refs neither restore nor save.
   TRUSTED_CACHE_SAVE: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') }}
   MAIN_CACHE_SEED: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
@@ -38,7 +38,8 @@ jobs:
     # typescript-build is optional, so a pull request that does not select
     # TypeScript never reached this file (#2440, #2441). This job starts with
     # the workflow, in parallel with changes, on every pull_request and
-    # merge_group. It only restores install caches: contents read cannot save.
+    # merge_group. It restores install caches only on a trusted ref.
+    # contents: read cannot save, and untrusted refs get cache-mode none.
     name: Workflow inventory
     needs: []
     runs-on: ubuntu-latest
@@ -64,6 +65,7 @@ jobs:
             /pnpm-workspace.yaml
       - name: Restore mise cache
         id: mise-cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.local/share/mise
@@ -72,13 +74,21 @@ jobs:
             mise-v2-${{ runner.os }}-seed-main-node-
             mise-v1-linux-
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
           install_args: node
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE != 'true'
+        with:
+          cache: false
+          cache_save: false
+          install_args: node
       - name: Restore npm download cache
         id: npm-cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .npm-cache
@@ -189,9 +199,10 @@ jobs:
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.typescript_runner) }}
     timeout-minutes: 45
+    # Untrusted refs cannot restore or save. actions: read cannot evict caches.
     permissions:
       contents: read
-      actions: write
+      actions: read
     steps:
       # checkout-history: merge-base and name-only diffs for the affected graph need full history.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -234,6 +245,7 @@ jobs:
         run: node scripts/lib/ci-affected-builds.mjs plan-ts
       - name: Restore mise cache
         id: mise-cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.local/share/mise
@@ -250,10 +262,17 @@ jobs:
           MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-,mise-v1-linux-
         run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          install_args: node
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE != 'true'
+        with:
+          cache: false
+          cache_save: false
           install_args: node
       - name: Save mise cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
@@ -271,6 +290,7 @@ jobs:
           key: mise-v2-${{ runner.os }}-seed-main-node-${{ hashFiles('mise.toml', 'mise.lock') }}
       - name: Restore npm download cache
         id: npm-cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .npm-cache
@@ -317,14 +337,16 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo
-          key: ${{ steps.turbo_local_meta.outputs.turbo_local_cache_key }}
+          lookup-only: ${{ env.TRUSTED_CACHE_SAVE != 'true' }}
+          key: ${{ steps.turbo_local_meta.outputs.turbo_local_cache_key }}-${{ runner.arch }}
           restore-keys: |
-            ${{ steps.turbo_local_meta.outputs.turbo_local_restore_prefix }}
+            ${{ steps.turbo_local_meta.outputs.turbo_local_cache_key }}-
       - name: Cache the pinned native PWA distribution
         if: steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages')
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/pwa-tailscale-native-http/distributions
+          lookup-only: ${{ env.TRUSTED_CACHE_SAVE != 'true' }}
           key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Apply the Turborepo remote cache mode
         env:
@@ -405,6 +427,7 @@ jobs:
         run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
       - name: Restore mise cache
         id: mise-cache
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.local/share/mise
@@ -421,10 +444,17 @@ jobs:
           MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-rust-,mise-v1-linux-
         run: node scripts/lib/ci-cache-seed.mjs
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
+          install_args: rust
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        if: env.TRUSTED_CACHE_SAVE != 'true'
+        with:
+          cache: false
+          cache_save: false
           install_args: rust
       - name: Save mise cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
@@ -444,7 +474,8 @@ jobs:
         id: rust-cache
         with:
           prefix-key: v0-rust
-          shared-key: ${{ github.job }}
+          shared-key: ${{ github.job }}-${{ runner.arch }}
+          lookup-only: ${{ env.TRUSTED_CACHE_SAVE != 'true' }}
           save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' && matrix.shard == 0 }}
       - name: Log Rust cache hit
         env:
