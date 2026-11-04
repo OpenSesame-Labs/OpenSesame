@@ -36,8 +36,18 @@ describe("GHCR publish workflow", () => {
     assert.match(workflow, /packages: write/);
     assert.match(workflow, /id-token: write/);
     assert.match(workflow, /attestations: write/);
-    assert.match(workflow, /push: true/);
-    assert.match(workflow, /provenance: true/);
+    assert.match(workflow, /PUBLISH_GHCR:/);
+    assert.match(workflow, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
+    assert.match(workflow, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
+    assert.match(workflow, /oci-image-smoke\.mjs/);
+    assert.match(
+      workflow,
+      /if: needs\.images\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\)/,
+    );
+    assert.match(
+      workflow,
+      /provenance: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/,
+    );
     assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
     assert.match(workflow, /GHCR_PUBLISH_TOKEN/);
     assert.match(workflow, /container-release/);
@@ -53,12 +63,12 @@ describe("GHCR publish workflow", () => {
       workflow,
       /cache-to: type=gha,mode=max,scope=\$\{\{ matrix\.id \}\}/,
     );
-    assert.match(workflow, /matrix\.platform == 'linux\/arm64'/);
-    assert.equal(workflow.match(/docker\/setup-qemu-action@/g)?.length, 1);
+    assert.doesNotMatch(workflow, /docker\/setup-qemu-action@/);
+    assert.match(workflow, /runner: ubuntu-24.04-arm/);
     assert.doesNotMatch(workflow, /linux\/amd64,linux\/arm64/);
     assert.match(
       workflow,
-      /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n/,
+      /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n {12}runner: ubuntu-latest/,
     );
     assert.doesNotMatch(workflow, /opensesame-arm64/);
     for (const id of [
@@ -71,8 +81,135 @@ describe("GHCR publish workflow", () => {
     ]) {
       assert.match(workflow, new RegExp(`id: ${id}\\b`));
     }
+    assert.match(
+      workflow,
+      /web-pwa-amd64:[\s\S]*?target: runtime\n[\s\S]*?platforms: linux\/amd64/,
+    );
+    assert.match(
+      workflow,
+      /web-pwa-arm64:[\s\S]*?Require amd64 prebuilt image[\s\S]*?PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+    assert.match(
+      workflow,
+      /web-pwa-arm64:[\s\S]*?target: runtime-from-prebuilt/,
+    );
+    const webPwaDockerfile = readFileSync(
+      join(root, "ops/containers/web-pwa/Dockerfile"),
+      "utf8",
+    );
+    assert.match(
+      webPwaDockerfile,
+      /ARG PREBUILT_IMAGE=scratch\nFROM --platform=\$BUILDPLATFORM/,
+    );
+    const webPwaAmd64 = workflow.slice(
+      workflow.indexOf("web-pwa-amd64:"),
+      workflow.indexOf("# id: web-pwa-arm64"),
+    );
+    assert.doesNotMatch(
+      webPwaAmd64,
+      /web-pwa-amd64:[\s\S]*?build-args:[\s\S]*?PREBUILT_IMAGE/,
+    );
+    assert.match(webPwaDockerfile, /ARG PREBUILT_IMAGE=scratch/);
+    assert.match(webPwaDockerfile, / AS runtime\n/);
+    assert.doesNotMatch(
+      webPwaDockerfile,
+      /ARG PREBUILT_IMAGE\nFROM --platform=linux\/amd64 \$\{PREBUILT_IMAGE\}/,
+    );
+    assert.match(
+      webPwaDockerfile,
+      /--target runtime -t web-pwa:local \./,
+    );
     assert.match(workflow, /docker buildx imagetools create/);
-    assert.match(workflow, /name: manifest-\$\{\{ matrix\.name \}\}/);
+    assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
+    assert.match(workflow, /if: needs\.images\.result == 'success'/);
+  });
+
+  it("does not push to ghcr.io from non-main refs", () => {
+    assert.match(
+      workflow,
+      /github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)/,
+    );
+    assert.match(
+      workflow,
+      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR != 'true'/,
+    );
+    assert.match(
+      workflow,
+      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR == 'true'/,
+    );
+    assert.doesNotMatch(workflow, /\n\s*push: true\n/);
+  });
+
+  it("transfers the loaded amd64 web-pwa image to arm64 when not publishing", () => {
+    const gate =
+      "if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR != 'true'";
+    const amd64 = workflow.slice(
+      workflow.indexOf("  web-pwa-amd64:"),
+      workflow.indexOf("# id: web-pwa-arm64"),
+    );
+    const arm64 = workflow.slice(workflow.indexOf("# id: web-pwa-arm64"));
+    const saveAt = amd64.indexOf(
+      "docker save -o web-pwa-amd64-runtime.tar web-pwa:local",
+    );
+    const smokeAt = amd64.indexOf("name: Smoke image");
+    const uploadAt = amd64.indexOf("actions/upload-artifact@");
+    assert.ok(smokeAt >= 0 && saveAt > smokeAt);
+    assert.ok(amd64.lastIndexOf(gate, saveAt) > smokeAt);
+    assert.ok(uploadAt > saveAt);
+    assert.ok(amd64.lastIndexOf(gate, uploadAt) > saveAt);
+    assert.match(
+      amd64,
+      /uses: actions\/upload-artifact@[0-9a-f]{40} # v7\.0\.2/,
+    );
+    assert.match(
+      amd64,
+      /name: web-pwa-amd64-runtime\n {10}path: web-pwa-amd64-runtime\.tar/,
+    );
+
+    const downloadAt = arm64.indexOf("actions/download-artifact@");
+    const loadAt = arm64.indexOf("docker load -i web-pwa-amd64-runtime.tar");
+    const buildAt = arm64.indexOf("name: Build");
+    assert.ok(downloadAt >= 0 && loadAt > downloadAt && buildAt > loadAt);
+    assert.ok(arm64.lastIndexOf(gate, downloadAt) >= 0);
+    assert.ok(arm64.lastIndexOf(gate, loadAt) > downloadAt);
+    assert.match(arm64, /name: web-pwa-amd64-runtime/);
+    assert.match(
+      arm64,
+      /driver: \$\{\{ env\.PUBLISH_GHCR == 'true' && 'docker-container' \|\| 'docker' \}\}/,
+    );
+    assert.match(
+      arm64,
+      /PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+    const localBuild = arm64.slice(arm64.indexOf("push: false"));
+    assert.match(localBuild, /load: true/);
+    assert.match(
+      localBuild,
+      /PREBUILT_IMAGE=\$\{\{ needs\['web-pwa-amd64'\]\.outputs\.primary \}\}/,
+    );
+  });
+
+  it("uses cargo-chef and BuildKit caches for the native host image", () => {
+    const dockerfile = readFileSync(
+      join(root, "ops/compose/Dockerfile"),
+      "utf8",
+    );
+    assert.match(dockerfile, /cargo-chef/);
+    assert.match(dockerfile, /cargo chef prepare/);
+    assert.match(dockerfile, /cargo chef cook/);
+    assert.match(dockerfile, /type=cache,target=\/src\/target/);
+    assert.match(
+      dockerfile,
+      /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,
+    );
+    assert.match(
+      dockerfile,
+      /COPY --from=builder \/usr\/local\/bin\/opensesame/,
+    );
+    assert.doesNotMatch(
+      dockerfile,
+      /COPY --from=builder \/src\/target\/release\/opensesame/,
+    );
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
