@@ -4,6 +4,14 @@
 **/target
 **/.turbo
 work
+# Prepared Tailscale distributions must reach the web-pwa build context.
+# Docker will not descend into an excluded directory, so each parent segment
+# is un-ignored and every sibling at that level is excluded again.
 .cache
+!.cache
+.cache/*
+!.cache/pwa-tailscale-native-http
+.cache/pwa-tailscale-native-http/*
+!.cache/pwa-tailscale-native-http/distributions
 coverage
 *.log
