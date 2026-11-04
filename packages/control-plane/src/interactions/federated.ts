@@ -1,4 +1,9 @@
-import { createHash, createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
 import * as client from "openid-client";
 import { z } from "zod";
 import type { ControlPlaneConfig } from "../config.js";
@@ -804,7 +809,9 @@ export function encodePending(
   const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
     "base64url",
   );
-  return secret ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending, secret), secret)}` : payload;
+  return secret
+    ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending, secret), secret)}`
+    : payload;
 }
 
 export function decodePending(
