@@ -8,6 +8,8 @@ RUN apt-get update \
 WORKDIR /src
 COPY rust-toolchain.toml rust-toolchain.toml
 
+ENV CARGO_PROFILE_RELEASE_LTO=false
+
 FROM chef AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
