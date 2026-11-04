@@ -5,15 +5,16 @@
 #
 # One matrix row builds one image and one platform, with a 10 minute cap.
 # GitHub Actions layer cache is scoped per row. linux/arm64 rows run on
-# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 only. web-pwa is
-# outside that matrix: amd64 publishes the image, then arm64 builds target
-# runtime-from-prebuilt from PREBUILT_IMAGE and does not rerun npm or the
-# Pages build. When PUBLISH_GHCR is not true, amd64 saves web-pwa:local and
-# uploads artifact web-pwa-amd64-runtime; arm64 downloads it, docker-loads
-# it, and builds with the docker driver so that tag is the loaded image.
-# Publish runs keep the ghcr primary tag and the container driver. Arm64
-# jobs use ubuntu-24.04-arm, so this file installs no QEMU. A cold cache can
-# still miss the cap; retry with workflow_dispatch.
+# ubuntu-24.04-arm (no QEMU). opensesame is linux/amd64 and linux/arm64.
+# web-pwa is outside that matrix. When PUBLISH_GHCR is true, web-pwa-arm64
+# builds target runtime on ubuntu-24.04-arm and does not wait for amd64.
+# When PUBLISH_GHCR is not true, web-pwa-arm64-proof needs web-pwa-amd64:
+# amd64 saves web-pwa:local and uploads artifact web-pwa-amd64-runtime;
+# the proof job downloads it, docker-loads it, and builds target
+# runtime-from-prebuilt with the docker driver so that tag is the loaded
+# image. Publish runs keep the ghcr primary tag and the container driver.
+# This file installs no QEMU. A cold cache can still miss the cap; retry
+# with workflow_dispatch.
 # The manifest job publishes :next / :sha-* (or semver tags) from the
 # platform images.
 #
@@ -61,6 +62,11 @@ jobs:
             file: ops/compose/Dockerfile
             platform: linux/amd64
             runner: ubuntu-latest
+          - id: opensesame-arm64
+            name: opensesame
+            file: ops/compose/Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
           - id: cli-amd64
             name: cli
             file: ops/containers/cli/Dockerfile
@@ -340,13 +346,141 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  # id: web-pwa-arm64
-  # Native ubuntu-24.04-arm, same as the other arm64 rows. No QEMU action:
-  # runtime-from-prebuilt only copies PREBUILT_IMAGE; it does not emulate.
-  # Non-publish runs load artifact web-pwa-amd64-runtime before Build.
-  # The docker driver reads that engine image as web-pwa:local.
+  # Publish path. No needs: runs in parallel with web-pwa-amd64.
+  # target runtime on ubuntu-24.04-arm, same sparse checkout as web-pwa-amd64.
+  # Cache scope is web-pwa-arm64 only. Build-args are VERSION only.
   web-pwa-arm64:
     name: web-pwa-arm64
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    env:
+      PUBLISH_GHCR: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
+
+      - name: Check Dockerfile
+        id: dockerfile
+        env:
+          DOCKERFILE: ops/containers/web-pwa/Dockerfile
+          IMAGE_ID: web-pwa-arm64
+        run: |
+          set -euo pipefail
+          if [[ -f "${DOCKERFILE}" ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${DOCKERFILE} is absent on this revision; skipping ${IMAGE_ID}"
+          fi
+
+      - name: Image tags
+        id: tags
+        if: steps.dockerfile.outputs.present == 'true'
+        env:
+          IMAGE_NAME: web-pwa
+          PLATFORM: linux/arm64
+          PUBLISH_GHCR: ${{ env.PUBLISH_GHCR }}
+        run: |
+          set -euo pipefail
+          if [[ "${PUBLISH_GHCR}" != "true" ]]; then
+            {
+              echo "version=0.0.0-local"
+              echo "primary=${IMAGE_NAME}:local"
+              echo "list<<EOF"
+              printf '%s\n' "${IMAGE_NAME}:local"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          image="ghcr.io/opensesame-labs/${IMAGE_NAME}"
+          arch="${PLATFORM#linux/}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            primary="${image}:${version}-${arch}"
+          else
+            version="0.0.0-next"
+            primary="${image}:sha-${GITHUB_SHA}-${arch}"
+          fi
+          {
+            echo "version=${version}"
+            echo "primary=${primary}"
+            echo "list<<EOF"
+            printf '%s\n' "${primary}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Optional override: password: ${{ secrets.GHCR_PUBLISH_TOKEN }} from
+      # the container-release environment. Default remains GITHUB_TOKEN.
+      - name: Login to GHCR
+        if: steps.dockerfile.outputs.present == 'true' && env.PUBLISH_GHCR == 'true'
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Build
+        id: build
+        if: steps.dockerfile.outputs.present == 'true'
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ops/containers/web-pwa/Dockerfile
+          target: runtime
+          push: ${{ env.PUBLISH_GHCR == 'true' }}
+          load: ${{ env.PUBLISH_GHCR != 'true' }}
+          platforms: linux/arm64
+          tags: ${{ steps.tags.outputs.list }}
+          build-args: VERSION=${{ steps.tags.outputs.version }}
+          provenance: ${{ env.PUBLISH_GHCR == 'true' }}
+          sbom: false
+          cache-from: type=gha,scope=web-pwa-arm64
+          cache-to: type=gha,mode=max,scope=web-pwa-arm64
+
+  # id: web-pwa-arm64
+  # Non-publish proof on ubuntu-24.04-arm. No QEMU action:
+  # runtime-from-prebuilt only copies PREBUILT_IMAGE; it does not emulate.
+  # This job does not run on main or v* tags, so publish does not wait on
+  # amd64. It loads artifact web-pwa-amd64-runtime before Build.
+  # The docker driver reads that engine image as web-pwa:local.
+  web-pwa-arm64-proof:
+    name: web-pwa-arm64-proof
+    if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     needs: web-pwa-amd64
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
@@ -508,7 +642,7 @@ jobs:
         include:
           - name: opensesame
             file: ops/compose/Dockerfile
-            platforms: amd64
+            platforms: amd64 arm64
           - name: cli
             file: ops/containers/cli/Dockerfile
             platforms: amd64 arm64
