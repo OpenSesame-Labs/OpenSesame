@@ -72,7 +72,11 @@ export async function validateSelection(service, record, attempt) {
 }
 
 /** Validate a frozen weekly selection loaded from a controller run (workflow_run continuation). */
-export async function validateContinuationSelection(service, record, controller) {
+export async function validateContinuationSelection(
+  service,
+  record,
+  controller,
+) {
   demand(
     record?.format === "opensesame-weekly-selection" &&
       record.schema_version === 1,

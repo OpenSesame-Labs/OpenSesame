@@ -65,8 +65,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     );
   }
   const continuation =
-    command === "resume-dev-selection" ||
-    command === "resume-weekly-selection";
+    command === "resume-dev-selection" || command === "resume-weekly-selection";
   const ctx = context(env, {
     requireToken: command !== "receipt-envelope",
     ...(continuation

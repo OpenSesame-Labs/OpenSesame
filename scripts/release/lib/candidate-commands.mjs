@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { receiptEnvelope, writeReceipt } from "./candidate-evidence.mjs";
 import {
+  resumeSelection,
   retainDevSelection,
   retainSelection,
-  resumeSelection,
   selectWeekly,
   validateContinuationSelection,
   validateDevContinuationSelection,
@@ -15,15 +15,34 @@ import { selectIntegration } from "./candidate-selection.mjs";
 
 export const COMMAND_OPTIONS = {
   policy: ["--controller"],
-  "select-integration": ["--workflow", "--reuse-complete", "--selection-file", "--output"],
+  "select-integration": [
+    "--workflow",
+    "--reuse-complete",
+    "--selection-file",
+    "--output",
+  ],
   "select-dev": [
     "--workflow",
     "--max-age-hours",
     "--selection-file",
     "--output",
   ],
-  "resume-weekly-selection": ["--selection-file", "--controller-run-id", "--controller-run-attempt", "--controller-workflow-ref", "--controller-workflow-sha", "--output"],
-  "resume-dev-selection": ["--selection-file", "--controller-run-id", "--controller-run-attempt", "--controller-workflow-ref", "--controller-workflow-sha", "--output"],
+  "resume-weekly-selection": [
+    "--selection-file",
+    "--controller-run-id",
+    "--controller-run-attempt",
+    "--controller-workflow-ref",
+    "--controller-workflow-sha",
+    "--output",
+  ],
+  "resume-dev-selection": [
+    "--selection-file",
+    "--controller-run-id",
+    "--controller-run-attempt",
+    "--controller-workflow-ref",
+    "--controller-workflow-sha",
+    "--output",
+  ],
   verify: ["--directory", "--prerequisite-env", "--output"],
   receipt: ["--stage", "--suite", "--needs-env", "--directory", "--output"],
   "receipt-envelope": [

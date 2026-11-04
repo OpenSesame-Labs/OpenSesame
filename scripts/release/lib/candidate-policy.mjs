@@ -134,10 +134,7 @@ export function context(
   const workflow = workflowRef.slice(prefix.length, -"@refs/heads/main".length);
   demand(
     (
-      workflows ?? [
-        ...POLICY.producers,
-        ".github/workflows/release-weekly.yml",
-      ]
+      workflows ?? [...POLICY.producers, ".github/workflows/release-weekly.yml"]
     ).includes(workflow),
     "Untrusted controller",
   );
