@@ -97,6 +97,11 @@ ${failure ? `process.exitCode=${failure === "uncertain" ? 125 : 1};` : `await wr
       patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
       stagingHelper: { path: "build.mjs", sha256: hash(builder) },
     },
+    codeqlWasmSecurity: {
+      patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
+      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
+      patchTargets: [],
+    },
     composition: { files: [] },
     patch: { sha256: hash("fixture patch") },
   };

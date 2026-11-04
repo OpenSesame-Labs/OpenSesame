@@ -50,6 +50,11 @@ async function fixture() {
     "cmd/tsconnect/wasm/wasm_js.go",
     "net/tsdial/tsdial.go",
     "net/tlsdial/tlsdial.go",
+    "ipn/ipnlocal/c2n.go",
+    "ipn/ipnlocal/peerapi.go",
+    "ipn/ipnlocal/local.go",
+    "control/controlclient/direct.go",
+    "net/dns/resolver/debug.go",
     "ipn/ipnlocal/node_backend.go",
     "derp/derphttp/derphttp_client.go",
     "licenses/tailscale.md",
@@ -110,6 +115,7 @@ test("fixed composition patches actual source while preserving original manifest
     { name: "disable-remote-logtail", status: 0 },
     { name: "native-peer-get-patch", status: 0 },
     { name: "native-ssh-patch", status: 0 },
+    { name: "codeql-wasm-security-patch", status: 0 },
   ]);
   await selected.verify();
   const dnsPath = join(scope.source, "ipn/ipnlocal/native-extra-dns.go");

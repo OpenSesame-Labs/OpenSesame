@@ -103,6 +103,7 @@ test("all reviewed patch invocations select the same Node helper; compiler comma
     "native-peer-get.patch",
     "exit-route.patch",
     "native-ssh.patch",
+    "codeql-wasm-security.patch",
   ]) {
     const original = ["--batch", "--forward", "-p1", "-i", join(here, name)];
     const result = nativePatchCommand("patch", original);

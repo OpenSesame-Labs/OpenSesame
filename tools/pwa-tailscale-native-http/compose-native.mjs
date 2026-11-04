@@ -2,6 +2,7 @@
 import { constants, copyFile } from "node:fs/promises";
 import { join } from "node:path";
 import { selectNativeToolchain } from "./select-toolchain.mjs";
+import { stageCodeqlWasmSecurity } from "./stage-codeql-wasm-security.mjs";
 import { stageNativeNode, stagedNativeNodePath } from "./stage-native-node.mjs";
 import { stageNativeSSH } from "./stage-native-ssh.mjs";
 import { stagePeerGET } from "./stage-peer-get.mjs";
@@ -41,6 +42,8 @@ async function verifyComposition({ here, source, output, pins, requireHash }) {
     ...pins.publicTrust.files,
     pins.nativeSSH.patch,
     pins.nativeSSH.stagingHelper,
+    pins.codeqlWasmSecurity.patch,
+    pins.codeqlWasmSecurity.stagingHelper,
   ];
   for (const file of expected)
     await requireHash(join(here, file.path), file.sha256);
@@ -62,10 +65,9 @@ async function verifyComposition({ here, source, output, pins, requireHash }) {
     join(source, "cmd/tsconnect/wasm/wasm_js.go"),
     pins.nativeSSH.patch.afterSha256,
   );
-  await requireHash(
-    join(source, pins.nativeSSH.tlsVerification.path),
-    pins.nativeSSH.tlsVerification.afterSha256,
-  );
+  // tlsdial.go is revised again by the CodeQL patch; its final digest is below.
+  for (const file of pins.codeqlWasmSecurity.patchTargets)
+    await requireHash(join(source, file.path), file.afterSha256);
   for (const file of pins.nativeNode.patchTargets.slice(1))
     await requireHash(join(source, file.path), file.afterSha256);
   await requireHash(
@@ -90,9 +92,11 @@ export async function composeNative(options) {
   await stagePrivateLogging(options);
   const verifyPeerGET = await stagePeerGET(options);
   const verifySSH = await stageNativeSSH(options);
+  const verifyCodeql = await stageCodeqlWasmSecurity(options);
   const verify = async () => {
     await verifyPeerGET();
     await verifySSH();
+    await verifyCodeql();
     await verifyComposition(options);
   };
   await verify();
