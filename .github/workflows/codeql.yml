@@ -27,7 +27,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
@@ -67,10 +67,31 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            scripts
+            tools
+            spec
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /biome.json
+            /tsconfig.base.json
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.language == 'go'
         with:
           cache: false
+          cache_save: false
           install_args: go
       - name: Isolate Go analysis cache
         if: matrix.language == 'go'
@@ -79,11 +100,13 @@ jobs:
         if: matrix.language == 'rust'
         with:
           cache: false
+          cache_save: false
           install_args: rust
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: matrix.language == 'java-kotlin'
         with:
           cache: false
+          cache_save: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
         if: matrix.language == 'java-kotlin'
@@ -105,6 +128,9 @@ jobs:
           echo "$RUNNER_TEMP/gradle-8.13/bin" >> "$GITHUB_PATH"
       - name: Build Android native libraries
         if: matrix.language == 'java-kotlin'
+        env:
+          OPENSESAME_BINDGEN_CARGO_HOME: ${{ runner.temp }}/authenticator-bindgen-cargo-home
+          OPENSESAME_BINDGEN_TARGET_DIR: ${{ runner.temp }}/authenticator-bindgen
         run: apps/android/scripts/build-core.sh android
       - name: Initialize analysis
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
@@ -197,7 +223,7 @@ jobs:
   analyze-native-go:
     name: Analyze native Go (${{ matrix.target }})
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
@@ -213,9 +239,30 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            scripts
+            tools
+            spec
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /biome.json
+            /tsconfig.base.json
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
+          cache_save: false
           install_args: node
       - name: Install locked audit runtime
         run: npm ci --ignore-scripts
@@ -324,7 +371,7 @@ jobs:
     if: ${{ always() && inputs.source_sha }}
     needs: [analyze, analyze-native-go]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
