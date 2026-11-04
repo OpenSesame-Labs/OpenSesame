@@ -70,7 +70,30 @@ describe("GHCR publish workflow", () => {
       workflow,
       /id: opensesame-amd64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/amd64\n {12}runner: ubuntu-latest/,
     );
-    assert.doesNotMatch(workflow, /opensesame-arm64/);
+    assert.match(
+      workflow,
+      /id: opensesame-arm64\n {12}name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platform: linux\/arm64\n {12}runner: ubuntu-24.04-arm/,
+    );
+    assert.match(
+      workflow,
+      /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64 arm64/,
+    );
+    const nativeWebPwaArm = workflow.slice(
+      workflow.indexOf("\n  web-pwa-arm64:\n"),
+      workflow.indexOf("# id: web-pwa-arm64"),
+    );
+    assert.doesNotMatch(nativeWebPwaArm, /\n {4}needs:/);
+    assert.match(nativeWebPwaArm, /target: runtime\n/);
+    assert.match(nativeWebPwaArm, /platforms: linux\/arm64\n/);
+    assert.match(nativeWebPwaArm, /cache-from: type=gha,scope=web-pwa-arm64\n/);
+    assert.match(
+      nativeWebPwaArm,
+      /cache-to: type=gha,mode=max,scope=web-pwa-arm64\n/,
+    );
+    assert.doesNotMatch(nativeWebPwaArm, /PREBUILT_IMAGE/);
+    assert.doesNotMatch(nativeWebPwaArm, /scope=web-pwa-amd64/);
+    assert.doesNotMatch(nativeWebPwaArm, /actions\/download-artifact@/);
+    assert.doesNotMatch(nativeWebPwaArm, /Require amd64 prebuilt image/);
     for (const id of [
       "cli-amd64",
       "cli-arm64",

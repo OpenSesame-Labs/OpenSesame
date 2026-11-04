@@ -93,7 +93,7 @@ export const SPARSE_GHCR_MANIFEST = Object.freeze([
   "/ops/containers/control-plane/Dockerfile",
 ]);
 
-/** web-pwa-arm64: runtime-from-prebuilt + oci smoke only. */
+/** Non-publish web-pwa arm64 proof: runtime-from-prebuilt + oci smoke only. */
 export const SPARSE_GHCR_WEB_PWA_ARM64 = Object.freeze([
   "/ops/containers/web-pwa/Dockerfile",
   "scripts/ci",
@@ -141,6 +141,7 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-ghcr-publish.yml": Object.freeze([
+    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_GHCR_WEB_PWA_ARM64 }),
