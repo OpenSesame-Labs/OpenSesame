@@ -127,3 +127,50 @@ test("raw CR and LF in output values are rejected before any file append", async
     assert.equal(await readFile(output, "utf8"), "existing=value\n");
   }
 });
+
+test("resume-dev-selection reads --selection-file when the path exists", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "candidate-cli-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const selection = join(directory, "selection.json");
+  const output = join(directory, "outputs");
+  await writeFile(selection, "{}\n");
+  const env = {
+    GITHUB_ACTIONS: "true",
+    GITHUB_REPOSITORY: POLICY.repository,
+    GITHUB_REF: "refs/heads/main",
+    GITHUB_EVENT_NAME: "workflow_run",
+    GITHUB_WORKFLOW_REF: `${POLICY.repository}/.github/workflows/dev-nightly-qualify.yml@refs/heads/main`,
+    GITHUB_WORKFLOW_SHA: "a".repeat(40),
+    GITHUB_RUN_ID: "123",
+    GITHUB_RUN_ATTEMPT: "2",
+    GH_TOKEN: "fake",
+  };
+  await assert.rejects(
+    main(
+      [
+        "resume-dev-selection",
+        "--selection-file",
+        selection,
+        "--controller-run-id",
+        "1",
+        "--controller-run-attempt",
+        "1",
+        "--controller-workflow-ref",
+        "dummy",
+        "--controller-workflow-sha",
+        "dummy",
+        "--output",
+        output,
+      ],
+      env,
+    ),
+    (error) => {
+      assert.doesNotMatch(error.message, /path argument.*undefined/i);
+      assert.match(
+        error.message,
+        /Unknown dev selection schema|Selection repository mismatch/,
+      );
+      return true;
+    },
+  );
+});
