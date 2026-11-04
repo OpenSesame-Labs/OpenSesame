@@ -43,7 +43,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 # Packages, user, and state dir for both runtime targets. No binary yet, so
 # the prebuilt target does not depend on the chef compile.
-FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS debian-runtime
+# Debian trixie (glibc 2.41). The GHCR binary is linked on the Ubuntu 24.04
+# runner (glibc 2.39). The bookworm chef binary from `runtime` also runs here.
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS debian-runtime
 RUN useradd -u 10001 -m app \
   && apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl libdbus-1-3 \
