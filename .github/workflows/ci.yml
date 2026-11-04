@@ -44,7 +44,6 @@ jobs:
     needs: []
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    cache-mode: "${{ (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && 'write' || 'none' }}"
     permissions:
       contents: read
     steps:
@@ -204,7 +203,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-    cache-mode: "${{ (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && 'write' || 'none' }}"
     steps:
       # checkout-history: merge-base and name-only diffs for the affected graph need full history.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -377,7 +375,6 @@ jobs:
     # and raise CARGO_BUILD_JOBS to that core count. Do not enable this.
     runs-on: ${{ fromJSON(needs.changes.outputs.linux_runner) }}
     timeout-minutes: 45
-    cache-mode: "${{ (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) && 'write' || 'none' }}"
     strategy:
       fail-fast: false
       matrix:
