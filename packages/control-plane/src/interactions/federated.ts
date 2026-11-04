@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import * as client from "openid-client";
 import { z } from "zod";
 import type { ControlPlaneConfig } from "../config.js";
@@ -744,20 +744,49 @@ export function pendingCookieName(uid: string): string {
   return `os.fed.${uid}`;
 }
 
-/** Canonical HMAC input: high-entropy OAuth leg parameters, not a user password. */
+/** PKCE verifier binding via scrypt before the pending cookie MAC (not SHA-256 of raw verifier). */
+function pendingVerifierBinding(
+  verifier: string,
+  state: string,
+  nonce: string,
+  secret: string,
+): string {
+  const salt = createHash("sha256")
+    .update(secret)
+    .update("\0opensesame:fed-pending-verifier\0")
+    .update(state)
+    .update(nonce)
+    .digest()
+    .subarray(0, 16);
+  return scryptSync(verifier, salt, 32, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  }).toString("base64url");
+}
+
+/** Canonical HMAC input: OAuth leg fields with scrypt-bound PKCE verifier. */
 function pendingIntegrityPayload(
   pending: Pick<
     PendingFederatedAuth,
     "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
   >,
+  secret: string,
 ): string {
   const kind = pending.kind ?? "oidc";
   const providerId = pending.providerId ?? "";
+  const verifierBound = pendingVerifierBinding(
+    pending.verifier,
+    pending.state,
+    pending.nonce,
+    secret,
+  );
   return [
     pending.issuer,
     pending.state,
     pending.nonce,
-    pending.verifier,
+    verifierBound,
     kind,
     providerId,
   ].join("\x1f");
@@ -775,7 +804,7 @@ export function encodePending(
   const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
     "base64url",
   );
-  return secret ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending), secret)}` : payload;
+  return secret ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending, secret), secret)}` : payload;
 }
 
 export function decodePending(
@@ -814,7 +843,7 @@ export function decodePending(
       return undefined;
     }
     const expected = Buffer.from(
-      pendingSignature(pendingIntegrityPayload(macPending), secret),
+      pendingSignature(pendingIntegrityPayload(macPending, secret), secret),
       "base64url",
     );
     if (
