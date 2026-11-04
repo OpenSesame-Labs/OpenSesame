@@ -129,8 +129,12 @@ present. The image does not embed a pepper, a token, or a database URL.
 
 ## Local build
 
+`opensesame` compiles with `--target runtime`. The Dockerfile default is
+`runtime-from-prebuilt`, which GHCR publish builds from
+`ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
+
 ```bash
-docker build -f ops/compose/Dockerfile -t opensesame:local .
+docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .
 docker build -f ops/containers/cli/Dockerfile -t cli:local .
 docker build -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
 docker build -f ops/containers/control-plane/Dockerfile -t control-plane:local .

@@ -7,6 +7,9 @@ node_modules/
 dist/
 packages/cli/release/
 apps/pages/release/
+# CI writes the native host binary here for the GHCR image target
+# runtime-from-prebuilt (ops/compose/Dockerfile). Not source.
+/ops/compose/prebuilt/
 *.sqlite
 *.sqlite-*
 .env

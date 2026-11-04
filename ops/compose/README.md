@@ -4,10 +4,15 @@ This directory holds the **native CLI runtime** container (`opensesame`), not th
 Pages PWA. GitHub Pages and static vault landing content stay file-based; only
 deployable server/workload surfaces use this image.
 
-Build:
+Build the in-image compile (`runtime`). The default target is
+`runtime-from-prebuilt`, which GHCR publish uses: it copies
+`ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
+Both targets inherit `debian-runtime`, Debian trixie (glibc 2.41), so a
+binary linked on the Ubuntu 24.04 runner (glibc 2.39) and the bookworm chef
+binary both run.
 
 ```bash
-docker build -f ops/compose/Dockerfile -t opensesame:local .
+docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .
 ```
 
 The default entrypoint is the `opensesame` binary. Host API, daemon, and worker
@@ -26,7 +31,7 @@ OCI labels record the source repository, `VERSION` build-arg (default
 Optional bridge features are compile-time only:
 
 ```bash
-docker build -f ops/compose/Dockerfile --build-arg OPENSESAME_FEATURES=bitwarden-compat -t opensesame:bitwarden .
+docker build -f ops/compose/Dockerfile --target runtime --build-arg OPENSESAME_FEATURES=bitwarden-compat -t opensesame:bitwarden .
 ```
 
 CI validates this Dockerfile through `.github/workflows/container-build-pr.yml`
