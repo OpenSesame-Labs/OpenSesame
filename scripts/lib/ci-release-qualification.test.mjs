@@ -251,11 +251,15 @@ describe("complete coverage and publication boundaries", () => {
       const workflow = read(file);
       expect(workflow).toContain("workflow_call:");
       expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
-      if (file === "ci-coverage.yml") {
+      if (
+        file === "ci-coverage.yml" ||
+        file === "native-platform-validation.yml"
+      ) {
         expect(workflow).toContain(
           "CANDIDATE_REVISION: ${{ inputs.source_sha }}",
         );
         expect(workflow).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
+        expect(workflow).not.toContain("ref: ${{ inputs.source_sha }}");
       } else {
         expect(workflow).toContain("ref: ${{ inputs.source_sha }}");
       }
