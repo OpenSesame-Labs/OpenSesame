@@ -1,3 +1,8 @@
+# Release checks for one selected candidate snapshot.
+# That source is checked out only by the read-only mutation and security jobs.
+# Those jobs have no token. Privileged jobs check out the workflow SHA.
+# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
+# The read-only jobs bind the snapshot to CANDIDATE_REVISION.
 name: Candidate release checks
 on:
   workflow_call:
@@ -87,6 +92,7 @@ jobs:
       matrix:
         check: [mutation-typescript, mutation-duress, mutation-rust]
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
@@ -113,7 +119,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           fetch-depth: 0
           filter: blob:none
       - name: Restore trusted helpers beside the candidate tree
@@ -181,6 +187,7 @@ jobs:
       matrix:
         check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript]
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
@@ -207,7 +214,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           fetch-depth: 0
           filter: blob:none
       - name: Restore trusted helpers beside the candidate tree
