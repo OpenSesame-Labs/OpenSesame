@@ -1,5 +1,8 @@
 # Build selected successful main snapshots once; no publishing or independent schedule.
-# Trusted pipeline helpers and selected application source have separate checkouts.
+# Candidate source is checked out only by read-only jobs that have no token.
+# Privileged signing checks out the workflow SHA and consumes uploaded artifacts.
+# Those read-only jobs bind the resolved source SHA to CANDIDATE_REVISION.
+# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
 name: Candidate build
 'on':
   workflow_call:
@@ -97,10 +100,15 @@ jobs:
             for key, value in values.items(): output.write(f'{key}={value}\n')
         PY
       working-directory: .ci-control
-  bridge:
+  bridge-untrusted:
     needs: resolve
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      CANDIDATE_REVISION: ${{ needs.resolve.outputs.source_sha }}
     steps:
     # Trusted helpers land first. actions/checkout wipes the workspace when
     # the candidate checkout is not yet a git directory, so park them until
@@ -121,7 +129,7 @@ jobs:
       working-directory: ${{ github.workspace }}
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
-        ref: ${{ needs.resolve.outputs.source_sha }}
+        ref: ${{ env.CANDIDATE_REVISION }}
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
@@ -147,11 +155,15 @@ jobs:
     defaults:
       run:
         working-directory: src
-  pages:
+  pages-untrusted:
     needs: resolve
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     env:
+      CANDIDATE_REVISION: ${{ needs.resolve.outputs.source_sha }}
       SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
       SOURCE_DATE_EPOCH: ${{ needs.resolve.outputs.epoch }}
       TAG: ${{ needs.resolve.outputs.tag }}
@@ -176,7 +188,7 @@ jobs:
       working-directory: ${{ github.workspace }}
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
-        ref: ${{ needs.resolve.outputs.source_sha }}
+        ref: ${{ env.CANDIDATE_REVISION }}
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
@@ -211,12 +223,53 @@ jobs:
     defaults:
       run:
         working-directory: src
-  native:
+  accept-bridge:
     needs:
     - resolve
-    - bridge
+    - bridge-untrusted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      bridge_sha256: ${{ steps.verify.outputs.bridge_sha256 }}
+    steps:
+    - name: Check out trusted pipeline helpers
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      with:
+        ref: ${{ github.workflow_sha }}
+        path: .ci-control
+        persist-credentials: false
+        allow-unsafe-pr-checkout: false
+        sparse-checkout: |-
+          .github/workflows
+          scripts/release
+          scripts/lib
+    - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      with:
+        cache: false
+        install_args: node@24
+    - name: Verify the original bridge upload before the kit job extracts it
+      id: verify
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CANDIDATE_ID: ${{ needs.resolve.outputs.candidate_id }}
+      run: |
+        set -euo pipefail
+        node .ci-control/scripts/release/artifact-transfer.mjs named "${CANDIDATE_ID}-bridge" "$RUNNER_TEMP/bridge"
+        digest="$(sha256sum "$RUNNER_TEMP/bridge/opensesame-env-parse.mjs" | awk '{print $1}')"
+        [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+        echo "bridge_sha256=${digest}" >> "$GITHUB_OUTPUT"
+  native-untrusted:
+    needs:
+    - resolve
+    - accept-bridge
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: true
       matrix:
@@ -226,6 +279,8 @@ jobs:
         - target: aarch64-unknown-linux-gnu
           runner: ubuntu-24.04-arm
     env:
+      CANDIDATE_REVISION: ${{ needs.resolve.outputs.source_sha }}
+      BRIDGE_SHA256: ${{ needs.accept-bridge.outputs.bridge_sha256 }}
       TARGET: ${{ matrix.target }}
       TAG: ${{ needs.resolve.outputs.tag }}
       SOURCE_DATE_EPOCH: ${{ needs.resolve.outputs.epoch }}
@@ -246,7 +301,7 @@ jobs:
           scripts/ci
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
-        ref: ${{ needs.resolve.outputs.source_sha }}
+        ref: ${{ env.CANDIDATE_REVISION }}
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
@@ -262,11 +317,12 @@ jobs:
         working_directory: src
     - name: Prepare Linux keychain dependencies without changing system packages
       run: bash ../.ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
-    - name: Verify the original bridge upload before extraction
-      env:
-        GH_TOKEN: ${{ github.token }}
-        CANDIDATE_ID: ${{ needs.resolve.outputs.candidate_id }}
-      run: node ../.ci-control/scripts/release/artifact-transfer.mjs named "${CANDIDATE_ID}-bridge" bridge
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      with:
+        name: ${{ needs.resolve.outputs.candidate_id }}-bridge
+        path: src/bridge
+    - name: Require the verified bridge bytes before compiling
+      run: echo "${BRIDGE_SHA256}  bridge/opensesame-env-parse.mjs" | sha256sum -c -
     - name: Build shipped binaries and separately capture the test proxy
       run: |
         set -euo pipefail
@@ -282,6 +338,7 @@ jobs:
         cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy
         cargo +1.88.0 build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy
         cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy-TEST-upstream-override
+        echo "${BRIDGE_SHA256}  bridge/opensesame-env-parse.mjs" | sha256sum -c -
         OPENSESAME_RELEASE_LICENSE="$PWD/LICENSE" ../.ci-control/scripts/release/kit-archive.sh pack "$TAG" "$TARGET" bins bridge/opensesame-env-parse.mjs dist
     - name: Smoke the actual archived kit and reject a writable bridge
       run: bash ../.ci-control/scripts/release/smoke-kit.sh "dist/opensesame-kit_${TAG}_${TARGET}.tar.gz"
@@ -303,9 +360,9 @@ jobs:
   manifest:
     needs:
     - resolve
-    - bridge
-    - pages
-    - native
+    - bridge-untrusted
+    - pages-untrusted
+    - native-untrusted
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:

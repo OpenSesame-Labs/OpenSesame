@@ -51,10 +51,7 @@ const jobScripts = (definition) =>
 
 describe("candidate producer workflow", () => {
   it("builds only selected snapshots and requires exact successful fast-CI evidence", () => {
-    expect(Object.keys(producer.on).sort()).toEqual([
-      "workflow_call",
-      "workflow_dispatch",
-    ]);
+    expect(Object.keys(producer.on).sort()).toEqual(["workflow_call"]);
     expect(Object.keys(producer.on.workflow_call.inputs).sort()).toEqual([
       "source_ci_run_attempt",
       "source_ci_run_id",
@@ -75,21 +72,39 @@ describe("candidate producer workflow", () => {
   });
 
   it("separates trusted control code from selected application source", () => {
-    for (const name of ["bridge", "pages", "native"]) {
-      const checkouts = producer.jobs[name].steps.filter((step) =>
+    for (const name of [
+      "bridge-untrusted",
+      "pages-untrusted",
+      "native-untrusted",
+    ]) {
+      const job = producer.jobs[name];
+      expect(job.permissions).toEqual({ contents: "read", actions: "read" });
+      expect(JSON.stringify(job)).not.toContain("github.token");
+      expect(JSON.stringify(job)).not.toContain("secrets.");
+      expect(job.env.CANDIDATE_REVISION).toBe(
+        "${{ needs.resolve.outputs.source_sha }}",
+      );
+      const checkouts = job.steps.filter((step) =>
         step.uses?.startsWith("actions/checkout@"),
       );
       expect(
         checkouts.find((step) => step.with.path === ".ci-control").with.ref,
       ).toBe("${{ github.workflow_sha }}");
       expect(checkouts.find((step) => step.with.path === "src").with.ref).toBe(
-        "${{ needs.resolve.outputs.source_sha }}",
+        "${{ env.CANDIDATE_REVISION }}",
       );
+    }
+    const privileged = ["resolve", "accept-bridge", "manifest"];
+    for (const name of privileged) {
+      const refs = producer.jobs[name].steps
+        .filter((step) => step.uses?.startsWith("actions/checkout@"))
+        .map((step) => step.with.ref);
+      expect(refs).toEqual(["${{ github.workflow_sha }}"]);
     }
   });
 
   it("copies shipped proxy bytes before building the separately named TEST variant", () => {
-    const build = jobScripts(producer.jobs.native);
+    const build = jobScripts(producer.jobs["native-untrusted"]);
     expect(
       build.indexOf(
         "cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy\n",
@@ -100,7 +115,7 @@ describe("candidate producer workflow", () => {
       "--locked --release -p opensesame-cli --bin opensesame",
     );
     expect(
-      producer.jobs.native.strategy.matrix.include
+      producer.jobs["native-untrusted"].strategy.matrix.include
         .map((item) => item.target)
         .sort(),
     ).toEqual(["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"]);
@@ -133,12 +148,25 @@ describe("candidate producer workflow", () => {
     expect(final.steps[upload].with["retention-days"]).toBeGreaterThanOrEqual(
       35,
     );
-    expect(yaml).not.toContain("actions/download-artifact@");
+    expect(
+      final.steps.some((step) =>
+        step.uses?.startsWith("actions/download-artifact@"),
+      ),
+    ).toBe(false);
+    expect(jobScripts(producer.jobs["accept-bridge"])).toContain(
+      "artifact-transfer.mjs named",
+    );
+    expect(producer.jobs["native-untrusted"].needs).toContain("accept-bridge");
+    expect(
+      producer.jobs["native-untrusted"].steps.some((step) =>
+        step.uses?.startsWith("actions/download-artifact@"),
+      ),
+    ).toBe(true);
   });
 });
 
 it("the candidate builder prepares Linux DBus through trusted rootless helpers before compiling the kit", () => {
-  const native = producer.jobs.native;
+  const native = producer.jobs["native-untrusted"];
   const control = native.steps.find(
     (step) => step.with?.path === ".ci-control",
   );
