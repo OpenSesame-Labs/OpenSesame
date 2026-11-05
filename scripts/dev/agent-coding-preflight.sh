@@ -32,7 +32,9 @@ if [[ "$grok_ok" -eq 1 ]]; then
   model="$(scripts/dev/grok-resolve-model.sh)"
   printf 'grok resolved model: %s\n' "$model"
   printf 'recommended coding tier: 1 (Grok Build CLI)\n'
-  printf 'invoke: scripts/dev/grok-headless.sh -p \"…\" -m %s --always-approve --output-format json (keys unset; subscription auth only)\n' \
+  printf 'slice logs must use: bash scripts/dev/grok-chunk-run.sh work/grok-logs/<slice>.log work/grok-logs/<slice>.prompt.md\n'
+  printf 'warning: do not pass --output-format json (buffers until exit)\n'
+  printf 'quick probe: scripts/dev/grok-headless.sh -p "…" -m %s --always-approve (keys unset; subscription auth only)\n' \
     "$model"
   exit 0
 fi
