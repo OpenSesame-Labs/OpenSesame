@@ -53,6 +53,7 @@ jobs:
         fetch-depth: 0
         filter: blob:none
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         path: .ci-control
     - name: Resolve exact identity and successful fast-CI evidence
       id: identity
@@ -110,6 +111,7 @@ jobs:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
@@ -121,6 +123,7 @@ jobs:
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: |
@@ -163,6 +166,7 @@ jobs:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
@@ -174,6 +178,7 @@ jobs:
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: |
@@ -233,6 +238,7 @@ jobs:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
@@ -242,6 +248,7 @@ jobs:
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         path: src
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
@@ -312,6 +319,7 @@ jobs:
         ref: ${{ github.workflow_sha }}
         path: .ci-control
         persist-credentials: false
+        allow-unsafe-pr-checkout: false
         sparse-checkout: |-
           .github/workflows
           scripts/release

@@ -60,6 +60,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             .github/workflows
             scripts/release
@@ -134,6 +135,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             .github/workflows
             scripts/release
@@ -146,6 +148,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
           # The classifier diffs the pull request against its merge base.
           fetch-depth: 0
@@ -230,6 +233,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
             scripts/quality
@@ -238,6 +242,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
           # pnpm lint diffs changed files against origin/main.
           fetch-depth: 0
@@ -357,6 +362,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
             scripts/quality
@@ -366,6 +372,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -722,6 +729,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -729,6 +737,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -773,6 +782,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -780,6 +790,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -826,6 +837,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -833,6 +845,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -883,6 +896,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -890,6 +904,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -941,6 +956,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -948,6 +964,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1014,6 +1031,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -1021,6 +1039,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1091,6 +1110,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
       - name: Park trusted helpers outside the candidate checkout
@@ -1098,6 +1118,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1199,6 +1220,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/lib
             scripts/ci
@@ -1207,6 +1229,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
           fetch-depth: 0
           filter: blob:none
@@ -1289,6 +1312,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/test
       - name: Park trusted helpers outside the candidate checkout
@@ -1296,6 +1320,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1361,6 +1386,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/test
       - name: Park trusted helpers outside the candidate checkout
@@ -1368,6 +1394,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1418,6 +1445,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/ci
       - name: Park trusted helpers outside the candidate checkout
@@ -1425,6 +1453,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1660,6 +1689,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             scripts/release
             scripts/lib
@@ -1669,6 +1699,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           ref: ${{ inputs.source_sha }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -1738,6 +1769,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             .github/workflows
             scripts/release
@@ -1765,6 +1797,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           path: .ci-control
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           sparse-checkout: |
             .github/workflows
             scripts/release
