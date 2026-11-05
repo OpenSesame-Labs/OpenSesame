@@ -52,9 +52,6 @@ on:
 permissions:
   contents: read
   actions: read
-  pages: write
-  id-token: write
-  attestations: write
 
 # Queue overlapping main pushes so an in-flight Production promotion is not
 # cancelled mid-environment (exact Preview artifact must still promote).
@@ -249,6 +246,11 @@ jobs:
     outputs:
       version: ${{ steps.plan.outputs.version }}
       npm_dist_tag: ${{ steps.plan.outputs.npm_dist_tag }}
+    # upload-pages-artifact needs Pages write. Other artifact uploads use the runtime token.
+    permissions:
+      contents: read
+      actions: read
+      pages: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -350,6 +352,11 @@ jobs:
     timeout-minutes: 45
     environment:
       name: Preview
+    # npm publish --provenance signs with this job's OIDC token.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -405,6 +412,10 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    # deploy-pages creates the deployment and verifies it with OIDC.
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
@@ -484,6 +495,11 @@ jobs:
     timeout-minutes: 45
     environment:
       name: Production
+    # npm publish --provenance signs with this job's OIDC token.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
