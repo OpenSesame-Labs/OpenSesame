@@ -1,3 +1,7 @@
+# Coverage of one selected candidate snapshot.
+# That source is checked out only by this read-only job, which has no token.
+# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
+# The job binds the snapshot to CANDIDATE_REVISION and uploads coverage artifacts only.
 name: Candidate coverage
 on:
   workflow_call:
@@ -12,11 +16,15 @@ jobs:
     name: Coverage (${{ matrix.suite }})
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
         suite: [typescript, rust]
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       SOURCE_SHA: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
@@ -57,7 +65,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           fetch-depth: 0
           filter: blob:none
       - name: Restore trusted helpers beside the candidate tree
