@@ -7,14 +7,16 @@
  * from the installed `codeql/actions-queries` pack. `CODEQL_HOME` defaults
  * to `/home/ubuntu/codeql-cli`.
  *
+ * `--profile privileged-caller` runs that same scan. While copying workflows
+ * it overlays `.github/workflows/release-weekly.yml` from git revision
+ * `37730abfa` and omits workflow files matching `*qualify*.yml`.
+ *
  * `--profile github-open` does not run CodeQL. It loads
  * `tools/security/codeql-poisonable-step-github-open.json` and sums every
  * workflow file in that open-alert baseline.
  *
- * `--workflow <basename.yml>` limits `total` and `byFile` to that one workflow
- * file, for either profile. The value must be a basename, not a path.
- *
- * Prints one JSON object: `{ "total": number, "byFile": { "<basename>.yml": number } }`.
+ * `--workflow <basename.yml>` limits `total` and `byFile` to one workflow basename.
+ * Prints `{ "total": number, "byFile": { "<basename>.yml": number } }`.
  */
 import { execFileSync } from "node:child_process";
 import {
@@ -35,12 +37,13 @@ const QUERY_ID = "actions/cache-poisoning/poisonable-step";
 const DEFAULT_CODEQL_HOME = "/home/ubuntu/codeql-cli";
 const PROFILE_CODEQL = "codeql";
 const PROFILE_GITHUB_OPEN = "github-open";
+const PROFILE_PRIVILEGED_CALLER = "privileged-caller";
+const PRIVILEGED_WEEKLY_SPEC = "37730abfa:.github/workflows/release-weekly.yml";
 const GITHUB_OPEN_BASELINE = join(
   "tools",
   "security",
   "codeql-poisonable-step-github-open.json",
 );
-/** Failure logs from CodeQL are diagnostic, not a payload to retain in full. */
 const EXEC_STDERR_LIMIT = 1024 * 1024;
 
 export function repoRootFromHere() {
@@ -129,7 +132,31 @@ export function poisonableStepQueryPath(codeqlHome) {
 }
 
 /**
- * @param {{ repoRoot?: string, codeqlHome?: string, keepWork?: boolean }} [options]
+ * @param {string} repoRoot
+ * @param {string} sourceRoot
+ * @param {string} profile
+ */
+export function stageWorkflows(repoRoot, sourceRoot, profile) {
+  const workflowsDir = join(sourceRoot, ".github", "workflows");
+  const privileged = profile === PROFILE_PRIVILEGED_CALLER;
+  mkdirSync(workflowsDir, { recursive: true });
+  cpSync(join(repoRoot, ".github", "workflows"), workflowsDir, {
+    recursive: true,
+    filter: (source) => {
+      const name = basename(source);
+      const qualifyWorkflow = name.includes("qualify") && name.endsWith(".yml");
+      return name !== ".git" && !(privileged && qualifyWorkflow);
+    },
+  });
+  if (!privileged) return;
+  writeFileSync(
+    join(workflowsDir, "release-weekly.yml"),
+    execFileSync("git", ["show", PRIVILEGED_WEEKLY_SPEC], { cwd: repoRoot }),
+  );
+}
+
+/**
+ * @param {{ repoRoot?: string, codeqlHome?: string, keepWork?: boolean, profile?: string }} [options]
  * @returns {{ total: number, byFile: Record<string, number> }}
  */
 export function countPoisonableSteps(options = {}) {
@@ -143,15 +170,7 @@ export function countPoisonableSteps(options = {}) {
   const database = join(work, "db");
   const sarifPath = join(work, "poisonable-step.sarif");
   try {
-    mkdirSync(join(sourceRoot, ".github", "workflows"), { recursive: true });
-    cpSync(
-      join(repoRoot, ".github", "workflows"),
-      join(sourceRoot, ".github", "workflows"),
-      {
-        recursive: true,
-        filter: (source) => basename(source) !== ".git",
-      },
-    );
+    stageWorkflows(repoRoot, sourceRoot, options.profile ?? PROFILE_CODEQL);
     writeFileSync(
       join(sourceRoot, "package.json"),
       `${JSON.stringify({ name: "codeql-actions-db", private: true })}\n`,
@@ -262,11 +281,17 @@ export function isWorkflowBasename(value) {
 
 /**
  * @param {string | undefined} value
- * @returns {"codeql" | "github-open"}
+ * @returns {"codeql" | "github-open" | "privileged-caller"}
  */
 function readProfile(value) {
-  if (value !== PROFILE_CODEQL && value !== PROFILE_GITHUB_OPEN) {
-    throw new Error("--profile must be codeql or github-open");
+  if (
+    value !== PROFILE_CODEQL &&
+    value !== PROFILE_GITHUB_OPEN &&
+    value !== PROFILE_PRIVILEGED_CALLER
+  ) {
+    throw new Error(
+      "--profile must be codeql, github-open, or privileged-caller",
+    );
   }
   return value;
 }
@@ -300,13 +325,11 @@ export function selectWorkflowSummary(summary, workflow) {
 }
 
 /**
- * `--profile codeql` is the default. `--profile github-open` reads the baseline.
- * `--workflow <basename.yml>` is optional.
  * @param {string[]} argv
- * @returns {{ profile: "codeql" | "github-open", workflow: string | undefined }}
+ * @returns {{ profile: "codeql" | "github-open" | "privileged-caller", workflow: string | undefined }}
  */
 export function parseCountArgs(argv) {
-  /** @type {"codeql" | "github-open"} */
+  /** @type {"codeql" | "github-open" | "privileged-caller"} */
   let profile = PROFILE_CODEQL;
   /** @type {string | undefined} */
   let workflow;
@@ -329,9 +352,8 @@ export function parseCountArgs(argv) {
 }
 
 /**
- * `--profile codeql` is the default. `--profile github-open` reads the baseline.
  * @param {string[]} argv
- * @returns {"codeql" | "github-open"}
+ * @returns {"codeql" | "github-open" | "privileged-caller"}
  */
 export function parseCountProfile(argv) {
   return parseCountArgs(argv).profile;
@@ -363,7 +385,7 @@ if (invoked) {
     const summary =
       args.profile === PROFILE_GITHUB_OPEN
         ? countGithubOpenAlerts()
-        : countPoisonableSteps();
+        : countPoisonableSteps({ profile: args.profile });
     const selected = selectWorkflowSummary(summary, args.workflow);
     process.stdout.write(`${JSON.stringify(selected)}\n`);
   } catch (error) {
