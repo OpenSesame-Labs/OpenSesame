@@ -1,6 +1,10 @@
+# Real host execution; successful cross-compilation is not a platform proof.
+# The selected snapshot is checked out only by read-only jobs, which have no token.
+# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
+# Those jobs bind the snapshot to CANDIDATE_REVISION.
+# A job that carries a token checks out the workflow SHA, never that tree.
 name: Native platform validation
 
-# Real host execution; successful cross-compilation is not a platform proof.
 on:
   workflow_call:
     inputs:
@@ -21,6 +25,9 @@ jobs:
     name: Native vault and store (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +39,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       VALIDATION_PHASE: core
       CARGO_BUILD_JOBS: '2'
@@ -64,7 +72,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -148,6 +156,9 @@ jobs:
     name: Native CLI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -159,6 +170,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       VALIDATION_PHASE: cli
       CARGO_BUILD_JOBS: '2'
@@ -191,7 +203,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -293,6 +305,9 @@ jobs:
     needs: [core, cli]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -304,6 +319,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
@@ -333,7 +349,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
