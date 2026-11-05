@@ -250,7 +250,14 @@ describe("complete coverage and publication boundaries", () => {
       const workflow = read(file);
       expect(workflow).toContain("workflow_call:");
       expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
-      expect(workflow).toContain("ref: ${{ inputs.source_sha }}");
+      if (file === "ci-coverage.yml") {
+        expect(workflow).toContain(
+          "CANDIDATE_REVISION: ${{ inputs.source_sha }}",
+        );
+        expect(workflow).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
+      } else {
+        expect(workflow).toContain("ref: ${{ inputs.source_sha }}");
+      }
       expect(workflow).not.toContain("ref: ${{ github.sha }}");
       expect(workflow).not.toContain("continue-on-error");
     }
