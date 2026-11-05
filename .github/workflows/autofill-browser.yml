@@ -33,7 +33,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Install full Playwright Chromium
-        run: npm exec -- playwright install --with-deps chromium
+        run: npm exec -w @opensesame/browser-extension-autofill --package=@playwright/test@1.64.1 -- playwright install --with-deps chromium
       - name: Exercise the built autofill extension
         env:
           AUTOFILL_E2E_EVIDENCE_DIR: ${{ runner.temp }}/autofill-review
