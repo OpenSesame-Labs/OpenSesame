@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Grok Build pre-push: every outgoing commit must be Grok-authored and SSH-signed.
+# Grok Build pre-push: every outgoing commit must be Grok-attributed and signed.
+# The guard accepts a local SSH signature (G) or a GitHub-verified replay.
+# Direct pushes to *-signed branches stay refused.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -15,7 +17,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if [[ "$remote_sha" == "$ZERO" ]]; then
     RANGE="origin/main..$local_sha"
   else
-    RANGE="$remote_sha..$local_sha"
+    BASE="$(git merge-base "$remote_sha" "$local_sha")"
+    RANGE="$BASE..$local_sha"
   fi
   node scripts/dev/grok-commit-guard.mjs --range "$RANGE"
 done

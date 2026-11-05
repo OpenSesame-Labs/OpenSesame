@@ -48,5 +48,8 @@ test("grok-commit-guard CLI rejects unsigned range in a temp repo", (t) => {
     { cwd: dir, encoding: "utf8" },
   );
   assert.notEqual(guard.status, 0);
-  assert.match(guard.stderr + guard.stdout, /refuses unsigned/);
+  assert.match(
+    guard.stderr + guard.stdout,
+    /GitHub verification lookup failed/,
+  );
 });
