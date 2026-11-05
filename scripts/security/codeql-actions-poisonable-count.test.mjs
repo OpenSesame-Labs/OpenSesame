@@ -114,3 +114,27 @@ test("poisonable-step count script returns numeric counts", () => {
   }
   assert.equal(sum, summary.total);
 });
+
+test("github-open profile reports the ci-prerelease-checks.yml baseline", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      script,
+      "--profile",
+      "github-open",
+      "--workflow",
+      "ci-prerelease-checks.yml",
+    ],
+    {
+      encoding: "utf8",
+      timeout: 60000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.ok(isJsonObject(summary));
+  assert.equal(summary.total, 47);
+  assert.deepEqual(summary.byFile, {
+    "ci-prerelease-checks.yml": 47,
+  });
+});
