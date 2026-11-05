@@ -2,10 +2,14 @@
 /**
  * Count CodeQL `actions/cache-poisoning/poisonable-step` findings.
  *
- * Builds a minimal Actions database from `.github/workflows` plus a minimal
- * `package.json`, then runs that query from the installed
- * `codeql/actions-queries` pack. `CODEQL_HOME` defaults to
- * `/home/ubuntu/codeql-cli`.
+ * `--profile codeql` (the default) builds a minimal Actions database from
+ * `.github/workflows` plus a minimal `package.json`, then runs that query
+ * from the installed `codeql/actions-queries` pack. `CODEQL_HOME` defaults
+ * to `/home/ubuntu/codeql-cli`.
+ *
+ * `--profile github-open` does not run CodeQL. It loads
+ * `tools/security/codeql-poisonable-step-github-open.json` and sums every
+ * workflow file in that open-alert baseline.
  *
  * Prints one JSON object: `{ "total": number, "byFile": { "<basename>.yml": number } }`.
  */
@@ -26,6 +30,13 @@ import { isJsonObject, isString, readString } from "../lib/json-boundary.mjs";
 
 const QUERY_ID = "actions/cache-poisoning/poisonable-step";
 const DEFAULT_CODEQL_HOME = "/home/ubuntu/codeql-cli";
+const PROFILE_CODEQL = "codeql";
+const PROFILE_GITHUB_OPEN = "github-open";
+const GITHUB_OPEN_BASELINE = join(
+  "tools",
+  "security",
+  "codeql-poisonable-step-github-open.json",
+);
 /** Failure logs from CodeQL are diagnostic, not a payload to retain in full. */
 const EXEC_STDERR_LIMIT = 1024 * 1024;
 
@@ -48,6 +59,14 @@ export function summarizeSarif(sarif) {
       counts.set(file, (counts.get(file) ?? 0) + 1);
     }
   }
+  return summaryFromCounts(counts);
+}
+
+/**
+ * @param {Map<string, number>} counts
+ * @returns {{ total: number, byFile: Record<string, number> }}
+ */
+function summaryFromCounts(counts) {
   const byFile = {};
   for (const file of [...counts.keys()].sort()) byFile[file] = counts.get(file);
   const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
@@ -172,6 +191,81 @@ export function countPoisonableSteps(options = {}) {
 }
 
 /**
+ * A non-negative integer from JSON, or `undefined` when the value is not one.
+ * @param {unknown} value
+ */
+function readOpenAlertCount(value) {
+  if (Object(value) === value) return undefined;
+  if (Object.prototype.toString.call(value) !== "[object Number]") {
+    return undefined;
+  }
+  if (!Number.isInteger(value) || value < 0) return undefined;
+  return value;
+}
+
+/**
+ * Sum the recorded GitHub open-alert inventory. Does not run CodeQL.
+ * @param {unknown} document
+ * @returns {{ total: number, byFile: Record<string, number> }}
+ */
+export function summarizeGithubOpenBaseline(document) {
+  if (!isJsonObject(document) || !Array.isArray(document.inventory)) {
+    throw new Error("github-open baseline is missing an inventory array");
+  }
+  /** @type {Map<string, number>} */
+  const counts = new Map();
+  for (const [index, entry] of document.inventory.entries()) {
+    if (!isJsonObject(entry)) {
+      throw new Error(`github-open inventory[${index}] is not an object`);
+    }
+    const workflow = readString(entry.workflow);
+    const openAlerts = readOpenAlertCount(entry.openAlerts);
+    if (
+      workflow === undefined ||
+      workflow.length === 0 ||
+      openAlerts === undefined
+    ) {
+      throw new Error(
+        `github-open inventory[${index}] needs a workflow name and a non-negative openAlerts count`,
+      );
+    }
+    counts.set(workflow, (counts.get(workflow) ?? 0) + openAlerts);
+  }
+  return summaryFromCounts(counts);
+}
+
+/**
+ * @param {string} [repoRoot]
+ * @returns {{ total: number, byFile: Record<string, number> }}
+ */
+export function countGithubOpenAlerts(repoRoot = repoRootFromHere()) {
+  const path = join(repoRoot, GITHUB_OPEN_BASELINE);
+  const document = JSON.parse(readFileSync(path, "utf8"));
+  return summarizeGithubOpenBaseline(document);
+}
+
+/**
+ * `--profile codeql` is the default. `--profile github-open` reads the baseline.
+ * @param {string[]} argv
+ * @returns {"codeql" | "github-open"}
+ */
+export function parseCountProfile(argv) {
+  let profile = PROFILE_CODEQL;
+  let index = 0;
+  while (index < argv.length) {
+    const flag = argv[index];
+    if (flag !== "--profile") throw new Error(`unknown argument ${flag}`);
+    const value = argv[index + 1];
+    if (value !== PROFILE_CODEQL && value !== PROFILE_GITHUB_OPEN) {
+      throw new Error("--profile must be codeql or github-open");
+    }
+    profile = value;
+    index += 2;
+  }
+  return profile;
+}
+
+/**
  * Stderr from an `execFileSync` failure, capped, or empty when the throw has none.
  * @param {unknown} error
  */
@@ -193,7 +287,11 @@ const invoked =
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   try {
-    const summary = countPoisonableSteps();
+    const profile = parseCountProfile(process.argv.slice(2));
+    const summary =
+      profile === PROFILE_GITHUB_OPEN
+        ? countGithubOpenAlerts()
+        : countPoisonableSteps();
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
