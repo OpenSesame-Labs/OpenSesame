@@ -7,6 +7,10 @@
 
 import type { EgressPort } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import {
+  syntheticTailscaleAuthKeyControlId,
+  syntheticTailscaleAuthKeyForControlId,
+} from "@opensesame/app-core/lib/synthetic-tailscale-key.js";
+import {
   type TailnetAdmin,
   tailnetAdmin,
   tailnetAdminSeams,
@@ -18,15 +22,6 @@ import {
   isJsonObject,
 } from "@opensesame/os-domain";
 import { screen } from "@testing-library/react";
-import {
-  syntheticTailscaleAuthKeyControlId,
-  syntheticTailscaleAuthKeyForControlId,
-} from "@opensesame/app-core/lib/synthetic-tailscale-key.js";
-
-export const TEST_MINT_AUTH_KEY_ID = syntheticTailscaleAuthKeyControlId();
-export const TEST_MINT_AUTH_KEY = syntheticTailscaleAuthKeyForControlId(
-  TEST_MINT_AUTH_KEY_ID,
-);
 
 export type WireDevice = JsonObject & { id: string };
 
@@ -67,6 +62,8 @@ export type FakeDaemon = {
   /** Answer the next matching call with this refusal instead. */
   refuse: { path: string; status: number; body: JsonObject } | null;
   credential: "oauth" | "api_key";
+  /** Auth key from the latest mint. Null until a test mints one. */
+  mintedAuthKey: string | null;
 };
 
 function json(status: number, body: BoundaryValue): Response {
@@ -99,8 +96,11 @@ function readRoute(daemon: FakeDaemon, path: string): Response | null {
 
 function mintKey(daemon: FakeDaemon, body: BoundaryValue): Response {
   const get = (name: string) => field(body, name);
+  const id = syntheticTailscaleAuthKeyControlId();
+  const key = syntheticTailscaleAuthKeyForControlId(id);
+  daemon.mintedAuthKey = key;
   const created = {
-    id: TEST_MINT_AUTH_KEY_ID,
+    id,
     description: get("description"),
     created: "2026-10-05T09:01:00Z",
     expires: "2026-10-06T09:01:00Z",
@@ -110,7 +110,7 @@ function mintKey(daemon: FakeDaemon, body: BoundaryValue): Response {
     ephemeral: get("ephemeral"),
     preauthorized: get("preauthorized"),
     tags: get("tags"),
-    key: TEST_MINT_AUTH_KEY,
+    key,
   };
   daemon.keys.push({ ...created, key: null });
   return json(201, created);
@@ -185,7 +185,14 @@ export function pairedClient(
 }
 
 export function fakeDaemon(devices: WireDevice[]): FakeDaemon {
-  return { devices, keys: [], calls: [], refuse: null, credential: "api_key" };
+  return {
+    devices,
+    keys: [],
+    calls: [],
+    refuse: null,
+    credential: "api_key",
+    mintedAuthKey: null,
+  };
 }
 
 export const originalSeams = { ...tailnetAdminSeams };
