@@ -131,6 +131,8 @@ jobs:
           GITLEAKS_VERSION: "8.30.1"
           # This job runs on a schedule or by hand; it needs no PR write access.
           GITLEAKS_ENABLE_COMMENTS: "false"
+          # Org repositories require a license; the secret is configured on the repo.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   scorecard:
