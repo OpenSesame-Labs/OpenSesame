@@ -1190,21 +1190,39 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_PROFILE_TEST_DEBUG: 0
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/ci
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
           fetch-depth: 0
           filter: blob:none
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - name: Select affected crates
         id: affected
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: node scripts/lib/ci-affected-tests.mjs cargo
+        run: node .ci-control/scripts/lib/ci-affected-tests.mjs cargo
       - name: Install Linux keychain build and test dependencies
         if: runner.os == 'Linux' && steps.affected.outputs.scope != 'none'
-        run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
+        run: bash .ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         if: steps.affected.outputs.scope != 'none'
         with:
@@ -1245,7 +1263,7 @@ jobs:
           HEAD_SHA: ''
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
-          node scripts/lib/ci-affected-tests.mjs run-cargo
+          node .ci-control/scripts/lib/ci-affected-tests.mjs run-cargo
       - name: Test the Bitwarden bridge build (ADR 0148)
         # Default builds leave the bridge out; this compiles it in.
         if: steps.affected.outputs.bitwarden == 'true'
@@ -1262,10 +1280,35 @@ jobs:
     env:
       CARGO_BUILD_JOBS: 2
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/test
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
+          # These helpers resolve the repository from their own path. The
+          # candidate workspace stays on this checkout.
+          ln -s ../Cargo.toml .ci-control/Cargo.toml
+          ln -s ../Cargo.lock .ci-control/Cargo.lock
+          ln -s ../rust-toolchain.toml .ci-control/rust-toolchain.toml
+          ln -s ../crates .ci-control/crates
+          ln -s ../apps .ci-control/apps
+          ln -s ../tests .ci-control/tests
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -1288,9 +1331,9 @@ jobs:
       - name: Build packaged Android Rust libraries
         run: apps/android/scripts/build-core.sh android
       - name: Test real JVM crypto and FFI, then assemble the app
-        run: bash scripts/test/mobile-android.sh
+        run: bash .ci-control/scripts/test/mobile-android.sh
       - name: Verify all four native architectures in the APK
-        run: bash scripts/test/mobile-android-apk.sh
+        run: bash .ci-control/scripts/test/mobile-android-apk.sh
       - name: Preserve Android test results and APK
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1309,10 +1352,35 @@ jobs:
     env:
       CARGO_BUILD_JOBS: 2
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/test
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
+          # These helpers resolve the repository from their own path. The
+          # candidate workspace stays on this checkout.
+          ln -s ../Cargo.toml .ci-control/Cargo.toml
+          ln -s ../Cargo.lock .ci-control/Cargo.lock
+          ln -s ../rust-toolchain.toml .ci-control/rust-toolchain.toml
+          ln -s ../crates .ci-control/crates
+          ln -s ../apps .ci-control/apps
+          ln -s ../tests .ci-control/tests
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -1320,7 +1388,7 @@ jobs:
       - name: Install iOS Rust targets
         run: rustup target add --toolchain 1.88.0 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
       - name: Test Swift envelopes and compile all iOS package targets
-        run: bash scripts/test/mobile-apple.sh ios
+        run: bash .ci-control/scripts/test/mobile-apple.sh ios
       - name: Preserve iOS simulator XCTest results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
