@@ -119,7 +119,8 @@ describe("release qualification evidence", () => {
   it("binds tests to source and writes receipts outside immutable payloads", () => {
     for (const id of ["mutation", "security"]) {
       const body = job(release, id);
-      expect(body).toContain("ref: ${{ inputs.source_sha }}");
+      expect(body).toContain("CANDIDATE_REVISION: ${{ inputs.source_sha }}");
+      expect(body).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
       expect(body).toContain('test "$(git rev-parse HEAD)" = "$SOURCE_SHA"');
       expect(body).toContain(
         'bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"',
