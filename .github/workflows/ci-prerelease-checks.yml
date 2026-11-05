@@ -713,10 +713,27 @@ jobs:
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
       VITE_BASE: /OpenSesame/
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -747,10 +764,27 @@ jobs:
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
       VITE_BASE: /OpenSesame/
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -783,10 +817,30 @@ jobs:
     # required through the Bundle budgets check below.
     timeout-minutes: 15
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
+          # This helper resolves the repository from its own path. The
+          # candidate Pages package stays on this checkout.
+          ln -s ../apps .ci-control/apps
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -796,7 +850,7 @@ jobs:
       - name: Build the static front end
         env:
           VITE_BASE: /OpenSesame/
-        run: node scripts/lib/ci-pages-build.mjs
+        run: node .ci-control/scripts/lib/ci-pages-build.mjs
       - name: Receipts, inbox and local notifications with no backend
         # ADR 0162: a request raised, shown on the tab and told to a second
         # tab, approved and refused with the keyboard and the passkey, every
@@ -820,10 +874,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
