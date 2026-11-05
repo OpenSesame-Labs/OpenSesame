@@ -75,3 +75,23 @@ test("poisonable-step count script returns numeric counts", () => {
   }
   assert.equal(sum, summary.total);
 });
+
+test("github-open profile baseline for ci-prerelease-checks.yml is 47", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      script,
+      "--profile",
+      "github-open",
+      "--workflow",
+      "ci-prerelease-checks.yml",
+    ],
+    {
+      encoding: "utf8",
+      timeout: 30000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.total, 47);
+});
