@@ -14,7 +14,6 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TailnetDevices } from "./TailnetDevices.js";
 import {
-  TEST_MINT_AUTH_KEY,
   fakeDaemon,
   originalSeams,
   pairedClient,
@@ -160,9 +159,14 @@ describe("Tailnet devices", () => {
     await userEvent.click(
       sheet.getByRole("button", { name: "Mint an auth key" }),
     );
-    expect(await sheet.findByDisplayValue(TEST_MINT_AUTH_KEY)).toBeTruthy();
+    const minted = await waitFor(() => {
+      const key = daemon.mintedAuthKey;
+      if (key === null) throw new Error("auth key was not minted");
+      return key;
+    });
+    expect(await sheet.findByDisplayValue(minted)).toBeTruthy();
     expect(
-      sheet.getByDisplayValue(`tailscale up --auth-key=${TEST_MINT_AUTH_KEY}`),
+      sheet.getByDisplayValue(`tailscale up --auth-key=${minted}`),
     ).toBeTruthy();
     expect(daemon.calls).toContainEqual({
       method: "POST",
