@@ -139,8 +139,13 @@ describe("complete candidate qualification preserves coverage", () => {
     expect(full.changes).toContain("needs: admission");
     expect(full.changes).toContain("BASE_SHA: ''");
     expect(full.changes).toContain("HEAD_SHA: ''");
-    expect(full["typescript-tests"]).toContain("ref: ${{ inputs.source_sha }}");
-    expect(full.rust).toContain("ref: ${{ inputs.source_sha }}");
+    expect(full["typescript-tests"]).toContain(
+      "CANDIDATE_REVISION: ${{ inputs.source_sha }}",
+    );
+    expect(full["typescript-tests"]).toContain(
+      "ref: ${{ env.CANDIDATE_REVISION }}",
+    );
+    expect(full.rust).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
     expect(full["typescript-tests"]).toContain("timeout-minutes: 180");
     for (const profile of [
       "minimal-local-hardened",
@@ -205,7 +210,13 @@ describe("candidate qualification records successful immutable-artifact checks",
       );
       expect(smoke).toContain("path: .ci-control");
       expect(smoke).toContain("ref: ${{ github.workflow_sha }}");
-      expect(smoke).toContain("ref: ${{ inputs.source_sha }}");
+      if (workflow === prerelease) {
+        expect(smoke).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
+        expect(smoke).toContain("actions/download-artifact@");
+        expect(smoke).not.toContain("github.token");
+      } else {
+        expect(smoke).toContain("ref: ${{ inputs.source_sha }}");
+      }
     },
   );
 });

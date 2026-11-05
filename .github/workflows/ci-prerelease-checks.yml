@@ -1,4 +1,9 @@
-# Candidate-bound qualification; production archives are never rebuilt here.
+# Prerelease checks for one selected candidate snapshot.
+# That source is checked out only by read-only jobs that have no token.
+# Those jobs bind the snapshot to CANDIDATE_REVISION.
+# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
+# Privileged jobs check out the workflow SHA and consume uploaded artifacts.
+# Production archives are never rebuilt here.
 name: Complete prerelease checks
 
 on:
@@ -53,6 +58,10 @@ jobs:
     name: Candidate admission
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - name: Check out trusted pipeline helpers
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -76,11 +85,27 @@ jobs:
           node .ci-control/scripts/release/candidate.mjs verify
           --directory "$RUNNER_TEMP/candidate"
           --prerequisite-env PREREQUISITE_RECEIPT
+      - name: Verify merge-required commit signatures
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node .ci-control/scripts/release/check-pr-signatures.mjs "$GITHUB_REPOSITORY" "$PR_NUMBER" "$PR_HEAD"
+      - name: Verify merge-group commit signature
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: node .ci-control/scripts/release/check-merge-group-signature.mjs "$GITHUB_REPOSITORY" "$MERGE_HEAD"
 
   changes:
     name: Complete candidate scope
     needs: admission
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 5
     outputs:
       typescript: ${{ github.event.pull_request.draft == true && 'false' || steps.areas.outputs.typescript }}
@@ -105,6 +130,8 @@ jobs:
       # Pages' canonical cold compiler requires Linux AMD64. Other packages
       # retain the configured Linux runner, including the owner's ARM64 box.
       typescript_runner: ${{ (steps.packages.outputs.scope == 'all' || contains(steps.packages.outputs.packages, '@opensesame/pages')) && '"ubuntu-latest"' || steps.runner.outputs.linux }}
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       - name: Choose the Linux runner
         id: runner
@@ -149,7 +176,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           # The classifier diffs the pull request against its merge base.
           fetch-depth: 0
           filter: blob:none
@@ -169,19 +196,6 @@ jobs:
         run: |
           node .ci-control/scripts/quality/repository-size-gate.mjs
           node .ci-control/scripts/dev/sync-agent-skills.mjs --check
-      - name: Verify merge-required commit signatures
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node .ci-control/scripts/release/check-pr-signatures.mjs "$GITHUB_REPOSITORY" "$PR_NUMBER" "$PR_HEAD"
-      - name: Verify merge-group commit signature
-        if: github.event_name == 'merge_group'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MERGE_HEAD: ${{ github.event.merge_group.head_sha }}
-        run: node .ci-control/scripts/release/check-merge-group-signature.mjs "$GITHUB_REPOSITORY" "$MERGE_HEAD"
       - name: Classify changed areas
         id: areas
         env:
@@ -200,6 +214,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.typescript == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.typescript_runner) }}
+    permissions:
+      contents: read
+      actions: read
     # Full serial app-core and Pages validation retains each test's deadline.
     # Keep the same job budget as current main's full TypeScript workload.
     timeout-minutes: 180
@@ -223,6 +240,8 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -243,7 +262,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           # pnpm lint diffs changed files against origin/main.
           fetch-depth: 0
           filter: blob:none
@@ -345,6 +364,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.bundle_matrix != '[]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: ${{ matrix.shard == 'native-public-protocol' && 30 || 15 }}
     strategy:
       fail-fast: false
@@ -352,6 +374,8 @@ jobs:
       # writes the ones this diff reaches (scripts/lib/ci-gates.mjs).
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.bundle_matrix) }}
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -373,7 +397,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -715,8 +739,12 @@ jobs:
     # bundle graph. Keep this walk separate from the native connector shard.
     if: needs.changes.outputs.bundle == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 15
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
       VITE_BASE: /OpenSesame/
     steps:
@@ -738,7 +766,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -768,8 +796,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.bundle == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 20
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
       VITE_BASE: /OpenSesame/
     steps:
@@ -791,7 +823,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -823,10 +855,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.device_inbox == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     # Its own job, so the bundle job's 20 minutes are not spent on it: a build
     # (about a minute) and the journey at two widths (about a minute). It is
     # required through the Bundle budgets check below.
     timeout-minutes: 15
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -846,7 +883,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -885,7 +922,12 @@ jobs:
     # rules send to it (scripts/lib/ci-gates.mjs).
     if: needs.changes.outputs.push == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 15
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -905,7 +947,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -945,7 +987,12 @@ jobs:
     # (app-core, vault-core and what they depend on), which is the bundle area.
     if: needs.changes.outputs.device_identity == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 15
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -965,7 +1012,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1015,12 +1062,17 @@ jobs:
     # The Pages build, the app core and the guide runtime that build ships.
     if: needs.changes.outputs.tutorials == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         width: [1280, 390]
         shard: ["1/3", "2/3", "3/3"]
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -1040,7 +1092,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1093,7 +1145,11 @@ jobs:
     if: needs.changes.outputs.live_join == 'true'
     # Native ntfy is built with CGO here and runs in the Noble browser image.
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       LIVE_JOIN_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
     timeout-minutes: 50
     strategy:
@@ -1119,7 +1175,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1204,8 +1260,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux_runner) }}
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 45
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_DEV_DEBUG: 0
@@ -1230,7 +1290,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
           fetch-depth: 0
           filter: blob:none
       - name: Restore trusted helpers beside the candidate tree
@@ -1299,8 +1359,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.native_mobile == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 45
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: 2
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
@@ -1321,7 +1385,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1373,8 +1437,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.native_mobile == 'true'
     runs-on: macos-26
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 45
     env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: 2
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
@@ -1395,7 +1463,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1434,7 +1502,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.mtls == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 60
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -1454,7 +1527,7 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
@@ -1666,10 +1739,91 @@ jobs:
     with:
       source_sha: ${{ inputs.source_sha }}
 
+  artifact-materialize:
+    name: Materialize verified candidate archives
+    needs: admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    outputs:
+      pages_archive: ${{ steps.layout.outputs.pages_archive }}
+      native_x86_archive: ${{ steps.layout.outputs.native_x86_archive }}
+      native_arm_archive: ${{ steps.layout.outputs.native_arm_archive }}
+    steps:
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            .github/workflows
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+        with:
+          cache: false
+          install_args: node
+      - name: Materialize the verified candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          node .ci-control/scripts/release/candidate.mjs verify
+          --directory "$RUNNER_TEMP/candidate"
+          --prerequisite-env PREREQUISITE_RECEIPT
+      - name: Record archive paths inside the verified directory
+        id: layout
+        env:
+          PAGES_ARCHIVE: ${{ steps.candidate.outputs.pages_archive }}
+          NATIVE_X86_ARCHIVE: ${{ steps.candidate.outputs.native_x86_archive }}
+          NATIVE_ARM_ARCHIVE: ${{ steps.candidate.outputs.native_arm_archive }}
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/candidate" "$GITHUB_OUTPUT" <<'PY'
+          import os, sys
+          from pathlib import Path
+          root = Path(sys.argv[1]).resolve()
+          output = Path(sys.argv[2])
+          mapping = {
+              "pages_archive": os.environ["PAGES_ARCHIVE"],
+              "native_x86_archive": os.environ["NATIVE_X86_ARCHIVE"],
+              "native_arm_archive": os.environ["NATIVE_ARM_ARCHIVE"],
+          }
+          lines = []
+          for key, raw in mapping.items():
+              path = Path(raw).resolve()
+              relative = path.relative_to(root).as_posix()
+              if (
+                  not relative
+                  or relative.startswith("../")
+                  or not path.is_file()
+                  or any(part == ".." for part in Path(relative).parts)
+              ):
+                  raise SystemExit(f"unsafe archive path for {key}")
+              lines.append(f"{key}={relative}")
+          with output.open("a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+      - name: Publish verified archives for unprivileged smoke
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prerelease-verified-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate
+          if-no-files-found: error
+          retention-days: 7
+
   artifact-smoke:
     name: Prerelease artifact smoke (${{ matrix.target }})
-    needs: admission
+    needs: [admission, artifact-materialize]
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -1679,6 +1833,8 @@ jobs:
             runner: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -1700,26 +1856,23 @@ jobs:
         with:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.CANDIDATE_REVISION }}
       - name: Restore trusted helpers beside the candidate tree
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
+      - name: Download the verified candidate archives
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: prerelease-verified-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/candidate
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
           install_args: node
-      - name: Materialize the verified candidate
-        id: candidate
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          node .ci-control/scripts/release/candidate.mjs verify
-          --directory "$RUNNER_TEMP/candidate"
-          --prerequisite-env PREREQUISITE_RECEIPT
       - name: Execute the packaged native host and bundled parser
         env:
-          KIT_ARCHIVE: ${{ matrix.target == 'x86_64-unknown-linux-gnu' && steps.candidate.outputs.native_x86_archive || steps.candidate.outputs.native_arm_archive }}
+          KIT_ARCHIVE: ${{ runner.temp }}/candidate/${{ matrix.target == 'x86_64-unknown-linux-gnu' && needs.artifact-materialize.outputs.native_x86_archive || needs.artifact-materialize.outputs.native_arm_archive }}
         run: bash .ci-control/scripts/release/smoke-kit.sh "$KIT_ARCHIVE"
       - name: Install the candidate source's browser test dependencies
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -1728,7 +1881,7 @@ jobs:
         id: pages
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         env:
-          PAGES_ARCHIVE: ${{ steps.candidate.outputs.pages_archive }}
+          PAGES_ARCHIVE: ${{ runner.temp }}/candidate/${{ needs.artifact-materialize.outputs.pages_archive }}
         run: |
           test ! -e apps/pages/dist
           python3 .ci-control/scripts/release/archive-safe.py tar "$PAGES_ARCHIVE" apps/pages/dist
@@ -1758,7 +1911,7 @@ jobs:
 
   gate:
     name: Prerelease gate
-    needs: [admission, changes, typescript-tests, bundle, ai-connections-e2e, tailnet-browser-node-e2e, device-inbox, push-e2e, device-identity-e2e, tutorials-e2e, live-join-e2e, rust, android-native, apple-native, mtls, typescript, bundle-check, rust-check, complete-verify, native-platform, password-parity, container, native-wasm, autofill-browser, sync-target-security, coverage, artifact-smoke]
+    needs: [admission, changes, typescript-tests, bundle, ai-connections-e2e, tailnet-browser-node-e2e, device-inbox, push-e2e, device-identity-e2e, tutorials-e2e, live-join-e2e, rust, android-native, apple-native, mtls, typescript, bundle-check, rust-check, complete-verify, native-platform, password-parity, container, native-wasm, autofill-browser, sync-target-security, coverage, artifact-materialize, artifact-smoke]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -1788,6 +1941,10 @@ jobs:
     needs: [admission, gate]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     outputs:
       receipt: ${{ steps.envelope.outputs.receipt }}
     steps:
