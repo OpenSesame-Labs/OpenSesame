@@ -7,17 +7,17 @@ WS="${ROOT}/.deepsec"
 cd "$ROOT"
 
 if [[ ! -d "$WS" ]]; then
-  echo "deepsec-gate: missing .deepsec/ — run: npx deepsec init --scaffold-only" >&2
+  echo "deepsec-gate: missing tracked .deepsec/ workspace and package-lock.json" >&2
   exit 1
 fi
 
 if [[ ! -d "$WS/node_modules/deepsec" ]]; then
   echo "==> deepsec-gate: installing workspace deps"
-  if [[ -f "$WS/package-lock.json" ]]; then
-    (cd "$WS" && npm ci --ignore-scripts)
-  else
-    (cd "$WS" && npm install --ignore-scripts)
+  if [[ ! -f "$WS/package-lock.json" ]]; then
+    echo "deepsec-gate: missing tracked .deepsec/package-lock.json; npm ci requires the lockfile" >&2
+    exit 1
   fi
+  npm ci --ignore-scripts --prefix "$WS"
 fi
 
 echo "==> deepsec-gate: pattern scan (free, no AI)"
