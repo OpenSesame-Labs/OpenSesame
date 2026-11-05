@@ -8,9 +8,7 @@ on:
     types: [completed]
 
 permissions:
-  actions: read
   contents: read
-  attestations: read
 
 concurrency:
   group: candidate-release-qualify-${{ github.event.workflow_run.id }}
@@ -22,6 +20,10 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     outputs:
       source_sha: ${{ steps.load.outputs.source_sha }}
       candidate_id: ${{ steps.load.outputs.candidate_id }}
@@ -71,6 +73,10 @@ jobs:
   prerelease:
     needs: resume
     if: ${{ needs.resume.outputs.promote == 'true' }}
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     uses: ./.github/workflows/ci-prerelease-checks.yml
     with:
       source_sha: ${{ needs.resume.outputs.source_sha }}

@@ -95,7 +95,7 @@ jobs:
       name: release
       url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.run_id }}"
     permissions:
-      contents: write
+      contents: read
       actions: read
       attestations: write
       id-token: write
