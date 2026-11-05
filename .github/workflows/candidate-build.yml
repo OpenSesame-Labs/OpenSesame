@@ -156,6 +156,10 @@ jobs:
       PAGES_CANONICAL_ORIGIN: https://opensesame-labs.github.io
       PAGES_HEADER_SECURITY: '0'
     steps:
+    # Trusted helpers land first. actions/checkout wipes the workspace when
+    # the candidate checkout is not yet a git directory, so park them until
+    # that checkout finishes. The candidate tree stays under src, so the
+    # restore lands beside that directory.
     - name: Check out trusted pipeline helpers
       uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
@@ -166,11 +170,17 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
+    - name: Park trusted helpers outside the candidate checkout
+      working-directory: ${{ github.workspace }}
+      run: mv .ci-control "$RUNNER_TEMP/ci-control"
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ needs.resolve.outputs.source_sha }}
         persist-credentials: false
         path: src
+    - name: Restore trusted helpers beside the candidate tree
+      working-directory: ${{ github.workspace }}
+      run: mv "$RUNNER_TEMP/ci-control" .ci-control
     - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       with:
         cache: false
