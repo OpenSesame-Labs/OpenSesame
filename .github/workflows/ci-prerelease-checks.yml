@@ -221,6 +221,20 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/quality
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
@@ -228,12 +242,16 @@ jobs:
           # pnpm lint diffs changed files against origin/main.
           fetch-depth: 0
           filter: blob:none
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - name: Select affected packages
         id: affected
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: node scripts/lib/ci-affected-tests.mjs plan
+        run: node .ci-control/scripts/lib/ci-affected-tests.mjs plan
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -250,7 +268,7 @@ jobs:
           node --input-type=module -e
           'import { loadTailscaleAssets } from "./apps/pages/scripts/tailscale-wasm-assets.mjs"; await loadTailscaleAssets();'
       - name: Lint (changed files)
-        run: node scripts/quality/lint-changed.mjs
+        run: node .ci-control/scripts/quality/lint-changed.mjs
       - name: Lint generated auth artifacts
         if: steps.affected.outputs.lint_artifacts == 'true'
         run: npm run lint:artifacts
@@ -262,7 +280,7 @@ jobs:
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: node scripts/lib/ci-affected-tests.mjs run-ts
+        run: node .ci-control/scripts/lib/ci-affected-tests.mjs run-ts
       - name: CUA password-reset browser e2e
         # Explicit delivery coverage: these real-browser tests are excluded
         # from the package's unit-test script.
