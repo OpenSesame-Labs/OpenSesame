@@ -22,6 +22,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isString, readString } from "../lib/json-boundary.mjs";
 
 const QUERY_ID = "actions/cache-poisoning/poisonable-step";
 const DEFAULT_CODEQL_HOME = "/home/ubuntu/codeql-cli";
@@ -53,8 +54,8 @@ export function summarizeSarif(sarif) {
 function resultLocationUri(result) {
   const locations = Array.isArray(result?.locations) ? result.locations : [];
   for (const location of locations) {
-    const uri = location?.physicalLocation?.artifactLocation?.uri;
-    if (typeof uri === "string" && uri.length > 0) return uri;
+    const uri = readString(location?.physicalLocation?.artifactLocation?.uri);
+    if (uri !== undefined && uri.length > 0) return uri;
   }
   return "";
 }
@@ -161,6 +162,15 @@ export function countPoisonableSteps(options = {}) {
   }
 }
 
+/** Stderr from an `execFileSync` failure, or empty when the throw has none. */
+function readExecStderr(error) {
+  if (!(error instanceof Error) || !Object.hasOwn(error, "stderr")) return "";
+  const { stderr } = error;
+  if (isString(stderr)) return stderr;
+  if (Buffer.isBuffer(stderr)) return stderr.toString("utf8");
+  return "";
+}
+
 const invoked =
   process.argv[1] !== undefined &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -170,12 +180,9 @@ if (invoked) {
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const stderr =
-      error && typeof error === "object" && "stderr" in error && error.stderr
-        ? String(error.stderr)
-        : "";
+    const stderr = readExecStderr(error);
     process.stderr.write(`${message}\n`);
-    if (stderr) process.stderr.write(stderr);
+    if (stderr.length > 0) process.stderr.write(stderr);
     process.exit(1);
   }
 }
