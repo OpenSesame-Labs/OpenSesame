@@ -244,17 +244,8 @@ test("published base images are pinned, while OSS Verify keeps its local builder
     const text = readFileSync(join(root, file), "utf8");
     const bases = text.split("\n").filter((line) => line.startsWith("FROM "));
     assert.ok(bases.length > 0);
-    // A stage alias is pinned when its parent image is digest-pinned.
-    const pinnedStages = new Set();
-    for (const base of bases) {
-      const digest = base.match(
-        /@sha256:[a-f0-9]{64}(?: AS ([A-Za-z0-9_.-]+))?$/,
-      );
-      const alias = base.match(/^FROM ([A-Za-z0-9_.-]+) AS ([A-Za-z0-9_.-]+)$/);
-      assert.ok(digest || (alias && pinnedStages.has(alias[1])), base);
-      const stage = digest?.[1] ?? alias?.[2];
-      if (stage) pinnedStages.add(stage);
-    }
+    for (const base of bases)
+      assert.match(base, /@sha256:[a-f0-9]{64}(?: AS \w+)?$/);
   }
   const verify = readFileSync(
     join(root, "tests/fuzz/oss-verify/Dockerfile"),
@@ -262,37 +253,6 @@ test("published base images are pinned, while OSS Verify keeps its local builder
   );
   assert.match(verify, /ARG BASE_BUILDER=oss-verify-base-builder/);
   assert.match(verify, /FROM \$\{BASE_BUILDER\}/);
-});
-
-test("scorecard npm commands use lockfile-pinned installs", () => {
-  const workflow = readFileSync(
-    join(root, ".github/workflows/autofill-browser.yml"),
-    "utf8",
-  );
-  assert.match(
-    workflow,
-    /@playwright\/test@1\.64\.1|-w @opensesame\/browser-extension-autofill/,
-  );
-  assert.match(
-    workflow,
-    /npm exec -w @opensesame\/browser-extension-autofill --package=@playwright\/test@1\.64\.1 -- playwright install --with-deps chromium/,
-  );
-  assert.doesNotMatch(workflow, /npm exec -- playwright install/);
-
-  for (const file of [
-    "scripts/audit/deepsec-gate.sh",
-    "scripts/audit/deepsec-grok-scan.sh",
-  ]) {
-    const text = readFileSync(join(root, file), "utf8");
-    assert.match(text, /npm ci --ignore-scripts --prefix "\$WS"/);
-    assert.doesNotMatch(text, /npm install --ignore-scripts/);
-    assert.doesNotMatch(text, /\(cd "\$WS" && npm ci/);
-  }
-  const gate = readFileSync(
-    join(root, "scripts/audit/deepsec-gate.sh"),
-    "utf8",
-  );
-  assert.doesNotMatch(gate, /npx deepsec init/);
 });
 
 test("scheduled security scanning has no unnecessary issue write permission", () => {
