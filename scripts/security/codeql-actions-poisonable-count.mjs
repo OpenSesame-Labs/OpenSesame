@@ -7,13 +7,18 @@
  * then runs that query from the installed `codeql/actions-queries` pack.
  * `CODEQL_HOME` defaults to `/home/ubuntu/codeql-cli`.
  *
+ * `--profile privileged-caller` runs that same scan. Copying workflows
+ * overlays `.github/workflows/release-weekly.yml` from git revision
+ * `37730abfa` and omits every workflow file matching `*qualify*.yml` from
+ * the database source root.
+ *
  * `--profile github-open` does not run CodeQL. It loads
  * `tools/security/codeql-poisonable-step-github-open.json` and sums every
  * workflow file in that open-alert baseline.
  *
  * `--workflow <basename.yml>` limits `total` and `byFile` to that one workflow
- * file. The value must be a basename ending in `.yml` (no directory). Both
- * profiles honor it. Omitted, every workflow file is counted.
+ * file. The value must be a basename ending in `.yml` (no directory). Every
+ * profile honors it. Omitted, every workflow file is counted.
  *
  * Prints one JSON object: `{ "total": number, "byFile": { "<basename>.yml": number } }`.
  */
@@ -36,8 +41,18 @@ const QUERY_ID = "actions/cache-poisoning/poisonable-step";
 const DEFAULT_CODEQL_HOME = "/home/ubuntu/codeql-cli";
 const PROFILE_CODEQL = "codeql";
 const PROFILE_GITHUB_OPEN = "github-open";
+const PROFILE_PRIVILEGED_CALLER = "privileged-caller";
+/** @typedef {"codeql" | "github-open" | "privileged-caller"} CountProfile */
+const COUNT_PROFILES = new Set([
+  PROFILE_CODEQL,
+  PROFILE_GITHUB_OPEN,
+  PROFILE_PRIVILEGED_CALLER,
+]);
 const GITHUB_OPEN_BASELINE =
   "tools/security/codeql-poisonable-step-github-open.json";
+/** Pinned `release-weekly.yml` overlaid onto a privileged-caller database. */
+const PRIVILEGED_CALLER_REV = "37730abfa";
+const RELEASE_WEEKLY_WORKFLOW = "release-weekly.yml";
 /** Workflow file name only: no directory, and the `.yml` suffix the flag takes. */
 const WORKFLOW_BASENAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.yml$/u;
 
@@ -74,10 +89,7 @@ function resultLocationUri(result) {
   return "";
 }
 
-/**
- * @param {string} codeqlHome
- * @returns {string}
- */
+/** @param {string} codeqlHome @returns {string} */
 export function poisonableStepQueryPath(codeqlHome) {
   const packRoot = join(codeqlHome, "qlpacks", "codeql", "actions-queries");
   /** @type {string[]} */
@@ -111,13 +123,7 @@ export function poisonableStepQueryPath(codeqlHome) {
   return found[found.length - 1];
 }
 
-/**
- * A workflow argument is a file name, not a path. `ci.yml` passes;
- * `.github/workflows/ci.yml` does not.
- *
- * @param {string} value
- * @returns {string}
- */
+/** Basename only: `ci.yml` passes; `.github/workflows/ci.yml` does not. */
 export function validateWorkflowBasename(value) {
   if (value !== basename(value) || !WORKFLOW_BASENAME.test(value)) {
     throw new Error(`invalid workflow basename ${value}`);
@@ -126,8 +132,7 @@ export function validateWorkflowBasename(value) {
 }
 
 /**
- * Keep one workflow file's count. A file with no findings counts as zero
- * and is omitted from `byFile`, matching the unfiltered summary.
+ * Keep one workflow file's count. Zero findings stay omitted from `byFile`.
  *
  * @param {{ total: number, byFile: Record<string, number> }} summary
  * @param {string | undefined} workflow
@@ -143,17 +148,43 @@ export function limitSummaryToWorkflow(summary, workflow) {
   return { total: count, byFile: { [selected]: count } };
 }
 
-/**
- * @param {string | undefined} workflow
- * @returns {string | undefined}
- */
+/** @param {string | undefined} workflow @returns {string | undefined} */
 function optionalWorkflow(workflow) {
   if (workflow === undefined) return undefined;
   return validateWorkflowBasename(workflow);
 }
 
+/** Basename glob `*qualify*.yml`. */
+function isQualifyWorkflow(name) {
+  return name.includes("qualify") && name.endsWith(".yml");
+}
+
+/** @param {string} repoRoot @param {string} sourceRoot @param {boolean} privilegedCaller */
+function copyWorkflows(repoRoot, sourceRoot, privilegedCaller) {
+  const destination = join(sourceRoot, ".github", "workflows");
+  mkdirSync(destination, { recursive: true });
+  cpSync(join(repoRoot, ".github", "workflows"), destination, {
+    recursive: true,
+    filter: (source) => {
+      const name = basename(source);
+      if (name === ".git") return false;
+      return !(privilegedCaller && isQualifyWorkflow(name));
+    },
+  });
+  if (!privilegedCaller) return;
+  writeFileSync(
+    join(destination, RELEASE_WEEKLY_WORKFLOW),
+    execFileSync("git", [
+      "-C",
+      repoRoot,
+      "show",
+      `${PRIVILEGED_CALLER_REV}:.github/workflows/${RELEASE_WEEKLY_WORKFLOW}`,
+    ]),
+  );
+}
+
 /**
- * @param {{ repoRoot?: string, codeqlHome?: string, keepWork?: boolean, workflow?: string }} [options]
+ * @param {{ repoRoot?: string, codeqlHome?: string, keepWork?: boolean, workflow?: string, profile?: CountProfile }} [options]
  * @returns {{ total: number, byFile: Record<string, number> }}
  */
 export function countPoisonableSteps(options = {}) {
@@ -168,14 +199,10 @@ export function countPoisonableSteps(options = {}) {
   const database = join(work, "db");
   const sarifPath = join(work, "poisonable-step.sarif");
   try {
-    mkdirSync(join(sourceRoot, ".github", "workflows"), { recursive: true });
-    cpSync(
-      join(repoRoot, ".github", "workflows"),
-      join(sourceRoot, ".github", "workflows"),
-      {
-        recursive: true,
-        filter: (source) => basename(source) !== ".git",
-      },
+    copyWorkflows(
+      repoRoot,
+      sourceRoot,
+      options.profile === PROFILE_PRIVILEGED_CALLER,
     );
     writeFileSync(
       join(sourceRoot, "package.json"),
@@ -229,11 +256,7 @@ function readNonNegativeInteger(value) {
   return value;
 }
 
-/**
- * @param {unknown} entry
- * @param {number} index
- * @returns {{ workflow: string, openAlerts: number }}
- */
+/** @param {unknown} entry @param {number} index */
 function readInventoryEntry(entry, index) {
   if (!isJsonObject(entry)) {
     throw new Error(
@@ -252,12 +275,7 @@ function readInventoryEntry(entry, index) {
   return { workflow, openAlerts };
 }
 
-/**
- * Sum the recorded GitHub open-alert baseline. Does not run CodeQL.
- *
- * @param {{ repoRoot?: string, workflow?: string }} [options]
- * @returns {{ total: number, byFile: Record<string, number> }}
- */
+/** Sum the GitHub open-alert baseline. Does not run CodeQL. */
 export function countGithubOpenAlerts(options = {}) {
   const workflow = optionalWorkflow(options.workflow);
   const repoRoot = options.repoRoot ?? repoRootFromHere();
@@ -295,28 +313,19 @@ export function countGithubOpenAlerts(options = {}) {
   return limitSummaryToWorkflow({ total, byFile }, workflow);
 }
 
-/**
- * @param {readonly string[]} argv
- * @param {number} index
- * @returns {"codeql" | "github-open"}
- */
+/** @param {readonly string[]} argv @param {number} index @returns {CountProfile} */
 function readProfileValue(argv, index) {
   const value = argv[index + 1];
   if (value === undefined || value.startsWith("--")) {
-    throw new Error("--profile requires codeql or github-open");
+    throw new Error(
+      "--profile requires codeql, github-open, or privileged-caller",
+    );
   }
-  if (value !== PROFILE_CODEQL && value !== PROFILE_GITHUB_OPEN) {
-    throw new Error(`unknown profile ${value}`);
-  }
+  if (!COUNT_PROFILES.has(value)) throw new Error(`unknown profile ${value}`);
   return value;
 }
 
-/**
- * @param {readonly string[]} argv
- * @param {number} index
- * @param {string | undefined} current
- * @returns {string}
- */
+/** @param {readonly string[]} argv @param {number} index @param {string | undefined} current */
 function readWorkflowFlag(argv, index, current) {
   const value = argv[index + 1];
   if (value === undefined || value.startsWith("--")) {
@@ -328,10 +337,7 @@ function readWorkflowFlag(argv, index, current) {
   return validateWorkflowBasename(value);
 }
 
-/**
- * @param {readonly string[]} argv
- * @returns {{ profile: "codeql" | "github-open", workflow: string | undefined }}
- */
+/** @param {readonly string[]} argv @returns {{ profile: CountProfile, workflow: string | undefined }} */
 export function parseCountArgs(argv) {
   let profile = PROFILE_CODEQL;
   /** @type {string | undefined} */
@@ -353,23 +359,17 @@ export function parseCountArgs(argv) {
   return { profile, workflow };
 }
 
-/**
- * @param {readonly string[]} argv
- * @returns {"codeql" | "github-open"}
- */
+/** @param {readonly string[]} argv @returns {CountProfile} */
 export function parseCountProfile(argv) {
   return parseCountArgs(argv).profile;
 }
 
-/**
- * @param {"codeql" | "github-open"} profile
- * @param {string | undefined} workflow
- */
+/** @param {CountProfile} profile @param {string | undefined} workflow */
 function countForProfile(profile, workflow) {
   if (profile === PROFILE_GITHUB_OPEN) {
     return countGithubOpenAlerts({ workflow });
   }
-  return countPoisonableSteps({ workflow });
+  return countPoisonableSteps({ workflow, profile });
 }
 
 /** Stderr from an `execFileSync` failure, or empty when the throw has none. */
