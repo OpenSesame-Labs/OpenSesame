@@ -11,6 +11,9 @@
  * `tools/security/codeql-poisonable-step-github-open.json` and sums every
  * workflow file in that open-alert baseline.
  *
+ * `--workflow <basename.yml>` limits `total` and `byFile` to that one workflow
+ * file, for either profile. The value must be a basename, not a path.
+ *
  * Prints one JSON object: `{ "total": number, "byFile": { "<basename>.yml": number } }`.
  */
 import { execFileSync } from "node:child_process";
@@ -244,25 +247,94 @@ export function countGithubOpenAlerts(repoRoot = repoRootFromHere()) {
   return summarizeGithubOpenBaseline(document);
 }
 
+/** A workflow filename: no directory, no traversal, `.yml` or `.yaml`. */
+const WORKFLOW_BASENAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.ya?ml$/u;
+
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isWorkflowBasename(value) {
+  if (value !== basename(value)) return false;
+  if (value.includes("\\") || value.includes("..")) return false;
+  return WORKFLOW_BASENAME.test(value);
+}
+
+/**
+ * @param {string | undefined} value
+ * @returns {"codeql" | "github-open"}
+ */
+function readProfile(value) {
+  if (value !== PROFILE_CODEQL && value !== PROFILE_GITHUB_OPEN) {
+    throw new Error("--profile must be codeql or github-open");
+  }
+  return value;
+}
+
+/**
+ * @param {string | undefined} value
+ * @returns {string}
+ */
+function readWorkflowBasename(value) {
+  if (value === undefined || !isWorkflowBasename(value)) {
+    throw new Error(
+      "--workflow requires a workflow basename ending in .yml or .yaml",
+    );
+  }
+  return value;
+}
+
+/**
+ * Keep one workflow file's count. A basename with no findings totals zero.
+ * @param {{ total: number, byFile: Record<string, number> }} summary
+ * @param {string | undefined} workflow
+ * @returns {{ total: number, byFile: Record<string, number> }}
+ */
+export function selectWorkflowSummary(summary, workflow) {
+  if (workflow === undefined) return summary;
+  const count = Object.hasOwn(summary.byFile, workflow)
+    ? summary.byFile[workflow]
+    : 0;
+  if (count === 0) return { total: 0, byFile: {} };
+  return { total: count, byFile: { [workflow]: count } };
+}
+
+/**
+ * `--profile codeql` is the default. `--profile github-open` reads the baseline.
+ * `--workflow <basename.yml>` is optional.
+ * @param {string[]} argv
+ * @returns {{ profile: "codeql" | "github-open", workflow: string | undefined }}
+ */
+export function parseCountArgs(argv) {
+  /** @type {"codeql" | "github-open"} */
+  let profile = PROFILE_CODEQL;
+  /** @type {string | undefined} */
+  let workflow;
+  let index = 0;
+  while (index < argv.length) {
+    const flag = argv[index];
+    if (flag === "--profile") {
+      profile = readProfile(argv[index + 1]);
+      index += 2;
+      continue;
+    }
+    if (flag === "--workflow") {
+      workflow = readWorkflowBasename(argv[index + 1]);
+      index += 2;
+      continue;
+    }
+    throw new Error(`unknown argument ${flag}`);
+  }
+  return { profile, workflow };
+}
+
 /**
  * `--profile codeql` is the default. `--profile github-open` reads the baseline.
  * @param {string[]} argv
  * @returns {"codeql" | "github-open"}
  */
 export function parseCountProfile(argv) {
-  let profile = PROFILE_CODEQL;
-  let index = 0;
-  while (index < argv.length) {
-    const flag = argv[index];
-    if (flag !== "--profile") throw new Error(`unknown argument ${flag}`);
-    const value = argv[index + 1];
-    if (value !== PROFILE_CODEQL && value !== PROFILE_GITHUB_OPEN) {
-      throw new Error("--profile must be codeql or github-open");
-    }
-    profile = value;
-    index += 2;
-  }
-  return profile;
+  return parseCountArgs(argv).profile;
 }
 
 /**
@@ -287,12 +359,13 @@ const invoked =
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   try {
-    const profile = parseCountProfile(process.argv.slice(2));
+    const args = parseCountArgs(process.argv.slice(2));
     const summary =
-      profile === PROFILE_GITHUB_OPEN
+      args.profile === PROFILE_GITHUB_OPEN
         ? countGithubOpenAlerts()
         : countPoisonableSteps();
-    process.stdout.write(`${JSON.stringify(summary)}\n`);
+    const selected = selectWorkflowSummary(summary, args.workflow);
+    process.stdout.write(`${JSON.stringify(selected)}\n`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const stderr = readExecStderr(error);
