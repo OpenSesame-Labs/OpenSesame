@@ -56,6 +56,44 @@ test("summarizeSarif counts results by workflow basename", () => {
   });
 });
 
+test("summarizeSarif ignores non-object runs and non-string locations", () => {
+  const summary = summarizeSarif({
+    runs: [
+      null,
+      { results: "nope" },
+      {
+        results: [
+          {
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 12 },
+                },
+              },
+            ],
+          },
+          {
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: {
+                    uri: ".github/workflows/ci.yml",
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(summary.total, 2);
+  assert.deepEqual(summary.byFile, {
+    unknown: 1,
+    "ci.yml": 1,
+  });
+});
+
 test("poisonable-step count script returns numeric counts", () => {
   const result = spawnSync(process.execPath, [script], {
     encoding: "utf8",
@@ -63,6 +101,7 @@ test("poisonable-step count script returns numeric counts", () => {
   });
   assert.equal(result.status, 0, result.stderr);
   const summary = JSON.parse(result.stdout);
+  assert.ok(isJsonObject(summary));
   assert.ok(Number.isInteger(summary.total));
   assert.ok(summary.total >= 0);
   assert.ok(isJsonObject(summary.byFile));

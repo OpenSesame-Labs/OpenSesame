@@ -22,10 +22,12 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isString, readString } from "../lib/json-boundary.mjs";
+import { isJsonObject, isString, readString } from "../lib/json-boundary.mjs";
 
 const QUERY_ID = "actions/cache-poisoning/poisonable-step";
 const DEFAULT_CODEQL_HOME = "/home/ubuntu/codeql-cli";
+/** Failure logs from CodeQL are diagnostic, not a payload to retain in full. */
+const EXEC_STDERR_LIMIT = 1024 * 1024;
 
 export function repoRootFromHere() {
   return fileURLToPath(new URL("../..", import.meta.url));
@@ -35,9 +37,11 @@ export function repoRootFromHere() {
 export function summarizeSarif(sarif) {
   /** @type {Map<string, number>} */
   const counts = new Map();
-  const runs = Array.isArray(sarif?.runs) ? sarif.runs : [];
+  const runs =
+    isJsonObject(sarif) && Array.isArray(sarif.runs) ? sarif.runs : [];
   for (const run of runs) {
-    const results = Array.isArray(run?.results) ? run.results : [];
+    const results =
+      isJsonObject(run) && Array.isArray(run.results) ? run.results : [];
     for (const result of results) {
       const uri = resultLocationUri(result);
       const file = basename(uri || "unknown");
@@ -52,9 +56,14 @@ export function summarizeSarif(sarif) {
 
 /** @param {unknown} result */
 function resultLocationUri(result) {
-  const locations = Array.isArray(result?.locations) ? result.locations : [];
-  for (const location of locations) {
-    const uri = readString(location?.physicalLocation?.artifactLocation?.uri);
+  if (!isJsonObject(result) || !Array.isArray(result.locations)) return "";
+  for (const location of result.locations) {
+    if (!isJsonObject(location)) continue;
+    const physicalLocation = location.physicalLocation;
+    if (!isJsonObject(physicalLocation)) continue;
+    const artifactLocation = physicalLocation.artifactLocation;
+    if (!isJsonObject(artifactLocation)) continue;
+    const uri = readString(artifactLocation.uri);
     if (uri !== undefined && uri.length > 0) return uri;
   }
   return "";
@@ -162,13 +171,21 @@ export function countPoisonableSteps(options = {}) {
   }
 }
 
-/** Stderr from an `execFileSync` failure, or empty when the throw has none. */
+/**
+ * Stderr from an `execFileSync` failure, capped, or empty when the throw has none.
+ * @param {unknown} error
+ */
 function readExecStderr(error) {
   if (!(error instanceof Error) || !Object.hasOwn(error, "stderr")) return "";
-  const { stderr } = error;
-  if (isString(stderr)) return stderr;
-  if (Buffer.isBuffer(stderr)) return stderr.toString("utf8");
-  return "";
+  const raw = error.stderr;
+  const text = isString(raw)
+    ? raw
+    : Buffer.isBuffer(raw)
+      ? raw.toString("utf8")
+      : "";
+  return text.length > EXEC_STDERR_LIMIT
+    ? text.slice(0, EXEC_STDERR_LIMIT)
+    : text;
 }
 
 const invoked =
