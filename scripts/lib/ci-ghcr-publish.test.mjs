@@ -218,6 +218,10 @@ describe("GHCR publish workflow", () => {
     assert.match(rust, /name: Install mold and clang\n/);
     assert.match(rust, /command -v mold/);
     assert.match(rust, /command -v clang/);
+    assert.match(
+      rust,
+      /\[\[ -e "\$link_root\/bin\/ld\.mold" \|\| -e "\$link_root\/bin\/mold" \]\][\s\S]*?LD_LIBRARY_PATH=\$\{joined\}/,
+    );
     assert.doesNotMatch(rust, /\bsudo\b/);
     assert.match(
       rust,

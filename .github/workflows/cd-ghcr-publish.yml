@@ -148,6 +148,9 @@ jobs:
         run: |
           set -euo pipefail
           if command -v mold >/dev/null && command -v clang >/dev/null; then
+            ld_mold=$(command -v ld.mold)
+            ldd "$ld_mold" >/dev/null
+            "$ld_mold" --version >/dev/null
             exit 0
           fi
           link_root="${RUNNER_TEMP}/opensesame-link"
@@ -184,7 +187,9 @@ jobs:
             [[ -e "$extra" ]] || continue
             cp -a "$extra" "$link_root/bin/"
           done
-          if ! command -v clang >/dev/null; then
+          # Apt mold links libmimalloc from the extracted debs. Export those
+          # directories whenever the linker was copied, even if clang is present.
+          if [[ -e "$link_root/bin/ld.mold" || -e "$link_root/bin/mold" ]] || ! command -v clang >/dev/null; then
             lib_dirs=()
             for dir in "$link_root/sysroot/usr/lib/"* "$link_root/sysroot/lib/"*; do
               [[ -d "$dir" ]] || continue
@@ -193,6 +198,7 @@ jobs:
             if ((${#lib_dirs[@]} > 0)); then
               joined=$(IFS=:; echo "${lib_dirs[*]}")
               echo "LD_LIBRARY_PATH=${joined}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+              export LD_LIBRARY_PATH="${joined}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             fi
           fi
           if compgen -G "$link_root/bin/*" >/dev/null; then
@@ -200,9 +206,13 @@ jobs:
           fi
           if command -v mold >/dev/null; then
             command -v ld.mold >/dev/null
+            ldd "$(command -v ld.mold)" >/dev/null
+            ld.mold --version >/dev/null
           else
             test -x "$link_root/bin/mold"
             test -e "$link_root/bin/ld.mold"
+            ldd "$link_root/bin/ld.mold" >/dev/null
+            "$link_root/bin/ld.mold" --version >/dev/null
           fi
           if ! command -v clang >/dev/null; then
             test -e "$link_root/bin/clang"
