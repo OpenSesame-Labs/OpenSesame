@@ -348,10 +348,33 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.bundle_matrix) }}
     steps:
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/quality
+            scripts/ci
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
           ref: ${{ inputs.source_sha }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
+          # These helpers resolve the repository from their own path. The
+          # candidate apps and budgets stay on this checkout.
+          ln -s ../apps .ci-control/apps
+          ln -s ../tools .ci-control/tools
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -362,7 +385,7 @@ jobs:
         if: matrix.shard != 'budgets'
         env:
           VITE_BASE: /OpenSesame/
-        run: node scripts/lib/ci-pages-build.mjs
+        run: node .ci-control/scripts/lib/ci-pages-build.mjs
       - name: Build and measure shipped bundles
         if: matrix.shard == 'budgets'
         # apps/pages precaches its whole dist for offline use, so growth here is
@@ -371,14 +394,14 @@ jobs:
         # module reachable from an entry (ADR 0130), and the gate measures them
         # only when their dist-profiles directory exists.
         run: |
-          node scripts/lib/ci-pages-build.mjs
+          node .ci-control/scripts/lib/ci-pages-build.mjs
           for profile in minimal-local family-local; do
             VITE_BASE=/OpenSesame/ npm run build:profile -w @opensesame/pages -- \
               --profile "capability-profiles/$profile.json" --mode hardened
           done
           test -s apps/pages/dist-profiles/minimal-local-hardened/index.html
           test -s apps/pages/dist-profiles/family-local-hardened/index.html
-          node scripts/quality/bundle-budget-gate.mjs
+          node .ci-control/scripts/quality/bundle-budget-gate.mjs
       - name: Capability matrix shapes the budgets do not measure
         if: matrix.shard == 'budgets'
         # `build:profile --all` (BUILD-07) found three regressions the two
@@ -611,7 +634,7 @@ jobs:
         if: matrix.shard == 'journeys-1'
       - name: Prepare DBus headers without root
         if: matrix.shard == 'journeys-1'
-        run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
+        run: bash .ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
       - name: Build opensesame-cli
         if: matrix.shard == 'journeys-1'
         # Same cargo limits as the Rust tests job, so the link stays inside
