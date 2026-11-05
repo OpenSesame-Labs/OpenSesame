@@ -54,14 +54,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.workflow_sha }}
+          path: .ci-control
           persist-credentials: false
           sparse-checkout: |
+            .github/workflows
             scripts/release
             scripts/lib
-            .github/workflows
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
         with:
           cache: false
@@ -70,7 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          node scripts/release/candidate.mjs verify
+          node .ci-control/scripts/release/candidate.mjs verify
           --directory "$RUNNER_TEMP/candidate"
           --prerequisite-env PREREQUISITE_RECEIPT
 
@@ -123,6 +125,24 @@ jobs:
             linux='["self-hosted","linux","ARM64","os-devbox"]'
           fi
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
+      # Trusted helpers land first. actions/checkout wipes the workspace when
+      # the candidate checkout is not yet a git directory, so park them until
+      # that checkout finishes, then hide the nested tree from the size gate.
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows
+            scripts/release
+            scripts/lib
+            scripts/quality
+            scripts/dev
+            scripts/test
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
@@ -130,43 +150,47 @@ jobs:
           # The classifier diffs the pull request against its merge base.
           fetch-depth: 0
           filter: blob:none
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
       - name: Select affected TypeScript packages
         id: packages
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: node scripts/lib/ci-affected-tests.mjs plan
+        run: node .ci-control/scripts/lib/ci-affected-tests.mjs plan
       - name: Validate approved current evidence
-        run: node scripts/quality/evidence-gate.mjs
+        run: node .ci-control/scripts/quality/evidence-gate.mjs
       - name: Validate repository footprint and shared skills
         run: |
-          node scripts/quality/repository-size-gate.mjs
-          node scripts/dev/sync-agent-skills.mjs --check
+          node .ci-control/scripts/quality/repository-size-gate.mjs
+          node .ci-control/scripts/dev/sync-agent-skills.mjs --check
       - name: Verify merge-required commit signatures
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/release/check-pr-signatures.mjs "$GITHUB_REPOSITORY" "$PR_NUMBER" "$PR_HEAD"
+        run: node .ci-control/scripts/release/check-pr-signatures.mjs "$GITHUB_REPOSITORY" "$PR_NUMBER" "$PR_HEAD"
       - name: Verify merge-group commit signature
         if: github.event_name == 'merge_group'
         env:
           GH_TOKEN: ${{ github.token }}
           MERGE_HEAD: ${{ github.event.merge_group.head_sha }}
-        run: node scripts/release/check-merge-group-signature.mjs "$GITHUB_REPOSITORY" "$MERGE_HEAD"
+        run: node .ci-control/scripts/release/check-merge-group-signature.mjs "$GITHUB_REPOSITORY" "$MERGE_HEAD"
       - name: Classify changed areas
         id: areas
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: node scripts/lib/ci-changed-areas.mjs
+        run: node .ci-control/scripts/lib/ci-changed-areas.mjs
       - name: Select native mobile checks
         id: native
         env:
           BASE_SHA: ''
           HEAD_SHA: ''
-        run: bash scripts/test/mobile-changed.sh
+        run: bash .ci-control/scripts/test/mobile-changed.sh
 
   typescript-tests:
     name: TypeScript tests
