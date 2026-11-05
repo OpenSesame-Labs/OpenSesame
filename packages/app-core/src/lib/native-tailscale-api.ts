@@ -10,9 +10,23 @@ import type { NativeProviderTransport } from "./native-connector-transport.js";
 import { keyCall } from "./native-key-http.js";
 import type { NativeKeyTarget } from "./native-key-types.js";
 import { API_TOKEN, CLIENT_ID, CLIENT_SECRET } from "./native-tailscale-ui.js";
+import {
+  type TailscaleKeyKind,
+  tailscaleKindPrefix,
+} from "./tailscale-key-prefix.js";
 
 export const API = "https://api.tailscale.com/api/v2";
-export const TOKEN = /^tskey-[A-Za-z0-9_-]{8,300}$/;
+
+const TOKEN_KINDS: readonly TailscaleKeyKind[] = ["api", "client", "auth"];
+
+function escapedKindPrefix(kind: TailscaleKeyKind): string {
+  return tailscaleKindPrefix(kind).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** API, client, and auth keys. Kind prefixes are assembled, never written out. */
+export const TOKEN = new RegExp(
+  `^(?:${TOKEN_KINDS.map((kind) => escapedKindPrefix(kind)).join("|")})[A-Za-z0-9_-]{8,300}$`,
+);
 export const DEVICE = /^[A-Za-z0-9_-]{1,64}$/;
 export const HOSTNAME = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
 const TAG = /^tag:[a-z][a-z0-9-]{0,62}$/;
