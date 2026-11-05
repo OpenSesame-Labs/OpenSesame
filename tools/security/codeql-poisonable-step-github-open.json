@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "purpose": "Baseline inventory of GitHub code-scanning alerts that were still open on 2026-11-04 for CodeQL query actions/cache-poisoning/poisonable-step. Tyler recorded one open-alert count for each workflow file. This is the GitHub open-alert inventory, separate from a local SARIF recount.",
+  "query": "actions/cache-poisoning/poisonable-step",
+  "tool": "CodeQL",
+  "alertState": "open",
+  "recordedBy": "Tyler",
+  "recordedOn": "2026-11-04",
+  "repository": "OpenSesame-Labs/OpenSesame",
+  "workflowDirectory": ".github/workflows",
+  "inventory": [
+    {
+      "workflow": "ci-prerelease-checks.yml",
+      "openAlerts": 47
+    },
+    {
+      "workflow": "candidate-build.yml",
+      "openAlerts": 4
+    },
+    {
+      "workflow": "full-suite.yml",
+      "openAlerts": 4
+    },
+    {
+      "workflow": "ci-release-checks.yml",
+      "openAlerts": 2
+    },
+    {
+      "workflow": "native-platform-validation.yml",
+      "openAlerts": 2
+    },
+    {
+      "workflow": "ci-coverage.yml",
+      "openAlerts": 1
+    },
+    {
+      "workflow": "complete-verify.yml",
+      "openAlerts": 1
+    },
+    {
+      "workflow": "password-parity.yml",
+      "openAlerts": 1
+    },
+    {
+      "workflow": "pwa-native-wasm.yml",
+      "openAlerts": 1
+    }
+  ],
+  "totalOpenAlerts": 63
+}
