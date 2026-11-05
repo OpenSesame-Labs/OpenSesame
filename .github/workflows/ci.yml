@@ -42,6 +42,7 @@ jobs:
     # contents: read cannot save, and untrusted refs get no cache restore/save
     # via `if: env.TRUSTED_CACHE_SAVE == 'true'`.
     name: Workflow inventory
+    needs: []
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
