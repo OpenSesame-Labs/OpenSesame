@@ -38,8 +38,6 @@ on:
 permissions:
   contents: read
   actions: read
-  id-token: write
-  attestations: write
 
 # Pending runs otherwise stay queued with no jobs until the active run ends.
 env:
@@ -177,6 +175,11 @@ jobs:
     timeout-minutes: 45
     environment:
       name: Preview
+    # npm publish --provenance signs with this job's OIDC token.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -261,6 +264,11 @@ jobs:
     timeout-minutes: 45
     environment:
       name: Production
+    # npm publish --provenance signs with this job's OIDC token.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
