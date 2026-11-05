@@ -19,8 +19,10 @@ FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc
 RUN useradd -u 10001 -m app
 WORKDIR /opt/opensesame-cli
 COPY --from=build /src/packages/cli/release/ ./
-# The release manifest depends on agent-browser. Skip its browser download.
-RUN npm install --omit=dev --ignore-scripts \
+# Committed shrinkwrap for the release manifest from prepare-cli-release.mjs.
+# package-lock.json is gitignored; agent-browser's install script downloads a browser.
+COPY ops/containers/cli/npm-shrinkwrap.json ./npm-shrinkwrap.json
+RUN npm ci --omit=dev --ignore-scripts \
   && chown -R app:app /opt/opensesame-cli
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \

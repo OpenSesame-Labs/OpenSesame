@@ -1,0 +1,52 @@
+{
+  "name": "@opensesame-labs/cli",
+  "version": "0.0.0-local",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "@opensesame-labs/cli",
+      "version": "0.0.0-local",
+      "license": "MIT",
+      "dependencies": {
+        "@types/node": "26.6.6",
+        "agent-browser": "0.41.0"
+      },
+      "bin": {
+        "opensesame": "dist/bin.js"
+      },
+      "engines": {
+        "node": ">=24"
+      }
+    },
+    "node_modules/@types/node": {
+      "version": "26.6.6",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz",
+      "integrity": "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==",
+      "license": "MIT",
+      "dependencies": {
+        "undici-types": "~8.9.0"
+      }
+    },
+    "node_modules/agent-browser": {
+      "version": "0.41.0",
+      "resolved": "https://registry.npmjs.org/agent-browser/-/agent-browser-0.41.0.tgz",
+      "integrity": "sha512-XJtBouE5+gGUKyZU1COSmnxU6MKIlmLE2oEyHzl0ohLVOhuRjx9kqQ9vOqxiiW/Gbvi4JPF4Oz777Mn3FGiHAA==",
+      "hasInstallScript": true,
+      "license": "Apache-2.0",
+      "bin": {
+        "agent-browser": "bin/agent-browser.js"
+      },
+      "engines": {
+        "node": ">=24.0.0",
+        "pnpm": ">=11.0.0"
+      }
+    },
+    "node_modules/undici-types": {
+      "version": "8.9.0",
+      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-8.9.0.tgz",
+      "integrity": "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==",
+      "license": "MIT"
+    }
+  }
+}
