@@ -269,15 +269,14 @@ test("scorecard npm commands use lockfile-pinned installs", () => {
     join(root, ".github/workflows/autofill-browser.yml"),
     "utf8",
   );
+  const manifest = join(root, "apps/browser-extension-autofill/package.json");
+  const pin = JSON.parse(readFileSync(manifest, "utf8")).devDependencies;
+  assert.equal(pin["@playwright/test"], "1.64.1");
   assert.match(
     workflow,
-    /@playwright\/test@1\.64\.1|-w @opensesame\/browser-extension-autofill/,
+    /npm ci -w @opensesame\/browser-extension-autofill[\s\S]*node node_modules\/@playwright\/test\/cli\.js install --with-deps chromium/,
   );
-  assert.match(
-    workflow,
-    /npm exec -w @opensesame\/browser-extension-autofill --package=@playwright\/test@1\.64\.1 -- playwright install --with-deps chromium/,
-  );
-  assert.doesNotMatch(workflow, /npm exec -- playwright install/);
+  assert.doesNotMatch(workflow, /npm exec|--package=@playwright/);
 
   for (const file of [
     "scripts/audit/deepsec-gate.sh",

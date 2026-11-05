@@ -30,10 +30,12 @@ jobs:
         with:
           cache: false
           install_args: node
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Install locked autofill dependencies
+        run: npm ci -w @opensesame/browser-extension-autofill
+      # Scorecard treats `npm install` as an unpinned fetch. `npm ci` is pinned.
+      # Chromium is installed by that lockfile's @playwright/test CLI.
       - name: Install full Playwright Chromium
-        run: npm exec -w @opensesame/browser-extension-autofill --package=@playwright/test@1.64.1 -- playwright install --with-deps chromium
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
       - name: Exercise the built autofill extension
         env:
           AUTOFILL_E2E_EVIDENCE_DIR: ${{ runner.temp }}/autofill-review
