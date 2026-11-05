@@ -19,7 +19,10 @@ import type {
   Observation,
 } from "@opensesame/cua-password-reset";
 import { z } from "zod";
-import { installCdpSessionBoundary } from "./cdp-boundary.js";
+import {
+  embedJsonInPageScript,
+  installCdpSessionBoundary,
+} from "./cdp-boundary.js";
 import type { CdpConnection, CdpJsonValue } from "./cdp-connection.js";
 import { staticChallengePhrase } from "./wasm-dom-driver.js";
 
@@ -217,7 +220,7 @@ export class CdpBrowserDriver implements BrowserDriver {
       throw new Error("cdp driver: document changed since the snapshot");
     const href = await this.evaluate(
       `(() => {
-        const el = window.__opensesameRefs?.get(${JSON.stringify(ref)});
+        const el = window.__opensesameRefs?.get(${embedJsonInPageScript(ref)});
         if (!el || !el.isConnected || el.ownerDocument !== document)
           throw new Error("ref left the approved document");
         return location.href;
@@ -306,7 +309,7 @@ export class CdpBrowserDriver implements BrowserDriver {
 
   async click(ref: string): Promise<void> {
     await this.evaluate(
-      `(() => { const el = window.__opensesameRefs?.get(${JSON.stringify(ref)}); if (!el) throw new Error("unknown ref"); el.click(); return true; })()`,
+      `(() => { const el = window.__opensesameRefs?.get(${embedJsonInPageScript(ref)}); if (!el) throw new Error("unknown ref"); el.click(); return true; })()`,
       z.boolean(),
     );
     await this.waitForLoad();
@@ -324,19 +327,19 @@ export class CdpBrowserDriver implements BrowserDriver {
     await this.assertRefDocument(ref);
     const href = await this.evaluate(
       `(() => {
-        const allowed = new Set(${JSON.stringify([...this.options.allowedDomains])});
+        const allowed = new Set(${embedJsonInPageScript([...this.options.allowedDomains])});
         if (!allowed.has(location.hostname))
           throw new Error("document left the approved domains");
-        const expectedOrigin = ${JSON.stringify(this.approvedOrigin ?? "")};
+        const expectedOrigin = ${embedJsonInPageScript(this.approvedOrigin ?? "")};
         if (expectedOrigin && location.origin !== expectedOrigin)
           throw new Error("document changed since the snapshot");
-        const el = window.__opensesameRefs?.get(${JSON.stringify(ref)});
+        const el = window.__opensesameRefs?.get(${embedJsonInPageScript(ref)});
         if (!el || !el.isConnected || el.ownerDocument !== document)
           throw new Error("ref left the approved document");
         const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value")?.set
           ?? Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set
           ?? Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-        if (setter) setter.call(el, ${JSON.stringify(value)}); else el.value = ${JSON.stringify(value)};
+        if (setter) setter.call(el, ${embedJsonInPageScript(value)}); else el.value = ${embedJsonInPageScript(value)};
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
         return location.href;

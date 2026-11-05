@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { embedJsonInPageScript } from "./cdp-boundary.js";
 import {
   CdpConnection,
   type CdpJsonValue,
@@ -97,6 +98,12 @@ describe("CDP browser isolation", () => {
     const connection = new CdpConnection(socket);
     await expect(connection.call("Browser.getVersion")).resolves.toEqual({});
     expect(sent).toHaveLength(1);
+  });
+
+  it("escapes < when a value is spliced into a page script", () => {
+    expect(embedJsonInPageScript("</script>")).toBe('"\\u003c/script>"');
+    expect(embedJsonInPageScript(["a<b"])).toBe('["a\\u003cb"]');
+    expect(embedJsonInPageScript("plain")).toBe('"plain"');
   });
 
   it("allows only approved destinations and inert local schemes", () => {

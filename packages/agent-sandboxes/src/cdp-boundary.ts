@@ -43,6 +43,18 @@ export function isAllowedCdpRequest(
 }
 
 /**
+ * JSON text safe to splice into a page script.
+ *
+ * `JSON.stringify` leaves `<` raw, so a value can close a surrounding
+ * script element.
+ */
+export function embedJsonInPageScript(
+  value: string | readonly string[],
+): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+/**
  * Injected before any page or worker script runs: the Fetch domain
  * does not intercept WebSocket handshakes or WebRTC, so those
  * constructors are bound to the same hostname allowlist (WebRTC has
@@ -50,7 +62,7 @@ export function isAllowedCdpRequest(
  */
 export function cdpLockdownScript(allowedDomains: readonly string[]): string {
   return `(() => {
-    const allowed = new Set(${JSON.stringify([...allowedDomains])});
+    const allowed = new Set(${embedJsonInPageScript([...allowedDomains])});
     // Validate once and hand the native constructor only the
     // resulting string, so a stateful toString() cannot return an
     // approved URL for the check and another for construction.
