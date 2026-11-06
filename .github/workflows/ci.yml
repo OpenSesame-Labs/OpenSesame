@@ -74,14 +74,14 @@ jobs:
           restore-keys: |
             mise-v2-${{ runner.os }}-seed-main-node-
             mise-v1-linux-
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
           install_args: node
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE != 'true'
         with:
           cache: false
@@ -262,14 +262,14 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-,mise-v1-linux-
         run: node scripts/lib/ci-cache-seed.mjs
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
           install_args: node
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE != 'true'
         with:
           cache: false
@@ -444,14 +444,14 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-rust-,mise-v1-linux-
         run: node scripts/lib/ci-cache-seed.mjs
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE == 'true'
         with:
           cache: true
           cache_save: false
           cache_key: mise-v1-nosave-${{ github.run_id }}-${{ github.job }}
           install_args: rust
-      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: env.TRUSTED_CACHE_SAVE != 'true'
         with:
           cache: false
