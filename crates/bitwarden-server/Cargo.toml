@@ -38,7 +38,7 @@ tempfile = { workspace = true }
 rustix = { version = "1.1.4", features = ["fs"] }
 
 [dev-dependencies]
-tokio-tungstenite = "0.29.0"
+tokio-tungstenite = "0.30.0"
 futures = { workspace = true }
 aws-lc-rs = "1.18.0"
 hyper-util = { workspace = true, features = ["server", "server-auto", "http1", "tokio"] }
