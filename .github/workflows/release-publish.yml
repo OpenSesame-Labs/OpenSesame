@@ -75,7 +75,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
         install_args: node@24
@@ -113,7 +113,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
         install_args: node@24
@@ -168,7 +168,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
         install_args: node@24
@@ -250,7 +250,7 @@ jobs:
           .github/workflows
           scripts/release
           scripts/lib
-    - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
+    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
         install_args: node@24
