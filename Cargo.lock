@@ -4386,7 +4386,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "signature 3.0.0",
- "spki 0.7.3",
+ "spki 0.8.1",
  "thiserror 2.0.21",
  "time",
  "x509-cert 0.2.5",
