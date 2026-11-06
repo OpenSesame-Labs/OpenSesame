@@ -113,13 +113,13 @@
     "@opensesame/webmcp": "*",
     "age-encryption": "0.3.1",
     "mqtt": "5.16.1",
-    "nostr-tools": "2.25.4",
+    "nostr-tools": "2.25.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "8.5.1",
     "simple-icons": "16.36.0",
     "tinykeys": "4.0.1",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@opensesame/connector-bridge": "*",
@@ -150,6 +150,6 @@
     "wbn": "0.0.10",
     "wbn-sign": "0.3.3",
     "workbox-window": "7.4.1",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   }
 }
