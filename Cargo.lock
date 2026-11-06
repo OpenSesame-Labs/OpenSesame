@@ -98,7 +98,7 @@ dependencies = [
  "chacha20poly1305",
  "cipher 0.5.2",
  "cookie-factory",
- "hkdf 0.13.0",
+ "hkdf",
  "hmac 0.13.0",
  "hpke",
  "i18n-embed",
@@ -127,7 +127,7 @@ dependencies = [
  "bech32",
  "chacha20poly1305",
  "cookie-factory",
- "hkdf 0.13.0",
+ "hkdf",
  "hpke",
  "io_tee",
  "nom 8.0.0",
@@ -1867,7 +1867,7 @@ dependencies = [
  "digest 0.11.3",
  "ff",
  "group",
- "hkdf 0.13.0",
+ "hkdf",
  "hybrid-array",
  "pem-rfc7468 1.0.0",
  "pkcs8 0.11.0",
@@ -2383,15 +2383,6 @@ checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
 
 [[package]]
 name = "hkdf"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
-dependencies = [
- "hmac 0.12.1",
-]
-
-[[package]]
-name = "hkdf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
@@ -2425,7 +2416,7 @@ checksum = "a5324110b02044183df000f0bd7d2d7e61f1000631508627e77f63983b6fdffb"
 dependencies = [
  "aead 0.6.1",
  "chacha20poly1305",
- "hkdf 0.13.0",
+ "hkdf",
  "hybrid-array",
  "ml-kem",
  "p256",
@@ -3742,7 +3733,7 @@ dependencies = [
  "directories",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -3809,7 +3800,7 @@ dependencies = [
  "base64 0.23.1",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "opensesame-trusted-exec",
  "p256",
@@ -3876,7 +3867,7 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "jsonwebtoken",
  "lru 0.19.0",
@@ -3991,7 +3982,7 @@ dependencies = [
  "dbus",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "insta",
  "opensesame-cli-app-integration",
@@ -4079,7 +4070,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "chacha20poly1305",
- "hkdf 0.12.4",
+ "hkdf",
  "sha2 0.10.9",
  "zeroize",
 ]
@@ -4098,7 +4089,7 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "http",
  "http-body-util",
@@ -4210,7 +4201,7 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "getrandom 0.2.17",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "insta",
  "libc",
@@ -4479,7 +4470,7 @@ dependencies = [
  "argon2",
  "base64 0.23.1",
  "cbc",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "http-body-util",
  "hyper",
@@ -4550,7 +4541,7 @@ dependencies = [
  "chacha20poly1305",
  "ed25519-dalek 3.0.0",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hmac 0.12.1",
  "pbkdf2 0.12.2",
  "rand 0.8.8",
@@ -4633,7 +4624,7 @@ dependencies = [
  "base64 0.23.1",
  "chacha20poly1305",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "opensesame-event-seal",
  "opensesame-redaction",
  "serde_json",
@@ -4653,7 +4644,7 @@ dependencies = [
  "base64 0.23.1",
  "blake3",
  "directories",
- "hkdf 0.12.4",
+ "hkdf",
  "i18n-config",
  "insta",
  "libc",
@@ -4799,7 +4790,7 @@ dependencies = [
  "chacha20poly1305",
  "directories",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "opensesame-invoke-through",
  "opensesame-plugin-settings",
  "opensesame-sealed-log",
@@ -4948,7 +4939,7 @@ name = "opensesame-xkeys"
 version = "0.1.0"
 dependencies = [
  "chacha20poly1305",
- "hkdf 0.12.4",
+ "hkdf",
  "proptest",
  "rand 0.8.8",
  "sha2 0.10.9",
@@ -6945,7 +6936,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "hex",
- "hkdf 0.13.0",
+ "hkdf",
  "hmac 0.13.0",
  "itoa",
  "log",
