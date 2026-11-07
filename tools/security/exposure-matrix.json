@@ -7,10 +7,19 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "bearer-before-budget"],
-      "guarantees": ["single-use", "expiry"],
+      "controls": [
+        "mandatory-proof",
+        "bearer-before-budget"
+      ],
+      "guarantees": [
+        "single-use",
+        "expiry"
+      ],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -60,9 +69,15 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext"],
+      "artifacts": [
+        "ciphertext"
+      ],
       "verification": "code-aead",
-      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
+      "controls": [
+        "code-derived-aead",
+        "bounded-kdf",
+        "cryptographic-random"
+      ],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -94,7 +109,9 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -137,7 +154,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -181,9 +200,13 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof"],
+      "controls": [
+        "mandatory-proof"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -223,9 +246,15 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": ["public-certificate", "guess-oracle"],
+      "artifacts": [
+        "public-certificate",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "trusted-budget-source"],
+      "controls": [
+        "mandatory-proof",
+        "trusted-budget-source"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -271,9 +300,13 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "signature",
-      "controls": ["preserve-policy-on-omission"],
+      "controls": [
+        "preserve-policy-on-omission"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -283,7 +316,9 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
+      "regressions": [
+        "crates/gateway/src/routes/est_server_tests_budget.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -292,9 +327,15 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": ["public-certificate", "certificate-binding"],
+      "artifacts": [
+        "public-certificate",
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
+      "controls": [
+        "originating-client-proof",
+        "exact-bootstrap-trust"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -324,7 +365,9 @@
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -366,16 +409,24 @@
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": ["certificate-binding"],
+      "artifacts": [
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof"],
+      "controls": [
+        "originating-client-proof"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": ["crates/gateway/src/transport/proof.rs"],
-      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
+      "implementation": [
+        "crates/gateway/src/transport/proof.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/transport/proof_tests.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -384,7 +435,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -477,7 +530,10 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -526,7 +582,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -568,7 +626,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -611,7 +671,12 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
+      "artifacts": [
+        "ciphertext",
+        "code-verifier",
+        "raw-secret",
+        "otp-seed"
+      ],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -667,9 +732,13 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": ["public-key"],
+      "artifacts": [
+        "public-key"
+      ],
       "verification": "none",
-      "controls": ["public-parameter-allowlist"],
+      "controls": [
+        "public-parameter-allowlist"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -723,7 +792,12 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret",
+        "private-key"
+      ],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -936,7 +1010,11 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret"
+      ],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
@@ -1102,7 +1180,7 @@
     "crates/storage/migrations/0059_est_source_budgets.sql": "2fde289c1feda48c8d7b985a3a53b9c1a0f198055843b77abad9a66117f6b1d1",
     "crates/storage/src/est_source_budgets.rs": "92940a0711ebac9211ad9a1d27aa59d59ac33c29ba34315a5375e5b69861c64a",
     "crates/storage/tests/certmgr_pact.rs": "817d04fa0df8724da9648c39a9c89c6845e5ee2b2051ffab9b708231b3e2a57f",
-    "packages/app-core/package.json": "2ae3c35ba14c2ed8ed1ecd4a45c1c8433f56400b9870d2bcd639a4ceb1c10162",
+    "packages/app-core/package.json": "bee5ed6e6578b37498ddc99e3056f6da5be1efc68485b366e06eefa1c33c2fa0",
     "packages/app-core/src/lib/claims/arrival.ts": "5e98e9483bb3845e279f9624d7e63edb77998f37e1a7d8124389f013940ac175",
     "packages/app-core/src/lib/claims/link.ts": "16ab157511ad9f0c81c935b8ea64610cb8af7b7c2a3951cb3b7228649cbf099a",
     "packages/app-core/src/lib/claims/stash.ts": "2dcafe94f4993f490aff735aa23111b744fc8604e65ed65cf9376843e42e891a",
@@ -1129,7 +1207,7 @@
     "packages/app-core/src/lib/vault/drop-present.test.ts": "22a20f243516c6f7785cbbc3fc004df0d0c3255dda4ccfcd984d2ff605904df6",
     "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx": "6fbe86d0f3636d94faa9c03404057f4ef2fa5ea664d74d26bf3fc751c6e9d1f7",
     "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx": "e96f0b0325c2c35554c9201849145117762e276b4c6ce5364f96525127a312bd",
-    "packages/control-plane/package.json": "5224df98cbce12ec9c6f5c52113535fb2636a454ef64d6a6302b528aa67000a6",
+    "packages/control-plane/package.json": "ad61e6c09490b5dd7e49c88d3df8ef8c742eea25ecaab12860a9f37ffc72fc5a",
     "packages/os-domain/package.json": "e3dcffdfaa10585dfbd176a11106f308b5967957111d3ad99b36a34b79cb1f02",
     "packages/os-domain/src/index.ts": "8cd85c3947582ea2d0058a021b32eb9d8253941ffc74b80cc3b3ec2d4de5944b",
     "packages/os-domain/src/json.ts": "9432ceaeef200eda5288af141f42a47e968b0293fecf5685861a6aca11163369",
@@ -1397,7 +1475,7 @@
     "packages/app-core/src/lib/vault/protection/browser-operation-data.ts": "33bfedc6af280fabc8ca21625d924b6e4c00206472279661f138782a202b3f47",
     "packages/app-core/src/lib/vault/protection/manifest-auth.ts": "81583efe5c614cdb57f8dbf5bcdd9e494db630cb688ab46eaf0be9a99edc88e8",
     "packages/app-core/src/lib/vault/protection/unlock-protector-open.ts": "7c527366a1e70d3d12cf486bc26b7ee824f1716d438077bb1f571241d01796b5",
-    "packages/auth-upstream/package.json": "cfaad1737c626055d0711dce100f2a908cc13ed87523351eed952a65ce547493",
+    "packages/auth-upstream/package.json": "0733d10b1e8f2dbf786569643755a666344cba2b3403ca489bab6a4de57d00d5",
     "packages/auth-upstream/src/browser.ts": "5bbe484966f7fe1165d5ec912d56dc49140c1e3131249677739b96e372c00e5b",
     "packages/auth-upstream/src/passkey-verification.ts": "c0b7c069ee75e656a7611a2bbb9a4f7386e629e82e0cf7b0cbd197850bbbb330",
     "packages/auth-upstream/src/simplewebauthn.ts": "ef3fb9f044846928e552e15fc84c50f57ef183c8eaff6e05a09ea3db42d75070",
