@@ -488,20 +488,20 @@ pub fn build_ocsp_response(
     let issuer = x509_cert::Certificate::from_der(issuer_der).map_err(|_| PkiError::InvalidDer)?;
 
     let issuer_public_key = issuer
-        .tbs_certificate
-        .subject_public_key_info
+        .tbs_certificate()
+        .subject_public_key_info()
         .to_der()
         .map_err(|_| PkiError::InvalidDer)?;
     let responder_id = if issuer_public_key == responder_key.public_key_der() {
         let subject = issuer
-            .tbs_certificate
-            .subject
+            .tbs_certificate()
+            .subject()
             .to_der()
             .map_err(|_| PkiError::InvalidDer)?;
         Any::new(
             Tag::ContextSpecific {
                 constructed: true,
-                number: TagNumber::N1,
+                number: TagNumber(1),
             },
             subject,
         )
@@ -514,7 +514,7 @@ pub fn build_ocsp_response(
         Any::new(
             Tag::ContextSpecific {
                 constructed: true,
-                number: TagNumber::N2,
+                number: TagNumber(2),
             },
             key_hash,
         )
@@ -659,7 +659,7 @@ fn encode_cert_status(status: OcspCertStatus) -> Result<Any, PkiError> {
         OcspCertStatus::Good => Any::new(
             Tag::ContextSpecific {
                 constructed: false,
-                number: TagNumber::N0,
+                number: TagNumber(0),
             },
             Vec::new(),
         )
@@ -667,7 +667,7 @@ fn encode_cert_status(status: OcspCertStatus) -> Result<Any, PkiError> {
         OcspCertStatus::Unknown => Any::new(
             Tag::ContextSpecific {
                 constructed: false,
-                number: TagNumber::N2,
+                number: TagNumber(2),
             },
             Vec::new(),
         )
@@ -682,7 +682,7 @@ fn encode_cert_status(status: OcspCertStatus) -> Result<Any, PkiError> {
             Any::new(
                 Tag::ContextSpecific {
                     constructed: true,
-                    number: TagNumber::N1,
+                    number: TagNumber(1),
                 },
                 body,
             )
@@ -695,15 +695,15 @@ fn encode_cert_status(status: OcspCertStatus) -> Result<Any, PkiError> {
 fn decode_cert_status(status: &Any) -> Result<OcspCertStatus, PkiError> {
     match status.tag() {
         Tag::ContextSpecific {
-            number: TagNumber::N0,
+            number: TagNumber(0),
             ..
         } => Ok(OcspCertStatus::Good),
         Tag::ContextSpecific {
-            number: TagNumber::N2,
+            number: TagNumber(2),
             ..
         } => Ok(OcspCertStatus::Unknown),
         Tag::ContextSpecific {
-            number: TagNumber::N1,
+            number: TagNumber(1),
             ..
         } => {
             let body = status.value();
