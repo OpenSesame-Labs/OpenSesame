@@ -4,7 +4,6 @@
  * and a new empty method of a type.
  */
 
-import { apiKeyHeaderLine, bearerHeaderLine } from "./account-lines.js";
 import {
   DEFAULT_RULES,
   type LoginMethod,
@@ -13,6 +12,7 @@ import {
   type PasswordGeneratorId,
   newMethodId,
 } from "./account.js";
+import { apiKeyHeaderLine, bearerHeaderLine } from "./account-lines.js";
 import { type CredentialItem, credentialTypeLabel } from "./credential.js";
 import { mintRootSecret } from "./derive.js";
 import { filePassword, handoff, producePassword } from "./produce.js";

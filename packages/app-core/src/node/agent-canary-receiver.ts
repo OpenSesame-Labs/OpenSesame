@@ -13,6 +13,7 @@ import {
   parseCanaryReceiverProfile,
 } from "../lib/agent-canaries/receiver-profile-data.js";
 import type { ReceiverState } from "./agent-canary-state.js";
+
 const hex = z.string().regex(/^[0-9a-f]{64}$/u);
 export const CanaryPairingSchema = z.strictObject({
   v: z.literal(1),

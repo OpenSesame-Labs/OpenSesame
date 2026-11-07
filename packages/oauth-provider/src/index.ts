@@ -3,6 +3,106 @@
 // declaration, which the library does not ship. Referencing it here brings it
 // into any program that imports the package.
 /// <reference path="./oidc-provider-shim.d.ts" />
+
+export { createMemoryAdapterConstructor } from "./adapter/memory-adapter.js";
+export {
+  type OidcAdapter,
+  type OidcAdapterConstructor,
+  type OidcAdapterPayload,
+  type PostgresOidcStore,
+  createPostgresAdapterConstructor,
+} from "./adapter/types.js";
+export {
+  type AccountLookup,
+  type FindAccountOptions,
+  type LookupAccount,
+  type MapClaims,
+  createFindAccount,
+} from "./claims/find-account.js";
+export {
+  type AccountPrincipal,
+  type ClaimMapping,
+  type ProjectAccountClaimsInput,
+  RESERVED_PROTOCOL_CLAIMS,
+  ReservedClaimError,
+  previewAccountClaims,
+  projectAccountClaims,
+} from "./claims/project-account-claims.js";
+export {
+  ClientAdmissionError,
+  type ClientAdmissionPolicy,
+  createClientAdmissionPolicy,
+  defaultAdmissionFromEnv,
+} from "./clients/admission.js";
+export {
+  type ResolveOriginClientOptions,
+  findOriginClient,
+  resolveOriginClient,
+  toOidcClientMetadata,
+} from "./clients/origin-resolve.js";
+export {
+  type ClientRecordStore,
+  type InsertOptions,
+  MemoryClientRecordStore,
+  SectorKeyClaimedError,
+} from "./clients/store.js";
+export { createLoadExistingGrant } from "./consent/load-existing-grant.js";
+export {
+  type TokenCorsDecision,
+  evaluateTokenCors,
+} from "./cors/token-cors.js";
+export {
+  type CreateOpenSesameProviderOptions,
+  type OpenSesameProviderBundle,
+  canonicalResource,
+  createOpenSesameProvider,
+  isPkceRequired,
+  isResourceAllowed,
+} from "./create-provider.js";
+export { readOAuthProviderEnv } from "./env.js";
+export {
+  CLIENT_CREDENTIALS_FEATURE,
+  SERVICE_ACCESS_TOKEN_MAX_SECONDS,
+  assertConfidentialClientCredentials,
+  isPublicClient,
+} from "./grants/client-credentials.js";
+export { type JwtReplayCache, ReplayCache } from "./grants/replay-cache.js";
+export { EnvSigningKeyProvider } from "./keys/dev-signing-key-provider.js";
+export {
+  SafeMetadataFetcher,
+  UnsafeMetadataUrlError,
+  assertSafeMetadataUrl,
+} from "./metadata/safe-fetcher.js";
+export {
+  type MtlsPeer,
+  type MtlsTransport,
+  buildMtlsFeature,
+  certificateSubjectMatches,
+  combineExtraClientMetadata,
+  mtlsClientAuthMethods,
+  mtlsClientFence,
+  mtlsDiscovery,
+} from "./mtls/feature.js";
+export {
+  type CanonicalizeOriginOptions,
+  OriginError,
+  type OriginErrorCode,
+  canonicalizeOrigin,
+  defaultCallbackUri,
+  originClientId,
+  parseOriginClientId,
+} from "./origin/canonical.js";
+export {
+  canonicalSectorIdentifier,
+  pairwiseSectorKey,
+  pairwiseSubjectSector,
+  sectorIdentifierSpellings,
+} from "./pairwise/sector.js";
+export {
+  MemoryPairwiseSubjectStore,
+  type PairwiseClientLookup,
+  createPairwiseIdentifierCallback,
+} from "./pairwise/store.js";
 export type {
   ClientAdmissionMode,
   ClientState,
@@ -14,102 +114,3 @@ export type {
   SectorKeyRelease,
 } from "./types.js";
 export { ORIGIN_PROFILE_FORBIDDEN_SCOPES } from "./types.js";
-export { readOAuthProviderEnv } from "./env.js";
-export {
-  canonicalResource,
-  createOpenSesameProvider,
-  isPkceRequired,
-  isResourceAllowed,
-  type CreateOpenSesameProviderOptions,
-  type OpenSesameProviderBundle,
-} from "./create-provider.js";
-export { createLoadExistingGrant } from "./consent/load-existing-grant.js";
-export {
-  previewAccountClaims,
-  projectAccountClaims,
-  ReservedClaimError,
-  RESERVED_PROTOCOL_CLAIMS,
-  type AccountPrincipal,
-  type ClaimMapping,
-  type ProjectAccountClaimsInput,
-} from "./claims/project-account-claims.js";
-export {
-  createFindAccount,
-  type AccountLookup,
-  type FindAccountOptions,
-  type LookupAccount,
-  type MapClaims,
-} from "./claims/find-account.js";
-export { ReplayCache, type JwtReplayCache } from "./grants/replay-cache.js";
-export {
-  CLIENT_CREDENTIALS_FEATURE,
-  SERVICE_ACCESS_TOKEN_MAX_SECONDS,
-  assertConfidentialClientCredentials,
-  isPublicClient,
-} from "./grants/client-credentials.js";
-export { createMemoryAdapterConstructor } from "./adapter/memory-adapter.js";
-export {
-  createPostgresAdapterConstructor,
-  type PostgresOidcStore,
-  type OidcAdapter,
-  type OidcAdapterConstructor,
-  type OidcAdapterPayload,
-} from "./adapter/types.js";
-export {
-  MemoryPairwiseSubjectStore,
-  createPairwiseIdentifierCallback,
-  type PairwiseClientLookup,
-} from "./pairwise/store.js";
-export {
-  canonicalSectorIdentifier,
-  pairwiseSectorKey,
-  pairwiseSubjectSector,
-  sectorIdentifierSpellings,
-} from "./pairwise/sector.js";
-export {
-  ClientAdmissionError,
-  createClientAdmissionPolicy,
-  defaultAdmissionFromEnv,
-  type ClientAdmissionPolicy,
-} from "./clients/admission.js";
-export {
-  type ClientRecordStore,
-  type InsertOptions,
-  MemoryClientRecordStore,
-  SectorKeyClaimedError,
-} from "./clients/store.js";
-export {
-  findOriginClient,
-  type ResolveOriginClientOptions,
-  resolveOriginClient,
-  toOidcClientMetadata,
-} from "./clients/origin-resolve.js";
-export {
-  type CanonicalizeOriginOptions,
-  canonicalizeOrigin,
-  defaultCallbackUri,
-  OriginError,
-  type OriginErrorCode,
-  originClientId,
-  parseOriginClientId,
-} from "./origin/canonical.js";
-export {
-  evaluateTokenCors,
-  type TokenCorsDecision,
-} from "./cors/token-cors.js";
-export {
-  SafeMetadataFetcher,
-  UnsafeMetadataUrlError,
-  assertSafeMetadataUrl,
-} from "./metadata/safe-fetcher.js";
-export { EnvSigningKeyProvider } from "./keys/dev-signing-key-provider.js";
-export {
-  buildMtlsFeature,
-  certificateSubjectMatches,
-  combineExtraClientMetadata,
-  mtlsClientAuthMethods,
-  mtlsClientFence,
-  mtlsDiscovery,
-  type MtlsPeer,
-  type MtlsTransport,
-} from "./mtls/feature.js";

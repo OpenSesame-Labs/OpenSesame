@@ -5,14 +5,13 @@ import {
   type NotificationClass,
 } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
-
+import type { WebPushConfig } from "../adapters/web-push.js";
 import {
   createWebPushAdapter,
   decryptWebPushPayload,
   generateVapidKeyPair,
   pushSubscriptionRefusal,
 } from "../adapters/web-push.js";
-import type { WebPushConfig } from "../adapters/web-push.js";
 import { base64UrlDecode, base64UrlEncode } from "../bytes.js";
 import type { WakeAction } from "../contract.js";
 import { jsonFetch, renderInput, subscribe, vapidConfig } from "./helpers.js";

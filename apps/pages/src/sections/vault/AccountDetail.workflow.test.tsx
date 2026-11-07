@@ -16,8 +16,8 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { AccountDetail } from "./AccountDetail.js";
-import { bindAccountPasswordCore } from "./account-password-test-context.js";
 import { makeAccount } from "./account.test-support.js";
+import { bindAccountPasswordCore } from "./account-password-test-context.js";
 
 type AccountView = { current: { items: VaultItem[] } };
 const vault: AccountView = { current: { items: [] } };

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+
 /** Conditional direct-HTTP evidence: real sockets/UI; ONLY hosted consent is synthetic. */
 async function ready(page) {
   await page

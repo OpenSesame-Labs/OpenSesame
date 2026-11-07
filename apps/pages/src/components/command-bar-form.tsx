@@ -6,8 +6,8 @@ import {
   commandOptionId,
   type useCommandSuggestions,
 } from "./CommandSuggestions.js";
-import { IconArrowRight } from "./Icons.js";
 import { commandPlaceholder } from "./command-bar-placeholder.js";
+import { IconArrowRight } from "./Icons.js";
 
 function RunKey({ off }: { off: boolean }) {
   return (

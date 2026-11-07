@@ -12,8 +12,8 @@ import {
 } from "../json-boundary.js";
 import { PEER_BOUNDS } from "./bounds.js";
 import type { PeerEnvelope } from "./envelope.js";
-import { assertPeerOriginResolved } from "./origin-resolve.js";
 import { assertBoundedPeerPath, originsExactMatch } from "./origin.js";
+import { assertPeerOriginResolved } from "./origin-resolve.js";
 import { type PeerReceipt, verifyPeerReceipt } from "./receipt.js";
 
 export type PeerSenderConfig = Readonly<{

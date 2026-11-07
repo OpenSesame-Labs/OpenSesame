@@ -5,6 +5,7 @@ import {
   RetiredOperationEntries,
   RetiredOperationExchange,
 } from "./retired-operation-exchange.js";
+
 it("holds accepted ciphertext until actual private caller completes its drain", async () => {
   const controller = new AbortController();
   const turn = new OriginalRealOperationTurn(controller.signal);

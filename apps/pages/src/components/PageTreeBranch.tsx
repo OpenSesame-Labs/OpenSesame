@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from "react-router";
 import { type PageTreeNode, pageTreeItemCount } from "../lib/page-to-tree.js";
 import { useOptionalGuideTarget } from "../tutorial/registry/react.jsx";
 import { IconChevronRight } from "./Icons.js";
-import { TreeRow } from "./RailRows.js";
 import { usePageBranchExpand } from "./page-tree-expansion.js";
+import { TreeRow } from "./RailRows.js";
 
 /**
  * Subtrees start closed. Right/click opens, Left/click closes. Arriving on

@@ -8,8 +8,8 @@ import {
   resetConnectRoadSeams,
 } from "./connect-roads.js";
 import { identitySeams } from "./identity.js";
-import { hasConnectRoute } from "./vercel-connect-catalog.js";
 import { setVercelConnectAuth, usesConnect } from "./vercel-connect.js";
+import { hasConnectRoute } from "./vercel-connect-catalog.js";
 
 const original = { ...identitySeams };
 

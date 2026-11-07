@@ -5,8 +5,8 @@
  * issuer or proves that a credential is live.
  */
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import type { JsonValue } from "@opensesame/os-domain";
+import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import type { FieldValues } from "@opensesame/vault-item-types";
 import { b64urlToBytes, bytesToB64url } from "../bytes.js";
 import { cardChecksumValid, detectCardBrand } from "../card.js";

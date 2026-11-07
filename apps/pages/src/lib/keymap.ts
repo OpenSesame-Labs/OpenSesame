@@ -27,8 +27,6 @@ import {
 import { sectionJumpKeys } from "./keymap-jumps.js";
 import { recordRun } from "./keymap-registers.js";
 import { type Fire, resolveToken } from "./keymap-resolve.js";
-import { handlePaneEscape } from "./pane-escape.js";
-
 import {
   capturingKeys,
   contextMenuOpen,
@@ -40,6 +38,7 @@ import {
   statusBubbleOpen,
   typing,
 } from "./keymap-targets.js";
+import { handlePaneEscape } from "./pane-escape.js";
 
 export {
   type ListingMotion,
@@ -59,8 +58,6 @@ type KeymapOptions = {
   showHelp: () => void;
 };
 
-export { sectionJumpKeys, sectionJumpPath } from "./keymap-jumps.js";
-
 export {
   KEYMAP_HELP_CORE,
   type KeymapHelpRow,
@@ -69,6 +66,7 @@ export {
   registerKeymapHelp,
   showKeymapHelp,
 } from "./keymap-help.js";
+export { sectionJumpKeys, sectionJumpPath } from "./keymap-jumps.js";
 
 /**
  * The sheet for the jumps and controls registered right now; with the keymap

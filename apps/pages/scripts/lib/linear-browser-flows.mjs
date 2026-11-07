@@ -2,6 +2,7 @@ import { isString } from "../../../../scripts/lib/json-boundary.mjs";
 import { LINEAR_TEST_KEY } from "./linear-provider-contract.mjs";
 /** Real controls exercise provider HTTP authorization and operations in a sealed PIN vault. */
 import { unlockWithPin } from "./pages-journey.mjs";
+
 async function connected(page) {
   await page
     .getByRole("img", { name: "Linear connected", exact: true })

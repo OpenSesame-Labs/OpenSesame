@@ -12,8 +12,8 @@ import {
   assertNativeConnectorRevision,
   updateNativeConnector,
 } from "./native-connector-store.js";
-import { captureNativeProviderAuthority } from "./native-connector-transport.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
+import { captureNativeProviderAuthority } from "./native-connector-transport.js";
 import {
   nativeOAuthGuard,
   requireNativeOAuthRecord,

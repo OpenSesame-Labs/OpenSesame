@@ -6,6 +6,7 @@ import type { NativeApiTarget } from "./native-api-target.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 import { SecretBackendError } from "./secret-backends/types.js";
 import { zodJitless } from "./zod-jitless.js";
+
 zodJitless();
 export type NativeGitlabBackupTarget = Readonly<{
   project: string;
@@ -27,7 +28,7 @@ export function nativeGitlabTargetPath(target: NativeGitlabBackupTarget) {
     target.branch.startsWith("-") ||
     !target.branch ||
     target.branch.length > 255 ||
-    /[\s~^:?*\[\\]/.test(target.branch) ||
+    /[\s~^:?*[\\]/.test(target.branch) ||
     Array.from(target.branch).some(
       (char) => char.charCodeAt(0) < 33 || char.charCodeAt(0) === 127,
     ) ||

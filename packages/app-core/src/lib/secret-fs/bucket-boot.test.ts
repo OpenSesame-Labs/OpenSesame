@@ -5,8 +5,8 @@ import {
   writeDeviceSecrets,
 } from "../device-connector-records.js";
 import { clearNotices, listNotices } from "../notices.js";
-import { vfsSeams } from "../vfs-seams.js";
 import { HEADER_PATH, tombFileKey } from "../vfs.js";
+import { vfsSeams } from "../vfs-seams.js";
 import { installSavedBucket } from "./bucket-boot.js";
 import { hasSavedBucket } from "./bucket-saved.js";
 import {

@@ -28,7 +28,6 @@ import { mintHoneyToken, registerHoneyToken } from "../honey-tokens.js";
 import { kvDelete } from "../kv.js";
 import { lastVaultIsGuest, writeLastVaultId } from "../last-vault.js";
 import { isRetiredTrapLive } from "../retired-credentials/retention-v2.js";
-import type { TombWriteTurn } from "../vfs-write-order.js";
 import {
   BODY_PATH,
   GUEST_TOMB,
@@ -41,6 +40,7 @@ import {
   unlockTomb,
   writePlaintextFile,
 } from "../vfs.js";
+import type { TombWriteTurn } from "../vfs-write-order.js";
 import { stampedEdit } from "./body-edits.js";
 import { headerCarriesGate } from "./header-gate.js";
 import { type ItemWriteHost, originalItemWriteHost } from "./item-writes.js";
@@ -88,12 +88,12 @@ import {
   heldTotpCode,
   withSelfAuthenticatorRegistration,
 } from "./self-authenticator.js";
+import { loadVaultBody } from "./store-body.js";
 import {
   applyStoreBodyChange,
   refreshedStoreBody,
   withFreshStoreBody,
 } from "./store-body-writes.js";
-import { loadVaultBody } from "./store-body.js";
 import { createStoreCredentialApi } from "./store-credential-api.js";
 import {
   type ApplyChange,
@@ -103,12 +103,12 @@ import {
 } from "./store-device-key.js";
 import type { FreshBody } from "./store-fresh.js";
 import * as GuestMaterial from "./store-guest-material.js";
-import * as HeaderPublication from "./store-header-publication.js";
 import {
   deviceHoldsSealedVault,
   readTombHeader,
   sharesWrapRecord,
 } from "./store-header.js";
+import * as HeaderPublication from "./store-header-publication.js";
 import { bindSealedImport } from "./store-import-entry.js";
 import { createStoreItemOperations } from "./store-item-operations.js";
 import {
@@ -121,8 +121,8 @@ import {
   captureStoreOperation,
   requireExistingUnlock,
 } from "./store-operation-check.js";
-import { createStorePreferencesApi } from "./store-preferences-api.js";
 import { StorePreferences } from "./store-preferences.js";
+import { createStorePreferencesApi } from "./store-preferences-api.js";
 import { buildVaultState, exportStoredVault } from "./store-presentation.js";
 import { createStorePrimaryApi } from "./store-primary-api.js";
 import { writeBody } from "./store-seal.js";
@@ -146,11 +146,11 @@ import {
   totpCodeMatches,
 } from "./unlock-methods.js";
 import { acquireOpenLease } from "./vault-shared-locks.js";
-export { deviceHoldsSealedVault, readTombHeader, sharesWrapRecord };
-export { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 
+export { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 /** Guest-beside-vault tomb — isolated, throwaway, never a project id. */
-export { GUEST_TOMB };
+export { GUEST_TOMB, deviceHoldsSealedVault, readTombHeader, sharesWrapRecord };
+
 import { PIN_MISS, unwrapPassword, unwrapPin } from "./primary-unwrap.js";
 import {
   ATTEMPTS_KEY,
@@ -163,14 +163,15 @@ import {
   readAttempts,
   recordFailedUnlock,
 } from "./unlock-attempts.js";
-export { ATTEMPTS_KEY };
+
 export {
-  type VaultPrefs,
   VAULT_PREFS_REVISION,
+  type VaultPrefs,
   assertMasterPasswordPolicy,
   defaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
+export { ATTEMPTS_KEY };
 
 import { installVaultStoreBoot } from "./store-boot.js";
 import { type VaultState, bindGuestSessionStore } from "./store-state.js";
@@ -178,6 +179,7 @@ import {
   StoreUnlockSession,
   type UnlockAttempt,
 } from "./store-unlock-session.js";
+
 export type { VaultState, VaultStatus } from "./store-state.js";
 
 import type {
@@ -1668,4 +1670,4 @@ export class VaultStore {
 export const vaultStore = bindGuestSessionStore(new VaultStore());
 installVaultStoreBoot(vaultStore);
 
-export { WrongPasswordError, VaultCorruptError };
+export { VaultCorruptError, WrongPasswordError };

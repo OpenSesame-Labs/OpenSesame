@@ -12,7 +12,6 @@ import {
   PUSH_SUBSCRIPTION_KEY,
   pendingPushForgets,
 } from "../web-push-ledger.js";
-import { workerStatus } from "./worker-controller.js";
 import {
   CORE_URL,
   FakeContainer,
@@ -26,6 +25,7 @@ import {
   restoreSeams,
   selection,
 } from "./worker/test-harness.js";
+import { workerStatus } from "./worker-controller.js";
 
 beforeEach(() => {
   installSeams();

@@ -44,15 +44,14 @@
 import { createPublicKey } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import ece from "http_ece";
-import jws from "jws";
-
 import {
   type JsonValue,
   isNumber,
   readJsonObject,
   readString,
 } from "@opensesame/os-domain";
+import ece from "http_ece";
+import jws from "jws";
 
 import { base64UrlDecode, parseJsonValue } from "../src/bytes.js";
 import {

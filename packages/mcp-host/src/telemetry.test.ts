@@ -79,13 +79,11 @@ describe("wrapServerWithTelemetry", () => {
     // values to strings), which is truthy and would defeat the unset checks
     // this suite relies on — an actual delete is required, matching the same
     // pattern already used throughout packages/mcp-host/src/tools.test.ts.
-    // biome-ignore lint/performance/noDelete: see comment above
     delete process.env.OPENSESAME_TELEMETRY_KEY;
   });
 
   afterEach(() => {
     if (savedKey === undefined) {
-      // biome-ignore lint/performance/noDelete: see beforeEach above
       delete process.env.OPENSESAME_TELEMETRY_KEY;
     } else {
       process.env.OPENSESAME_TELEMETRY_KEY = savedKey;

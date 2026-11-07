@@ -15,9 +15,6 @@
  * the same flow run for us by the Identity API (ADR 0056, D7/D8).
  */
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useNavigate } from "react-router";
-
 import { personGlyphId } from "@opensesame/app-core/lib/account.js";
 import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { guestVaultLabel } from "@opensesame/app-core/lib/local-guest.js";
@@ -35,10 +32,16 @@ import {
   signOut,
   switchAccount,
 } from "@opensesame/app-core/lib/session-exit.js";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useNavigate } from "react-router";
+import { useAccount } from "../bindings/account.js";
+import { useIdentitySession } from "../bindings/identity.js";
 import { isTouchPointer } from "../lib/gestures.js";
+import { useVault } from "../lib/vault/hooks.js";
 import { brandFor } from "../screens/unlock/ProviderBrand.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { AddOrganization } from "./AddOrganization.js";
+import { openContextMenu } from "./context-menu/menu-model.js";
 import { GlyphMark } from "./GlyphMark.js";
 import {
   IconCheck,
@@ -48,13 +51,9 @@ import {
   IconUser,
 } from "./Icons.js";
 import { PromptGlyph } from "./PromptGlyph.js";
-import { openContextMenu } from "./context-menu/menu-model.js";
 import { glyphStandsForName } from "./prompt-glyph.js";
 import { useHold } from "./use-hold.js";
 
-import { useAccount } from "../bindings/account.js";
-import { useIdentitySession } from "../bindings/identity.js";
-import { useVault } from "../lib/vault/hooks.js";
 function guestLabel(hasSession: boolean, assurance?: string): string {
   if (!hasSession) return guestVaultLabel();
   if (assurance === "provisional" || !assurance) {
@@ -184,6 +183,7 @@ function AccountSwitcherDefault({ glyphHost }: AccountSwitcherProps = {}) {
   );
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div
       className="account-switcher"
       onKeyDown={(event) => {
@@ -240,7 +240,6 @@ function AccountSwitcherDefault({ glyphHost }: AccountSwitcherProps = {}) {
 
       {open ? (
         <>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape, handled on the menu */}
           <div
             className="account-switcher__backdrop"
             onClick={() => {
@@ -248,6 +247,7 @@ function AccountSwitcherDefault({ glyphHost }: AccountSwitcherProps = {}) {
             }}
             aria-hidden="true"
           />
+          {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
           <div className="account-switcher__menu" aria-label="Accounts">
             {account ? (
               <div className="account-switcher__who">

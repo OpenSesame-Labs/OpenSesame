@@ -96,7 +96,9 @@
   font-weight: 600;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .broker__btn:hover {

@@ -43,9 +43,9 @@ import {
 } from "@opensesame/app-core/tutorial/registry/live-catalog.js";
 import { createActivation } from "../activation.js";
 import { registerTutorial } from "../tutorial-contributions.js";
+import { carrierFactory, carriersUnavailable } from "./carriers/index.js";
 import { LiveJoinRoute } from "./LiveJoinRoute.js";
 import { LiveShareShell } from "./LiveShareShell.js";
-import { carrierFactory, carriersUnavailable } from "./carriers/index.js";
 import { liveUiSeams } from "./live-hooks.js";
 import {
   clearLiveHostAskingNotices,

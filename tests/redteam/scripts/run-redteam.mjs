@@ -38,7 +38,8 @@ async function main() {
   );
 
   const child = spawn(
-    "npm", ["exec", "--", "promptfoo", "eval", "-c", "promptfooconfig.yaml"],
+    "npm",
+    ["exec", "--", "promptfoo", "eval", "-c", "promptfooconfig.yaml"],
     {
       cwd: PACKAGE_DIR,
       stdio: "inherit",

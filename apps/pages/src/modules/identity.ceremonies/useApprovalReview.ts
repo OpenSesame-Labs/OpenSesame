@@ -7,6 +7,7 @@
  * handed to the model for that call only and never kept here.
  */
 
+import { approvalReview } from "@opensesame/app-core/lib/approvals.js";
 import {
   type ApprovalReview,
   type ApprovalStep,
@@ -15,7 +16,6 @@ import {
   clearApprovalNotice,
   reportApproval,
 } from "@opensesame/app-core/lib/approvals-route.js";
-import { approvalReview } from "@opensesame/app-core/lib/approvals.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export const approvalHookSeams = {

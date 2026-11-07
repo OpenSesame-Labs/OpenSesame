@@ -22,6 +22,11 @@
  * Designed in `docs/design/canvases/first-run-setup/`.
  */
 
+import {
+  loadSettings,
+  signInMethods,
+} from "@opensesame/app-core/lib/settings.js";
+import { completeSetup } from "@opensesame/app-core/lib/setup.js";
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -32,15 +37,13 @@ import {
   IconSkipAll,
   IconX,
 } from "../components/Icons.js";
-
-import {
-  loadSettings,
-  signInMethods,
-} from "@opensesame/app-core/lib/settings.js";
-import { completeSetup } from "@opensesame/app-core/lib/setup.js";
 import { landFocus } from "../lib/focus.js";
 import { GuideTarget, useGuideTarget } from "../tutorial/registry/react.jsx";
 import { CapabilitySetup } from "./capabilities/CapabilitySetup.js";
+import {
+  type AppliedConfiguration,
+  applySetupConfiguration,
+} from "./setup/apply-configuration.js";
 import { KeepIt } from "./setup/KeepIt.js";
 import { SetupBrand } from "./setup/SetupBrand.js";
 import {
@@ -48,10 +51,6 @@ import {
   SetupConfiguration,
 } from "./setup/SetupConfiguration.js";
 import { SetupTabList } from "./setup/SetupTabList.js";
-import {
-  type AppliedConfiguration,
-  applySetupConfiguration,
-} from "./setup/apply-configuration.js";
 import { useSetupRoute } from "./setup/use-setup-route.js";
 import { useRovingTabs } from "./use-roving-tabs.js";
 import "./setup.css";
@@ -288,6 +287,7 @@ export function SetupScreen({
             a step the body scrolled past would otherwise take its tab
             with it, stranding the later steps on a phone. */}
         <div className="setup__chrome">
+          {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
           <div className="steps" aria-label="Setup steps">
             {STEPS.map((entry, at) => (
               <div

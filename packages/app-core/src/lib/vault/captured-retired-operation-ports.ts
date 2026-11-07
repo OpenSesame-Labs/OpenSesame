@@ -1,6 +1,7 @@
 /** Captured original lock IO only; an object or callback is never a lease grant. */
 import { host } from "../../host.js";
 import { lockManager } from "../../ports.js";
+
 const actualHost = host;
 const actualLocks = lockManager;
 export function captureRetiredOperationLockData(original: () => void) {

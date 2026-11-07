@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
-import { setStatus } from "@opensesame/app-core/lib/type-packs/state.js";
-import { resetPackStateForTests } from "@opensesame/app-core/lib/type-packs/state.js";
+import {
+  resetPackStateForTests,
+  setStatus,
+} from "@opensesame/app-core/lib/type-packs/state.js";
 import {
   type AccountItem,
   type CredentialItem,

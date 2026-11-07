@@ -13,9 +13,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextMenuLayer } from "../../components/context-menu/ContextMenuLayer.js";
 import { closeContextMenu } from "../../components/context-menu/menu-model.js";
 import { gestureLimits } from "../../lib/gestures.js";
-import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import { makeAccount, makeNote } from "./section-items.test-support.js";
 import type { SharedItemMark } from "./use-shared-items.js";
+import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import { type VaultTreeActions, vaultRowMenu } from "./vault-menu.js";
 
 Object.assign(vaultTreeSeams, {

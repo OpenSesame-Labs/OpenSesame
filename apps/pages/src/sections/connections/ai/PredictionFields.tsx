@@ -9,6 +9,7 @@ import { useId } from "react";
 import { FieldShell } from "../../../components/FieldShell.js";
 import { BedrockConnectionHelp } from "./BedrockConnectionFields.js";
 import { VertexConnectionHelp } from "./VertexConnectionFields.js";
+
 type Fields = {
   draft: AiConnectionDraft;
   busy: boolean;

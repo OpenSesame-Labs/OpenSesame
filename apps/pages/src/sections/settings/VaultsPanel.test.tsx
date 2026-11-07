@@ -1,4 +1,10 @@
 import {
+  PERSONAL_PROJECT_ID,
+  projectSeams,
+} from "@opensesame/app-core/lib/projects.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
+import {
   cleanup,
   fireEvent,
   render,
@@ -8,13 +14,6 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import {
-  PERSONAL_PROJECT_ID,
-  projectSeams,
-} from "@opensesame/app-core/lib/projects.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 import { expectInTray } from "../../components/tray.test-support.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { VaultsPanel } from "./VaultsPanel.js";

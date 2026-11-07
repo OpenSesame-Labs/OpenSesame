@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 export function showPortableDropScope(): boolean {
   return deviceIdentitySeams.remoteIdentityApi() === "";
 }
+
 import { FieldRow } from "../../components/FieldRow.js";
 import { FormCommit } from "../../components/FormCommit.js";
 import { IconKey } from "../../components/IconKey.js";

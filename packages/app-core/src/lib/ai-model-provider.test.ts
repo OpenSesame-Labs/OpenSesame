@@ -8,8 +8,8 @@ import { renderAiProviderIds } from "../../scripts/emit-connector-catalog.mjs";
 import { AI_MODEL_PROVIDER_IDS } from "./ai-model-provider-ids.generated.js";
 import { connectPlan } from "./connect-plan.js";
 import { catalogProviders } from "./connector-catalog.js";
-import { LLM_PROVIDER_IDS } from "./embedded-catalog-data.js";
 import { getBundledProviders } from "./embedded-catalog.js";
+import { LLM_PROVIDER_IDS } from "./embedded-catalog-data.js";
 
 const rows = () =>
   catalogProviders().filter((row) => row.category === "ai_model_provider");

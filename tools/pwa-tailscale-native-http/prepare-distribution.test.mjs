@@ -17,6 +17,7 @@ import {
   nativeDistributionDirectory,
   prepareNativeDistribution,
 } from "./prepare-distribution.mjs";
+
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 /** Tiny genuine WASM is an integrity fixture; it is not a Tailscale/network proof. */
 async function fixture(t) {

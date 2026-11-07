@@ -23,13 +23,13 @@ import type {
   TriggerMatch,
 } from "../../../lib/duress/trigger/enrollment.js";
 
+export type { JournalWriteResult } from "../../../lib/duress/store/journal.js";
 export {
+  ENROLLMENT_STATE_KEY,
   clearEnrollmentStateForUnlock,
   loadEnrollmentStateForUnlock,
   persistEnrollmentStateForUnlock,
-  ENROLLMENT_STATE_KEY,
 };
-export type { JournalWriteResult } from "../../../lib/duress/store/journal.js";
 
 const attemptPolicy = new TriggerAttemptPolicy();
 

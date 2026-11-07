@@ -6,24 +6,23 @@ import {
   registerIdp,
 } from "@opensesame/app-core/lib/idp-registry.js";
 import { providersSeams } from "@opensesame/app-core/lib/providers.js";
+import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
+import {
+  IDENTITY_ROUTES,
+  IDENTITY_TARGETS,
+} from "@opensesame/app-core/tutorial/registry/identity-catalog.js";
+import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 /** @vitest-environment jsdom */
 import { identityHookSeams } from "../../bindings/identity.js";
-
-import {
-  IDENTITY_ROUTES,
-  IDENTITY_TARGETS,
-} from "@opensesame/app-core/tutorial/registry/identity-catalog.js";
-import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
+import { expectInTray } from "../../components/tray.test-support.js";
 import { declareTutorialForTest } from "../../modules/tutorial-test-realm.js";
 import { IdentitySection } from "../IdentitySection.js";
 import { contributeIdentityForTests } from "./identity-test-support.js";
 
-import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
-import { expectInTray } from "../../components/tray.test-support.js";
 // The Identity tabs belong to three capabilities (local IAM, federation,
 // directory provisioning), and each contributes its own view. These cases
 // describe a deployment that approved them, so they register the same

@@ -43,6 +43,7 @@ const vault = vi.hoisted(
 );
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,

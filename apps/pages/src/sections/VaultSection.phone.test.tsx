@@ -20,11 +20,11 @@ import { createKeymapHandler } from "../lib/keymap.js";
 import { stubScreen } from "../lib/use-narrow.test-support.js";
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
 import { VaultSection } from "./VaultSection.js";
-import { ItemDetail } from "./vault/ItemDetail.js";
 import { slideZones } from "./vault/add-slide.js";
+import { ItemDetail } from "./vault/ItemDetail.js";
 import "./vault/commands.test-support.js";
-import { vaultTreeSeams } from "./vault/VaultTree.js";
 import { makeAccount } from "./vault/section-items.test-support.js";
+import { vaultTreeSeams } from "./vault/VaultTree.js";
 
 Object.assign(vaultHooksSeams, { useCopySecret: () => vi.fn() });
 Object.assign(vaultTreeSeams, {

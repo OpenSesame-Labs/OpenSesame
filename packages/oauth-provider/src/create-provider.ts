@@ -7,9 +7,9 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import Provider, {
-  errors,
   type ClientMetadata,
   type Configuration,
+  errors,
 } from "oidc-provider";
 import { withDynamicClientLoader } from "./adapter/dynamic-client-adapter.js";
 import { createMemoryAdapterConstructor } from "./adapter/memory-adapter.js";
@@ -60,9 +60,12 @@ import type {
   OAuthProviderEnv,
   PairwiseSubjectStore,
 } from "./types.js";
+
 export { createLoadExistingGrant } from "./consent/load-existing-grant.js";
 export { canonicalResource, isResourceAllowed } from "./resource-indicators.js";
+
 import type { CreateOpenSesameProviderOptions } from "./options.js";
+
 export type { CreateOpenSesameProviderOptions };
 export interface OpenSesameProviderBundle {
   provider: Provider;

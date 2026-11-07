@@ -1,5 +1,6 @@
 /** Inactive exact-byte verifier. A match conveys no owner or vault authority. */
 import { passwordBytes } from "./password-bytes.js";
+
 export { MAX_PASSWORD_BYTES, passwordBytes } from "./password-bytes.js";
 
 let busy = false;

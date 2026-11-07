@@ -4,14 +4,8 @@ import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "../..");
-const quotePath = path.join(
-  root,
-  "node_modules/shell-quote/package.json",
-);
-const mapPath = path.join(
-  root,
-  "node_modules/source-map-js/package.json",
-);
+const quotePath = path.join(root, "node_modules/shell-quote/package.json");
+const mapPath = path.join(root, "node_modules/source-map-js/package.json");
 const quoteRequire = createRequire(quotePath);
 const mapRequire = createRequire(mapPath);
 assert.equal(quoteRequire(quotePath).version, "1.11.0");

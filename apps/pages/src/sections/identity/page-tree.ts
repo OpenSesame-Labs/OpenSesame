@@ -3,15 +3,14 @@ import type {
   LocalIdentityKind,
 } from "@opensesame/app-core/lib/local-directory.js";
 import {
+  IDENTITY_LABELS,
+  IDENTITY_VIEWS,
+} from "@opensesame/app-core/lib/section-view-names.js";
+import {
   type PageTreeLeaf,
   type PageTreeSource,
   pageTabTree,
 } from "../../lib/page-to-tree.js";
-
-import {
-  IDENTITY_LABELS,
-  IDENTITY_VIEWS,
-} from "@opensesame/app-core/lib/section-view-names.js";
 import type { DeviceWorkspaceExtras } from "./device-workspace-rows.js";
 import { deviceWorkspaceRows } from "./device-workspace-rows.js";
 import type { HostedIdentityRows } from "./hosted-identity-rail.js";

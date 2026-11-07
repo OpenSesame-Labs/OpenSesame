@@ -9,8 +9,8 @@
  * it, so no `login` item outlives the read.
  */
 import { type BoundaryValue, isString } from "@opensesame/os-domain";
-import { isLegacyLogin, migrateLegacyLogin } from "./account.js";
 import type { LegacyLoginItem } from "./account.js";
+import { isLegacyLogin, migrateLegacyLogin } from "./account.js";
 import { extractEmbeddedMethods } from "./credential-split.js";
 import { type SealedBlob, VaultCorruptError, openJson } from "./crypto.js";
 import type { VaultBody, VaultItem } from "./model.js";

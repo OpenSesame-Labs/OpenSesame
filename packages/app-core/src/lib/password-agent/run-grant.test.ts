@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { grantRunGrant } from "./run-grant-grant.js";
 import {
   type RunGrantBinding,
   type RunGrantRecord,
@@ -9,6 +8,7 @@ import {
   createRunGrant,
   describeRunGrant,
 } from "./run-grant.js";
+import { grantRunGrant } from "./run-grant-grant.js";
 
 const now = 1_700_000_000_000;
 

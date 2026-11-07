@@ -15,6 +15,7 @@ import {
   vertexConnectionTarget,
   vertexInferenceUrl,
 } from "./vertex-target.js";
+
 function owner(transport: AiConnectionTransport, check: () => void) {
   return () => {
     check();

@@ -9,13 +9,13 @@ import {
   configureNativeBrowserOAuthConnector,
   verifyNativeBrowserOAuthConnector,
 } from "./native-browser-oauth-connectors.js";
-import { nativeCodebergBackupTarget } from "./native-codeberg-backup-target.js";
 import { openNativeCodebergBackup } from "./native-codeberg-backup.js";
 import {
   codebergBackupTarget,
   codebergBackupToken,
   nativeCodebergBackupFixture,
 } from "./native-codeberg-backup.test-support.js";
+import { nativeCodebergBackupTarget } from "./native-codeberg-backup-target.js";
 import {
   loadNativeConnectorRecord,
   readNativeConnector,
@@ -26,6 +26,7 @@ import {
   backUpVaultToSecretBackend,
 } from "./secret-backends/backup-transfer.js";
 import { vaultStore } from "./vault/store.js";
+
 let fixture: Awaited<ReturnType<typeof nativeCodebergBackupFixture>>;
 const handles: SecretBackendBackupHandle[] = [];
 const tasks: Promise<unknown>[] = [];

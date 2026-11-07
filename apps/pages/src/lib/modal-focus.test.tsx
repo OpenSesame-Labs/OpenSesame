@@ -8,13 +8,7 @@ afterEach(cleanup);
 
 type Wanted = "field" | "absent";
 
-function Modal({
-  wanted,
-  fallback,
-}: {
-  wanted: Wanted;
-  fallback: boolean;
-}) {
+function Modal({ wanted, fallback }: { wanted: Wanted; fallback: boolean }) {
   const sheet = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const absent = useRef<HTMLInputElement>(null);

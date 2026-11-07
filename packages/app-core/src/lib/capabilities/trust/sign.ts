@@ -5,6 +5,7 @@
  * this module generates returns its private key non-extractable.
  */
 import type { InstanceCapabilityPolicy } from "@opensesame/capability-composition";
+import { asBufferSource } from "@opensesame/os-domain";
 import { encodeBase64Url } from "./digest.js";
 import {
   ENVELOPE_ALG,
@@ -23,7 +24,6 @@ import {
   policyPublicJwk,
   rotationSignedBytes,
 } from "./trust-keys.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type PolicySigningKey = Readonly<{
   kid: string;
@@ -74,7 +74,11 @@ export async function generatePolicySigningKey(): Promise<PolicySigningKey> {
 }
 
 async function signBytes(key: CryptoKey, bytes: Uint8Array): Promise<string> {
-  const signature = await crypto.subtle.sign(ECDSA_SHA256, key, asBufferSource(bytes));
+  const signature = await crypto.subtle.sign(
+    ECDSA_SHA256,
+    key,
+    asBufferSource(bytes),
+  );
   return encodeBase64Url(new Uint8Array(signature));
 }
 

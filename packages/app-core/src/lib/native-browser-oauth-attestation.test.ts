@@ -14,7 +14,6 @@ import {
   readNativeConnector,
   updateNativeConnector,
 } from "./native-connector-store.js";
-import { nativeOAuthGuard } from "./native-oauth-session.js";
 import {
   gitlabAccount,
   installNativeOAuthTests,
@@ -23,6 +22,7 @@ import {
   oauthDraft,
   oauthToken,
 } from "./native-oauth.test-support.js";
+import { nativeOAuthGuard } from "./native-oauth-session.js";
 
 installNativeOAuthTests();
 it("cannot activate a rotated recovery credential using proof from the prior token", async () => {

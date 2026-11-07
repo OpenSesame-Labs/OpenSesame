@@ -7,6 +7,12 @@ import {
   resetAmbientAuthSeams,
 } from "./ambient-auth-seam.js";
 import {
+  clearSession,
+  completeSignIn,
+  federationExchangeSeams,
+  loadSession,
+} from "./federation.js";
+import {
   type TokenFault,
   callbackHost,
   exchangeIssuer,
@@ -14,12 +20,6 @@ import {
 } from "./federation-exchange.test-support.js";
 import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
-import {
-  clearSession,
-  completeSignIn,
-  federationExchangeSeams,
-  loadSession,
-} from "./federation.js";
 
 const closes: (() => Promise<void>)[] = [];
 beforeEach(() => {

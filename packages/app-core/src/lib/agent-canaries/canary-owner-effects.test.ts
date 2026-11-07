@@ -12,6 +12,7 @@ import { createControlledCanaryReceiver } from "../../node/agent-canary-receiver
 import type { RetiredOwnerAuthenticatedData } from "../vault/retired-owner-operation.js";
 import { runCanaryOwnerEffects } from "./canary-owner-effects.js";
 import { ControlledCanaryResultSchema } from "./controlled-receiver-contract.js";
+
 const close: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const cleanup of close.splice(0).reverse()) await cleanup();

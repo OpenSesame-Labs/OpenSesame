@@ -6,9 +6,9 @@ import type { Folder, VaultItem } from "@opensesame/vault-core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import { makeAccount } from "./account.test-support.js";
 import { makeNote } from "./section-items.test-support.js";
+import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import type { VaultTreeActions } from "./vault-menu.js";
 
 Object.assign(vaultTreeSeams, {

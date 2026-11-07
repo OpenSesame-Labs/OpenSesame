@@ -35,12 +35,14 @@ import {
   openLogLine,
   sealLogLine,
 } from "./sealed-log-cipher.js";
+
 export {
-  SEALED_LINE_PREFIX,
   type LogKey,
+  SEALED_LINE_PREFIX,
   openLogLine,
   sealLogLine,
 } from "./sealed-log-cipher.js";
+
 import { scrubText } from "@opensesame/log-scrub";
 
 /** What stands in for a sealed line that does not open. */

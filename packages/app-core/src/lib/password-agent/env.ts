@@ -137,9 +137,9 @@ export async function resolveReferences(
     }
     if (batch.length !== remote.length)
       throw new Error("Batched secret resolution failed (details suppressed)");
-    remote.forEach((reference, index) =>
-      values.set(reference, batch[index] ?? ""),
-    );
+    remote.forEach((reference, index) => {
+      values.set(reference, batch[index] ?? "");
+    });
   }
   if (local.length) {
     if (!port.readLocal)

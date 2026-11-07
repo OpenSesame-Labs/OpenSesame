@@ -1,5 +1,6 @@
 /** Generated from spec/connectors/browser-dispositions.json; edit that source. */
 import { unpackGeneratedJson } from "./generated-json.js";
+
 const dictionary =
   '"url":"https://github.com/OpenSesame-Labs/OpenSesame/blob/main/docs/adr/0149-nothing-stored-in-the-clear.md"\n"alternative":{"label":"Open Settings › Security","to":"/settings/security"}\n"provider_id":\n"kind":"companion"\n"kind":"built-in"\n"alternative":\n"label":"How OpenSesame stores things"\n"sources":\n"summary":\n"to":"/vault?f=all"'.split(
     "\n",

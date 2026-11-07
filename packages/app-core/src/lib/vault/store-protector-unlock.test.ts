@@ -4,8 +4,12 @@
  * open it again from the manifest's capsule — with the same lockout and
  * second-step guards the password has.
  */
-import { WrongPasswordError, createItem } from "@opensesame/vault-core";
-import { parseTotp, totpCode } from "@opensesame/vault-core";
+import {
+  WrongPasswordError,
+  createItem,
+  parseTotp,
+  totpCode,
+} from "@opensesame/vault-core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { generateAgeKeyPair } from "../age-keys.js";
 import { kvGet, kvSet } from "../kv.js";
@@ -18,9 +22,9 @@ import {
   clearVaultSurface,
   gcpFake,
 } from "./protection/protector-enrollment.test-support.js";
+import { VaultStore } from "./store.js";
 import { LOCK_AFTER_FAILS } from "./store-scope.js";
 import { enrollTotp } from "./store-totp.fixture.js";
-import { VaultStore } from "./store.js";
 
 beforeEach(clearVaultSurface);
 

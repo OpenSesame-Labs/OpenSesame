@@ -1,9 +1,5 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-
 import { registerContributionForTest } from "@opensesame/app-core/lib/contributions.js";
 import type { ItemKindRow } from "@opensesame/app-core/lib/item-kinds.js";
 import { registerTutorialRealm } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
@@ -13,12 +9,15 @@ import {
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { AccountItem, VaultItem } from "@opensesame/vault-core";
+import { cleanup, render } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { VaultRail } from "../../components/VaultRail.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+import { makeAccount } from "../../sections/vault/account.test-support.js";
 import { ShareSecretDrop } from "../../sections/vault/DropCeremony.js";
 import { ItemDetail } from "../../sections/vault/ItemDetail.js";
 import { TrashCommands } from "../../sections/vault/TrashCommands.js";
-import { makeAccount } from "../../sections/vault/account.test-support.js";
 
 /**
  * The controls the item tutorials point at are bound where a person finds

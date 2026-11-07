@@ -9,6 +9,7 @@ import { useNarrow } from "../lib/use-narrow.js";
 import { useVaultSearch } from "../sections/vault/use-vault-search.js";
 import type { RecordWorkspaceProps } from "./RecordWorkspace.js";
 import { useRecordMotion } from "./record-workspace-motion.js";
+
 function useRecordFocus({
   treePane,
   list,

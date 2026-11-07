@@ -13,7 +13,6 @@ import {
   saveKeymap,
 } from "@opensesame/app-core/lib/keymap/store.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireKeymapEvent, sectionEvent } from "./keymap-events.js";
 import {
   createKeymapHandler,
   keymapSeams,
@@ -21,6 +20,7 @@ import {
   registerVaultKeymap,
 } from "./keymap.js";
 import { press, rail, vault } from "./keymap.test-harness.js";
+import { fireKeymapEvent, sectionEvent } from "./keymap-events.js";
 
 function keymap(partial: Partial<KeymapConfig>): void {
   const saved = saveKeymap({

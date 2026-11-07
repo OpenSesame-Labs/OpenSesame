@@ -68,17 +68,19 @@ import { securityAuthorityCapabilities } from "./security-authority.js";
 import { transportSecurityCapabilities } from "./transport-security.js";
 import { vaultCapabilities } from "./vault.js";
 import { walletSpendingCapabilities } from "./wallet-spending.js";
-export {
-  AGENT_SECRET_NAME_PATTERN,
-  assertsNoSecretNames,
-} from "./secret-names.js";
+
+export * from "./capability-map.js";
 export {
   INTERACTION_SETTLEMENT_PATTERN,
   assertsNoInteractionSettlementTool,
 } from "./interaction-boundary.js";
-export * from "./capability-map.js";
+export {
+  AGENT_SECRET_NAME_PATTERN,
+  assertsNoSecretNames,
+} from "./secret-names.js";
 
 import type { Capability } from "./types.js";
+
 export type {
   AgentSurface,
   Capability,

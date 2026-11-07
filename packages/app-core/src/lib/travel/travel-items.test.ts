@@ -1,7 +1,7 @@
 import { createItem } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
-import { completeItemDeparture, packItemDeparture } from "./items-depart.js";
 import type { ItemsPackage } from "./items-depart.js";
+import { completeItemDeparture, packItemDeparture } from "./items-depart.js";
 import { completeItemsReturn, openItemsReturn } from "./items-return.js";
 import {
   account,

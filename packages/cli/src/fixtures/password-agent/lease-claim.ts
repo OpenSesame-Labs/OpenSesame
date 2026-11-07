@@ -2,6 +2,7 @@
 import { writeSync } from "node:fs";
 import { describeRequest } from "@opensesame/app-core/lib/password-agent/request.js";
 import { openLeaseStore } from "../../parity-lease-node.js";
+
 const store = await openLeaseStore();
 try {
   const binding = describeRequest({

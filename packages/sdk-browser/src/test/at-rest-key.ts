@@ -7,6 +7,7 @@
 import { openFromRest, useClientAtRestKeys } from "@opensesame/browser-at-rest";
 
 import { FIXTURE_ROOT } from "./storage-fixture.js";
+
 const key = crypto.subtle.importKey("raw", FIXTURE_ROOT, "AES-GCM", false, [
   "encrypt",
   "decrypt",

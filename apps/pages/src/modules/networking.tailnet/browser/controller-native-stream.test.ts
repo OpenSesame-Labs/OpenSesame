@@ -4,15 +4,16 @@ import {
   wantsNativeStream,
 } from "./controller-native-stream.js";
 import {
-  url,
   type Fixture,
   begin,
   credit,
   fixture,
   frame,
   head,
+  url,
 } from "./controller-native-stream.test-support.js";
 import type { NativeRequest } from "./protocol.js";
+
 let f: Fixture;
 beforeEach(() => {
   f = fixture();

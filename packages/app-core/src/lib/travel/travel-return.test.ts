@@ -5,8 +5,8 @@ import {
   openTravelBundle,
   sealTravelBundle,
 } from "./bundle-format.js";
-import { formatReturnCode, mintReturnSecret } from "./return-code.js";
 import { completeReturn, openReturn } from "./return.js";
+import { formatReturnCode, mintReturnSecret } from "./return-code.js";
 import { vaultNamespace } from "./storage.js";
 import {
   PRJ_TRIP,

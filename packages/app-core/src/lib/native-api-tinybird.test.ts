@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { nativeAnswers } from "./native-api.test-support.js";
 import { nativeApiVerificationRequest } from "./native-api-auth.js";
 import { projectTinybirdDataSources } from "./native-api-catalog-resources.js";
 import {
@@ -6,7 +7,6 @@ import {
   nativeApiResourceActions,
 } from "./native-api-resources.js";
 import { nativeApiFingerprint, nativeApiTarget } from "./native-api-target.js";
-import { nativeAnswers } from "./native-api.test-support.js";
 
 it("advertises a real data-source read rather than the access check", () => {
   expect(nativeApiResourceActions("tinybird", "api-key")).toEqual([

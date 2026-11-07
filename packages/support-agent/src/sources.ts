@@ -30,9 +30,7 @@ export function extractSupportSources(
     return { answer: answer.trim(), cited: null };
   const cited = sourceText
     .split(/[,;\s]+/u)
-    .map((token) =>
-      stripCitationSuffix(token).replace(/^[`'"\[\]()<>*]+/gu, ""),
-    )
+    .map((token) => stripCitationSuffix(token).replace(/^[`'"[\]()<>*]+/gu, ""))
     .map((token) => token.trim().toLowerCase())
     .filter((token) => !NONE_SOURCES.has(token));
   return {

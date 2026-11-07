@@ -1,5 +1,6 @@
 /** Existing presentation subscribers only; no root/key or permission checks. */
 import type { VaultState } from "./store-state.js";
+
 type Listener = () => void;
 
 export class StoreListeners {

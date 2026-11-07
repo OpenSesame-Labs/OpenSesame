@@ -66,7 +66,10 @@ export function useHostedRecord(view: string, extra = "") {
 export function HostedDetailHead({
   title,
   tools,
-}: { title: string; tools?: ReactNode }) {
+}: {
+  title: string;
+  tools?: ReactNode;
+}) {
   return (
     <div className="detail__head">
       <div className="detail__heading">
@@ -81,7 +84,11 @@ export function HostedFact({
   label,
   children,
   actions,
-}: { label: string; children: ReactNode; actions?: ReactNode }) {
+}: {
+  label: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <FieldRow label={label} actions={actions}>
       <span className="frow__value">{children}</span>
@@ -118,7 +125,11 @@ export function HostedConnectWorkspace({
   online,
   view,
   title,
-}: { online: boolean; view: string; title: string }) {
+}: {
+  online: boolean;
+  view: string;
+  title: string;
+}) {
   return (
     <RecordWorkspace
       section="Identity"

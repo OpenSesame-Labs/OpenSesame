@@ -1,13 +1,11 @@
-import { Link } from "react-router";
-
-import { StatusMark } from "../../components/StatusMark.js";
-import { useStripItem } from "../../lib/strip.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-
 import {
   ACCESS_LABELS,
   ACCESS_VIEWS,
 } from "@opensesame/app-core/lib/section-view-names.js";
+import { Link } from "react-router";
+import { StatusMark } from "../../components/StatusMark.js";
+import { useStripItem } from "../../lib/strip.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 /** The Access views as tabs, each named so a guide can point at it. */
 export const ACCESS_TABS = ACCESS_VIEWS.map((id) => ({
   id,

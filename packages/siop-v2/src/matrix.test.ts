@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { encodeBase64url, encodeUtf8 } from "./encoding.js";
-import { SiopV2Error } from "./errors.js";
-import { isSiopV2Error } from "./errors.js";
+import { SiopV2Error, isSiopV2Error } from "./errors.js";
 import { SUPPORT_MATRIX } from "./index.js";
 import {
   SUBJECT_SYNTAX_JWK_THUMBPRINT,

@@ -1,9 +1,8 @@
 import { openAuthenticationProjection } from "@opensesame/app-core/lib/secret-fs/authentication-projection.js";
 import type { PhysicalAuthenticationSnapshot } from "@opensesame/app-core/lib/vault/physical-authentication-port.js";
 import type { PhysicalVaultPublicationPort } from "@opensesame/app-core/lib/vault/physical-vault-publication-port.js";
-import { snapshot, unavailable } from "./native-vault-data.js";
-
 import type { NativeVaultContext } from "./native-vault-context.js";
+import { snapshot, unavailable } from "./native-vault-data.js";
 import { releaseInventory } from "./native-vault-inventory.js";
 
 export function publicationPort({ native, capture }: NativeVaultContext) {

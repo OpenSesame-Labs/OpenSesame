@@ -12,7 +12,6 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TailnetDevices } from "./TailnetDevices.js";
 import {
   fakeDaemon,
   originalSeams,
@@ -22,6 +21,7 @@ import {
   rowOf,
   wireDevice,
 } from "./fake-daemon.test-support.js";
+import { TailnetDevices } from "./TailnetDevices.js";
 
 // The panel and its add key are tutorial targets the module declares on activation.
 let undeclare: Array<() => void> = [];

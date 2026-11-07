@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { bitwardenNativeNetworkPolicy } from "./bitwarden-native-network-policy.js";
 import { NativeFetchRequest } from "./bitwarden-native-network-protocol.js";
+
 const ID = "00000000-0000-4000-8000-000000000001";
 function request(
   url: string,

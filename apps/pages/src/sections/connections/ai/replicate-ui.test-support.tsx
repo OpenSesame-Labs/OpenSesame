@@ -20,8 +20,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
-import { initializeVaultCredentialCustody } from "@opensesame/app-core/lib/vault-credential-custody.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { initializeVaultCredentialCustody } from "@opensesame/app-core/lib/vault-credential-custody.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import {
   act,

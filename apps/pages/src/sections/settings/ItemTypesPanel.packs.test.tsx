@@ -22,8 +22,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-import { ItemTypesPanel } from "./ItemTypesPanel.js";
 import { SettingsFileContext } from "./files/context.js";
+import { ItemTypesPanel } from "./ItemTypesPanel.js";
 
 // The switches: one per built-in type beyond the core, each a download.
 const originalHooks = { ...vaultHooksSeams };

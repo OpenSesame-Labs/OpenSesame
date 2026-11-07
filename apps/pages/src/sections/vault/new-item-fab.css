@@ -26,7 +26,9 @@
   color: var(--canvas);
   /* The edge is a ring, not a border: a border would take a pixel off every
      side of the target inside, and the + is 56px or it is not. */
-  box-shadow: 0 0 0 1px var(--line), var(--shadow);
+  box-shadow:
+    0 0 0 1px var(--line),
+    var(--shadow);
   /* A held finger slides to choose; it is not selecting, and a held link
      must not raise the platform's own preview. */
   -webkit-touch-callout: none;

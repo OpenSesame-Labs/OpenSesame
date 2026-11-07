@@ -1,13 +1,3 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-/** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { registerContributionForTest } from "@opensesame/app-core/lib/contributions.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { lockAllTombs, unlockTomb } from "@opensesame/app-core/lib/vfs.js";
@@ -24,7 +14,16 @@ import {
   syncInstalledTypes,
   uninstallItemType,
 } from "@opensesame/vault-core";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { useState } from "react";
+/** @vitest-environment jsdom */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectInTray, inTray } from "../../../components/tray.test-support.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { SettingsFiles } from "./SettingsFiles.js";

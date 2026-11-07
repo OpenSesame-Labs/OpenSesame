@@ -7,6 +7,7 @@ import { deriveRetiredVerifier } from "../retired-credentials/argon-verifier.js"
 import { RETIRED_CREDENTIAL_MATCHING_V2 } from "../retired-credentials/records-v2.js";
 import { withCurrentCredentialRetiredGuard } from "./current-credential-retired-guard.js";
 import type { PhysicalDeviceRecordPort } from "./physical-device-record-port.js";
+
 const previous = host();
 afterEach(() => configureHost(previous));
 const candidate = "retained credential cannot become ordinary again 7194";

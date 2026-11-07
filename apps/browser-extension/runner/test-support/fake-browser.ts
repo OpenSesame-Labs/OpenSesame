@@ -99,10 +99,7 @@ export class FakeBrowser {
 
   private permissionsApi() {
     return {
-      contains: async (want: {
-        permissions?: string[];
-        origins?: string[];
-      }) =>
+      contains: async (want: { permissions?: string[]; origins?: string[] }) =>
         (want.permissions ?? []).every((p) =>
           this.granted.permissions.has(p),
         ) &&
@@ -116,18 +113,12 @@ export class FakeBrowser {
                 new URL(o.replace("/*", "/")).hostname,
             ),
         ),
-      request: async (want: {
-        permissions?: string[];
-        origins?: string[];
-      }) => {
+      request: async (want: { permissions?: string[]; origins?: string[] }) => {
         for (const p of want.permissions ?? []) this.granted.permissions.add(p);
         for (const o of want.origins ?? []) this.granted.origins.add(o);
         return true;
       },
-      remove: async (gone: {
-        permissions?: string[];
-        origins?: string[];
-      }) => {
+      remove: async (gone: { permissions?: string[]; origins?: string[] }) => {
         for (const o of gone.origins ?? []) {
           if (this.manifestHosts.includes(o))
             throw new Error("required permission");

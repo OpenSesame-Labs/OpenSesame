@@ -61,10 +61,7 @@ type Sent = {
 };
 
 /** Answer the next request with `response`, recording what was sent. */
-function answerWith(response: {
-  status: number;
-  body: BoundaryValue;
-}): Sent[] {
+function answerWith(response: { status: number; body: BoundaryValue }): Sent[] {
   const sent: Sent[] = [];
   driveClientSeams.fetch = async (url, init) => {
     sent.push({

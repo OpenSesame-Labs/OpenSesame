@@ -10,8 +10,10 @@ import * as kv from "./kv.js";
 import { executeNativeApiRequest } from "./native-api-operations.js";
 import { nativeApiFingerprint, nativeApiTarget } from "./native-api-target.js";
 import { emptyNativePrivate } from "./native-connector-schema.js";
-import { readNativeConnector } from "./native-connector-store.js";
-import { saveNativeConnector } from "./native-connector-store.js";
+import {
+  readNativeConnector,
+  saveNativeConnector,
+} from "./native-connector-store.js";
 export const MODEL_TEST_SECRET = "private-model-test-credential";
 const authorityReleases: (() => void)[] = [];
 afterEach(() => {

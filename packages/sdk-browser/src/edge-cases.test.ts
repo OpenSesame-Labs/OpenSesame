@@ -2,7 +2,9 @@ import { SignJWT } from "jose";
 import { opened } from "./test/at-rest-key.js";
 import { createTestSigningKey } from "./test/jwt-fixtures.js";
 import { SdkFixtureStorage } from "./test/storage-fixture.js";
+
 const signingKeys = createTestSigningKey("ES256");
+
 import {
   type BoundaryValue,
   type JsonObject,

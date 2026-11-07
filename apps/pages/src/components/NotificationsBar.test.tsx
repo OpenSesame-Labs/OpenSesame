@@ -1,3 +1,11 @@
+import { setDesktopRinging } from "@opensesame/app-core/lib/notice-toast.js";
+import {
+  clearNotices,
+  pushNotice,
+  setStatusNotice,
+} from "@opensesame/app-core/lib/notices.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { createItem } from "@opensesame/vault-core";
 import {
   act,
   cleanup,
@@ -8,15 +16,6 @@ import {
 import { MemoryRouter } from "react-router";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { setDesktopRinging } from "@opensesame/app-core/lib/notice-toast.js";
-import {
-  clearNotices,
-  pushNotice,
-  setStatusNotice,
-} from "@opensesame/app-core/lib/notices.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { createItem } from "@opensesame/vault-core";
 import { withPassword } from "../sections/vault/account.test-support.js";
 import {
   NotificationsBar,

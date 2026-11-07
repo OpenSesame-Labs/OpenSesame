@@ -18,22 +18,24 @@ import {
   invokeNativeMcpTool,
   listNativeMcpTools,
 } from "./native-mcp-operations.js";
+
 export { nativeMcpUnavailableReason } from "./native-mcp-availability.js";
+
+import type { NativeProviderTransport } from "./native-connector-transport.js";
 import { NativeMcpError } from "./native-mcp-target.js";
 import { verifyNativeMcpConnector } from "./native-mcp-verification.js";
 
-import type { NativeProviderTransport } from "./native-connector-transport.js";
-export { configureNativeMcpConnector } from "./native-mcp-config.js";
 export {
   beginNativeMcpAuthorization,
   finishNativeMcpAuthorization,
 } from "./native-mcp-authorization.js";
-export { verifyNativeMcpConnector } from "./native-mcp-verification.js";
-export {
-  listNativeMcpTools,
-  invokeNativeMcpTool,
-} from "./native-mcp-operations.js";
 export { nativeMcpCleanup } from "./native-mcp-cleanup.js";
+export { configureNativeMcpConnector } from "./native-mcp-config.js";
+export {
+  invokeNativeMcpTool,
+  listNativeMcpTools,
+} from "./native-mcp-operations.js";
+export { verifyNativeMcpConnector } from "./native-mcp-verification.js";
 
 export function supportsNativeMcpProvider(providerId: string): boolean {
   return supportsCompiledNativeMcpProvider(providerId);
@@ -109,8 +111,8 @@ export const nativeMcpConnectorDriver: NativeConnectorDriver = {
 };
 
 export {
-  nativeMcpRevocationInstructions,
   attestNativeMcpRevocation,
+  nativeMcpRevocationInstructions,
 } from "./native-mcp-attestation.js";
 
 export function createNativeMcpConnectorDriver(

@@ -4,12 +4,12 @@ import {
   type LoginMethod,
   manualPassword,
 } from "./account.js";
-import { extractEmbeddedMethods, splitAccount } from "./credential-split.js";
 import {
   boundCredentials,
   resolveAccounts,
   unboundCredentials,
 } from "./credential.js";
+import { extractEmbeddedMethods, splitAccount } from "./credential-split.js";
 import { mergeVaultBodies } from "./merge.js";
 import {
   type VaultBody,

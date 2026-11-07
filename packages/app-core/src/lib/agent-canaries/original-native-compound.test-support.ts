@@ -9,6 +9,7 @@ import {
   verifyAll,
 } from "./original-indexed-leaf.test-support.js";
 import { captureOriginalCanaryIndexedSealData } from "./original-indexed-seal-data.js";
+
 const nativeFill = Uint8Array.prototype.fill;
 const binding = vaultSealBinding("compound", "controlled-canary");
 function originalBuffer(f: Fixture, data: BufferSource) {

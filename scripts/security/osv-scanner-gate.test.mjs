@@ -55,7 +55,10 @@ function fixture(t) {
   );
   execFileSync("git", ["init", "-q"], { cwd: repo });
   execFileSync("git", ["add", "."], { cwd: repo });
-  for (const file of ["node_modules/tool/package-lock.json", "work/Cargo.lock"]) {
+  for (const file of [
+    "node_modules/tool/package-lock.json",
+    "work/Cargo.lock",
+  ]) {
     mkdirSync(dirname(join(repo, file)), { recursive: true });
     writeFileSync(join(repo, file), "untracked\n");
   }

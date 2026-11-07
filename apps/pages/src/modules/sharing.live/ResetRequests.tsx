@@ -75,7 +75,10 @@ function Review({
 function PendingRow({
   host,
   pending,
-}: { host: LiveHost; pending: PendingReset }) {
+}: {
+  host: LiveHost;
+  pending: PendingReset;
+}) {
   const [reviewing, setReviewing] = useState(false);
   return (
     <div className="vault-row">
@@ -150,6 +153,7 @@ export function ResetRequests({ host }: { host: LiveHost }) {
   if (!host.resets || (pending.length === 0 && grants.length === 0))
     return null;
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div className="setup__stack" aria-label="Password reset approvals">
       {pending.map((one) => (
         <PendingRow key={one.id} host={host} pending={one} />

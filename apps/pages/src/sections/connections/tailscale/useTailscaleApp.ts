@@ -4,6 +4,7 @@ import type { Flash } from "@opensesame/app-core/sections/connections/shared.js"
 import { runTailscaleAction } from "./tailscale-actions.js";
 import { tailscaleAppDependencies as deps } from "./tailscale-dependencies.js";
 import { type TailscaleState, useTailscaleState } from "./useTailscaleState.js";
+
 function prepareRegistration(model: TailscaleState): string | null {
   model.setFailure("");
   try {

@@ -339,7 +339,9 @@
   border: 1px solid var(--line-strong);
   border-radius: 0;
   background: var(--surface-3);
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .pack__track::after {

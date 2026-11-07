@@ -2,9 +2,9 @@
  * J-APP / J-RECIPE (local plane): register an application, inspect setup
  * copy, export a recipe without secrets, bind an organization, apply twice.
  */
-import { addCapabilities, sealWithPin } from "./pages-journey.mjs";
 
 import { createApplication, openApplications } from "./j-local-application.mjs";
+import { addCapabilities, sealWithPin } from "./pages-journey.mjs";
 
 export async function walkJAppRecipe({ page, origin, base, check, snap }) {
   await page.goto(`${origin}${base}`, { waitUntil: "networkidle" });

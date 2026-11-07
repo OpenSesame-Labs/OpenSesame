@@ -2,16 +2,16 @@ import { afterEach, expect, it } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
 import { loadNativeConnectorRecord } from "./native-connector-store.js";
 import {
+  CLIENT_SECRET,
+  nativeOAuthClientFixture,
+} from "./native-oauth-client.test-support.js";
+import {
   beginNativeOAuthClient,
   configureNativeOAuthClient,
   nativeOAuthClientTarget,
   readNativeOAuthClientSecret,
 } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
-import {
-  CLIENT_SECRET,
-  nativeOAuthClientFixture,
-} from "./native-oauth-client.test-support.js";
 import { verifyNativeOAuthResource } from "./native-oauth-resource.js";
 
 const closes: (() => Promise<void>)[] = [];

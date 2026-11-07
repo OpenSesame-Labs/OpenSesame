@@ -1,17 +1,13 @@
 export type {
-  SealedAlertPackage,
-  AlertPayload,
-  AlertSealingMaterial,
-} from "./seal.js";
+  AlertEvidenceAuthority,
+  AlertStatusEvidence,
+} from "./evidence.js";
 export {
-  alertSpecFromEnrollment,
-  decodeCiphertext,
-  createAlertSealingKey,
-  importAlertSealingKey,
-  rejectProtectedRootForAlert,
-  sealAlertPackage,
-  verifyAlertEvidence,
-} from "./seal.js";
+  createAlertEvidenceKey,
+  mintStatusEvidence,
+  rejectUnauthenticatedHumanClaim,
+  verifyStatusEvidence,
+} from "./evidence.js";
 export type {
   AlertDeliveryStatus,
   DurableOutboxStore,
@@ -23,21 +19,25 @@ export {
   AlertOutbox,
   createMemoryOutboxStore,
 } from "./outbox.js";
+export type { AlertFailureKind, AlertPolicyDecision } from "./policy.js";
+export { decideLateDelivery, decideTransportFailure } from "./policy.js";
 export type {
-  AlertRouteRecord,
   AlertRouteReadiness,
+  AlertRouteRecord,
   RouteRegistrySnapshot,
 } from "./routes.js";
 export { AlertRouteRegistry, assertSafeAlertOrigin } from "./routes.js";
 export type {
-  AlertEvidenceAuthority,
-  AlertStatusEvidence,
-} from "./evidence.js";
+  AlertPayload,
+  AlertSealingMaterial,
+  SealedAlertPackage,
+} from "./seal.js";
 export {
-  createAlertEvidenceKey,
-  mintStatusEvidence,
-  rejectUnauthenticatedHumanClaim,
-  verifyStatusEvidence,
-} from "./evidence.js";
-export type { AlertFailureKind, AlertPolicyDecision } from "./policy.js";
-export { decideLateDelivery, decideTransportFailure } from "./policy.js";
+  alertSpecFromEnrollment,
+  createAlertSealingKey,
+  decodeCiphertext,
+  importAlertSealingKey,
+  rejectProtectedRootForAlert,
+  sealAlertPackage,
+  verifyAlertEvidence,
+} from "./seal.js";

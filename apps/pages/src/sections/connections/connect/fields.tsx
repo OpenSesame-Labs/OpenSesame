@@ -104,7 +104,10 @@ export function CopyKey({ value, label }: { value: string; label: string }) {
 export function OutLink({
   href,
   children,
-}: { href: string; children: ReactNode }) {
+}: {
+  href: string;
+  children: ReactNode;
+}) {
   return (
     <a
       className="conn-doc-link"

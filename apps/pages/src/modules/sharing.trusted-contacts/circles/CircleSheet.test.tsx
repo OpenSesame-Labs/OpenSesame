@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { toB64url } from "@opensesame/app-core/lib/quorum/bytes.js";
+import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   Clock,
   armedCircle,
   oneGroup,
 } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
-import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   askToShare,
   reissue,

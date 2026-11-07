@@ -1,20 +1,22 @@
 import { FIXTURE_MANAGED_POLICY } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
 import {
   double,
+  installDoublePorts,
   resetDouble,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 /** @vitest-environment jsdom */
 import {
   connectRoadSeams,
   notifyConnectRoads,
   resetConnectRoadSeams,
 } from "@opensesame/app-core/lib/connect-roads.js";
-import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
+import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import type { InstallationCapabilitySelection } from "@opensesame/capability-composition";
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { activateForTest } from "../../modules/runtime-test-kit.js";
+import * as localAi from "../../modules/support.local-ai/runtime.js";
 import {
   PERSONAL_SELECTION,
   installPanelFixture,
@@ -24,9 +26,6 @@ import {
   renderPanel,
   withReceipt,
 } from "./settings-panels.test-support.js";
-
-import { activateForTest } from "../../modules/runtime-test-kit.js";
-import * as localAi from "../../modules/support.local-ai/runtime.js";
 
 installDoublePorts();
 

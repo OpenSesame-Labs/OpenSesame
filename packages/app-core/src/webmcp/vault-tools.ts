@@ -32,6 +32,7 @@ import {
   assertMetadataOnlyWrite,
   suggestItemMetadata,
 } from "./draft-suggestions.js";
+import { PASSWORD_WORKFLOW_TOOLS } from "./password-workflow-tools.js";
 import {
   type PagesWebMcpTool,
   assertItemReach,
@@ -42,8 +43,6 @@ import {
   requireUnlocked,
   str,
 } from "./tool-shared.js";
-
-import { PASSWORD_WORKFLOW_TOOLS } from "./password-workflow-tools.js";
 
 const ITEM_KINDS: readonly LegacyItemKind[] = [
   "account",

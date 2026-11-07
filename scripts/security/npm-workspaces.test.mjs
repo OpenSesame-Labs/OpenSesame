@@ -11,8 +11,7 @@ const patches = {
   "@simple-git/argv-parser@2.0.1":
     "patches/@simple-git__argv-parser@2.0.1.patch",
   "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
-  "@levischuck/tiny-cbor@0.2.11":
-    "patches/@levischuck__tiny-cbor@0.2.11.patch",
+  "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
 };
 
 function read(relativePath) {

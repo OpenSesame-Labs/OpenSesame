@@ -1,6 +1,5 @@
-import type { PeerTrustRecord } from "./record.js";
-
 import { PEER_TRUST_ENVELOPE_KIND } from "./constants.js";
+import type { PeerTrustRecord } from "./record.js";
 import { signP256, verifyP256 } from "./webcrypto.js";
 
 export { PEER_TRUST_ENVELOPE_KIND };

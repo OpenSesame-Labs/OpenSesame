@@ -11,6 +11,7 @@ import {
   type CanaryIndexedSealData,
   captureOriginalCanaryIndexedSealData,
 } from "./original-indexed-seal-data.js";
+
 type Outcome<T> =
   | { kind: "fulfilled"; value: T }
   | { kind: "rejected"; cause: unknown };

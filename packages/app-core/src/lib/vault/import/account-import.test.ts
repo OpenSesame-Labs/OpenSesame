@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
-
 import { accountTotp } from "@opensesame/vault-core";
+import { describe, expect, it } from "vitest";
 import { producedPassword } from "../../account.test-support.js";
 import { parseImport } from "./index.js";
 import { defaultMergeOptions, planMerge } from "./merge.js";

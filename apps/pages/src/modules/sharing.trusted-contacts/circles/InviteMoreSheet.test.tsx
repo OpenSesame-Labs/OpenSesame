@@ -10,8 +10,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deskOf } from "../trusted-contacts.test-support.js";
-import { InviteMoreSheet } from "./InviteMoreSheet.js";
 import { addContact, recordCopies, sheetKey } from "./circles.test-support.js";
+import { InviteMoreSheet } from "./InviteMoreSheet.js";
 
 let restore: () => void = () => undefined;
 let copies: string[] = [];

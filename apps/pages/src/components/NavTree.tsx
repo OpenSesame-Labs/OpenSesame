@@ -21,12 +21,15 @@ import {
   useSyncExternalStore,
 } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
+import { useVaultDirectories } from "../bindings/contributions.js";
 import { useClaimedDrags } from "../lib/use-claimed-drags.js";
 import { useShowHidden } from "../lib/use-show-hidden.js";
-import { useVaultAllTo } from "../lib/vault-list-path.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
+import { useVaultAllTo } from "../lib/vault-list-path.js";
 import { useSharedItems } from "../sections/vault/use-shared-items.js";
 import { SupportContext } from "../tutorial/support-context.js";
+import { openContextMenu } from "./context-menu/menu-model.js";
+import { railMenu, railRowAt } from "./context-menu/rail-menu.js";
 import { IconChevronLeft } from "./Icons.js";
 import { nextSectionOpen } from "./PageTreeBranch.js";
 import {
@@ -37,15 +40,12 @@ import {
   sectionForPath,
   useSections,
 } from "./RailRows.js";
-import { SettingsTree } from "./SettingsTree.js";
-import { type VaultCounts, VaultRail } from "./VaultRail.js";
-import { openContextMenu } from "./context-menu/menu-model.js";
-import { railMenu, railRowAt } from "./context-menu/rail-menu.js";
 import { useRailCursor, useRailCursorFollowsRoute } from "./rail-cursor.js";
+import { SettingsTree } from "./SettingsTree.js";
 import { useSelectedRail } from "./use-selected-rail.js";
 import { useRailKeyboard } from "./useRailKeyboard.js";
+import { type VaultCounts, VaultRail } from "./VaultRail.js";
 
-import { useVaultDirectories } from "../bindings/contributions.js";
 type SectionExpand = {
   expanded: boolean;
   here: boolean;
@@ -311,8 +311,8 @@ export function NavTree() {
       ref={treeRef}
       className="railtree"
       aria-label="Sections"
+      // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: the rail is a <nav> landmark carrying an ARIA tree; aria-activedescendant moves focus within it
       role="tree"
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: role=tree with aria-activedescendant is the interactive element; the tab stop belongs on it
       tabIndex={0}
       aria-activedescendant={
         cursorId ?? railRowId(currentToRef.current, sectionOpen && !onReport)

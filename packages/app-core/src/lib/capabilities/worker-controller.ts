@@ -86,14 +86,7 @@ import {
   WORKER_GRAPH_UNAVAILABLE,
 } from "./worker/types.js";
 
-export { CORE_ONLY_VARIANT, WORKER_GRAPH_UNAVAILABLE };
 export { workerControllerSeams } from "./worker/seams.js";
-export {
-  forceSessionReload,
-  noteShellLoaded,
-  reloadForStaleAsset,
-  updateIsOwed,
-};
 export {
   resetWorkerController,
   subscribeWorkerStatus,
@@ -108,6 +101,14 @@ export type {
   WorkerStatus,
   WorkerTransition,
 } from "./worker/types.js";
+export {
+  CORE_ONLY_VARIANT,
+  WORKER_GRAPH_UNAVAILABLE,
+  forceSessionReload,
+  noteShellLoaded,
+  reloadForStaleAsset,
+  updateIsOwed,
+};
 
 function attachContainerListeners(container: ServiceWorkerContainer): void {
   if (state.listenersAttached) return;

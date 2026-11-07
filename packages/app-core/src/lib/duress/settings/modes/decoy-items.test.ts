@@ -8,13 +8,13 @@ import type { VaultItem } from "@opensesame/vault-core";
 import { describe, expect, it, vi } from "vitest";
 import { producedPassword } from "../../../account.test-support.js";
 import { MAX_SLOT_PAYLOAD_BYTES } from "../../crypto/slot-profile.js";
+import { DECOY_ITEMS, randomDecoySecret } from "./decoy-items.js";
 import { DECOY_ITEMS_RUNNER } from "./decoy-items-effect.js";
 import {
   DECOY_ITEM_LIMITS,
   type DecoyItem,
   readDecoyItemsBody,
 } from "./decoy-items-shape.js";
-import { DECOY_ITEMS, randomDecoySecret } from "./decoy-items.js";
 import { hasEffectRunner, runDuressEffects } from "./effects.js";
 import { inputReady } from "./inputs.js";
 import { decodePlan, encodePlan } from "./payload.js";

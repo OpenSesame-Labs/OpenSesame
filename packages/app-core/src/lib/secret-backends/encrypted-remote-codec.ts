@@ -77,13 +77,10 @@ export async function remoteEncryptionKey(encoded: string): Promise<CryptoKey> {
   const bytes = decodeBase64(encoded, 32);
   const owned = ownBytes(bytes);
   try {
-    return await crypto.subtle.importKey(
-      "raw",
-      owned,
-      "AES-GCM",
-      false,
-      ["encrypt", "decrypt"],
-    );
+    return await crypto.subtle.importKey("raw", owned, "AES-GCM", false, [
+      "encrypt",
+      "decrypt",
+    ]);
   } finally {
     bytes.fill(0);
     owned.fill(0);

@@ -105,8 +105,6 @@ export function CommandSuggestions({
     }
   }, [active, suggestions]);
   return (
-    // biome-ignore lint/a11y/useSemanticElements: ARIA combobox listbox not a native select
-    // biome-ignore lint/a11y/useFocusableInteractive: focus stays on the combobox input via aria-activedescendant
     <div
       role="listbox"
       ref={listRef}
@@ -115,7 +113,6 @@ export function CommandSuggestions({
       aria-label="Commands"
     >
       {suggestions.map((suggestion, index) => (
-        // biome-ignore lint/a11y/useSemanticElements: ARIA combobox option under listbox
         // biome-ignore lint/a11y/useFocusableInteractive: options reached via aria-activedescendant on the input
         <div
           role="option"

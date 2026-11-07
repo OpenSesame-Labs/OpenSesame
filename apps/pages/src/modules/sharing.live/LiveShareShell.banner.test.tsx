@@ -11,8 +11,8 @@ import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { vaultShareSnapshot } from "../../components/vault-share-seat.js";
 import { classify } from "../../lib/capabilities/classification.js";
-import { LiveSessionBanner } from "../../sections/vault/LiveSessionBanner.js";
 import { withPassword } from "../../sections/vault/account.test-support.js";
+import { LiveSessionBanner } from "../../sections/vault/LiveSessionBanner.js";
 import { LiveShareShell } from "./LiveShareShell.js";
 import {
   asked,

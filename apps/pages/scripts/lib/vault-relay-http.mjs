@@ -14,9 +14,11 @@
 import { startRelayHarness } from "./vault-relay-harness.mjs";
 import { startLiveRelay } from "./vault-relay-live.mjs";
 
-export { createRelayHandler } from "./vault-relay-harness.mjs";
+export {
+  createRelayHandler,
+  startRelayHarness,
+} from "./vault-relay-harness.mjs";
 export { startLiveRelay } from "./vault-relay-live.mjs";
-export { startRelayHarness } from "./vault-relay-harness.mjs";
 
 /**
  * Listen on loopback. `live: true` spawns the gateway relay profile.

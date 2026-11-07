@@ -3,8 +3,9 @@ import {
   NativeHTTPResponse,
   type NativeRequest,
 } from "./protocol.js";
-import type { NativePeerGETClient } from "./sdk-peer-get.js";
 import type { BrowserNodeClient } from "./sdk.js";
+import type { NativePeerGETClient } from "./sdk-peer-get.js";
+
 type Port = NativePeerGETClient;
 type Entry = {
   id: number;

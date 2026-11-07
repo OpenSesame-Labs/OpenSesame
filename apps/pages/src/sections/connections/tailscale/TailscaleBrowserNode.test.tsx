@@ -21,6 +21,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { statusFixture } from "../../../modules/networking.tailnet/browser/authorization.test-support.js";
 import { TailscaleBrowserNode } from "./TailscaleBrowserNode.js";
+
 let release = () => {};
 const actual: Awaited<ReturnType<typeof statusFixture>>[] = [];
 afterEach(async () => {

@@ -67,7 +67,9 @@
   }
   .add-slide__zone,
   .add-slide__zone .add-slide__label {
-    transition: background 100ms var(--ease), color 100ms var(--ease);
+    transition:
+      background 100ms var(--ease),
+      color 100ms var(--ease);
   }
 }
 

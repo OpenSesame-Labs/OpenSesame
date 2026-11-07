@@ -33,8 +33,8 @@ import {
 } from "../capabilities/presets.js";
 import { contributions, subscribeRegistry } from "../capabilities/registry.js";
 import type { ContributionEntry } from "../capabilities/runtime-contract.js";
-import type { CommitOutcome } from "../capabilities/store-types.js";
 import { compositionStore } from "../capabilities/store.js";
+import type { CommitOutcome } from "../capabilities/store-types.js";
 
 export { compositionStore } from "../capabilities/store.js";
 
@@ -48,13 +48,6 @@ export const contributionSource = {
   version: <K extends ContributionKind>(kind: K) => contributions(kind),
   read: <K extends ContributionKind>(kind: K) => contributions(kind),
 };
-export type {
-  CommitOutcome,
-  CompositionSnapshot,
-  EmergencyDisableOutcome,
-} from "../capabilities/store-types.js";
-export { CAPABILITY_CATALOG } from "../capabilities/catalog.js";
-export { PRESETS } from "../capabilities/presets.js";
 export {
   buildConsentReceipt,
   canonicalize,
@@ -63,6 +56,14 @@ export {
   parseInstancePolicy,
   parseVaultSelection,
 } from "@opensesame/capability-composition";
+export { CAPABILITY_CATALOG } from "../capabilities/catalog.js";
+export { PRESETS } from "../capabilities/presets.js";
+export type {
+  CommitOutcome,
+  CompositionSnapshot,
+  EmergencyDisableOutcome,
+} from "../capabilities/store-types.js";
+
 import {
   buildConsentReceipt,
   canonicalize,

@@ -72,6 +72,7 @@ export function EditorTitle({
   return (
     <div className="editor__titlerow">
       {/* The wrapper only forwards arrow keys that the inputs inside it leave unhandled. */}
+      {/** biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
       <div className="pathfield" ref={row} onKeyDown={cross}>
         <EditorFolder
           value={value.folderId}

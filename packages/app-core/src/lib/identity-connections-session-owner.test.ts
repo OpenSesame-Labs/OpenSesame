@@ -7,9 +7,15 @@ import { createMemoryStorage } from "../memory-storage.js";
 import { createTestHost } from "../test-host.js";
 import { loopbackProfileEligible } from "./__tests__/loopback-profile.js";
 import { fenceLocalSignOut } from "./ambient-auth/generation.js";
-import { readFederationSessionJson } from "./federation-session-store.js";
 import { clearSession, loadSession } from "./federation.js";
+import { readFederationSessionJson } from "./federation-session-store.js";
 import { guestAuthSeams } from "./guest-auth.js";
+import { identitySeams } from "./identity.js";
+import {
+  beginIdentityConnectionSignIn,
+  identityConnectionDraft,
+  saveIdentityConnection,
+} from "./identity-connections.js";
 import {
   betterAuthFixture,
   email,
@@ -20,12 +26,6 @@ import {
   getIdentityConnectionRuntime,
   writeIdentityConnection,
 } from "./identity-connections-store.js";
-import {
-  beginIdentityConnectionSignIn,
-  identityConnectionDraft,
-  saveIdentityConnection,
-} from "./identity-connections.js";
-import { identitySeams } from "./identity.js";
 import { kvFlush, kvForgetAll } from "./kv.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 import { vaultStore } from "./vault/store.js";

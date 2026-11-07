@@ -49,7 +49,11 @@ function Settings({
   a,
   b,
   onFlash,
-}: { a: string; b: string; onFlash: (flash: Flash) => void }) {
+}: {
+  a: string;
+  b: string;
+  onFlash: (flash: Flash) => void;
+}) {
   const provider = catalogProvider("linear");
   if (!provider) throw new Error("Missing Linear catalog entry");
   const [rows, setRows] = useTailscaleConnections();

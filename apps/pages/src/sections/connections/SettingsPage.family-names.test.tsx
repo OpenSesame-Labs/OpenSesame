@@ -5,8 +5,8 @@ import { connectionRouteProvider } from "@opensesame/app-core/sections/connectio
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { installConnectorIntegration } from "./connect/native-connector-integration.test-support.js";
+import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 afterEach(cleanup);

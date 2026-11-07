@@ -154,7 +154,10 @@ export function Head({
 function Cue({
   missing,
   action,
-}: { missing: boolean; action: boolean }): ReactElement | null {
+}: {
+  missing: boolean;
+  action: boolean;
+}): ReactElement | null {
   if (missing) {
     return (
       <>

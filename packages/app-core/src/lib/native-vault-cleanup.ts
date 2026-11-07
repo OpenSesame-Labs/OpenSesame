@@ -5,11 +5,11 @@ import {
   type NativeProviderTransport,
   nativeProviderTransport,
 } from "./native-connector-transport.js";
+import { nativeLocalInstanceCleanup } from "./native-local-instance.js";
 import {
   lookupNativeLocalInstance,
   revokeNativeLocalInstanceSelf,
 } from "./native-local-instance-http.js";
-import { nativeLocalInstanceCleanup } from "./native-local-instance.js";
 import {
   nativeOAuthMutationInFlight,
   retryRetainedNativeOAuthGrants,

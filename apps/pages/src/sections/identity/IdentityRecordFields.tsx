@@ -4,7 +4,10 @@ import type { ReactNode } from "react";
 export function IdentityFact({
   label,
   children,
-}: { label: string; children: ReactNode }) {
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div className="frow">
       <div className="frow__text">

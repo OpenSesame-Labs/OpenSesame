@@ -30,17 +30,17 @@ import { useEffect, useRef, useState } from "react";
 import { useDeviceVaults } from "../../../bindings/vaults.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import {
-  type TravelNotice,
-  departedNotice,
-  travelRefusalText,
-} from "./TravelViews.js";
-import {
   hiddenNotice,
   itemsRefusalText,
   itemsReturnRefusalText,
   itemsReturnedNotice,
 } from "./items-text.js";
 import { remnantsNotice, returnedNotice } from "./return-text.js";
+import {
+  type TravelNotice,
+  departedNotice,
+  travelRefusalText,
+} from "./TravelViews.js";
 
 export type TravelMode =
   | { kind: "plan" }

@@ -1,9 +1,9 @@
 /** Only an attempted DCR mutation creates uncertainty; metadata reads cannot create clients. */
 import type { NativeRecovery } from "./native-connector-schema.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
+import { NativeMcpPublicOAuth } from "./native-mcp-oauth.js";
 import type { NativeMcpRegistrationMode } from "./native-mcp-oauth-metadata.js";
 import type { NativeMcpOAuthTarget } from "./native-mcp-oauth-target.js";
-import { NativeMcpPublicOAuth } from "./native-mcp-oauth.js";
 import {
   discardNativeMcpRegistration,
   reserveNativeMcpRegistration,

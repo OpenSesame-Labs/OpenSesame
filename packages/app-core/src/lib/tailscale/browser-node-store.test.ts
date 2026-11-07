@@ -15,6 +15,7 @@ import {
   savedBrowserNodeConfiguration,
   writeBrowserNodeState,
 } from "./browser-node-store.js";
+
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 const config = {
   hostname: "operator-browser",

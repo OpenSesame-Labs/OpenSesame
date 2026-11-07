@@ -15,6 +15,7 @@ import {
 } from "@opensesame/app-core/lib/native-connector-transport.js";
 import type { Activation } from "../activation.js";
 import { anySignal, runUnlessAborted } from "../signals.js";
+
 function modelConnection(id: string): HostedModelConnection | null {
   const view = readNativeConnector(id);
   const ai = readAiConnection(id);

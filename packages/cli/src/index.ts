@@ -1,8 +1,8 @@
+export type { GlobalFlags, ParsedCommand, SessionFile } from "./parse.js";
 export {
-  parseArgs,
-  helpText,
-  SessionFileSchema,
   GlobalFlagsSchema,
+  SessionFileSchema,
+  helpText,
+  parseArgs,
 } from "./parse.js";
-export type { ParsedCommand, GlobalFlags, SessionFile } from "./parse.js";
 export { runCli } from "./run.js";

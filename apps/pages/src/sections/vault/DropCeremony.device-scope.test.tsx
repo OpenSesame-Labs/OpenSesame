@@ -1,9 +1,8 @@
+import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
-
-import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 
 import {
   Ceremony,

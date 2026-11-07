@@ -12,12 +12,12 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AnonymousRelayDeployment } from "./wasm-provider.js";
-import { WasmRelayProvider } from "./wasm-provider.js";
 import {
   VERCEL_RELAY_CLOSE_SOURCE,
   VERCEL_RELAY_FETCH_SOURCE,
 } from "./vercel-relay-function.js";
+import type { AnonymousRelayDeployment } from "./wasm-provider.js";
+import { WasmRelayProvider } from "./wasm-provider.js";
 
 export interface VercelAnonymousProject {
   token: string;

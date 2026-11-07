@@ -11,6 +11,7 @@ import {
   sealAuthenticatedManifest,
   verifyManifestAuth,
 } from "./protection/manifest-auth.js";
+
 const actualHeader = readPagesRetiredCredentialHeader;
 const actualVerify = verifyManifestAuth;
 const actualUnsigned = manifestWithoutAuth;

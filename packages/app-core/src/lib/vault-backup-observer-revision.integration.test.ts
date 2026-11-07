@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { readLocalBackupTarget } from "./backup-target-local.js";
 import { resyncBackup } from "./backup.js";
+import { readLocalBackupTarget } from "./backup-target-local.js";
 import { useGithubBackupProviderFixture } from "./github-app-backup-provider.test-support.js";
 import { createProject, setActiveProject } from "./projects.js";
+import { VaultStore, vaultStore } from "./vault/store.js";
 import {
   readSavedGithubBackup,
   restoreSavedGithubBackup,
@@ -13,7 +14,6 @@ import {
   stopVaultBackupObserver,
 } from "./vault-backup-observer.js";
 import { vaultBackupSyncSeams } from "./vault-backup-sync.js";
-import { VaultStore, vaultStore } from "./vault/store.js";
 import { BODY_PATH, readSealedFile, tombFileKey, vfsSeams } from "./vfs.js";
 
 const fixture = useGithubBackupProviderFixture();

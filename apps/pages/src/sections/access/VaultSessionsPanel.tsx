@@ -3,18 +3,6 @@
  * Start issues time-boxed grants; stop revokes them; restart reissues.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { FailureNotice } from "../../components/FailureNotice.js";
-import { FormCommit } from "../../components/FormCommit.js";
-import { IconKey } from "../../components/IconKey.js";
-import {
-  IconArrowRight,
-  IconPlus,
-  IconRefresh,
-  IconX,
-} from "../../components/Icons.js";
-import { StatusMark } from "../../components/StatusMark.js";
-
 import { subscribeLocalIamChanges } from "@opensesame/app-core/lib/local-iam-events.js";
 import {
   SHARE_DURATIONS,
@@ -30,6 +18,17 @@ import {
   stopVaultSession,
 } from "@opensesame/app-core/lib/local-vault-sessions.js";
 import { listDeviceVaults } from "@opensesame/app-core/lib/vaults.js";
+import { useCallback, useEffect, useState } from "react";
+import { FailureNotice } from "../../components/FailureNotice.js";
+import { FormCommit } from "../../components/FormCommit.js";
+import { IconKey } from "../../components/IconKey.js";
+import {
+  IconArrowRight,
+  IconPlus,
+  IconRefresh,
+  IconX,
+} from "../../components/Icons.js";
+import { StatusMark } from "../../components/StatusMark.js";
 import { useVaultStore } from "../../lib/vault/hooks.js";
 import {
   AccessDetail,

@@ -2,11 +2,11 @@ import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "./local-directory.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   changeLocalOrganizationMembership,
   listLocalOrganizations,

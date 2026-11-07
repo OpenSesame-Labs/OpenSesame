@@ -21,12 +21,16 @@ import {
   reconciledProjection,
   stageEnrollmentData,
 } from "./browser-operation-data.js";
+
 export type { EnrollCandidateResult } from "./browser-operation-data.js";
+
 import {
   type ProtectionBrowserHost,
   captureBrowserOperation,
 } from "./browser-operation-check.js";
+
 export type { ProtectionBrowserHost } from "./browser-operation-check.js";
+
 import type { ExternalEnrollment } from "./enroll-external.js";
 import { ProtectionError } from "./errors.js";
 import { newOpaqueId } from "./ids.js";

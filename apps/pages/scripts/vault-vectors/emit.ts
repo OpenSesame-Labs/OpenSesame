@@ -5,11 +5,11 @@ import {
   buildOfflineBackup,
   serializeOfflineBackup,
 } from "@opensesame/app-core/lib/vault/offline-backup.js";
+import { VaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   bodyPortOf,
   installDeviceKeyCarrier,
 } from "@opensesame/app-core/lib/vault/store-device-key.js";
-import { VaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   wrapVaultKeyWithPin,
   wrapVaultKeyWithPrf,

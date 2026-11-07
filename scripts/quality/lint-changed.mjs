@@ -40,7 +40,8 @@ if (files.length === 0) {
   process.exit(0);
 }
 const result = spawnSync(
-  "npm", ["exec", "--", "biome", "check", "--no-errors-on-unmatched", ...files],
+  "npm",
+  ["exec", "--", "biome", "check", "--no-errors-on-unmatched", ...files],
   { stdio: "inherit" },
 );
 process.exit(result.status ?? 1);

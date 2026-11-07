@@ -6,6 +6,8 @@ import type {
   Scope,
 } from "@opensesame/app-core/lib/password-agent/transport.js";
 import { z } from "zod";
+import type { CliAppIntegrationPort } from "./cli-app-integration-client.js";
+import { dispatchParity } from "./parity-commands.js";
 import { createCredentialStore } from "./parity-credentials.js";
 import { readLocalReference } from "./parity-local.js";
 import {
@@ -17,9 +19,6 @@ import {
   writePrivateFile,
 } from "./parity-node.js";
 import { type ParityCommand, option, toggle } from "./parity-parse.js";
-
-import type { CliAppIntegrationPort } from "./cli-app-integration-client.js";
-import { dispatchParity } from "./parity-commands.js";
 
 export interface ParityDependencies {
   requestTransport?: Pick<RequestPorts, "addresses" | "send">;

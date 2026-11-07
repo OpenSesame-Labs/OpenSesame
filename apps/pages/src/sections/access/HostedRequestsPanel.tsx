@@ -14,11 +14,11 @@
  * has none to show.
  */
 
-import { APPROVAL_LABELS } from "@opensesame/app-core/lib/approvals-route.js";
 import {
   type HostedInbox,
   listHostedRequests,
 } from "@opensesame/app-core/lib/approvals.js";
+import { APPROVAL_LABELS } from "@opensesame/app-core/lib/approvals-route.js";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useConnect, useIdentitySession } from "../../bindings/identity.js";

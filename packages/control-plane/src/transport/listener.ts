@@ -30,8 +30,8 @@ import {
   type TransportMaterial,
   loadTransportMaterial,
 } from "./config.js";
-import { stripForwardedEvidence } from "./ingress-evidence-adapter.js";
 import { resolveOriginating } from "./ingress.js";
+import { stripForwardedEvidence } from "./ingress-evidence-adapter.js";
 import {
   type TlsVersion,
   type VerifiedPeer,

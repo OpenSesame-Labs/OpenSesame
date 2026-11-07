@@ -1,4 +1,6 @@
 import { expect, it, vi } from "vitest";
+import type { FakeAcmeOptions } from "./native-acme.test-support.js";
+import { PEM_CHAIN, fakeAcme } from "./native-acme.test-support.js";
 import {
   beginAcmeOrder,
   finishAcmeOrder,
@@ -9,8 +11,6 @@ import {
   generateAcmeAccountJwk,
   openAcme,
 } from "./native-acme-protocol.js";
-import { PEM_CHAIN, fakeAcme } from "./native-acme.test-support.js";
-import type { FakeAcmeOptions } from "./native-acme.test-support.js";
 
 async function opened(options: FakeAcmeOptions) {
   const ca = fakeAcme(options);

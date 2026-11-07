@@ -6,6 +6,7 @@
  * complete code before any protected-root unwrap.
  */
 
+import { ownBytes } from "@opensesame/os-domain";
 import { WrongPasswordError } from "@opensesame/vault-core";
 import type {
   PasskeyProbe,
@@ -42,7 +43,6 @@ import {
   credentialsCarryingArmedPrf,
   evidenceCarriesArmedPrf,
 } from "./unlock-prf-trigger.js";
-import { ownBytes } from "@opensesame/os-domain";
 
 export type PasskeyUnlockResult =
   | "vault_opened"

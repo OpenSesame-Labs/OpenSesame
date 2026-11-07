@@ -4,6 +4,7 @@ import {
   isTypeofObject,
   overlapCast,
 } from "@opensesame/os-domain";
+
 const SECRET_NEEDLES = [
   "password",
   "secret",

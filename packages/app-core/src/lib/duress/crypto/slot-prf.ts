@@ -2,6 +2,7 @@
  * Two-layer PRF-and-code envelope (KEYS-E, AT-020/021/022).
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   DURESS_PIN_PBKDF2_ITERATIONS,
   DuressKdfError,
@@ -21,7 +22,6 @@ import {
   pbkdf2,
   te,
 } from "./slot-bytes.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type PrfAndCodeEnvelope = Readonly<{
   version: 1;

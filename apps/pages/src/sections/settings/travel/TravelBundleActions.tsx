@@ -1,7 +1,7 @@
 import type { DeparturePackage } from "@opensesame/app-core/lib/travel/index.js";
+import { openContextMenu } from "../../../components/context-menu/menu-model.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconDots, IconDownload } from "../../../components/Icons.js";
-import { openContextMenu } from "../../../components/context-menu/menu-model.js";
 import { downloadBlob } from "../../../lib/file-system.js";
 import { saveBundle } from "./TravelViews.js";
 

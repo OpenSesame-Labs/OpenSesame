@@ -1,8 +1,8 @@
 import { dialNowMs } from "./dial-time.js";
 import { drawOrnament } from "./draw-ornament.js";
 import { readInkRgb } from "./ink.js";
-import type { DialLayout, QuietRect, RingSpec } from "./layout-types.js";
 import { computeDialLayout, rectRelative } from "./layout.js";
+import type { DialLayout, QuietRect, RingSpec } from "./layout-types.js";
 import { buildQuietMask } from "./mask.js";
 import { paintDialStaticFrame } from "./paint-dial-static.js";
 import { syncRingCanvasElements } from "./sync-ring-canvases.js";

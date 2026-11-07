@@ -40,6 +40,7 @@ import {
 } from "./types.js";
 
 export type { BitwardenNativeConfiguration } from "./bitwarden-native-contract.js";
+
 type NativeState = {
   account: BitwardenNativeAccount;
   folder: string;

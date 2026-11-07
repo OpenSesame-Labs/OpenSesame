@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { connectPlan } from "@opensesame/app-core/lib/connect-plan.js";
 import { describe, expect, it } from "vitest";
-import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import { verifyWithToken } from "../../../server/connect-verify.mjs";
+import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import { CONFORMANCE_ACCOUNT } from "./provider-emulator.js";
 import { scenario } from "./scenario.js";
 

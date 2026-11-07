@@ -7,6 +7,7 @@ import type {
 } from "@opensesame/vault-core";
 import { parseRootProtectionManifest } from "../vault/protection/parse.js";
 import type { PagesRetiredParsedHeader } from "./context-v2-header.js";
+
 type BoundDomainHeader = VaultHeader & { protection: RootProtectionManifest };
 function domainUnlocks(
   unlocks: NonNullable<PagesRetiredParsedHeader["unlocks"]>,

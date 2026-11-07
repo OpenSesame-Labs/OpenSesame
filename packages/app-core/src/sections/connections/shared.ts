@@ -3,12 +3,12 @@
  * No React, no fetching — everything here is unit-testable in isolation.
  */
 
-import { ConnectionsError } from "../../lib/connections-error.js";
 import type {
   Connection,
   Provider,
   ProviderCategory,
 } from "../../lib/connections.js";
+import { ConnectionsError } from "../../lib/connections-error.js";
 import { isNativeDeviceConnection } from "../../lib/device-connector-view.js";
 import { VERB_CHIP, VERB_LABEL } from "../../lib/identity-graph.js";
 import { nativeLocalCatalogConfiguration } from "../../lib/native-catalog-status.js";

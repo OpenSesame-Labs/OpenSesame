@@ -15,6 +15,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { AiConnectionPanels } from "./AiConnectionPanels.js";
+
 installGcpKey();
 afterEach(cleanup);
 const button = (name: string) => screen.getByRole("button", { name });

@@ -4,9 +4,9 @@ import {
   saveAdapter,
 } from "@opensesame/app-core/browser/oidc/oidc.test-support.js";
 import { advanceAuthGeneration } from "@opensesame/app-core/lib/auth-generation.js";
+import { clearSession } from "@opensesame/app-core/lib/federation.js";
 import { readNativeFederationSession } from "@opensesame/app-core/lib/federation-native-session.js";
 import { readFederationSessionJson } from "@opensesame/app-core/lib/federation-session-store.js";
-import { clearSession } from "@opensesame/app-core/lib/federation.js";
 import { getIdentityConnectionRuntime } from "@opensesame/app-core/lib/identity-connections-store.js";
 import { captureNativeIdentityOwner } from "@opensesame/app-core/lib/identity-native-owner.js";
 import { fixture } from "@opensesame/app-core/lib/origin-file-publication-custody.test-support.js";

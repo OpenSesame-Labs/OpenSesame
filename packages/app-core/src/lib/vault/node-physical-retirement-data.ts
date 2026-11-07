@@ -1,6 +1,7 @@
 /** Authenticated exact physical-ciphertext retirement DATA. A receipt never grants owner, root, Fresh or a held lock. */
 import { z } from "zod";
 import { ORIGIN_FILE_PREFIX } from "../storage-ownership.js";
+
 const record = z.strictObject({
   scope: z.enum(["vault", "origin"]),
   path: z.string().min(1).max(1024),

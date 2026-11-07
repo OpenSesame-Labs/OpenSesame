@@ -8,11 +8,11 @@ import {
   listConnections,
 } from "@opensesame/app-core/lib/connections.js";
 import { forgetDeviceConnectors } from "@opensesame/app-core/lib/device-connectors.js";
+import { resetFeatureUsesForTest } from "@opensesame/app-core/lib/feature-request.js";
 import {
   featureRequestSeams,
   resetCategorySendsForTest,
 } from "@opensesame/app-core/lib/feature-request-send.js";
-import { resetFeatureUsesForTest } from "@opensesame/app-core/lib/feature-request.js";
 import { beginSignIn } from "@opensesame/app-core/lib/federation.js";
 import { forgeForProvider } from "@opensesame/app-core/lib/git-backup-forges.js";
 import { forgetAllLocalGitRemotes } from "@opensesame/app-core/lib/git-remote-local.js";
@@ -25,12 +25,12 @@ import {
   syncTailnetNow,
 } from "@opensesame/app-core/lib/tailnet-sync/observer.js";
 import { resetTailnetConnectorForTest } from "@opensesame/app-core/lib/tailnet-sync/saved-connector.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   resetSavedGitBackupForTest,
   syncVaultBackup,
   vaultBackupSyncSeams,
 } from "@opensesame/app-core/lib/vault-backup-sync.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { PERSONAL_TOMB } from "@opensesame/app-core/lib/vfs.js";
 import { proposeWalletPayment } from "@opensesame/app-core/lib/wallet-agent-broker.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

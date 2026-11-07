@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 export function PromptGlyph({
   glyphHost,
   children,
-}: { glyphHost?: HTMLElement | null; children: ReactNode }) {
+}: {
+  glyphHost?: HTMLElement | null;
+  children: ReactNode;
+}) {
   if (glyphHost === undefined) return children;
   if (glyphHost === null) return null;
   return createPortal(children, glyphHost);

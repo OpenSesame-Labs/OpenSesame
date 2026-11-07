@@ -63,13 +63,13 @@ export function evaluateRestoreBoundary(
   return { restore, importGate: null };
 }
 
-export {
-  decideRestoreAttempt,
-  retireDeviceBinding,
-  clearDeviceRetirement,
-} from "../removal/device-retirement.js";
 export type {
   DeviceRetirementRecord,
   RestoreAttempt,
   RestoreDecision,
+} from "../removal/device-retirement.js";
+export {
+  clearDeviceRetirement,
+  decideRestoreAttempt,
+  retireDeviceBinding,
 } from "../removal/device-retirement.js";

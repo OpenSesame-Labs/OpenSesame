@@ -17,11 +17,11 @@ import {
   redeemLocalApplicationCode,
   revokeLocalApplicationGrant,
 } from "./local-authorization.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "./local-directory.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import { bindLocalIamLockResets } from "./local-iam-lock-resets.js";
 import { enrollLocalPasskey } from "./local-passkeys.js";
 import { consumedApplicationRequest } from "./local-request.fixture.js";

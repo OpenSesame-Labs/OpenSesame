@@ -65,14 +65,13 @@ import {
   lifecycleMap,
 } from "./store-types.js";
 
+export { storeSeams } from "./store-seams.js";
 export type {
   BootInput,
   CommitOutcome,
   CompositionSnapshot,
   EmergencyDisableOutcome,
 } from "./store-types.js";
-
-export { storeSeams } from "./store-seams.js";
 
 const MAX_DIAGNOSTICS = 32;
 

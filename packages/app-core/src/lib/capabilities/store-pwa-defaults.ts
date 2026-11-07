@@ -8,9 +8,9 @@ import {
   type InstallationCapabilitySelection,
   buildConsentReceipt,
 } from "@opensesame/capability-composition";
+import type { CompositionStore } from "./store.js";
 import { storeSeams } from "./store-seams.js";
 import type { CompositionSnapshot } from "./store-types.js";
-import type { CompositionStore } from "./store.js";
 
 /** Installation never received the personal-local Access + IAM defaults. */
 export function needsPersonalLocalPwaDefaults(

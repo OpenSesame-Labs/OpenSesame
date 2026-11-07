@@ -148,11 +148,10 @@ export async function startBoatClaim(
   const immediate = field(registration, "claim");
   const start = immediate ? claimFrom(claimToken, immediate) : null;
   if (start) return start;
-  const claimed = await postJson(
-    fetchImpl,
-    "/api/boat/agent/identity/claim",
-    { claim_token: claimToken, email: address },
-  );
+  const claimed = await postJson(fetchImpl, "/api/boat/agent/identity/claim", {
+    claim_token: claimToken,
+    email: address,
+  });
   const token = stringField(claimed, "claim_token") ?? claimToken;
   const restarted = claimFrom(token, claimed);
   if (!restarted) throw new Error("Boat did not start the claim ceremony.");
@@ -278,7 +277,9 @@ export async function exchangeBoatAssertion(
   if (!response.ok || !accessToken)
     throw new Error("Boat refused the saved identity. Claim Boat again.");
   const rotated = stringField(parsed, "identity_assertion");
-  return rotated ? { accessToken, identityAssertion: rotated } : { accessToken };
+  return rotated
+    ? { accessToken, identityAssertion: rotated }
+    : { accessToken };
 }
 
 /** The sealed identity assertion for one saved Boat connection. */
@@ -318,9 +319,7 @@ export async function refreshBoatAccount(
 }
 
 /** The saved Boat connection on this device, when the ceremony finished. */
-export function savedBoatConnection(
-  connectionId?: string,
-): Connection | null {
+export function savedBoatConnection(connectionId?: string): Connection | null {
   const rows = listDeviceConnections().filter(
     (row) => row.providerId === BOAT_PROVIDER_ID && row.status !== "revoked",
   );

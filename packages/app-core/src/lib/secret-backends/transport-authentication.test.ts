@@ -189,6 +189,7 @@ describe("late authentication cleanup", () => {
     expect(disconnect).toHaveBeenCalledTimes(2);
   });
 });
+
 import { once } from "node:events";
 import { createServer } from "node:http";
 

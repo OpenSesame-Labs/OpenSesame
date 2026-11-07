@@ -2,6 +2,7 @@
 import { afterEach, expect, it } from "vitest";
 import { atRestReady } from "./at-rest/key.js";
 import { openOriginFile } from "./at-rest/origin-files.js";
+import { comparePublishOriginFile } from "./origin-file-publication.js";
 import {
   fixture,
   name,
@@ -9,7 +10,6 @@ import {
 } from "./origin-file-publication-custody.test-support.js";
 import { captureOriginalOriginFileData } from "./origin-file-publication-fixed-receiver-data.js";
 import { readOriginRecord } from "./origin-file-publication-read.js";
-import { comparePublishOriginFile } from "./origin-file-publication.js";
 
 afterEach(restoreOriginPublicationFixture);
 

@@ -17,6 +17,7 @@ const state = vi.hoisted(() => {
 });
 
 import { webauthnSeams } from "@opensesame/app-core/lib/webauthn.js";
+
 const originalWebauthnSeams = { ...webauthnSeams };
 Object.assign(webauthnSeams, {
   WEBAUTHN_FALLBACK: "This browser cannot do passkeys here.",

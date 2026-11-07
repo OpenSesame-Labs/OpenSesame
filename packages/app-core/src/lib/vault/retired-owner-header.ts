@@ -12,6 +12,7 @@ import {
   manifestWithoutAuth,
   sealAuthenticatedManifest,
 } from "./protection/manifest-auth.js";
+
 async function bindChangedHeader(header: VaultHeader, root: Uint8Array) {
   const manifest = header.protection;
   if (!manifest) throw new Error("Original human root manifest is required.");

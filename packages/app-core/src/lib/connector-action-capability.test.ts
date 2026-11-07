@@ -8,6 +8,7 @@ import {
 import { getBundledProviders } from "./embedded-catalog.js";
 import type { NativeConnectorView } from "./native-connector-view.js";
 import { mergeVercelCatalog } from "./vercel-connect-catalog.js";
+
 const NOW = 1000;
 const provider = { id: "openrouter" };
 const connection = {

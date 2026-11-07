@@ -1,4 +1,8 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
+import {
+  type BitwardenNativeConfiguration,
+  createBitwardenNativeBackend,
+} from "./bitwarden-native.js";
 import type { BitwardenKdfResourceLimits } from "./bitwarden-native-kdf.js";
 import {
   NativeWorkerReply,
@@ -6,10 +10,6 @@ import {
   type NativeWorkerSettings,
   NativeWorkerValue,
 } from "./bitwarden-native-worker-protocol.js";
-import {
-  type BitwardenNativeConfiguration,
-  createBitwardenNativeBackend,
-} from "./bitwarden-native.js";
 import {
   type SecretBackendTransport,
   guardSecretBackendTransport,

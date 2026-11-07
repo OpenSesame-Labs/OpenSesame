@@ -4,14 +4,14 @@ import { expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
 import { kvSeams } from "./kv.js";
 import {
-  configureNativeApiConnector,
-  verifyNativeApiConnector,
-} from "./native-api-connectors.js";
-import {
   installNativeApiTests,
   nativeAnswers,
   nativeApiDraft,
 } from "./native-api.test-support.js";
+import {
+  configureNativeApiConnector,
+  verifyNativeApiConnector,
+} from "./native-api-connectors.js";
 import { readNativeConnector } from "./native-connector-store.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 import type { NativeConnectorView } from "./native-connector-view.js";

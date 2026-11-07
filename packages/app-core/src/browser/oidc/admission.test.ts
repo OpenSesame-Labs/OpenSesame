@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 import { forgetAtRestKeyForTest } from "../../lib/at-rest/key.js";
 import { advanceAuthGeneration } from "../../lib/auth-generation.js";
 import { SETTINGS_PERSIST_KEY } from "../../lib/capability-connector-scope.js";
+import { loadSession, saveSession } from "../../lib/federation.js";
 import { configuredIdentitySessionTrusted } from "../../lib/federation-configured-token.js";
 import { readNativeFederationSession } from "../../lib/federation-native-session.js";
 import {
@@ -10,7 +11,6 @@ import {
   restoreAuthenticatedSession,
 } from "../../lib/federation-restoration.js";
 import { readFederationSessionJson } from "../../lib/federation-session-store.js";
-import { loadSession, saveSession } from "../../lib/federation.js";
 import {
   getIdentityConnectionRuntime,
   hydrateIdentityConnections,

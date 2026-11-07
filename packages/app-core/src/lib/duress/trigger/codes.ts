@@ -9,7 +9,7 @@ import {
   assertTriggerCodeLength,
 } from "../crypto/slots.js";
 
-export { assertTriggerCodeLength, DURESS_PIN_MAX, DURESS_PIN_MIN };
+export { DURESS_PIN_MAX, DURESS_PIN_MIN, assertTriggerCodeLength };
 
 /** SHA-256 hex of the exact code string (leading zeros preserved). */
 export async function fingerprintCode(code: string): Promise<string> {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createBridgeClient } from "./connector-bridge-client.js";
 import { fakeBridge } from "./connector-bridge.test-support.js";
+import { createBridgeClient } from "./connector-bridge-client.js";
 import { NativeApiError } from "./native-api-http.js";
 import {
   askBridgeFor,

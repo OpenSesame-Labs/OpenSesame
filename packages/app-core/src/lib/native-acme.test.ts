@@ -1,10 +1,10 @@
 import { expect, it } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import { connected, draft } from "./native-acme-connect.test-support.js";
 import { acmeKeyFlows, isNativeAcmeProvider } from "./native-acme.js";
 import { BASE, CA_WORDS, fakeAcme } from "./native-acme.test-support.js";
-import type { NativeApiConfigureInput } from "./native-api-connectors.js";
+import { connected, draft } from "./native-acme-connect.test-support.js";
 import { installNativeApiTests } from "./native-api.test-support.js";
+import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import {
   loadNativeConnectorRecord,
   readNativeConnector,

@@ -12,13 +12,13 @@
 
 import { lockManager, maybePage } from "../../../ports.js";
 import { kvFlush, kvSetDurable } from "../../kv.js";
-import type { BootRecord } from "../../projects-state.js";
 import {
   PERSONAL_PROJECT_ID,
   PROJECTS_KEY,
   listProjects,
   rehydrateProjects,
 } from "../../projects.js";
+import type { BootRecord } from "../../projects-state.js";
 import { originTravelStorage } from "../../travel/storage.js";
 import { vaultStore } from "../../vault/store.js";
 import { lockTomb } from "../../vfs.js";

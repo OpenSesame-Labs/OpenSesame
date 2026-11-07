@@ -14,6 +14,7 @@ import {
 } from "./discovery.js";
 
 export type { ConfiguredOidc } from "../../lib/identity-oidc-config.js";
+
 /** Retain receiver-bound authority; replacement or reentry permanently retires it. */
 function captureOidcAuthority(
   source: NativeProviderTransport,

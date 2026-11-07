@@ -43,10 +43,15 @@ import { loadSettings } from "./settings.js";
 import type { OriginalRemoteCodeHandle } from "./vault/captured-remote-code-data.js";
 import type { OriginalCommandDrainRecorder } from "./vault/original-command-retirement-data.js";
 import { captureOriginalIdentitySessionCodeData } from "./vault/original-identity-session-code-data.js";
-export { HostSessionError, IdentityError };
-export type { IdentitySession, Principal };
 
-export { isDeviceIdentityMode, isRemoteIdentityConfigured, remoteIdentityApi };
+export type { IdentitySession, Principal };
+export {
+  HostSessionError,
+  IdentityError,
+  isDeviceIdentityMode,
+  isRemoteIdentityConfigured,
+  remoteIdentityApi,
+};
 
 const IDENTITY_FETCH_MS = 8000;
 const PROBE_MS = 4000;

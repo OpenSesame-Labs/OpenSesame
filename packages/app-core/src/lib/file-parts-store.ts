@@ -3,10 +3,10 @@
  * the directory name.
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import type { ObjectStore } from "@opensesame/vault-core";
 import { originFiles } from "../ports.js";
 import { FILE_PARTS_DIRECTORY } from "./storage-ownership.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 function partName(key: string): string {
   if (!/^[A-Za-z0-9_-]{16}$/.test(key)) throw new Error("file part is missing");

@@ -10,8 +10,8 @@ import { setGuestsAllowed } from "@opensesame/app-core/lib/guest-access.js";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnlockScreen } from "./UnlockScreen.js";
-import { resetUnlockHarness, v } from "./unlock-screen-harness.js";
 import { SignInPanel } from "./unlock/SignInPanel.js";
+import { resetUnlockHarness, v } from "./unlock-screen-harness.js";
 
 beforeEach(resetUnlockHarness);
 afterEach(async () => {

@@ -94,7 +94,8 @@ if (!(noBuild && existsSync(distDir))) {
   console.log("==> mtls-browser: building apps/pages (VITE_BASE=/OpenSesame/)");
   try {
     execFileSync(
-      "npm", ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
+      "npm",
+      ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
       {
         cwd: root,
         env,

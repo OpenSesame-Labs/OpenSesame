@@ -8,6 +8,7 @@ import {
   OptionsSchema,
   type SelfHostedConnectorOptions,
 } from "./self-hosted-connectors-schema.js";
+
 function webhookProblems(
   state: DraftState,
   options: SelfHostedConnectorOptions,

@@ -13,6 +13,7 @@ import {
   unwrapVaultKeyWithPin,
 } from "../vault/unlock-factor-crypto.js";
 import { verifyHumanAuthenticationData } from "./human-authentication-data.js";
+
 const collisionBody = z.union([
   z.strictObject({ ivB64: z.string(), ctB64: z.string() }),
   z.strictObject({

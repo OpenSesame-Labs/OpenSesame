@@ -9,6 +9,7 @@ import { afterEach, expect, it } from "vitest";
 import { CatalogPanel } from "./CatalogPanel.js";
 import { curatedCatalogProviders } from "./catalog-selection.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
+
 declareConnectionsTutorial();
 afterEach(cleanup);
 it("counts the exact rendered merged-catalog tiles, including refused and unavailable entries", () => {

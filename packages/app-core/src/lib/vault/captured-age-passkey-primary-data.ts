@@ -17,6 +17,7 @@ import {
   UNLOCK_AGE_PASSKEY_MISS,
   isUncountedProtectorFailure,
 } from "./protection/unlock-protector-open.js";
+
 const actualAge = loadAge;
 const actualCeremony = captureAgePasskeyCeremonyData;
 const actualPayload = parseAgeWebauthnCapsuleData;

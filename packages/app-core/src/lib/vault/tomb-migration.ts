@@ -48,7 +48,6 @@ import {
   rehydrateProjects,
   scopedKey,
 } from "../projects.js";
-import { enqueueTombWrite } from "../vfs-shared-write.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -64,6 +63,7 @@ import {
   writeFile,
   writePlaintextFile,
 } from "../vfs.js";
+import { enqueueTombWrite } from "../vfs-shared-write.js";
 import { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 import { retireUnusedConnectionConfigs } from "./retired-config.js";
 

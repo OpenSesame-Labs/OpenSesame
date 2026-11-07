@@ -116,9 +116,7 @@ describe("anonymous Vercel relay deployment", () => {
     expect(body.env.RELAY_TOKEN).toBe(deployed.relayToken);
     await deployed.close();
     expect(
-      fake.calls.some(
-        (c) => c.startsWith("DELETE ") && c.includes("dpl_test"),
-      ),
+      fake.calls.some((c) => c.startsWith("DELETE ") && c.includes("dpl_test")),
     ).toBe(true);
   });
 

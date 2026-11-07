@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { kvGet } from "../kv.js";
 import * as trustedUnlock from "../trusted-unlock.js";
 import { vfsFlush } from "../vfs.js";
+import { ATTEMPTS_KEY, WrongPasswordError } from "./store.js";
 import {
   NEXT_PASSWORD,
   PASSWORD,
@@ -11,7 +12,6 @@ import {
   unlockedStore,
 } from "./store-ops.fixture.js";
 import { enrollTotp } from "./store-totp.fixture.js";
-import { ATTEMPTS_KEY, WrongPasswordError } from "./store.js";
 import * as unlockMethods from "./unlock-methods.js";
 
 installStoreOperationsFixture();

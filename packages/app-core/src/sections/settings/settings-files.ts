@@ -38,8 +38,6 @@ import {
   lineAt,
 } from "./settings-suggest.js";
 
-export type { ContextsDoc, MacroDoc } from "./settings-keymap-yaml.js";
-
 export {
   SETTINGS_CONFIG_FILE,
   isSettingsConfigSearch,
@@ -47,6 +45,7 @@ export {
   settingsFileFromSearch,
   settingsFileRoute,
 } from "../../lib/crumbs.js";
+export type { ContextsDoc, MacroDoc } from "./settings-keymap-yaml.js";
 
 export type FieldKind =
   | "string"

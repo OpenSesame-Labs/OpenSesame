@@ -3,6 +3,7 @@ import { type JsonObject, overlapCast } from "@opensesame/os-domain";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+
 async function app() {
   return createControlPlane({
     config: {

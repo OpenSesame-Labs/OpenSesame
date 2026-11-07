@@ -25,6 +25,7 @@ import {
   onePasswordPackageRoot,
   onePasswordWasmAssets,
 } from "./onepassword-wasm-assets.mjs";
+
 const packageRoot = onePasswordPackageRoot();
 const original = readFileSync(join(packageRoot, "nodejs/core.js"), "utf8");
 const temporary = [];

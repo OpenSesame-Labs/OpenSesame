@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { getEventListeners } from "node:events";
 import test from "node:test";
-import { harness, head } from "./native-http-stream.test-support.mjs";
 import { bindNativeHTTP } from "./native-http.mjs";
+import { harness, head } from "./native-http-stream.test-support.mjs";
 
 const bounds = { timeout: 2000 };
 const STOPPED = "Native HTTPS authorization ended.";

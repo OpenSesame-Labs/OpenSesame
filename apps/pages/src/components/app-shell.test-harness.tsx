@@ -9,8 +9,7 @@
  * the app.
  */
 
-import { cleanup, render } from "@testing-library/react";
-import { screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { vi } from "vitest";
@@ -30,6 +29,7 @@ const lock = vi.fn();
 export const vault = { items, folders, lock };
 
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 Object.assign(vaultHooksSeams, {
   useVault: () => ({
     items: vault.items,
@@ -46,29 +46,33 @@ Object.assign(vaultHooksSeams, {
 });
 
 import { notificationsBarSeams } from "./NotificationsBar.js";
+
 Object.assign(notificationsBarSeams, {
   NotificationsBar: () => <span data-testid="notifications-bar" />,
 });
+
 import { projectSwitcherSeams } from "./ProjectSwitcher.js";
+
 Object.assign(projectSwitcherSeams, {
   ProjectSwitcher: () => <span data-testid="project-switcher" />,
 });
 
 import { accountSwitcherSeams } from "./AccountSwitcher.js";
+
 Object.assign(accountSwitcherSeams, {
   AccountSwitcher: () => <span data-testid="account-switcher" />,
 });
 
 import { crumbsSeams } from "./Crumbs.js";
+
 Object.assign(crumbsSeams, {
   Crumbs: () => <nav data-testid="crumbs" aria-label="Breadcrumb" />,
 });
 
+import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 import { contributeIdentityViews } from "../sections/identity/identity-views.js";
 import { AppShell } from "./AppShell.js";
 import { registerLegacyShell } from "./legacy-sections.test-support.js";
-
-import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 export const ITEMS = [
   {
     kind: "account",

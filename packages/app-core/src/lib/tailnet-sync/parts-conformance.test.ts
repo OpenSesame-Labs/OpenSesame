@@ -5,6 +5,8 @@
  * the recorded answer as the protocol means it. The daemon replays the same
  * exchanges (`crates/daemon/src/vault_drive_conformance_tests.rs`).
  */
+
+import { asBufferSource } from "@opensesame/os-domain";
 import { FILE_PART_BYTES } from "@opensesame/vault-core";
 import { afterEach, describe, expect, it } from "vitest";
 import spec from "../../../../../spec/conformance/vault-drive-protocol.json" with {
@@ -12,7 +14,6 @@ import spec from "../../../../../spec/conformance/vault-drive-protocol.json" wit
 };
 import { DriveError, driveClientSeams } from "./client.js";
 import { listDriveParts, readDrivePart, writeDrivePart } from "./parts.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 const original = driveClientSeams.fetch;
 const pairing = {
@@ -88,7 +89,9 @@ describe("the parts client, exchange by exchange", () => {
             ? JSON.stringify(response.body)
             : null;
         return new Response(
-          body === null || typeof body === "string" ? body : asBufferSource(body),
+          body === null || typeof body === "string"
+            ? body
+            : asBufferSource(body),
           { status: response.status },
         );
       };

@@ -8,6 +8,7 @@ import type { JsonObject } from "../json-boundary.js";
 import { asBufferSource } from "@opensesame/os-domain";
 import { PEER_BOUNDS } from "./bounds.js";
 import { assertSafePeerOrigin } from "./origin.js";
+
 export { assertSafePeerOrigin };
 
 export type PeerEnvelope = Readonly<{

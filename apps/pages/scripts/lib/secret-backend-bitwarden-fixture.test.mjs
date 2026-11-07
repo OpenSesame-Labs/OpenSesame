@@ -1,8 +1,8 @@
 /** Real provider sockets and independent encryption oracle, not a browser/Worker proof. */
 import assert from "node:assert/strict";
 import { afterEach, test } from "vitest";
-import { NATIVE_LIMITS } from "../../../../packages/app-core/src/lib/secret-backends/bitwarden-native-http.test-support.ts";
 import { createBitwardenNativeBackend } from "../../../../packages/app-core/src/lib/secret-backends/bitwarden-native.ts";
+import { NATIVE_LIMITS } from "../../../../packages/app-core/src/lib/secret-backends/bitwarden-native-http.test-support.ts";
 import { secretBackendDraft } from "../../../../packages/app-core/src/lib/secret-backends/presets.ts";
 import { validateSecretBackendDraft } from "../../../../packages/app-core/src/lib/secret-backends/schema.ts";
 import { startBitwardenFixture } from "./secret-backend-bitwarden-fixture.mjs";

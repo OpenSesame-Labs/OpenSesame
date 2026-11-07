@@ -33,8 +33,12 @@ import { readWalletClaims } from "./evidence.mjs";
  */
 export function runShippedAdapterLive(run, input) {
   const live = run(
-    "npm", [
-      "exec", "-w", "@opensesame/wallet-x402", "--",
+    "npm",
+    [
+      "exec",
+      "-w",
+      "@opensesame/wallet-x402",
+      "--",
       "vitest",
       "run",
       "src/exact-settle.live.test.ts",
@@ -72,7 +76,8 @@ export function runShippedAdapterLive(run, input) {
 /** @param {RunFn} run @param {string} root */
 export function runMandates(run, root) {
   const mandates = run(
-    "npm", ["run", "test", "-w", "@opensesame/wallet-mandates"],
+    "npm",
+    ["run", "test", "-w", "@opensesame/wallet-mandates"],
     root,
   );
   const ok = mandates.exitCode === 0;

@@ -9,12 +9,12 @@ import {
   sealWithPin,
   unlockWithPin,
 } from "./lib/pages-journey.mjs";
-import { startSecretBackendAppServer } from "./lib/secret-backend-browser-server.mjs";
 import {
   enableBackendConnections,
   newBackendPage,
   visitBackendRoute,
 } from "./lib/secret-backend-browser.mjs";
+import { startSecretBackendAppServer } from "./lib/secret-backend-browser-server.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import { createTailnetConnectFixture } from "./lib/tailnet-connect-fixture.mjs";
 import { exerciseTailscaleBrowserNode } from "./lib/tailscale-browser-node-browser.mjs";

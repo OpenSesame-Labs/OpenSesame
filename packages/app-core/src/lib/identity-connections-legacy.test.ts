@@ -3,8 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import type { PagePort } from "../ports.js";
 import { createTestHost } from "../test-host.js";
-import { readFederationSessionJson } from "./federation-session-store.js";
 import { completeSignIn, loadSession, saveSession } from "./federation.js";
+import { readFederationSessionJson } from "./federation-session-store.js";
 import {
   beginIdentityConnectionSignIn,
   listIdentityConnections,

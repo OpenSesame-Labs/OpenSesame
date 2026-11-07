@@ -8,11 +8,11 @@ import type {
   CapabilityCatalog,
   CapabilityId,
   ConsentReceipt,
+  ContributionKind,
   EffectivePlan,
   InstallationCapabilitySelection,
   InstanceCapabilityPolicy,
 } from "@opensesame/capability-composition";
-import type { ContributionKind } from "@opensesame/capability-composition";
 import {
   type BoundaryValue,
   isJsonObject,

@@ -42,8 +42,8 @@ import {
 import { abortPromise, aborted, isOnlineDefault } from "./cancellation.js";
 import { requestRemoteConsent } from "./consent.js";
 import { type AgUiEndpoint, currentAgUiEndpoint } from "./endpoint.js";
-import { buildAgUiOutboundBody } from "./outbound.js";
 import type { AgUiOutboundBody } from "./outbound.js";
+import { buildAgUiOutboundBody } from "./outbound.js";
 import {
   type AgUiTransport,
   type AgUiTransportOptions,

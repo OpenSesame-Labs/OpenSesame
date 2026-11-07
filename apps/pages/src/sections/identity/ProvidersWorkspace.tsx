@@ -16,8 +16,8 @@ import { IconPlus } from "../../components/Icons.js";
 import { RecordWorkspace } from "../../components/RecordWorkspace.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { IdentityFact } from "./IdentityRecordFields.js";
-import { ProviderActions, useProviderCatalog } from "./ProvidersPanel.js";
 import { identityRecordId } from "./identity-record-selection.js";
+import { ProviderActions, useProviderCatalog } from "./ProvidersPanel.js";
 
 export function ProvidersWorkspace({
   online,
@@ -92,6 +92,7 @@ export function ProvidersWorkspace({
 }
 
 import { useState } from "react";
+
 function ProviderDetail({
   record,
   online,

@@ -7,6 +7,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { build } from "vite";
 import { test } from "vitest";
+
 function find(root, predicate) {
   if (predicate(root)) return root;
   return ts.forEachChild(root, (node) => find(node, predicate));

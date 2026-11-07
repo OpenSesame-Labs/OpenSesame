@@ -69,7 +69,10 @@ function PatternTest({ uri }: { uri: LoginUri }) {
 export function AccountWebsites({
   uris,
   onChange,
-}: { uris: LoginUri[]; onChange: (uris: LoginUri[]) => void }) {
+}: {
+  uris: LoginUri[];
+  onChange: (uris: LoginUri[]) => void;
+}) {
   function update(id: string, patch: Partial<LoginUri>) {
     onChange(uris.map((uri) => (uri.id === id ? { ...uri, ...patch } : uri)));
   }

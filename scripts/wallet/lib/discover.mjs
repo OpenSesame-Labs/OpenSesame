@@ -98,7 +98,12 @@ function discoverOsDomainWallet(root) {
     packageDir,
     present: true,
     matchedPaths: unique([...sourceHits, ...testHits]),
-    testCommand: ["npm", "exec", "-w", "@opensesame/os-domain", "--",
+    testCommand: [
+      "npm",
+      "exec",
+      "-w",
+      "@opensesame/os-domain",
+      "--",
       ...filterArgs,
     ],
     missingReason: null,

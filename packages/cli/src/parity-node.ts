@@ -1,7 +1,7 @@
 /** Native effects for the shared 1Password workflow core. */
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { constants, accessSync, realpathSync, statSync } from "node:fs";
+import { accessSync, constants, realpathSync, statSync } from "node:fs";
 import { chmod, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import {

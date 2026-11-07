@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
-import { INITIAL_SNAPSHOT } from "@opensesame/app-core/lib/capabilities/store-types.js";
+
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { INITIAL_SNAPSHOT } from "@opensesame/app-core/lib/capabilities/store-types.js";
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { screen } from "@testing-library/react";

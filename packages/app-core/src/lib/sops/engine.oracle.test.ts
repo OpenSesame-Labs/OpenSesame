@@ -15,7 +15,6 @@ import {
   runSops,
 } from "../../../scripts/sops-oracle/oracle.mjs";
 import { SopsError } from "./errors.js";
-import { NEVER, TestSession, newIdentity } from "./test-support.js";
 import {
   type FixtureCase,
   looseDocuments,
@@ -23,6 +22,7 @@ import {
   readIdentities,
   readManifest,
 } from "./test/fixtures.js";
+import { NEVER, TestSession, newIdentity } from "./test-support.js";
 
 const manifest = readManifest();
 const ids = readIdentities();

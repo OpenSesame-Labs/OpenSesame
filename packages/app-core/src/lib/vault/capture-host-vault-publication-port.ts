@@ -4,6 +4,7 @@ import type { AuthenticationProjectionPlan } from "../secret-fs/authentication-p
 import { readAuthenticationProjectionTransition } from "../secret-fs/authentication-projection-transition.js";
 import type { PhysicalAuthenticationSnapshot } from "./physical-authentication-port.js";
 import type { PhysicalVaultPublicationReader } from "./physical-vault-publication-port.js";
+
 const DESCRIPTOR_KEYS: readonly (keyof PropertyDescriptor)[] = [
   "value",
   "get",

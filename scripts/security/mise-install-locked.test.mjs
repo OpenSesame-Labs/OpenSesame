@@ -61,45 +61,41 @@ test("cargo: installs pin Rust 1.97.1 ahead of the image rustup default", () => 
   }
 });
 
-test(
-  "mise env keeps Rust 1.97.1 shims ahead of /usr/local/cargo",
-  {
-    skip: miseOnPath() ? false : "mise is not installed",
-  },
-  () => {
-    const envRun = spawnSync("mise", ["env", "--json"], {
-      cwd: root,
-      encoding: "utf8",
-    });
-    assert.equal(envRun.status, 0, envRun.stderr);
-    const env = JSON.parse(envRun.stdout);
-    assert.equal(env.RUSTUP_TOOLCHAIN, "1.97.1");
+test("mise env keeps Rust 1.97.1 shims ahead of /usr/local/cargo", {
+  skip: miseOnPath() ? false : "mise is not installed",
+}, () => {
+  const envRun = spawnSync("mise", ["env", "--json"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.equal(envRun.status, 0, envRun.stderr);
+  const env = JSON.parse(envRun.stdout);
+  assert.equal(env.RUSTUP_TOOLCHAIN, "1.97.1");
 
-    const path = asString(env.PATH, "PATH").split(":");
-    const shimIndex = path.findIndex((entry) => entry.endsWith("/shims"));
-    const cargoIndex = path.indexOf("/usr/local/cargo/bin");
-    assert.ok(shimIndex >= 0, `shims missing from PATH: ${path.join("\n")}`);
-    if (cargoIndex >= 0) {
-      assert.ok(
-        shimIndex < cargoIndex,
-        `shims must precede /usr/local/cargo/bin:\n${path.join("\n")}`,
-      );
-    }
-
-    // cargo install uses a cwd outside the repo, so rust-toolchain.toml cannot win.
-    const version = spawnSync(
-      "mise",
-      [
-        "exec",
-        "--",
-        "bash",
-        "-c",
-        'cd "$(mktemp -d)" && rustc --version && cargo --version',
-      ],
-      { cwd: root, encoding: "utf8" },
+  const path = asString(env.PATH, "PATH").split(":");
+  const shimIndex = path.findIndex((entry) => entry.endsWith("/shims"));
+  const cargoIndex = path.indexOf("/usr/local/cargo/bin");
+  assert.ok(shimIndex >= 0, `shims missing from PATH: ${path.join("\n")}`);
+  if (cargoIndex >= 0) {
+    assert.ok(
+      shimIndex < cargoIndex,
+      `shims must precede /usr/local/cargo/bin:\n${path.join("\n")}`,
     );
-    assert.equal(version.status, 0, version.stderr);
-    assert.match(version.stdout, /rustc 1\.97\.1/);
-    assert.match(version.stdout, /cargo 1\.97\.1/);
-  },
-);
+  }
+
+  // cargo install uses a cwd outside the repo, so rust-toolchain.toml cannot win.
+  const version = spawnSync(
+    "mise",
+    [
+      "exec",
+      "--",
+      "bash",
+      "-c",
+      'cd "$(mktemp -d)" && rustc --version && cargo --version',
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(version.status, 0, version.stderr);
+  assert.match(version.stdout, /rustc 1\.97\.1/);
+  assert.match(version.stdout, /cargo 1\.97\.1/);
+});

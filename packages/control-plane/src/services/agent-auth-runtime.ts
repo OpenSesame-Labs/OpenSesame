@@ -1,6 +1,6 @@
 import type { ServiceAssertionKey } from "@opensesame/agent-protocols";
-import { exportJWK, generateKeyPair, importJWK } from "jose";
 import type { JWK } from "jose";
+import { exportJWK, generateKeyPair, importJWK } from "jose";
 
 export interface AgentAuthRuntime {
   key: ServiceAssertionKey;

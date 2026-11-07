@@ -1,11 +1,11 @@
 import { expect, it } from "vitest";
+import { expectedTxt, jwkThumbprint } from "./native-acme.test-support.js";
 import {
   acmeAccountKey,
   acmeDnsTxtValue,
   acmeOwn,
   generateAcmeAccountJwk,
 } from "./native-acme-protocol.js";
-import { expectedTxt, jwkThumbprint } from "./native-acme.test-support.js";
 
 it("makes a P-256 key whose thumbprint is the RFC 7638 one", async () => {
   const text = await generateAcmeAccountJwk();

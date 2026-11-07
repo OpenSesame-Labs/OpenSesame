@@ -3,12 +3,12 @@ import { afterEach, expect, it } from "vitest";
 import { host } from "../host.js";
 import { atRestReady } from "./at-rest/key.js";
 import { openOriginFile, sealOriginFile } from "./at-rest/origin-files.js";
+import { comparePublishOriginFile } from "./origin-file-publication.js";
 import {
   fixture,
   name,
   restoreOriginPublicationFixture,
 } from "./origin-file-publication-custody.test-support.js";
-import { comparePublishOriginFile } from "./origin-file-publication.js";
 
 afterEach(restoreOriginPublicationFixture);
 const attacks = [

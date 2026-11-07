@@ -16,6 +16,7 @@ import {
 } from "./protocol.js";
 import { readAiTextStream } from "./stream.js";
 import type { AiConnectionDraft } from "./types.js";
+
 afterEach(() => vi.restoreAllMocks());
 function draft(): BedrockAiDraft {
   return {

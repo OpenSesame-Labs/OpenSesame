@@ -34,11 +34,11 @@ export const WORDMARK = "open-sesame";
 export const WORDMARK_CIPHER = "0123456789ABCDEF";
 
 export {
-  cipherReel,
   DISPLAY_WORD as WORDMARK_DISPLAY,
   FRAME_MS as WORDMARK_FRAME_MS,
-  MIN_STEPS as WORDMARK_MIN_STEPS,
   MAX_STEPS as WORDMARK_MAX_STEPS,
+  MIN_STEPS as WORDMARK_MIN_STEPS,
+  cipherReel,
 };
 
 export type WordmarkHandle = {

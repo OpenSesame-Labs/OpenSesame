@@ -1,8 +1,8 @@
 import type { IdentitySession } from "../identity-session-types.js";
 import { loadSettings } from "../settings.js";
 import {
-  captureRemoteIdentityCodeData,
   type OriginalRemoteCodeHandle,
+  captureRemoteIdentityCodeData,
 } from "./captured-remote-code-data.js";
 import type { OriginalCommandDrainRecorder } from "./original-command-retirement-data.js";
 /** Original bearer transport DATA only; the private Store must prove primary/all configured factors. */

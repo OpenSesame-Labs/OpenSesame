@@ -152,10 +152,7 @@ function waitForCode(
       else reject(new Error("Provider authorization was cancelled or expired"));
     };
     const abort = () => finish();
-    const deadline = setTimeout(
-      abort,
-      remainingLifetime(request, 10 * 60_000),
-    );
+    const deadline = setTimeout(abort, remainingLifetime(request, 10 * 60_000));
     session.cancelWait = abort;
     request.signal?.addEventListener("abort", abort, { once: true });
     stopListening = listen((response) => {
@@ -263,10 +260,7 @@ function showRedirectConsent(
       lifetime.abort();
       close();
     };
-    const deadline = setTimeout(
-      abort,
-      remainingLifetime(request, 30 * 60_000),
-    );
+    const deadline = setTimeout(abort, remainingLifetime(request, 30 * 60_000));
     session.cancelWait = abort;
     session.popup.opener = null;
     session.isolated = true;

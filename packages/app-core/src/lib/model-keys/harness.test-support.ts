@@ -19,6 +19,14 @@ import {
 } from "./harness.helpers.test-support.js";
 import type { BrokerPolicy } from "./types.js";
 
+export type {
+  Bindable,
+  CallRequest,
+  ExchangeOptions,
+  Gate,
+  ProofOptions,
+  Signer,
+} from "./harness.helpers.test-support.js";
 export {
   ANTHROPIC,
   ENDPOINT,
@@ -29,14 +37,6 @@ export {
   baseDraft,
   makeProof,
   newSigner,
-} from "./harness.helpers.test-support.js";
-export type {
-  Bindable,
-  CallRequest,
-  ExchangeOptions,
-  Gate,
-  ProofOptions,
-  Signer,
 } from "./harness.helpers.test-support.js";
 
 export function harness(policy: Partial<BrokerPolicy> = {}) {

@@ -12,11 +12,11 @@ import { catalogProvider } from "./connector-catalog.js";
 import { getBundledProviders } from "./embedded-catalog.js";
 import { listAccessAuditEvents } from "./local-access-audit.js";
 import { ensureThisDevice } from "./local-devices.js";
+import { type LocalDirectory, readLocalDirectory } from "./local-directory.js";
 import {
   currentOwnerPersonName,
   ensureOwnerPerson,
 } from "./local-directory-bootstrap.js";
-import { type LocalDirectory, readLocalDirectory } from "./local-directory.js";
 import { guestSessionPersonLocked, isGuestPersonEntry } from "./local-guest.js";
 import { ensureLocalShare } from "./local-share-grants-approvals.js";
 import { loadSettings } from "./settings.js";

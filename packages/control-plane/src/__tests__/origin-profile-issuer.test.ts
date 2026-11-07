@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { startServer } from "../server.js";
+
 type Started = Awaited<ReturnType<typeof startServer>>;
 const ORIGIN = "http://127.0.0.1:4101";
 const CLIENT_ID = `origin:${ORIGIN}`;

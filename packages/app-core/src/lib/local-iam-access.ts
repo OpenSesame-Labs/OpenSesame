@@ -10,6 +10,7 @@ import {
   vaultSealBinding,
 } from "@opensesame/vault-core";
 import { kvRefresh } from "./kv.js";
+import { INDEX_PATH, VfsError, tombFileKey, vfsSeams } from "./vfs.js";
 import {
   VFS_INDEX_LOCK_PREFIX,
   withVfsCrossTabLock,
@@ -22,7 +23,6 @@ import {
 import { originalVfsCheck } from "./vfs-operation-check.js";
 import type { VfsSeams } from "./vfs-seams-state.js";
 import { enqueueTombWrite } from "./vfs-write-order.js";
-import { INDEX_PATH, VfsError, tombFileKey, vfsSeams } from "./vfs.js";
 
 const brand: unique symbol = Symbol("private-local-iam");
 export type LocalIamAccess = Readonly<{ [brand]: true }>;

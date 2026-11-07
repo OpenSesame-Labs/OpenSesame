@@ -6,6 +6,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { command } from "./tailnet-connect-fixture-process.mjs";
+
 function htmlAttribute(value) {
   return value
     .replaceAll("&", "&amp;")

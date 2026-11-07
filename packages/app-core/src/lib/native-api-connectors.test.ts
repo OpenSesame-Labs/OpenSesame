@@ -7,16 +7,16 @@ import { describe, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
 import { kvSeams } from "./kv.js";
 import {
+  installNativeApiTests,
+  nativeAnswers,
+  nativeApiDraft,
+} from "./native-api.test-support.js";
+import {
   configureNativeApiConnector,
   executeNativeApiRequest,
   invokeNativeApiConnector,
   testNativeApiCredential,
 } from "./native-api-connectors.js";
-import {
-  installNativeApiTests,
-  nativeAnswers,
-  nativeApiDraft,
-} from "./native-api.test-support.js";
 import {
   loadNativeConnectorRecord,
   readNativeConnector,

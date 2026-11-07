@@ -3,8 +3,8 @@ import { buildCatalog } from "./catalog.js";
 import { buildConsentReceipt } from "./consent.js";
 import { diagnoseRuntimeDocuments } from "./diagnose.js";
 import { FIXTURE_DISTRIBUTION, fixtureResolveInput } from "./fixtures.js";
-import type { ResolveInput } from "./resolve-input.js";
 import { resolveComposition } from "./resolve.js";
+import type { ResolveInput } from "./resolve-input.js";
 import type {
   CapabilityDescriptor,
   CapabilityId,

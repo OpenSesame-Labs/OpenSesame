@@ -6,6 +6,7 @@ import {
   readAiJson,
 } from "./http.js";
 import type { AiConnectionDraft, AiConnectionTransport } from "./types.js";
+
 const draft: AiConnectionDraft = {
   providerId: "byo-ai",
   name: "HTTP regression",

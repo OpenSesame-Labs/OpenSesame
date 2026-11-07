@@ -11,8 +11,9 @@ import {
 import {
   DOMAIN_MANIFEST_MAC,
   type RootProtectionManifest,
+  b64ToBytes,
+  bytesToB64,
 } from "@opensesame/vault-core";
-import { b64ToBytes, bytesToB64 } from "@opensesame/vault-core";
 import { canonicalizeToBytes } from "./canonicalize.js";
 import { ProtectionError } from "./errors.js";
 

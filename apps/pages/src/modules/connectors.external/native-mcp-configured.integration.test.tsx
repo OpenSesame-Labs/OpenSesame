@@ -28,6 +28,7 @@ import {
   nativeCallbackUrl,
 } from "./native-oauth-runtime.js";
 import { bindNativeRuntime } from "./native-runtime.js";
+
 const closes: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
   cleanup();

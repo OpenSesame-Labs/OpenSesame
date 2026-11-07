@@ -10,7 +10,6 @@
  * runs against the live pinned binary in `engine.oracle.test.ts`.
  */
 import { describe, expect, it } from "vitest";
-import { NEVER, TestSession } from "./test-support.js";
 import {
   type FixtureCase,
   looseDocuments,
@@ -18,6 +17,7 @@ import {
   readIdentities,
   readManifest,
 } from "./test/fixtures.js";
+import { NEVER, TestSession } from "./test-support.js";
 
 const manifest = readManifest();
 const ids = readIdentities();

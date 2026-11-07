@@ -6,6 +6,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
 const executable = process.env.OPENSESAME_NATIVE_TEST_BINARY;
 if (!executable)
   throw new Error(

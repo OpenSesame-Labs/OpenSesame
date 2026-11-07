@@ -1,5 +1,7 @@
 import { normalizeIssuer } from "./issuer-normalization.js";
+
 export { normalizeIssuer } from "./issuer-normalization.js";
+
 import { readFileSync } from "node:fs";
 import type { ControlPlaneConfig } from "../config.js";
 import { loadManifestProviders } from "./manifest-providers.js";

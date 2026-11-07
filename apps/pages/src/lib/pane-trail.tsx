@@ -82,7 +82,10 @@ export function useAscend(): Ascend | null {
 export function AscendProvider({
   value,
   children,
-}: { value: Ascend | null; children: ReactNode }) {
+}: {
+  value: Ascend | null;
+  children: ReactNode;
+}) {
   return (
     <AscendContext.Provider value={value}>{children}</AscendContext.Provider>
   );

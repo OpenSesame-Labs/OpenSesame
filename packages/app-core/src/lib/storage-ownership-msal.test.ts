@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { msalKeyNamesClient } from "./storage-ownership-msal.js";
 import { ownsWebStorageKey } from "./storage-ownership.js";
+import { msalKeyNamesClient } from "./storage-ownership-msal.js";
 
 const OURS = "0f1e2d3c-aaaa-4bbb-8ccc-000000000001";
 const THEIRS = "9a8b7c6d-dddd-4eee-8fff-000000000002";

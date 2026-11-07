@@ -3,17 +3,16 @@ import * as accessBootstrap from "@opensesame/app-core/lib/local-access-bootstra
 import * as devices from "@opensesame/app-core/lib/local-devices.js";
 import * as directory from "@opensesame/app-core/lib/local-directory.js";
 import { notifyLocalIamChange } from "@opensesame/app-core/lib/local-iam-events.js";
+import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 /** @vitest-environment jsdom */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
-
 import { registerLegacyShell } from "../../components/legacy-sections.test-support.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { contributeIdentityViews } from "../../sections/identity/identity-views.js";
 import { IdentityRailTree } from "./IdentityRailTree.js";
 
-import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 // The Identity tabs belong to three capabilities (local IAM, federation,
 // directory provisioning) and each contributes its own; this subtree is the
 // one a deployment that approved all of them draws.

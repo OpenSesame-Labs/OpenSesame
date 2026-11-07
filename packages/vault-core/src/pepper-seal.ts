@@ -101,10 +101,13 @@ function legacyBinding(binding: string): string {
 }
 
 async function dataKey(bytes: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", asBufferSource(bytes), "AES-GCM", false, [
-    "encrypt",
-    "decrypt",
-  ]);
+  return crypto.subtle.importKey(
+    "raw",
+    asBufferSource(bytes),
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"],
+  );
 }
 
 export async function sealWithPepper(

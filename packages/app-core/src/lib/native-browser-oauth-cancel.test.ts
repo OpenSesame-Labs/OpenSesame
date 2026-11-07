@@ -5,13 +5,14 @@ import {
   configureNativeBrowserOAuthConnector,
 } from "./native-browser-oauth-connectors.js";
 import { loadNativeConnectorRecord } from "./native-connector-store.js";
-import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
 import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthDraft,
   oauthPending,
 } from "./native-oauth.test-support.js";
+import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
+
 installNativeOAuthTests();
 it("removes only the matching unexchanged consent and leaves another state intact", async () => {
   oauthAuthority();

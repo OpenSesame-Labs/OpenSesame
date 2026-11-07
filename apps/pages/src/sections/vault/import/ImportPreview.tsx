@@ -90,10 +90,14 @@ function LandingFields({
 function PreviewTable({
   plan,
   folders,
-}: { plan: MergePlan; folders: Folder[] }) {
+}: {
+  plan: MergePlan;
+  folders: Folder[];
+}) {
   const { rows, hidden } = previewRows(plan, folders);
   if (rows.length === 0) return null;
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div
       className="imp__table"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the preview scrolls, and a scroll container keyboard focus cannot reach is unreadable.

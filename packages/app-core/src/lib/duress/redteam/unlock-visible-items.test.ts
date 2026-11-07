@@ -16,8 +16,7 @@ import {
 } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { duressContinueSeams } from "../../../screens/unlock/unlock-duress-continue.js";
-import { plainAccount } from "../../account.test-support.js";
-import { producedPassword } from "../../account.test-support.js";
+import { plainAccount, producedPassword } from "../../account.test-support.js";
 import { forgetDeviceIdentityKeyInFlightForTests } from "../../device-identity-key.js";
 import { kvDelete, kvGet } from "../../kv.js";
 import { ATTEMPTS_KEY, VaultStore } from "../../vault/store.js";

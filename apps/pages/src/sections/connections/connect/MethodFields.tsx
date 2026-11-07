@@ -5,8 +5,8 @@ import {
 } from "@opensesame/app-core/lib/connect-draft.js";
 import type { ConnectPlan } from "@opensesame/app-core/lib/connect-plan.js";
 import { FieldShell } from "../../../components/FieldShell.js";
-import { OauthClientFields, OauthServerFields } from "./OauthFields.js";
 import { Facts, OutLink, SelectField } from "./fields.js";
+import { OauthClientFields, OauthServerFields } from "./OauthFields.js";
 
 type Props = {
   plan: ConnectPlan;

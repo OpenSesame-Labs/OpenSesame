@@ -65,7 +65,9 @@ function configurationForm() {
 }
 function SettingsSubscriber({
   onFlash,
-}: { onFlash: NativeConnectorCallbacks["onFlash"] }) {
+}: {
+  onFlash: NativeConnectorCallbacks["onFlash"];
+}) {
   const [, refresh] = useState(0);
   useLayoutEffect(
     () => subscribeDeviceRows(() => refresh((value) => value + 1)),

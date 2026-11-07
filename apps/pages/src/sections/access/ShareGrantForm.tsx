@@ -1,10 +1,10 @@
-import { listShareTargets } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import {
   SHARE_DURATIONS,
   SHARE_POLICIES,
   type ShareKind,
   type ShareScopeLists,
 } from "@opensesame/app-core/lib/local-share-grants.js";
+import { listShareTargets } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { FormCommit } from "../../components/FormCommit.js";
 import { IconX } from "../../components/Icons.js";

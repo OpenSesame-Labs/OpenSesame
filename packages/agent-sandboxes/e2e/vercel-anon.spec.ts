@@ -50,7 +50,10 @@ module.exports = async function handler(req, res) {
 }
 `;
 
-test.skip(!LIVE, "set OPENSESAME_LIVE_VERCEL=1 for the live anonymous ceremony");
+test.skip(
+  !LIVE,
+  "set OPENSESAME_LIVE_VERCEL=1 for the live anonymous ceremony",
+);
 test.setTimeout(300_000);
 
 test("anonymous Vercel: bootstrap, deploy, reset, verify — no claim", async () => {

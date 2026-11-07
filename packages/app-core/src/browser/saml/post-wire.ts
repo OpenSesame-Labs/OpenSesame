@@ -6,6 +6,7 @@ import {
   type SamlPostOwner,
   assertSamlPostOwner,
 } from "./assertion-conditions.js";
+
 export {
   type SamlPostOwner,
   assertSamlPostOwner,

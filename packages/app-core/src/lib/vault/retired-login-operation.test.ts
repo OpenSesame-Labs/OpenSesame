@@ -9,6 +9,7 @@ import {
   OWNER_PASSWORD,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
+
 const password = "previously retired scalar secret 9524";
 const slot = "tomb/personal/retired-credentials.v2";
 async function fixture(response: "reject" | "synthetic_decoy" = "reject") {

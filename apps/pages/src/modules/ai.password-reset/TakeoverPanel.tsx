@@ -99,10 +99,7 @@ function useTakeoverRun(client: TakeoverClient, runId: string) {
   return { run, records, busy, authenticated, act, verify };
 }
 
-function VerifyButton(props: {
-  busy: boolean;
-  verify: () => Promise<void>;
-}) {
+function VerifyButton(props: { busy: boolean; verify: () => Promise<void> }) {
   return (
     <button
       type="button"

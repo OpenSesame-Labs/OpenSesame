@@ -20,7 +20,6 @@ import {
   fieldValue,
   isDisabled,
 } from "../trusted-contacts.test-support.js";
-import { NewCircleSheet } from "./NewCircleSheet.js";
 import {
   addContact,
   answer,
@@ -29,6 +28,7 @@ import {
   sheetKey,
   startCircle,
 } from "./circles.test-support.js";
+import { NewCircleSheet } from "./NewCircleSheet.js";
 import { openNewCircle, withPeople } from "./new-circle.test-support.js";
 
 const h = installSheetHarness();

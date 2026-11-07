@@ -7,13 +7,13 @@ import {
 } from "./native-browser-oauth-connectors.js";
 import type { IssuedNativeOAuthToken } from "./native-browser-oauth-token.js";
 import { readNativeConnector } from "./native-connector-store.js";
-import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-import { NativeOAuthError } from "./native-oauth-errors.js";
 import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthDraft,
 } from "./native-oauth.test-support.js";
+import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
+import { NativeOAuthError } from "./native-oauth-errors.js";
 
 installNativeOAuthTests();
 afterEach(() => vi.unstubAllGlobals());

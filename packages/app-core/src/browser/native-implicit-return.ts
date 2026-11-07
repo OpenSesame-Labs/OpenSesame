@@ -4,6 +4,7 @@ import {
   parseNativeImplicitState,
 } from "./native-implicit-crypto.js";
 import { deliverNativeImplicitPayload } from "./native-implicit-session.js";
+
 function unique(fragment: URLSearchParams, name: string): string | null {
   if (fragment.getAll(name).length > 1)
     throw new Error("Ambiguous provider return");

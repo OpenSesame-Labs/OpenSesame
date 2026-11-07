@@ -6,8 +6,9 @@
  * (PBKDF2-SHA256 and Argon2id) and the Secrets Manager access-token key.
  * Pure functions of bytes: no network, no storage, nothing logged.
  */
-import { argon2id } from "hash-wasm";
+
 import { ownBytes } from "@opensesame/os-domain";
+import { argon2id } from "hash-wasm";
 
 const encoder = new TextEncoder();
 
@@ -54,7 +55,11 @@ export async function hmacSha256(
   data: Uint8Array,
 ): Promise<Uint8Array> {
   return new Uint8Array(
-    await crypto.subtle.sign("HMAC", await hmacKey(key, "sign"), ownBytes(data)),
+    await crypto.subtle.sign(
+      "HMAC",
+      await hmacKey(key, "sign"),
+      ownBytes(data),
+    ),
   );
 }
 

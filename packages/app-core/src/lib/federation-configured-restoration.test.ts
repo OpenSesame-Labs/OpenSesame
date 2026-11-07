@@ -2,13 +2,18 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { authOutcomeSeams } from "./auth-outcome.js";
+import { loadSession, saveSession } from "./federation.js";
 import { restoreConfiguredIdentityAtBoot } from "./federation-configured-restoration.js";
 import {
   readFederationSessionJson,
   writeFederationSessionJson,
 } from "./federation-session-store.js";
-import { loadSession, saveSession } from "./federation.js";
 import { guestAuthSeams } from "./guest-auth.js";
+import {
+  beginIdentityConnectionSignIn,
+  identityConnectionDraft,
+  saveIdentityConnection,
+} from "./identity-connections.js";
 import {
   logoutIdentitySession,
   signInIdentitySession,
@@ -20,11 +25,6 @@ import {
   supabaseFixture,
 } from "./identity-connections-session.test-support.js";
 import { writeIdentityConnection } from "./identity-connections-store.js";
-import {
-  beginIdentityConnectionSignIn,
-  identityConnectionDraft,
-  saveIdentityConnection,
-} from "./identity-connections.js";
 import { kvSeams } from "./kv.js";
 import { loadSettings, saveSettingsDurable } from "./settings.js";
 

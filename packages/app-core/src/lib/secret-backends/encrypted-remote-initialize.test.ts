@@ -10,6 +10,7 @@ import {
   guardSecretBackendTransport,
 } from "./transport.js";
 import type { SecretBackendSession } from "./types.js";
+
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

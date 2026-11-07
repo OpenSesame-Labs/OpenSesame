@@ -7,11 +7,11 @@ import {
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import { mcpOAuthAction } from "./native-mcp-oauth-errors.js";
 import { nativeMcpOAuthFetch } from "./native-mcp-oauth-http.js";
+import type { NativeMcpRegistrationMode } from "./native-mcp-oauth-metadata.js";
 import {
   type NativeMcpAuthorizationMetadata,
   nativeMcpPublicMetadata,
 } from "./native-mcp-oauth-metadata.js";
-import type { NativeMcpRegistrationMode } from "./native-mcp-oauth-metadata.js";
 import {
   NativeMcpAuthError,
   type NativeMcpOAuthTarget,

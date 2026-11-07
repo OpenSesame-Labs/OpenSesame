@@ -9,6 +9,7 @@ import {
   register,
   resetFixture,
 } from "./tailscale-ui.test-support.js";
+
 beforeEach(resetFixture);
 afterEach(closeFixture);
 it("renders shared configuration fields and a generated deployment app name without the old unsupported refusal", async () => {

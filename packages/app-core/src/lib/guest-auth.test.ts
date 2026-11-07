@@ -10,6 +10,7 @@ import {
 } from "./guest-auth.js";
 import { IdentityError } from "./identity.js";
 import { clearNotices, listNotices } from "./notices.js";
+
 const connectProvisional = vi.fn();
 const identityJson = vi.fn();
 const currentSession = vi.fn();

@@ -73,8 +73,8 @@ function fixture() {
   const config = {
     linter: { enabled: true },
     formatter: { enabled: true },
-    organizeImports: { enabled: true },
-    files: { ignore: ["**/node_modules/**"] },
+    assist: { actions: { source: { organizeImports: "on" } } },
+    files: { includes: ["**", "!**/node_modules"] },
     overrides: [artifactOverride(paths)],
   };
   json(manifestPath, manifest);
@@ -185,7 +185,7 @@ it("refuses broad or authored-code exceptions and ignored artifact directories",
   }
   f.json("biome.json", {
     ...f.config,
-    files: { ignore: ["apps/pages/public/static-auth/**"] },
+    files: { includes: ["**", "!apps/pages/public/static-auth/**"] },
   });
   expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
 });
@@ -209,8 +209,17 @@ it("keeps both lint entrypoints gated by rebuilt artifacts and source tests", ()
 
 it("rejects global checks disabled outside the generated override", () => {
   const f = fixture();
-  for (const tool of ["linter", "formatter", "organizeImports"]) {
+  for (const tool of ["linter", "formatter"]) {
     f.json("biome.json", { ...f.config, [tool]: { enabled: false } });
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      "Authored-code checks must stay enabled",
+    );
+  }
+  for (const organizeImports of ["off", { level: "off", options: {} }]) {
+    f.json("biome.json", {
+      ...f.config,
+      assist: { actions: { source: { organizeImports } } },
+    });
     expect(() => validateStaticAuth(f.root)).toThrow(
       "Authored-code checks must stay enabled",
     );
@@ -229,11 +238,11 @@ it("rejects invalid UTF-8 rather than hashing replacement characters", () => {
   expect(() => validateStaticAuth(f.root)).toThrow();
 });
 
-it.each(["**/*.js", "**", "apps", "**/public/**"])(
+it.each(["!**/*.js", "!**", "!apps", "!**/public/**", "!!**/public"])(
   "rejects indirect artifact exclusions through %s",
   (pattern) => {
     const f = fixture();
-    f.json("biome.json", { ...f.config, files: { ignore: [pattern] } });
+    f.json("biome.json", { ...f.config, files: { includes: ["**", pattern] } });
     expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
   },
 );

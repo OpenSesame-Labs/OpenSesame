@@ -17,6 +17,7 @@ import {
   oauthCallback,
   oauthDraft,
 } from "./native-oauth.test-support.js";
+
 installNativeOAuthTests();
 async function setup() {
   const provider = oauthAuthority("databricks");

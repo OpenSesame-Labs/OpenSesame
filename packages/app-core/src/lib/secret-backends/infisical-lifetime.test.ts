@@ -1,8 +1,8 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBackendHttp } from "./http.js";
-import { createInfisicalLifetime } from "./infisical-lifetime.js";
 import { createInfisicalBackend } from "./infisical.js";
+import { createInfisicalLifetime } from "./infisical-lifetime.js";
 import { secretBackendDraft } from "./presets.js";
 import { secretBackendSessionClosure } from "./sessions.js";
 import type { SecretBackendFetch, SecretBackendSession } from "./types.js";

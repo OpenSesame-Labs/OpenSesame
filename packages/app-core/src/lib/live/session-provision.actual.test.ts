@@ -1,8 +1,8 @@
 import { createItem } from "@opensesame/vault-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { webLocksDouble } from "../__tests__/web-locks-double.js";
-import { ensureOwnerPerson } from "../local-directory-bootstrap.js";
 import { readLocalDirectory } from "../local-directory.js";
+import { ensureOwnerPerson } from "../local-directory-bootstrap.js";
 import { listLocalShares } from "../local-share-grants.js";
 import { vaultStore } from "../vault/store.js";
 import { lockAllTombs } from "../vfs.js";

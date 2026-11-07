@@ -9,11 +9,11 @@ import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { maybeLocalStore, openOwnedDatabase, sessionStore } from "../ports.js";
+import { createTestHost } from "../test-host.js";
 import {
   assertOwnedStorageWrites,
   takeStorageWrites,
 } from "../test-host-storage-writes.js";
-import { createTestHost } from "../test-host.js";
 import { memoryStorage } from "./browser-reset.fixture.js";
 import {
   appendHistoryEntry,

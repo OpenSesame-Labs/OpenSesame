@@ -9,13 +9,13 @@ import {
   linearRequest,
 } from "./linear-http.js";
 
-export { LinearApiError, type LinearCredential };
 export { linearApiSeams } from "./linear-http.js";
 export {
   createLinearWebhook,
   deleteLinearWebhook,
   listLinearWebhooks,
 } from "./linear-webhook-api.js";
+export { LinearApiError, type LinearCredential };
 
 export type LinearGrant = {
   accessToken: string;

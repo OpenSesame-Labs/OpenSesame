@@ -5,6 +5,7 @@ import {
   needsAttention,
 } from "@opensesame/app-core/lib/connectors.js";
 import { type RefObject, useCallback, useRef, useState } from "react";
+import { useConnectors } from "../bindings/connectors.js";
 import { keymapLabel } from "../lib/gestures.js";
 import { showKeymapHelp } from "../lib/keymap.js";
 import { useModalFocus } from "../lib/modal-focus.js";
@@ -16,7 +17,6 @@ import { IconBell, IconDots, IconHelp, IconTerminal, IconX } from "./Icons.js";
 import { InstallMark } from "./InstallMark.js";
 import { NotificationsBar, useNoticeCount } from "./NotificationsBar.js";
 
-import { useConnectors } from "../bindings/connectors.js";
 /**
  * The worst tone in the set, which is the one a single dot has to report.
  * Offline outranks attention because with no network nothing else is knowable;
@@ -159,7 +159,6 @@ function MoreSheet({
       <div
         ref={sheetRef}
         className="sheet"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="More"
         aria-modal="true"
@@ -200,7 +199,11 @@ function UtilityRows({
   waiting,
   onClose,
   onNotices,
-}: { waiting: number; onClose: () => void; onNotices: () => void }) {
+}: {
+  waiting: number;
+  onClose: () => void;
+  onNotices: () => void;
+}) {
   const { support } = useSupport();
   // A phone draws no statusline, so these are where `shell.notifications` and
   // `shell.support` can actually be pointed at. The strip keeps the same ids

@@ -10,13 +10,13 @@ import {
   normalizeVaultBody,
 } from "@opensesame/vault-core";
 import { Effect } from "effect";
-import { retainProjectionGenerations } from "./authentication-projection-generations.js";
 import {
   NODE_PROJECTION_BYTE_LIMIT,
   decodeAuthenticationProjection,
   encodeAuthenticationProjection,
   openAuthenticationProjection,
 } from "./authentication-projection.js";
+import { retainProjectionGenerations } from "./authentication-projection-generations.js";
 import { makeMemorySecretFiles } from "./memory.js";
 import { readProjection } from "./projection-read.js";
 import { writeProjection } from "./projection-write.js";

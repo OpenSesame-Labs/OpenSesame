@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
+
+import { putBackupTarget } from "@opensesame/app-core/lib/backup.js";
 import {
   clearLocalBackupTarget,
   readLocalBackupTarget,
 } from "@opensesame/app-core/lib/backup-target-local.js";
-import { putBackupTarget } from "@opensesame/app-core/lib/backup.js";
 import { ensureDeviceIdentityKey } from "@opensesame/app-core/lib/device-identity-key.js";
 import { useGithubBackupProviderFixture } from "@opensesame/app-core/lib/github-app-backup-provider.test-support.js";
 import { credentials } from "@opensesame/app-core/lib/github-app-direct.test-support.js";
@@ -15,10 +16,10 @@ import {
   createProject,
   setActiveProject,
 } from "@opensesame/app-core/lib/projects.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import * as github from "@opensesame/app-core/lib/vault-backup-github.js";
 import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { syncVaultBackup } from "@opensesame/app-core/lib/vault-backup-sync.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import { createItem } from "@opensesame/vault-core";
 import {
@@ -36,6 +37,7 @@ afterEach(() => {
   cleanup();
   stopVaultBackupObserver();
 });
+// biome-ignore lint/correctness/useHookAtTopLevel: vitest fixture helper registering lifecycle hooks, not a React hook
 const fixture = useGithubBackupProviderFixture();
 const reference = "opensesame-vault.backup.json";
 async function destinationVault() {

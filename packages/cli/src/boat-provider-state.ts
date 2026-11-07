@@ -1,7 +1,7 @@
 /** Plaintext Boat registration credentials protected by local file permissions. */
 import {
-  constants,
   closeSync,
+  constants,
   fstatSync,
   fsyncSync,
   lstatSync,

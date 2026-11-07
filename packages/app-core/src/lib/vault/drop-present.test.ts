@@ -10,11 +10,11 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { deviceIdentitySeams } from "../device-identity.js";
 import {
   deviceIdentityFetch,
   resetDeviceIdentitySessionsForTests,
 } from "../device-identity-host.js";
-import { deviceIdentitySeams } from "../device-identity.js";
 import { identitySeams } from "../identity.js";
 import { dropSeams, openDrop, presentDrop, sealDrop } from "./drop.js";
 import {

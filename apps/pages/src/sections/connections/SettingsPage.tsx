@@ -25,9 +25,9 @@ import {
   CATEGORY_LABELS,
   type Flash,
   connectorCeremonyRoot,
+  connectorPath,
   statusSentence,
 } from "@opensesame/app-core/sections/connections/shared.js";
-import { connectorPath } from "@opensesame/app-core/sections/connections/shared.js";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useConnectorRoads } from "../../bindings/connector-roads.js";
@@ -42,21 +42,21 @@ import { BackupEnableSwitch, canBackupEnable } from "./BackupEnableSwitch.js";
 import { BackupSyncControls } from "./BackupSyncControls.js";
 import { authKindLabel } from "./CatalogPanel.js";
 import { ConnectForm } from "./ConnectForm.js";
-import { ConnectSection } from "./ConnectSection.js";
 import { ConnectionCard } from "./ConnectionCard.js";
 import { ConnectorMark } from "./ConnectorMark.js";
+import { ConnectSection } from "./ConnectSection.js";
+import { apiFamilyFor, apiFamilyOptions } from "./catalog-families.js";
+import { isConnectConnection } from "./connect/ConnectPanels.js";
 import { GithubAppForgetButton } from "./GithubAppConfigRows.js";
 import { GithubAppPresence } from "./GithubAppPresence.js";
+import { isIdentityConnectionProvider } from "./identity/IdentityConnectionPanels.js";
 import * as SettingsPanels from "./SettingsPageConnectPanels.js";
 import {
   AuthorizedAccount,
   githubConnectorStatus,
 } from "./SettingsPageStatus.js";
-import { VaultReminderBanner } from "./VaultReminderBanner.js";
-import { apiFamilyFor, apiFamilyOptions } from "./catalog-families.js";
-import { isConnectConnection } from "./connect/ConnectPanels.js";
-import { isIdentityConnectionProvider } from "./identity/IdentityConnectionPanels.js";
 import { useTailscaleHeaderStatus } from "./tailscale/useTailscaleConnectionState.js";
+import { VaultReminderBanner } from "./VaultReminderBanner.js";
 
 /**
  * Registry services get the provider configuration experience. Existing
@@ -314,8 +314,11 @@ export function ConnectorSettingsPage({
         />
       ) : null}
 
-      {nativeExperience || identityExperience || secretBackendExperience ||
-      (bespokePanel(provider.id) && !isConnectConnection(connection)) ? null : automatic ? (
+      {nativeExperience ||
+      identityExperience ||
+      secretBackendExperience ||
+      (bespokePanel(provider.id) &&
+        !isConnectConnection(connection)) ? null : automatic ? (
         <section className="panel" id="authorization" ref={authorizeRef}>
           <div className="panel__head">
             <div>

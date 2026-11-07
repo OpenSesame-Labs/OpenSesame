@@ -2,13 +2,14 @@
  * One run, driven: claim its outstanding step, run it, settle what it did, and
  * stand down the moment the run is not the agent's to drive.
  */
+
+import type { AgentRunView } from "@opensesame/api-client";
 import {
   type ClaimedRunnerStep,
   RunnerApiError,
   type RunnerStepOutcome,
   decodeRunnerStepRequest,
 } from "@opensesame/api-client";
-import type { AgentRunView } from "@opensesame/api-client";
 import type { DriverDeps, EpochState } from "./context";
 import { runStep } from "./driver";
 import type {

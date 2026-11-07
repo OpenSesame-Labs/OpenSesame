@@ -2,19 +2,19 @@ import { useId } from "react";
 import { FieldShell } from "../../../components/FieldShell.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { ConfigSelections } from "./ConfigSelections.js";
+import { OutLink, SelectField } from "./fields.js";
 import {
   NativeProviderInstructions,
   nativeProviderInstructionText,
 } from "./NativeProviderInstructions.js";
-import { OutLink, SelectField } from "./fields.js";
-import {
-  nativePublicUrl,
-  nativeVisibleFields,
-} from "./native-connector-ui-values.js";
 import type {
   NativeField,
   NativeMethodDescriptor,
 } from "./native-connector-ui.js";
+import {
+  nativePublicUrl,
+  nativeVisibleFields,
+} from "./native-connector-ui-values.js";
 
 function methodLinks(links: NativeMethodDescriptor["links"]) {
   const unique = new Map<string, { label: string; url: string }>();

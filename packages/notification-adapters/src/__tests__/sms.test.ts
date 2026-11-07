@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
-
 import {
   type WebhookSignature,
   generateWebhookSecret,
   verifyWebhook,
 } from "@opensesame/webhooks";
+import { describe, expect, it } from "vitest";
 
 import { SMS_EVENT_TYPE, createSmsAdapter } from "../adapters/sms.js";
 import { FIXED_NOW, jsonFetch, renderInput, throwingFetch } from "./helpers.js";

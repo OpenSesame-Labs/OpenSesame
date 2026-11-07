@@ -6,6 +6,7 @@ import {
   b64ToBytes,
   bytesToB64,
 } from "@opensesame/vault-core";
+
 const LIMIT = 1024 * 1024;
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 function fixedSealMethods(

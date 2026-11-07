@@ -12,9 +12,9 @@ import {
 } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { ProviderTiles } from "../settings/ProviderTiles.js";
-import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { useAiSheet } from "./ai/use-ai-sheet.js";
 import { installConnectorIntegration } from "./connect/native-connector-integration.test-support.js";
+import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 installConnectorIntegration();

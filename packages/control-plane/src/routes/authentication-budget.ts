@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AppContext } from "../context.js";
+
 const PUBLIC_WINDOW_MS = 60_000;
 const PUBLIC_CLIENT_BUDGET = 60;
 const PUBLIC_GLOBAL_BUDGET = 1_000;

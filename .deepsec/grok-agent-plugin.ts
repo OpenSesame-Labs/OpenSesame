@@ -49,4 +49,4 @@ export const grokAgentPlugin: DeepsecPlugin = {
   agents: [new GrokWave2Agent()],
 };
 
-export { grokShallowMaxTurns, grokDeepMaxTurns, logGrokDepthSummaryLine };
+export { grokDeepMaxTurns, grokShallowMaxTurns, logGrokDepthSummaryLine };

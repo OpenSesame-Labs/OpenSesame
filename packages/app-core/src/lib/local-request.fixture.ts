@@ -7,11 +7,11 @@ import {
 } from "./local-access-requests.js";
 import { configureLocalApplication } from "./local-applications.js";
 import { authenticator, origin } from "./local-authenticator.fixture.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "./local-directory.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import { enrollLocalPasskey } from "./local-passkeys.js";
 import { createLocalApplicationRequest } from "./local-request-authorization.js";
 import type { LocalSession } from "./local-sessions.js";

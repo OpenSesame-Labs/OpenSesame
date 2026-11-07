@@ -18,9 +18,11 @@ const orgs = vi.hoisted(() => ({
 }));
 
 import { orgSeams } from "@opensesame/app-core/lib/orgs.js";
+
 Object.assign(orgSeams, { listOrgMemberships: orgs.listOrgMemberships });
 
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+
 Object.assign(identitySeams, {
   currentSession: () => null,
   identityBase: () => "http://127.0.0.1:18788",
@@ -194,6 +196,7 @@ describe("AccountSwitcher — the glyph a phone draws for the name", () => {
     const session = vi.fn();
     render(
       <MemoryRouter>
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <div onContextMenu={session}>
           <AccountSwitcher />
         </div>
@@ -209,6 +212,7 @@ describe("AccountSwitcher — the glyph a phone draws for the name", () => {
     const session = vi.fn();
     render(
       <MemoryRouter>
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <div onContextMenu={session}>
           <AccountSwitcher />
         </div>
@@ -256,6 +260,7 @@ describe("AccountSwitcher — where the name is drawn beside its glyph, nothing 
     const session = vi.fn();
     render(
       <MemoryRouter>
+        {/** biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <div onContextMenu={session}>
           <AccountSwitcher />
         </div>

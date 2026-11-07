@@ -5,11 +5,11 @@
  * it, and a malformed key is never written. The store is a fake; the panel is
  * not.
  */
-import { transportFileText } from "@opensesame/app-core/lib/live/transport.js";
 import {
   DIRECT_TRANSPORT,
   type LiveTransport,
   type TransportRead,
+  transportFileText,
 } from "@opensesame/app-core/lib/live/transport.js";
 import {
   cleanup,

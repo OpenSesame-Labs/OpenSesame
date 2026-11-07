@@ -4,6 +4,7 @@ import type {
   HistoryRowStore,
   ProvisionalHistoryAccount,
 } from "./history-backup-types.js";
+
 function deferred() {
   let complete: () => void = () => {};
   const promise = new Promise<void>((resolve) => {

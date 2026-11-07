@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const doubles = { start: vi.fn(), load: vi.fn() };
+
 import {
   closeProviderAuthResources,
   providerAuthCases,

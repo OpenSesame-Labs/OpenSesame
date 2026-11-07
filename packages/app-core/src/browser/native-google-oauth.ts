@@ -2,6 +2,7 @@
 import type { IssuedNativeOAuthToken } from "../lib/native-browser-oauth-token.js";
 import { nativeOAuthBrowserPort } from "../lib/native-oauth-browser-port.js";
 import { nativeGoogleBrowserAvailable } from "./native-google-capability.js";
+
 export { nativeGoogleBrowserAvailable } from "./native-google-capability.js";
 
 export async function requestNativeGoogleToken(

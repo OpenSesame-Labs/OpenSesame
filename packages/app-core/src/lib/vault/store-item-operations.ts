@@ -31,6 +31,7 @@ import {
   newVaultFolder,
   uninstallDefinition,
 } from "./store-item-types.js";
+
 type ItemOperationsHost = Readonly<{
   body: () => VaultBody;
   items: () => VaultItem[];

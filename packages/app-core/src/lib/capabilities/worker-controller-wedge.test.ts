@@ -7,7 +7,6 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { workerStatus } from "./worker-controller.js";
 import {
   CORE_URL,
   FakeContainer,
@@ -21,6 +20,7 @@ import {
   restoreSeams,
   selection,
 } from "./worker/test-harness.js";
+import { workerStatus } from "./worker-controller.js";
 
 beforeEach(installSeams);
 afterEach(restoreSeams);

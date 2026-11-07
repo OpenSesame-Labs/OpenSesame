@@ -43,7 +43,6 @@ export function CeremonySheet({
       <div
         ref={sheetRef}
         className="sheet"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label={title}
         aria-modal="true"

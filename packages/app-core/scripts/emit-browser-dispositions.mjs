@@ -30,6 +30,7 @@ export function renderBrowserDispositions(spec) {
   return [
     "/** Generated from spec/connectors/browser-dispositions.json; edit that source. */",
     'import { unpackGeneratedJson } from "./generated-json.js";',
+    "",
     `const dictionary = ${JSON.stringify(dictionary.join("\n"))}.split("\\n");`,
     `export const BROWSER_DISPOSITIONS_JSON = unpackGeneratedJson(${JSON.stringify(rows[0])}, dictionary);`,
     "",

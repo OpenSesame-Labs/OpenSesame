@@ -132,7 +132,9 @@ function OfferRow({
 
 function Refused({
   offer,
-}: { offer: Extract<MarketplaceOffer, { ok: false }> }) {
+}: {
+  offer: Extract<MarketplaceOffer, { ok: false }>;
+}) {
   return (
     <li className="itype">
       <div className="itype__row">

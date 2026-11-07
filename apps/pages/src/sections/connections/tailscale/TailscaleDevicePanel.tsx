@@ -4,6 +4,7 @@ import { IconKey } from "../../../components/IconKey.js";
 import { IconCopy } from "../../../components/Icons.js";
 import { TailscaleStatus } from "./TailscaleConfiguration.js";
 import type { TailscaleEditor } from "./useTailscaleApp.js";
+
 function IssuedKey({ model }: { model: TailscaleEditor }) {
   const key = model.key;
   if (!key) return null;

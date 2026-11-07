@@ -6,6 +6,7 @@ import {
   nativeDecodeAndWipe,
   nativeEncryptAndWipe,
 } from "./original-native-compound.test-support.js";
+
 it("retains undefined native encryption delivery and its opaque Promise cleanup refusal", () =>
   owned((f) =>
     nativeEncryptAndWipe(

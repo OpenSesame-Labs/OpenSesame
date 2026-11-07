@@ -1,11 +1,11 @@
 import { type Server, createServer } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { virtualFetchOverHttp } from "./vnet.js";
 import {
   type RunningVirtualNetworkRelay,
   startVirtualNetworkRelay,
 } from "./vnet-server.js";
-import { virtualFetchOverHttp } from "./vnet.js";
 
 function boundPort(server: Server, error: string): number {
   const address = z.object({ port: z.number() }).safeParse(server.address());

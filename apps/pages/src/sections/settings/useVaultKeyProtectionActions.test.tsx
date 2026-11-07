@@ -8,8 +8,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-import { VaultKeyProtectionPanel } from "./VaultKeyProtectionPanel.js";
 import { vaultKeyProtectionActionDependencies } from "./useVaultKeyProtectionActions.js";
+import { VaultKeyProtectionPanel } from "./VaultKeyProtectionPanel.js";
 import {
   agePasskey,
   ageRecipient,

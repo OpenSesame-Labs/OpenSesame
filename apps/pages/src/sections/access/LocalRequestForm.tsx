@@ -119,7 +119,12 @@ function RequestIdentityFields({
   directory,
   busy,
   formId,
-}: { tomb: string; directory: LocalDirectory; busy: boolean; formId: string }) {
+}: {
+  tomb: string;
+  directory: LocalDirectory;
+  busy: boolean;
+  formId: string;
+}) {
   const id = useId();
   const people = directory.entries.filter(
     (entry) =>
@@ -173,7 +178,10 @@ function RequestIdentityFields({
 function RequestApplicationFields({
   applications,
   directory,
-}: { applications: LocalApplication[]; directory: LocalDirectory }) {
+}: {
+  applications: LocalApplication[];
+  directory: LocalDirectory;
+}) {
   const id = useId();
   const [applicationId, setApplicationId] = useState(
     applications[0]?.applicationId ?? "",

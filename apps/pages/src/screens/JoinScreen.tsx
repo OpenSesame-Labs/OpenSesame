@@ -74,6 +74,7 @@ function JoinRail({ join }: { join: JoinCeremony }) {
   const at = steps.indexOf(join.step);
   return (
     <div className="setup__chrome">
+      {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
       <div className="steps" aria-label="Join steps">
         {steps.map((entry, index) => (
           <div

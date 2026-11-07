@@ -11,6 +11,7 @@ import {
   MAX_RETIRED_CONTEXT_HEADER_BYTES,
   readPagesRetiredCredentialHeader,
 } from "./context-v2-header.js";
+
 export { MAX_RETIRED_CONTEXT_HEADER_BYTES } from "./context-v2-header.js";
 
 export const MAX_RETIRED_CONTEXT_WIRE_BYTES = 2048;

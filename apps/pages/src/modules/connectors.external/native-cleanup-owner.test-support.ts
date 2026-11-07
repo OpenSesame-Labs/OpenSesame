@@ -17,12 +17,12 @@ import {
   bindNativeProviderTransport,
   captureNativeProviderAuthority,
 } from "@opensesame/app-core/lib/native-connector-transport.js";
+import { oauthDraft } from "@opensesame/app-core/lib/native-oauth.test-support.js";
 import { bindNativeOAuthBrowserPort } from "@opensesame/app-core/lib/native-oauth-browser-port.js";
 import {
   nativeOAuthGuard,
   requireNativeOAuthRecord,
 } from "@opensesame/app-core/lib/native-oauth-session.js";
-import { oauthDraft } from "@opensesame/app-core/lib/native-oauth.test-support.js";
 import { tlsFetch } from "@opensesame/app-core/lib/native-s3-backup.test-support.js";
 import {
   deferred,

@@ -11,14 +11,6 @@ import {
   listConnections,
 } from "./connections.js";
 import {
-  authorizeVercelConnection,
-  connectReturnTo,
-  createVercelConnection,
-  getVercelConnection,
-  listVercelConnections,
-  revokeVercelConnection,
-} from "./vercel-connect-ops.js";
-import {
   CONNECT_API,
   isConnectConnector,
   setVercelConnectAuth,
@@ -27,6 +19,14 @@ import {
   vercelConnectConfigured,
   vercelConnectSeams,
 } from "./vercel-connect.js";
+import {
+  authorizeVercelConnection,
+  connectReturnTo,
+  createVercelConnection,
+  getVercelConnection,
+  listVercelConnections,
+  revokeVercelConnection,
+} from "./vercel-connect-ops.js";
 
 const originalFetch = vercelConnectSeams.fetch;
 const originalStart = vercelConnectSeams.startAuthorization;

@@ -9,17 +9,17 @@ import {
   readNativeConnector,
 } from "./native-connector-store.js";
 import {
-  microsoftAccount,
-  microsoftAssertion,
-  microsoftTenant,
-} from "./native-oauth-jwt.test-support.js";
-import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthCallback,
   oauthDraft,
   oauthPending,
 } from "./native-oauth.test-support.js";
+import {
+  microsoftAccount,
+  microsoftAssertion,
+  microsoftTenant,
+} from "./native-oauth-jwt.test-support.js";
 
 installNativeOAuthTests();
 it("verifies Microsoft's signed tenant and the delegated Graph account before reporting connected", async () => {

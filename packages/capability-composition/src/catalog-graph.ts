@@ -62,7 +62,9 @@ export function checkReferences(
       diagnostic("DUPLICATE_ID", `${path}.dependencies`, "dependencies repeat"),
     );
   }
-  d.dependencies.forEach((id, i) => refCheck(id, `${path}.dependencies[${i}]`));
+  d.dependencies.forEach((id, i) => {
+    refCheck(id, `${path}.dependencies[${i}]`);
+  });
   const slots = new Set<string>();
   d.alternatives.forEach((slot, i) => {
     const slotPath = `${path}.alternatives[${i}]`;
@@ -87,7 +89,9 @@ export function checkReferences(
         ),
       );
     }
-    slot.oneOf.forEach((id, j) => refCheck(id, `${slotPath}.oneOf[${j}]`));
+    slot.oneOf.forEach((id, j) => {
+      refCheck(id, `${slotPath}.oneOf[${j}]`);
+    });
   });
 }
 

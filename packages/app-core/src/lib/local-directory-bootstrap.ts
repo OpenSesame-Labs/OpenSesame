@@ -22,12 +22,6 @@ export {
   isGuestDisplayName,
   mintGuestSessionPerson,
 } from "./local-guest.js";
-import {
-  guestSessionPersonLocked,
-  isGuestDisplayName,
-  isGuestPersonEntry,
-  readGuestSessionPerson,
-} from "./local-guest.js";
 
 import { describeAccount } from "./account.js";
 import {
@@ -36,6 +30,12 @@ import {
   readLocalDirectory,
   withLocalDirectoryLock,
 } from "./local-directory.js";
+import {
+  guestSessionPersonLocked,
+  isGuestDisplayName,
+  isGuestPersonEntry,
+  readGuestSessionPerson,
+} from "./local-guest.js";
 import { vaultStore } from "./vault/store.js";
 import { GUEST_TOMB } from "./vfs.js";
 

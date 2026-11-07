@@ -6,16 +6,16 @@ export {
 export {
   CIPHER,
   DISPLAY_WORD,
+  type DecryptRun,
   FRAME_MS,
   MAX_STEPS,
   MIN_STEPS,
+  type SlotRun,
   cipherReel,
   createSlotRuns,
   cursorSlot,
   isSettled,
   slotState,
-  type DecryptRun,
-  type SlotRun,
 } from "./cipher.js";
 export {
   APP_ICON,

@@ -8,8 +8,9 @@ import {
   ROOT_KEY_BYTES,
   type RecoveryKeyProtectorRecord,
   type SealedBlobV1,
+  b64ToBytes,
+  bytesToB64,
 } from "@opensesame/vault-core";
-import { b64ToBytes, bytesToB64 } from "@opensesame/vault-core";
 import { openRootCapsule, sealRootCapsule } from "./capsule.js";
 import { ProtectionError } from "./errors.js";
 import { newProtectorId } from "./ids.js";

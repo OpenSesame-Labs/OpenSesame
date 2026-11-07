@@ -13,8 +13,8 @@ import {
   nativeInitialValues,
   nativeMethodForEdit,
 } from "./native-connector-edit-values.js";
-import { nativeNextValues } from "./native-connector-ui-values.js";
 import type { NativeMethodDescriptor } from "./native-connector-ui.js";
+import { nativeNextValues } from "./native-connector-ui-values.js";
 import { nativeProviderDescriptor } from "./native-provider-descriptor.js";
 import { nativePolicyMethod } from "./native-provider-policy.js";
 
@@ -115,7 +115,9 @@ it("changes contextual Railway sign-in help with the selected credential type", 
 /** Reviewing setup guidance never claims a successful provider request. */
 function ReadOnlyContractFields({
   method,
-}: { method: NativeMethodDescriptor }) {
+}: {
+  method: NativeMethodDescriptor;
+}) {
   const [values, setValues] = useState(() => nativeInitialValues(method));
   return (
     <NativeConnectorFields

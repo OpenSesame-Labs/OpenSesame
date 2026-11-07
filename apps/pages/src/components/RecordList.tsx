@@ -8,8 +8,9 @@ import {
   type RecordWorkspaceProps,
   countedWorkspaceRows,
 } from "./RecordWorkspace.js";
-import { UpLink } from "./UpLink.js";
 import type { useRecordWorkspace } from "./record-workspace-state.js";
+import { UpLink } from "./UpLink.js";
+
 type Props = RecordWorkspaceProps & {
   model: ReturnType<typeof useRecordWorkspace>;
 };
@@ -70,7 +71,6 @@ export function RecordList(props: Props) {
           className="vtree__rows"
           role="tree"
           aria-label={`${title} items`}
-          // biome-ignore lint/a11y/noNoninteractiveTabindex: tree owns the listing's single tab stop
           tabIndex={0}
           aria-activedescendant={
             cursor ? `record-${section}-${cursor}` : undefined

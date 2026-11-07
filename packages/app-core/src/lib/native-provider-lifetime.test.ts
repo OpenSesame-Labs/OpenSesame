@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
+import { installNativeApiTests } from "./native-api.test-support.js";
 import {
   deferredOperation,
   operationOracle,
 } from "./native-api-operations.test-support.js";
 import { invokeNativeApiResource } from "./native-api-resources.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
 import { readNativeConnector } from "./native-connector-store.js";
 import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
 import {

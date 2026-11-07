@@ -17,8 +17,9 @@ import {
   type ProtectionContext,
   ROOT_KEY_BYTES,
   type VerificationEvidence,
+  b64ToBytes,
+  bytesToB64,
 } from "@opensesame/vault-core";
-import { b64ToBytes, bytesToB64 } from "@opensesame/vault-core";
 import { loadAge } from "../../../age-lib.js";
 import { canonicalizeToBytes } from "../canonicalize.js";
 import { contextsEqual } from "../capsule.js";

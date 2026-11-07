@@ -1,8 +1,8 @@
 /** Primitive UI exchange only. The actual private Store owns each handle and its authentication task. */
 import { z } from "zod";
 import type { projectRetiredCredentialInspection } from "../retired-credentials/inspection-v2.js";
-import { readRetiredRecordChange } from "../retired-credentials/record-change-request-v2.js";
 import type { RetiredRecordChange } from "../retired-credentials/record-change-request-v2.js";
+import { readRetiredRecordChange } from "../retired-credentials/record-change-request-v2.js";
 import type { OriginalCommandDrainRecorder } from "./original-command-retirement-data.js";
 
 const secondStep = z.discriminatedUnion("kind", [

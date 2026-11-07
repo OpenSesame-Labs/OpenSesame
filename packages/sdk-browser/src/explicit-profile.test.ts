@@ -5,6 +5,7 @@ import { createOpenSesame } from "./client.js";
 import { createPkcePair } from "./pkce.js";
 import { createTestSigningKey } from "./test/jwt-fixtures.js";
 import { fixtureValue } from "./test/storage-fixture.js";
+
 const signingKeys = createTestSigningKey("ES256");
 class MemStorage {
   readonly #m = new Map<string, string>();

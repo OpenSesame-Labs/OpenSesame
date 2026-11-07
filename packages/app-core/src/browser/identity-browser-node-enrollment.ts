@@ -5,6 +5,7 @@ import type {
 } from "../lib/tailscale/browser-node-identity-port.js";
 import type { TailscaleNodeSnapshot } from "../lib/tailscale/browser-node-port.js";
 import { savedBrowserNodeConfiguration } from "../lib/tailscale/browser-node-store.js";
+
 type PeeringPrompt = Readonly<{
   label: string;
   node: IdentityBrowserNode;

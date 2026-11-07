@@ -9,6 +9,7 @@ import {
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
 import { holdPendingImport } from "@opensesame/app-core/lib/vault/pending-import.js";
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   SHARE_TARGET_MAX_BYTES,
   SHARE_TARGET_PARAM,
@@ -19,7 +20,6 @@ import {
   shareTargetCacheName,
   shareTargetEntryUrl,
 } from "./share-target.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 function scopeUrl(): URL {
   return new URL(import.meta.env.BASE_URL, window.location.origin);

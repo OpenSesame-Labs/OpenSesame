@@ -35,8 +35,8 @@ import {
   createInteractionLinkRoutes,
 } from "./routes/interaction-handoff.js";
 import { createInteractionRoutes } from "./routes/interactions.js";
-import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { mfaRoutes } from "./routes/mfa.js";
+import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { notificationCallbackRoutes } from "./routes/notification-callbacks.js";
 import {
   notificationChannelRoutes,

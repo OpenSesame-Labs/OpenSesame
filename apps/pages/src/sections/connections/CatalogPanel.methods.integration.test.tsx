@@ -17,6 +17,7 @@ import {
 } from "./CatalogPanel.js";
 import { identityConnectionMethodLabel } from "./identity/identity-ui-values.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
+
 declareConnectionsTutorial();
 afterEach(cleanup);
 it("keeps removed providers off the page while showing compiled protocols", () => {

@@ -23,9 +23,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnlockScreen } from "./UnlockScreen.js";
-import { resetUnlockHarness, v } from "./unlock-screen-harness.js";
 import { ResetGate } from "./unlock/ResetGate.js";
 import { resetBrowserSeams } from "./unlock/reset-browser-run.js";
+import { resetUnlockHarness, v } from "./unlock-screen-harness.js";
 
 const original = { ...resetBrowserSeams };
 

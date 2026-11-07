@@ -41,7 +41,9 @@ export type ProtectionSheetRequest = {
 
 export function AddKeyProtection({
   onDone,
-}: { onDone: () => void }): ReactNode {
+}: {
+  onDone: () => void;
+}): ReactNode {
   const store = useVaultStore();
   const [busy, setBusy] = useState(false);
   const enroll = (

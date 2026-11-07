@@ -8,6 +8,7 @@ import {
 import { installWorkerEgress } from "./worker-egress.js";
 import { WorkerNativeHTTP } from "./worker-native-http.js";
 import { WorkerPeerGET } from "./worker-peer-get.js";
+
 type WorkerDependencies = {
   load: typeof loadBrowserNode;
   egress: typeof installWorkerEgress;

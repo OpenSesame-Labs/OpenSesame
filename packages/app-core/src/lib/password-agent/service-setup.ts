@@ -3,6 +3,7 @@ import { type VaultMetadata, parseServiceToken } from "./auth.js";
 import { passwordAgentPolicy as policy } from "./policy.js";
 import type { SetupOptions } from "./service-account.js";
 import { type PasswordAgentPort, json, records, string } from "./transport.js";
+
 const vaultMetadata = z.array(
   z.object({ id: z.string().regex(/^[a-z0-9]{26}$/), name: z.string() }),
 );

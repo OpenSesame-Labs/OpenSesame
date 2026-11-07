@@ -12,21 +12,14 @@ import { configureHost } from "../host.js";
 import { createMemoryStorage } from "../memory-storage.js";
 import { createTestHost } from "../test-host.js";
 import { fenceLocalSignOut } from "./ambient-auth/generation.js";
-import { subscribeDeviceRows } from "./device-connector-records.js";
 import {
   DEVICE_CONNECTOR_KEYS,
   readDeviceRows,
   readDeviceSecrets,
+  subscribeDeviceRows,
 } from "./device-connector-records.js";
-import { readNativeFederationSession } from "./federation-native-session.js";
 import { clearSession } from "./federation.js";
-import { captureConfiguredIdentitySessionOwner } from "./identity-connections-admission.js";
-import {
-  getIdentityConnectionRuntime,
-  identityConnectionRevision,
-  writeIdentityConnection,
-} from "./identity-connections-store.js";
-import { projectIdentityTrust } from "./identity-connections-trust.js";
+import { readNativeFederationSession } from "./federation-native-session.js";
 import {
   beginIdentityConnectionSignIn,
   identityConnectionDraft,
@@ -36,12 +29,20 @@ import {
   saveIdentityConnection,
   testIdentityConnection,
 } from "./identity-connections.js";
+import { captureConfiguredIdentitySessionOwner } from "./identity-connections-admission.js";
+import {
+  getIdentityConnectionRuntime,
+  identityConnectionRevision,
+  writeIdentityConnection,
+} from "./identity-connections-store.js";
+import { projectIdentityTrust } from "./identity-connections-trust.js";
 import { configuredSamlPopup } from "./identity-saml-popup.test-support.js";
 import { kvFlush, kvForgetAll, kvHydrate, kvSeams } from "./kv.js";
 import { bindNativeProviderTransport } from "./native-connector-transport.js";
 import { signInMethods } from "./settings.js";
 import { vaultStore } from "./vault/store.js";
 import { vfsFlush } from "./vfs.js";
+
 const disk = new Map<string, string>();
 const memory = new Map<string, string>();
 const releases: (() => void)[] = [];

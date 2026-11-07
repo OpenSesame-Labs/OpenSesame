@@ -11,7 +11,6 @@ import {
   loadNativeConnectorRecord,
   readNativeConnector,
 } from "./native-connector-store.js";
-import { nativeOAuthCallbackTarget } from "./native-oauth-session.js";
 import {
   gitlabAccount,
   installNativeOAuthTests,
@@ -21,6 +20,7 @@ import {
   oauthPending,
   oauthToken,
 } from "./native-oauth.test-support.js";
+import { nativeOAuthCallbackTarget } from "./native-oauth-session.js";
 
 installNativeOAuthTests();
 it("seals PKCE, exchanges without a secret, verifies the real provider account, and awaits a real account read", async () => {

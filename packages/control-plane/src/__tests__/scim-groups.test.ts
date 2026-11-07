@@ -5,12 +5,12 @@ import {
 import { overlapCast } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { provisionedRoleForSubject } from "../routes/scim.js";
 import {
   memberIds,
   parseMemberSelector,
   resolveMemberIds,
 } from "../routes/scim-member-selector.js";
-import { provisionedRoleForSubject } from "../routes/scim.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,

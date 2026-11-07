@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createInfisicalBackend } from "./infisical.js";
 import {
   type BackendWireFixture,
   backendWireFixture,
 } from "./infisical-passwordstate.test-support.js";
-import { createInfisicalBackend } from "./infisical.js";
 import { secretBackendDraft } from "./presets.js";
 
 describe("Infisical native HTTP secrets", () => {

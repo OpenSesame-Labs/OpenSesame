@@ -5,6 +5,7 @@ import type { PhysicalRetiredCredentialRecord } from "../vault/physical-device-r
 import { deriveRetiredVerifier } from "./argon-verifier.js";
 import { matchDeviceRetiredCredentialData } from "./device-global-match-data.js";
 import { RETIRED_CREDENTIAL_MATCHING_V2 } from "./records-v2.js";
+
 const candidate = "retired exact scalar password";
 let wire = "";
 beforeAll(async () => {

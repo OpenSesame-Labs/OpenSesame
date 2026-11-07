@@ -14,12 +14,12 @@
  * with the reason, never attempted.
  */
 
+import type { BoundaryValue } from "@opensesame/os-domain";
 import {
   type JsonObject,
   isTypeofObject,
   overlapCast,
 } from "@opensesame/os-domain";
-import type { BoundaryValue } from "@opensesame/os-domain";
 import { page, pageOrigin } from "../ports.js";
 import {
   noteConnectionCreated,
@@ -56,9 +56,8 @@ import type { ProviderCategory } from "./provider-category.js";
 import * as vercelConnect from "./vercel-connect-ops.js";
 
 export type { Integration } from "./connections-integrations.js";
-export { ConnectionsError };
-
 export type { ModelApi, ProviderCategory };
+export { ConnectionsError };
 export type AuthKind =
   | "oauth2_authorization_code"
   | "api_key"

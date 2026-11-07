@@ -9,16 +9,16 @@ import { nativeBrowserOAuthPolicy } from "./native-browser-policy.js";
 import { nativeConfigurationBrowserPolicy } from "./native-configuration-policy.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 import {
-  microsoftAccount,
-  microsoftAssertion,
-} from "./native-oauth-jwt.test-support.js";
-import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthCallback,
   oauthDraft,
   oauthPending,
 } from "./native-oauth.test-support.js";
+import {
+  microsoftAccount,
+  microsoftAssertion,
+} from "./native-oauth-jwt.test-support.js";
 
 function expectProviderResourceRequest(
   provider: ReturnType<typeof oauthAuthority>,

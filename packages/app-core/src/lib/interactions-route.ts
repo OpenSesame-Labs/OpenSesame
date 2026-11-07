@@ -21,8 +21,8 @@ import {
 } from "@opensesame/ceremony-kit";
 import { dismissNotice, setStatusNotice } from "./notices.js";
 
-export { INTERACTION_LABELS, ceremonyRouterPath };
 export type { InteractionPhase, InteractionStep, Outcome };
+export { INTERACTION_LABELS, ceremonyRouterPath };
 
 /** What the sign-in step says when the model said nothing more. */
 export const INTERACTION_SIGN_IN = INTERACTION_ERROR_WORDS.approval_required;

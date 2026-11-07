@@ -4,6 +4,7 @@ import { kvDelete, kvSet } from "../kv.js";
 import * as argon from "./argon-verifier.js";
 import { key, matches, read, verifier } from "./record-access.js";
 import type { TrapRecord } from "./records.js";
+
 const tomb = "inactive-record-access-fixture";
 const salt = "AAECAwQFBgcICQoLDA0ODw==";
 const ascii = "lF4CYhE/M319Ne3ZL58n9f15oXGjfYdF8TdmQkbeLmg=";

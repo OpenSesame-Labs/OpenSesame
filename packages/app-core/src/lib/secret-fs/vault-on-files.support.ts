@@ -3,8 +3,9 @@
  * canary value that must never rest in the clear, the way a fresh process is
  * started over a store, and small readers of a directory's tree.
  */
-import { createItem } from "@opensesame/vault-core";
+
 import type { VaultItem } from "@opensesame/vault-core";
+import { createItem } from "@opensesame/vault-core";
 import { Effect } from "effect";
 import { configureHost, host } from "../../host.js";
 import { kvForgetAll } from "../kv.js";

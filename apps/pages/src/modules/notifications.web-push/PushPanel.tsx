@@ -36,6 +36,7 @@ import { useIdentityConfigured } from "../../lib/use-configured.js";
 import { CeremonyRow } from "../../sections/settings/CeremonyRow.js";
 
 const NOTICE_ID = "push-on-this-device";
+
 export { PUSH_SUBSCRIPTION_KEY };
 
 type Credentials = { baseUrl: string; accessToken: string } | null;

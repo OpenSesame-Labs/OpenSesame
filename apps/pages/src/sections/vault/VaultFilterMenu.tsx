@@ -32,7 +32,11 @@ function GuidedRoad({
   road,
   guideId,
   onPick,
-}: { road: Road; guideId: string; onPick: () => void }) {
+}: {
+  road: Road;
+  guideId: string;
+  onPick: () => void;
+}) {
   const ref = useGuideTarget<HTMLAnchorElement>(guideId);
   return <RoadRow road={road} onPick={onPick} anchorRef={ref} />;
 }
@@ -152,7 +156,6 @@ function FilterSheet({
       <div
         ref={sheetRef}
         className="sheet"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="Filter items"
         aria-modal="true"

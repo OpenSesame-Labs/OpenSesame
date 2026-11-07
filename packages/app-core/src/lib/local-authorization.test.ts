@@ -13,11 +13,11 @@ import {
   revokeLocalApplicationGrant,
   withLocalApplicationGrant,
 } from "./local-authorization.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "./local-directory.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   listRecordedLocalGrants,
   revokeRecordedLocalGrant,

@@ -6,14 +6,14 @@ import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultCapabilityConnectors } from "./capabilities.js";
 import {
-  deviceIdentityFetch,
-  resetDeviceIdentitySessionsForTests,
-} from "./device-identity-host.js";
-import {
   identityPlaneRequest,
   isDeviceIdentityMode,
   resolveIdentityBase,
 } from "./device-identity.js";
+import {
+  deviceIdentityFetch,
+  resetDeviceIdentitySessionsForTests,
+} from "./device-identity-host.js";
 import { saveSettings } from "./settings.js";
 import {
   localDropClaimSeams,

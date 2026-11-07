@@ -16,11 +16,6 @@ import {
   operatorUpstream,
 } from "./federation.js";
 import {
-  getIdentityConnectionRuntime,
-  writeIdentityConnection,
-} from "./identity-connections-store.js";
-import { projectIdentityTrust } from "./identity-connections-trust.js";
-import {
   beginIdentityConnectionSignIn,
   identityConnectionDraft,
   identityConnectionProblems,
@@ -30,6 +25,11 @@ import {
   saveIdentityConnection,
   testIdentityConnection,
 } from "./identity-connections.js";
+import {
+  getIdentityConnectionRuntime,
+  writeIdentityConnection,
+} from "./identity-connections-store.js";
+import { projectIdentityTrust } from "./identity-connections-trust.js";
 import * as enterprise from "./identity-enterprise.js";
 import { kvForgetAll, kvSeams } from "./kv.js";
 import { signInMethods } from "./settings.js";

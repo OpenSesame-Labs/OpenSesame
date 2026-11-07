@@ -15,9 +15,9 @@ import {
   createGestureHandlers,
   runGesture,
 } from "./gesture-runtime.js";
+import { rail, rowIn, vault } from "./keymap.test-harness.js";
 import { createChordState } from "./keymap-chord.js";
 import { registerRailKeymap, registerVaultKeymap } from "./keymap-targets.js";
-import { rail, rowIn, vault } from "./keymap.test-harness.js";
 
 type Finger = { id: number; x: number; y: number; target: EventTarget };
 

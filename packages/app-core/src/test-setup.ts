@@ -7,8 +7,8 @@ import { loadPack, packEntries } from "@opensesame/vault-item-types";
 import { afterEach } from "vitest";
 import { configureHost } from "./host.js";
 import { installWipeGuard } from "./lib/duress/wipe/test-guard.js";
-import { assertOwnedStorageWrites } from "./test-host-storage-writes.js";
 import { createTestHost, repairInertWebStorage } from "./test-host.js";
+import { assertOwnedStorageWrites } from "./test-host-storage-writes.js";
 
 // Built-in packs arrive on demand in the app (ADR 0165); these suites are
 // written against the whole corpus, so they switch every pack on first.

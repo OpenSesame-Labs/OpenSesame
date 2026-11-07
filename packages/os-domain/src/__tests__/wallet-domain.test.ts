@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PaymentCredentialRefused } from "../authorization-details.js";
 import type { PaymentInitiationDetail } from "../authorization-details.js";
+import { PaymentCredentialRefused } from "../authorization-details.js";
 import {
   MAX_AMOUNT_UNITS_EXACT,
   addAmountUnits,
@@ -14,6 +14,7 @@ import {
   toAmountExact,
 } from "../wallet/amount.js";
 import { WalletError } from "../wallet/errors.js";
+import type { ExecutablePaymentIntent } from "../wallet/payment-intent.js";
 import {
   EXECUTABLE_PAYMENT_INTENT_TYPE,
   EXECUTABLE_PAYMENT_INTENT_VERSION,
@@ -22,7 +23,6 @@ import {
   initialPaymentLifecycle,
   paymentInitiationGrantsExecutableAuthority,
 } from "../wallet/payment-intent.js";
-import type { ExecutablePaymentIntent } from "../wallet/payment-intent.js";
 
 function validIntent(
   overrides: Partial<ExecutablePaymentIntent> = {},

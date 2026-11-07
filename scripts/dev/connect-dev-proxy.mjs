@@ -27,8 +27,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { tmpdir } from "node:os";
-import { networkInterfaces } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import { join } from "node:path";
 
 function flag(name, fallback) {

@@ -1,11 +1,11 @@
 import { afterEach, expect, it } from "vitest";
 import { aiHttpFixture } from "./protocol.test-support.js";
-import type { ReplicateConnection } from "./replicate-types.js";
 import {
   cancelReplicatePrediction,
   createReplicatePrediction,
   getReplicatePrediction,
 } from "./replicate.js";
+import type { ReplicateConnection } from "./replicate-types.js";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {

@@ -1,9 +1,3 @@
-import {
-  POPUP_MESSAGE,
-  type PopupAction,
-  type PopupReply,
-  type PopupStatus,
-} from "@/lib/popup-api";
 /**
  * The popup (ADR 0199). It reads the status from the background and draws it;
  * every change is the person's own click. Asking the browser for a permission
@@ -11,6 +5,12 @@ import {
  * background reads the browser's answer back.
  */
 import { renderPanel } from "@/lib/popup/panel";
+import {
+  POPUP_MESSAGE,
+  type PopupAction,
+  type PopupReply,
+  type PopupStatus,
+} from "@/lib/popup-api";
 import { webOrigin } from "@/lib/sites";
 
 async function ask(action: PopupAction): Promise<PopupReply> {

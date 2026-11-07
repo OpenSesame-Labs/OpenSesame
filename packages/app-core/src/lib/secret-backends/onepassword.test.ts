@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { secretHttpFixture } from "./onepassword-http.test-support.js";
 import { createOnePasswordConnectBackend } from "./onepassword.js";
+import { secretHttpFixture } from "./onepassword-http.test-support.js";
 import type { SecretBackendConfiguration } from "./types.js";
 
 const cleanup: Array<() => Promise<void>> = [];

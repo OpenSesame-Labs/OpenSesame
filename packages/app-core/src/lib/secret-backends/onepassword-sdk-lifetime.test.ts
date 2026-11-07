@@ -1,11 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
-import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import {
   deferred,
   nativeOverview,
   nativeVault,
   sdkFixture,
 } from "./onepassword-sdk.test-support.js";
+import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import { secretBackendSessionClosure } from "./sessions.js";
 
 afterEach(() => vi.restoreAllMocks());

@@ -40,6 +40,7 @@ import { StatusMark, statusTone } from "../../components/StatusMark.js";
 import { StatusNote } from "../../components/StatusNote.js";
 
 import * as Directory from "./DirectoryTabs.js";
+import { useDirectoryPanels } from "./directory-panel-slot.js";
 import { MemberForm } from "./HostedMemberForm.js";
 import {
   HostedConnectWorkspace,
@@ -48,12 +49,14 @@ import {
   useCopy,
   useHostedRecord,
 } from "./HostedRecordParts.js";
-import { useDirectoryPanels } from "./directory-panel-slot.js";
 import { usePublishHostedIdentityRows } from "./hosted-identity-rail.js";
 export function PeoplePanel({
   online,
   session,
-}: { online: boolean; session: IdentitySession | null }) {
+}: {
+  online: boolean;
+  session: IdentitySession | null;
+}) {
   const location = useLocation();
   const directory = useDirectoryPanels();
   if (!session)
@@ -199,7 +202,10 @@ function usePeopleWorkspace(directory: boolean) {
 function HostedPeople({
   online,
   directory,
-}: { online: boolean; directory: boolean }) {
+}: {
+  online: boolean;
+  directory: boolean;
+}) {
   const workspace = usePeopleWorkspace(directory);
   const { model, route, busy, flash, linked, member, me, mutate, rows } =
     workspace;
@@ -266,7 +272,10 @@ function HostedPeople({
 function PeopleDetail({
   workspace,
   online,
-}: { workspace: ReturnType<typeof usePeopleWorkspace>; online: boolean }) {
+}: {
+  workspace: ReturnType<typeof usePeopleWorkspace>;
+  online: boolean;
+}) {
   const { title } = workspace;
   return (
     <>
@@ -282,7 +291,10 @@ function PeopleDetail({
 function PeopleTools({
   workspace,
   online,
-}: { workspace: ReturnType<typeof usePeopleWorkspace>; online: boolean }) {
+}: {
+  workspace: ReturnType<typeof usePeopleWorkspace>;
+  online: boolean;
+}) {
   const {
     linked,
     member,
@@ -334,7 +346,9 @@ function PeopleTools({
 
 function PeopleFacts({
   workspace,
-}: { workspace: ReturnType<typeof usePeopleWorkspace> }) {
+}: {
+  workspace: ReturnType<typeof usePeopleWorkspace>;
+}) {
   const { me, linked, member } = workspace;
   const { copy, copied } = useCopy();
   return (

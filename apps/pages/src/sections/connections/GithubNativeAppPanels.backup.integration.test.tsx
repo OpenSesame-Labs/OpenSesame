@@ -20,8 +20,8 @@ import {
   createProject,
   setActiveProject,
 } from "@opensesame/app-core/lib/projects.js";
-import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import { createItem } from "@opensesame/vault-core";
@@ -42,6 +42,7 @@ import { ConnectionsSection } from "../ConnectionsSection.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 // App reads return GitHub's numeric ID; old backup-only fixture defaults remain unchanged.
+// biome-ignore lint/correctness/useHookAtTopLevel: vitest fixture helper registering lifecycle hooks, not a React hook
 const fixture = useGithubBackupProviderFixture({ appId: "42", branch: "main" });
 beforeEach(() => {
   // The provider fixture's fixed lease is for standalone protocol tests.

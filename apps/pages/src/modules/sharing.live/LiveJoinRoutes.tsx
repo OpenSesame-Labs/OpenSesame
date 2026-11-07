@@ -5,8 +5,10 @@
  * or pairs directly by hand; and, once asked, where each carrier stands.
  */
 
-import type { Rendezvous } from "@opensesame/app-core/lib/live/rendezvous.js";
-import type { CarrierState } from "@opensesame/app-core/lib/live/rendezvous.js";
+import type {
+  CarrierState,
+  Rendezvous,
+} from "@opensesame/app-core/lib/live/rendezvous.js";
 import {
   type LiveRoutes,
   hasRoutes,
@@ -70,7 +72,9 @@ export function carrierStanding(state: CarrierState): Standing {
 /** Where each carrier stands, while it has codes to carry. */
 export function CarrierMarks({
   rendezvous,
-}: { rendezvous: Rendezvous | null }) {
+}: {
+  rendezvous: Rendezvous | null;
+}) {
   const [states, setStates] = useState<readonly CarrierState[]>(
     () => rendezvous?.states ?? [],
   );

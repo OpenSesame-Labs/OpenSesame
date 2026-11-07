@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { nativeProcessFixture as processFixture } from "../../packages/cli/src/fixtures/password-agent/native-process.js";
+
 const TOKEN = "ops_fake-token";
 let directory: string;
 let database: string;

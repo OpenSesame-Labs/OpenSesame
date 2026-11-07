@@ -10,6 +10,7 @@ import {
   symlink,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
+
 const core = join(process.cwd(), "packages/app-core");
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 async function linkOriginalTarget(target, destination) {

@@ -1,5 +1,5 @@
-import { localGitToConnection } from "@opensesame/app-core/lib/connections-local-git.js";
 import type { Connection } from "@opensesame/app-core/lib/connections.js";
+import { localGitToConnection } from "@opensesame/app-core/lib/connections-local-git.js";
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";

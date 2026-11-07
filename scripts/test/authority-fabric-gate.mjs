@@ -17,7 +17,13 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import {
+  BLOCKED_REASONS,
+  assembleReport,
+  exitCodeFor,
+  resolveScenario,
+  scenarios,
+} from "../lib/authority-fabric.mjs";
 import {
   enumerateScenarioCargoTests,
   readCargoResult,
@@ -34,13 +40,6 @@ import {
   workspaceMembers,
 } from "../lib/authority-fabric-facts.mjs";
 import { markdown, printSummary } from "../lib/authority-fabric-render.mjs";
-import {
-  BLOCKED_REASONS,
-  assembleReport,
-  exitCodeFor,
-  resolveScenario,
-  scenarios,
-} from "../lib/authority-fabric.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const evidenceDir = join(

@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { bodyText, challengeText, html } from "./mock-site-http.js";
 import type { Challenge } from "./mock-site.js";
+import { bodyText, challengeText, html } from "./mock-site-http.js";
 
 export interface MockSiteState {
   origin: string;

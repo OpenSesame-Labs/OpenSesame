@@ -1,12 +1,12 @@
 import { expect, it } from "vitest";
 import { updateNativeConnector } from "./native-connector-store.js";
+import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import {
   beginNativeOAuthClient,
   configureNativeOAuthClient,
   nativeOAuthClientClassification,
 } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
-import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import { verifyNativeOAuthMcpResource } from "./native-oauth-mcp-operations.js";
 import { verifyNativeOAuthResource } from "./native-oauth-resource.js";
 import {

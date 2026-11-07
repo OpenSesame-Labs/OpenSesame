@@ -7,8 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 import { openTravelBundle } from "./bundle-format.js";
-import { parseReturnCode } from "./return-code.js";
 import { completeReturn, openReturn } from "./return.js";
+import { parseReturnCode } from "./return-code.js";
 import { vaultNamespace } from "./storage.js";
 import {
   PRJ_TRIP,

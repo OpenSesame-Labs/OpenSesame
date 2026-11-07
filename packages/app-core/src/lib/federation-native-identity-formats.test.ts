@@ -4,6 +4,7 @@ import { tlsOracle } from "../browser/oidc/tls.test-support.js";
 import { prepareConfiguredOidc } from "../browser/oidc/transaction.js";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
+import { loadSession, saveSession } from "./federation.js";
 import { configuredIdentitySessionTrusted } from "./federation-configured-token.js";
 import {
   type NativeFederationIdentity,
@@ -19,7 +20,6 @@ import {
   restoreAuthenticatedSession,
 } from "./federation-restoration.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
-import { loadSession, saveSession } from "./federation.js";
 import { kvFlush, kvForgetAll } from "./kv.js";
 import { type OperatorIdp, readOperatorIdp } from "./operator-idp-config.js";
 import { loadSettings, saveSettings, signInMethods } from "./settings.js";

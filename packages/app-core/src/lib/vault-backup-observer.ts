@@ -10,9 +10,9 @@ import {
   readLocalBackupTarget,
   subscribeLocalBackupTarget,
 } from "./backup-target-local.js";
-import { drainBackupWebhooks, syncVaultBackup } from "./vault-backup-sync.js";
-import { sealMark } from "./vault/store-fresh.js";
 import { GUEST_TOMB, vaultStore } from "./vault/store.js";
+import { sealMark } from "./vault/store-fresh.js";
+import { drainBackupWebhooks, syncVaultBackup } from "./vault-backup-sync.js";
 import { HEADER_PATH, readPlaintextFile } from "./vfs.js";
 
 export type BackupSyncReason =

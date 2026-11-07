@@ -10,15 +10,15 @@ import {
 } from "./github-installation-access.js";
 import { identitySeams } from "./identity.js";
 import { localRequestFixture } from "./local-request.fixture.js";
-import {
-  approvePendingShare,
-  submitLocalShare,
-} from "./local-share-grants-approvals.js";
 import type {
   CreateLocalShareInput,
   LocalShare,
 } from "./local-share-grants.js";
 import { listLocalShares, revokeLocalShare } from "./local-share-grants.js";
+import {
+  approvePendingShare,
+  submitLocalShare,
+} from "./local-share-grants-approvals.js";
 import { lockAllTombs, writeFile } from "./vfs.js";
 
 const originalConnectionSeams = { ...connectionSeams };

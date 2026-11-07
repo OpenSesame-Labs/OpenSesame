@@ -15,6 +15,7 @@ import {
   captureRetiredDeviceReaderIdentity,
   captureRetiredPublicationReaderIdentity,
 } from "./retired-owner-reader-identity.js";
+
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 export function captureRetiredOwnerResources(
   tomb: string,

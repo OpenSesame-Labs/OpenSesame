@@ -1,4 +1,5 @@
 import { asBufferSource } from "@opensesame/os-domain";
+
 /**
  * Minimal AWS SigV4 signer for KMS JSON-1.1 over HTTPS (browser + Node).
  * Only signs POST bodies we construct — never logs credentials or plaintext.

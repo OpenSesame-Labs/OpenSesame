@@ -2,11 +2,13 @@ import {
   forgetLocalGitRemote,
   isLocalGitRemoteId,
 } from "./git-remote-local.js";
+
 export {
   listLocalGitConnections,
   localGitToConnection,
   mergeLocalGitConnections,
 } from "./connections-local-git-view.js";
+
 import { revokeDeviceConnection } from "./device-connectors.js";
 import { unbindHistoryConnection } from "./history-backups.js";
 

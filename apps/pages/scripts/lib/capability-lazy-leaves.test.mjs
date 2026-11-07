@@ -9,8 +9,7 @@ import {
 } from "./capability-lazy-leaves.mjs";
 
 test("keeps the NATS signer with its carrier instead of connector metadata", () => {
-  const file =
-    "/repo/node_modules/tweetnacl/nacl-fast.js";
+  const file = "/repo/node_modules/tweetnacl/nacl-fast.js";
   const owner = classifyModule(file, PACKAGE_RULES, { repoRoot: "/repo" });
   assert.equal(owner.classification, "optional");
   assert.equal(owner.capability, "sharing.live");

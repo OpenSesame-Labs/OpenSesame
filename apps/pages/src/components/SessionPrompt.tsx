@@ -4,10 +4,10 @@ import { lockAfterDraft } from "../lib/sw-update-guard.js";
 import { useVaultStore } from "../lib/vault/hooks.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { AccountSwitcher } from "./AccountSwitcher.js";
+import { openContextMenu } from "./context-menu/menu-model.js";
 import { IconLock } from "./Icons.js";
 import { ProjectSwitcher } from "./ProjectSwitcher.js";
 import { sessionSections, useSections } from "./RailRows.js";
-import { openContextMenu } from "./context-menu/menu-model.js";
 import { VaultShareSeat } from "./vault-share-seat.js";
 
 export function LockKey() {
@@ -30,7 +30,10 @@ export function LockKey() {
 export function SessionPrompt({
   showLock = true,
   header = false,
-}: { showLock?: boolean; header?: boolean }) {
+}: {
+  showLock?: boolean;
+  header?: boolean;
+}) {
   const [vaultGlyphHost, setVaultGlyphHost] = useState<HTMLElement | null>(
     null,
   );
@@ -41,6 +44,7 @@ export function SessionPrompt({
   const sections = useSections();
   const roots = sessionSections(sections);
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div
       className={header ? "rail__prompt header-prompt" : "rail__prompt"}
       onContextMenu={(event) => {

@@ -13,6 +13,7 @@ import {
 } from "./bitwarden-native-crypto.test-support.js";
 import { nativeObject, nativeText } from "./bitwarden-native-item.js";
 import type { SecretBackendTransport } from "./transport.js";
+
 export {
   NATIVE_EMAIL,
   NATIVE_LIMITS,

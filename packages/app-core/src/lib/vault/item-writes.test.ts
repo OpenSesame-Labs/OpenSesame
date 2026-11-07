@@ -5,8 +5,8 @@ import { itemText, withdrawFromBody } from "./item-departure.js";
 import { writeSavedItems } from "./item-writes.js";
 import { resetPasswordHistoryForTest } from "./password-history.js";
 import { comparePrivatePassword } from "./password-workflows.js";
-import type { VaultState } from "./store-state.js";
 import { vaultStore } from "./store.js";
+import type { VaultState } from "./store-state.js";
 
 afterEach(() => {
   vi.useRealTimers();

@@ -3,8 +3,8 @@
  */
 
 import type { ConnectorSetting } from "@opensesame/app-core/lib/connector-settings.js";
-import type { PendingShare } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import type { LocalShare } from "@opensesame/app-core/lib/local-share-grants.js";
+import type { PendingShare } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { AccessDetail, AccessFact } from "./AccessRecords.js";
 import { ConnectorBindForm } from "./ConnectorBindForm.js";

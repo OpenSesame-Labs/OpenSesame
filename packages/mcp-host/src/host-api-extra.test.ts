@@ -40,7 +40,6 @@ describe("host-api fences not covered by the tool suite", () => {
 
   it("refuses agent authority over plaintext http off loopback", async () => {
     stash();
-    // biome-ignore lint/performance/noDelete: operator token must not shadow the session path
     delete process.env.OPENSESAME_OPERATOR_TOKEN;
     process.env.OPENSESAME_ACCESS_TOKEN = "sess-1";
     await expect(hostAuthHeaders("http://192.0.2.10:8787")).rejects.toThrow(
@@ -50,7 +49,6 @@ describe("host-api fences not covered by the tool suite", () => {
 
   it("does not promote a native session into agent authority", async () => {
     stash();
-    // biome-ignore lint/performance/noDelete: operator token must not shadow the session path
     delete process.env.OPENSESAME_OPERATOR_TOKEN;
     process.env.OPENSESAME_ACCESS_TOKEN = "sess-raw";
     await expect(hostAuthHeaders("https://api.example.test")).rejects.toThrow(
@@ -60,9 +58,7 @@ describe("host-api fences not covered by the tool suite", () => {
 
   it("refuses authenticated calls without an approved launch", async () => {
     stash();
-    // biome-ignore lint/performance/noDelete: must actually unset, `= undefined` stringifies
     delete process.env.OPENSESAME_OPERATOR_TOKEN;
-    // biome-ignore lint/performance/noDelete: must actually unset, `= undefined` stringifies
     delete process.env.OPENSESAME_ACCESS_TOKEN;
     await expect(hostAuthHeaders("http://127.0.0.1:8787")).rejects.toThrow(
       "approved agent launch",

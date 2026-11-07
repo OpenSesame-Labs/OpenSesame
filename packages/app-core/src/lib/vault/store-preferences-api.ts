@@ -1,14 +1,15 @@
 /** Preferences are body-local; callbacks retain the Store's session and write lifecycle. */
-import {
-  readPrefsSourceFile,
-  writePrefsJson,
-  writePrefsSourceFile,
-} from "./prefs-io.js";
+
 import {
   VAULT_PREFS_REVISION,
   type VaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
+import {
+  readPrefsSourceFile,
+  writePrefsJson,
+  writePrefsSourceFile,
+} from "./prefs-io.js";
 import type { StorePreferences } from "./store-preferences.js";
 export function createStorePreferencesApi(
   input: Readonly<{

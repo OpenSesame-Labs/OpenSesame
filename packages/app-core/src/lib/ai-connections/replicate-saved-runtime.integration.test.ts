@@ -14,8 +14,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "../secret-backends/runtime.test-support.js";
-import { initializeVaultCredentialCustody } from "../vault-credential-custody.js";
 import { vaultStore } from "../vault/store.js";
+import { initializeVaultCredentialCustody } from "../vault-credential-custody.js";
 import { vfsFlush } from "../vfs.js";
 import { aiDelegationAvailable } from "./delegation.js";
 import { aiConnectionDraft } from "./presets.js";
@@ -30,6 +30,7 @@ import {
 } from "./runtime.js";
 import { readAiConnection } from "./store.js";
 import { bindAiConnectionTransport } from "./transport.js";
+
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

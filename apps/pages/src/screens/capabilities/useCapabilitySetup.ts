@@ -27,6 +27,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useComposition } from "../../bindings/capabilities.js";
 import {
   type CapabilityDraft,
   acceptRequired,
@@ -40,8 +41,6 @@ import {
   replaceRoot,
   toggleRoot,
 } from "./CapabilityDraft.js";
-
-import { useComposition } from "../../bindings/capabilities.js";
 export type SetupStage =
   | "roads"
   | "join"

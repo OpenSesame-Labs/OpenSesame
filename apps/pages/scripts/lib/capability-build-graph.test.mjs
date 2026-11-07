@@ -60,8 +60,7 @@ describe("classification", () => {
     assert.equal(entry.id, "node_modules/@vercel/connect/dist/index.js");
     assert.equal(entry.capability, "connectors.external");
     assert.equal(
-      classify("/repo/node_modules/zod/index.js")
-        .rationale,
+      classify("/repo/node_modules/zod/index.js").rationale,
       "unclassified dependency",
     );
   });

@@ -4,11 +4,11 @@ import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconLogin } from "../../components/Icons.js";
 import { pwaOfferPasswordsOnboarding } from "../../lib/pwa-offer-passwords-onboarding.js";
 import { useAddEntry } from "./add-menu.js";
-import type { PasswordsOnboardingPlacement } from "./passwords-onboarding-offer.js";
 import {
   commitPasswordsOnboarding,
   passwordsOfferNeeded,
 } from "./passwords-onboarding.js";
+import type { PasswordsOnboardingPlacement } from "./passwords-onboarding-offer.js";
 
 function AddMenuEntry({ run }: { run: () => void }) {
   useAddEntry({

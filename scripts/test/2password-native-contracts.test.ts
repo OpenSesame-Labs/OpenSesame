@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
 const execute = promisify(execFile);
 const PreparedArtifact = z.object({
   path: z.string().min(1),

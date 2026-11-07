@@ -3,15 +3,15 @@ import { kvGet } from "@opensesame/app-core/lib/kv.js";
 import { localRequestFixture } from "@opensesame/app-core/lib/local-request.fixture.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
+  setVercelConnectAuth,
+  vercelConnectAuth,
+} from "@opensesame/app-core/lib/vercel-connect.js";
+import {
   CONNECT_AUTH_PATH,
   armVercelConnectAuth,
   clearPendingVercelConnectAuth,
   readVercelConnectAuth,
 } from "@opensesame/app-core/lib/vercel-connect-session.js";
-import {
-  setVercelConnectAuth,
-  vercelConnectAuth,
-} from "@opensesame/app-core/lib/vercel-connect.js";
 import { lockAllTombs, tombFileKey } from "@opensesame/app-core/lib/vfs.js";
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";

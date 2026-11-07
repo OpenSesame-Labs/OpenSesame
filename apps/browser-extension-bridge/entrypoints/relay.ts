@@ -1,4 +1,3 @@
-import { RELAY_MESSAGE } from "@/lib/relay-wire";
 /**
  * The relay (ADR 0199). An unlisted script: it has no manifest
  * `content_scripts` entry. The background registers it at runtime, top frame
@@ -14,6 +13,7 @@ import {
   parsePageReply,
   parsePageRequest,
 } from "@opensesame/connector-bridge";
+import { RELAY_MESSAGE } from "@/lib/relay-wire";
 
 export default defineUnlistedScript(() => {
   // One relay per document, whichever way it was injected.

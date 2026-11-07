@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { passwordBytes } from "./password-bytes.js";
 import { MAX_RETIRED_RETENTION_MS } from "./retention-v2.js";
+
 const changeSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("enroll"),

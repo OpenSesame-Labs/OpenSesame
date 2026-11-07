@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CAPABILITY_CATALOG } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import {
   LINEAR_API_PURPOSE,
   NATIVE_PROVIDER_PURPOSE,
@@ -37,7 +38,6 @@ import {
   PWNED_PURPOSE,
   TWO_FACTOR_PURPOSE,
 } from "@opensesame/app-core/lib/capabilities/catalog-optional-vault.js";
-import { CAPABILITY_CATALOG } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import type ts from "typescript";
 import { describe, expect, it } from "vitest";
 import {

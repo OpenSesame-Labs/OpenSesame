@@ -15,6 +15,7 @@ import {
 } from "../../vfs.js";
 import { ATTEMPTS_KEY, VaultStore } from "../store.js";
 import { LEGACY_PREFS_KEY } from "../tomb-migration.js";
+
 const PASSWORD = "correct horse battery staple";
 const NEXT_PASSWORD = "a new actual owner password for the control";
 const HEADER_KEY = tombFileKey(PERSONAL_TOMB, HEADER_PATH);

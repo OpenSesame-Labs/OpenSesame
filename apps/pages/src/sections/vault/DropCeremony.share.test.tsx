@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-
+import { makeAccount } from "./account.test-support.js";
 import {
   Ceremony,
   createClaim,
@@ -11,7 +11,6 @@ import {
   makeSecret,
   store,
 } from "./DropCeremony.test-support.js";
-import { makeAccount } from "./account.test-support.js";
 
 installDropCeremonyHarness();
 

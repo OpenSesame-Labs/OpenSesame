@@ -68,7 +68,7 @@ function targetPath(target: Target): string {
     /^\.{1,2}$/.test(target.repo) ||
     !target.branch ||
     target.branch.length > 255 ||
-    /[\s~^:?*\[\\]/.test(target.branch) ||
+    /[\s~^:?*[\\]/.test(target.branch) ||
     Array.from(target.branch).some(
       (char) => char.charCodeAt(0) < 33 || char.charCodeAt(0) === 127,
     ) ||

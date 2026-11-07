@@ -6,22 +6,22 @@ import { recordAccessAuditEvent } from "./local-access-audit.js";
 import { ensureDefaultAccess } from "./local-access-bootstrap.js";
 import { readLocalApplications } from "./local-applications.js";
 import { readLocalDevices, thisDeviceId } from "./local-devices.js";
+import { readLocalDirectory } from "./local-directory.js";
 import {
   PAGES_APPLICATION_ID,
   SUPPORT_AGENT_ID,
 } from "./local-directory-bootstrap.js";
-import { readLocalDirectory } from "./local-directory.js";
 import { mintGuestSessionPerson } from "./local-guest.js";
-import {
-  approvePendingShare,
-  submitLocalShare,
-} from "./local-share-grants-approvals.js";
 import {
   type LocalShare,
   createLocalShare,
   listLocalShares,
   revokeLocalShare,
 } from "./local-share-grants.js";
+import {
+  approvePendingShare,
+  submitLocalShare,
+} from "./local-share-grants-approvals.js";
 import { flushSharingReceipts } from "./sharing-receipts.js";
 import { wipeTombOnDestroy } from "./vault/tomb-migration.js";
 import {

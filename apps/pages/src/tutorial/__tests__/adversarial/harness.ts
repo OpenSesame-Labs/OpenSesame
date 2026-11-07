@@ -60,8 +60,8 @@ import {
 } from "./chain.js";
 
 export {
-  GUIDE_HEADER,
   type DeferredSupportAgent,
+  GUIDE_HEADER,
   type MountedTargets,
   type RecordingRoutes,
   type SupportChain,

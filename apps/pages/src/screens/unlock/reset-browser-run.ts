@@ -8,11 +8,11 @@
  * (`lib/browser-reset-landing.ts`).
  */
 
-import { firstVisitAddress } from "@opensesame/app-core/lib/browser-reset-landing.js";
 import {
   type BrowserResetReport,
   resetBrowser,
 } from "@opensesame/app-core/lib/browser-reset.js";
+import { firstVisitAddress } from "@opensesame/app-core/lib/browser-reset-landing.js";
 import { scopePathOf, scopePrefix } from "../../sw/cache-names.js";
 
 /**

@@ -1,4 +1,5 @@
 import { asBufferSource } from "@opensesame/os-domain";
+
 /**
  * A DER reader written apart from the encoder it checks: enough of PKCS#10 to
  * pull out the subject, the key, the subjectAltName names and the signature,

@@ -109,7 +109,12 @@ export function AccessDetail({
   kind,
   actions,
   children,
-}: { title: string; kind: string; actions?: ReactNode; children?: ReactNode }) {
+}: {
+  title: string;
+  kind: string;
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="detail">
       <div className="detail__head">
@@ -129,6 +134,9 @@ export function AccessDetail({
 export function AccessFact({
   label,
   value,
-}: { label: string; value: ReactNode }) {
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return <FieldRow label={label}>{value}</FieldRow>;
 }

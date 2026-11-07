@@ -9,6 +9,7 @@ import { IconPlus } from "../../components/Icons.js";
 import { RecordWorkspace } from "../../components/RecordWorkspace.js";
 import { useVault } from "../../lib/vault/hooks.js";
 import { IdentityFact } from "./IdentityRecordFields.js";
+import { identityRecordId } from "./identity-record-selection.js";
 import { useDirectory } from "./LocalDirectoryPanel.js";
 import {
   DirectoryAuthority,
@@ -19,7 +20,6 @@ import {
   newEntryKeyId,
 } from "./LocalDirectoryViews.js";
 import { LocalIdentityNotices } from "./LocalIdentityNotices.js";
-import { identityRecordId } from "./identity-record-selection.js";
 
 const KIND_VIEW = {
   person: "people",
@@ -36,7 +36,10 @@ export function LocalDirectoryWorkspace({ kind }: { kind: LocalIdentityKind }) {
 function DirectoryWorkspace({
   tomb,
   kind,
-}: { tomb: string; kind: LocalIdentityKind }) {
+}: {
+  tomb: string;
+  kind: LocalIdentityKind;
+}) {
   const navigate = useNavigate();
   const { hash } = useLocation();
   const [params] = useSearchParams();

@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { normalizeIssuer } from "../src/repos/interfaces.js";
+
 it("normalizes valid issuers and preserves malformed non-suffix slashes", () => {
   expect(normalizeIssuer(" https://idp.example/// ")).toBe(
     "https://idp.example",

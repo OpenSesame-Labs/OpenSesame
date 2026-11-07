@@ -1,10 +1,10 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import { AUDIENCE, ISSUER, mintKeys } from "./verifier-test-support.js";
 import {
   assertDiscoveredJwksUri,
   createOpenSesameVerifier,
 } from "./verifier.js";
+import { AUDIENCE, ISSUER, mintKeys } from "./verifier-test-support.js";
 
 describe("createOpenSesameVerifier", () => {
   it("verifies access token against local JWKS", async () => {

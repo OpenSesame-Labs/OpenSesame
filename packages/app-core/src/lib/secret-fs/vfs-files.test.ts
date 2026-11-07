@@ -10,8 +10,8 @@ import {
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
-import { SecretFsUnavailable } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsUnavailable } from "./errors.js";
 import type { SecretFiles } from "./files.js";
 import { makeMemorySecretFiles } from "./memory.js";
 import { readProjection } from "./projection-read.js";

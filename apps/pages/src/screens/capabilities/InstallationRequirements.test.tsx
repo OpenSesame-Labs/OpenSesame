@@ -1,13 +1,12 @@
 import { FIXTURE_MANAGED_POLICY } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
 import {
   double,
+  installDoublePorts,
   resetDouble,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { CapabilitySetup } from "./CapabilitySetup.js";
 import { RequirementsGate } from "./RequirementsGate.js";
 

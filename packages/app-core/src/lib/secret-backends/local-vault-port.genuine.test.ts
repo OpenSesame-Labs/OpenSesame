@@ -4,6 +4,7 @@ import {
   localVaultSessionGuard,
   requireUnlockedVault,
 } from "./local-vault-port.js";
+
 const stores: VaultStore[] = [];
 afterEach(() => {
   for (const store of stores.splice(0)) store.lock();

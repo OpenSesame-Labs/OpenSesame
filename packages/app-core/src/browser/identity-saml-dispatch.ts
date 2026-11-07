@@ -116,6 +116,7 @@ export function captureSamlConfiguration(
   });
 }
 export { saveCapturedIdentityConfiguration as saveConfiguredNativeSaml } from "./identity-configuration-publication.js";
+
 function retainPopup(original: ReturnType<typeof resumeNativeAuthPopup>) {
   const show = original.showFormConsent;
   const cancel = original.cancel;

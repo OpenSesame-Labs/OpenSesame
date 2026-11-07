@@ -115,10 +115,7 @@ test("explicit bootstrap installs frozen dependencies once and notices lock chan
     })}\n`,
   );
   assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("failed installs never acquire a success fingerprint", (t) => {
@@ -154,10 +151,7 @@ test("an untracked new workspace manifest invalidates the install fingerprint", 
     '{"name":"new-package"}\n',
   );
   assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("direct installs force noninteractive npm and reuse a matching installation", (t) => {

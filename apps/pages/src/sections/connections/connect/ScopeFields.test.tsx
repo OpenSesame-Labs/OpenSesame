@@ -36,7 +36,9 @@ describe("another scope", () => {
 
 function Params({
   onParams,
-}: { onParams: (p: Record<string, string>) => void }) {
+}: {
+  onParams: (p: Record<string, string>) => void;
+}) {
   const [params, setParams] = useState<Record<string, string>>({
     prompt: "consent",
   });

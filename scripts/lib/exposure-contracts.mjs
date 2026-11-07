@@ -1,6 +1,7 @@
 /** Mandatory reviewed boundaries: matrix edits cannot remove/relabel these controls. */
 import { LOCAL_VAULT_CONTRACT } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTRACT } from "./exposure-native-provider.mjs";
+
 const cp = "packages/control-plane/src/";
 const core = "packages/app-core/src/lib/vault/";
 const gw = "crates/gateway/src/";

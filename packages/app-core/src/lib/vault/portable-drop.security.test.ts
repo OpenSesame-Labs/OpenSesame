@@ -1,16 +1,16 @@
 import { isJsonObject } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildPortableDropBundle,
+  openPortableDropBundle,
+} from "./portable-drop.js";
+import { rewritePortableEnvelope } from "./portable-drop.test-support.js";
 import { decodePortableDropPacket } from "./portable-drop-crypto.js";
 import {
   MAX_CODE_CIPHERTEXT_CHARS,
   MAX_PORTABLE_MANIFEST_BYTES,
   MAX_PORTABLE_PACKET_CHARS,
 } from "./portable-drop-limits.js";
-import {
-  buildPortableDropBundle,
-  openPortableDropBundle,
-} from "./portable-drop.js";
-import { rewritePortableEnvelope } from "./portable-drop.test-support.js";
 
 const CODE = "ABCD-EFGH";
 const MANIFEST = { kind: "secret-drop", ciphertext: "fixture" };

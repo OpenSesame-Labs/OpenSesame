@@ -17,6 +17,7 @@ function continueMatch(presentation: string, profileId = "p-test") {
     },
   };
 }
+
 import { TriggerAttemptPolicy } from "../trigger/attempt-policy.js";
 
 describe("PACT — duress unlock", () => {

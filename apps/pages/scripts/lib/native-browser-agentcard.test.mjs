@@ -3,6 +3,7 @@ import { CONNECT_PLAN_JSON } from "@opensesame/app-core/lib/connect-presets.gene
 import { projectNativeAgentcardOrganization } from "@opensesame/app-core/lib/native-api-agentcard.js";
 import { expect, it } from "vitest";
 import { nativeApiFixture } from "./native-browser-provider-fixtures.mjs";
+
 const plan = CONNECT_PLAN_JSON.map((text) => JSON.parse(text)).find(
   (p) => p.id === "agentcard",
 );

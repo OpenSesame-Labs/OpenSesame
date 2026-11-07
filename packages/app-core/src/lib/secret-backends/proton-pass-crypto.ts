@@ -96,13 +96,10 @@ export async function importProtonKey(
   try {
     let key: CryptoKey;
     try {
-      key = await crypto.subtle.importKey(
-        "raw",
-        owned,
-        "AES-GCM",
-        false,
-        ["encrypt", "decrypt"],
-      );
+      key = await crypto.subtle.importKey("raw", owned, "AES-GCM", false, [
+        "encrypt",
+        "decrypt",
+      ]);
     } catch {
       current(owner);
       throw new ProtonCryptoError("configuration");

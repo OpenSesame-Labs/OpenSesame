@@ -1,16 +1,16 @@
-import { nativeBitbucketBackupTarget } from "@opensesame/app-core/lib/native-bitbucket-backup-authority.js";
 import { openNativeBitbucketBackup } from "@opensesame/app-core/lib/native-bitbucket-backup.js";
-import { nativeCodebergBackupTarget } from "@opensesame/app-core/lib/native-codeberg-backup-target.js";
+import { nativeBitbucketBackupTarget } from "@opensesame/app-core/lib/native-bitbucket-backup-authority.js";
 /** Mount the shared backup forms for this exact verified native bucket. */
 import { openNativeCodebergBackup } from "@opensesame/app-core/lib/native-codeberg-backup.js";
+import { nativeCodebergBackupTarget } from "@opensesame/app-core/lib/native-codeberg-backup-target.js";
 import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-store.js";
 import type { NativeConnectorView } from "@opensesame/app-core/lib/native-connector-view.js";
 import {
   nativeGithubBackupTarget,
   openNativeGithubBackup,
 } from "@opensesame/app-core/lib/native-github-backup.js";
-import { nativeGitlabBackupTarget } from "@opensesame/app-core/lib/native-gitlab-backup-target.js";
 import { openNativeGitlabBackup } from "@opensesame/app-core/lib/native-gitlab-backup.js";
+import { nativeGitlabBackupTarget } from "@opensesame/app-core/lib/native-gitlab-backup-target.js";
 import { openNativeS3Backup } from "@opensesame/app-core/lib/native-s3-backup.js";
 import type { SecretBackendBackupHandle } from "@opensesame/app-core/lib/secret-backends/backup-transfer.js";
 import { openSavedAzureKeyVaultBackend } from "@opensesame/app-core/lib/secret-backends/factory.js";

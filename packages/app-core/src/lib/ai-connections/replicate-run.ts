@@ -1,15 +1,15 @@
 import {
+  cancelReplicatePrediction,
+  createReplicatePrediction,
+  getReplicatePrediction,
+} from "./replicate.js";
+import {
   type ReplicateConnection,
   type ReplicateInput,
   type ReplicatePrediction,
   ReplicatePredictionInterrupted,
   type ReplicateRunOptions,
 } from "./replicate-types.js";
-import {
-  cancelReplicatePrediction,
-  createReplicatePrediction,
-  getReplicatePrediction,
-} from "./replicate.js";
 import { AiConnectionError, type AiConnectionTransport } from "./types.js";
 
 function pause(milliseconds: number, signal: AbortSignal): Promise<void> {

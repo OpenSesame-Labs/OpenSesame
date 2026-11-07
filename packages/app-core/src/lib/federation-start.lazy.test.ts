@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { resetAmbientAuthSeams } from "./ambient-auth-seam.js";
+import { beginSignIn, clearSession, discover } from "./federation.js";
 import type {
   BeginSignInOptions,
   TrustedUpstream,
@@ -14,7 +15,6 @@ import {
   holdStartLoader,
 } from "./federation-exchange.test-support.js";
 import { clearPendingSignIn, peekPending } from "./federation-pending.js";
-import { beginSignIn, clearSession, discover } from "./federation.js";
 
 const closes: (() => Promise<void>)[] = [];
 beforeEach(() => {

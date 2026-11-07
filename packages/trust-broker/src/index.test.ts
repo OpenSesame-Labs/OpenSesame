@@ -1,6 +1,7 @@
 import type { IdentityEvidence } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { evaluateAssurance } from "./index.js";
+
 const evidence = (
   overrides: Partial<IdentityEvidence> = {},
 ): IdentityEvidence => ({

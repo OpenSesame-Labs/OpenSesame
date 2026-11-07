@@ -12,6 +12,13 @@ import {
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  createKeymapHandler,
+  currentBindings,
+  keymapSeams,
+  registerVaultKeymap,
+} from "../lib/keymap.js";
+import { press, rowIn, targeted, vault } from "../lib/keymap.test-harness.js";
+import {
   NO_PENDING,
   continuationsOf,
   hasPending,
@@ -19,13 +26,6 @@ import {
   publishPending,
   subscribePending,
 } from "../lib/keymap-pending.js";
-import {
-  createKeymapHandler,
-  currentBindings,
-  keymapSeams,
-  registerVaultKeymap,
-} from "../lib/keymap.js";
-import { press, rowIn, targeted, vault } from "../lib/keymap.test-harness.js";
 import { PendingKeys } from "./PendingKeys.js";
 
 function setup() {

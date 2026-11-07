@@ -6,6 +6,7 @@ import { isConfiguredMcp } from "@opensesame/app-core/lib/native-mcp-configured-
 import { createConfiguredMcpDriver } from "@opensesame/app-core/lib/native-mcp-configured-driver.js";
 import { NativeMcpError } from "@opensesame/app-core/lib/native-mcp-target.js";
 import { captureSecretBackendVault } from "@opensesame/app-core/lib/secret-backends/runtime-owners.js";
+
 async function captureOwner(
   transport: NativeProviderTransport,
   caller?: AbortSignal,

@@ -38,6 +38,7 @@ import {
   writeStoredDeviceIdentityKey,
 } from "./device-identity-record-data.js";
 import { p256JwkThumbprint, vetCarriedKey } from "./device-identity-trust.js";
+
 export {
   DeviceIdentityKeyError,
   type DeviceIdentityKeyFault,

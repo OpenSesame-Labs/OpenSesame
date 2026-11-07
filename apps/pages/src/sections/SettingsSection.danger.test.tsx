@@ -62,7 +62,9 @@ const store = vi.hoisted(() => {
   api.commitPrefs.mockImplementation(async (next) => api.setPrefs(next));
   return api;
 });
+
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -71,11 +73,15 @@ Object.assign(vaultHooksSeams, {
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 const loadSettings = vi.hoisted(() => vi.fn());
 const saveSettings = vi.hoisted(() => vi.fn());
+
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
+
 const originalSettingsSeams = { ...settingsSeams };
 Object.assign(settingsSeams, { loadSettings, saveSettings });
 afterAll(() => Object.assign(settingsSeams, originalSettingsSeams));
+
 import { passwordSeams } from "@opensesame/app-core/lib/vault/password.js";
+
 const originalPasswordSeams = { ...passwordSeams };
 Object.assign(passwordSeams, {
   estimateStrength: (password: string) => ({
@@ -87,8 +93,10 @@ Object.assign(passwordSeams, {
   generate: () => "harbor-cinder-lattice-quarry",
 });
 afterAll(() => Object.assign(passwordSeams, originalPasswordSeams));
+
 import { registerOptionalTutorials } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
 import { type SettingsPanels, SettingsSection } from "./SettingsSection.js";
+
 const stubPanels: SettingsPanels = {
   UnlockMethodsPanel: () => <div data-testid="unlock-methods-panel" />,
   InstallPanel: () => <div data-testid="install-panel" />,

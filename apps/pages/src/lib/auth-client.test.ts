@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
-import compatibilityHash from "../../public/auth.js.sha384?raw";
 import source from "../../public/auth.js?raw";
+import compatibilityHash from "../../public/auth.js.sha384?raw";
 import previous from "../../public/static-auth/1.0.4/opensesame-auth.min.js?raw";
 import immutable from "../../public/static-auth/1.0.5/opensesame-auth.min.js?raw";
 import manifest from "../../public/static-auth/manifest.json";
@@ -179,7 +179,9 @@ describe("shipped authentication SDK", () => {
   it("has no default unverified success, session persistence, raw token events, or metadata-based verifier", async () => {
     const browser = {
       OpenSesame: {
-        signIn: (_profile?: { profile: string }): Promise<{
+        signIn: (_profile?: {
+          profile: string;
+        }): Promise<{
           subject?: string;
         }> => Promise.resolve({}),
       },

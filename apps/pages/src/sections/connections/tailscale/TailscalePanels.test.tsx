@@ -17,8 +17,8 @@ import {
   runtimePassword,
 } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
 import { tailscaleNodeAuthorization } from "@opensesame/app-core/lib/tailscale/browser-node-port.js";
-import { enrollTotp } from "@opensesame/app-core/lib/vault/store-totp.fixture.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { enrollTotp } from "@opensesame/app-core/lib/vault/store-totp.fixture.js";
 import {
   act,
   cleanup,
@@ -38,6 +38,7 @@ import { ConnectorSettingsPage } from "../SettingsPage.js";
 import { declareConnectionsTutorial } from "../tutorial.test-support.js";
 import { TailscalePanels } from "./TailscalePanels.js";
 import { tailscaleAppDependencies as oauth } from "./tailscale-dependencies.js";
+
 let fixture: Awaited<ReturnType<typeof statusFixture>>;
 const catalog = catalogProvider("tailscale");
 if (!catalog) throw new Error("Missing Tailscale provider");

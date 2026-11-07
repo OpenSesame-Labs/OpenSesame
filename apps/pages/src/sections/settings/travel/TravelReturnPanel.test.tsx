@@ -1,13 +1,3 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-/** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { kvFileName } from "@opensesame/app-core/lib/kv.js";
 import {
   completeDeparture,
@@ -28,6 +18,15 @@ import {
   type DeviceVault,
   vaultsSeams,
 } from "@opensesame/app-core/lib/vaults.js";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+/** @vitest-environment jsdom */
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { TravelPanel } from "./TravelPanel.js";
 

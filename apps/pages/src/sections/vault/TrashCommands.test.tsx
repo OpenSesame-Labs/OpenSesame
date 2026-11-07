@@ -14,9 +14,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createKeymapHandler } from "../../lib/keymap.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { VaultSection } from "../VaultSection.js";
-import { vaultTreeSeams } from "./VaultTree.js";
 import { expectVaultCommands } from "./commands.test-support.js";
 import { makeAccount, makeNote } from "./section-items.test-support.js";
+import { vaultTreeSeams } from "./VaultTree.js";
 import { PURGE_CONFIRM } from "./vault-menu.js";
 
 registerLegacyItemKinds();

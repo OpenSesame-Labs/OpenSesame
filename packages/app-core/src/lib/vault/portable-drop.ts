@@ -31,8 +31,8 @@ import {
 } from "./portable-drop-crypto.js";
 
 export {
-  PortableDropFailure,
   PORTABLE_DROP_TOKEN_PREFIX,
+  PortableDropFailure,
   isPortableDropToken,
   resetPortableDropAttemptsForTests,
 };

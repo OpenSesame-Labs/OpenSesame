@@ -6,14 +6,16 @@ import type {
 } from "./native-connector-schema.js";
 
 export type {
-  NativeBrowserOAuthProvider,
   NativeBrowserOAuthProfile,
+  NativeBrowserOAuthProvider,
 } from "./native-browser-oauth-types.js";
+
 import { APPROVED_BROWSER_OAUTH_PROFILES } from "./native-approved-oauth-profiles.js";
 import type { NativeBrowserOAuthProfile } from "./native-browser-oauth-types.js";
 import { nativeDatabricksEndpoints } from "./native-databricks-provider.js";
 import { GOOGLE_ACCOUNT_POLICY } from "./native-google-account-policy.generated.js";
 import { nativeTenantOAuthEndpoints } from "./native-tenant-oauth.js";
+
 const PROFILES: readonly NativeBrowserOAuthProfile[] = [
   ...APPROVED_BROWSER_OAUTH_PROFILES,
   {

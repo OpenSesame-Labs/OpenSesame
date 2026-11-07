@@ -7,8 +7,8 @@ import {
   readJsonObject,
 } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
-import { PLUGIN_DAEMON_PURPOSE } from "../capabilities/catalog-optional-plugins.js";
 import { CAPABILITY_CATALOG } from "../capabilities/catalog.js";
+import { PLUGIN_DAEMON_PURPOSE } from "../capabilities/catalog-optional-plugins.js";
 import { FEATURES, featureOf } from "../capabilities/features.js";
 import { PRESETS } from "../capabilities/presets.js";
 import { PLUGINS, isPluginId, pluginForCapability } from "./catalog.js";

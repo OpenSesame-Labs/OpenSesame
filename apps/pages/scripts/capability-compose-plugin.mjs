@@ -40,8 +40,8 @@ import {
 import { itemTypePackChunk } from "./lib/item-type-pack-chunks.mjs";
 import { walk } from "./lib/verify-dist-checks.mjs";
 
-export { loadInventory } from "./lib/capability-compose-state.mjs";
 export { buildGraph } from "./lib/capability-build-graph.mjs";
+export { loadInventory } from "./lib/capability-compose-state.mjs";
 
 const toPosix = (path) => path.replace(/\\/g, "/");
 

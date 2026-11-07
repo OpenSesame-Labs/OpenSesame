@@ -7,11 +7,11 @@ import type { NativeBrowserPolicyDecision } from "@opensesame/app-core/lib/nativ
 import { nativeConfigurationBrowserPolicy } from "@opensesame/app-core/lib/native-configuration-policy.js";
 import type { NativeConnectorView } from "@opensesame/app-core/lib/native-connector-view.js";
 import { nativeMethodForEdit } from "./native-connector-edit-values.js";
-import { nativeFieldValues } from "./native-connector-ui-values.js";
 import type {
   NativeFieldValues,
   NativeMethodDescriptor,
 } from "./native-connector-ui.js";
+import { nativeFieldValues } from "./native-connector-ui-values.js";
 
 function withAdvice(
   method: NativeMethodDescriptor,

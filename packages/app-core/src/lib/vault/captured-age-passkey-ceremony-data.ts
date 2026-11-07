@@ -4,6 +4,7 @@ import { z } from "zod";
 import { host } from "../../host.js";
 import { assertUnambiguousJson } from "../retired-credentials/json-preflight.js";
 import { ProtectionError } from "./protection/errors.js";
+
 const actualHost = host;
 const actualDigest = crypto.subtle.digest.bind(crypto.subtle);
 const actualRandom = randomBytes;

@@ -2,8 +2,8 @@ import { Duration, Effect, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 import { describeSecretFiles, failureOf } from "./files.conformance.js";
 import { resilient } from "./resilient.js";
-import { makeS3SecretFiles } from "./s3.js";
 import type { S3FilesConfig } from "./s3.js";
+import { makeS3SecretFiles } from "./s3.js";
 import {
   ACCESS_KEY,
   BUCKET_NAME,

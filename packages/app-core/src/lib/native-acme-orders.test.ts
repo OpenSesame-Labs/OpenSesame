@@ -1,5 +1,4 @@
 import { expect, it } from "vitest";
-import { connected } from "./native-acme-connect.test-support.js";
 import { acmeKeyFlows, parseAcmeNames } from "./native-acme.js";
 import {
   BASE,
@@ -8,6 +7,7 @@ import {
   expectedTxt,
   fakeAcme,
 } from "./native-acme.test-support.js";
+import { connected } from "./native-acme-connect.test-support.js";
 import { installNativeApiTests } from "./native-api.test-support.js";
 import {
   loadNativeConnectorRecord,

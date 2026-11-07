@@ -24,6 +24,11 @@ import {
   vfsFlush,
 } from "../vfs.js";
 import {
+  ENVIRONMENTS_CAPABILITY,
+  ENVIRONMENTS_PATH,
+  schemaKeys,
+} from "./environments.js";
+import {
   ENVIRONMENT_NOTICE_ID,
   ENVIRONMENT_REUSE_NOTICE_ID,
   clearEnvironmentNotices,
@@ -35,11 +40,6 @@ import {
   viewEnvironment,
   writeEnvironments,
 } from "./environments-write.js";
-import {
-  ENVIRONMENTS_CAPABILITY,
-  ENVIRONMENTS_PATH,
-  schemaKeys,
-} from "./environments.js";
 import {
   ATTEMPTS_KEY,
   PREFS_CONFIG_PATH,

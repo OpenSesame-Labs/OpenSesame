@@ -15,8 +15,8 @@ import {
   listConnections,
 } from "@opensesame/app-core/lib/connections.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
-import { operatorUpstream } from "@opensesame/app-core/lib/federation-operator.js";
 import type { TrustedUpstream } from "@opensesame/app-core/lib/federation.js";
+import { operatorUpstream } from "@opensesame/app-core/lib/federation-operator.js";
 import { providerUpstream } from "@opensesame/app-core/lib/providers.js";
 import { signInMethods } from "@opensesame/app-core/lib/settings.js";
 import { sessionStore } from "@opensesame/app-core/ports.js";

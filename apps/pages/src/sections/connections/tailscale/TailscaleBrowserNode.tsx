@@ -11,6 +11,7 @@ import {
   type BrowserNodeEditor,
   useTailscaleBrowserNode,
 } from "./useTailscaleBrowserNode.js";
+
 function NodeFields({ model }: { model: BrowserNodeEditor }) {
   const disabled = !model.ready || model.active || model.busy;
   return (
@@ -145,7 +146,10 @@ function ForgetNode({ model }: { model: BrowserNodeEditor }) {
 export function TailscaleBrowserNode({
   ready,
   online,
-}: { ready: boolean; online: boolean }) {
+}: {
+  ready: boolean;
+  online: boolean;
+}) {
   const model = useTailscaleBrowserNode(ready);
   return (
     <section className="panel" aria-label="Tailscale browser node">

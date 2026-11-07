@@ -1,8 +1,8 @@
 import type { JsonObject, JsonValue } from "@opensesame/os-domain";
 import { vi } from "vitest";
 import artifacts from "./onepassword-artifacts.json" with { type: "json" };
-import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import { createOnePasswordSdkBackend } from "./onepassword-sdk.js";
+import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import { secretBackendDraft } from "./presets.js";
 import type { SecretBackendTransport } from "./transport.js";
 

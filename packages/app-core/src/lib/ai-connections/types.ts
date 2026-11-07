@@ -1,6 +1,7 @@
 import type { AiInferenceFamily } from "../hosted-model-authority.js";
 import type { BedrockAiTarget } from "./bedrock-target.js";
 import type { VertexAiTarget } from "./vertex-target.js";
+
 export type { AiInferenceFamily } from "../hosted-model-authority.js";
 
 /** Azure target metadata is public; the supplied key or Entra token is not. */

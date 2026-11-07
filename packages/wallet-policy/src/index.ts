@@ -1,3 +1,13 @@
+export { assess } from "./assess.js";
+export {
+  amountAtMost,
+  isBroaderThan,
+  isNoBroaderThan,
+  parseAmountUnits,
+  tighten,
+} from "./compare.js";
+export { constraintDigest } from "./digest.js";
+export { indexByKind, intersectAncestors } from "./intersect.js";
 export type {
   AmountConstraint,
   AmountUnits,
@@ -21,19 +31,7 @@ export type {
   RedelegationConstraint,
   Ref,
 } from "./types.js";
-
 export {
   CONSTRAINT_KINDS,
   POLICY_DETAIL_CODES,
 } from "./types.js";
-
-export { assess } from "./assess.js";
-export {
-  amountAtMost,
-  isBroaderThan,
-  isNoBroaderThan,
-  parseAmountUnits,
-  tighten,
-} from "./compare.js";
-export { constraintDigest } from "./digest.js";
-export { indexByKind, intersectAncestors } from "./intersect.js";

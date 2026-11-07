@@ -13,6 +13,7 @@ import {
   WorkerMessage,
 } from "./protocol.js";
 import type { NativeHTTPClient } from "./sdk.js";
+
 let f: Awaited<ReturnType<typeof fixture>>;
 beforeEach(async () => {
   vi.resetModules();

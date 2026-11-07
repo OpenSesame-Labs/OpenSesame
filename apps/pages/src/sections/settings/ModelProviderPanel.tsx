@@ -79,7 +79,9 @@ function SaveFlash({ flash }: { flash: Flash | null }) {
  */
 export function ModelProviderPanel({
   embedded = false,
-}: { embedded?: boolean } = {}) {
+}: {
+  embedded?: boolean;
+} = {}) {
   const [record, setRecord] = useState<ModelProviderRecord>(NO_MODEL_PROVIDER);
   const [verdict, setVerdict] = useState<BrowserInferenceVerdict | null>(null);
   const [busy, setBusy] = useState(false);

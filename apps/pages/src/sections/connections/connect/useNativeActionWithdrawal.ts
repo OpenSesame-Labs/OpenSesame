@@ -5,6 +5,7 @@ import type {
   NativeConnectorController,
   SafeActionResult,
 } from "./native-connector-ui.js";
+
 function nativeActionVaultScope() {
   const state = vaultStore.getSnapshot();
   return JSON.stringify([

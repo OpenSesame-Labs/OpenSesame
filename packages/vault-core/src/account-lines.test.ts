@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { AccountItem, LoginMethod } from "./account.js";
 import {
   apiKeyHeaderLine,
   bearerHeaderLine,
   credentialLine,
   headerName,
 } from "./account-lines.js";
-import type { AccountItem, LoginMethod } from "./account.js";
 
 function account(methods: LoginMethod[]): AccountItem {
   return {

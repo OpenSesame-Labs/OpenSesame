@@ -13,9 +13,9 @@ import {
 } from "@opensesame/app-core/sections/settings/virtual-files.js";
 import type { CSSProperties } from "react";
 import { IconLock, IconPlus } from "../../../components/Icons.js";
-import { VirtualFileEditor } from "./VirtualFileEditor.js";
 import { isSettingsDocument } from "./documents.js";
 import { useCategoryFiles } from "./providers.js";
+import { VirtualFileEditor } from "./VirtualFileEditor.js";
 import "./settings-files.css";
 
 type Group = { directory: string; files: VirtualFile[] };

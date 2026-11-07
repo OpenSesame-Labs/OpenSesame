@@ -22,6 +22,7 @@ import {
   peerTLSDraft,
 } from "./tailscale-server-trust-values.js";
 import { useBrowserNodeEditorActions } from "./useBrowserNodeEditorActions.js";
+
 const idle: TailscaleNodeSnapshot = {
   status: "stopped",
   hostname: "",

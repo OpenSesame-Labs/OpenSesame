@@ -1,11 +1,11 @@
 /** Original primary/factor authentication and physical transaction; private Store owns issuance. */
 
 import { sessionRootDigestFromKey } from "../duress/store/vault-session-digest.js";
-import { readPagesRetiredCredentialHeader } from "../retired-credentials/context-v2-header.js";
 import {
   deriveRetiredCredentialContextV2,
   encodeRetiredCredentialContextV2,
 } from "../retired-credentials/context-v2.js";
+import { readPagesRetiredCredentialHeader } from "../retired-credentials/context-v2-header.js";
 import { verifyHumanAuthenticationData } from "../retired-credentials/human-authentication-data.js";
 
 import { deriveCapturedOwnerPrimaryData } from "./captured-owner-primary-data.js";

@@ -1,6 +1,5 @@
 import type { JsonObject, JsonValue } from "@opensesame/os-domain";
 import { expect, it, vi } from "vitest";
-import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import {
   deferred,
   itemId,
@@ -9,6 +8,7 @@ import {
   sdkFixture,
   vaultId,
 } from "./onepassword-sdk.test-support.js";
+import type { OnePasswordSdkClient } from "./onepassword-sdk-loader.js";
 import { OnePasswordCommandSchema } from "./onepassword-worker-protocol.js";
 import type { SecretBackendItemInput } from "./types.js";
 

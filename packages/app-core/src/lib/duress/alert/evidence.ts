@@ -3,9 +3,9 @@
  * Evidence never claims emergency response or unlock authority (INV-14, INV-16).
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import { bytesToB64, utf8 } from "./bytes.js";
 import type { AlertDeliveryStatus } from "./status.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type AlertEvidenceAuthority =
   | "local_outbox"
@@ -85,7 +85,9 @@ export async function mintStatusEvidence(input: {
     await crypto.subtle.sign(
       "HMAC",
       key,
-      asBufferSource(bindingBytes({ ...input, recordedAt } satisfies BindingBytesInput)),
+      asBufferSource(
+        bindingBytes({ ...input, recordedAt } satisfies BindingBytesInput),
+      ),
     ),
   );
   return {

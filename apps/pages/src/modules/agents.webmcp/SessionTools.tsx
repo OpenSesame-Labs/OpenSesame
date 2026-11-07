@@ -25,7 +25,9 @@ import { contributedTools, holdScope } from "./surface.js";
 
 export function WebMcpSessionTools({
   children,
-}: { children?: ReactNode }): ReactElement {
+}: {
+  children?: ReactNode;
+}): ReactElement {
   const { pathname } = useLocation();
   const editorKind = useSyncExternalStore(
     subscribeWebMcpEditorKind,

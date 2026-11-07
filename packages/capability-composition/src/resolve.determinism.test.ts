@@ -24,8 +24,8 @@ import {
   fixtureResolveInput,
   fixtureSelection,
 } from "./fixtures.js";
-import type { ResolveInput } from "./resolve-input.js";
 import { explainCapability, resolveComposition } from "./resolve.js";
+import type { ResolveInput } from "./resolve-input.js";
 
 function reversed<T>(items: readonly T[]): T[] {
   return [...items].reverse();

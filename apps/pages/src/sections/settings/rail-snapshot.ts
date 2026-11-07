@@ -10,9 +10,9 @@ import { useIdentityConfigured } from "../../lib/use-configured.js";
 import { useGuestRowShown } from "./CapabilitySwitch.js";
 import { useInstallPanelShown } from "./InstallPanel.js";
 import type { SettingsRailSnapshot } from "./page-tree.js";
+import { useAccountFactorsOffered } from "./security/account-offered.js";
 import { useDeadmanPanelShown } from "./security/DeadmanPanel.js";
 import { useDuressPanelShown } from "./security/DuressPanel.js";
-import { useAccountFactorsOffered } from "./security/account-offered.js";
 import { useIntegrationsDrawn } from "./use-integrations-drawn.js";
 import { useDeviceOperator } from "./useDeviceOperator.js";
 

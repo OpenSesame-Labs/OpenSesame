@@ -17,8 +17,8 @@ import {
   takeWelcome,
 } from "@opensesame/app-core/lib/quorum/desk/index.js";
 import { unlockTomb, writeFile } from "@opensesame/app-core/lib/vfs.js";
-import { createItem, mintVaultKey } from "@opensesame/vault-core";
 import type { Folder, VaultItem } from "@opensesame/vault-core";
+import { createItem, mintVaultKey } from "@opensesame/vault-core";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import {

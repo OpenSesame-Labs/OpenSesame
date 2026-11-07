@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { IconAlert, IconPlus } from "../../components/Icons.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { useVaultKeyProtectionActions } from "./useVaultKeyProtectionActions.js";
 import {
   type ProtectionSheetRequest,
   VaultKeyProtectionSheet,
 } from "./VaultKeyProtectionCeremonies.js";
 import { ProtectorRow } from "./VaultProtectorRow.js";
-import { useVaultKeyProtectionActions } from "./useVaultKeyProtectionActions.js";
 
 /**
  * Settings › Security › Vault key protection — the protectors enrolled on an

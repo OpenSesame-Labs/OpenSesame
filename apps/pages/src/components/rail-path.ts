@@ -3,11 +3,9 @@ import {
   settingsPath,
 } from "@opensesame/app-core/lib/crumbs.js";
 import { itemKindsSnapshot } from "@opensesame/app-core/lib/item-kinds.js";
-
+import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 import { sectionForPath } from "./RailRows.js";
 import { accessRailPath, walletRailPath } from "./record-rail-path.js";
-
-import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 export function selectedRailPath(
   pathname: string,
   hash: string,

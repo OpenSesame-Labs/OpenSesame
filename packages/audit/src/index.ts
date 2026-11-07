@@ -1,29 +1,29 @@
 export {
-  appendAuditEvent,
-  type AuditSink,
   type AppendAuditEventInput,
+  type AuditSink,
+  appendAuditEvent,
 } from "./append.js";
 export {
-  redactAuditMetadata,
-  isDeniedAuditMetadataKey,
-  AUDIT_METADATA_ALLOWLIST,
-  AUDIT_VALUE_MAX_LENGTH,
-} from "./redact.js";
-export {
   AUDIT_CHAIN_GENESIS,
+  type AuditChainVerdict,
+  type ChainedAuditSinkOptions,
   auditEventDigest,
   canonicalAuditPayload,
   createChainedAuditSink,
   verifyAuditChain,
-  type AuditChainVerdict,
-  type ChainedAuditSinkOptions,
 } from "./chain.js";
 export {
+  type RecordSecretChangelogInput,
   SECRET_CHANGELOG_EVENT_TYPES,
-  isSecretChangelogEventType,
-  recordSecretChangelog,
-  filterSecretChangelogEvents,
   type SecretChangelogEventType,
   type SecretChangelogMetadata,
-  type RecordSecretChangelogInput,
+  filterSecretChangelogEvents,
+  isSecretChangelogEventType,
+  recordSecretChangelog,
 } from "./changelog.js";
+export {
+  AUDIT_METADATA_ALLOWLIST,
+  AUDIT_VALUE_MAX_LENGTH,
+  isDeniedAuditMetadataKey,
+  redactAuditMetadata,
+} from "./redact.js";

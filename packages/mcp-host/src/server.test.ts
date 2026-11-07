@@ -11,7 +11,6 @@ describe("mcp-host entrypoint", () => {
 
   afterEach(() => {
     if (savedKey === undefined) {
-      // biome-ignore lint/performance/noDelete: must actually unset, `= undefined` stringifies
       delete process.env.OPENSESAME_TELEMETRY_KEY;
     } else {
       process.env.OPENSESAME_TELEMETRY_KEY = savedKey;
@@ -19,7 +18,6 @@ describe("mcp-host entrypoint", () => {
   });
 
   it("boots: registers tools and connects stdio without throwing", async () => {
-    // biome-ignore lint/performance/noDelete: telemetry must stay a no-op here
     delete process.env.OPENSESAME_TELEMETRY_KEY;
     await expect(import("./server.js")).resolves.toBeDefined();
   }, 15_000);

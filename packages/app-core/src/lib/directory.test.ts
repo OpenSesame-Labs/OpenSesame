@@ -14,9 +14,11 @@ import {
   rotateOAuthClient,
   unlinkIdentity,
 } from "./directory.js";
+
 const identityFetch = vi.hoisted(() => vi.fn());
 
 import { identitySeams } from "./identity.js";
+
 Object.assign(identitySeams, {
   identityFetch,
   identityBase: () => "http://127.0.0.1:8788",

@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
-
 import {
   type VaultBody,
   type VaultItem,
   manualPassword,
 } from "@opensesame/vault-core";
+import { describe, expect, it } from "vitest";
 import { fidoCxf } from "../import/formats/cxf.js";
 import type { DraftItem, ParseInput } from "../import/types.js";
 import {

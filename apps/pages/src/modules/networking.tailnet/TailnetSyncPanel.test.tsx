@@ -1,4 +1,8 @@
 /** @vitest-environment jsdom */
+
+import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
+import type { TailnetSyncState } from "@opensesame/app-core/lib/tailnet-sync/observer.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   act,
   cleanup,
@@ -9,10 +13,6 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import type { TailnetSyncState } from "@opensesame/app-core/lib/tailnet-sync/observer.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { captureLinkedPairing } from "../../lib/pairing-link.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { TailnetSyncPanel, tailnetPanelSeams } from "./TailnetSyncPanel.js";

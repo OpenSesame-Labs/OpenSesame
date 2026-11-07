@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localStore, sessionStore } from "../ports.js";
-import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 import { completeSignIn } from "./federation.js";
+import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 
 const TEST_VERIFIER = "test-verifier-abcdefghijklmnopqrstuvwxyz0123456789";
 

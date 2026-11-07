@@ -4,6 +4,7 @@ import {
   isBitwardenSdkResource,
   observeBitwardenSdkResources,
 } from "./bitwarden-sdk-resource.mjs";
+
 const origin = "http://localhost:41901";
 const base = "/OpenSesame/";
 it.each([

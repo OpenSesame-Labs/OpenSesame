@@ -35,6 +35,7 @@ const vault: VaultFixture = {
 };
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 Object.assign(vaultHooksSeams, { useVault: () => vault.current });
 
 import { downloadSeams } from "../../screens/capabilities/download.js";

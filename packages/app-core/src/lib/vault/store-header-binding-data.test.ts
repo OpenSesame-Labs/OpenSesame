@@ -13,6 +13,7 @@ import {
 } from "./protection/manifest-auth.js";
 import { bindOriginalHeaderPolicy } from "./store-header-binding-data.js";
 import { sealTotpSecret } from "./unlock-methods.js";
+
 it("binds a genuinely enrolled TOTP gate and preserves an unchanged authenticated header", async () => {
   await useFixture(async (f) => {
     const original = await bindOriginalHeaderPolicy(

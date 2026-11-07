@@ -9,8 +9,8 @@ import {
   nativeProviderTransport,
 } from "./native-connector-transport.js";
 import { withNativeMcpMutationLock } from "./native-mcp-mutation-lock.js";
-import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import { NativeMcpPublicOAuth } from "./native-mcp-oauth.js";
+import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import { retryRetainedNativeMcpPartialRefresh } from "./native-mcp-partial-refresh.js";
 import {
   MCP_CLASSIFICATION,
@@ -22,14 +22,12 @@ import {
   requireNativeMcpRecord,
 } from "./native-mcp-records.js";
 import { retryRetainedNativeMcpRegistration } from "./native-mcp-registration.js";
+import { deleteNativeMcpRegistration } from "./native-mcp-registration-cleanup.js";
+import { NativeMcpRegistrationReceiptSchema } from "./native-mcp-registration-receipt.js";
 import {
   nativeOAuthGuard,
   retryRetainedNativeOAuthGrants,
 } from "./native-oauth-session.js";
-
-import { deleteNativeMcpRegistration } from "./native-mcp-registration-cleanup.js";
-
-import { NativeMcpRegistrationReceiptSchema } from "./native-mcp-registration-receipt.js";
 
 function needsCleanup(entry: NativeRecovery): boolean {
   if (entry.kind !== "configure") return false;

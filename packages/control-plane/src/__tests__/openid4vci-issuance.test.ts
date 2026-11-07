@@ -1,5 +1,5 @@
-import { createEventSealer } from "@opensesame/database";
 import type { Database } from "@opensesame/database";
+import { createEventSealer } from "@opensesame/database";
 import * as schema from "@opensesame/database/schema";
 import { Openid4vciError, createCredentialOffer } from "@opensesame/openid4vci";
 import {

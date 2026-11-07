@@ -2,10 +2,10 @@
  * J-EXPLAIN: Application Diagnostics uses the same evaluator as admission;
  * a saved failing policy test blocks candidate publication.
  */
-import { addCapabilities, sealWithPin } from "./pages-journey.mjs";
-import { expectInTray } from "./tray-contract.mjs";
 
 import { createApplication, openApplications } from "./j-local-application.mjs";
+import { addCapabilities, sealWithPin } from "./pages-journey.mjs";
+import { expectInTray } from "./tray-contract.mjs";
 
 export async function walkJExplain({ page, origin, base, check, snap }) {
   await page.goto(`${origin}${base}`, { waitUntil: "networkidle" });

@@ -9,22 +9,24 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { keyboardIsIdle, landFocus } from "../lib/focus.js";
-import { useKeymapEvents } from "../lib/keymap-events.js";
 import {
   createChordState,
   createKeymapHandler,
   focusVaultListing,
   registerKeymapHelp,
 } from "../lib/keymap.js";
+import { useKeymapEvents } from "../lib/keymap-events.js";
 import { useTabSwipe } from "../lib/tab-swipe-hook.js";
 import { useGestures } from "../lib/use-gestures.js";
 import { useNarrow } from "../lib/use-narrow.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { AppHeader } from "./AppHeader.js";
 import { Crumbs } from "./Crumbs.js";
+import { DuressPresentationOverlay } from "./duress/DuressPresentationOverlay.js";
 import { KeymapSheet } from "./KeymapSheet.js";
 import { LegacyIdentityNotice } from "./LegacyIdentityNotice.js";
 import { NavTree } from "./NavTree.js";
+import { PageTreeExpansionProvider } from "./page-tree-expansion.js";
 import {
   type SectionRowModel,
   sectionForPath,
@@ -32,8 +34,6 @@ import {
 } from "./RailRows.js";
 import { Statusline } from "./Statusline.js";
 import { ToastStack } from "./ToastStack.js";
-import { DuressPresentationOverlay } from "./duress/DuressPresentationOverlay.js";
-import { PageTreeExpansionProvider } from "./page-tree-expansion.js";
 
 /**
  * A capability removed while its route is current leaves the person on a

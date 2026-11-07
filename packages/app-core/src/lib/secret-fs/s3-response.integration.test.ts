@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 import { revisionOf } from "./files.js";
+import type { Plan, Row } from "./test/s3-response-fixtures.js";
 import {
   TEST_KEY,
   bucket,
@@ -8,7 +9,6 @@ import {
   failure,
   gate,
 } from "./test/s3-response-fixtures.js";
-import type { Plan, Row } from "./test/s3-response-fixtures.js";
 
 const opened: Array<Awaited<ReturnType<typeof bucket>>> = [];
 async function fixture(plans: Parameters<typeof bucket>[0]) {

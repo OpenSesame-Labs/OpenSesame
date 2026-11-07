@@ -132,7 +132,8 @@ if (suite === "security") {
     commands.push([cmd, args]);
   }
   commands.push([
-    "npm", ["exec", "--", "vitest", "run", "scripts/wallet/lib/deny-mainnet.test.mjs"],
+    "npm",
+    ["exec", "--", "vitest", "run", "scripts/wallet/lib/deny-mainnet.test.mjs"],
   ]);
   commands.push(["npm", ["run", "test", "-w", "@opensesame/wallet-evm"]]);
   commands.push(["npm", ["run", "test", "-w", "@opensesame/wallet-consent"]]);

@@ -28,11 +28,11 @@ import {
   type FeatureOperation,
   runListedFeature,
 } from "@opensesame/app-core/lib/feature-connector-operation.js";
+import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 import {
   performSavedConnector,
   registerCategorySend,
 } from "@opensesame/app-core/lib/feature-request-send.js";
-import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 import { IDENTITY_TARGETS } from "@opensesame/app-core/tutorial/registry/identity-catalog.js";
 import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
 import { IDENTITY_READ_TOOL } from "@opensesame/app-core/webmcp/identity-tools.js";

@@ -10,6 +10,7 @@
  * **A group defines eligibility. An activation binds an individual.** Being in
  * a cohort is never itself permission to do anything.
  */
-export * from "./refusals.js";
-export * from "./member.js";
+
 export * from "./cohort.js";
+export * from "./member.js";
+export * from "./refusals.js";

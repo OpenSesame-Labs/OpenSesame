@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { secretHttpFixture } from "./onepassword-http.test-support.js";
 import { createOnePasswordConnectBackend } from "./onepassword.js";
+import { secretHttpFixture } from "./onepassword-http.test-support.js";
 import {
   deferred,
   remoteDraft,

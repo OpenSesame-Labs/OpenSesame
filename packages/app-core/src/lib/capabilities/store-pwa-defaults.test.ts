@@ -5,12 +5,12 @@ import {
   draftFor,
   freshRealm,
 } from "./__tests__/harness.js";
+import { compositionStore } from "./store.js";
 import {
   applyPersonalLocalPwaDefaults,
   needsPersonalLocalPwaDefaults,
 } from "./store-pwa-defaults.js";
 import type { CompositionSnapshot } from "./store-types.js";
-import { compositionStore } from "./store.js";
 
 beforeEach(() => {
   freshRealm();

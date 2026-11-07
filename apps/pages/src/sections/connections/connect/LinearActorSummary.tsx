@@ -6,12 +6,12 @@ import type { readSelfHostedConnector } from "@opensesame/app-core/lib/self-host
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import { IconRefresh, IconShield } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
+import { Facts } from "./fields.js";
 import {
   LinearActorCleanup,
   LinearReconnectHint,
   linearReconnectActionTitle,
 } from "./LinearRecoveryControls.js";
-import { Facts } from "./fields.js";
 
 type ActorProps = {
   actor: "app" | "user";

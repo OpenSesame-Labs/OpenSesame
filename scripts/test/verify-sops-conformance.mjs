@@ -85,8 +85,12 @@ if (fixtures.status !== 0) {
 }
 
 const test = spawnSync(
-  "npm", [
-    "exec", "-w", "@opensesame/app-core", "--",
+  "npm",
+  [
+    "exec",
+    "-w",
+    "@opensesame/app-core",
+    "--",
     "vitest",
     "run",
     "src/lib/sops/engine.conformance.test.ts",

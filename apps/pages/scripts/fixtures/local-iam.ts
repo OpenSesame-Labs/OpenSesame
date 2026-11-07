@@ -2,11 +2,11 @@ import "./install-browser-host.js";
 import { atRestReady } from "@opensesame/app-core/lib/at-rest/key.js";
 import { registerLocalAgentKey } from "@opensesame/app-core/lib/local-agent-keys.js";
 import { configureLocalApplication } from "@opensesame/app-core/lib/local-applications.js";
-import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "@opensesame/app-core/lib/local-directory.js";
+import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import { enrollLocalPasskey } from "@opensesame/app-core/lib/local-passkeys.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { LocalAgentPublicKey } from "@opensesame/static-auth";

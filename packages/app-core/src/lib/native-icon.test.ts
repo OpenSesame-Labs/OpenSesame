@@ -1,15 +1,15 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
-import { configureNativeApiConnector } from "./native-api-connectors.js";
-import {
-  safeNativeConnectorIcon,
-  safeProviderText,
-} from "./native-api-verify.js";
 import {
   installNativeApiTests,
   nativeAnswers,
   nativeApiDraft,
 } from "./native-api.test-support.js";
+import { configureNativeApiConnector } from "./native-api-connectors.js";
+import {
+  safeNativeConnectorIcon,
+  safeProviderText,
+} from "./native-api-verify.js";
 import {
   loadNativeConnectorRecord,
   readNativeConnector,

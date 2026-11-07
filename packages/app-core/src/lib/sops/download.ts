@@ -1,4 +1,5 @@
 import { page } from "../../ports.js";
+
 /**
  * Portable encrypted output (B12, PERSIST-01, SB-075): an ordinary Blob
  * download that works in Firefox and WebKit with no File System Access

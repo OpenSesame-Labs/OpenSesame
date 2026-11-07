@@ -3,14 +3,14 @@
  * hook runs. Default personal mode performs no network I/O.
  */
 
-import { restoreAuthenticatedSession } from "../federation-restoration.js";
-import { readFederationSessionJson } from "../federation-session-store.js";
 import {
   clearSession,
   discover,
   loadSession,
   redirectUri,
 } from "../federation.js";
+import { restoreAuthenticatedSession } from "../federation-restoration.js";
+import { readFederationSessionJson } from "../federation-session-store.js";
 import { readLastSignIn } from "../last-sign-in.js";
 import { signInMethods } from "../settings.js";
 import { vaultStore } from "../vault/store.js";

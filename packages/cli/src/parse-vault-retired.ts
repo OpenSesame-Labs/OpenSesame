@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { leftover, takeOption } from "./parse-options.js";
 import type { GlobalFlags } from "./parse.js";
+import { leftover, takeOption } from "./parse-options.js";
+
 const actionSchema = z.enum([
   "inspect",
   "enroll",

@@ -8,8 +8,8 @@ import { writeFile } from "node:fs/promises";
 import sharp from "sharp";
 
 export {
-  assertDistinctHashes,
   assertDistDigests,
+  assertDistinctHashes,
   assertFeatureSpread,
   assertFullProfileProof,
   assertProfileProof,

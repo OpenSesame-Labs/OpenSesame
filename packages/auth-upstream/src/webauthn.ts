@@ -1,4 +1,8 @@
 import { isString, overlapCast } from "@opensesame/os-domain";
+import type {
+  AuthenticationResponseJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/server";
 /**
  * Production WebAuthn registration + assertion via @simplewebauthn/server.
  * Requires a previously issued challenge that matches clientDataJSON.challenge.
@@ -10,25 +14,22 @@ import {
   generateRegistrationOptions,
 } from "@simplewebauthn/server";
 import type {
-  AuthenticationResponseJSON,
-  RegistrationResponseJSON,
-} from "@simplewebauthn/server";
+  PasskeyAssertion,
+  PasskeyCredential,
+  PasskeyVerifyFn,
+} from "./passkey.js";
 import {
   type VerifiedRegistration,
   type WebAuthnRpConfig,
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "./passkey-verification.js";
-import type {
-  PasskeyAssertion,
-  PasskeyCredential,
-  PasskeyVerifyFn,
-} from "./passkey.js";
+
 export {
   type VerifiedRegistration,
-  type WebAuthnRpConfig,
   type VerifyPasskeyAuthenticationInput,
   type VerifyPasskeyRegistrationInput,
+  type WebAuthnRpConfig,
   verifyPasskeyAuthentication,
   verifyPasskeyRegistration,
 } from "./passkey-verification.js";
@@ -418,5 +419,7 @@ export function createSimpleWebAuthnVerifyFn(
     }
   };
 }
+
 import type { PasskeyChallengeStore } from "./passkey-challenge-store.js";
+
 export type { PasskeyChallengeStore } from "./passkey-challenge-store.js";

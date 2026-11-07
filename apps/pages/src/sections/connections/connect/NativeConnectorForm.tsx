@@ -10,6 +10,7 @@ import { Link } from "react-router";
 import { FormCommit } from "../../../components/FormCommit.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { useBridgeTenantAsk } from "../../../lib/use-native-bridge.js";
+import { OutLink } from "./fields.js";
 import {
   NativeCancelSignIn,
   nativeConfigurationOwner,
@@ -22,13 +23,20 @@ import {
   nativeFormLabel,
   nativeSignInRequired,
 } from "./NativeConnectorFormOptions.js";
-import { OutLink } from "./fields.js";
 import type { NativeAuthorizationTicket } from "./native-connector-controller.js";
 import {
   nativeEditTargetIds,
   nativeInitialMethod,
   nativeInitialValues,
 } from "./native-connector-edit-values.js";
+import type {
+  NativeConnectorCallbacks,
+  NativeConnectorController,
+  NativeConnectorDescriptor,
+  NativeField,
+  NativeMethodDescriptor,
+} from "./native-connector-ui.js";
+import { nativeMethodConfigurable } from "./native-connector-ui.js";
 import {
   nativeError,
   nativeFieldValues,
@@ -38,14 +46,6 @@ import {
   nativeScopeDefaults,
   nativeVerified,
 } from "./native-connector-ui-values.js";
-import { nativeMethodConfigurable } from "./native-connector-ui.js";
-import type {
-  NativeConnectorCallbacks,
-  NativeConnectorController,
-  NativeConnectorDescriptor,
-  NativeField,
-  NativeMethodDescriptor,
-} from "./native-connector-ui.js";
 import { nativeDraftMethod } from "./native-provider-policy.js";
 
 type Props = NativeConnectorCallbacks & {
@@ -208,7 +208,9 @@ function useNativeForm(props: Props) {
 
 function NativeConfigurationLinks({
   descriptor,
-}: { descriptor: NativeConnectorDescriptor }) {
+}: {
+  descriptor: NativeConnectorDescriptor;
+}) {
   const docsUrl = descriptor.docsUrl
     ? nativePublicUrl(descriptor.docsUrl)
     : null;
@@ -261,7 +263,9 @@ function NativeFormStatus({
 /** Nothing here can connect: say why in the reason's own words, not a generic one. */
 function NoMethodStatus({
   descriptor,
-}: { descriptor: NativeConnectorDescriptor }) {
+}: {
+  descriptor: NativeConnectorDescriptor;
+}) {
   const kinds = descriptor.methods.map((method) => method.unavailableKind);
   const kind = leadingUnavailableKind(kinds);
   return kinds.some((entry) => entry !== undefined) ? (

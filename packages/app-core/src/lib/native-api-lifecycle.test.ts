@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
+import {
+  installNativeApiTests,
+  nativeAnswers,
+  nativeApiDraft,
+} from "./native-api.test-support.js";
 import { nativeApiCleanup } from "./native-api-cleanup.js";
 import {
   configureNativeApiConnector,
@@ -9,11 +14,6 @@ import {
 } from "./native-api-connectors.js";
 import { nativeApiHttp } from "./native-api-http.js";
 import { nativeApiTarget } from "./native-api-target.js";
-import {
-  installNativeApiTests,
-  nativeAnswers,
-  nativeApiDraft,
-} from "./native-api.test-support.js";
 import {
   registerNativeProviderCleanup,
   removeNativeConnectorWithCleanup,

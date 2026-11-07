@@ -5,6 +5,7 @@ import {
   decodeNativeProductionTags,
   jsonObjects,
 } from "./native-audit.mjs";
+
 const target = "tailscale.com/cmd/tsconnect/wasm";
 function fixture() {
   return {

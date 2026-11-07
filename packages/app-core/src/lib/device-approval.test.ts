@@ -12,6 +12,7 @@ import { clearNotices, listNotices } from "./notices.js";
 const identityFetch = vi.hoisted(() => vi.fn());
 
 import { identitySeams } from "./identity.js";
+
 Object.assign(identitySeams, {
   identityFetch,
   identityBase: () => "http://127.0.0.1:8788",

@@ -4,12 +4,13 @@ import * as discovery from "./discover.js";
 import * as environment from "./env.js";
 import { type PasswordOptions, password } from "./password.js";
 import type { PasswordAgentPort, Scope } from "./transport.js";
-export * from "./transport.js";
-export * from "./discover.js";
-export * from "./env.js";
+
 export * from "./broker.js";
 export * from "./create.js";
+export * from "./discover.js";
+export * from "./env.js";
 export * from "./password.js";
+export * from "./transport.js";
 export class PasswordAgent {
   constructor(readonly port: PasswordAgentPort) {}
   find(queries: readonly string[], scope: Scope = {}) {
@@ -57,10 +58,9 @@ export class PasswordAgent {
 }
 
 export * as Auth from "./auth.js";
-export * as ServiceAccount from "./service-account.js";
-
 export * from "./doctor.js";
-export * from "./request.js";
 export * from "./lease.js";
 export * from "./lease-grant.js";
+export * from "./request.js";
 export * from "./request-leased.js";
+export * as ServiceAccount from "./service-account.js";

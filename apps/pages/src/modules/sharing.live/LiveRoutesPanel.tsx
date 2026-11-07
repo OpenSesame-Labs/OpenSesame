@@ -43,7 +43,10 @@ import "./live.css";
 function Addresses({
   transport,
   change,
-}: { transport: LiveTransport; change: Change }) {
+}: {
+  transport: LiveTransport;
+  change: Change;
+}) {
   const [draft, setDraft] = useState("");
   const draftRevision = useRef(0);
   const value = draft.trim();
@@ -51,6 +54,7 @@ function Addresses({
     <>
       {transport.addresses.map((address, at) => (
         <FieldRow
+          // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
           key={`${at}:${address}`}
           label="Reachable at"
           actions={
@@ -111,11 +115,15 @@ function Addresses({
 function IceServerRows({
   transport,
   change,
-}: { transport: LiveTransport; change: Change }) {
+}: {
+  transport: LiveTransport;
+  change: Change;
+}) {
   return (
     <>
       {transport.ice.map((server, at) => (
         <FieldRow
+          // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
           key={`${at}:${server.urls.join(" ")}`}
           label={
             server.urls.some((entry) => entry.startsWith("turn"))
@@ -141,7 +149,10 @@ function IceServerRows({
 function IceServers({
   transport,
   change,
-}: { transport: LiveTransport; change: Change }) {
+}: {
+  transport: LiveTransport;
+  change: Change;
+}) {
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
   const [credential, setCredential] = useState("");
@@ -234,7 +245,10 @@ function IceServers({
 function RelayOnly({
   transport,
   change,
-}: { transport: LiveTransport; change: Change }) {
+}: {
+  transport: LiveTransport;
+  change: Change;
+}) {
   const hasTurn = transport.ice.some((server) =>
     server.urls.some((url) => url.startsWith("turn")),
   );

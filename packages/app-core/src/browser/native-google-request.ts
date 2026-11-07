@@ -2,6 +2,7 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { z } from "zod";
 import { parseNativeImplicitState } from "./native-implicit-crypto.js";
+
 const requestSchema = z
   .object({
     clientId: z.string().min(1).max(512),

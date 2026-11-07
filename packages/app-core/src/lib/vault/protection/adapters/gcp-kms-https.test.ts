@@ -10,8 +10,8 @@ import {
   bytesToB64,
   mintWrappingSecret,
 } from "./cloud-wrapping-secret.js";
-import { createGcpKmsHttpsTransport } from "./gcp-kms-https.js";
 import { crc32cDecimalString, createGcpKmsProtector } from "./gcp-kms.js";
+import { createGcpKmsHttpsTransport } from "./gcp-kms-https.js";
 
 const KEY_NAME =
   "projects/demo/locations/us-central1/keyRings/ring/cryptoKeys/vault-root";

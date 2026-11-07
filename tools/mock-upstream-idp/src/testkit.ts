@@ -4,10 +4,10 @@ import {
   OAUTH2_METADATA_PATH,
   oauth2Urls as oauth2EndpointUrls,
 } from "./oauth2.js";
-import { SAML_METADATA_PATH, SAML_SSO_PATH } from "./saml.js";
 import type { SamlMutation } from "./saml.js";
-import { createMockUpstreamIdp } from "./server.js";
+import { SAML_METADATA_PATH, SAML_SSO_PATH } from "./saml.js";
 import type { MintLogoutTokenOptions, MockUpstreamIdp } from "./server.js";
+import { createMockUpstreamIdp } from "./server.js";
 
 /**
  * The reference IdP as an embeddable test counterparty.

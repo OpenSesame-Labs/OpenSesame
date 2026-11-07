@@ -2,6 +2,7 @@ import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import { kvGet } from "./kv.js";
+import { LOCAL_DIRECTORY_PATH, readLocalDirectory } from "./local-directory.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   GUEST_PERSON_NAME,
@@ -12,7 +13,6 @@ import {
   ensureOwnerPerson,
   ownerPersonName,
 } from "./local-directory-bootstrap.js";
-import { LOCAL_DIRECTORY_PATH, readLocalDirectory } from "./local-directory.js";
 import { mintGuestSessionPerson } from "./local-guest.js";
 import {
   lockAllTombs,

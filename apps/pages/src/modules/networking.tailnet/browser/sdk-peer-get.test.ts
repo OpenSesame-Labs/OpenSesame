@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { type NativePeerGETNode, bindNativePeerGET } from "./sdk-peer-get.js";
+
 type Raw = NonNullable<NativePeerGETNode["nativePeerGETPort"]>;
 it.each(["http:", "https:"])(
   "captures original %s raw methods and requires original Go drain acknowledgement",

@@ -2,11 +2,11 @@
 import { nativeGoogleBrowserAvailable } from "@opensesame/app-core/browser/native-google-oauth.js";
 import { deviceProviderRevokers } from "@opensesame/app-core/lib/device-connectors.js";
 import { kvSeams } from "@opensesame/app-core/lib/kv.js";
+import { installNativeApiTests } from "@opensesame/app-core/lib/native-api.test-support.js";
 import {
   nativeApiFingerprint,
   nativeApiTarget,
 } from "@opensesame/app-core/lib/native-api-target.js";
-import { installNativeApiTests } from "@opensesame/app-core/lib/native-api.test-support.js";
 import { configureNativeBrowserOAuthConnector } from "@opensesame/app-core/lib/native-browser-oauth-connectors.js";
 import { browserOAuthClassification } from "@opensesame/app-core/lib/native-browser-oauth-profile.js";
 import {

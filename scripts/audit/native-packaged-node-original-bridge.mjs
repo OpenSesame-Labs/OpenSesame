@@ -22,6 +22,7 @@ import {
   linkDependencies,
   preparePackedTests,
 } from "./native-packaged-node-product-data.mjs";
+
 const root = process.cwd();
 const audit = resolve(process.env.NATIVE_AUDIT_DIR ?? "");
 const core = join(root, "packages/app-core");

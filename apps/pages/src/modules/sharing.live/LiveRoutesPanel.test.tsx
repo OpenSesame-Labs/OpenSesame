@@ -6,14 +6,16 @@
  * that will not start. The store under the panel is a fake; the panel is not.
  */
 import { FakeBus, FakeNet } from "@opensesame/app-core/lib/live/live-fakes.js";
-import { liveSeams } from "@opensesame/app-core/lib/live/session.js";
-import { endHosting } from "@opensesame/app-core/lib/live/session.js";
-import { TransportRefused } from "@opensesame/app-core/lib/live/transport-store.js";
+import {
+  endHosting,
+  liveSeams,
+} from "@opensesame/app-core/lib/live/session.js";
 import {
   DIRECT_TRANSPORT,
   type LiveTransport,
   type TransportRead,
 } from "@opensesame/app-core/lib/live/transport.js";
+import { TransportRefused } from "@opensesame/app-core/lib/live/transport-store.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { TRANSPORT_FILE } from "@opensesame/app-core/sections/settings/live-transport-files.js";
 import { createItem } from "@opensesame/vault-core";

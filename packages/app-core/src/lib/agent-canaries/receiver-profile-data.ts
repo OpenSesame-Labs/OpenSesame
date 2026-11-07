@@ -1,6 +1,7 @@
 /** Explicit owner-configured receiver DATA, never production authority or a remote-login grant. */
 import { z } from "zod";
 import { ControlledCanaryHex } from "./controlled-receiver-contract.js";
+
 const schema = z.strictObject({
   endpoint: z.string().min(1).max(200),
   serviceId: ControlledCanaryHex,

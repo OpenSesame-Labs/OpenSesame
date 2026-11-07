@@ -20,9 +20,9 @@ import {
   isIdentityConnectionProvider,
 } from "../identity/IdentityConnectionPanels.js";
 import { TailscalePanels } from "../tailscale/TailscalePanels.js";
-import { ConnectTransportPanel } from "./ConnectTransportPanel.js";
 import { ConnectorPanel } from "./ConnectorPanel.js";
 import { ConnectorSettingsForm } from "./ConnectorSettingsForm.js";
+import { ConnectTransportPanel } from "./ConnectTransportPanel.js";
 import { LinearConnectorForm } from "./LinearConnectorForm.js";
 import { LinearConnectorSummary } from "./LinearConnectorSummary.js";
 import { NativeConnectorPanels } from "./NativeConnectorPanels.js";

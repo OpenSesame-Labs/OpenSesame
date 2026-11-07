@@ -19,15 +19,14 @@ import { StatusMark } from "../../../components/StatusMark.js";
 import { type AudioFieldProps, AudioSampleField } from "./AudioFields.js";
 import { BedrockConnectionFields } from "./BedrockConnectionFields.js";
 import {
-  VertexConnectionFields,
-  VertexEndpointChoice,
-} from "./VertexConnectionFields.js";
-
-import {
   AiConnectionSetup,
   PredictionInput,
   predictionInputReady,
 } from "./PredictionFields.js";
+import {
+  VertexConnectionFields,
+  VertexEndpointChoice,
+} from "./VertexConnectionFields.js";
 
 export type AiConnectionFormProps = AudioFieldProps & {
   draft: AiConnectionDraft;

@@ -1,6 +1,7 @@
 import { TailscalePeerHTTPWorkerConfiguration } from "@opensesame/app-core/lib/tailscale/browser-node-peer-http.js";
 import { TailscaleServerTrustConfiguration } from "@opensesame/app-core/lib/tailscale/browser-node-port.js";
 import { z } from "zod";
+
 const OperationID = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const Header = z.tuple([z.string().max(32768), z.string().max(32768)]);
 function headerBudget(values: [string, string][]) {

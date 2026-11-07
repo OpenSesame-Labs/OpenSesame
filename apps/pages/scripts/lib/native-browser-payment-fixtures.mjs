@@ -7,6 +7,7 @@ import {
   PRIVACY_PROBE_REPLY,
   PRIVACY_READ,
 } from "./native-browser-privacy-fixture.mjs";
+
 const PAYMENT_PROBE_REPLIES = {
   agentcard: {
     object: "api_v2",

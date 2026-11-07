@@ -9,8 +9,8 @@ import {
   fixtureResolveInput,
   fixtureSelection,
 } from "./fixtures.js";
-import type { ResolveInput } from "./resolve-input.js";
 import { explainCapability, resolveComposition } from "./resolve.js";
+import type { ResolveInput } from "./resolve-input.js";
 import type { CapabilityId, EffectivePlan } from "./types.js";
 
 const CORE = ["settings.core", "vault.passwords"];

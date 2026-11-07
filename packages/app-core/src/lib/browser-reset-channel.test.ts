@@ -12,8 +12,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import type { LockManagerLike } from "../ports.js";
 import { createTestHost } from "../test-host.js";
-import { RESET_LOCK, onBrowserReset } from "./browser-reset-channel.js";
 import { broadcastHub } from "./browser-reset.fixture.js";
+import { RESET_LOCK, onBrowserReset } from "./browser-reset-channel.js";
 import { kvSetDurable } from "./kv.js";
 import {
   resumeStorageWritesForTest,

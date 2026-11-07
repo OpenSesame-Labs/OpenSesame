@@ -90,95 +90,93 @@ async function buildProofChunks() {
   return chunks;
 }
 
-test(
-  "real Chromium native XML preserves encrypted KDBX import and integrity",
-  { timeout: 20000 },
-  async () => {
-    let browser;
-    let server;
-    try {
-      const chunks = await buildProofChunks();
-      server = createServer((request, response) => {
-        if (request.url === "/proof.mjs") {
-          response.writeHead(200, { "content-type": "text/javascript" });
-          response.end(chunks[0].code);
-        } else {
-          response.writeHead(200, { "content-type": "text/html" });
-          response.end(
-            '<!doctype html><script type="module" src="/proof.mjs"></script>',
-          );
-        }
-      });
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const origin = `http://127.0.0.1:${server.address().port}`;
-      browser = await chromium.launch({
-        headless: true,
-        executablePath: process.env.PLAYWRIGHT_CHROMIUM || "/usr/bin/chromium",
-        args: ["--no-sandbox"],
-      });
-      const page = await browser.newPage();
-      await page.goto(origin);
-      const fixture = [
-        ...readFileSync(resolve(root, "tests/fixtures/kdbx/roundtrip.kdbx")),
-      ];
-      const result = await page.evaluate(
-        (bytes) => globalThis.runKdbxProof(bytes),
-        fixture,
-      );
-      assert.equal(result.native, true);
-      assert.equal(result.magic, 0x9aa2d903);
-      assert.equal(result.title, "Native <XML> & Unicode 雪");
-      assert.equal(result.protected, true);
-      assert.equal(result.secret, "protected-roundtrip");
-      assert.equal(result.parsed.items[0].name, result.title);
-      assert.equal(result.parsed.items[0].password, result.secret);
-      for (const key of [
-        "wrongPassword",
-        "corruption",
-        "importerWrongPassword",
-        "importerCorruption",
-        "malformedXML",
-      ])
-        assert.equal(result[key], true, key);
-      assert(result.externalCount >= 3);
-      assert(result.externalSecrets.includes("fixture-password-one"));
-      for (const missing of ["DOMParser", "XMLSerializer"]) {
-        const context = await browser.newContext();
-        try {
-          await context.addInitScript((name) => {
-            delete globalThis[name];
-          }, missing);
-          const unsupported = await context.newPage();
-          await unsupported.goto(origin);
-          await unsupported.waitForFunction(() => !!globalThis.kdbxSDK);
-          const message = await unsupported.evaluate((name) => {
-            try {
-              if (name === "DOMParser")
-                globalThis.kdbxSDK.XmlUtils.parse("<Root/>");
-              else
-                globalThis.kdbxSDK.XmlUtils.serialize(
-                  new DOMParser().parseFromString("<Root/>", "application/xml"),
-                );
-              return null;
-            } catch (error) {
-              return String(error);
-            }
-          }, missing);
-          assert.match(
-            message,
-            new RegExp(`requires a browser document with native ${missing}`),
-          );
-        } finally {
-          await context.close();
-        }
+test("real Chromium native XML preserves encrypted KDBX import and integrity", {
+  timeout: 20000,
+}, async () => {
+  let browser;
+  let server;
+  try {
+    const chunks = await buildProofChunks();
+    server = createServer((request, response) => {
+      if (request.url === "/proof.mjs") {
+        response.writeHead(200, { "content-type": "text/javascript" });
+        response.end(chunks[0].code);
+      } else {
+        response.writeHead(200, { "content-type": "text/html" });
+        response.end(
+          '<!doctype html><script type="module" src="/proof.mjs"></script>',
+        );
       }
-    } finally {
-      await browser?.close();
-      if (server) {
-        server.closeAllConnections();
-        await new Promise((done) => server.close(done));
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM || "/usr/bin/chromium",
+      args: ["--no-sandbox"],
+    });
+    const page = await browser.newPage();
+    await page.goto(origin);
+    const fixture = [
+      ...readFileSync(resolve(root, "tests/fixtures/kdbx/roundtrip.kdbx")),
+    ];
+    const result = await page.evaluate(
+      (bytes) => globalThis.runKdbxProof(bytes),
+      fixture,
+    );
+    assert.equal(result.native, true);
+    assert.equal(result.magic, 0x9aa2d903);
+    assert.equal(result.title, "Native <XML> & Unicode 雪");
+    assert.equal(result.protected, true);
+    assert.equal(result.secret, "protected-roundtrip");
+    assert.equal(result.parsed.items[0].name, result.title);
+    assert.equal(result.parsed.items[0].password, result.secret);
+    for (const key of [
+      "wrongPassword",
+      "corruption",
+      "importerWrongPassword",
+      "importerCorruption",
+      "malformedXML",
+    ])
+      assert.equal(result[key], true, key);
+    assert(result.externalCount >= 3);
+    assert(result.externalSecrets.includes("fixture-password-one"));
+    for (const missing of ["DOMParser", "XMLSerializer"]) {
+      const context = await browser.newContext();
+      try {
+        await context.addInitScript((name) => {
+          delete globalThis[name];
+        }, missing);
+        const unsupported = await context.newPage();
+        await unsupported.goto(origin);
+        await unsupported.waitForFunction(() => !!globalThis.kdbxSDK);
+        const message = await unsupported.evaluate((name) => {
+          try {
+            if (name === "DOMParser")
+              globalThis.kdbxSDK.XmlUtils.parse("<Root/>");
+            else
+              globalThis.kdbxSDK.XmlUtils.serialize(
+                new DOMParser().parseFromString("<Root/>", "application/xml"),
+              );
+            return null;
+          } catch (error) {
+            return String(error);
+          }
+        }, missing);
+        assert.match(
+          message,
+          new RegExp(`requires a browser document with native ${missing}`),
+        );
+      } finally {
+        await context.close();
       }
     }
-  },
-);
+  } finally {
+    await browser?.close();
+    if (server) {
+      server.closeAllConnections();
+      await new Promise((done) => server.close(done));
+    }
+  }
+});

@@ -12,6 +12,7 @@ import {
   NativeHTTPConfiguration,
   type WorkerMessage,
 } from "./protocol.js";
+
 class WorkerPort {
   sent: z.infer<typeof WorkerMessage>[] = [];
   postMessage(value: z.infer<typeof WorkerMessage>) {

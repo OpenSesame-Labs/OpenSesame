@@ -21,7 +21,9 @@
   padding: 0.3rem 0 0.55rem;
   text-decoration: none;
   cursor: pointer;
-  transition: border-color 140ms var(--ease), color 140ms var(--ease);
+  transition:
+    border-color 140ms var(--ease),
+    color 140ms var(--ease);
 }
 
 .set__nav-link:hover {
@@ -60,7 +62,9 @@
   font-size: 0.875rem;
   font-weight: 550;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .set__theme:hover {

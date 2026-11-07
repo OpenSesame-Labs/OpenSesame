@@ -10,8 +10,11 @@ import type { VerifiedIdTokenClaims } from "@opensesame/sdk-browser";
 import type { UpstreamIdentity } from "../federation.js";
 import { clearSession, saveSession } from "../federation.js";
 import { matchesAuthGeneration } from "./generation.js";
-import type { AuthenticationIntent } from "./types.js";
-import type { AmbientReasonCode, PassiveOutcome } from "./types.js";
+import type {
+  AmbientReasonCode,
+  AuthenticationIntent,
+  PassiveOutcome,
+} from "./types.js";
 
 export type VaultNamespaceState = {
   status: "empty" | "locked" | "unlocked";

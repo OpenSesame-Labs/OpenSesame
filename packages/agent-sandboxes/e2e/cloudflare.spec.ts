@@ -110,8 +110,7 @@ function fakeBrowserRun(webSocketUrl: string): Promise<{
         const address = z
           .object({ port: z.number() })
           .safeParse(server.address());
-        if (!address.success)
-          throw new Error("missing test server address");
+        if (!address.success) throw new Error("missing test server address");
         response.writeHead(200, { "content-type": "application/json" }).end(
           JSON.stringify({
             sessionId: "fake-session-1",

@@ -8,6 +8,7 @@ import type {
   InvokeOptions,
   PasswordAgentPort,
 } from "../../packages/app-core/src/lib/password-agent/transport.js";
+
 const sentinel = "FICTIONAL-SECRET-UNRELATED";
 const login = () => ({
   id: "a".repeat(26),

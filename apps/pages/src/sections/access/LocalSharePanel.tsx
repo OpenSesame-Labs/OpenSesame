@@ -1,19 +1,19 @@
 import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { subscribeLocalIamChanges } from "@opensesame/app-core/lib/local-iam-events.js";
 import {
-  type PendingShare,
-  approvePendingShare,
-  denyPendingShare,
-  listPendingShares,
-  submitLocalShare,
-} from "@opensesame/app-core/lib/local-share-grants-approvals.js";
-import {
   type LocalShare,
   type ShareScopeLists,
   grantIdentities,
   listLocalShares,
   revokeLocalShare,
 } from "@opensesame/app-core/lib/local-share-grants.js";
+import {
+  type PendingShare,
+  approvePendingShare,
+  denyPendingShare,
+  listPendingShares,
+  submitLocalShare,
+} from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import type { Folder, VaultItem } from "@opensesame/vault-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";

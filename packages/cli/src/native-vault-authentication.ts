@@ -1,7 +1,6 @@
 import type { PhysicalAuthenticationPort } from "@opensesame/app-core/lib/vault/physical-authentication-port.js";
-import { snapshot, unavailable } from "./native-vault-data.js";
-
 import type { NativeVaultContext } from "./native-vault-context.js";
+import { snapshot, unavailable } from "./native-vault-data.js";
 
 export function authenticationPort({ capture }: NativeVaultContext) {
   const authentication: PhysicalAuthenticationPort = {

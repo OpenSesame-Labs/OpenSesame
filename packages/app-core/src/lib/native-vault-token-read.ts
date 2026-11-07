@@ -10,8 +10,8 @@ import {
   type NativeProviderTransport,
   nativeProviderTransport,
 } from "./native-connector-transport.js";
-import { nativeLocalInstanceFingerprint } from "./native-local-instance-state.js";
 import { readNativeLocalInstance } from "./native-local-instance.js";
+import { nativeLocalInstanceFingerprint } from "./native-local-instance-state.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
 import {
   type NativeVaultKvData,

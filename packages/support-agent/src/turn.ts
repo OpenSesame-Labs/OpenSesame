@@ -1,8 +1,10 @@
 import { extractSupportSources } from "./sources.js";
+
 export {
-  extractSupportSources,
   type SupportSourcesExtraction,
+  extractSupportSources,
 } from "./sources.js";
+
 /**
  * Model-output handling: prose out of one channel, a candidate GuideLang
  * program out of another, and a single bounded repair when the program does

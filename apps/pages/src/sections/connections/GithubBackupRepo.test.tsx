@@ -70,10 +70,7 @@ beforeEach(() => {
   });
   getBackupStatus.mockResolvedValue({ target: null, pendingEvents: 0 });
   putBackupTarget.mockImplementation(
-    async (body: {
-      owner: string;
-      repo: string;
-    }) => ({
+    async (body: { owner: string; repo: string }) => ({
       integrationId: "int_gh",
       installationId: "99",
       owner: body.owner,

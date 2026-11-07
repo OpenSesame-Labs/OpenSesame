@@ -1,21 +1,21 @@
 import { getBundledProviders } from "../../lib/embedded-catalog.js";
 import { isGuestSession } from "../../lib/guest-isolation.js";
 import { readLocalDevices, thisDeviceId } from "../../lib/local-devices.js";
+import { readLocalDirectory } from "../../lib/local-directory.js";
 import {
   PAGES_APPLICATION_ID,
   PAGES_APPLICATION_NAME,
   SUPPORT_AGENT_ID,
 } from "../../lib/local-directory-bootstrap.js";
-import { readLocalDirectory } from "../../lib/local-directory.js";
+import {
+  type LocalShare,
+  listLocalShares,
+} from "../../lib/local-share-grants.js";
 /**
  * View-model logic for `LocalResourcesPanel` (ADR 0133 §8): the pure part of that
  * screen — no React, no DOM — so any shell can drive the same behaviour.
  */
 import { policyLabel } from "../../lib/local-share-grants-approvals.js";
-import {
-  type LocalShare,
-  listLocalShares,
-} from "../../lib/local-share-grants.js";
 import { loadSettings } from "../../lib/settings.js";
 import { listDeviceVaults } from "../../lib/vaults.js";
 

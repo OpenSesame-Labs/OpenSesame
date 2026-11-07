@@ -3,15 +3,15 @@ import { FieldShell } from "../../../components/FieldShell.js";
 import { ConnectorIconField } from "./ConnectorIconField.js";
 import { ConnectorModes } from "./ConnectorModes.js";
 import { OutLink } from "./fields.js";
-import {
-  nativePublicUrl,
-  nativeVerified,
-} from "./native-connector-ui-values.js";
-import { nativeMethodConfigurable } from "./native-connector-ui.js";
 import type {
   NativeConnectorDescriptor,
   NativeMethodDescriptor,
 } from "./native-connector-ui.js";
+import { nativeMethodConfigurable } from "./native-connector-ui.js";
+import {
+  nativePublicUrl,
+  nativeVerified,
+} from "./native-connector-ui-values.js";
 
 export function nativeSignInRequired(
   method: NativeMethodDescriptor,

@@ -9,8 +9,8 @@ import {
   presentedTomb,
 } from "../duress/store/decoy-scratch.js";
 import { kvDurability } from "../kv.js";
-import { BODY_PATH, readSealedFile } from "../vfs.js";
 import type { TrustedUnlockView } from "../trusted-unlock.js";
+import { BODY_PATH, readSealedFile } from "../vfs.js";
 import type { VaultPrefs } from "./prefs.js";
 import type { VaultState } from "./store-state.js";
 

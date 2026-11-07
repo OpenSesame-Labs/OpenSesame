@@ -41,8 +41,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { overlapCast } from "@opensesame/os-domain";
 import type { InteractionKind } from "@opensesame/os-domain";
+import { overlapCast } from "@opensesame/os-domain";
 import type { GoogleWalletEnabled } from "./config.js";
 import { createGoogleClient } from "./google-client.js";
 import { assertPassPayloadSafe } from "./payload.js";

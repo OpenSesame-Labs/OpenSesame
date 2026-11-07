@@ -3,6 +3,7 @@ import {
   assertSamlPostOwner,
   samlInstant,
 } from "./assertion-conditions.js";
+
 /** Native IdP metadata is operator-selected trust; response KeyInfo never changes these anchors. */
 
 const MD = "urn:oasis:names:tc:SAML:2.0:metadata";

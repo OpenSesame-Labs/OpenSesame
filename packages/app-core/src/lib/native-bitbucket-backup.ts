@@ -20,6 +20,7 @@ import {
   type SecretBackendSession,
 } from "./secret-backends/types.js";
 import { zodJitless } from "./zod-jitless.js";
+
 zodJitless();
 const MAX_BYTES = 512 * 1024;
 const sha = z.string().regex(/^[a-f0-9]{40}$/);

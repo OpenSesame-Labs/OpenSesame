@@ -16,6 +16,7 @@ import {
   discoveryFixture,
   within,
 } from "./native-mcp-discover-owner.test-support.js";
+
 installConnectorIntegration();
 function props(actual: Awaited<ReturnType<typeof discoveryFixture>>["actual"]) {
   return {

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { generateAgeKeyPair, writeAgeKeyConfig } from "../../lib/age-keys.js";
-import { AGE_KEYS_CONFIG_PATH } from "../../lib/age-keys.js";
+import {
+  AGE_KEYS_CONFIG_PATH,
+  generateAgeKeyPair,
+  writeAgeKeyConfig,
+} from "../../lib/age-keys.js";
 import { AWS_KMS_CONFIG_PATH } from "../../lib/aws-kms-config.js";
 import { GCP_KMS_CONFIG_PATH } from "../../lib/gcp-kms-config.js";
 import { kvDelete, kvGet } from "../../lib/kv.js";

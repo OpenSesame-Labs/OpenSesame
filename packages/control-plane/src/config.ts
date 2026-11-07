@@ -41,6 +41,7 @@ import {
   assertTransportSecure,
   loadTransportConfig,
 } from "./transport/config.js";
+
 export type { AgentAuthTrustedProvider };
 
 export interface ControlPlaneConfig {
@@ -244,11 +245,6 @@ function corsOriginsFromEnv(env: NodeJS.ProcessEnv): string[] {
   return parseOriginList(env.OPENSESAME_CORS_ORIGINS ?? "");
 }
 
-export {
-  assertListenHostAllowed,
-  listenHostIsLoopback,
-} from "./transport/config.js";
-
 /**
  * Read a channel list from configuration.
  *
@@ -257,6 +253,10 @@ export {
  * channel kind nothing in the capability table describes.
  */
 export { parseChannelKinds } from "./config-channels.js";
+export {
+  assertListenHostAllowed,
+  listenHostIsLoopback,
+} from "./transport/config.js";
 
 export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,

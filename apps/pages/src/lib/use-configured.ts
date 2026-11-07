@@ -12,13 +12,13 @@
  */
 
 import { subscribeDeviceRoutes } from "@opensesame/app-core/lib/device-identity-routes.js";
+import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import {
   type IdentityPlaneKind,
   type IdentityRouteFamily,
   identityPlane,
   identityServes,
 } from "@opensesame/app-core/lib/identity-plane.js";
-import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import { useSyncExternalStore } from "react";
 import { useSettingsEpoch } from "./use-settings.js";
 

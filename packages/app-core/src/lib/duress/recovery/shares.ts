@@ -5,9 +5,9 @@
  * We authenticate context/generation with HMAC; we do not invent a new primitive.
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import { shamirCombine, shamirSplit } from "../../sops/shamir.js";
 import { b64, fromB64, timingSafeEqual, wipe } from "./bytes.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type ShareEnvelope = Readonly<{
   index: number;

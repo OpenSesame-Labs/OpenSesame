@@ -152,4 +152,5 @@ it("retains and acknowledges a minted bearer after lock while refusing the old r
   expect(retain).toHaveBeenCalledOnce();
   expect(flow.open).toHaveBeenCalledOnce();
 });
+
 import { nativeAuthChannel } from "@opensesame/app-core/browser/native-auth-message.js";

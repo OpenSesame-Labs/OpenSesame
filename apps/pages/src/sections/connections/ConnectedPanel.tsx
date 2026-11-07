@@ -20,8 +20,8 @@ import { IconPlus, IconSettings } from "../../components/Icons.js";
 import { StatusMark, statusTone } from "../../components/StatusMark.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { ConnectorMark } from "./ConnectorMark.js";
-import { InstalledConnectorActions } from "./InstalledConnectorActions.js";
 import { catalogConnectorAction } from "./catalog-connector-action.js";
+import { InstalledConnectorActions } from "./InstalledConnectorActions.js";
 import { CONNECTIONS_PAGE_SIZE, nextPageCount } from "./page-cap.js";
 
 const READ_FAILED = "Connections could not be read.";

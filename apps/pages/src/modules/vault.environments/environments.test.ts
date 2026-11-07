@@ -4,8 +4,8 @@
  */
 
 import { optionalCapabilityIds } from "@opensesame/app-core/lib/capabilities/catalog.js";
-import { writeEnvironments } from "@opensesame/app-core/lib/vault/environments-write.js";
 import { ENVIRONMENTS_CAPABILITY } from "@opensesame/app-core/lib/vault/environments.js";
+import { writeEnvironments } from "@opensesame/app-core/lib/vault/environments-write.js";
 import { describe, expect, it } from "vitest";
 import {
   profilePlan,

@@ -1,4 +1,3 @@
-import { GUIDE_LANG_VERSION } from "@opensesame/guide-lang";
 import type {
   GuideGoalId,
   GuideInstruction,
@@ -6,6 +5,7 @@ import type {
   GuideRouteId,
   GuideTargetId,
 } from "@opensesame/guide-lang";
+import { GUIDE_LANG_VERSION } from "@opensesame/guide-lang";
 import { describe, expect, it } from "vitest";
 
 import { createTestClock } from "./clock.js";

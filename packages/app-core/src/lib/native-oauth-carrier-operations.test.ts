@@ -3,19 +3,20 @@ import {
   captureOAuthCarrier,
   nativeOAuthCarrierFixture,
 } from "./native-oauth-carrier.test-support.js";
+import type { NativeOAuthClientOwner } from "./native-oauth-client-config.js";
 import {
   beginNativeOAuthClient,
   configureNativeOAuthClient,
 } from "./native-oauth-client-config.js";
-import type { NativeOAuthClientOwner } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
+import { oauthMcpFixture } from "./native-oauth-mcp.test-support.js";
 import {
   invokeNativeOAuthMcpTool,
   verifyNativeOAuthMcpResource,
 } from "./native-oauth-mcp-operations.js";
-import { oauthMcpFixture } from "./native-oauth-mcp.test-support.js";
 import { verifyNativeOAuthResource } from "./native-oauth-resource.js";
 import { requireNativeOAuthRecord } from "./native-oauth-session.js";
+
 const closing: (() => Promise<void>)[] = [];
 const pending: Promise<unknown>[] = [];
 afterEach(async () => {

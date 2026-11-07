@@ -29,8 +29,8 @@ import {
   useSecretBackendAction,
 } from "../secret-backends/useSecretBackendAction.js";
 import { useLocalAudioInput } from "./AudioFields.js";
-import { replicateVerificationInput } from "./PredictionFields.js";
 import { runAiWork } from "./ai-work-lifetime.js";
+import { replicateVerificationInput } from "./PredictionFields.js";
 
 export const aiConnectionUiDependencies = {
   save: saveAiConnection,

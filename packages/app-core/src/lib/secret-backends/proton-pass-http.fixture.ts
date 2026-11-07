@@ -13,13 +13,14 @@ import type { ProtonFolderRevision } from "./proton-pass-folders.js";
 import type { ProtonItemRevision } from "./proton-pass-items.js";
 import type { SecretBackendTransport } from "./transport.js";
 import { SecretBackendError } from "./types.js";
+
 export {
   envelope,
-  shareKey,
+  itemBytes,
   open,
   openStored,
   seeded,
-  itemBytes,
+  shareKey,
 } from "./proton-pass-crypto.fixture.js";
 
 const pat = new Uint8Array(32).fill(17);

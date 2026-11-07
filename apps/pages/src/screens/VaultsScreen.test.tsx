@@ -1,3 +1,9 @@
+import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
+import {
+  PERSONAL_PROJECT_ID,
+  projectSeams,
+} from "@opensesame/app-core/lib/projects.js";
+import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 import {
   cleanup,
   fireEvent,
@@ -8,13 +14,6 @@ import {
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identityHookSeams } from "../bindings/identity.js";
-
-import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import {
-  PERSONAL_PROJECT_ID,
-  projectSeams,
-} from "@opensesame/app-core/lib/projects.js";
-import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 
 const state = {
   v: 1 as const,
@@ -41,6 +40,7 @@ const switchVault = vi.fn();
 const sealNewVault = vi.fn();
 
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+
 Object.assign(identitySeams, {
   identityBase: () => "",
 });
@@ -49,6 +49,7 @@ Object.assign(identityHookSeams, {
 });
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
+
 Object.assign(federationSeams, {
   beginSignIn: () => Promise.resolve(),
   defaultUpstream: () => ({
@@ -60,8 +61,8 @@ Object.assign(federationSeams, {
   loadSession: () => null,
 });
 
-import { VaultsScreen } from "./VaultsScreen.js";
 import { joinRoadDependencies } from "./join/JoinRoad.js";
+import { VaultsScreen } from "./VaultsScreen.js";
 
 beforeEach(() => {
   Object.assign(projectSeams, {

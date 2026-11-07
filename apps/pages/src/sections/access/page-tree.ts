@@ -1,14 +1,13 @@
-import {
-  type PageTreeLeaf,
-  type PageTreeSource,
-  pageTabTree,
-} from "../../lib/page-to-tree.js";
-
 import { APPROVAL_LABELS } from "@opensesame/app-core/lib/approvals-route.js";
 import {
   ACCESS_LABELS,
   type ACCESS_VIEWS,
 } from "@opensesame/app-core/lib/section-view-names.js";
+import {
+  type PageTreeLeaf,
+  type PageTreeSource,
+  pageTabTree,
+} from "../../lib/page-to-tree.js";
 export type AccessPlanes = {
   /** An Identity API is configured, so Requests draws its inbox. */
   identity?: boolean;

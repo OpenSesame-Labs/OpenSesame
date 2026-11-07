@@ -4,10 +4,12 @@ import {
   type RetiredRecordChange,
   readRetiredRecordChange,
 } from "./record-change-request-v2.js";
+
 export {
   type RetiredRecordChange,
   readRetiredRecordChange,
 } from "./record-change-request-v2.js";
+
 import {
   deriveRetiredVerifier,
   passwordBytes,

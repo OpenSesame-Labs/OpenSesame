@@ -5,6 +5,7 @@ import {
   createNativeImplicitReceiver,
   deliverNativeImplicitPayload,
 } from "./native-implicit-session.js";
+
 const origin = "https://selfhost.example";
 const redirectUri = `${origin}/auth/native-implicit.html`;
 const peers = new Set<Channel>();

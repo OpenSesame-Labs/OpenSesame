@@ -5,8 +5,8 @@
  */
 import type { Folder, VaultBody, VaultItem } from "@opensesame/vault-core";
 import { Effect } from "effect";
-import { SecretFsConflict } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsConflict } from "./errors.js";
 import type { Revision, SecretFiles } from "./files.js";
 import type { SecretFileName } from "./layout.js";
 import {

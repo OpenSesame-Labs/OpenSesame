@@ -1,8 +1,8 @@
 import { expand } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { asBufferSource } from "@opensesame/os-domain";
 import { argon2id } from "hash-wasm";
 import { z } from "zod";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type BitwardenKdf =
   | { kdfType: 0; iterations: number }

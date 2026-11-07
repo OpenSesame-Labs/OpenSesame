@@ -15,13 +15,13 @@ import {
 } from "./local-authorization.js";
 import { readLocalPasskeys, revokeLocalPasskey } from "./local-credentials.js";
 import { withLocalDirectoryLock } from "./local-directory.js";
+import { localRequestFixture } from "./local-request.fixture.js";
 import {
   createLocalApplicationRequest,
   redeemLocalApplicationRequest,
 } from "./local-request-authorization.js";
 import { requireConsumedRequest } from "./local-request-issuance.js";
 import { readLocalRequestRecords } from "./local-request-store.js";
-import { localRequestFixture } from "./local-request.fixture.js";
 import { signInLocalIdentity } from "./local-sessions.js";
 import { vaultStore } from "./vault/store.js";
 import { vfsSeams } from "./vfs.js";

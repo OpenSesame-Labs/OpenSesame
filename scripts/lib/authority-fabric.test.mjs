@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-
-import { MANDATE_AT_IDS } from "./authority-fabric-at-ids.mjs";
 import {
   BLOCKED_REASONS,
   STATUSES,
@@ -10,6 +8,7 @@ import {
   resolveScenario,
   scenarios,
 } from "./authority-fabric.mjs";
+import { MANDATE_AT_IDS } from "./authority-fabric-at-ids.mjs";
 
 const emptyFacts = {
   crates: {},

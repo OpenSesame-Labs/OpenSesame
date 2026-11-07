@@ -4,10 +4,10 @@ import { createControlPlane } from "../create-app.js";
 import { passkeyDigest } from "../routes/mfa-factors.js";
 import { assertionFor, enrolPasskey } from "./interaction-webauthn-fixture.js";
 import {
-  events,
   DEV,
   NOW,
   enrolTotp,
+  events,
   factorIds,
   headers,
   passkeyProof,

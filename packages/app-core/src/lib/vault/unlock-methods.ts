@@ -26,8 +26,6 @@ import {
   getPasskeyUnlockCeremonyForDefault,
 } from "./protection/adapters/webauthn-prf-ceremony.js";
 import type { UnlockTabId } from "./protection/unlock-protector-methods.js";
-import { chooseUnlockMethod } from "./unlock-preference.js";
-
 import {
   decryptWithKey,
   encryptWithKey,
@@ -35,24 +33,43 @@ import {
   openText,
   sealText,
 } from "./unlock-factor-crypto.js";
+import { chooseUnlockMethod } from "./unlock-preference.js";
 
+export type {
+  CodeChannel,
+  PasskeyUnlockRecord,
+  PinUnlockRecord,
+  RecoveryCodesRecord,
+  RemoteCodeRecord,
+  TotpGateRecord,
+  VaultUnlocks,
+} from "@opensesame/vault-core";
 export {
-  MIN_PIN_LENGTH,
+  MIN_PRF_OUTPUT_BYTES,
+  PrfCeremonyError,
+  type PrfCeremonyErrorCode,
+  assertUsablePrfOutput,
+  hasUsablePrfOutput,
+  prfExtensionSupported,
+  readPrfFirst,
+  requirePrfOutputFromExtension,
+} from "./protection/adapters/webauthn-prf-output.js";
+export {
   MAX_PIN_LENGTH,
+  MIN_PIN_LENGTH,
   PIN_PBKDF2_ITERATIONS,
-  listPasskeyUnlockRecords,
+  assertPinPolicy,
   findPasskeyUnlockRecord,
   kekFromWebauthnPrf,
-  wrapVaultKeyWithPrf,
-  unwrapVaultKeyWithPrf,
-  pinPolicyProblems,
-  assertPinPolicy,
-  wrapVaultKeyWithPin,
-  unwrapVaultKeyWithPin,
-  sealText,
+  listPasskeyUnlockRecords,
   openText,
+  pinPolicyProblems,
+  sealText,
+  unwrapVaultKeyWithPin,
+  unwrapVaultKeyWithPrf,
+  wrapVaultKeyWithPin,
+  wrapVaultKeyWithPrf,
 } from "./unlock-factor-crypto.js";
-
 export {
   type WebauthnHostCheck,
   WebauthnHostError,
@@ -65,27 +82,6 @@ export {
   webauthnHostSeams,
   webauthnRpId,
 } from "./webauthn-host.js";
-
-export {
-  MIN_PRF_OUTPUT_BYTES,
-  PrfCeremonyError,
-  type PrfCeremonyErrorCode,
-  assertUsablePrfOutput,
-  hasUsablePrfOutput,
-  prfExtensionSupported,
-  readPrfFirst,
-  requirePrfOutputFromExtension,
-} from "./protection/adapters/webauthn-prf-output.js";
-
-export type {
-  CodeChannel,
-  PasskeyUnlockRecord,
-  PinUnlockRecord,
-  RecoveryCodesRecord,
-  RemoteCodeRecord,
-  TotpGateRecord,
-  VaultUnlocks,
-} from "@opensesame/vault-core";
 
 /**
  * Merge a successful enroll into unlocks without dropping other passkeys.

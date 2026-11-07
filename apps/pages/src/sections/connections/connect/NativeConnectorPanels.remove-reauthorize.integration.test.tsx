@@ -116,7 +116,10 @@ async function connectedRecord() {
 function ProductionSelection({
   initialId,
   otherId,
-}: { initialId?: string; otherId?: string }) {
+}: {
+  initialId?: string;
+  otherId?: string;
+}) {
   const [connections, setConnections] = useTailscaleConnections();
   const [selectedId, setSelectedId] = useState(initialId);
   const reload = useCallback(async () => {

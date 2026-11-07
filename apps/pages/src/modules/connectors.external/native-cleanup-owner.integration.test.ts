@@ -6,8 +6,8 @@ import {
   retryNativeConnectorCleanup,
 } from "@opensesame/app-core/lib/native-connector-lifecycle.js";
 import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-store.js";
-import { requireNativeOAuthRecord } from "@opensesame/app-core/lib/native-oauth-session.js";
 import { oauthDraft } from "@opensesame/app-core/lib/native-oauth.test-support.js";
+import { requireNativeOAuthRecord } from "@opensesame/app-core/lib/native-oauth-session.js";
 import { afterEach, expect, it } from "vitest";
 import { cleanupOwnedFixture } from "./native-cleanup-owner.test-support.js";
 import { composeNativeOAuthResourceDriver } from "./native-oauth-resource-runtime.js";

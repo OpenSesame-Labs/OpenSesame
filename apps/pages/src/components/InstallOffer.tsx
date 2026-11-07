@@ -140,7 +140,6 @@ export function InstallOffer({ heading }: { heading?: string } = {}) {
         // No API exists on iOS, so the road is the reader's own three taps —
         // in the OS's own words, with the glyphs they are looking for drawn
         // inline rather than named.
-        // biome-ignore lint/a11y/useSemanticElements: this IS the semantic element — the role is the WebKit workaround below
         // biome-ignore lint/a11y/noRedundantRoles: redundant by spec, load-bearing in Safari — `list-style: none` (styles.css `.keep__steps`) makes WebKit drop the list role, and this branch renders on WebKit only
         <ol className="keep__steps" role="list">
           <li className="keep__step">

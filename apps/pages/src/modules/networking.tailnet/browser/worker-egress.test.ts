@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
 import { installWorkerEgress } from "./worker-egress.js";
+
 const native = vi.fn(async () => new Response("fixture"));
 afterEach(() => {
   vi.unstubAllGlobals();

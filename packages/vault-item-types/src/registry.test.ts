@@ -12,9 +12,8 @@ import { FIELD_TYPES } from "./catalogue.js";
 import { BUILTIN_DEFINITION_JSON } from "./definitions.generated.js";
 import { importPackText, packEntries } from "./packs.js";
 import { ItemTypeRegistry, directoryOf } from "./registry.js";
-import { subtitleFor } from "./values.js";
-
 import { communityDefinition } from "./registry.test-support.js";
+import { subtitleFor } from "./values.js";
 
 describe("directoryOf", () => {
   it("slugifies plurals and trims edge hyphens, even adversarial ones", () => {

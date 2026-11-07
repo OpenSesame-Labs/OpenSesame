@@ -5,6 +5,12 @@ import {
   manualPassword,
   newPasswordMethod,
 } from "./account.js";
+import {
+  type CredentialItem,
+  createCredential,
+  resolveAccounts,
+  unboundCredentials,
+} from "./credential.js";
 import { bindCredential, unbindCredential } from "./credential-bind.js";
 import {
   credentialField,
@@ -12,12 +18,6 @@ import {
   credentialSubtitle,
 } from "./credential-read.js";
 import { splitAccount } from "./credential-split.js";
-import {
-  type CredentialItem,
-  createCredential,
-  resolveAccounts,
-  unboundCredentials,
-} from "./credential.js";
 import { readItemField } from "./item-types.js";
 import { type VaultItem, createItem, itemSubtitle } from "./model.js";
 

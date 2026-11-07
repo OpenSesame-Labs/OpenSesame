@@ -10,8 +10,12 @@
 
 import { toB64url } from "../bytes.js";
 import type { Json } from "../canonical.js";
-import { type CircleDraft, type OwnerKeys, createCircle } from "../circle.js";
-import { generateOwnerKeys } from "../circle.js";
+import {
+  type CircleDraft,
+  type OwnerKeys,
+  createCircle,
+  generateOwnerKeys,
+} from "../circle.js";
 import { acceptEnrollment, createInvite, newCircleId } from "../enroll.js";
 import { expectPacket } from "../packets.js";
 import {

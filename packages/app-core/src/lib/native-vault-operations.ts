@@ -16,10 +16,12 @@ import {
   readNativeVaultKv,
   vaultKvPath,
 } from "./native-vault-kv.js";
+
 export type {
-  NativeVaultKvRead,
   NativeVaultKvData,
+  NativeVaultKvRead,
 } from "./native-vault-kv.js";
+
 import { nativeOAuthGuard } from "./native-oauth-session.js";
 import {
   nativeVaultClassification,

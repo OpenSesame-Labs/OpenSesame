@@ -41,7 +41,10 @@ function record(caseId, status, detail) {
 {
   // The engine lives in @opensesame/app-core (ADR 0133).
   const engine = run("engine unit and fixture suites", "npm", [
-    "exec", "-w", "@opensesame/app-core", "--",
+    "exec",
+    "-w",
+    "@opensesame/app-core",
+    "--",
     "vitest",
     "run",
     "src/lib/sops",

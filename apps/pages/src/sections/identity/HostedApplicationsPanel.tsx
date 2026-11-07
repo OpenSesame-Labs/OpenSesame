@@ -30,16 +30,16 @@ import { StatusMark } from "../../components/StatusMark.js";
 import { StatusNote } from "../../components/StatusNote.js";
 
 import { EditApplication } from "./EditApplication.js";
+import { CreateClientForm } from "./HostedIdentityForms.js";
 import {
   HostedConnectWorkspace,
   HostedDetailHead,
   HostedFact,
+  useCopy,
   useHostedRecord,
 } from "./HostedRecordParts.js";
 import { usePublishHostedIdentityRows } from "./hosted-identity-rail.js";
 
-import { CreateClientForm } from "./HostedIdentityForms.js";
-import { useCopy } from "./HostedRecordParts.js";
 /** Owned OIDC clients remain behind the hosted session boundary. */
 function useApplicationWorkspace(session: IdentitySession | null) {
   const [clients, setClients] = useState<OAuthClient[]>([]);
@@ -137,7 +137,10 @@ function useApplicationWorkspace(session: IdentitySession | null) {
 export function ServiceAccountsPanel({
   online,
   session,
-}: { online: boolean; session: IdentitySession | null }) {
+}: {
+  online: boolean;
+  session: IdentitySession | null;
+}) {
   const workspace = useApplicationWorkspace(session);
   const {
     clients,
@@ -362,7 +365,9 @@ function ApplicationFacts({ selected }: { selected: OAuthClient }) {
 }
 function RotatedClient({
   workspace,
-}: { workspace: ReturnType<typeof useApplicationWorkspace> }) {
+}: {
+  workspace: ReturnType<typeof useApplicationWorkspace>;
+}) {
   const { rotated, copy, copied } = workspace;
   return (
     <>

@@ -149,9 +149,10 @@ Object.assign(federationSeams, {
 export const FEDERATED_BUTTON = `Continue with ${UPSTREAM.accountKind}`;
 
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
-import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
+import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { identityHookSeams } from "../bindings/identity.js";
+
 identitySeams.identityBase = () => "http://127.0.0.1:18788";
 export const endSession = vi.fn();
 export type SessionHolder = { current: IdentitySession | null };
@@ -185,9 +186,9 @@ Object.assign(providersSeams, {
   requestEmailMagicLink,
 });
 
+import { SETUP_PANEL_FIXTURE } from "./capabilities/setup-panel-fixture.js";
 import { setupScreenDependencies } from "./SetupScreen.js";
 import { unlockScreenDependencies } from "./UnlockScreen.js";
-import { SETUP_PANEL_FIXTURE } from "./capabilities/setup-panel-fixture.js";
 
 // Setup is never a gate (ADR 0090); this suite tests the unlock form and handoff.
 export const identityBaseHolder = { current: "http://127.0.0.1:18788" };

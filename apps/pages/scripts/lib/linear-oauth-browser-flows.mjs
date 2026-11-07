@@ -6,6 +6,7 @@ import {
   showSavedLinear,
 } from "./linear-browser-consent.mjs";
 import { LINEAR_TEST_CLIENT } from "./linear-provider-contract.mjs";
+
 async function cancelConsent(harness, page, label) {
   const { check } = harness;
   const cancelled = await beginLinearConsent(

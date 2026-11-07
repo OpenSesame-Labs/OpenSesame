@@ -12,11 +12,11 @@
  * root, symlinks included (`filesystem-guard.ts`).
  */
 import { Effect, FileSystem, Semaphore } from "effect";
-import { SecretFsConflict } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
-import { STAGING_SUFFIX, checkPath, revisionOf } from "./files.js";
+import { SecretFsConflict } from "./errors.js";
 import type { Revision, SecretFiles, WriteOptions } from "./files.js";
+import { STAGING_SUFFIX, checkPath, revisionOf } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 import {
   DIRECTORY_MODE,
   FILE_MODE,

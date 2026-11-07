@@ -8,6 +8,7 @@ import {
 import { disposeOriginalCommandData } from "./original-command-retirement-data.js";
 import type { PhysicalDeviceRecordReader } from "./physical-device-record-port.js";
 import { captureRetiredDeviceReaderIdentity } from "./retired-owner-reader-identity.js";
+
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 /** Use only within the existing owner's actual retained CRED transaction; this helper acquires no lock. */
 export async function refuseRetainedCurrentCredentialData(

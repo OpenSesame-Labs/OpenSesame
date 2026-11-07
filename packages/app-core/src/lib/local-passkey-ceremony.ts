@@ -1,4 +1,4 @@
-import { overlapCast, asBufferSource } from "@opensesame/os-domain";
+import { asBufferSource, overlapCast } from "@opensesame/os-domain";
 import { b64urlToBytes, isPublicKeyCredential } from "@opensesame/sdk-browser";
 import {
   credentials,

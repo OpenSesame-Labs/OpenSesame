@@ -15,12 +15,12 @@ import { IconLayers } from "../../../components/Icons.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import type { Desk } from "../use-desk.js";
 import { ClocksStep } from "./ClocksStep.js";
+import { useLandOnChange } from "./circle-focus.js";
+import { ruleSide } from "./circle-model.js";
 import { DealtStep } from "./DealtStep.js";
 import { NameStep } from "./NameStep.js";
 import { PeopleStep } from "./PeopleStep.js";
 import { RuleStep } from "./RuleStep.js";
-import { useLandOnChange } from "./circle-focus.js";
-import { ruleSide } from "./circle-model.js";
 import "./circles.css";
 import {
   type NewCircle,

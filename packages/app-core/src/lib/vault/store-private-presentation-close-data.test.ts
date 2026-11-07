@@ -5,6 +5,7 @@ import {
   closePrivatePresentationData,
   drainPrivatePresentationData,
 } from "./store-private-presentation-close-data.js";
+
 type Outcome = { kind: "fulfilled" } | { kind: "rejected"; cause: unknown };
 type Tracked = {
   outcome: Promise<Outcome>;

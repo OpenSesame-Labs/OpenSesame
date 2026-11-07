@@ -5,8 +5,8 @@ import { IconChevronLeft } from "./Icons.js";
 import { NavTree } from "./NavTree.js";
 import { RecordAdd } from "./RecordAdd.js";
 import { RecordList } from "./RecordList.js";
-import { UpLink } from "./UpLink.js";
 import { useRecordWorkspace } from "./record-workspace-state.js";
+import { UpLink } from "./UpLink.js";
 import "../sections/vault.css";
 import "./record-workspace.css";
 export type WorkspaceRow = {

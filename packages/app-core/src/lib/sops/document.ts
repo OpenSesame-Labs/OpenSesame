@@ -9,8 +9,8 @@
 
 import { SopsError } from "./errors.js";
 import { emitJsonTree, parseJsonTree } from "./json-codec.js";
-import { serializeSopsMetadata } from "./metadata-emit.js";
 import { type SopsMetadata, parseSopsMetadata } from "./metadata.js";
+import { serializeSopsMetadata } from "./metadata-emit.js";
 import {
   type SopsMap,
   type SopsNode,

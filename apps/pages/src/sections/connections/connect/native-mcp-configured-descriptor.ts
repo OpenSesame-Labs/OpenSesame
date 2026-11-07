@@ -6,6 +6,7 @@ import type {
   NativeField,
   NativeMethodDescriptor,
 } from "./native-connector-ui.js";
+
 function authentication(publicAvailable: boolean): NativeField {
   return {
     id: "mcp_authentication",

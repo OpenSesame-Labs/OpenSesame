@@ -1,3 +1,8 @@
+import { FIXTURE_CATALOG } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
+import {
+  double,
+  installDoublePorts,
+} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   cleanup,
   fireEvent,
@@ -7,12 +12,6 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { FIXTURE_CATALOG } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
-import {
-  double,
-  installDoublePorts,
-} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { SetupScreen } from "../SetupScreen.js";
 import { DEFAULT_EXTENSIONS } from "./default-extensions.js";
 import { resetSetupScreen } from "./test-harness.js";

@@ -4,18 +4,6 @@
  */
 
 export type {
-  CustodyAction,
-  CustodyGrant,
-  CustodyRole,
-} from "./roles.js";
-export {
-  assertOutsideCompartmentCustody,
-  countIndependentApprovers,
-  countIndependentCustodians,
-  roleAllows,
-} from "./roles.js";
-
-export type {
   ApprovalOutcome,
   ApproverRegistry,
   QuorumConfig,
@@ -32,15 +20,6 @@ export {
   sealApproval,
   verifyTargetDeviceProof,
 } from "./approval.js";
-
-export type { ShareContextExpect, ShareEnvelope } from "./shares.js";
-export {
-  LocalShareMaterialGuard,
-  combineRecoveryShares,
-  splitRecoverySecret,
-  verifyShareEnvelope,
-} from "./shares.js";
-
 export type { CeremonyResult, GenerationRegistry } from "./ceremony.js";
 export {
   assertGenerationLive,
@@ -53,3 +32,21 @@ export {
   rotateGeneration,
   runAvailabilityDrill,
 } from "./ceremony.js";
+export type {
+  CustodyAction,
+  CustodyGrant,
+  CustodyRole,
+} from "./roles.js";
+export {
+  assertOutsideCompartmentCustody,
+  countIndependentApprovers,
+  countIndependentCustodians,
+  roleAllows,
+} from "./roles.js";
+export type { ShareContextExpect, ShareEnvelope } from "./shares.js";
+export {
+  LocalShareMaterialGuard,
+  combineRecoveryShares,
+  splitRecoverySecret,
+  verifyShareEnvelope,
+} from "./shares.js";

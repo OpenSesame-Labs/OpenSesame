@@ -15,6 +15,7 @@ import { runLeaseProbe } from "./lib/lease-probe.mjs";
 import { isNumber } from "./lib/primitive-guards.mjs";
 import { runWalB20NarrowWallet } from "./lib/wallet-b20.mjs";
 import { enterAsGuest, openWallet } from "./lib/wallet-capability.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 initializeWalletVerification(root);
 const DIST = join(root, "apps/pages/dist");

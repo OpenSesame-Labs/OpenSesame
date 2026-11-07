@@ -5,8 +5,7 @@
  * at its own address. Verification is a real call, so it proves the key signs
  * and, for Secret Manager, may list names. Nothing Google says back is shown.
  */
-import { canonicalize } from "@opensesame/os-domain";
-import { isJsonObject, isString } from "@opensesame/os-domain";
+import { canonicalize, isJsonObject, isString } from "@opensesame/os-domain";
 import { canonicalProviderId } from "./connector-catalog.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import { NativeApiError } from "./native-api-http.js";

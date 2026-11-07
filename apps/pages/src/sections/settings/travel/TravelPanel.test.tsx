@@ -1,15 +1,3 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-/** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
 import { travelSeams } from "@opensesame/app-core/lib/travel/index.js";
 import {
   type FakeOrigin,
@@ -23,6 +11,17 @@ import {
   type DeviceVault,
   vaultsSeams,
 } from "@opensesame/app-core/lib/vaults.js";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+/** @vitest-environment jsdom */
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { TravelPanel } from "./TravelPanel.js";
 

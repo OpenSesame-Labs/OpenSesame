@@ -16,6 +16,7 @@ import {
   rejected,
   verifyAll,
 } from "./original-indexed-leaf.test-support.js";
+
 type NativeBindTarget =
   | Crypto["getRandomValues"]
   | SubtleCrypto["encrypt"]

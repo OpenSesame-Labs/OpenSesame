@@ -57,7 +57,6 @@ export interface OrgFederationStores {
 
 export class OrgEmailDomainConflictError extends Error {
   override readonly name = "OrgEmailDomainConflictError";
-  // biome-ignore lint/complexity/noUselessConstructor: Error needs the message passed to super.
   constructor(message: string) {
     super(message);
   }

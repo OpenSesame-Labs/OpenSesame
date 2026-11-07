@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import Handlebars from "handlebars";
 import { readFileSync } from "node:fs";
+import Handlebars from "handlebars";
 
 /**
  * Render a Handlebars template file with the given context. Used for conformance

@@ -1,5 +1,4 @@
-import { vi } from "vitest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
 import { kvSeams } from "./kv.js";
 import {
@@ -33,8 +32,10 @@ import { MCP_CLASSIFICATION } from "./native-mcp-profile.js";
 import { requireNativeMcpRecord } from "./native-mcp-records.js";
 import { retryRetainedNativeMcpRegistration } from "./native-mcp-registration.js";
 import { verifyNativeMcpConnector } from "./native-mcp-verification.js";
-import { markNativeOAuthMutationInFlight } from "./native-oauth-session.js";
-import { nativeOAuthGuard } from "./native-oauth-session.js";
+import {
+  markNativeOAuthMutationInFlight,
+  nativeOAuthGuard,
+} from "./native-oauth-session.js";
 
 installNativeMcpConnectorTests();
 function callback(id: string): string {

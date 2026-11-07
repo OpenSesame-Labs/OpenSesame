@@ -17,6 +17,7 @@ export function Svg({
   children,
 }: IconProps & { children: ReactNode }) {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: pre-existing; newly reported by Biome 2. The <title> is rendered when a title prop is given; untitled icons are decorative
     <svg
       className={className}
       width={size}

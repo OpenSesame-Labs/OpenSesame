@@ -20,11 +20,11 @@
  * It never retries a conflict: a rival write is the caller's to resolve.
  */
 import { Clock, Duration, Effect, type Exit, Ref, Schedule } from "effect";
-import { SecretFsUnavailable, isTransient } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
-import { revisionOf } from "./files.js";
+import { SecretFsUnavailable, isTransient } from "./errors.js";
 import type { SecretFiles } from "./files.js";
+import { revisionOf } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 
 export type ResiliencePolicy = Readonly<{
   /** Attempts after the first. */

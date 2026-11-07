@@ -30,10 +30,12 @@ import type {
   BoatProviderOptions,
   BoatProviderState,
 } from "./boat-provider-options.js";
+
 export type {
   BoatProviderOptions,
   BoatProviderState,
 } from "./boat-provider-options.js";
+
 import { waitBoatReady, waitBoatRelay } from "./boat-readiness.js";
 import {
   isBoatClaimUsable,

@@ -4,11 +4,11 @@ import {
   readDeviceSecrets,
 } from "../device-connector-records.js";
 import { performHostedInference } from "../hosted-inference.js";
-import { bindHostedModelAuthority } from "../hosted-model-authority.js";
 import {
   MODEL_TEST_SECRET,
   saveModelFixture,
 } from "../hosted-model.test-support.js";
+import { bindHostedModelAuthority } from "../hosted-model-authority.js";
 import { loadNativeConnectorRecord } from "../native-connector-store.js";
 import { runtimeFixture } from "../secret-backends/runtime.test-support.js";
 import { vaultStore } from "../vault/store.js";

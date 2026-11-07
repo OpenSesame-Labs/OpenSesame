@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { createNativeImplicitKey } from "./native-implicit-crypto.js";
 import { captureNativeImplicitReturn } from "./native-implicit-return.js";
+
 async function callback(provider: "discord" | "reddit" = "discord") {
   const { state } = await createNativeImplicitKey(provider, "n".repeat(43));
   const url = new URL("https://selfhost.example/auth/native-implicit.html");

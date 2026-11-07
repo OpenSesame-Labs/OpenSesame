@@ -26,11 +26,11 @@ import { NativeConnectorSummary } from "./NativeConnectorSummary.js";
 import { NativeMcpTools } from "./NativeMcpTools.js";
 import { NativeVaultBackupControls } from "./NativeS3BackupControls.js";
 import { nativeConnectorController } from "./native-connector-controller.js";
-import { nativeVerified } from "./native-connector-ui-values.js";
 import type {
   NativeActionDescriptor,
   NativeConnectorDescriptor,
 } from "./native-connector-ui.js";
+import { nativeVerified } from "./native-connector-ui-values.js";
 import {
   nativeDeviceProviderDescriptor,
   productionDeviceAvailability,

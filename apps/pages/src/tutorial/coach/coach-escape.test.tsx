@@ -13,11 +13,11 @@ import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
+import { createKeymapHandler } from "../../lib/keymap.js";
 import {
   type VaultKeymapTarget,
   registerVaultKeymap,
 } from "../../lib/keymap-targets.js";
-import { createKeymapHandler } from "../../lib/keymap.js";
 import { usePaneEscape } from "../../lib/pane-escape.js";
 import {
   disposeSupport,

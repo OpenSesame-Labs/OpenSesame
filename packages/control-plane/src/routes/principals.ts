@@ -14,8 +14,8 @@ import type {
   ProvisionalSession,
 } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
-import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { decodeJwt } from "jose";
 import { normalizeIssuer } from "../interactions/issuer-normalization.js";
@@ -788,6 +788,7 @@ principalRoutes.get("/mapping/resolve", async (c) => {
     subject: identity.subject,
   });
 });
+
 import {
   removeOrphanTokens,
   revokeSessionTokens,

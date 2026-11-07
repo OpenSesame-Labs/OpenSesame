@@ -17,6 +17,7 @@ import { originalVfsCheck } from "./vfs-operation-check.js";
 import { INDEX_PATH, readIndex, reviseIndex } from "./vfs-sealed-index.js";
 import { vfsSeams } from "./vfs-seams.js";
 import { type TombWriteTurn, enqueueTombWrite } from "./vfs-write-order.js";
+
 export { vfsFlush } from "./vfs-write-order.js";
 
 /**
@@ -29,6 +30,7 @@ import {
   withVfsCrossTabLock,
 } from "./vfs-cross-tab-lock.js";
 import { VfsError } from "./vfs-error.js";
+
 export { VfsError, type VfsErrorCode } from "./vfs-error.js";
 
 export const PERSONAL_TOMB = "personal"; // same as the personal project id

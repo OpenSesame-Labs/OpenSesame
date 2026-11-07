@@ -391,6 +391,6 @@ export async function invokeNativeApiConnector(
   }
 }
 
-export { executeNativeApiRequest } from "./native-api-operations.js";
-export type { NativeApiOperationDefinition } from "./native-api-operations.js";
 export { nativeApiCleanup } from "./native-api-cleanup.js";
+export type { NativeApiOperationDefinition } from "./native-api-operations.js";
+export { executeNativeApiRequest } from "./native-api-operations.js";

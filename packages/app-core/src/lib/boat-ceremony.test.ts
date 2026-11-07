@@ -97,17 +97,15 @@ describe("boat claim ceremony client", () => {
 
   it("reads account and billing state, and mints a validated checkout", async () => {
     const fake = fakeBoat([]);
-    await expect(readBoatAccount(fake.fetchImpl, "tok_test")).resolves.toEqual(
-      {
-        login: "person@example.test",
-        email: "person@example.test",
-        accessTier: "trial",
-        blockedReason: "subscription_required",
-      },
+    await expect(readBoatAccount(fake.fetchImpl, "tok_test")).resolves.toEqual({
+      login: "person@example.test",
+      email: "person@example.test",
+      accessTier: "trial",
+      blockedReason: "subscription_required",
+    });
+    await expect(createBoatCheckout(fake.fetchImpl, "tok_test")).resolves.toBe(
+      "https://checkout.stripe.com/c/pay/cs_test_123",
     );
-    await expect(
-      createBoatCheckout(fake.fetchImpl, "tok_test"),
-    ).resolves.toBe("https://checkout.stripe.com/c/pay/cs_test_123");
   });
 
   it("exchanges the sealed assertion and surfaces the rotated one", async () => {

@@ -1,5 +1,5 @@
+import { asBufferSource } from "@opensesame/os-domain";
 import { describe, expect, it, vi } from "vitest";
-
 import {
   ADAPTERS,
   ImportError,
@@ -15,7 +15,6 @@ import type {
   ParseResult,
 } from "./types.js";
 import { draftAccount, passwordRequired } from "./types.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 /**
  * The binary path through the import pipeline.

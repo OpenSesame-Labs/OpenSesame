@@ -28,6 +28,7 @@ export type LocalBrowserProfile = {
   };
 };
 export type { LocalBrowserIdentity };
+
 type ExchangeFields = {
   code?: string;
   verifier?: string;

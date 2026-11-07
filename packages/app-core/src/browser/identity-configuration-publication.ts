@@ -3,9 +3,10 @@ import { currentAuthGeneration } from "../lib/auth-generation.js";
 import type { Connection } from "../lib/connections.js";
 import { deviceConnection } from "../lib/device-connectors.js";
 import { resolveIdentityBase } from "../lib/device-identity.js";
+import { loadSession } from "../lib/federation.js";
 import { federationSessionGeneration } from "../lib/federation-native-session.js";
 import { retireOwnedFederationSession } from "../lib/federation-retirement.js";
-import { loadSession } from "../lib/federation.js";
+import { currentSession } from "../lib/identity.js";
 import type {
   IdentityConnectionDraft,
   IdentityConnectionTest,
@@ -23,7 +24,6 @@ import {
   identityTrustProjection,
   projectIdentityTrust,
 } from "../lib/identity-connections-trust.js";
-import { currentSession } from "../lib/identity.js";
 import {
   type OperatorIdp,
   loadSettings,

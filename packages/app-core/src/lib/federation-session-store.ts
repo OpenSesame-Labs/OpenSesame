@@ -1,4 +1,5 @@
 import { maybeLocalStore, maybeSessionStore } from "../ports.js";
+
 /** Raw persistence for the federation upstream session (module-size seam). */
 
 const SESSION_KEY = "opensesame:federation:session";

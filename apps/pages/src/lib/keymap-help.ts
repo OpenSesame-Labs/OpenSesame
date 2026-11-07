@@ -15,8 +15,8 @@ import {
   offeredSources,
 } from "./keymap-help-sources.js";
 
-export { KEYMAP_HELP_CORE, type KeymapExtras, type KeymapHelpRow };
 export type { KeymapView };
+export { KEYMAP_HELP_CORE, type KeymapExtras, type KeymapHelpRow };
 
 /** The `g` row spells out exactly the jumps that exist: `g v/s` on a core-only plan. */
 export function keymapJumpHelpRow(jumpKeys: readonly string[]): KeymapHelpRow {

@@ -1,16 +1,16 @@
 import type { BoundaryObject, BoundaryValue } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  MODEL_TEST_SECRET,
+  modelMemoryBackend,
+  saveModelFixture,
+} from "../hosted-model.test-support.js";
+import {
   type HostedModelAuthority,
   type HostedModelFence,
   type HostedModelOperation,
   bindHostedModelAuthority,
 } from "../hosted-model-authority.js";
-import {
-  MODEL_TEST_SECRET,
-  modelMemoryBackend,
-  saveModelFixture,
-} from "../hosted-model.test-support.js";
 import { bindModelKeyBroker } from "./active.js";
 import { invokeWithModelKey } from "./gateway.js";
 import { expectRefused, harness } from "./harness.test-support.js";

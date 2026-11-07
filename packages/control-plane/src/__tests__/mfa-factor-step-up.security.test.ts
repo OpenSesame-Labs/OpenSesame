@@ -1,14 +1,14 @@
 import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
-import { passkeyDigest } from "../routes/mfa-factors.js";
 import { totpCode } from "../routes/mfa.js";
+import { passkeyDigest } from "../routes/mfa-factors.js";
 import { enrolPasskey } from "./interaction-webauthn-fixture.js";
 import {
-  events,
   DEV,
   NOW,
   enrolTotp,
+  events,
   factorIds,
   headers,
   passkeyProof,

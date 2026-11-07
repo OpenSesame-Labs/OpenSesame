@@ -45,13 +45,6 @@ import {
   readZipText,
 } from "./zip.js";
 
-export * from "./types.js";
-export {
-  findSkippedAttachments,
-  readZipEntryNames,
-  readZipText,
-  ZipError,
-} from "./zip.js";
 export {
   CsvParseError,
   parseCsv,
@@ -59,6 +52,13 @@ export {
   readHeaderRow,
 } from "./csv.js";
 export { parseDotenv } from "./formats/env.js";
+export * from "./types.js";
+export {
+  ZipError,
+  findSkippedAttachments,
+  readZipEntryNames,
+  readZipText,
+} from "./zip.js";
 
 /**
  * Order is the detection chain. `.env` is first — the primary import for

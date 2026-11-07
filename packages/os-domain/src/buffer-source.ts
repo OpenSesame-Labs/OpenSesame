@@ -14,7 +14,9 @@ export function asBufferSource(source: Uint8Array): BufferSource {
 }
 
 /** Normalize any BufferSource into an ArrayBuffer-backed view. */
-export function bytesFromBufferSource(source: BufferSource): Uint8Array<ArrayBuffer> {
+export function bytesFromBufferSource(
+  source: BufferSource,
+): Uint8Array<ArrayBuffer> {
   const view =
     source instanceof ArrayBuffer
       ? new Uint8Array(source)

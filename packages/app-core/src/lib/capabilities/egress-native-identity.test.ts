@@ -5,9 +5,9 @@ import {
   resolveComposition,
 } from "@opensesame/capability-composition";
 import { expect, it, vi } from "vitest";
+import { CAPABILITY_CATALOG, describeCapability } from "./catalog.js";
 import { NATIVE_PROVIDER_PURPOSE } from "./catalog-always-on.js";
 import { TAILSCALE_IDENTITY_HTTP_PURPOSE } from "./catalog-optional-services.js";
-import { CAPABILITY_CATALOG, describeCapability } from "./catalog.js";
 import { createEgressPort } from "./egress.js";
 
 const capability = "networking.tailnet";

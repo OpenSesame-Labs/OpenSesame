@@ -6,17 +6,17 @@ import { createTestHost } from "../test-host.js";
 import { advanceAuthGeneration } from "./auth-generation.js";
 import { readAuthOutcome } from "./auth-outcome.js";
 import {
-  callbackHost,
-  exchangeIssuer,
-} from "./federation-exchange.test-support.js";
-import { federationSessionGeneration } from "./federation-native-session.js";
-import { readFederationSessionJson } from "./federation-session-store.js";
-import {
   adoptBrokeredSession,
   clearSession,
   completeSignIn,
   loadSession,
 } from "./federation.js";
+import {
+  callbackHost,
+  exchangeIssuer,
+} from "./federation-exchange.test-support.js";
+import { federationSessionGeneration } from "./federation-native-session.js";
+import { readFederationSessionJson } from "./federation-session-store.js";
 import { clearSession as clearIdentity, currentSession } from "./identity.js";
 import { kvDelete } from "./kv.js";
 import { vaultStore } from "./vault/store.js";

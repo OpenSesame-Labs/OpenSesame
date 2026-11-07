@@ -30,8 +30,7 @@ import { noteLiveSessionEnded } from "../sharing-receipts.js";
 import { vaultStore } from "../vault/store.js";
 import { planRefusal } from "./carrier-policy.js";
 import { LiveGuest } from "./guest.js";
-import type { LiveHost } from "./host.js";
-import type { HostState } from "./host.js";
+import type { HostState, LiveHost } from "./host.js";
 import { watchDocumentLifecycle } from "./lifecycle-watch.js";
 import {
   LIVE_VAULT_LOCKED_TRAY,

@@ -5,8 +5,8 @@
 
 import { CeremonyShell } from "../../../components/CeremonyShell.js";
 import { IconArrowRight } from "../../../components/Icons.js";
-import { RuleEditor } from "./RuleEditor.js";
 import type { Issue, Person, Review, RuleDraft } from "./circle-model.js";
+import { RuleEditor } from "./RuleEditor.js";
 
 export function RuleStep({
   people,

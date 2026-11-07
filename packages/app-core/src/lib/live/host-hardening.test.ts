@@ -6,7 +6,6 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LiveGuest } from "./guest.js";
-import { MAX_SEAT_IN_FLIGHT } from "./host-peer.js";
 import {
   type Admission,
   LiveHost,
@@ -14,6 +13,7 @@ import {
   MAX_MISSES,
   SEAT_GRACE_MS,
 } from "./host.js";
+import { MAX_SEAT_IN_FLIGHT } from "./host-peer.js";
 import { FAKE_CLOCK, deferred, settle } from "./live-clock.fixture.js";
 import { FakeNet } from "./live-fakes.js";
 import type { Catalog } from "./messages.js";

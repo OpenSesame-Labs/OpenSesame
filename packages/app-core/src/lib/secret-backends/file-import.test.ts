@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { asBufferSource } from "@opensesame/os-domain";
 import { accountFilePassword } from "@opensesame/vault-core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { kvFlush, kvForgetAll } from "../kv.js";
@@ -12,7 +13,6 @@ import {
   protonExport,
 } from "./file-import.test-support.js";
 import { secretBackendDraft } from "./presets.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 let store: VaultStore;
 beforeEach(async () => {
@@ -97,7 +97,10 @@ it("uses the real 1PUX ZIP and Proton Pass JSON/ZIP parsers", async () => {
     config(
       "1password",
       "1password-1pux",
-      new File([asBufferSource(exportZip([["export.data", onePasswordExport]]))], "vault.1pux"),
+      new File(
+        [asBufferSource(exportZip([["export.data", onePasswordExport]]))],
+        "vault.1pux",
+      ),
     ),
     config(
       "proton-pass",
@@ -197,10 +200,12 @@ it("validates selected provider/format, rejects empty/read-failed/oversized file
   ).rejects.toThrow("64 MB");
   const ambiguous = new File(
     [
-      asBufferSource(exportZip([
-        ["one.json", protonExport],
-        ["two.json", protonExport],
-      ])),
+      asBufferSource(
+        exportZip([
+          ["one.json", protonExport],
+          ["two.json", protonExport],
+        ]),
+      ),
     ],
     "proton.zip",
   );
@@ -209,11 +214,13 @@ it("validates selected provider/format, rejects empty/read-failed/oversized file
   ).rejects.toMatchObject({ code: "ambiguous" });
   const disguised = new File(
     [
-      asBufferSource(exportZip([
-        ["export.data", protonExport],
-        ["one.json", protonExport],
-        ["two.json", protonExport],
-      ])),
+      asBufferSource(
+        exportZip([
+          ["export.data", protonExport],
+          ["one.json", protonExport],
+          ["two.json", protonExport],
+        ]),
+      ),
     ],
     "proton.zip",
   );
@@ -222,10 +229,12 @@ it("validates selected provider/format, rejects empty/read-failed/oversized file
   ).rejects.toMatchObject({ code: "ambiguous" });
   const duplicate1pux = new File(
     [
-      asBufferSource(exportZip([
-        ["one/export.data", onePasswordExport],
-        ["two/export.data", onePasswordExport],
-      ])),
+      asBufferSource(
+        exportZip([
+          ["one/export.data", onePasswordExport],
+          ["two/export.data", onePasswordExport],
+        ]),
+      ),
     ],
     "ambiguous.1pux",
   );

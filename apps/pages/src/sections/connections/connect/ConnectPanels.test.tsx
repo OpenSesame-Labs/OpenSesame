@@ -14,8 +14,8 @@ import type {
 import { forgetDeviceConnectors } from "@opensesame/app-core/lib/device-connectors.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { saveSelfHostedConnector } from "@opensesame/app-core/lib/self-hosted-connectors.js";
-import { mergeVercelCatalog } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
+import { mergeVercelCatalog } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import type { JsonObject, JsonValue } from "@opensesame/os-domain";
 import {
   cleanup,
@@ -31,11 +31,11 @@ import { identityHookSeams } from "../../../bindings/identity.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { isIdentityConnectionProvider } from "../identity/IdentityConnectionPanels.js";
 import { ConnectPanels } from "./ConnectPanels.js";
-import { nativeSettingsDescriptor } from "./NativeConnectorPanels.js";
 import {
   activateNativePanelRuntime,
   expectNativePanel,
 } from "./connect-panels.test-support.js";
+import { nativeSettingsDescriptor } from "./NativeConnectorPanels.js";
 
 Object.assign(identityHookSeams, {
   useIdentitySession: () => ({ principalId: "prn_person" }),

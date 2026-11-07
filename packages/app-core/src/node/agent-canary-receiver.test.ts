@@ -8,6 +8,7 @@ import {
   createControlledCanaryReceiver,
 } from "./agent-canary-receiver.js";
 import { type ReceiverState, openCanaryState } from "./agent-canary-state.js";
+
 const serviceId = "a".repeat(64);
 const contextId = "b".repeat(64);
 async function fixture() {

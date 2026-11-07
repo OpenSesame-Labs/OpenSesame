@@ -9,14 +9,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localStore, sessionStore } from "../ports.js";
 import {
-  ambientAuthSeams,
-  resetAmbientAuthSeams,
-} from "./ambient-auth-seam.js";
-import {
   fenceLocalSignOut,
   isAutoAuthSuppressed,
 } from "./ambient-auth/generation.js";
 import { cancelAllTransactions } from "./ambient-auth/transactions.js";
+import {
+  ambientAuthSeams,
+  resetAmbientAuthSeams,
+} from "./ambient-auth-seam.js";
 import { readAuthOutcome } from "./auth-outcome.js";
 import {
   captureClaimArrivalFromPage,

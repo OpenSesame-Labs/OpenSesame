@@ -6,6 +6,7 @@ import { writeLastVaultId } from "../last-vault.js";
 import * as vfs from "../vfs.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 import { LEGACY_PREFS_KEY } from "./tomb-migration.js";
+
 const PASSWORD = "correct horse battery staple";
 const HEADER_KEY = vfs.tombFileKey(vfs.PERSONAL_TOMB, vfs.HEADER_PATH);
 const BODY_KEY = vfs.tombFileKey(vfs.PERSONAL_TOMB, vfs.BODY_PATH);

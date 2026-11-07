@@ -28,6 +28,12 @@ import {
 import type { ConnectPlan } from "./connect-plan.js";
 import { updateBody, updateProblems } from "./connect-update.js";
 import type { Connection } from "./connections.js";
+import {
+  ConnectError,
+  rememberConnector,
+  requireAuth,
+  requireTransport,
+} from "./vercel-connect.js";
 import { connectorOf, iso, toConnectConnection } from "./vercel-connect-map.js";
 import {
   type VercelAuthorizeResult,
@@ -37,12 +43,6 @@ import {
   teamQuery,
 } from "./vercel-connect-ops.js";
 import { connectRelayConfigured, relayFetch } from "./vercel-connect-relay.js";
-import {
-  ConnectError,
-  rememberConnector,
-  requireAuth,
-  requireTransport,
-} from "./vercel-connect.js";
 
 export type ConnectorDetail = {
   id: string;

@@ -5,17 +5,18 @@
  * `parseModelList`), so the sheet only holds the draft; what comes of making a
  * key is `useMintFlight`'s.
  */
+
+import {
+  type MintChoice,
+  confirmMint,
+  mintModelKey,
+} from "@opensesame/app-core/lib/model-keys/mint.js";
 import {
   BUDGET_PRESETS,
   KEY_LIFETIMES,
   parseClientName,
   parseModelList,
 } from "@opensesame/app-core/lib/model-keys/mint-form.js";
-import {
-  type MintChoice,
-  confirmMint,
-  mintModelKey,
-} from "@opensesame/app-core/lib/model-keys/mint.js";
 import { type FormEvent, useState } from "react";
 import { useVault } from "../../../../lib/vault/hooks.js";
 import { useMintFlight } from "./use-mint-flight.js";

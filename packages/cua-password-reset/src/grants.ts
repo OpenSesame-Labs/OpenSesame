@@ -9,12 +9,12 @@ import {
 } from "./grant-validation.js";
 import { RESET_ACTIONS, type ResetAction, type ResetRun } from "./types.js";
 
-export { RESET_ACTIONS };
 export {
   domainMetadataResource,
   resetAudience,
   resetResource,
 } from "./grant-validation.js";
+export { RESET_ACTIONS };
 
 export interface ResetGrantProvider {
   grant(action: ResetAction, run: ResetRun): AuthorityGrant;

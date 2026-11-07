@@ -6,6 +6,7 @@
  * assurance labels are never accepted here.
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   type PaymentApprovalIntent,
   paymentApprovalDigestValues,
@@ -15,7 +16,6 @@ import {
   type DigestBoundPaymentProof,
   verifyDigestBoundApproval,
 } from "@opensesame/wallet-consent/verify";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type LocalPaymentApprovalIntent = PaymentApprovalIntent;
 

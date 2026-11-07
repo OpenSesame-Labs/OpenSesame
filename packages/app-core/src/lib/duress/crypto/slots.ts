@@ -12,18 +12,18 @@ export {
 
 export { assertTriggerCodeLength } from "./slot-bytes.js";
 export {
-  MAX_SLOTS,
-  MAX_SLOT_PAYLOAD_BYTES,
-  createIndependentCompartmentKey,
-  openProfileSlot,
-  sealProfileSlot,
-  type SealedSlot,
-  type SlotPlaintext,
-} from "./slot-profile.js";
-export {
+  type PrfAndCodeEnvelope,
+  type PrfAndCodeSealResult,
   openPrfAndCode,
   sealPrfAndCode,
   sealPrfAndCodeWithDisclosure,
-  type PrfAndCodeEnvelope,
-  type PrfAndCodeSealResult,
 } from "./slot-prf.js";
+export {
+  MAX_SLOTS,
+  MAX_SLOT_PAYLOAD_BYTES,
+  type SealedSlot,
+  type SlotPlaintext,
+  createIndependentCompartmentKey,
+  openProfileSlot,
+  sealProfileSlot,
+} from "./slot-profile.js";

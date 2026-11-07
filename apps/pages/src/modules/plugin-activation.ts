@@ -53,6 +53,7 @@ export function contributePlugin(
       () => session.view().daemon !== null || session.canPair(),
     ),
   );
+  // biome-ignore lint/correctness/noComponentHookFactories: factory runs once at registration, not per render, so the component identity is stable
   const Panel = () => createElement(PluginPanel, { session, guideId });
   activation.register("settings-panel", {
     id: `plugin-${plugin.id}`,

@@ -94,7 +94,10 @@ export function useNoticeCount(): number {
 function NotificationsBarDefault({
   form = "key",
   onClose,
-}: { form?: NotificationsForm; onClose?: () => void }) {
+}: {
+  form?: NotificationsForm;
+  onClose?: () => void;
+}) {
   const { notices, health, queued, count } = useNotices();
   const [open, setOpen] = useState(form === "panel");
 
@@ -153,7 +156,6 @@ function NotificationsBarDefault({
           <div
             ref={sheetRef}
             className="sheet"
-            // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
             role="dialog"
             aria-label="Notifications"
             aria-modal="true"
@@ -257,7 +259,10 @@ function NotificationsBarDefault({
 export function StatusNoticeCard({
   notice,
   onOpen,
-}: { notice: Notice; onOpen: () => void }) {
+}: {
+  notice: Notice;
+  onOpen: () => void;
+}) {
   const tone = notice.tone ?? "info";
   const navigate = useNavigate();
   return (
@@ -325,7 +330,10 @@ export const notificationsBarSeams = {
 export function NotificationsBar({
   form,
   onClose,
-}: { form?: NotificationsForm; onClose?: () => void } = {}) {
+}: {
+  form?: NotificationsForm;
+  onClose?: () => void;
+} = {}) {
   const Impl = notificationsBarSeams.NotificationsBar;
   return <Impl form={form} onClose={onClose} />;
 }

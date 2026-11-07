@@ -53,7 +53,9 @@ async function fakeDrive(
     return new Response(null, { status: 204 });
   }
   const bytes = held.get(key);
-  return bytes ? new Response(asBufferSource(bytes)) : new Response(null, { status: 404 });
+  return bytes
+    ? new Response(asBufferSource(bytes))
+    : new Response(null, { status: 404 });
 }
 
 const FILE = new TextEncoder().encode(

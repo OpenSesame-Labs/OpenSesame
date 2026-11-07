@@ -4,8 +4,8 @@ import { itemTypeId, listedItems } from "@opensesame/vault-core";
 import { useSearchParams } from "react-router";
 import { EmptyTip } from "../../components/EmptyTip.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
-import { WelcomeKeys } from "./WelcomeKeys.js";
 import { useSharedItems } from "./use-shared-items.js";
+import { WelcomeKeys } from "./WelcomeKeys.js";
 
 /**
  * The buffer before the cursor lands on a file. No dashboard: moving the

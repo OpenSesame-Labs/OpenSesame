@@ -3,9 +3,9 @@ import {
   type IdentitySession,
   identitySeams,
 } from "@opensesame/app-core/lib/identity.js";
+import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 /** @vitest-environment jsdom */
 import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
-import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { notifyLocalIamChange } from "@opensesame/app-core/lib/local-iam-events.js";
 import { listNotices } from "@opensesame/app-core/lib/notices.js";
 import {
@@ -99,12 +99,12 @@ describe("Receipts on the device plane (ADR 0162)", () => {
     );
     expect(
       await screen.findByRole("treeitem", {
-        name: /Application\ sign\-in\ ended\ ·\ Test\ application.*receipt/,
+        name: /Application sign-in ended · Test application.*receipt/,
       }),
     ).toBeTruthy();
     expect(
       screen.getByRole("treeitem", {
-        name: /Request\ denied\ ·\ Test\ application.*receipt/,
+        name: /Request denied · Test application.*receipt/,
       }),
     ).toBeTruthy();
     expect(screen.queryByText("auth.login")).toBeNull();
@@ -116,7 +116,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
       "/access?view=sessions#access-receipts",
     );
     await screen.findByRole("treeitem", {
-      name: /Request\ denied\ ·\ Test\ application.*receipt/,
+      name: /Request denied · Test application.*receipt/,
     });
     expect(connectProvisional).toHaveBeenCalled();
   });
@@ -136,7 +136,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
     );
     expect(
       await screen.findByRole("treeitem", {
-        name: /Request\ raised\ ·\ local_unnamed.*receipt/,
+        name: /Request raised · local_unnamed.*receipt/,
       }),
     ).toBeTruthy();
   });
@@ -147,7 +147,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
       "/access?view=sessions#access-receipts",
     );
     await screen.findByRole("treeitem", {
-      name: /Request\ denied\ ·\ Test\ application.*receipt/,
+      name: /Request denied · Test application.*receipt/,
     });
     expect(screen.queryByText("Offline.")).toBeNull();
     expect(identityJson).toHaveBeenCalledWith("/v1/audit/events?limit=50");
@@ -194,7 +194,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
       "/access?view=sessions#access-receipts",
     );
     await screen.findByRole("treeitem", {
-      name: /Request\ denied\ ·\ Test\ application.*receipt/,
+      name: /Request denied · Test application.*receipt/,
     });
     identityJson.mockResolvedValue({
       events: [event("e4", "access.request.approved")],
@@ -204,7 +204,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
     });
     expect(
       await screen.findByRole("treeitem", {
-        name: /Request\ approved\ ·\ Test\ application.*receipt/,
+        name: /Request approved · Test application.*receipt/,
       }),
     ).toBeTruthy();
   });
@@ -218,7 +218,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
       <Receipts online={true} sessionKey={tomb} />,
     );
     await screen.findByRole("treeitem", {
-      name: /Request\ denied\ ·\ Test\ application.*receipt/,
+      name: /Request denied · Test application.*receipt/,
     });
     expect(
       container.querySelector('[aria-label="2 receipts not written yet"]'),
@@ -232,7 +232,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
     });
     rerender(<Receipts online={true} sessionKey={tomb} />);
     await screen.findByRole("treeitem", {
-      name: /Request\ denied\ ·\ Test\ application.*receipt/,
+      name: /Request denied · Test application.*receipt/,
     });
     expect(
       container.querySelector('[aria-label$="not written yet"]'),
@@ -254,7 +254,7 @@ describe("Receipts on the device plane (ADR 0162)", () => {
     );
     expect(
       await screen.findByRole("treeitem", {
-        name: /Session\ ended\ ·\ Test\ application.*receipt/,
+        name: /Session ended · Test application.*receipt/,
       }),
     ).toBeTruthy();
   });

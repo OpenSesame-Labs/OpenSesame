@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
-import { double } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
+import {
+  double,
+  installDoublePorts,
+} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import {
   getConnection,

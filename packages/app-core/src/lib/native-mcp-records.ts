@@ -6,12 +6,11 @@ import {
 } from "./native-connector-store.js";
 import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import { nativeMcpConfigurationFingerprint } from "./native-mcp-profile.js";
-import { NativeMcpError } from "./native-mcp-target.js";
-
 import {
   type NativeMcpRegisteredClient,
   NativeMcpRegistrationReceiptSchema,
 } from "./native-mcp-registration-receipt.js";
+import { NativeMcpError } from "./native-mcp-target.js";
 
 export function requireNativeMcpRecord(id: string): NativeConnectorRecord {
   const record = loadNativeConnectorRecord(id);

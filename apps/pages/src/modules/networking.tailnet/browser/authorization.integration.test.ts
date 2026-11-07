@@ -9,18 +9,21 @@ import {
   isNativeDeviceConnection,
 } from "@opensesame/app-core/lib/device-connector-view.js";
 import { saveDeviceConnectorConfigurationDurable } from "@opensesame/app-core/lib/device-connectors.js";
-import { runtimePassword } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
-import { deferred } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
+import {
+  deferred,
+  runtimePassword,
+} from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
 import {
   bindTailscaleBrowserNode,
   tailscaleBrowserNode,
   tailscaleNodeAuthorization,
 } from "@opensesame/app-core/lib/tailscale/browser-node-port.js";
 import * as nodeState from "@opensesame/app-core/lib/tailscale/browser-node-store.js";
-import { enrollTotp } from "@opensesame/app-core/lib/vault/store-totp.fixture.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { enrollTotp } from "@opensesame/app-core/lib/vault/store-totp.fixture.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { netmap, statusFixture } from "./authorization.test-support.js";
+
 let fixture: Awaited<ReturnType<typeof statusFixture>>;
 beforeEach(async () => {
   fixture = await statusFixture();

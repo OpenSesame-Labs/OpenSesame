@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { aiStreamBody } from "./stream-body.js";
 import { readAiTextStream } from "./stream.js";
+import { aiStreamBody } from "./stream-body.js";
 
 const text = (value: string) => new TextEncoder().encode(value);
 const delta = 'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n';

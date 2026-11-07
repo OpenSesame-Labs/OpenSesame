@@ -19,6 +19,7 @@ import {
 } from "./owned-process-group.mjs";
 import { nativeBuildFailureContext } from "./preparation-diagnostics.mjs";
 import { assertNativeTaskResources } from "./task-resources.mjs";
+
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pins = JSON.parse(await readFile(join(here, "source.json"), "utf8"));
 const [sourceInput, compilerInput, outputInput, mode, ...extra] =

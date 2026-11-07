@@ -14,8 +14,8 @@
  */
 
 import { kvFileName } from "../kv.js";
-import { LEGACY_VAULT_KEYS } from "../projects-state.js";
 import { scopedKey } from "../projects.js";
+import { LEGACY_VAULT_KEYS } from "../projects-state.js";
 import { MIGRATION_MARKER_PATH, SEAL_BOUND_MARKER_PATH } from "../vfs.js";
 import {
   type TravelDeps,

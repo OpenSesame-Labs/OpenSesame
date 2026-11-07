@@ -37,20 +37,8 @@ import { dropSeams } from "./drop-transport.js";
 import { recordOutboundDrop } from "./outbound-drops.js";
 import { portableDropLink } from "./portable-drop.js";
 
-// Opening a drop is the recipient's side, always-on under
-// `identity.ceremonies` (ADR 0140 D2); re-exported for the sender's code.
-export {
-  DropError,
-  type DropErrorCode,
-  type PresentedDrop,
-  guardManifest,
-  openDrop,
-  presentDrop,
-} from "../claims/drop-open.js";
-
 // Pages reaches ceremony-kit through app-core, never as a direct dependency.
 export { isPortableDropToken } from "@opensesame/ceremony-kit";
-
 export {
   DROP_CHUNK_BYTES,
   type DropChunk,
@@ -61,6 +49,16 @@ export {
   MAX_DROP_CIPHERTEXT_BYTES,
   type SealedDrop,
 } from "@opensesame/vault-core";
+// Opening a drop is the recipient's side, always-on under
+// `identity.ceremonies` (ADR 0140 D2); re-exported for the sender's code.
+export {
+  DropError,
+  type DropErrorCode,
+  type PresentedDrop,
+  guardManifest,
+  openDrop,
+  presentDrop,
+} from "../claims/drop-open.js";
 
 /** Terminal states purge the vault's drop record; `pending` keeps waiting. */
 export type DropState = "pending" | "consumed" | "expired";

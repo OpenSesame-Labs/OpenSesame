@@ -2,8 +2,8 @@
  * Ambient callback completion. Correlates state before consume.
  */
 
-import { parseAuthCallback } from "../federation-callback.js";
 import { type CompletedSignIn, FederationError } from "../federation.js";
+import { parseAuthCallback } from "../federation-callback.js";
 import { admitAmbientSession, vaultStateFromStore } from "./admission.js";
 import { currentAuthGeneration, matchesAuthGeneration } from "./generation.js";
 import { exchangeAmbientCode } from "./oidc.js";
@@ -93,4 +93,4 @@ export async function completeAmbientIfPresent(
   });
 }
 
-export { currentAuthGeneration, vaultStateFromStore, admitAmbientSession };
+export { admitAmbientSession, currentAuthGeneration, vaultStateFromStore };

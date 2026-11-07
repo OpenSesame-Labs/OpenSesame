@@ -7,6 +7,8 @@
  * card is called, whether anything animates — are questions about what is in
  * the document, and a renderer that only records calls cannot answer them.
  */
+
+import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import {
   GUIDE_GOALS,
   HELP_TOPICS,
@@ -14,16 +16,14 @@ import {
 } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { GUIDE_ROUTES } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
-import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
-
-import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import {
   clearMountedGuideTargets,
+  guideTargetIds,
   mountGuideTarget,
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
-import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import type { GuideTargetId } from "@opensesame/guide-lang";
+import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import {
   createFakeRoutes,
   createFakeState,

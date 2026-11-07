@@ -110,10 +110,14 @@ function CarrierKindSelect({
 export function Carriers({
   transport,
   change,
-}: { transport: LiveTransport; change: Change }) {
+}: {
+  transport: LiveTransport;
+  change: Change;
+}) {
   return (
     <>
       {transport.carriers.map((carrier, at) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
         <Fragment key={`${at}:${carrier.kind} ${carrier.url}`}>
           <FieldRow
             label={KIND_LABELS[carrier.kind]}

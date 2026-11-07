@@ -11,7 +11,10 @@ import {
 export function NativeSecretResult({
   label,
   value,
-}: { label: string; value: string }) {
+}: {
+  label: string;
+  value: string;
+}) {
   const [revealed, setRevealed] = useState(false);
   const feedback = useCopyFeedback();
   return (

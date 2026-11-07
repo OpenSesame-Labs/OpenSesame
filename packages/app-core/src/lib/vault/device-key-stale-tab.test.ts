@@ -27,8 +27,8 @@ import {
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
-import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
+import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 
 const PASSWORD = "correct horse battery staple";
 const carrier = { ...deviceKeyCarrier };

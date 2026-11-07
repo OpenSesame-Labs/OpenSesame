@@ -9,12 +9,11 @@ import { disposeOriginalCommandData } from "./original-command-retirement-data.j
 import type { PhysicalAuthenticationSnapshot } from "./physical-authentication-port.js";
 import type { PhysicalDeviceRecordReader } from "./physical-device-record-port.js";
 import type { RetiredCommand } from "./retired-operation-exchange.js";
-import type { captureRetiredOwnerResources } from "./retired-owner-resources.js";
-
 import {
   captureRetiredCatalogueReaderIdentity,
   captureRetiredScopeReaderIdentity,
 } from "./retired-owner-reader-identity.js";
+import type { captureRetiredOwnerResources } from "./retired-owner-resources.js";
 
 type Resources = ReturnType<typeof captureRetiredOwnerResources>;
 async function refuseForeignCurrent(

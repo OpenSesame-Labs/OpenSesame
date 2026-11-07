@@ -13,8 +13,8 @@
 
 import { SopsError } from "../errors.js";
 import { DATA_KEY_BYTES, SHARE_BYTES } from "../limits.js";
-import { effectiveThreshold } from "../metadata-emit.js";
 import type { SopsKeyGroup, SopsMasterKey, SopsMetadata } from "../metadata.js";
+import { effectiveThreshold } from "../metadata-emit.js";
 import { shamirCombine, shamirSplit } from "../shamir.js";
 import { unwrapAge, wrapAge } from "./age.js";
 

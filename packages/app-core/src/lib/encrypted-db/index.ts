@@ -4,7 +4,14 @@
  * identifiers and names; the library itself reads no setting.
  */
 
-export { defineSchema } from "./schema.js";
+export type { EncryptedDb, LayerReport } from "./db.js";
+export {
+  EncryptedDbUnavailable,
+  openEncryptedDb,
+} from "./db.js";
+export { DEVICE_EDB_NAMESPACE } from "./names.js";
+export type { FindOptions, Predicate, Where } from "./query.js";
+export { EdbQueryError } from "./query.js";
 export type {
   ColumnSpec,
   EdbRow,
@@ -15,12 +22,4 @@ export type {
   SchemaSpec,
   TableSpec,
 } from "./schema.js";
-export {
-  EncryptedDbUnavailable,
-  openEncryptedDb,
-} from "./db.js";
-export type { EncryptedDb, LayerReport } from "./db.js";
-export { EdbQueryError } from "./query.js";
-export type { FindOptions, Predicate, Where } from "./query.js";
-
-export { DEVICE_EDB_NAMESPACE } from "./names.js";
+export { defineSchema } from "./schema.js";

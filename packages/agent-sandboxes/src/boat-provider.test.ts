@@ -15,6 +15,7 @@ async function captureError<T>(run: () => Promise<T>): Promise<Error> {
   }
   throw new Error("expected the operation to reject");
 }
+
 import {
   type BoatProviderState,
   BoatSandboxProvider,

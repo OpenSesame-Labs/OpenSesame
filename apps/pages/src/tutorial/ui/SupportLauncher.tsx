@@ -55,7 +55,9 @@ function markClass(chrome: boolean, guiding: boolean, open: boolean): string {
  */
 export function SupportLauncher({
   gate = false,
-}: { gate?: boolean }): ReactElement {
+}: {
+  gate?: boolean;
+}): ReactElement {
   const { view, support } = useSupport();
   const statusline = useSupportMarkSlot();
   const seat = useGateSeat();

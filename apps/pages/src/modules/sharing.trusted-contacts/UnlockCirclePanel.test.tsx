@@ -10,13 +10,13 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { installPanelFixture } from "../../sections/settings/settings-panels.test-support.js";
-import { type Person, UnlockCircleFields } from "./UnlockCircleFields.js";
-import { UnlockCirclePanel, unlockCircleSeams } from "./UnlockCirclePanel.js";
 import {
   declareTargets,
   deskOf,
   serveDesk,
 } from "./trusted-contacts.test-support.js";
+import { type Person, UnlockCircleFields } from "./UnlockCircleFields.js";
+import { UnlockCirclePanel, unlockCircleSeams } from "./UnlockCirclePanel.js";
 
 installDoublePorts();
 installPanelFixture();

@@ -29,6 +29,7 @@ import {
   encodeRetiredCredentialRecordsV2 as encode,
   parseRetiredCredentialRecordsV2 as parse,
 } from "./records-v2.js";
+
 const AT = "2026-10-08T00:00:00.000Z";
 const PASSWORD = "records original owner 47283";
 const retired = required(protocols.vectors[0]);

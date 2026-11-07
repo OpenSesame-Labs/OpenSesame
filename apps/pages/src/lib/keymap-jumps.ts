@@ -35,9 +35,10 @@ export function sectionJumpPath(key: string): string | null {
 }
 
 /** `jump`'s path when its own contribution still holds authority, else null. */
-function authorizedJumpPath(jump: { key: string; path: string }):
-  | string
-  | null {
+function authorizedJumpPath(jump: {
+  key: string;
+  path: string;
+}): string | null {
   try {
     assertNavigationContribution(
       "keymap-jump",

@@ -34,17 +34,16 @@ import {
 } from "@opensesame/app-core/lib/vaults.js";
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
+import { useDeviceVaults } from "../bindings/vaults.js";
 import { isTouchPointer } from "../lib/gestures.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { FailureNotice } from "./FailureNotice.js";
 import { GlyphMark } from "./GlyphMark.js";
 import { IconPlus } from "./Icons.js";
 import { PromptGlyph } from "./PromptGlyph.js";
-import { VaultList } from "./VaultList.js";
 import { glyphStandsForName } from "./prompt-glyph.js";
 import { useHold } from "./use-hold.js";
-
-import { useDeviceVaults } from "../bindings/vaults.js";
+import { VaultList } from "./VaultList.js";
 export type ProjectSwitcherProps = { glyphHost?: HTMLElement | null };
 
 function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
@@ -124,6 +123,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
   }
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div
       className="project-switcher"
       onKeyDown={(event) => {
@@ -169,7 +169,6 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
 
       {open ? (
         <>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape, handled on the menu */}
           <div
             className="project-switcher__backdrop"
             onClick={() => {
@@ -177,6 +176,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
             }}
             aria-hidden="true"
           />
+          {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
           <div
             className="project-switcher__menu"
             aria-label="Vaults on this device"

@@ -4,12 +4,12 @@ import {
   type NativeAuthPopup,
   reserveNativeAuthPopup,
 } from "../native-auth-session.js";
+import { type SamlProtocolClaims, validateSamlAssertion } from "./assertion.js";
 import type {
   SamlPendingRequest,
   SamlTimePolicy,
 } from "./assertion-conditions.js";
 import { claimNativeSamlAssertion } from "./assertion-replay.js";
-import { type SamlProtocolClaims, validateSamlAssertion } from "./assertion.js";
 import { createSamlAuthnPost } from "./authn-request.js";
 import type { SamlRequestSigning } from "./authn-signature.js";
 import { type SamlIdpMetadata, readSamlIdpMetadata } from "./metadata.js";

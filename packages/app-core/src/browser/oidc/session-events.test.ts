@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { expect, it, vi } from "vitest";
 import { advanceAuthGeneration } from "../../lib/auth-generation.js";
+import { clearSession } from "../../lib/federation.js";
 import {
   advanceFederationSessionGeneration,
   federationSessionGeneration,
@@ -11,7 +12,6 @@ import {
   subscribeFederationSession,
 } from "../../lib/federation-session-events.js";
 import { readFederationSessionJson } from "../../lib/federation-session-store.js";
-import { clearSession } from "../../lib/federation.js";
 import { getIdentityConnectionRuntime } from "../../lib/identity-connections-store.js";
 import { captureNativeIdentityOwner } from "../../lib/identity-native-owner.js";
 import { fixture } from "../../lib/origin-file-publication-custody.test-support.js";

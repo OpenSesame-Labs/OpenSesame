@@ -1,12 +1,11 @@
-import { cleanup, screen } from "@testing-library/react";
-import { useState } from "react";
-import { MemoryRouter } from "react-router";
-import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
-
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import { dropSeams } from "@opensesame/app-core/lib/vault/drop.js";
 import { registerTutorialRealm } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
 import type { DropItem, SecretItem, VaultItem } from "@opensesame/vault-core";
+import { cleanup, screen } from "@testing-library/react";
+import { useState } from "react";
+import { MemoryRouter } from "react-router";
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { ShareSecretDrop } from "./DropCeremony.js";

@@ -12,6 +12,7 @@ import {
 } from "./protocol.js";
 import type { loadBrowserNode } from "./sdk.js";
 import type { BrowserNodeWorker } from "./worker.js";
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: Error) => void;

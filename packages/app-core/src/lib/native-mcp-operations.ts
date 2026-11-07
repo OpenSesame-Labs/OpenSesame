@@ -1,7 +1,9 @@
 import type { JsonObject } from "@opensesame/os-domain";
 import { assertNativeBrowserMcpPolicy } from "./native-browser-policy.js";
-import { assertNativeConnectorRevision } from "./native-connector-store.js";
-import { readNativeConnector } from "./native-connector-store.js";
+import {
+  assertNativeConnectorRevision,
+  readNativeConnector,
+} from "./native-connector-store.js";
 import {
   type NativeProviderTransport,
   nativeProviderTransport,
@@ -11,11 +13,10 @@ import type {
   NativeMcpSession,
 } from "./native-mcp-protocol.js";
 import { requireNativeMcpRecord } from "./native-mcp-records.js";
+import { assertNativeMcpResultPrivate } from "./native-mcp-result.js";
 import { nativeMcpRecordSession } from "./native-mcp-session.js";
 import { NativeMcpError } from "./native-mcp-target.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
-
-import { assertNativeMcpResultPrivate } from "./native-mcp-result.js";
 
 async function operation<T>(
   id: string,

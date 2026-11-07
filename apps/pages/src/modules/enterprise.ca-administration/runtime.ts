@@ -28,11 +28,11 @@ import {
   type FeatureOperation,
   runListedFeature,
 } from "@opensesame/app-core/lib/feature-connector-operation.js";
+import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 import {
   performSavedConnector,
   registerCategorySend,
 } from "@opensesame/app-core/lib/feature-request-send.js";
-import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 
 import { applySavedConnectors } from "../../lib/apply-saved-connectors.js";
 import { createActivation } from "../activation.js";

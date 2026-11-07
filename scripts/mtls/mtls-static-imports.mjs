@@ -92,7 +92,8 @@ function build() {
   console.log("==> building apps/pages with VITE_BASE=/OpenSesame/");
   try {
     execFileSync(
-      "npm", ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
+      "npm",
+      ["exec", "--", "turbo", "run", "build", "--filter=@opensesame/pages"],
       {
         cwd: root,
         stdio: "inherit",

@@ -9,11 +9,11 @@ import { activitySeams, listActivityEvents } from "./activity-log.js";
 import { dropOpenSeams, presentDrop } from "./claims/drop-open.js";
 import { listReceipts } from "./device-receipts.js";
 import { localRequestFixture } from "./local-request.fixture.js";
+import { createLocalShare, revokeLocalShare } from "./local-share-grants.js";
 import {
   ensureLocalShare,
   submitLocalShare,
 } from "./local-share-grants-approvals.js";
-import { createLocalShare, revokeLocalShare } from "./local-share-grants.js";
 import {
   flushSharingReceipts,
   noteDropOpened,

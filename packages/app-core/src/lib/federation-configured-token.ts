@@ -1,9 +1,9 @@
 import { randomString } from "@opensesame/sdk-browser";
+import type { UpstreamIdentity } from "./federation.js";
 import { isNativeFederationFormat } from "./federation-native-session.js";
 import { originClientId } from "./federation-origin.js";
 /** Configured identity connections require a signed assertion before becoming active. */
 import type { PendingAuth } from "./federation-pending.js";
-import type { UpstreamIdentity } from "./federation.js";
 import { type OperatorIdp, signInMethods } from "./settings.js";
 
 export async function verifyConfiguredIdentityToken(

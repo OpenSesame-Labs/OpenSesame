@@ -7,6 +7,7 @@ import {
   bytesToB64,
 } from "@opensesame/vault-core";
 import { OriginalAcceptedWorkFailures } from "../vault/original-accepted-work-failures-data.js";
+
 const originalNativeCall = Function.prototype.call.bind(
   Function.prototype.call,
 );

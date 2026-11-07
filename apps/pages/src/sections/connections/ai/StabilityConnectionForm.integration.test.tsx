@@ -25,8 +25,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
-import { initializeVaultCredentialCustody } from "@opensesame/app-core/lib/vault-credential-custody.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { initializeVaultCredentialCustody } from "@opensesame/app-core/lib/vault-credential-custody.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import {
@@ -52,7 +52,11 @@ function Configuration({
   providerId,
   id,
   onFlash,
-}: { providerId: string; id: string; onFlash: (flash: Flash) => void }) {
+}: {
+  providerId: string;
+  id: string;
+  onFlash: (flash: Flash) => void;
+}) {
   const state = useAiConnection(providerId, id, onFlash);
   return <AiConnectionForm {...state} saved={state.hasSavedCredentials} />;
 }

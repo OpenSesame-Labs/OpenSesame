@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ecP256JwkThumbprint } from "./jwk.js";
 import {
-  MemoryLoginStore,
-  type PendingSiopLogin,
-  type SiopLoginStore,
-} from "./rp-store.js";
-import {
   CLIENT,
   ISSUER,
   REDIRECT,
@@ -17,6 +12,11 @@ import {
   relyingParty,
 } from "./rp.fixture.js";
 import { type SiopRelyingPartyConfig, generateLocalClientId } from "./rp.js";
+import {
+  MemoryLoginStore,
+  type PendingSiopLogin,
+  type SiopLoginStore,
+} from "./rp-store.js";
 import { p256Pair } from "./test-keys.js";
 
 describe("startLogin", () => {

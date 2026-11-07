@@ -17,18 +17,18 @@ import {
   saveKeymap,
 } from "@opensesame/app-core/lib/keymap/store.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isMotion, runMacro, runTarget } from "./keymap-commands.js";
-import {
-  NO_PENDING,
-  pendingSnapshot,
-  publishPending,
-} from "./keymap-pending.js";
 import {
   createKeymapHandler,
   keymapSeams,
   registerVaultKeymap,
 } from "./keymap.js";
 import { press, vault } from "./keymap.test-harness.js";
+import { isMotion, runMacro, runTarget } from "./keymap-commands.js";
+import {
+  NO_PENDING,
+  pendingSnapshot,
+  publishPending,
+} from "./keymap-pending.js";
 
 function keymap(partial: Partial<KeymapConfig>): void {
   const saved = saveKeymap({

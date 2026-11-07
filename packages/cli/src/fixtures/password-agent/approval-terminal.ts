@@ -1,6 +1,7 @@
 /** A genuine pseudo-terminal for the human approval integration ceremony. */
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
+
 interface ApprovalTerminalResult {
   code: number;
   output: string;

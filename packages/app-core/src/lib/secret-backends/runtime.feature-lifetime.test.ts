@@ -3,10 +3,6 @@ import { deviceConnection } from "../device-connectors.js";
 import { createSecretBackend } from "./factory.js";
 import { secretBackendDraft } from "./presets.js";
 import {
-  disposeSecretBackendProbe,
-  holdSecretBackend,
-} from "./runtime-admission.js";
-import {
   connectSecretBackend,
   probeSecretBackend,
   saveSecretBackendConnection,
@@ -18,6 +14,10 @@ import {
   remoteDraft,
   runtimeFixture,
 } from "./runtime.test-support.js";
+import {
+  disposeSecretBackendProbe,
+  holdSecretBackend,
+} from "./runtime-admission.js";
 import { secretBackendDeviceSeams as status } from "./seam.js";
 import { secretBackendSessionClosure } from "./sessions.js";
 import { bindSecretBackendTransport } from "./transport.js";

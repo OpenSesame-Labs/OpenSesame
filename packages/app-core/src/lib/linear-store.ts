@@ -9,8 +9,8 @@ import {
   updateDeviceConfigurationDurable,
 } from "./device-connector-records.js";
 import { deviceConnection } from "./device-connectors.js";
-import { SavedSchema } from "./self-hosted-connectors-schema.js";
 import type { SelfHostedConnectorOptions } from "./self-hosted-connectors.js";
+import { SavedSchema } from "./self-hosted-connectors-schema.js";
 
 export type LinearActor = "app" | "user";
 const IdentitySchema = z.object({

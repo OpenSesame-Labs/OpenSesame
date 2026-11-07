@@ -1,8 +1,3 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-/** @vitest-environment jsdom */
-import { planeHookSeams } from "../../../bindings/planes.js";
-
 import { defaultCapabilityConnectors } from "@opensesame/app-core/lib/capabilities.js";
 import {
   connectRoadSeams,
@@ -10,11 +5,15 @@ import {
   resetConnectRoadSeams,
 } from "@opensesame/app-core/lib/connect-roads.js";
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
-import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import {
   setVercelConnectAuth,
   usesConnect,
 } from "@opensesame/app-core/lib/vercel-connect.js";
+import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+/** @vitest-environment jsdom */
+import { planeHookSeams } from "../../../bindings/planes.js";
 import { createSetupSeams } from "../test-seams.js";
 import { MfaStep } from "./MfaStep.js";
 

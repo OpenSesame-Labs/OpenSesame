@@ -19,6 +19,7 @@ import { channelName } from "@opensesame/ceremony-kit";
 
 /** A channel's name in a list ("1. Telegram"), for a surface drawing one. */
 export { channelName };
+
 import {
   type BoundaryValue,
   type ChannelCapabilities,

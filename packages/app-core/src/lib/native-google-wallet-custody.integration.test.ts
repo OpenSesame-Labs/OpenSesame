@@ -2,7 +2,6 @@ import { afterEach, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
-import { googleWalletTransportFlows } from "./native-google-wallet-transport.js";
 import { googleWalletKeyFlows as flows } from "./native-google-wallet.js";
 import {
   walletClass,
@@ -10,6 +9,7 @@ import {
   walletOracle,
   walletOrigin,
 } from "./native-google-wallet.test-support.js";
+import { googleWalletTransportFlows } from "./native-google-wallet-transport.js";
 import { runtimeFixture } from "./secret-backends/runtime.test-support.js";
 
 const closes: (() => Promise<void>)[] = [];

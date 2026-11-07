@@ -9,6 +9,7 @@ import {
   operationHeader,
 } from "./store-operation-check.js";
 import { withBodyWriteLockOrBare } from "./vault-shared-locks.js";
+
 type Original = ReturnType<typeof captureStoreOperation>;
 export type BodyWriteState = Readonly<{
   key: CryptoKey | null;

@@ -8,6 +8,7 @@ import {
 } from "./assemblyai-tls.test-support.js";
 import { MAX_AI_AUDIO_INPUT_BYTES } from "./media.js";
 import { ownedSpeechAudio } from "./speech-tls.test-support.js";
+
 const fixtures: Awaited<ReturnType<typeof assemblyTlsFixture>>[] = [];
 async function fixture(options?: Parameters<typeof assemblyTlsFixture>[0]) {
   const local = await assemblyTlsFixture(options);

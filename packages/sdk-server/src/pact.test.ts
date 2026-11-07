@@ -3,8 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertSourceOrder } from "@opensesame/testing";
 import { describe, expect, it } from "vitest";
-import { createOpenSesameVerifier } from "./verifier.js";
-import { DEFAULT_ALLOWED_ALGORITHMS } from "./verifier.js";
+import {
+  DEFAULT_ALLOWED_ALGORITHMS,
+  createOpenSesameVerifier,
+} from "./verifier.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 

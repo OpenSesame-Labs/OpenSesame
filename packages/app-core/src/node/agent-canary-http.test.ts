@@ -10,6 +10,7 @@ import {
   createControlledCanaryReceiver,
 } from "./agent-canary-receiver.js";
 import type { ReceiverState } from "./agent-canary-state.js";
+
 async function unusedPort() {
   const server = createServer();
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

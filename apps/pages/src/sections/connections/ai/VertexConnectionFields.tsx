@@ -3,6 +3,7 @@ import type { AiConnectionDraft } from "@opensesame/app-core/lib/ai-connections/
 import { useId } from "react";
 import { FieldShell } from "../../../components/FieldShell.js";
 import type { AiConnectionFormProps } from "./AiConnectionForm.js";
+
 type Fields = Pick<AiConnectionFormProps, "draft" | "busy" | "onChange">;
 export function VertexEndpointChoice({ draft, busy, onChange }: Fields) {
   const id = useId();

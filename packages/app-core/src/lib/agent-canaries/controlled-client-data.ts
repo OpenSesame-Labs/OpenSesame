@@ -11,6 +11,7 @@ import {
   type CanaryReceiverProfile,
   copyCanaryReceiverProfile,
 } from "./receiver-profile-data.js";
+
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 const originalSetTimeout = setTimeout;
 const originalClearTimeout = clearTimeout;

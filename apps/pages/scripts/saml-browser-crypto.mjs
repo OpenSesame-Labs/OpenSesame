@@ -188,14 +188,18 @@ function assertSdkConsumers(context, input, entry, ids) {
   const normalizedEntry = entry.replaceAll("\\", "/");
   for (const id of ids) {
     const clean = id.replaceAll("\\", "/");
-    if (clean.includes("/node_modules/xmldsigjs/") && !clean.startsWith(`${sdkRoot}/`))
+    if (
+      clean.includes("/node_modules/xmldsigjs/") &&
+      !clean.startsWith(`${sdkRoot}/`)
+    )
       throw new Error("Unexpected browser XMLDSIG package instance");
     if (clean.startsWith(`${input.esm}/`) && clean !== normalizedEntry) {
       const module = context.getModuleInfo(id);
       const consumers = [...module.importers, ...module.dynamicImporters];
       if (
         consumers.some(
-          (consumer) => !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
+          (consumer) =>
+            !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
         )
       )
         throw new Error("Unexpected browser XMLDSIG consumer");

@@ -4,7 +4,7 @@ import {
   subscribeKeymap,
 } from "@opensesame/app-core/lib/keymap/store.js";
 import { useRef, useSyncExternalStore } from "react";
-
+import { useContributions } from "../bindings/contributions.js";
 import { gestureHelpRows } from "../lib/gesture-help.js";
 import {
   motionAccessSnapshot,
@@ -15,12 +15,13 @@ import { keymapHelp } from "../lib/keymap.js";
 import { useModalFocus } from "../lib/modal-focus.js";
 import { IconX } from "./Icons.js";
 
-import { useContributions } from "../bindings/contributions.js";
-
 export function KeymapSheet({
   open,
   close,
-}: { open: boolean; close: () => void }) {
+}: {
+  open: boolean;
+  close: () => void;
+}) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
   useModalFocus(open, sheetRef, closeRef, close);
@@ -58,7 +59,6 @@ export function KeymapSheet({
       <section
         ref={sheetRef}
         className="sheet keymap"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and conflicts with the shared sheet layer
         role="dialog"
         aria-modal="true"
         aria-label={title}

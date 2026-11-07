@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { resolveChromium } from "./browser.js";
+
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0))

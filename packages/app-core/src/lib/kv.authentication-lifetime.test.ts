@@ -19,8 +19,8 @@ import {
 import { installFileBackedVfs } from "./secret-fs/install.js";
 import { makeMemorySecretFiles } from "./secret-fs/memory.js";
 import { captureAuthenticationStorage } from "./vault/authentication-storage.js";
-import { vfsSeams as physical } from "./vfs-seams-state.js";
 import { vfsSeams } from "./vfs-seams.js";
+import { vfsSeams as physical } from "./vfs-seams-state.js";
 
 async function physicalCiphertext() {
   const originalHost = host();

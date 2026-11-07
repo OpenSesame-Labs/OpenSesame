@@ -34,6 +34,7 @@ import {
 const vault = vi.hoisted(() => ({
   current: { header: { wrap: {}, kdf: {}, unlocks: {} }, guest: false },
 }));
+
 import { qrSeams } from "../../../components/QrCode.js";
 import { expectInTray } from "../../../components/tray.test-support.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";

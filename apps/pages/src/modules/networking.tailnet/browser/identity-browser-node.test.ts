@@ -13,6 +13,7 @@ import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { expect, it, vi } from "vitest";
 import { identityNodeFixture } from "./identity-node.test-support.js";
 import { HostMessage } from "./protocol.js";
+
 it("one explicit memory Worker consumes independently signed confidential/org OIDC without browser fetch or persistent node keys", async () => {
   const f = await identityNodeFixture();
   await f.connect();

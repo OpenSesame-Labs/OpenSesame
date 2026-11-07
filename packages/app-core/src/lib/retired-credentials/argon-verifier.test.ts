@@ -7,6 +7,7 @@ import {
   equalVerifierBytes,
   passwordBytes,
 } from "./argon-verifier.js";
+
 const work = vi.fn<RetiredKdfWork["derive"]>();
 const { derive, verify } = createRetiredVerifier({ derive: work });
 const salt = () => Uint8Array.from({ length: 16 }, (_, i) => i + 1);

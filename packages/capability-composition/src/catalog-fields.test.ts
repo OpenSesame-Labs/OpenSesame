@@ -3,8 +3,8 @@
  * (carried from #470's descriptor parser).
  */
 import { describe, expect, it } from "vitest";
-import { MAX_DESCRIPTOR_LIST } from "./catalog-fields.js";
 import { buildCatalog, validateCatalog } from "./catalog.js";
+import { MAX_DESCRIPTOR_LIST } from "./catalog-fields.js";
 import { FIXTURE_CATALOG } from "./fixtures.js";
 import type { CapabilityCatalog, CapabilityDescriptor } from "./types.js";
 

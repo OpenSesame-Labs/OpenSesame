@@ -13,7 +13,9 @@ import {
 const endSession = vi.hoisted(() => vi.fn());
 const clearStagedClaimTokens = vi.hoisted(() => vi.fn());
 const hostFetch = vi.hoisted(() => vi.fn());
+
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+
 const originalIdentitySeams = { ...identitySeams };
 Object.assign(identitySeams, {
   endSession,
@@ -23,7 +25,9 @@ Object.assign(identitySeams, {
   hostLocalSessionEligible: () => false,
 });
 afterAll(() => Object.assign(identitySeams, originalIdentitySeams));
+
 import { queueSeams } from "@opensesame/app-core/lib/queue.js";
+
 const originalQueueSeams = { ...queueSeams };
 Object.assign(queueSeams, { clearStagedClaimTokens });
 afterAll(() => Object.assign(queueSeams, originalQueueSeams));

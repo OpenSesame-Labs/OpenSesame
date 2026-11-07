@@ -1,4 +1,8 @@
 import { expect, it } from "vitest";
+import {
+  installNativeApiTests,
+  nativeAnswers,
+} from "./native-api.test-support.js";
 import { configureNativeApiConnector } from "./native-api-connectors.js";
 import {
   nativePrimaryCollections,
@@ -10,10 +14,6 @@ import {
   invokeNativeApiResource,
   nativeApiResourceActions,
 } from "./native-api-resources.js";
-import {
-  installNativeApiTests,
-  nativeAnswers,
-} from "./native-api.test-support.js";
 
 installNativeApiTests();
 const field = { id: "4340.4", name: "Office", type: "text" };

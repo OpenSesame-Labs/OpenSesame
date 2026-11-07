@@ -18,8 +18,8 @@ import {
 } from "./shamir.js";
 import { type ShareFields, decodeShare, encodeShare } from "./share.js";
 
-export { Slip39Error } from "./errors.js";
 export { MAX_ITERATION_EXPONENT } from "./cipher.js";
+export { Slip39Error } from "./errors.js";
 export { type ShareFields, decodeShare, encodeShare } from "./share.js";
 export { SLIP39_WORDLIST } from "./wordlist.js";
 

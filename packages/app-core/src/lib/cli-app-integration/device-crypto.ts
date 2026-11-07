@@ -2,8 +2,8 @@
  * P-256 signatures for CLI app-integration pairing and approvals (Rust parity).
  */
 
-import { z } from "zod";
 import { asBufferSource } from "@opensesame/os-domain";
+import { z } from "zod";
 
 const enc = new TextEncoder();
 
@@ -20,15 +20,17 @@ async function readCliAppPairingVaultSessionRoot(): Promise<string | null> {
 const DEVICE_SIGNING_STORAGE_KEY = "opensesame-cli-app-device-signing.v1";
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", asBufferSource(data)));
+  return new Uint8Array(
+    await crypto.subtle.digest("SHA-256", asBufferSource(data)),
+  );
 }
 
 export {
   APPROVAL_CHALLENGE_LABEL,
   APPROVAL_CHALLENGE_V3_LABEL,
+  PAIRING_CONFIRM_LABEL,
   approvalChallengeDigest,
   approvalChallengeDigestV3,
-  PAIRING_CONFIRM_LABEL,
   pairingConfirmMessage,
 } from "./approval-challenge.js";
 
@@ -165,7 +167,11 @@ async function wrapDeviceKeyMaterial(
   const cryptoKey = await deriveDeviceWrapKey(vaultSessionRoot);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipher = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, asBufferSource(pkcs8)),
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      cryptoKey,
+      asBufferSource(pkcs8),
+    ),
   );
   const out = new Uint8Array(iv.byteLength + cipher.byteLength);
   out.set(iv, 0);

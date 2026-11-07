@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { vaultSecurityPage } from "./vault-app";
+
 it("opens only the configured vault base without carrying credentials", () => {
   expect(vaultSecurityPage("https://vault.example/OpenSesame/")).toBe(
     "https://vault.example/OpenSesame/settings/security#retired-passwords",

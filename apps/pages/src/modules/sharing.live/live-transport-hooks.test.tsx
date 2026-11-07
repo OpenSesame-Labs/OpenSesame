@@ -6,16 +6,17 @@
  * an edit, or read a broken profile as "direct only", before the hook applied
  * each edit to the profile as it is when its turn comes.
  */
+
+import {
+  DIRECT_TRANSPORT,
+  type LiveTransport,
+} from "@opensesame/app-core/lib/live/transport.js";
 import {
   TRANSPORT_PATH,
   TransportRefused,
   storeSeams,
   writeLiveTransport,
 } from "@opensesame/app-core/lib/live/transport-store.js";
-import {
-  DIRECT_TRANSPORT,
-  type LiveTransport,
-} from "@opensesame/app-core/lib/live/transport.js";
 import { VfsError } from "@opensesame/app-core/lib/vfs.js";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,13 +1,16 @@
 /** Real owner crypto and original transport closures; independent cleanup failures must survive cancellation. */
 import { expect, test } from "vitest";
 import { RetiredOperationExchange } from "./retired-operation-exchange.js";
+
 interface RetirementRefusal {
   cause: unknown;
 }
+
 import {
   OWNER_PASSWORD,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
+
 const primary = { kind: "password" as const, secret: OWNER_PASSWORD };
 async function rejection<T>(promise: Promise<T>): Promise<RetirementRefusal> {
   try {

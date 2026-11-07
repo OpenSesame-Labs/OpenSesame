@@ -18,22 +18,22 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { asBufferSource } from "@opensesame/os-domain";
 import { Effect } from "effect";
+import type { SecretFsError } from "./errors.js";
 import {
   SecretFsNotFound,
   SecretFsRejected,
   SecretFsUnavailable,
 } from "./errors.js";
-import type { SecretFsError } from "./errors.js";
-import { checkPath, revisionOf } from "./files.js";
 import type { SecretFiles } from "./files.js";
+import { checkPath, revisionOf } from "./files.js";
 import { keysOf, moreAfter } from "./s3-listing.js";
-import { s3Exchange } from "./s3-response.js";
 import type { S3Reply } from "./s3-response.js";
-import { EMPTY_PAYLOAD, signS3 } from "./s3-sigv4.js";
+import { s3Exchange } from "./s3-response.js";
 import type { S3Credentials } from "./s3-sigv4.js";
+import { EMPTY_PAYLOAD, signS3 } from "./s3-sigv4.js";
 import { s3Write } from "./s3-write.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_LIST_PAGES = 1000;

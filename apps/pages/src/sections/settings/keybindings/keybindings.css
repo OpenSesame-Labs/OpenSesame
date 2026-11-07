@@ -135,7 +135,9 @@
   border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
   border-radius: var(--radius);
-  transition: transform 80ms var(--ease), border-color 120ms var(--ease);
+  transition:
+    transform 80ms var(--ease),
+    border-color 120ms var(--ease);
 }
 
 .keycap-btn:hover .keycap {

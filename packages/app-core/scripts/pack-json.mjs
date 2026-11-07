@@ -72,6 +72,7 @@ export function renderPackedJsonRows(name, rows) {
   const packed = packJsonRows(rows);
   return [
     'import { unpackGeneratedJson } from "./generated-json.js";',
+    "",
     `const dictionary = ${JSON.stringify(packed.dictionary.join("\n"))}.split("\\n");`,
     `const rows: readonly string[] = ${JSON.stringify(packed.rows)};`,
     `export const ${name}: readonly string[] = rows.map((row) => unpackGeneratedJson(row, dictionary));`,

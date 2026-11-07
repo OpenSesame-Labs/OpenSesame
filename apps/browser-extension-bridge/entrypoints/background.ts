@@ -1,7 +1,3 @@
-import { createBridge } from "@/lib/bridge";
-import { browserPorts, senderFacts } from "@/lib/browser-ports";
-import { POPUP_MESSAGE, handlePopup, parsePopupMessage } from "@/lib/popup-api";
-import { relayedMessage } from "@/lib/relay-wire";
 /**
  * The bridge's background (ADR 0199). It answers two kinds of message: a
  * page's request, relayed by the relay script it registered, and the popup's.
@@ -13,6 +9,10 @@ import {
   pageReplyMessage,
   parsePageRequest,
 } from "@opensesame/connector-bridge";
+import { createBridge } from "@/lib/bridge";
+import { browserPorts, senderFacts } from "@/lib/browser-ports";
+import { POPUP_MESSAGE, handlePopup, parsePopupMessage } from "@/lib/popup-api";
+import { relayedMessage } from "@/lib/relay-wire";
 
 export default defineBackground(() => {
   const bridge = createBridge(

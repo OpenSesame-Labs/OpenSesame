@@ -28,8 +28,8 @@ import {
   writeFile,
 } from "../vfs.js";
 import { offlineBackupFile, sealedVaultText } from "./offline-backup-file.js";
-import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
+import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 
 const PASSWORD = "correct horse battery staple";
 const OTHER_PASSWORD = "fourteen ungulate carriage nail";

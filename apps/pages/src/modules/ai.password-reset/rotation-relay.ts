@@ -1,7 +1,9 @@
 import { hostFetch } from "@opensesame/app-core/lib/identity.js";
 import type { PasswordResetReadiness } from "@opensesame/app-core/lib/password-reset/readiness.js";
-import { dispatchPasswordResetRotation } from "@opensesame/app-core/lib/password-reset/rotation-handoff.js";
-import { passwordResetHandOffSeams } from "@opensesame/app-core/lib/password-reset/rotation-handoff.js";
+import {
+  dispatchPasswordResetRotation,
+  passwordResetHandOffSeams,
+} from "@opensesame/app-core/lib/password-reset/rotation-handoff.js";
 import { startResetRunNoticeBridge } from "@opensesame/app-core/lib/password-reset/run-notice-bridge.js";
 import {
   type RotationEvent,
@@ -15,6 +17,7 @@ import {
   hostRotationJobSchema,
   hostRotationReceiptSchema,
 } from "./host-run-schemas.js";
+
 async function postRotation(origin: string) {
   try {
     const response = await hostFetch("/api/v1/rotations", {

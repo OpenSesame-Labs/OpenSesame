@@ -1,3 +1,13 @@
+import type {
+  AccountItem,
+  CardItem,
+  Folder,
+  NoteItem,
+  PasskeyItem,
+  SecretItem,
+  VaultItem,
+} from "@opensesame/vault-core";
+import { manualPassword } from "@opensesame/vault-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
@@ -12,17 +22,6 @@ import {
   vi,
 } from "vitest";
 import { planeHookSeams } from "../../bindings/planes.js";
-
-import type {
-  AccountItem,
-  CardItem,
-  Folder,
-  NoteItem,
-  PasskeyItem,
-  SecretItem,
-  VaultItem,
-} from "@opensesame/vault-core";
-import { manualPassword } from "@opensesame/vault-core";
 
 type VaultFixture = { current: { items: VaultItem[]; folders: Folder[] } };
 
@@ -43,6 +42,7 @@ const planes = vi.hoisted(() => ({
 const listConnections = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -52,16 +52,18 @@ Object.assign(vaultHooksSeams, {
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
 Object.assign(planeHookSeams, { usePlaneStatus: () => planes.value });
+
 import { connectionSeams } from "@opensesame/app-core/lib/connections.js";
+
 const originalConnectionSeams = { ...connectionSeams };
 Object.assign(connectionSeams, { listConnections });
 afterAll(() => Object.assign(connectionSeams, originalConnectionSeams));
 
-import { ItemDetail } from "./ItemDetail.js";
 import {
   type AccountSeed,
   makeAccount as makeAccountBase,
 } from "./account.test-support.js";
+import { ItemDetail } from "./ItemDetail.js";
 
 function base<K extends VaultItem["kind"]>(kind: K, id: string, name: string) {
   return {

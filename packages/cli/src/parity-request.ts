@@ -1,19 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { grantLease } from "@opensesame/app-core/lib/password-agent/lease-grant.js";
 import type { LeaseRecord } from "@opensesame/app-core/lib/password-agent/lease.js";
 import { inspectReference } from "@opensesame/app-core/lib/password-agent/lease.js";
-import { leasedRequest } from "@opensesame/app-core/lib/password-agent/request-leased.js";
+import { grantLease } from "@opensesame/app-core/lib/password-agent/lease-grant.js";
 import {
   type RequestOptions,
   describeRequest,
 } from "@opensesame/app-core/lib/password-agent/request.js";
+import { leasedRequest } from "@opensesame/app-core/lib/password-agent/request-leased.js";
 import { emitMetadata } from "./output.js";
 import type { ParityContext } from "./parity-commands.js";
 import { openLeaseStore } from "./parity-lease-node.js";
 import { exhausted, option } from "./parity-parse.js";
 import { requestAddresses, sendPrivateRequest } from "./parity-request-node.js";
 import { approveRunGrant, runGrantMetadata } from "./parity-run-grant.js";
+
 function options(args: string[]): RequestOptions {
   const url = args.shift();
   const reference = option(args, "--secret") ?? option(args, "--ref");

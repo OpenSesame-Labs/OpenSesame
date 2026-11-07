@@ -4,13 +4,68 @@
  * Read {@link SUPPORT_MATRIX} before citing this package anywhere.
  */
 
+export { readAudience } from "./audience.js";
+export {
+  type AcceptedSiopMetadata,
+  DEFAULT_METADATA_TIMEOUT_MS,
+  type FetchSiopMetadataInput,
+  MAX_SIOP_METADATA_BYTES,
+  type MetadataBodyReader,
+  type MetadataFetch,
+  type MetadataResponse,
+  PAGES_SIOP_EXTENSION,
+  PAGES_SIOP_ISSUER_PATH,
+  type PagesOrigin,
+  type PagesSiopMetadata,
+  SIOP_DRAFT,
+  SIOP_METADATA_FILE,
+  type SiopMetadataOptions,
+  buildPagesSiopMetadata,
+  fetchSiopMetadata,
+  pagesOriginOf,
+  pagesSiopIssuer,
+  parseSiopMetadata,
+  serializePagesSiopMetadata,
+  siopMetadataUrl,
+} from "./discovery.js";
 export {
   type SiopV2Checkpoint,
-  type SiopV2ErrorCode,
   SiopV2Error,
+  type SiopV2ErrorCode,
   isSiopV2Error,
 } from "./errors.js";
-
+export {
+  type BuildSelfIssuedIdTokenInput,
+  STATIC_SELF_ISSUED_ISSUER,
+  type SigningKey,
+  type SiopIssuerProfile,
+  type VerifiedSelfIssuedIdToken,
+  type VerifySelfIssuedIdTokenInput,
+  buildSelfIssuedIdToken,
+  exportPublicEcP256Jwk,
+  verifySelfIssuedIdToken,
+} from "./id-token.js";
+export {
+  type ResolvedIssuer,
+  STATIC_SIOP_METADATA,
+  assertAllowedIssuer,
+  resolveIssuer,
+} from "./issuer.js";
+export {
+  type CheckedCompactJws,
+  SUPPORTED_SIGNATURE_ALGORITHMS,
+  type SupportedSignatureAlgorithm,
+  isSupportedSignatureAlgorithm,
+  readSignedCompactJws,
+} from "./jose.js";
+export {
+  EC_P256_CRV,
+  EC_P256_KTY,
+  type EcP256PublicJwk,
+  SUBJECT_SYNTAX_JWK_THUMBPRINT,
+  ecP256JwkThumbprint,
+  parsePublicEcP256Jwk,
+} from "./jwk.js";
 export {
   DEFAULT_CLOCK_SKEW_SECONDS,
   DEFAULT_ID_TOKEN_TTL_SECONDS,
@@ -22,121 +77,22 @@ export {
   MAX_ID_TOKEN_TTL_SECONDS,
   MAX_MAX_IAT_AGE_SECONDS,
 } from "./limits.js";
-
-export {
-  type CheckedCompactJws,
-  type SupportedSignatureAlgorithm,
-  SUPPORTED_SIGNATURE_ALGORITHMS,
-  isSupportedSignatureAlgorithm,
-  readSignedCompactJws,
-} from "./jose.js";
-
-export {
-  type EcP256PublicJwk,
-  EC_P256_CRV,
-  EC_P256_KTY,
-  SUBJECT_SYNTAX_JWK_THUMBPRINT,
-  ecP256JwkThumbprint,
-  parsePublicEcP256Jwk,
-} from "./jwk.js";
-
-export {
-  type AuthorizationRequestInput,
-  type NormalizedAuthorizationRequest,
-  type SupportedResponseMode,
-  RESPONSE_MODE_FRAGMENT,
-  RESPONSE_TYPE_ID_TOKEN,
-  SCOPE_OPENID,
-  parseAuthorizationRequest,
-  serializeAuthorizationRequest,
-} from "./request.js";
-
-export {
-  type BuildSelfIssuedIdTokenInput,
-  type SiopIssuerProfile,
-  type SigningKey,
-  type VerifiedSelfIssuedIdToken,
-  type VerifySelfIssuedIdTokenInput,
-  STATIC_SELF_ISSUED_ISSUER,
-  buildSelfIssuedIdToken,
-  exportPublicEcP256Jwk,
-  verifySelfIssuedIdToken,
-} from "./id-token.js";
-
-export {
-  type ResolvedIssuer,
-  assertAllowedIssuer,
-  resolveIssuer,
-  STATIC_SIOP_METADATA,
-} from "./issuer.js";
-
-export {
-  type AcceptedSiopMetadata,
-  type FetchSiopMetadataInput,
-  type MetadataBodyReader,
-  type MetadataFetch,
-  type MetadataResponse,
-  type SiopMetadataOptions,
-  type PagesOrigin,
-  type PagesSiopMetadata,
-  DEFAULT_METADATA_TIMEOUT_MS,
-  MAX_SIOP_METADATA_BYTES,
-  PAGES_SIOP_EXTENSION,
-  PAGES_SIOP_ISSUER_PATH,
-  SIOP_DRAFT,
-  SIOP_METADATA_FILE,
-  buildPagesSiopMetadata,
-  fetchSiopMetadata,
-  pagesOriginOf,
-  pagesSiopIssuer,
-  parseSiopMetadata,
-  serializePagesSiopMetadata,
-  siopMetadataUrl,
-} from "./discovery.js";
-
-export {
-  type CompleteSiopLoginInput,
-  type SiopLoginResult,
-  type SiopLoginStart,
-  type SiopRelyingPartyConfig,
-  type SiopRpErrorCode,
-  type StartSiopLoginInput,
-  SiopRelyingParty,
-  SiopRpError,
-  createSiopRelyingParty,
-  generateLocalClientId,
-} from "./rp.js";
-
-export {
-  type LoginStorage,
-  type PendingSiopLogin,
-  type SiopLoginStore,
-  type SiopReplayLedger,
-  DEFAULT_LOGIN_TTL_MS,
-  DEFAULT_MAX_LEDGER_ENTRIES,
-  DEFAULT_MAX_PENDING_LOGINS,
-  DEFAULT_MAX_STORED_LOGINS,
-  MemoryLoginStore,
-  MemoryReplayLedger,
-  StorageLoginStore,
-  readLogin,
-} from "./rp-store.js";
-
-export { readAudience } from "./audience.js";
-
-export {
-  assertIAmSiopClaim,
-  assertTokenFreshness,
-  readEpoch,
-} from "./validity.js";
-
 export {
   type ResolveSiopLinkProfileInput,
   bodyOffersEmailJoin,
   challengeIssuerFromProfile,
   resolveSiopLinkProfile,
 } from "./link-profile.js";
-
+export {
+  type AuthorizationRequestInput,
+  type NormalizedAuthorizationRequest,
+  RESPONSE_MODE_FRAGMENT,
+  RESPONSE_TYPE_ID_TOKEN,
+  SCOPE_OPENID,
+  type SupportedResponseMode,
+  parseAuthorizationRequest,
+  serializeAuthorizationRequest,
+} from "./request.js";
 export {
   type FragmentErrorResponse,
   type FragmentResponse,
@@ -146,6 +102,37 @@ export {
   serializeFragmentError,
   serializeFragmentSuccess,
 } from "./response.js";
+export {
+  type CompleteSiopLoginInput,
+  type SiopLoginResult,
+  type SiopLoginStart,
+  SiopRelyingParty,
+  type SiopRelyingPartyConfig,
+  SiopRpError,
+  type SiopRpErrorCode,
+  type StartSiopLoginInput,
+  createSiopRelyingParty,
+  generateLocalClientId,
+} from "./rp.js";
+export {
+  DEFAULT_LOGIN_TTL_MS,
+  DEFAULT_MAX_LEDGER_ENTRIES,
+  DEFAULT_MAX_PENDING_LOGINS,
+  DEFAULT_MAX_STORED_LOGINS,
+  type LoginStorage,
+  MemoryLoginStore,
+  MemoryReplayLedger,
+  type PendingSiopLogin,
+  type SiopLoginStore,
+  type SiopReplayLedger,
+  StorageLoginStore,
+  readLogin,
+} from "./rp-store.js";
+export {
+  assertIAmSiopClaim,
+  assertTokenFreshness,
+  readEpoch,
+} from "./validity.js";
 
 export const SUPPORT_MATRIX = {
   specification: {

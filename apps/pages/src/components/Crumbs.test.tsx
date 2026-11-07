@@ -15,13 +15,13 @@ const vault = {
 };
 
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 Object.assign(vaultHooksSeams, {
   useVault: () => vault,
 });
 
-import { CrumbTrail, Crumbs, useCrumbs } from "./Crumbs.js";
-
 import { registerLegacyShellData } from "@opensesame/app-core/lib/contributions.test-support.js";
+import { CrumbTrail, Crumbs, useCrumbs } from "./Crumbs.js";
 
 // A crumb path under Connections exists only while that capability does.
 let revokeShell = () => {};

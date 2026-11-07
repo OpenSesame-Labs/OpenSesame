@@ -46,7 +46,11 @@ function CopyField({
   id,
   label,
   value,
-}: { id: string; label: string; value: string }) {
+}: {
+  id: string;
+  label: string;
+  value: string;
+}) {
   const copy = useCopySecret();
   const [said, setSaid] = useState("");
   return (
@@ -98,7 +102,10 @@ function Minted({ created, now }: { created: CreatedTailnetKey; now: number }) {
 function TagsStatus({
   tags,
   tagsNeeded,
-}: { tags: readonly string[] | null; tagsNeeded: boolean }) {
+}: {
+  tags: readonly string[] | null;
+  tagsNeeded: boolean;
+}) {
   if (tags === null)
     return (
       <StatusMark

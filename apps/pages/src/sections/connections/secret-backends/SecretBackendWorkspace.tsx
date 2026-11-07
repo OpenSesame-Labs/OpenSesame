@@ -26,7 +26,10 @@ import {
 function ItemRows({
   state,
   handle,
-}: { state: SecretBackendWorkspaceState; handle: SecretBackendHandle }) {
+}: {
+  state: SecretBackendWorkspaceState;
+  handle: SecretBackendHandle;
+}) {
   const { capabilities } = handle.backend;
   const notes =
     !capabilities.itemFields || capabilities.itemFields.includes("notes");
@@ -64,7 +67,10 @@ function ItemRows({
 function SelectedItemKeys({
   state,
   handle,
-}: { state: SecretBackendWorkspaceState; handle: SecretBackendHandle }) {
+}: {
+  state: SecretBackendWorkspaceState;
+  handle: SecretBackendHandle;
+}) {
   if (!state.selected && !state.creating && state.notes === null) return null;
   const { capabilities, updateItem, deleteItem } = handle.backend;
   return (
@@ -114,7 +120,10 @@ function SelectedItemKeys({
 function WorkspaceBody({
   state,
   handle,
-}: { state: SecretBackendWorkspaceState; handle: SecretBackendHandle }) {
+}: {
+  state: SecretBackendWorkspaceState;
+  handle: SecretBackendHandle;
+}) {
   const id = useId();
   const { capabilities, importToLocal } = handle.backend;
   const notes =
@@ -172,7 +181,10 @@ function WorkspaceBody({
 export function SecretBackendWorkspace({
   handle,
   onFlash,
-}: { handle: SecretBackendHandle; onFlash: (flash: Flash) => void }) {
+}: {
+  handle: SecretBackendHandle;
+  onFlash: (flash: Flash) => void;
+}) {
   const state = useSecretBackendWorkspace(handle, onFlash);
   const root = useRef<HTMLElement>(null);
   const { selected, creating, busy } = state;

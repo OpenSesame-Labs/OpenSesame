@@ -27,9 +27,9 @@ import {
   vfsFlush,
 } from "../vfs.js";
 import { offlineBackupFile, sealedVaultText } from "./offline-backup-file.js";
+import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 import { storeImportSeams } from "./store-import.js";
-import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 
 const SOURCE_PIN = "48291037";
 const TARGET_PIN = "13579246";

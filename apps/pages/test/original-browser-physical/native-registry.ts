@@ -8,6 +8,7 @@ import {
 } from "@opensesame/app-core/lib/kv.js";
 import { VaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { check, ready, refuses, result } from "./native-fixture.js";
+
 const REGISTRY = "tombs.v1";
 const HEADER = "tomb/personal/header";
 const BODY = "tomb/personal/body";

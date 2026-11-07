@@ -5,8 +5,8 @@ import type {
 } from "./native-connector-schema.js";
 import { emptyNativePrivate } from "./native-connector-schema.js";
 import type { NativeConnectorRecord } from "./native-connector-store.js";
-import type { NativeLocalInstanceFacts } from "./native-local-instance-http.js";
 import type { NativeLocalInstanceInput } from "./native-local-instance.js";
+import type { NativeLocalInstanceFacts } from "./native-local-instance-http.js";
 
 function runtime(facts: NativeLocalInstanceFacts): NativeRuntime {
   return {

@@ -55,8 +55,8 @@ import {
   type SiopReplayLedger,
 } from "./rp-store.js";
 
-export { SiopRpError, type SiopRpErrorCode } from "./rp-error.js";
 export type { SiopRelyingPartyConfig } from "./rp-config.js";
+export { SiopRpError, type SiopRpErrorCode } from "./rp-error.js";
 
 export type StartSiopLoginInput = {
   /** This person's application id; defaults to the configured one. */

@@ -8,6 +8,7 @@ import {
   loadTailscaleAssets,
   tailscaleWorkerFileName,
 } from "./tailscale-wasm-assets.mjs";
+
 test.skipIf(process.arch !== "x64")(
   "ships exact source-built native WASM, isolated runtime, jitless bridge and complete notices",
   // A cold cache may wait on the 600s preparation lock, download two archives

@@ -2,11 +2,11 @@
 import { generateKeyPairSync, webcrypto } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { SignedXml } from "xml-crypto";
+import { validateSamlAssertion } from "./assertion.js";
 import type {
   SamlPendingRequest,
   SamlTimePolicy,
 } from "./assertion-conditions.js";
-import { validateSamlAssertion } from "./assertion.js";
 import { verifySamlXmlSignature } from "./xml-signature.js";
 
 const request: SamlPendingRequest = Object.freeze({

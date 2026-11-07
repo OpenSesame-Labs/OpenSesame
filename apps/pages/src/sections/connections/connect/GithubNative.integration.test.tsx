@@ -10,8 +10,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { expect, it, vi } from "vitest";
-import { ConnectorSettingsPage } from "../SettingsPage.js";
 import { catalogConnectorAction } from "../catalog-connector-action.js";
+import { ConnectorSettingsPage } from "../SettingsPage.js";
 import { declareConnectionsTutorial } from "../tutorial.test-support.js";
 import { nativeSettingsDescriptor } from "./NativeConnectorPanels.js";
 import {

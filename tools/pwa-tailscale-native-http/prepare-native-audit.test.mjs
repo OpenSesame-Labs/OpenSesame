@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { prepareNativeAudit } from "./prepare-distribution.mjs";
+
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 /** An owned child fixture exercises preparation lifetime, not a genuine compiler or vulnerability scan. */

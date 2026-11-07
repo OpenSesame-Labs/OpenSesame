@@ -16,6 +16,7 @@ import {
   assertNativeSourceInputs,
   readNativeDistribution,
 } from "./distribution-cache.mjs";
+
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 async function directory(t) {
   const path = await mkdtemp(join(tmpdir(), "opensesame-native-cache-"));

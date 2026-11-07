@@ -13,10 +13,7 @@ const matches = [
   ["/repo/node_modules/scheduler/index.js", "react-dom"],
   ["/repo/node_modules/react-router/index.js", "react-router"],
   ["/repo/node_modules/react-router-dom/dist/index.js", "react-router"],
-  [
-    "/repo/node_modules/react/index.js",
-    "react-dom",
-  ],
+  ["/repo/node_modules/react/index.js", "react-dom"],
   ["/repo/node_modules/react/index.js?commonjs-proxy", "react-dom"],
   [
     "/repo/packages/app-core/src/lib/device-identity-host.ts",

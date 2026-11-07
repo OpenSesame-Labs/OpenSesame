@@ -8,9 +8,9 @@
  */
 import {
   type BoundaryValue,
+  asBufferSource,
   isJsonObject,
   isString,
-  asBufferSource,
 } from "@opensesame/os-domain";
 import {
   b64ToBytes,

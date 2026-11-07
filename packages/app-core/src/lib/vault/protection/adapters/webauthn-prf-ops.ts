@@ -6,6 +6,7 @@
  * not mutate unlock wraps — failed enroll must never call `withPasskeyUnlock`.
  */
 
+import { ownBytes } from "@opensesame/os-domain";
 import {
   LEGACY_WEBAUTHN_PRF_DOMAIN,
   type ProtectorAvailability,
@@ -37,14 +38,13 @@ import {
   mintRootKeyHandle,
 } from "../adapter.js";
 import { ProtectionError } from "../errors.js";
-import { assertUsablePrfOutput } from "./webauthn-prf-output.js";
 
 import {
   type WebauthnPrfAdapterOptions,
   browserEvidence,
   mapPrfToProtectionError,
 } from "./webauthn-prf.js";
-import { ownBytes } from "@opensesame/os-domain";
+import { assertUsablePrfOutput } from "./webauthn-prf-output.js";
 export function protectorToUnlockRecord(
   record: WebauthnPrfProtectorRecord,
 ): PasskeyUnlockRecord {

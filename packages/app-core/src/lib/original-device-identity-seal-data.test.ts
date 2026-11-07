@@ -7,6 +7,7 @@ import {
 } from "@opensesame/vault-core";
 import { afterEach, expect, it, vi } from "vitest";
 import { captureOriginalDeviceIdentitySealData } from "./original-device-identity-seal-data.js";
+
 function gate() {
   let release = () => {};
   const promise = new Promise<void>((resolve) => {

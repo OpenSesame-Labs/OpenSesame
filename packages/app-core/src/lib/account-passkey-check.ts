@@ -17,8 +17,8 @@
  * a saved passkey, and the words say so, so nobody adds a second one.
  */
 
-import { InteractionStepUpError } from "@opensesame/ceremony-kit";
 import type { InteractionAssertion } from "@opensesame/ceremony-kit";
+import { InteractionStepUpError } from "@opensesame/ceremony-kit";
 import {
   type BoundaryValue,
   type JsonObject,

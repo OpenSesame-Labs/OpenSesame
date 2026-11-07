@@ -22,8 +22,8 @@ import {
   isAgeRecipient,
 } from "../../age-keys.js";
 import { assertNotCanceled, mintRootKeyHandle } from "./adapter.js";
-import { createAgeRecipientAdapter } from "./adapters/age-recipient-ops.js";
 import { publishUntestedAgeRecipient } from "./adapters/age-recipient.js";
+import { createAgeRecipientAdapter } from "./adapters/age-recipient-ops.js";
 import type { AwsKmsConnection, GcpKmsConnection } from "./cloud-connection.js";
 import { ProtectionError } from "./errors.js";
 import { newProtectorId } from "./ids.js";

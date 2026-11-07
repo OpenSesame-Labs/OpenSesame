@@ -1,5 +1,6 @@
 /** Untrusted regexes execute only in this disposable, time-bounded worker. */
 export {};
+
 self.onmessage = (
   event: MessageEvent<{ pattern: string; kind: string; hostname: string }>,
 ) => {

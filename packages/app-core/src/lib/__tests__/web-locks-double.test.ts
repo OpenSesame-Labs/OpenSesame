@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { webLocksDouble } from "./web-locks-double.js";
+
 function gate() {
   let release = () => {};
   const held = new Promise<void>((done) => {

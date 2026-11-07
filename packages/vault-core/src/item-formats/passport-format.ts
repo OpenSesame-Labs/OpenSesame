@@ -174,7 +174,10 @@ function parse(value: string): FieldValues | null {
 function generate({
   random,
   now,
-}: { random: import("./random.js").Random; now: Date }): FieldValues {
+}: {
+  random: import("./random.js").Random;
+  now: Date;
+}): FieldValues {
   const date = new Date(now.getTime());
   date.setUTCFullYear(date.getUTCFullYear() + 5);
   const expiresAt = date.toISOString().slice(0, 10);

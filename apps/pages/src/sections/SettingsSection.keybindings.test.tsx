@@ -33,20 +33,25 @@ const store = vi.hoisted(() => ({
   readPrefsSource: vi.fn(async () => null),
   activeTomb: () => "personal",
 }));
+
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault,
   useVaultStore: () => store,
 });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
+
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
+
 const originalSettingsSeams = { ...settingsSeams };
 Object.assign(settingsSeams, {
   loadSettings: () => ({ hostApi: "", identityApi: "", daemonApi: "" }),
   saveSettings: vi.fn(),
 });
 afterAll(() => Object.assign(settingsSeams, originalSettingsSeams));
+
 import { registerOptionalTutorials } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
 import { stubScreen } from "../lib/use-narrow.test-support.js";
 import { SettingsSection } from "./SettingsSection.js";

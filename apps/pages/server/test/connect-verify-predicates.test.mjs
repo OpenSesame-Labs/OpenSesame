@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 import { verifyWithToken } from "../connect-verify.mjs";
+import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 
 const TOKEN = "synthetic-provider-proof-token";
 

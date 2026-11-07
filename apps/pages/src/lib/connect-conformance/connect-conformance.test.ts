@@ -22,12 +22,12 @@ import {
   connectPlans,
   isConnectable,
 } from "@opensesame/app-core/lib/connect-plan.js";
+import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   authorizeConnectorAs,
   checkConnectorToken,
   createConfiguredConnector,
 } from "@opensesame/app-core/lib/vercel-connect-manage.js";
-import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   type JsonValue,
   isJsonObject,
@@ -35,11 +35,11 @@ import {
 } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { handleCallback } from "../../../server/callback.mjs";
-import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import {
   resolveTarget,
   verifyWithToken,
 } from "../../../server/connect-verify.mjs";
+import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import { handleManage } from "../../../server/manage.mjs";
 import { assertTokenProof } from "./conformance-proof.js";
 import { CONNECT_ORIGIN, ConnectEmulator } from "./connect-emulator.js";

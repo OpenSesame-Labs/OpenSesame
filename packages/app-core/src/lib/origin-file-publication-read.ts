@@ -1,5 +1,6 @@
 /** Bounded original fixed-entry origin reads and cleanup of an owned empty placeholder. */
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
+
 import { isSealedAtRest } from "./at-rest/cipher.js";
 import { openOriginFile, sealedFileBound } from "./at-rest/origin-files.js";
 import {

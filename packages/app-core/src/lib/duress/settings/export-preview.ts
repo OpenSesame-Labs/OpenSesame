@@ -2,12 +2,12 @@
  * Safe export/import preview — never surfaces enrolled codes or PRF material.
  */
 
+import type { PolicyDocument } from "@opensesame/contracts/duress";
 import {
   type CompilerCatalog,
+  PolicyDocumentSchema,
   compileDuressPolicy,
 } from "@opensesame/contracts/duress";
-import type { PolicyDocument } from "@opensesame/contracts/duress";
-import { PolicyDocumentSchema } from "@opensesame/contracts/duress";
 import {
   type BoundaryValue,
   type JsonObject,

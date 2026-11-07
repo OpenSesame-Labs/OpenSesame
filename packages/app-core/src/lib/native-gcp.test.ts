@@ -1,7 +1,8 @@
+import { asBufferSource } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import { installNativeApiTests } from "./native-api.test-support.js";
+import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import { bytesToBase64 } from "./native-base64.js";
 import {
   loadNativeConnectorRecord,
@@ -19,7 +20,6 @@ import {
   routes,
   token,
 } from "./native-gcp.test-support.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 installNativeApiTests();
 installGcpKey();

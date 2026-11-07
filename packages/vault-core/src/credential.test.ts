@@ -4,7 +4,6 @@ import {
   type LoginMethod,
   manualPassword,
 } from "./account.js";
-import { extractEmbeddedMethods, splitAccount } from "./credential-split.js";
 import {
   boundCredentialName,
   boundCredentials,
@@ -15,6 +14,7 @@ import {
   loginMethodTypeOf,
   resolveAccounts,
 } from "./credential.js";
+import { extractEmbeddedMethods, splitAccount } from "./credential-split.js";
 import { itemTypeId } from "./item-types.js";
 import { type VaultItem, createItem } from "./model.js";
 

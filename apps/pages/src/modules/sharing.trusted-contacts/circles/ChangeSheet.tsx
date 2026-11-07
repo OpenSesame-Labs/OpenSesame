@@ -17,9 +17,9 @@ import { StatusMark } from "../../../components/StatusMark.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import type { Desk } from "../use-desk.js";
 import { ClocksFields } from "./ClocksFields.js";
+import { useLandOnChange, useLandOnIdAfter } from "./circle-focus.js";
 import { DealtStep } from "./DealtStep.js";
 import { RuleEditor } from "./RuleEditor.js";
-import { useLandOnChange, useLandOnIdAfter } from "./circle-focus.js";
 import "./circles.css";
 import { type ChangeCircle, useChangeCircle } from "./use-change-circle.js";
 

@@ -9,8 +9,8 @@ import {
   FIXTURE_POLICIES,
   fixtureResolveInput,
 } from "./fixtures.js";
-import type { ResolveInput } from "./resolve-input.js";
 import { resolveComposition } from "./resolve.js";
+import type { ResolveInput } from "./resolve-input.js";
 import type { CapabilityCatalog, CapabilityDescriptor } from "./types.js";
 
 const NOW = "2026-09-22T00:00:00.000Z";

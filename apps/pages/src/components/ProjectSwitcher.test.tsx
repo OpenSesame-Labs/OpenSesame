@@ -37,6 +37,7 @@ const proj = vi.hoisted(() => ({
 }));
 
 import { projectSeams } from "@opensesame/app-core/lib/projects.js";
+
 Object.assign(projectSeams, {
   projectsState: () => proj.state,
   subscribeProjects: () => () => {},
@@ -45,13 +46,16 @@ Object.assign(projectSeams, {
 });
 
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+
 vi.spyOn(vaultStore, "isUnlocked").mockImplementation(() => proj.unlocked);
 
 import { guestAuthSeams } from "@opensesame/app-core/lib/guest-auth.js";
+
 Object.assign(guestAuthSeams, { continueAsGuest: proj.continueAsGuest });
 
 import { ProjectSwitcher, projectSwitcherSeams } from "./ProjectSwitcher.js";
 import { expectInTray } from "./tray.test-support.js";
+
 Object.assign(projectSwitcherSeams, {
   afterProjectChange: proj.afterProjectChange,
 });
@@ -101,6 +105,7 @@ describe("ProjectSwitcher — the @tomb prompt", () => {
     (source) => {
       const outerEscape = vi.fn();
       render(
+        // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
         <div onKeyDown={outerEscape}>
           <MemoryRouter>
             <ProjectSwitcher />

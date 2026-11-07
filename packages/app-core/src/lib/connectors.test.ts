@@ -11,8 +11,8 @@ import {
   repoHint,
 } from "./connectors.js";
 import type { PlaneStatus } from "./planes.js";
-import { settingsSeams } from "./settings.js";
 import type { PagesSettings } from "./settings.js";
+import { settingsSeams } from "./settings.js";
 
 Object.assign(settingsSeams, {
   loadSettings: () => ({}),

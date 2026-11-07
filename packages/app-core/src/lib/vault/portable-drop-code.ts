@@ -2,9 +2,10 @@
 import {
   type BoundaryValue,
   type JsonObject,
+  asBufferSource,
   isJsonObject,
   overlapCast,
- asBufferSource } from "@opensesame/os-domain";
+} from "@opensesame/os-domain";
 import { b64urlToBytes, bytesToB64url } from "@opensesame/vault-core";
 import {
   MAX_CODE_CIPHERTEXT_CHARS,
@@ -72,7 +73,11 @@ export async function sealCodeManifest(
   }
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: nonce, additionalData: asBufferSource(associatedData(binding)) },
+    {
+      name: "AES-GCM",
+      iv: nonce,
+      additionalData: asBufferSource(associatedData(binding)),
+    },
     await codeKey(code, binding.codeSalt),
     plaintext,
   );

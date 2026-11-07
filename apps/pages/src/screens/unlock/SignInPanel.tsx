@@ -40,13 +40,13 @@ import {
   readAuthOutcome,
 } from "@opensesame/app-core/lib/auth-outcome.js";
 import type { ByoRegistration } from "@opensesame/app-core/lib/byo.js";
-import { describeFederationError } from "@opensesame/app-core/lib/federation-copy.js";
 import {
   type BeginSignInOptions,
   type TrustedUpstream,
   beginSignIn as beginFederatedSignIn,
   defaultUpstream,
 } from "@opensesame/app-core/lib/federation.js";
+import { describeFederationError } from "@opensesame/app-core/lib/federation-copy.js";
 import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import { readLastSignIn } from "@opensesame/app-core/lib/last-sign-in.js";
 import {

@@ -22,8 +22,8 @@ import { IconKey } from "../../components/IconKey.js";
 import { IconLayers, IconPlus, IconTrash } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-import { type Person, UnlockCircleFields } from "./UnlockCircleFields.js";
 import { PanelFrame, useSaid } from "./panel-frame.js";
+import { type Person, UnlockCircleFields } from "./UnlockCircleFields.js";
 import { useDesk } from "./use-desk.js";
 
 /** Replaceable in tests: the vault files behind a circle. */

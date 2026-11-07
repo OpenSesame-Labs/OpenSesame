@@ -8,8 +8,8 @@
 import { NATIVE_PROVIDER_PURPOSE } from "@opensesame/app-core/lib/capabilities/catalog-always-on.js";
 import { EgressDenied } from "@opensesame/app-core/lib/capabilities/egress.js";
 import type { ApprovedCapabilityContext } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
-import { createBridgeClient } from "@opensesame/app-core/lib/connector-bridge-client.js";
 import type { BridgeChannel } from "@opensesame/app-core/lib/connector-bridge-client.js";
+import { createBridgeClient } from "@opensesame/app-core/lib/connector-bridge-client.js";
 import {
   bindNativeBridge,
   bridgeCarries,

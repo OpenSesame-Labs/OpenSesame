@@ -1,6 +1,7 @@
 /** Native Web Response/ReadableStream fault controls; injected slots and liveness failures are delivery doubles, never Root proof. */
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { readOriginalControlledResponseData } from "./original-controlled-response-data.js";
+
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 export type NativeResponseFault = Readonly<{
   name: string;

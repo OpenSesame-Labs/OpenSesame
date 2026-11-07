@@ -4,6 +4,7 @@ import {
   type NativeResponseFault,
   withNativeResponseControl,
 } from "./original-controlled-response.test-support.js";
+
 const alias = Promise.resolve("ordinary rejected-value identity");
 const paired: readonly NativeResponseFault[] = [
   {

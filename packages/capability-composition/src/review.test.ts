@@ -8,8 +8,8 @@ import {
   FIXTURE_POLICIES,
   fixtureResolveInput,
 } from "./fixtures.js";
-import type { ResolveInput } from "./resolve-input.js";
 import { resolveComposition } from "./resolve.js";
+import type { ResolveInput } from "./resolve-input.js";
 import { reviewCompositionChange } from "./review.js";
 import type { EffectivePlan } from "./types.js";
 

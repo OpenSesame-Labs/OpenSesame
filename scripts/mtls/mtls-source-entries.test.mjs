@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sourceEntryFailures } from "./mtls-source-entries.mjs";
+
 const cli = {
   name: "@opensesame/cli",
   exports: { ".": { types: "./dist/index.d.ts", default: "./dist/index.js" } },

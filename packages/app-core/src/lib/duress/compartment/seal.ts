@@ -3,13 +3,13 @@
  * Domain-separated from vault root seals — independent compartment keys only.
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   type BoundaryValue,
   type JsonObject,
   isJsonObject,
   overlapCast,
 } from "../json-boundary.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 const te = new TextEncoder();
 const IV_BYTES = 12;
@@ -64,7 +64,11 @@ export async function sealCompartmentJson(
   const pt = te.encode(JSON.stringify(value));
   const ct = new Uint8Array(
     await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv, additionalData: asBufferSource(aad(compartmentRef, keyEpoch)) },
+      {
+        name: "AES-GCM",
+        iv,
+        additionalData: asBufferSource(aad(compartmentRef, keyEpoch)),
+      },
       key,
       pt,
     ),
@@ -93,7 +97,9 @@ export async function openCompartmentJson<T>(
         {
           name: "AES-GCM",
           iv: asBufferSource(fromB64(blob.ivB64)),
-          additionalData: asBufferSource(aad(expect.compartmentRef, expect.keyEpoch)),
+          additionalData: asBufferSource(
+            aad(expect.compartmentRef, expect.keyEpoch),
+          ),
         },
         key,
         asBufferSource(fromB64(blob.ctB64)),

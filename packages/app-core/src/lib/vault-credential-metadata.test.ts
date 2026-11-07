@@ -2,15 +2,17 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as records from "./device-connector-records.js";
 import { encryptedRemoteContinuitySeed } from "./secret-backends/encrypted-remote-codec.js";
 import { createEncryptedRemoteContinuity } from "./secret-backends/encrypted-remote-continuity.js";
-import { deferred } from "./secret-backends/runtime.test-support.js";
-import { runtimeFixture } from "./secret-backends/runtime.test-support.js";
+import {
+  deferred,
+  runtimeFixture,
+} from "./secret-backends/runtime.test-support.js";
+import { vaultStore } from "./vault/store.js";
 import {
   assertVaultCredentials,
   readVaultCredentials,
   stageVaultCredentials,
   vaultCredentialField,
 } from "./vault-credential-custody.js";
-import { vaultStore } from "./vault/store.js";
 
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 beforeEach(async () => {

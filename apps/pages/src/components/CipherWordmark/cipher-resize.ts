@@ -1,6 +1,6 @@
 import { readCanvas2d } from "./canvas-context.js";
-import { slotTimingsJson } from "./cipher-timings.js";
 import type { DecryptRun } from "./cipher.js";
+import { slotTimingsJson } from "./cipher-timings.js";
 import { type Layout, layoutWordmark } from "./particles.js";
 
 const PAD = 4;

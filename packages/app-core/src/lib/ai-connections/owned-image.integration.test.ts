@@ -8,8 +8,11 @@ import { inferSpeechAi } from "./speech-inference.js";
 import { validateAiSpeechConnection } from "./speech-target.js";
 import { ownedSpeechAudio } from "./speech-tls.test-support.js";
 import { RASTER_FIXTURES } from "./stability-tls.test-support.js";
-import { aiConnectionRecord, commitAiConnection } from "./store.js";
-import { readAiConnection } from "./store.js";
+import {
+  aiConnectionRecord,
+  commitAiConnection,
+  readAiConnection,
+} from "./store.js";
 import { aiVaultSeams } from "./vault-guard.js";
 
 const cleanup: (() => Promise<void>)[] = [];

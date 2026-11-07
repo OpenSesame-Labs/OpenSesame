@@ -65,7 +65,11 @@ function Narration({
   id,
   tour,
   counter,
-}: { id: string; tour: GuideTourView; counter: string }): ReactElement {
+}: {
+  id: string;
+  tour: GuideTourView;
+  counter: string;
+}): ReactElement {
   const closing = tour.kind === "close";
   return (
     <p className="coach__text" id={id} aria-live="polite">
@@ -119,7 +123,6 @@ function Coach({
         ref={cardRef}
         className={`coach__card ${dock} coach__card--${tour.kind}${placement ? " is-placed" : ""}`}
         style={style}
-        // biome-ignore lint/a11y/useSemanticElements: a native <dialog open> would inert the page, and a tour must leave it live.
         role="dialog"
         aria-modal="false"
         aria-labelledby={titleId}

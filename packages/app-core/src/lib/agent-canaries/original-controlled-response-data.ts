@@ -1,6 +1,7 @@
 /** Owned native response DATA only. No reader or copied response creates an owner verdict. */
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { assertUnambiguousJson } from "../retired-credentials/json-preflight.js";
+
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 const callOriginal = Function.prototype.call.bind(Function.prototype.call);
 const originalFill = Uint8Array.prototype.fill;

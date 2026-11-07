@@ -1,24 +1,24 @@
 /** @vitest-environment jsdom */
 import { createItem } from "@opensesame/vault-core";
 import { afterEach, expect, it } from "vitest";
+import {
+  putBackupTarget,
+  resyncBackup,
+  setBackupTargetEnabled,
+} from "./backup.js";
 import { buildLocalBackupTarget } from "./backup-target-build.js";
 import {
   clearLocalBackupTarget,
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
-import {
-  putBackupTarget,
-  resyncBackup,
-  setBackupTargetEnabled,
-} from "./backup.js";
 import { useGithubBackupProviderFixture } from "./github-app-backup-provider.test-support.js";
+import { vaultStore } from "./vault/store.js";
 import {
   startVaultBackupObserver,
   stopVaultBackupObserver,
   vaultBackupObserverSeams,
 } from "./vault-backup-observer.js";
-import { vaultStore } from "./vault/store.js";
 
 const fixture = useGithubBackupProviderFixture();
 afterEach(stopVaultBackupObserver);

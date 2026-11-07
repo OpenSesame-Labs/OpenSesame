@@ -1,5 +1,6 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
+import { nativeAnswers } from "./native-api.test-support.js";
 import {
   nativeMessagingInventories,
   projectLinqMessagingLines,
@@ -10,7 +11,6 @@ import {
   invokeNativeApiResource,
   nativeApiResourceActions,
 } from "./native-api-resources.js";
-import { nativeAnswers } from "./native-api.test-support.js";
 
 const message = { id: "message-owned", direction: "mt" };
 const messages = {

@@ -13,11 +13,11 @@ import {
 } from "./native-connector-store.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-import { nativeOAuthClientClassification } from "./native-oauth-client-config.js";
 import {
   CLIENT_SECRET,
   nativeOAuthClientFixture,
 } from "./native-oauth-client.test-support.js";
+import { nativeOAuthClientClassification } from "./native-oauth-client-config.js";
 import { createNativeOAuthResourceDriver } from "./native-oauth-resource-driver.js";
 import {
   nativeOAuthGuard,
@@ -26,6 +26,7 @@ import {
 import { localVaultSessionGuard } from "./secret-backends/local-vault-port.js";
 import { runtimePassword } from "./secret-backends/runtime.test-support.js";
 import { vaultStore } from "./vault/store.js";
+
 const closes: (() => Promise<void>)[] = [];
 const operations: Promise<unknown>[] = [];
 afterEach(async () => {

@@ -44,6 +44,7 @@ import {
   runVaultRetired,
 } from "./vault-retired.js";
 import { type VaultSyncDependencies, runVaultSync } from "./vault-sync.js";
+
 function defaultIssuer(): string {
   return process.env.OPENSESAME_ISSUER ?? "http://127.0.0.1:8788";
 }
@@ -548,4 +549,4 @@ async function dispatch(
   }
 }
 
-export { parseArgs, helpText, SessionFileSchema };
+export { SessionFileSchema, helpText, parseArgs };

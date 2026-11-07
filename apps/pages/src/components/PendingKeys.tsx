@@ -3,6 +3,7 @@ import { keycapLabel } from "@opensesame/app-core/lib/keymap/notation.js";
 import { registerMacroName } from "@opensesame/app-core/lib/keymap/registers.js";
 import { loadKeymap } from "@opensesame/app-core/lib/keymap/store.js";
 import { useSyncExternalStore } from "react";
+import { currentBindings } from "../lib/keymap.js";
 import {
   type Continuation,
   type PendingKeys as Pending,
@@ -11,7 +12,6 @@ import {
   pendingSnapshot,
   subscribePending,
 } from "../lib/keymap-pending.js";
-import { currentBindings } from "../lib/keymap.js";
 
 /** Which-key stops here: one row never holds the whole `g` list anyway. */
 const MAX_SHOWN = 12;
@@ -79,6 +79,7 @@ export function PendingKeys() {
             <span className="pending-keys__typed">
               {pending.count > 0 ? <kbd>{pending.count}</kbd> : null}
               {pending.keys.map((key, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
                 <kbd key={`${index}-${key}`}>{keycapLabel(key)}</kbd>
               ))}
             </span>

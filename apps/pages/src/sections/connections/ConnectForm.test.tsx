@@ -7,12 +7,14 @@ import {
 import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import { connectionSeams } from "@opensesame/app-core/lib/connections.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
-import { vercelConnectCatalog } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import {
   setVercelConnectAuth,
   usesConnect,
 } from "@opensesame/app-core/lib/vercel-connect.js";
+import {
+  hasConnectRoute,
+  vercelConnectCatalog,
+} from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { localStore } from "@opensesame/app-core/ports.js";
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from "@testing-library/react";

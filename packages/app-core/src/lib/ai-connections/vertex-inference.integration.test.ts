@@ -8,6 +8,7 @@ import {
   vertexConnectionTarget,
   vertexResourceBase,
 } from "./vertex-target.js";
+
 installGcpKey();
 afterEach(() => vi.restoreAllMocks());
 function draft(

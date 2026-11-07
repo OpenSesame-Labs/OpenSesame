@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCredentialStore } from "./parity-credentials.js";
+
 const directories: string[] = [];
 afterEach(async () => {
   await Promise.all(

@@ -7,6 +7,7 @@ import {
   openAtRest,
   sealAtRest,
 } from "./cipher.js";
+
 const root = new Uint8Array(32).fill(19);
 const binding = atRestBinding("customer-a", "vault/secret");
 describe("record envelope segmentation", () => {

@@ -18,9 +18,9 @@ import {
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
-import { storeImportEntrySeams } from "./store-import-entry.js";
-import type { ImportOptions } from "./store-import.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
+import type { ImportOptions } from "./store-import.js";
+import { storeImportEntrySeams } from "./store-import-entry.js";
 
 const PASSWORD = "genuine sealed import source password 49375";
 const TARGET_PASSWORD = "genuine sealed import destination password 68245";

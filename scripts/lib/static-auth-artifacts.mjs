@@ -53,12 +53,24 @@ export function artifactPaths(version) {
 
 export function artifactOverride(paths) {
   return {
-    include: paths,
+    includes: paths,
     linter: { enabled: false },
     formatter: { enabled: false },
-    organizeImports: { enabled: false },
+    assist: { actions: { source: { organizeImports: "off" } } },
   };
 }
+
+/** Biome 2 spells the import organizer as an assist action: "on" or { level }. */
+const organizeImports = (entry) => {
+  const action = entry?.assist?.actions?.source?.organizeImports;
+  return action?.level ?? action;
+};
+
+/** Biome 2 ignores by negated `files.includes` entries (`!` or force-ignore `!!`). */
+const ignoredPatterns = (config) =>
+  (config.files?.includes ?? [])
+    .filter((pattern) => pattern.startsWith("!"))
+    .map((pattern) => pattern.replace(/^!!?/, ""));
 
 /**
  * A published release may be withdrawn for a security defect, but one that
@@ -169,25 +181,31 @@ export function validateStaticAuth(rootPath) {
   ]);
   inventory(root, allowed);
   const config = JSON.parse(readRegular(root, "biome.json"));
-  for (const tool of ["linter", "formatter", "organizeImports"])
+  for (const tool of ["linter", "formatter"])
     assert.equal(
       config[tool]?.enabled,
       true,
       "Authored-code checks must stay enabled",
     );
+  assert.equal(
+    organizeImports(config),
+    "on",
+    "Authored-code checks must stay enabled",
+  );
   const exceptions = (config.overrides ?? []).filter(
     (entry) =>
       entry.linter?.enabled === false ||
       entry.formatter?.enabled === false ||
-      entry.organizeImports?.enabled === false,
+      organizeImports(entry) === "off",
   );
   assert.deepEqual(
     exceptions,
     [artifactOverride(paths)],
     "Generated-code exception drift",
   );
+  const ignored = ignoredPatterns(config);
   assert.ok(
-    !(config.files?.ignore ?? []).some(
+    !ignored.some(
       (path) => path.includes("static-auth") || path.includes("public/auth.js"),
     ),
     "Artifacts must use exact overrides, not ignored directories",
@@ -195,9 +213,7 @@ export function validateStaticAuth(rootPath) {
   for (const entry of manifest.artifacts) {
     for (let path = entry.path; path !== "."; path = dirname(path)) {
       assert.ok(
-        !(config.files?.ignore ?? []).some((pattern) =>
-          matchesGlob(path, pattern),
-        ),
+        !ignored.some((pattern) => matchesGlob(path, pattern)),
         "Artifacts must use exact overrides, not ignored directories",
       );
     }

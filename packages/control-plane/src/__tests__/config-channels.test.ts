@@ -1,8 +1,8 @@
 import { generateVapidKeyPair } from "@opensesame/notification-adapters";
 import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
-import { notificationChannelsFromEnv } from "../config-channels.js";
 import { loadConfig } from "../config.js";
+import { notificationChannelsFromEnv } from "../config-channels.js";
 import { createControlPlane } from "../create-app.js";
 import { authed, principal } from "./notification-kit.js";
 

@@ -28,13 +28,12 @@ export function bindAiResponseLifetime(
   bindNativeResponseLifetime(response, retire, signal);
 }
 
-/** Keep existing AI consumers on the single neutral physical-response registry. */
-export { aiResponseBodySignal, finishAiResponseBody };
-
 export {
   type AiCompletionObservation,
   aiCompletionSeams,
 } from "../ai-completion-observation.js";
+/** Keep existing AI consumers on the single neutral physical-response registry. */
+export { aiResponseBodySignal, finishAiResponseBody };
 
 /** Finite operations retain the original transport identity and owning caller. */
 export function aiFiniteProtocolAuthority(

@@ -7,6 +7,7 @@ import { decodeJwt } from "jose";
 
 import type { OidcOrganization } from "../../lib/identity-oidc-config.js";
 import { assertOidcOrganization } from "../../lib/identity-oidc-config.js";
+
 export type { OidcOrganization } from "../../lib/identity-oidc-config.js";
 export { assertOidcOrganization } from "../../lib/identity-oidc-config.js";
 export type OidcOwner = Readonly<{

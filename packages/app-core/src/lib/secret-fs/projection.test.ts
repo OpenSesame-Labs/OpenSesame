@@ -6,8 +6,8 @@ import {
 } from "@opensesame/vault-core";
 import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
-import { SecretFsUnavailable } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsUnavailable } from "./errors.js";
 import { failureOf } from "./files.conformance.js";
 import type { SecretFiles } from "./files.js";
 import { makeMemorySecretFiles } from "./memory.js";

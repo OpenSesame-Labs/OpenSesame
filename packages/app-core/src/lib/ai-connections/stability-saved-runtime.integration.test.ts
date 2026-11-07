@@ -12,8 +12,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "../secret-backends/runtime.test-support.js";
-import { initializeVaultCredentialCustody } from "../vault-credential-custody.js";
 import { vaultStore } from "../vault/store.js";
+import { initializeVaultCredentialCustody } from "../vault-credential-custody.js";
 import { vfsFlush } from "../vfs.js";
 import { aiDelegationAvailable } from "./delegation.js";
 import { AiImageOutput } from "./image-output.js";

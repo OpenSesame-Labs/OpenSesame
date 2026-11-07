@@ -6,8 +6,8 @@ import {
 } from "@opensesame/vault-core";
 import { describe, expect, it, vi } from "vitest";
 import type { MenuItem } from "../../components/context-menu/menu-model.js";
-import { credentialChoices } from "./account-credentials.js";
 import { makeAccount } from "./account.test-support.js";
+import { credentialChoices } from "./account-credentials.js";
 import { type VaultTreeActions, vaultItemMenu } from "./vault-menu.js";
 
 const apiKey = (key = "ak_1", id = "k"): LoginMethod => ({

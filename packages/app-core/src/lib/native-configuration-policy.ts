@@ -12,6 +12,7 @@ import {
 } from "./native-connector-transport.js";
 import { configuredMcpTarget } from "./native-mcp-configured-config.js";
 import { nativeMcpProviderMetadata } from "./native-mcp-profile.js";
+
 function actualTargets(
   providerId: string,
   method: NativeConfiguration["method"],

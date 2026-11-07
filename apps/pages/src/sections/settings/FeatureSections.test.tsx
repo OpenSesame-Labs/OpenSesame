@@ -8,9 +8,9 @@ import {
 import { FIXTURE_MANAGED_POLICY } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
 import {
   double,
+  installDoublePorts,
   resetDouble,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   guestsAllowed,
   setGuestsAllowed,

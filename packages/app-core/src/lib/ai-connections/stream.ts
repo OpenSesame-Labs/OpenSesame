@@ -1,5 +1,5 @@
-import { isJsonObject, isString } from "@opensesame/os-domain";
 import type { BoundaryValue } from "@opensesame/os-domain";
+import { isJsonObject, isString } from "@opensesame/os-domain";
 import {
   aiCompletionSeams,
   aiResponseBodySignal,

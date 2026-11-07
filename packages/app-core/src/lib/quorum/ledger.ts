@@ -353,10 +353,10 @@ export class QuorumLedger {
   }
 }
 
+export { cancellationBytes, signCancellation } from "./cancellation.js";
 export type {
   LedgerSnapshot,
   LedgerStatus,
   LedgerVerdict,
   Outcome,
 } from "./ledger-types.js";
-export { cancellationBytes, signCancellation } from "./cancellation.js";

@@ -9,12 +9,13 @@
 import {
   type BoundaryValue,
   type JsonValue,
+  asBufferSource,
   isBoolean,
   isJsonObject,
   isNumber,
   isString,
   overlapCast,
- asBufferSource } from "@opensesame/os-domain";
+} from "@opensesame/os-domain";
 import { canonicalizeToBytes } from "../../vault/protection/canonicalize.js";
 import {
   DIGEST_PREFIX,

@@ -1,3 +1,4 @@
+import type { AccountItem, VaultItem } from "@opensesame/vault-core";
 import { cleanup, render, screen } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { MemoryRouter } from "react-router";
@@ -11,8 +12,6 @@ import {
   vi,
 } from "vitest";
 
-import type { AccountItem, VaultItem } from "@opensesame/vault-core";
-
 type VaultFixture = { current: { items: VaultItem[] } };
 
 const vault = vi.hoisted(
@@ -22,16 +21,17 @@ const vault = vi.hoisted(
 );
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, { useVault: () => vault.current });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
 import { publishBreachWatch } from "@opensesame/app-core/lib/vault/health.js";
-import { HealthPanel } from "./HealthPanel.js";
 import {
   type AccountSeed,
   makeAccount as makeAccountBase,
 } from "./account.test-support.js";
+import { HealthPanel } from "./HealthPanel.js";
 
 let seq = 0;
 

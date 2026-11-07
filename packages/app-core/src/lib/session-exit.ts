@@ -21,8 +21,8 @@
 import { ambientAuthSeams } from "./ambient-auth-seam.js";
 import { storeAuthOutcome } from "./auth-outcome.js";
 import { forgetClaim } from "./claims/arrival.js";
-import { clearPendingSignIn } from "./federation-pending.js";
 import { clearSession as clearFederationSession } from "./federation.js";
+import { clearPendingSignIn } from "./federation-pending.js";
 import { forgetPendingLink } from "./guest-auth.js";
 import { endSession } from "./identity.js";
 import { endJoinAuthority } from "./join/client.js";

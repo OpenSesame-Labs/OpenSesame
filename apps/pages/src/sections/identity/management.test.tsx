@@ -10,8 +10,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { installOrgDirectory } from "../../lib/orgs-directory.js";
 import { AgentsPanel } from "./AgentsPanel.js";
 import { ServiceAccountsPanel } from "./HostedApplicationsPanel.js";
-import { UsersPanel } from "./UsersPanel.js";
 import { makeClient } from "./test-fixtures.js";
+import { UsersPanel } from "./UsersPanel.js";
 
 const session = {
   principalId: "prn_test",

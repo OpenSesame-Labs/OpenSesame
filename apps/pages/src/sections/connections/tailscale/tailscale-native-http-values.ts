@@ -1,9 +1,9 @@
 import { TailscaleHTTPRouteConfiguration } from "@opensesame/app-core/lib/tailscale/browser-node-peer-http.js";
-import { nativeNextValues } from "../connect/native-connector-ui-values.js";
 import type {
   NativeField,
   NativeFieldValues,
 } from "../connect/native-connector-ui.js";
+import { nativeNextValues } from "../connect/native-connector-ui-values.js";
 import { serverTrustFields } from "./tailscale-server-trust-values.js";
 
 export const nativeHTTPModeFields: readonly NativeField[] = [

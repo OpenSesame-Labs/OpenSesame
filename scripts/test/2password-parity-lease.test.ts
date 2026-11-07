@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { grantLease } from "../../packages/app-core/src/lib/password-agent/lease-grant.js";
 import {
   type LeaseRecord,
   type LeaseStorePort,
@@ -10,12 +9,14 @@ import {
   inspectReference,
   resolverWith,
 } from "../../packages/app-core/src/lib/password-agent/lease.js";
-import { leasedRequest } from "../../packages/app-core/src/lib/password-agent/request-leased.js";
+import { grantLease } from "../../packages/app-core/src/lib/password-agent/lease-grant.js";
 import {
   type RequestOptions,
   type RequestPorts,
   describeRequest,
 } from "../../packages/app-core/src/lib/password-agent/request.js";
+import { leasedRequest } from "../../packages/app-core/src/lib/password-agent/request-leased.js";
+
 const secret = "LEASE_PRIVATE_SENTINEL";
 const options: RequestOptions = {
   url: "https://example.test/use/PATH_PRIVATE?token=QUERY_PRIVATE",

@@ -5,6 +5,7 @@ import type {
 /** Reader method identity only; a matching reader never proves authentication. */
 import type { PhysicalDeviceRecordReader } from "./physical-device-record-port.js";
 import type { PhysicalVaultPublicationReader } from "./physical-vault-publication-port.js";
+
 function changed(): never {
   throw new Error("Original physical reader methods changed.");
 }

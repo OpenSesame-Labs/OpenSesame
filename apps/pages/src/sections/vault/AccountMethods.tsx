@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePackSnapshot } from "../../bindings/type-packs.js";
 import { IconPlus } from "../../components/Icons.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
+import { bindableCredentials, credentialPackSeams } from "./account-secrets.js";
 import { MethodPicker, methodTitle, newMethod } from "./MethodPicker.js";
 import {
   ApiKeyLines,
@@ -20,7 +21,6 @@ import {
   TokenLines,
 } from "./OtherMethodEditors.js";
 import { PasswordMethodEditor } from "./PasswordMethodEditor.js";
-import { bindableCredentials, credentialPackSeams } from "./account-secrets.js";
 import { usePasswordResetGenerate } from "./use-password-reset-generate.js";
 
 /** One login method's lines: each value on a line of its own, the × on the first. */

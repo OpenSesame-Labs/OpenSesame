@@ -1,8 +1,8 @@
+export type { PendingRequest } from "./pending-request.js";
+export { cliAppIntegrationPolicy } from "./policy-runtime.js";
 export {
-  CliAppIntegrationStore,
   type ApprovedSession,
+  CliAppIntegrationStore,
   type EnsureResult,
   type EnsureStatus,
 } from "./session.js";
-export type { PendingRequest } from "./pending-request.js";
-export { cliAppIntegrationPolicy } from "./policy-runtime.js";

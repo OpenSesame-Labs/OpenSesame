@@ -7,10 +7,6 @@ import { b64urlToBytes } from "@opensesame/vault-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { openDrop, sealDrop } from "./drop.js";
 import {
-  decodePortableDropPacket,
-  openPortableDropManifest,
-} from "./portable-drop-crypto.js";
-import {
   PORTABLE_DROP_TOKEN_PREFIX,
   buildPortableDropBundle,
   createPortableDropSession,
@@ -19,6 +15,10 @@ import {
   portableDropLink,
   resetPortableDropAttemptsForTests,
 } from "./portable-drop.js";
+import {
+  decodePortableDropPacket,
+  openPortableDropManifest,
+} from "./portable-drop-crypto.js";
 
 const TEXT = { kind: "text" as const, name: "Deploy token", text: "s3cr3t" };
 const CODE = "ABCD-EFGH";

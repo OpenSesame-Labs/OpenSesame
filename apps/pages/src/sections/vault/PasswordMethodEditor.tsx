@@ -11,11 +11,11 @@ import type {
 } from "@opensesame/vault-core";
 import { useState } from "react";
 import { GeneratorOptions } from "../../components/GeneratorOptions.js";
+import { regenerate, switchGenerator } from "./account-secrets.js";
 import { CredentialLine } from "./CredentialLine.js";
 import { LegacyConvert } from "./LegacyConvert.js";
 import { PasswordControl } from "./PasswordControl.js";
 import { PepperCheck } from "./PepperCheck.js";
-import { regenerate, switchGenerator } from "./account-secrets.js";
 
 /** The generator a select value names, if it is one a person can choose. */
 function generatorId(value: string): OfferedGeneratorId | undefined {

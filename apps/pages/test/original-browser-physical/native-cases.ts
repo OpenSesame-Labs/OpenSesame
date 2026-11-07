@@ -18,6 +18,7 @@ import { VaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { createItem } from "@opensesame/vault-core";
 import * as fixture from "./native-fixture.js";
+
 const PASSWORD = "controlled original browser owner password";
 const HEADER = "tomb/personal/header";
 const BODY = "tomb/personal/body";

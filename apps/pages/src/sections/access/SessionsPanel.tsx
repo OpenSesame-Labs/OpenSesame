@@ -1,15 +1,17 @@
 import { useVault } from "../../lib/vault/hooks.js";
 import { LocalAuthorityPanel } from "./LocalAuthorityPanel.js";
 import { LocalAuthorityTemplates } from "./LocalAuthorityTemplates.js";
-import { SentDropsPanel } from "./SentDropsPanel.js";
-import { VaultSessionsPanel } from "./VaultSessionsPanel.js";
 import { Receipts } from "./receipts.js";
-
+import { SentDropsPanel } from "./SentDropsPanel.js";
 import { useReceiptsSession } from "./use-receipts-session.js";
+import { VaultSessionsPanel } from "./VaultSessionsPanel.js";
 export function SessionsPanel({
   online,
   panel = "local-sessions",
-}: { online: boolean; panel?: string }) {
+}: {
+  online: boolean;
+  panel?: string;
+}) {
   const session = useReceiptsSession();
   const { tomb } = useVault();
   return (

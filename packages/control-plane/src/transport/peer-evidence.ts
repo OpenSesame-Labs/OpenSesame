@@ -14,7 +14,6 @@
  * so this module is the Identity plane's privileged producer.
  */
 import { X509Certificate, createHash } from "node:crypto";
-import { decodeSelector, selectorsEqual } from "@opensesame/os-domain";
 import type {
   EvidenceSource,
   PeerEvidenceView,
@@ -23,6 +22,7 @@ import type {
   TransportPolicy,
   TrustProfileRef,
 } from "@opensesame/os-domain";
+import { decodeSelector, selectorsEqual } from "@opensesame/os-domain";
 
 export type {
   EvidenceSource,

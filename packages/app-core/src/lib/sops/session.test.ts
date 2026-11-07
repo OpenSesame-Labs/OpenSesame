@@ -4,8 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SopsError } from "./errors.js";
 import { planDigest, planFromRecipients } from "./plan.js";
 import { MAX_MESSAGE_BYTES, parseRequest, parseResponse } from "./protocol.js";
-import { SopsSession } from "./session.js";
-import { bindSopsSession } from "./session.js";
+import { SopsSession, bindSopsSession } from "./session.js";
 import { vaultLifecycleSource } from "./vault-binding.js";
 import { SopsWorkflow } from "./workflow.js";
 

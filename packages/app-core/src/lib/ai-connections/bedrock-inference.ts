@@ -18,6 +18,7 @@ import {
 import { aiConnectionBase } from "./configuration.js";
 import { checkAiResponse, readAiJson } from "./http.js";
 import { AiConnectionError, type AiConnectionTransport } from "./types.js";
+
 const Answer = z.object({
   output: z.object({
     message: z.object({

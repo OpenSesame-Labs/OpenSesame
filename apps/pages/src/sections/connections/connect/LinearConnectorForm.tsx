@@ -26,8 +26,8 @@ import { FormCommit } from "../../../components/FormCommit.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { LinearCancelSignIn } from "./LinearCancelSignIn.js";
 import { LinearConnectorFields } from "./LinearConnectorFields.js";
-import { NativeCancelSignIn } from "./NativeCancelSignIn.js";
 import { linearAuthorization } from "./linear-authorization-ui.js";
+import { NativeCancelSignIn } from "./NativeCancelSignIn.js";
 import type {
   NativeAuthorizationSink,
   NativeAuthorizationTicket,

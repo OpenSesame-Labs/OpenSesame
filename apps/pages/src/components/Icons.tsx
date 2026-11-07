@@ -15,56 +15,55 @@ import {
 import { type IconProps, Svg } from "./icon-frame.js";
 
 export {
+  IconAlert,
+  IconArrowRight,
+  IconCheck,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronUp,
+  IconClock,
+  IconCopy,
+  IconDots,
+  IconDownload,
+  IconDrop,
+  IconEdit,
+  IconExternal,
+  IconEye,
+  IconEyeOff,
+  IconFilter,
+  IconFolder,
+  IconHelp,
+  IconInfo,
+  IconLayers,
+  IconLock,
+  IconMenu,
+  IconMonitor,
+  IconMoon,
+  IconPause,
+  IconPlay,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconShield,
+  IconSignOut,
+  IconSkip,
+  IconSkipAll,
+  IconStar,
+  IconSun,
+  IconSupport,
+  IconTerminal,
+  IconTrash,
+  IconUpload,
+  IconX,
+} from "./Icons.actions.js";
+export {
   IconDotsVertical,
   IconKeyboard,
   IconRecord,
   IconSwap,
 } from "./Icons.keys.js";
-
 export type { IconProps };
-export {
-  IconSearch,
-  IconStar,
-  IconEdit,
-  IconArrowRight,
-  IconTrash,
-  IconPlus,
-  IconLayers,
-  IconCopy,
-  IconEye,
-  IconEyeOff,
-  IconRefresh,
-  IconCheck,
-  IconX,
-  IconChevronRight,
-  IconChevronLeft,
-  IconChevronUp,
-  IconChevronDown,
-  IconSkip,
-  IconSkipAll,
-  IconDots,
-  IconMenu,
-  IconFilter,
-  IconFolder,
-  IconShield,
-  IconAlert,
-  IconInfo,
-  IconSupport,
-  IconHelp,
-  IconLock,
-  IconExternal,
-  IconDownload,
-  IconUpload,
-  IconDrop,
-  IconClock,
-  IconTerminal,
-  IconSun,
-  IconMoon,
-  IconMonitor,
-  IconPause,
-  IconPlay,
-  IconSignOut,
-} from "./Icons.actions.js";
 
 /* —— Brand ———————————————————————————————————————————————————
    The mark is the door ajar: the vault slab slid aside, a slit of light
@@ -80,6 +79,7 @@ const MARK = markRects(
 
 export function IconMark({ className, title, size = 20 }: IconProps) {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: pre-existing; newly reported by Biome 2. The <title> is rendered when a title prop is given; untitled icons are decorative
     <svg
       className={className}
       width={size}

@@ -13,7 +13,10 @@ export type FindStoredConsent = (
 
 type GrantCtor = {
   find(id: string): Promise<BoundaryValue>;
-  new (args: { accountId: string; clientId: string }): {
+  new (args: {
+    accountId: string;
+    clientId: string;
+  }): {
     addOIDCScope(scope: string): void;
     addOIDCClaims(claims: string[]): void;
     save(): Promise<string>;

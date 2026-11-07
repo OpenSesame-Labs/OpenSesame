@@ -22,7 +22,6 @@ import { StatusMark } from "../../../components/StatusMark.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import { useCeremonyFailure } from "../failure-text.js";
 import type { Desk } from "../use-desk.js";
-import { Choices, PickField } from "./Choices.js";
 import {
   ASK_KINDS,
   type AskKind,
@@ -32,6 +31,7 @@ import {
   policiesFor,
   targetsOf,
 } from "./ask-model.js";
+import { Choices, PickField } from "./Choices.js";
 
 /** The people of this vault's directory a share can be given to. */
 function usePeople(tomb: string): GrantIdentity[] | null {

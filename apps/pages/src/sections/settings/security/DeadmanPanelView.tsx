@@ -5,11 +5,11 @@ import { FormCommit } from "../../../components/FormCommit.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconCheck, IconCopy } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { SheetFrame } from "./SheetFrame.js";
 import type {
   DeadmanPanelModel,
   createDeadmanActions,
 } from "./deadman-panel-actions.js";
+import { SheetFrame } from "./SheetFrame.js";
 
 type ViewProps = {
   model: DeadmanPanelModel;

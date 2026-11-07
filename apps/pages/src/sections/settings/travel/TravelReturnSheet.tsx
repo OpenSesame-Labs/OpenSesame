@@ -8,10 +8,10 @@ import { CeremonySheet } from "../../../components/CeremonySheet.js";
 import { CeremonyShell } from "../../../components/CeremonyShell.js";
 import { FieldShell } from "../../../components/FieldShell.js";
 import { IconDownload, IconUpload } from "../../../components/Icons.js";
-import { TravelNoticeMark } from "./TravelNoticeMark.js";
-import { TravelRow } from "./TravelViews.js";
 import { anyItemReturns, itemsPreviewFacts } from "./items-text.js";
 import { anyComesHome, previewFacts, sitesComing } from "./return-text.js";
+import { TravelNoticeMark } from "./TravelNoticeMark.js";
+import { TravelRow } from "./TravelViews.js";
 import type { useTravelFlow } from "./useTravelFlow.js";
 
 type Flow = ReturnType<typeof useTravelFlow>;

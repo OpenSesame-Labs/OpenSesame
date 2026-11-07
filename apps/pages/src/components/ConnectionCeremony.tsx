@@ -8,9 +8,11 @@ import {
   defaultUpstream,
 } from "@opensesame/app-core/lib/federation.js";
 import { claimGuestAuth } from "@opensesame/app-core/lib/guest-auth.js";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-
 import { failureSentence } from "@opensesame/app-core/lib/probe-failure.js";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useConnectivityMonitor } from "../bindings/connectivity-monitor.js";
+import { useConnectors } from "../bindings/connectors.js";
+import { useConnect } from "../bindings/identity.js";
 import { useModalFocus } from "../lib/modal-focus.js";
 import { IconKey } from "./IconKey.js";
 import { IconLogin, IconRefresh, IconVault, IconX } from "./Icons.js";
@@ -18,9 +20,6 @@ import { IdentityCeremony } from "./IdentityCeremony.js";
 import { KeyVaultCeremony } from "./KeyVaultCeremony.js";
 import { StatusMark } from "./StatusMark.js";
 
-import { useConnectivityMonitor } from "../bindings/connectivity-monitor.js";
-import { useConnectors } from "../bindings/connectors.js";
-import { useConnect } from "../bindings/identity.js";
 /**
  * The sheet every connection is repaired in, and the glyph each connector is
  * drawn as everywhere it appears.
@@ -89,7 +88,6 @@ export function ConnectionCeremony({
       <div
         ref={sheetRef}
         className="sheet"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label={`${connector.name} connection`}
         aria-modal="true"

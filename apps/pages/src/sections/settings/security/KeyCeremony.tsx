@@ -9,7 +9,6 @@ import {
 } from "../../../components/CeremonyShell.js";
 import { IconPasskey, IconTrash } from "../../../components/Icons.js";
 import { useVaultStore } from "../../../lib/vault/hooks.js";
-import { SecretKeyCard } from "./SecretKeyCard.js";
 import {
   KEY_NOUN,
   KEY_TITLE,
@@ -18,6 +17,7 @@ import {
   keyIcon,
 } from "./key-kinds.js";
 import type { Run } from "./run.js";
+import { SecretKeyCard } from "./SecretKeyCard.js";
 
 export {
   KEY_NOUN,

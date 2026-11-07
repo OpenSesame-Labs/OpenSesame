@@ -8,7 +8,6 @@
 import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
-import type { StoredReceipt } from "./device-receipts-store.js";
 import {
   flushReceipts,
   listReceipts,
@@ -16,6 +15,7 @@ import {
   recordReceipt,
   resetHeldReceiptsForTest,
 } from "./device-receipts.js";
+import type { StoredReceipt } from "./device-receipts-store.js";
 import {
   lockAllTombs,
   readFile,

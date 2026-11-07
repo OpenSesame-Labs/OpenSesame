@@ -32,8 +32,8 @@ import {
 } from "./keys.js";
 import { assertLeaseCurrent, leaseIsCurrent } from "./lease.js";
 import { CapabilityDenied } from "./runtime-contract.js";
-import { readCommittedGeneration } from "./store-persist.js";
 import { compositionStore, storeSeams } from "./store.js";
+import { readCommittedGeneration } from "./store-persist.js";
 
 export function assertCurrentOperationAuthority(
   op: OperationId,

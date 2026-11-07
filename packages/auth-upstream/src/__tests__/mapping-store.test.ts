@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MemoryPrincipalMappingStore } from "../mapping.js";
 import type { PrincipalMapping } from "../mapping.js";
+import { MemoryPrincipalMappingStore } from "../mapping.js";
 
 function mapping(overrides: Partial<PrincipalMapping> = {}): PrincipalMapping {
   return {
