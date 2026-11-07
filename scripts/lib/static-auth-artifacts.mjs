@@ -44,16 +44,25 @@ export const integrity = (bytes) =>
   `sha384-${createHash("sha384").update(bytes).digest("base64")}`;
 
 const authoredSource = "packages/static-auth/src/index.ts";
-const included = (includes, path) => {
+const included = (includes, path, directories = false) => {
   if (includes?.length === 0) return false;
   const patterns = includes ?? [];
+  const candidates = [path];
+  if (directories)
+    for (let parent = dirname(path); parent !== "."; parent = dirname(parent))
+      candidates.push(parent);
   const positive = patterns.filter((pattern) => !pattern.startsWith("!"));
   const admitted =
     positive.length === 0 ||
-    positive.some((pattern) => matchesGlob(path, pattern));
+    positive.some((pattern) =>
+      candidates.some((candidate) => matchesGlob(candidate, pattern)),
+    );
   const excluded = patterns.some(
     (pattern) =>
-      pattern.startsWith("!") && matchesGlob(path, pattern.replace(/^!!?/, "")),
+      pattern.startsWith("!") &&
+      candidates.some((candidate) =>
+        matchesGlob(candidate, pattern.replace(/^!!?/, "")),
+      ),
   );
   return admitted && !excluded;
 };
@@ -213,7 +222,7 @@ export function validateStaticAuth(rootPath) {
     );
   }
   for (const path of [...paths, authoredSource])
-    if (!included(config.files?.includes, path))
+    if (!included(config.files?.includes, path, true))
       throw new Error("Artifacts and authored sources must stay included");
   assert.equal(
     organizeImports(config, authoredSource),
