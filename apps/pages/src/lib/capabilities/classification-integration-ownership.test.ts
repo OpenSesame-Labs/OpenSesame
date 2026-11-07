@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { classify } from "./classification.js";
-
 describe("new route-shell and shared integration metadata ownership", () => {
   it("keeps precise core/shared owners and preserves optional runtime exclusion", () => {
     expect(classify("src/app-vault-shell.tsx")).toMatchObject({

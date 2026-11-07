@@ -3,6 +3,7 @@ import { deviceConnection } from "../device-connectors.js";
 import { vaultStore } from "../vault/store.js";
 import { createSecretBackend } from "./factory.js";
 import { secretBackendDraft } from "./presets.js";
+import { secretBackendVaultGuard } from "./runtime-guard.js";
 import {
   connectSecretBackend,
   probeSecretBackend,
@@ -15,7 +16,6 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "./runtime.test-support.js";
-import { secretBackendVaultGuard } from "./runtime-guard.js";
 import { createSecretBackendSessions } from "./sessions.js";
 import { bindSecretBackendTransport } from "./transport.js";
 import type { SecretBackend, SecretBackendSession } from "./types.js";

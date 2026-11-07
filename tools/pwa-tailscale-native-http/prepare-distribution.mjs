@@ -25,7 +25,6 @@ import {
 } from "./owned-process-group.mjs";
 import { describePreparationFailure } from "./preparation-diagnostics.mjs";
 import { assertNativeTaskResources } from "./task-resources.mjs";
-
 const digestPattern = /^[a-f0-9]{64}$/;
 const inFlight = new Map();
 const hash = (value) => createHash("sha256").update(value).digest("hex");

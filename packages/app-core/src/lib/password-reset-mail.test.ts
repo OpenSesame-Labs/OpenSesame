@@ -1,11 +1,6 @@
 import { createItem } from "@opensesame/vault-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  JMAP_MAILBOX,
-  type MailboxValues,
-  mailboxItem,
-} from "./password-reset/mailbox.test-support.js";
-import {
   accountsBoundTo,
   autonomousPasswordResetReady,
   installAutonomousResetReady,
@@ -15,6 +10,11 @@ import {
   resetMailboxes,
   resetPasswordResetMailForTest,
 } from "./password-reset-mail.js";
+import {
+  JMAP_MAILBOX,
+  type MailboxValues,
+  mailboxItem,
+} from "./password-reset/mailbox.test-support.js";
 import { entryToVaultItem, vaultItemToEntry } from "./vault/store-sync.js";
 
 afterEach(() => {

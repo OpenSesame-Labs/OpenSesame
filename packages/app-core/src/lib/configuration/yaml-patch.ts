@@ -20,9 +20,9 @@ function formatScalar(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
-function valueRange(node: {
-  range?: [number, number, number] | null;
-}): [number, number] | null {
+function valueRange(node: { range?: [number, number, number] | null }):
+  | [number, number]
+  | null {
   const range = node.range;
   if (!range) return null;
   return [range[0], range[1]];

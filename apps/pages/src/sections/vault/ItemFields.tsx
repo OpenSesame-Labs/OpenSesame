@@ -7,8 +7,8 @@ import {
   PasskeyFields,
   SecretFields,
 } from "./ItemFieldRows.js";
-import { KindRecord } from "./item-contributions.js";
 import { TypedFieldRows, UnknownTypeRows } from "./TypedFields.js";
+import { KindRecord } from "./item-contributions.js";
 
 type FieldsProps = {
   item: VaultItem;

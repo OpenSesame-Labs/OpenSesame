@@ -13,6 +13,8 @@ import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { expect, it } from "vitest";
 import { ConnectedPanel } from "./ConnectedPanel.js";
+import { NeedsAttention } from "./NeedsAttention.js";
+import { nativeConnectorHeaderStatus } from "./SettingsPageNativeStatus.js";
 import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
 import { savePriorApiProof } from "./connect/native-browser-policy.test-support.js";
 import {
@@ -20,11 +22,8 @@ import {
   installConnectorIntegration,
   integrationProvider,
 } from "./connect/native-connector-integration.test-support.js";
-import { NeedsAttention } from "./NeedsAttention.js";
 import { connectedPageItems } from "./page-tree.js";
-import { nativeConnectorHeaderStatus } from "./SettingsPageNativeStatus.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
-
 installConnectorIntegration();
 declareConnectionsTutorial();
 

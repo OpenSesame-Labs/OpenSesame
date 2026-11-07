@@ -21,6 +21,7 @@ import {
   fieldValue,
   isDisabled,
 } from "../trusted-contacts.test-support.js";
+import { NewCircleSheet } from "./NewCircleSheet.js";
 import {
   answer,
   byId,
@@ -31,7 +32,6 @@ import {
   someItems,
   tabTo,
 } from "./circles.test-support.js";
-import { NewCircleSheet } from "./NewCircleSheet.js";
 
 let restores: (() => void)[] = [];
 let copies: string[] = [];

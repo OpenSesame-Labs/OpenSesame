@@ -7,18 +7,17 @@ import {
   readNativeConnector,
   updateNativeConnector,
 } from "./native-connector-store.js";
+import { configuredMcpClassification } from "./native-mcp-configured-config.js";
+import { createConfiguredMcpDriver } from "./native-mcp-configured-driver.js";
 import {
   MCP_KEY,
   type McpCredentialMode,
   configuredMcpFixture,
 } from "./native-mcp-configured.test-support.js";
-import { configuredMcpClassification } from "./native-mcp-configured-config.js";
-import { createConfiguredMcpDriver } from "./native-mcp-configured-driver.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
 import { itemText } from "./vault/item-departure.js";
 import { vaultStore } from "./vault/store.js";
 import { vfsFlush } from "./vfs.js";
-
 const closing: (() => Promise<void> | void)[] = [];
 const running: Promise<unknown>[] = [];
 afterEach(async () => {

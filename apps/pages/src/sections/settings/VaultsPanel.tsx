@@ -20,7 +20,6 @@ import {
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useState } from "react";
-import { useDeviceVaults } from "../../bindings/vaults.js";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconPlus, IconTrash } from "../../components/Icons.js";
@@ -28,6 +27,8 @@ import { StatusMark } from "../../components/StatusMark.js";
 import { VaultList } from "../../components/VaultList.js";
 import { useVault } from "../../lib/vault/hooks.js";
 import { GuideTarget } from "../../tutorial/registry/react.jsx";
+
+import { useDeviceVaults } from "../../bindings/vaults.js";
 import { DeleteVaultSheet } from "./DeleteVaultSheet.js";
 import { NewVaultSheet } from "./NewVaultSheet.js";
 

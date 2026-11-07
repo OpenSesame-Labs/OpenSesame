@@ -1,7 +1,6 @@
 /** Native Google issuer class proof and an explicit, payload-screened Save-to-Wallet handoff. */
-
-import type { BoundaryValue } from "@opensesame/os-domain";
 import { canonicalize, isJsonObject, isString } from "@opensesame/os-domain";
+import type { BoundaryValue } from "@opensesame/os-domain";
 import {
   type GoogleWalletEnabled,
   parseGoogleWalletConfig,
@@ -31,7 +30,6 @@ import type { NativeKeySpec, NativeKeyTarget } from "./native-key-types.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
 import { nativeResponseJson } from "./native-response-json.js";
 import { zodJitless } from "./zod-jitless.js";
-
 zodJitless();
 const TOKEN = "https://oauth2.googleapis.com/token";
 const PUBLIC = ["issuer_id", "class_id", "origin", "client_email"];

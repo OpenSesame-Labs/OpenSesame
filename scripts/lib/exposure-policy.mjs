@@ -2,7 +2,6 @@
 import { isJsonObject, isString } from "./json-boundary.mjs";
 export const POLICY_PATH = "tools/security/exposure-matrix.json";
 export const digestPattern = /^[a-f0-9]{64}$/u;
-
 import { CORE_CONTRACTS } from "./exposure-contracts.mjs";
 import { LOCAL_VAULT_CONTROLS } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTROLS } from "./exposure-native-provider.mjs";
@@ -286,7 +285,7 @@ export function parsePolicy(bytes) {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const value = JSON.parse(raw);
   const stack = [];
-  for (const [token] of raw.matchAll(/"(?:\\.|[^"\\])*"|[{}[\],:]/gu)) {
+  for (const [token] of raw.matchAll(/"(?:\\.|[^"\\])*"|[{}\[\],:]/gu)) {
     if (token === "{" || token === "[") {
       stack.push({
         object: token === "{",

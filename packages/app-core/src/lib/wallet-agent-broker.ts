@@ -284,9 +284,7 @@ export function walletLeaseStatus() {
   };
 }
 
-export function requestWalletLeaseStop(input: {
-  readonly leaseId: string;
-}):
+export function requestWalletLeaseStop(input: { readonly leaseId: string }):
   | { ok: true; status: "stop_requested" }
   | { ok: false; code: "LEASE_MISSING" } {
   if (!requestStopSpendingLease(input.leaseId)) {

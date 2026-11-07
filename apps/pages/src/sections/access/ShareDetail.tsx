@@ -1,6 +1,6 @@
-import type { LocalShare } from "@opensesame/app-core/lib/local-share-grants.js";
 import type { PendingShare } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import { policyLabel } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
+import type { LocalShare } from "@opensesame/app-core/lib/local-share-grants.js";
 import { useEffect, useState } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import { IconCheck, IconTrash, IconX } from "../../components/Icons.js";

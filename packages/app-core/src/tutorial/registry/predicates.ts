@@ -24,12 +24,12 @@ import {
   guideRouteForPath,
   guideRouteWithin,
 } from "./routes.js";
-import type { GuidePredicateDescriptor } from "./state.js";
 import {
   announceGuideStateChange,
   declareGuidePredicate,
   isKnownGuidePredicate,
 } from "./state.js";
+import type { GuidePredicateDescriptor } from "./state.js";
 
 /**
  * Whether the Connections area is currently showing at least one live

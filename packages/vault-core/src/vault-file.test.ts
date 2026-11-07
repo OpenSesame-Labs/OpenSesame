@@ -8,11 +8,8 @@ import { describe, expect, it } from "vitest";
 import fixture from "../../../spec/conformance/vault-vectors.json" with {
   type: "json",
 };
-import {
-  VaultCorruptError,
-  WrongPasswordError,
-  unwrapRawVaultKeyFromPassword,
-} from "./crypto.js";
+import { VaultCorruptError, WrongPasswordError } from "./crypto.js";
+import { unwrapRawVaultKeyFromPassword } from "./crypto.js";
 import { readDeviceIdentityKeyRecord } from "./device-key.js";
 import {
   openVaultBody,

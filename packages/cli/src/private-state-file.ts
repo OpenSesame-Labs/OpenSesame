@@ -6,8 +6,8 @@
  */
 import { randomBytes } from "node:crypto";
 import {
-  closeSync,
   constants,
+  closeSync,
   fchmodSync,
   fstatSync,
   fsyncSync,

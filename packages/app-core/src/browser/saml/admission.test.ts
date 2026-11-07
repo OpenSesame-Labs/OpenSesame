@@ -20,8 +20,8 @@ import {
   createNativeSamlAdmissionRuntime,
 } from "./admission.js";
 import * as receiver from "./post-session.js";
-import type { NativeSamlSignInProof } from "./sign-in.js";
 import { beginNativeSamlSignIn, consumeNativeSamlSignIn } from "./sign-in.js";
+import type { NativeSamlSignInProof } from "./sign-in.js";
 
 const runtimes: NativeSamlAdmissionRuntime[] = [];
 afterEach(() => {

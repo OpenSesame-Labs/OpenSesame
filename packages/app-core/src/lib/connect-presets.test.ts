@@ -44,7 +44,6 @@ function memoryStore(): WebStorage {
     removeItem: (key) => void map.delete(key),
   };
 }
-
 import { assertConnectAccepts } from "./vercel-connect-schema.test-support.js";
 
 const here = dirname(fileURLToPath(import.meta.url));

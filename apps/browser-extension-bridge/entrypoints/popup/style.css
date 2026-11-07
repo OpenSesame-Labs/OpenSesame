@@ -17,11 +17,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font:
-    13px / 1.4 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  font: 13px / 1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
   min-width: 320px;
 }
 .shell {

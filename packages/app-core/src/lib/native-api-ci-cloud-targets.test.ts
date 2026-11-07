@@ -1,12 +1,12 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
+import { nativeCiCloudResources } from "./native-api-ci-cloud-resources.js";
+import { configureNativeApiConnector } from "./native-api-connectors.js";
+import { nativeApiTarget } from "./native-api-target.js";
 import {
   installNativeApiTests,
   nativeAnswers,
 } from "./native-api.test-support.js";
-import { nativeCiCloudResources } from "./native-api-ci-cloud-resources.js";
-import { configureNativeApiConnector } from "./native-api-connectors.js";
-import { nativeApiTarget } from "./native-api-target.js";
 import { deferred } from "./secret-backends/runtime.test-support.js";
 
 installNativeApiTests();

@@ -11,7 +11,6 @@ import {
   REPLICATE_TOKEN,
   replicateTlsFixture,
 } from "./replicate-tls.test-support.js";
-
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

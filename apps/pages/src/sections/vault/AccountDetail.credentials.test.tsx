@@ -24,7 +24,6 @@ const store = vi.hoisted(() => ({
 const copySecret = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -33,8 +32,8 @@ Object.assign(vaultHooksSeams, {
 });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
-import { makeAccount } from "./account.test-support.js";
 import { ItemDetail } from "./ItemDetail.js";
+import { makeAccount } from "./account.test-support.js";
 
 function renderAt(id: string) {
   return render(

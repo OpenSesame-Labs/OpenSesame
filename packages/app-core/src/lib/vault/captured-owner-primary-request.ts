@@ -2,7 +2,6 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { z } from "zod";
 import { passwordBytes } from "../retired-credentials/password-bytes.js";
-
 const requestSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("password"), secret: z.string().max(4096) }),
   z.strictObject({ kind: z.literal("pin"), secret: z.string().max(4096) }),

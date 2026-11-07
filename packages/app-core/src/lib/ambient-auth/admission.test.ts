@@ -13,7 +13,6 @@ beforeEach(() => {
     },
   });
 });
-
 import { type UpstreamIdentity, originClientId } from "../federation.js";
 import { admitAmbientSession, vaultStateFromStore } from "./admission.js";
 import { fenceLocalSignOut } from "./generation.js";

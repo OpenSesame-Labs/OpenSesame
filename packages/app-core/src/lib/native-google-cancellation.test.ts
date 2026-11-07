@@ -9,15 +9,14 @@ import {
   loadNativeConnectorRecord,
   readNativeConnector,
 } from "./native-connector-store.js";
+import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
+import { NativeOAuthError } from "./native-oauth-errors.js";
+import * as session from "./native-oauth-session.js";
 import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthDraft,
 } from "./native-oauth.test-support.js";
-import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-import { NativeOAuthError } from "./native-oauth-errors.js";
-import * as session from "./native-oauth-session.js";
-
 installNativeOAuthTests();
 afterEach(() => {
   vi.unstubAllGlobals();

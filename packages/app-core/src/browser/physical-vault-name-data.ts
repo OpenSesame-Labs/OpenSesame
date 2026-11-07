@@ -5,7 +5,6 @@ import {
   isString,
 } from "@opensesame/os-domain";
 import { assertUnambiguousJson } from "../lib/retired-credentials/json-preflight.js";
-
 const originalTombPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/u;
 function unavailable(): never {
   throw new Error("Original browser vault state is unavailable.");

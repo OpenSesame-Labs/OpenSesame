@@ -18,7 +18,6 @@ import {
   advanceAuthGeneration,
   currentAuthGeneration,
 } from "../auth-generation.js";
-
 export {
   currentAuthGeneration,
   matchesAuthGeneration,

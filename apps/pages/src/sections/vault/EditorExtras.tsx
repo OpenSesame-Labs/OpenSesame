@@ -82,10 +82,7 @@ export function GroupAdd({
 function CustomFields({
   draft,
   onChange: patch,
-}: {
-  draft: VaultItem;
-  onChange: (changes: Partial<VaultItem>) => void;
-}) {
+}: { draft: VaultItem; onChange: (changes: Partial<VaultItem>) => void }) {
   function setField(id: string, changes: Partial<CustomField>) {
     patch({
       fields: draft.fields.map((field) =>
@@ -170,10 +167,7 @@ function CustomFields({
 export function EditorExtras({
   draft,
   onChange: patch,
-}: {
-  draft: VaultItem;
-  onChange: (changes: Partial<VaultItem>) => void;
-}) {
+}: { draft: VaultItem; onChange: (changes: Partial<VaultItem>) => void }) {
   return (
     <>
       <OptionalField

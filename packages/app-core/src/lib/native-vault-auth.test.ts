@@ -9,6 +9,14 @@ import {
   loadNativeConnectorRecord,
   readNativeConnector,
 } from "./native-connector-store.js";
+import { completeNativeVaultOidc } from "./native-vault-auth.js";
+import { readNativeVaultInstance } from "./native-vault-operations.js";
+import {
+  authorizeNativeVault,
+  cancelNativeVaultOidc,
+  configureNativeVault,
+} from "./native-vault-session.js";
+
 import {
   authorizationUrl,
   backend,
@@ -20,13 +28,6 @@ import {
   state,
   token,
 } from "./native-vault.test-support.js";
-import { completeNativeVaultOidc } from "./native-vault-auth.js";
-import { readNativeVaultInstance } from "./native-vault-operations.js";
-import {
-  authorizeNativeVault,
-  cancelNativeVaultOidc,
-  configureNativeVault,
-} from "./native-vault-session.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

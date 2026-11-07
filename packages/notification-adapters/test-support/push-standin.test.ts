@@ -4,13 +4,14 @@ import {
   readJsonObject,
 } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it } from "vitest";
-import type { RenderInput } from "../src/index.js";
+
 import {
   createWebPushAdapter,
   encryptWebPushPayload,
   generateVapidKeyPair,
   vapidAuthorization,
 } from "../src/index.js";
+import type { RenderInput } from "../src/index.js";
 import {
   type PushStandIn,
   mintPushSubscription,

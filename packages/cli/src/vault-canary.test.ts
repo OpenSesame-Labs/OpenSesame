@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { parseArgs } from "./parse.js";
 import { runCli } from "./run.js";
-
 const RECEIVER = [
   "--receiver",
   "http://127.0.0.1:43127",

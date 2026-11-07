@@ -35,7 +35,6 @@ import {
   savedGithubBackupRequest as request,
   reserveGithubBackupWrite,
 } from "./vault-backup-github-owner.js";
-
 export type { SavedGithubBackupRequest } from "./vault-backup-github-owner.js";
 
 /** Keep the original authority alive until the caller publishes confirmed sync metadata. */

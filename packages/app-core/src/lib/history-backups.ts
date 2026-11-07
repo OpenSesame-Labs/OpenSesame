@@ -19,6 +19,7 @@ import {
 } from "./history-backup-idb.js";
 import { loadSettings, saveSettings } from "./settings.js";
 
+export type { HistoryBackupGroup, HistoryBackupSelection };
 export type {
   HistoryAccountClaimState,
   HistoryEntryRecord,
@@ -29,7 +30,6 @@ export {
   listHistoryAccounts,
   listHistoryEntries,
 } from "./history-backup-idb.js";
-export type { HistoryBackupGroup, HistoryBackupSelection };
 
 export type HistoryBackupGroupDef = {
   id: HistoryBackupGroup;

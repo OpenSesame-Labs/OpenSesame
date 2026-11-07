@@ -5,11 +5,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { expect, it, vi } from "vitest";
+import { ConnectorSettingsPage } from "./SettingsPage.js";
 import {
   connectorIntegration,
   installConnectorIntegration,
 } from "./connect/native-connector-integration.test-support.js";
-import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 declareConnectionsTutorial();

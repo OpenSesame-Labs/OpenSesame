@@ -273,5 +273,4 @@ agentAuthRoutes.get("/v1/agent-resources/demo", async (c) => {
 });
 
 import { registerAgentAuthCeremony } from "./agent-auth-ceremony.js";
-
 registerAgentAuthCeremony(agentAuthRoutes);

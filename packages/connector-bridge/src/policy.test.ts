@@ -9,8 +9,8 @@ import {
   responseHeaders,
   underTenantFamily,
 } from "./policy.js";
-import type { BridgeFetchRequest, HeaderPair } from "./protocol.js";
 import { MAX_HEADERS, MAX_REQUEST_BODY } from "./protocol.js";
+import type { BridgeFetchRequest, HeaderPair } from "./protocol.js";
 
 const table = [
   { providerId: "plivo", authorities: ["api.plivo.com"] },

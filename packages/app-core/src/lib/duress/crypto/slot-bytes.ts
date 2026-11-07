@@ -2,11 +2,11 @@
  * Shared byte encoding and KDF helpers for profile slots and PRF-and-code envelopes.
  */
 
-import { asBufferSource } from "@opensesame/os-domain";
 import {
   assertDuressCodeLength,
   assertDuressKdfParams,
 } from "../keys/pin-floors.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 export const te = new TextEncoder();
 export const SLOT_PURPOSE = te.encode("opensesame/duress/slot/v1");

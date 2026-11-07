@@ -32,9 +32,9 @@ function rejectForbiddenKeys(
 ): void {
   if (value === null || !isTypeofObject(value)) return;
   if (Array.isArray(value)) {
-    value.forEach((item, index) => {
-      rejectForbiddenKeys(item, ctx, [...path, index]);
-    });
+    value.forEach((item, index) =>
+      rejectForbiddenKeys(item, ctx, [...path, index]),
+    );
     return;
   }
   for (const [key, child] of Object.entries(overlapCast(value))) {

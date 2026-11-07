@@ -58,8 +58,8 @@ import { ApprovalSchema, type SignedPolicy } from "./types.js";
 
 export {
   QUORUM_DETAIL_TYPE,
-  type QuorumDetail,
   QuorumInteractionError,
+  type QuorumDetail,
   quorumDigestOf,
   requestToInteraction,
 } from "./interaction-envelope.js";

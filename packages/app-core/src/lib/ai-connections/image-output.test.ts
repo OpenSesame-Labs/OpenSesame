@@ -12,7 +12,6 @@ import {
   pngChunk,
   pngWithComment,
 } from "./stability-tls.test-support.js";
-
 const PNG = Buffer.from(RASTER_FIXTURES.png, "base64");
 function pngSize(width: number, height: number) {
   const bytes = Buffer.from(PNG);

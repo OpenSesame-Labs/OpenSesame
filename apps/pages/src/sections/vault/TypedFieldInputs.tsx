@@ -165,7 +165,6 @@ export function RepeatingInput({
           className="editor__inline"
           // A repeated row has no identity of its own: the definition format
           // deliberately has no field for one, so position is what there is.
-          // biome-ignore lint/suspicious/noArrayIndexKey: a repeated row has no identity but its position (see comment above)
           key={`${field.id}-${index}`}
         >
           <input

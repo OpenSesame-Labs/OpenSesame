@@ -5,16 +5,18 @@ import type { NativeConnectorRecord } from "./native-connector-store.js";
 import { updateNativeConnector } from "./native-connector-store.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 import { withNativeMcpMutationLock } from "./native-mcp-mutation-lock.js";
+import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import {
   type NativeMcpOAuthPorts,
   NativeMcpPublicOAuth,
 } from "./native-mcp-oauth.js";
-import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import {
   releaseNativeMcpPartialReservation,
   reserveNativeMcpPartialRefresh,
   retainNativeMcpPartialRefresh,
 } from "./native-mcp-partial-refresh.js";
+import { markNativeMcpSubmitting } from "./native-mcp-submission.js";
+
 import {
   MCP_CLASSIFICATION,
   nativeMcpClassification,
@@ -26,7 +28,6 @@ import {
   nativeMcpIssuedGrant,
   requireNativeMcpRecord,
 } from "./native-mcp-records.js";
-import { markNativeMcpSubmitting } from "./native-mcp-submission.js";
 import {
   journalNativeOAuthGrant,
   markNativeOAuthMutationInFlight,

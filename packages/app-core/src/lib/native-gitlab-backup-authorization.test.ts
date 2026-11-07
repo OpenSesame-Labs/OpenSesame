@@ -13,19 +13,18 @@ import {
 } from "./native-api-connectors.js";
 import { readNativeConnector } from "./native-connector-store.js";
 import { bindNativeProviderTransport } from "./native-connector-transport.js";
+import { nativeGitlabBackupTarget } from "./native-gitlab-backup-target.js";
 import { openNativeGitlabBackup } from "./native-gitlab-backup.js";
 import {
   gitlabBackupTarget,
   gitlabBackupToken,
   nativeGitlabBackupFixture,
 } from "./native-gitlab-backup.test-support.js";
-import { nativeGitlabBackupTarget } from "./native-gitlab-backup-target.js";
 import {
   type SecretBackendBackupHandle,
   backUpVaultToSecretBackend,
 } from "./secret-backends/backup-transfer.js";
 import { vaultStore } from "./vault/store.js";
-
 let fixture: Awaited<ReturnType<typeof nativeGitlabBackupFixture>>;
 const handles: SecretBackendBackupHandle[] = [];
 const tasks: Promise<unknown>[] = [];

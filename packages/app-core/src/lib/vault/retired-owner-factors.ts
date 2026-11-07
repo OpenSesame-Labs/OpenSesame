@@ -13,7 +13,6 @@ import type {
   RetiredSecondStepRequest,
 } from "./retired-operation-exchange.js";
 import { openText, openTotpSecret, totpCodeMatches } from "./unlock-methods.js";
-
 type Remote = ReturnType<typeof captureOriginalIdentityCodeData>;
 interface Attempt {
   header: VaultHeader;

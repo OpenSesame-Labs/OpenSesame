@@ -10,10 +10,9 @@
 
 import {
   type BoundaryValue,
-  asBufferSource,
   isJsonObject,
   isString,
-} from "@opensesame/os-domain";
+ asBufferSource } from "@opensesame/os-domain";
 import { ProtectionError } from "../errors.js";
 import { b64ToBytes, bytesToB64 } from "./cloud-wrapping-secret.js";
 

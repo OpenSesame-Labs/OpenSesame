@@ -6,10 +6,9 @@ import {
   StatusWorker,
   stubBrowserNodeWorker,
 } from "./authorization.test-support.js";
-import { createBrowserNodeController } from "./controller.js";
 import { BrowserNodeRequests } from "./controller-requests.js";
 import { BrowserNodeRetirement } from "./controller-retirement.js";
-
+import { createBrowserNodeController } from "./controller.js";
 it("withdraws page requests immediately but preserves original close receipt until drain", async () => {
   const worker = { postMessage: vi.fn() };
   const owner = vi.fn();

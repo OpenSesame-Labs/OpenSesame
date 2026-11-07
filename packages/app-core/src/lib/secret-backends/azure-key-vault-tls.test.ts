@@ -4,11 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { tlsFetch } from "../native-s3-backup.test-support.js";
-import { createAzureKeyVaultSecretBackend } from "./azure-key-vault.js";
 import {
   AZURE_FIXTURE_TOKEN,
   azureHttpFixture,
 } from "./azure-key-vault-http.test-support.js";
+import { createAzureKeyVaultSecretBackend } from "./azure-key-vault.js";
 import type { SecretBackendConfiguration } from "./types.js";
 
 const directory = mkdtempSync(join(tmpdir(), "azure-secrets-tls-"));

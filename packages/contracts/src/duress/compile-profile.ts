@@ -1,11 +1,12 @@
+import type { CompilerCatalog, CompilerDiagnostic } from "./evidence.js";
+import type { PolicyProfile } from "./policy.js";
+
 import { validateProfileEffects } from "./compile-profile-effects.js";
 import { validateProfileScope } from "./compile-profile-scope.js";
 import {
   type CompileProfileResult,
   buildProfileExposureAndAssurances,
 } from "./compile-profile-summary.js";
-import type { CompilerCatalog, CompilerDiagnostic } from "./evidence.js";
-import type { PolicyProfile } from "./policy.js";
 
 export type { CompileProfileResult } from "./compile-profile-summary.js";
 

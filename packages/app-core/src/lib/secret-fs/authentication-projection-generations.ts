@@ -12,7 +12,6 @@ import {
   opened,
   sealed,
 } from "./secret-docs.js";
-
 function unavailable(): never {
   throw new Error("Original encrypted projection generation is unavailable.");
 }

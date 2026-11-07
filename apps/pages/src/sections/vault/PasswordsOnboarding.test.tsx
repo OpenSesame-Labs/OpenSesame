@@ -17,8 +17,8 @@ import {
   PERSONAL_SELECTION,
   withReceipt,
 } from "../settings/settings-panels.test-support.js";
-import { addEntries } from "./add-menu.js";
 import { PasswordsOnboarding } from "./PasswordsOnboarding.js";
+import { addEntries } from "./add-menu.js";
 import {
   commitPasswordsOnboarding,
   passwordsOnboardingSeams,

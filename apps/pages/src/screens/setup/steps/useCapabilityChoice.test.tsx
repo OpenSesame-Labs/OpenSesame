@@ -1,7 +1,8 @@
-import { kvDelete, kvSet } from "@opensesame/app-core/lib/kv.js";
+import { kvDelete } from "@opensesame/app-core/lib/kv.js";
+import { kvSet } from "@opensesame/app-core/lib/kv.js";
 import { LAST_VAULT_KEY } from "@opensesame/app-core/lib/last-vault.js";
-import { rehydrateProjects } from "@opensesame/app-core/lib/projects.js";
 import { PROJECTS_KEY } from "@opensesame/app-core/lib/projects-state.js";
+import { rehydrateProjects } from "@opensesame/app-core/lib/projects.js";
 /** @vitest-environment jsdom */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";

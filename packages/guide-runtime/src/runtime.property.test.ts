@@ -1,3 +1,4 @@
+import { GUIDE_LANG_VERSION, GUIDE_LIMITS } from "@opensesame/guide-lang";
 import type {
   GuideInstruction,
   GuidePredicateId,
@@ -7,7 +8,6 @@ import type {
   GuideTargetId,
   GuideWaitEvent,
 } from "@opensesame/guide-lang";
-import { GUIDE_LANG_VERSION, GUIDE_LIMITS } from "@opensesame/guide-lang";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 

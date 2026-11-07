@@ -12,22 +12,24 @@ import { ConflictError } from "@opensesame/database";
 import {
   type AgentRegistration,
   type Principal,
-  claimAgentRegistration,
   digestAgentAccessToken,
   digestAgentClaimAttemptToken,
   digestAgentClaimToken,
   generateAgentClaimToken,
   generateAgentRegistrationId,
   overlapCast,
-  revokeAgentRegistration,
   verifyAgentUserCode,
 } from "@opensesame/os-domain";
+import {
+  claimAgentRegistration,
+  revokeAgentRegistration,
+} from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
 import {
   providerAssertionIsAdvertised,
   registerProviderAssertion,
 } from "./agent-auth-id-jag.js";
-import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
 import {
   type AgentAuthRuntime,
   agentAuthRuntime,
@@ -43,14 +45,13 @@ import {
   mintAssertion,
   startClaimAttempt,
 } from "./agent-auth-shared.js";
-
 export type { AgentAuthRuntime };
 export {
   agentAuthRuntime,
+  resetAgentAuthRuntimeForTests,
   consumeAgentAuthMintBudget,
   providerAssertionIsAdvertised,
   registerProviderAssertion,
-  resetAgentAuthRuntimeForTests,
 };
 export async function registerAnonymous(
   ctx: AppContext,

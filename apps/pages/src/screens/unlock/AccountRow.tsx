@@ -10,12 +10,13 @@
  * nobody is signed in.
  */
 
-import { useAccount } from "../../bindings/account.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh, IconSignOut, IconUser } from "../../components/Icons.js";
+
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { brandFor } from "./ProviderBrand.js";
 
+import { useAccount } from "../../bindings/account.js";
 type Props = {
   disabled?: boolean;
   onSwitch: () => void;

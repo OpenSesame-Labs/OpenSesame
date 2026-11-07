@@ -1,7 +1,9 @@
-import type { ConnectorId } from "@opensesame/app-core/lib/connectors.js";
 import { type ReactNode, useState } from "react";
-import { useConnectors } from "../bindings/connectors.js";
+
+import type { ConnectorId } from "@opensesame/app-core/lib/connectors.js";
 import { ConnectionCeremony } from "./ConnectionCeremony.js";
+
+import { useConnectors } from "../bindings/connectors.js";
 /**
  * Open a connector's ceremony from anywhere — a section note, an error panel.
  *

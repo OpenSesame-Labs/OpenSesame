@@ -4,8 +4,8 @@
  */
 
 import {
-  type BoundaryValue,
   asBufferSource,
+  type BoundaryValue,
   isJsonObject,
   isNumber,
   isString,
@@ -15,9 +15,8 @@ import {
   type ProtectionContext,
   ROOT_KEY_BYTES,
   type SealedBlobV1,
-  b64ToBytes,
-  bytesToB64,
 } from "@opensesame/vault-core";
+import { b64ToBytes, bytesToB64 } from "@opensesame/vault-core";
 import { canonicalizeToBytes } from "./canonicalize.js";
 import { ProtectionError } from "./errors.js";
 

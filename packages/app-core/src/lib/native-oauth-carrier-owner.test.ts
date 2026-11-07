@@ -1,13 +1,12 @@
 import { afterEach, expect, it } from "vitest";
 import { nativeBrowserOAuthPolicy } from "./native-browser-policy.js";
 import { nativeOAuthCarrierFixture } from "./native-oauth-carrier.test-support.js";
-import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import {
   assertNativeOAuthClientPolicy,
   beginNativeOAuthClient,
   configureNativeOAuthClient,
 } from "./native-oauth-client-config.js";
-
+import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 const closing: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closing.splice(0).reverse()) await close();

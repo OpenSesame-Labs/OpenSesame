@@ -30,12 +30,13 @@ import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { ConnectorSettingsPage } from "../SettingsPage.js";
 import { declareConnectionsTutorial } from "../tutorial.test-support.js";
-import { ciCloudContracts as catalogContracts } from "./native-api-ci-cloud.test-support.js";
 import {
   type PrimaryContract,
   primaryKey,
   primaryOracle,
 } from "./native-api-primary.test-support.js";
+
+import { ciCloudContracts as catalogContracts } from "./native-api-ci-cloud.test-support.js";
 
 declareConnectionsTutorial();
 const fixtures: Awaited<ReturnType<typeof primaryOracle>>[] = [];

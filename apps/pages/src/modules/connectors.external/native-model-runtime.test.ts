@@ -1,9 +1,9 @@
 import { performHostedInference } from "@opensesame/app-core/lib/hosted-inference.js";
+import { hostedModelAuthority } from "@opensesame/app-core/lib/hosted-model-authority.js";
 import {
   modelMemoryBackend,
   saveModelFixture,
 } from "@opensesame/app-core/lib/hosted-model.test-support.js";
-import { hostedModelAuthority } from "@opensesame/app-core/lib/hosted-model-authority.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
@@ -13,7 +13,6 @@ import {
 } from "./genuine-runtime.test-support.js";
 import { bindNativeModelRuntime } from "./native-model-runtime.js";
 import { bindNativeRuntime } from "./native-runtime.js";
-
 const releases: (() => void)[] = [];
 beforeEach(genuineRuntimeFixture);
 afterEach(async () => {

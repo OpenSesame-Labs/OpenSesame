@@ -2,10 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderPlanJson } from "../../scripts/emit-connect-presets.mjs";
 import { connectPlan } from "./connect-plan.js";
-import {
-  installNativeApiTests,
-  nativeAnswers,
-} from "./native-api.test-support.js";
 import { nativeApiVerificationRequest } from "./native-api-auth.js";
 import { configureNativeApiConnector } from "./native-api-connectors.js";
 import { projectNativeMarqetaUsers } from "./native-api-marqeta.js";
@@ -20,6 +16,10 @@ import {
   nativeApiFingerprint,
   nativeApiTarget,
 } from "./native-api-target.js";
+import {
+  installNativeApiTests,
+  nativeAnswers,
+} from "./native-api.test-support.js";
 
 installNativeApiTests();
 

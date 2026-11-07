@@ -8,12 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listReceipts } from "./device-receipts.js";
 import { configureLocalApplication } from "./local-applications.js";
 import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   LocalDirectoryError,
   readLocalDirectory,
 } from "./local-directory.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import { bindLocalIamLockResets } from "./local-iam-lock-resets.js";
 import { enrollLocalPasskey } from "./local-passkeys.js";
 import { signInLocalIdentity } from "./local-sessions.js";

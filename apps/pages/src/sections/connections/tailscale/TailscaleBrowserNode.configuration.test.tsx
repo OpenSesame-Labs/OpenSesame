@@ -28,7 +28,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TailscaleBrowserNode } from "./TailscaleBrowserNode.js";
-
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 let release = () => {};
 beforeEach(async () => {

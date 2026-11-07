@@ -3,17 +3,16 @@
  * redirect followed, bounded in time and in size, and answered as text. What
  * the provider says is passed back as it is; it is never logged and never kept.
  */
-
-import type {
-  BridgeFetchRequest,
-  HeaderPair,
-} from "@opensesame/connector-bridge";
 import {
   type BridgeErrorCode,
   type BridgeFetchResponse,
   MAX_RESPONSE_BODY,
   REQUEST_TIMEOUT_MS,
   responseHeaders,
+} from "@opensesame/connector-bridge";
+import type {
+  BridgeFetchRequest,
+  HeaderPair,
 } from "@opensesame/connector-bridge";
 import type { BridgePorts } from "./ports.js";
 

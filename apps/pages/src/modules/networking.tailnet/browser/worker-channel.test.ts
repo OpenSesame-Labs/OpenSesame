@@ -5,8 +5,8 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Configuration, type HostEvent } from "./protocol.js";
 import type { loadBrowserNode } from "./sdk.js";
-import type { BrowserNodeWorker } from "./worker.js";
 import type { installWorkerEgress } from "./worker-egress.js";
+import type { BrowserNodeWorker } from "./worker.js";
 
 const config = Configuration.parse({
   hostname: "channel-worker",

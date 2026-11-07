@@ -8,7 +8,6 @@ import type {
   ProvisionalHistoryAccount,
 } from "./history-backup-types.js";
 import { storageWritesHalted } from "./storage-halt.js";
-
 export type {
   HistoryAccountClaimState,
   HistoryEntryRecord,

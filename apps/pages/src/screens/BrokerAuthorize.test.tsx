@@ -24,7 +24,6 @@ const fed = vi.hoisted(() => ({
 }));
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-
 const originalFederationSeams = { ...federationSeams };
 Object.assign(federationSeams, {
   defaultUpstream: () => ({ displayName: "MockHub", accountKind: "GitHub" }),
@@ -34,9 +33,7 @@ Object.assign(federationSeams, {
   loadSession: fed.loadSession,
 });
 afterAll(() => Object.assign(federationSeams, originalFederationSeams));
-
 import { siteBrokerSeams } from "@opensesame/app-core/lib/site-broker.js";
-
 const originalSiteBrokerSeams = { ...siteBrokerSeams };
 Object.assign(siteBrokerSeams, {
   deliverToRp: vi.fn(originalSiteBrokerSeams.deliverToRp),

@@ -1,13 +1,13 @@
 import { afterEach, expect, it } from "vitest";
 import {
-  type BitwardenNativeConfiguration,
-  createBitwardenNativeBackend,
-} from "./bitwarden-native.js";
-import {
   NATIVE_LIMITS,
   NATIVE_PASSWORD,
   nativeHttpFixture,
 } from "./bitwarden-native-http.test-support.js";
+import {
+  type BitwardenNativeConfiguration,
+  createBitwardenNativeBackend,
+} from "./bitwarden-native.js";
 import type { SecretBackend, SecretBackendSession } from "./types.js";
 
 type Fixture = Awaited<ReturnType<typeof nativeHttpFixture>>;

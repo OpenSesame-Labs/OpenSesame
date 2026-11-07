@@ -2,14 +2,14 @@ import type { ProtectionContext } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
 import { ProtectionError } from "../errors.js";
 import {
+  awsCredentialsFromEnv,
+  createAwsKmsHttpsTransport,
+} from "./aws-kms-https.js";
+import {
   type AwsKmsTransport,
   assertAwsKmsKeyArn,
   createAwsKmsProtector,
 } from "./aws-kms.js";
-import {
-  awsCredentialsFromEnv,
-  createAwsKmsHttpsTransport,
-} from "./aws-kms-https.js";
 import {
   assertAllowedCloudEndpoint,
   encryptionContextFromProtection,

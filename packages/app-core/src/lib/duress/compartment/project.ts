@@ -5,68 +5,68 @@
 
 export type { PresentationClass } from "../access/context.js";
 export {
-  type LimitedCarrySelection,
-  type ProjectionQuery,
-  type VaultItemView,
-  assertNoCrossCompartmentLeak,
-  canRestoreLimitedCarry,
-  decoyConnectorAllowed,
-  projectConnectors,
-  projectCounts,
-  projectLimitedCarry,
-  projectVisibleItems,
-  resolveDecoyOrLocked,
-  selectLimitedCarry,
-} from "./compat.js";
-export {
-  type ConnectorDecision,
-  type SafeConnectionApproval,
-  approveSafeLowAuthorityConnection,
-  decideConnectorAttach,
-} from "./connectors.js";
-export {
-  type LimitedCarryBundle,
-  type LimitedCarryPlan,
-  buildLimitedCarryPlan,
-  materializeLimitedCarry,
-  previewLimitedCarryExposure,
-  restoreLimitedCarryOffline,
-} from "./limited-carry.js";
-export {
+  createKeyedCompartment,
+  updateDecoyContents,
+  buildTopology,
+  requireIndependentPresentation,
+  openPublishedCompartment,
   type CompartmentItem,
   type CompartmentKind,
   type CompartmentPlaintext,
   type PublishedCompartment,
-  buildTopology,
-  createKeyedCompartment,
-  openPublishedCompartment,
-  requireIndependentPresentation,
-  updateDecoyContents,
 } from "./registry.js";
 export {
-  type ScopeQuery,
-  type ScopedView,
-  accessibleProjection,
-  admittedSwitcherTargets,
-  assertNoProtectedLeak,
-  attachmentPreviewAllowed,
-  itemPreview,
-  passkeyActionAllowed,
-  projectConnectorRefs,
-  projectScopedView,
-  totpActionAllowed,
-} from "./scope.js";
-export {
-  type SealedCompartmentBlob,
-  importCompartmentKey,
-  openCompartmentJson,
-  sealCompartmentJson,
-} from "./seal.js";
-export {
-  type AdmittedKey,
-  type OpenOutcome,
-  type PresentationSession,
   mintPresentationSession,
   openPresentation,
   tryOpenWithForeignKey,
+  type AdmittedKey,
+  type OpenOutcome,
+  type PresentationSession,
 } from "./session.js";
+export {
+  projectScopedView,
+  projectConnectorRefs,
+  itemPreview,
+  totpActionAllowed,
+  passkeyActionAllowed,
+  attachmentPreviewAllowed,
+  admittedSwitcherTargets,
+  accessibleProjection,
+  assertNoProtectedLeak,
+  type ScopedView,
+  type ScopeQuery,
+} from "./scope.js";
+export {
+  decideConnectorAttach,
+  approveSafeLowAuthorityConnection,
+  type SafeConnectionApproval,
+  type ConnectorDecision,
+} from "./connectors.js";
+export {
+  previewLimitedCarryExposure,
+  buildLimitedCarryPlan,
+  materializeLimitedCarry,
+  restoreLimitedCarryOffline,
+  type LimitedCarryPlan,
+  type LimitedCarryBundle,
+} from "./limited-carry.js";
+export {
+  importCompartmentKey,
+  sealCompartmentJson,
+  openCompartmentJson,
+  type SealedCompartmentBlob,
+} from "./seal.js";
+export {
+  projectVisibleItems,
+  projectCounts,
+  decoyConnectorAllowed,
+  projectConnectors,
+  resolveDecoyOrLocked,
+  selectLimitedCarry,
+  projectLimitedCarry,
+  canRestoreLimitedCarry,
+  assertNoCrossCompartmentLeak,
+  type VaultItemView,
+  type ProjectionQuery,
+  type LimitedCarrySelection,
+} from "./compat.js";

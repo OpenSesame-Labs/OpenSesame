@@ -13,10 +13,10 @@ import { CeremonySheet } from "../../../components/CeremonySheet.js";
 import { CeremonyShell } from "../../../components/CeremonyShell.js";
 import { IconDownload, IconUpload } from "../../../components/Icons.js";
 import { useVault } from "../../../lib/vault/hooks.js";
-import { hideableItems, itemKindLabel } from "./items-text.js";
 import { TravelBundleActions } from "./TravelBundleActions.js";
 import { TravelNoticeMark } from "./TravelNoticeMark.js";
 import { TravelRow, plural } from "./TravelViews.js";
+import { hideableItems, itemKindLabel } from "./items-text.js";
 import type { useTravelFlow } from "./useTravelFlow.js";
 
 type Flow = ReturnType<typeof useTravelFlow>;
@@ -107,7 +107,6 @@ function PackedCard({
       </ul>
       <div>
         <strong id="travel-items-code-label">Return code</strong>
-        {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <p className="travel__code" aria-labelledby="travel-items-code-label">
           {pkg.returnCode}
         </p>

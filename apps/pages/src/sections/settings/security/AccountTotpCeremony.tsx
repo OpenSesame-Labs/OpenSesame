@@ -18,8 +18,8 @@ import { FieldShell } from "../../../components/FieldShell.js";
 import { IconCopy, IconPhone, IconSecret } from "../../../components/Icons.js";
 import { QrCode } from "../../../components/QrCode.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import type { Run } from "./run.js";
 import { Rail } from "./SecondStepCeremonies.js";
+import type { Run } from "./run.js";
 
 /**
  * The account's authenticator app, set up in the one Security sheet: scan,

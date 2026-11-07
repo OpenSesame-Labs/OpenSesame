@@ -4,18 +4,6 @@
  * Owner consent + isolated rehearsal required before atomic commit.
  */
 
-export {
-  beginEnrollmentDraft,
-  commitEnrollmentDraft,
-  enrollTrigger,
-  runIsolatedRehearsal,
-  stageTriggerInDraft,
-} from "./enrollment-draft.js";
-export type {
-  SelectTriggerOptions,
-  TriggerMatch,
-} from "./enrollment-select.js";
-export { disposeTriggerMatch, selectTrigger } from "./enrollment-select.js";
 export type {
   EnrolledTrigger,
   EnrollmentCapabilities,
@@ -23,3 +11,17 @@ export type {
   EnrollmentState,
 } from "./enrollment-state.js";
 export { createEmptyEnrollmentState } from "./enrollment-state.js";
+
+export {
+  beginEnrollmentDraft,
+  commitEnrollmentDraft,
+  enrollTrigger,
+  runIsolatedRehearsal,
+  stageTriggerInDraft,
+} from "./enrollment-draft.js";
+
+export type {
+  SelectTriggerOptions,
+  TriggerMatch,
+} from "./enrollment-select.js";
+export { disposeTriggerMatch, selectTrigger } from "./enrollment-select.js";

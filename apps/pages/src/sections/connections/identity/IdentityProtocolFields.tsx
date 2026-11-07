@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { SelectField } from "../connect/fields.js";
 import { NativeInputFields } from "../connect/NativeConnectorFields.js";
+import { SelectField } from "../connect/fields.js";
 import type { NativeField } from "../connect/native-connector-ui.js";
 import {
   IdentityDraftFields,

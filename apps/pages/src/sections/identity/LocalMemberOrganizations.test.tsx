@@ -8,11 +8,11 @@ import {
   origin,
   rpID,
 } from "@opensesame/app-core/lib/local-authenticator.fixture.js";
+import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "@opensesame/app-core/lib/local-directory.js";
-import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import { enrollLocalPasskey } from "@opensesame/app-core/lib/local-passkeys.js";
 import {
   currentLocalIdentitySession,

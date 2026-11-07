@@ -9,12 +9,12 @@ import { IconKey } from "../../../components/IconKey.js";
 import { IconPlus, IconTrash } from "../../../components/Icons.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import { DeadmanPanelView } from "./DeadmanPanelView.js";
+import { MethodRow } from "./MethodRow.js";
 import {
   type DeadmanPanelModel,
   beginDeadmanPanel,
   createDeadmanActions,
 } from "./deadman-panel-actions.js";
-import { MethodRow } from "./MethodRow.js";
 
 function daysPhrase(days: number): string {
   return days === 1 ? "1 day" : `${days} days`;

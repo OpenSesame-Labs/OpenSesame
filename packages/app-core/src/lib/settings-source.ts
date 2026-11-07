@@ -1,5 +1,4 @@
 import { maybeLocalStore } from "../ports.js";
-
 /**
  * The raw text of each settings document (`settings/general.yaml`, …), kept
  * per path so a hand-written comment survives a save and a reload. The typed

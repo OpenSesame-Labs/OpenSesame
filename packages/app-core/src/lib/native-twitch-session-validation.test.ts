@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
+import { vi } from "vitest";
 import { browserOAuthClassification } from "./native-browser-oauth-profile.js";
 import {
   loadNativeConnectorRecord,

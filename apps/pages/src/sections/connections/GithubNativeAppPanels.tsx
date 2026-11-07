@@ -11,12 +11,12 @@ import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-s
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import { useState, useSyncExternalStore } from "react";
 import { StatusMark } from "../../components/StatusMark.js";
-import { ConnectorModes } from "./connect/ConnectorModes.js";
-import { OutLink } from "./connect/fields.js";
-import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
 import { GithubAppForgetButton } from "./GithubAppConfigRows.js";
 import { GithubAppConfigSummary } from "./GithubAppConfigSummary.js";
 import { GithubAppRegistrationPanel } from "./GithubAppRegistrationPanel.js";
+import { ConnectorModes } from "./connect/ConnectorModes.js";
+import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
+import { OutLink } from "./connect/fields.js";
 
 type Method = "app" | "token";
 const METHODS: readonly { id: Method; label: string }[] = [

@@ -8,8 +8,9 @@
  */
 
 import { createECDH, randomBytes } from "node:crypto";
-import type { WebPushConfig } from "../adapters/web-push.js";
+
 import { generateVapidKeyPair } from "../adapters/web-push.js";
+import type { WebPushConfig } from "../adapters/web-push.js";
 import { base64UrlEncode } from "../bytes.js";
 import type {
   FetchLike,

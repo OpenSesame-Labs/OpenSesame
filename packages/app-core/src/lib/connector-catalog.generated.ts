@@ -19,7 +19,6 @@ export const CATALOG_ALIASES = {
 
 /** One Host API provider view per row, as JSON (`ProviderSchema`). */
 import { unpackGeneratedJson } from "./generated-json.js";
-
 const dictionary =
   '"connection_configuration_fields":[{"name":"api_key","required":true,"secret":true}]\n"integration_configuration_fields":\n"connection_configuration_fields":\n"catalog_revision":"2026-10-31.3"\n"auto_configurable":false\n"egress":{"authorities":[],"path_prefixes":[],"scheme":"none"}\n"supports_refresh":false\n"callback_url":null\n"missing_config":[]\n"supports_refresh":\n"required":true\n"configured":false\n"required":\n"ai_model_provider"\n"provenance_url":\n"operations":["chat.create","model.list"]\n"path_prefixes":\n"secret":false\n"display_name":\n"secret":true\n"authorities":\n"auth_kind":"api_key"\n"auth_kind":"configuration"\n"https://\n"operations":\n"scheme":"https"\n"api_key"\n"protocol":"openai_chat"\n"auth_kind":\n"category":\n"docs_url":\n"scopes":[]\n"oauth2_authorization_code"\n"secret.configure"\n"egress":\n"scopes":\n"model_api":\nfnox.jdx.dev/cli/provider/add"\n"client_secret"\n"description":\n"sensitive":false\n"protocol":\n"cloud_secret_storage"\n"private_key_pem"\n"base_url":\n"webhook_secret"\n"sensitive":\n"name":"client_id"\n"default":false\n"default":\ncom/docs/\n"name":"app_id"\napi-reference/\n"communication"\n"developer"\namazon.com/\ngoogle.com/\n"Read the '.split(
     "\n",

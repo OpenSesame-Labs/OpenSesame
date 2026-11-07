@@ -2,12 +2,12 @@
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { connectorIntegration } from "./connect/native-connector-integration.test-support.js";
 import {
   draw,
   nameAHostWithALiveGrant,
   unlocked,
 } from "./SettingsPage.roads.test-support.js";
+import { connectorIntegration } from "./connect/native-connector-integration.test-support.js";
 
 describe("a key or a configuration seals on this device", () => {
   it.each([false, true])(

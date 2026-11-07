@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { parseAssignment } from "@opensesame/app-core/lib/password-agent/index.js";
+import { grantRunGrant } from "@opensesame/app-core/lib/password-agent/run-grant-grant.js";
 import {
   type RunGrantBinding,
   type RunGrantRecord,
   describeRunGrant,
 } from "@opensesame/app-core/lib/password-agent/run-grant.js";
-import { grantRunGrant } from "@opensesame/app-core/lib/password-agent/run-grant-grant.js";
 import { emitMetadata } from "./output.js";
 import type { ParityContext } from "./parity-commands.js";
 import { openRunGrantStore } from "./parity-lease-node.js";

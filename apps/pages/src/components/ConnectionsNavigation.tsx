@@ -1,9 +1,9 @@
+import { mergeLocalGitConnections } from "@opensesame/app-core/lib/connections-local-git.js";
 import {
   type Connection,
   type Provider,
   listConnections,
 } from "@opensesame/app-core/lib/connections.js";
-import { mergeLocalGitConnections } from "@opensesame/app-core/lib/connections-local-git.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import {

@@ -8,8 +8,8 @@
  * what makes 10 000 x 2^e iterations affordable in a browser tab.
  */
 
-import { asBufferSource, ownBytes } from "@opensesame/os-domain";
 import { Slip39Error } from "./errors.js";
+import { asBufferSource, ownBytes } from "@opensesame/os-domain";
 
 const ROUNDS = 4;
 /** Iterations per round: 2500 << e, so 10 000 << e across the four rounds. */

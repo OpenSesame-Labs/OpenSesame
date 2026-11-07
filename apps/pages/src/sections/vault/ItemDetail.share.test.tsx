@@ -34,7 +34,6 @@ const store = vi.hoisted(() => ({
 const listConnections = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -46,16 +45,14 @@ afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 Object.assign(planeHookSeams, {
   usePlaneStatus: () => ({ host: "live", identity: "connected" }),
 });
-
 import { connectionSeams } from "@opensesame/app-core/lib/connections.js";
-
 const originalConnectionSeams = { ...connectionSeams };
 Object.assign(connectionSeams, { listConnections });
 afterAll(() => Object.assign(connectionSeams, originalConnectionSeams));
 
-import { makeAccount } from "./account.test-support.js";
 import { ShareSecretDrop } from "./DropCeremony.js";
 import { ItemDetail } from "./ItemDetail.js";
+import { makeAccount } from "./account.test-support.js";
 
 function renderAt(itemId: string, search = "") {
   return render(

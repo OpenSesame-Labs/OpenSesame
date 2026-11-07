@@ -11,8 +11,8 @@ import {
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closeContextMenu } from "../../components/context-menu/menu-model.js";
-import { makeAccount } from "./account.test-support.js";
 import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
+import { makeAccount } from "./account.test-support.js";
 import type { VaultTreeActions } from "./vault-menu.js";
 
 Object.assign(vaultTreeSeams, {

@@ -7,11 +7,11 @@
 
 import { activeItems } from "@opensesame/vault-core";
 import type { WebMcpToolSpec } from "@opensesame/webmcp";
-import { isOnline } from "../lib/connectivity.js";
 import {
   type TargetState,
   connectivitySnapshot,
 } from "../lib/connectivity-monitor.js";
+import { isOnline } from "../lib/connectivity.js";
 import { currentSession, identityBase } from "../lib/identity.js";
 import { vaultStore } from "../lib/vault/store.js";
 import {

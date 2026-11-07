@@ -7,7 +7,6 @@ import {
   exclusive,
   retiredCredentialStorageSeams,
 } from "./credential-lock.js";
-
 const original = { ...retiredCredentialStorageSeams };
 const deferred = () => {
   let resolve!: () => void;

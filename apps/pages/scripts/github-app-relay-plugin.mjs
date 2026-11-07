@@ -2,13 +2,6 @@ import {
   handleGitBackupPut,
   handleGitBackupPutOptions,
 } from "../server/git-backup-put.mjs";
-import {
-  handleGithubAppCallback,
-  handleGithubAppConvert,
-  handleGithubAppConvertOptions,
-  handleGithubAppInstallations,
-  handleGithubAppLookup,
-} from "../server/github-app.mjs";
 /**
  * Dev-only GitHub App relay on the Vite origin.
  *
@@ -25,6 +18,13 @@ import {
   handleGithubAppCreateRepo,
   handleGithubAppInstallationRepos,
 } from "../server/github-app-repos.mjs";
+import {
+  handleGithubAppCallback,
+  handleGithubAppConvert,
+  handleGithubAppConvertOptions,
+  handleGithubAppInstallations,
+  handleGithubAppLookup,
+} from "../server/github-app.mjs";
 import { isPayloadTooLarge, readRawBody } from "../server/read-body.mjs";
 
 async function readBody(req) {

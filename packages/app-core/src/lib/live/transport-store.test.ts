@@ -7,12 +7,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { VfsError } from "../vfs.js";
 import {
-  DIRECT_TRANSPORT,
-  type LiveTransport,
-  readTransport,
-  transportFileText,
-} from "./transport.js";
-import {
   TRANSPORT_PATH,
   TransportRefused,
   editLiveTransport,
@@ -22,6 +16,12 @@ import {
   storeSeams,
   writeLiveTransport,
 } from "./transport-store.js";
+import {
+  DIRECT_TRANSPORT,
+  type LiveTransport,
+  readTransport,
+  transportFileText,
+} from "./transport.js";
 
 const files = new Map<string, Uint8Array>();
 type Control = {

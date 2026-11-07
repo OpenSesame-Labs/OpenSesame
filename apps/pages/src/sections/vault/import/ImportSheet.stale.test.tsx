@@ -7,7 +7,6 @@ const importSealed = vi.hoisted(() => vi.fn());
 
 import { STALE_BUILD } from "@opensesame/app-core/lib/chunk-load.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 Object.assign(vaultHooksSeams, {
   useVault: () => ({ items: [], folders: [] }),
   useVaultStore: () => ({ applyImport: vi.fn(), importSealed }),

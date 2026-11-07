@@ -11,7 +11,6 @@ import {
 } from "@opensesame/app-core/lib/live/live-clock.fixture.js";
 import { FakeBus } from "@opensesame/app-core/lib/live/live-fakes.js";
 import { describe, expect, it, vi } from "vitest";
-import { observeSessionCrypto } from "./session-crypto.test-support.js";
 import {
   execute,
   host,
@@ -20,6 +19,8 @@ import {
   profile,
   useSessionWorld,
 } from "./session-hosted.test-support.js";
+
+import { observeSessionCrypto } from "./session-crypto.test-support.js";
 
 const world = useSessionWorld();
 

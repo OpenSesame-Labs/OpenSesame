@@ -7,7 +7,6 @@ import {
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { makeAccount } from "./account.test-support.js";
 import {
   block,
   input,
@@ -19,6 +18,7 @@ import {
   showOptions,
   vault,
 } from "./account-editor.test-support.js";
+import { makeAccount } from "./account.test-support.js";
 
 describe("account editor: pepper (ADR 0174)", () => {
   installEditorHarness();

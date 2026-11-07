@@ -16,7 +16,6 @@ const store = vi.hoisted(() => ({
 }));
 
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, { useVaultStore: () => store });
 

@@ -16,7 +16,6 @@ import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { useSyncExternalStore } from "react";
 import { afterEach, expect, it } from "vitest";
-
 const id = "conn_local_synthetic-view";
 function Heading() {
   const name = useSyncExternalStore(

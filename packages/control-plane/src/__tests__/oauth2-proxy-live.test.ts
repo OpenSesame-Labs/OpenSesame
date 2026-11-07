@@ -6,7 +6,7 @@
  * not a credential written into the recipe.
  */
 import { spawn } from "node:child_process";
-import { accessSync, constants, mkdtempSync, writeFileSync } from "node:fs";
+import { constants, accessSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isString, overlapCast } from "@opensesame/os-domain";

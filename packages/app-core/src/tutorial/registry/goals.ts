@@ -26,11 +26,10 @@ import { type GuideRouteId, scopeApplies } from "./routes.js";
 import { SETUP_GOALS, SETUP_HELP, SHELL_GOALS } from "./setup-goals.js";
 import { SHELL_HELP } from "./shell-goals.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
-
 export { CAPABILITY_TUTORIALS } from "./capability-tutorials.js";
 export { FEATURE_TUTORIALS } from "./feature-goals.js";
-export type { GuideGoalDescriptor, HelpTopic } from "./goal-types.js";
 export { INTEGRATION_TUTORIALS } from "./integration-goals.js";
+export type { GuideGoalDescriptor, HelpTopic } from "./goal-types.js";
 
 /**
  * The goals the core shell always offers. A goal that walks an optional

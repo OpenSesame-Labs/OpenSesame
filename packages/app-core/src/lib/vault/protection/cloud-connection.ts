@@ -11,11 +11,11 @@
 
 import { readAwsKmsConfig } from "../../aws-kms-config.js";
 import { readGcpKmsConfig } from "../../gcp-kms-config.js";
-import type { AwsKmsTransport } from "./adapters/aws-kms.js";
 import { createAwsKmsHttpsTransport } from "./adapters/aws-kms-https.js";
+import type { AwsKmsTransport } from "./adapters/aws-kms.js";
 import type { AwsSigV4Credentials } from "./adapters/aws-sigv4.js";
-import type { GcpKmsTransport } from "./adapters/gcp-kms.js";
 import { createGcpKmsHttpsTransport } from "./adapters/gcp-kms-https.js";
+import type { GcpKmsTransport } from "./adapters/gcp-kms.js";
 import { mintGcpAccessToken } from "./adapters/gcp-oauth.js";
 import { ProtectionError } from "./errors.js";
 

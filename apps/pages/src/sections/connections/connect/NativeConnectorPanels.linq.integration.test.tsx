@@ -46,7 +46,6 @@ import {
   primaryKey,
   primaryOracle,
 } from "./native-api-primary.test-support.js";
-
 declareConnectionsTutorial();
 function line(index = 0) {
   return {

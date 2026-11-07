@@ -6,9 +6,9 @@ import type {
   TokenMethod,
 } from "@opensesame/vault-core";
 import { CredentialLine } from "./CredentialLine.js";
-import { apiKeyLabels } from "./credential-labels.js";
 import { FormatHint } from "./FormatHint.js";
 import { SecretControl, TextControl } from "./SecretInput.js";
+import { apiKeyLabels } from "./credential-labels.js";
 
 /** What a credential's lines need beyond its own fields: its name and its remove key. */
 type Lines<T extends LoginMethod> = {

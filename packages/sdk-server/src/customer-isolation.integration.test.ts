@@ -33,9 +33,7 @@ it("keeps customer resource audiences separate over live discovery, JWKS, and HT
       new Request(`${issuer}${request.url}`, { headers }),
     );
     response.statusCode = result.status;
-    result.headers.forEach((value, name) => {
-      response.setHeader(name, value);
-    });
+    result.headers.forEach((value, name) => response.setHeader(name, value));
     response.end(await result.text());
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

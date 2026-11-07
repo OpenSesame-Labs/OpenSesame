@@ -5,7 +5,6 @@ import {
   trustedDeviceKey,
 } from "./device-identity-trust.js";
 import { captureOriginalDeviceIdentityCryptoData } from "./original-device-identity-crypto-data.js";
-
 function gate() {
   let release = () => {};
   const promise = new Promise<void>((resolve) => {

@@ -11,11 +11,11 @@ import {
 import { kvDelete } from "@opensesame/app-core/lib/kv.js";
 import { localRequestFixture } from "@opensesame/app-core/lib/local-request.fixture.js";
 import { signInLocalIdentity } from "@opensesame/app-core/lib/local-sessions.js";
+import { listPendingShares } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import {
   createLocalShare,
   listLocalShares,
 } from "@opensesame/app-core/lib/local-share-grants.js";
-import { listPendingShares } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import type { DirectoryConnection } from "@opensesame/app-core/lib/nango-directory.js";
 import { lockAllTombs } from "@opensesame/app-core/lib/vfs.js";
 /** @vitest-environment jsdom */

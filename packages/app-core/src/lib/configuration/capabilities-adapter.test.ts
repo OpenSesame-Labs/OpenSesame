@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import {
+  FIXTURE_CATALOG,
+  FIXTURE_MANAGED_POLICY,
+} from "./doubles/composition-fixture.js";
+import { double, resetDouble } from "./doubles/test-support.js";
+
 import { PREFS_PATH_ALIASES } from "./aliases.js";
 import {
   commitInstallationSelectionSource,
@@ -25,15 +31,7 @@ import {
   capabilityResource,
   revisionToken,
 } from "./capabilities-resources.js";
-import {
-  FIXTURE_CATALOG,
-  FIXTURE_MANAGED_POLICY,
-} from "./doubles/composition-fixture.js";
-import {
-  double,
-  installDoublePorts,
-  resetDouble,
-} from "./doubles/test-support.js";
+import { installDoublePorts } from "./doubles/test-support.js";
 import { lookupConfigResource } from "./registry.js";
 
 installDoublePorts();

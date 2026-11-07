@@ -1,5 +1,4 @@
 import { type MutableRefObject, type RefObject, useCallback } from "react";
-import type { DecryptRun } from "./cipher.js";
 import { paintCipherFrame, scheduleCipherLoop } from "./cipher-frame.js";
 import { resizeCipherCanvas } from "./cipher-resize.js";
 import {
@@ -7,6 +6,7 @@ import {
   prefersReducedMotion,
   slotTimingsJson,
 } from "./cipher-timings.js";
+import type { DecryptRun } from "./cipher.js";
 import type { Layout } from "./particles.js";
 import { useCipherRuns } from "./use-cipher-runs.js";
 

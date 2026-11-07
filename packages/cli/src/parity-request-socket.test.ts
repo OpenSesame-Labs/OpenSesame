@@ -4,7 +4,6 @@ import { createServer } from "node:https";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-
 interface SocketResult {
   stdout: string;
   code: number;

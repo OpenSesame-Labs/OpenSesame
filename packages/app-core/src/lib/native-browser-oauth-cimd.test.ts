@@ -1,23 +1,24 @@
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
+import { vi } from "vitest";
 import { kvSeams } from "./kv.js";
 import {
   beginNativeBrowserAuthorization,
   configureNativeBrowserOAuthConnector,
-  createNativeBrowserOAuthDriver,
   finishNativeBrowserAuthorization,
 } from "./native-browser-oauth-connectors.js";
+import { createNativeBrowserOAuthDriver } from "./native-browser-oauth-connectors.js";
 import { browserOAuthClassification } from "./native-browser-oauth-profile.js";
 import {
   removeNativeConnectorWithCleanup,
   retryNativeConnectorCleanup,
 } from "./native-connector-lifecycle.js";
-import type {
-  NativeConfiguration,
-  NativeRecovery,
-} from "./native-connector-schema.js";
 import {
   emptyNativePrivate,
   emptyNativeRuntime,
+} from "./native-connector-schema.js";
+import type {
+  NativeConfiguration,
+  NativeRecovery,
 } from "./native-connector-schema.js";
 import {
   loadNativeConnectorRecord,

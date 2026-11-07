@@ -13,7 +13,6 @@ import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createTestContext } from "../test-context.js";
 import { captureBrowserNodeTransport } from "./browser-node-transport.js";
-
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 const releases: (() => void)[] = [];
 beforeEach(async () => {

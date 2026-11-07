@@ -5,7 +5,6 @@ import { atRestReady } from "@opensesame/app-core/lib/at-rest/key.js";
 import { kvFileName } from "@opensesame/app-core/lib/kv.js";
 import { AT_REST_DATABASE } from "@opensesame/app-core/lib/storage-ownership.js";
 import { type BoundaryValue, isJsonObject } from "@opensesame/os-domain";
-
 type NativeFixtureOverrides = {
   env: { BASE_URL: string; DEV: boolean };
   originFiles?: () => Promise<FileSystemDirectoryHandle>;

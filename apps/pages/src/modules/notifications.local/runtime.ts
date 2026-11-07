@@ -41,8 +41,8 @@ import {
 import { sectionCategory } from "../../sections/settings/FeatureSections.js";
 import { createActivation } from "../activation.js";
 import { registerTutorial } from "../tutorial-contributions.js";
-import { browserPorts } from "./delivery.js";
 import { LocalNotificationsPanel } from "./LocalNotificationsPanel.js";
+import { browserPorts } from "./delivery.js";
 
 export const CAPABILITY = "notifications.local";
 

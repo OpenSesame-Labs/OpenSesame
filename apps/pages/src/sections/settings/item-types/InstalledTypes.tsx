@@ -21,8 +21,8 @@ import type { ItemTypeDefinition } from "@opensesame/vault-item-types";
 import { useState } from "react";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconPlus, IconTrash, IconX } from "../../../components/Icons.js";
-import { useOpenSettingsFile } from "../files/context.js";
 import { OpenFileKey } from "../files/OpenFileKey.js";
+import { useOpenSettingsFile } from "../files/context.js";
 import { TypeRow } from "./TypeRow.js";
 
 function RemoveKeys({

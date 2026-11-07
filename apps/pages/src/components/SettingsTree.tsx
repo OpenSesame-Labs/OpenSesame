@@ -1,8 +1,9 @@
+import { settingsPageTree } from "../sections/settings/page-tree.js";
+import { PageTreeBranch } from "./PageTreeBranch.js";
+
 import { useDeviceVaults } from "../bindings/vaults.js";
 import { useShowHidden } from "../lib/use-show-hidden.js";
-import { settingsPageTree } from "../sections/settings/page-tree.js";
 import { useSettingsPanels } from "../sections/settings/rail-snapshot.js";
-import { PageTreeBranch } from "./PageTreeBranch.js";
 /**
  * Settings in the rail: one row per tab the page renders, then the headings
  * on that tab. Hierarchy comes from settingsPageTree — never a parallel list.

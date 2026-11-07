@@ -21,12 +21,12 @@ import {
   bindNativeProviderTransport,
   captureNativeProviderAuthority,
 } from "./native-connector-transport.js";
-import { oauthDraft } from "./native-oauth.test-support.js";
 import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
 import {
   nativeOAuthGuard,
   requireNativeOAuthRecord,
 } from "./native-oauth-session.js";
+import { oauthDraft } from "./native-oauth.test-support.js";
 import { tlsFetch } from "./native-s3-backup.test-support.js";
 import {
   deferred,

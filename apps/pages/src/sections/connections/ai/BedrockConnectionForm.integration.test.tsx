@@ -24,8 +24,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { initializeVaultCredentialCustody } from "@opensesame/app-core/lib/vault-credential-custody.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import {
   act,
@@ -42,7 +42,6 @@ import { bindAiConnectionRuntime } from "../../../modules/connectors.external/ai
 import { bindNativeRuntime } from "../../../modules/connectors.external/native-runtime.js";
 import { createTestContext } from "../../../modules/test-context.js";
 import { AiConnectionPanels } from "./AiConnectionPanels.js";
-
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   cleanup();

@@ -42,13 +42,13 @@ import {
   runListedFeature,
 } from "@opensesame/app-core/lib/feature-connector-operation.js";
 import {
-  type FeatureRequest,
-  savedFeatureRequests,
-} from "@opensesame/app-core/lib/feature-request.js";
-import {
   performSavedConnector,
   registerCategorySend,
 } from "@opensesame/app-core/lib/feature-request-send.js";
+import {
+  type FeatureRequest,
+  savedFeatureRequests,
+} from "@opensesame/app-core/lib/feature-request.js";
 import { savedForgeCredentials } from "@opensesame/app-core/lib/saved-git-backup.js";
 import {
   startVaultBackupObserver,

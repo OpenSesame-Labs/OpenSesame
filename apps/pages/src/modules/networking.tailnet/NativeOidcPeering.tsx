@@ -55,9 +55,7 @@ export function NativeOidcPeeringGate() {
 }
 export function NativeOidcPeeringWrapper({
   children,
-}: {
-  children?: ReactNode;
-}) {
+}: { children?: ReactNode }) {
   return (
     <>
       {children}

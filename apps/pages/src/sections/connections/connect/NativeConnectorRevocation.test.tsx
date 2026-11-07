@@ -4,12 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { NativeConnectorRecovery } from "./NativeConnectorRecovery.js";
+import { nativeVerified } from "./native-connector-ui-values.js";
 import type { NativeConnectorController } from "./native-connector-ui.js";
 import {
   nativeUiController,
   nativeUiView,
 } from "./native-connector-ui.test-support.js";
-import { nativeVerified } from "./native-connector-ui-values.js";
 
 afterEach(cleanup);
 

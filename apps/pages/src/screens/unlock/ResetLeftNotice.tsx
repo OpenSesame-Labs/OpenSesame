@@ -6,12 +6,12 @@
  * nothing here explains. Two keys: erase again, or dismiss.
  */
 
-import type { BrowserResetArea } from "@opensesame/app-core/lib/browser-reset.js";
 import {
   dismissLandingReset,
   landingLeftBehind,
   onLandingResetChange,
 } from "@opensesame/app-core/lib/browser-reset-landing.js";
+import type { BrowserResetArea } from "@opensesame/app-core/lib/browser-reset.js";
 import { useSyncExternalStore } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh, IconX } from "../../components/Icons.js";

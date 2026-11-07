@@ -5,11 +5,8 @@ import {
   type NativeDataReply,
   nativeDataResponse,
 } from "./native-data-wire.js";
-
 export type { NativeDataReply } from "./native-data-wire.js";
-
 import { nativeCompanionPath } from "./native-companion.js";
-
 const MAX = 48 * 1024 * 1024;
 export async function nativeDataProcess(state: string, executable?: string) {
   const child = spawn(

@@ -6,6 +6,7 @@ import { expect } from "@playwright/test";
 import { sealWithPin } from "./lib/pages-journey.mjs";
 import { encryptedBackupRoundTrip } from "./lib/secret-backend-backup-browser.mjs";
 import { startBitwardenFixture } from "./lib/secret-backend-bitwarden-fixture.mjs";
+import { startSecretBackendAppServer } from "./lib/secret-backend-browser-server.mjs";
 import {
   backendCrud,
   connectBackend,
@@ -15,7 +16,6 @@ import {
   openBackend,
   saveBackend,
 } from "./lib/secret-backend-browser.mjs";
-import { startSecretBackendAppServer } from "./lib/secret-backend-browser-server.mjs";
 import {
   secretsManagerBrowser,
   secretsManagerEvidence,

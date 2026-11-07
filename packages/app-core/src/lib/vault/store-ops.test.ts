@@ -9,14 +9,6 @@ import { describe, expect, it } from "vitest";
 import { kvDelete, kvGet, kvSet } from "../kv.js";
 import { PERSONAL_TOMB, readFile } from "../vfs.js";
 import {
-  ATTEMPTS_KEY,
-  PREFS_CONFIG_PATH,
-  VaultCorruptError,
-  WrongPasswordError,
-  assertMasterPasswordPolicy,
-  normalizeVaultPrefs,
-} from "./store.js";
-import {
   BODY_KEY,
   HEADER_KEY,
   PASSWORD,
@@ -25,6 +17,14 @@ import {
   newStore,
   unlockedStore,
 } from "./store-ops.fixture.js";
+import {
+  ATTEMPTS_KEY,
+  PREFS_CONFIG_PATH,
+  VaultCorruptError,
+  WrongPasswordError,
+  assertMasterPasswordPolicy,
+  normalizeVaultPrefs,
+} from "./store.js";
 import { LEGACY_PREFS_KEY } from "./tomb-migration.js";
 
 installStoreOperationsFixture();

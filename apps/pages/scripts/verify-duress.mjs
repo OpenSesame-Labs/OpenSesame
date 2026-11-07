@@ -117,10 +117,8 @@ function runStaticFeatureChecks() {
 
 run(
   "BUILD-A-F-feature-vitest",
-  "npm",
-  [
-    "exec",
-    "--",
+  "npm", [
+    "exec", "--",
     "vitest",
     "run",
     "src/lib/duress/feature/feature.test.ts",
@@ -133,10 +131,8 @@ runStaticFeatureChecks();
 
 run(
   "REDTEAM-vitest",
-  "npm",
-  [
-    "exec",
-    "--",
+  "npm", [
+    "exec", "--",
     "vitest",
     "run",
     "src/lib/duress/redteam",
@@ -160,10 +156,7 @@ run(
 
 // Sibling-swarm suites — reported for COORD; do not fail BUILD gate.
 run("REPORT-contracts-duress", "npm", [
-  "run",
-  "test",
-  "-w",
-  "@opensesame/contracts",
+  "run", "test", "-w", "@opensesame/contracts",
   "--",
   "src/duress",
 ]);
@@ -174,8 +167,7 @@ const duressIntegrationTests = readdirSync(join(core, "src/lib/duress"))
 
 run(
   "REPORT-duress-integration-vitest",
-  "npm",
-  ["exec", "--", "vitest", "run", ...duressIntegrationTests, "--maxWorkers=2"],
+  "npm", ["exec", "--", "vitest", "run", ...duressIntegrationTests, "--maxWorkers=2"],
   {
     cwd: core,
     blockIf: () =>
@@ -187,8 +179,7 @@ run(
 
 run(
   "REPORT-static-origin-optional",
-  "npm",
-  ["run", "verify:static", "-w", "@opensesame/pages"],
+  "npm", ["run", "verify:static", "-w", "@opensesame/pages"],
   {
     blockIf: () => {
       try {

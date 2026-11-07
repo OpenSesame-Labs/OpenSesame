@@ -7,25 +7,26 @@ import { type DuressCapability, capabilitiesForMode } from "./registry.js";
 import type { DuressFeatureMode } from "./types.js";
 
 export {
-  type AssetProbe,
-  type AssuranceLevel,
-  DuressOfflineAssetCache,
-  type OfflineReadinessReport,
-  evaluateOfflineAssetReadiness,
-} from "./assets.js";
-
-export {
-  type DuressFormatHeader,
-  type FormatRefusal,
-  assertReadableDuressHeader,
-  explainFormatRefusal,
-  refuseUnsupportedDuressFormat,
-} from "./format.js";
-export {
   DURESS_READER_VERSION,
   type DuressFeatureMode,
   isDuressFeatureEnabled,
 } from "./types.js";
+
+export {
+  assertReadableDuressHeader,
+  explainFormatRefusal,
+  refuseUnsupportedDuressFormat,
+  type DuressFormatHeader,
+  type FormatRefusal,
+} from "./format.js";
+
+export {
+  DuressOfflineAssetCache,
+  evaluateOfflineAssetReadiness,
+  type AssuranceLevel,
+  type AssetProbe,
+  type OfflineReadinessReport,
+} from "./assets.js";
 
 export type DuressAssetReadiness = Readonly<{
   modulesCached: boolean;

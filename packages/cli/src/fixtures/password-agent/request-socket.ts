@@ -2,7 +2,6 @@
 import { writeSync } from "node:fs";
 import { prepareRequest } from "@opensesame/app-core/lib/password-agent/request.js";
 import { sendPrivateRequest } from "../../parity-request-node.js";
-
 const prepared = prepareRequest({
   url: "https://request.example/private?query=canary",
   reference: "op://vault/item/field",

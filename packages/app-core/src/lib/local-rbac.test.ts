@@ -4,9 +4,9 @@ import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import { configureLocalApplication } from "./local-applications.js";
-import { readLocalDirectory } from "./local-directory.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
 import { ensureOwnerPerson } from "./local-directory-bootstrap.js";
+import { readLocalDirectory } from "./local-directory.js";
 import { revokeRecordedLocalGrant } from "./local-grant-admin.js";
 import { isGuestPersonEntry, mintGuestSessionPerson } from "./local-guest.js";
 import {

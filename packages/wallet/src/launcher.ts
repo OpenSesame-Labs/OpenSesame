@@ -204,7 +204,9 @@ export function createGoogleLauncherProvider(
       );
     },
 
-    async disableLauncher(input: { registrationId: string }): Promise<void> {
+    async disableLauncher(input: {
+      registrationId: string;
+    }): Promise<void> {
       // `EXPIRED`, never delete — Google cannot pull an object off a device
       // that holds it, so expiry is the strongest truthful statement. The
       // local record is what actually turns the launcher off (registry.ts);

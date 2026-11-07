@@ -1,4 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
+import * as codec from "./onepassword-sdk-codec.js";
+import * as loader from "./onepassword-sdk-loader.js";
 import { createOnePasswordSdkBackend } from "./onepassword-sdk.js";
 import {
   itemId,
@@ -8,8 +10,6 @@ import {
   sdkFixture,
   vaultId,
 } from "./onepassword-sdk.test-support.js";
-import * as codec from "./onepassword-sdk-codec.js";
-import * as loader from "./onepassword-sdk-loader.js";
 
 // Injected native replies verify adapter composition, not hosted authentication or SDK cryptography.
 afterEach(() => vi.restoreAllMocks());

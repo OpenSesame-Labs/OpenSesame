@@ -27,8 +27,8 @@ import { useVault } from "../../lib/vault/hooks.js";
 import { withWakeLock } from "../../lib/wake-lock.js";
 import { downloadSeams } from "../../screens/capabilities/download.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-import { useAddEntry } from "./add-menu.js";
 import { ExportBackupMenu } from "./ExportKey.menu.js";
+import { useAddEntry } from "./add-menu.js";
 
 const NOTICE = "vault-export";
 
@@ -157,6 +157,7 @@ function ExportSheet({ onClose }: { onClose: () => void }) {
       <div
         ref={sheetRef}
         className="sheet"
+        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="Export encrypted vault"
         aria-modal="true"

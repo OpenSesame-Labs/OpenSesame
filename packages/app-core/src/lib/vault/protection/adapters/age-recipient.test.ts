@@ -7,11 +7,11 @@ import {
   assertAgeRecoveryIndependent,
 } from "../age-bootstrap.js";
 import { ProtectionError } from "../errors.js";
+import { createAgeRecipientAdapter } from "./age-recipient-ops.js";
 import {
   ageRecipientCanSatisfyLastVerifiedGuard,
   publishUntestedAgeRecipient,
 } from "./age-recipient.js";
-import { createAgeRecipientAdapter } from "./age-recipient-ops.js";
 
 function context(protectorId: string): ProtectionContext {
   return {

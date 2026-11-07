@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { kvFlush, kvForgetAll, kvGet } from "../kv.js";
+import { kvFlush, kvForgetAll } from "../kv.js";
+import { kvGet } from "../kv.js";
 import { VaultStore } from "../vault/store.js";
-import { BODY_PATH, tombFileKey, vfsFlush } from "../vfs.js";
+import { vfsFlush } from "../vfs.js";
+import { BODY_PATH, tombFileKey } from "../vfs.js";
 import { createFileImportBackend } from "./file-import.js";
 import { bitwardenExport } from "./file-import.test-support.js";
 import { createLocalVaultBackend } from "./local.js";

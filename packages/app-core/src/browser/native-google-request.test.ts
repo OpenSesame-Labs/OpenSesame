@@ -1,7 +1,6 @@
 import { expect, it } from "vitest";
 import { readNativeGoogleRequest } from "./native-google-request.js";
 import { createNativeImplicitKey } from "./native-implicit-crypto.js";
-
 it("binds bounded Google page parameters to its encrypted receiver provider and deadline", async () => {
   const { state } = await createNativeImplicitKey("google", "n".repeat(32));
   const fragment = new URLSearchParams({

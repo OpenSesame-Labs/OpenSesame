@@ -4,7 +4,7 @@ import { NativeMcpError } from "./native-mcp-target.js";
 
 function atomLength(source: string): number {
   const atom =
-    /^(?:\[(?:\\[dDsSwW\\\]-]|[^[\]\\])+\]|\\[dDsSwW.\-_/]|[a-zA-Z0-9 _/@:-])/u.exec(
+    /^(?:\[(?:\\[dDsSwW\\\]\-]|[^\[\]\\])+\]|\\[dDsSwW.\-_/]|[a-zA-Z0-9 _/@:\-])/u.exec(
       source,
     );
   if (!atom) throw new NativeMcpError("schema-limits");

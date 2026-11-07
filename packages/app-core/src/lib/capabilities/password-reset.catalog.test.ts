@@ -4,8 +4,8 @@
  * owns (ADR 0190).
  */
 import { describe, expect, it } from "vitest";
-import { CAPABILITY_CATALOG } from "./catalog.js";
 import { PASSWORD_RESET_MAIL_PURPOSE } from "./catalog-optional-services.js";
+import { CAPABILITY_CATALOG } from "./catalog.js";
 import { featureById, featureOf } from "./features.js";
 
 const ids = {

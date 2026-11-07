@@ -1,10 +1,10 @@
 import { type VaultItem, accountTotp } from "@opensesame/vault-core";
 import { describe, expect, it, vi } from "vitest";
 import { runDuressEffects } from "./effects.js";
-import { ctx, dressed, extrasFor, items } from "./visible-items.fixture.js";
-import { VISIBLE_ITEMS } from "./visible-items.js";
 import { VISIBLE_ITEMS_RUNNER, materialize } from "./visible-items-effect.js";
 import { shareItem } from "./visible-items-share.js";
+import { ctx, dressed, extrasFor, items } from "./visible-items.fixture.js";
+import { VISIBLE_ITEMS } from "./visible-items.js";
 
 describe("visible items runner", () => {
   const adder = () => vi.fn(async (_items: VaultItem[]) => undefined);

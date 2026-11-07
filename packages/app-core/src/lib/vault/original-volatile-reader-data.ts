@@ -3,7 +3,6 @@ import { host } from "../../host.js";
 import { lockManager } from "../../ports.js";
 import { captureOriginalMemoryKvReadData, kvDurability, kvGet } from "../kv.js";
 import { vfsSeams } from "../vfs-seams-state.js";
-
 function hasNoOriginalPhysicalPorts(
   installed: ReturnType<typeof host>,
 ): boolean {

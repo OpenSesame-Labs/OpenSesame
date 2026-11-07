@@ -25,7 +25,6 @@ const importSealed = vi.hoisted(() => vi.fn());
 const applyManifestMerge = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
   useVaultStore: () => ({ applyImport, importSealed, applyManifestMerge }),

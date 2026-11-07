@@ -4,7 +4,6 @@
 export { handleGithubAppPutContents } from "./github-app-put-contents.mjs";
 export { handleGithubAppWebhook } from "./github-app-webhook.mjs";
 
-import { githubAppCorsHeaders, mintGithubAppJwt } from "./github-app.mjs";
 import {
   API,
   API_VERSION,
@@ -12,6 +11,7 @@ import {
   json,
   readCredentials,
 } from "./github-app-contents-shared.mjs";
+import { githubAppCorsHeaders, mintGithubAppJwt } from "./github-app.mjs";
 import { clearWebhookQueue, drainWebhookNudges } from "./webhook-queue.mjs";
 
 /**

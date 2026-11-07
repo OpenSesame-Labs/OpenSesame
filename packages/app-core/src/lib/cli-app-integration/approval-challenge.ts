@@ -1,5 +1,4 @@
 import { asBufferSource } from "@opensesame/os-domain";
-
 /**
  * Approval challenge digests and pairing-confirm messages (Rust parity).
  */
@@ -11,9 +10,7 @@ export const APPROVAL_CHALLENGE_LABEL = "opensesame-cli-app-approval.v1";
 export const APPROVAL_CHALLENGE_V3_LABEL = "opensesame-cli-app-approval.v3";
 
 async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(
-    await crypto.subtle.digest("SHA-256", asBufferSource(data)),
-  );
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", asBufferSource(data)));
 }
 
 export async function approvalChallengeDigest(

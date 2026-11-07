@@ -6,7 +6,6 @@ import { projectNativeAgentcardOrganization } from "./native-api-agentcard.js";
 import { nativeApiVerificationRequest } from "./native-api-auth.js";
 import { nativeApiResourceActions } from "./native-api-resources.js";
 import { nativeApiTarget } from "./native-api-target.js";
-
 const presets = JSON.parse(
   readFileSync(
     new URL(

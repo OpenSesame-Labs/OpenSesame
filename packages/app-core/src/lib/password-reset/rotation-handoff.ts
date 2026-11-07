@@ -4,8 +4,8 @@
  */
 
 import type { VaultItem } from "@opensesame/vault-core";
-import type { RotationEvent } from "../vault/rotation-queue.js";
 import { accountWebLoginOrigin } from "../vault/rotation-queue.js";
+import type { RotationEvent } from "../vault/rotation-queue.js";
 import type { RotationRelayResult } from "../vault/rotation-relay.js";
 import { resetRotationActive } from "./rotation-handoff-active.js";
 import {

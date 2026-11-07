@@ -5,7 +5,6 @@ import {
   encodeRetiredCredentialRecordsV2,
   parseRetiredCredentialRecordsV2,
 } from "./records-v2.js";
-
 const v = required(fixtures.vectors[0]);
 it("requires explicit expiry, keeps expired records and preserves observations", () => {
   const original = parseRetiredCredentialRecordsV2(

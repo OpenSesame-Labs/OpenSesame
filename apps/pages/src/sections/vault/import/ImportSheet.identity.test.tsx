@@ -26,7 +26,6 @@ const vault: VaultFixture = { current: empty };
 const importSealed = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
   useVaultStore: () => ({ applyImport: vi.fn(), importSealed }),

@@ -36,7 +36,6 @@ const store = vi.hoisted(() => ({
 const copySecret = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => ({ ...vault.current, tomb: "personal" }),
@@ -46,14 +45,14 @@ Object.assign(vaultHooksSeams, {
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
 import { expectInTray } from "../../components/tray.test-support.js";
-import { makeAccount } from "./account.test-support.js";
+import { ItemDetail } from "./ItemDetail.js";
 import { bindAccountPasswordCore } from "./account-password-test-context.js";
 import {
   PLAIN,
   sealedAccount,
   slottedAccount,
 } from "./account-pepper.test-support.js";
-import { ItemDetail } from "./ItemDetail.js";
+import { makeAccount } from "./account.test-support.js";
 
 function sphinxAccount(): AccountItem {
   const base = makeAccount({ id: "itm_sph", username: "ada" });

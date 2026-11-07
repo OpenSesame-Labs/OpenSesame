@@ -5,8 +5,8 @@
  * name. The vault key does not move with the owner role, and the sheet says so.
  */
 
-import type { LocalIdentity } from "@opensesame/app-core/lib/local-directory.js";
 import { LocalDirectoryError } from "@opensesame/app-core/lib/local-directory.js";
+import type { LocalIdentity } from "@opensesame/app-core/lib/local-directory.js";
 import { transferVaultOwnership } from "@opensesame/app-core/lib/vault-ownership.js";
 import { useState } from "react";
 import { CeremonySheet } from "../../components/CeremonySheet.js";

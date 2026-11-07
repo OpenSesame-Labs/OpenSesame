@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
-
-import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
+import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { lockAllTombs, unlockTomb } from "@opensesame/app-core/lib/vfs.js";
 import { mintVaultKey } from "@opensesame/vault-core";
 import {

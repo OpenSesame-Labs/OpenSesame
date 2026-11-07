@@ -20,7 +20,6 @@ import {
 const copySecret = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, { useCopySecret: () => copySecret });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));

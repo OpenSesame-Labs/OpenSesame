@@ -2,8 +2,8 @@ import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import { connectorPath } from "@opensesame/app-core/sections/connections/shared.js";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { IconDots } from "../../components/Icons.js";
+import { openContextMenu } from "../../components/context-menu/menu-model.js";
 
 /** Installed actions open the existing provider controls, including removal confirmation. */
 export function InstalledConnectorActions({

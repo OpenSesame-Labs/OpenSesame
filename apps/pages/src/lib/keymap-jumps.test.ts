@@ -20,8 +20,8 @@ import {
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import { sectionCommandId } from "@opensesame/app-core/lib/keymap/commands.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createKeymapHandler } from "./keymap.js";
 import { sectionCommandPath, sectionJumpPath } from "./keymap-jumps.js";
+import { createKeymapHandler } from "./keymap.js";
 
 const PASSKEYS = "vault.passkey-records";
 

@@ -15,15 +15,18 @@
  */
 
 export {
-  GOOGLE_WALLET_ENV,
   type GoogleWalletConfig,
   type GoogleWalletDisabled,
   type GoogleWalletEnabled,
+  GOOGLE_WALLET_ENV,
+  parseGoogleWalletConfig,
   WalletConfigError,
   type WalletEnvSource,
-  parseGoogleWalletConfig,
 } from "./config.js";
 export {
+  buildGenericClass,
+  buildGenericObject,
+  createGoogleWalletProvider,
   type GoogleBarcode,
   type GoogleGenericClass,
   type GoogleGenericObject,
@@ -34,9 +37,6 @@ export {
   type GoogleUriEntry,
   type GoogleWalletProvider,
   type GoogleWalletProviderOptions,
-  buildGenericClass,
-  buildGenericObject,
-  createGoogleWalletProvider,
 } from "./google.js";
 export {
   type GoogleClient,
@@ -44,19 +44,42 @@ export {
   createGoogleClient,
 } from "./google-client.js";
 export {
+  createGoogleLauncherProvider,
+  createWalletLauncherProvider,
+  newRotatingBarcodeSeed,
   NullLauncherProvider,
   type WalletLauncherArtifact,
   type WalletLauncherCapabilities,
   type WalletLauncherProvider,
-  createGoogleLauncherProvider,
-  createWalletLauncherProvider,
-  newRotatingBarcodeSeed,
 } from "./launcher.js";
 export {
+  assertPassPayloadSafe,
   WalletPayloadRejected,
   type WalletPayloadRule,
-  assertPassPayloadSafe,
 } from "./payload.js";
+export {
+  assertLauncherPublicSafe,
+  buildLauncherProvisioningObject,
+  buildLauncherPublicObject,
+  type GoogleLauncherProvisioningObject,
+  type GoogleLauncherPublicObject,
+  type GoogleRotatingBarcode,
+  type GoogleTotpDetails,
+  type GoogleTotpParameter,
+  launcherObjectId,
+  launcherUrl,
+  type RotatingBarcodeSeed,
+  type WalletLauncherInput,
+  WalletLauncherError,
+} from "./registration.js";
+export {
+  InMemoryWalletRegistrationStore,
+  type WalletRegistration,
+  WalletRegistrationConflictError,
+  type WalletRegistrationInput,
+  type WalletRegistrationState,
+  type WalletRegistrationStore,
+} from "./registry.js";
 export {
   NullWalletProvider,
   type WalletCapabilities,
@@ -71,29 +94,6 @@ export {
   type WalletPassUpdateInput,
   WalletRequestError,
 } from "./provider.js";
-export {
-  type GoogleLauncherProvisioningObject,
-  type GoogleLauncherPublicObject,
-  type GoogleRotatingBarcode,
-  type GoogleTotpDetails,
-  type GoogleTotpParameter,
-  type RotatingBarcodeSeed,
-  WalletLauncherError,
-  type WalletLauncherInput,
-  assertLauncherPublicSafe,
-  buildLauncherProvisioningObject,
-  buildLauncherPublicObject,
-  launcherObjectId,
-  launcherUrl,
-} from "./registration.js";
-export {
-  InMemoryWalletRegistrationStore,
-  type WalletRegistration,
-  WalletRegistrationConflictError,
-  type WalletRegistrationInput,
-  type WalletRegistrationState,
-  type WalletRegistrationStore,
-} from "./registry.js";
 
 import {
   type GoogleWalletConfig,

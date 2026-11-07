@@ -24,7 +24,6 @@ export function TripwireList({
         <li
           // A feed may repeat an event at the same instant; its place keeps
           // the key unique, and the list is replaced whole on each read.
-          // biome-ignore lint/suspicious/noArrayIndexKey: the place disambiguates repeated events; the list is replaced whole (see comment above)
           key={`${notice.at}-${notice.event}-${at}`}
           className="plugin-tile__tripwire"
         >

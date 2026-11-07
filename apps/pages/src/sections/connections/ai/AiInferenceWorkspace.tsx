@@ -211,9 +211,7 @@ function TextInferenceWorkspace({ connectionId }: { connectionId: string }) {
 /** Separate components keep each family's hooks and output contracts intact. */
 export function AiInferenceWorkspace({
   connectionId,
-}: {
-  connectionId: string;
-}) {
+}: { connectionId: string }) {
   return isAiImageFamily(readAiConnection(connectionId)?.family) ? (
     <AiImageWorkspace key={connectionId} connectionId={connectionId} />
   ) : (

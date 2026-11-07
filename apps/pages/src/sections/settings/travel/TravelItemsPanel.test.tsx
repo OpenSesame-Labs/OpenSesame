@@ -1,25 +1,3 @@
-import { travelSeams } from "@opensesame/app-core/lib/travel/index.js";
-import { travelItemSeams } from "@opensesame/app-core/lib/travel/items-deps.js";
-import {
-  formatReturnCode,
-  mintReturnSecret,
-} from "@opensesame/app-core/lib/travel/return-code.js";
-import {
-  fakeOrigin,
-  putVault,
-  vault,
-} from "@opensesame/app-core/lib/travel/travel.test-support.js";
-import {
-  type FakeItemsVault,
-  account,
-  fakeItemsVault,
-  folder,
-} from "@opensesame/app-core/lib/travel/travel-items.test-support.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import {
-  type DeviceVault,
-  vaultsSeams,
-} from "@opensesame/app-core/lib/vaults.js";
 import {
   cleanup,
   fireEvent,
@@ -29,6 +7,29 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { travelSeams } from "@opensesame/app-core/lib/travel/index.js";
+import { travelItemSeams } from "@opensesame/app-core/lib/travel/items-deps.js";
+import {
+  formatReturnCode,
+  mintReturnSecret,
+} from "@opensesame/app-core/lib/travel/return-code.js";
+import {
+  type FakeItemsVault,
+  account,
+  fakeItemsVault,
+  folder,
+} from "@opensesame/app-core/lib/travel/travel-items.test-support.js";
+import {
+  fakeOrigin,
+  putVault,
+  vault,
+} from "@opensesame/app-core/lib/travel/travel.test-support.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import {
+  type DeviceVault,
+  vaultsSeams,
+} from "@opensesame/app-core/lib/vaults.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { TravelPanel } from "./TravelPanel.js";
 

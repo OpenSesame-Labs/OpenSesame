@@ -9,15 +9,8 @@ import {
   updateNativeConnector,
 } from "@opensesame/app-core/lib/native-connector-store.js";
 import { nativeProviderTransport } from "@opensesame/app-core/lib/native-connector-transport.js";
-import {
-  afterEach,
-  afterEach as afterGenuine,
-  beforeEach as beforeGenuine,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach as afterGenuine, beforeEach as beforeGenuine } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import {

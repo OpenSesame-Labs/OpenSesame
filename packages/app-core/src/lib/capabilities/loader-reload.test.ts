@@ -31,8 +31,8 @@ import {
   loaderSeams,
 } from "./loader.js";
 import type { CapabilityModule } from "./runtime-contract.js";
-import { compositionStore } from "./store.js";
 import { storeSeams } from "./store-seams.js";
+import { compositionStore } from "./store.js";
 
 const PASSKEYS = "vault.passkey-records";
 // A document-only capability that must start in a fresh document, as

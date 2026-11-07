@@ -145,7 +145,7 @@
       "max-lines-per-function": 1
     },
     "apps/pages/src/sections/IdentitySection.test.tsx": {
-      "max-lines": 814
+      "max-lines": 815
     },
     "apps/pages/src/sections/IdentitySection.tsx": {
       "max-lines": 804,
@@ -210,7 +210,7 @@
     },
     "apps/pages/src/sections/settings/security/SecondStepCeremonies.tsx": {
       "complexity": 2,
-      "max-lines": 855,
+      "max-lines": 866,
       "max-lines-per-function": 3
     },
     "apps/pages/src/sections/vault/HealthPanel.tsx": {
@@ -593,7 +593,7 @@
       "max-lines-per-function": 1
     },
     "packages/app-core/src/lib/connections.ts": {
-      "max-lines": 466
+      "max-lines": 467
     },
     "packages/app-core/src/lib/crumbs.ts": {
       "complexity": 1
@@ -1091,7 +1091,7 @@
     },
     "packages/control-plane/src/services/agent-auth.ts": {
       "complexity": 1,
-      "max-lines": 654,
+      "max-lines": 655,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/app-claim.ts": {
@@ -1136,7 +1136,7 @@
       "max-lines-per-function": 1
     },
     "packages/database/src/org-federation-store.ts": {
-      "max-lines": 404,
+      "max-lines": 405,
       "max-lines-per-function": 1
     },
     "packages/database/src/repos/agent-auth-repo.ts": {
@@ -1151,7 +1151,7 @@
     },
     "packages/database/src/repos/postgres.ts": {
       "complexity": 1,
-      "max-lines": 2654
+      "max-lines": 2656
     },
     "packages/database/src/repos/sealed-secrets-sweep.ts": {
       "complexity": 1
@@ -1196,7 +1196,7 @@
       "max-statements": 1
     },
     "packages/guide-runtime/src/runtime.test.ts": {
-      "max-lines": 982
+      "max-lines": 984
     },
     "packages/guide-runtime/src/runtime.ts": {
       "max-lines-per-function": 1

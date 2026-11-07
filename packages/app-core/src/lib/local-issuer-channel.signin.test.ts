@@ -16,11 +16,11 @@ import { listLocalAccessRequests } from "./local-access-requests.js";
 import { configureLocalApplication } from "./local-applications.js";
 import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
 import type { LocalAuthorizationRequest } from "./local-authorization.js";
+import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "./local-directory.js";
-import { changeLocalDirectory } from "./local-directory-admin.js";
 import { bindLocalIamLockResets } from "./local-iam-lock-resets.js";
 import { LocalIssuerChannel } from "./local-issuer-channel.js";
 import { enrollLocalPasskey } from "./local-passkeys.js";

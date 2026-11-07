@@ -57,6 +57,7 @@ export interface ClientOriginRecord {
 /** The alias origin is already attached to a different application. */
 export class ClientOriginConflictError extends Error {
   override readonly name = "ClientOriginConflictError";
+  // biome-ignore lint/complexity/noUselessConstructor: Error needs the message passed to super.
   constructor(message: string) {
     super(message);
   }

@@ -279,8 +279,8 @@ export function WaysIn() {
           </ul>
         )}
       </div>
+
       <div className="setup__stack">
-        {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <div className="preset" aria-label="Add a provider">
           {SETUP_PROVIDERS.map((entry) => (
             <button

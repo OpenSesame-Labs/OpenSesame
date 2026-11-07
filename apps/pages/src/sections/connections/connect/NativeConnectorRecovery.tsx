@@ -5,12 +5,12 @@ import { FormCommit } from "../../../components/FormCommit.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconRefresh } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
+import { nativeError, nativePublicUrl } from "./native-connector-ui-values.js";
 import type {
   NativeConnectorCallbacks,
   NativeConnectorController,
   NativeRevocationGuide,
 } from "./native-connector-ui.js";
-import { nativeError, nativePublicUrl } from "./native-connector-ui-values.js";
 
 function useNativeRevocationGuide(
   controller: NativeConnectorController,

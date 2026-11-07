@@ -16,10 +16,7 @@ const TABS = [
 function Strip({
   index,
   select,
-}: {
-  index: number;
-  select: (at: number) => void;
-}) {
+}: { index: number; select: (at: number) => void }) {
   const { tabProps } = useRovingTabs({
     count: TABS.length,
     index,

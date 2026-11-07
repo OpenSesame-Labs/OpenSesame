@@ -1,19 +1,19 @@
 export {
-  type ControlPlaneClient,
-  type ControlPlaneClientConfig,
-  createControlPlaneClient,
-} from "./control-plane.js";
-export {
-  type DeviceAuthorizationResponse,
   DeviceFlowClient,
+  redactSecrets,
+  type DeviceAuthorizationResponse,
   type DeviceFlowClientConfig,
   type DevicePollResult,
   type SafeDeviceStart,
   type TokenSuccess,
-  redactSecrets,
 } from "./device-flow.js";
 export {
+  loopbackLogin,
   type LoopbackLoginConfig,
   type LoopbackTokens,
-  loopbackLogin,
 } from "./loopback.js";
+export {
+  createControlPlaneClient,
+  type ControlPlaneClient,
+  type ControlPlaneClientConfig,
+} from "./control-plane.js";

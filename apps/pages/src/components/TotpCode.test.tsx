@@ -1,8 +1,9 @@
-import { listNotices } from "@opensesame/app-core/lib/notices.js";
-import { totpSeams } from "@opensesame/vault-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { listNotices } from "@opensesame/app-core/lib/notices.js";
+import { totpSeams } from "@opensesame/vault-core";
 import { TotpCode, currentTotp } from "./TotpCode.js";
 import { expectInTray, inTray } from "./tray.test-support.js";
 

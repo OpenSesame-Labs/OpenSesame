@@ -106,7 +106,6 @@ function ResetBrowserSheet({
 }) {
   const vaults = useDeviceVaults().filter((vault) => vault.state !== "empty");
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div
       className="sheet-layer"
       // Escape is spent at the layer, before it can reach the
@@ -127,6 +126,7 @@ function ResetBrowserSheet({
       <div
         ref={sheetRef}
         className="sheet"
+        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="Reset this browser"
         aria-modal="true"

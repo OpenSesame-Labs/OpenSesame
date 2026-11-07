@@ -2,8 +2,8 @@ import {
   SANDBOX_PROVIDER_IDS,
   type SandboxProviderId,
 } from "@opensesame/agent-sandboxes";
-import type { GlobalFlags } from "./parse.js";
 import { leftover, takeOption } from "./parse-options.js";
+import type { GlobalFlags } from "./parse.js";
 
 export type PasswordResetAction = "configure" | "run" | "resume" | "reconcile";
 

@@ -6,7 +6,6 @@ import type {
   NativeField,
   NativeMethodDescriptor,
 } from "./native-connector-ui.js";
-
 function publicEndpoint(
   id: string,
   label: string,

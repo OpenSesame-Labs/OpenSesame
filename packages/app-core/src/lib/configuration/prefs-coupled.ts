@@ -4,8 +4,8 @@ import {
   commitCoupledChange,
 } from "./cas.js";
 import type { ConfigDraft } from "./draft.js";
-import type { PrefsDocument } from "./prefs-document.js";
 import { parsePrefsSource, prefsToYaml } from "./prefs-document.js";
+import type { PrefsDocument } from "./prefs-document.js";
 import type { CommitResult } from "./types.js";
 import { isPresentationOnlyChange } from "./yaml-patch.js";
 

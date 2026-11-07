@@ -6,15 +6,16 @@ import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
  * vault is locked, empty, a guest or a decoy, and for an open vault one set of
  * ports whose records follow the vault as it changes.
  */
-import { PERSONAL_TOMB, vfsFlush } from "@opensesame/app-core/lib/vfs.js";
+import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
+import { PERSONAL_TOMB } from "@opensesame/app-core/lib/vfs.js";
 import type { TypedItem } from "@opensesame/vault-core";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import {
   deskSeams,
+  realUseDesk,
   useDesk,
-  useRealDesk,
   useUnreadableRecords,
 } from "./use-desk.js";
 import {
@@ -32,7 +33,7 @@ beforeEach(async () => {
 afterEach(async () => {
   cleanup();
   Object.assign(vaultHooksSeams, seams);
-  deskSeams.useDesk = useRealDesk;
+  deskSeams.useDesk = realUseDesk;
   await vaultStore.flushPendingWrites();
   await vfsFlush();
   vaultStore.lock();
@@ -43,7 +44,7 @@ const open = () => act(() => vaultStore.create(PASSWORD));
 
 describe("useDesk", () => {
   it("is the real desk until a test replaces it", () => {
-    expect(deskSeams.useDesk).toBe(useRealDesk);
+    expect(deskSeams.useDesk).toBe(realUseDesk);
     const { result } = renderHook(() => useDesk());
     expect(result.current).toBeNull();
   });

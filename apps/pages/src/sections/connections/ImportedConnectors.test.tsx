@@ -74,10 +74,7 @@ afterEach(() => {
 function Page({
   tomb,
   onFlash,
-}: {
-  tomb: string;
-  onFlash: (flash: Flash) => void;
-}) {
+}: { tomb: string; onFlash: (flash: Flash) => void }) {
   const imported = useImportedDirectory(tomb);
   return (
     <MemoryRouter>

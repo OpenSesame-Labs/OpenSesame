@@ -21,9 +21,8 @@
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   color-scheme: light;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
-    "Noto Sans", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif;
   color: var(--ink);
   background: var(--canvas);
 }
@@ -151,9 +150,7 @@ button {
   min-height: 2.1rem;
   padding: 0 0.75rem;
   cursor: pointer;
-  transition:
-    background 140ms var(--ease),
-    border-color 140ms var(--ease);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
 }
 
 button:hover {

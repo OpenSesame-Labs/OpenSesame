@@ -64,7 +64,7 @@ export function useTailscaleConnections() {
   const [, setConnections] = state;
   const refresh = useCallback(
     () => setConnections(currentTailscaleConnections),
-    [],
+    [setConnections],
   );
   useTailscaleConnectionState(refresh);
   return state;

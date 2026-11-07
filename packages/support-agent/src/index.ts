@@ -9,11 +9,40 @@
 
 export * from "./contract.js";
 export {
+  SUPPORT_POLICY_CLAUSES,
+  buildSupportInstructions,
+} from "./instructions.js";
+export {
   SupportEgressRefused,
   assertNoStructuralLeak,
   redactionWarning,
   sanitizeSupportRequest,
 } from "./egress.js";
+export {
+  type GuideCompileFailureSummary,
+  type GuideCompileIssue,
+  type SupportGuideCompileResult,
+  type SupportGroundedAnswer,
+  type SupportGuideVocabulary,
+  type SupportSourcesExtraction,
+  type SupportTurnOptions,
+  type SupportTurnSeams,
+  type SupportTurnOutcome,
+  extractSupportSources,
+  groundSupportAnswer,
+  guideRepairInstruction,
+  parseSupportTurn,
+  runSupportTurn,
+  supportTurnSeams,
+  supportVocabulary,
+} from "./turn.js";
+export {
+  type SupportSession,
+  type SupportSessionDeps,
+  type SupportSessionSnapshot,
+  type SupportSessionStatus,
+  createSupportSession,
+} from "./session.js";
 export {
   type FakeReplanStep,
   type FakeSupportAgent,
@@ -30,38 +59,9 @@ export {
   fakeSupportPageContext,
 } from "./fake.js";
 export {
-  SUPPORT_POLICY_CLAUSES,
-  buildSupportInstructions,
-} from "./instructions.js";
-export {
-  REMOTE_PAYLOAD_BYTES,
   REMOTE_QUESTION_LIMIT,
-  type RemoteSupportPayload,
+  REMOTE_PAYLOAD_BYTES,
   redactSupportQuestion,
   remoteSupportPayload,
+  type RemoteSupportPayload,
 } from "./remote-payload.js";
-export {
-  type SupportSession,
-  type SupportSessionDeps,
-  type SupportSessionSnapshot,
-  type SupportSessionStatus,
-  createSupportSession,
-} from "./session.js";
-export {
-  type GuideCompileFailureSummary,
-  type GuideCompileIssue,
-  type SupportGroundedAnswer,
-  type SupportGuideCompileResult,
-  type SupportGuideVocabulary,
-  type SupportSourcesExtraction,
-  type SupportTurnOptions,
-  type SupportTurnOutcome,
-  type SupportTurnSeams,
-  extractSupportSources,
-  groundSupportAnswer,
-  guideRepairInstruction,
-  parseSupportTurn,
-  runSupportTurn,
-  supportTurnSeams,
-  supportVocabulary,
-} from "./turn.js";

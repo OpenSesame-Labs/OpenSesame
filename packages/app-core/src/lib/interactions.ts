@@ -134,6 +134,7 @@ export function interactionApproval(
   );
 }
 
+export type { InteractionApproval, InteractionAuthenticator };
+
 /** The link is read at boot, apart from the ceremony (`interactions-link.ts`). */
 export { captureInteractionLink } from "./interactions-link.js";
-export type { InteractionApproval, InteractionAuthenticator };

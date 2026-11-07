@@ -6,7 +6,6 @@ import {
   tailscaleRegistrationRequest,
 } from "./artifacts.js";
 import { tailscaleAppName } from "./oauth-app.js";
-
 const config = {
   apiBase: "https://api.tailscale.com/",
   tailnet: "-",

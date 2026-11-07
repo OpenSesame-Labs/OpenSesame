@@ -23,11 +23,11 @@
  * serves sessions, and answers `locked` when asked for one.
  */
 
-import { isRemoteIdentityConfigured } from "./device-identity.js";
 import {
   type IdentityRouteFamily,
   registeredDeviceFamilies,
 } from "./device-identity-routes.js";
+import { isRemoteIdentityConfigured } from "./device-identity.js";
 
 export {
   DEVICE_CORE_FAMILIES,

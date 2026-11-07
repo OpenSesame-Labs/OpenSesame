@@ -40,8 +40,8 @@ import {
   vfsFlush,
 } from "../vfs.js";
 import { sealedVaultText } from "./offline-backup-file.js";
-import { VaultStore } from "./store.js";
 import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
+import { VaultStore } from "./store.js";
 import {
   listPasskeyUnlockRecords,
   unwrapVaultKeyWithPin,

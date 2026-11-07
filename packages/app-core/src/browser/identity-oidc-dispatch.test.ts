@@ -12,17 +12,17 @@ import { SETTINGS_PERSIST_KEY } from "../lib/capability-connector-scope.js";
 import { readNativeFederationSession } from "../lib/federation-native-session.js";
 import { readFederationSessionJson } from "../lib/federation-session-store.js";
 import {
+  getIdentityConnectionRuntime,
+  hydrateIdentityConnections,
+  readIdentityConnection,
+} from "../lib/identity-connections-store.js";
+import {
   beginIdentityConnectionSignIn,
   identityConnectionDraft,
   listIdentityConnections,
   saveIdentityConnection,
   testIdentityConnection,
 } from "../lib/identity-connections.js";
-import {
-  getIdentityConnectionRuntime,
-  hydrateIdentityConnections,
-  readIdentityConnection,
-} from "../lib/identity-connections-store.js";
 import { kvFlush, kvForgetAll, kvHydrate } from "../lib/kv.js";
 import { fixture } from "../lib/origin-file-publication-custody.test-support.js";
 import {

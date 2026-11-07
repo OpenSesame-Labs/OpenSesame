@@ -20,7 +20,6 @@ import {
   removeOwnEmptyPlaceholder,
 } from "./origin-file-publication-read.js";
 import { haltedWriteError, storageWritesHalted } from "./storage-halt.js";
-
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 type OriginalOriginDirectoryCaptureData = {
   current?: OriginalOriginDirectoryData;

@@ -26,6 +26,7 @@ import type { Guardian } from "@opensesame/app-core/lib/quorum/types.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type CeremonyFailure, useCeremonyFailure } from "../failure-text.js";
 import type { Desk } from "../use-desk.js";
+import type { Carried } from "./DealtStep.js";
 import {
   type ClocksDraft,
   DEFAULT_CLOCKS,
@@ -37,7 +38,6 @@ import {
   protectsOf,
 } from "./circle-model.js";
 import { type PayloadSource, circlePayload } from "./circle-payload.js";
-import type { Carried } from "./DealtStep.js";
 import { type Judge, type Reviewed, useReview } from "./use-review.js";
 
 export type Step = "name" | "people" | "rule" | "clocks" | "dealt";

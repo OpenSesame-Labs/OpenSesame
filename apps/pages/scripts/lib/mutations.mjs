@@ -36,8 +36,7 @@ const buildNames = (needle) => ({
   label: `pages build reachability report names ${needle}`,
   command: "npm",
   args: [
-    "exec",
-    "--",
+    "exec", "--",
     "turbo",
     "run",
     "build",

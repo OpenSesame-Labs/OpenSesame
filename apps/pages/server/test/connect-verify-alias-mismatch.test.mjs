@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { verifyTargetFor, verifyWithToken } from "../connect-verify.mjs";
 import {
   VERIFY_OAUTH_ALIAS_HOSTS,
   VERIFY_TARGETS,
 } from "../connect-verify-targets.generated.mjs";
+import { verifyTargetFor, verifyWithToken } from "../connect-verify.mjs";
 
 const token = "synthetic-token-must-not-leave";
 

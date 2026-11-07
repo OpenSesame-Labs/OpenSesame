@@ -11,7 +11,6 @@ import {
 } from "./native-mcp-connectors.test-support.js";
 import { requireNativeMcpRecord } from "./native-mcp-records.js";
 import { verifyNativeMcpConnector } from "./native-mcp-verification.js";
-
 installNativeMcpConnectorTests();
 function callback(id: string) {
   const pending = requireNativeMcpRecord(id).privateState.pending.user;

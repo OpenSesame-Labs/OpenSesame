@@ -36,10 +36,8 @@ import {
   requireNativeOAuthRecord,
 } from "./native-oauth-session.js";
 import { beginNativeTwitchDeviceAuthorization } from "./native-twitch-device.js";
-
 export { configureNativeBrowserOAuthConnector } from "./native-browser-oauth-config.js";
 export { finishNativeBrowserAuthorization } from "./native-browser-oauth-finish.js";
-
 import { configureNativeBrowserOAuthConnector } from "./native-browser-oauth-config.js";
 
 export async function beginNativeBrowserAuthorization(

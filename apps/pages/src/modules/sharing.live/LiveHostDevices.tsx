@@ -21,10 +21,10 @@ import { CeremonyShell } from "../../components/CeremonyShell.js";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconCheck, IconTerminal, IconX } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
+import { ResetRequests } from "./ResetRequests.js";
 import { useLandOnChange } from "./live-focus.js";
 import { formatRemaining, useRemaining } from "./live-hooks.js";
 import { DEVICE_DURATIONS, Pick } from "./live-host-form-parts.js";
-import { ResetRequests } from "./ResetRequests.js";
 import { useAllowDevice } from "./use-allow-device.js";
 
 function AllowSheet({

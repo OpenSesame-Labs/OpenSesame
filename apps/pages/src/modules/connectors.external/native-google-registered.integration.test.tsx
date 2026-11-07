@@ -25,7 +25,6 @@ import {
   googleSecret,
   googleUser,
 } from "./native-google-registered.test-support.js";
-
 const closes: (() => Promise<void>)[] = [];
 const operations: Promise<unknown>[] = [];
 beforeEach(() => vi.stubGlobal("crossOriginIsolated", true));

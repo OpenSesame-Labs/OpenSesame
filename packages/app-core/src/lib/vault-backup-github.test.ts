@@ -8,11 +8,10 @@ import {
 import { ensureDeviceIdentityKey } from "./device-identity-key.js";
 import { useGithubBackupProviderFixture } from "./github-app-backup-provider.test-support.js";
 import { createProject, setActiveProject } from "./projects.js";
-import { VaultStore, vaultStore } from "./vault/store.js";
 import { restoreSavedGithubBackup } from "./vault-backup-github.js";
 import { drainBackupWebhooks, syncVaultBackup } from "./vault-backup-sync.js";
+import { VaultStore, vaultStore } from "./vault/store.js";
 import { vfsFlush } from "./vfs.js";
-
 const fixture = useGithubBackupProviderFixture();
 it.each([40, 64])(
   "uses real default writes and %i-character provider poll IDs without exposing PEM",

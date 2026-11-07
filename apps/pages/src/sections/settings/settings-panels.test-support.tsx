@@ -22,8 +22,8 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { FeatureConfigPanel } from "./FeatureConfigPanel.js";
 import { FeaturesPanel, capabilitiesPanelSeams } from "./FeaturesPanel.js";
-import { featureConfigPath } from "./feature-config-path.js";
 import { IntegrationsPanel } from "./IntegrationsPanel.js";
+import { featureConfigPath } from "./feature-config-path.js";
 
 export function renderPanel() {
   return render(

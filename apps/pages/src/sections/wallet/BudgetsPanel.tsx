@@ -54,10 +54,7 @@ function failText(caught: BoundaryValue): string {
 function BudgetEditor({
   initial,
   onSave,
-}: {
-  initial: Draft;
-  onSave: (draft: Draft) => void;
-}) {
+}: { initial: Draft; onSave: (draft: Draft) => void }) {
   const { items } = useVault();
   const instruments = listPaymentInstruments(items);
   const [draft, setDraft] = useState(initial);

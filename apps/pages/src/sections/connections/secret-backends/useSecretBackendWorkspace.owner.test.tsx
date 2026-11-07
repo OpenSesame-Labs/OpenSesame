@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
-
-import { createOnePasswordConnectBackend } from "@opensesame/app-core/lib/secret-backends/onepassword.js";
 import { secretHttpFixture } from "@opensesame/app-core/lib/secret-backends/onepassword-http.test-support.js";
+import { createOnePasswordConnectBackend } from "@opensesame/app-core/lib/secret-backends/onepassword.js";
 import type {
   SecretBackendConfiguration,
   SecretBackendItemInput,

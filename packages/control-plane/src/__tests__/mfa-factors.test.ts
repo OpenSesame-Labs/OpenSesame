@@ -1,8 +1,8 @@
 import { overlapCast, parseAccountFactorList } from "@opensesame/os-domain";
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
-import { totpCode } from "../routes/mfa.js";
 import { passkeyDigest } from "../routes/mfa-factors.js";
+import { totpCode } from "../routes/mfa.js";
 
 type App = ReturnType<typeof createControlPlane>["app"];
 

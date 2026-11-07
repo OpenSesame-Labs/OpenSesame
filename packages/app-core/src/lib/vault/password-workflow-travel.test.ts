@@ -10,8 +10,8 @@ import {
   resolveLocalReference,
 } from "./password-workflows.js";
 import { testAccount } from "./password-workflows.test-support.js";
-import { vaultStore } from "./store.js";
 import type { VaultState } from "./store-state.js";
+import { vaultStore } from "./store.js";
 
 afterEach(() => vi.restoreAllMocks());
 it("keeps travel-withdrawn items out of discovery and rejects their old read/update references", async () => {

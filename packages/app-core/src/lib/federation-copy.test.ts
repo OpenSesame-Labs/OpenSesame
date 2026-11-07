@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { FederationError } from "./federation.js";
 import { describeFederationError } from "./federation-copy.js";
+import { FederationError } from "./federation.js";
 
 describe("describeFederationError", () => {
   it("maps access_denied to actionable words with the no-change anchor", () => {

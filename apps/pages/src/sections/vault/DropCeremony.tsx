@@ -23,7 +23,6 @@ import {
   accountUsernameLine,
   shareText,
 } from "@opensesame/app-core/sections/vault-share-text.js";
-import { asBufferSource } from "@opensesame/os-domain";
 import {
   type DropItem,
   type VaultItem,
@@ -44,6 +43,7 @@ import { IconDownload } from "../../components/Icons.js";
 import { saveBlob } from "../../lib/file-system.js";
 import { useVaultStore } from "../../lib/vault/hooks.js";
 import { DROP_TTL_OPTIONS, dropTtlLabel } from "./DropTtl.js";
+import { ShareForm } from "./ShareForm.js";
 import {
   DropCardLinkRow,
   DropCardMetaRows,
@@ -53,7 +53,7 @@ import {
   DropCardUsername,
 } from "./drop-card-fields.js";
 import { formatExpiry } from "./expiry.js";
-import { ShareForm } from "./ShareForm.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 function useNow(): number {
   const [now, setNow] = useState(() => Date.now());

@@ -6,8 +6,8 @@ import {
 } from "@opensesame/app-core/lib/connect-draft.js";
 import type { ConnectPlan } from "@opensesame/app-core/lib/connect-plan.js";
 import { FieldShell } from "../../../components/FieldShell.js";
-import { CopyKey, Facts, OutLink, SelectField } from "./fields.js";
 import { AuthorizationParams, ScopeFields } from "./ScopeFields.js";
+import { CopyKey, Facts, OutLink, SelectField } from "./fields.js";
 
 const TOKEN_AUTH = [
   { id: "client_secret_post", label: "client_secret_post" },

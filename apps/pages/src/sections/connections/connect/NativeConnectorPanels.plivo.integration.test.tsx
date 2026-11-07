@@ -18,15 +18,16 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
 import { declareConnectionsTutorial } from "../tutorial.test-support.js";
 import {
-  plivoContracts as catalogContracts,
-  fill,
-  mount,
-} from "./native-api-plivo.test-support.js";
-import {
   type PrimaryContract,
   primaryKey,
   primaryOracle,
 } from "./native-api-primary.test-support.js";
+
+import {
+  plivoContracts as catalogContracts,
+  fill,
+  mount,
+} from "./native-api-plivo.test-support.js";
 
 declareConnectionsTutorial();
 const fixtures: Awaited<ReturnType<typeof primaryOracle>>[] = [];

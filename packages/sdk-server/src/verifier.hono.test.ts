@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { type OpenSesameAuthVariables, openSesameAuth } from "./hono.js";
-import { createOpenSesameVerifier } from "./verifier.js";
 import { AUDIENCE, ISSUER, mintKeys } from "./verifier-test-support.js";
+import { createOpenSesameVerifier } from "./verifier.js";
 
 describe("openSesameAuth hono middleware", () => {
   it("sets identity on success and 401 on missing token", async () => {

@@ -1,7 +1,7 @@
 import { type MouseEvent, useEffect, useState } from "react";
-import { type MenuItem, openContextMenu } from "./context-menu/menu-model.js";
 import { IconDots } from "./Icons.js";
 import type { RecordWorkspaceProps, WorkspaceRow } from "./RecordWorkspace.js";
+import { type MenuItem, openContextMenu } from "./context-menu/menu-model.js";
 import type { useRecordWorkspace } from "./record-workspace-state.js";
 
 type Props = RecordWorkspaceProps & {

@@ -29,6 +29,11 @@ import {
   kvSet,
 } from "@opensesame/app-core/lib/kv.js";
 import { LAST_VAULT_KEY } from "@opensesame/app-core/lib/last-vault.js";
+/** @vitest-environment jsdom */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { distributionFromOwnership } from "../lib/capabilities/ownership.js";
+import { bootCore } from "./boot.js";
+
 import { PROJECTS_KEY } from "@opensesame/app-core/lib/projects.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
@@ -48,10 +53,6 @@ import {
   vfsFlush,
   vfsSeams,
 } from "@opensesame/app-core/lib/vfs.js";
-/** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { distributionFromOwnership } from "../lib/capabilities/ownership.js";
-import { bootCore } from "./boot.js";
 
 /**
  * Boot-path boundary (ADR 0063): before unlock the app may read only the

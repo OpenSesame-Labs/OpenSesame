@@ -5,11 +5,9 @@ import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
  * connection. A cached SDK account is a routing preference, not proof.
  */
 
+import { verifyBrowserIdTokenClaims } from "@opensesame/sdk-browser";
 import type { VerifiedIdTokenClaims } from "@opensesame/sdk-browser";
-import {
-  randomString,
-  verifyBrowserIdTokenClaims,
-} from "@opensesame/sdk-browser";
+import { randomString } from "@opensesame/sdk-browser";
 import type { UpstreamIdentity } from "../federation.js";
 import { rememberEntraInstance } from "./entra-instances.js";
 import { matchesAuthGeneration } from "./generation.js";

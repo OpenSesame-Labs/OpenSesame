@@ -18,7 +18,6 @@ import {
   claimRunGrant,
 } from "@opensesame/app-core/lib/password-agent/run-grant.js";
 import { z } from "zod";
-
 const leaseSchema = z.object({
   capability: z.literal("request"),
   method: z.literal("GET"),

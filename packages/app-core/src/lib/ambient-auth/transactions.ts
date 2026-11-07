@@ -18,12 +18,10 @@ import {
   maybeLocalStore,
   maybeSessionStore,
 } from "../../ports.js";
-import type {
-  AmbientTransport,
-  AuthenticationIntent,
-  ProviderConnectionKey,
-} from "./types.js";
+import type { AuthenticationIntent } from "./types.js";
 import { AUTHENTICATION_INTENT_KINDS } from "./types.js";
+import type { AmbientTransport } from "./types.js";
+import type { ProviderConnectionKey } from "./types.js";
 
 export const TX_SCHEMA = 1 as const;
 export const TX_STORE_KEY = "opensesame:ambient-auth:tx";

@@ -1,9 +1,9 @@
+import { subscribeLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import {
   type BackupTargetView,
   getBackupStatus,
   resyncBackup,
 } from "@opensesame/app-core/lib/backup.js";
-import { subscribeLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import type { SecretBackendBackupHandle } from "@opensesame/app-core/lib/secret-backends/backup-transfer.js";
 import { openSavedGithubBackup } from "@opensesame/app-core/lib/vault-backup-github.js";
 import { startVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
@@ -251,10 +251,7 @@ function useGithubBackupRestore(providerId: string) {
 function GithubRestoreControls({
   providerId,
   enabled,
-}: {
-  providerId: string;
-  enabled: boolean;
-}) {
+}: { providerId: string; enabled: boolean }) {
   const { handle, busy, failure, setFailure, close, open } =
     useGithubBackupRestore(providerId);
   return (

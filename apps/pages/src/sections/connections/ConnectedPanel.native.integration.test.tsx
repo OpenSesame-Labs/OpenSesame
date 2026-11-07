@@ -7,16 +7,15 @@ import { MemoryRouter } from "react-router";
 import { expect, it } from "vitest";
 import { bindNativeCatalogConfigurationRuntime } from "../../modules/connectors.external/native-catalog-configuration-runtime.js";
 import { ConnectedPanel } from "./ConnectedPanel.js";
+import { NeedsAttention } from "./NeedsAttention.js";
 import {
   connectorIntegration,
   installConnectorIntegration,
   integrationProvider,
 } from "./connect/native-connector-integration.test-support.js";
-import { NeedsAttention } from "./NeedsAttention.js";
 import { connectedPageItems } from "./page-tree.js";
 import { makeConnection } from "./section-fixtures.test-support.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
-
 installConnectorIntegration();
 declareConnectionsTutorial();
 function draw() {

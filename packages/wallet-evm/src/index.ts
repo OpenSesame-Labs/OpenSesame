@@ -6,18 +6,6 @@
  * Real contract tests: wallet:test:contracts (BUILD harness; not here).
  */
 
-export {
-  DELEGATION_FRAMEWORK_CANDIDATE_COMMIT,
-  DIRECT_ERC20_DELEGATION_ADAPTER_ID,
-  type DirectErc20DelegationMode,
-  type DirectErc20DelegationOptions,
-  createDirectErc20DelegationAdapter,
-} from "./direct-erc20-delegation.js";
-
-export {
-  InMemorySharedAncestorCounter,
-  type SharedAncestorSpendResult,
-} from "./simulation.js";
 export type {
   AdapterConstraintSupport,
   AdapterContext,
@@ -44,3 +32,16 @@ export type {
   SpendingLease,
   WalletAdapterErrorCode,
 } from "./types.js";
+
+export {
+  InMemorySharedAncestorCounter,
+  type SharedAncestorSpendResult,
+} from "./simulation.js";
+
+export {
+  createDirectErc20DelegationAdapter,
+  DELEGATION_FRAMEWORK_CANDIDATE_COMMIT,
+  DIRECT_ERC20_DELEGATION_ADAPTER_ID,
+  type DirectErc20DelegationMode,
+  type DirectErc20DelegationOptions,
+} from "./direct-erc20-delegation.js";

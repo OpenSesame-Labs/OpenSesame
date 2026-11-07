@@ -77,13 +77,12 @@ export function createUnlockCodeSession() {
 }
 
 /** Gate PRF sign-in protector enrollment (TRIGGER-D). */
-/** Binding + missing PRF checks (TRIGGER-F). */
 export {
-  type CeremonyBinding,
-  type PrfSignInGate,
-  assertCeremonyBinding,
-  assertMayApplyLatePrfCallback,
   assertMayEnrollPrfSignInProtector,
-  assertPrfPresent,
+  assertMayApplyLatePrfCallback,
   withPrfSignInGuard,
+  type PrfSignInGate,
 };
+
+/** Binding + missing PRF checks (TRIGGER-F). */
+export { assertCeremonyBinding, assertPrfPresent, type CeremonyBinding };

@@ -11,17 +11,17 @@ import { z } from "zod";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
-import {
-  getBackupStatus,
-  resyncBackup,
-  setBackupTargetEnabled,
-} from "./backup.js";
 import { backupEgressGate, backupOriginAllowed } from "./backup-egress-gate.js";
 import {
   clearLocalBackupTarget,
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import {
+  getBackupStatus,
+  resyncBackup,
+  setBackupTargetEnabled,
+} from "./backup.js";
 import {
   allowGithub,
   openGithubTestOwner,
@@ -39,12 +39,12 @@ import {
   sealPendingGithubAppSecret,
   stashPendingGithubAppSecret,
 } from "./github-app-secret.js";
-import { vaultStore } from "./vault/store.js";
 import {
   stopVaultBackupObserver,
   vaultBackupObserverSeams,
 } from "./vault-backup-observer.js";
 import { vaultBackupSyncSeams } from "./vault-backup-sync.js";
+import { vaultStore } from "./vault/store.js";
 
 const originalSync = { ...vaultBackupSyncSeams };
 

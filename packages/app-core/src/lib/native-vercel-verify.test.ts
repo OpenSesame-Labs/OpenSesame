@@ -2,8 +2,8 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 import { beforeAll, expect, it, vi } from "vitest";
 import type { IssuedNativeOAuthToken } from "./native-browser-oauth-token.js";
 import type { NativeConfiguration } from "./native-connector-schema.js";
-import { vercelPending } from "./native-vercel.test-helper.js";
 import { verifyNativeVercelIdentity } from "./native-vercel-verify.js";
+import { vercelPending } from "./native-vercel.test-helper.js";
 
 type ClaimChanges = { nonce?: string; aud?: string; iss?: string };
 let keys: CryptoKeyPair;

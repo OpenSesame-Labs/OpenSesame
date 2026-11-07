@@ -1,5 +1,5 @@
 /** Re-export PWA root-trust fingerprint alarms (CLI optional; no daemon required). */
 export {
-  type RootTrustAlarm,
   compareRootTrustFingerprint,
+  type RootTrustAlarm,
 } from "../peer-trust/alarm.js";

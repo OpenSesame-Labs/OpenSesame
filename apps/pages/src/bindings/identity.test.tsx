@@ -16,7 +16,6 @@ import {
   useIdentitySession,
   useOrphanSession,
 } from "./identity.js";
-
 const IDENTITY = "https://identity.example.test";
 
 function jsonResponse(body: BoundaryValue, status = 200): Response {

@@ -4,7 +4,6 @@ import {
   type JsonValue,
   isJsonObject,
 } from "@opensesame/os-domain";
-
 const MAPS = new Set([
   "$defs",
   "definitions",

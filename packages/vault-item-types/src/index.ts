@@ -10,13 +10,13 @@
  * plane from the same corpus, `marketplace/item-types/builtin/*.json`.
  */
 
-export * from "./builtin.js";
 export * from "./catalogue.js";
-export { BUILTIN_DEFINITION_JSON } from "./definitions.generated.js";
-export * from "./legacy-aliases.js";
-export * from "./native.js";
-export * from "./packs.js";
-export * from "./registry.js";
 export * from "./schema.js";
 export * from "./validate.js";
+export * from "./registry.js";
+export * from "./legacy-aliases.js";
+export * from "./native.js";
 export * from "./values.js";
+export * from "./builtin.js";
+export * from "./packs.js";
+export { BUILTIN_DEFINITION_JSON } from "./definitions.generated.js";

@@ -4,8 +4,8 @@
  */
 
 import { type SopsFormat, loadFile } from "./document.js";
-import { SOPS_VERSION, type SopsMetadata } from "./metadata.js";
 import { effectiveThreshold } from "./metadata-emit.js";
+import { SOPS_VERSION, type SopsMetadata } from "./metadata.js";
 import type { SopsPolicy } from "./selectors.js";
 
 export const SOPS_PROFILE = `sops-browser/${SOPS_VERSION}/yaml-json-age`;

@@ -17,7 +17,7 @@ export function pinnedSharpVersion() {
   if (!isJsonObject(parsed)) {
     throw new Error("root package.json is invalid");
   }
-  let version;
+  let version = undefined;
   if (isJsonObject(parsed.devDependencies)) {
     version = readString(parsed.devDependencies.sharp);
   }

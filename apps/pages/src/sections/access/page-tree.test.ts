@@ -1,11 +1,12 @@
+import { describe, expect, it } from "vitest";
+import { pageTreeItemCount, pageTreeLeaves } from "../../lib/page-to-tree.js";
+
+import { accessPageTree } from "./page-tree.js";
+
 import {
   ACCESS_LABELS,
   ACCESS_VIEWS,
 } from "@opensesame/app-core/lib/section-view-names.js";
-import { describe, expect, it } from "vitest";
-import { pageTreeItemCount, pageTreeLeaves } from "../../lib/page-to-tree.js";
-import { accessPageTree } from "./page-tree.js";
-
 describe("access page tree", () => {
   it("turns each Access tab into a subtree of that tab's page panels", () => {
     const tree = accessPageTree();

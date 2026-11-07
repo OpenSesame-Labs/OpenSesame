@@ -16,8 +16,8 @@ import {
 } from "./__tests__/scenarios.js";
 import { buildConsentReceipt } from "./consent.js";
 import { FIXTURE_CATALOG } from "./fixtures.js";
-import { resolveComposition } from "./resolve.js";
 import type { ResolveInput } from "./resolve-input.js";
+import { resolveComposition } from "./resolve.js";
 import type { CapabilityId } from "./types.js";
 
 /** A deterministic permutation of `items`, driven by `seed` (Fisher–Yates). */

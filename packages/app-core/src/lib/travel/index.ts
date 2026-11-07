@@ -65,12 +65,11 @@ export type {
   DepartureReceipt,
   DepartureRefusal,
   PackOutcome,
-  TravelDeps,
   TravelGateRefusal,
+  TravelDeps,
   TravelVaultInfo,
 } from "./depart.js";
 export type { TravelGrants } from "./grants.js";
-export { isItemsBundle } from "./items-bundle.js";
 export type {
   HidingItem,
   ItemsCompleteOutcome,
@@ -80,7 +79,6 @@ export type {
   ItemsPackage,
   ItemsRefusal,
 } from "./items-depart.js";
-export { cannotBeHidden } from "./items-depart.js";
 export type {
   CompleteItemsReturnOutcome,
   ItemReturnStatus,
@@ -91,15 +89,17 @@ export type {
   OpenedItemsReturn,
   ReturningItem,
 } from "./items-return.js";
+export { isItemsBundle } from "./items-bundle.js";
+export { cannotBeHidden } from "./items-depart.js";
 export type { TravelPlan, TravelPlanRefusal } from "./plan.js";
 export type { ClearRemnantsOutcome, TravelRemnant } from "./remnants.js";
 export type {
   CompleteReturnOutcome,
   OpenReturnOutcome,
   OpenedReturn,
-  ReturnOptions,
   ReturnPreview,
   ReturnReceipt,
+  ReturnOptions,
   ReturnRefusal,
   ReturnStatus,
   ReturningVault,

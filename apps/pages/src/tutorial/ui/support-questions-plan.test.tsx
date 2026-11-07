@@ -6,10 +6,10 @@
  * hold, or whose screen is somewhere else, is not offered here.
  */
 
-import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import { INITIAL_SNAPSHOT } from "@opensesame/app-core/lib/capabilities/store-types.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import type { VaultState } from "@opensesame/app-core/lib/vault/store-state.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { EffectivePlan } from "@opensesame/capability-composition";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import type { RecoveryCodesRecord, VaultHeader } from "@opensesame/vault-core";

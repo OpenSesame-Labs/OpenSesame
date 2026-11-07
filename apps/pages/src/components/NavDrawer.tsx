@@ -41,10 +41,7 @@ import { Wordmark } from "./Wordmark.js";
 function DrawerRow({
   section,
   onGo,
-}: {
-  section: SectionRowModel;
-  onGo: () => void;
-}) {
+}: { section: SectionRowModel; onGo: () => void }) {
   const ref = useGuideTarget<HTMLAnchorElement>(section.guide);
   const { to, label, Icon } = section;
   return (
@@ -114,10 +111,7 @@ function useDrawerState(revealSession: boolean) {
 export function NavDrawer({
   session,
   revealSession = false,
-}: {
-  session?: ReactNode;
-  revealSession?: boolean;
-}) {
+}: { session?: ReactNode; revealSession?: boolean }) {
   const { open, show, close, closeRef, drawerRef } =
     useDrawerState(revealSession);
   const keyRef = useGuideTarget<HTMLButtonElement>("nav.menu");
@@ -149,6 +143,7 @@ export function NavDrawer({
           <div
             ref={drawerRef}
             className="drawer"
+            // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
             role="dialog"
             aria-label="Sections"
             aria-modal="true"

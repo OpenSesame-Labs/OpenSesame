@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { rm } from "node:fs/promises";
 import {
   copyFile,
   mkdir,
   mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import test, { after } from "node:test";
+import { resolve } from "node:path";
+import { join } from "node:path";
+import { after } from "node:test";
+import test from "node:test";
 import { stagePrivateLogging } from "./stage-private-logging.mjs";
 
 const here = new URL(".", import.meta.url).pathname;

@@ -6,8 +6,8 @@ import {
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
-import { syncVaultBackup, vaultBackupSyncSeams } from "./vault-backup-sync.js";
 import { readBackupWriteConfirmation } from "./vault-backup-sync-confirmation.js";
+import { syncVaultBackup, vaultBackupSyncSeams } from "./vault-backup-sync.js";
 
 const original = { ...vaultBackupSyncSeams };
 const originalGate = { ...backupEgressGate };

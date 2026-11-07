@@ -1,7 +1,5 @@
-import {
-  isAiModelProvider,
-  modelApiHost,
-} from "@opensesame/app-core/lib/ai-model-provider.js";
+import { isAiModelProvider } from "@opensesame/app-core/lib/ai-model-provider.js";
+import { modelApiHost } from "@opensesame/app-core/lib/ai-model-provider.js";
 import { connectPlan } from "@opensesame/app-core/lib/connect-plan.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { nativeApiVerificationRequest } from "@opensesame/app-core/lib/native-api-auth.js";

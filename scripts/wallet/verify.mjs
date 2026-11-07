@@ -133,9 +133,7 @@ try {
 const ok = results.every((r) => r.status === "passed");
 
 writeWalletEvidence(root, {
-  invokedAs: dryRun
-    ? "npm run wallet:verify --dry-run"
-    : "npm run wallet:verify",
+  invokedAs: dryRun ? "npm run wallet:verify --dry-run" : "npm run wallet:verify",
   mainnet: { ok: true, message: null, denials: [] },
   results,
   ok,

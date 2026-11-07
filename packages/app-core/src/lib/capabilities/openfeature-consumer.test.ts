@@ -9,11 +9,6 @@ import {
 } from "./__tests__/plan-fixtures.js";
 import { loadApprovedModule } from "./loader.js";
 import {
-  OPENFEATURE_DOMAIN,
-  capabilityFlagKey,
-  installCompositionProvider,
-} from "./openfeature.js";
-import {
   RELEASE_FLAGS,
   capabilityEnabled,
   capabilityShown,
@@ -21,6 +16,11 @@ import {
   releaseFlagRestricts,
   releaseFlagSeams,
 } from "./openfeature-consumer.js";
+import {
+  OPENFEATURE_DOMAIN,
+  capabilityFlagKey,
+  installCompositionProvider,
+} from "./openfeature.js";
 import { isCapabilityDenied } from "./runtime-contract.js";
 import { compositionStore } from "./store.js";
 

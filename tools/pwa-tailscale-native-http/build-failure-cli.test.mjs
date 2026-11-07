@@ -78,52 +78,58 @@ async function run(f) {
   assert.ok(index >= 0, text);
   return { text, record: JSON.parse(lines[index + 1]) };
 }
-test("actual builder reports missing tar ENOENT before any compiler", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  const { text, record } = await run(f);
-  t.diagnostic(JSON.stringify(record));
-  assert.equal(record.stage, "extract-source");
-  assert.equal(record.lastCommand.reason, "spawn");
-  assert.equal(record.lastCommand.spawnCode, "ENOENT");
-  assert.equal(record.lastCommand.exitCode, null);
-  assert.equal(record.errorCode, "ENOENT");
-  assert.match(text, /spawn tar ENOENT/);
-});
-test("actual child exit survives a secondary archive verification failure", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  // This deliberately failing owned command corrupts only the fixture archive.
-  // A changed after-check must not replace the original child failure.
-  await writeFile(
-    join(f.bin, "tar"),
-    '#!/bin/sh\nprintf x >> "$2"\nexit 17\n',
-    { mode: 0o700 },
-  );
-  const { text, record } = await run(f);
-  t.diagnostic(JSON.stringify(record));
-  assert.equal(record.stage, "extract-source");
-  assert.equal(record.lastCommand.reason, "exit");
-  assert.equal(record.lastCommand.exitCode, 17);
-  assert.equal(record.lastCommand.signal, null);
-  assert.match(text, /extract-source failed or was interrupted/);
-  assert.doesNotMatch(text, /Error: Pinned input digest differs/);
-});
-test("actual fresh-output refusal reports its original error without a child exit", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  await mkdir(f.output);
-  await writeFile(join(f.output, "owned-sentinel"), "keep");
-  const { text, record } = await run(f);
-  t.diagnostic(JSON.stringify(record));
-  assert.equal(record.stage, "fresh-output");
-  assert.equal(record.lastCommand, null);
-  assert.match(text, /Use a fresh output directory/);
-  assert.equal(
-    await readFile(join(f.output, "owned-sentinel"), "utf8"),
-    "keep",
-  );
-});
+test(
+  "actual builder reports missing tar ENOENT before any compiler",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    const { text, record } = await run(f);
+    t.diagnostic(JSON.stringify(record));
+    assert.equal(record.stage, "extract-source");
+    assert.equal(record.lastCommand.reason, "spawn");
+    assert.equal(record.lastCommand.spawnCode, "ENOENT");
+    assert.equal(record.lastCommand.exitCode, null);
+    assert.equal(record.errorCode, "ENOENT");
+    assert.match(text, /spawn tar ENOENT/);
+  },
+);
+test(
+  "actual child exit survives a secondary archive verification failure",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    // This deliberately failing owned command corrupts only the fixture archive.
+    // A changed after-check must not replace the original child failure.
+    await writeFile(
+      join(f.bin, "tar"),
+      '#!/bin/sh\nprintf x >> "$2"\nexit 17\n',
+      { mode: 0o700 },
+    );
+    const { text, record } = await run(f);
+    t.diagnostic(JSON.stringify(record));
+    assert.equal(record.stage, "extract-source");
+    assert.equal(record.lastCommand.reason, "exit");
+    assert.equal(record.lastCommand.exitCode, 17);
+    assert.equal(record.lastCommand.signal, null);
+    assert.match(text, /extract-source failed or was interrupted/);
+    assert.doesNotMatch(text, /Error: Pinned input digest differs/);
+  },
+);
+test(
+  "actual fresh-output refusal reports its original error without a child exit",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    await mkdir(f.output);
+    await writeFile(join(f.output, "owned-sentinel"), "keep");
+    const { text, record } = await run(f);
+    t.diagnostic(JSON.stringify(record));
+    assert.equal(record.stage, "fresh-output");
+    assert.equal(record.lastCommand, null);
+    assert.match(text, /Use a fresh output directory/);
+    assert.equal(
+      await readFile(join(f.output, "owned-sentinel"), "utf8"),
+      "keep",
+    );
+  },
+);

@@ -14,7 +14,6 @@ import {
   installConnectorIntegration,
   integrationProvider,
 } from "./native-connector-integration.test-support.js";
-
 installConnectorIntegration();
 type ProviderCase = {
   id: string;

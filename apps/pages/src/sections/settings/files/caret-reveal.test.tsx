@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { type Box, revealCaret, revealDelta } from "./caret-reveal.js";
 import { PaintedText } from "./PaintedText.js";
+import { type Box, revealCaret, revealDelta } from "./caret-reveal.js";
 
 const BOX = { left: 0, top: 0, right: 100, bottom: 200 };
 const MARGIN = { x: 10, y: 40 };

@@ -1,6 +1,5 @@
 /** Provider credentials must never reach interpreter startup hooks. */
 import { passwordAgentPolicy } from "./policy.js";
-
 const reserved = new Set(passwordAgentPolicy.credentialStartupEnvKeys);
 const nameQuotes = new Set(['"', "'", "`"]);
 export function assertSafeRunName(name: string): void {

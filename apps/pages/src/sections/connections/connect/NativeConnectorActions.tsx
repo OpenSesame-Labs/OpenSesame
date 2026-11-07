@@ -8,13 +8,6 @@ import { useSecretBackendAction } from "../secret-backends/useSecretBackendActio
 import { NativeInputFields } from "./NativeConnectorFields.js";
 import { NativeMcpArgumentGuide } from "./NativeMcpArgumentGuide.js";
 import { NativeSecretResult } from "./NativeSecretResult.js";
-import type {
-  NativeActionDescriptor,
-  NativeConnectorCallbacks,
-  NativeConnectorController,
-  NativeConnectorDescriptor,
-  SafeActionResult,
-} from "./native-connector-ui.js";
 import {
   nativeDefaults,
   nativeError,
@@ -25,15 +18,19 @@ import {
   nativeVerified,
   nativeVisibleFields,
 } from "./native-connector-ui-values.js";
+import type {
+  NativeActionDescriptor,
+  NativeConnectorCallbacks,
+  NativeConnectorController,
+  NativeConnectorDescriptor,
+  SafeActionResult,
+} from "./native-connector-ui.js";
 import { useNativeActionWithdrawal } from "./useNativeActionWithdrawal.js";
 
 function NativeActionResults({
   result,
   origins,
-}: {
-  result: SafeActionResult;
-  origins: readonly string[];
-}) {
+}: { result: SafeActionResult; origins: readonly string[] }) {
   return (
     <section aria-label={result.label}>
       <output>{result.label}</output>

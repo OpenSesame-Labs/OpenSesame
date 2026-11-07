@@ -18,8 +18,6 @@ import {
 import type { DeviceVault } from "@opensesame/app-core/lib/vaults.js";
 import { GUEST_TOMB } from "@opensesame/app-core/lib/vfs.js";
 import { useState } from "react";
-import { useAccount } from "../../bindings/account.js";
-import { useDeviceVaults } from "../../bindings/vaults.js";
 import {
   IconCheck,
   IconChevronRight,
@@ -27,6 +25,9 @@ import {
 } from "../../components/Icons.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { brandFor } from "./ProviderBrand.js";
+
+import { useAccount } from "../../bindings/account.js";
+import { useDeviceVaults } from "../../bindings/vaults.js";
 /** Label for the unlock trigger: follows the vault being unlocked, not a stale claim. */
 export function unlockAccountLabel(
   currentVaultId: string,
@@ -155,6 +156,7 @@ function Menu({
 }: MenuProps) {
   return (
     <>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape */}
       <div
         className="account-switcher__backdrop"
         aria-hidden="true"

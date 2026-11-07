@@ -33,7 +33,6 @@ function statusLabel(watch: BreachWatch): string {
 export function securityChecksPanel(
   fetches: SecurityCheckFetches,
 ): ComponentType {
-  // biome-ignore lint/correctness/noComponentHookFactories: factory runs once at registration, not per render, so the component identity is stable
   return function SecurityChecksPanel() {
     const vault = useVault();
     const { tomb, items } = vault;

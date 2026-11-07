@@ -1,9 +1,5 @@
 /** @vitest-environment jsdom */
 import type { IdpRecord } from "@opensesame/app-core/lib/idp-registry.js";
-import {
-  listIdpRegistrations,
-  registerIdp,
-} from "@opensesame/app-core/lib/idp-registry.js";
 import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 import {
   IDENTITY_ROUTES,
@@ -13,7 +9,6 @@ import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { expectInTray } from "../components/tray.test-support.js";
 import { declareTutorialForTest } from "../modules/tutorial-test-realm.js";
 import { contributeIdentityForTests } from "./identity/identity-test-support.js";
 import { expectProseBudget, makeClient } from "./identity/test-fixtures.js";
@@ -33,6 +28,12 @@ import {
   registry,
   session,
 } from "./identity/test-seams.js";
+
+import {
+  listIdpRegistrations,
+  registerIdp,
+} from "@opensesame/app-core/lib/idp-registry.js";
+import { expectInTray } from "../components/tray.test-support.js";
 
 function makeRecord(overrides: Partial<IdpRecord> = {}): IdpRecord {
   return {

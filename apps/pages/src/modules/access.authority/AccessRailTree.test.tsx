@@ -5,10 +5,6 @@ import {
   removeLocalGrant,
 } from "@opensesame/app-core/lib/access-book.js";
 import {
-  ACCESS_LABELS,
-  ACCESS_VIEWS,
-} from "@opensesame/app-core/lib/section-view-names.js";
-import {
   act,
   cleanup,
   fireEvent,
@@ -18,11 +14,16 @@ import {
 } from "@testing-library/react";
 import { Link, MemoryRouter, useLocation } from "react-router";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+
 import { registerLegacyShell } from "../../components/legacy-sections.test-support.js";
 import { setRailCursor } from "../../components/rail-cursor.js";
 import * as shareLeaves from "../../sections/access/share-leaves.js";
 import { AccessRailTree } from "./AccessRailTree.js";
 
+import {
+  ACCESS_LABELS,
+  ACCESS_VIEWS,
+} from "@opensesame/app-core/lib/section-view-names.js";
 // The Access section's rail entries, as `access.authority` contributes
 // them: the shell draws the section row; this is what opens beneath it.
 let revokeShell = () => {};

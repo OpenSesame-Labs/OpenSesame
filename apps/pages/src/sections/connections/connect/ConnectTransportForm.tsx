@@ -6,9 +6,8 @@
  * the vault, never stored in the clear. Shared by a connector's own page and
  * the Connections page's import, so sealing it means the same thing in both.
  */
-
-import { vercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import { armVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect-session.js";
+import { vercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   type Flash,
   errorText,

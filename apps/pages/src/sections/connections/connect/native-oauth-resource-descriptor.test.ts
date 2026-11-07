@@ -10,20 +10,19 @@ import {
   nativeInitialValues,
   nativeMethodForEdit,
 } from "./native-connector-edit-values.js";
-import { nativeUiView } from "./native-connector-ui.test-support.js";
 import {
   nativeFieldValues,
   nativeNextValues,
   nativeScopeDefaults,
   nativeVisibleFields,
 } from "./native-connector-ui-values.js";
+import { nativeUiView } from "./native-connector-ui.test-support.js";
 import {
   nativeOAuthResourceDescriptor,
   nativePublicApplicationDescriptor,
 } from "./native-oauth-resource-descriptor.js";
 import { nativeProviderDescriptor } from "./native-provider-descriptor.js";
 import { nativePolicyMethod } from "./native-provider-policy.js";
-
 const callbackUrl = "https://operator.example/auth/native-connector.html";
 function preset(id = "box") {
   const plan = connectPlan(id);

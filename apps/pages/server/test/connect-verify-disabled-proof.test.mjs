@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { verifyTargets } from "../../scripts/emit-connect-verify-targets.mjs";
-import { resolveTarget, verifyWithToken } from "../connect-verify.mjs";
 import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
+import { resolveTarget, verifyWithToken } from "../connect-verify.mjs";
 
 test("a shared proof stays bound when public flags change", async () => {
   const target = VERIFY_TARGETS["fal-ai"].apiKey;

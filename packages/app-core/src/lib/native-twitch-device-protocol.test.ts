@@ -7,6 +7,10 @@ import {
   loadNativeConnectorRecord,
   readNativeConnector,
 } from "./native-connector-store.js";
+import {
+  parseNativeTwitchDeviceToken,
+  requestNativeTwitchDevice,
+} from "./native-twitch-device-http.js";
 import { beginNativeTwitchDeviceAuthorization } from "./native-twitch-device.js";
 import {
   access,
@@ -18,10 +22,6 @@ import {
   runtime,
   token,
 } from "./native-twitch-device.test-support.js";
-import {
-  parseNativeTwitchDeviceToken,
-  requestNativeTwitchDevice,
-} from "./native-twitch-device-http.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

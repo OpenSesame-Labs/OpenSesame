@@ -247,6 +247,8 @@ function SuggestionList({
   const failed = !loading && listError !== null;
   const emptyLabel = loading ? "Loading…" : "No matching repositories";
   return (
+    // biome-ignore lint/a11y/useSemanticElements: ARIA combobox listbox not a native select
+    // biome-ignore lint/a11y/useFocusableInteractive: focus stays on the combobox input via aria-activedescendant
     <div
       role="listbox"
       id={listId}
@@ -276,6 +278,7 @@ function renderOption(
   choose: (value: string) => Promise<void>,
 ) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: ARIA combobox option under listbox
     // biome-ignore lint/a11y/useFocusableInteractive: options reached via aria-activedescendant on the input
     <div
       role="option"

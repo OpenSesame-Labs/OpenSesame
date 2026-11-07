@@ -11,16 +11,16 @@ import { IconEdit, IconPlus, IconUser, IconX } from "../../components/Icons.js";
 import { RecordWorkspace } from "../../components/RecordWorkspace.js";
 
 import * as Directory from "./DirectoryTabs.js";
-import { useDirectoryPanels } from "./directory-panel-slot.js";
-import { CreateOrgForm } from "./HostedIdentityForms.js";
 import {
   HostedConnectWorkspace,
   HostedDetailHead,
   HostedFact,
   useHostedRecord,
 } from "./HostedRecordParts.js";
+import { useDirectoryPanels } from "./directory-panel-slot.js";
 import { usePublishHostedIdentityRows } from "./hosted-identity-rail.js";
 
+import { CreateOrgForm } from "./HostedIdentityForms.js";
 function useOrganizationWorkspace(session: IdentitySession | null) {
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,11 +150,7 @@ function OrganizationDetail({
   selected,
   online,
   onOpenPeople,
-}: {
-  selected: OrgMembership;
-  online: boolean;
-  onOpenPeople: () => void;
-}) {
+}: { selected: OrgMembership; online: boolean; onOpenPeople: () => void }) {
   const route = useHostedRecord("organization");
   const directory = useDirectoryPanels();
   return (

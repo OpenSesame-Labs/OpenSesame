@@ -1,5 +1,5 @@
-import type { OutgoingHttpHeader, OutgoingHttpHeaders } from "node:http";
 import http from "node:http";
+import type { OutgoingHttpHeader, OutgoingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { pathToFileURL } from "node:url";
 import { getRequestListener } from "@hono/node-server";

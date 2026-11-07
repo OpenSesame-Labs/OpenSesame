@@ -7,8 +7,8 @@ import {
 } from "@opensesame/app-core/lib/connect-roads.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
+import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AI_LABS } from "./AiLabs.js";

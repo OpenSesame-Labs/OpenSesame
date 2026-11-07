@@ -14,13 +14,13 @@ import { pageOrigin } from "../ports.js";
 import type { Connection } from "./connections.js";
 import { deviceConnection } from "./device-connectors.js";
 import { remoteIdentityApi } from "./device-identity.js";
+import { assertSafeReturnTo } from "./federation-callback.js";
 import {
   beginSignIn,
   clearSession,
   loadSession,
   operatorUpstream,
 } from "./federation.js";
-import { assertSafeReturnTo } from "./federation-callback.js";
 import {
   admitConfiguredIdentitySession,
   captureConfiguredIdentitySessionOwner,
@@ -57,28 +57,27 @@ import { requireValidIdentityConnection } from "./identity-connections-validatio
 import { isNativeOidcConfiguration } from "./identity-oidc-config.js";
 import type { OrgSignInOrganization } from "./org-signin.js";
 import { type OperatorIdp, signInMethods } from "./settings.js";
-
-export type { IdentityConnectionPreset } from "./identity-connections-presets.js";
+export { readInitialIdentityDraft } from "./identity-connections-trust.js";
 
 export {
   IDENTITY_CONNECTION_PRESETS,
   identityConnectionDraft,
   identityConnectionPreset,
 } from "./identity-connections-presets.js";
+export type { IdentityConnectionPreset } from "./identity-connections-presets.js";
 export type {
   IdentityConnectionCredentials,
   IdentityConnectionDraft,
   IdentityConnectionTest,
   IdentityProtocol,
 } from "./identity-connections-schema.js";
+export { identityConnectionProblems } from "./identity-connections-validation.js";
 export {
   getIdentityConnectionRuntime,
   hydrateIdentityConnections,
   listIdentityConnections,
   readIdentityConnection,
 } from "./identity-connections-store.js";
-export { readInitialIdentityDraft } from "./identity-connections-trust.js";
-export { identityConnectionProblems } from "./identity-connections-validation.js";
 
 function assertBroker(brokerUrl?: string): void {
   if (

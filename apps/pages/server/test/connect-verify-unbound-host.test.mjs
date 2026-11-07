@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 import {
   resolveTarget,
   verifyTargetFor,
   verifyWithToken,
 } from "../connect-verify.mjs";
-import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 
 const token = "synthetic-test-token";
 const unbound = [

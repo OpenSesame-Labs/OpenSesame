@@ -15,7 +15,8 @@ import { rememberTrustedPeer } from "@opensesame/app-core/lib/peer-trust/peers.j
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import { FormCommit } from "../../components/FormCommit.js";
-import { IconArrowRight, IconInfo } from "../../components/Icons.js";
+import { IconArrowRight } from "../../components/Icons.js";
+import { IconInfo } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { firstControl } from "../../lib/focus.js";
 import { useVault } from "../../lib/vault/hooks.js";

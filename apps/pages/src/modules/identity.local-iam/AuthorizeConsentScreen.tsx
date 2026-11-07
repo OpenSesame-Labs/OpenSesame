@@ -46,10 +46,7 @@ export function LocalAuthorize() {
 function LocalConsent({
   tomb,
   request,
-}: {
-  tomb: string;
-  request: LocalAuthorizationRequest;
-}) {
+}: { tomb: string; request: LocalAuthorizationRequest }) {
   const model = useLocalConsent(tomb, request);
   return (
     <section
@@ -119,9 +116,7 @@ function connectionStatus({
 
 function ConsentControls({
   model,
-}: {
-  model: ReturnType<typeof useLocalConsent>;
-}) {
+}: { model: ReturnType<typeof useLocalConsent> }) {
   const root = useRef<HTMLDivElement>(null);
   const { busy, loaded, status } = model;
   useEffect(() => {

@@ -3,54 +3,59 @@
  */
 
 export {
-  type AssetProbe,
-  type AssuranceLevel,
-  DuressOfflineAssetCache,
-  type OfflineAssetEntry,
-  type OfflineReadinessReport,
-  evaluateOfflineAssetReadiness,
-} from "./assets.js";
-export {
-  type DuressFormatHeader,
-  type FormatRefusal,
-  assertReadableDuressHeader,
-  explainFormatRefusal,
-  refuseUnsupportedDuressFormat,
-} from "./format.js";
+  DURESS_CAPABILITIES,
+  capabilitiesForMode,
+  capabilityIdsForMode,
+  unsupportedCapabilitiesForMode,
+  type DuressCapability,
+  type DuressCapabilityId,
+} from "./registry.js";
 
 export {
-  type DuressAssetReadiness,
-  type DuressFeatureRegistration,
-  type LoadDuressRuntimeResult,
+  DURESS_READER_VERSION,
+  type DuressFeatureMode,
+  isDuressFeatureEnabled,
+} from "./types.js";
+
+export {
   compareDuressModes,
   compareFeatureModes,
   enrollmentAssetReadiness,
   loadDuressRuntime,
   registerDuressFeature,
   resolveDuressMode,
+  type DuressAssetReadiness,
+  type DuressFeatureRegistration,
+  type LoadDuressRuntimeResult,
 } from "./mode.js";
+
 export {
-  DURESS_CAPABILITIES,
-  type DuressCapability,
-  type DuressCapabilityId,
-  capabilitiesForMode,
-  capabilityIdsForMode,
-  unsupportedCapabilitiesForMode,
-} from "./registry.js";
+  assertReadableDuressHeader,
+  explainFormatRefusal,
+  refuseUnsupportedDuressFormat,
+  type DuressFormatHeader,
+  type FormatRefusal,
+} from "./format.js";
+
+export {
+  DuressOfflineAssetCache,
+  evaluateOfflineAssetReadiness,
+  type AssuranceLevel,
+  type AssetProbe,
+  type OfflineAssetEntry,
+  type OfflineReadinessReport,
+} from "./assets.js";
+
 export {
   DURESS_STATIC_CONSTRAINTS,
+  checkStaticHostingConstraints,
   type StaticConstraintProbe,
   type StaticConstraintReport,
-  checkStaticHostingConstraints,
 } from "./static.js";
+
 export {
-  type SwAssetManifest,
-  type SwMismatchReport,
   clampAssuranceForSw,
   evaluateServiceWorkerMismatch,
+  type SwAssetManifest,
+  type SwMismatchReport,
 } from "./sw-mismatch.js";
-export {
-  DURESS_READER_VERSION,
-  type DuressFeatureMode,
-  isDuressFeatureEnabled,
-} from "./types.js";

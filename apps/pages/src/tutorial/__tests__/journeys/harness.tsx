@@ -19,22 +19,21 @@
  * story below a test of them as well.
  */
 import { defaultPrefs } from "@opensesame/app-core/lib/vault/prefs.js";
-import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import { guideGoalIds } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { GUIDE_ROUTES } from "@opensesame/app-core/tutorial/registry/routes.js";
+import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
+import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
+
+import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import { registerGuidePredicates } from "@opensesame/app-core/tutorial/registry/predicates.js";
+import { isKnownGuideRoute } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
-  GUIDE_ROUTES,
-  isKnownGuideRoute,
-} from "@opensesame/app-core/tutorial/registry/routes.js";
-import {
-  guidePredicateIds,
   isKnownGuidePredicate,
   observeGuidePredicate,
   readGuidePredicate,
 } from "@opensesame/app-core/tutorial/registry/state.js";
 import {
   clearMountedGuideTargets,
-  guideTargetIds,
   isKnownGuideTarget,
   isMountedGuideTarget,
   observeGuideTarget,
@@ -64,9 +63,9 @@ import { beforeAll } from "vitest";
 import { accountSwitcherSeams } from "../../../components/AccountSwitcher.js";
 import { AppShell } from "../../../components/AppShell.js";
 import { crumbsSeams } from "../../../components/Crumbs.js";
-import { registerLegacyShell } from "../../../components/legacy-sections.test-support.js";
 import { notificationsBarSeams } from "../../../components/NotificationsBar.js";
 import { projectSwitcherSeams } from "../../../components/ProjectSwitcher.js";
+import { registerLegacyShell } from "../../../components/legacy-sections.test-support.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { CatalogPanel } from "../../../sections/connections/CatalogPanel.js";
 import { HealthPanel } from "../../../sections/vault/HealthPanel.js";

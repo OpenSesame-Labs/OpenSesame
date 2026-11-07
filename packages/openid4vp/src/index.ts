@@ -14,73 +14,70 @@
  */
 
 export {
-  type CourierDelivery,
-  ENCRYPTED_RESPONSE_MODES,
-  type EncryptedResponseMode,
-  isCompactJwe,
-  isEncryptedResponseMode,
-  readCourierResponse,
-} from "./courier.js";
+  type Openid4vpCheckpoint,
+  type Openid4vpErrorCode,
+  Openid4vpError,
+  isOpenid4vpError,
+} from "./errors.js";
+
+export {
+  type HashAlgorithm,
+  DEFAULT_HASH_ALGORITHM,
+  SUPPORTED_HASH_ALGORITHMS,
+  isHashAlgorithm,
+} from "./encoding.js";
+
+export {
+  type CheckedCompactJws,
+  type SupportedSignatureAlgorithm,
+  KEY_BINDING_JWT_TYP,
+  REQUEST_OBJECT_TYP,
+  SD_JWT_VC_TYPS,
+  SUPPORTED_SIGNATURE_ALGORITHMS,
+  isSupportedSignatureAlgorithm,
+  readSignedCompactJws,
+} from "./jose.js";
+
 export {
   type CredentialFormat,
-  DCQL_PROFILE,
-  DCQL_PROFILE_ID,
   type DcqlClaimQuery,
   type DcqlCredentialQuery,
   type DcqlQuery,
+  type VerifiableCredentialFormat,
+  DCQL_PROFILE,
+  DCQL_PROFILE_ID,
   KNOWN_CREDENTIAL_FORMATS,
   VERIFIABLE_CREDENTIAL_FORMATS,
-  type VerifiableCredentialFormat,
   assertDcqlProfile,
   dcqlQueryToJson,
   isKnownCredentialFormat,
   isVerifiableCredentialFormat,
 } from "./dcql.js";
+
 export {
   type DeriveRequestDigestsInput,
-  OPERATION_DIGEST_PURPOSE,
   type OperationDigestInput,
   type RequestDigests,
+  OPERATION_DIGEST_PURPOSE,
   deriveRequestDigests,
   operationDigest,
   protocolDigest,
 } from "./digests.js";
-export {
-  DEFAULT_HASH_ALGORITHM,
-  type HashAlgorithm,
-  SUPPORTED_HASH_ALGORITHMS,
-  isHashAlgorithm,
-} from "./encoding.js";
-export {
-  type Openid4vpCheckpoint,
-  Openid4vpError,
-  type Openid4vpErrorCode,
-  isOpenid4vpError,
-} from "./errors.js";
-export {
-  type CheckedCompactJws,
-  KEY_BINDING_JWT_TYP,
-  REQUEST_OBJECT_TYP,
-  SD_JWT_VC_TYPS,
-  SUPPORTED_SIGNATURE_ALGORITHMS,
-  type SupportedSignatureAlgorithm,
-  isSupportedSignatureAlgorithm,
-  readSignedCompactJws,
-} from "./jose.js";
+
 export {
   type AuthorizationRequest,
   type AuthorizationRequestInput,
-  DC_API_PROTOCOL_UNSIGNED,
   type DigitalCredentialsRequest,
   type EncodedTransactionData,
-  REQUESTABLE_CLIENT_ID_PREFIXES,
-  REQUEST_BINDING_TRANSACTION_DATA_TYPE,
   type RequestObjectSigningKey,
   type RequestableClientIdPrefix,
-  STATIC_DISCOVERY_AUDIENCE,
-  SUPPORTED_RESPONSE_MODES,
   type SupportedResponseMode,
   type TransactionDataInput,
+  DC_API_PROTOCOL_UNSIGNED,
+  REQUESTABLE_CLIENT_ID_PREFIXES,
+  REQUEST_BINDING_TRANSACTION_DATA_TYPE,
+  STATIC_DISCOVERY_AUDIENCE,
+  SUPPORTED_RESPONSE_MODES,
   authorizationRequestParameters,
   buildAuthorizationRequest,
   buildTransactionData,
@@ -89,6 +86,18 @@ export {
   signRequestObject,
   transactionDataHash,
 } from "./request.js";
+
+export { assertApprovalBinding } from "./transaction-binding.js";
+
+export {
+  type CourierDelivery,
+  type EncryptedResponseMode,
+  ENCRYPTED_RESPONSE_MODES,
+  isCompactJwe,
+  isEncryptedResponseMode,
+  readCourierResponse,
+} from "./courier.js";
+
 export {
   type BeginPresentationInput,
   type BeginPresentationResult,
@@ -97,6 +106,14 @@ export {
   beginPresentation,
   finishPresentation,
 } from "./routes.js";
+
+export {
+  type InMemoryRequestSessionStoreOptions,
+  type RequestSessionRecord,
+  type RequestSessionStore,
+  InMemoryRequestSessionStore,
+} from "./session.js";
+
 export {
   type Disclosure,
   type ParsedSdJwt,
@@ -104,14 +121,6 @@ export {
   readDisclosures,
   resolveDisclosures,
 } from "./sd-jwt.js";
-
-export {
-  InMemoryRequestSessionStore,
-  type InMemoryRequestSessionStoreOptions,
-  type RequestSessionRecord,
-  type RequestSessionStore,
-} from "./session.js";
-export { assertApprovalBinding } from "./transaction-binding.js";
 
 export {
   type PresentationAssurance,

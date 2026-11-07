@@ -6,8 +6,8 @@ import { parseNativeMarqetaUsers } from "./native-api-marqeta.js";
 import { projectLinqMessagingLines } from "./native-api-messaging-inventories.js";
 import { parseNativePrivacyCards } from "./native-api-privacy.js";
 import { parseNativeRazorpayPayments } from "./native-api-razorpay.js";
-import { parseNativeStripeBalance } from "./native-api-stripe.js";
 import { parseNativeStripeIssuingCards } from "./native-api-stripe-issuing.js";
+import { parseNativeStripeBalance } from "./native-api-stripe.js";
 
 export function validateNativeApiInventory(
   providerId: string,

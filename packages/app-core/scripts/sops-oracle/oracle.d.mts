@@ -2,9 +2,7 @@ export const SOPS_VERSION: string;
 export const SOPS_SOURCE_COMMIT: string;
 export const CHECKSUMS: Record<string, [string, string]>;
 export function oracleCacheDir(): string;
-export function provisionOracle(options?: {
-  allowDownload?: boolean;
-}):
+export function provisionOracle(options?: { allowDownload?: boolean }):
   | { bin: string; sha256: string; name: string; error?: undefined }
   | { error: string; bin?: undefined; sha256?: undefined; name?: undefined };
 export function runSops(

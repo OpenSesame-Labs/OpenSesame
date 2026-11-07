@@ -1,6 +1,6 @@
 import { readCanvas2d } from "./canvas-context.js";
-import { type DecryptRun, cursorSlot, isSettled, pruneRuns } from "./cipher.js";
 import { nowMs } from "./cipher-timings.js";
+import { type DecryptRun, cursorSlot, isSettled, pruneRuns } from "./cipher.js";
 import {
   DRAW_CALIBRATION,
   type Layout,

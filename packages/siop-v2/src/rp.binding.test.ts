@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  MemoryLoginStore,
+  MemoryReplayLedger,
+  StorageLoginStore,
+} from "./rp-store.js";
+import {
   CLIENT,
   REDIRECT,
   T0,
@@ -8,11 +13,6 @@ import {
   mint,
   relyingParty,
 } from "./rp.fixture.js";
-import {
-  MemoryLoginStore,
-  MemoryReplayLedger,
-  StorageLoginStore,
-} from "./rp-store.js";
 import { p256Pair } from "./test-keys.js";
 
 /**

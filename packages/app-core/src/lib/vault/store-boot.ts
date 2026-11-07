@@ -1,8 +1,8 @@
 /** Vault store singleton wiring (ADR 0160 device key carrier, activity tomb seam). */
 import { activitySeams } from "../activity-log.js";
 import { installSignInPrfVault } from "../local-passkey-prf.js";
-import type { VaultStore } from "./store.js";
 import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
+import type { VaultStore } from "./store.js";
 
 export function installVaultStoreBoot(store: VaultStore): void {
   installDeviceKeyCarrier(() => bodyPortOf(store));

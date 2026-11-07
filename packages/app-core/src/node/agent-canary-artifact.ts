@@ -6,7 +6,6 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import type { createControlledCanaryReceiver } from "./agent-canary-receiver.js";
-
 function resultFor(method: BoundaryValue | undefined) {
   if (method === "initialize")
     return {

@@ -40,7 +40,6 @@ export function LiveSessionBanner() {
   }, []);
   if (count === null) return null;
   return (
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div className="vault-live-banner" aria-label="Live session">
       <StatusMark tone="ok" label="In a live session" />
       <span>

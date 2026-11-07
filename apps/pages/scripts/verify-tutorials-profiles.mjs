@@ -88,6 +88,6 @@ console.log(
 );
 if (!full) {
   console.log(
-    "[tutorials-profiles] shard 1/3. Full library: TUTORIALS_PROFILES_FULL=1 npm run verify:tutorials-profiles -w @opensesame/pages",
+    "[tutorials-profiles] shard 1/3. Full library: TUTORIALS_PROFILES_FULL=1 npm run verify:tutorials-profiles", -w @opensesame/pages
   );
 }

@@ -31,11 +31,11 @@ import { checkEditorPaths } from "./lib/editor-path-contract.mjs";
 import { checkEditorRoutes } from "./lib/editor-routes-contract.mjs";
 import { checkEditorTabOrder } from "./lib/editor-tab-order-contract.mjs";
 import { walkFirstRunImport } from "./lib/first-run-import-contract.mjs";
-import { doorGuest, passTheDoor } from "./lib/front-door.mjs";
 import {
   checkFrontDoor,
   walkSetupCeremony,
 } from "./lib/front-door-contract.mjs";
+import { doorGuest, passTheDoor } from "./lib/front-door.mjs";
 import { tabToAccessControl } from "./lib/local-access-journey.mjs";
 import { openIdentityView } from "./lib/local-directory-navigation.mjs";
 import { openSection, sealLocalOnly } from "./lib/pages-journey.mjs";

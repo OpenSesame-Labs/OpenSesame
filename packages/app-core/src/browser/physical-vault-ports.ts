@@ -4,10 +4,8 @@ import {
 } from "../lib/duress/store/boot-keys.js";
 /** Browser physical ciphertext producers. They issue DATA only, never owner or factors-complete authority. */
 import { createOriginalOriginStorageProfile } from "../lib/original-origin-storage.js";
-import type {
-  PhysicalAuthenticationPort,
-  PhysicalAuthenticationSnapshot,
-} from "../lib/vault/physical-authentication-port.js";
+import type { PhysicalAuthenticationPort } from "../lib/vault/physical-authentication-port.js";
+import type { PhysicalAuthenticationSnapshot } from "../lib/vault/physical-authentication-port.js";
 import type {
   PhysicalCurrentCredentialCataloguePort,
   PhysicalCurrentCredentialCatalogueReader,

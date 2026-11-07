@@ -2,7 +2,6 @@
 // console errors, page errors, and failed requests with stacks. Deleted when
 // the session ends.
 import { chromium } from "@playwright/test";
-
 const exe = process.env.PLAYWRIGHT_CHROMIUM;
 const launchOptions = { headless: true };
 if (exe) {

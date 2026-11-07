@@ -2,7 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 import { FormCommit } from "../../src/components/FormCommit.js";
 import { IconKey } from "../../src/components/IconKey.js";
-import { IconExternal, IconX } from "../../src/components/Icons.js";
+import { IconExternal } from "../../src/components/Icons.js";
+import { IconX } from "../../src/components/Icons.js";
 import { figma } from "../figma.js";
 
 /**

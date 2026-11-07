@@ -1,6 +1,6 @@
 import { approvedPlan } from "@opensesame/app-core/lib/capabilities/__tests__/plan-fixtures.js";
-import { describeCapability } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import { NATIVE_PROVIDER_PURPOSE } from "@opensesame/app-core/lib/capabilities/catalog-always-on.js";
+import { describeCapability } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import { createEgressPort } from "@opensesame/app-core/lib/capabilities/egress.js";
 import { createSecretBackend } from "@opensesame/app-core/lib/secret-backends/factory.js";
 import { secretBackendDraft } from "@opensesame/app-core/lib/secret-backends/presets.js";

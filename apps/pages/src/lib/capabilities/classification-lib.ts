@@ -9,7 +9,6 @@ import { VAULT_RELAY_RULES } from "./classification-vault-relay.js";
 import { WALLET_RULES } from "./classification-wallet.js";
 
 export { VAULT_RELAY_RULES };
-
 const L = "src/lib/";
 const SHELL = "shell.navigation";
 const SIGNIN = "identity.brokered-signin";

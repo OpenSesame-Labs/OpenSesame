@@ -37,7 +37,6 @@ import {
   primaryKey,
   primaryOracle,
 } from "./native-api-primary.test-support.js";
-
 const catalogContracts: PrimaryContract[] = [
   {
     id: "messagebird",

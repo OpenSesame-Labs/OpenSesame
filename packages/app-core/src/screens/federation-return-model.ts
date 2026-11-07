@@ -1,12 +1,12 @@
 import { ambientAuthSeams, isAmbientIntent } from "../lib/ambient-auth-seam.js";
 import { storeAuthOutcome } from "../lib/auth-outcome.js";
+import { assertSafeReturnTo } from "../lib/federation-callback.js";
+import { federationSessionGeneration } from "../lib/federation-native-session.js";
 import {
   adoptBrokeredSession,
   completeSignIn,
   displayName,
 } from "../lib/federation.js";
-import { assertSafeReturnTo } from "../lib/federation-callback.js";
-import { federationSessionGeneration } from "../lib/federation-native-session.js";
 import {
   adoptFederatedIdentity,
   openVaultAfterSignIn,

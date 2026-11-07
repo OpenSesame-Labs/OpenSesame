@@ -2,14 +2,21 @@ import { readMockIdpConfig } from "./config.js";
 import { createMockUpstreamIdp } from "./server.js";
 
 export {
+  createMockUpstreamIdp,
+  type MintLogoutTokenOptions,
+  type MintSamlResponseInput,
+  type MockIdpObservations,
+  type MockUpstreamIdp,
+} from "./server.js";
+export {
+  readMockIdpConfig,
+  createMockIdpKeys,
+  createMockIdpSamlKeys,
+  assertMockIdpListenAllowed,
   type MockIdpClientMode,
   type MockIdpConfig,
   type MockIdpOAuth2Config,
   type MockIdpSamlKeys,
-  assertMockIdpListenAllowed,
-  createMockIdpKeys,
-  createMockIdpSamlKeys,
-  readMockIdpConfig,
 } from "./config.js";
 export {
   OAUTH2_AUTHORIZE_PATH,
@@ -26,13 +33,7 @@ export {
   type SamlMutation,
 } from "./saml.js";
 export {
-  type MintLogoutTokenOptions,
-  type MintSamlResponseInput,
-  type MockIdpObservations,
-  type MockUpstreamIdp,
-  createMockUpstreamIdp,
-} from "./server.js";
-export {
+  startReferenceIdp,
   type IdpInitiatedSamlOptions,
   type IdpInitiatedSamlPost,
   type ReferenceIdp,
@@ -42,7 +43,6 @@ export {
   type ReferenceIdpProtocol,
   type ReferenceIdpSaml,
   type ReferenceIdpTokenClient,
-  startReferenceIdp,
 } from "./testkit.js";
 
 export async function main(): Promise<void> {

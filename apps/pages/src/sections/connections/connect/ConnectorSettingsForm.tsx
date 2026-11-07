@@ -17,8 +17,8 @@ import { type FormEvent, useEffect, useState } from "react";
 import { FormCommit } from "../../../components/FormCommit.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { ConnectorIdentity } from "./ConnectCreateForm.js";
-import { Facts } from "./fields.js";
 import { MethodFields } from "./MethodFields.js";
+import { Facts } from "./fields.js";
 
 /** What Connect holds for this connector, editable in place. */
 export function ConnectorSettingsForm({

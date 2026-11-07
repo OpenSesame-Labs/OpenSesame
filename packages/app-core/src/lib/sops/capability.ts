@@ -9,8 +9,8 @@
  */
 
 import { gcm } from "@noble/ciphers/aes.js";
-import type { VerifiedDocument } from "./engine.js";
 import { SopsEngine } from "./engine.js";
+import type { VerifiedDocument } from "./engine.js";
 import { HandleRegistry } from "./handles.js";
 import { SOPS_PROFILE } from "./inspect.js";
 

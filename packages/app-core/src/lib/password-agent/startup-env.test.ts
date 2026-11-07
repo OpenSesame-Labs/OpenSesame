@@ -2,7 +2,6 @@ import { expect, it, vi } from "vitest";
 import { run, runFile } from "./env.js";
 import { passwordAgentPolicy } from "./policy.js";
 import { validateRunTemplate } from "./startup-env.js";
-
 it("rejects every shared startup variable before provider assignment or template execution", async () => {
   const execute = vi.fn(async () => 0);
   const port = {

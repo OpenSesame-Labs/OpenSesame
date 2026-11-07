@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { ensureDefaultAccess } from "@opensesame/app-core/lib/local-access-bootstrap.js";
-import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
+import { readLocalDirectory } from "@opensesame/app-core/lib/local-directory.js";
 import { localRequestFixture } from "@opensesame/app-core/lib/local-request.fixture.js";
 import { signInLocalIdentity } from "@opensesame/app-core/lib/local-sessions.js";
 import { lockAllTombs } from "@opensesame/app-core/lib/vfs.js";

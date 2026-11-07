@@ -73,24 +73,28 @@ async function savePins(f) {
   // retain the complete reviewed source/patch/preimage/postimage pin graph.
   await writeFile(join(f.tools, "source.json"), `${JSON.stringify(f.pins)}\n`);
 }
-test("real Node patch applies exact reviewed revision with no patch executable on PATH", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  const missing = spawn("patch", args(f), {
-    cwd: f.source,
-    env: { PATH: f.bin },
-    stdio: "ignore",
-  });
-  const error = await new Promise((resolve) => missing.once("error", resolve));
-  assert.equal(error.code, "ENOENT");
-  assert.equal(await run(f), 0);
-  assert.equal(
-    await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
-    after,
-  );
-  assert.notEqual(await run(f), 0); // Forward-only: never treat an already applied patch as success.
-});
+test(
+  "real Node patch applies exact reviewed revision with no patch executable on PATH",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    const missing = spawn("patch", args(f), {
+      cwd: f.source,
+      env: { PATH: f.bin },
+      stdio: "ignore",
+    });
+    const error = await new Promise((resolve) =>
+      missing.once("error", resolve),
+    );
+    assert.equal(error.code, "ENOENT");
+    assert.equal(await run(f), 0);
+    assert.equal(
+      await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
+      after,
+    );
+    assert.notEqual(await run(f), 0); // Forward-only: never treat an already applied patch as success.
+  },
+);
 test("all reviewed patch invocations select the same Node helper; compiler commands stay original", () => {
   for (const name of [
     "native-toolchain.patch",
@@ -171,141 +175,153 @@ test("SSH patch requires its exact target, digest, preimage and postimage", asyn
   assert.equal(await readFile(join(f.source, tlsPath), "utf8"), result);
   assert.notEqual(await run(f, "native-ssh.patch"), 0);
 });
-test("stale preimage and wrong postimage refuse without target writes", {
-  timeout: 10000,
-}, async (t) => {
-  for (const mode of ["stale", "postimage"]) {
-    const f = await fixture(t);
-    const original = mode === "stale" ? "unreviewed revision\n" : before;
-    await writeFile(join(f.source, "go.toolchain.rev"), original);
-    if (mode === "postimage") {
-      f.pins.toolchainSelection.afterRevisionSha256 = "0".repeat(64);
-      await savePins(f);
+test(
+  "stale preimage and wrong postimage refuse without target writes",
+  { timeout: 10000 },
+  async (t) => {
+    for (const mode of ["stale", "postimage"]) {
+      const f = await fixture(t);
+      const original = mode === "stale" ? "unreviewed revision\n" : before;
+      await writeFile(join(f.source, "go.toolchain.rev"), original);
+      if (mode === "postimage") {
+        f.pins.toolchainSelection.afterRevisionSha256 = "0".repeat(64);
+        await savePins(f);
+      }
+      assert.notEqual(await run(f), 0);
+      assert.equal(
+        await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
+        original,
+      );
     }
-    assert.notEqual(await run(f), 0);
-    assert.equal(
-      await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
-      original,
+  },
+);
+test(
+  "untrusted patch bytes are rejected by the original patch digest",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    await writeFile(
+      join(f.tools, "native-toolchain.patch"),
+      "not a reviewed patch\n",
     );
-  }
-});
-test("untrusted patch bytes are rejected by the original patch digest", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  await writeFile(
-    join(f.tools, "native-toolchain.patch"),
-    "not a reviewed patch\n",
-  );
-  assert.notEqual(await run(f), 0);
-  assert.equal(
-    await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
-    before,
-  );
-});
-test("malformed counts, shifted context and unreviewed target paths fail even in explicitly repinned parser fixtures", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  const original = await readFile(
-    join(f.tools, "native-toolchain.patch"),
-    "utf8",
-  );
-  for (const patch of [
-    original.replace("@@ -1 +1 @@", "@@ -1,2 +1 @@"),
-    original.replace("@@ -1 +1 @@", "@@ -2 +2 @@"),
-    original.replaceAll("go.toolchain.rev", "../escape"),
-    original.replace("-7275", "-8275"),
-  ]) {
-    f.pins.toolchainSelection.patchSha256 = hash(patch);
-    await savePins(f);
-    await writeFile(join(f.tools, "native-toolchain.patch"), patch);
     assert.notEqual(await run(f), 0);
     assert.equal(
       await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
       before,
     );
-  }
-});
-test("stale later targets cannot partially apply any earlier target", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  const paths = [
-    "cmd/tsconnect/wasm/wasm_js.go",
-    "net/tsdial/tsdial.go",
-    "ipn/ipnlocal/node_backend.go",
-    "derp/derphttp/derphttp_client.go",
-  ];
-  const patch = paths
-    .map((path) => `--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n`)
-    .join("");
-  f.pins.nativeNode.files[1].sha256 = hash(patch);
-  f.pins.nativeNode.patchTargets = paths.map((path) => ({
-    path,
-    beforeSha256: hash("old\n"),
-    afterSha256: hash("new\n"),
-  }));
-  await savePins(f);
-  await writeFile(join(f.tools, "native-node.patch"), patch);
-  for (const path of paths) {
-    await mkdir(dirname(join(f.source, path)), { recursive: true });
-    await writeFile(join(f.source, path), "old\n");
-  }
-  for (const stale of paths.slice(1)) {
-    await writeFile(join(f.source, stale), "stale\n");
-    assert.notEqual(await run(f, "native-node.patch"), 0);
-    for (const path of paths)
-      assert.equal(
-        await readFile(join(f.source, path), "utf8"),
-        path === stale ? "stale\n" : "old\n",
-      );
-    await writeFile(join(f.source, stale), "old\n");
-  }
-  assert.equal(await run(f, "native-node.patch"), 0);
-  for (const path of paths)
-    assert.equal(await readFile(join(f.source, path), "utf8"), "new\n");
-});
-test("the actual zero-context exit-route insertion is exact and repeatable on owned line fixtures", {
-  timeout: 10000,
-}, async (t) => {
-  const expected = [];
-  for (let repeat = 0; repeat < 2; repeat++) {
+  },
+);
+test(
+  "malformed counts, shifted context and unreviewed target paths fail even in explicitly repinned parser fixtures",
+  { timeout: 10000 },
+  async (t) => {
     const f = await fixture(t);
-    const path = "cmd/tsconnect/wasmbuild/wasmbuild.go";
-    const original = `${Array.from({ length: 71 }, (_, index) => `line-${index}`).join("\n")}\n`;
-    const lines = original.trimEnd().split("\n");
-    lines.splice(
-      69,
-      0,
-      '\t"useexitnode", // private compilation probe: existing exit-node routing',
+    const original = await readFile(
+      join(f.tools, "native-toolchain.patch"),
+      "utf8",
     );
-    const result = `${lines.join("\n")}\n`;
-    f.pins.patch.beforeSha256 = hash(original);
-    f.pins.patch.afterSha256 = hash(result);
+    for (const patch of [
+      original.replace("@@ -1 +1 @@", "@@ -1,2 +1 @@"),
+      original.replace("@@ -1 +1 @@", "@@ -2 +2 @@"),
+      original.replaceAll("go.toolchain.rev", "../escape"),
+      original.replace("-7275", "-8275"),
+    ]) {
+      f.pins.toolchainSelection.patchSha256 = hash(patch);
+      await savePins(f);
+      await writeFile(join(f.tools, "native-toolchain.patch"), patch);
+      assert.notEqual(await run(f), 0);
+      assert.equal(
+        await readFile(join(f.source, "go.toolchain.rev"), "utf8"),
+        before,
+      );
+    }
+  },
+);
+test(
+  "stale later targets cannot partially apply any earlier target",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    const paths = [
+      "cmd/tsconnect/wasm/wasm_js.go",
+      "net/tsdial/tsdial.go",
+      "ipn/ipnlocal/node_backend.go",
+      "derp/derphttp/derphttp_client.go",
+    ];
+    const patch = paths
+      .map((path) => `--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n`)
+      .join("");
+    f.pins.nativeNode.files[1].sha256 = hash(patch);
+    f.pins.nativeNode.patchTargets = paths.map((path) => ({
+      path,
+      beforeSha256: hash("old\n"),
+      afterSha256: hash("new\n"),
+    }));
     await savePins(f);
-    await mkdir(dirname(join(f.source, path)), { recursive: true });
-    await writeFile(join(f.source, path), original);
-    assert.equal(await run(f, "exit-route.patch"), 0);
-    expected.push(hash(await readFile(join(f.source, path))));
-    assert.equal(expected.at(-1), hash(result));
-  }
-  assert.equal(expected[0], expected[1]);
-});
-test("symlinks and arbitrary invocation flags are refused", {
-  timeout: 10000,
-}, async (t) => {
-  const f = await fixture(t);
-  await rm(join(f.source, "go.toolchain.rev"));
-  await writeFile(join(f.root, "outside"), before);
-  await symlink(join(f.root, "outside"), join(f.source, "go.toolchain.rev"));
-  assert.notEqual(await run(f), 0);
-  assert.equal(await readFile(join(f.root, "outside"), "utf8"), before);
-  assert.notEqual(
-    await run(f, "native-toolchain.patch", [...args(f), "--unsafe"]),
-    0,
-  );
-});
+    await writeFile(join(f.tools, "native-node.patch"), patch);
+    for (const path of paths) {
+      await mkdir(dirname(join(f.source, path)), { recursive: true });
+      await writeFile(join(f.source, path), "old\n");
+    }
+    for (const stale of paths.slice(1)) {
+      await writeFile(join(f.source, stale), "stale\n");
+      assert.notEqual(await run(f, "native-node.patch"), 0);
+      for (const path of paths)
+        assert.equal(
+          await readFile(join(f.source, path), "utf8"),
+          path === stale ? "stale\n" : "old\n",
+        );
+      await writeFile(join(f.source, stale), "old\n");
+    }
+    assert.equal(await run(f, "native-node.patch"), 0);
+    for (const path of paths)
+      assert.equal(await readFile(join(f.source, path), "utf8"), "new\n");
+  },
+);
+test(
+  "the actual zero-context exit-route insertion is exact and repeatable on owned line fixtures",
+  { timeout: 10000 },
+  async (t) => {
+    const expected = [];
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const f = await fixture(t);
+      const path = "cmd/tsconnect/wasmbuild/wasmbuild.go";
+      const original = `${Array.from({ length: 71 }, (_, index) => `line-${index}`).join("\n")}\n`;
+      const lines = original.trimEnd().split("\n");
+      lines.splice(
+        69,
+        0,
+        '\t"useexitnode", // private compilation probe: existing exit-node routing',
+      );
+      const result = `${lines.join("\n")}\n`;
+      f.pins.patch.beforeSha256 = hash(original);
+      f.pins.patch.afterSha256 = hash(result);
+      await savePins(f);
+      await mkdir(dirname(join(f.source, path)), { recursive: true });
+      await writeFile(join(f.source, path), original);
+      assert.equal(await run(f, "exit-route.patch"), 0);
+      expected.push(hash(await readFile(join(f.source, path))));
+      assert.equal(expected.at(-1), hash(result));
+    }
+    assert.equal(expected[0], expected[1]);
+  },
+);
+test(
+  "symlinks and arbitrary invocation flags are refused",
+  { timeout: 10000 },
+  async (t) => {
+    const f = await fixture(t);
+    await rm(join(f.source, "go.toolchain.rev"));
+    await writeFile(join(f.root, "outside"), before);
+    await symlink(join(f.root, "outside"), join(f.source, "go.toolchain.rev"));
+    assert.notEqual(await run(f), 0);
+    assert.equal(await readFile(join(f.root, "outside"), "utf8"), before);
+    assert.notEqual(
+      await run(f, "native-toolchain.patch", [...args(f), "--unsafe"]),
+      0,
+    );
+  },
+);
 
 test("peer patch requires its exact target, digest, preimage, postimage and flags", async (t) => {
   const f = await fixture(t);

@@ -14,17 +14,6 @@ import type { Connection } from "./connections.js";
 import { releaseGuestConnection, visibleToGuest } from "./guest-connections.js";
 import { isGuestSession } from "./guest-isolation.js";
 import {
-  CONNECT_API,
-  ConnectError,
-  type VercelConnectAuth,
-  appSubject,
-  rememberConnector,
-  requireAuth,
-  requireTransport,
-  sdkOptions,
-  vercelConnectSeams,
-} from "./vercel-connect.js";
-import {
   isReadonlyPaymentProvider,
   isVercelConnectable,
 } from "./vercel-connect-catalog.js";
@@ -36,6 +25,17 @@ import {
   toConnectConnection,
 } from "./vercel-connect-map.js";
 import { connectRelayConfigured, relayFetch } from "./vercel-connect-relay.js";
+import {
+  CONNECT_API,
+  ConnectError,
+  type VercelConnectAuth,
+  appSubject,
+  rememberConnector,
+  requireAuth,
+  requireTransport,
+  sdkOptions,
+  vercelConnectSeams,
+} from "./vercel-connect.js";
 
 export { isConnectConnector, usesConnect } from "./vercel-connect.js";
 

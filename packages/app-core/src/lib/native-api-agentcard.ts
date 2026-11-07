@@ -5,7 +5,6 @@ import { NativeApiError } from "./native-api-http.js";
 import { resourceId } from "./native-api-resource.js";
 import type { NativeApiReadResult } from "./native-api-verify.js";
 import { zodJitless } from "./zod-jitless.js";
-
 zodJitless();
 const organization = z.object({
   object: z.literal("api_v2"),

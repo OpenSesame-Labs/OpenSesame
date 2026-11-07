@@ -13,6 +13,11 @@ import {
 } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
 import {
+  invokeNativeOAuthMcpTool,
+  listNativeOAuthMcpTools,
+  verifyNativeOAuthMcpResource,
+} from "./native-oauth-mcp-operations.js";
+import {
   MCP_REFRESH,
   MCP_SECRET,
   MCP_TOKEN,
@@ -20,17 +25,11 @@ import {
   oauthMcpFixture,
 } from "./native-oauth-mcp.test-support.js";
 import {
-  invokeNativeOAuthMcpTool,
-  listNativeOAuthMcpTools,
-  verifyNativeOAuthMcpResource,
-} from "./native-oauth-mcp-operations.js";
-import {
   nativeOAuthGuard,
   requireNativeOAuthRecord,
 } from "./native-oauth-session.js";
 import { vaultStore } from "./vault/store.js";
 import { vfsFlush } from "./vfs.js";
-
 const closing: (() => Promise<void>)[] = [];
 const pending: Promise<unknown>[] = [];
 afterEach(async () => {

@@ -2,13 +2,13 @@ import { FEATURES } from "@opensesame/app-core/lib/capabilities/features.js";
 import { INTEGRATIONS } from "@opensesame/app-core/lib/capabilities/integrations.js";
 import { settingsPath } from "@opensesame/app-core/lib/crumbs.js";
 import {
-  SETTINGS_CONFIG_FILE,
-  settingsConfigRoute,
-} from "@opensesame/app-core/sections/settings/settings-files.js";
-import {
   type SettingsTab,
   settingsTabsSnapshot,
 } from "@opensesame/app-core/sections/settings-section-nav-model.js";
+import {
+  SETTINGS_CONFIG_FILE,
+  settingsConfigRoute,
+} from "@opensesame/app-core/sections/settings/settings-files.js";
 import { type PageTreeSource, pageTabTree } from "../../lib/page-to-tree.js";
 
 /** Live lists a Settings tab may mirror (Vaults on this device). */

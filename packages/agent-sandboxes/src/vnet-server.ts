@@ -17,13 +17,13 @@ import {
   createServer,
 } from "node:http";
 import { z } from "zod";
+import { CookieJar } from "./vnet-cookie-jar.js";
+import { pinnedFetch } from "./vnet-pinned-fetch.js";
 import {
   type VirtualFetchRequest,
   type VirtualFetchResponse,
   virtualFetchRequestSchema,
 } from "./vnet.js";
-import { CookieJar } from "./vnet-cookie-jar.js";
-import { pinnedFetch } from "./vnet-pinned-fetch.js";
 
 export interface VirtualNetworkRelayOptions {
   port?: number;

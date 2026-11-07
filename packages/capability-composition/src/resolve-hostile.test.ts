@@ -16,12 +16,12 @@ import {
   fixtureResolveInput,
   fixtureSelection,
 } from "./fixtures.js";
+import type { ResolveInput } from "./resolve-input.js";
 import {
   capabilityState,
   explainCapability,
   resolveComposition,
 } from "./resolve.js";
-import type { ResolveInput } from "./resolve-input.js";
 
 const CORE = ["settings.core", "vault.passwords"];
 const NOW = "2026-09-22T00:00:00.000Z";

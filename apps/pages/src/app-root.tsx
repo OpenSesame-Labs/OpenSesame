@@ -1,13 +1,4 @@
 import { activatePlan } from "@opensesame/app-core/lib/capabilities/change.js";
-import type {
-  RouteContribution,
-  ShellWrapperContribution,
-  UnlockEffectContribution,
-} from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
-import { planIsSettling } from "@opensesame/app-core/lib/capabilities/settling.js";
-import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
-import { hasAuthResponse as defaultHasAuthResponse } from "@opensesame/app-core/lib/federation-response.js";
-import { recoverPendingFederatedLink as defaultRecoverPendingFederatedLink } from "@opensesame/app-core/lib/guest-auth.js";
 import {
   type ComponentType,
   type ReactNode,
@@ -19,18 +10,19 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
-import {
-  type VaultStatus,
-  useAfterUnlock,
-  useOpenVaultKey,
-  useRotationQueue,
-  useVaultLanding,
-} from "./app-root-hooks.js";
-import { AppVaultShell } from "./app-vault-shell.js";
-import { useComposition } from "./bindings/capabilities.js";
-import { ContextMenuLayer } from "./components/context-menu/ContextMenuLayer.js";
-import { Notices } from "./components/Notices.js";
 import { Framed, UngatedRoute, ungatedRoute } from "./components/RouteFrame.js";
+import { ContextMenuLayer } from "./components/context-menu/ContextMenuLayer.js";
+
+import type {
+  RouteContribution,
+  ShellWrapperContribution,
+  UnlockEffectContribution,
+} from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
+import { planIsSettling } from "@opensesame/app-core/lib/capabilities/settling.js";
+import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { hasAuthResponse as defaultHasAuthResponse } from "@opensesame/app-core/lib/federation-response.js";
+import { recoverPendingFederatedLink as defaultRecoverPendingFederatedLink } from "@opensesame/app-core/lib/guest-auth.js";
+import { Notices } from "./components/Notices.js";
 import { VaultShellSkeleton } from "./components/VaultShellSkeleton.js";
 import { usePaneEscape } from "./lib/pane-escape.js";
 import { useSwUpdateHost } from "./lib/sw-update-guard.js";
@@ -45,11 +37,19 @@ import { FederationReturn as DefaultFederationReturn } from "./screens/Federatio
 import { UnlockScreen as DefaultUnlockScreen } from "./screens/UnlockScreen.js";
 import { GateHost } from "./tutorial/gate-seat.js";
 
-export { useCapabilityGate } from "./app-root-hooks.js";
+import {
+  type VaultStatus,
+  useAfterUnlock,
+  useOpenVaultKey,
+  useRotationQueue,
+  useVaultLanding,
+} from "./app-root-hooks.js";
+import { AppVaultShell } from "./app-vault-shell.js";
+import { useComposition } from "./bindings/capabilities.js";
 
+export { useCapabilityGate } from "./app-root-hooks.js";
 import { useRegistryContributions as defaultUseContributions } from "./bindings/contributions.js";
 import { useShellReady as defaultUseShellReady } from "./bindings/shell-ready.js";
-
 // The core shell (ownership.md §5): unlock, the vault, Settings, and the
 // federation return. Every other section arrives as a `route` contribution
 // from an approved capability's runtime, so nothing optional is imported

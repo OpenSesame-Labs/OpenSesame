@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { privateSharedTempDir } from "./lib/private-files.mjs";
 import { composeSheet } from "./lib/visual-evidence.mjs";
-
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = path.resolve(
   process.env.PAGES_VERIFY_OUT ??

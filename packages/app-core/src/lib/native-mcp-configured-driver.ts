@@ -33,11 +33,11 @@ import {
   nativeMcpUrl,
 } from "./native-mcp-target.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
-import { vaultStore } from "./vault/store.js";
 import {
   assertVaultCredentials,
   initializeVaultCredentialCustody,
 } from "./vault-credential-custody.js";
+import { vaultStore } from "./vault/store.js";
 export type ConfiguredMcpPorts = {
   capture(
     signal?: AbortSignal,

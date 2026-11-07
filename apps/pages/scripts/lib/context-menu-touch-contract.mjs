@@ -1,5 +1,4 @@
 import { openVaultList } from "./phone-vault.mjs";
-
 /**
  * The context menu under a finger (DESIGN.md § Touch).
  *

@@ -1,7 +1,6 @@
 /** Original native physical DATA ports. Private Store alone proves owner/factor/root authority. */
 import { createHash } from "node:crypto";
 import type { PhysicalDeviceRecordPort } from "@opensesame/app-core/lib/vault/physical-device-record-port.js";
-import type { NativeVaultContext } from "./native-vault-context.js";
 import {
   bytes,
   deviceName,
@@ -10,6 +9,8 @@ import {
   readDevice,
   unavailable,
 } from "./native-vault-data.js";
+
+import type { NativeVaultContext } from "./native-vault-context.js";
 import { inventoryNames, releaseInventory } from "./native-vault-inventory.js";
 
 export function devicePort({ native, capture }: NativeVaultContext) {

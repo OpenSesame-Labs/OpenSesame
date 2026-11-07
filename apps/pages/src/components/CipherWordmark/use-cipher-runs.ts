@@ -1,6 +1,6 @@
 import { type MutableRefObject, type RefObject, useCallback } from "react";
-import { type DecryptRun, createSlotRuns } from "./cipher.js";
 import { nowMs, slotTimingsJson } from "./cipher-timings.js";
+import { type DecryptRun, createSlotRuns } from "./cipher.js";
 
 type RunRefs = {
   rootRef: RefObject<HTMLElement | null>;

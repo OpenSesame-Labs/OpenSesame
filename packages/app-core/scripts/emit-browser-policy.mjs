@@ -11,7 +11,6 @@ export function renderBrowserPolicy(policy) {
   return [
     "/** Generated from spec/connectors/browser-policy.json; edit that source. */",
     'import { unpackGeneratedJson } from "./generated-json.js";',
-    "",
     `const dictionary = ${JSON.stringify(dictionary.join("\n"))}.split("\\n");`,
     `export const NATIVE_BROWSER_POLICY_JSON = unpackGeneratedJson(${JSON.stringify(rows[0])}, dictionary);`,
     "",
@@ -45,7 +44,6 @@ export function renderRuntimeBrowserPolicy(policy) {
   return [
     "/** Generated from spec/connectors/browser-policy.json; edit that source. */",
     'import { unpackGeneratedJson } from "./generated-json.js";',
-    "",
     `const dictionary = ${JSON.stringify(dictionary.join("\n"))}.split("\\n");`,
     `export const NATIVE_BROWSER_POLICY_RUNTIME_JSON = unpackGeneratedJson(${JSON.stringify(rows[0])}, dictionary);`,
     "",

@@ -1,7 +1,7 @@
 import type { LocalCanaryCommand } from "@opensesame/vault-core/local-vault-security.js";
 import { z } from "zod";
-import type { GlobalFlags } from "./parse.js";
 import { leftover, takeOption } from "./parse-options.js";
+import type { GlobalFlags } from "./parse.js";
 export type CanaryCliCommand = {
   name: "vault-canary";
   command: LocalCanaryCommand;

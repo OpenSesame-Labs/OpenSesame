@@ -117,8 +117,7 @@ export class WasmRelayProvider implements SandboxProvider {
         } finally {
           try {
             // Deleting the per-run deployment supersedes its session.
-            if (deployed)
-              await boundFetch.closeSession?.(session).catch(() => {});
+            if (deployed) await boundFetch.closeSession?.(session).catch(() => {});
             else await boundFetch.closeSession?.(session);
           } finally {
             await deployed?.close().catch(() => {});

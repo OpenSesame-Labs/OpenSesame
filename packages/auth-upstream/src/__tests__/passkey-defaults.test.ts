@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PasskeyAssertion } from "../passkey.js";
 import { createPasskeySeam } from "../passkey.js";
+import type { PasskeyAssertion } from "../passkey.js";
 
 const assertion: PasskeyAssertion = {
   credentialId: "cred1",

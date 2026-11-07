@@ -110,6 +110,7 @@ describe("wrapServerWithTelemetry env-driven path", () => {
 
   it("builds one cached PostHog client from the env key and captures through it", async () => {
     process.env.OPENSESAME_TELEMETRY_KEY = "phc_test";
+    // biome-ignore lint/performance/noDelete: default host branch needs the var unset
     delete process.env.OPENSESAME_TELEMETRY_HOST;
     const before = instances.length;
 
@@ -188,6 +189,7 @@ describe("wrapServerWithTelemetry env-driven path", () => {
   });
 
   it("falls through untouched when the last tool() argument is not a callback", () => {
+    // biome-ignore lint/performance/noDelete: explicit telemetry, no env key needed
     delete process.env.OPENSESAME_TELEMETRY_KEY;
     const events: Array<{ event: string; props: JsonObject }> = [];
     const telemetry: Telemetry = createTelemetry({

@@ -41,8 +41,8 @@ import { type Keypair, newKeypair, newRequestId } from "./seal.js";
 import { SeatChannel, seatName } from "./seat-channel.js";
 import { TimerSlot } from "./timer-slot.js";
 
-export type * from "./guest-types.js";
 export { CONNECTING_TIMEOUT_MS, FALLBACK_MS } from "./guest-types.js";
+export type * from "./guest-types.js";
 
 export class LiveGuest {
   readonly #listeners = new Set<(status: GuestStatus) => void>();

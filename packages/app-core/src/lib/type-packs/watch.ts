@@ -10,8 +10,8 @@
  * definition bytes are cached separately so the same items open offline.
  */
 
-import type { VaultItem } from "@opensesame/vault-core";
 import { itemTypeId } from "@opensesame/vault-core";
+import type { VaultItem } from "@opensesame/vault-core";
 import {
   isPackId,
   isPackLoaded,

@@ -14,7 +14,6 @@ import {
 } from "./indexed-record-data.js";
 import type { CanaryIndexedSealData } from "./original-indexed-seal-data.js";
 import type { CanaryReceiverProfile } from "./receiver-profile-data.js";
-
 const publicSchema = z.strictObject({
   kty: z.literal("EC"),
   crv: z.literal("P-256"),

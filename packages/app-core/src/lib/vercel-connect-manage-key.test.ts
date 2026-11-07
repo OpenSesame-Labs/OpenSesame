@@ -5,11 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyConnectCallbackBase } from "./connect-callback.js";
 import { kvGet } from "./kv.js";
 import {
-  setVercelConnectAuth,
-  vercelConnectAuth,
-  vercelConnectConfigured,
-} from "./vercel-connect.js";
-import {
   authorizeVercelConnection,
   createVercelConnection,
   listVercelConnections,
@@ -22,6 +17,11 @@ import {
   hydrateVercelConnectAuth,
   readVercelConnectAuth,
 } from "./vercel-connect-session.js";
+import {
+  setVercelConnectAuth,
+  vercelConnectAuth,
+  vercelConnectConfigured,
+} from "./vercel-connect.js";
 import { lockAllTombs, tombFileKey, unlockTomb } from "./vfs.js";
 
 const MANAGE_KEY = "operator-manage-key-0123456789abcdef";

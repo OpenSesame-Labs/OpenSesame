@@ -2,7 +2,6 @@ import type { BoundaryValue, JsonObject } from "@opensesame/os-domain";
 import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { Variables } from "../middleware/context.js";
-
 const ERROR_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:Error";
 const SCIM_CONTENT_TYPE = "application/scim+json";
 type ScimStatus = 400 | 401 | 403 | 404 | 409;

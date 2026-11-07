@@ -1,7 +1,7 @@
 import type { ItemRow } from "@opensesame/vault-core";
+import { IconDots } from "../../components/Icons.js";
 import { ContextMenuList } from "../../components/context-menu/ContextMenuList.js";
 import { asSheet } from "../../components/context-menu/phone-menu.js";
-import { IconDots } from "../../components/Icons.js";
 import { type VaultTreeActions, vaultItemMenu } from "./vault-menu.js";
 
 /**

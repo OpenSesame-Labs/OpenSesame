@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  setVercelConnectAuth,
-  vercelConnectAuth,
-  vercelConnectConfigured,
-} from "./vercel-connect.js";
-import {
   armVercelConnectAuth,
   clearPendingVercelConnectAuth,
   disarmVercelConnectAuth,
@@ -12,6 +7,11 @@ import {
   pendingVercelConnectAuth,
   readVercelConnectAuth,
 } from "./vercel-connect-session.js";
+import {
+  setVercelConnectAuth,
+  vercelConnectAuth,
+  vercelConnectConfigured,
+} from "./vercel-connect.js";
 import * as vfs from "./vfs.js";
 
 const tomb = "tomb_test";

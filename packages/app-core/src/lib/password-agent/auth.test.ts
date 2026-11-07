@@ -6,7 +6,6 @@ import {
 } from "./auth.js";
 import { connect, forget, recover, setup, status } from "./service-account.js";
 import type { InvokeOptions, PasswordAgentPort } from "./transport.js";
-
 const vaultId = "a".repeat(26);
 const backupId = "b".repeat(26);
 const itemId = "c".repeat(26);

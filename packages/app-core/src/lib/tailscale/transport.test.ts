@@ -1,6 +1,5 @@
 import { expect, it, vi } from "vitest";
 import { bindTailscaleTransport, tailscaleTransport } from "./transport.js";
-
 it("requires an explicit current direct transport and old cleanup cannot remove a later lease", () => {
   expect(() => tailscaleTransport()).toThrow("Enable External connectors");
   const first = { fetch: vi.fn<typeof fetch>(), assertCurrent: vi.fn() };

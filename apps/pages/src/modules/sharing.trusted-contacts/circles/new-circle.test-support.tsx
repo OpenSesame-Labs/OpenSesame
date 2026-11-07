@@ -11,13 +11,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import { deskOf } from "../trusted-contacts.test-support.js";
+import { NewCircleSheet } from "./NewCircleSheet.js";
 import {
   addContact,
   contacts,
   sheetKey,
   startCircle,
 } from "./circles.test-support.js";
-import { NewCircleSheet } from "./NewCircleSheet.js";
 
 export async function openNewCircle(
   clock = new Clock(),

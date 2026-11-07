@@ -41,11 +41,7 @@ export function SecretBackendHTTPRoute({
   draft,
   online,
   busy,
-}: {
-  draft: PublicEndpointDraft;
-  online: boolean;
-  busy: boolean;
-}) {
+}: { draft: PublicEndpointDraft; online: boolean; busy: boolean }) {
   const [open, setOpen] = useState(false);
   const node = useSyncExternalStore(
     subscribeTailscaleBrowserNode,

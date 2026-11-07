@@ -7,11 +7,7 @@ function Flow({
   id,
   order,
   run = () => undefined,
-}: {
-  id: string;
-  order: number;
-  run?: () => void;
-}) {
+}: { id: string; order: number; run?: () => void }) {
   useAddEntry({ id, label: `Do ${id}`, order, slide: "up", run });
   return null;
 }

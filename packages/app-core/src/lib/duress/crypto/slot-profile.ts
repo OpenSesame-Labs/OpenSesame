@@ -2,7 +2,6 @@
  * Code-gated profile slot seal/open (KEYS-B/C).
  */
 
-import { asBufferSource } from "@opensesame/os-domain";
 import {
   DURESS_PIN_PBKDF2_ITERATIONS,
   DuressKdfError,
@@ -16,6 +15,7 @@ import {
   pbkdf2,
   te,
 } from "./slot-bytes.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 export const MAX_SLOTS = 8;
 
@@ -182,11 +182,7 @@ export async function openProfileSlot(
     };
     const pt = new Uint8Array(
       await crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: asBufferSource(iv),
-          additionalData: asBufferSource(aadFor(meta)),
-        },
+        { name: "AES-GCM", iv: asBufferSource(iv), additionalData: asBufferSource(aadFor(meta)) },
         key,
         asBufferSource(fromB64(slot.ciphertextB64)),
       ),

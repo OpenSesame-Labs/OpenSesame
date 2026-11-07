@@ -47,7 +47,6 @@ const store = new VaultStore();
 const saveItemSpy = vi.spyOn(store, "saveItem").mockImplementation(saveItem);
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,

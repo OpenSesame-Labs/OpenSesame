@@ -9,8 +9,8 @@ import {
   bindProofOfPossession,
   spawnWorkloadIdentity,
 } from "@opensesame/os-domain";
-import type { Context } from "hono";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { z } from "zod";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";

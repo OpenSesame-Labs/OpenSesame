@@ -1,5 +1,5 @@
-import type { MailboxDraft } from "@opensesame/app-core/lib/password-reset/mailbox-store.js";
 import type { ResetMailbox } from "@opensesame/app-core/lib/password-reset-mail.js";
+import type { MailboxDraft } from "@opensesame/app-core/lib/password-reset/mailbox-store.js";
 import { useState } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import { IconEdit, IconTrash } from "../../components/Icons.js";

@@ -3,8 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ensureDeviceIdentityKey } from "../device-identity-key.js";
 import { kvFlush } from "../kv.js";
 import { unwrapExportedVaultKey } from "../vault/offline-backup-file.js";
-import { vaultStore } from "../vault/store.js";
 import { bodyPortOf } from "../vault/store-device-key.js";
+import { vaultStore } from "../vault/store.js";
 import { vfsFlush } from "../vfs.js";
 import {
   backUpVaultToSecretBackend,

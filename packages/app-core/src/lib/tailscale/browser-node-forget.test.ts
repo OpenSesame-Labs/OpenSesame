@@ -7,8 +7,8 @@ import {
   deferred,
   runtimeFixture,
 } from "../secret-backends/runtime.test-support.js";
-import { vaultStore } from "../vault/store.js";
 import * as custody from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import {
   forgetBrowserNodeState,
   openBrowserNodeState,

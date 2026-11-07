@@ -8,7 +8,6 @@ import {
 } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
-
 const repo = await realpath(process.argv[2] ?? process.cwd());
 const output = resolve(process.argv[3] ?? "");
 if (!process.argv[3] || !output.startsWith("/tmp/"))

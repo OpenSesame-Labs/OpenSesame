@@ -10,9 +10,9 @@ import {
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
-import { downloadOnce, saveSecret } from "./download-once.js";
 import { AddKeyProtection } from "./VaultKeyProtectionCeremonies.js";
 import { externalCeremonyDependencies } from "./VaultKeyProtectionExternalCeremonies.js";
+import { downloadOnce, saveSecret } from "./download-once.js";
 
 const originalHooks = { ...vaultHooksSeams };
 const originalDependencies = { ...externalCeremonyDependencies };

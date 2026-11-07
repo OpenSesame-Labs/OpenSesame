@@ -35,16 +35,16 @@ import {
   resetConnectRoadSeams,
 } from "@opensesame/app-core/lib/connect-roads.js";
 import { DIRECTORY_KEY } from "@opensesame/app-core/lib/connector-directory.js";
-import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 import {
   performSavedConnector,
   registerCategorySend,
 } from "@opensesame/app-core/lib/feature-request-send.js";
+import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 
 import { FIRST_RUN_KEY } from "@opensesame/app-core/lib/identity-graph.js";
-import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { disarmVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect-session.js";
+import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   CONNECTIONS_ROUTES,
   CONNECTIONS_TARGETS,

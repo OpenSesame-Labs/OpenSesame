@@ -4,8 +4,8 @@ import { readDeviceRows } from "@opensesame/app-core/lib/device-connector-record
 import { embeddedCatalogSeams } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
-import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
+import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {

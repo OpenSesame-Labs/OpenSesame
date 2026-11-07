@@ -1,12 +1,11 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
-import { PEER_TRUST_SIGNAL_KIND } from "./constants.js";
-import type { SignedPeerTrustEnvelope } from "./envelope.js";
 /**
  * Manual / QR signaling payload for PWA-to-PWA peering (WebRTC offer path).
  * The owner signs the session introduction (key, DTLS commitment, nonce).
  * The session SAS is not in this payload: both sides derive it from the handshake.
  */
 import { verifyPeerTrustEnvelope } from "./envelope.js";
+import type { SignedPeerTrustEnvelope } from "./envelope.js";
 import { fingerprintOfSpkiB64 } from "./fingerprint.js";
 import {
   type OwnerIntro,
@@ -19,6 +18,8 @@ import {
   verifyOwnerIntro,
 } from "./handshake.js";
 import { parsePeerTrustSignal } from "./parse.js";
+
+import { PEER_TRUST_SIGNAL_KIND } from "./constants.js";
 
 export { PEER_TRUST_SIGNAL_KIND };
 

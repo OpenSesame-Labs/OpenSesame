@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { listLocalShares } from "@opensesame/app-core/lib/local-share-grants.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   Clock,
   armedCircle,
   who,
 } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
+import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   DEFAULT_TIMING,
   approveRequest,

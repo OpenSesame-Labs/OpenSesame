@@ -3,7 +3,6 @@ import fs from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import { observeHttpFailures } from "./http-failures.mjs";
-
 const MIME = {
   ".html": "text/html",
   ".js": "text/javascript",

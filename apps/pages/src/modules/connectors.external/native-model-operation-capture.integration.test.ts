@@ -1,10 +1,10 @@
 /** @vitest-environment jsdom */
 import { performHostedInference } from "@opensesame/app-core/lib/hosted-inference.js";
+import { hostedModelAuthority } from "@opensesame/app-core/lib/hosted-model-authority.js";
 import {
   MODEL_TEST_SECRET,
   saveModelFixture,
 } from "@opensesame/app-core/lib/hosted-model.test-support.js";
-import { hostedModelAuthority } from "@opensesame/app-core/lib/hosted-model-authority.js";
 import {
   deferred,
   runtimeFixture,

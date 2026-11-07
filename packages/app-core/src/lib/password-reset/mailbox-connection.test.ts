@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { JMAP_MAILBOX, mailboxItem } from "./mailbox.test-support.js";
 import { connectionOf, usableHost } from "./mailbox-connection.js";
+import { JMAP_MAILBOX, mailboxItem } from "./mailbox.test-support.js";
 
 describe("the connection a mailbox describes", () => {
   it("is an https origin, the login and the address", () => {

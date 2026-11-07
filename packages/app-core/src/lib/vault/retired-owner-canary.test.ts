@@ -6,7 +6,6 @@ import {
   OWNER_TOTP,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
-
 const receiver = {
   endpoint: "http://127.0.0.1:18791",
   bindPort: 18791,

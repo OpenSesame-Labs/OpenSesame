@@ -24,7 +24,6 @@ import {
   oracle,
   prepare,
 } from "./google-wallet-page.test-support.js";
-
 declareConnectionsTutorial();
 
 it("actual Settings verifies issuer/class, seals and cold-restores the key, then offers the signed Google save URL for an explicit user click", async () => {

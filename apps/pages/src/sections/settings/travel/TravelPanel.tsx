@@ -21,11 +21,11 @@ import {
 } from "../../../components/Icons.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import { CeremonyRow } from "../CeremonyRow.js";
-import { hideableItems } from "./items-text.js";
 import { TravelItemsSheet } from "./TravelItemsSheet.js";
 import { TravelLeaveSheet } from "./TravelLeaveSheet.js";
 import { TravelReturnSheet } from "./TravelReturnSheet.js";
 import { plural, travelRefusalText } from "./TravelViews.js";
+import { hideableItems } from "./items-text.js";
 import { useTravelFlow } from "./useTravelFlow.js";
 import { useTravelRemnants } from "./useTravelRemnants.js";
 import "../travel.css";

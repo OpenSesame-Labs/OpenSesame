@@ -5,11 +5,7 @@ export function LocalIdentityNotices({
   id,
   title,
   error,
-}: {
-  id: string;
-  title: string;
-  error: string;
-}) {
+}: { id: string; title: string; error: string }) {
   return (
     <>
       <FailureNotice id={id} title={title} message={error} />

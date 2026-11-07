@@ -69,7 +69,7 @@ export type CandidateAllowlist = Readonly<{
 
 /** A TURN URL's host: bracketed IPv6, or up to the port or query. */
 const TURN_HOST =
-  /^turns?:(\[[^\]]{1,64}\]|[^:?/[\]]{1,253})(?::\d{1,5})?(?:\?|$)/iu;
+  /^turns?:(\[[^\]]{1,64}\]|[^:?/\[\]]{1,253})(?::\d{1,5})?(?:\?|$)/iu;
 
 /**
  * The hosts of the TURN servers among `servers` that are IP literals, in

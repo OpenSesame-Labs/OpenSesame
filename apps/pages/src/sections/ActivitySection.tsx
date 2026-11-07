@@ -48,7 +48,13 @@ function focusFirstRow(): boolean {
   return row !== null && document.activeElement === row;
 }
 
-function EventRow({ event, open }: { event: ActivityEvent; open: boolean }) {
+function EventRow({
+  event,
+  open,
+}: {
+  event: ActivityEvent;
+  open: boolean;
+}) {
   return (
     <li className="identity-row" id={activityRowId(event.id)}>
       <Link

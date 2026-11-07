@@ -19,12 +19,12 @@ import {
   unlockTomb,
   vfsFlush,
 } from "../vfs.js";
-import { pluginDaemonSeams, tailnetPluginDaemon } from "./plugin-daemon.js";
 import {
   currentPluginPairing,
   keepPluginPairing,
   subscribePluginPairing,
 } from "./plugin-daemon-store.js";
+import { pluginDaemonSeams, tailnetPluginDaemon } from "./plugin-daemon.js";
 import {
   type PluginDaemonPairing,
   formatPluginPairingCode,

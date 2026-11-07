@@ -1,22 +1,15 @@
+import { mergeLocalGitConnections } from "@opensesame/app-core/lib/connections-local-git.js";
 import {
   type Connection,
   type Provider,
   listConnections,
 } from "@opensesame/app-core/lib/connections.js";
-import { mergeLocalGitConnections } from "@opensesame/app-core/lib/connections-local-git.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import {
   dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
-import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { connectionRouteProvider } from "@opensesame/app-core/sections/connections/provider-route.js";
-import {
-  type Flash,
-  type LoadFailure,
-  errorText,
-} from "@opensesame/app-core/sections/connections/shared.js";
-import { noteGuideConnectionsPresent } from "@opensesame/app-core/tutorial/registry/predicates.js";
 import {
   type ComponentProps,
   useCallback,
@@ -31,37 +24,45 @@ import { IconRefresh } from "../components/Icons.js";
 import { PageIndex } from "../components/PageIndex.js";
 import { StatusMark } from "../components/StatusMark.js";
 import { panelFromHash, scrollToPanel } from "../lib/scroll-panel.js";
+import { connectionsPageSources } from "./connections/page-tree.js";
+
+import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { useOnline } from "../lib/use-online.js";
+
+import {
+  type Flash,
+  type LoadFailure,
+  errorText,
+} from "@opensesame/app-core/sections/connections/shared.js";
+import { noteGuideConnectionsPresent } from "@opensesame/app-core/tutorial/registry/predicates.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
-import { AiProviderSheet } from "./connections/ai/AiProviderSheet.js";
-import { useAiSheet } from "./connections/ai/use-ai-sheet.js";
 import { CatalogPanel } from "./connections/CatalogPanel.js";
 import { ConnectedPanel } from "./connections/ConnectedPanel.js";
 import { ConnectorImport, ImportKey } from "./connections/ConnectorImport.js";
-import { useConnectTransport } from "./connections/connect/useConnectTransport.js";
-import { useProviderCallbacks } from "./connections/connect/useProviderCallbacks.js";
-import { CustomOidcConnector } from "./connections/custom-oidc/CustomOidcConnector.js";
 import {
   ImportedGroup,
   useImportedDirectory,
 } from "./connections/ImportedConnectors.js";
 import { NeedsAttention } from "./connections/NeedsAttention.js";
-import { connectionsPageSources } from "./connections/page-tree.js";
 import { ConnectorSettingsPage } from "./connections/SettingsPage.js";
+import { VaultReminderBanner } from "./connections/VaultReminderBanner.js";
+import { AiProviderSheet } from "./connections/ai/AiProviderSheet.js";
+import { useAiSheet } from "./connections/ai/use-ai-sheet.js";
+import { useConnectTransport } from "./connections/connect/useConnectTransport.js";
+import { useProviderCallbacks } from "./connections/connect/useProviderCallbacks.js";
+import { CustomOidcConnector } from "./connections/custom-oidc/CustomOidcConnector.js";
 import {
   currentTailscaleConnections,
   useTailscaleConnections,
 } from "./connections/tailscale/useTailscaleConnectionState.js";
 import { useScopedState } from "./connections/use-scoped-state.js";
 import { useFlashNotice } from "./connections/useFlashNotice.js";
-import { VaultReminderBanner } from "./connections/VaultReminderBanner.js";
 import "./connections.css";
 
 import { useIdentitySession } from "../bindings/identity.js";
 import { useVercelConnectConfigured } from "../bindings/vercel-connect.js";
 import { useHashTarget } from "../lib/hash-target.js";
 import { useVault } from "../lib/vault/hooks.js";
-
 type ProviderSettingsProps = Omit<
   ComponentProps<typeof ConnectorSettingsPage>,
   "connection"

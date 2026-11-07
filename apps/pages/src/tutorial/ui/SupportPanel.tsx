@@ -3,6 +3,7 @@ import {
   goalOffered,
   tutorialStartsFrom,
 } from "@opensesame/app-core/tutorial/registry/areas.js";
+import { searchHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
   type GuideGoalDescriptor,
   type HelpTopic,
@@ -10,7 +11,6 @@ import {
   helpTopicsForRoute,
   mergedGuideGoals,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
-import { searchHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import { scopeApplies } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
   type ReactElement,
@@ -112,9 +112,7 @@ function topicsHere(
  */
 export function SupportPanel({
   gate: atGate = false,
-}: {
-  gate?: boolean;
-}): ReactElement {
+}: { gate?: boolean }): ReactElement {
   const { view, support } = useSupport();
   const sheetRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -173,6 +171,7 @@ export function SupportPanel({
       <section
         ref={sheetRef}
         className="sheet support"
+        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and conflicts with the shared sheet layer
         role="dialog"
         aria-modal="true"
         aria-label="Support"
@@ -279,7 +278,6 @@ export function SupportPanel({
                         <summary>Computer</summary>
                         <ol className="support__computer">
                           {entry.computer.map((step, index) => (
-                            // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
                             <li key={`${step.title}:${index}`}>
                               <span className="support__computer-title">
                                 {step.title}

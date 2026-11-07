@@ -14,7 +14,6 @@ import { verifyNativeDiscordIdentity } from "./native-discord-verify.js";
 import { verifyNativeTenantOAuthIdentity } from "./native-tenant-oauth.js";
 import { verifyNativeTwitchIdentity } from "./native-twitch-device-verify.js";
 import { verifyNativeVercelIdentity } from "./native-vercel-verify.js";
-
 type Identity = NonNullable<NativeRuntime["identity"]>;
 export async function verifyApprovedNativeOAuth(
   configuration: NativeConfiguration,

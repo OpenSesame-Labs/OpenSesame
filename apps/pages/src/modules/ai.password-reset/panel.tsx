@@ -1,4 +1,8 @@
 import {
+  accountsBoundTo,
+  resetMailboxes,
+} from "@opensesame/app-core/lib/password-reset-mail.js";
+import {
   type MailboxDraft,
   type MailboxSave,
   addMailbox,
@@ -6,10 +10,6 @@ import {
   removeMailbox,
   updateMailbox,
 } from "@opensesame/app-core/lib/password-reset/mailbox-store.js";
-import {
-  accountsBoundTo,
-  resetMailboxes,
-} from "@opensesame/app-core/lib/password-reset-mail.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useFailureNotice } from "../../components/use-failure-notice.js";

@@ -14,10 +14,10 @@ import {
 } from "@x402/evm";
 import { ExactEvmScheme as FacilitatorExact } from "@x402/evm/exact/facilitator";
 import {
+  http,
   createPublicClient,
   createWalletClient,
   getAddress,
-  http,
   parseAbi,
   publicActions,
 } from "viem";

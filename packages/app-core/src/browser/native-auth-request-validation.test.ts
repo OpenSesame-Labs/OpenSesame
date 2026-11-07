@@ -1,7 +1,6 @@
 /** Original popup request boundary; Window double, not physical Chromium closure proof. */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { reserveNativeAuthPopup } from "./native-auth-session.js";
-
 const NOW = 1_792_000_000_000;
 function browser() {
   const events = new EventTarget();

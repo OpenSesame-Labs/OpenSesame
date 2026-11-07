@@ -8,7 +8,6 @@ import type {
 import type { NativeVaultContext } from "./native-vault-context.js";
 import { identity, snapshot, unavailable } from "./native-vault-data.js";
 import { inventoryNames } from "./native-vault-inventory.js";
-
 function scopeEntry(
   scope: PhysicalCurrentCredentialScope,
   current: Awaited<ReturnType<typeof snapshot>>,

@@ -1,3 +1,11 @@
+import { type ComponentType, Suspense, lazy, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
+import { PageIndex } from "../components/PageIndex.js";
+import { useHashTarget } from "../lib/hash-target.js";
+import { settingsPageSources } from "./settings/page-tree.js";
+import { DeadmanPanel } from "./settings/security/DeadmanPanel.js";
+import { useSettingsCategory } from "./settings/use-settings-category.js";
+
 import { settingsPath } from "@opensesame/app-core/lib/crumbs.js";
 import { retiredSettingsAddress } from "@opensesame/app-core/lib/settings-retired.js";
 import {
@@ -5,10 +13,6 @@ import {
   settingsGroupForCategory,
   settingsTabsForGroup,
 } from "@opensesame/app-core/sections/settings-section-nav-model.js";
-import { type ComponentType, Suspense, lazy, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
-import { PageIndex } from "../components/PageIndex.js";
-import { useHashTarget } from "../lib/hash-target.js";
 import {
   hasLinkedPairing,
   subscribeLinkedPairing,
@@ -24,29 +28,25 @@ import {
 } from "./SettingsSectionNav.js";
 import { FeatureConfigPanel } from "./settings/FeatureConfigPanel.js";
 import { FeaturesPanel } from "./settings/FeaturesPanel.js";
-import { featureConfigPath } from "./settings/feature-config-path.js";
-import { SettingsFileContext } from "./settings/files/context.js";
-import { isSettingsDocument } from "./settings/files/documents.js";
-import { useCategoryFiles } from "./settings/files/providers.js";
-import { SettingsFiles } from "./settings/files/SettingsFiles.js";
-import { useSettingsFileNav } from "./settings/files/useSettingsFileNav.js";
 import { GeneralPrefsPanel } from "./settings/GeneralPrefsPanel.js";
 import { IntegrationsPanel } from "./settings/IntegrationsPanel.js";
 import { ItemTypesPanel } from "./settings/ItemTypesPanel.js";
-import { settingsPageSources } from "./settings/page-tree.js";
-import { DeadmanPanel } from "./settings/security/DeadmanPanel.js";
+import { VaultKeyProtectionPanel } from "./settings/VaultKeyProtectionPanel.js";
+import { featureConfigPath } from "./settings/feature-config-path.js";
+import { SettingsFiles } from "./settings/files/SettingsFiles.js";
+import { SettingsFileContext } from "./settings/files/context.js";
+import { isSettingsDocument } from "./settings/files/documents.js";
+import { useCategoryFiles } from "./settings/files/providers.js";
+import { useSettingsFileNav } from "./settings/files/useSettingsFileNav.js";
 import {
   DuressPanel,
   useDuressPanelShown,
 } from "./settings/security/DuressPanel.js";
 import { TravelPanel } from "./settings/travel/TravelPanel.js";
-import { useSettingsCategory } from "./settings/use-settings-category.js";
-import { VaultKeyProtectionPanel } from "./settings/VaultKeyProtectionPanel.js";
 import "./settings.css";
 
 import { useContributions } from "../bindings/contributions.js";
 import { useSettingsPanels } from "./settings/rail-snapshot.js";
-
 /** Its own chunk: the keymap editor is read on a Keybindings visit. */
 const KeybindingsPanels = lazy(() =>
   import("./settings/keybindings/KeybindingsPanels.js").then((module) => ({

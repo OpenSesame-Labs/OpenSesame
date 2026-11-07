@@ -13,9 +13,9 @@
  * `-cohort` for live-offer writer and issuance-preflight contracts.
  */
 
-import { atPlaneScenarios } from "./authority-fabric-scenarios-at.mjs";
 import { atRestPlaneScenarios } from "./authority-fabric-scenarios-at-rest.mjs";
 import { atTailPlaneScenarios } from "./authority-fabric-scenarios-at-tail.mjs";
+import { atPlaneScenarios } from "./authority-fabric-scenarios-at.mjs";
 import { cohortPlaneScenarios } from "./authority-fabric-scenarios-cohort.mjs";
 import { crossPlaneScenarios } from "./authority-fabric-scenarios-cross.mjs";
 import { fixPlaneScenarios } from "./authority-fabric-scenarios-fix.mjs";

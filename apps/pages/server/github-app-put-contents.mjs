@@ -1,4 +1,3 @@
-import { githubAppCorsHeaders } from "./github-app.mjs";
 import {
   API,
   API_VERSION,
@@ -8,6 +7,7 @@ import {
   mintInstallationToken,
   readCredentials,
 } from "./github-app-contents-shared.mjs";
+import { githubAppCorsHeaders } from "./github-app.mjs";
 
 function readStringField(body, key) {
   return body && typeof body[key] === "string" ? body[key].trim() : "";

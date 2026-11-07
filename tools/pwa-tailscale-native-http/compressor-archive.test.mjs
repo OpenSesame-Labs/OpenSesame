@@ -9,7 +9,6 @@ import {
   readCompressorArchive,
 } from "./compressor-archive.mjs";
 import { assertNativeSourceInputs } from "./distribution-cache.mjs";
-
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 async function directory(t) {
   const path = await mkdtemp(join(tmpdir(), "native-compressor-source-"));

@@ -12,10 +12,9 @@ import {
 } from "../vault/protection/manifest-auth.js";
 import { migrateLegacyHeaderToManifest } from "../vault/protection/migrate-legacy.js";
 import { openText, sealText } from "../vault/unlock-factor-crypto.js";
-import { deriveRetiredCredentialContextV2 as derive } from "./context-v2.js";
 import { readPagesRetiredCredentialHeader as read } from "./context-v2-header.js";
+import { deriveRetiredCredentialContextV2 as derive } from "./context-v2.js";
 import vectors from "./fixtures/context-v2-vectors.json";
-
 function required<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("Required crypto fixture missing");
   return value;

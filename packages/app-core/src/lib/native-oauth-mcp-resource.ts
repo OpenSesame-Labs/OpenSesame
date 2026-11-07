@@ -28,7 +28,6 @@ import {
   requireNativeOAuthRecord,
 } from "./native-oauth-session.js";
 import { vaultStore } from "./vault/store.js";
-
 function actualGrant(
   id: string,
   grant: NativeGrant,

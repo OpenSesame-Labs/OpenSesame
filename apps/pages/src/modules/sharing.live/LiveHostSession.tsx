@@ -77,10 +77,7 @@ function Log({ host, state }: { host: LiveHost; state: HostState }) {
 export function LiveHostSession({
   host,
   state,
-}: {
-  host: LiveHost;
-  state: HostState;
-}) {
+}: { host: LiveHost; state: HostState }) {
   const [endAsk, setEndAsk] = useState(false);
   const { copied, failed, copy } = useCopyFeedback();
   const automatic = useRendezvousReady(currentHostCarriers());

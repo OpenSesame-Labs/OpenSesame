@@ -2,9 +2,9 @@
 import { generateKeyPairSync, webcrypto } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { SignedXml } from "xml-crypto";
-import { validateSamlAssertion } from "./assertion.js";
 import type { SamlPendingRequest } from "./assertion-conditions.js";
 import { claimNativeSamlAssertion } from "./assertion-replay.js";
+import { validateSamlAssertion } from "./assertion.js";
 import {
   type NativeSamlSignInOptions,
   type NativeSamlSignInProof,

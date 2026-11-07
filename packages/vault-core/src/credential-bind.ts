@@ -4,6 +4,7 @@
  */
 
 import type { AccountItem } from "./account.js";
+import { credentialOf } from "./credential-split.js";
 import {
   type CredentialItem,
   boundCredentialName,
@@ -11,7 +12,6 @@ import {
   isAccount,
   isCredential,
 } from "./credential.js";
-import { credentialOf } from "./credential-split.js";
 import type { VaultItem } from "./model.js";
 
 export type BindRefusal =

@@ -1,6 +1,5 @@
 /** Device connector readers and removal never need to import an identity adapter. */
 import type { Connection } from "./connections.js";
-
 type IdentityAuthorization = Pick<
   Connection,
   | "status"

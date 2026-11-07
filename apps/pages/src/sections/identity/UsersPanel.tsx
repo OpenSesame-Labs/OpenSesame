@@ -313,10 +313,7 @@ function UserDetail({
 function DirectoryOrganization({
   model,
   online,
-}: {
-  model: ReturnType<typeof useUsers>;
-  online: boolean;
-}) {
+}: { model: ReturnType<typeof useUsers>; online: boolean }) {
   const navigate = useNavigate();
   const { organization, setOrganization, organizations, busy, loading } = model;
   return (

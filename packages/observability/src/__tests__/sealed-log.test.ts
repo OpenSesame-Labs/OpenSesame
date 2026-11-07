@@ -31,7 +31,9 @@ const key = Uint8Array.from({ length: 32 }, () => 7);
 const dir = () => mkdtempSync(join(tmpdir(), "sealed-log-"));
 
 afterEach(() => {
+  // biome-ignore lint/performance/noDelete: an env var must be absent, not "undefined"
   delete process.env.OPENSESAME_LOG_FILE;
+  // biome-ignore lint/performance/noDelete: as above
   delete process.env.OPENSESAME_LOG_KEY_FILE;
 });
 

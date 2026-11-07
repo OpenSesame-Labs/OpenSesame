@@ -6,8 +6,8 @@
  * that capability.
  */
 
-import type { MixedModule } from "./classification.js";
 import { MIXED_SCREENS_AND_SECTIONS } from "./classification-mixed-ui.js";
+import type { MixedModule } from "./classification.js";
 
 export const MIXED_MODULES: readonly MixedModule[] = [
   {

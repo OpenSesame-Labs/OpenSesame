@@ -22,15 +22,11 @@ import {
   installConnectorIntegration,
 } from "./native-connector-integration.test-support.js";
 import { useProviderCallbacks } from "./useProviderCallbacks.js";
-
 installConnectorIntegration();
 function Callback({
   reload,
   onFlash,
-}: {
-  reload: () => Promise<void>;
-  onFlash: (flash: Flash) => void;
-}) {
+}: { reload: () => Promise<void>; onFlash: (flash: Flash) => void }) {
   const location = useLocation();
   useProviderCallbacks(location.search, reload, onFlash);
   return (

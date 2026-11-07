@@ -22,7 +22,6 @@ export const registry: { raw: string | null } = { raw: null };
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 
 export { deviceIdentitySeams };
-
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { identityHookSeams } from "../../bindings/identity.js";
 export const originalRemoteIdentityApi = deviceIdentitySeams.remoteIdentityApi;
@@ -34,11 +33,9 @@ Object.assign(identityHookSeams, {
 deviceIdentitySeams.remoteIdentityApi = () => "http://127.0.0.1:8788";
 
 import { useOnlineSeams } from "../../lib/use-online.js";
-
 Object.assign(useOnlineSeams, { useOnline: () => online.value });
 
 import { idpRegistrySeams } from "@opensesame/app-core/lib/idp-registry.js";
-
 Object.assign(idpRegistrySeams, {
   read: () => registry.raw,
   write: (raw: string) => {
@@ -50,11 +47,9 @@ Object.assign(idpRegistrySeams, {
 });
 
 import { providersSeams } from "@opensesame/app-core/lib/providers.js";
-
 Object.assign(providersSeams, { listFederatedProviders });
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-
 Object.assign(federationSeams, {
   beginSignIn,
   defaultUpstream: () => ({
@@ -66,7 +61,6 @@ Object.assign(federationSeams, {
 });
 
 import { ByoError, byoSeams } from "@opensesame/app-core/lib/byo.js";
-
 Object.assign(byoSeams, { registerByoProvider });
 
 export const directory = {
@@ -88,14 +82,12 @@ import {
   DirectoryError,
   directorySeams,
 } from "@opensesame/app-core/lib/directory.js";
-
 Object.assign(directorySeams, directory);
 
 export const listOrgMemberships = vi.fn();
 export const activeOrgProfileId = vi.fn();
 
 import { orgSeams } from "@opensesame/app-core/lib/orgs.js";
-
 Object.assign(orgSeams, { listOrgMemberships, activeOrgProfileId });
 
 export { ByoError, DirectoryError };

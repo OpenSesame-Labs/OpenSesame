@@ -34,8 +34,8 @@ import {
   subtitleFor,
 } from "@opensesame/vault-item-types";
 import { type AccountItem, accountTotp } from "./account.js";
-import { credentialTypeId } from "./credential.js";
 import { credentialField } from "./credential-read.js";
+import { credentialTypeId } from "./credential.js";
 import type { InstalledItemTypes, VaultItem } from "./model.js";
 import { accountFilePassword } from "./produce.js";
 

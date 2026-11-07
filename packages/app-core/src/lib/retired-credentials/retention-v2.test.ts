@@ -7,7 +7,6 @@ import {
   isRetiredTrapLive,
   retiredTrapExpiresAt,
 } from "./retention-v2.js";
-
 it.each(profile.valid)("shared $name retention boundary", (v) => {
   expect(() =>
     assertRetiredTrapRetention(v.createdAt, v.expiresAt),

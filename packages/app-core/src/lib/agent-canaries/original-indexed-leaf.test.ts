@@ -36,7 +36,6 @@ import {
   controlledCanaryAudience,
   copyCanaryReceiverProfile,
 } from "./receiver-profile-data.js";
-
 const service = "a".repeat(64);
 const logical = canaryLogicalPath(service);
 const binding = vaultSealBinding("owned", "index");

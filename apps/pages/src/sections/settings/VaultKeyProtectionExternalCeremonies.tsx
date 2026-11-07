@@ -63,9 +63,7 @@ function identityFile(identity: string, recipient: string): string {
 
 export function AgeRecipientBody({
   onDone,
-}: {
-  onDone: () => void;
-}): ReactNode {
+}: { onDone: () => void }): ReactNode {
   const store = useVaultStore();
   const tomb = useTomb();
   const [recipient, setRecipient] = useState("");

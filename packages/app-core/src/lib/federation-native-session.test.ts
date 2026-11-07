@@ -1,5 +1,4 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { clearSession, loadSession, saveSession } from "./federation.js";
 import {
   type NativeFederationIdentity,
   advanceFederationSessionGeneration,
@@ -8,6 +7,7 @@ import {
   readNativeFederationSession,
 } from "./federation-native-session.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
+import { clearSession, loadSession, saveSession } from "./federation.js";
 
 const disposers: (() => void)[] = [];
 afterEach(() => {

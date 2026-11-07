@@ -14,7 +14,6 @@ import {
   OWNER_PASSWORD,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
-
 const primary = { kind: "password" as const, secret: OWNER_PASSWORD };
 const command = (password: string) => ({
   kind: "change" as const,

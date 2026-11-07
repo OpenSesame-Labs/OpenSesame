@@ -9,7 +9,6 @@ export function Keycaps({ sequence }: { sequence: string }) {
   return (
     <>
       {tokens.map((token, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: pre-existing; newly reported by Biome 2. Changing list keys changes reconciliation, tracked as follow-up
         <kbd key={`${index}-${token}`} className="keycap">
           {keycapLabel(token)}
         </kbd>

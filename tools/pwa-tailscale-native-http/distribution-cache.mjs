@@ -6,7 +6,6 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { string } from "zod/v4/mini";
 import { compressorArchivePin } from "./compressor-archive.mjs";
-
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const digestPattern = /^[a-f0-9]{64}$/;
 const PublicRootsVersion = string();

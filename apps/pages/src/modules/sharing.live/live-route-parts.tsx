@@ -41,10 +41,7 @@ export const KIND_LABELS = {
 export function RemoveKey({
   label,
   onRemove,
-}: {
-  label: string;
-  onRemove: () => void;
-}) {
+}: { label: string; onRemove: () => void }) {
   return (
     <button
       type="button"

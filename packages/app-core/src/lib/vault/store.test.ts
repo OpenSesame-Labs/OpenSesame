@@ -25,6 +25,7 @@ import {
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
+import { enrollTotp } from "./store-totp.fixture.js";
 import {
   ATTEMPTS_KEY,
   GUEST_TOMB,
@@ -35,7 +36,6 @@ import {
   normalizeVaultPrefs,
   readTombHeader,
 } from "./store.js";
-import { enrollTotp } from "./store-totp.fixture.js";
 import { LEGACY_PREFS_KEY } from "./tomb-migration.js";
 
 vi.setConfig({ testTimeout: 180_000, hookTimeout: 180_000 });

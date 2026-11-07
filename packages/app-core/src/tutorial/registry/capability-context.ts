@@ -9,7 +9,6 @@ export type ContextCapability = {
   plane: string;
   surfaces: { pwa: string | null };
 };
-
 import { CAPABILITY_TUTORIALS } from "./goals.js";
 import { guideRouteWithin } from "./routes.js";
 

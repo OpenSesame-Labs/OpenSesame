@@ -10,12 +10,10 @@ import {
   type CapturedOwnerPrimaryRequest,
   copyCapturedOwnerPrimaryRequest,
 } from "./captured-owner-primary-request.js";
-
 export {
   type CapturedOwnerPrimaryRequest,
   copyCapturedOwnerPrimaryRequest,
 } from "./captured-owner-primary-request.js";
-
 import { deriveCapturedAgePasskeyRootData } from "./captured-age-passkey-primary-data.js";
 import { capturePasskeyPrimaryCeremonyData } from "./captured-passkey-primary-ceremony-data.js";
 import { protectorToUnlockRecord } from "./protection/adapters/webauthn-prf-ops.js";

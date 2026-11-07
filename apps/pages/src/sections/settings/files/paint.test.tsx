@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { longestLine } from "./lines.js";
 import { PaintedText } from "./PaintedText.js";
+import { longestLine } from "./lines.js";
 import { paintSource, traceLinePaints } from "./paint.js";
 
 /** The classes a painter put on each token, with the token's text. */

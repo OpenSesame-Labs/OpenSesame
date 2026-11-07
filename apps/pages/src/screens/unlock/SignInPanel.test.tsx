@@ -1,3 +1,8 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment jsdom */
+import { identityHookSeams } from "../../bindings/identity.js";
+
 import type {
   OperatorIdp,
   PagesSettings,
@@ -6,10 +11,6 @@ import {
   defaultSignInMethods,
   settingsSeams,
 } from "@opensesame/app-core/lib/settings.js";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-/** @vitest-environment jsdom */
-import { identityHookSeams } from "../../bindings/identity.js";
 
 /**
  * Setup is the allowlist, and this screen is where that has to be true.
@@ -41,7 +42,6 @@ Object.assign(settingsSeams, {
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { localStore } from "@opensesame/app-core/ports.js";
-
 Object.assign(identitySeams, {
   identityBase: () => state.identityApi,
 });
@@ -54,7 +54,6 @@ Object.assign(deviceIdentitySeams, {
 
 import type { TrustedUpstream } from "@opensesame/app-core/lib/federation.js";
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-
 const beginSignIn = vi.fn((_upstream: TrustedUpstream) => Promise.resolve());
 Object.assign(federationSeams, {
   beginSignIn,

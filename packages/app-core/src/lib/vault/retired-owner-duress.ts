@@ -10,7 +10,6 @@ import { assertNotDuressCode } from "../duress/store/duress-code-probe.js";
 import type { EnrollmentState } from "../duress/trigger/enrollment-state.js";
 import { assertUnambiguousJson } from "../retired-credentials/json-preflight.js";
 import type { PhysicalDeviceRecordReader } from "./physical-device-record-port.js";
-
 const text = z.string().min(1).max(512);
 const integer = z.number().int().nonnegative().safe();
 const slot = z.strictObject({

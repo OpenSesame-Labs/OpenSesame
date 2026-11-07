@@ -5,7 +5,6 @@ import {
   nativeGoogleBrowserAvailable,
   requestNativeGoogleToken,
 } from "./native-google-oauth.js";
-
 const releases: (() => void)[] = [];
 afterEach(() => {
   for (const release of releases.splice(0)) release();

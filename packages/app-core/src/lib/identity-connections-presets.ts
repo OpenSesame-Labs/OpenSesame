@@ -15,7 +15,6 @@ export type IdentityConnectionPreset = {
   docsUrl: string;
 };
 export { IDENTITY_CONNECTION_PRESETS } from "./identity-presets.generated.js";
-
 import { IDENTITY_CONNECTION_PRESETS } from "./identity-presets.generated.js";
 export function identityConnectionPreset(
   providerId: string,

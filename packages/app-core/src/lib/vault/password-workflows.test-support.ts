@@ -11,8 +11,8 @@ import {
 import { vi } from "vitest";
 import { stampedEdit } from "./body-edits.js";
 import { writeItem } from "./item-path.js";
-import { vaultStore } from "./store.js";
 import type { VaultState } from "./store-state.js";
+import { vaultStore } from "./store.js";
 export function testAccount(name: string, secret = ""): AccountItem {
   const account = createItem("account", name);
   account.methods = [

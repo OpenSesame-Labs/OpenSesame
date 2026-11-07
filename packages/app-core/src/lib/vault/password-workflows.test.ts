@@ -18,12 +18,12 @@ import {
   resolveLocalEnvTemplate,
   resolveLocalReference,
 } from "./password-workflows.js";
+import { vaultStore } from "./store.js";
+
 import {
   openWorkflowVault as open,
   testAccount,
 } from "./password-workflows.test-support.js";
-import { vaultStore } from "./store.js";
-
 beforeEach(() => {
   vi.spyOn(shareReachSeams, "resolveCurrentAccessRole").mockResolvedValue(
     "operator",

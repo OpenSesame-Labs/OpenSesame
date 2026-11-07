@@ -10,13 +10,13 @@ import { expect } from "vitest";
 import { buildApproval } from "./approve.js";
 import { toB64url } from "./bytes.js";
 import { generateKeyPair } from "./hpke.js";
+import { interactionRequestDigest } from "./interaction-envelope.js";
 import {
   QuorumInteractionError,
   approvalToProof,
   interactionSettlement,
   requestToInteraction,
 } from "./interaction.js";
-import { interactionRequestDigest } from "./interaction-envelope.js";
 import { QuorumLedger, signCancellation } from "./ledger.js";
 import { clockAt } from "./protocol.test-support.js";
 import { createRequest, requestDigest } from "./request.js";

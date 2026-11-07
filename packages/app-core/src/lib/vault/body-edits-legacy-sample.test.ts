@@ -1,5 +1,5 @@
-import type { VaultBody, VaultItem } from "@opensesame/vault-core";
 import { type Folder, createItem, emptyBody } from "@opensesame/vault-core";
+import type { VaultBody, VaultItem } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
 import { retireLegacySample } from "./body-edits.js";
 

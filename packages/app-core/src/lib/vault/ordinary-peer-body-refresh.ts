@@ -6,7 +6,6 @@ import { verifyManifestAuth } from "./protection/manifest-auth.js";
 import { loadVaultBody } from "./store-body.js";
 import { freshBody } from "./store-fresh.js";
 import { operationHeader } from "./store-operation-check.js";
-
 function stale(): never {
   throw new ProtectionError(
     "stale_operation",

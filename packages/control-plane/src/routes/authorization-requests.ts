@@ -45,8 +45,8 @@ import {
   evaluateApprovalCeremony,
   requiredReasonCodes,
 } from "@opensesame/trust-broker";
-import type { Context } from "hono";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";

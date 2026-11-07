@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BoundaryValue } from "../json.js";
-import { canonicalize as nodeCanonicalize } from "./digest.js";
 import { canonicalize as browserCanonicalize } from "./digest-browser.js";
+import { canonicalize as nodeCanonicalize } from "./digest.js";
 
 describe.each([
   { name: "Node", canonicalize: nodeCanonicalize },

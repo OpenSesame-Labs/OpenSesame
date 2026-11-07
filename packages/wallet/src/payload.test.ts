@@ -1,8 +1,8 @@
+import { FORBIDDEN_URL_PARAMS } from "@opensesame/os-domain";
 import type {
   BoundaryValue,
   MutableBoundaryObject,
 } from "@opensesame/os-domain";
-import { FORBIDDEN_URL_PARAMS } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { WalletPayloadRejected, assertPassPayloadSafe } from "./payload.js";
 

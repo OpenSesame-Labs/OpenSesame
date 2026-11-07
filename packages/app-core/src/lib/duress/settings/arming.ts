@@ -2,12 +2,12 @@
  * Settings helpers — compiler-driven exposure; never echo enrolled codes.
  */
 
-import type { PolicyDocument } from "@opensesame/contracts/duress";
 import {
   type CompilerCatalog,
   compileDuressPolicy,
   dryRunDuressPolicy,
 } from "@opensesame/contracts/duress";
+import type { PolicyDocument } from "@opensesame/contracts/duress";
 import {
   type JsonObject,
   type JsonValue,
@@ -121,9 +121,7 @@ export function assertNoEnrolledCodeDisplay(
   const leaked: string[] = [];
   const walkValue = (v: JsonValue | undefined, path: string): void => {
     if (Array.isArray(v)) {
-      v.forEach((entry, index) => {
-        walkValue(entry, `${path}[${index}]`);
-      });
+      v.forEach((entry, index) => walkValue(entry, `${path}[${index}]`));
       return;
     }
     if (isJsonObject(v)) {

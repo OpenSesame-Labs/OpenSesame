@@ -25,8 +25,8 @@ import { atRestBinding, sealAtRest } from "./cipher.js";
 import { fakeIndexedDb, rawRows } from "./fake-idb.test-support.js";
 import { loadIndexedDbAtRestKey } from "./idb-key-store.js";
 import { forgetAtRestKeyForTest } from "./key.js";
-import { sealedFileBound } from "./origin-files.js";
 import { sealLegacyOriginFiles } from "./origin-files-sweep.js";
+import { sealedFileBound } from "./origin-files.js";
 
 afterEach(() => {
   forgetAtRestKeyForTest();

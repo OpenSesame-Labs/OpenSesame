@@ -12,7 +12,6 @@ import {
   AiConnectionError,
   type AiConnectionTransport,
 } from "./types.js";
-
 const Operation = z
   .object({
     model: z.string().min(1).max(160),

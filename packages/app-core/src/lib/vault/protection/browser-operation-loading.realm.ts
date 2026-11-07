@@ -15,13 +15,12 @@ import {
 } from "../../vfs.js";
 import { ATTEMPTS_KEY } from "../store.js";
 import { LEGACY_PREFS_KEY } from "../tomb-migration.js";
-
 export { createItem } from "@opensesame/vault-core";
-export { assertOwnedStorageWrites } from "../../../test-host-storage-writes.js";
-export { isDecoySession } from "../../duress/store/decoy-scratch.js";
-export { wipeGuard } from "../../duress/wipe/guard.js";
 export { VaultStore } from "../store.js";
+export { isDecoySession } from "../../duress/store/decoy-scratch.js";
 export { vfsFlush };
+export { assertOwnedStorageWrites } from "../../../test-host-storage-writes.js";
+export { wipeGuard } from "../../duress/wipe/guard.js";
 export async function prepare(): Promise<void> {
   await Promise.all(packEntries().map((entry) => loadPack(entry.id)));
   configureHost(createTestHost());

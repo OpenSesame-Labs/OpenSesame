@@ -42,7 +42,6 @@ function SiopSocialChoices({
 }) {
   const { socialChoices, person, busy, socialBusy, socialProof } = state;
   return (
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div className="siop-social" aria-label="Social sign-in">
       <h2>Social sign-in</h2>
       {!person ? (

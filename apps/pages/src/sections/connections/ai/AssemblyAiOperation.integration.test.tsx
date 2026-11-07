@@ -35,10 +35,7 @@ afterEach(async () => {
 function Operation({
   http,
   target,
-}: {
-  http: Http;
-  target: AssemblySpeechTarget;
-}) {
+}: { http: Http; target: AssemblySpeechTarget }) {
   const [answer, setAnswer] = useState("");
   const withdraw = useCallback(() => setAnswer(""), []);
   const pending = useAiOperation(() => {}, withdraw);

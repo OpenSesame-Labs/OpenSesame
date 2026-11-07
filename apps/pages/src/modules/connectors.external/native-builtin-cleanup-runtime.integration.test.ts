@@ -5,15 +5,8 @@ import { modelMemoryBackend } from "@opensesame/app-core/lib/hosted-model.test-s
 import { kvForgetAll } from "@opensesame/app-core/lib/kv.js";
 import type { NativeDriverInput } from "@opensesame/app-core/lib/native-connector-drivers.js";
 import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-store.js";
-import {
-  afterEach,
-  afterEach as afterGenuine,
-  beforeEach,
-  beforeEach as beforeGenuine,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach as afterGenuine, beforeEach as beforeGenuine } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nativeConnectorController } from "../../sections/connections/connect/native-connector-controller.js";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";

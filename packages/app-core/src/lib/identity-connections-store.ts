@@ -16,7 +16,6 @@ import {
   publicIdentityDraft,
 } from "./identity-connections-schema.js";
 import { kvHydrate } from "./kv.js";
-
 const FIELD = "identity_configuration";
 const REVISION = "identity_configuration_revision";
 

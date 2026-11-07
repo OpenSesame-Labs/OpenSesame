@@ -1,6 +1,7 @@
 import { kvForgetAll } from "@opensesame/app-core/lib/kv.js";
 import { createSecretBackend } from "@opensesame/app-core/lib/secret-backends/factory.js";
 import { secretBackendDraft } from "@opensesame/app-core/lib/secret-backends/presets.js";
+import { secretBackendVaultGuard } from "@opensesame/app-core/lib/secret-backends/runtime-guard.js";
 import {
   connectSecretBackend,
   probeSecretBackend,
@@ -11,7 +12,6 @@ import {
   deferred,
   ledgerFile,
 } from "@opensesame/app-core/lib/secret-backends/runtime.test-support.js";
-import { secretBackendVaultGuard } from "@opensesame/app-core/lib/secret-backends/runtime-guard.js";
 import * as store from "@opensesame/app-core/lib/secret-backends/store.js";
 import {
   bindSecretBackendTransport,

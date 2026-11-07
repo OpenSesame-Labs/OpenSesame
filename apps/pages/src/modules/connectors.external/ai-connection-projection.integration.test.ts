@@ -3,8 +3,8 @@ import { aiConnectionDraft } from "@opensesame/app-core/lib/ai-connections/prese
 import { aiHttpFixture } from "@opensesame/app-core/lib/ai-connections/protocol.test-support.js";
 import { saveAiConnection } from "@opensesame/app-core/lib/ai-connections/runtime.js";
 import { approvedPlan } from "@opensesame/app-core/lib/capabilities/__tests__/plan-fixtures.js";
-import { describeCapability } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import { NATIVE_PROVIDER_PURPOSE } from "@opensesame/app-core/lib/capabilities/catalog-always-on.js";
+import { describeCapability } from "@opensesame/app-core/lib/capabilities/catalog.js";
 import { createEgressPort } from "@opensesame/app-core/lib/capabilities/egress.js";
 import { nativeDeviceViewSeams } from "@opensesame/app-core/lib/device-connector-view.js";
 import { deviceConnection } from "@opensesame/app-core/lib/device-connectors.js";

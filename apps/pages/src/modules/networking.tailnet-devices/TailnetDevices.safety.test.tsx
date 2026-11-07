@@ -17,6 +17,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { captureLinkedPairing } from "../../lib/pairing-link.js";
+import { TailnetDevices } from "./TailnetDevices.js";
 import {
   fakeDaemon,
   originalSeams,
@@ -24,7 +25,6 @@ import {
   router,
   rowOf,
 } from "./fake-daemon.test-support.js";
-import { TailnetDevices } from "./TailnetDevices.js";
 
 // The panel and its add key are tutorial targets the module declares on activation.
 let undeclare: Array<() => void> = [];

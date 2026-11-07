@@ -137,6 +137,7 @@ export function ImportSheet({
       <div
         ref={sheetRef}
         className="sheet imp"
+        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="Import items"
         aria-modal="true"

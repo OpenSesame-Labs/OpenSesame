@@ -1,11 +1,11 @@
 export {
+  createTelemetry,
   ALLOWED_EVENTS,
   ALLOWED_PROP_KEYS,
-  type CreateTelemetryOptions,
   FORBIDDEN_SUBSTRINGS,
+  redactionTest,
   type Telemetry,
   type TelemetryEvent,
   type TelemetryPropKey,
-  createTelemetry,
-  redactionTest,
+  type CreateTelemetryOptions,
 } from "./telemetry.js";

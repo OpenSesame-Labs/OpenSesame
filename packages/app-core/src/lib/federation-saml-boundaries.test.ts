@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
-import type { UpstreamIdentity } from "./federation.js";
 import { configuredIdentitySessionTrusted } from "./federation-configured-token.js";
 import { isOperatorIdpIssuer } from "./federation-operator.js";
 import {
   readStoredSessionSync,
   restoreAuthenticatedSession,
 } from "./federation-restoration.js";
+import type { UpstreamIdentity } from "./federation.js";
 import { loadSettings, settingsSeams } from "./settings.js";
 import { buildSuccessMessage } from "./site-broker.js";
 

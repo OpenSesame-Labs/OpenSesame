@@ -1,22 +1,22 @@
 export { AuthError, AuthorizationError } from "./errors.js";
 export {
-  type OpenSesameAuthOptions,
-  type OpenSesameAuthVariables,
-  openSesameAuth,
-} from "./hono.js";
-export {
+  verifyIdToken,
   type VerifiedIdToken,
   type VerifyIdTokenOptions,
-  verifyIdToken,
 } from "./id-token.js";
 export {
-  type IntrospectOpaqueAccessTokenOptions,
-  type IntrospectedAccessToken,
   introspectOpaqueAccessToken,
+  type IntrospectedAccessToken,
+  type IntrospectOpaqueAccessTokenOptions,
 } from "./introspection.js";
 export {
+  createOpenSesameVerifier,
   type OpenSesameVerifier,
   type OpenSesameVerifierConfig,
   type VerifiedIdentity,
-  createOpenSesameVerifier,
 } from "./verifier.js";
+export {
+  openSesameAuth,
+  type OpenSesameAuthOptions,
+  type OpenSesameAuthVariables,
+} from "./hono.js";

@@ -1,4 +1,8 @@
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
+import {
+  installAutonomousResetReady,
+  resetPasswordResetMailForTest,
+} from "@opensesame/app-core/lib/password-reset-mail.js";
 import { clearHandledForTest } from "@opensesame/app-core/lib/password-reset/handled.js";
 import {
   authorizeResetHandoff,
@@ -9,10 +13,6 @@ import {
   JMAP_MAILBOX,
   mailboxItem,
 } from "@opensesame/app-core/lib/password-reset/mailbox.test-support.js";
-import {
-  installAutonomousResetReady,
-  resetPasswordResetMailForTest,
-} from "@opensesame/app-core/lib/password-reset-mail.js";
 import type { JsonValue } from "@opensesame/os-domain";
 import { type VaultItem, createItem } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

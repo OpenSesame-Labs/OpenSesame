@@ -7,7 +7,8 @@ import {
   passwordMethod,
 } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
-import { producedPassword, typePassword } from "../account.test-support.js";
+import { typePassword } from "../account.test-support.js";
+import { producedPassword } from "../account.test-support.js";
 import {
   entryToVaultItem,
   filterEntriesForProject,

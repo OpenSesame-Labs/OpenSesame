@@ -16,8 +16,8 @@ import {
   generateAgentClaimAttemptToken,
   generateAgentUserCode,
   hmacDigest,
-  markAgentRegistrationClaimPending,
 } from "@opensesame/os-domain";
+import { markAgentRegistrationClaimPending } from "@opensesame/os-domain";
 import {
   evaluateAgentAuthScopes,
   intersectAgentAuthScopes,

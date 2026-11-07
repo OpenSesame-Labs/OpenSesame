@@ -6,14 +6,14 @@ import {
   verifyTargets,
 } from "../../scripts/emit-connect-verify-targets.mjs";
 import {
+  VERIFY_OAUTH_ALIAS_HOSTS,
+  VERIFY_TARGETS,
+} from "../connect-verify-targets.generated.mjs";
+import {
   resolveTarget,
   verifyTargetFor,
   verifyWithToken,
 } from "../connect-verify.mjs";
-import {
-  VERIFY_OAUTH_ALIAS_HOSTS,
-  VERIFY_TARGETS,
-} from "../connect-verify-targets.generated.mjs";
 
 const TOKEN = "provider_token_that_must_never_leave_the_relay";
 

@@ -4,13 +4,13 @@
  * re-implement compiler rules.
  */
 
-export { buildPresetPolicy } from "./preset-build.js";
 export {
   PRESET_CATALOG,
   PRESET_IDS,
+  getPresetMeta,
+  isPresetId,
   type PresetId,
   type PresetMeta,
   type PresetScope,
-  getPresetMeta,
-  isPresetId,
 } from "./preset-catalog.js";
+export { buildPresetPolicy } from "./preset-build.js";

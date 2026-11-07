@@ -1,7 +1,6 @@
 /** Loaded only by an actual history claim or legacy row operation. Metadata never imports this leaf. */
 import type { HistoryBackupSelection } from "./capabilities.js";
 import type { ProvisionalHistoryAccount } from "./history-backup-types.js";
-
 export {
   bindLegacyHistoryStore,
   legacyHistoryStore,

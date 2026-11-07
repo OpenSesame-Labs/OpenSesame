@@ -9,7 +9,6 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-
 const root = process.cwd();
 const audit = resolve(process.env.NATIVE_AUDIT_DIR ?? "");
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");

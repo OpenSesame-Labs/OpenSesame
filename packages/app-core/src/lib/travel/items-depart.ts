@@ -1,10 +1,10 @@
 import type { Folder, VaultItem } from "@opensesame/vault-core";
-import type { ItemReturn } from "../vault/item-departure.js";
 import {
   ItemDepartureError,
   type ItemWithdrawal,
   itemText,
 } from "../vault/item-departure.js";
+import type { ItemReturn } from "../vault/item-departure.js";
 import {
   type TravelDeps,
   type TravelGateRefusal,

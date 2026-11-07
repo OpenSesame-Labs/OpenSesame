@@ -6,7 +6,8 @@
  * and the access token it returns lives for one call and is never kept.
  * Nothing Infisical says back in an error is repeated.
  */
-import { canonicalize, isJsonObject, isString } from "@opensesame/os-domain";
+import { canonicalize } from "@opensesame/os-domain";
+import { isJsonObject, isString } from "@opensesame/os-domain";
 import { canonicalProviderId } from "./connector-catalog.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import { NativeApiError } from "./native-api-http.js";

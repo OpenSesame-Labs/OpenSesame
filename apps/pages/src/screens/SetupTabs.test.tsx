@@ -1,4 +1,3 @@
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   cleanup,
   fireEvent,
@@ -8,6 +7,8 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { SetupScreen, setupScreenDependencies } from "./SetupScreen.js";
 import {
   openSetup,

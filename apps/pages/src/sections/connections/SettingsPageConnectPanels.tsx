@@ -9,15 +9,15 @@ import { isNativeDeviceConnection } from "@opensesame/app-core/lib/device-connec
 import { isSecretBackendProvider } from "@opensesame/app-core/lib/secret-backends/presets.js";
 import { isSelfHostedConnector } from "@opensesame/app-core/lib/self-hosted-connectors.js";
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
+import { GithubNativeAppPanels } from "./GithubNativeAppPanels.js";
+import { BoatPanels } from "./boat/BoatPanels.js";
 import { AiConnectionPanels } from "./ai/AiConnectionPanels.js";
 import { ModelKeysPanel } from "./ai/keys/ModelKeysPanel.js";
-import { BoatPanels } from "./boat/BoatPanels.js";
 import { ConnectPanels, isConnectConnection } from "./connect/ConnectPanels.js";
 import {
   NativeConnectorPanels,
   nativeSettingsDescriptor,
 } from "./connect/NativeConnectorPanels.js";
-import { GithubNativeAppPanels } from "./GithubNativeAppPanels.js";
 import { IdentityConnectionPanels } from "./identity/IdentityConnectionPanels.js";
 import { SecretBackendPanels } from "./secret-backends/SecretBackendPanels.js";
 import { TailscalePanels } from "./tailscale/TailscalePanels.js";

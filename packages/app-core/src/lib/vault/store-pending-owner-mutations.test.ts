@@ -4,7 +4,6 @@ import {
   OWNER_PASSWORD,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
-
 test("pending second step cannot mutate primary credentials or disable configured factors", async () => {
   const f = await retiredOwnerFixture(true);
   try {

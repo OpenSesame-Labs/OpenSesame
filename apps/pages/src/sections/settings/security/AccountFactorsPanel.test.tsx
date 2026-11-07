@@ -28,9 +28,7 @@ import {
 const vault = vi.hoisted(() => ({
   current: { header: { wrap: {}, kdf: {}, unlocks: {} }, guest: false },
 }));
-
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 const originalVaultHooks = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -38,14 +36,12 @@ Object.assign(vaultHooksSeams, {
 });
 
 import { qrSeams } from "../../../components/QrCode.js";
-
 const originalQr = { ...qrSeams };
 Object.assign(qrSeams, {
   QrCode: ({ value }: { value: string }) => <div data-testid="qr">{value}</div>,
 });
 
 import { unlockMethodsSeams } from "@opensesame/app-core/lib/vault/unlock-methods.js";
-
 const originalUnlock = { ...unlockMethodsSeams };
 Object.assign(unlockMethodsSeams, {
   listAvailableUnlockMethods: () => ["password"],
@@ -54,7 +50,6 @@ Object.assign(unlockMethodsSeams, {
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-
 const originalIdentity = { ...identitySeams };
 const originalDevice = { ...deviceIdentitySeams };
 const originalFederation = { ...federationSeams };

@@ -1,10 +1,11 @@
+import { useStripItem } from "../../lib/strip.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { useEnabledIdentityViews } from "./identity-views.js";
+
 import {
   IDENTITY_LABELS,
   type IDENTITY_VIEWS,
 } from "@opensesame/app-core/lib/section-view-names.js";
-import { useStripItem } from "../../lib/strip.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-import { useEnabledIdentityViews } from "./identity-views.js";
 export type IdentityTab = (typeof IDENTITY_VIEWS)[number];
 
 export function IdentityTabs({
@@ -37,11 +38,7 @@ function IdentityTabButton({
   id,
   active,
   onSelect,
-}: {
-  id: IdentityTab;
-  active: boolean;
-  onSelect: () => void;
-}) {
+}: { id: IdentityTab; active: boolean; onSelect: () => void }) {
   const guideRef = useGuideTarget<HTMLButtonElement>(`identity.${id}`);
   const stripRef = useStripItem<HTMLButtonElement>(active, guideRef);
   return (

@@ -6,7 +6,6 @@ import {
   requestNativeGoogleSdkConsent,
   revokeNativeGoogleSdkToken,
 } from "./native-google-sdk.js";
-
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();

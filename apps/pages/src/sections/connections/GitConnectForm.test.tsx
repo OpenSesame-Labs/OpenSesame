@@ -1,9 +1,9 @@
 import { backupSeams } from "@opensesame/app-core/lib/backup.js";
-import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import {
   ConnectionsError,
   connectionSeams,
 } from "@opensesame/app-core/lib/connections.js";
+import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import {
   forgetAllLocalGitRemotes,
   listLocalGitRemotes,

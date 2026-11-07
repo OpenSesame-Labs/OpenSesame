@@ -6,11 +6,11 @@ import {
   deviceConnection,
   saveDeviceConnectorConfigurationDurable,
 } from "./device-connectors.js";
-import { beginLinearAuthorization } from "./linear-auth.js";
 import {
   type LinearAuthorizationReservation,
   reserveLinearAuthorizationWindow,
 } from "./linear-auth-reservation.js";
+import { beginLinearAuthorization } from "./linear-auth.js";
 import {
   checkLinearEdit,
   linearSaveInput,
@@ -32,7 +32,6 @@ import {
 import { finishLinearWebhookRecovery } from "./linear-webhook-recovery.js";
 import { configureLinearWebhooks } from "./linear-webhooks.js";
 import type { SelfHostedConnectorOptions } from "./self-hosted-connectors-schema.js";
-
 export {
   beginLinearAuthorization,
   finishLinearAuthorization,
@@ -41,10 +40,9 @@ export {
 export { linearConnectorProblems } from "./linear-config-validation.js";
 export { readLinearConnector } from "./linear-store.js";
 export {
-  type LinearReconnectPlan,
   linearReconnectPlan,
+  type LinearReconnectPlan,
 } from "./linear-webhook-recovery.js";
-
 let deploymentClient = "";
 export function applyLinearClientId(value?: string): void {
   deploymentClient = value?.trim() ?? "";

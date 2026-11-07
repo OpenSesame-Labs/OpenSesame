@@ -4,27 +4,28 @@
  */
 
 export {
-  type CanaryExecuteOutcome,
-  type CanaryResult,
-  executeCanaryDetection,
-  recordCanaryHit,
-  refuseDestructiveCanaryAction,
-  resetCanaryExecutorState,
-} from "./execute.js";
-
-export { CanaryRegistry, type CanaryRegistrySnapshot } from "./registry.js";
-export {
   CANARY_BOUNDS,
   CANARY_FORBIDDEN_KEYS,
+  CanarySchemaError,
+  parseCanaryActivation,
+  parseCanaryEnrollment,
   type CanaryActivation,
   type CanaryEnrollment,
   type CanaryForbiddenKey,
   type CanaryKind,
   type CanaryReceiver,
-  CanarySchemaError,
-  parseCanaryActivation,
-  parseCanaryEnrollment,
 } from "./schema.js";
+
+export { CanaryRegistry, type CanaryRegistrySnapshot } from "./registry.js";
+
+export {
+  executeCanaryDetection,
+  recordCanaryHit,
+  refuseDestructiveCanaryAction,
+  resetCanaryExecutorState,
+  type CanaryExecuteOutcome,
+  type CanaryResult,
+} from "./execute.js";
 
 import {
   type BoundaryValue,
@@ -40,12 +41,12 @@ import {
   resetCanaryExecutorState,
 } from "./execute.js";
 import { CanaryRegistry } from "./registry.js";
-import type { CanaryEnrollment } from "./schema.js";
 import {
   CANARY_BOUNDS,
   CANARY_FORBIDDEN_KEYS,
   parseCanaryActivation as parseActivation,
 } from "./schema.js";
+import type { CanaryEnrollment } from "./schema.js";
 
 /** Legacy event shape used by early call sites / duress.test. */
 export type CanaryEvent = Readonly<{

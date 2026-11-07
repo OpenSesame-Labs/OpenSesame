@@ -1,14 +1,14 @@
 /** @vitest-environment jsdom */
 import { takePendingImport } from "@opensesame/app-core/lib/vault/pending-import.js";
-import { asBufferSource } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { captureShareTarget } from "./share-target-intake.js";
 import {
   type ShareTargetMeta,
   newShareTargetKey,
   sealShareTarget,
   shareTargetEntryUrl,
 } from "./share-target.js";
-import { captureShareTarget } from "./share-target-intake.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 const TOKEN = "123e4567-e89b-42d3-a456-426614174000";
 const CREATED = 1_700_000_000_000;
@@ -25,12 +25,10 @@ async function cacheWith(meta: ShareTargetMeta, file?: Uint8Array) {
   entries.set(
     shareTargetEntryUrl(root, TOKEN, CREATED, "meta"),
     new Response(
-      asBufferSource(
-        await sealShareTarget(
-          key,
-          new TextEncoder().encode(JSON.stringify(meta)),
-        ),
-      ),
+      asBufferSource(await sealShareTarget(
+        key,
+        new TextEncoder().encode(JSON.stringify(meta)),
+      )),
     ),
   );
   if (file) {

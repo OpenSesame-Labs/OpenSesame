@@ -137,9 +137,7 @@ function useOnePasswordSave(onFlash: (flash: Flash) => void) {
 
 export function OnePasswordSaveButton({
   onFlash,
-}: {
-  onFlash: (flash: Flash) => void;
-}) {
+}: { onFlash: (flash: Flash) => void }) {
   const id = useId();
   const {
     container,

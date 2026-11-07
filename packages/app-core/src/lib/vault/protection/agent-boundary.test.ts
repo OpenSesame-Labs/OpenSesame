@@ -1,5 +1,6 @@
-import { DOMAIN_CAPSULE, DOMAIN_CLOUD_WRAP } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
+
+import { DOMAIN_CAPSULE, DOMAIN_CLOUD_WRAP } from "@opensesame/vault-core";
 import {
   agentMayInvokeCryptoAlias,
   assertAgentMayNotUnwrapHumanRoot,

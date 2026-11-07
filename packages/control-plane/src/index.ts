@@ -1,14 +1,14 @@
+export {
+  createControlPlane,
+  type CreateControlPlaneOptions,
+  type ControlPlane,
+} from "./create-app.js";
 export { createHonoApp } from "./app.js";
 export {
-  type ControlPlaneConfig,
+  loadConfig,
   assertListenHostAllowed,
   listenHostIsLoopback,
-  loadConfig,
+  type ControlPlaneConfig,
 } from "./config.js";
-export {
-  type ControlPlane,
-  type CreateControlPlaneOptions,
-  createControlPlane,
-} from "./create-app.js";
-export { buildOpenApiDocument } from "./openapi.js";
 export { startServer } from "./server.js";
+export { buildOpenApiDocument } from "./openapi.js";

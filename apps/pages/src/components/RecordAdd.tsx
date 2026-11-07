@@ -4,8 +4,8 @@ import { AddSlide } from "../sections/vault/AddSlide.js";
 import { type AddEntry, useAddEntry } from "../sections/vault/add-menu.js";
 import { useAddSlide } from "../sections/vault/add-slide.js";
 import { useOptionalGuideTarget } from "../tutorial/registry/react.jsx";
-import { openContextMenu } from "./context-menu/menu-model.js";
 import { IconPlus } from "./Icons.js";
+import { openContextMenu } from "./context-menu/menu-model.js";
 import type { useRecordWorkspace } from "./record-workspace-state.js";
 
 function controls(list: RefObject<HTMLDivElement | null>) {
@@ -46,10 +46,7 @@ function SlideEntry({
 export function RecordAdd({
   model,
   guide,
-}: {
-  model: ReturnType<typeof useRecordWorkspace>;
-  guide?: GuideTargetId;
-}) {
+}: { model: ReturnType<typeof useRecordWorkspace>; guide?: GuideTargetId }) {
   const {
     list,
     createControl,

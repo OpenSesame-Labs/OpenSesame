@@ -1,17 +1,17 @@
 /** A verified binding can retain its sealed credential without revealing it. */
 import type { NativeConnectorView } from "@opensesame/app-core/lib/native-connector-view.js";
-import type {
-  NativeConnectorDescriptor,
-  NativeFieldValues,
-  NativeMethodDescriptor,
-} from "./native-connector-ui.js";
-import { nativeMethodConfigurable } from "./native-connector-ui.js";
 import {
   nativeDefaults,
   nativeFieldValues,
   nativeVerified,
   nativeVisibleFields,
 } from "./native-connector-ui-values.js";
+import { nativeMethodConfigurable } from "./native-connector-ui.js";
+import type {
+  NativeConnectorDescriptor,
+  NativeFieldValues,
+  NativeMethodDescriptor,
+} from "./native-connector-ui.js";
 
 export function nativeInitialMethod(
   descriptor: NativeConnectorDescriptor,

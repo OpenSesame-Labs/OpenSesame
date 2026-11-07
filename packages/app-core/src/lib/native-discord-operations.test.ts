@@ -1,7 +1,6 @@
 import { expect, it, vi } from "vitest";
 import type { NativeGrant } from "./native-connector-schema.js";
 import { listNativeDiscordGuilds } from "./native-discord-operations.js";
-
 const grant: NativeGrant = {
   kind: "oauth",
   providerId: "discord",

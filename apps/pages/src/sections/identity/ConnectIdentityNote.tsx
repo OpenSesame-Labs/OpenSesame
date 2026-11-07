@@ -4,11 +4,13 @@ import {
 } from "@opensesame/app-core/lib/identity-service.js";
 import { loadSettings } from "@opensesame/app-core/lib/settings.js";
 import { useState } from "react";
-import { useConnect } from "../../bindings/identity.js";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { FieldShell } from "../../components/FieldShell.js";
 import { IconLogin } from "../../components/Icons.js";
+
 import { useIdentityConfigured } from "../../lib/use-configured.js";
+
+import { useConnect } from "../../bindings/identity.js";
 export function ConnectIdentityNote({
   online,
   what,

@@ -15,7 +15,6 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import { bindSecretBackendRuntime } from "./secret-backend-runtime.js";
-
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 const releases: (() => void)[] = [];
 beforeEach(async () => {

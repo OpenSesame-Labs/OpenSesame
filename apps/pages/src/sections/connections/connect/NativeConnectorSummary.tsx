@@ -6,20 +6,20 @@ import { IconKey } from "../../../components/IconKey.js";
 import { IconTrash, IconX } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { ConnectorPanel } from "./ConnectorPanel.js";
-import { Facts } from "./fields.js";
 import {
   NativeAuthorizationControls,
   useNativeSignInUiLifetime,
 } from "./NativeCancelSignIn.js";
 import { NativeConnectorActions } from "./NativeConnectorActions.js";
 import { NativeConnectorRecovery } from "./NativeConnectorRecovery.js";
+import { Facts } from "./fields.js";
 import type { NativeAuthorizationTicket } from "./native-connector-controller.js";
+import { nativeError, nativeVerified } from "./native-connector-ui-values.js";
 import type {
   NativeConnectorCallbacks,
   NativeConnectorController,
   NativeConnectorDescriptor,
 } from "./native-connector-ui.js";
-import { nativeError, nativeVerified } from "./native-connector-ui-values.js";
 
 const STATUS_LABELS = {
   configuration: "Provider verification pending",

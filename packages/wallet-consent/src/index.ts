@@ -18,15 +18,15 @@ export {
   walletExportLeaksCanary,
 } from "./redact.js";
 export {
+  generateWalletWrappingKey,
+  openWalletMaterial,
+  sealWalletMaterial,
+  type SealedWalletMaterial,
+} from "./wrap.js";
+export {
   type DigestBoundApprovalRefusal,
   type DigestBoundApprovalResult,
   type DigestBoundPaymentProof,
   type VerifyDigestBoundApprovalInput,
   verifyDigestBoundApproval,
 } from "./verify.js";
-export {
-  type SealedWalletMaterial,
-  generateWalletWrappingKey,
-  openWalletMaterial,
-  sealWalletMaterial,
-} from "./wrap.js";

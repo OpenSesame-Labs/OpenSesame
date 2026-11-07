@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import {
   beginNativeOAuthClient,
   configureNativeOAuthClient,
 } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
+import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import { requireNativeOAuthRecord } from "./native-oauth-session.js";
 
 const closing: (() => Promise<void>)[] = [];

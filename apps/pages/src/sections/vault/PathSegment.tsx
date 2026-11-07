@@ -84,6 +84,8 @@ function SegmentList({
   onTake: (option: SuggestOption) => void;
 }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: ARIA combobox listbox, not a native select
+    // biome-ignore lint/a11y/useFocusableInteractive: focus stays on the input via aria-activedescendant
     <div
       role="listbox"
       id={listId}
@@ -93,6 +95,7 @@ function SegmentList({
       onMouseDown={(event) => event.preventDefault()}
     >
       {options.map((option, index) => (
+        // biome-ignore lint/a11y/useSemanticElements: ARIA combobox option under listbox
         // biome-ignore lint/a11y/useFocusableInteractive: options are reached via aria-activedescendant
         <div
           role="option"

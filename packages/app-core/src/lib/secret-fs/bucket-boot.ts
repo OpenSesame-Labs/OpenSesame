@@ -17,8 +17,8 @@ import {
 import { setStatusNotice } from "../notices.js";
 import { installFileBackedVfs } from "./install.js";
 import { resilient } from "./resilient.js";
-import { makeS3SecretFiles } from "./s3.js";
 import { S3_PROVIDER_ID, s3ConfigFrom, s3Missing } from "./s3-config.js";
+import { makeS3SecretFiles } from "./s3.js";
 
 export type BucketBoot =
   | Readonly<{ state: "installed"; uninstall: () => void }>

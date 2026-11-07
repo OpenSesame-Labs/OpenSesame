@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { shareReachSeams } from "@opensesame/app-core/lib/local-share-reach.js";
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { VaultState } from "@opensesame/app-core/lib/vault/store-state.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { createItem, manualPassword } from "@opensesame/vault-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,8 +10,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { downloadSeams } from "../../screens/capabilities/download.js";
 import { AccountPasswordRow } from "./AccountPasswordRow.js";
-import { persistPasswordTestItem } from "./account-password-test-context.js";
 import { ReferenceKeys } from "./ReferenceKeys.js";
+import { persistPasswordTestItem } from "./account-password-test-context.js";
 
 afterEach(() => {
   cleanup();

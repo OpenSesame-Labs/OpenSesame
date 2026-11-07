@@ -108,9 +108,9 @@ function Page({ catalog }: { catalog: Provider[] | null }) {
       <nav
         ref={treeRef}
         className="railtree"
-        // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: mirrors NavTree — a <nav> landmark carrying an ARIA tree
         role="tree"
         aria-label="Sections"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: role=tree with aria-activedescendant is the interactive element; the tab stop belongs on it
         tabIndex={0}
       >
         <SectionRow

@@ -13,19 +13,20 @@ import {
 import { startGithubRegistration } from "./github-app-vault-transport.js";
 
 export {
-  claimGithubAppCode,
-  refreshGithubAppInstallations,
-  verifyGithubAppInstallations,
-} from "./github-app-claim.js";
-export {
-  type LocalGithubApp,
-  type LocalGithubInstall,
   forgetLocalGithubApp,
   readLocalGithubApp,
   refreshGithubAppOwner,
   sealPendingGithubAppPem,
   subscribeLocalGithubApp,
+  type LocalGithubApp,
+  type LocalGithubInstall,
 } from "./github-app-local.js";
+
+export {
+  claimGithubAppCode,
+  refreshGithubAppInstallations,
+  verifyGithubAppInstallations,
+} from "./github-app-claim.js";
 
 export { githubAppRedirectUrl, githubAppRelayBase };
 

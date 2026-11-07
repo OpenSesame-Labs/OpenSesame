@@ -23,10 +23,7 @@ import {
 export function LocalAuthorityPanel({
   tomb,
   records,
-}: {
-  tomb: string;
-  records: LocalAuthorityRow["kind"];
-}) {
+}: { tomb: string; records: LocalAuthorityRow["kind"] }) {
   const state = useLocalAuthority(tomb);
   const grantsOnly = records === "grant";
   const rows = state.rows?.filter((row) => row.kind === records);

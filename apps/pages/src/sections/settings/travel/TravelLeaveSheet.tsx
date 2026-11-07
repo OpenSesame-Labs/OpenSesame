@@ -117,7 +117,6 @@ function PackedCard({
       </ul>
       <div>
         <strong id="travel-code-label">Return code</strong>
-        {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <p className="travel__code" aria-labelledby="travel-code-label">
           {pkg.returnCode}
         </p>

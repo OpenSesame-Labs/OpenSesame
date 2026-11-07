@@ -8,10 +8,11 @@
  * leave it alone; it used to bounce every such navigation back to `/vault`.
  */
 import { act, render } from "@testing-library/react";
-import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppShell } from "./AppShell.js";
 import { resetShellRender, seedVault } from "./app-shell.test-harness.js";
+
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
+import { AppShell } from "./AppShell.js";
 import { registerLegacyShell } from "./legacy-sections.test-support.js";
 
 const seen: { path: string; go: (to: string) => void } = {

@@ -1,7 +1,6 @@
 /** Fixed additive peer-GET source, after original node+private logging. */
 import { constants, copyFile } from "node:fs/promises";
 import { join } from "node:path";
-
 const paths = [
   ["peer-get.go", "cmd/tsconnect/nativehttp"],
   ["peer-get_test.go", "cmd/tsconnect/nativehttp"],

@@ -8,6 +8,12 @@ import {
   readNativeConnector,
 } from "./native-connector-store.js";
 import { nativeUploadedIcon } from "./native-icon.test-support.js";
+import { completeNativeVaultOidc } from "./native-vault-auth.js";
+import { readNativeVaultInstance } from "./native-vault-operations.js";
+import {
+  authorizeNativeVault,
+  configureNativeVault,
+} from "./native-vault-session.js";
 import {
   backend,
   disposers,
@@ -17,12 +23,6 @@ import {
   state,
   token,
 } from "./native-vault.test-support.js";
-import { completeNativeVaultOidc } from "./native-vault-auth.js";
-import { readNativeVaultInstance } from "./native-vault-operations.js";
-import {
-  authorizeNativeVault,
-  configureNativeVault,
-} from "./native-vault-session.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

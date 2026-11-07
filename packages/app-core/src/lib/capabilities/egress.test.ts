@@ -6,10 +6,10 @@ import {
   approvedPlan,
   descriptorOf,
 } from "./__tests__/plan-fixtures.js";
-import { describeCapability } from "./catalog.js";
 import { NATIVE_PROVIDER_PURPOSE } from "./catalog-always-on.js";
-import { EgressDenied, createEgressPort, redactUrl } from "./egress.js";
+import { describeCapability } from "./catalog.js";
 import { egressSeams, installPlanAwareEgress } from "./egress-default.js";
+import { EgressDenied, createEgressPort, redactUrl } from "./egress.js";
 
 const SELF = "https://vault.example.test";
 const CONNECTORS = "connectors.external";

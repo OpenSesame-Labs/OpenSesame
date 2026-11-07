@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const env = vi.hoisted(() => ({ online: true }));
-
 import {
   type FailureClass,
   classifyResponse,

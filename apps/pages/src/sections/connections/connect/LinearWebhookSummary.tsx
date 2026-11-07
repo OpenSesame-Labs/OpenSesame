@@ -13,10 +13,7 @@ import { Facts, OutLink } from "./fields.js";
 export function LinearWebhookSummary({
   connectorId,
   onFlash,
-}: {
-  connectorId: string;
-  onFlash: (flash: Flash) => void;
-}) {
+}: { connectorId: string; onFlash: (flash: Flash) => void }) {
   const runtime = readLinearConnector(connectorId);
   const webhook = runtime?.webhook;
   const copySecret = useCopySecret();

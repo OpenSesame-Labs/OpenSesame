@@ -15,7 +15,6 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { stagePeerGET } from "./stage-peer-get.mjs";
-
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pins = JSON.parse(await readFile(join(here, "source.json"), "utf8"));
 const requireHash = async (path, expected) =>

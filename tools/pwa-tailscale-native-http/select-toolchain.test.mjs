@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { rm } from "node:fs/promises";
 import {
   copyFile,
   mkdir,
   mkdtemp,
   readFile,
-  rm,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import test, { after } from "node:test";
+import { resolve } from "node:path";
+import { join } from "node:path";
+import { after } from "node:test";
+import test from "node:test";
 import { nativePatchCommand } from "./apply-native-patch.mjs";
 import { selectNativeToolchain } from "./select-toolchain.mjs";
 

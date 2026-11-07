@@ -14,13 +14,13 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { installLocalCertificateIssuance } from "./certs-issue.js";
 import {
   type IssuedCertificate,
   acknowledgeCertificateDelivery,
   certsSeams,
   issueCertificate,
 } from "./certs.js";
-import { installLocalCertificateIssuance } from "./certs-issue.js";
 
 installLocalCertificateIssuance();
 

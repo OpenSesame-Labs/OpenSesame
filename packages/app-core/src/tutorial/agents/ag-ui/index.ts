@@ -7,14 +7,9 @@
  */
 
 export {
-  type AgUiSupportAgentOptions,
-  createAgUiAgent,
-  createAgUiSupportAgent,
-} from "./ag-ui-agent.js";
-export {
-  AG_UI_CONFIG_KEY,
   type AgUiEndpoint,
   type AgUiEndpointConfig,
+  AG_UI_CONFIG_KEY,
   agUiEndpointSeams,
   applyAgUiEndpoint,
   currentAgUiEndpoint,
@@ -40,3 +35,8 @@ export {
   type AgUiTransportRequest,
   createAgUiTransport,
 } from "./transport.js";
+export {
+  type AgUiSupportAgentOptions,
+  createAgUiAgent,
+  createAgUiSupportAgent,
+} from "./ag-ui-agent.js";

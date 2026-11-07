@@ -1,8 +1,8 @@
+import { connectRelayConfigured } from "@opensesame/app-core/lib/vercel-connect-relay.js";
 import {
   subscribeVercelConnectAuth,
   vercelConnectAuth,
 } from "@opensesame/app-core/lib/vercel-connect.js";
-import { connectRelayConfigured } from "@opensesame/app-core/lib/vercel-connect-relay.js";
 import { useSyncExternalStore } from "react";
 
 export type ConnectTransport = {

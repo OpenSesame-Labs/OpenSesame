@@ -9,7 +9,6 @@ import { disposeOriginalCommandData } from "./original-command-retirement-data.j
 import type { PhysicalAuthenticationPort } from "./physical-authentication-port.js";
 import type { PhysicalDeviceRecordPort } from "./physical-device-record-port.js";
 import { captureRetiredDeviceReaderIdentity } from "./retired-owner-reader-identity.js";
-
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 function memoryOnly() {
   const installed = host();

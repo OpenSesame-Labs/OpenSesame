@@ -16,7 +16,6 @@ import {
   password,
   supabaseFixture,
 } from "./identity-connections-session.test-support.js";
-
 afterEach(() => vi.unstubAllGlobals());
 
 describe("real Better Auth native identity sessions", () => {

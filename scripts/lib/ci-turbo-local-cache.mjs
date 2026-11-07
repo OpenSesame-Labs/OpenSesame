@@ -28,13 +28,9 @@ function text(value) {
 
 function main() {
   const { key, restorePrefix } = turboLocalCacheKey(process.env);
-  const lines = [
-    `turbo_local_cache_key=${key}`,
-    `turbo_local_restore_prefix=${restorePrefix}`,
-  ];
+  const lines = [`turbo_local_cache_key=${key}`, `turbo_local_restore_prefix=${restorePrefix}`];
   const body = `${lines.join("\n")}\n`;
-  if (process.env.GITHUB_OUTPUT)
-    appendFileSync(process.env.GITHUB_OUTPUT, body);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, body);
   process.stdout.write(body);
 }
 

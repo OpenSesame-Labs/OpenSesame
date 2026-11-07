@@ -3,7 +3,6 @@ import {
   type BoundaryValue,
   isString,
 } from "@opensesame/os-domain";
-
 /**
  * Credential Exchange Format (CXF) import.
  *
@@ -37,7 +36,6 @@ import {
  * of credentials it carries, rather than emitting one draft per credential.
  */
 
-import { CXF_TYPES, urlToB64 } from "../../export/cxf.js";
 import {
   type DraftItem,
   type ParseResult,
@@ -50,6 +48,8 @@ import {
   draftPasskey,
   draftSecret,
 } from "../types.js";
+
+import { CXF_TYPES, urlToB64 } from "../../export/cxf.js";
 import { applyAccount } from "./cxf-account.js";
 import {
   type Bucket,

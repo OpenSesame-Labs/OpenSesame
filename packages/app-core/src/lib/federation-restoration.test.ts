@@ -2,13 +2,13 @@
 import type { JsonObject } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  fenceLocalSignOut,
-  isAutoAuthSuppressed,
-} from "./ambient-auth/generation.js";
-import {
   ambientAuthSeams,
   resetAmbientAuthSeams,
 } from "./ambient-auth-seam.js";
+import {
+  fenceLocalSignOut,
+  isAutoAuthSuppressed,
+} from "./ambient-auth/generation.js";
 import {
   readStoredSessionSync,
   restoreAuthenticatedSession,

@@ -3,12 +3,13 @@
  * Kept for stable imports from access tests and older adapters.
  */
 
-export { narrowCapabilities } from "./capability-narrow.js";
 export {
   PROTECTED_OPERATIONS,
-  type ProtectCheckInput,
-  type ProtectedOperation,
   assertProtectedOperation as assertProtectedOperationStrict,
   isProtectedOperation,
   withProtectedOperation,
+  type ProtectedOperation,
+  type ProtectCheckInput,
 } from "./protect.js";
+
+export { narrowCapabilities } from "./capability-narrow.js";

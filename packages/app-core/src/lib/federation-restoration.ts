@@ -13,7 +13,6 @@ import { ambientAuthSeams } from "./ambient-auth-seam.js";
 import { restoreConfiguredIdentityIfNative } from "./federation-configured-lazy.js";
 import type { UpstreamIdentity } from "./federation-native-session.js";
 import { parseStoredAssertion } from "./federation-stored-session.js";
-
 export { readStoredSessionSync } from "./federation-stored-session.js";
 
 export type RestorationTrust = {

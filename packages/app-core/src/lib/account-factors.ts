@@ -64,17 +64,18 @@ import {
 } from "./identity.js";
 import { hostInteractionAuthenticator } from "./interactions.js";
 
-export {
-  ACCOUNT_FACTOR_WORDS,
-  AccountFactorError,
-  type AccountFactorRefusal,
-} from "./account-factor-words.js";
+export type { AccountFactor, AccountFactorKind, AccountFactorList };
 export {
   ACCOUNT_PASSKEY_UNCHECKED_WORDS,
   type AccountPasskeyEnrolment,
   type PasskeyCheckMiss,
 } from "./account-passkey-check.js";
-export type { AccountFactor, AccountFactorKind, AccountFactorList };
+
+export {
+  ACCOUNT_FACTOR_WORDS,
+  AccountFactorError,
+  type AccountFactorRefusal,
+} from "./account-factor-words.js";
 
 export interface AccountFactorTransport {
   /** An Identity API call for the signed-in principal; `path` is base-relative. */

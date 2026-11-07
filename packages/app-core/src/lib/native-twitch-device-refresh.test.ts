@@ -8,6 +8,7 @@ import {
   readNativeConnector,
 } from "./native-connector-store.js";
 import { retryRetainedNativeOAuthGrants } from "./native-oauth-session.js";
+import { refreshNativeTwitchAuthorization } from "./native-twitch-device-refresh.js";
 import { beginNativeTwitchDeviceAuthorization } from "./native-twitch-device.js";
 import {
   access,
@@ -19,7 +20,6 @@ import {
   runtime,
   token,
 } from "./native-twitch-device.test-support.js";
-import { refreshNativeTwitchAuthorization } from "./native-twitch-device-refresh.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

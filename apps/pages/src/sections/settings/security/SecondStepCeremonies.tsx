@@ -123,7 +123,13 @@ function FreshCodes({
   );
 }
 
-export function RecoveryCeremony({ busy, run }: { busy: boolean; run: Run }) {
+export function RecoveryCeremony({
+  busy,
+  run,
+}: {
+  busy: boolean;
+  run: Run;
+}) {
   const store = useVaultStore();
   const [ledger, setLedger] = useState<Ledger | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
@@ -232,9 +238,14 @@ export function RecoveryCeremony({ busy, run }: { busy: boolean; run: Run }) {
 
 type TotpStage = "key" | "scan" | "confirm" | "done";
 
-export function Rail({ steps, now }: { steps: string[]; now: number }) {
+export function Rail({
+  steps,
+  now,
+}: {
+  steps: string[];
+  now: number;
+}) {
   return (
-    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <div className="steps" aria-label="Enrollment steps">
       {steps.map((label, i) => (
         <div

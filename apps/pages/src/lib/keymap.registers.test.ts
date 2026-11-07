@@ -15,6 +15,7 @@ import {
   saveKeymap,
 } from "@opensesame/app-core/lib/keymap/store.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { pendingSnapshot } from "./keymap-pending.js";
 import {
   createChordState,
   createKeymapHandler,
@@ -22,7 +23,6 @@ import {
   registerVaultKeymap,
 } from "./keymap.js";
 import { press, vault } from "./keymap.test-harness.js";
-import { pendingSnapshot } from "./keymap-pending.js";
 
 function setup(chord = createChordState()) {
   const items = vault();

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import {
-  closeSync,
   constants,
+  closeSync,
   fstatSync,
   lstatSync,
   openSync,

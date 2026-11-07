@@ -30,7 +30,6 @@ export function NativeMcpArgumentGuide({ schema }: { schema: string }) {
       </p>
       <details className="cx-application">
         <summary>Advertised argument schema</summary>
-        {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
         <pre
           className="cx-argument-schema"
           aria-label="Advertised argument schema"

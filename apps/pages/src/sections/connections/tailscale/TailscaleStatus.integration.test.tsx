@@ -37,14 +37,13 @@ import { useOnlineSeams } from "../../../lib/use-online.js";
 import { statusFixture } from "../../../modules/networking.tailnet/browser/authorization.test-support.js";
 import { ConnectionsSection } from "../../ConnectionsSection.js";
 import { ConnectionCard } from "../ConnectionCard.js";
-import { connectedPageItems } from "../page-tree.js";
 import { ConnectorSettingsPage } from "../SettingsPage.js";
 import { nativeConnectorHeaderStatus } from "../SettingsPageNativeStatus.js";
+import { connectedPageItems } from "../page-tree.js";
 import { makeConnection } from "../section-fixtures.test-support.js";
 import { declareConnectionsTutorial } from "../tutorial.test-support.js";
 import { TailscaleBrowserNode } from "./TailscaleBrowserNode.js";
 import { currentTailscaleConnections } from "./useTailscaleConnectionState.js";
-
 const catalog = catalogProvider("tailscale");
 if (!catalog) throw new Error("Missing Tailscale catalog entry");
 const provider: Provider = {

@@ -3,12 +3,12 @@ import { currentAuthGeneration } from "./auth-generation.js";
 import { subscribeDeviceRows } from "./device-connector-records.js";
 import { resolveIdentityBase } from "./device-identity.js";
 import { federationSessionGeneration } from "./federation-native-session.js";
-import { currentSession, subscribeIdentitySession } from "./identity.js";
 import type { IdentityConnectionDraft } from "./identity-connections-schema.js";
 import {
   getIdentityConnectionRuntime,
   identityConnectionRevision,
 } from "./identity-connections-store.js";
+import { currentSession, subscribeIdentitySession } from "./identity.js";
 import { signInMethods, subscribeSettings } from "./settings.js";
 import { vaultStore } from "./vault/store.js";
 

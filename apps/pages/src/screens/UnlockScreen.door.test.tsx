@@ -9,8 +9,8 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { joinRoadDependencies } from "./join/JoinRoad.js";
 import { UnlockScreen, unlockScreenDependencies } from "./UnlockScreen.js";
+import { joinRoadDependencies } from "./join/JoinRoad.js";
 import {
   ANSWERED,
   completeSetup,

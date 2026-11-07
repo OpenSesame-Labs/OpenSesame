@@ -9,14 +9,13 @@ import {
   readNativeConnector,
 } from "./native-connector-store.js";
 import { bindNativeProviderTransport } from "./native-connector-transport.js";
+import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
+import { NativeOAuthError } from "./native-oauth-errors.js";
 import {
   installNativeOAuthTests,
   oauthAuthority,
   oauthDraft,
 } from "./native-oauth.test-support.js";
-import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-import { NativeOAuthError } from "./native-oauth-errors.js";
-
 installNativeOAuthTests();
 const token = {
   accessToken: "private-issued-discord",

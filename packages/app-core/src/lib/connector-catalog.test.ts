@@ -14,8 +14,8 @@ import {
   catalogProvider,
   catalogProviders,
 } from "./connector-catalog.js";
-import { getBundledProviders } from "./embedded-catalog.js";
 import { FIELDS } from "./embedded-catalog-data.js";
+import { getBundledProviders } from "./embedded-catalog.js";
 import { GIT_BACKUP_PROVIDER_IDS } from "./git-backup-forges.js";
 import { SECRET_BACKEND_PRESETS } from "./secret-backends/presets.generated.js";
 import { WALLET_ISSUER_IDS } from "./wallet-issuers.js";

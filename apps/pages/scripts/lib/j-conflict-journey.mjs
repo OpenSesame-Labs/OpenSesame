@@ -2,18 +2,18 @@
  * J-CONFLICT: two pages edit one local application. A semantic save in A
  * makes B's save a conflict.
  */
-
-import {
-  createApplication,
-  openApplication,
-  openApplications,
-} from "./j-local-application.mjs";
 import {
   addCapabilities,
   sealWithPin,
   unlockWithPin,
 } from "./pages-journey.mjs";
 import { expectInTray } from "./tray-contract.mjs";
+
+import {
+  createApplication,
+  openApplication,
+  openApplications,
+} from "./j-local-application.mjs";
 
 async function registerApp(page, name) {
   const row = await createApplication(page, name);

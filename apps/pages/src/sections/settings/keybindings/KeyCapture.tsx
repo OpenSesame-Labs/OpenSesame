@@ -171,7 +171,6 @@ export function KeyCapture({
   const shown = tokens.length > 0 ? tokens.map(keycapLabel).join(" ") : text;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
     <span
       ref={wrap}
       className="kb-capture"

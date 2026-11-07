@@ -1,15 +1,63 @@
 export {
-  type AuthenticationService,
+  MemoryPrincipalMappingStore,
+  type PrincipalMapping,
+  type PrincipalMappingStore,
+} from "./mapping.js";
+export {
+  createProvisionalPrincipal,
+  upgradeProvisionalToUpstream,
+  type ProvisionalSession,
+  type CreateProvisionalOptions,
+  type UpgradeToUpstreamInput,
+} from "./provisional.js";
+export { noEmailAutoLinkPolicy, type EmailLinkPolicy } from "./email-link.js";
+export {
+  createPasskeySeam,
+  type PasskeyAssertion,
+  type PasskeyCredential,
+  type PasskeyCredentialStore,
+  type PasskeySeam,
+  type PasskeyVerifyFn,
+  type PasskeyVerifyResult,
+} from "./passkey.js";
+export {
   AuthenticationServiceError,
-  type AuthenticationSigninMode,
   DEFAULT_AUTHENTICATION_CONFIGURATIONS,
   authenticationApplicationSecretMatches,
   createAuthenticationService,
   hashAuthenticationToken,
   mintAuthenticationApplicationSecret,
   visibleAuthenticationAlias,
+  type AuthenticationService,
+  type AuthenticationSigninMode,
 } from "./authentication-service.js";
 export {
+  generatePasskeyAuthenticationOptions,
+  generatePasskeyRegistrationOptions,
+  verifyPasskeyAuthentication,
+  verifyPasskeyRegistration,
+} from "./webauthn.js";
+export { simpleWebAuthnSeams } from "./simplewebauthn.js";
+export {
+  createMemoryChallengeStore,
+  createSimpleWebAuthnVerifyFn,
+  issueAuthenticationChallenge,
+  issueRegistrationChallenge,
+  issueTransactionChallenge,
+  verifyRegistrationAttestation,
+  type ChallengeMeta,
+  type ChallengePurpose,
+  type PasskeyChallengeStore,
+  type VerifiedRegistration,
+  type WebAuthnRpConfig,
+} from "./webauthn.js";
+export {
+  UpstreamOidcProviderRegistry,
+  mockUpstreamProvider,
+  type UpstreamOidcProvider,
+} from "./oidc-registry.js";
+export {
+  createUpstreamAuth,
   type BetterAuthUser,
   type CreateUpstreamAuthOptions,
   type MagicLinkDelivery,
@@ -21,51 +69,5 @@ export {
   type UpstreamAuthBundle,
   type UpstreamAuthDatabase,
   type UpstreamMagicLinkOptions,
-  createUpstreamAuth,
 } from "./better-auth.js";
-export { type EmailLinkPolicy, noEmailAutoLinkPolicy } from "./email-link.js";
-export {
-  MemoryPrincipalMappingStore,
-  type PrincipalMapping,
-  type PrincipalMappingStore,
-} from "./mapping.js";
-export {
-  type UpstreamOidcProvider,
-  UpstreamOidcProviderRegistry,
-  mockUpstreamProvider,
-} from "./oidc-registry.js";
-export {
-  type PasskeyAssertion,
-  type PasskeyCredential,
-  type PasskeyCredentialStore,
-  type PasskeySeam,
-  type PasskeyVerifyFn,
-  type PasskeyVerifyResult,
-  createMemoryPasskeyCredentialStore,
-  createPasskeySeam,
-} from "./passkey.js";
-export {
-  type CreateProvisionalOptions,
-  type ProvisionalSession,
-  type UpgradeToUpstreamInput,
-  createProvisionalPrincipal,
-  upgradeProvisionalToUpstream,
-} from "./provisional.js";
-export { simpleWebAuthnSeams } from "./simplewebauthn.js";
-export {
-  type ChallengeMeta,
-  type ChallengePurpose,
-  type PasskeyChallengeStore,
-  type VerifiedRegistration,
-  type WebAuthnRpConfig,
-  createMemoryChallengeStore,
-  createSimpleWebAuthnVerifyFn,
-  generatePasskeyAuthenticationOptions,
-  generatePasskeyRegistrationOptions,
-  issueAuthenticationChallenge,
-  issueRegistrationChallenge,
-  issueTransactionChallenge,
-  verifyPasskeyAuthentication,
-  verifyPasskeyRegistration,
-  verifyRegistrationAttestation,
-} from "./webauthn.js";
+export { createMemoryPasskeyCredentialStore } from "./passkey.js";

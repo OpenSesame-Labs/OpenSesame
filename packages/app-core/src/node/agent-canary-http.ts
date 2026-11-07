@@ -8,7 +8,6 @@ import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { CONTROLLED_CANARY_REQUEST_BYTES } from "../lib/agent-canaries/controlled-receiver-contract.js";
 import { handleCanaryArtifact } from "./agent-canary-artifact.js";
 import type { createControlledCanaryReceiver } from "./agent-canary-receiver.js";
-
 async function readBody(request: IncomingMessage): Promise<BoundaryValue> {
   let size = 0;
   const chunks: Buffer[] = [];

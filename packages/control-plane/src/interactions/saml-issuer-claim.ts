@@ -6,12 +6,12 @@ import {
   organizationIssuerAdmission,
 } from "../proofs/organization-issuer-admission.js";
 import { serializeKeyed } from "../serialize.js";
+import { SamlAuthError } from "./saml-errors.js";
 import {
   type SamlAssertionResult,
   resolveIdpMetadata,
   samlOrgConfig,
 } from "./saml.js";
-import { SamlAuthError } from "./saml-errors.js";
 
 /**
  * One IdP entityID belongs to one tenant.

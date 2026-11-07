@@ -1,11 +1,11 @@
 import { ClaimEngine, MemoryClaimStore } from "@opensesame/claims";
 import { createRepositories } from "@opensesame/database";
-import type { Project, ProvisionalSession } from "@opensesame/os-domain";
 import {
   type BoundaryValue,
   fixtures,
   overlapCast,
 } from "@opensesame/os-domain";
+import type { Project, ProvisionalSession } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import {
   EXPIRED_PROJECT_RETENTION_MS,

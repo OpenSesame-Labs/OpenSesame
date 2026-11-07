@@ -2,11 +2,11 @@ import {
   configureLocalApplication,
   readLocalApplications,
 } from "@opensesame/app-core/lib/local-applications.js";
+import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "@opensesame/app-core/lib/local-directory.js";
-import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { lockAllTombs, unlockTomb } from "@opensesame/app-core/lib/vfs.js";
 import { mintVaultKey } from "@opensesame/vault-core";

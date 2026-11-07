@@ -8,8 +8,8 @@ import {
   FIXTURE_CATALOG,
   FIXTURE_FACTS,
   fixtureDescriptor,
-  fixtureResolveInput,
 } from "./fixtures.js";
+import { fixtureResolveInput } from "./fixtures.js";
 import { explainCapability, resolveComposition } from "./resolve.js";
 import { missingEnvironments } from "./runtime-support.js";
 import type { CapabilityDescriptor, RuntimeFacts } from "./types.js";

@@ -7,9 +7,9 @@ import {
 import { voiceRecognitionLang } from "@opensesame/app-core/lib/model-provider.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { registerCommandBarMic } from "../lib/command-bar/focus.js";
-import { MicButton } from "./command-bar-mic.js";
 import { FailureNotice } from "./FailureNotice.js";
 import { StatusMark } from "./StatusMark.js";
+import { MicButton } from "./command-bar-mic.js";
 import { useCoarsePointer } from "./use-coarse-pointer.js";
 
 /**

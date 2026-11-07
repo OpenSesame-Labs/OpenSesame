@@ -2,7 +2,6 @@
 import type { LocalCanaryCommand } from "@opensesame/vault-core/local-vault-security.js";
 import { z } from "zod";
 import { copyCanaryReceiverProfile } from "../agent-canaries/receiver-profile-data.js";
-
 const action = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("pairing") }),
   z.strictObject({ kind: z.literal("inspect") }),

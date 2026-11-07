@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { maybeLocalStore } from "../ports.js";
 import { createTestHost } from "../test-host.js";
+import { RESET_LOCK } from "./browser-reset-channel.js";
 import {
   FOREIGN_SCOPE,
   NO_PORTS,
@@ -30,7 +31,6 @@ import {
   browserResetSeams,
   resetBrowser,
 } from "./browser-reset.js";
-import { RESET_LOCK } from "./browser-reset-channel.js";
 import { kvSet, kvSetDurable } from "./kv.js";
 import { sessionExitSeams } from "./session-exit.js";
 import {

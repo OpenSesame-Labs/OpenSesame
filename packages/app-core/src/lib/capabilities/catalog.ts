@@ -14,8 +14,8 @@ import {
   type CapabilityId,
   buildCatalog,
 } from "@opensesame/capability-composition";
-import { ALWAYS_ON_DESCRIPTORS } from "./catalog-always-on.js";
 import { BROWSER_LOCAL_DESCRIPTORS } from "./catalog-always-on-local.js";
+import { ALWAYS_ON_DESCRIPTORS } from "./catalog-always-on.js";
 import { CORE_DESCRIPTORS } from "./catalog-core.js";
 import { IDENTITY_FAMILY_DESCRIPTORS } from "./catalog-optional-identity.js";
 import { PLUGIN_FAMILY_DESCRIPTORS } from "./catalog-optional-plugins.js";

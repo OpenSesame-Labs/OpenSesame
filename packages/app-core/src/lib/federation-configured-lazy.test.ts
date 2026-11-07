@@ -7,7 +7,6 @@ import {
 } from "./federation-configured-lazy.js";
 import * as sessionStore from "./federation-session-store.js";
 import { loadSettings, settingsSeams } from "./settings.js";
-
 const runtime: NativeRestorationRuntime = {
   restoreConfiguredIdentityAtBoot: async () => {},
   restoreConfiguredIdentitySession: async () => ({

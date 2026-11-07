@@ -53,11 +53,7 @@ function DeviceDetail({
   model,
   device,
   onEdit,
-}: {
-  model: DevicesModel;
-  device: LocalDevice;
-  onEdit: () => void;
-}) {
+}: { model: DevicesModel; device: LocalDevice; onEdit: () => void }) {
   return (
     <div className="detail" id={device.id}>
       <div className="detail__head">
@@ -100,10 +96,7 @@ function DeviceDetail({
 function DeviceRemoval({
   model,
   device,
-}: {
-  model: DevicesModel;
-  device: LocalDevice;
-}) {
+}: { model: DevicesModel; device: LocalDevice }) {
   const armed = model.armed?.id === device.id;
   return (
     <>

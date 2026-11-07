@@ -29,10 +29,10 @@ import { StatusMark } from "../../components/StatusMark.js";
 import { landFocus } from "../../lib/focus.js";
 import { CapabilityCard } from "./CapabilityCard.js";
 import { CapabilityReview } from "./CapabilityReview.js";
-import { deploymentConfigurationYaml } from "./deployment-config.js";
-import { saveTextFile } from "./download.js";
 import { InstallationRequirements } from "./InstallationRequirements.js";
 import { PurposeCards } from "./PurposeCards.js";
+import { deploymentConfigurationYaml } from "./deployment-config.js";
+import { saveTextFile } from "./download.js";
 import {
   type CapabilitySetupModel,
   useCapabilitySetup,

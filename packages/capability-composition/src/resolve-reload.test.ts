@@ -19,8 +19,8 @@ import {
   fixtureResolveInput,
   fixtureSelection,
 } from "./fixtures.js";
-import { resolveComposition } from "./resolve.js";
 import type { ResolveInput } from "./resolve-input.js";
+import { resolveComposition } from "./resolve.js";
 import type { RuntimeFacts } from "./types.js";
 
 const PUSH = "notifications.web-push";

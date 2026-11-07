@@ -1,22 +1,22 @@
 export {
-  type RootTrustAlarm,
   compareRootTrustFingerprint,
+  type RootTrustAlarm,
 } from "./alarm.js";
+export { ensurePeerArkSigningKey, type PeerArkSigningKey } from "./ark-key.js";
 export {
   PeerApprovalQueue,
   type PeerEnsureResult,
   type PeerEnsureStatus,
 } from "./approval-queue.js";
-export { type PeerArkSigningKey, ensurePeerArkSigningKey } from "./ark-key.js";
 export {
   PEER_TRUST_ENVELOPE_KIND,
   PEER_TRUST_SIGNAL_KIND,
 } from "./constants.js";
 export {
-  type SignedPeerTrustEnvelope,
   peerTrustSignedBytes,
   signPeerTrustEnvelope,
   verifyPeerTrustEnvelope,
+  type SignedPeerTrustEnvelope,
 } from "./envelope.js";
 export {
   exportSpkiB64,
@@ -29,21 +29,21 @@ export {
   verbRequiresHardwarePasskey,
 } from "./human-proof-tier.js";
 export {
-  type PeerTrustRecord,
   nextEnrollmentEpoch,
   parsePeerTrustRecord,
+  type PeerTrustRecord,
 } from "./record.js";
 export { sasFromFingerprint } from "./sas.js";
 export {
-  type PeerTrustSignal,
   buildPeerTrustSignal,
   decodePeerTrustSignal,
   encodePeerTrustSignal,
   verifyPeerTrustSignal,
+  type PeerTrustSignal,
 } from "./signaling.js";
 export {
-  type PeerTrustCommitResult,
-  type PeerTrustLoadResult,
   commitPeerTrustEnrollment,
   loadPeerTrustStore,
+  type PeerTrustCommitResult,
+  type PeerTrustLoadResult,
 } from "./store.js";

@@ -9,7 +9,6 @@ import { headerWithNewPassword, headerWithPassword } from "./master-wrap.js";
 import { assertNewVaultScopeEmpty } from "./new-vault-scope-guard.js";
 import { wrapVaultKeyWithPin } from "./unlock-methods.js";
 import { assertNewPassword, assertNewPin } from "./unlock-secret-guard.js";
-
 type CredentialHost = Readonly<{
   context: () => () => void;
   header: () => VaultHeader | null;

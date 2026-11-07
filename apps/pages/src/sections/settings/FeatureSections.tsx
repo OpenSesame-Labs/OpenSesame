@@ -40,8 +40,8 @@ import {
   GuestSection,
   SectionHead,
 } from "./CapabilitySwitch.js";
-import { featureConfigPath } from "./feature-config-path.js";
 import { WithdrawnMark, titleOf } from "./SectionMarks.js";
+import { featureConfigPath } from "./feature-config-path.js";
 
 /**
  * The `settings-panel` category a feature's own page reads

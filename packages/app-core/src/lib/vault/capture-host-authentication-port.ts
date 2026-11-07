@@ -6,7 +6,6 @@ import type {
   PhysicalAuthenticationPort,
   PhysicalAuthenticationReader,
 } from "./physical-authentication-port.js";
-
 const bindOriginal = Function.prototype.call.bind(Function.prototype.bind);
 
 const DESCRIPTOR_KEYS: readonly (keyof PropertyDescriptor)[] = [

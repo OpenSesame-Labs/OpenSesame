@@ -16,6 +16,14 @@ import {
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
 import {
+  type ResetLoginRef,
+  type ResetMailMessage,
+  accountsBoundTo,
+  autonomousPasswordResetReady,
+  matchResetMail,
+  resetMailboxes,
+} from "@opensesame/app-core/lib/password-reset-mail.js";
+import {
   LOOKBACK_MS,
   handledKey,
   isHandled,
@@ -34,14 +42,6 @@ import {
 } from "@opensesame/app-core/lib/password-reset/jmap.js";
 import { adoptLegacyResetEmails } from "@opensesame/app-core/lib/password-reset/legacy-emails.js";
 import { connectionOf } from "@opensesame/app-core/lib/password-reset/mailbox-connection.js";
-import {
-  type ResetLoginRef,
-  type ResetMailMessage,
-  accountsBoundTo,
-  autonomousPasswordResetReady,
-  matchResetMail,
-  resetMailboxes,
-} from "@opensesame/app-core/lib/password-reset-mail.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { VaultItem } from "@opensesame/vault-core";
 

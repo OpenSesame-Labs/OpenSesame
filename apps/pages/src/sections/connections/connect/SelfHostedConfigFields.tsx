@@ -19,9 +19,9 @@ import { StatusMark } from "../../../components/StatusMark.js";
 import { ConfigSelections } from "./ConfigSelections.js";
 import { ConnectorIconField } from "./ConnectorIconField.js";
 import { ConnectorModes } from "./ConnectorModes.js";
-import { MethodPicker } from "./fields.js";
 import { MethodFields } from "./MethodFields.js";
 import { OauthClientFields, OauthServerFields } from "./OauthFields.js";
+import { MethodPicker } from "./fields.js";
 
 type Props = {
   plan: ConnectPlan;

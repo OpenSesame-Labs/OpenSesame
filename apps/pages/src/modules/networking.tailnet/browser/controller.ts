@@ -31,9 +31,7 @@ import {
 } from "./controller-requests.js";
 import { BrowserNodeRetirement } from "./controller-retirement.js";
 import { HostMessage, NetMap } from "./protocol.js";
-
 export type { BrowserNodePolicy } from "./browser-node-policy.js";
-
 const stopped = (): TailscaleNodeSnapshot => ({
   status: "stopped",
   hostname: "",

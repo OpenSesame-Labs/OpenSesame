@@ -1,11 +1,11 @@
 /** @vitest-environment jsdom */
-
-import type { Folder, VaultItem } from "@opensesame/vault-core";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import { planeHookSeams } from "../../bindings/planes.js";
+
+import type { Folder, VaultItem } from "@opensesame/vault-core";
 
 type VaultFixture = { current: { items: VaultItem[]; folders: Folder[] } };
 
@@ -36,15 +36,14 @@ Object.assign(vaultHooksSeams, {
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
 Object.assign(planeHookSeams, { usePlaneStatus: () => planes.value });
-
 import { connectionSeams } from "@opensesame/app-core/lib/connections.js";
 
 const originalConnectionSeams = { ...connectionSeams };
 Object.assign(connectionSeams, { listConnections });
 afterAll(() => Object.assign(connectionSeams, originalConnectionSeams));
 
-import { makeAccount } from "./account.test-support.js";
 import { ItemDetail } from "./ItemDetail.js";
+import { makeAccount } from "./account.test-support.js";
 
 function renderAt(itemId: string) {
   return render(

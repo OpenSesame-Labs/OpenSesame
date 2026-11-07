@@ -1,5 +1,5 @@
-import { DECOY } from "./decoy.js";
 import { DECOY_ITEMS } from "./decoy-items.js";
+import { DECOY } from "./decoy.js";
 import { FREEZE } from "./freeze.js";
 import { HONEY_VAULT } from "./honey-vault.js";
 import type { DuressMode } from "./mode.js";
@@ -7,24 +7,24 @@ import { VISIBLE_ITEMS } from "./visible-items.js";
 import { WIPE } from "./wipe.js";
 import { WRONG_PASSWORD } from "./wrong-password.js";
 
+export type {
+  DuressContext,
+  DuressEffectName,
+  DuressPickRow,
+  DuressInputOption,
+  DuressMode,
+  DuressModeInput,
+  DuressPlan,
+  DuressPresentation,
+} from "./mode.js";
+export { inputReady, isOffered, itemLines, offeredModes } from "./inputs.js";
+export { decodePlan, encodePlan } from "./payload.js";
 export {
   type EffectHost,
   type EffectPhase,
   hasEffectRunner,
   runDuressEffects,
 } from "./effects.js";
-export { inputReady, isOffered, itemLines, offeredModes } from "./inputs.js";
-export type {
-  DuressContext,
-  DuressEffectName,
-  DuressInputOption,
-  DuressMode,
-  DuressModeInput,
-  DuressPickRow,
-  DuressPlan,
-  DuressPresentation,
-} from "./mode.js";
-export { decodePlan, encodePlan } from "./payload.js";
 
 /**
  * Every mode the sheet can offer, in the order it draws them: the ones that

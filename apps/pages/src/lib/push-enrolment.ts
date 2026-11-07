@@ -27,13 +27,13 @@ import {
   pushSupported,
 } from "./push-seams.js";
 
-export { pushSubscribed } from "./push-browser.js";
 export {
   PushError,
   type PushErrorCode,
   pushSeams,
   pushSupported,
 } from "./push-seams.js";
+export { pushSubscribed } from "./push-browser.js";
 
 /**
  * Web Push enrolment (ADR 0084): the document's half. The service worker's

@@ -20,8 +20,8 @@ import {
 import { useVault } from "../../../lib/vault/hooks.js";
 import { DuressCeremony } from "./DuressCeremony.js";
 import { MethodRow } from "./MethodRow.js";
-import type { Run } from "./run.js";
 import { SheetFrame } from "./SheetFrame.js";
+import type { Run } from "./run.js";
 
 /** Whether the Duress row draws: the owner of an open vault, never a guest. */
 export function useDuressPanelShown(): boolean {
@@ -114,7 +114,11 @@ function DuressRow({
  * in front of someone finds nothing to disable and nothing that says it is
  * there (ADR 0130, INV-27).
  */
-export function DuressPanel({ arm }: { arm?: typeof enableDuressCode }) {
+export function DuressPanel({
+  arm,
+}: {
+  arm?: typeof enableDuressCode;
+}) {
   const shown = useDuressPanelShown();
   const { items } = useVault();
   const [open, setOpen] = useState(false);

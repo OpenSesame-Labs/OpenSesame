@@ -1,5 +1,5 @@
-import type { ActivityEvent } from "@opensesame/app-core/lib/activity-log.js";
 import * as activityLog from "@opensesame/app-core/lib/activity-log.js";
+import type { ActivityEvent } from "@opensesame/app-core/lib/activity-log.js";
 import { defaultPrefs } from "@opensesame/app-core/lib/vault/prefs.js";
 import type { VaultState } from "@opensesame/app-core/lib/vault/store.js";
 /** @vitest-environment jsdom */

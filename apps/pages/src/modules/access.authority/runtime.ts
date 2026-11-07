@@ -23,10 +23,7 @@
 
 import type { CapabilityRuntime } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { flushReceipts } from "@opensesame/app-core/lib/device-receipts.js";
-import {
-  ACCESS_LABELS,
-  ACCESS_VIEWS,
-} from "@opensesame/app-core/lib/section-view-names.js";
+
 import {
   ACCESS_ROUTES,
   ACCESS_TARGETS,
@@ -41,6 +38,11 @@ import { registerTutorial } from "../tutorial-contributions.js";
 import { pickById } from "../tutorial-pick-b.js";
 import { AccessRailTree } from "./AccessRailTree.js";
 import { AccessRedirect } from "./AccessRedirect.js";
+
+import {
+  ACCESS_LABELS,
+  ACCESS_VIEWS,
+} from "@opensesame/app-core/lib/section-view-names.js";
 export const CAPABILITY = "access.authority";
 
 /**

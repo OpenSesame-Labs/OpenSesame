@@ -15,8 +15,8 @@ import { FieldShell } from "../../../components/FieldShell.js";
 import { FormCommit } from "../../../components/FormCommit.js";
 import { IconPlus } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { MethodPicker } from "./fields.js";
 import { MethodFields } from "./MethodFields.js";
+import { MethodPicker } from "./fields.js";
 
 /** Name and UID: how Connect and the SDK address this connector. */
 export function ConnectorIdentity({

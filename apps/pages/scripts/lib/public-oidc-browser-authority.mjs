@@ -12,7 +12,6 @@ import {
   PWA,
   PublicOidcProtocol,
 } from "./public-oidc-browser-protocol.mjs";
-
 export { BASE, IDP, PWA } from "./public-oidc-browser-protocol.mjs";
 
 const MIME = {

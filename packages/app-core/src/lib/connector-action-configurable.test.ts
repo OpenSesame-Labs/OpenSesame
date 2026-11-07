@@ -1,7 +1,6 @@
 import { expect, it } from "vitest";
 import { isRefusedPlan } from "./connect-plan.js";
 import { connectorCardAction } from "./connector-action-capability.js";
-
 it("opens a compiled configuration route without promoting a saved draft to verified", () => {
   const provider = { id: "resend" };
   const connection = {

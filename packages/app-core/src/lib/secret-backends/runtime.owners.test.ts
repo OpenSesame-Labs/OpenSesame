@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { deviceConnection } from "../device-connectors.js";
 import { createInfisicalBackend } from "./infisical.js";
+import * as guards from "./runtime-guard.js";
+import {
+  advanceSecretBackendGeneration as advance,
+  secretBackendGeneration as generation,
+  registerPendingSecretBackend as register,
+} from "./runtime-owners.js";
 import {
   connectSecretBackend,
   deleteSecretBackendConnection,
@@ -14,12 +20,6 @@ import {
   remoteDraft,
   runtimeFixture,
 } from "./runtime.test-support.js";
-import * as guards from "./runtime-guard.js";
-import {
-  advanceSecretBackendGeneration as advance,
-  secretBackendGeneration as generation,
-  registerPendingSecretBackend as register,
-} from "./runtime-owners.js";
 import { secretBackendDeviceSeams as status } from "./seam.js";
 import { createSecretBackendSessions } from "./sessions.js";
 import * as store from "./store.js";

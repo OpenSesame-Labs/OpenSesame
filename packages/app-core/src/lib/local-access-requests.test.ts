@@ -15,11 +15,11 @@ import {
 } from "./local-access-requests.js";
 import { configureLocalApplication } from "./local-applications.js";
 import { revokeLocalPasskey } from "./local-credentials.js";
-import { localRequestFixture } from "./local-request.fixture.js";
 import {
   localDecisionDigest,
   readLocalRequestRecords,
 } from "./local-request-store.js";
+import { localRequestFixture } from "./local-request.fixture.js";
 import {
   type LocalSession,
   revokeLocalIdentitySession,

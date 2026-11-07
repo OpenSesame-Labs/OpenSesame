@@ -26,6 +26,7 @@ import { useListingSearch } from "../../components/SlashSearch.js";
 import { StatusMark, statusTone } from "../../components/StatusMark.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { ConnectorMark } from "./ConnectorMark.js";
+import { InstalledConnectorActions } from "./InstalledConnectorActions.js";
 import {
   catalogConnectorAction,
   preferredCatalogConnection,
@@ -35,7 +36,6 @@ import {
   curatedCatalogProviders,
   matchesCatalog,
 } from "./catalog-selection.js";
-import { InstalledConnectorActions } from "./InstalledConnectorActions.js";
 import { identityConnectionMethodLabel } from "./identity/identity-ui-values.js";
 
 export function authKindLabel(provider: Provider): string {

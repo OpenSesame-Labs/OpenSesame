@@ -13,8 +13,8 @@ import { MemoryRouter } from "react-router";
 import { afterEach, vi } from "vitest";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { awsKmsConnectDependencies } from "./AwsKmsConnectPanel.js";
-import { installConnectorIntegration } from "./connect/native-connector-integration.test-support.js";
 import { ConnectorSettingsPage } from "./SettingsPage.js";
+import { installConnectorIntegration } from "./connect/native-connector-integration.test-support.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 const originalIdentity = { ...identitySeams };

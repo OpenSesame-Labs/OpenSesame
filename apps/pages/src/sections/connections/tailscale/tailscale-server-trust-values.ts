@@ -1,9 +1,9 @@
 import { TailscaleServerTrustConfiguration } from "@opensesame/app-core/lib/tailscale/browser-node-port.js";
+import { nativeNextValues } from "../connect/native-connector-ui-values.js";
 import type {
   NativeField,
   NativeFieldValues,
 } from "../connect/native-connector-ui.js";
-import { nativeNextValues } from "../connect/native-connector-ui-values.js";
 
 export function serverTrustFields(
   label: string,

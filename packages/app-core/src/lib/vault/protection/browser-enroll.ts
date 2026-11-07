@@ -3,15 +3,11 @@ import type {
   RootProtectionManifest,
 } from "@opensesame/vault-core";
 import { contextForRecord } from "./protector-context.js";
-
 export { contextForRecord } from "./protector-context.js";
-
 import { mintRootKeyHandle } from "./adapter.js";
 import { enrollAgeWebauthn } from "./adapters/age-webauthn.js";
-import {
-  createWebauthnPrfProtector,
-  protectorFromPrfMaterial,
-} from "./adapters/webauthn-prf-ops.js";
+import { protectorFromPrfMaterial } from "./adapters/webauthn-prf-ops.js";
+import { createWebauthnPrfProtector } from "./adapters/webauthn-prf-ops.js";
 import {
   type ExternalEnrollment,
   provenExternalRecord,

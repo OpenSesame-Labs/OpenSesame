@@ -3,19 +3,19 @@ import { currentAuthGeneration } from "./auth-generation.js";
 import { storeAuthOutcome } from "./auth-outcome.js";
 import { subscribeDeviceRows } from "./device-connector-records.js";
 import { resolveIdentityBase } from "./device-identity.js";
-import {
-  type UpstreamIdentity,
-  displayName,
-  saveSession,
-} from "./federation.js";
 import { assertConfiguredIdentitySessionTrusted } from "./federation-configured-token.js";
 import {
   type FederationSessionGeneration,
   federationSessionGeneration,
 } from "./federation-native-session.js";
+import {
+  type UpstreamIdentity,
+  displayName,
+  saveSession,
+} from "./federation.js";
 import { adoptFederatedIdentity, openVaultAfterSignIn } from "./guest-auth.js";
-import { currentSession, subscribeIdentitySession } from "./identity.js";
 import { identityConnectionRevision } from "./identity-connections-store.js";
+import { currentSession, subscribeIdentitySession } from "./identity.js";
 import { vaultStore } from "./vault/store.js";
 
 export type ConfiguredIdentitySessionOwner = Readonly<{

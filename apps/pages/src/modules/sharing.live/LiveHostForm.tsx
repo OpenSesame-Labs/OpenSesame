@@ -26,7 +26,11 @@ import { useHostForm } from "./live-host-form-state.js";
 
 export { routesSummary } from "./live-host-form-parts.js";
 
-export function LiveHostForm({ initialTitle = "" }: { initialTitle?: string }) {
+export function LiveHostForm({
+  initialTitle = "",
+}: {
+  initialTitle?: string;
+}) {
   const {
     values,
     set,

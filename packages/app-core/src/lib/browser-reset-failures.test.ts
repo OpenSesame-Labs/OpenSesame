@@ -9,6 +9,7 @@ import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
+import { clearDatabases, networkAnswers } from "./browser-reset-areas.js";
 import {
   NO_PORTS,
   SCOPE,
@@ -21,7 +22,6 @@ import {
   workerContainer,
 } from "./browser-reset.fixture.js";
 import { browserResetSeams, resetBrowser } from "./browser-reset.js";
-import { clearDatabases, networkAnswers } from "./browser-reset-areas.js";
 import { sessionExitSeams } from "./session-exit.js";
 import { resumeStorageWritesForTest } from "./storage-halt.js";
 

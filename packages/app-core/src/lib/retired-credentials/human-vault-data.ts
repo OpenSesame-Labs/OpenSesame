@@ -1,8 +1,8 @@
 /** Inactive data authentication only. Derived key possession is not owner authority. */
 import {
   type BoundaryValue,
-  asBufferSource,
   isJsonObject,
+  asBufferSource,
 } from "@opensesame/os-domain";
 import {
   type AuthenticatedLegacyGates,

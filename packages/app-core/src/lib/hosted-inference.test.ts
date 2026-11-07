@@ -2,14 +2,14 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { performHostedInference } from "./hosted-inference.js";
 import {
+  type HostedModelProvider,
+  hostedModelRequest,
+} from "./hosted-model-protocol.js";
+import {
   MODEL_TEST_SECRET,
   modelMemoryBackend,
   saveModelFixture,
 } from "./hosted-model.test-support.js";
-import {
-  type HostedModelProvider,
-  hostedModelRequest,
-} from "./hosted-model-protocol.js";
 import {
   readNativeConnector,
   updateNativeConnector,

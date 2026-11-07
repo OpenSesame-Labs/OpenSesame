@@ -14,7 +14,6 @@ import {
   useIdentityConnection,
 } from "./useIdentityConnection.js";
 import "../connect/connect.css";
-
 export {
   identityConnectionDependencies,
   isIdentityConnectionProvider,
@@ -23,10 +22,7 @@ export {
 function ConfigurationPanel({
   editor,
   online,
-}: {
-  editor: IdentityConnectionEditor;
-  online: boolean;
-}) {
+}: { editor: IdentityConnectionEditor; online: boolean }) {
   return (
     <ConnectorPanel
       step={2}
@@ -68,10 +64,7 @@ function ConfigurationPanel({
 function SignInPanel({
   editor,
   online,
-}: {
-  editor: IdentityConnectionEditor;
-  online: boolean;
-}) {
+}: { editor: IdentityConnectionEditor; online: boolean }) {
   const removeRef = useRef<HTMLButtonElement>(null);
   const { saved, confirming, busy } = editor;
   if (!saved) return null;

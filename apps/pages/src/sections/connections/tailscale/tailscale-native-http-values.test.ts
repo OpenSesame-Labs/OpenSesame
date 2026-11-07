@@ -6,7 +6,6 @@ import {
   nativeHTTPDraft,
   nextNativeHTTPDraft,
 } from "./tailscale-native-http-values.js";
-
 it("round-trips each actual native trust configuration through shared field values", () => {
   const base = {
     version: 1 as const,

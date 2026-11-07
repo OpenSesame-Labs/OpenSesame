@@ -9,15 +9,15 @@ import {
   requireLocalApplicationAdmission,
 } from "./local-applications.js";
 import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
-import {
-  type LocalDirectoryChange,
-  readLocalDirectory,
-} from "./local-directory.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   PAGES_APPLICATION_ID,
   ensureOwnerPerson,
 } from "./local-directory-bootstrap.js";
+import {
+  type LocalDirectoryChange,
+  readLocalDirectory,
+} from "./local-directory.js";
 import { enrollLocalPasskey } from "./local-passkeys.js";
 import { signInLocalIdentity } from "./local-sessions.js";
 import { vaultStore } from "./vault/store.js";

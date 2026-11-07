@@ -7,11 +7,11 @@
 
 import {
   type AskView,
-  DeskError,
   applyAsk,
   askStatus,
   collectApprovals,
 } from "@opensesame/app-core/lib/quorum/desk/index.js";
+import { DeskError } from "@opensesame/app-core/lib/quorum/desk/index.js";
 import { useState } from "react";
 import { CeremonyShell } from "../../../components/CeremonyShell.js";
 import { ReloadKey } from "../../../components/IconKey.js";

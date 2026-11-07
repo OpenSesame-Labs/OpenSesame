@@ -8,9 +8,9 @@ import { kvForgetAll } from "../kv.js";
 import { vaultStore } from "../vault/store.js";
 import { createSecretBackend } from "./factory.js";
 import artifacts from "./onepassword-artifacts.json" with { type: "json" };
+import * as loader from "./onepassword-sdk-loader.js";
 import * as adapter from "./onepassword-sdk.js";
 import { sdkFixture, vaultId } from "./onepassword-sdk.test-support.js";
-import * as loader from "./onepassword-sdk-loader.js";
 import {
   secretBackendDraft,
   secretBackendModeLabel,

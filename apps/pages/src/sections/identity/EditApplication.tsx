@@ -184,7 +184,6 @@ function HostedApplicationForm(props: {
         message={props.error}
       />
       {props.preview ? (
-        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
         <pre className="cfg-pre" aria-label="Claim preview">
           {props.preview}
         </pre>

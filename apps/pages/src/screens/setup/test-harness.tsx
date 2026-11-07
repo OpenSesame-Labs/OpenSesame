@@ -13,8 +13,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, vi } from "vitest";
 import type { InstallOutcome, InstallState } from "../../lib/install.js";
 import { installViewSeams } from "../../lib/use-install.js";
-import { SETUP_PANEL_FIXTURE } from "../capabilities/setup-panel-fixture.js";
 import { SetupScreen, setupScreenDependencies } from "../SetupScreen.js";
+import { SETUP_PANEL_FIXTURE } from "../capabilities/setup-panel-fixture.js";
 import type { SetupSeams } from "./test-seams.js";
 
 /** What `addProvider` needs to fill one preset's form. */

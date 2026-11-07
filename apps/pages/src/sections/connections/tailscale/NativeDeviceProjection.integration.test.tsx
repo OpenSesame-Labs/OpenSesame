@@ -87,9 +87,7 @@ function configureGithub() {
 
 function Projection({
   load = listConnections,
-}: {
-  load?: () => Promise<Connection[]>;
-}) {
+}: { load?: () => Promise<Connection[]> }) {
   const [connections, setConnections] = useTailscaleConnections();
   useEffect(() => {
     let live = true;

@@ -10,8 +10,8 @@ import {
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
-import { VaultCorruptError, VaultStore } from "./store.js";
 import type { SealedSnapshot } from "./store-merge.js";
+import { VaultCorruptError, VaultStore } from "./store.js";
 
 const PASSWORD = "correct horse battery staple";
 

@@ -9,7 +9,6 @@ import {
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
 import { VaultStore } from "./store.js";
-
 beforeEach(async () => {
   await vfsFlush();
   await kvFlush();

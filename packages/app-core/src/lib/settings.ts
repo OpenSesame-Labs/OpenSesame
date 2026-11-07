@@ -21,7 +21,6 @@ import { kvGet, kvSet, kvSetDurable } from "./kv.js";
 import { type OperatorIdp, readOperatorIdp } from "./operator-idp-config.js";
 import { assertGuestMayNotChangeTrustAnchors } from "./settings-guest-trust.js";
 import { isLoopbackUrl } from "./urls.js";
-
 export type { OperatorIdp } from "./operator-idp-config.js";
 export { normalizeOperatorIdp } from "./operator-idp-config.js";
 

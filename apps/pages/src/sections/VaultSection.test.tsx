@@ -1,11 +1,5 @@
 import { registerLegacyItemKinds } from "@opensesame/app-core/lib/contributions.test-support.js";
 import type { JsonObject } from "@opensesame/os-domain";
-import type {
-  AccountItem,
-  DropItem,
-  Folder,
-  NoteItem,
-} from "@opensesame/vault-core";
 import {
   act,
   cleanup,
@@ -24,13 +18,20 @@ import {
   useNavigationType,
 } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createKeymapHandler } from "../lib/keymap.js";
 import { expectVaultCommands } from "./vault/commands.test-support.js";
 import {
   makeAccount,
   makeDrop,
   makeNote,
 } from "./vault/section-items.test-support.js";
+
+import type {
+  AccountItem,
+  DropItem,
+  Folder,
+  NoteItem,
+} from "@opensesame/vault-core";
+import { createKeymapHandler } from "../lib/keymap.js";
 
 type VaultHarness = {
   current: {
@@ -49,9 +50,8 @@ const vault: VaultHarness = {
 };
 
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
-import { sharedItemsSeams } from "./vault/use-shared-items.js";
 import { vaultTreeSeams } from "./vault/VaultTree.js";
-
+import { sharedItemsSeams } from "./vault/use-shared-items.js";
 const copySecret = vi.fn();
 const store = {
   activeTomb: () => "personal",

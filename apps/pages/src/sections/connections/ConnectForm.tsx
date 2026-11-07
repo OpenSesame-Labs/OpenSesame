@@ -23,9 +23,9 @@ import { type FormEvent, useId, useState } from "react";
 import { useConnectorRoads } from "../../bindings/connector-roads.js";
 import { ApiKeyForm } from "./ApiKeyForm.js";
 import { ConfigurationForm } from "./ConfigurationForm.js";
-import { defaultsFor } from "./connect-defaults.js";
 import { GitConnectForm } from "./GitConnectForm.js";
 import { OauthConnectBody } from "./OauthConnectBody.js";
+import { defaultsFor } from "./connect-defaults.js";
 import { useConnectSave } from "./useConnectSave.js";
 
 /**

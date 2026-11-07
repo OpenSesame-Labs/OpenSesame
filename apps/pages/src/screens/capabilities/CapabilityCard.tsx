@@ -133,7 +133,6 @@ export function CapabilityCard({
         </div>
       ) : null}
       {on && descriptor.alternatives.length > 0 && onChooseAlternative ? (
-        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
         <div
           className="capcard__alts"
           aria-label={`Choices for ${descriptor.title}`}

@@ -20,8 +20,8 @@ import {
 import { readGuidePredicate } from "@opensesame/app-core/tutorial/registry/state.js";
 import { useMemo } from "react";
 import { useComposition } from "../../bindings/capabilities.js";
-import { installState } from "../../lib/install.js";
 import { installPanelDraws } from "../../lib/install-panel.js";
+import { installState } from "../../lib/install.js";
 import { useIdentityConfigured } from "../../lib/use-configured.js";
 import { finePointerNow, narrowNow } from "../../lib/use-narrow.js";
 import { useIntegrationsDrawn } from "../../sections/settings/use-integrations-drawn.js";

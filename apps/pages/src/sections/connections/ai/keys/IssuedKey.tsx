@@ -29,7 +29,6 @@ export function IssuedKey({ issued, lifetime }: Props) {
           {said ? <StatusMark tone="ok" label={said} /> : null}
         </div>
         <div className="f__shell mkey__token">
-          {/** biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
           <code
             className="mkey__token-text"
             data-testid="model-key-token"

@@ -5,7 +5,6 @@ import type {
 import { afterEach, expect, it, vi } from "vitest";
 import { parseArgs } from "./parse.js";
 import { runCli } from "./run.js";
-
 afterEach(() => vi.restoreAllMocks());
 const inspection: LocalRetiredInspection = {
   traps: [],

@@ -12,7 +12,6 @@
  * native plane can lay out the same tree.
  */
 export const SECRETS_DIR = "secrets";
-
 import { STAGING_SUFFIX } from "./files.js";
 
 const MAX_NAME = 80;

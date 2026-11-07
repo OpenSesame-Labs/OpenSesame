@@ -21,7 +21,6 @@ function stubStorage(): void {
 beforeEach(() => {
   stubStorage();
 });
-
 import {
   ambientControllerSeams,
   evaluateEligibility,

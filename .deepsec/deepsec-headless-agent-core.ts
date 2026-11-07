@@ -3,7 +3,15 @@
  */
 
 export { extractTextFromAgentStdout } from "./deepsec-agent-stdout.js";
-export { createHeadlessDeepsecAgent } from "./deepsec-headless-agent-impl.js";
+export {
+  DEEPSEC_SYSTEM_NOTE,
+  DEFAULT_CURSOR_MODEL,
+  DEFAULT_GROK_MODEL,
+  DEFAULT_KIMI_MODEL,
+  JSON_ONLY_SUFFIX,
+  MAX_ATTEMPTS,
+  modelFromConfig,
+} from "./deepsec-headless-agent-types.js";
 export type {
   FileRecord,
   Finding,
@@ -14,12 +22,5 @@ export type {
   TriageParams,
   TriageVerdict,
 } from "./deepsec-headless-agent-types.js";
-export {
-  DEEPSEC_SYSTEM_NOTE,
-  DEFAULT_CURSOR_MODEL,
-  DEFAULT_GROK_MODEL,
-  DEFAULT_KIMI_MODEL,
-  JSON_ONLY_SUFFIX,
-  MAX_ATTEMPTS,
-  modelFromConfig,
-} from "./deepsec-headless-agent-types.js";
+
+export { createHeadlessDeepsecAgent } from "./deepsec-headless-agent-impl.js";

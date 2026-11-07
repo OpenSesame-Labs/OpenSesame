@@ -1,14 +1,13 @@
 /** Exact bounded ciphertext transition validation; no decryption or owner grant. */
 import { bytesToB64 } from "@opensesame/vault-core";
 import { z } from "zod";
+import type { AuthenticationProjectionPlan } from "./authentication-projection-plan.js";
 import {
   NODE_PROJECTION_BYTE_LIMIT,
   NODE_PROJECTION_FILE_LIMIT,
   NODE_PROJECTION_WIRE_LIMIT,
   decodeAuthenticationProjection,
 } from "./authentication-projection.js";
-import type { AuthenticationProjectionPlan } from "./authentication-projection-plan.js";
-
 const byteText = z.string().max(Math.ceil(NODE_PROJECTION_BYTE_LIMIT / 3) * 4);
 const write = z.strictObject({
   path: z.string().min(1).max(900),

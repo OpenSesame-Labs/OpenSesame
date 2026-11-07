@@ -3,7 +3,6 @@ import { CONNECT_PLAN_JSON } from "@opensesame/app-core/lib/connect-presets.gene
 import { projectNativeMarqetaUsers } from "@opensesame/app-core/lib/native-api-marqeta.js";
 import { expect, it } from "vitest";
 import { nativeApiFixture } from "./native-browser-provider-fixtures.mjs";
-
 const marqeta = CONNECT_PLAN_JSON.map((text) => JSON.parse(text)).find(
   (plan) => plan.id === "marqeta",
 );

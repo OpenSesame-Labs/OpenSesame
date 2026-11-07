@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
 
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+
 import type {
   Connection,
   Provider,
@@ -8,14 +12,11 @@ import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
 import { registerContributionForTest } from "@opensesame/app-core/lib/contributions.js";
 import { registerTutorialRealm } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
 import type { AccountItem, Folder, VaultItem } from "@opensesame/vault-core";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { connectionCeremonyDependencies } from "../../components/ConnectionCeremony.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { IMPORT_COMMAND } from "../../modules/vault.interop-formats/runtime.js";
-import { makeAccount } from "../../sections/vault/account.test-support.js";
 import { vaultTreeSeams } from "../../sections/vault/VaultTree.js";
+import { makeAccount } from "../../sections/vault/account.test-support.js";
 
 // The connector surfaces bind targets the connectors capability declares,
 // and Import is the formats capability's key in the vault path strip.
@@ -75,9 +76,9 @@ import {
   isMountedGuideTarget,
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { VaultSection } from "../../sections/VaultSection.js";
 import { CatalogPanel } from "../../sections/connections/CatalogPanel.js";
 import { ConnectedPanel } from "../../sections/connections/ConnectedPanel.js";
-import { VaultSection } from "../../sections/VaultSection.js";
 import { HealthPanel } from "../../sections/vault/HealthPanel.js";
 
 function provider(): Provider {

@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { expect } from "@playwright/test";
+import { privateTempDir } from "./lib/private-files.mjs";
+
 import { localAccessJourney } from "./lib/local-access-journey.mjs";
 import { localDevicesJourney } from "./lib/local-devices-journey.mjs";
 import { createLocalIamRig } from "./lib/local-iam-rig.mjs";
@@ -8,7 +10,6 @@ import {
   assertConsumedApplicationRequest,
   localRequestJourney,
 } from "./lib/local-request-journey.mjs";
-import { privateTempDir } from "./lib/private-files.mjs";
 import { reviewCaptureDir } from "./lib/review-captures.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 

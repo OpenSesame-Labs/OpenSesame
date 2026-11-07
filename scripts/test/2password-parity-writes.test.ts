@@ -5,7 +5,6 @@ import type {
   InvokeOptions,
   PasswordAgentPort,
 } from "../../packages/app-core/src/lib/password-agent/transport.js";
-
 const sentinel = "FICTIONAL-SECRET-NEVER-IN-OUTPUT";
 interface FixtureField {
   id?: string;

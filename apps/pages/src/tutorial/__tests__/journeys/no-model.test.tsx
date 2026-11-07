@@ -15,7 +15,6 @@ import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { configure, screen, waitFor, within } from "@testing-library/react";
 
 configure({ asyncUtilTimeout: 10_000 });
-
 import {
   GUIDE_GOALS,
   HELP_TOPICS,
@@ -53,143 +52,151 @@ async function showMe(
   return within(row).getByRole("button", { name: "Show me" });
 }
 
-describe("support on a browser that has no model to run", {
-  timeout: 20_000,
-}, () => {
-  afterEach(resetJourney);
+describe(
+  "support on a browser that has no model to run",
+  { timeout: 20_000 },
+  () => {
+    afterEach(resetJourney);
 
-  it("opens and still helps — without asking anything", {
-    timeout: 20_000,
-  }, async () => {
-    const agent = fakeAgentAlwaysUnavailable("platform_unsupported");
-    const journey = renderJourney(agent, { transport: "none" });
-    const { user } = journey;
+    it(
+      "opens and still helps — without asking anything",
+      { timeout: 20_000 },
+      async () => {
+        const agent = fakeAgentAlwaysUnavailable("platform_unsupported");
+        const journey = renderJourney(agent, { transport: "none" });
+        const { user } = journey;
 
-    const panel = await openSupport(user);
+        const panel = await openSupport(user);
 
-    // Nothing narrates why nothing can answer: the sheet shows no prose
-    // about the device, and the field says what it now does instead.
-    expect(
-      within(panel).queryByText(UNAVAILABLE_TEXT.platform_unsupported),
-    ).toBeNull();
-    const composer = await screen.findByLabelText<HTMLInputElement>(
-      "Search the written help",
+        // Nothing narrates why nothing can answer: the sheet shows no prose
+        // about the device, and the field says what it now does instead.
+        expect(
+          within(panel).queryByText(UNAVAILABLE_TEXT.platform_unsupported),
+        ).toBeNull();
+        const composer = await screen.findByLabelText<HTMLInputElement>(
+          "Search the written help",
+        );
+        expect(composer.disabled).toBe(false);
+
+        const help = within(panel).getByRole("region", { name: "Questions" });
+        expect(
+          within(help).getByRole("button", {
+            name: "Where do I lock the vault?",
+          }),
+        ).toBeTruthy();
+        expect(
+          within(help).getByRole("button", {
+            name: "How do I connect a provider?",
+          }),
+        ).toBeTruthy();
+
+        // Search is a substring over authored prose — no index, no model. The
+        // one field carries it, filtering as you type.
+        await user.type(composer, "import");
+        expect(
+          await within(help).findByRole("button", {
+            name: "How do I bring items in from another password manager?",
+          }),
+        ).toBeTruthy();
+        expect(
+          within(help).queryByRole("button", {
+            name: "Where do I lock the vault?",
+          }),
+        ).toBeNull();
+        await user.clear(composer);
+        expect(
+          await within(help).findByRole("button", {
+            name: "Where do I lock the vault?",
+          }),
+        ).toBeTruthy();
+
+        // Reading a topic puts the authored answer in the transcript, as an answer.
+        await user.click(
+          within(help).getByRole("button", {
+            name: "How do I connect a provider?",
+          }),
+        );
+        expect(
+          await screen.findByText(
+            /Search the catalog, open the provider's page/,
+          ),
+        ).toBeTruthy();
+
+        // And a named goal runs a real walkthrough, over the real registry.
+        await user.click(
+          await showMe(panel, "How do I tell whether OpenSesame is healthy?"),
+        );
+        // It opens on a sentence and goes nowhere until the person says so.
+        await tutorialCard();
+        expect(journey.navigations()).toEqual([]);
+        await nextStep(user);
+        await waitFor(
+          () => expect(journey.navigations()).toEqual(["/vault/health"]),
+          { timeout: 10_000 },
+        );
+        expect(
+          await screen.findByRole("heading", { name: "Password health" }),
+        ).toBeTruthy();
+
+        // Nothing in any of that went looking for a model.
+        expect(agent.calls()).toEqual([]);
+      },
     );
-    expect(composer.disabled).toBe(false);
 
-    const help = within(panel).getByRole("region", { name: "Questions" });
-    expect(
-      within(help).getByRole("button", {
-        name: "Where do I lock the vault?",
-      }),
-    ).toBeTruthy();
-    expect(
-      within(help).getByRole("button", {
-        name: "How do I connect a provider?",
-      }),
-    ).toBeTruthy();
+    /**
+     * A defect, recorded as it behaves today rather than as it should.
+     *
+     * Five of the seven authored goals are offered on every route and navigate
+     * to their own section before pointing at something there. A model's output
+     * is compiled against the vocabulary of the route the person is on now — it
+     * may only name what it was shown — but a checked-in walkthrough is compiled
+     * against the whole registry, because it names a control on the screen it is
+     * about to navigate to. Scoping both the same way meant the panel offered
+     * walkthroughs that refused to start from the screen offering them.
+     *
+     * Same parser, same validator, same budgets; only the vocabulary differs, and
+     * it differs because the provenance does.
+     */
+    it("runs a cross-route walkthrough from the screen that offers it", async () => {
+      const journey = renderJourney(
+        fakeAgentAlwaysUnavailable("platform_unsupported"),
+        { transport: "none" },
+      );
+      const { user } = journey;
 
-    // Search is a substring over authored prose — no index, no model. The
-    // one field carries it, filtering as you type.
-    await user.type(composer, "import");
-    expect(
-      await within(help).findByRole("button", {
-        name: "How do I bring items in from another password manager?",
-      }),
-    ).toBeTruthy();
-    expect(
-      within(help).queryByRole("button", {
-        name: "Where do I lock the vault?",
-      }),
-    ).toBeNull();
-    await user.clear(composer);
-    expect(
-      await within(help).findByRole("button", {
-        name: "Where do I lock the vault?",
-      }),
-    ).toBeTruthy();
+      const panel = await openSupport(user);
+      await user.click(await showMe(panel, "How do I connect a provider?"));
+      await tutorialCard();
+      await nextStep(user);
 
-    // Reading a topic puts the authored answer in the transcript, as an answer.
-    await user.click(
-      within(help).getByRole("button", {
-        name: "How do I connect a provider?",
-      }),
-    );
-    expect(
-      await screen.findByText(/Search the catalog, open the provider's page/),
-    ).toBeTruthy();
+      // It walks from the vault to Connections and points at the picker there.
+      await waitFor(() =>
+        expect(journey.focused()).toEqual(["connections.provider-picker"]),
+      );
+      expect(journey.navigations()).toContain("/connections");
+      expect(screen.queryByRole("alert")).toBeNull();
 
-    // And a named goal runs a real walkthrough, over the real registry.
-    await user.click(
-      await showMe(panel, "How do I tell whether OpenSesame is healthy?"),
-    );
-    // It opens on a sentence and goes nowhere until the person says so.
-    await tutorialCard();
-    expect(journey.navigations()).toEqual([]);
-    await nextStep(user);
-    await waitFor(
-      () => expect(journey.navigations()).toEqual(["/vault/health"]),
-      { timeout: 10_000 },
-    );
-    expect(
-      await screen.findByRole("heading", { name: "Password health" }),
-    ).toBeTruthy();
+      resetJourney();
 
-    // Nothing in any of that went looking for a model.
-    expect(agent.calls()).toEqual([]);
-  });
+      // And still runs when the person is already there, navigating to the route
+      // it is on, which is a no-op rather than an error.
+      const onConnections = renderJourney(
+        fakeAgentAlwaysUnavailable("platform_unsupported"),
+        { transport: "none", at: "/connections" },
+      );
+      const reopened = await openSupport(onConnections.user);
+      await onConnections.user.click(
+        await showMe(reopened, "How do I connect a provider?"),
+      );
+      await tutorialCard();
+      await nextStep(onConnections.user);
 
-  /**
-   * A defect, recorded as it behaves today rather than as it should.
-   *
-   * Five of the seven authored goals are offered on every route and navigate
-   * to their own section before pointing at something there. A model's output
-   * is compiled against the vocabulary of the route the person is on now — it
-   * may only name what it was shown — but a checked-in walkthrough is compiled
-   * against the whole registry, because it names a control on the screen it is
-   * about to navigate to. Scoping both the same way meant the panel offered
-   * walkthroughs that refused to start from the screen offering them.
-   *
-   * Same parser, same validator, same budgets; only the vocabulary differs, and
-   * it differs because the provenance does.
-   */
-  it("runs a cross-route walkthrough from the screen that offers it", async () => {
-    const journey = renderJourney(
-      fakeAgentAlwaysUnavailable("platform_unsupported"),
-      { transport: "none" },
-    );
-    const { user } = journey;
-
-    const panel = await openSupport(user);
-    await user.click(await showMe(panel, "How do I connect a provider?"));
-    await tutorialCard();
-    await nextStep(user);
-
-    // It walks from the vault to Connections and points at the picker there.
-    await waitFor(() =>
-      expect(journey.focused()).toEqual(["connections.provider-picker"]),
-    );
-    expect(journey.navigations()).toContain("/connections");
-    expect(screen.queryByRole("alert")).toBeNull();
-
-    resetJourney();
-
-    // And still runs when the person is already there, navigating to the route
-    // it is on, which is a no-op rather than an error.
-    const onConnections = renderJourney(
-      fakeAgentAlwaysUnavailable("platform_unsupported"),
-      { transport: "none", at: "/connections" },
-    );
-    const reopened = await openSupport(onConnections.user);
-    await onConnections.user.click(
-      await showMe(reopened, "How do I connect a provider?"),
-    );
-    await tutorialCard();
-    await nextStep(onConnections.user);
-
-    await waitFor(() =>
-      expect(onConnections.focused()).toEqual(["connections.provider-picker"]),
-    );
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-});
+      await waitFor(() =>
+        expect(onConnections.focused()).toEqual([
+          "connections.provider-picker",
+        ]),
+      );
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  },
+);

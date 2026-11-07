@@ -1,8 +1,5 @@
-import {
-  DURESS_ATTACK_TREES,
-  attackTreeById,
-  findForbiddenClaims,
-} from "@opensesame/contracts";
+import { DURESS_ATTACK_TREES, attackTreeById } from "@opensesame/contracts";
+import { findForbiddenClaims } from "@opensesame/contracts";
 import { describe, expect, it } from "vitest";
 
 describe("duress redteam catalogs", () => {

@@ -178,10 +178,7 @@ export function TokenRows({
 export function OAuthRows({
   method,
   ports,
-}: {
-  method: OAuthMethod;
-  ports: Ports;
-}) {
+}: { method: OAuthMethod; ports: Ports }) {
   return (
     <>
       {method.clientId ? (

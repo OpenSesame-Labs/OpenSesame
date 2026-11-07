@@ -2,16 +2,16 @@ import type { CredentialItem } from "@opensesame/vault-core";
 import { afterEach, expect, it } from "vitest";
 import { readDeviceRows } from "../device-connector-records.js";
 import { kvForgetAll } from "../kv.js";
-import { vaultStore } from "../vault/store.js";
 import { vaultCredentialField } from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import { readSecretBackendCredentialItems } from "./credential-custody.js";
+import { readEncryptedRemoteContinuity } from "./encrypted-remote-codec.js";
+import { createEncryptedRemoteContinuity } from "./encrypted-remote-continuity.js";
 import { createEncryptedRemoteBackend } from "./encrypted-remote.js";
 import {
   encryptedRemoteFixture,
   freshLocalVault,
 } from "./encrypted-remote.test-support.js";
-import { readEncryptedRemoteContinuity } from "./encrypted-remote-codec.js";
-import { createEncryptedRemoteContinuity } from "./encrypted-remote-continuity.js";
 import { saveSecretBackendConnection } from "./runtime.js";
 import { remoteDraft, runtimePassword } from "./runtime.test-support.js";
 import {

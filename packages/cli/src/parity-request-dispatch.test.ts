@@ -7,7 +7,6 @@ import type { InvokeOptions } from "@opensesame/app-core/lib/password-agent/tran
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { openLeaseStore } from "./parity-lease-node.js";
 import { runCli } from "./run.js";
-
 let directory = "";
 const reference = "op://Automation/Database/password";
 const url = "https://request.example/private?query=canary";

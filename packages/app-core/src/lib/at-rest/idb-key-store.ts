@@ -12,11 +12,7 @@
  * sealed under a key the next document will not have.
  */
 
-import {
-  type BoundaryValue,
-  asBufferSource,
-  isJsonObject,
-} from "@opensesame/os-domain";
+import { type BoundaryValue, isJsonObject, asBufferSource } from "@opensesame/os-domain";
 import type { AtRestKeyPort } from "../../ports.js";
 import { openOwnedDatabase } from "../../ports.js";
 import { haltedWriteError, storageWritesHalted } from "../storage-halt.js";
@@ -106,11 +102,7 @@ async function addOrRead(db: IDBDatabase, candidate: KeyRecord) {
 
 async function unwrap(record: KeyRecord): Promise<Uint8Array> {
   const plain = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: asBufferSource(record.iv),
-      additionalData: WRAP_BINDING,
-    },
+    { name: "AES-GCM", iv: asBufferSource(record.iv), additionalData: WRAP_BINDING },
     record.wrappingKey,
     record.wrapped,
   );

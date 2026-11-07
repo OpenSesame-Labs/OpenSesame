@@ -2,15 +2,14 @@
 import type { JsonObject } from "@opensesame/os-domain";
 import { createItem } from "@opensesame/vault-core";
 import { expect, it, vi } from "vitest";
-import { resyncBackup } from "./backup.js";
 import {
   clearLocalBackupTarget,
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import { resyncBackup } from "./backup.js";
 import { useGithubBackupProviderFixture } from "./github-app-backup-provider.test-support.js";
 import { forgetLocalGithubApp } from "./github-app-local.js";
-import { vaultStore } from "./vault/store.js";
 import {
   captureSavedGithubBackup,
   reserveGithubBackupWrite,
@@ -21,6 +20,7 @@ import {
   drainBackupWebhooks,
   vaultBackupSyncSeams,
 } from "./vault-backup-sync.js";
+import { vaultStore } from "./vault/store.js";
 
 const fixture = useGithubBackupProviderFixture();
 function observed<T>(operation: Promise<T>) {

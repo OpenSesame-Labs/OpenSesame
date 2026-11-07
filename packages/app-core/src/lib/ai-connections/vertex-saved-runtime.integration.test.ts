@@ -17,8 +17,8 @@ import {
   runtimeFixture,
   runtimePassword,
 } from "../secret-backends/runtime.test-support.js";
-import { vaultStore } from "../vault/store.js";
 import { initializeVaultCredentialCustody } from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import { vfsFlush } from "../vfs.js";
 import { aiConnectionDraft } from "./presets.js";
 import {
@@ -30,7 +30,6 @@ import { AI_CONNECTION_CLASSIFICATION, readAiConnection } from "./store.js";
 import { bindAiConnectionTransport } from "./transport.js";
 import { TOKEN, vertexFixture } from "./vertex-http.test-support.js";
 import type { VertexAiDraft } from "./vertex-target.js";
-
 installGcpKey();
 const releases: (() => void)[] = [];
 afterEach(() => {

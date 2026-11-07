@@ -13,11 +13,11 @@ import {
   enablePack,
 } from "@opensesame/app-core/lib/type-packs/installer.js";
 import { countPackItems } from "@opensesame/app-core/lib/type-packs/watch.js";
-import type { OfferedGeneratorId } from "@opensesame/app-core/lib/vault/generators/index.js";
 import {
   defaultGenerator,
   newSecretFor,
 } from "@opensesame/app-core/lib/vault/generators/index.js";
+import type { OfferedGeneratorId } from "@opensesame/app-core/lib/vault/generators/index.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   type AccountItem,

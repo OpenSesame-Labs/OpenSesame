@@ -19,7 +19,6 @@ import {
 } from "./controlled-receiver-contract.js";
 import { captureOriginalCanaryIndexedSealData } from "./original-indexed-seal-data.js";
 import { copyCanaryReceiverProfile } from "./receiver-profile-data.js";
-
 function configuration(
   held: CanaryOwnerCustody,
   id: string,

@@ -9,8 +9,8 @@ import { configureHost } from "../host.js";
 import type { PagePort, WebStorage } from "../ports.js";
 import { createTestHost } from "../test-host.js";
 import { resetAmbientAuthSeams } from "./ambient-auth-seam.js";
-import { federationExchangeSeams, federationStartSeams } from "./federation.js";
 import { storePending } from "./federation-pending.js";
+import { federationExchangeSeams, federationStartSeams } from "./federation.js";
 import { loadSettings, settingsSeams } from "./settings.js";
 
 export type TokenFault =

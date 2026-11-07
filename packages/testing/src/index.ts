@@ -1,3 +1,4 @@
+export { sentinelValues, assertNoSentinels } from "./sentinels.js";
 export {
   assertAtMostWins,
   assertDurableSurvivesPartition,
@@ -9,8 +10,7 @@ export {
   countConcurrentWins,
 } from "./pact.js";
 export {
-  type EphemeralPostgres,
   PINNED_POSTGRES_IMAGE,
   startEphemeralPostgres,
+  type EphemeralPostgres,
 } from "./postgres-testcontainer.js";
-export { assertNoSentinels, sentinelValues } from "./sentinels.js";

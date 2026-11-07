@@ -4,12 +4,11 @@ import {
   isNumber,
   readString,
 } from "@opensesame/os-domain";
-import type { JWK } from "jose";
 import { SignJWT, decodeProtectedHeader, importJWK, jwtVerify } from "jose";
+import type { JWK } from "jose";
 
 type SignKey = Parameters<InstanceType<typeof SignJWT>["sign"]>[0];
 type VerifyKey = CryptoKey | Uint8Array;
-
 import { PROVIDER_ID_JAG_TYP, SERVICE_ASSERTION_TYP } from "./constants.js";
 import { agentAuthError } from "./errors.js";
 
@@ -115,7 +114,10 @@ export async function verifyServiceAgentIdentityAssertion(
     issuer: string;
     audience: string;
     resource?: string;
-    getKey: (header: { kid?: string; alg?: string }) => Promise<VerifyKey>;
+    getKey: (header: {
+      kid?: string;
+      alg?: string;
+    }) => Promise<VerifyKey>;
   },
 ): Promise<ServiceAssertionClaims> {
   const header = decodeHeader(jwt);

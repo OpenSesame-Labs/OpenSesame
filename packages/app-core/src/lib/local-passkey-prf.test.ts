@@ -2,7 +2,6 @@ import { isPublicKeyCredential } from "@opensesame/sdk-browser";
 import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
-import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
 import { readLocalPasskeys } from "./local-credentials.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
 import * as signInPrf from "./local-passkey-prf.js";
@@ -11,6 +10,8 @@ import {
   enrollLocalPasskey,
 } from "./local-passkeys.js";
 import { lockAllTombs, unlockTomb } from "./vfs.js";
+
+import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
 
 let tomb: string;
 let principalId: string;

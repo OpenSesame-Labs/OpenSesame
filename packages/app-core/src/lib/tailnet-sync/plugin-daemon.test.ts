@@ -10,8 +10,8 @@ import {
 import { createEgressPort } from "../capabilities/egress.js";
 import { localNetworkFetchSeams } from "../local-network-fetch.js";
 import { PluginError, readPluginStates } from "../plugins/client.js";
-import { pluginDaemonSeams, tailnetPluginDaemon } from "./plugin-daemon.js";
 import { currentPluginPairing } from "./plugin-daemon-store.js";
+import { pluginDaemonSeams, tailnetPluginDaemon } from "./plugin-daemon.js";
 import {
   type PluginDaemonPairing,
   formatPluginPairingCode,

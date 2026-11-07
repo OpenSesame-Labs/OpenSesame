@@ -1,12 +1,12 @@
 import {
   type CompilerCatalog,
-  DURESS_ATTACK_TREES,
   type PolicyDocument,
   PolicyDocumentSchema,
   type PolicyProfile,
   PolicyProfileSchema,
   compileDuressPolicy,
 } from "@opensesame/contracts";
+import { DURESS_ATTACK_TREES } from "@opensesame/contracts";
 /**
  * Package-level duress compiler fuzz (REDTEAM-C) — no apps/pages imports.
  */

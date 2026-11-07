@@ -2,9 +2,9 @@ export {
   type ListenerPolicy,
   type MappingAuthMode,
   type TransportConfig,
-  TransportConfigError,
   type TransportListenerConfig,
   type TransportMaterial,
+  TransportConfigError,
   assertListenHostAllowed,
   assertTransportSecure,
   listenHostIsLoopback,
@@ -12,12 +12,6 @@ export {
   loadTransportMaterial,
   parsePemCertificates,
 } from "./config.js";
-export { INGRESS_FORWARD_OPERATION, resolveOriginating } from "./ingress.js";
-export {
-  extractClientCertFields,
-  stripForwardedEvidence,
-  verifyForwarded,
-} from "./ingress-evidence-adapter.js";
 export {
   DEFAULT_USABLE_FOR_MS,
   PLAIN_LISTENER_ID,
@@ -37,9 +31,9 @@ export { identityMtlsTransport, mtlsPeerOf } from "./oauth-transport.js";
 export {
   type AttestedPeer,
   type EvidenceSource,
-  PeerEvidenceError,
   type PeerEvidenceView,
   type PeerIdentitySelector,
+  PeerEvidenceError,
   type TlsVersion,
   type TransportPolicy,
   type TrustProfileRef,
@@ -77,3 +71,9 @@ export {
   admitService,
   parseServiceBindings,
 } from "./service-admission.js";
+export { INGRESS_FORWARD_OPERATION, resolveOriginating } from "./ingress.js";
+export {
+  extractClientCertFields,
+  stripForwardedEvidence,
+  verifyForwarded,
+} from "./ingress-evidence-adapter.js";

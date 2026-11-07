@@ -19,8 +19,8 @@
  *   scan that called it.
  */
 
-import type { JsonObject, JsonValue } from "@opensesame/os-domain";
 import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
+import type { JsonObject, JsonValue } from "@opensesame/os-domain";
 import type { ResetMailMessage } from "../password-reset-mail.js";
 import type { MailConnection } from "./mailbox-connection.js";
 

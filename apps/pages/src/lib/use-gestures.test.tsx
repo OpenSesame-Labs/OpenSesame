@@ -8,8 +8,8 @@ import {
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { forgetMotionAccessForTest } from "./gesture-motion.js";
-import { rowIn, vault } from "./keymap.test-harness.js";
 import { registerVaultKeymap } from "./keymap-targets.js";
+import { rowIn, vault } from "./keymap.test-harness.js";
 import { useGestures } from "./use-gestures.js";
 
 function Shell({ showHelp }: { showHelp: () => void }) {

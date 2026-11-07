@@ -12,12 +12,11 @@ import { z } from "zod";
 import { requestBoatDeletion, waitForBoatDeletion } from "./boat-deletion.js";
 import { boatCheckoutUrl, boatOrigin } from "./boat-endpoints.js";
 import { boatApiError } from "./boat-error.js";
-
+export { BoatApiError } from "./boat-error.js";
 export {
   BoatDeletionPendingError,
   BoatDeletionUnconfirmedError,
 } from "./boat-deletion.js";
-export { BoatApiError } from "./boat-error.js";
 
 export interface BoatClientOptions {
   /** Boat origin; staging and self-hosted control planes differ. */

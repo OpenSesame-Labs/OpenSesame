@@ -4,18 +4,21 @@
  * platform global; the embedder calls `configureHost(createSandboxHost())`
  * before using anything that reads a port.
  */
-
+export { configureHost } from "../host.js";
+export { createSandboxHost } from "./host.js";
 export {
   VaultCorruptError,
   WrongPasswordError,
-  buildRows,
+} from "@opensesame/vault-core";
+export {
   createItem,
   hostOf,
-  openVaultFile,
-  readVaultFile,
   searchMatches,
   sortItems,
 } from "@opensesame/vault-core";
-export { configureHost } from "../host.js";
 export { testWebsitePattern } from "../lib/vault/website-pattern.js";
-export { createSandboxHost } from "./host.js";
+export {
+  openVaultFile,
+  readVaultFile,
+} from "@opensesame/vault-core";
+export { buildRows } from "@opensesame/vault-core";

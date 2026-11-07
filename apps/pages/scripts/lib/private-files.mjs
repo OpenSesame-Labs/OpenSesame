@@ -1,6 +1,6 @@
 import {
-  closeSync,
   constants,
+  closeSync,
   fstatSync,
   ftruncateSync,
   mkdirSync,

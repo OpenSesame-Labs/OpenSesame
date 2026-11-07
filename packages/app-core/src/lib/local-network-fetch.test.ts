@@ -6,7 +6,6 @@ import {
   targetAddressSpaceFor,
   withTargetAddressSpace,
 } from "./local-network-fetch.js";
-
 const eligible = localNetworkFetchSeams.eligible;
 beforeEach(() => {
   localNetworkFetchSeams.eligible = () => true;

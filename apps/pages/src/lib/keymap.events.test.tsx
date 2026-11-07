@@ -17,8 +17,6 @@ import {
 import { act, cleanup, render } from "@testing-library/react";
 import { MemoryRouter, type NavigateFunction, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerRailKeymap, registerVaultKeymap } from "./keymap.js";
-import { rail, vault } from "./keymap.test-harness.js";
 import {
   TRIGGER_LIMITS,
   UNLOCK_RETRY,
@@ -27,6 +25,8 @@ import {
   resetKeymapEvents,
   useKeymapEvents,
 } from "./keymap-events.js";
+import { registerRailKeymap, registerVaultKeymap } from "./keymap.js";
+import { rail, vault } from "./keymap.test-harness.js";
 
 function land(command: string, on: Macro["on"]): Macro {
   return { on, steps: [{ command, count: 1 }] };

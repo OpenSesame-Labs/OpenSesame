@@ -1,16 +1,17 @@
 import { settingsPath } from "@opensesame/app-core/lib/crumbs.js";
-import {
-  type SettingsTab,
-  settingsTabsFrom,
-} from "@opensesame/app-core/sections/settings-section-nav-model.js";
 import { type ComponentType, useMemo } from "react";
 import { Link } from "react-router";
-import { useContributions } from "../bindings/contributions.js";
 import { useStripItem } from "../lib/strip.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { InstallPanel as DefaultInstallPanel } from "./settings/InstallPanel.js";
 import { UnlockMethodsPanel as DefaultUnlockMethodsPanel } from "./settings/UnlockMethodsPanel.js";
 import { VaultsPanel as DefaultVaultsPanel } from "./settings/VaultsPanel.js";
+
+import {
+  type SettingsTab,
+  settingsTabsFrom,
+} from "@opensesame/app-core/sections/settings-section-nav-model.js";
+import { useContributions } from "../bindings/contributions.js";
 
 /** The tabs the page draws. */
 export function useSettingsTabs(): readonly SettingsTab[] {

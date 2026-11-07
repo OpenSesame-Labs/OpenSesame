@@ -11,7 +11,7 @@ export function nativeCodebergTargetPath(target: NativeCodebergBackupTarget) {
     !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$/.test(target.repo) ||
     !target.branch ||
     target.branch.length > 255 ||
-    /[\s~^:?*[\\]/.test(target.branch) ||
+    /[\s~^:?*\[\\]/.test(target.branch) ||
     Array.from(target.branch).some(
       (char) => char.charCodeAt(0) < 33 || char.charCodeAt(0) === 127,
     ) ||

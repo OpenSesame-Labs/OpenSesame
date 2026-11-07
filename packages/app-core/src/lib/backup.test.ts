@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearLocalBackupTarget } from "./backup-target-local.js";
 import {
   backupSeams,
   branchForEnvironment,
@@ -11,7 +12,6 @@ import {
   resyncBackup,
   setBackupTargetEnabled,
 } from "./backup.js";
-import { clearLocalBackupTarget } from "./backup-target-local.js";
 import {
   publishBackupSyncEvent,
   subscribeBackupSyncEvents,

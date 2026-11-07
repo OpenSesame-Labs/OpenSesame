@@ -1,14 +1,14 @@
+import {
+  AUTHORED_GUIDE_LIMITS,
+  GUIDE_LANG_VERSION,
+  GUIDE_LIMITS,
+} from "@opensesame/guide-lang";
 import type {
   GuideGoalId,
   GuideInstruction,
   GuideProgram,
   GuideRouteId,
   GuideTargetId,
-} from "@opensesame/guide-lang";
-import {
-  AUTHORED_GUIDE_LIMITS,
-  GUIDE_LANG_VERSION,
-  GUIDE_LIMITS,
 } from "@opensesame/guide-lang";
 import { describe, expect, it } from "vitest";
 

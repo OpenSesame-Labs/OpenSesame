@@ -1,3 +1,16 @@
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+/** @vitest-environment jsdom */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { expectInTray, inTray } from "../../components/tray.test-support.js";
+
 import type { MarketplaceListing } from "@opensesame/app-core/lib/item-type-marketplace/load.js";
 import { parseMarketplacesFile } from "@opensesame/app-core/lib/item-type-marketplace/marketplaces-file.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
@@ -18,21 +31,10 @@ import {
   uninstallItemType,
 } from "@opensesame/vault-core";
 import { parseDefinition } from "@opensesame/vault-item-types";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-/** @vitest-environment jsdom */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { expectInTray, inTray } from "../../components/tray.test-support.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+import { ItemTypesPanel } from "./ItemTypesPanel.js";
 import { SettingsFileContext } from "./files/context.js";
 import { useItemTypeFiles } from "./files/providers.js";
-import { ItemTypesPanel } from "./ItemTypesPanel.js";
 import {
   forgetMarketplaceListings,
   marketplaceDependencies,

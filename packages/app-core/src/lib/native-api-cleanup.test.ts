@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { nativeApiCleanup } from "./native-api-cleanup.js";
+import { configureNativeApiConnector } from "./native-api-connectors.js";
 import {
   installNativeApiTests,
   nativeAnswers,
   nativeApiDraft,
 } from "./native-api.test-support.js";
-import { nativeApiCleanup } from "./native-api-cleanup.js";
-import { configureNativeApiConnector } from "./native-api-connectors.js";
 import type { NativeRecovery } from "./native-connector-schema.js";
 import { loadNativeConnectorRecord } from "./native-connector-store.js";
 

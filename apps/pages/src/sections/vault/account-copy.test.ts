@@ -1,7 +1,7 @@
 import type { AccountItem, LoginMethod } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
-import { makeAccount } from "./account.test-support.js";
 import { accountSecretToCopy, canCopySecret } from "./account-copy.js";
+import { makeAccount } from "./account.test-support.js";
 
 function withMethods(methods: LoginMethod[]): AccountItem {
   return { ...makeAccount({ id: "itm_c" }), methods };

@@ -4,17 +4,17 @@ import {
   createHash,
   randomBytes,
 } from "node:crypto";
+import {
+  SAML,
+  ValidateInResponseTo,
+  generateServiceProviderMetadata,
+} from "@node-saml/node-saml";
 // The DOM helpers node-saml itself validates with. Reaching for the same
 // parser — rather than a second XML dependency, or a regex over signed
 // material — is what keeps "what we routed on" and "what was verified" the
 // same document. The package pins exactly and publishes no `exports` map, so
 // the path is stable for this version and moves only when the pin does.
 import type { Profile } from "@node-saml/node-saml";
-import {
-  SAML,
-  ValidateInResponseTo,
-  generateServiceProviderMetadata,
-} from "@node-saml/node-saml";
 import { parseDomFromString, xpath } from "@node-saml/node-saml/lib/xml.js";
 import { appendAuditEvent } from "@opensesame/audit";
 import {

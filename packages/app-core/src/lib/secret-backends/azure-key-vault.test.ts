@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createAzureKeyVaultSecretBackend } from "./azure-key-vault.js";
 import {
   AZURE_SECRET_BYTES,
   azureNextPage,
@@ -10,6 +9,7 @@ import {
   AZURE_FIXTURE_TOKEN,
   azureHttpFixture,
 } from "./azure-key-vault-http.test-support.js";
+import { createAzureKeyVaultSecretBackend } from "./azure-key-vault.js";
 import { SecretBackendHttpError } from "./http.js";
 import type {
   SecretBackendConfiguration,

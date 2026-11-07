@@ -1,7 +1,6 @@
 import type { VaultItem } from "@opensesame/vault-core";
 import { type MutableRefObject, useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { IconKey } from "../../components/IconKey.js";
 import {
   IconEdit,
@@ -11,6 +10,7 @@ import {
   IconTrash,
   IconX,
 } from "../../components/Icons.js";
+import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { useVaultStore } from "../../lib/vault/hooks.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { ReferenceKeys } from "./ReferenceKeys.js";

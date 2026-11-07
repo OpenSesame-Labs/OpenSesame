@@ -10,8 +10,8 @@ import {
   it,
   vi,
 } from "vitest";
-import { KeyCeremony } from "./security/KeyCeremony.js";
 import { UnlockMethodsPanel } from "./UnlockMethodsPanel.js";
+import { KeyCeremony } from "./security/KeyCeremony.js";
 import {
   checkWebauthnHost,
   installUnlockSeams,

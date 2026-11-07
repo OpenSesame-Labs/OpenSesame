@@ -1,11 +1,9 @@
-import { loaderSeams } from "@opensesame/app-core/lib/capabilities/loader.js";
 import {
   FIXTURE_CATALOG,
   FIXTURE_MANAGED_POLICY,
 } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
 import {
   double,
-  installDoublePorts,
   resetDouble,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 /** @vitest-environment jsdom */
@@ -26,6 +24,9 @@ import {
   it,
   vi,
 } from "vitest";
+
+import { loaderSeams } from "@opensesame/app-core/lib/capabilities/loader.js";
+import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { expectInTray, inTray } from "../../components/tray.test-support.js";
 import {
   CapabilitySetup,

@@ -5,18 +5,18 @@ import { ALL_USERS_GROUP_ID } from "./local-groups.js";
 import { localRequestFixture } from "./local-request.fixture.js";
 import { signInLocalIdentity } from "./local-sessions.js";
 import {
-  createLocalShare,
-  grantIdentities,
-  listLocalShares,
-  revokeLocalShare,
-} from "./local-share-grants.js";
-import {
   approvePendingShare,
   denyPendingShare,
   listPendingShares,
   listShareTargets,
   submitLocalShare,
 } from "./local-share-grants-approvals.js";
+import {
+  createLocalShare,
+  grantIdentities,
+  listLocalShares,
+  revokeLocalShare,
+} from "./local-share-grants.js";
 import { shareAllows } from "./local-share-reach.js";
 import { lockAllTombs, writeFile } from "./vfs.js";
 

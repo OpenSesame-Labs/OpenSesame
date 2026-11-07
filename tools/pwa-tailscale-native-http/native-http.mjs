@@ -1,6 +1,5 @@
 import * as z from "zod/v4/mini";
 import { NativeHTTPPull } from "./native-http-stream.mjs";
-
 z.config({ jitless: true });
 
 /** Original-node Promise publication owner for the unactivated Go BindJS port. */

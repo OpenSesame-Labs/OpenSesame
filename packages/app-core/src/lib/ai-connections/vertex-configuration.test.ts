@@ -8,7 +8,6 @@ import {
 } from "./presets.js";
 import { TOKEN } from "./vertex-http.test-support.js";
 import type { VertexAiDraft } from "./vertex-target.js";
-
 installGcpKey();
 function configured(): VertexAiDraft {
   return {

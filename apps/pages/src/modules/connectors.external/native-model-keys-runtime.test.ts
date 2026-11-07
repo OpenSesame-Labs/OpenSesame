@@ -20,15 +20,8 @@ import {
 import { emitVaultLock } from "@opensesame/app-core/lib/vault/lock-events.js";
 import { lockAllTombs } from "@opensesame/app-core/lib/vfs.js";
 /** @vitest-environment jsdom */
-import {
-  afterEach,
-  afterEach as afterGenuine,
-  beforeEach,
-  beforeEach as beforeGenuine,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach as afterGenuine, beforeEach as beforeGenuine } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import {

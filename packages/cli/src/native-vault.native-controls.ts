@@ -6,7 +6,6 @@ import { configureHost } from "@opensesame/app-core/host.js";
 import { createNodeHost } from "@opensesame/app-core/node/host.js";
 import { expect, it } from "vitest";
 import { createNativeVaultPorts } from "./native-vault-ports.js";
-
 const executable = process.env.OPENSESAME_NATIVE_TEST_BINARY;
 if (!executable)
   throw new Error(

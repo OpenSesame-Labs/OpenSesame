@@ -15,9 +15,7 @@ import {
 } from "./linear-auth-reservation.js";
 import { saveLinearConsent } from "./linear-consent-save.js";
 import { optionalNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-
 export { checkLinearWorkspace } from "./linear-consent-save.js";
-
 import { removeLinearActor } from "./linear-revoke.js";
 import {
   LINEAR_PENDING,
@@ -35,10 +33,8 @@ import {
   deferLinearWebhookCleanup,
   finishLinearWebhookRecovery,
 } from "./linear-webhook-recovery.js";
-import {
-  configureLinearWebhooks,
-  removeLinearWebhook,
-} from "./linear-webhooks.js";
+import { removeLinearWebhook } from "./linear-webhooks.js";
+import { configureLinearWebhooks } from "./linear-webhooks.js";
 
 const MAX_AGE = 10 * 60_000;
 export function linearRedirectUri(): string {

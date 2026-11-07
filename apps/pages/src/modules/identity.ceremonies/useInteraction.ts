@@ -12,15 +12,15 @@
  */
 
 import {
-  type InteractionApproval,
-  interactionApproval,
-} from "@opensesame/app-core/lib/interactions.js";
-import {
   type InteractionStep,
   clearInteractionNotice,
   interactionStepWords,
   reportInteraction,
 } from "@opensesame/app-core/lib/interactions-route.js";
+import {
+  type InteractionApproval,
+  interactionApproval,
+} from "@opensesame/app-core/lib/interactions.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useIdentitySession } from "../../bindings/identity.js";
 

@@ -29,8 +29,8 @@ import {
   stashPendingGithubAppSecret,
 } from "@opensesame/app-core/lib/github-app-secret.js";
 import { DEFAULT_PASSWORD_REPO_NAME } from "@opensesame/app-core/lib/github-history.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { localAppConnection } from "@opensesame/app-core/sections/connections/github-app-config-summary-model.js";
 import { createTestHost } from "@opensesame/app-core/test-host.js";
 import {

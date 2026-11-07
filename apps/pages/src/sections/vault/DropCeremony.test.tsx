@@ -1,9 +1,10 @@
-import { listNotices } from "@opensesame/app-core/lib/notices.js";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
+
+import { listNotices } from "@opensesame/app-core/lib/notices.js";
 
 import { DropRecordFields, clockExpiry } from "./DropCeremony.js";
 import {

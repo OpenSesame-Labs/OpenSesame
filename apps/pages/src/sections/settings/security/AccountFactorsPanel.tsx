@@ -1,10 +1,10 @@
-import { describeAccount } from "@opensesame/app-core/lib/account.js";
 import {
   type AccountFactor,
   type AccountFactorKind,
   type AccountFactorList,
   listAccountFactors,
 } from "@opensesame/app-core/lib/account-factors.js";
+import { describeAccount } from "@opensesame/app-core/lib/account.js";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { FailureNotice } from "../../../components/FailureNotice.js";
 import { IconKey } from "../../../components/IconKey.js";
@@ -13,9 +13,9 @@ import { StatusMark } from "../../../components/StatusMark.js";
 import { firstControl, landFocus } from "../../../lib/focus.js";
 import { useGuideTarget } from "../../../tutorial/registry/react.jsx";
 import { ACCOUNT_TITLE } from "./AccountFactorCeremony.js";
-import { useAccountFactorsOffered as useOffered } from "./account-offered.js";
 import { MethodRow } from "./MethodRow.js";
 import type { SheetRequest } from "./MethodSheet.js";
+import { useAccountFactorsOffered as useOffered } from "./account-offered.js";
 
 function added(factor: AccountFactor): string {
   const tail = factor.id.slice(-4);

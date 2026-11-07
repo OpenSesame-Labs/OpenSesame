@@ -29,8 +29,8 @@ import {
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
-import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 import { bodyPortOf } from "./store-device-key.js";
+import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 
 const PASSWORD = "correct horse battery staple";
 const DAY = DEVICE_KEY_CLOCK_MARGIN_MS;

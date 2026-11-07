@@ -3,13 +3,13 @@ import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { fenceLocalSignOut } from "../lib/ambient-auth/generation.js";
-import { clearSession, saveSession } from "../lib/federation.js";
 import {
   advanceFederationSessionGeneration,
   federationSessionGeneration,
   readNativeFederationSession,
 } from "../lib/federation-native-session.js";
 import { readFederationSessionJson } from "../lib/federation-session-store.js";
+import { clearSession, saveSession } from "../lib/federation.js";
 import { identityConnectionDraft } from "../lib/identity-connections-presets.js";
 import { writeIdentityConnection } from "../lib/identity-connections-store.js";
 import * as nativeOwner from "../lib/identity-native-owner.js";
@@ -36,7 +36,6 @@ import {
   configuredSamlOracle,
   configuredSamlTls,
 } from "./saml/configured-runtime.test-support.js";
-
 const releases: (() => void)[] = [];
 let oracle: Awaited<ReturnType<typeof configuredSamlOracle>>;
 beforeEach(async () => {

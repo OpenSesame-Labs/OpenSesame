@@ -19,7 +19,6 @@ import {
 } from "../../vfs.js";
 import type { PhysicalDeviceRecordPort } from "../physical-device-record-port.js";
 import { ATTEMPTS_KEY, VaultStore } from "../store.js";
-
 const previous = host();
 const retainedPin = "73920146";
 afterEach(() => configureHost(previous));

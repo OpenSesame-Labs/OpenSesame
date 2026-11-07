@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv } from "node:crypto";
-import { asBufferSource } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
 import {
   MAX_BITWARDEN_XAES_AAD_BYTES,
@@ -7,6 +6,7 @@ import {
   openBitwardenXaes,
   sealBitwardenXaes,
 } from "./bitwarden-native-xaes.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 const keyFor = (seed: number) =>
   Uint8Array.from({ length: 32 }, (_, index) => (index * 29 + seed) & 255);

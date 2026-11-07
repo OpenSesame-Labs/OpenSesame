@@ -210,143 +210,146 @@ async function drainHeldOperations(): Promise<void> {
 
 afterEach(drainHeldOperations);
 
-describe.sequential("deferred protector management with real owner sessions", () => {
-  it("does not admit a cold enrollment into a fresh owner session after lock", async () => {
-    const store = await owner();
-    const before = realm.header();
-    const pending = trackHeld(
-      store.protection.enrollCandidate("recovery-key"),
-      delivery.enrollment,
-    );
-    const refused = expect(pending).rejects.toMatchObject({
-      code: "stale_operation",
-    });
-    await delivery.enrollment.entered;
-    store.lock();
-    await store.unlock(PASSWORD);
-    delivery.enrollment.release();
-    await refused;
-    expect(realm.header()).toBe(before);
-    expect(
-      store.protection
-        .listProtectors()
-        .some((entry) => entry.kind === "recovery-key"),
-    ).toBe(false);
-    const fresh = await store.protection.enrollCandidate("recovery-key");
-    await store.protection.commitEnrollment(fresh.operationId);
-    expect(
-      store.protection
-        .listProtectors()
-        .some((entry) => entry.protectorId === fresh.record.protectorId),
-    ).toBe(true);
-  });
-
-  it("does not delegate a cold lifecycle operation into a synthetic session", async () => {
-    const store = await owner();
-    const beforeHeader = realm.header();
-    const beforeBody = realm.body();
-    const pending = trackHeld(
-      store.protection.setPreferred(passwordId(store)),
-      delivery.lifecycle,
-    );
-    const refused = expect(pending).rejects.toMatchObject({
-      code: "stale_operation",
-    });
-    await delivery.lifecycle.entered;
-    store.lock();
-    await store.createGuest({ decoy: true });
-    expect(realm.isDecoySession()).toBe(true);
-    delivery.lifecycle.release();
-    await refused;
-    expect(store.protection.listProtectors()).toEqual([]);
-    expect(realm.header()).toBe(beforeHeader);
-    expect(realm.body()).toBe(beforeBody);
-  });
-
-  it("uses the cached operations for genuine enrollment, proof, removal and rotation", async () => {
-    const store = await owner();
-    expect(delivery.enrollment.loads()).toBe(1);
-    expect(delivery.lifecycle.loads()).toBe(1);
-    const item = realm.createItem("note", "kept across root rotation");
-    item.notes = "genuine encrypted payload";
-    await store.saveItem(item);
-    const enrollment = await store.protection.enrollCandidate("recovery-key");
-    const secret = enrollment.recoverySecretB64;
-    if (!secret)
-      throw new Error("The genuine recovery enrollment returned no secret.");
-    await store.protection.commitEnrollment(enrollment.operationId);
-    const tested = await store.protection.testProtector(
-      enrollment.record.protectorId,
-      {
-        recoverySecretB64: secret,
-      },
-    );
-    expect(tested).toMatchObject({ proofStatus: "verified" });
-    await store.protection.setPreferred(enrollment.record.protectorId);
-    expect(store.getSnapshot().header?.protection?.preferredProtectorId).toBe(
-      enrollment.record.protectorId,
-    );
-    await store.protection.removeProtector(enrollment.record.protectorId);
-    expect(
-      store.getSnapshot().header?.protection?.preferredProtectorId,
-    ).toBeUndefined();
-    const epoch = store.getSnapshot().header?.protection?.rootEpoch;
-    if (epoch === undefined)
-      throw new Error("The owner has no authenticated root epoch.");
-    await store.protection.rotateCompromisedRoot({ password: PASSWORD });
-    expect(store.getSnapshot().header?.protection?.rootEpoch).toBe(epoch + 1);
-    store.lock();
-    await store.unlock(PASSWORD);
-    expect(
-      store.getSnapshot().items.find((entry) => entry.id === item.id)?.notes,
-    ).toBe(item.notes);
-  });
-
-  it("refuses cached operations from the original generation even after fresh real unlock", async () => {
-    const store = await owner();
-    const recovery = await store.protection.enrollCandidate("recovery-key");
-    const secret = recovery.recoverySecretB64;
-    if (!secret)
-      throw new Error("The genuine recovery enrollment returned no secret.");
-    await store.protection.commitEnrollment(recovery.operationId);
-    const before = realm.header();
-    const beforeBody = realm.body();
-    expect(beforeBody).not.toBeNull();
-    const pending = [
-      trackHeld(
-        store.protection.setPreferred(recovery.record.protectorId),
-        delivery.lifecycle,
-      ),
-      trackHeld(
-        store.protection.removeProtector(recovery.record.protectorId),
-        delivery.lifecycle,
-      ),
-      trackHeld(
-        store.protection.testProtector(recovery.record.protectorId, {
-          recoverySecretB64: secret,
-        }),
-        delivery.lifecycle,
-      ),
-      trackHeld(
-        store.protection.rotateCompromisedRoot({ password: PASSWORD }),
-        delivery.lifecycle,
-      ),
-      trackHeld(
+describe.sequential(
+  "deferred protector management with real owner sessions",
+  () => {
+    it("does not admit a cold enrollment into a fresh owner session after lock", async () => {
+      const store = await owner();
+      const before = realm.header();
+      const pending = trackHeld(
         store.protection.enrollCandidate("recovery-key"),
         delivery.enrollment,
-      ),
-    ];
-    const refusals = pending.map((operation) =>
-      expect(operation).rejects.toMatchObject({ code: "stale_operation" }),
-    );
-    store.lock();
-    await store.unlock(PASSWORD);
-    await Promise.all(refusals);
-    expect(realm.header()).toBe(before);
-    expect(realm.body()).toBe(beforeBody);
-    await store.protection.setPreferred(passwordId(store));
-    expect(store.getSnapshot().header?.protection?.preferredProtectorId).toBe(
-      passwordId(store),
-    );
-  });
-});
+      );
+      const refused = expect(pending).rejects.toMatchObject({
+        code: "stale_operation",
+      });
+      await delivery.enrollment.entered;
+      store.lock();
+      await store.unlock(PASSWORD);
+      delivery.enrollment.release();
+      await refused;
+      expect(realm.header()).toBe(before);
+      expect(
+        store.protection
+          .listProtectors()
+          .some((entry) => entry.kind === "recovery-key"),
+      ).toBe(false);
+      const fresh = await store.protection.enrollCandidate("recovery-key");
+      await store.protection.commitEnrollment(fresh.operationId);
+      expect(
+        store.protection
+          .listProtectors()
+          .some((entry) => entry.protectorId === fresh.record.protectorId),
+      ).toBe(true);
+    });
+
+    it("does not delegate a cold lifecycle operation into a synthetic session", async () => {
+      const store = await owner();
+      const beforeHeader = realm.header();
+      const beforeBody = realm.body();
+      const pending = trackHeld(
+        store.protection.setPreferred(passwordId(store)),
+        delivery.lifecycle,
+      );
+      const refused = expect(pending).rejects.toMatchObject({
+        code: "stale_operation",
+      });
+      await delivery.lifecycle.entered;
+      store.lock();
+      await store.createGuest({ decoy: true });
+      expect(realm.isDecoySession()).toBe(true);
+      delivery.lifecycle.release();
+      await refused;
+      expect(store.protection.listProtectors()).toEqual([]);
+      expect(realm.header()).toBe(beforeHeader);
+      expect(realm.body()).toBe(beforeBody);
+    });
+
+    it("uses the cached operations for genuine enrollment, proof, removal and rotation", async () => {
+      const store = await owner();
+      expect(delivery.enrollment.loads()).toBe(1);
+      expect(delivery.lifecycle.loads()).toBe(1);
+      const item = realm.createItem("note", "kept across root rotation");
+      item.notes = "genuine encrypted payload";
+      await store.saveItem(item);
+      const enrollment = await store.protection.enrollCandidate("recovery-key");
+      const secret = enrollment.recoverySecretB64;
+      if (!secret)
+        throw new Error("The genuine recovery enrollment returned no secret.");
+      await store.protection.commitEnrollment(enrollment.operationId);
+      const tested = await store.protection.testProtector(
+        enrollment.record.protectorId,
+        {
+          recoverySecretB64: secret,
+        },
+      );
+      expect(tested).toMatchObject({ proofStatus: "verified" });
+      await store.protection.setPreferred(enrollment.record.protectorId);
+      expect(store.getSnapshot().header?.protection?.preferredProtectorId).toBe(
+        enrollment.record.protectorId,
+      );
+      await store.protection.removeProtector(enrollment.record.protectorId);
+      expect(
+        store.getSnapshot().header?.protection?.preferredProtectorId,
+      ).toBeUndefined();
+      const epoch = store.getSnapshot().header?.protection?.rootEpoch;
+      if (epoch === undefined)
+        throw new Error("The owner has no authenticated root epoch.");
+      await store.protection.rotateCompromisedRoot({ password: PASSWORD });
+      expect(store.getSnapshot().header?.protection?.rootEpoch).toBe(epoch + 1);
+      store.lock();
+      await store.unlock(PASSWORD);
+      expect(
+        store.getSnapshot().items.find((entry) => entry.id === item.id)?.notes,
+      ).toBe(item.notes);
+    });
+
+    it("refuses cached operations from the original generation even after fresh real unlock", async () => {
+      const store = await owner();
+      const recovery = await store.protection.enrollCandidate("recovery-key");
+      const secret = recovery.recoverySecretB64;
+      if (!secret)
+        throw new Error("The genuine recovery enrollment returned no secret.");
+      await store.protection.commitEnrollment(recovery.operationId);
+      const before = realm.header();
+      const beforeBody = realm.body();
+      expect(beforeBody).not.toBeNull();
+      const pending = [
+        trackHeld(
+          store.protection.setPreferred(recovery.record.protectorId),
+          delivery.lifecycle,
+        ),
+        trackHeld(
+          store.protection.removeProtector(recovery.record.protectorId),
+          delivery.lifecycle,
+        ),
+        trackHeld(
+          store.protection.testProtector(recovery.record.protectorId, {
+            recoverySecretB64: secret,
+          }),
+          delivery.lifecycle,
+        ),
+        trackHeld(
+          store.protection.rotateCompromisedRoot({ password: PASSWORD }),
+          delivery.lifecycle,
+        ),
+        trackHeld(
+          store.protection.enrollCandidate("recovery-key"),
+          delivery.enrollment,
+        ),
+      ];
+      const refusals = pending.map((operation) =>
+        expect(operation).rejects.toMatchObject({ code: "stale_operation" }),
+      );
+      store.lock();
+      await store.unlock(PASSWORD);
+      await Promise.all(refusals);
+      expect(realm.header()).toBe(before);
+      expect(realm.body()).toBe(beforeBody);
+      await store.protection.setPreferred(passwordId(store));
+      expect(store.getSnapshot().header?.protection?.preferredProtectorId).toBe(
+        passwordId(store),
+      );
+    });
+  },
+);

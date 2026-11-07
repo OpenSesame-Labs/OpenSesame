@@ -4,14 +4,8 @@
  */
 import { connectionPort } from "@opensesame/app-core/lib/live/connection-port.js";
 /** @vitest-environment jsdom */
-import {
-  afterEach,
-  afterEach as afterGenuine,
-  beforeEach as beforeGenuine,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { afterEach as afterGenuine, beforeEach as beforeGenuine } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import {

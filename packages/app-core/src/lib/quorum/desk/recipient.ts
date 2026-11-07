@@ -11,8 +11,8 @@
 import { toB64url, wipe } from "../bytes.js";
 import type { Json } from "../canonical.js";
 import { type RecoveryBundle, RecoveryBundleSchema } from "../circle.js";
-import { QuorumLedger } from "../ledger.js";
 import type { LedgerStatus, Outcome } from "../ledger-types.js";
+import { QuorumLedger } from "../ledger.js";
 import { decodePacket, encodePacket } from "../packets.js";
 import { verifySignedPolicy } from "../policy.js";
 import { ruleText } from "../records.js";

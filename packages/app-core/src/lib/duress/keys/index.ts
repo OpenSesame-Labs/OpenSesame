@@ -10,21 +10,21 @@ export {
   isDuressKdfError,
 } from "./pin-floors.js";
 export {
-  type CompartmentNode,
-  type CompartmentTopology,
+  WRAPPER_CATALOG,
+  assertNoSilentBypass,
+  inventoryFromVaultSignals,
+  inventoryWrappers,
+  survivingAlternateWrappers,
+  type WrapperInventoryEntry,
+  type WrapperKind,
+  type VaultWrapperSignals,
+} from "./wrappers.js";
+export {
   assertIndependentIsolation,
   canBootstrapActivationWithoutProtectedRoot,
   createIndependentNode,
   createSharedRootNode,
   listIndependentCompartmentRefs,
+  type CompartmentNode,
+  type CompartmentTopology,
 } from "./topology.js";
-export {
-  type VaultWrapperSignals,
-  WRAPPER_CATALOG,
-  type WrapperInventoryEntry,
-  type WrapperKind,
-  assertNoSilentBypass,
-  inventoryFromVaultSignals,
-  inventoryWrappers,
-  survivingAlternateWrappers,
-} from "./wrappers.js";

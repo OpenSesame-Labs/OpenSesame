@@ -2,16 +2,16 @@ import { reportGuideActivation } from "@opensesame/app-core/tutorial/registry/ta
 import { useCallback } from "react";
 import { Link } from "react-router";
 import { useContributions } from "../../bindings/contributions.js";
+import { IconPlus } from "../../components/Icons.js";
 import {
   type MenuOpening,
   openContextMenu,
 } from "../../components/context-menu/menu-model.js";
-import { IconPlus } from "../../components/Icons.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { AddSlide } from "./AddSlide.js";
+import { ExportEntry } from "./ExportKey.js";
 import { type AddEntry, addEntries } from "./add-menu.js";
 import { useAddSlide } from "./add-slide.js";
-import { ExportEntry } from "./ExportKey.js";
 import { PasswordsOnboardingOffer } from "./passwords-onboarding-offer.js";
 import "./new-item-fab.css";
 
@@ -94,7 +94,6 @@ function AddButton({
   );
   return (
     <>
-      {/** biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up */}
       <div
         className="fab"
         data-own-hold=""

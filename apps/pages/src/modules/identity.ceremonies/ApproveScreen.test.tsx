@@ -1,3 +1,8 @@
+import {
+  captureApprovalArrivalFromPage,
+  resetApprovalArrivalForTests,
+} from "@opensesame/app-core/lib/approvals-link.js";
+import { APPROVAL_NOTICE } from "@opensesame/app-core/lib/approvals-route.js";
 /** @vitest-environment jsdom */
 /**
  * `/approve/:ref` (ADR 0140 plan step 9): the review opens with no vault,
@@ -8,11 +13,6 @@
  * another policy; the screen shows the model's refusal and never an approval.
  */
 import { approvalReview } from "@opensesame/app-core/lib/approvals.js";
-import {
-  captureApprovalArrivalFromPage,
-  resetApprovalArrivalForTests,
-} from "@opensesame/app-core/lib/approvals-link.js";
-import { APPROVAL_NOTICE } from "@opensesame/app-core/lib/approvals-route.js";
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";

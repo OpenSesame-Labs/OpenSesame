@@ -16,9 +16,7 @@ const Expansion = createContext<BranchChoices | null>(null);
 /** A shell's category choices outlive its phone record panes, never its vault session. */
 export function PageTreeExpansionProvider({
   children,
-}: {
-  children: ReactNode;
-}) {
+}: { children: ReactNode }) {
   const [choices, setChoices] = useState(() => new Map<string, boolean>());
   const toggle = useCallback((href: string) => {
     setChoices((before) => new Map(before).set(href, !before.get(href)));

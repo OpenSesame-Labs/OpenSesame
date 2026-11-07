@@ -19,7 +19,7 @@ export const DEDICATED_DIST = path.resolve(here, "../../dist-live-dedicated");
 export function dedicatedSite() {
   if (!fs.existsSync(DEDICATED_DIST))
     throw new Error(
-      "no dedicated build: run `npm run build:live-dedicated -w @opensesame/pages`",
+      "no dedicated build: run `npm run build:live-dedicated`", -w @opensesame/pages
     );
   return { origin: DEDICATED_ORIGIN, dist: DEDICATED_DIST };
 }

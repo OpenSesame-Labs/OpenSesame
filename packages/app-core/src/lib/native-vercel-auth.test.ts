@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import { vercelPending } from "./native-vercel.test-helper.js";
 import {
   nativeVercelAuthorizationUrl,
   parseNativeVercelWebMessage,
 } from "./native-vercel-auth.js";
+import { vercelPending } from "./native-vercel.test-helper.js";
 
 it.each(["query", "web_message.opener"] as const)(
   "Vercel %s consent binds a public-client code to PKCE, nonce and the originating transaction",

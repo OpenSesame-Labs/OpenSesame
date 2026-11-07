@@ -1,2 +1,2 @@
-export * from "./activate.js";
 export * from "./intent-journal.js";
+export * from "./activate.js";

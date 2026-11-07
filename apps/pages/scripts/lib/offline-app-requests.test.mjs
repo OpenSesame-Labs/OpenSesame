@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 import { offlineAppRequests } from "./offline-app-requests.mjs";
-
 const origin = "http://localhost:41911";
 const base = "/OpenSesame/";
 function request(

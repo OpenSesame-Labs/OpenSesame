@@ -2,7 +2,6 @@ import { expect, it, vi } from "vitest";
 import type { NativeResponse } from "./protocol.js";
 import type { NativePeerGETClient } from "./sdk-peer-get.js";
 import { WorkerPeerGET } from "./worker-peer-get.js";
-
 function fixture(protocol = "http:") {
   const url = `${protocol}//100.64.0.1/proof`;
   let resolve: ((value: NativeResponse) => void) | undefined;

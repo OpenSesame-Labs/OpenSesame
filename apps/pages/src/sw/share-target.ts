@@ -8,7 +8,6 @@
  * and the person still presses Import.
  */
 
-import { asBufferSource } from "@opensesame/os-domain";
 import {
   SHARE_TARGET_EXTENSIONS,
   SHARE_TARGET_MAX_BYTES,
@@ -24,6 +23,7 @@ import {
   shareTargetPageUrl,
 } from "../lib/share-target.js";
 import type { WorkerContext } from "./context.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 const HEADERS = {
   "Cache-Control": "no-store",
@@ -216,9 +216,7 @@ async function stage(
     await cache.put(
       new Request(metaEntry),
       new Response(
-        asBufferSource(
-          await sealShareTarget(key, encoder.encode(JSON.stringify(meta))),
-        ),
+        asBufferSource(await sealShareTarget(key, encoder.encode(JSON.stringify(meta)))),
         { headers: { "Content-Type": "application/octet-stream" } },
       ),
     );
@@ -226,12 +224,10 @@ async function stage(
       await cache.put(
         new Request(fileEntry),
         new Response(
-          asBufferSource(
-            await sealShareTarget(
-              key,
-              new Uint8Array(await staged.file.arrayBuffer()),
-            ),
-          ),
+          asBufferSource(await sealShareTarget(
+            key,
+            new Uint8Array(await staged.file.arrayBuffer()),
+          )),
           { headers: { "Content-Type": "application/octet-stream" } },
         ),
       );

@@ -2,7 +2,6 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
-
 const require = createRequire(
   new URL("../../../../packages/control-plane/package.json", import.meta.url),
 );

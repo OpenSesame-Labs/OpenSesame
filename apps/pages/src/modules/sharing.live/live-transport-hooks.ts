@@ -18,18 +18,18 @@
  */
 
 import {
+  TransportRefused,
+  editLiveTransport,
+  onTransportChange,
+  readLiveTransport,
+} from "@opensesame/app-core/lib/live/transport-store.js";
+import {
   DIRECT_TRANSPORT,
   type LiveTransport,
   type TransportRead,
   readTransport,
   transportFileText,
 } from "@opensesame/app-core/lib/live/transport.js";
-import {
-  TransportRefused,
-  editLiveTransport,
-  onTransportChange,
-  readLiveTransport,
-} from "@opensesame/app-core/lib/live/transport-store.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 

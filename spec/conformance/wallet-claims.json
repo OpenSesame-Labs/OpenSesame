@@ -16,10 +16,7 @@
       "status": "specified",
       "reason": "formatUnits + amount parsers cover integer subunits; no float path in spending-ledger.test / os-domain wallet-domain",
       "productionEnabled": false,
-      "evidenceRefs": [
-        "npm run wallet:test:browser",
-        "npm run wallet:test:domain"
-      ]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:domain"]
     },
     "WAL-D02": {
       "status": "specified",
@@ -34,10 +31,7 @@
       "status": "specified",
       "reason": "shared_counter sibling reserve: 700 then 400 against 1000 refuses second; WalletSection + wallet-budget conservation tests",
       "productionEnabled": false,
-      "evidenceRefs": [
-        "npm run wallet:test:browser",
-        "npm run wallet:test:security"
-      ]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:security"]
     },
     "WAL-D04": {
       "status": "specified",
@@ -406,10 +400,7 @@
       "status": "specified",
       "reason": "assessLocalPaymentApproval refuses mechanism/assurance without verified bytes; dummy bytes are signature_invalid; matching ES256 admits verifiedMechanism es256",
       "productionEnabled": false,
-      "evidenceRefs": [
-        "npm run wallet:test:browser",
-        "npm run wallet:test:protocols"
-      ]
+      "evidenceRefs": ["npm run wallet:test:browser", "npm run wallet:test:protocols"]
     },
     "WAL-B02": {
       "status": "specified",

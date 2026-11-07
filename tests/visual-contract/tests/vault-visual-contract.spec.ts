@@ -22,9 +22,8 @@
  * preview origin, and any uncaught page error, fails the test: a capture of
  * a screen that tried to reach a service is not a capture of the product.
  */
-
-import type { Locator, Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 import { captureAndVerify } from "../src/compare.js";
 
 /** Matches the genuine current Pages PIN-seal journey; policy accepts eight digits. */

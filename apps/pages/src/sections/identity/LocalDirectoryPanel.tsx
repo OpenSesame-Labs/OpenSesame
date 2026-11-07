@@ -1,5 +1,6 @@
 import { kvDurability } from "@opensesame/app-core/lib/kv.js";
 import { ensureDefaultAccess } from "@opensesame/app-core/lib/local-access-bootstrap.js";
+import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import {
   type LocalDirectory,
   type LocalDirectoryChange,
@@ -8,7 +9,6 @@ import {
   type LocalIdentityKind,
   readLocalDirectory,
 } from "@opensesame/app-core/lib/local-directory.js";
-import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import { subscribeLocalIamChanges } from "@opensesame/app-core/lib/local-iam-events.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconKey, ReloadKey } from "../../components/IconKey.js";
@@ -156,10 +156,7 @@ export function useDirectory(
 function DirectoryEditor({
   tomb,
   kind,
-}: {
-  tomb: string;
-  kind: LocalIdentityKind;
-}) {
+}: { tomb: string; kind: LocalIdentityKind }) {
   const model = useDirectory(tomb);
   const { directory, draft, setDraft, busy, seeding, error, load } = model;
   const label = LABELS[kind];

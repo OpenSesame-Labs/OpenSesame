@@ -25,6 +25,7 @@ import {
 } from "@opensesame/ceremony-kit";
 import { dismissNotice, setStatusNotice } from "./notices.js";
 
+export { APPROVAL_LABELS };
 export type {
   ApprovalEnding,
   ApprovalPhase,
@@ -32,7 +33,6 @@ export type {
   ApprovalStep,
   DecisionInput,
 };
-export { APPROVAL_LABELS };
 
 /** What the route says with no session to read a request with. */
 export const APPROVAL_SIGN_IN = approvalWords("signin").words;

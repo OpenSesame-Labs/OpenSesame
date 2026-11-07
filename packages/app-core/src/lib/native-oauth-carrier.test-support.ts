@@ -6,8 +6,8 @@ import {
   nativeProviderTransport,
 } from "./native-connector-transport.js";
 import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
-import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import type { NativeOAuthClientOwner } from "./native-oauth-client-config.js";
+import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 export function captureOAuthCarrier(
   owner: NativeOAuthClientOwner,
   origin: string,

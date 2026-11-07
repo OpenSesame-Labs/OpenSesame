@@ -6,7 +6,6 @@ import {
   emailClaimMayJoinAccounts,
   emailLinkFields,
 } from "../services/email-authority.js";
-
 describe("emailClaimMayJoinAccounts", () => {
   const ctx = (verifiedDomainOwner?: string) =>
     overlapCast<AppContext>({

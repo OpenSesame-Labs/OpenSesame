@@ -5,7 +5,6 @@ import { afterEach, expect, it } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import { bindProviderRuntime } from "./native-runtime.js";
-
 afterEach(() => vaultStore.lock());
 it("gives each genuine session a new transport and never revives an old handle", async () => {
   const test = createTestContext();

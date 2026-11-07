@@ -14,7 +14,6 @@ import { MCP_TOKEN, oauthMcpFixture } from "./native-oauth-mcp.test-support.js";
 import { createNativeOAuthResourceDriver } from "./native-oauth-resource-driver.js";
 import { requireNativeOAuthRecord } from "./native-oauth-session.js";
 import { tlsFetch } from "./native-s3-backup.test-support.js";
-
 const closes: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

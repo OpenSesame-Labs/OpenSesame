@@ -6,7 +6,6 @@ import {
 import { verifyNativeMcpRecord } from "./native-mcp-proof.js";
 import { requireNativeMcpRecord } from "./native-mcp-records.js";
 import { refreshNativeMcpAuthorization } from "./native-mcp-refresh.js";
-
 export { activateNativeMcpGrant } from "./native-mcp-proof.js";
 
 export async function verifyNativeMcpConnector(

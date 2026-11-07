@@ -1,10 +1,10 @@
 import type { JsonObject } from "@opensesame/os-domain";
 import { expect, vi } from "vitest";
+import type { NativeMcpOAuthTarget } from "./native-mcp-oauth-target.js";
 import {
   type NativeMcpOAuthPorts,
   NativeMcpPublicOAuth,
 } from "./native-mcp-oauth.js";
-import type { NativeMcpOAuthTarget } from "./native-mcp-oauth-target.js";
 
 export const target: NativeMcpOAuthTarget = {
   binding: {

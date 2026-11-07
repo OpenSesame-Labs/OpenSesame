@@ -7,13 +7,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tlsOracle } from "@opensesame/app-core/browser/oidc/tls.test-support.js";
 import {
-  CAPABILITY_CATALOG,
-  describeCapability,
-} from "@opensesame/app-core/lib/capabilities/catalog.js";
-import {
   TAILSCALE_BROWSER_NODE_PURPOSE,
   TAILSCALE_IDENTITY_HTTP_PURPOSE,
 } from "@opensesame/app-core/lib/capabilities/catalog-optional-services.js";
+import {
+  CAPABILITY_CATALOG,
+  describeCapability,
+} from "@opensesame/app-core/lib/capabilities/catalog.js";
 import { createEgressPort } from "@opensesame/app-core/lib/capabilities/egress.js";
 import {
   type IdentityBrowserNodeConfiguration,

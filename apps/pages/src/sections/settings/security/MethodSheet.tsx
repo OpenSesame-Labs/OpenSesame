@@ -27,7 +27,6 @@ import {
   type KeyView,
   keyIcon,
 } from "./KeyCeremony.js";
-import type { Run } from "./run.js";
 import {
   AuthenticatorCeremony,
   CodeCeremony,
@@ -35,6 +34,7 @@ import {
 } from "./SecondStepCeremonies.js";
 import { ServiceCeremony } from "./ServiceCeremony.js";
 import { SheetFrame } from "./SheetFrame.js";
+import type { Run } from "./run.js";
 
 export type MethodKind =
   | KeyKind

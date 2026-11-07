@@ -6,7 +6,6 @@ import {
   OWNER_TOTP,
   retiredOwnerFixture,
 } from "./retired-owner.fixture.js";
-
 const primary = { kind: "password" as const, secret: OWNER_PASSWORD };
 const slot = "tomb/personal/retired-credentials.v2";
 describe("private retired management", () => {

@@ -141,9 +141,7 @@ function HoneyList({
 
 export function HoneyTokensPanel({
   notices,
-}: {
-  notices: readonly PluginNotice[];
-}) {
+}: { notices: readonly PluginNotice[] }) {
   const store = useVaultStore();
   const scope = store.activeTomb?.() ?? "";
   const [rows, setRows] = useState<HoneyTokenRecord[]>([]);

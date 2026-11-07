@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { type BoundaryValue, isJsonObject } from "../json.js";
-import { canonicalize as nodeCanonicalize } from "./digest.js";
 import { canonicalize, digestManifest, sha256Hex } from "./digest-browser.js";
+import { canonicalize as nodeCanonicalize } from "./digest.js";
 
 describe("browser digest interoperability", () => {
   it.each([

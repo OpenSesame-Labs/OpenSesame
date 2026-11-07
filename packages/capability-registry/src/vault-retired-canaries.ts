@@ -1,5 +1,4 @@
 import type { Capability, CapabilityExclusion } from "./types.js";
-
 const ADR =
   "0207-retired-credentials-and-controlled-canaries-are-owner-ceremonies.md";
 const OWNER_ONLY: CapabilityExclusion = {

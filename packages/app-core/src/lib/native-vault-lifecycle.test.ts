@@ -10,15 +10,6 @@ import {
   readNativeConnector,
   updateNativeConnector,
 } from "./native-connector-store.js";
-import {
-  backend,
-  disposers,
-  input,
-  provider,
-  redirectUri,
-  state,
-  token,
-} from "./native-vault.test-support.js";
 import { completeNativeVaultOidc } from "./native-vault-auth.js";
 import {
   checkNativeVaultAccess,
@@ -31,6 +22,15 @@ import {
   configureNativeVault,
   nativeVaultClassification,
 } from "./native-vault-session.js";
+import {
+  backend,
+  disposers,
+  input,
+  provider,
+  redirectUri,
+  state,
+  token,
+} from "./native-vault.test-support.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

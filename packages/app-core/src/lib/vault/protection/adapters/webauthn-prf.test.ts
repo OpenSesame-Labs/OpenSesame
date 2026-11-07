@@ -17,12 +17,12 @@ import {
   withPasskeyUnlock,
   wrapVaultKeyWithPrf,
 } from "../../unlock-methods.js";
-import { webauthnPrfCapabilities } from "./webauthn-prf.js";
 import { protectorFromPrfMaterial } from "./webauthn-prf-ops.js";
 import {
   type PrfCeremonyErrorCode,
   isPrfUnsupported,
 } from "./webauthn-prf-output.js";
+import { webauthnPrfCapabilities } from "./webauthn-prf.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 import { classify } from "./classification.js";
-
 it.each([
   "src/sections/vault/ExportKey.tsx",
   "src/sections/vault/ExportKey.menu.tsx",

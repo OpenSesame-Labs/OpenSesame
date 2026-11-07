@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 import { configureNativeOAuthClient } from "./native-oauth-client-config.js";
+import { nativeOAuthClientFixture } from "./native-oauth-client.test-support.js";
 
 const closing: (() => Promise<void>)[] = [];
 afterEach(async () => {

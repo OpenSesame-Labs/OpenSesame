@@ -30,7 +30,6 @@ import { kvHydrate } from "./kv.js";
 import { guestVaultLabel } from "./local-guest.js";
 
 export { guestVaultLabel } from "./local-guest.js";
-
 import {
   PERSONAL_PROJECT_ID,
   type PagesProject,

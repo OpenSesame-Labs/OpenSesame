@@ -1,5 +1,4 @@
 import { expect, it, vi } from "vitest";
-
 async function within<T>(phase: string, promise: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -16,9 +15,7 @@ async function within<T>(phase: string, promise: Promise<T>): Promise<T> {
     clearTimeout(timer);
   }
 }
-
 import { fixture, ownedTLS } from "./controller-native-stream.test-support.js";
-
 it.each(["caller", "capture-owner", "controller-close"])(
   "physically drains persistent owned TLS within two seconds on %s withdrawal",
   async (reason) => {

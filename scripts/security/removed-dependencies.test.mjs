@@ -33,10 +33,7 @@ test("removed vulnerable devtools dependencies have no lockfile edges", () => {
       assert.ok(!removed.has(name), `Removed dependency package: ${key}`);
     }
     if (isString(entry?.name)) {
-      assert.ok(
-        !removed.has(entry.name),
-        `Removed dependency name: ${entry.name}`,
-      );
+      assert.ok(!removed.has(entry.name), `Removed dependency name: ${entry.name}`);
     }
     for (const field of [
       "dependencies",

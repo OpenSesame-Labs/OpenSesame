@@ -1,5 +1,5 @@
-import type { GlobalFlags, ParsedCommand } from "./parse.js";
 import { leftover, takeOption } from "./parse-options.js";
+import type { GlobalFlags, ParsedCommand } from "./parse.js";
 
 export function parseVaultSync(
   args: string[],

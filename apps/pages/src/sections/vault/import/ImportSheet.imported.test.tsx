@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const applyImport = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
-
 Object.assign(vaultHooksSeams, {
   useVault: () => ({ items: [], folders: [] }),
   useVaultStore: () => ({ applyImport, importSealed: vi.fn() }),

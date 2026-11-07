@@ -24,7 +24,6 @@ import type {
   LocalVaultStarted,
 } from "@opensesame/vault-core/local-vault-security.js";
 import { check, raw, ready, refuses, result } from "./native-fixture.js";
-
 const PASSWORD = "actual browser retired lifecycle genuine owner password";
 function complete(started: LocalVaultStarted<LocalRetiredInspection>) {
   if (started.kind !== "complete")

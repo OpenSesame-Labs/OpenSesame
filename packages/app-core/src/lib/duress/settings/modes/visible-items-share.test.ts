@@ -6,13 +6,6 @@ import {
 import { definitionFields } from "@opensesame/vault-item-types";
 import { describe, expect, it } from "vitest";
 import { pepperedAccount } from "../../../account.test-support.js";
-import {
-  HIDDEN,
-  account,
-  dressed,
-  items,
-  secret,
-} from "./visible-items.fixture.js";
 import { VISIBLE_LIMITS, readVisibleItemsBody } from "./visible-items-shape.js";
 import {
   isShareable,
@@ -20,6 +13,13 @@ import {
   shareItem,
   shareableItems,
 } from "./visible-items-share.js";
+import {
+  HIDDEN,
+  account,
+  dressed,
+  items,
+  secret,
+} from "./visible-items.fixture.js";
 
 describe("what is eligible, and what is never copied", () => {
   it("offers accounts, notes, secrets and cards, by name and kind, never a secret", () => {

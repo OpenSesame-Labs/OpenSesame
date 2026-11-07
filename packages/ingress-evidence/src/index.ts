@@ -10,8 +10,8 @@
  */
 export {
   type IngressErrorCode,
-  IngressEvidenceError,
   type IngressField,
+  IngressEvidenceError,
 } from "./error.js";
 export { type HeaderPair, hasClientCertFields } from "./fields.js";
 export { DEFAULT_INGRESS_LIMITS, type IngressLimits } from "./limits.js";

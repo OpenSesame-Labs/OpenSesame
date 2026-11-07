@@ -5,11 +5,11 @@ import {
   configureLocalApplication,
   readLocalApplications,
 } from "@opensesame/app-core/lib/local-applications.js";
+import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
 } from "@opensesame/app-core/lib/local-directory.js";
-import { changeLocalDirectory } from "@opensesame/app-core/lib/local-directory-admin.js";
 import { enrollLocalPasskey } from "@opensesame/app-core/lib/local-passkeys.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 

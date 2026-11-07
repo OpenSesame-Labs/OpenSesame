@@ -3,16 +3,16 @@
  * Shoo is never sent through this path.
  */
 
-import type { BoundaryValue } from "@opensesame/os-domain";
 import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
+import type { BoundaryValue } from "@opensesame/os-domain";
 import {
   type VerifiedIdTokenClaims,
   createPkcePair,
   randomString,
   verifyBrowserIdTokenClaims,
 } from "@opensesame/sdk-browser";
-import { FederationError, type UpstreamIdentity } from "../federation.js";
 import { endpointBelongsToIssuer } from "../federation-endpoint-origin.js";
+import { FederationError, type UpstreamIdentity } from "../federation.js";
 import { currentAuthGeneration } from "./generation.js";
 import {
   type ProviderConnection,

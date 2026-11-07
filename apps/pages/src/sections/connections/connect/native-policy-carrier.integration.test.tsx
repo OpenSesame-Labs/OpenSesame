@@ -14,6 +14,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { NativeConnectorForm } from "./NativeConnectorForm.js";
+import { nativeVerified } from "./native-connector-ui-values.js";
 import {
   type NativeMethodDescriptor,
   nativeMethodConfigurable,
@@ -22,7 +23,6 @@ import {
   nativeUiController,
   nativeUiDescriptor,
 } from "./native-connector-ui.test-support.js";
-import { nativeVerified } from "./native-connector-ui-values.js";
 import { nativePolicyMethod } from "./native-provider-policy.js";
 
 afterEach(cleanup);

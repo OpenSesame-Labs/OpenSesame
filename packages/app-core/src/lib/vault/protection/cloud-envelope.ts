@@ -10,8 +10,8 @@ import {
   ROOT_KEY_BYTES,
   type SealedBlobV1,
   WRAPPING_SECRET_BYTES,
-  bytesToB64,
 } from "@opensesame/vault-core";
+import { bytesToB64 } from "@opensesame/vault-core";
 import { openRootCapsule, sealRootCapsule } from "./capsule.js";
 import { ProtectionError } from "./errors.js";
 

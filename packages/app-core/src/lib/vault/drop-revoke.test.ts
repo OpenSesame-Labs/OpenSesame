@@ -1,7 +1,7 @@
 import { createItem } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { sealDrop } from "./drop.js";
 import { revokeDropVaultItem } from "./drop-revoke.js";
+import { sealDrop } from "./drop.js";
 import {
   createLocalDropClaim,
   localDropClaimSeams,

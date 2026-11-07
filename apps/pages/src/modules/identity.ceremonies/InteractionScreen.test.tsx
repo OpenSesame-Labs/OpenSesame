@@ -9,12 +9,12 @@
  */
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
-import { interactionApproval } from "@opensesame/app-core/lib/interactions.js";
 import {
   captureInteractionArrivalFromPage,
   resetInteractionArrivalForTests,
 } from "@opensesame/app-core/lib/interactions-link.js";
 import { INTERACTION_NOTICE } from "@opensesame/app-core/lib/interactions-route.js";
+import { interactionApproval } from "@opensesame/app-core/lib/interactions.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { overlapCast } from "@opensesame/os-domain";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -23,6 +23,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identityHookSeams } from "../../bindings/identity.js";
 import { useOnlineSeams } from "../../lib/use-online.js";
+import { InteractionScreen } from "./InteractionScreen.js";
 import {
   DIGEST,
   OTHER_DIGEST,
@@ -30,7 +31,6 @@ import {
   REF,
   ceremonyServer,
 } from "./ceremony-server.test-support.js";
-import { InteractionScreen } from "./InteractionScreen.js";
 import { interactionHookSeams } from "./useInteraction.js";
 
 const session: { current: IdentitySession | null } = { current: null };

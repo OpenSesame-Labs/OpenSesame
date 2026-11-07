@@ -1,10 +1,10 @@
-import { asBufferSource } from "@opensesame/os-domain";
 import {
   GOOGLE_WALLET_CONFIGURATION_POLICY as POLICY,
   googleWalletPemParts,
   googleWalletPublicFailure,
 } from "@opensesame/wallet/google-wallet-policy";
 import { base64ToBytes } from "./native-base64.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 export function validateGoogleWalletPublic(
   parameters: Record<string, string>,

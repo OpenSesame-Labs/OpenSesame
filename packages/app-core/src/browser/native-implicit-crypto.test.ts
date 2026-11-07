@@ -4,7 +4,6 @@ import {
   decryptNativeImplicitPayload,
   encryptNativeImplicitPayload,
 } from "./native-implicit-crypto.js";
-
 const payload = {
   accessToken: "private-approved-provider-access",
   tokenType: "Bearer" as const,

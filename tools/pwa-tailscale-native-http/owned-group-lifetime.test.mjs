@@ -14,7 +14,6 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { nativePreparationCommand } from "./prepare-distribution.mjs";
-
 const repository = fileURLToPath(new URL("../..", import.meta.url));
 const pause = (ms) => new Promise((accept) => setTimeout(accept, ms));
 
@@ -140,78 +139,91 @@ async function stopped(f, operation) {
     "preparation settled with an executable descendant",
   );
 }
-test("outer deadline drains a stubborn grandchild after the actual tar leader exits", {
-  timeout: 15000,
-}, async (t) => {
-  const f = await fixture(t);
-  const operation = invoke(f, 1500);
-  await announced(f);
-  await stopped(f, operation);
-});
-test("outer deadline allows inner KILL escalation when both actual leader and descendant ignore TERM", {
-  timeout: 15000,
-}, async (t) => {
-  const f = await fixture(t, { stubbornLeader: true });
-  const operation = invoke(f, 1500);
-  await announced(f);
-  await stopped(f, operation);
-});
-test("actual SIGINT and SIGTERM cannot retire owned groups before stubborn descendants stop", {
-  timeout: 20000,
-}, async (t) => {
-  for (const signal of ["SIGINT", "SIGTERM"]) {
+test(
+  "outer deadline drains a stubborn grandchild after the actual tar leader exits",
+  { timeout: 15000 },
+  async (t) => {
     const f = await fixture(t);
-    const before = process.listenerCount(signal);
-    const operation = invoke(f);
+    const operation = invoke(f, 1500);
     await announced(f);
-    process.kill(process.pid, signal);
     await stopped(f, operation);
-    assert.equal(process.listenerCount(signal), before);
-  }
-});
-test("natural successful leader exit keeps the supervisor alive until orphan descendants drain", {
-  timeout: 15000,
-}, async (t) => {
-  const f = await fixture(t, { natural: true });
-  const operation = invoke(f);
-  const record = await announced(f);
-  const deadline = performance.now() + 1000;
-  while (active(await identity(record.leader)) && performance.now() < deadline)
-    await pause(10);
-  assert.equal(active(await identity(record.leader)), false);
-  assert.ok(
-    active(await identity(record.group)),
-    "the supervisor must anchor the PGID after command exit",
-  );
-  await stopped(f, operation);
-  assert.match(
-    await readFile(join(f.work, "build.log"), "utf8"),
-    /"reason":"descendant"/,
-  );
-});
+  },
+);
+test(
+  "outer deadline allows inner KILL escalation when both actual leader and descendant ignore TERM",
+  { timeout: 15000 },
+  async (t) => {
+    const f = await fixture(t, { stubbornLeader: true });
+    const operation = invoke(f, 1500);
+    await announced(f);
+    await stopped(f, operation);
+  },
+);
+test(
+  "actual SIGINT and SIGTERM cannot retire owned groups before stubborn descendants stop",
+  { timeout: 20000 },
+  async (t) => {
+    for (const signal of ["SIGINT", "SIGTERM"]) {
+      const f = await fixture(t);
+      const before = process.listenerCount(signal);
+      const operation = invoke(f);
+      await announced(f);
+      process.kill(process.pid, signal);
+      await stopped(f, operation);
+      assert.equal(process.listenerCount(signal), before);
+    }
+  },
+);
+test(
+  "natural successful leader exit keeps the supervisor alive until orphan descendants drain",
+  { timeout: 15000 },
+  async (t) => {
+    const f = await fixture(t, { natural: true });
+    const operation = invoke(f);
+    const record = await announced(f);
+    const deadline = performance.now() + 1000;
+    while (
+      active(await identity(record.leader)) &&
+      performance.now() < deadline
+    )
+      await pause(10);
+    assert.equal(active(await identity(record.leader)), false);
+    assert.ok(
+      active(await identity(record.group)),
+      "the supervisor must anchor the PGID after command exit",
+    );
+    await stopped(f, operation);
+    assert.match(
+      await readFile(join(f.work, "build.log"), "utf8"),
+      /"reason":"descendant"/,
+    );
+  },
+);
 
-test("abrupt driver death reports uncertain nested drain before any scratch can be retired", {
-  timeout: 15000,
-}, async (t) => {
-  const f = await fixture(t);
-  const operation = invoke(f);
-  const record = await announced(f);
-  const driver = (await identity(record.group)).parent;
-  assert.ok(
-    (await readFile(`/proc/${driver}/cmdline`, "utf8"))
-      .split("\0")
-      .includes(join(f.tools, "build.mjs")),
-  );
-  process.kill(driver, "SIGKILL");
-  const error = await operation;
-  assert.equal(error.code, "NATIVE_GROUP_DRAIN");
-  assert.match(error.message, /uncertain.*scratch is retained/);
-  const deadline = performance.now() + 4000;
-  while (active(await identity(f.member.pid)) && performance.now() < deadline)
-    await pause(20);
-  assert.equal(
-    active(await identity(f.member.pid)),
-    false,
-    "orphan supervisor fallback did not stop its descendant",
-  );
-});
+test(
+  "abrupt driver death reports uncertain nested drain before any scratch can be retired",
+  { timeout: 15000 },
+  async (t) => {
+    const f = await fixture(t);
+    const operation = invoke(f);
+    const record = await announced(f);
+    const driver = (await identity(record.group)).parent;
+    assert.ok(
+      (await readFile(`/proc/${driver}/cmdline`, "utf8"))
+        .split("\0")
+        .includes(join(f.tools, "build.mjs")),
+    );
+    process.kill(driver, "SIGKILL");
+    const error = await operation;
+    assert.equal(error.code, "NATIVE_GROUP_DRAIN");
+    assert.match(error.message, /uncertain.*scratch is retained/);
+    const deadline = performance.now() + 4000;
+    while (active(await identity(f.member.pid)) && performance.now() < deadline)
+      await pause(20);
+    assert.equal(
+      active(await identity(f.member.pid)),
+      false,
+      "orphan supervisor fallback did not stop its descendant",
+    );
+  },
+);

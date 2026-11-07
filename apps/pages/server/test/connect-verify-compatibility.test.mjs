@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { verifyTargets } from "../../scripts/emit-connect-verify-targets.mjs";
+import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 import {
   resolveTarget,
   verifyTargetFor,
   verifyWithToken,
 } from "../connect-verify.mjs";
-import { VERIFY_TARGETS } from "../connect-verify-targets.generated.mjs";
 
 const presets = JSON.parse(
   readFileSync(

@@ -82,11 +82,9 @@ function extractionBuildInput(path) {
       ".npmrc",
       ".pnpmfile.cjs",
     ].includes(name) ||
-    [
-      "rust-toolchain.toml",
-      "package-lock.json",
-      "pnpm-workspace.yaml",
-    ].includes(path) ||
+    ["rust-toolchain.toml", "package-lock.json", "pnpm-workspace.yaml"].includes(
+      path,
+    ) ||
     /(?:^|\/)gradle\.properties$/.test(path) ||
     /\.gradle(?:\.kts)?$/.test(name) ||
     parts.includes("buildSrc") ||

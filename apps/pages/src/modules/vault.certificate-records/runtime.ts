@@ -7,8 +7,8 @@
  */
 
 import type { CapabilityRuntime } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
-import { certsSeams } from "@opensesame/app-core/lib/certs.js";
 import { installLocalCertificateIssuance } from "@opensesame/app-core/lib/certs-issue.js";
+import { certsSeams } from "@opensesame/app-core/lib/certs.js";
 import { KIND_LABEL } from "@opensesame/vault-core";
 import { IconShield } from "../../components/Icons.js";
 import { createActivation } from "../activation.js";

@@ -5,7 +5,6 @@ import { host } from "../host.js";
 import { originFiles } from "../ports.js";
 import { atRestSettled } from "./at-rest/key.js";
 import { kvFileName } from "./kv.js";
-import { comparePublishOriginFile } from "./origin-file-publication.js";
 import {
   captureOriginalOriginDirectoryData,
   captureOriginalOriginDirectoryNamesData,
@@ -14,6 +13,7 @@ import {
   checkPublicationLimit,
   readOriginRecord,
 } from "./origin-file-publication-read.js";
+import { comparePublishOriginFile } from "./origin-file-publication.js";
 
 function unavailable(): never {
   throw new Error("Original durable origin storage is unavailable.");

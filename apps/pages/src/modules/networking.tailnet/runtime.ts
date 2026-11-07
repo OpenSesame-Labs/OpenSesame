@@ -37,12 +37,12 @@ import {
 } from "@opensesame/app-core/lib/tailnet-sync/saved-connector.js";
 import { sectionCategory } from "../../sections/settings/FeatureSections.js";
 import { createActivation } from "../activation.js";
-import { bindTailscaleBrowserRuntime } from "./browser/runtime.js";
 import {
   NativeOidcPeeringGate,
   NativeOidcPeeringWrapper,
 } from "./NativeOidcPeering.js";
 import { TailnetSyncPanel } from "./TailnetSyncPanel.js";
+import { bindTailscaleBrowserRuntime } from "./browser/runtime.js";
 
 export const CAPABILITY = "networking.tailnet";
 

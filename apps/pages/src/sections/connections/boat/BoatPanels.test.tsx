@@ -18,7 +18,8 @@ function fakeBoatTransport() {
         claim_token: "clm_panel_test",
         claim: {
           user_code: "654321",
-          verification_uri: "https://boat.dev/api/boat/agent/identity/claim",
+          verification_uri:
+            "https://boat.dev/api/boat/agent/identity/claim",
           expires_in: 600,
           interval: 0,
         },
@@ -64,7 +65,9 @@ it("runs the claim ceremony: email, code, sealed connection, billing gate", asyn
     screen.getByLabelText("Boat account email"),
     "person@example.test",
   );
-  await userEvent.click(screen.getByRole("button", { name: /start claim/i }));
+  await userEvent.click(
+    screen.getByRole("button", { name: /start claim/i }),
+  );
   expect(await screen.findByText("654321")).toBeTruthy();
   expect(
     screen.getByRole("link", { name: /claim this account/i }),

@@ -20,7 +20,6 @@ import { createActivation } from "../activation.js";
 import { bindNativeModelRuntime } from "../connectors.external/native-model-runtime.js";
 import { createTestContext } from "../test-context.js";
 import { acceptedRemoteModels, capabilityRuntime } from "./runtime.js";
-
 const originalModels = { ...modelProviderSeams };
 let releaseConnector = () => {};
 beforeEach(() => {

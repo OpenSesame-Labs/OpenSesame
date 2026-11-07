@@ -4,14 +4,14 @@
  * the default bundle imports this directory.
  */
 
-export * from "./guardian.js";
 export * from "./guardian-act.js";
 export * from "./guardian-agreements.js";
-export * from "./owner.js";
+export * from "./guardian.js";
 export * from "./owner-act.js";
 export * from "./owner-change.js";
 export * from "./owner-dealt.js";
 export * from "./owner-shared.js";
+export * from "./owner.js";
 export * from "./ports.js";
 export * from "./recipient.js";
 export * from "./recovery-progress.js";

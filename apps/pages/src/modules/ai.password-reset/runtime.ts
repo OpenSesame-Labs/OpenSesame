@@ -22,13 +22,13 @@ import {
 import { evaluatePasswordResetReadiness } from "@opensesame/app-core/lib/password-reset/readiness.js";
 import { VAULT_RESET_RUNS_KEY } from "@opensesame/app-core/lib/password-reset/vault-run-tracker.js";
 import { createActivation } from "../activation.js";
+import { TakeoverPanel } from "./TakeoverPanel.js";
 import { PasswordResetMailPanel } from "./panel.js";
 import {
   createHostResetRunNoticeBridge,
   installPasswordResetRotationRelay,
 } from "./rotation-relay.js";
 import { createPasswordResetScan } from "./scan.js";
-import { TakeoverPanel } from "./TakeoverPanel.js";
 import { installPasswordResetVaultUiSeams } from "./vault-ui.js";
 
 export const CAPABILITY = "ai.password-reset";

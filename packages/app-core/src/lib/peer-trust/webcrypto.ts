@@ -1,5 +1,4 @@
 import { asBufferSource } from "@opensesame/os-domain";
-
 /** P-256 ECDSA and SHA-256 helpers shared by enrollment and the session SAS. */
 
 const ECDSA = { name: "ECDSA", hash: "SHA-256" } as const;
@@ -38,11 +37,7 @@ export async function signP256(
   payload: Uint8Array,
 ): Promise<string | null> {
   try {
-    const signature = await crypto.subtle.sign(
-      ECDSA,
-      privateKey,
-      asBufferSource(payload),
-    );
+    const signature = await crypto.subtle.sign(ECDSA, privateKey, asBufferSource(payload));
     return bytesToB64(new Uint8Array(signature));
   } catch {
     return null;
@@ -61,12 +56,7 @@ export async function verifyP256(
     const publicKey = await crypto.subtle.importKey("spki", der, P256, false, [
       "verify",
     ]);
-    return await crypto.subtle.verify(
-      ECDSA,
-      publicKey,
-      signature,
-      asBufferSource(payload),
-    );
+    return await crypto.subtle.verify(ECDSA, publicKey, signature, asBufferSource(payload));
   } catch {
     return false;
   }

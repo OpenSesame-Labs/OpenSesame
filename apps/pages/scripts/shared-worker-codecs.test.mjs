@@ -13,7 +13,6 @@ import {
   codecFixture,
 } from "./shared-worker-codecs.test-support.mjs";
 import { sharedWorkerGraph } from "./shared-worker-graph.mjs";
-
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const core = join(repo, "packages/app-core/src/lib");
 const bytesFile = join(repo, "packages/vault-core/src/bytes.ts");

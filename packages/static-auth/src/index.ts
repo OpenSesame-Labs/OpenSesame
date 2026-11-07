@@ -1,26 +1,26 @@
-export { type HostedProfile, createHostedClient } from "./hosted.js";
+export { createHostedClient, type HostedProfile } from "./hosted.js";
 export {
-  type LocalAgentChallenge,
-  type LocalAgentPublicKey,
+  signInLoopback,
+  validateLoopbackToken,
+  type LoopbackProfile,
+} from "./passthrough.js";
+export { exactOrigin, isLoopbackOrigin } from "./transport.js";
+export {
   createLocalAgentKey,
   localAgentPublicKey,
   verifyLocalAgentChallenge,
+  type LocalAgentChallenge,
+  type LocalAgentPublicKey,
 } from "./local-agent.js";
 export {
-  type LocalBrowserIdentity,
-  type LocalBrowserProfile,
   signInLocalBrowser,
+  type LocalBrowserProfile,
+  type LocalBrowserIdentity,
 } from "./local-browser.js";
 export {
   LOCAL_CHANNEL_VERSION,
-  type LocalAuthorizationRequest,
+  parseLocalAuthorizationRequest,
   localAuthorizationQuery,
   localMessage,
-  parseLocalAuthorizationRequest,
+  type LocalAuthorizationRequest,
 } from "./local-protocol.js";
-export {
-  type LoopbackProfile,
-  signInLoopback,
-  validateLoopbackToken,
-} from "./passthrough.js";
-export { exactOrigin, isLoopbackOrigin } from "./transport.js";

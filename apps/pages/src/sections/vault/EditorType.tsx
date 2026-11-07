@@ -50,10 +50,7 @@ function creatableTypes(): TypeChoice[] {
 export function EditorType({
   typeId,
   onChange,
-}: {
-  typeId: string;
-  onChange?: (typeId: string) => void;
-}) {
+}: { typeId: string; onChange?: (typeId: string) => void }) {
   if (!onChange) {
     return (
       <span className="editor__ext pathfield__ext">

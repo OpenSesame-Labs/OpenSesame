@@ -21,8 +21,8 @@ import {
   channelCapabilities,
   planNotificationRoute,
 } from "@opensesame/os-domain";
-import type { Context } from "hono";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";

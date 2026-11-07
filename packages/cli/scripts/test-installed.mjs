@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stageCliRelease } from "../../../scripts/release/prepare-cli-release.mjs";
-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const stage = await mkdtemp(join(tmpdir(), "opensesame-installed-cli-"));
 const releaseVersion = "0.0.0-alpha.1";

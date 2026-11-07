@@ -199,15 +199,13 @@ export function useBoatCeremony(
   const saved = connection ?? savedBoatConnection();
   const savedFields = saved ? publicConnectorFields(saved.connectionId) : {};
   const [email, setEmail] = useState(savedFields.account_email ?? "");
-  const [stage, setStage] = useState<BoatCeremonyStage>(
-    saved ? "saved" : "email",
-  );
+  const [stage, setStage] = useState<BoatCeremonyStage>(saved ? "saved" : "email");
   const [claim, setClaim] = useState<BoatClaimStart | null>(null);
   const [account, setAccount] = useState<BoatAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const generation = useRef(0);
-  const stopPolling = useCallback(() => void generation.current++, []);
+  const stopPolling = useCallback(() => void (generation.current += 1), []);
   useEffect(() => stopPolling, [stopPolling]);
   const fail = useCallback((caught: unknown) => {
     setFailure(caught instanceof Error ? caught.message : "That did not work.");

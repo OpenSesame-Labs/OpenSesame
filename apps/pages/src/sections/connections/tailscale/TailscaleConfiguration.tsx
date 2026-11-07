@@ -27,10 +27,7 @@ export function TailscaleStatus({ model }: { model: TailscaleEditor }) {
 function AppFields({
   model,
   callback,
-}: {
-  model: TailscaleEditor;
-  callback: string;
-}) {
+}: { model: TailscaleEditor; callback: string }) {
   const disabled = model.busy || !!model.saved;
   return (
     <>
@@ -117,11 +114,7 @@ export function TailscaleConfiguration({
   model,
   callback,
   online,
-}: {
-  model: TailscaleEditor;
-  callback: string;
-  online: boolean;
-}) {
+}: { model: TailscaleEditor; callback: string; online: boolean }) {
   return (
     <section className="panel" aria-label="Tailscale OAuth app configuration">
       <FailureNotice
@@ -235,10 +228,7 @@ function RemoveAppKey({ model }: { model: TailscaleEditor }) {
 export function TailscaleAppImport({
   model,
   online,
-}: {
-  model: TailscaleEditor;
-  online: boolean;
-}) {
+}: { model: TailscaleEditor; online: boolean }) {
   return (
     <section
       className="panel"

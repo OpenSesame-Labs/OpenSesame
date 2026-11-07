@@ -8,8 +8,8 @@
  */
 
 import {
-  closeSync,
   constants,
+  closeSync,
   fstatSync,
   lstatSync,
   mkdirSync,

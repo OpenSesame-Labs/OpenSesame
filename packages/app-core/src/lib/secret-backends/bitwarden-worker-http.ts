@@ -1,4 +1,3 @@
-import { ownBytes } from "@opensesame/os-domain";
 import type { BitwardenSdkSettings } from "./bitwarden-wasm-loader.js";
 import type {
   BitwardenFetchRequest,
@@ -6,6 +5,7 @@ import type {
 } from "./bitwarden-worker-protocol.js";
 import { secretBackendUrl } from "./http.js";
 import { SecretBackendError, type SecretBackendFetch } from "./types.js";
+import { ownBytes } from "@opensesame/os-domain";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 async function boundedBody(response: Response): Promise<Uint8Array> {

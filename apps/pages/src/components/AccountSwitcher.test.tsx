@@ -17,7 +17,6 @@ const orgs = vi.hoisted(() => ({
 }));
 
 import { orgSeams } from "@opensesame/app-core/lib/orgs.js";
-
 Object.assign(orgSeams, {
   lookupOrgTenant: orgs.lookupOrgTenant,
   listOrgMemberships: orgs.listOrgMemberships,
@@ -25,7 +24,6 @@ Object.assign(orgSeams, {
 });
 
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-
 Object.assign(identitySeams, {
   currentSession: () => null,
   connectProvisional: vi.fn(),
@@ -36,7 +34,6 @@ Object.assign(identityHookSeams, {
 });
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-
 const beginSignIn = vi.fn();
 federationSeams.beginSignIn = beginSignIn;
 
@@ -81,7 +78,6 @@ describe("AccountSwitcher", () => {
     (source) => {
       const outerEscape = vi.fn();
       render(
-        // biome-ignore lint/a11y/noStaticElementInteractions: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
         <div onKeyDown={outerEscape}>
           <MemoryRouter>
             <AccountSwitcher />

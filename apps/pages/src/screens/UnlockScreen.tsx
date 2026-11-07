@@ -38,19 +38,12 @@ import {
 import { checkForAppUpdate } from "../lib/pwa-update.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { GuideTarget } from "../tutorial/registry/react.jsx";
-import { RequirementsGate } from "./capabilities/RequirementsGate.js";
 import { FrontDoor } from "./FrontDoor.js";
-import { useJoinRoad } from "./join/JoinRoad.js";
 import { SetupScreen, type SetupStep } from "./SetupScreen.js";
+import { VaultsScreen } from "./VaultsScreen.js";
+import { RequirementsGate } from "./capabilities/RequirementsGate.js";
+import { useJoinRoad } from "./join/JoinRoad.js";
 import { PendingImportNote } from "./unlock/ImportRoad.js";
-import {
-  METHOD_LABEL,
-  RESEND_COOLDOWN_MS,
-  isCeremonyMethod,
-  isTypedProtector,
-  unlockGoVerb,
-  unlockTitle,
-} from "./unlock/labels.js";
 import { MethodIcon } from "./unlock/MethodIcon.js";
 import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
 import { FormNotes, LockoutNote } from "./unlock/Notes.js";
@@ -63,6 +56,14 @@ import { TrustedUnlockGate } from "./unlock/TrustedUnlockGate.js";
 import { UnlockFoot } from "./unlock/UnlockFoot.js";
 import { UnlockStage } from "./unlock/UnlockStage.js";
 import { UnlockUserMenu } from "./unlock/UnlockUserMenu.js";
+import {
+  METHOD_LABEL,
+  RESEND_COOLDOWN_MS,
+  isCeremonyMethod,
+  isTypedProtector,
+  unlockGoVerb,
+  unlockTitle,
+} from "./unlock/labels.js";
 import { useUnlockFormFocus } from "./unlock/unlock-form-focus.js";
 import { submitUnlockForm } from "./unlock/unlock-form-submit.js";
 import {
@@ -75,7 +76,6 @@ import { usePasskeyRoad } from "./unlock/use-passkey-road.js";
 import { useUnlockRoute, useUnlockTargets } from "./unlock/use-unlock-gate.js";
 import { useUnlockLockV5 } from "./unlock/use-unlock-lock-v5.js";
 import { useCountdown } from "./unlock/useCountdown.js";
-import { VaultsScreen } from "./VaultsScreen.js";
 import "./unlock.css";
 
 export const unlockScreenDependencies = {
@@ -502,6 +502,7 @@ function UnlockForm({
         keyRef={setupRef}
         onConfigure={() => onOpenSetup("identity")}
       />
+
       {signInStage ? (
         <GuideTarget id="unlock.signin">
           <SignInPanel
@@ -529,7 +530,6 @@ function UnlockForm({
           onSubmit={(e) => void onSubmit(e)}
         >
           {hasTotpStep ? (
-            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
             <div className="steps" aria-label="Unlock steps">
               <div
                 className={

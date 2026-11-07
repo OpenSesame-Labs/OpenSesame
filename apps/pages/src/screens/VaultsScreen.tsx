@@ -24,7 +24,6 @@ import {
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useEffect, useRef, useState } from "react";
-import { useDeviceVaults } from "../bindings/vaults.js";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { IconMark, IconPlus } from "../components/Icons.js";
 import { VaultList } from "../components/VaultList.js";
@@ -36,6 +35,7 @@ import { LockFoot } from "./unlock/LockFoot.js";
 import { ResetLeftNotice } from "./unlock/ResetLeftNotice.js";
 import { SignInPanel } from "./unlock/SignInPanel.js";
 
+import { useDeviceVaults } from "../bindings/vaults.js";
 type Props = {
   providers: FederatedProviderSummary[];
   /** A vault was picked and the store has moved to it: show its unlock form. */

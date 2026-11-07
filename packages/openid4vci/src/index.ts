@@ -28,30 +28,15 @@ export {
   type Openid4vciErrorCode,
   type Openid4vciWireError,
 } from "./errors.js";
-export {
-  type DeviceRef,
-  FORBIDDEN_CREDENTIAL_CLAIMS,
-  type IssueCredentialInput,
-  type IssuedCredential,
-  type IssuedDisclosure,
-  type PairwiseRef,
-  type PairwiseRefInput,
-  SD_ALG,
-  SD_JWT_VC_MEDIA_TYPE,
-  SD_JWT_VC_TYP,
-  type SubjectRef,
-  deriveDeviceRef,
-  deriveSubjectRef,
-  issueCredential,
-} from "./issue.js";
+
 export {
   CREDENTIAL_FORMAT,
   CREDENTIAL_ISSUER_WELL_KNOWN,
+  SUPPORTED_ALGORITHMS,
   type CredentialDisplay,
   type CredentialIssuerIdentifier,
   type IssuerMetadata,
   type IssuerMetadataConfig,
-  SUPPORTED_ALGORITHMS,
   type SupportedAlgorithm,
   buildIssuerMetadata,
   isSupportedAlgorithm,
@@ -60,18 +45,12 @@ export {
 } from "./metadata.js";
 
 export {
-  DEFAULT_NONCE_TTL_SECONDS,
-  type IssuedNonce,
-  MemoryNonceStore,
-  type NonceStore,
-} from "./nonce.js";
-export {
   CREDENTIAL_OFFER_SCHEME,
-  type CreatedCredentialOffer,
-  type CredentialOfferInput,
   DEFAULT_PRE_AUTHORIZED_CODE_TTL_SECONDS,
   MemoryPreAuthorizedCodeStore,
   PRE_AUTHORIZED_CODE_GRANT_TYPE,
+  type CreatedCredentialOffer,
+  type CredentialOfferInput,
   type PreAuthorizedCodeStore,
   type PreAuthorizedGrant,
   type RedeemedGrant,
@@ -81,6 +60,14 @@ export {
   createCredentialOffer,
   redeemGrant,
 } from "./offer.js";
+
+export {
+  DEFAULT_NONCE_TTL_SECONDS,
+  MemoryNonceStore,
+  type IssuedNonce,
+  type NonceStore,
+} from "./nonce.js";
+
 export {
   DEFAULT_PROOF_CLOCK_SKEW_SECONDS,
   DEFAULT_PROOF_MAX_AGE_SECONDS,
@@ -89,6 +76,23 @@ export {
   type VerifiedProof,
   verifyProofOfPossession,
 } from "./proof.js";
+
+export {
+  FORBIDDEN_CREDENTIAL_CLAIMS,
+  SD_ALG,
+  SD_JWT_VC_MEDIA_TYPE,
+  SD_JWT_VC_TYP,
+  type DeviceRef,
+  type IssueCredentialInput,
+  type IssuedCredential,
+  type IssuedDisclosure,
+  type PairwiseRef,
+  type PairwiseRefInput,
+  type SubjectRef,
+  deriveDeviceRef,
+  deriveSubjectRef,
+  issueCredential,
+} from "./issue.js";
 
 /**
  * What this package implements, and — more usefully — what it does not.

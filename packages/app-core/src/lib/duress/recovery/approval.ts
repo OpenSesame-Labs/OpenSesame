@@ -3,10 +3,10 @@
  * Separate from key custody: meeting quorum does not reconstruct wrapping secrets.
  */
 
-import { asBufferSource } from "@opensesame/os-domain";
 import { b64, fromB64, hex, timingSafeEqual } from "./bytes.js";
 import type { CustodyGrant } from "./roles.js";
 import { roleAllows } from "./roles.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 export type RecoveryRequest = Readonly<{
   requestId: string;
@@ -83,9 +83,7 @@ async function hmacB64(key: Uint8Array, msg: Uint8Array): Promise<string> {
     false,
     ["sign"],
   );
-  return b64(
-    new Uint8Array(await crypto.subtle.sign("HMAC", ck, asBufferSource(msg))),
-  );
+  return b64(new Uint8Array(await crypto.subtle.sign("HMAC", ck, asBufferSource(msg))));
 }
 
 export async function digestRecoveryRequest(

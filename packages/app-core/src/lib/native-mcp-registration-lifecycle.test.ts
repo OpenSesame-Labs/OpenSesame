@@ -12,7 +12,6 @@ import {
 import { MCP_CLASSIFICATION } from "./native-mcp-profile.js";
 import { requireNativeMcpRecord } from "./native-mcp-records.js";
 import { nativeOAuthGuard } from "./native-oauth-session.js";
-
 installNativeMcpConnectorTests();
 describe("MCP registration lifecycle", () => {
   it("retains a DCR registration lacking management credentials after revoking a grant", async () => {

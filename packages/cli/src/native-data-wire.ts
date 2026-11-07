@@ -1,6 +1,5 @@
 /** Dedicated private native DATA codec. Every reply is parsed before exposing its typed payload. */
 import { z } from "zod";
-
 const reply = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("ack") }),
   z.strictObject({ kind: z.literal("absent") }),

@@ -14,10 +14,7 @@ afterEach(cleanup);
 function Form({
   providerId,
   save,
-}: {
-  providerId: string;
-  save: (draft: SecretBackendDraft) => void;
-}) {
+}: { providerId: string; save: (draft: SecretBackendDraft) => void }) {
   const [draft, setDraft] = useState(() => secretBackendDraft(providerId));
   const preset = secretBackendPreset(providerId);
   if (!preset) throw new Error("Missing common provider preset");

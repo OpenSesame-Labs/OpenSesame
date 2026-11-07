@@ -1,4 +1,5 @@
 export {
+  detectModelContext,
   type DetectedModelContext,
   type ModelContextApi,
   type ModelContextSource,
@@ -9,26 +10,25 @@ export {
   type WebMcpToolAnnotations,
   type WebMcpToolDescriptor,
   type WebMcpToolResult,
-  detectModelContext,
 } from "./detect.js";
 export {
   AgentPayloadRefused,
   type FenceEnv,
-  REDACTED,
   fenceForAgent,
   forAgent,
   looksLikeCredential,
+  REDACTED,
   scrubLocalSecrets,
 } from "./fence.js";
 export {
+  createWebMcpRegistrar,
+  listRegisteredTools,
+  liveWebMcpToolNames,
+  toolDisposition,
   type WebMcpRegistrar,
   type WebMcpRegistrarOptions,
   type WebMcpRegistrationFailure,
   type WebMcpToolDisposition,
   type WebMcpToolSpec,
   type WebMcpToolSummary,
-  createWebMcpRegistrar,
-  listRegisteredTools,
-  liveWebMcpToolNames,
-  toolDisposition,
 } from "./registrar.js";

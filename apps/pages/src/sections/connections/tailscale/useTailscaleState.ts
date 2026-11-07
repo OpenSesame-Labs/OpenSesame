@@ -8,7 +8,6 @@ import type { SavedTailscaleApp } from "@opensesame/app-core/lib/tailscale/store
 import { useCallback, useEffect, useRef, useState } from "react";
 import { tailscaleAppDependencies as deps } from "./tailscale-dependencies.js";
 import { useTailscaleCredentialLifetime } from "./useTailscaleCredentialLifetime.js";
-
 function useTailscaleFields() {
   const [saved, setSaved] = useState<SavedTailscaleApp | null>(null);
   const [draft, setDraft] = useState<

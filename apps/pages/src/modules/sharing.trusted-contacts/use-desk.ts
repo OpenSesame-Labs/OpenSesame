@@ -51,7 +51,7 @@ export type Desk = Readonly<{
 export type DeskSeams = { useDesk: () => Desk | null };
 
 export const deskSeams: DeskSeams = {
-  useDesk: useRealDesk,
+  useDesk: realUseDesk,
 };
 
 export function useDesk(): Desk | null {
@@ -103,7 +103,7 @@ function circleTomb(vault: VaultState): string | null {
   return vault.tomb === "" ? null : vault.tomb;
 }
 
-export function useRealDesk(): Desk | null {
+export function realUseDesk(): Desk | null {
   const vault = useVault();
   const store = useVaultStore();
   const [, again] = useReducer((turn: number) => turn + 1, 0);

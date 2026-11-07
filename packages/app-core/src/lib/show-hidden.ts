@@ -1,5 +1,4 @@
 import { maybeLocalStore } from "../ports.js";
-
 /**
  * Whether the rail lists hidden entries — every settings directory's
  * `config.yaml` and the vault's `trash/`. A file manager's "show hidden

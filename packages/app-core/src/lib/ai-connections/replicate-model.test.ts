@@ -1,6 +1,5 @@
 import { expect, it } from "vitest";
 import { replicatePredictionTarget } from "./replicate-types.js";
-
 it("shares the real owner/model/version path contract between configuration and prediction creation", () => {
   const version = "a".repeat(64);
   expect(replicatePredictionTarget("owner/model")).toEqual({

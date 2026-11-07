@@ -199,7 +199,7 @@ describe("affected Pages build preparation", () => {
     expect(packages).toContain("BASE_SHA:");
     expect(packages).toContain("HEAD_SHA:");
     expect(changes).toContain(
-      `typescript_runner: \${{ (steps.packages.outputs.scope == 'all' || contains(steps.packages.outputs.packages, '@opensesame/pages')) && '"ubuntu-latest"' || steps.runner.outputs.linux }}`,
+      `typescript_runner: \${{ (steps.packages.outputs.scope == 'all' || contains(steps.packages.outputs.packages, '@opensesame/pages')) && '\"ubuntu-latest\"' || steps.runner.outputs.linux }}`,
     );
     expect(scopedJob).toContain(
       "runs-on: ${{ fromJSON(needs.changes.outputs.typescript_runner) }}",

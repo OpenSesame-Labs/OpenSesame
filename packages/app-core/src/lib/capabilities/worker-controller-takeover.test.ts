@@ -10,6 +10,17 @@ import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { holdDirtyEdit, registerDraftSaver } from "../dirty-edit.js";
 import {
+  forceSessionReload,
+  noteShellLoaded,
+  registerWorkerForPlan,
+  reloadForStaleAsset,
+  resetWorkerController,
+  updateIsOwed,
+  workerControllerSeams,
+  workerControllerSettled,
+  workerStatus,
+} from "./worker-controller.js";
+import {
   CORE_URL,
   DISTRIBUTION,
   FakeContainer,
@@ -23,18 +34,8 @@ import {
   restoreSeams,
   selection,
 } from "./worker/test-harness.js";
+
 import type { PageToWorkerMessage } from "./worker/types.js";
-import {
-  forceSessionReload,
-  noteShellLoaded,
-  registerWorkerForPlan,
-  reloadForStaleAsset,
-  resetWorkerController,
-  updateIsOwed,
-  workerControllerSeams,
-  workerControllerSettled,
-  workerStatus,
-} from "./worker-controller.js";
 
 beforeEach(installSeams);
 afterEach(restoreSeams);

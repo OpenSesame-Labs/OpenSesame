@@ -11,12 +11,10 @@ interface MockRes {
   json(): Record<string, unknown>;
 }
 
-function loadFetchHandler(
-  fetchImpl: typeof fetch,
-): (body: Record<string, unknown>) => Promise<MockRes> {
-  const module = {
-    exports: {} as (req: unknown, res: unknown) => Promise<void>,
-  };
+function loadFetchHandler(fetchImpl: typeof fetch): (
+  body: Record<string, unknown>,
+) => Promise<MockRes> {
+  const module = { exports: {} as (req: unknown, res: unknown) => Promise<void> };
   const sandbox: vm.Context = {
     module,
     exports: module.exports,

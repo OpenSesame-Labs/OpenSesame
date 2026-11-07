@@ -1,7 +1,6 @@
 import type { SavedTailscaleApp } from "@opensesame/app-core/lib/tailscale/store.js";
 import { useEffect } from "react";
 import { tailscaleAppDependencies as deps } from "./tailscale-dependencies.js";
-
 function currentSecret(saved: SavedTailscaleApp): string {
   const vault = deps.session();
   try {

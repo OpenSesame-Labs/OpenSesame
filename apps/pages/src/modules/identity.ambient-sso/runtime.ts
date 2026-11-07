@@ -21,6 +21,10 @@
  * disabling the capability leaves no ambient providers on record.
  */
 
+import {
+  installAmbientAuthSeams,
+  resetAmbientAuthSeams,
+} from "@opensesame/app-core/lib/ambient-auth-seam.js";
 import { runAmbientAuthBoot } from "@opensesame/app-core/lib/ambient-auth/boot.js";
 import { completeAmbientIfPresent } from "@opensesame/app-core/lib/ambient-auth/complete.js";
 import {
@@ -39,10 +43,6 @@ import {
   resetDeployedAmbientPolicy,
 } from "@opensesame/app-core/lib/ambient-auth/runtime.js";
 import { cancelAllTransactions } from "@opensesame/app-core/lib/ambient-auth/transactions.js";
-import {
-  installAmbientAuthSeams,
-  resetAmbientAuthSeams,
-} from "@opensesame/app-core/lib/ambient-auth-seam.js";
 import type { CapabilityRuntime } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import { isAuthCallbackSearch } from "@opensesame/app-core/lib/federation-callback.js";

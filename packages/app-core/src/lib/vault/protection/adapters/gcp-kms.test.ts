@@ -6,16 +6,16 @@ import {
   mintWrappingSecret,
 } from "./cloud-wrapping-secret.js";
 import {
+  createGcpKmsHttpsTransport,
+  gcpBearerFromEnv,
+} from "./gcp-kms-https.js";
+import {
   type GcpKmsTransport,
   assertGcpCryptoKeyName,
   crc32c,
   crc32cDecimalString,
   createGcpKmsProtector,
 } from "./gcp-kms.js";
-import {
-  createGcpKmsHttpsTransport,
-  gcpBearerFromEnv,
-} from "./gcp-kms-https.js";
 
 const CONTEXT: ProtectionContext = {
   vaultId: "vault-1",

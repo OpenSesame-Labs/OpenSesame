@@ -22,11 +22,7 @@ function Row({
   name,
   ids,
   titleOf,
-}: {
-  name: string;
-  ids: readonly string[];
-  titleOf: (id: string) => string;
-}) {
+}: { name: string; ids: readonly string[]; titleOf: (id: string) => string }) {
   return (
     <>
       <dt>{name}</dt>
@@ -53,7 +49,6 @@ function ConflictRow({
         {` — ${conflict.message}`}
       </p>
       {alternatives.length > 0 ? (
-        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: pre-existing; newly reported by Biome 2. Changing the ARIA/role semantics needs §5 browser evidence, tracked as follow-up
         <div
           className="capcard__alts"
           aria-label={`Instead of ${titleOf(conflict.capability)}`}

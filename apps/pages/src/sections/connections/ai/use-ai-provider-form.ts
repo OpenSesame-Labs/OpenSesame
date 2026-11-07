@@ -13,11 +13,6 @@ import {
 import { useMemo, useState } from "react";
 import { nativeConnectorController } from "../connect/native-connector-controller.js";
 import { nativeInitialValues } from "../connect/native-connector-edit-values.js";
-import type {
-  NativeConfigureInput,
-  NativeFieldValues,
-  NativeMethodDescriptor,
-} from "../connect/native-connector-ui.js";
 import {
   nativeError,
   nativeFieldValues,
@@ -25,6 +20,11 @@ import {
   nativeNextValues,
   nativeVerified,
 } from "../connect/native-connector-ui-values.js";
+import type {
+  NativeConfigureInput,
+  NativeFieldValues,
+  NativeMethodDescriptor,
+} from "../connect/native-connector-ui.js";
 import type { AiSheetTarget } from "./ai-provider-sheet-target.js";
 
 export type KeyTest =

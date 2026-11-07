@@ -26,9 +26,9 @@ import { useVault } from "../../../lib/vault/hooks.js";
 import { useGuideTarget } from "../../../tutorial/registry/react.jsx";
 import { HoneyTokensPanel } from "./HoneyTokensPanel.js";
 import { InstallCommand } from "./InstallCommand.js";
-import { markOf } from "./marks.js";
 import { PairForm } from "./PairForm.js";
 import { TripwireList } from "./TripwireList.js";
+import { markOf } from "./marks.js";
 import { useFocusHandoff } from "./useFocusHandoff.js";
 import "./plugins.css";
 

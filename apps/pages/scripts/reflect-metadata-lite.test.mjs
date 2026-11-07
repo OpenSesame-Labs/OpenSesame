@@ -11,7 +11,6 @@ import {
   readSamlBrowserCryptoInputs,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
-
 const root = process.cwd().endsWith("/apps/pages")
   ? resolve(process.cwd(), "../..")
   : process.cwd();

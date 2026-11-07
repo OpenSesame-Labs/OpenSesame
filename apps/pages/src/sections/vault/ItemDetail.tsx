@@ -11,14 +11,14 @@ import {
 import { IconChevronLeft } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { UpLink } from "../../components/UpLink.js";
-import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
 import { useVaultList } from "../../lib/vault-list-path.js";
+import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
 import { ItemFields } from "./ItemFields.js";
 import { ItemGone } from "./ItemGone.js";
 import { useItemShare } from "./ItemShare.js";
 import { ItemTools } from "./ItemTools.js";
-import { updateItemSecret } from "./item-secret-update.js";
 import { RotationPanel } from "./RotationPanel.js";
+import { updateItemSecret } from "./item-secret-update.js";
 import { useSharedItems } from "./use-shared-items.js";
 
 function formatDate(iso: string): string {

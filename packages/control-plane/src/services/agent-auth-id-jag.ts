@@ -1,13 +1,13 @@
 import { agentAuthError } from "@opensesame/agent-protocols";
 import { appendAuditEvent } from "@opensesame/audit";
 import { createProvisionalPrincipal } from "@opensesame/auth-upstream";
-import type { JsonObject } from "@opensesame/os-domain";
 import {
   type AgentRegistration,
   type Principal,
   generateAgentClaimToken,
   generateAgentRegistrationId,
 } from "@opensesame/os-domain";
+import type { JsonObject } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import {
   type ProviderAssertionRegistrationResponse,

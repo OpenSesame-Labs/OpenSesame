@@ -1,6 +1,6 @@
 import { TRUSTED_CIRCLE_TYPE } from "@opensesame/app-core/lib/quorum/records.js";
-import type { TypedItem } from "@opensesame/vault-core";
 import { createItem } from "@opensesame/vault-core";
+import type { TypedItem } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
 import {
   type Payload,

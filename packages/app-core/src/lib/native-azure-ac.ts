@@ -6,9 +6,9 @@
  */
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 } from "@noble/hashes/sha2.js";
+import { canonicalize } from "@opensesame/os-domain";
 import {
   type BoundaryValue,
-  canonicalize,
   isJsonObject,
   isString,
 } from "@opensesame/os-domain";

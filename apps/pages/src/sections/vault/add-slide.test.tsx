@@ -20,8 +20,8 @@ import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { VaultSection } from "../VaultSection.js";
 import { SLIDE_ENTER } from "./add-slide.js";
 import "./commands.test-support.js";
-import { makeAccount } from "./section-items.test-support.js";
 import { vaultTreeSeams } from "./VaultTree.js";
+import { makeAccount } from "./section-items.test-support.js";
 
 Object.assign(vaultHooksSeams, { useCopySecret: () => vi.fn() });
 Object.assign(vaultTreeSeams, {

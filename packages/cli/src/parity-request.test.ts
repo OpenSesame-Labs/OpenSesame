@@ -21,7 +21,6 @@ import {
   invokeOp,
   resolveCredentialHelper,
 } from "./parity-node.js";
-
 const directories: string[] = [];
 afterEach(async () => {
   Reflect.deleteProperty(process.env, "OPENSESAME_STATE_DIR");

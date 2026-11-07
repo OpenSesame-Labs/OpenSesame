@@ -29,7 +29,7 @@ import {
   viewStore,
 } from "./session-view.js";
 
-export { type PluginView, REQUEST_MS } from "./session-view.js";
+export { REQUEST_MS, type PluginView } from "./session-view.js";
 
 /** The plugin's state, and its tripwires once it is installed. */
 async function readPlugin(

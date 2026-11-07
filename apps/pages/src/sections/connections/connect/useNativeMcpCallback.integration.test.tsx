@@ -19,7 +19,6 @@ import {
   installConnectorIntegration,
 } from "./native-connector-integration.test-support.js";
 import { useProviderCallbacks } from "./useProviderCallbacks.js";
-
 installConnectorIntegration();
 const Rpc = z.object({
   id: z.union([z.string(), z.number()]).optional(),

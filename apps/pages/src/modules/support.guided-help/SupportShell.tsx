@@ -24,9 +24,7 @@ import {
 
 export function SupportShell({
   children,
-}: {
-  children?: ReactNode;
-}): ReactElement {
+}: { children?: ReactNode }): ReactElement {
   return (
     <SupportProvider>
       <SupportSlotProvider>

@@ -12,7 +12,6 @@ import type { AccountItem, PasswordMethod } from "@opensesame/vault-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => vi.restoreAllMocks());
-
 import type { ResetApprovalSession } from "./password-reset-approvals.js";
 import {
   type PasswordResetDependencies,

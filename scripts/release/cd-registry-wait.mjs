@@ -13,8 +13,8 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  publishedPackageForWait,
   registryBudget,
+  publishedPackageForWait,
   waitForPublishedVersion,
 } from "./cd-preview-smoke.mjs";
 

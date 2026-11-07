@@ -24,7 +24,6 @@ import {
   unlockWithPin,
 } from "./lib/pages-journey.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
-
 const [stage, rawOutput] = process.argv.slice(2);
 if (!["before", "after"].includes(stage) || !rawOutput)
   throw new Error(

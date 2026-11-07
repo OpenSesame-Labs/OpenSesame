@@ -159,10 +159,7 @@ export function RetiredFactorForm({
 export function RetiredEnrollmentForm({
   busy,
   choose,
-}: {
-  busy: boolean;
-  choose: (command: LocalRetiredCommand) => void;
-}) {
+}: { busy: boolean; choose: (command: LocalRetiredCommand) => void }) {
   const [password, setPassword] = useState("");
   const [days, setDays] = useState("90");
   const [synthetic, setSynthetic] = useState(false);

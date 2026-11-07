@@ -17,7 +17,6 @@ import {
   captureAiConnectionTransport,
 } from "./transport.js";
 import type { AiConnectionDraft } from "./types.js";
-
 it("never sends a prediction through generic chat/answer/header/SSE handling", async () => {
   const draft: AiConnectionDraft = {
     ...aiConnectionDraft("byo-ai"),
