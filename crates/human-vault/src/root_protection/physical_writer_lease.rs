@@ -14,9 +14,9 @@ pub fn physical_writer_lease_name(logical: &str) -> io::Result<String> {
         ));
     }
     Ok(format!(
-        "{}{:x}",
+        "{}{}",
         PHYSICAL_WRITER_LEASE_PREFIX,
-        Sha256::digest(logical.as_bytes())
+        hex::encode(Sha256::digest(logical.as_bytes()))
     ))
 }
 #[cfg(test)]

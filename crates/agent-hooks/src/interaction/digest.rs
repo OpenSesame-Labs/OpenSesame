@@ -97,7 +97,7 @@ pub fn request_digest(fields: &RequestFields<'_>) -> Result<String, DigestError>
         hash.update([0_u8]);
         hash.update(field.as_bytes());
     }
-    Ok(format!("sha256:{:x}", hash.finalize()))
+    Ok(format!("sha256:{}", hex::encode(hash.finalize())))
 }
 
 /// The canonical JSON of the details array.

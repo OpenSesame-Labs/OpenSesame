@@ -104,8 +104,8 @@ pub fn sign(secret: &str, timestamp: i64, body: &str) -> Result<String, VerifyEr
     let key = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .map_err(|_| VerifyError::UnusableSecret)?;
-    let mut mac =
-        <HmacSha256 as Mac>::new_from_slice(&key).map_err(|_| VerifyError::UnusableSecret)?;
+    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(&key)
+        .map_err(|_| VerifyError::UnusableSecret)?;
     mac.update(format!("{timestamp}.{body}").as_bytes());
     Ok(base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes()))
 }

@@ -4,7 +4,7 @@
 //!
 //! Threshold 1 is not shared at all: every share is the secret.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use rand::RngCore;
 use sha2::Sha256;
 use zeroize::Zeroizing;

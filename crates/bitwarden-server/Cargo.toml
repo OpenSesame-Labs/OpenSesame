@@ -17,7 +17,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 hex = { workspace = true }
 jsonwebtoken = { workspace = true }
-pbkdf2 = { version = "0.12.2", default-features = false, features = ["simple"] }
+pbkdf2 = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

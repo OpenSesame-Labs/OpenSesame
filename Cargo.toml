@@ -99,8 +99,8 @@ crossterm = "0.29.0"
 clap = { version = "4.5.40", features = ["derive", "env"] }
 ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
 hex = "0.4.3"
-hkdf = "0.12.4"
-hmac = "0.12.1"
+hkdf = "0.13.0"
+hmac = "0.13.0"
 http = "1.3.1"
 http-body-util = "0.1.3"
 hyper = { version = "1.11.0", features = ["client", "server", "http1"] }
@@ -123,8 +123,8 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 # Maintained serde_yaml fork (serde_yaml itself is RUSTSEC-2024-0320).
 serde_norway = "0.9.42"
-sha1 = "0.10.7"
-sha2 = "0.10.9"
+sha1 = "0.11.0"
+sha2 = "0.11.1"
 sqlx = { package = "opensesame-sql", path = "crates/sql" }
 thiserror = "2.0.12"
 tokio = { version = "1.45.1", features = ["full"] }
@@ -139,7 +139,7 @@ zeroize = { version = "1.8.1", features = ["derive"] }
 argon2 = "0.6.0"
 chacha20poly1305 = "0.11.0"
 aes-gcm = "0.10.3"
-pbkdf2 = { version = "0.12.2", default-features = false, features = ["hmac"] }
+pbkdf2 = { version = "0.13.0", default-features = false, features = ["hmac"] }
 unicode-normalization = "0.1.25"
 subtle = "2.6.1"
 tempfile = "3.20.0"

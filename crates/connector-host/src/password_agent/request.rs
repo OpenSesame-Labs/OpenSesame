@@ -52,7 +52,7 @@ pub fn describe(
         "Invalid credential prefix"
     );
     let full_url = url.to_string();
-    let fingerprint = format!("{:x}", Sha256::digest(full_url.as_bytes()));
+    let fingerprint = hex::encode(Sha256::digest(full_url.as_bytes()));
     Ok(Binding {
         capability: "request".into(),
         method: "GET".into(),

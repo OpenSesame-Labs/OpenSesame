@@ -4,7 +4,7 @@
 //! element `K` use uncompressed SEC1. The P-256 cofactor is 1.
 
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use p256::elliptic_curve::ff::{Field, PrimeField};
 use p256::elliptic_curve::sec1::{FromSec1Point, ToSec1Point};
 use p256::elliptic_curve::subtle::ConstantTimeEq;

@@ -6,7 +6,7 @@ use axum::{
     http::{Extensions, StatusCode},
     response::Response,
 };
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use opensesame_domain::transport::{EvidenceSource, TransportPolicy};
 use opensesame_ingress_evidence::OriginatingPeerExtension;
 use opensesame_storage::StoredEstConfig;

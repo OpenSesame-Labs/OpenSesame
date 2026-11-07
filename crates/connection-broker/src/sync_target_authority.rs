@@ -230,8 +230,8 @@ pub(super) fn content_version_for(
 ) -> String {
     use hmac::{Hmac, Mac};
     use sha2::Sha256;
-    let mut mac =
-        <Hmac<Sha256> as Mac>::new_from_slice(seal_key).expect("hmac accepts 32-byte keys");
+    let mut mac = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(seal_key)
+        .expect("hmac accepts 32-byte keys");
     mac.update(target_id.as_bytes());
     mac.update(b"|");
     for (name, value) in entries {

@@ -161,7 +161,7 @@ impl HostEgress for RecordingEgress {
 }
 
 fn digest_of(bytes: &[u8]) -> String {
-    format!("sha256:{:x}", Sha256::digest(bytes))
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
 fn manifest_for(bytes: &[u8]) -> ConnectorManifest {

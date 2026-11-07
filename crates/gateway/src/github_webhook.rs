@@ -29,7 +29,7 @@ fn well_formed_hub_signature(signature: &str) -> bool {
 
 fn body_claim_key(body: &[u8]) -> String {
     let digest = Sha256::digest(body);
-    format!("github.body.{digest:x}")
+    format!("github.body.{}", hex::encode(digest))
 }
 
 fn webhook_error(status: StatusCode, code: &str) -> Response {

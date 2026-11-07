@@ -8,7 +8,7 @@
 //! every vault already sealed under it would stop opening.
 
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use sha2::{Digest, Sha256};
 
 fn unhex(s: &str) -> Vec<u8> {
@@ -26,18 +26,20 @@ fn sha256_matches_fips_180_4() {
     );
 }
 
-/// Digest strings across the workspace are written `format!("{:x}", digest)`;
-/// the hex rendering is part of every persisted `sha256:` identifier.
+/// Persisted `sha256:` identifiers across the workspace render a digest as
+/// contiguous lowercase hex. digest 0.10 did that through `{:x}`; digest 0.11
+/// dropped `LowerHex`, and the callers moved to `hex::encode`. The literal
+/// below is the one the `{:x}` form was pinned to before that move.
 #[test]
-fn a_digest_formats_as_contiguous_lowercase_hex() {
+fn a_digest_renders_as_contiguous_lowercase_hex() {
     assert_eq!(
-        format!("sha256:{:x}", Sha256::digest(b"abc")),
+        format!("sha256:{}", hex::encode(Sha256::digest(b"abc"))),
         "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
     let mut mac = Hmac::<Sha256>::new_from_slice(b"Jefe").expect("any key length");
     mac.update(b"what do ya want for nothing?");
     assert_eq!(
-        format!("{:x}", mac.finalize().into_bytes()),
+        hex::encode(mac.finalize().into_bytes()),
         "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
     );
 }

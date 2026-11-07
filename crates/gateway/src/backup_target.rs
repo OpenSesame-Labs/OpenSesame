@@ -118,7 +118,7 @@ impl ConnectorSnapshotTarget {
                 .map_err(|e| map_broker_error(&e))?;
             digests.insert(
                 file.path,
-                format!("{:x}", Sha256::digest(file.content.as_bytes())),
+                hex::encode(Sha256::digest(file.content.as_bytes())),
             );
         }
         let manifest_entries: Vec<_> = digests
@@ -131,7 +131,7 @@ impl ConnectorSnapshotTarget {
         });
         let manifest_bytes = serde_json::to_vec(&manifest)
             .map_err(|e| StepError::Retry(format!("manifest encode: {e}")))?;
-        let manifest_digest = format!("sha256:{:x}", Sha256::digest(&manifest_bytes));
+        let manifest_digest = format!("sha256:{}", hex::encode(Sha256::digest(&manifest_bytes)));
         self.broker
             .authorized_bytes(
                 &self.organization,

@@ -29,7 +29,7 @@ pub(super) fn allowed_global_read(logical: &str) -> bool {
 }
 pub(super) const GENERATION: &str = "opensesame-generation.v1.json";
 fn digest(text: &str) -> String {
-    format!("{:x}", Sha256::digest(text.as_bytes()))
+    hex::encode(Sha256::digest(text.as_bytes()))
 }
 pub(super) fn modern_name(logical: &str) -> io::Result<String> {
     if logical.is_empty()

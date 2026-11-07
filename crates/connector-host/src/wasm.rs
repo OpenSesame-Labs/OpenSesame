@@ -362,7 +362,7 @@ impl WasmConnector {
         egress: Arc<dyn HostEgress>,
         limits: GuestLimits,
     ) -> Result<Self, HostError> {
-        let digest = format!("sha256:{:x}", Sha256::digest(component_bytes));
+        let digest = format!("sha256:{}", hex::encode(Sha256::digest(component_bytes)));
         if digest != manifest.component_digest() {
             return Err(HostError::DigestMismatch);
         }
@@ -580,7 +580,7 @@ impl Connector for WasmConnector {
         if bytes.len() > self.limits.max_result_bytes {
             return Err(HostError::Connector("result exceeds size cap".into()));
         }
-        let digest = format!("sha256:{:x}", Sha256::digest(&bytes));
+        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
         // Guest output is data, never trusted structure: parse as JSON when
         // it is JSON, otherwise report only its size and digest.
         let safe_summary = serde_json::from_slice::<Value>(&bytes)

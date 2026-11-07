@@ -239,8 +239,9 @@ impl SymmetricKey {
                 let expected = value.mac.as_deref().ok_or(Error::MalformedEncString(
                     "type 2 EncString is missing its MAC part",
                 ))?;
-                let mut hmac = <HmacSha256 as Mac>::new_from_slice(mac_key.expose_secret())
-                    .map_err(|_| Error::InvalidKeyLength(MAC_LEN))?;
+                let mut hmac =
+                    <HmacSha256 as hmac::KeyInit>::new_from_slice(mac_key.expose_secret())
+                        .map_err(|_| Error::InvalidKeyLength(MAC_LEN))?;
                 hmac.update(&value.iv);
                 hmac.update(&value.data);
                 // Constant time. Never `==`.
@@ -296,8 +297,9 @@ impl SymmetricKey {
         let data = cipher.encrypt_padded_vec::<Pkcs7>(plaintext);
         match self.mac.as_ref() {
             Some(mac_key) => {
-                let mut hmac = <HmacSha256 as Mac>::new_from_slice(mac_key.expose_secret())
-                    .map_err(|_| Error::InvalidKeyLength(MAC_LEN))?;
+                let mut hmac =
+                    <HmacSha256 as hmac::KeyInit>::new_from_slice(mac_key.expose_secret())
+                        .map_err(|_| Error::InvalidKeyLength(MAC_LEN))?;
                 hmac.update(&iv);
                 hmac.update(&data);
                 Ok(EncString {

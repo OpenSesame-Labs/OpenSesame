@@ -95,7 +95,7 @@ fn pin_only_policy(envelope: &Value, root: &[u8]) -> Value {
     Hkdf::<Sha256>::new(Some(&[0u8; 32]), root)
         .expand(MAC_DOMAIN, &mut mac_key)
         .unwrap();
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&mac_key).unwrap();
+    let mut mac = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(&mac_key).unwrap();
     mac.update(&canonicalize_to_bytes(&policy).unwrap());
     let tag = mac.finalize().into_bytes();
     policy["authB64"] = json!(STANDARD.encode(tag));

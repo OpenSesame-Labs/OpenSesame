@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 pub fn hash_secret(secret: &str) -> String {
     let mut h = Sha256::new();
     h.update(secret.as_bytes());
-    format!("sha256:{:x}", h.finalize())
+    format!("sha256:{}", hex::encode(h.finalize()))
 }
 
 /// Domain separator for low-entropy digests.
@@ -29,7 +29,7 @@ const LOW_ENTROPY_PURPOSE: &str = "opensesame:low-entropy:v1";
 /// This function does not panic: `SimpleHmac` accepts keys of every length.
 #[must_use]
 pub fn hash_low_entropy(pepper: &str, context: &str, secret: &str) -> String {
-    use hmac::{Mac, SimpleHmac};
+    use hmac::{KeyInit as _, Mac, SimpleHmac};
     let mut mac = SimpleHmac::<Sha256>::new_from_slice(pepper.as_bytes())
         .expect("SimpleHmac accepts any key length");
     for part in [LOW_ENTROPY_PURPOSE, context, secret] {
@@ -37,7 +37,7 @@ pub fn hash_low_entropy(pepper: &str, context: &str, secret: &str) -> String {
         mac.update(&length_bytes[length_bytes.len() - std::mem::size_of::<u32>()..]);
         mac.update(part.as_bytes());
     }
-    format!("hmac-sha256:{:x}", mac.finalize().into_bytes())
+    format!("hmac-sha256:{}", hex::encode(mac.finalize().into_bytes()))
 }
 
 /// Constant-time equality for `hash_secret` digests (and other equal-length hex strings).

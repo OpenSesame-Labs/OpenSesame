@@ -1,6 +1,6 @@
 //! GitHub webhook `X-Hub-Signature-256` verification (HMAC-SHA256).
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
