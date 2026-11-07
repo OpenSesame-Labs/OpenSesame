@@ -6,7 +6,7 @@ a merge are in [`AGENTS.md`](AGENTS.md) — read §5 before your first change.
 
 ## Set up
 
-Node 24+, npm run 9 via npm, Rust 1.88 (pinned by `rust-toolchain.toml`).
+Node 24+, npm run 9 via npm, the Rust toolchain pinned by `rust-toolchain.toml`.
 
 ```bash
 
@@ -34,7 +34,7 @@ vulnerabilities go through [SECURITY.md](SECURITY.md) private reporting instead.
   Rust (the hooks run them; `npm run lint`, `npm run audit:clippy`).
 - New functionality includes automated tests that fail without it, beside the
   existing suites for the plane it touches.
-- Test commands: `npm test` (every TypeScript workspace), `npm run test:integration`, and `cargo +1.88.0 test --workspace --all-targets` for
+- Test commands: `npm test` (every TypeScript workspace), `npm run test:integration`, and `cargo test --workspace --all-targets` for
   Rust.
 
 ## Before you push

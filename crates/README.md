@@ -2,15 +2,15 @@
 
 Rust libraries for the **Host / authority plane** (and `client-core`, the Client
 plane's SDK). Every crate here is a member of the root Cargo workspace, has the
-package name `opensesame-<directory>`, and builds with the pinned Rust 1.88
+package name `opensesame-<directory>`, and builds with the Rust toolchain pinned in `rust-toolchain.toml`
 toolchain. The `opensesame` binary that links them lives in
 [`apps/cli`](../apps/README.md); two crates also ship a binary of their own,
 `nats-callout` (`opensesame-nats-auth-bridge`) and `surrogate-proxy` (the optional
 plugin `opensesame-surrogate-proxy`).
 
 ```bash
-cargo +1.88.0 test -p opensesame-sealed-store      # one crate
-cargo +1.88.0 test --workspace --all-targets       # everything (CI scopes it to the crates a diff reaches)
+cargo test -p opensesame-sealed-store      # one crate
+cargo test --workspace --all-targets       # everything (CI scopes it to the crates a diff reaches)
 npm run audit:clippy                                  # rustfmt + pedantic Clippy
 ```
 

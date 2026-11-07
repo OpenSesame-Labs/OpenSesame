@@ -32,7 +32,7 @@ organization, depth — is refused.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-grants
+cargo test -p opensesame-grants
 npm run audit:miri
 ```
 

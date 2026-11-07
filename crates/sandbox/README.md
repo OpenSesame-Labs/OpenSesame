@@ -42,8 +42,8 @@ posture for code that has no manifest, pinned digest or fixed WIT world.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-sandbox
-cargo +1.88.0 test -p opensesame-sandbox --features wasm-runtime,fixtures
+cargo test -p opensesame-sandbox
+cargo test -p opensesame-sandbox --features wasm-runtime,fixtures
 npm run test:authority-fabric
 ```
 

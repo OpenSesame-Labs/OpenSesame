@@ -35,7 +35,7 @@ purpose and a context, so one recovered code says nothing about another.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-claims
+cargo test -p opensesame-claims
 npm run audit:miri      # runs this crate's lib tests under Miri, among others
 ```
 

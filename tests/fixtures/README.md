@@ -25,8 +25,8 @@ package (for example `crates/provider-bitwarden/tests/fixtures/`).
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance
-cargo +1.88.0 test -p opensesame-env-spec bridge_roundtrip_fixture   # skips itself when node is absent
+cargo test -p opensesame-kdbx-bridge --test conformance
+cargo test -p opensesame-env-spec bridge_roundtrip_fixture   # skips itself when node is absent
 npm exec -w @opensesame/app-core -- vitest run src/lib/vault/import/formats/kdbx
 cargo run -p opensesame-cli -- dev check --schema tests/fixtures/demo.env.schema
 ```
@@ -35,7 +35,7 @@ The KDBX pair is regenerated, never hand-edited, and the new bytes differ on
 every run (fresh seeds, IVs and UUIDs):
 
 ```bash
-cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance -- --ignored regenerate_fixture
+cargo test -p opensesame-kdbx-bridge --test conformance -- --ignored regenerate_fixture
 ```
 
 Then run the TypeScript suites above: the app-core adapter must read the new

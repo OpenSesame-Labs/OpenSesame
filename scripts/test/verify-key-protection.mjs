@@ -56,28 +56,36 @@ function run(id, command, args, opts = {}) {
 }
 
 run("KP-model-ts", "npm", [
-  "exec", "-w", "@opensesame/app-core", "--",
+  "exec",
+  "-w",
+  "@opensesame/app-core",
+  "--",
   "vitest",
   "run",
   "src/lib/vault/protection",
 ]);
 
 run("KP-cloud-adapters", "npm", [
-  "exec", "-w", "@opensesame/app-core", "--",
+  "exec",
+  "-w",
+  "@opensesame/app-core",
+  "--",
   "vitest",
   "run",
   "src/lib/vault/protection/adapters",
 ]);
 
 run("KP-age-keys", "npm", [
-  "exec", "-w", "@opensesame/app-core", "--",
+  "exec",
+  "-w",
+  "@opensesame/app-core",
+  "--",
   "vitest",
   "run",
   "src/lib/age-keys",
 ]);
 
 run("KP-rust-human-vault", "cargo", [
-  "+1.88.0",
   "test",
   "-p",
   "opensesame-human-vault",
@@ -87,7 +95,6 @@ run("KP-rust-human-vault", "cargo", [
 ]);
 
 run("KP-rust-sealed-store", "cargo", [
-  "+1.88.0",
   "test",
   "-p",
   "opensesame-sealed-store",
@@ -98,8 +105,12 @@ run("KP-rust-sealed-store", "cargo", [
 
 run(
   "KP-live-aws",
-  "npm", [
-    "exec", "-w", "@opensesame/app-core", "--",
+  "npm",
+  [
+    "exec",
+    "-w",
+    "@opensesame/app-core",
+    "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/aws-kms.test.ts",
@@ -116,8 +127,12 @@ run(
 
 run(
   "KP-live-azure",
-  "npm", [
-    "exec", "-w", "@opensesame/app-core", "--",
+  "npm",
+  [
+    "exec",
+    "-w",
+    "@opensesame/app-core",
+    "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/azure-key-vault-keys.test.ts",
@@ -134,8 +149,12 @@ run(
 
 run(
   "KP-live-gcp",
-  "npm", [
-    "exec", "-w", "@opensesame/app-core", "--",
+  "npm",
+  [
+    "exec",
+    "-w",
+    "@opensesame/app-core",
+    "--",
     "vitest",
     "run",
     "src/lib/vault/protection/adapters/gcp-kms.test.ts",
@@ -153,15 +172,7 @@ run(
 run(
   "KP-live-piv",
   "cargo",
-  [
-    "+1.88.0",
-    "test",
-    "-p",
-    "opensesame-sealed-store",
-    "piv",
-    "--",
-    "--nocapture",
-  ],
+  ["test", "-p", "opensesame-sealed-store", "piv", "--", "--nocapture"],
   {
     blockIf: () =>
       process.env.OPENSESAME_TEST_PIV_SERIAL

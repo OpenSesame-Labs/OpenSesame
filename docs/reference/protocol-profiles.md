@@ -55,8 +55,8 @@ OpenSesame **never** forwards an inbound presented token as a downstream credent
 ## Verification
 
 ```bash
-cargo +1.88.0 test -p opensesame-domain
-cargo +1.88.0 test -p opensesame-proof
-cargo +1.88.0 test -p opensesame-protocol-mcp
-cargo +1.88.0 test -p opensesame-protocol-aauth --features experimental-aauth
+cargo test -p opensesame-domain
+cargo test -p opensesame-proof
+cargo test -p opensesame-protocol-mcp
+cargo test -p opensesame-protocol-aauth --features experimental-aauth
 ```

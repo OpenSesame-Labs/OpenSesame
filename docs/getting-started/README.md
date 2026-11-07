@@ -9,7 +9,7 @@ what it needs, so you can stop at the first one that covers your task.
 |---|---|---|
 | Node.js | 22 or newer | Everything TypeScript |
 | npm | 9.15 — `` picks the pinned version | Workspace installs and scripts |
-| Rust | 1.88 — `rust-toolchain.toml` pins it | The Host plane (`crates/gateway`, `crates/daemon`, `apps/cli`, `crates/`) |
+| Rust | the version `rust-toolchain.toml` pins | The Host plane (`crates/gateway`, `crates/daemon`, `apps/cli`, `crates/`) |
 | PostgreSQL | any supported release | Only for `npm run bootstrap` / `npm run db:migrate`; the Identity API runs in memory without it |
 | Docker | optional | The Compose stacks in [`ops/compose`](../../ops/compose) |
 | Chromium | optional | Browser gates (`verify:*`); Playwright finds `PLAYWRIGHT_CHROMIUM` |
@@ -59,7 +59,7 @@ npm run dev -w @opensesame/pages
 social providers (`:9091`–`:9094`) and Vite (`:5180`) together, and keeps
 development keys in `~/.local/state/opensesame/development` so they survive
 restarts without landing in git. It starts the Host with `cargo run --offline`,
-so run `cargo +1.88.0 fetch` once first.
+so run `cargo fetch` once first.
 
 ### The Identity plane alone
 
@@ -120,7 +120,7 @@ MOCK_DEVICE_FLOW=1 npm run start -w @opensesame/example-headless
 ```bash
 npm run typecheck                                  # all TypeScript workspaces
 npm test                                       # all TypeScript tests (Vitest)
-cargo +1.88.0 test --workspace --all-targets    # all Rust tests
+cargo test --workspace --all-targets    # all Rust tests
 npm run lint && npm run quality                       # what CI checks besides tests
 ```
 
@@ -129,7 +129,7 @@ One package at a time is faster while you work:
 ```bash
 npm run test -w @opensesame/app-core
 npm exec -w @opensesame/app-core -- vitest run src/lib/vault
-cargo +1.88.0 test -p opensesame-sealed-store
+cargo test -p opensesame-sealed-store
 ```
 
 Before touching sign-in, setup, the shell or keyboard handling, run the

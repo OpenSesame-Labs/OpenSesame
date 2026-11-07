@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 export OPENSESAME_DEBUG_RUN="${OPENSESAME_DEBUG_RUN:-battle-manual}"
 echo "== unit + adversarial libs =="
-cargo +1.88.0 test --lib \
+cargo test --lib \
   -p opensesame-domain \
   -p opensesame-authn \
   -p opensesame-authz \
@@ -16,7 +16,7 @@ cargo +1.88.0 test --lib \
   -p opensesame-storage \
   -p opensesame-provider-openbao
 echo "== topology cores =="
-cargo +1.88.0 test --lib \
+cargo test --lib \
   -p opensesame-core \
   -p opensesame-host-core \
   -p opensesame-client-core \
@@ -24,9 +24,9 @@ cargo +1.88.0 test --lib \
 echo "== wasm client-core =="
 ./scripts/test/wasm-client-core-smoke.sh
 echo "== wasm connector runtime (ADR 0065, feature-gated) =="
-cargo +1.88.0 test -p opensesame-connector-host --features wasm-connectors
+cargo test -p opensesame-connector-host --features wasm-connectors
 echo "== broker adversarial =="
-cargo +1.88.0 test -p opensesame-broker --test adversarial_broker
+cargo test -p opensesame-broker --test adversarial_broker
 echo "== api-client + MCP =="
 npm run test -w @opensesame/api-client
 npm run test -w @opensesame/mcp-client

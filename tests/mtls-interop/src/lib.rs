@@ -17,7 +17,7 @@
 //! the convention `scripts/mtls/mtls-integration-test.sh` drives:
 //!
 //! ```text
-//! OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-mtls-interop -- --ignored
+//! OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-mtls-interop -- --ignored
 //! ```
 //!
 //! Pinned native binaries (`nats-server`, `bao`, `spire-server`,

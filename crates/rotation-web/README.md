@@ -105,9 +105,9 @@ encoder, and scrubs the credential from every response and DOM read. It is an
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-rotation-web
-cargo +1.88.0 test -p opensesame-rotation-web --test agent_hooks_ctk -- --nocapture            # claim A report
-cargo +1.88.0 test -p opensesame-rotation-web --test agent_hooks_ctk_mock_loop -- --nocapture  # claim B report
+cargo test -p opensesame-rotation-web
+cargo test -p opensesame-rotation-web --test agent_hooks_ctk -- --nocapture            # claim A report
+cargo test -p opensesame-rotation-web --test agent_hooks_ctk_mock_loop -- --nocapture  # claim B report
 ```
 
 `tests/ordering.rs` pins the sequence; the wait for backup acknowledgement and

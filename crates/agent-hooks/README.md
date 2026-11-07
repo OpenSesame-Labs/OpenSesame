@@ -92,8 +92,8 @@ string the policy never names is not carried: the record keeps
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-agent-hooks
-cargo +1.88.0 test -p opensesame-cli --test hooks_intercept
+cargo test -p opensesame-agent-hooks
+cargo test -p opensesame-cli --test hooks_intercept
 ```
 
 `tests/emitter.rs`, `tests/labels.rs`, `tests/label_propagation.rs` and

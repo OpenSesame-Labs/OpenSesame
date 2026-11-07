@@ -35,7 +35,7 @@ npm run audit:fuzz:batch            # every cargo target, 3600s each; FUZZ_BATCH
 npm run test:fuzz                   # every Jazzer.js target, 30s each
 npm run test:fuzz:batch             # every Jazzer.js target, 300s each
 cargo +nightly fuzz run <target> --fuzz-dir tests/fuzz/cargo     # one target by hand
-cargo +1.88.0 test --manifest-path tests/fuzz/cargo/Cargo.toml --lib   # oracle unit tests
+cargo test --manifest-path tests/fuzz/cargo/Cargo.toml --lib   # oracle unit tests
 npm run test -w @opensesame/fuzz
 npm run typecheck -w @opensesame/fuzz
 ```

@@ -651,7 +651,7 @@ jobs:
           VITE_BASE: /OpenSesame/
           EXPERIENCE_SHARD: ${{ matrix.journeys }}
         run: node apps/pages/scripts/verify-experience-journeys.mjs
-      # Rust 1.88 from mise.toml, same install as the Rust tests job. Only this
+      # Rust from mise.toml, same install as the Rust tests job. Only this
       # shard builds the CLI the live relay walk spawns.
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: matrix.shard == 'journeys-1'
@@ -676,7 +676,7 @@ jobs:
           CARGO_PROFILE_DEV_DEBUG: 0
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
-          cargo +1.88.0 build -p opensesame-cli --locked
+          cargo build -p opensesame-cli --locked
       - name: Relay join
         # ADR 0181. One leg only, so the walk runs once against the gateway
         # relay profile (`opensesame host run --profile relay`).
@@ -1403,7 +1403,7 @@ jobs:
           cache: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
-        run: rustup target add --toolchain 1.88.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+        run: rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       - name: Install pinned Android build tools
         run: |
           set -euo pipefail
@@ -1481,7 +1481,7 @@ jobs:
           cache: false
           install_args: rust
       - name: Install iOS Rust targets
-        run: rustup target add --toolchain 1.88.0 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+        run: rustup target add --toolchain 1.97.1 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
       - name: Test Swift envelopes and compile all iOS package targets
         run: bash .ci-control/scripts/test/mobile-apple.sh ios
       - name: Preserve iOS simulator XCTest results

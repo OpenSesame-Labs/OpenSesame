@@ -42,8 +42,8 @@ On `wasm32`, `getrandom` is built with its `js` feature.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-client-core
-cargo +1.88.0 check -p opensesame-client-core --features wasm-bindgen
+cargo test -p opensesame-client-core
+cargo check -p opensesame-client-core --features wasm-bindgen
 ```
 
 ## Related

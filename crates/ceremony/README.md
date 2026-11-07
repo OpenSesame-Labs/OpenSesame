@@ -43,7 +43,7 @@ use discloses which provider the user is onboarding.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-ceremony
+cargo test -p opensesame-ceremony
 ```
 
 `tests/catalog_pact.rs` fails if `catalog.json` names a provider missing from

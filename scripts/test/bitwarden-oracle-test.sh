@@ -48,4 +48,4 @@ if [[ -z "${OPENSESAME_SIGNALR_DIR:-}" ]]; then
 fi
 echo "bitwarden oracle: signalr ${SIGNALR_VERSION} (${OPENSESAME_SIGNALR_DIR})"
 
-cargo +1.88.0 test -p opensesame-bitwarden-server --tests -- --include-ignored
+cargo test -p opensesame-bitwarden-server --tests -- --include-ignored

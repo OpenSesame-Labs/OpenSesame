@@ -6,7 +6,7 @@
 //! fields from the catalog. Regenerate with:
 //!
 //! ```bash
-//! UPDATE_CATALOG_VIEW=1 cargo +1.88.0 test -p opensesame-connection-broker --test catalog_view
+//! UPDATE_CATALOG_VIEW=1 cargo test -p opensesame-connection-broker --test catalog_view
 //! ```
 use std::path::PathBuf;
 
@@ -45,6 +45,6 @@ fn the_checked_in_view_is_the_catalog_projection() {
     assert!(
         current == expected,
         "spec/connectors/catalog.view.json is stale; regenerate it with \
-         UPDATE_CATALOG_VIEW=1 cargo +1.88.0 test -p opensesame-connection-broker --test catalog_view"
+         UPDATE_CATALOG_VIEW=1 cargo test -p opensesame-connection-broker --test catalog_view"
     );
 }

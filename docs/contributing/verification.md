@@ -42,7 +42,7 @@ anything security-sensitive lands):
 ```bash
 npm run verify   # lint + anti-slop (lint and plugin tests) + quality gates
               #   + rustfmt/full-feature Clippy + plugin-boundary + test:all
-              #   + cargo +1.88.0 test --workspace --all-targets
+              #   + cargo test --workspace --all-targets
               #   + ./scripts/test/battle-test.sh
 ```
 

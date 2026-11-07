@@ -33,7 +33,7 @@ fn committed_fixture_maps_to_committed_expectation() {
         expected_json(),
         fixture_expected(),
         "tests/fixtures/kdbx/roundtrip.expected.json is stale — regenerate it with \
-         `cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance -- \
+         `cargo test -p opensesame-kdbx-bridge --test conformance -- \
          --ignored regenerate_fixture`"
     );
 }

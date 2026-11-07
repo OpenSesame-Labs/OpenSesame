@@ -44,7 +44,7 @@ what a type is.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-vault-item-types
+cargo test -p opensesame-vault-item-types
 ```
 
 A new built-in type is a JSON file in `marketplace/item-types/builtin/` plus an

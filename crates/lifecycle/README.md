@@ -35,7 +35,7 @@ as pure functions. It does no I/O.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-lifecycle
+cargo test -p opensesame-lifecycle
 ```
 
 The event names are frozen: subscribers match on them. Add a stage or event by

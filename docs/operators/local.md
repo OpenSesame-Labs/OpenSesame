@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Rust 1.88 (`rust-toolchain.toml`)
+- Rust, at the version pinned in `rust-toolchain.toml`
 - Optional: Docker/Podman for Compose profile
 - Or user-space OpenFGA/OpenBao via `./scripts/dev/start-native-deps.sh` (no root)
 
@@ -10,7 +10,7 @@
 
 ```bash
 npm run dev:host   # scripts/dev/dev-host.sh: sources scripts/dev/local-env.sh, then
-                # cargo +1.88.0 run -p opensesame-cli -- host run --listen 127.0.0.1:8787
+                # cargo run -p opensesame-cli -- host run --listen 127.0.0.1:8787
 ```
 
 The Host refuses to start from a bare `host run`: it needs `OPENSESAME_ENV`

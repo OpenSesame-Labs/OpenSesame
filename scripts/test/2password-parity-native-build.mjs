@@ -23,17 +23,13 @@ await rm(directory, { force: true, recursive: true });
 await mkdir(directory, { recursive: true, mode: 0o700 });
 const artifacts = {};
 async function prepare(key, args, target, test) {
-  const result = spawnSync(
-    "cargo",
-    ["+1.88.0", ...args, "--message-format=json"],
-    {
-      cwd: root,
-      env: process.env,
-      stdio: ["ignore", "pipe", "inherit"],
-      encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024,
-    },
-  );
+  const result = spawnSync("cargo", [...args, "--message-format=json"], {
+    cwd: root,
+    env: process.env,
+    stdio: ["ignore", "pipe", "inherit"],
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
   if (result.error || result.status !== 0)
     throw new Error(`Native preparation failed: ${key}`);
   const matches = result.stdout

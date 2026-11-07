@@ -8,12 +8,12 @@ These tools are opt-in gates.
 
 | Work | Toolchain | Install |
 |---|---|---|
-| Product crates | Rust **1.88.0** (`rust-toolchain.toml`) | already pinned |
-| cargo-fuzz / libFuzzer | nightly rustc + `cargo-fuzz` | Install the CLI with a new-enough rustc (`cargo +1.94.1 install cargo-fuzz`). Builds themselves need nightly because cargo-fuzz passes `-Zsanitizer=address`. `rustup toolchain install nightly && rustup default` is **not** required — keep `rust-toolchain.toml` on 1.88 and invoke `cargo +nightly fuzz …`. |
+| Product crates | the stable Rust pinned in `rust-toolchain.toml` | already pinned |
+| cargo-fuzz / libFuzzer | nightly rustc + `cargo-fuzz` | Install the CLI with a new-enough rustc (`cargo install cargo-fuzz` on the pinned toolchain). Builds themselves need nightly because cargo-fuzz passes `-Zsanitizer=address`. `rustup toolchain install nightly && rustup default` is **not** required — keep `rust-toolchain.toml` on 1.88 and invoke `cargo +nightly fuzz …`. |
 | Kani | Kani’s own toolchain | `cargo install --locked kani-verifier && cargo kani setup` |
 | Miri | nightly + `miri` component | `rustup toolchain install nightly && rustup component add miri --toolchain nightly` |
 | Jazzer.js | Node ≥ 22; native `@jazzer.js/core` when the addon builds | `npm install`. `scripts/fuzz/jazzer-gate.sh` fails closed when the addon is not loadable; `JAZZER_ALLOW_FALLBACK=1` runs the local `tsx` runner that calls the same `fuzz(Buffer)` exports and reports `DEGRADED`, never `CLEAN`. |
-| Shuttle | same 1.88, feature `concurrency-test` | pulled in as an optional dependency of each crate that has a Shuttle test |
+| Shuttle | same pinned stable, feature `concurrency-test` | pulled in as an optional dependency of each crate that has a Shuttle test |
 
 Do not change `rust-toolchain.toml` to nightly.
 

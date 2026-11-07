@@ -9,4 +9,4 @@ source scripts/dev/local-env.sh
 if [[ $# -eq 0 ]]; then
   set -- --listen "${OPENSESAME_LISTEN:-127.0.0.1:8787}"
 fi
-exec cargo +1.88.0 run -p opensesame-cli -- host run "$@"
+exec cargo run -p opensesame-cli -- host run "$@"

@@ -59,7 +59,7 @@ value-blind.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-agent-events
+cargo test -p opensesame-agent-events
 ```
 
 Unit tests live in `src/tests.rs` (`agent.*`) and `src/surrogate/tests.rs`

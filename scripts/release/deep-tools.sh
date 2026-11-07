@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pinned tools for the weekly checks. Application code still targets Rust 1.88.
+# Pinned tools for the weekly checks. Application code still targets the Rust pinned in rust-toolchain.toml.
 set -euo pipefail
 check="${1:?required check name}"
 case "$check" in
@@ -22,12 +22,12 @@ fetch_verified() {
 
 case "$check" in
   mutation-rust)
-    cargo +1.88.0 install cargo-mutants --version 25.3.1 --locked --root "$tools_root"
-    cargo +1.88.0 mutants --version
+    cargo install cargo-mutants --version 25.3.1 --locked --root "$tools_root"
+    cargo mutants --version
     ;;
   dependencies)
-    cargo +1.88.0 install cargo-audit --version 0.21.2 --locked --root "$tools_root"
-    cargo +1.88.0 install cargo-deny --version 0.18.4 --locked --root "$tools_root"
+    cargo install cargo-audit --version 0.21.2 --locked --root "$tools_root"
+    cargo install cargo-deny --version 0.18.4 --locked --root "$tools_root"
     fetch_verified \
       https://github.com/google/osv-scanner/releases/download/v2.5.0/osv-scanner_linux_amd64 \
       edcfc41d257db36148f065055655fe3fcfc434b0b423ea67468a84c207524e0c \
@@ -36,12 +36,12 @@ case "$check" in
     printf 'OPENSESAME_OSV_SCANNER_BIN=%s\n' "$tools_root/bin/osv-scanner" >> "$GITHUB_ENV"
     printf '%s\n' 'OPENSESAME_OSV_SCANNER_VERSION=2.5.0' \
       'OPENSESAME_OSV_SCANNER_SHA256=edcfc41d257db36148f065055655fe3fcfc434b0b423ea67468a84c207524e0c' >> "$GITHUB_ENV"
-    cargo +1.88.0 audit --version
-    cargo +1.88.0 deny --version
+    cargo audit --version
+    cargo deny --version
     osv-scanner --version
     ;;
   sast)
-    cargo +1.88.0 install ast-grep --version 0.40.5 --locked --root "$tools_root"
+    cargo install ast-grep --version 0.40.5 --locked --root "$tools_root"
     python3 -m venv "$tools_root/semgrep"
     "$tools_root/semgrep/bin/pip" install 'semgrep==1.143.0'
     printf '%s\n' "$tools_root/semgrep/bin" >> "$GITHUB_PATH"
@@ -57,7 +57,7 @@ case "$check" in
     gitleaks version
     ;;
   kani)
-    cargo +1.88.0 install kani-verifier --version 0.65.0 --locked --root "$tools_root"
+    cargo install kani-verifier --version 0.65.0 --locked --root "$tools_root"
     cargo kani setup
     cargo kani --version
     ;;
@@ -66,7 +66,7 @@ case "$check" in
     cargo +nightly-2026-08-01 miri --version
     ;;
   fuzz-rust)
-    cargo +1.94.1 install cargo-fuzz --version 0.13.2 --locked --root "$tools_root"
+    cargo install cargo-fuzz --version 0.13.2 --locked --root "$tools_root"
     cargo +nightly-2026-08-01 fuzz --version
     ;;
   fuzz-typescript)
@@ -76,5 +76,5 @@ case "$check" in
 esac
 node --version
 npm --version
-rustc +1.88.0 --version
+rustc --version
 date -u +%Y-%m-%dT%H:%M:%SZ

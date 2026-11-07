@@ -16,7 +16,7 @@ generate_bindings() {
   local bindgen_cargo_home="${OPENSESAME_BINDGEN_CARGO_HOME:-${CARGO_HOME:-$repo_root/target/authenticator-bindgen-cargo-home}}"
   local bindgen_target="${OPENSESAME_BINDGEN_TARGET_DIR:-${CARGO_TARGET_DIR:-$repo_root/target}/authenticator-bindgen}"
   CARGO_HOME="$bindgen_cargo_home" \
-    cargo +1.88.0 build -p "$core_package" --features ffi --target-dir "$bindgen_target"
+    cargo build -p "$core_package" --features ffi --target-dir "$bindgen_target"
   local host_library="$bindgen_target/debug/lib${library_name}"
   case "$(uname -s)" in
     Darwin) host_library="${host_library}.dylib" ;;
@@ -24,11 +24,11 @@ generate_bindings() {
     *) host_library="${host_library}.dll" ;;
   esac
   CARGO_HOME="$bindgen_cargo_home" \
-    cargo +1.88.0 run -p "$core_package" --features bindgen --bin uniffi-bindgen --target-dir "$bindgen_target" -- \
+    cargo run -p "$core_package" --features bindgen --bin uniffi-bindgen --target-dir "$bindgen_target" -- \
     generate "$host_library" --language kotlin \
     --out-dir "$native_root/generated/kotlin" --no-format
   CARGO_HOME="$bindgen_cargo_home" \
-    cargo +1.88.0 run -p "$core_package" --features bindgen --bin uniffi-bindgen --target-dir "$bindgen_target" -- \
+    cargo run -p "$core_package" --features bindgen --bin uniffi-bindgen --target-dir "$bindgen_target" -- \
     generate "$host_library" --language swift \
     --out-dir "$native_root/ios/Sources/OpenSesameAuthenticatorCore" --no-format
 }
@@ -53,11 +53,11 @@ case "${1:-}" in
       exit 1
     }
     generate_bindings
-    cargo +1.88.0 build -p "$core_package" --release --features ffi \
+    cargo build -p "$core_package" --release --features ffi \
       --target aarch64-apple-ios
-    cargo +1.88.0 build -p "$core_package" --release --features ffi \
+    cargo build -p "$core_package" --release --features ffi \
       --target aarch64-apple-ios-sim
-    cargo +1.88.0 build -p "$core_package" --release --features ffi \
+    cargo build -p "$core_package" --release --features ffi \
       --target x86_64-apple-ios
 
     local_sim="$core_target/opensesame-authenticator-ios-simulator.a"

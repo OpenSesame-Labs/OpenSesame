@@ -103,7 +103,7 @@ success; choose the verification policy belonging to the release.
 The archives remain reproducible packages: sorted members, selected commit
 mtime, owner/group 0, fixed modes and `gzip -n`. Repacking the same binaries
 produces the same archives; independently rebuilt binaries are not claimed to
-be identical. Rust 1.88.0 uses locked dependencies and path remapping, except the
+be identical. The pinned Rust toolchain uses locked dependencies and path remapping, except the
 compiled-in checkout fallback used by the bridge lookup (`CARGO_MANIFEST_DIR`).
 
 ## Use it in a lane

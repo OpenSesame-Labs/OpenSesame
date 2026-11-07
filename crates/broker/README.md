@@ -43,8 +43,8 @@ none, instead of running twice.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-broker
-cargo +1.88.0 test -p opensesame-broker --features concurrency-test --test shuttle_idempotency
+cargo test -p opensesame-broker
+cargo test -p opensesame-broker --features concurrency-test --test shuttle_idempotency
 npm run audit:shuttle   # runs the shuttle suite above with the other crates'
 ```
 

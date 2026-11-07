@@ -48,7 +48,7 @@ bot credential and talks to a third party, so it is never agent-facing.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-collab-adapter
+cargo test -p opensesame-collab-adapter
 npm run test:authority-fabric
 ```
 
@@ -59,7 +59,7 @@ The default suite drives the real protocol against a loopback fixture in
 `OPENSESAME_DISCORD_SUBJECT_ID`:
 
 ```bash
-cargo +1.88.0 test -p opensesame-collab-adapter --test live -- --ignored
+cargo test -p opensesame-collab-adapter --test live -- --ignored
 ```
 
 ## Related

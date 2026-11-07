@@ -37,7 +37,7 @@ or seals a credential.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-connection-detect
+cargo test -p opensesame-connection-detect
 npm run audit:daemon-deps   # pins this crate's dependency closure
 ```
 

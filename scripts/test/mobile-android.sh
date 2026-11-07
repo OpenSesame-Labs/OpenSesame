@@ -5,7 +5,7 @@ repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$repo_root"
 ffi_dir="${OPENSESAME_NATIVE_FFI_DIR:-${CARGO_TARGET_DIR:-$repo_root/target}/debug}"
 if [[ -z "${OPENSESAME_NATIVE_FFI_DIR:-}" ]]; then
-  cargo +1.88.0 build -p opensesame-authenticator-core --features ffi
+  cargo build -p opensesame-authenticator-core --features ffi
 fi
 case "$(uname -s)" in
   Darwin) ffi_library="$ffi_dir/libopensesame_authenticator_core.dylib" ;;

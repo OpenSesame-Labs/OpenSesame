@@ -24,7 +24,7 @@ own `Cargo.lock`. Method and coverage: [docs/validation/fuzzing.md](../docs/vali
 | Layer | Where | Command |
 |---|---|---|
 | Unit and property tests (TypeScript) | beside the source, `*.test.ts` | `npm test` |
-| Unit and integration tests (Rust) | `src/**` `#[cfg(test)]` and each crate's `tests/` | `cargo +1.88.0 test --workspace --all-targets` |
+| Unit and integration tests (Rust) | `src/**` `#[cfg(test)]` and each crate's `tests/` | `cargo test --workspace --all-targets` |
 | PACT suites — property, adversarial, chaos, contract | `pact.test.ts` and `*.pact.test.ts`, per package | part of `npm test`; see [docs/validation/pact.md](../docs/validation/pact.md) |
 | Browser journeys on a real build | `apps/pages/scripts/verify-*.mjs` | `npm run verify:<journey>` -w @opensesame/pages |
 | Security gates | `scripts/audit/*-gate.sh` | `npm run audit:*`, `npm run test:security` |

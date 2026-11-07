@@ -30,7 +30,7 @@ echo "==> 1/3 TypeScript writes a circle"
 ts_phase produce
 
 echo "==> 2/3 the native reader opens it and writes its own"
-cargo +1.88.0 test -p opensesame-quorum-recovery --test interop -- --ignored
+cargo test -p opensesame-quorum-recovery --test interop -- --ignored
 
 echo "==> 3/3 TypeScript opens what the native reader wrote"
 ts_phase consume

@@ -259,7 +259,7 @@ describe("upstream CI execution contracts survive tier migration", () => {
   it("keeps journey compilation setup and measured header evidence in prerelease", () => {
     const steps = jobs(prerelease).bundle.split(/\n {6}- /);
     const preparation = steps.find((step) => step.includes("prepare-dbus.sh"));
-    const compile = steps.find((step) => step.includes("cargo +1.88.0 build"));
+    const compile = steps.find((step) => step.includes("cargo build"));
     expect(preparation).toContain("if: matrix.shard == 'journeys-1'");
     expect(compile).toContain('source "$RUNNER_TEMP/opensesame-dbus/env.sh"');
     expect(steps.indexOf(preparation)).toBeLessThan(steps.indexOf(compile));

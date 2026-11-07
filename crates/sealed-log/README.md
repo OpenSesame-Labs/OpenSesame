@@ -61,5 +61,5 @@ process. It never falls back to a plaintext file or to stdout.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-sealed-log
+cargo test -p opensesame-sealed-log
 ```

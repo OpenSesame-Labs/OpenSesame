@@ -430,7 +430,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   every target (embedded, or generated with a freshness test), with a drift
   test in each consumer. Never add a provider id, list or rule to one target:
   add the row to `spec/connectors/catalog.json` (aliases for other names),
-  regenerate the view (`UPDATE_CATALOG_VIEW=1 cargo +1.88.0 test -p
+  regenerate the view (`UPDATE_CATALOG_VIEW=1 cargo test -p
   opensesame-connection-broker --test catalog_view`) and the client module
   (`npm run generate:catalog`). -w @opensesame/app-core A target shows a
   subset only as an ordered selection of catalog ids.

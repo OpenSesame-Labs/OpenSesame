@@ -40,7 +40,7 @@ use; reveal is a human CLI concern.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-sealed-store
+cargo test -p opensesame-sealed-store
 npm run test:mutation:rust   # src/attachment.rs is in the mutation scope
 ```
 

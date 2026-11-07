@@ -46,8 +46,8 @@ Most modules are glob re-exported at the root. `budget` is not: call sites say
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-domain
-cargo +1.88.0 test -p opensesame-domain --features concurrency-test --test shuttle_authority
+cargo test -p opensesame-domain
+cargo test -p opensesame-domain --features concurrency-test --test shuttle_authority
 npm run audit:kani      # bounded proofs over this crate and opensesame-rotation
 npm run audit:miri      # lib tests under Miri
 npm run audit:shuttle   # includes shuttle_authority

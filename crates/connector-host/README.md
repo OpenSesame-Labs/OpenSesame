@@ -64,8 +64,8 @@ a feature — runs Wasm component connectors.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-connector-host
-cargo +1.88.0 test -p opensesame-connector-host --features wasm-connectors --test wasm_runtime
+cargo test -p opensesame-connector-host
+cargo test -p opensesame-connector-host --features wasm-connectors --test wasm_runtime
 npm run audit:daemon-deps
 ```
 

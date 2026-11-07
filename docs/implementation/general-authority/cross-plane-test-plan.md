@@ -12,16 +12,16 @@ gate aggregates scenario status.
 | Wire schema (GA-A-04) | `npm exec -w @opensesame/contracts -- vitest run src/__tests__/authority-grant.test.ts` |
 | OpenFGA tuple mapper (GA-F-02) | `npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-tuples.test.ts` |
 | Tuple backfill dry-run (GA-F-04) | `npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-tuple-backfill.test.ts` |
-| Rust Grant attenuation / AT-* | `cargo +1.88.0 test -p opensesame-domain --lib -- authority_adversarial_matrix::` |
-| Receipt delegation binding (GA-H-04) | `cargo +1.88.0 test -p opensesame-domain --lib validated_grant_chain::tests::receipt_chain_binds_grant_or_lineage` |
+| Rust Grant attenuation / AT-* | `cargo test -p opensesame-domain --lib -- authority_adversarial_matrix::` |
+| Receipt delegation binding (GA-H-04) | `cargo test -p opensesame-domain --lib validated_grant_chain::tests::receipt_chain_binds_grant_or_lineage` |
 
 ## 2. Host plane
 
 | Concern | Command |
 |---|---|
-| Authz model + engine | `cargo +1.88.0 test -p opensesame-authz --lib` |
-| Storage fence / budgets / projection | `cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix` |
-| Broker frozen receipts | `cargo +1.88.0 test -p opensesame-broker --lib` |
+| Authz model + engine | `cargo test -p opensesame-authz --lib` |
+| Storage fence / budgets / projection | `cargo test -p opensesame-storage --test authority_adversarial_matrix` |
+| Broker frozen receipts | `cargo test -p opensesame-broker --lib` |
 | OpenFGA additivity (GA-F-03) | `npm exec -w @opensesame/policy -- vitest run src/__tests__/authority-additivity.test.ts` |
 
 ## 3. Identity plane

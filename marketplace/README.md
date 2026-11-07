@@ -21,7 +21,7 @@ definition — field types, concealed fields, subtitles, search — is in
 3. Add the file to `BUILTIN_DEFINITIONS` in `crates/vault-item-types/src/lib.rs`
    if it is new and the host plane should know the type.
 4. `npm run test` -w @opensesame/vault-item-types and
-   `cargo +1.88.0 test -p opensesame-vault-item-types` must both pass — the
+   `cargo test -p opensesame-vault-item-types` must both pass — the
    generated module is checked against the JSON.
 
 ## Publishing an optional type

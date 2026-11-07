@@ -39,7 +39,7 @@ stays off until one of them records it on.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-plugin-settings
+cargo test -p opensesame-plugin-settings
 npm run audit:plugin-boundary   # no default `opensesame` or daemon tree reaches a plugin crate
 ```
 

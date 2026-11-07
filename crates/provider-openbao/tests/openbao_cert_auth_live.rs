@@ -6,7 +6,7 @@
 //! binary `scripts/mtls/mtls-fixtures.sh` fetches:
 //!
 //! ```text
-//! OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-provider-openbao -- --ignored
+//! OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-provider-openbao -- --ignored
 //! ```
 //!
 //! What it establishes, in order of how much it would hurt to be wrong about:

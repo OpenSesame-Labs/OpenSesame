@@ -38,7 +38,7 @@ for each alert standard. It does no I/O.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-security-events
+cargo test -p opensesame-security-events
 ```
 
 Adding a delivery kind means changing `Delivery`, the storage schema's `CHECK`

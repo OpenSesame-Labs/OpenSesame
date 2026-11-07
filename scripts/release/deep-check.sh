@@ -33,7 +33,7 @@ case "$check" in
   dependencies)
     npm run audit:osv
     npm run audit:cargo-audit
-    cargo +1.88.0 deny check
+    cargo deny check
     npm exec -- vitest run scripts/lib/dependency-compatibility.test.mjs
     ;;
   sast)

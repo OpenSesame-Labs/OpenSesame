@@ -92,10 +92,10 @@ Source is one module per verb group under `src/` (`store.rs` and
 ## Develop
 
 ```bash
-cargo +1.88.0 build -p opensesame-cli
-cargo +1.88.0 test -p opensesame-cli
-cargo +1.88.0 run -p opensesame-cli -- --help
-cargo +1.88.0 run -p opensesame-cli -- pass --help
+cargo build -p opensesame-cli
+cargo test -p opensesame-cli
+cargo run -p opensesame-cli -- --help
+cargo run -p opensesame-cli -- pass --help
 ```
 
 `tests/attach_journey.rs` and `tests/protect_rotation_journey.rs` drive the

@@ -41,7 +41,7 @@ implementation, one set of bounds and one error taxonomy.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-pki-core
+cargo test -p opensesame-pki-core
 ```
 
 The `pact` tests pin wire shapes as `insta` snapshots in

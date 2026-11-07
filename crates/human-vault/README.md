@@ -52,7 +52,7 @@ On `wasm32`, `getrandom` is built with its `js` feature.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-human-vault
+cargo test -p opensesame-human-vault
 npm run audit:miri      # runs this crate's trust-boundary rejection tests under Miri
 ```
 

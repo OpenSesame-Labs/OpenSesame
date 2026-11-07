@@ -34,7 +34,7 @@ quote a share.
 
 ```bash
 export CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target
-cargo +1.88.0 test -p opensesame-quorum-recovery
+cargo test -p opensesame-quorum-recovery
 scripts/test/quorum-recovery-interop.sh    # TypeScript and this crate, each against the other
 ```
 

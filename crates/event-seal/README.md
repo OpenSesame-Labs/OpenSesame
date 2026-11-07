@@ -43,8 +43,8 @@ migration reader can import older rows before the Host serves requests.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-event-seal
-cargo +1.88.0 test -p opensesame-storage --test sealed_events   # against the real schema
+cargo test -p opensesame-event-seal
+cargo test -p opensesame-storage --test sealed_events   # against the real schema
 ```
 
 Host startup refuses plaintext and `osev1` event rows by default, including on

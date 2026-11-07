@@ -48,7 +48,7 @@ Dependencies: `std`, and `libc` on Unix for `geteuid`, `getegid` and `getgroups`
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-trusted-exec
+cargo test -p opensesame-trusted-exec
 ```
 
 `src/trust/tests.rs` is the table of owner, group and mode combinations the

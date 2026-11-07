@@ -9,7 +9,7 @@ in the harness, not in the repository.
 This repository ships a Cursor-hosted Cloud Agent environment (managed VMs —
 not a contributor's local machine). Image and bootstrap live in
 [`.cursor/environment.json`](../../.cursor/environment.json) and
-[`.cursor/Dockerfile`](../../.cursor/Dockerfile) (`rust:1.88.0-bookworm`,
+[`.cursor/Dockerfile`](../../.cursor/Dockerfile) (a pinned `rust:<version>-bookworm` image,
 aligned with `rust-toolchain.toml`). Harness-owned rule and tool files under
 `.cursor/` describe that environment's own wiring.
 
@@ -25,7 +25,7 @@ anonymous HTTPS from `DOTFILES_REPO`, default
 credential helper; a failed clone stops the bootstrap), then
 `mise install --locked` and `mise run deps` (fingerprinted `npm ci` via
 `scripts/dev/install-dependencies.sh`), then that install script directly,
-then `cargo +1.88.0 fetch`. Prefer the shared cargo target dir documented in
+then `cargo fetch`. Prefer the shared cargo target dir documented in
 [shipping](shipping.md) when compiling Rust. Login and non-login shells
 source `/etc/profile.d/mise.sh`, which prepends `/opt/mise/shims` and
 defaults `CARGO_TARGET_DIR` to `$HOME/.cache/packages/cargo-target`.

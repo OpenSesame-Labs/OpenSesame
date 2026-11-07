@@ -100,7 +100,6 @@ function resolveCargo(target, facts) {
   if (enumBlock !== null) return enumBlock;
   return runnable([
     "cargo",
-    "+1.88.0",
     "test",
     "-p",
     target.crate,
@@ -156,7 +155,12 @@ function resolveVitest(target, facts) {
       `${path} does not exist; no test asserts this contract`,
     );
   }
-  return runnable(["npm", "exec", "-w", target.pkg, "--",
+  return runnable([
+    "npm",
+    "exec",
+    "-w",
+    target.pkg,
+    "--",
     "vitest",
     "run",
     "--reporter=json",
@@ -190,7 +194,12 @@ function resolveRegistrySweep(target, facts) {
       `no capability id starts with ${target.prefixes.join(" or ")}; GA-C-01 has not landed, so this sweep has nothing to check`,
     );
   }
-  return runnable(["npm", "exec", "-w", target.pkg, "--",
+  return runnable([
+    "npm",
+    "exec",
+    "-w",
+    target.pkg,
+    "--",
     "vitest",
     "run",
     "--reporter=json",
@@ -273,7 +282,12 @@ function resolveFgaAdditivity(target, facts) {
       "OPENSESAME_OPENFGA_URL is unset; GA-V-32 needs a live OpenFGA to replay baseline allows against the delta",
     );
   }
-  return runnable(["npm", "exec", "-w", "@opensesame/policy", "--",
+  return runnable([
+    "npm",
+    "exec",
+    "-w",
+    "@opensesame/policy",
+    "--",
     "vitest",
     "run",
     "--reporter=json",

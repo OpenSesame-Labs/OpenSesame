@@ -64,7 +64,7 @@ for one), and a sensitive value is materialized only when policy allows it. A sc
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-env-spec
+cargo test -p opensesame-env-spec
 npm run test -w @opensesame/env-spec-bridge
 ```
 

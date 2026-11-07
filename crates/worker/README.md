@@ -33,8 +33,8 @@ Routes: `GET /health/live`, `GET /health/ready`, `GET /v1/providers`.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-worker
-cargo +1.88.0 run -p opensesame-cli -- worker run --help
+cargo test -p opensesame-worker
+cargo run -p opensesame-cli -- worker run --help
 ```
 
 ## Related

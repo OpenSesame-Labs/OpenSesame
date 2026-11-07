@@ -99,7 +99,7 @@ The full picture is in [docs/architecture](docs/architecture/README.md).
 
 ## Quick start
 
-Prerequisites: Node 24+, npm run 9 (via npm), and Rust 1.88 for the Host
+Prerequisites: Node 24+, npm run 9 (via npm), and the Rust toolchain pinned in `rust-toolchain.toml` for the Host
 plane. Details and troubleshooting: [getting started](docs/getting-started/README.md).
 
 ```bash
@@ -111,7 +111,7 @@ npm run setup:hooks                             # lint + secret-scan hooks
 npm run dev:web -w @opensesame/pages
 
 # The app with a local Host, Identity API and mock IdP behind it
-# (runs the Host with `cargo run --offline`: run `cargo +1.88.0 fetch` once first)
+# (runs the Host with `cargo run --offline`: run `cargo fetch` once first)
 npm run dev -w @opensesame/pages
 ```
 
@@ -151,7 +151,7 @@ npm run dev:cli -- login --flow device --no-browser
 ```bash
 npm run typecheck        # every TypeScript workspace
 npm test             # every TypeScript test suite
-cargo +1.88.0 test --workspace --all-targets
+cargo test --workspace --all-targets
 npm run lint             # Biome on files changed from origin/main
 npm run quality          # file-size, complexity and package-coupling ratchets
 npm run verify           # the full local gate: all of the above, Clippy, anti-slop, battle test

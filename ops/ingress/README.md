@@ -82,7 +82,7 @@ echo "$CADDY_SHA256  $CADDY_CACHE_DIR/$CADDY_ASSET" | sha256sum -c
 tar -xzf "$CADDY_CACHE_DIR/$CADDY_ASSET" -C "$CADDY_CACHE_DIR" caddy
 
 # the end-to-end proof (generates a disposable PKI, starts origin + Caddy on loopback)
-OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-ingress-evidence --test reference_proxy -- --ignored --nocapture
+OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-ingress-evidence --test reference_proxy -- --ignored --nocapture
 ```
 
 The test helper downloads the binary itself when it is absent and verifies

@@ -99,12 +99,12 @@ PY
 }
 
 echo "==> nats-dogfood: Rust unit + HTTP tests"
-cargo +1.88.0 test -p opensesame-task-bus --all-targets
-cargo +1.88.0 test -p opensesame-authz --lib callout
-cargo +1.88.0 test -p opensesame-connection-broker --lib github_webhook_hmac
-cargo +1.88.0 test -p opensesame-storage --lib host_kv
-cargo +1.88.0 test -p opensesame-gateway --lib
-cargo +1.88.0 test --manifest-path tests/fuzz/cargo/Cargo.toml --lib oracle_smoke
+cargo test -p opensesame-task-bus --all-targets
+cargo test -p opensesame-authz --lib callout
+cargo test -p opensesame-connection-broker --lib github_webhook_hmac
+cargo test -p opensesame-storage --lib host_kv
+cargo test -p opensesame-gateway --lib
+cargo test --manifest-path tests/fuzz/cargo/Cargo.toml --lib oracle_smoke
 
 echo "==> nats-dogfood: TypeScript contracts + worker"
 npm run test -w @opensesame/contracts
@@ -124,10 +124,10 @@ fi
 ensure_live_nats
 
 echo "==> nats-dogfood: live JetStream round-trip (NATS_URL=${NATS_URL})"
-cargo +1.88.0 test -p opensesame-task-bus --features jetstream -- --ignored --nocapture
+cargo test -p opensesame-task-bus --features jetstream -- --ignored --nocapture
 
 echo "==> nats-dogfood: live Host operator TaskBus against JetStream"
-cargo +1.88.0 test -p opensesame-gateway --lib live_nats -- --ignored --nocapture
+cargo test -p opensesame-gateway --lib live_nats -- --ignored --nocapture
 
 echo "==> nats-dogfood: Jazzer/local contract fuzz (taskbus)"
 FUZZ_SECONDS="${FUZZ_SECONDS:-3}" npm exec -w @opensesame/fuzz -- tsx src/run.ts taskbus

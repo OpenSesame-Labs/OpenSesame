@@ -41,9 +41,9 @@ implementations.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-task-access
+cargo test -p opensesame-task-access
 OPENSESAME_TEST_DATABASE_URL=postgres://… \
-  cargo +1.88.0 test -p opensesame-task-access --features postgres-integration
+  cargo test -p opensesame-task-access --features postgres-integration
 npm run test:task-access
 ```
 

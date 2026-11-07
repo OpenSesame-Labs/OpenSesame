@@ -33,8 +33,8 @@ and authorizes the answer against an explicit user and tag allowlist.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-tailscale-authn
-cargo +1.88.0 build -p opensesame-cli --features tailscale
+cargo test -p opensesame-tailscale-authn
+cargo build -p opensesame-cli --features tailscale
 npm run audit:daemon-deps
 ```
 

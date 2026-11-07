@@ -14,7 +14,7 @@
 //! export OPENSESAME_DISCORD_GUILD_ID=...
 //! export OPENSESAME_DISCORD_CHANNEL_ID=...
 //! export OPENSESAME_DISCORD_SUBJECT_ID=...  # a member of that guild
-//! cargo +1.88.0 test -p opensesame-collab-adapter --test live -- --ignored
+//! cargo test -p opensesame-collab-adapter --test live -- --ignored
 //! ```
 //!
 //! The token must be a **bot** token. There is no user-token path in this crate,

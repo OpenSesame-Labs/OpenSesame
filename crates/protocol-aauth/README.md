@@ -38,7 +38,7 @@ With the feature on:
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-protocol-aauth --features experimental-aauth
+cargo test -p opensesame-protocol-aauth --features experimental-aauth
 npm run test:task-access   # runs the line above among the task-authority suites
 ```
 

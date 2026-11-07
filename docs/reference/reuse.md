@@ -8,7 +8,7 @@ Product license: **MIT** (see `LICENSE`).
 |------------|--------|---------------|----------------|--------|
 | Agent-facing authority | **ConnectionRef + Intent** (not SecretRef) | ADR 0005 | n/a | Reference ≠ capability; SUDP-aligned custodian |
 | SecretRef | Internal under connection broker only | ADR 0005 | n/a | Compatibility; never default agent API |
-| Language (Host / authority plane) | Rust 2021 / toolchain 1.88 | `rust-toolchain.toml` | MIT/Apache deps via `deny.toml` | Security-sensitive daemon defaults |
+| Language (Host / authority plane) | Rust 2021 / toolchain pinned by `rust-toolchain.toml` | `rust-toolchain.toml` | MIT/Apache deps via `deny.toml` | Security-sensitive daemon defaults |
 | HTTP | Axum + Tower + Tokio + rustls | workspace Cargo.toml | Apache-2.0/MIT | Mature, audited ecosystem |
 | DB (Host store) | SQLite via SQLx | SQLx 0.8.x (`Cargo.toml`) | public domain/blessing | `crates/storage` `Db` is SQLite only; single node, not HA |
 | DB (distributed task authority) | PostgreSQL + SQLx | SQLx 0.8.x | Apache-2.0/MIT | `PostgresTaskStore`, selected when `OPENSESAME_TASK_DB` is a PostgreSQL URL (ADR 0031) |

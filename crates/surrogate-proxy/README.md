@@ -122,8 +122,8 @@ identity-encoded, and scrubbed by `ResponseScrub` before the child sees it.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-surrogate-proxy
-cargo +1.88.0 test -p opensesame-surrogate-proxy --features upstream-override --test upstream_override
+cargo test -p opensesame-surrogate-proxy
+cargo test -p opensesame-surrogate-proxy --features upstream-override --test upstream_override
 ```
 
 `tests/end_to_end.rs` is ADR 0150's acceptance run against a loopback TLS

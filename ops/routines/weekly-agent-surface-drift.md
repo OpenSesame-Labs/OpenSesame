@@ -89,7 +89,7 @@ export NODE_OPTIONS="--max-old-space-size=8192"
 npm run test -w @opensesame/capability-registry
 npm run test -w @opensesame/mcp-host && npm run test -w @opensesame/mcp-client
 npm run test -w @opensesame/pages && npm run test -w @opensesame/cli
-cargo +1.88.0 test -p opensesame-cli --test capability_parity
+cargo test -p opensesame-cli --test capability_parity
 npm run lint && npm run typecheck
 ```
 

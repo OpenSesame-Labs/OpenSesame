@@ -44,11 +44,11 @@ Blocky's behaviour was measured against the pinned build.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-dns-enforcement --lib
+cargo test -p opensesame-dns-enforcement --lib
 
 # Against a disposable local Blocky (needs Go; builds the pinned release):
 eval "$(crates/dns-enforcement/harness/blocky-env.sh up)"
-cargo +1.88.0 test -p opensesame-dns-enforcement -- --test-threads=1
+cargo test -p opensesame-dns-enforcement -- --test-threads=1
 crates/dns-enforcement/harness/blocky-env.sh probe-isolation
 crates/dns-enforcement/harness/blocky-env.sh down
 ```

@@ -8,7 +8,7 @@
 #   1. preflight: every crate named in scripts/mtls/mtls-required-packages.txt must
 #      exist in `cargo metadata` — a missing required crate is a FAILED step,
 #      not a skip (AT-EVIDENCE-NORUN);
-#   2. Rust: `cargo +1.88.0 test -p <crate> --all-features` per crate, plus one
+#   2. Rust: `cargo test -p <crate> --all-features` per crate, plus one
 #      default-feature run across the present crates;
 #   3. TypeScript: @opensesame/os-domain, @opensesame/contracts,
 #      @opensesame/oauth-provider (whole suites), @opensesame/ingress-evidence,
@@ -46,7 +46,7 @@ ${MANIFEST} begin --run "${RUN_DIR}" --suite fast >/dev/null
 echo "==> mtls-test: run dir ${RUN_DIR}"
 
 # ---- 1. preflight -----------------------------------------------------------
-PRESENT="$(cargo +1.88.0 metadata --no-deps --format-version 1 2>/dev/null \
+PRESENT="$(cargo metadata --no-deps --format-version 1 2>/dev/null \
   | python3 -c 'import json,sys; print("\n".join(sorted(p["name"] for p in json.load(sys.stdin)["packages"])))')"
 missing_required=()
 present_crates=()
@@ -71,9 +71,9 @@ for c in "${CRATES[@]}"; do
   req=false; is_required "${c}" && req=true
   if grep -qx -- "${c}" <<<"${PRESENT}"; then
     step --id "rust-${c}" --claim "${c}" --runner cargo --required "${req}" --timeout 2400 \
-      --profile unit --target "cargo test --all-features" --paths "$(cargo +1.88.0 metadata --no-deps --format-version 1 2>/dev/null | python3 -c "import json,sys; print(next(p['manifest_path'] for p in json.load(sys.stdin)['packages'] if p['name']=='${c}').replace('${ROOT}/',''))")" \
+      --profile unit --target "cargo test --all-features" --paths "$(cargo metadata --no-deps --format-version 1 2>/dev/null | python3 -c "import json,sys; print(next(p['manifest_path'] for p in json.load(sys.stdin)['packages'] if p['name']=='${c}').replace('${ROOT}/',''))")" \
       --expected "unit + property tests of ${c} pass with every feature enabled" -- \
-      cargo +1.88.0 test -p "${c}" --all-features
+      cargo test -p "${c}" --all-features
   else
     step --id "rust-${c}" --claim "${c}" --runner cargo --required "${req}" --skip "crate not present in cargo metadata"
   fi
@@ -83,7 +83,7 @@ if [[ ${#present_crates[@]} -gt 0 ]]; then
   step --id rust-default-features --claim OPS-RUNNERS --runner cargo --required true --timeout 2400 \
     --profile unit --target "cargo test (default features)" \
     --expected "the same crates pass with default features (no feature-gated code is load-bearing)" -- \
-    cargo +1.88.0 test "${args[@]}"
+    cargo test "${args[@]}"
 fi
 
 # ---- 3. TypeScript ----------------------------------------------------------

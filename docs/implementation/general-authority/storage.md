@@ -158,7 +158,7 @@ pre-restore grant is denied at the fence, not offered a grace period.
 
 ## 8. Tests
 
-`cargo +1.88.0 test -p opensesame-storage` (Host plane). The suites are
+`cargo test -p opensesame-storage` (Host plane). The suites are
 adversarial by design: each names the escalation it is trying to perform. They
 are under `crates/storage/tests/`; the number is the count of test functions.
 

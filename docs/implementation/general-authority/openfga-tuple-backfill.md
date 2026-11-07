@@ -80,8 +80,8 @@ npm exec -w @opensesame/policy -- vitest run \
 Live apply evidence:
 
 ```bash
-cargo +1.88.0 test -p opensesame-provider-openfga --lib grant_tuples
-cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- authority_grants
+cargo test -p opensesame-provider-openfga --lib grant_tuples
+cargo test -p opensesame-gateway --bin opensesame-gateway -- authority_grants
 ```
 
 When `OPENSESAME_OPENFGA_URL` is unset the projector no-ops; with OpenFGA
