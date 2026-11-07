@@ -23,7 +23,7 @@
     "@opensesame/observability": "*",
     "@opensesame/os-domain": "*",
     "@opensesame/telemetry": "*",
-    "posthog-node": "5.61.0",
+    "posthog-node": "5.61.2",
     "zod": "4.6.6"
   },
   "devDependencies": {
