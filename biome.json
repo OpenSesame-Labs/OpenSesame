@@ -117,6 +117,7 @@
       "!packages/app-core/src/lib/native-api-service-inventories.test.ts",
       "!packages/app-core/src/lib/native-bitwarden-crypto.ts",
       "!packages/app-core/src/lib/native-bitwarden-vault.test.ts",
+      "!packages/app-core/src/lib/native-bridge.ts",
       "!packages/app-core/src/lib/native-bridge.test.ts",
       "!packages/app-core/src/lib/native-gcp.test.ts",
       "!packages/app-core/src/lib/native-google-wallet-custody.integration.test.ts",

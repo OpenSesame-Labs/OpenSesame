@@ -187,7 +187,9 @@ it("refuses broad or authored-code exceptions and ignored artifact directories",
     ...f.config,
     files: { includes: ["**", "!apps/pages/public/static-auth/**"] },
   });
-  expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
+  expect(() => validateStaticAuth(f.root)).toThrow(
+    /not ignored directories|Artifacts and authored sources must stay included/,
+  );
 });
 
 it("keeps both lint entrypoints gated by rebuilt artifacts and source tests", () => {
@@ -229,9 +231,16 @@ it("rejects global checks disabled outside the generated override", () => {
 it.each([
   { files: { includes: ["packages/**"] } },
   { files: { includes: [] } },
+  { files: { includes: ["**", "!packages/**"] } },
+  { files: { includes: ["**", "!**/*.ts"] } },
   { assist: { enabled: false } },
   { javascript: { assist: { enabled: false } } },
   { assist: { includes: [] } },
+  { assist: { includes: ["**", "!packages/**"] } },
+  { linter: { enabled: true, includes: [] } },
+  { linter: { enabled: true, includes: ["**/*.min.js"] } },
+  { formatter: { enabled: true, includes: [] } },
+  { formatter: { enabled: true, includes: ["**/*.min.js"] } },
 ])("rejects narrowed checks and import organization: %j", (patch) => {
   const f = fixture();
   f.json("biome.json", { ...f.config, ...patch });
@@ -257,7 +266,9 @@ it.each(["!**/*.js", "!**", "!apps", "!**/public/**", "!!**/public"])(
   (pattern) => {
     const f = fixture();
     f.json("biome.json", { ...f.config, files: { includes: ["**", pattern] } });
-    expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      /not ignored directories|Artifacts and authored sources must stay included/,
+    );
   },
 );
 

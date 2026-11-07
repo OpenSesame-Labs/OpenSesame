@@ -5,11 +5,6 @@
  * Pages shell binds a client once a connections capability is active; with none
  * bound the bridge is absent and every provider behaves as it did.
  */
-
-import type {
-  BridgeFetchRequest,
-  HeaderPair,
-} from "@opensesame/connector-bridge";
 import {
   authoritiesOf,
   connectorBridgeTable,
@@ -17,6 +12,10 @@ import {
   isNamedHost,
   oauthAuthoritiesOf,
   providerOfHost,
+} from "@opensesame/connector-bridge";
+import type {
+  BridgeFetchRequest,
+  HeaderPair,
 } from "@opensesame/connector-bridge";
 import {
   BridgeCallError,
@@ -200,9 +199,7 @@ export async function askBridgeFor(
 
 function headerPairs(headers: Headers): HeaderPair[] {
   const pairs: HeaderPair[] = [];
-  headers.forEach((value, name) => {
-    pairs.push([name, value]);
-  });
+  headers.forEach((value, name) => pairs.push([name, value]));
   return pairs;
 }
 

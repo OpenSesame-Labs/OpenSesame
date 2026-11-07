@@ -43,6 +43,21 @@ const manifestSchema = z
 export const integrity = (bytes) =>
   `sha384-${createHash("sha384").update(bytes).digest("base64")}`;
 
+const authoredSource = "packages/static-auth/src/index.ts";
+const included = (includes, path) => {
+  if (includes?.length === 0) return false;
+  const patterns = includes ?? [];
+  const positive = patterns.filter((pattern) => !pattern.startsWith("!"));
+  const admitted =
+    positive.length === 0 ||
+    positive.some((pattern) => matchesGlob(path, pattern));
+  const excluded = patterns.some(
+    (pattern) =>
+      pattern.startsWith("!") && matchesGlob(path, pattern.replace(/^!!?/, "")),
+  );
+  return admitted && !excluded;
+};
+
 export function artifactPaths(version) {
   versionSchema.parse(version);
   return [
@@ -62,19 +77,11 @@ export function artifactOverride(paths) {
 
 /** Biome 2 spells the import organizer as an assist action: "on" or { level }. */
 const organizeImports = (entry, path) => {
-  const includes = entry.assist?.includes;
-  const positive = (includes ?? []).filter(
-    (pattern) => !pattern.startsWith("!"),
-  );
   const action = entry?.assist?.actions?.source?.organizeImports;
   const enabled = [
     entry.assist?.enabled !== false,
     entry.javascript?.assist?.enabled !== false,
-    !includes || includes.length,
-    Math.max(
-      positive.length === 0,
-      positive.some((pattern) => matchesGlob(path, pattern)),
-    ) === 1,
+    included(entry.assist?.includes, path),
   ].every(Boolean);
   return [action?.level ?? action, "off"][Number(!enabled)];
 };
@@ -194,26 +201,22 @@ export function validateStaticAuth(rootPath) {
   ]);
   inventory(root, allowed);
   const config = JSON.parse(readRegular(root, "biome.json"));
-  for (const tool of ["linter", "formatter"])
+  for (const tool of ["linter", "formatter"]) {
     assert.equal(
       config[tool]?.enabled,
       true,
       "Authored-code checks must stay enabled",
     );
-  const includes = config.files?.includes;
-  const positiveIncludes = (includes ?? []).filter(
-    (pattern) => !pattern.startsWith("!"),
-  );
-  if (includes?.length === 0)
-    throw new Error("Artifacts and authored sources must stay included");
-  for (const path of [...paths, "packages/static-auth/src"])
-    if (
-      positiveIncludes.length > 0 &&
-      !positiveIncludes.some((pattern) => matchesGlob(path, pattern))
-    )
+    assert.ok(
+      included(config[tool]?.includes, authoredSource),
+      "Authored-code checks must stay enabled",
+    );
+  }
+  for (const path of [...paths, authoredSource])
+    if (!included(config.files?.includes, path))
       throw new Error("Artifacts and authored sources must stay included");
   assert.equal(
-    organizeImports(config, "packages/static-auth/src"),
+    organizeImports(config, authoredSource),
     "on",
     "Authored-code checks must stay enabled",
   );
