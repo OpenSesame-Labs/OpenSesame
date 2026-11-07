@@ -30,7 +30,7 @@
     "postgres": "4.0.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.14",
+    "@electric-sql/pglite": "0.5.15",
     "@opensesame/testing": "*",
     "@types/node": "26.6.6",
     "drizzle-kit": "0.31.11",
