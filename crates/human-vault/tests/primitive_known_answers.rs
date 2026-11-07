@@ -1,8 +1,8 @@
 //! Published known answers for the hash, MAC and KDF primitives the vault
 //! envelopes are built from.
 //!
-//! Every derived key in this crate is SHA-256, HMAC-SHA-256, HKDF-SHA-256 or
-//! PBKDF2-HMAC-SHA-256 underneath. These vectors come from the RFCs and FIPS
+//! The upgraded primitives covered by these vectors are SHA-256, HMAC-SHA-256,
+//! HKDF-SHA-256 or PBKDF2-HMAC-SHA-256 underneath. These vectors come from the RFCs and FIPS
 //! publications, not from a run of this code, so they hold across any upgrade
 //! of the `RustCrypto` crates: a failure here means the primitive changed, and
 //! every vault already sealed under it would stop opening.
