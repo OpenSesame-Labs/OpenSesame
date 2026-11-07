@@ -13,7 +13,6 @@ import {
   vi,
 } from "vitest";
 import { identityHookSeams } from "../bindings/identity.js";
-
 const online = vi.hoisted(() => ({ value: true }));
 const session: { current: { principalId: string } | null } = vi.hoisted(() => ({
   current: { principalId: "prn_op" },
@@ -22,9 +21,7 @@ const connect = vi.hoisted(() => vi.fn());
 const connectState: { connecting: boolean; error: string | null } = vi.hoisted(
   () => ({ connecting: false, error: null }),
 );
-
 import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
-
 Object.assign(identityHookSeams, {
   useConnect: () => ({
     connect,
@@ -33,33 +30,25 @@ Object.assign(identityHookSeams, {
   }),
   useIdentitySession: () => session.current,
 });
-
 import { standInPrompt } from "../lib/command-bar/search.test-support.js";
 import { useOnlineSeams } from "../lib/use-online.js";
-
 Object.assign(useOnlineSeams, { useOnline: () => online.value });
 const shouldAutoConnect = vi.hoisted(() => vi.fn(() => true));
-
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
-
 Object.assign(settingsSeams, { shouldAutoConnect });
 const vault: { items: SecretItem[]; tomb: string; status: string } = vi.hoisted(
   () => ({ items: [], tomb: "personal", status: "unlocked" }),
 );
 const addItems = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const saveItem = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
-
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault,
   useVaultStore: () => ({ addItems, saveItem }),
 });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
-
 import * as githubInstallation from "@opensesame/app-core/lib/github-installation-access.js";
-
 vi.spyOn(
   githubInstallation,
   "loadGithubInstallationSnapshot",
@@ -79,7 +68,6 @@ const listIntegrations = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const openConsentPopup = vi.hoisted(() => vi.fn(() => null));
 const startGithubAppRegistration = vi.hoisted(() => vi.fn());
 const submitGithubAppManifest = vi.hoisted(() => vi.fn());
-
 import {
   ConnectionsError,
   type Provider,
@@ -98,7 +86,6 @@ import {
   renderAt,
 } from "./connections/section-fixtures.test-support.js";
 import { declareConnectionsTutorial } from "./connections/tutorial.test-support.js";
-
 const originalConnectionSeams = { ...connectionSeams };
 Object.assign(connectionSeams, {
   listConnections,
@@ -114,18 +101,16 @@ Object.assign(connectionSeams, {
   submitGithubAppManifest,
 });
 afterAll(() => Object.assign(connectionSeams, originalConnectionSeams));
-const bundledRef = { current: [] as Provider[] };
+const bundledRef = { current: new Array<Provider>() };
 vercelCatalogSeams.providers = () =>
   bundledRef.current.length > 0 ? bundledRef.current : catalog;
 
 import { embeddedCatalogSeams } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { installEmbeddedCatalogFixture } from "./connections/embedded-catalog.test-support.js";
-
 const originalEmbeddedCatalogSeams = installEmbeddedCatalogFixture();
 
 import { passkeyCeremonyNoteSeams } from "../components/PasskeyCeremonyNote.js";
 import { expectInTray } from "../components/tray.test-support.js";
-
 const originalPasskeyCeremonyNoteSeams = { ...passkeyCeremonyNoteSeams };
 Object.assign(passkeyCeremonyNoteSeams, { PasskeyCeremonyNote: () => null });
 afterAll(() =>

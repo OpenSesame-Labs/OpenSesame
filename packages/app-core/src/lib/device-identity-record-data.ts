@@ -14,7 +14,6 @@ import {
   tombFileKey,
   writeFile,
 } from "./vfs.js";
-
 const PATH = DEVICE_IDENTITY_KEY_PATH;
 const MAX_BYTES = 8192;
 /**

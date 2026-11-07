@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { fakeBridge } from "./connector-bridge.test-support.js";
 import {
   BridgeCallError,
   createBridgeClient,
 } from "./connector-bridge-client.js";
+import { fakeBridge } from "./connector-bridge.test-support.js";
 
 const request = {
   providerId: "plivo",

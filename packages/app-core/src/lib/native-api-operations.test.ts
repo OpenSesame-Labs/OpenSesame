@@ -5,10 +5,6 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import { afterEach, expect, it, vi } from "vitest";
-import {
-  installNativeApiTests,
-  nativeApiDraft,
-} from "./native-api.test-support.js";
 import { configureNativeApiConnector } from "./native-api-connectors.js";
 import {
   type NativeApiOperationDefinition,
@@ -19,6 +15,10 @@ import {
   operationKey,
   operationOracle,
 } from "./native-api-operations.test-support.js";
+import {
+  installNativeApiTests,
+  nativeApiDraft,
+} from "./native-api.test-support.js";
 
 installNativeApiTests();
 const oracles: Awaited<ReturnType<typeof operationOracle>>[] = [];

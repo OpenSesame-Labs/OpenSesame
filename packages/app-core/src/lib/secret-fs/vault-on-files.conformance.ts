@@ -12,6 +12,7 @@ import { BODY_PATH, PERSONAL_TOMB, tombFileKey, vfsSeams } from "../vfs.js";
 import { SecretFsUnavailable } from "./errors.js";
 import type { FilesHarness } from "./files.conformance.js";
 import type { SecretFiles } from "./files.js";
+import { tamperCases } from "./vault-on-files-tamper.conformance.js";
 import {
   type InProcess,
   MARKER,
@@ -24,7 +25,6 @@ import {
   text,
   tree,
 } from "./vault-on-files.support.js";
-import { tamperCases } from "./vault-on-files-tamper.conformance.js";
 
 function layoutCases(inProcess: InProcess): void {
   it("keeps each secret in a file of its own, named for it and its folder", () =>

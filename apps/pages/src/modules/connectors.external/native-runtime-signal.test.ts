@@ -6,14 +6,8 @@ import { nativeProviderTransport } from "@opensesame/app-core/lib/native-connect
 /** @vitest-environment jsdom */
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { overlapCast } from "@opensesame/os-domain";
-import {
-  afterEach,
-  afterEach as afterGenuine,
-  beforeEach as beforeGenuine,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { afterEach as afterGenuine, beforeEach as beforeGenuine } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createActivation } from "../activation.js";
 import { createTestContext } from "../test-context.js";
 import {

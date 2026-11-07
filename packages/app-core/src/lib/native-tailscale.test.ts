@@ -1,7 +1,8 @@
 import { beforeEach, expect, it } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
+import { syntheticTailscaleAuthKeyPublicPrefix } from "./synthetic-tailscale-key.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
+import { installNativeApiTests } from "./native-api.test-support.js";
 import { loadNativeConnectorRecord } from "./native-connector-store.js";
 import { tailscaleKeyFlows } from "./native-tailscale.js";
 import {
@@ -10,7 +11,6 @@ import {
   devices,
   routes,
 } from "./native-tailscale.test-support.js";
-import { syntheticTailscaleAuthKeyPublicPrefix } from "./synthetic-tailscale-key.js";
 
 installNativeApiTests();
 

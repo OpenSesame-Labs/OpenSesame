@@ -6,8 +6,8 @@
 import { Cause, Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SecretFsError } from "./errors.js";
-import type { SecretFiles } from "./files.js";
 import { revisionOf } from "./files.js";
+import type { SecretFiles } from "./files.js";
 
 export type FilesHarness = Readonly<{
   files: SecretFiles;

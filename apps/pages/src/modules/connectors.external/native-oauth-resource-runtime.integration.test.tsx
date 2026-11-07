@@ -43,7 +43,6 @@ import {
   nativeCallbackUrl,
 } from "./native-oauth-runtime.js";
 import { bindNativeRuntime } from "./native-runtime.js";
-
 const closes: (() => void | Promise<void>)[] = [];
 const operations: Promise<unknown>[] = [];
 afterEach(async () => {

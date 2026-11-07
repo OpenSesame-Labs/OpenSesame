@@ -43,6 +43,8 @@ import {
   unregisterTomb,
 } from "./vfs.js";
 
+/** Sealed VFS path (within a tomb) holding this tomb's projects view. */
+export { PROJECTS_CONFIG_PATH };
 export {
   PERSONAL_PROJECT_ID,
   PROJECTS_KEY,
@@ -51,8 +53,6 @@ export {
   type PagesProjectKind,
   type ProjectsState,
 } from "./projects-state.js";
-/** Sealed VFS path (within a tomb) holding this tomb's projects view. */
-export { PROJECTS_CONFIG_PATH };
 
 /**
  * The pre-unlock view: tomb names from the plaintext registry (display names

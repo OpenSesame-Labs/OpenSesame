@@ -7,12 +7,12 @@
  */
 import { Effect, type FileSystem, Option, Schedule } from "effect";
 import type { PlatformError } from "effect/PlatformError";
-import type { SecretFsError } from "./errors.js";
 import {
   SecretFsNotFound,
   SecretFsRejected,
   SecretFsUnavailable,
 } from "./errors.js";
+import type { SecretFsError } from "./errors.js";
 
 export const FILE_MODE = 0o600;
 export const DIRECTORY_MODE = 0o700;

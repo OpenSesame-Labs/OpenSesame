@@ -1,6 +1,5 @@
 /** Provider metadata supplies defaults for the common operator-owned OAuth app. */
 import type { ConnectPlan, McpInfo, OauthPreset } from "./connect-plan.js";
-
 function emptyMcpPreset(resource: string, docsUrl: string | null): OauthPreset {
   return {
     serverUrl: "",

@@ -1,8 +1,6 @@
 import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeEmail } from "./email-normalization.js";
-
 export { normalizeEmail } from "./email-normalization.js";
-
 import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,

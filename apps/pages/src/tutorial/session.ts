@@ -1,11 +1,11 @@
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
   HELP_TOPICS,
   type HelpTopic,
   guideGoal,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
-import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
@@ -68,7 +68,6 @@ import {
   writtenHelpSaysText,
 } from "./ui/messages.js";
 import { useSupportRouteSync } from "./use-support-route.js";
-
 export type {
   GuideOrigin,
   SupportAcquireResult,
@@ -601,9 +600,7 @@ export function useSupportRoute(route: GuideRouteId): void {
  */
 export function SupportProvider({
   children,
-}: {
-  children?: ReactNode;
-}): ReactElement {
+}: { children?: ReactNode }): ReactElement {
   const [controller] = useState(() =>
     createSupportController(supportSessionSeams),
   );

@@ -1,9 +1,5 @@
 import { expect, it } from "vitest";
 import {
-  installNativeApiTests,
-  nativeAnswers,
-} from "./native-api.test-support.js";
-import {
   nativeCatalogResources,
   projectDovetailProjects,
   projectGitLabProjects,
@@ -16,6 +12,10 @@ import {
   invokeNativeApiResource,
   nativeApiResourceActions,
 } from "./native-api-resources.js";
+import {
+  installNativeApiTests,
+  nativeAnswers,
+} from "./native-api.test-support.js";
 
 installNativeApiTests();
 const site = { id: "site_owned", name: "Documentation" };

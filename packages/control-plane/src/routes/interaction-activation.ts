@@ -24,7 +24,8 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import { interactionRequiresPhishingResistance } from "@opensesame/policy";
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
+import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";

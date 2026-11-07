@@ -1,5 +1,4 @@
 import { expect, it } from "vitest";
-import { nativeAnswers } from "./native-api.test-support.js";
 import {
   invokeNativeApiResource,
   nativeApiResourceActions,
@@ -10,6 +9,7 @@ import {
   projectLaunchDarklyProjects,
   projectSendgridLists,
 } from "./native-api-service-inventories.js";
+import { nativeAnswers } from "./native-api.test-support.js";
 
 const listId = "abc12312-x3y4-1234-abcd-123qwe456rty";
 const cases = [

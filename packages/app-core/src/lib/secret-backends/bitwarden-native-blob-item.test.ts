@@ -8,12 +8,12 @@ import {
 import { type CBORType, decodeCBOR, encodeCBOR } from "@levischuck/tiny-cbor";
 import type { JsonObject } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
-import { openBitwardenWrappedKey } from "./bitwarden-native-blob.js";
 import {
   createBitwardenBlobItem,
   readBitwardenBlobItem,
   updateBitwardenBlobItem,
 } from "./bitwarden-native-blob-item.js";
+import { openBitwardenWrappedKey } from "./bitwarden-native-blob.js";
 import {
   type BitwardenCborMap,
   type BitwardenNativeKey,
@@ -23,7 +23,6 @@ import {
 } from "./bitwarden-native-cose.js";
 import { nativeText } from "./bitwarden-native-item.js";
 import type { SecretBackendItemInput } from "./types.js";
-
 const USER = Uint8Array.from({ length: 64 }, (_, i) => i + 3);
 const ITEM = Uint8Array.from({ length: 64 }, (_, i) => 170 - i);
 const ID = "c34ddfb6-a7d3-43a7-a1bd-f6269e127d5d";

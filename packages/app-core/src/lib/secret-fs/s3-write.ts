@@ -1,10 +1,10 @@
 /** Conditional S3 writes retain the original owner through preflight and actual request dispatch. */
 import { Effect } from "effect";
-import type { SecretFsError } from "./errors.js";
 import { SecretFsConflict, SecretFsRejected } from "./errors.js";
-import type { SecretFiles } from "./files.js";
-import { checkPath, revisionOf } from "./files.js";
+import type { SecretFsError } from "./errors.js";
 import { checkWriteOwner } from "./files-owner.js";
+import { checkPath, revisionOf } from "./files.js";
+import type { SecretFiles } from "./files.js";
 import type { Wire } from "./s3.js";
 
 const unquote = (etag: string | null): string | null =>

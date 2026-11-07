@@ -1,20 +1,11 @@
+export { createOpenSesame } from "./client.js";
+export { decodeJwtEnvelope } from "./jwt-envelope.js";
+export { ClaimRequestError } from "./errors.js";
 export {
+  createAuthenticationClient,
   type AuthenticationClientConfig,
   type PasswordlessSignin,
-  createAuthenticationClient,
 } from "./authentication-service.js";
-export { createOpenSesame } from "./client.js";
-export { ClaimRequestError } from "./errors.js";
-export { decodeJwtEnvelope } from "./jwt-envelope.js";
-export {
-  type VerifiedIdTokenClaims,
-  type VerifyBrowserIdTokenInput,
-  type VerifyRestoredIdTokenInput,
-  fetchOidcJson,
-  verifyBrowserIdToken,
-  verifyBrowserIdTokenClaims,
-  verifyRestoredBrowserIdToken,
-} from "./oidc-validation.js";
 export {
   BrowserOriginError,
   OriginError,
@@ -24,11 +15,20 @@ export {
   originProfileClientId,
 } from "./origin.js";
 export {
-  base64UrlEncode,
   createPkcePair,
   randomString,
   sha256Base64Url,
+  base64UrlEncode,
 } from "./pkce.js";
+export {
+  fetchOidcJson,
+  verifyBrowserIdToken,
+  verifyBrowserIdTokenClaims,
+  verifyRestoredBrowserIdToken,
+  type VerifiedIdTokenClaims,
+  type VerifyBrowserIdTokenInput,
+  type VerifyRestoredIdTokenInput,
+} from "./oidc-validation.js";
 export type {
   ClaimDecision,
   ClaimPresentation,
@@ -40,8 +40,6 @@ export type {
   TokenResponse,
 } from "./types.js";
 export {
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
   assertionPayload,
   authenticationResponseJson,
   b64urlToBytes,
@@ -52,4 +50,6 @@ export {
   parsePublicKeyCredentialRequestOptionsJson,
   registrationResponseJson,
   requestOptionsFromJson,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
 } from "./webauthn.js";

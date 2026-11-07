@@ -29,7 +29,6 @@ const fed = vi.hoisted(() => ({
 }));
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-
 const originalFederationSeams = { ...federationSeams };
 Object.assign(federationSeams, {
   completeSignIn: fed.completeSignIn,
@@ -38,24 +37,22 @@ Object.assign(federationSeams, {
 afterAll(() => Object.assign(federationSeams, originalFederationSeams));
 
 import { orgSeams } from "@opensesame/app-core/lib/orgs.js";
-
 Object.assign(orgSeams, { joinOrgTenant: fed.joinOrgTenant });
 
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-
 identitySeams.connectProvisional = fed.ensureIdentitySession;
 identitySeams.currentSession = () => null;
 identitySeams.identityBase = () => "http://127.0.0.1:18788";
 
 import { guestAuthSeams } from "@opensesame/app-core/lib/guest-auth.js";
-
 guestAuthSeams.adoptFederatedIdentity = fed.adoptFederatedIdentity;
 guestAuthSeams.openVaultAfterSignIn = fed.openVaultAfterSignIn;
 
 import { readAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
+
 import { FederationError } from "@opensesame/app-core/lib/federation.js";
 import { resetFederationReturnCeremony } from "@opensesame/app-core/screens/federation-return-model.js";
-import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { expectInTray } from "../components/tray.test-support.js";
 import { FederationReturn } from "./FederationReturn.js";
 

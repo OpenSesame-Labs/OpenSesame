@@ -15,7 +15,6 @@ import {
   decodeBitwardenToken,
 } from "./bitwarden-native-protocol.js";
 import type { SecretBackendTransport } from "./transport.js";
-
 const USER = "884e35b0-7830-4fce-89ab-4a3b06fae019";
 const PASSWORD = " owned 🔐 master password ";
 const EMAIL = "person@example.test";

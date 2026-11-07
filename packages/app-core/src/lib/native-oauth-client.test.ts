@@ -6,17 +6,17 @@ import {
   updateNativeConnector,
 } from "./native-connector-store.js";
 import {
-  CLIENT_ID,
-  CLIENT_SECRET,
-  nativeOAuthClientFixture,
-} from "./native-oauth-client.test-support.js";
-import {
   beginNativeOAuthClient,
   configureNativeOAuthClient,
   nativeOAuthClientClassification,
   readNativeOAuthClientSecret,
 } from "./native-oauth-client-config.js";
 import { exchangeNativeOAuthClient } from "./native-oauth-client-exchange.js";
+import {
+  CLIENT_ID,
+  CLIENT_SECRET,
+  nativeOAuthClientFixture,
+} from "./native-oauth-client.test-support.js";
 import {
   nativeOAuthGuard,
   requireNativeOAuthRecord,

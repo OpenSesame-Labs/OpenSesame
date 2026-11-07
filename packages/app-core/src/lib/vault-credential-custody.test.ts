@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { runtimeFixture } from "./secret-backends/runtime.test-support.js";
-import { vaultStore } from "./vault/store.js";
 import {
   assertVaultCredentials,
   discardVaultCredentials,
   readVaultCredentials,
   stageVaultCredentials,
 } from "./vault-credential-custody.js";
+import { vaultStore } from "./vault/store.js";
 
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 beforeEach(async () => {

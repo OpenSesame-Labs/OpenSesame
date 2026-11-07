@@ -4,6 +4,7 @@ import {
   readNativeConnector,
   updateNativeConnector,
 } from "./native-connector-store.js";
+import { readSnowflakeDatabases } from "./native-snowflake-http.js";
 import { snowflakeKeyFlows } from "./native-snowflake.js";
 import {
   expectedSnowflakeDatabases as expected,
@@ -17,9 +18,7 @@ import {
   snowflakePending,
   snowflakeToken,
 } from "./native-snowflake.test-support.js";
-import { readSnowflakeDatabases } from "./native-snowflake-http.js";
 import { runtimeFixture } from "./secret-backends/runtime.test-support.js";
-
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

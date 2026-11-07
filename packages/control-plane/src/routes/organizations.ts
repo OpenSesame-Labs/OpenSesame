@@ -41,9 +41,7 @@ import { createOrganization } from "../services/verified-admin.js";
 import { getUsage } from "../state.js";
 import { OrgAssertionError, type VerifiedOrgIdToken } from "./org-assertion.js";
 import { issuerForMethod, tenantAuthMethods } from "./org-auth-methods.js";
-
-export { tenantAuthMethods, usesNativeSaml } from "./org-auth-methods.js";
-
+export { usesNativeSaml, tenantAuthMethods } from "./org-auth-methods.js";
 import { normalizeEmailDomain } from "./org-domains.js";
 import { organizationIssuerErrorHandler } from "./org-issuer-errors.js";
 import {
@@ -63,11 +61,11 @@ import {
 import { provisionedRoleForSubject } from "./scim.js";
 import { asVerifiedPrincipal } from "./verified-principal-gate.js";
 
-export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 export {
   jitJoinOrganization,
   serializeMembershipMutation,
 } from "./organization-membership.js";
+export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 
 export const organizationRoutes = new Hono<{ Variables: Variables }>();
 organizationRoutes.onError(organizationIssuerErrorHandler);
@@ -989,5 +987,4 @@ organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   }
   return c.json(toResponse(org, membership.role));
 });
-
 import { removeOrphanTokens } from "../repos/session-storage.js";

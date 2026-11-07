@@ -1,8 +1,8 @@
 /** Data integrity only: digest preparation/comparison never grants enrollment. */
 import {
+  asBufferSource,
   type BoundaryValue,
   type JsonObject,
-  asBufferSource,
   isBoolean,
   isJsonObject,
   isNumber,

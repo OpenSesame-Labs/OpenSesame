@@ -29,8 +29,8 @@ import {
   vaultSealBinding,
 } from "@opensesame/vault-core";
 import { Cause, Effect, Exit } from "effect";
-import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
 import type { VfsSeams } from "../vfs-seams.js";
+import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
 import {
   SETTINGS_DIR,
   configFileFor,
@@ -38,8 +38,8 @@ import {
   encodeConfig,
   isPlainPath,
 } from "./config-docs.js";
-import type { SecretFsError } from "./errors.js";
 import { SecretFsRejected } from "./errors.js";
+import type { SecretFsError } from "./errors.js";
 import type { SecretFiles } from "./files.js";
 import { SECRETS_DIR } from "./layout.js";
 import { readProjection } from "./projection-read.js";

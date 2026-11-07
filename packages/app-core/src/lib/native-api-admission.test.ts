@@ -2,11 +2,6 @@ import { expect, it, vi } from "vitest";
 import { aiHttpFixture } from "./ai-connections/protocol.test-support.js";
 import { readDeviceRows } from "./device-connector-records.js";
 import { kvSeams } from "./kv.js";
-import {
-  installNativeApiTests,
-  nativeAnswers,
-  nativeApiDraft,
-} from "./native-api.test-support.js";
 import { nativeApiCleanup } from "./native-api-cleanup.js";
 import {
   configureNativeApiConnector,
@@ -15,6 +10,11 @@ import {
   verifyNativeApiConnector,
 } from "./native-api-connectors.js";
 import { nativeApiFingerprint, nativeApiTarget } from "./native-api-target.js";
+import {
+  installNativeApiTests,
+  nativeAnswers,
+  nativeApiDraft,
+} from "./native-api.test-support.js";
 import { nativeBrowserApiPolicy } from "./native-browser-policy.js";
 import {
   registerNativeProviderCleanup,

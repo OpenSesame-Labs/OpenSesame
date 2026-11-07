@@ -355,9 +355,9 @@ function decisionsMatch(
   );
 }
 
-export { MemoryClaimStore } from "./memory-store.js";
 export type {
-  ClaimEngineOptions,
   ClaimStore,
+  ClaimEngineOptions,
   CompleteDecision,
 } from "./store.js";
+export { MemoryClaimStore } from "./memory-store.js";

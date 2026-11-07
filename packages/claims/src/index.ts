@@ -1,9 +1,9 @@
 export {
   ClaimEngine,
-  type ClaimEngineOptions,
+  MemoryClaimStore,
   type ClaimStore,
+  type ClaimEngineOptions,
   type CompleteDecision,
   type CreateClaimInput,
   type CreateClaimResult,
-  MemoryClaimStore,
 } from "./engine.js";

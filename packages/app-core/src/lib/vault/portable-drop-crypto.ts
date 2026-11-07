@@ -11,12 +11,11 @@ import {
   type BoundaryObject,
   type BoundaryValue,
   type JsonObject,
-  asBufferSource,
   isJsonObject,
   isNumber,
   isString,
   overlapCast,
-} from "@opensesame/os-domain";
+ asBufferSource } from "@opensesame/os-domain";
 import { b64urlToBytes, bytesToB64url } from "@opensesame/vault-core";
 import {
   CODE_KDF,
@@ -210,9 +209,7 @@ export async function sealPortableDropPacket(input: {
     {
       name: "AES-GCM",
       iv: nonce,
-      additionalData: asBufferSource(
-        associatedData(bearer.claimId, tokenDigest, nonceText),
-      ),
+      additionalData: asBufferSource(associatedData(bearer.claimId, tokenDigest, nonceText)),
     },
     key,
     encoder.encode(JSON.stringify(envelope)),
@@ -313,9 +310,7 @@ export async function decodePortableDropPacket(
       {
         name: "AES-GCM",
         iv: asBufferSource(nonce),
-        additionalData: asBufferSource(
-          associatedData(claimId, tokenDigest, nonceText),
-        ),
+        additionalData: asBufferSource(associatedData(claimId, tokenDigest, nonceText)),
       },
       key,
       asBufferSource(ciphertext),

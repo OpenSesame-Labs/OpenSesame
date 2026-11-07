@@ -61,9 +61,22 @@ export function artifactOverride(paths) {
 }
 
 /** Biome 2 spells the import organizer as an assist action: "on" or { level }. */
-const organizeImports = (entry) => {
+const organizeImports = (entry, path) => {
+  const includes = entry.assist?.includes;
+  const positive = (includes ?? []).filter(
+    (pattern) => !pattern.startsWith("!"),
+  );
   const action = entry?.assist?.actions?.source?.organizeImports;
-  return action?.level ?? action;
+  const enabled = [
+    entry.assist?.enabled !== false,
+    entry.javascript?.assist?.enabled !== false,
+    !includes || includes.length,
+    Math.max(
+      positive.length === 0,
+      positive.some((pattern) => matchesGlob(path, pattern)),
+    ) === 1,
+  ].every(Boolean);
+  return [action?.level ?? action, "off"][Number(!enabled)];
 };
 
 /** Biome 2 ignores by negated `files.includes` entries (`!` or force-ignore `!!`). */
@@ -187,8 +200,20 @@ export function validateStaticAuth(rootPath) {
       true,
       "Authored-code checks must stay enabled",
     );
+  const includes = config.files?.includes;
+  const positiveIncludes = (includes ?? []).filter(
+    (pattern) => !pattern.startsWith("!"),
+  );
+  if (includes?.length === 0)
+    throw new Error("Artifacts and authored sources must stay included");
+  for (const path of [...paths, "packages/static-auth/src"])
+    if (
+      positiveIncludes.length > 0 &&
+      !positiveIncludes.some((pattern) => matchesGlob(path, pattern))
+    )
+      throw new Error("Artifacts and authored sources must stay included");
   assert.equal(
-    organizeImports(config),
+    organizeImports(config, "packages/static-auth/src"),
     "on",
     "Authored-code checks must stay enabled",
   );
@@ -196,7 +221,7 @@ export function validateStaticAuth(rootPath) {
     (entry) =>
       entry.linter?.enabled === false ||
       entry.formatter?.enabled === false ||
-      organizeImports(entry) === "off",
+      organizeImports(entry, paths[0]) === "off",
   );
   assert.deepEqual(
     exceptions,

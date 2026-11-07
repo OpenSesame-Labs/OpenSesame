@@ -1,13 +1,13 @@
 /** Existing preference persistence and idle scheduling; no owner authority issuer. */
 import { overlapCast } from "@opensesame/os-domain";
 import { VfsError } from "../vfs.js";
+import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
 import {
   VAULT_PREFS_REVISION,
   type VaultPrefs,
   defaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
-import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
 
 export class StorePreferences {
   prefs: VaultPrefs = defaultPrefs;

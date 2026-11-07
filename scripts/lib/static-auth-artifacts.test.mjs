@@ -226,6 +226,20 @@ it("rejects global checks disabled outside the generated override", () => {
   }
 });
 
+it.each([
+  { files: { includes: ["packages/**"] } },
+  { files: { includes: [] } },
+  { assist: { enabled: false } },
+  { javascript: { assist: { enabled: false } } },
+  { assist: { includes: [] } },
+])("rejects narrowed checks and import organization: %j", (patch) => {
+  const f = fixture();
+  f.json("biome.json", { ...f.config, ...patch });
+  expect(() => validateStaticAuth(f.root)).toThrow(
+    /Artifacts and authored sources must stay included|Authored-code checks must stay enabled/,
+  );
+});
+
 it("rejects invalid UTF-8 rather than hashing replacement characters", () => {
   const f = fixture();
   const bytes = Buffer.from([0x2f, 0x2f, 0xff, 0x0a]);

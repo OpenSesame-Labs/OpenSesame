@@ -2,7 +2,6 @@
 import type { BoundaryValue, JsonObject } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deviceIdentitySeams } from "./device-identity.js";
-import type { UpstreamIdentity } from "./federation.js";
 import {
   FederationError,
   TRUSTED_UPSTREAMS,
@@ -25,6 +24,7 @@ import {
   saveSession,
   upstreamByIssuer,
 } from "./federation.js";
+import type { UpstreamIdentity } from "./federation.js";
 import { identitySeams } from "./identity.js";
 import {
   brokeredRealmUpstream,
@@ -86,7 +86,6 @@ function identity(overrides: Partial<UpstreamIdentity> = {}): UpstreamIdentity {
 
 import { localStore, sessionStore } from "../ports.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
-
 const originalNetworkEligibility = localNetworkFetchSeams.eligible;
 
 /** Node 24 shadows Storage with an unavailable experimental global. */

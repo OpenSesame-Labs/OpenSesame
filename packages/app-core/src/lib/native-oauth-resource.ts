@@ -1,7 +1,6 @@
 /** A configured OAuth resource is read before its grant is activated or returned. */
-
-import type { BoundaryValue } from "@opensesame/os-domain";
 import { canonicalize, isJsonObject, isString } from "@opensesame/os-domain";
+import type { BoundaryValue } from "@opensesame/os-domain";
 import { NativeApiError, nativeApiHttp } from "./native-api-http.js";
 import type { NativeGrant, NativeRuntime } from "./native-connector-schema.js";
 import {

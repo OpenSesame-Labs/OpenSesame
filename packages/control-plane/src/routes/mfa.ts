@@ -6,15 +6,15 @@ import {
   verifyRegistrationAttestation,
 } from "@opensesame/auth-upstream";
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-import type { Context } from "hono";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import { peerAddress } from "../lib/peer-address.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
+import { deleteSecurityMapEntry } from "../repos/durable-map.js";
 import {
   type SecurityMap,
-  deleteSecurityMapEntry,
   incrementSecurityCounter,
   takeSecurityMap,
   updateSecurityMap,
@@ -25,7 +25,6 @@ import { chargeCodeSend } from "./mfa-send-budget.js";
 import { stepUpOptions } from "./mfa-step-up.js";
 import { spendTotpCode } from "./mfa-totp.js";
 import { authenticatedPrincipalId } from "./organizations.js";
-
 export { base32Encode } from "./mfa-base32.js";
 export { totpCode } from "./mfa-totp.js";
 

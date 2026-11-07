@@ -9,7 +9,6 @@ import type { LifecycleHost } from "./browser-lifecycle-ops.js";
 import { reconcileLegacyRecords } from "./legacy-sync.js";
 import type { MutationJournal } from "./lifecycle.js";
 import type { manifestWithoutAuth } from "./manifest-auth.js";
-
 type ManifestBody = ReturnType<typeof manifestWithoutAuth>;
 export type EnrollCandidateResult = {
   operationId: string;

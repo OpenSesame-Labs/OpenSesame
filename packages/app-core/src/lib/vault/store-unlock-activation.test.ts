@@ -1,5 +1,5 @@
-import * as vaultCore from "@opensesame/vault-core";
 import { createItem } from "@opensesame/vault-core";
+import * as vaultCore from "@opensesame/vault-core";
 import { expect, it, vi } from "vitest";
 import * as trustedUnlock from "../trusted-unlock.js";
 import { readFile } from "../vfs.js";

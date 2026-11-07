@@ -2,21 +2,17 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { ReloadKey } from "../../components/IconKey.js";
 import { RecordWorkspace } from "../../components/RecordWorkspace.js";
+import { useDevices } from "./LocalDevicesPanel.js";
+import { LocalIdentityNotices } from "./LocalIdentityNotices.js";
 import { deviceWorkspaceListRows } from "./device-workspace-rows.js";
 import { DevicesWorkspaceBody } from "./devices-workspace-detail.js";
 import { identityRecordId } from "./identity-record-selection.js";
-import { useDevices } from "./LocalDevicesPanel.js";
-import { LocalIdentityNotices } from "./LocalIdentityNotices.js";
 
 export function DevicesWorkspace({
   tomb,
   approval,
   tailnet,
-}: {
-  tomb: string;
-  approval?: ReactNode;
-  tailnet?: ReactNode;
-}) {
+}: { tomb: string; approval?: ReactNode; tailnet?: ReactNode }) {
   const navigate = useNavigate();
   const { hash } = useLocation();
   const [params] = useSearchParams();

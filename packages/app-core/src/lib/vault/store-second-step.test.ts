@@ -1,7 +1,6 @@
+import { WrongPasswordError, createItem } from "@opensesame/vault-core";
 import {
-  WrongPasswordError,
   accountTotp,
-  createItem,
   parseTotp,
   totpCode,
   unwrapRawVaultKeyFromPassword,

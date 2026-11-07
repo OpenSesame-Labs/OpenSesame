@@ -13,7 +13,6 @@ import {
 import { bindRead } from "./kv-original-reader-data.js";
 import { haltedWriteError, storageWritesHalted } from "./storage-halt.js";
 import { ORIGIN_FILE_PREFIX } from "./storage-ownership.js";
-
 /**
  * Same-origin KV with OPFS primary + in-memory fallback.
  * Never uses localStorage/sessionStorage (XSS-exfiltrable; banned by ast-grep).

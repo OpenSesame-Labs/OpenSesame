@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
+import { installNativeApiTests } from "./native-api.test-support.js";
 import {
   encryptBytes,
   masterKey,

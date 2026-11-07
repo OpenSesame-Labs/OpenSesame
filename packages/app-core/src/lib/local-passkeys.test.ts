@@ -6,14 +6,12 @@ import {
 import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
-import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
 import {
   readLocalPasskeys,
   revokeLocalPasskey,
   writeLocalPasskeys,
 } from "./local-credentials.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
-import { bindLocalIamLockResets } from "./local-iam-lock-resets.js";
 import {
   authenticateLocalPasskey,
   consumeLocalAuthentication,
@@ -21,6 +19,9 @@ import {
 } from "./local-passkeys.js";
 import { vaultStore } from "./vault/store.js";
 import { lockAllTombs, unlockTomb, vfsSeams } from "./vfs.js";
+
+import { authenticator, origin, rpID } from "./local-authenticator.fixture.js";
+import { bindLocalIamLockResets } from "./local-iam-lock-resets.js";
 
 let tomb: string;
 let principalId: string;

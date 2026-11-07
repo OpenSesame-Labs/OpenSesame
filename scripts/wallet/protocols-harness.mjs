@@ -20,7 +20,6 @@ import {
   runMandates,
   runShippedAdapterLive,
 } from "./lib/protocols-followup.mjs";
-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 initializeWalletVerification(root);
 const forgeDir = join(root, "packages/wallet-x402/forge");

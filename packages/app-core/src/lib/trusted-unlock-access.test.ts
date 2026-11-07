@@ -7,8 +7,8 @@ import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import { kvDelete } from "./kv.js";
 import { authenticator, origin } from "./local-authenticator.fixture.js";
 import { readLocalPasskeys } from "./local-credentials.js";
-import { readLocalDirectory } from "./local-directory.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
+import { readLocalDirectory } from "./local-directory.js";
 import {
   type LocalIamAccess,
   advanceLocalPasskeyCounter,

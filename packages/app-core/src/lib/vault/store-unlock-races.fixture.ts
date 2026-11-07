@@ -22,13 +22,13 @@ import {
 } from "../vfs.js";
 import { sealAuthenticatedManifest } from "./protection/manifest-auth.js";
 import { remoteCodeSeams } from "./remote-code.js";
-import type { VaultStore } from "./store.js";
 import {
   PASSWORD,
   installStoreOperationsFixture,
   newStore,
 } from "./store-ops.fixture.js";
 import { enrollTotp } from "./store-totp.fixture.js";
+import type { VaultStore } from "./store.js";
 import * as sharedLocks from "./vault-shared-locks.js";
 
 export const MARKER_PATH = "settings/unlock-lifetime";

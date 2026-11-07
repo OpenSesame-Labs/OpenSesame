@@ -1,15 +1,14 @@
 import { isLoopbackOrigin } from "@opensesame/static-auth";
 import { env, staticAuthRelease } from "../host.js";
 import { page, pageOrigin } from "../ports.js";
-
 /**
  * Approved loopback assertion passthrough (ADR 0034) uses exact-origin postMessage.
  * Verified native identity stays local and supplies no bearer.
  */
 
-import type { UpstreamIdentity } from "./federation.js";
 import { isNativeFederationFormat } from "./federation-native-session.js";
 import { originClientId } from "./federation-origin.js";
+import type { UpstreamIdentity } from "./federation.js";
 import { kvDelete, kvGet, kvSet } from "./kv.js";
 import { scopedKey } from "./projects.js";
 import {

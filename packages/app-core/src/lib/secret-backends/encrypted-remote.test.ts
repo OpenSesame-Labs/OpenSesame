@@ -6,6 +6,12 @@ import {
   restoreVaultFromSecretBackend,
 } from "./backup-transfer.js";
 import {
+  openRemoteStore,
+  remoteEncryptionKey,
+  remoteStore,
+  sealRemoteStore,
+} from "./encrypted-remote-codec.js";
+import {
   EncryptedRemoteConflictError,
   createEncryptedRemoteBackend,
 } from "./encrypted-remote.js";
@@ -19,14 +25,7 @@ import {
   independentSeal,
   initialStore,
 } from "./encrypted-remote.test-support.js";
-import {
-  openRemoteStore,
-  remoteEncryptionKey,
-  remoteStore,
-  sealRemoteStore,
-} from "./encrypted-remote-codec.js";
 import { runtimePassword } from "./runtime.test-support.js";
-
 const closes: (() => Promise<void>)[] = [];
 const operations: Promise<unknown>[] = [];
 afterEach(async () => {

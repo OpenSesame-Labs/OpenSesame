@@ -1,10 +1,11 @@
 import { Duration, Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import type { SecretFsError } from "./errors.js";
 import { SecretFsUnavailable } from "./errors.js";
-import { describeSecretFiles, failureOf } from "./files.conformance.js";
-import type { SecretFiles } from "./files.js";
+import type { SecretFsError } from "./errors.js";
+import { failureOf } from "./files.conformance.js";
+import { describeSecretFiles } from "./files.conformance.js";
 import { revisionOf } from "./files.js";
+import type { SecretFiles } from "./files.js";
 import { makeMemorySecretFiles } from "./memory.js";
 import { resilient } from "./resilient.js";
 

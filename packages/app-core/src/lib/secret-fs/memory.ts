@@ -7,9 +7,10 @@
  */
 import { Effect } from "effect";
 import { SecretFsConflict, SecretFsNotFound } from "./errors.js";
-import type { SecretFiles, WriteOptions } from "./files.js";
-import { checkPath, revisionOf } from "./files.js";
 import { checkWriteOwner } from "./files-owner.js";
+import { checkPath, revisionOf } from "./files.js";
+import type { SecretFiles } from "./files.js";
+import type { WriteOptions } from "./files.js";
 
 export type MemorySecretFiles = SecretFiles & {
   /** What is stored now, for a test or a persistence hook to look at. */

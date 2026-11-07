@@ -11,8 +11,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { Context, Effect } from "effect";
-import type { SecretFsError } from "./errors.js";
 import { SecretFsRejected } from "./errors.js";
+import type { SecretFsError } from "./errors.js";
 
 /** A file's revision: the SHA-256 of its bytes, so every backend agrees on it. */
 export type Revision = string;

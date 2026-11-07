@@ -15,7 +15,6 @@ import {
 import * as schema from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
 import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
-
 /**
  * Storage contract for the canonical interaction (ADR 0086).
  *

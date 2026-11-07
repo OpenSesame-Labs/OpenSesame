@@ -1,9 +1,7 @@
 import { SignJWT } from "jose";
 import { createTestSigningKey } from "./test/jwt-fixtures.js";
 import { SdkFixtureStorage } from "./test/storage-fixture.js";
-
 const signingKeys = createTestSigningKey("ES256");
-
 import { type JsonObject, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createOpenSesame } from "./client.js";

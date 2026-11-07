@@ -26,9 +26,9 @@ import { VfsError, readFile, tombFileKey, vfsSeams, writeFile } from "./vfs.js";
 
 export const LOCAL_DIRECTORY_PATH = "config/identity-directory";
 export {
+  LocalDirectoryError,
   type LocalDirectory,
   type LocalDirectoryChange,
-  LocalDirectoryError,
   type LocalIdentity,
   type LocalIdentityKind,
   type LocalMembership,

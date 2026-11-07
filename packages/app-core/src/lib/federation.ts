@@ -16,24 +16,20 @@ import type {
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
-
 export type {
   BeginSignInOptions,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
-
 import {
   consumeBrokeredPublication,
   runOwnedFederationExchange,
 } from "./federation-publication.js";
-
 export {
   federationExchangeSeams,
   saveSession,
 } from "./federation-publication.js";
-
 import { FederationError } from "./federation-error.js";
 import {
   type FederationSessionGeneration,
@@ -60,12 +56,12 @@ import {
 } from "./identity.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
 import { signInMethods } from "./settings.js";
+export {
+  operatorUpstream,
+  isOperatorIdpIssuer,
+} from "./federation-operator.js";
 
 export { FederationError } from "./federation-error.js";
-export {
-  isOperatorIdpIssuer,
-  operatorUpstream,
-} from "./federation-operator.js";
 export {
   originCallbackUri,
   originClientId,

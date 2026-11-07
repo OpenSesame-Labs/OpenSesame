@@ -46,7 +46,8 @@
       "max-lines": 406
     },
     "apps/pages/scripts/security-profile.mjs": {
-      "complexity": 1
+      "complexity": 1,
+      "max-lines": 61
     },
     "apps/pages/server/github-app.mjs": {
       "complexity": 3,
@@ -71,7 +72,8 @@
       "max-lines-per-function": 1
     },
     "apps/pages/src/components/InstallOffer.tsx": {
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 222
     },
     "apps/pages/src/components/NotificationsBar.tsx": {
       "max-lines-per-function": 1
@@ -83,7 +85,8 @@
       "max-lines-per-function": 1
     },
     "apps/pages/src/components/rail-path.ts": {
-      "complexity": 1
+      "complexity": 1,
+      "max-lines": 64
     },
     "apps/pages/src/lib/agent-page-dump.ts": {
       "complexity": 1
@@ -99,7 +102,8 @@
     },
     "apps/pages/src/modules/sharing.live/live-join-route-parts.tsx": {
       "complexity": 1,
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 367
     },
     "apps/pages/src/screens/BrokerAuthorize.tsx": {
       "max-lines-per-function": 1
@@ -138,14 +142,16 @@
       "max-lines-per-function": 1
     },
     "apps/pages/src/screens/unlock/UnlockUserMenu.tsx": {
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 248
     },
     "apps/pages/src/sections/ConnectionsSection.tsx": {
       "complexity": 1,
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 378
     },
     "apps/pages/src/sections/IdentitySection.test.tsx": {
-      "max-lines": 815
+      "max-lines": 814
     },
     "apps/pages/src/sections/IdentitySection.tsx": {
       "max-lines": 804,
@@ -159,7 +165,8 @@
     },
     "apps/pages/src/sections/VaultSection.tsx": {
       "complexity": 1,
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 384
     },
     "apps/pages/src/sections/access/ConnectorBindForm.tsx": {
       "max-lines-per-function": 1
@@ -172,7 +179,8 @@
       "max-lines-per-function": 2
     },
     "apps/pages/src/sections/access/VaultSessionsPanel.tsx": {
-      "max-lines-per-function": 2
+      "max-lines-per-function": 2,
+      "max-lines": 371
     },
     "apps/pages/src/sections/connections/ConnectForm.tsx": {
       "max-lines-per-function": 1
@@ -210,7 +218,7 @@
     },
     "apps/pages/src/sections/settings/security/SecondStepCeremonies.tsx": {
       "complexity": 2,
-      "max-lines": 866,
+      "max-lines": 855,
       "max-lines-per-function": 3
     },
     "apps/pages/src/sections/vault/HealthPanel.tsx": {
@@ -573,7 +581,8 @@
       "max-lines-per-function": 1
     },
     "packages/agent-protocols/src/assertion.ts": {
-      "complexity": 1
+      "complexity": 1,
+      "max-lines": 209
     },
     "packages/agent-protocols/src/render.ts": {
       "complexity": 1,
@@ -593,7 +602,7 @@
       "max-lines-per-function": 1
     },
     "packages/app-core/src/lib/connections.ts": {
-      "max-lines": 467
+      "max-lines": 466
     },
     "packages/app-core/src/lib/crumbs.ts": {
       "complexity": 1
@@ -990,7 +999,8 @@
     },
     "packages/control-plane/src/routes/interaction-activation.ts": {
       "complexity": 1,
-      "max-lines-per-function": 1
+      "max-lines-per-function": 1,
+      "max-lines": 368
     },
     "packages/control-plane/src/routes/interaction-handoff.ts": {
       "complexity": 2,
@@ -1091,7 +1101,7 @@
     },
     "packages/control-plane/src/services/agent-auth.ts": {
       "complexity": 1,
-      "max-lines": 655,
+      "max-lines": 654,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/app-claim.ts": {
@@ -1136,7 +1146,7 @@
       "max-lines-per-function": 1
     },
     "packages/database/src/org-federation-store.ts": {
-      "max-lines": 405,
+      "max-lines": 404,
       "max-lines-per-function": 1
     },
     "packages/database/src/repos/agent-auth-repo.ts": {
@@ -1147,11 +1157,11 @@
       "max-lines": 841
     },
     "packages/database/src/repos/memory.ts": {
-      "max-lines": 1714
+      "max-lines": 1712
     },
     "packages/database/src/repos/postgres.ts": {
       "complexity": 1,
-      "max-lines": 2656
+      "max-lines": 2654
     },
     "packages/database/src/repos/sealed-secrets-sweep.ts": {
       "complexity": 1
@@ -1196,7 +1206,7 @@
       "max-statements": 1
     },
     "packages/guide-runtime/src/runtime.test.ts": {
-      "max-lines": 984
+      "max-lines": 982
     },
     "packages/guide-runtime/src/runtime.ts": {
       "max-lines-per-function": 1

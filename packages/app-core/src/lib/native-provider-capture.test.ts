@@ -5,7 +5,6 @@ import {
   captureNativeProviderAuthority,
   nativeProviderTransport,
 } from "./native-connector-transport.js";
-
 const releases: (() => void)[] = [];
 afterEach(() => {
   for (const release of releases.splice(0).reverse()) release();

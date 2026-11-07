@@ -1497,7 +1497,7 @@
     "packages/app-core/src/lib/native-api.test-support.ts": "b0c34c8d469255799ab468daba0495683dfd41d8a95ef49170d0f59f7a8b3436",
     "packages/app-core/src/lib/native-bounded-body.ts": "86898c6d504c765228b1359a538140ca4226345d2d447415314a5631024e07af",
     "packages/app-core/src/lib/native-authorization-transport.ts": "457d28c299904c21293ebc823ebc68da37911ca618cbb3093d3ed58da277571e",
-    "packages/app-core/src/lib/native-bridge.ts": "c4168f28b0e0981ab3288cf5ee0115dfef343ede118e0a9f1b80dbc4d49a4cf1",
+    "packages/app-core/src/lib/native-bridge.ts": "e5c95c96dc1e633487aab96a80f8b45069e20be8991ab1c826a8b4895e2cfee2",
     "packages/app-core/src/lib/connector-bridge-client.ts": "595c6db7b25801c9809aa05db952655d585e9614e4ee41850d54be38835e6f26",
     "packages/app-core/src/lib/connector-bridge.test-support.ts": "660864ec430a8b5fdf43346f135a44bfeca17d795a4cb1000ac09431c8e812b5",
     "packages/app-core/src/lib/device-connector-records.ts": "769b89eafd8d2c6f58062f058ed2414bddf696643f3463ae4a95819bac04c9a8",

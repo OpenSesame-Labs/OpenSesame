@@ -18,7 +18,6 @@ import {
 import { AiConnectionForm } from "./AiConnectionForm.js";
 import { AiConnectionPanels } from "./AiConnectionPanels.js";
 import { aiConnectionUiDependencies } from "./useAiConnection.js";
-
 afterEach(cleanup);
 installConnectorIntegration();
 function mount(

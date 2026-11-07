@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
+import { installNativeApiTests } from "./native-api.test-support.js";
 import {
   loadNativeConnectorRecord,
   readNativeConnector,

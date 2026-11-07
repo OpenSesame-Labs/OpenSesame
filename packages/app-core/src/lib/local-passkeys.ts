@@ -1,5 +1,5 @@
 import type { VerifiedRegistration } from "@opensesame/auth-upstream/browser";
-import { asBufferSource, overlapCast, ownBytes } from "@opensesame/os-domain";
+import { overlapCast, ownBytes, asBufferSource } from "@opensesame/os-domain";
 import {
   b64urlToBytes,
   bytesToB64url,

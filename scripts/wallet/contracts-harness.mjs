@@ -20,7 +20,6 @@ import {
   writeWalletEvidence,
 } from "./lib/evidence.mjs";
 import { isNumber } from "./lib/primitive-guards.mjs";
-
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 initializeWalletVerification(root);
 const PIN = "bff4b08f8006ad94322a6e3da8d90f274e20325d";

@@ -17,8 +17,8 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import { kvDeleteDurable, kvGet, kvSetDurable } from "../kv.js";
-import { deleteFile, readFile, writeFile } from "../vfs.js";
 import { VfsError } from "../vfs-error.js";
+import { deleteFile, readFile, writeFile } from "../vfs.js";
 import { recordAuthentication } from "./authentication.js";
 import { canonicalJson, signText, verifyText } from "./crypto.js";
 import {

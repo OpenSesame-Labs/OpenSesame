@@ -1,7 +1,7 @@
 /** The small cryptographic surface the deadman switch uses (ADR 0209). */
 
 import type { BoundaryValue } from "@opensesame/os-domain";
-import { asBufferSource, isJsonObject } from "@opensesame/os-domain";
+import { isJsonObject, asBufferSource } from "@opensesame/os-domain";
 import { b64urlToBytes, bytesToB64url } from "@opensesame/sdk-browser";
 
 const CURVE = { name: "ECDSA", namedCurve: "P-256" } as const;

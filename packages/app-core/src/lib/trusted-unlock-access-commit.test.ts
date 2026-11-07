@@ -15,6 +15,7 @@ import { installFileBackedVfs } from "./secret-fs/install.js";
 import { makeMemorySecretFiles } from "./secret-fs/memory.js";
 import { readTrustedUnlock, writeTrustedUnlock } from "./trusted-unlock.js";
 import { captureAuthenticationStorage } from "./vault/authentication-storage.js";
+import { type TombIndex, parseSealedBlob } from "./vfs-metadata-data.js";
 import {
   INDEX_PATH,
   lockTomb,
@@ -24,7 +25,6 @@ import {
   vfsSeams,
   writeFile,
 } from "./vfs.js";
-import { type TombIndex, parseSealedBlob } from "./vfs-metadata-data.js";
 
 const CREDENTIALS = "config/identity-credentials";
 const ID = "registered-credential";

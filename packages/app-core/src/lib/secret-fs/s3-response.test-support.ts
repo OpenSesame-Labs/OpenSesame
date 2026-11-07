@@ -1,10 +1,10 @@
-import type { ServerResponse } from "node:http";
 import { createServer } from "node:http";
+import type { ServerResponse } from "node:http";
 import type { Socket } from "node:net";
 import { Effect, Redacted } from "effect";
 import { z } from "zod";
-import type { S3FilesConfig } from "./s3.js";
 import { makeS3SecretFiles } from "./s3.js";
+import type { S3FilesConfig } from "./s3.js";
 
 export function gate<T>() {
   let resolve!: (value: T) => void;

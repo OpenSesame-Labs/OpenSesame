@@ -33,7 +33,6 @@ import {
 } from "./identity.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 import { saveSettings } from "./settings.js";
-
 const networkEligible = localNetworkFetchSeams.eligible;
 
 beforeEach(() => {

@@ -12,7 +12,6 @@ import {
   verifyManifestAuth,
 } from "./protection/manifest-auth.js";
 import { gatesFromUnlocks } from "./protection/migrate-legacy.js";
-
 function allowedRootTurn(
   previous: RootProtectionManifest,
   next: RootProtectionManifest,

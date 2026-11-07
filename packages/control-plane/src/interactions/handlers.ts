@@ -665,7 +665,6 @@ export async function finishConsentAllow(
     { mergeWithLastSubmission: true },
   );
 }
-
 import {
   removeOrphanTokens,
   saveProvisional,

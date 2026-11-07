@@ -10,13 +10,13 @@ import {
 } from "./native-connector-store.js";
 import { bindNativeOAuthBrowserPort } from "./native-oauth-browser-port.js";
 import {
-  CLIENT_SECRET,
-  nativeOAuthClientFixture,
-} from "./native-oauth-client.test-support.js";
-import {
   configureNativeOAuthClient,
   nativeOAuthClientClassification,
 } from "./native-oauth-client-config.js";
+import {
+  CLIENT_SECRET,
+  nativeOAuthClientFixture,
+} from "./native-oauth-client.test-support.js";
 import { createNativeOAuthResourceDriver } from "./native-oauth-resource-driver.js";
 import {
   nativeOAuthGuard,
@@ -26,7 +26,6 @@ import { localVaultSessionGuard } from "./secret-backends/local-vault-port.js";
 import { runtimePassword } from "./secret-backends/runtime.test-support.js";
 import { vaultStore } from "./vault/store.js";
 import { vfsFlush } from "./vfs.js";
-
 const closes: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

@@ -21,7 +21,6 @@ import {
   primaryUnlockCount,
   sealText,
 } from "./unlock-methods.js";
-
 type CodeAddress = { channel: CodeChannel; to: string };
 type SecondStepHost = Readonly<{
   requireUnlocked: () => { vaultKey: CryptoKey; header: VaultHeader };

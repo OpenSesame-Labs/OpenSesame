@@ -101,11 +101,9 @@ const CREDENTIALS = [
   "oauth_client_consent",
   "client_secret",
 ];
-
 export {
   initializeVaultCredentialCustody as initializeNativeOAuthClientCustody,
 };
-
 const CLIENT_SECRET = z.string().min(1).max(32768);
 export const nativeOAuthClientClassification = () => ({
   publicParameters: PARAMETERS,
