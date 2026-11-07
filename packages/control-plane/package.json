@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@gdp-ts/core": "0.1.0",
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@node-saml/node-saml": "5.2.0",
     "@opensesame/agent-protocols": "*",
     "@opensesame/audit": "*",
@@ -47,15 +47,15 @@
     "@opensesame/wallet": "*",
     "@opensesame/webhooks": "*",
     "drizzle-orm": "0.45.4",
-    "hono": "4.13.14",
-    "jose": "6.2.14",
+    "hono": "4.13.16",
+    "jose": "6.2.15",
     "ldapts": "9.2.0",
     "nodemailer": "10.3.1",
-    "openid-client": "6.8.8",
-    "zod": "4.6.6"
+    "openid-client": "6.8.9",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.13",
+    "@electric-sql/pglite": "0.5.15",
     "@opensesame/browser-at-rest": "*",
     "@opensesame/mock-upstream-idp": "*",
     "@opensesame/static-auth": "*",
