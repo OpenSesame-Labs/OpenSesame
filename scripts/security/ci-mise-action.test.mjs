@@ -11,9 +11,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const workflowDir = join(root, ".github/workflows");
 const { parse } = createRequire(import.meta.url)("yaml");
 
-const miseUses = "jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195";
+const miseUses = "jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c";
 const miseLine =
-  /uses:\s+jdx\/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5\.2\.5\s*$/u;
+  /uses:\s+jdx\/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5\.2\.6\s*$/u;
 const allowedArgs = new Set([
   "node",
   "node@24",
