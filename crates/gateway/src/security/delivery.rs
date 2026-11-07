@@ -100,7 +100,7 @@ pub fn sign(
         .decode(encoded)
         .map_err(|error| anyhow::anyhow!("webhook secret is not base64: {error}"))?;
     let timestamp = timestamp_seconds.to_string();
-    let mut mac = <HmacSha256 as Mac>::new_from_slice(&key)
+    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(&key)
         .map_err(|error| anyhow::anyhow!("webhook secret is unusable: {error}"))?;
     mac.update(format!("{id}.{timestamp}.{payload}").as_bytes());
     let digest = base64::engine::general_purpose::STANDARD.encode(mac.finalize().into_bytes());
@@ -114,9 +114,9 @@ pub fn sign(
 /// Generate a fresh `whsec_` signing secret.
 #[must_use]
 pub fn generate_secret() -> String {
-    use rand::RngCore as _;
+    use rand::Rng as _;
     let mut bytes = [0u8; 24];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     format!(
         "{SECRET_PREFIX}{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)

@@ -24,6 +24,7 @@ serde_json = { workspace = true, features = ["float_roundtrip"] }
 # Already in the tree through the SDK; named so the digest does not depend on
 # a transitive dependency staying.
 sha2 = { workspace = true }
+hex = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }

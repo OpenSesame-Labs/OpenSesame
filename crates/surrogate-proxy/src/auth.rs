@@ -13,7 +13,7 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use hyper::header::HeaderValue;
-use rand_core::{OsRng, RngCore};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use secrecy::{ExposeSecret, SecretString};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
@@ -25,7 +25,7 @@ const PROXY_USER: &str = "opensesame";
 /// Sixteen bytes from the OS, as lowercase hex.
 pub(crate) fn random_hex() -> Zeroizing<String> {
     let mut bytes = Zeroizing::new([0_u8; 16]);
-    OsRng.fill_bytes(bytes.as_mut());
+    UnwrapErr(SysRng).fill_bytes(bytes.as_mut());
     let mut out = Zeroizing::new(String::with_capacity(32));
     for byte in bytes.iter() {
         out.push(char::from(HEX[usize::from(byte >> 4)]));
@@ -37,7 +37,7 @@ pub(crate) fn random_hex() -> Zeroizing<String> {
 /// Sixteen raw bytes from the OS, for surrogate issue.
 pub(crate) fn random_entropy() -> [u8; 16] {
     let mut bytes = [0_u8; 16];
-    OsRng.fill_bytes(&mut bytes);
+    UnwrapErr(SysRng).fill_bytes(&mut bytes);
     bytes
 }
 

@@ -41,7 +41,7 @@ upstream-override = []
 # * `rcgen` 0.14 keeps its own `aws_lc_rs` backend, exactly as
 #   `crates/transport-security`'s testkit does. rcgen links aws-lc-rs
 #   directly, not through rustls, so it adds no rustls provider.
-# * `rand_core` with `getrandom` is the daemon's own entropy source already.
+# * `rand` through `SysRng` is the daemon's own OS entropy source already.
 #
 # The plugin half adds the settings reader (its install gate), the notice
 # conversion, and serde/chrono for the control protocol — all already in the
@@ -73,7 +73,7 @@ http-body-util = { workspace = true }
 hyper = { workspace = true, features = ["client", "server", "http1"] }
 hyper-rustls = { workspace = true }
 hyper-util = { workspace = true, features = ["client-legacy", "server", "http1", "tokio"] }
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand = { workspace = true }
 rcgen = { version = "0.14.9", default-features = false, features = ["crypto", "pem", "aws_lc_rs"] }
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
 secrecy = { workspace = true }

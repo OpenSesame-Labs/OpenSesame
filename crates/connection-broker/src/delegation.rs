@@ -72,7 +72,7 @@ fn token_hash(token: &str) -> Result<String> {
         h.update(length.to_be_bytes());
         h.update(part.as_bytes());
     }
-    Ok(format!("sha256:{:x}", h.finalize()))
+    Ok(format!("sha256:{}", hex::encode(h.finalize())))
 }
 
 fn code_context(offer_id: &str) -> String {
@@ -579,7 +579,7 @@ impl ConnectionBroker {
             items,
             item_ids,
             manifest,
-            manifest_digest: format!("sha256:{:x}", hasher.finalize()),
+            manifest_digest: format!("sha256:{}", hex::encode(hasher.finalize())),
             offer_id,
             claim_token,
             user_code: generate_user_code(),

@@ -117,7 +117,7 @@ fn request_digest(
         h.update(part_len.to_be_bytes());
         h.update(part.as_bytes());
     }
-    Ok(format!("sha256:{:x}", h.finalize()))
+    Ok(format!("sha256:{}", hex::encode(h.finalize())))
 }
 
 /// `POST /api/v1/relay/heartbeat` — a holder's runtime announcing liveness.

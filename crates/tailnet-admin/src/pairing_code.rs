@@ -7,7 +7,7 @@
 //! rendered at test time, pins the wire form for Pages.
 
 use base64::Engine as _;
-use rand_core::{OsRng, RngCore as _};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng as _};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest as _, Sha256};
@@ -85,14 +85,14 @@ pub fn format_pairing_code(url: &str, code: &str, origin: &str, role: Role, labe
 /// 32 random bytes, unpadded base64url: a code and a bearer alike.
 pub(crate) fn secret() -> String {
     let mut raw = [0u8; 32];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw)
 }
 
 /// A short id an operator can name a pairing by.
 pub(crate) fn pairing_id() -> String {
     let mut raw = [0u8; 6];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     format!("tp_{}", hex::encode(raw))
 }
 

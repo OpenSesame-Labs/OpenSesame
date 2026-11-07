@@ -31,7 +31,7 @@ base64 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 opensesame-xkeys = { path = "../xkeys" }
-x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
+x25519-dalek = { version = "3.0.0", features = ["static_secrets"] }
 async-nats = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }

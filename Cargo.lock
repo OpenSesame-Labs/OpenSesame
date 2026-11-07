@@ -98,8 +98,8 @@ dependencies = [
  "chacha20poly1305",
  "cipher 0.5.2",
  "cookie-factory",
- "hkdf 0.13.0",
- "hmac 0.13.0",
+ "hkdf",
+ "hmac",
  "hpke",
  "i18n-embed",
  "i18n-embed-fl",
@@ -114,7 +114,7 @@ dependencies = [
  "sha2 0.11.1",
  "sha3",
  "subtle",
- "x25519-dalek 3.0.0",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -127,7 +127,7 @@ dependencies = [
  "bech32",
  "chacha20poly1305",
  "cookie-factory",
- "hkdf 0.13.0",
+ "hkdf",
  "hpke",
  "io_tee",
  "nom 8.0.0",
@@ -265,7 +265,7 @@ dependencies = [
  "base64ct",
  "blake2",
  "cpufeatures 0.3.1",
- "password-hash 0.6.1",
+ "password-hash",
 ]
 
 [[package]]
@@ -487,7 +487,7 @@ dependencies = [
  "bytes",
  "form_urlencoded",
  "hex",
- "hmac 0.13.0",
+ "hmac",
  "http",
  "percent-encoding",
  "sha2 0.11.1",
@@ -1030,7 +1030,7 @@ dependencies = [
  "const-oid 0.10.2",
  "der 0.8.3",
  "spki 0.8.1",
- "x509-cert 0.3.0",
+ "x509-cert",
 ]
 
 [[package]]
@@ -1616,8 +1616,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
  "const-oid 0.9.6",
- "der_derive 0.7.3",
- "flagset",
  "pem-rfc7468 0.7.0",
  "zeroize",
 ]
@@ -1629,7 +1627,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a996a108feb8b427a6e12fcf6af4aa83409b79d72c15337d7741368131ee004"
 dependencies = [
  "const-oid 0.10.2",
- "der_derive 0.8.0",
+ "der_derive",
  "flagset",
  "pem-rfc7468 1.0.0",
  "zeroize",
@@ -1647,17 +1645,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "rusticata-macros",
-]
-
-[[package]]
-name = "der_derive"
-version = "0.7.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8034092389675178f570469e6c3b0465d3d30b4505c294a6550db47f3c17ad18"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -1719,7 +1706,6 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
  "crypto-common 0.1.7",
- "subtle",
 ]
 
 [[package]]
@@ -1868,7 +1854,7 @@ dependencies = [
  "digest 0.11.3",
  "ff",
  "group",
- "hkdf 0.13.0",
+ "hkdf",
  "hybrid-array",
  "pem-rfc7468 1.0.0",
  "pkcs8 0.11.0",
@@ -2384,29 +2370,11 @@ checksum = "e712f64ec3850b98572bffac52e2c6f282b29fe6c5fa6d42334b30be438d95c1"
 
 [[package]]
 name = "hkdf"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
-dependencies = [
- "hmac 0.12.1",
-]
-
-[[package]]
-name = "hkdf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
 dependencies = [
- "hmac 0.13.0",
-]
-
-[[package]]
-name = "hmac"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
-dependencies = [
- "digest 0.10.7",
+ "hmac",
 ]
 
 [[package]]
@@ -2426,7 +2394,7 @@ checksum = "a5324110b02044183df000f0bd7d2d7e61f1000631508627e77f63983b6fdffb"
 dependencies = [
  "aead 0.6.1",
  "chacha20poly1305",
- "hkdf 0.13.0",
+ "hkdf",
  "hybrid-array",
  "ml-kem",
  "p256",
@@ -3056,7 +3024,7 @@ dependencies = [
  "getrandom 0.4.3",
  "hex",
  "hex-literal",
- "hmac 0.13.0",
+ "hmac",
  "hybrid-array",
  "indexmap",
  "js-sys",
@@ -3531,12 +3499,12 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
- "hmac 0.12.1",
+ "hmac",
  "opensesame-agent-events",
  "opensesame-session-observe",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "subtle",
  "thiserror 2.0.21",
 ]
@@ -3559,12 +3527,13 @@ dependencies = [
  "agent-hooks-sdk",
  "async-trait",
  "axum",
+ "hex",
  "regex",
  "reqwest",
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
  "url",
@@ -3579,10 +3548,10 @@ dependencies = [
  "ed25519-dalek 3.0.0",
  "opensesame-domain",
  "opensesame-redaction",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "zeroize",
 ]
 
@@ -3590,11 +3559,11 @@ dependencies = [
 name = "opensesame-authenticator-core"
 version = "0.1.0"
 dependencies = [
- "hmac 0.12.1",
+ "hmac",
  "serde",
  "serde_json",
- "sha1 0.10.7",
- "sha2 0.10.9",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "uniffi",
  "url",
@@ -3607,10 +3576,10 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "opensesame-domain",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "url",
 ]
@@ -3621,11 +3590,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "hex",
  "opensesame-domain",
  "opensesame-enforcement",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tracing",
  "uuid",
@@ -3650,8 +3620,8 @@ dependencies = [
  "opensesame-provider-bitwarden",
  "opensesame-sql",
  "opensesame-storage",
- "pbkdf2 0.12.2",
- "rand 0.8.8",
+ "pbkdf2",
+ "rand 0.10.3",
  "rcgen",
  "reqwest",
  "rustix 1.1.6",
@@ -3659,7 +3629,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "subtle",
  "tempfile",
  "thiserror 2.0.21",
@@ -3681,7 +3651,7 @@ dependencies = [
  "opensesame-security-events",
  "serde",
  "serde_json",
- "sha1 0.10.7",
+ "sha1 0.11.0",
  "zeroize",
 ]
 
@@ -3722,11 +3692,12 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "data-encoding",
- "hmac 0.12.1",
+ "hex",
+ "hmac",
  "opensesame-domain",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
 ]
 
 [[package]]
@@ -3743,7 +3714,7 @@ dependencies = [
  "directories",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -3784,7 +3755,7 @@ dependencies = [
  "opensesame-worker",
  "p256",
  "qr2term",
- "rand 0.8.8",
+ "rand 0.10.3",
  "ratatui",
  "regex",
  "reqwest",
@@ -3792,7 +3763,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "tokio",
  "tokio-rustls",
@@ -3810,14 +3781,14 @@ dependencies = [
  "base64 0.23.1",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "opensesame-trusted-exec",
  "p256",
- "rand_core 0.6.4",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "url",
  "zeroize",
@@ -3832,14 +3803,15 @@ dependencies = [
  "blake3",
  "chacha20poly1305",
  "getrandom 0.2.17",
+ "getrandom 0.4.3",
  "js-sys",
  "opensesame-core",
  "opensesame-human-vault",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "wasm-bindgen",
@@ -3877,8 +3849,8 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "jsonwebtoken",
  "lru 0.19.0",
  "oauth2",
@@ -3894,13 +3866,13 @@ dependencies = [
  "opensesame-task-bus",
  "opensesame-transport-security",
  "quick-xml",
- "rand 0.8.8",
+ "rand 0.10.3",
  "reqwest",
  "rustls",
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -3928,6 +3900,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "hex",
  "http",
  "opensesame-cli-app-integration",
  "opensesame-domain",
@@ -3939,7 +3912,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -3992,8 +3965,8 @@ dependencies = [
  "dbus",
  "ecdsa",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "insta",
  "opensesame-cli-app-integration",
  "opensesame-connection-detect",
@@ -4006,13 +3979,13 @@ dependencies = [
  "opensesame-trusted-exec",
  "opensesame-uds-authn",
  "p256",
- "rand_core 0.6.4",
+ "rand 0.10.3",
  "reqwest",
  "secrecy",
  "security-framework",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "tokio",
  "tower",
@@ -4045,7 +4018,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "shuttle",
  "thiserror 2.0.21",
  "url",
@@ -4080,8 +4053,8 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "chacha20poly1305",
- "hkdf 0.12.4",
- "sha2 0.10.9",
+ "hkdf",
+ "sha2 0.11.1",
  "zeroize",
 ]
 
@@ -4099,8 +4072,8 @@ dependencies = [
  "clap",
  "futures",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "http",
  "http-body-util",
  "insta",
@@ -4142,7 +4115,7 @@ dependencies = [
  "opensesame-task-bus",
  "opensesame-transport-security",
  "proptest",
- "rand 0.8.8",
+ "rand 0.10.3",
  "rcgen",
  "reqwest",
  "rustls",
@@ -4150,7 +4123,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "time",
@@ -4192,7 +4165,7 @@ dependencies = [
  "opensesame-env-spec",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tokio",
  "tower",
  "tower-http 0.7.1",
@@ -4211,17 +4184,19 @@ dependencies = [
  "chacha20poly1305",
  "chrono",
  "getrandom 0.2.17",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "getrandom 0.4.3",
+ "hex",
+ "hkdf",
+ "hmac",
  "insta",
  "libc",
  "opensesame-domain",
- "pbkdf2 0.12.2",
+ "pbkdf2",
  "proptest",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "subtle",
  "tempfile",
  "thiserror 2.0.21",
@@ -4252,7 +4227,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sfv",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -4356,7 +4331,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -4372,7 +4347,7 @@ version = "0.1.0"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
- "der 0.7.10",
+ "der 0.8.3",
  "ed25519-dalek 3.0.0",
  "hex",
  "insta",
@@ -4381,16 +4356,16 @@ dependencies = [
  "p384",
  "pkcs8 0.11.0",
  "proptest",
- "rand 0.8.8",
+ "rand 0.10.3",
  "rcgen",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "signature 3.0.0",
- "spki 0.7.3",
+ "spki 0.8.1",
  "thiserror 2.0.21",
  "time",
- "x509-cert 0.2.5",
+ "x509-cert",
  "x509-parser",
  "zeroize",
 ]
@@ -4402,10 +4377,10 @@ dependencies = [
  "base64 0.23.1",
  "directories",
  "hex",
- "rand_core 0.6.4",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "url",
@@ -4422,10 +4397,10 @@ dependencies = [
  "insta",
  "libc",
  "opensesame-sealed-store",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "zeroize",
@@ -4440,10 +4415,10 @@ dependencies = [
  "ed25519-dalek 3.0.0",
  "jsonwebtoken",
  "opensesame-domain",
- "rand 0.8.8",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "shuttle",
  "thiserror 2.0.21",
  "url",
@@ -4480,18 +4455,18 @@ dependencies = [
  "argon2",
  "base64 0.23.1",
  "cbc",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "http-body-util",
  "hyper",
  "hyper-util",
  "insta",
- "pbkdf2 0.12.2",
+ "pbkdf2",
  "reqwest",
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
  "url",
@@ -4551,16 +4526,16 @@ dependencies = [
  "chacha20poly1305",
  "ed25519-dalek 3.0.0",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
- "pbkdf2 0.12.2",
- "rand 0.8.8",
+ "hkdf",
+ "hmac",
+ "pbkdf2",
+ "rand 0.10.3",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "url",
- "x25519-dalek 2.0.1",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -4609,7 +4584,7 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
  "url",
@@ -4634,11 +4609,11 @@ dependencies = [
  "base64 0.23.1",
  "chacha20poly1305",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "opensesame-event-seal",
  "opensesame-redaction",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "tracing",
  "tracing-subscriber",
@@ -4654,7 +4629,7 @@ dependencies = [
  "base64 0.23.1",
  "blake3",
  "directories",
- "hkdf 0.12.4",
+ "hkdf",
  "i18n-config",
  "insta",
  "libc",
@@ -4662,11 +4637,11 @@ dependencies = [
  "opensesame-human-vault",
  "opensesame-trusted-exec",
  "proptest",
- "rand 0.8.8",
+ "rand 0.10.3",
  "regex",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "url",
@@ -4682,7 +4657,7 @@ dependencies = [
  "opensesame-redaction",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
 ]
 
 [[package]]
@@ -4711,7 +4686,7 @@ dependencies = [
  "rustls-webpki",
  "secrecy",
  "serde",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "spiffe",
  "tempfile",
  "thiserror 2.0.21",
@@ -4775,7 +4750,7 @@ dependencies = [
  "opensesame-session-observe",
  "opensesame-transport-security",
  "opensesame-trusted-exec",
- "rand_core 0.6.4",
+ "rand 0.10.3",
  "rcgen",
  "rustls",
  "secrecy",
@@ -4800,16 +4775,16 @@ dependencies = [
  "chacha20poly1305",
  "directories",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "opensesame-invoke-through",
  "opensesame-plugin-settings",
  "opensesame-sealed-log",
- "rand_core 0.6.4",
+ "rand 0.10.3",
  "reqwest",
  "secrecy",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -4860,7 +4835,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "x25519-dalek 2.0.1",
+ "x25519-dalek",
 ]
 
 [[package]]
@@ -4883,7 +4858,7 @@ dependencies = [
  "rustls-webpki",
  "secrecy",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "thiserror 2.0.21",
  "time",
@@ -4937,7 +4912,7 @@ dependencies = [
  "reqwest",
  "rustls",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.1",
  "tempfile",
  "tokio",
  "tokio-rustls",
@@ -4949,12 +4924,12 @@ name = "opensesame-xkeys"
 version = "0.1.0"
 dependencies = [
  "chacha20poly1305",
- "hkdf 0.12.4",
+ "hkdf",
  "proptest",
- "rand 0.8.8",
- "sha2 0.10.9",
+ "rand 0.10.3",
+ "sha2 0.11.1",
  "thiserror 2.0.21",
- "x25519-dalek 2.0.1",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -4993,7 +4968,7 @@ dependencies = [
  "der 0.8.3",
  "des",
  "hex",
- "hmac 0.13.0",
+ "hmac",
  "pkcs12",
  "pkcs5",
  "pkcs8 0.11.0",
@@ -5108,17 +5083,6 @@ dependencies = [
 
 [[package]]
 name = "password-hash"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
-dependencies = [
- "base64ct",
- "rand_core 0.6.4",
- "subtle",
-]
-
-[[package]]
-name = "password-hash"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aab41826031698d6ffcd9cff78ef56ef998e39dc7e5067cdfebe373842d4723b"
@@ -5129,24 +5093,12 @@ dependencies = [
 
 [[package]]
 name = "pbkdf2"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
-dependencies = [
- "digest 0.10.7",
- "hmac 0.12.1",
- "password-hash 0.5.0",
- "sha2 0.10.9",
-]
-
-[[package]]
-name = "pbkdf2"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112d82ceb8c5bf524d9af484d4e4970c9fd5a0cc15ba14ad93dccd28873b0629"
 dependencies = [
  "digest 0.11.3",
- "hmac 0.13.0",
+ "hmac",
 ]
 
 [[package]]
@@ -5294,7 +5246,7 @@ dependencies = [
  "der 0.8.3",
  "digest 0.11.3",
  "spki 0.8.1",
- "x509-cert 0.3.0",
+ "x509-cert",
  "zeroize",
 ]
 
@@ -5308,7 +5260,7 @@ dependencies = [
  "aes-gcm 0.11.1",
  "cbc",
  "der 0.8.3",
- "pbkdf2 0.13.0",
+ "pbkdf2",
  "scrypt",
  "sha2 0.11.1",
  "spki 0.8.1",
@@ -6023,7 +5975,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4a459cddafb3fe76b31fd8f1108007566c40301feb64dc7b54656eb7388172b"
 dependencies = [
  "crypto-bigint",
- "hmac 0.13.0",
+ "hmac",
 ]
 
 [[package]]
@@ -6326,7 +6278,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d87af57419b594aa23fa95f09f0e06d80d84ba01c26148c43844cad6ff4485f0"
 dependencies = [
  "cfg-if",
- "pbkdf2 0.13.0",
+ "pbkdf2",
  "salsa20 0.11.0",
  "sha2 0.11.1",
 ]
@@ -6946,8 +6898,8 @@ dependencies = [
  "futures-core",
  "futures-util",
  "hex",
- "hkdf 0.13.0",
- "hmac 0.13.0",
+ "hkdf",
+ "hmac",
  "itoa",
  "log",
  "md-5",
@@ -8745,19 +8697,7 @@ dependencies = [
  "ml-kem",
  "sha3",
  "shake",
- "x25519-dalek 3.0.0",
- "zeroize",
-]
-
-[[package]]
-name = "x25519-dalek"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
-dependencies = [
- "curve25519-dalek 4.1.3",
- "rand_core 0.6.4",
- "serde",
+ "x25519-dalek",
  "zeroize",
 ]
 
@@ -8774,18 +8714,6 @@ dependencies = [
 
 [[package]]
 name = "x509-cert"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1301e935010a701ae5f8655edc0ad17c44bad3ac5ce8c39185f75453b720ae94"
-dependencies = [
- "const-oid 0.9.6",
- "der 0.7.10",
- "spki 0.7.3",
- "tls_codec",
-]
-
-[[package]]
-name = "x509-cert"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "105ef4642d9cb137ef83d623d0e4bf08b8adf69e9918ca904a174adb6d3d038b"
@@ -8793,6 +8721,7 @@ dependencies = [
  "const-oid 0.10.2",
  "der 0.8.3",
  "spki 0.8.1",
+ "tls_codec",
 ]
 
 [[package]]

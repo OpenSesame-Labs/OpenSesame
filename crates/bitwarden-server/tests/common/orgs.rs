@@ -10,7 +10,7 @@ use aws_lc_rs::signature::KeyPair as _;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
 use opensesame_provider_bitwarden::SymmetricKey;
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
 
@@ -126,7 +126,7 @@ impl Org {
     /// collection; returns it and that collection's id.
     pub async fn create(api: &Api, name: &str) -> (Self, String) {
         let mut key = Zeroizing::new(vec![0u8; 64]);
-        rand::rngs::OsRng.fill_bytes(&mut key);
+        rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut key);
         let symmetric = SymmetricKey::from_bytes(&key).unwrap();
         let pair = KeyPair::generate(KeySize::Rsa2048).unwrap();
         let private: Pkcs8V1Der = pair.as_der().unwrap();

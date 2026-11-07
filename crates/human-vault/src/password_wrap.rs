@@ -5,7 +5,7 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
     XChaCha20Poly1305, XNonce,
 };
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
@@ -28,7 +28,7 @@ pub fn wrap_vrk_with_password(
     vrk: &VaultRootKey,
 ) -> Result<PasswordWrapper, VaultCryptoError> {
     let mut salt = [0u8; 16];
-    rand::thread_rng().fill_bytes(&mut salt);
+    rand::rng().fill_bytes(&mut salt);
     let m_kib = 64 * 1024;
     let t = 3;
     let p = 1;
@@ -45,7 +45,7 @@ pub fn wrap_vrk_with_password(
     // output and the KEK sitting in this frame for no reason.
     kek.zeroize();
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut nonce);
+    rand::rng().fill_bytes(&mut nonce);
     let wrapped = cipher
         .encrypt(XNonce::from_slice(&nonce), vrk.0.as_ref())
         .map_err(|_| VaultCryptoError::Aead)?;

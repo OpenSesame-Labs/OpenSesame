@@ -5,7 +5,7 @@
 //! Pairing binds a device signing key (public half on the daemon only); vault
 //! key material never crosses the wire.
 
-use rand_core::{OsRng, RngCore as _};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng as _};
 
 use crate::device_crypto::{
     is_registration_code_shaped, pairing_confirm_message, parse_verifying_key_spki_b64,
@@ -210,7 +210,7 @@ impl CliAppIntegrationPairings {
         let code = secret();
         let expires_at = now + CODE_TTL_SECS;
         let mut pairing_challenge = [0u8; PAIRING_CHALLENGE_LEN];
-        OsRng.fill_bytes(&mut pairing_challenge);
+        UnwrapErr(SysRng).fill_bytes(&mut pairing_challenge);
         self.pending.push(Pending {
             code_sha256: digest_hex(&code),
             origin: origin.to_string(),

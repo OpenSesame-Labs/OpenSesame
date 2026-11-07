@@ -87,9 +87,9 @@ fn operator_daemon_pin_public_key_spki_b64() -> Option<String> {
 }
 
 fn daemon_attest_verifies(base: &str, path: &str, public_key_spki_b64: &str) -> bool {
-    use rand::Rng;
+    use rand::RngExt;
     let mut raw = [0u8; 16];
-    rand::thread_rng().fill(&mut raw);
+    rand::rng().fill(&mut raw);
     let nonce = hex::encode(raw);
     let payload = serde_json::json!({ "nonce": nonce });
     let (status, body) =
@@ -236,9 +236,9 @@ fn daemon_attest_verifies_via_uds(
     path: &str,
     public_key_spki_b64: &str,
 ) -> bool {
-    use rand::Rng;
+    use rand::RngExt;
     let mut raw = [0u8; 16];
-    rand::thread_rng().fill(&mut raw);
+    rand::rng().fill(&mut raw);
     let nonce = hex::encode(raw);
     let payload = serde_json::json!({ "nonce": nonce });
     let (status, body) =
@@ -285,8 +285,8 @@ fn tcp_correlation_id() -> String {
     let slot = TCP_CORRELATION.get_or_init(|| Mutex::new(String::new()));
     let mut guard = slot.lock().expect("tcp correlation");
     if guard.is_empty() {
-        use rand::Rng;
-        let bytes: [u8; 16] = rand::thread_rng().gen();
+        use rand::RngExt;
+        let bytes: [u8; 16] = rand::rng().random();
         *guard = hex::encode(bytes);
     }
     guard.clone()

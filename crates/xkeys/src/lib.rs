@@ -9,7 +9,7 @@ use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
 };
 use hkdf::Hkdf;
-use rand::RngCore;
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng as _};
 use sha2::Sha256;
 use thiserror::Error;
 use x25519_dalek::{PublicKey, StaticSecret};
@@ -47,7 +47,7 @@ pub struct XKeyPair {
 impl XKeyPair {
     #[must_use]
     pub fn generate() -> Self {
-        let secret = StaticSecret::random_from_rng(rand::rngs::OsRng);
+        let secret = StaticSecret::random_from_rng(&mut UnwrapErr(SysRng));
         let public = PublicKey::from(&secret);
         Self {
             secret: secret.to_bytes(),
@@ -91,7 +91,7 @@ impl XKeyPair {
 ///
 /// Returns an error when validation or the underlying operation fails.
 pub fn seal(plaintext: &[u8], recipient: &PublicKey) -> Result<Vec<u8>, XkeysError> {
-    let eph_secret = StaticSecret::random_from_rng(rand::rngs::OsRng);
+    let eph_secret = StaticSecret::random_from_rng(&mut UnwrapErr(SysRng));
     let eph_public = PublicKey::from(&eph_secret);
     let shared = eph_secret.diffie_hellman(recipient);
     let key = derive_aead_key(
@@ -101,7 +101,7 @@ pub fn seal(plaintext: &[u8], recipient: &PublicKey) -> Result<Vec<u8>, XkeysErr
     )?;
 
     let mut nonce = [0u8; NONCE_LEN];
-    rand::rngs::OsRng.fill_bytes(&mut nonce);
+    UnwrapErr(SysRng).fill_bytes(&mut nonce);
 
     let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| XkeysError::Kdf)?;
     let ad = associated_data(eph_public.as_bytes(), recipient.as_bytes());

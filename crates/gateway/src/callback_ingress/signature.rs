@@ -1,7 +1,7 @@
 use axum::http::{HeaderMap, Method, Uri};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 

@@ -13,7 +13,7 @@ directories = "6.0.0"
 hex = { workspace = true }
 # Pairing codes and bearers (plugin-pairings.json): OS randomness, as the
 # daemon already draws it.
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

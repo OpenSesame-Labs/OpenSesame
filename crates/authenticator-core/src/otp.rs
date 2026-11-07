@@ -1,6 +1,6 @@
 //! Portable OTP (Key URI Format, RFC 4226, and RFC 6238) implementation.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use sha1::Sha1;
 use sha2::{Sha256, Sha512};
 use thiserror::Error;

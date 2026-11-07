@@ -333,20 +333,18 @@ fn rfc8032_empty_message_signature_matches() {
 #[test]
 fn failed_or_partial_entropy_never_yields_a_signer() {
     struct FailingRng;
-    impl rand::CryptoRng for FailingRng {}
-    impl rand::RngCore for FailingRng {
-        fn next_u32(&mut self) -> u32 {
+    impl rand::TryCryptoRng for FailingRng {}
+    impl rand::TryRng for FailingRng {
+        type Error = std::io::Error;
+        fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
             panic!("unexpected next_u32")
         }
-        fn next_u64(&mut self) -> u64 {
+        fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
             panic!("unexpected next_u64")
         }
-        fn fill_bytes(&mut self, _: &mut [u8]) {
-            panic!("unexpected fill_bytes")
-        }
-        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Self::Error> {
             dest[0] = 0x42;
-            Err(rand::Error::new("simulated OS entropy failure"))
+            Err(std::io::Error::other("simulated OS entropy failure"))
         }
     }
     assert!(

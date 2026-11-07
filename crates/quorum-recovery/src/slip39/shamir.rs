@@ -4,8 +4,8 @@
 //!
 //! Threshold 1 is not shared at all: every share is the secret.
 
-use hmac::{Hmac, Mac};
-use rand::RngCore;
+use hmac::{Hmac, KeyInit as _, Mac};
+use rand::Rng;
 use sha2::Sha256;
 use zeroize::Zeroizing;
 
@@ -30,7 +30,7 @@ fn digest_of(random_part: &[u8], secret: &[u8]) -> Result<[u8; DIGEST_LENGTH], S
     Ok(out)
 }
 
-fn random_vec<R: RngCore + ?Sized>(rng: &mut R, length: usize) -> Vec<u8> {
+fn random_vec<R: Rng + ?Sized>(rng: &mut R, length: usize) -> Vec<u8> {
     let mut bytes = vec![0_u8; length];
     rng.fill_bytes(&mut bytes);
     bytes
@@ -41,7 +41,7 @@ fn random_vec<R: RngCore + ?Sized>(rng: &mut R, length: usize) -> Vec<u8> {
 /// # Errors
 /// [`Slip39Error::Parameters`] unless `0 < threshold <= share_count <= 16` and
 /// the secret is at least 128 bits and a whole number of 16-bit words.
-pub fn split_secret<R: RngCore + ?Sized>(
+pub fn split_secret<R: Rng + ?Sized>(
     threshold: u8,
     share_count: u8,
     secret: &[u8],

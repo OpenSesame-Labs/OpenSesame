@@ -6,7 +6,7 @@
 use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
-use rand::Rng as _;
+use rand::RngExt as _;
 use serde::Deserialize;
 
 use crate::error::{ApiError, ApiResult};
@@ -18,9 +18,9 @@ const FILE_TOKEN_SECONDS: i64 = 60 * 60;
 /// A random id in Bitwarden's attachment-id shape: 32 lower-case letters and digits.
 pub(crate) fn file_id() -> String {
     const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     (0..32)
-        .map(|_| char::from(ALPHABET[rng.gen_range(0..ALPHABET.len())]))
+        .map(|_| char::from(ALPHABET[rng.random_range(0..ALPHABET.len())]))
         .collect()
 }
 

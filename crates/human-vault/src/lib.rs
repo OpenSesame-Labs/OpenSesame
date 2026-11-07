@@ -7,7 +7,7 @@ use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
 };
 use hkdf::Hkdf;
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use thiserror::Error;
@@ -95,7 +95,7 @@ impl VaultRootKey {
     #[must_use]
     pub fn generate() -> Self {
         let mut key = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut key);
+        rand::rng().fill_bytes(&mut key);
         Self(key)
     }
 }
@@ -104,7 +104,7 @@ impl ItemDataKey {
     #[must_use]
     pub fn generate() -> Self {
         let mut key = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut key);
+        rand::rng().fill_bytes(&mut key);
         Self(key)
     }
 }
@@ -133,7 +133,7 @@ pub fn encrypt_item(
     let digest = ad_digest(&ad)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&idk.0).map_err(|_| VaultCryptoError::Aead)?;
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut nonce);
+    rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
         .encrypt(
             XNonce::from_slice(&nonce),
@@ -309,7 +309,7 @@ pub fn seal_chunk(
     let digest = chunk_ad_digest(ad)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key.0).map_err(|_| VaultCryptoError::Aead)?;
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut nonce);
+    rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
         .encrypt(
             XNonce::from_slice(&nonce),

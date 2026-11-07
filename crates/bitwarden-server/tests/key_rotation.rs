@@ -8,7 +8,7 @@ use common::client::{encrypt, wrap, Account, PBKDF2};
 use common::orgs::{account, Api};
 use common::Harness;
 use opensesame_provider_bitwarden::{EncString, MasterKey, SymmetricKey};
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde_json::{json, Value};
 
 struct Vault {
@@ -103,7 +103,7 @@ async fn a_rotation_that_leaves_anything_behind_changes_nothing() {
     let vault = fill(&account, &api).await;
     let before = api.ok("GET", "/sync", None).await;
     let mut new_key = vec![0u8; 64];
-    rand::rngs::OsRng.fill_bytes(&mut new_key);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut new_key);
 
     for section in ["ciphers", "folders", "sends"] {
         let (status, body) = api
@@ -132,7 +132,7 @@ async fn a_whole_rotation_leaves_a_vault_only_the_new_key_opens() {
     let (account, api) = account(&harness, "rotate@example.com").await;
     let vault = fill(&account, &api).await;
     let mut new_key = vec![0u8; 64];
-    rand::rngs::OsRng.fill_bytes(&mut new_key);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut new_key);
     api.ok(
         "POST",
         ROTATE,
@@ -196,7 +196,7 @@ async fn a_rotation_carries_emergency_contacts_keys() {
     .await;
 
     let mut new_key = vec![0u8; 64];
-    rand::rngs::OsRng.fill_bytes(&mut new_key);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut new_key);
     let body = rotation(&account, &vault, &new_key, "");
     assert_eq!(
         api.post(ROTATE, body.clone()).await.0,

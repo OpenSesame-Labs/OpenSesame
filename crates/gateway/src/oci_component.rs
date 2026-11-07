@@ -122,8 +122,8 @@ pub async fn fetch_blob_from_base(
         "component blob exceeds {MAX_COMPONENT_BYTES} bytes"
     );
     let actual = format!(
-        "sha256:{:x}",
-        <sha2::Sha256 as sha2::Digest>::digest(&bytes)
+        "sha256:{}",
+        hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&bytes))
     );
     anyhow::ensure!(
         actual == digest,
@@ -238,7 +238,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn fetches_and_verifies_a_blob_through_the_token_flow() {
         let blob = b"component-bytes".to_vec();
-        let digest = format!("sha256:{:x}", sha2::Sha256::digest(&blob));
+        let digest = format!("sha256:{}", hex::encode(sha2::Sha256::digest(&blob)));
         let challenged = Arc::new(AtomicBool::new(false));
 
         // Bind first so the 401 challenge can name this server's own /token
@@ -315,7 +315,10 @@ mod tests {
             .expect_err("digest mismatch must refuse");
         assert!(err.to_string().contains("does not match pinned"));
 
-        let honest = format!("sha256:{:x}", sha2::Sha256::digest(b"honest-bytes"));
+        let honest = format!(
+            "sha256:{}",
+            hex::encode(sha2::Sha256::digest(b"honest-bytes"))
+        );
         let bytes = fetch_blob_from_base(&http, &base, "acme/echo", &honest)
             .await
             .expect("honest digest fetches");

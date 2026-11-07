@@ -17,7 +17,7 @@ use human_proof::human_proof_verify;
 use policy::SOURCE;
 use policy::{policy, respond_nonce};
 
-use rand_core::{OsRng, RngCore as _};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng as _};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -99,7 +99,7 @@ impl CliAppIntegrationHost {
             return (existing.clone(), true);
         }
         let mut raw = [0u8; 16];
-        OsRng.fill_bytes(&mut raw);
+        UnwrapErr(SysRng).fill_bytes(&mut raw);
         let id = format!("term-tcp-{}", hex::encode(raw));
         self.tcp_terminal_sessions
             .insert(peer_key.to_string(), id.clone());

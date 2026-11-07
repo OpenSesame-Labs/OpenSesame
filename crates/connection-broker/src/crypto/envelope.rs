@@ -5,7 +5,7 @@ use chacha20poly1305::{
     XChaCha20Poly1305, XNonce,
 };
 use hkdf::Hkdf;
-use rand::RngCore;
+use rand::Rng;
 use sha2::Sha256;
 use zeroize::Zeroizing;
 
@@ -45,7 +45,7 @@ fn authenticated_context(aad: &[u8], nonce: &[u8]) -> Vec<u8> {
 pub(super) fn seal(master: &[u8; 32], aad: &[u8], plaintext: &[u8]) -> Result<SealedBlob> {
     let key = kek(master, aad)?;
     let mut dek = Zeroizing::new([0u8; 32]);
-    rand::rngs::OsRng.fill_bytes(dek.as_mut());
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(dek.as_mut());
     let nonce = XNonce::generate();
     let wrap_nonce = XNonce::generate();
     let context = authenticated_context(aad, &nonce);

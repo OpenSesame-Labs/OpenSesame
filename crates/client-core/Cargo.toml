@@ -27,7 +27,11 @@ serde-wasm-bindgen = { version = "0.6", optional = true }
 js-sys = { version = "0.3", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+# rand 0.10 and the RustCrypto 0.11 crates draw entropy through getrandom 0.4;
+# aes-gcm 0.10 still reaches getrandom 0.2 through rand_core 0.6. Each needs
+# its own wasm32-unknown-unknown backend switched on.
+getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom-02 = { package = "getrandom", version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

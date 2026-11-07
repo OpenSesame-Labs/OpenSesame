@@ -10,7 +10,7 @@ use base64::Engine as _;
 use chrono::Utc;
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use opensesame_storage::bitwarden::BitwardenUser;
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
@@ -63,7 +63,7 @@ impl TokenKeys {
     pub fn new(secret: Option<&[u8]>, issuer: &str, access_ttl_seconds: i64) -> Self {
         let mut generated = Zeroizing::new([0u8; 32]);
         let secret = secret.unwrap_or_else(|| {
-            rand::rngs::OsRng.fill_bytes(generated.as_mut());
+            rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(generated.as_mut());
             generated.as_ref()
         });
         Self {
@@ -186,7 +186,7 @@ impl TokenKeys {
 #[must_use]
 pub fn new_refresh_token() -> String {
     let mut bytes = Zeroizing::new([0u8; 64]);
-    rand::rngs::OsRng.fill_bytes(bytes.as_mut());
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(bytes.as_mut());
     URL_SAFE_NO_PAD.encode(bytes.as_ref())
 }
 

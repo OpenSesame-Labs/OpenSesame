@@ -24,7 +24,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use opensesame_human_vault::{
     derive_attachment_key, open_chunk, seal_chunk, ChunkAd, ItemDataKey, ENVELOPE_VERSION,
 };
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::envelope::{open_osseal_in, seal_osseal_in, COLLECTION_ATTACHMENTS};
@@ -278,7 +278,7 @@ impl StoreRoot {
         }
 
         let mut id_bytes = [0u8; 16];
-        rand::thread_rng().fill_bytes(&mut id_bytes);
+        rand::rng().fill_bytes(&mut id_bytes);
         let attachment_id = hex_lower(&id_bytes);
         let attachment_key = derive_attachment_key(key, &id_bytes);
 

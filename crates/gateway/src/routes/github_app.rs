@@ -11,7 +11,7 @@ use axum::{
 use opensesame_connection_broker::{
     build_manifest, convert_manifest_code, GithubAppCredentials, GITHUB_APP_REGISTER_URL,
 };
-use rand::RngCore;
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -31,7 +31,7 @@ fn prune(map: &mut HashMap<String, GithubAppPending>) {
 
 fn new_state() -> String {
     let mut bytes = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes)
 }
 

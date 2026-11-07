@@ -7,7 +7,7 @@ pub fn policy_version_digest() -> String {
     let mut h = Sha256::new();
     h.update(OPENFGA_MODEL_ID.as_bytes());
     h.update(include_str!("../../../spec/openfga/model.fga").as_bytes());
-    format!("sha256:{:x}", h.finalize())
+    format!("sha256:{}", hex::encode(h.finalize()))
 }
 
 #[cfg(test)]

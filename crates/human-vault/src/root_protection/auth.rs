@@ -2,7 +2,7 @@
 //! Must match apps/pages protection/manifest-auth.ts (HMAC-SHA256 + std base64).
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as _, Mac};
 use serde_json::Value;
 use sha2::Sha256;
 use zeroize::Zeroize;
