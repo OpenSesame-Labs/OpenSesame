@@ -6,7 +6,7 @@ a merge are in [`AGENTS.md`](AGENTS.md) — read §5 before your first change.
 
 ## Set up
 
-Node 24+, npm run 9 via npm, Rust 1.88 (pinned by `rust-toolchain.toml`).
+Node 24+, npm run 9 via npm, the Rust toolchain pinned by `rust-toolchain.toml`.
 
 ```bash
 

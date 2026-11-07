@@ -177,15 +177,15 @@ jobs:
         # output cache is accepted as a substitute for a candidate artifact.
         run: |
           set -euo pipefail
-          [ "$(rustc -vV | sed -n 's/^host: //p')" = "$TARGET" ]
+          [ "$(rustc +1.88.0 -vV | sed -n 's/^host: //p')" = "$TARGET" ]
           export RUSTFLAGS="--remap-path-prefix=$GITHUB_WORKSPACE=/opensesame --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo"
           mkdir -p bins
-          cargo build --locked --release -p opensesame-cli --bin opensesame
+          cargo +1.88.0 build --locked --release -p opensesame-cli --bin opensesame
           cp target/release/opensesame bins/opensesame
           [ "$(bins/opensesame --version)" = "opensesame ${TAG#v}" ]
-          cargo build --locked --release -p opensesame-surrogate-proxy --bin opensesame-surrogate-proxy
+          cargo +1.88.0 build --locked --release -p opensesame-surrogate-proxy --bin opensesame-surrogate-proxy
           cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy
-          cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy
+          cargo +1.88.0 build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy
           cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy-TEST-upstream-override
           scripts/release/kit-archive.sh pack "$TAG" "$TARGET" bins bridge/opensesame-env-parse.mjs dist
       - name: Smoke the actual archived kit and reject a writable bridge

@@ -99,7 +99,7 @@ test(
       { cwd: root, encoding: "utf8" },
     );
     assert.equal(version.status, 0, version.stderr);
-    assert.match(version.stdout, /rustc 1\.94\.1/);
-    assert.match(version.stdout, /cargo 1\.94\.1/);
+    assert.match(version.stdout, /rustc 1\.97\.1/);
+    assert.match(version.stdout, /cargo 1\.97\.1/);
   },
 );

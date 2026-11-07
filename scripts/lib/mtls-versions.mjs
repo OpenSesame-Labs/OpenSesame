@@ -62,6 +62,9 @@ export function cargoLockVersions(lockText, name) {
   return out;
 }
 
+/** A resolved package-lock version: semver, with optional prerelease or build. */
+const LOCK_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.+-]+)?$/u;
+
 /** Every resolved version of `name` in an npm package-lock.json `packages` map. */
 export function npmLockVersions(lock, name) {
   const packages = lock.packages ?? {};
@@ -69,7 +72,8 @@ export function npmLockVersions(lock, name) {
   const out = new Set();
   for (const [key, value] of Object.entries(packages)) {
     if (key !== suffix && !key.endsWith(`/${suffix}`)) continue;
-    if (typeof value?.version === "string") out.add(value.version);
+    const version = String(value?.version ?? "");
+    if (LOCK_VERSION.test(version)) out.add(version);
   }
   return [...out];
 }

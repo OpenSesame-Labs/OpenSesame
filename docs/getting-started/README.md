@@ -9,7 +9,7 @@ what it needs, so you can stop at the first one that covers your task.
 |---|---|---|
 | Node.js | 22 or newer | Everything TypeScript |
 | npm | 9.15 — `` picks the pinned version | Workspace installs and scripts |
-| Rust | 1.88 — `rust-toolchain.toml` pins it | The Host plane (`crates/gateway`, `crates/daemon`, `apps/cli`, `crates/`) |
+| Rust | the version `rust-toolchain.toml` pins | The Host plane (`crates/gateway`, `crates/daemon`, `apps/cli`, `crates/`) |
 | PostgreSQL | any supported release | Only for `npm run bootstrap` / `npm run db:migrate`; the Identity API runs in memory without it |
 | Docker | optional | The Compose stacks in [`ops/compose`](../../ops/compose) |
 | Chromium | optional | Browser gates (`verify:*`); Playwright finds `PLAYWRIGHT_CHROMIUM` |

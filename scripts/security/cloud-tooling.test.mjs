@@ -214,7 +214,7 @@ test("Cursor image installs mise from a pinned checksum tarball", () => {
   assert.match(installScript, /mise install --locked\n/);
   assert.match(installScript, /mise run deps\n/);
   assert.match(installScript, /bash scripts\/dev\/install-dependencies\.sh\n/);
-  assert.match(installScript, /cargo \+1\.88\.0 fetch\n/);
+  assert.match(installScript, /cargo fetch\n/);
   assert.doesNotMatch(installScript, /\bcorepack\b|pnpm@/);
   assert.doesNotMatch(installScript, /mise\.run/);
   assert.doesNotMatch(installScript, /curl[^\n]*\|\s*(?:ba)?sh/);

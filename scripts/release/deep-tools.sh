@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pinned tools for the weekly checks. Application code still targets Rust 1.88.
+# Pinned tools for the weekly checks. Application code still targets the Rust pinned in rust-toolchain.toml.
 set -euo pipefail
 check="${1:?required check name}"
 case "$check" in

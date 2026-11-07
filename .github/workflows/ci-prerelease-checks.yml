@@ -651,7 +651,7 @@ jobs:
           VITE_BASE: /OpenSesame/
           EXPERIENCE_SHARD: ${{ matrix.journeys }}
         run: node apps/pages/scripts/verify-experience-journeys.mjs
-      # Rust 1.88 from mise.toml, same install as the Rust tests job. Only this
+      # Rust from mise.toml, same install as the Rust tests job. Only this
       # shard builds the CLI the live relay walk spawns.
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         if: matrix.shard == 'journeys-1'

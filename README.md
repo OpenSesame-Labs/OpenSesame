@@ -99,7 +99,7 @@ The full picture is in [docs/architecture](docs/architecture/README.md).
 
 ## Quick start
 
-Prerequisites: Node 24+, npm run 9 (via npm), and Rust 1.88 for the Host
+Prerequisites: Node 24+, npm run 9 (via npm), and the Rust toolchain pinned in `rust-toolchain.toml` for the Host
 plane. Details and troubleshooting: [getting started](docs/getting-started/README.md).
 
 ```bash

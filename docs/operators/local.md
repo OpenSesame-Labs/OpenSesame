@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Rust 1.88 (`rust-toolchain.toml`)
+- Rust, at the version pinned in `rust-toolchain.toml`
 - Optional: Docker/Podman for Compose profile
 - Or user-space OpenFGA/OpenBao via `./scripts/dev/start-native-deps.sh` (no root)
 
