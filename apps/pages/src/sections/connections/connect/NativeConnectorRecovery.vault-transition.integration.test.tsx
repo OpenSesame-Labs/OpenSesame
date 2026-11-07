@@ -67,9 +67,7 @@ function record(id: string) {
 
 function RecoverySubscriber({
   controller,
-}: {
-  controller: ReturnType<typeof nativeConnectorController>;
-}) {
+}: { controller: ReturnType<typeof nativeConnectorController> }) {
   const [, refresh] = useState(0);
   useLayoutEffect(
     () => subscribeDeviceRows(() => refresh((version) => version + 1)),

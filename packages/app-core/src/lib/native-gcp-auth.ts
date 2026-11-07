@@ -5,9 +5,8 @@
  * call and is never stored. The key is parsed here, sealed with the
  * connection, and never shown again; nothing in an error repeats it.
  */
-
+import { isJsonObject, isString, asBufferSource } from "@opensesame/os-domain";
 import type { BoundaryValue } from "@opensesame/os-domain";
-import { asBufferSource, isJsonObject, isString } from "@opensesame/os-domain";
 import { EgressDenied } from "./capabilities/egress.js";
 import { NativeApiError } from "./native-api-http.js";
 import {

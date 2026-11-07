@@ -7,8 +7,8 @@ import {
   updateDeviceConfigurationDurable,
 } from "../device-connector-records.js";
 import { kvGet } from "../kv.js";
-import { vaultStore } from "../vault/store.js";
 import { readVaultCredentials } from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import { secretBackendCredentialTarget } from "./credential-custody.js";
 import { secretBackendDraft } from "./presets.js";
 import {

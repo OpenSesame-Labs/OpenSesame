@@ -5,6 +5,7 @@ import { MAX_SLOT_PAYLOAD_BYTES } from "../../crypto/slot-profile.js";
 import { hasEffectRunner } from "./effects.js";
 import { inputReady } from "./inputs.js";
 import { decodePlan, encodePlan } from "./payload.js";
+import { VISIBLE_LIMITS, readVisibleItemsBody } from "./visible-items-shape.js";
 import {
   HIDDEN,
   account,
@@ -13,7 +14,6 @@ import {
   items,
 } from "./visible-items.fixture.js";
 import { VISIBLE_ITEMS } from "./visible-items.js";
-import { VISIBLE_LIMITS, readVisibleItemsBody } from "./visible-items-shape.js";
 
 describe("visible items plan", () => {
   it("copies exactly the items left shown, in the vault's order", () => {

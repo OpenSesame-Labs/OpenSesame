@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { readPagesRetiredCredentialHeader } from "./context-v2-header.js";
 import {
   RETIRED_CREDENTIAL_CONTEXT_FORMAT,
   deriveRetiredCredentialContextV2 as derive,
   encodeRetiredCredentialContextV2 as encode,
   parseRetiredCredentialContextV2 as parse,
 } from "./context-v2.js";
-import { readPagesRetiredCredentialHeader } from "./context-v2-header.js";
 import vectors from "./fixtures/context-v2-vectors.json";
 
 const firstVector = vectors.vectors[0];

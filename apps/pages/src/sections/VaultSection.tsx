@@ -1,15 +1,4 @@
-import { accessIdentitySharePath } from "@opensesame/app-core/lib/access-routes.js";
 import { vaultFilterLabel } from "@opensesame/app-core/lib/crumbs.js";
-import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
-import { itemCreatePath } from "@opensesame/app-core/lib/vault/item-path.js";
-import { resolveFilterSlug } from "@opensesame/app-core/lib/vault-filter-slug.js";
-import {
-  type VaultItem,
-  itemTypeId,
-  itemTypeRegistry,
-  listedItems,
-  sortItems,
-} from "@opensesame/vault-core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Outlet,
@@ -18,6 +7,18 @@ import {
   useParams,
   useSearchParams,
 } from "react-router";
+
+import { accessIdentitySharePath } from "@opensesame/app-core/lib/access-routes.js";
+import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
+import { resolveFilterSlug } from "@opensesame/app-core/lib/vault-filter-slug.js";
+import { itemCreatePath } from "@opensesame/app-core/lib/vault/item-path.js";
+import {
+  type VaultItem,
+  itemTypeId,
+  itemTypeRegistry,
+  listedItems,
+  sortItems,
+} from "@opensesame/vault-core";
 import { IconChevronLeft } from "../components/Icons.js";
 import { NavTree } from "../components/NavTree.js";
 import { UpLink } from "../components/UpLink.js";
@@ -25,21 +26,21 @@ import { clearCommandBarSearch } from "../lib/command-bar/focus.js";
 import { swipeBack } from "../lib/gestures.js";
 import { AscendProvider, usePaneTrail } from "../lib/pane-trail.js";
 import { useNarrow } from "../lib/use-narrow.js";
-import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
-import { accountSecretToCopy } from "./vault/account-copy.js";
-import { credentialChoices } from "./vault/account-credentials.js";
+import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { LiveSessionBanner } from "./vault/LiveSessionBanner.js";
 import { NewItemFab } from "./vault/NewItemFab.js";
 import { TrashCommands, trashItemActions } from "./vault/TrashCommands.js";
-import { useSharedItems } from "./vault/use-shared-items.js";
-import { useVaultFocus } from "./vault/use-vault-focus.js";
-import { useVaultPaneRefs } from "./vault/use-vault-pane-refs.js";
 import { VaultActions } from "./vault/VaultActions.js";
 import { VaultDropPicker } from "./vault/VaultDropPicker.js";
 import { VaultFilterMenu } from "./vault/VaultFilterMenu.js";
 import { VaultTree } from "./vault/VaultTree.js";
 import { VaultWelcome } from "./vault/VaultWelcome.js";
+import { accountSecretToCopy } from "./vault/account-copy.js";
+import { credentialChoices } from "./vault/account-credentials.js";
+import { useSharedItems } from "./vault/use-shared-items.js";
+import { useVaultFocus } from "./vault/use-vault-focus.js";
+import { useVaultPaneRefs } from "./vault/use-vault-pane-refs.js";
 import "./vault.css";
 import {
   chipTypeIds,

@@ -2,12 +2,11 @@ export {
   onCompleteUnlockCodeSubmission,
   persistEnrollmentStateForUnlock,
 } from "@opensesame/app-core/sections/settings/security/duress-unlock-bridge.js";
-
 import { AccountFactorError } from "@opensesame/app-core/lib/account-factors.js";
 import { describeRecovery } from "@opensesame/app-core/lib/configuration/recovery-outcomes.js";
 import { loadSession } from "@opensesame/app-core/lib/federation.js";
-import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import { readSignInService } from "@opensesame/app-core/lib/identity-service.js";
+import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import {
   dismissNotice,
   setStatusNotice,

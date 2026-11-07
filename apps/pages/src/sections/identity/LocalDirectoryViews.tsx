@@ -228,10 +228,7 @@ export function DirectoryAuthority({
 export function DirectoryForm({
   model,
   kind,
-}: {
-  model: DirectoryModel;
-  kind: LocalIdentityKind;
-}) {
+}: { model: DirectoryModel; kind: LocalIdentityKind }) {
   const { draft, busy, error, setDraft, change } = model;
   const input = useRef<HTMLInputElement>(null);
   const draftId = draft?.id;

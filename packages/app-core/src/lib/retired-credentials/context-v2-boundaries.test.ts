@@ -4,6 +4,7 @@ import {
   sealAuthenticatedManifest,
   verifyManifestAuth,
 } from "../vault/protection/manifest-auth.js";
+import { readPagesRetiredCredentialHeader } from "./context-v2-header.js";
 import {
   MAX_RETIRED_CONTEXT_HEADER_BYTES,
   MAX_RETIRED_CONTEXT_WIRE_BYTES,
@@ -11,7 +12,6 @@ import {
   encodeRetiredCredentialContextV2 as encode,
   parseRetiredCredentialContextV2 as parse,
 } from "./context-v2.js";
-import { readPagesRetiredCredentialHeader } from "./context-v2-header.js";
 import vectors from "./fixtures/context-v2-vectors.json";
 
 const AT = "2026-10-08T00:00:00.000Z";

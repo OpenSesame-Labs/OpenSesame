@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   Clock,
   armedCircle,
   device,
   who,
 } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
+import type { Armed } from "@opensesame/app-core/lib/quorum/desk/harness.test-support.js";
 import {
   applyNotice,
   readDraft,

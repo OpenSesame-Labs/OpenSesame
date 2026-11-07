@@ -8,11 +8,11 @@ import {
   isAiConnectionProvider,
 } from "./presets.js";
 import { testAiConnection } from "./runtime.js";
+import { performSavedAiImageInference } from "./saved-image-runtime.js";
 import {
   coldSavedImageVault,
   savedImageFixture,
 } from "./saved-image.test-support.js";
-import { performSavedAiImageInference } from "./saved-image-runtime.js";
 import { STABILITY_SD3_BASE, STABILITY_SD3_MODEL } from "./stability-target.js";
 import { STABILITY_PROMPT } from "./stability-tls.test-support.js";
 import {

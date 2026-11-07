@@ -28,6 +28,10 @@ import { interactionMachine } from "@opensesame/os-domain";
 import { MemoryAgentAuthRepository } from "./agent-auth-repo.js";
 import { claimDueMemoryRows } from "./delivery-claims.js";
 import {
+  MAX_WEBHOOK_ENDPOINTS_PER_PRINCIPAL,
+  WebhookEndpointLimitError,
+} from "./interfaces.js";
+import {
   type ApprovalActivationRepository,
   type ApprovalReceiptRepository,
   type AuditEventRepository,
@@ -45,7 +49,6 @@ import {
   type EnsurePersonalProjectResult,
   type ExternalIdentityRepository,
   type InteractionRepository,
-  MAX_WEBHOOK_ENDPOINTS_PER_PRINCIPAL,
   type NewOutboxEvent,
   NotFoundError,
   type NotificationDeliveryRepository,
@@ -64,7 +67,6 @@ import {
   type TransactionFn,
   type UnitOfWork,
   type WebhookDeliveryRepository,
-  WebhookEndpointLimitError,
   type WebhookEndpointRepository,
   buildPersonalProject,
   normalizeIssuer,

@@ -17,7 +17,6 @@ import {
 import { bindAiConnectionTransport } from "./transport.js";
 import type { AiConnectionDraft } from "./types.js";
 import { aiVaultSeams } from "./vault-guard.js";
-
 const closes: (() => Promise<void>)[] = [];
 afterEach(async () => {
   for (const close of closes.splice(0).reverse()) await close();

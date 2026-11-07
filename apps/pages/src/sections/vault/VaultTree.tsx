@@ -13,18 +13,18 @@ import {
   tombPath,
 } from "@opensesame/vault-core";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { EmptyTip } from "../../components/EmptyTip.js";
 import { IconChevronRight } from "../../components/Icons.js";
+import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { searchInCommandBar } from "../../lib/command-bar/focus.js";
 import { focusRailListing, registerVaultKeymap } from "../../lib/keymap.js";
 import { pageSteps, viewportIndex } from "../../lib/tree-motion.js";
 import { useClaimedDrags } from "../../lib/use-claimed-drags.js";
+import { VaultPathbar } from "./VaultPathbar.js";
+import { Decorations } from "./VaultRowDecorations.js";
 import { useMenuFlip } from "./use-menu-flip.js";
 import type { SharedItemMarks } from "./use-shared-items.js";
 import { useVaultSearch } from "./use-vault-search.js";
-import { VaultPathbar } from "./VaultPathbar.js";
-import { Decorations } from "./VaultRowDecorations.js";
 import { type VaultTreeActions, vaultRowMenu } from "./vault-menu.js";
 import { VaultRowMenu } from "./vault-row-menu.js";
 import { guideBlocks } from "./vault-tree-blocks.js";
@@ -287,6 +287,7 @@ export function VaultTree({
         className="vtree__rows"
         role="tree"
         aria-label="Vault items"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: role=tree with aria-activedescendant is the interactive element; the tab stop belongs on it
         tabIndex={0}
         aria-activedescendant={cursor ? rowId(cursor) : undefined}
         onContextMenu={(event) => {
@@ -361,7 +362,6 @@ export function VaultTree({
               );
             }
             return (
-              // biome-ignore lint/a11y/useFocusableInteractive lint/a11y/useKeyWithClickEvents: tree rows are reached and driven via aria-activedescendant on the tree
               <div
                 key={row.key}
                 role="treeitem"

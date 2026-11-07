@@ -2,10 +2,8 @@
 import { canonicalize } from "@opensesame/os-domain";
 import { z } from "zod";
 import { subscribeDeviceRows } from "./device-connector-records.js";
-import {
-  nativeApiHeaders,
-  nativeApiVerificationRequest,
-} from "./native-api-auth.js";
+import { nativeApiVerificationRequest } from "./native-api-auth.js";
+import { nativeApiHeaders } from "./native-api-auth.js";
 import {
   assertNativeApiAuthority,
   assertNativeApiEditable,
@@ -47,7 +45,7 @@ export function nativeBitbucketTargetPath(target: NativeBitbucketBackupTarget) {
     target.branch.startsWith("-") ||
     !target.branch ||
     target.branch.length > 255 ||
-    /[\s~^:?*[\\]/.test(target.branch) ||
+    /[\s~^:?*\[\\]/.test(target.branch) ||
     Array.from(target.branch).some(
       (char) => char.charCodeAt(0) < 33 || char.charCodeAt(0) === 127,
     ) ||

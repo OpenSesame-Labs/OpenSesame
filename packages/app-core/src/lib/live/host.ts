@@ -38,7 +38,6 @@ import type { Carrier } from "./rendezvous.js";
 import { NO_ROUTES, routesSegment } from "./routes.js";
 import { type Keypair, newCode, newKeypair, newLinkSecret } from "./seal.js";
 import { seatName } from "./seat-channel.js";
-
 // What a host is made of lives in `host-types.ts`; it is named here as well.
 export * from "./host-types.js";
 /** One live session, hosted by this tab. */

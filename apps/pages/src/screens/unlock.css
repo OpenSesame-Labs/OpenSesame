@@ -65,7 +65,7 @@
 
 .unlock--lock-v5 /* The notes column is decoration once the gate is gone; only its controls
    may take pointer events, never the whole panel over the app tray. */
-.unlock__notes {
+  .unlock__notes {
   pointer-events: none;
   position: relative;
   z-index: 2;

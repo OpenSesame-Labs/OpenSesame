@@ -4,7 +4,6 @@
  * at registration and verifies the P-256 signature as raw `r || s`.
  */
 
-import { asBufferSource } from "@opensesame/os-domain";
 import { z } from "zod";
 import {
   type WebStorage,
@@ -25,6 +24,7 @@ import {
   signCountOf,
   spkiToCose,
 } from "./webauthn-cbor.js";
+import { asBufferSource } from "@opensesame/os-domain";
 
 export {
   coseP256ToSpki,
@@ -366,9 +366,7 @@ export async function assertStoredCliAppPasskey(
         challenge: asBufferSource(challenge),
         timeout: 60_000,
         userVerification: "required",
-        allowCredentials: [
-          { type: "public-key", id: asBufferSource(credentialId) },
-        ],
+        allowCredentials: [{ type: "public-key", id: asBufferSource(credentialId) }],
       },
     });
   } catch (error) {

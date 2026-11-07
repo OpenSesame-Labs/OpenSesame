@@ -7,7 +7,6 @@ import {
   updateDeviceConfigurationDurable,
 } from "../device-connector-records.js";
 import { saveDeviceConnectorConfigurationDurable } from "../device-connectors.js";
-import { vaultStore } from "../vault/store.js";
 import {
   assertVaultCredentials,
   discardVaultCredentials,
@@ -15,6 +14,7 @@ import {
   readVaultCredentials,
   stageVaultCredentials,
 } from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import { TailscaleHTTPRouteConfiguration } from "./browser-node-peer-http.js";
 import {
   type TailscaleNodeConfiguration,
@@ -22,7 +22,6 @@ import {
   normalizeTailscaleNodeIdentity,
 } from "./browser-node-port.js";
 import { browserNodeTransportOptions } from "./browser-node-transport-options.js";
-
 const FIELD = "tailscale_browser_node";
 const Metadata = z
   .object({

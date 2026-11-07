@@ -18,7 +18,7 @@
   "totals": {
     "files": 442,
     "violations": 708,
-    "oversizedLines": 217244
+    "oversizedLines": 217265
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -1147,7 +1147,7 @@
       "max-lines": 841
     },
     "packages/database/src/repos/memory.ts": {
-      "max-lines": 1712
+      "max-lines": 1714
     },
     "packages/database/src/repos/postgres.ts": {
       "complexity": 1,

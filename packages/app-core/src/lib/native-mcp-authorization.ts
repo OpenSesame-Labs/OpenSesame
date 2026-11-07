@@ -11,12 +11,12 @@ import {
 } from "./native-connector-transport.js";
 import { discardNativeConsent } from "./native-consent-cancel.js";
 import { withNativeMcpMutationLock } from "./native-mcp-mutation-lock.js";
+import type { NativeMcpOAuthTarget } from "./native-mcp-oauth-target.js";
+import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import {
   type NativeMcpOAuthPorts,
   NativeMcpPublicOAuth,
 } from "./native-mcp-oauth.js";
-import type { NativeMcpOAuthTarget } from "./native-mcp-oauth-target.js";
-import { NativeMcpAuthError } from "./native-mcp-oauth-target.js";
 import {
   releaseNativeMcpPartialReservation,
   reserveNativeMcpPartialRefresh,
@@ -34,12 +34,12 @@ import {
   nativeMcpIssuedGrant,
   requireNativeMcpRecord,
 } from "./native-mcp-records.js";
+import { admitNativeMcpRegistration } from "./native-mcp-registration-admission.js";
+import type { NativeMcpRegisteredClient } from "./native-mcp-registration-receipt.js";
 import {
   assertNativeMcpRegistrationAvailable,
   releaseNativeMcpRegistrationReservation,
 } from "./native-mcp-registration.js";
-import { admitNativeMcpRegistration } from "./native-mcp-registration-admission.js";
-import type { NativeMcpRegisteredClient } from "./native-mcp-registration-receipt.js";
 import {
   discardUnsubmittedExchange,
   markNativeMcpSubmitting,

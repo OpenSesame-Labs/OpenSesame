@@ -15,7 +15,6 @@ import {
   stubBrowserNodeWorker,
 } from "./authorization.test-support.js";
 import { createBrowserNodeController } from "./controller.js";
-
 let fixture: Awaited<ReturnType<typeof runtimeFixture>>;
 let active = true;
 const approve = vi.fn(() => true);

@@ -160,108 +160,121 @@ test("public WXT dependency loads without the excluded crypto dependency", () =>
   assert.throws(() => client.createTcpUsbBridge("unused"), /node-forge/);
 });
 
-test("fragmented host replies preserve all device states and shell readAll", {
-  timeout: 5000,
-}, async () => {
-  await peer(async (client, commands) => {
-    assert.deepEqual(await client.listDevices(), [
-      { id: "online", type: "device" },
-      { id: "offline", type: "offline" },
-      { id: "locked", type: "unauthorized" },
-    ]);
-    assert.equal(
-      (
-        await Adb.util.readAll(
-          await client.getDevice("online").shell("echo transport"),
-        )
-      ).toString(),
-      "transport works\n",
-    );
-    assert.ok(commands.includes("host:transport:online"));
-    assert.ok(commands.includes("shell:echo transport"));
-  });
-});
+test(
+  "fragmented host replies preserve all device states and shell readAll",
+  { timeout: 5000 },
+  async () => {
+    await peer(async (client, commands) => {
+      assert.deepEqual(await client.listDevices(), [
+        { id: "online", type: "device" },
+        { id: "offline", type: "offline" },
+        { id: "locked", type: "unauthorized" },
+      ]);
+      assert.equal(
+        (
+          await Adb.util.readAll(
+            await client.getDevice("online").shell("echo transport"),
+          )
+        ).toString(),
+        "transport works\n",
+      );
+      assert.ok(commands.includes("host:transport:online"));
+      assert.ok(commands.includes("shell:echo transport"));
+    });
+  },
+);
 
-test("file listing and push retain sync completion and permission errors", {
-  timeout: 5000,
-}, async () => {
-  await peer(async (client, commands, uploads) => {
-    const device = client.getDevice("online");
-    const entries = await device.readdir("/extensions");
-    assert.equal(entries[0].name, "test.xpi");
-    assert.equal(entries[0].size, 7);
-    await assert.rejects(device.readdir("/denied"), /permission denied/);
-    const push = await device.push(
-      Readable.from([Buffer.from("payload")]),
-      "/extensions/test.xpi",
-    );
-    await once(push, "end");
-    assert.equal(Buffer.concat(uploads).toString(), "payload");
-    const denied = await device.push(
-      Readable.from([Buffer.from("payload")]),
-      "/denied/test.xpi",
-    );
-    await assert.rejects(once(denied, "end"), /permission denied/);
-  });
-});
+test(
+  "file listing and push retain sync completion and permission errors",
+  { timeout: 5000 },
+  async () => {
+    await peer(async (client, commands, uploads) => {
+      const device = client.getDevice("online");
+      const entries = await device.readdir("/extensions");
+      assert.equal(entries[0].name, "test.xpi");
+      assert.equal(entries[0].size, 7);
+      await assert.rejects(device.readdir("/denied"), /permission denied/);
+      const push = await device.push(
+        Readable.from([Buffer.from("payload")]),
+        "/extensions/test.xpi",
+      );
+      await once(push, "end");
+      assert.equal(Buffer.concat(uploads).toString(), "payload");
+      const denied = await device.push(
+        Readable.from([Buffer.from("payload")]),
+        "/denied/test.xpi",
+      );
+      await assert.rejects(once(denied, "end"), /permission denied/);
+    });
+  },
+);
 
-test("activity failures remain observable for fallback and forward requests roundtrip", {
-  timeout: 5000,
-}, async () => {
-  await peer(async (client, commands) => {
-    const device = client.getDevice("online");
-    await assert.rejects(
-      device.startActivity({ component: "org.mozilla.firefox/.App" }),
-      /Activity not found/,
-    );
-    assert.equal(
-      (
-        await Adb.util.readAll(
-          await device.shell("monkey -p org.mozilla.firefox 1"),
-        )
-      ).toString(),
-      "transport works\n",
-    );
-    await device.forward("tcp:43210", "localabstract:firefox-debugger-socket");
-    assert.ok(
-      commands.some((value) =>
-        value.includes(
-          ":forward:tcp:43210;localabstract:firefox-debugger-socket",
+test(
+  "activity failures remain observable for fallback and forward requests roundtrip",
+  { timeout: 5000 },
+  async () => {
+    await peer(async (client, commands) => {
+      const device = client.getDevice("online");
+      await assert.rejects(
+        device.startActivity({ component: "org.mozilla.firefox/.App" }),
+        /Activity not found/,
+      );
+      assert.equal(
+        (
+          await Adb.util.readAll(
+            await device.shell("monkey -p org.mozilla.firefox 1"),
+          )
+        ).toString(),
+        "transport works\n",
+      );
+      await device.forward(
+        "tcp:43210",
+        "localabstract:firefox-debugger-socket",
+      );
+      assert.ok(
+        commands.some((value) =>
+          value.includes(
+            ":forward:tcp:43210;localabstract:firefox-debugger-socket",
+          ),
         ),
-      ),
-    );
-  });
-});
+      );
+    });
+  },
+);
 
-test("connection refusal invokes the configured adb binary with its port", {
-  timeout: 5000,
-}, async () => {
-  const { mkdtemp, writeFile, readFile, rm } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const directory = await mkdtemp(join(tmpdir(), "os-adb-configured-bin-"));
-  const server = createServer();
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const port = server.address().port;
-  await new Promise((resolve) => server.close(resolve));
-  try {
-    const bin = join(directory, "adb");
-    const record = join(directory, "args");
-    await writeFile(
-      bin,
-      `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(record)}, JSON.stringify(process.argv.slice(2))); process.exit(1);\n`,
-      { mode: 0o755 },
+test(
+  "connection refusal invokes the configured adb binary with its port",
+  { timeout: 5000 },
+  async () => {
+    const { mkdtemp, writeFile, readFile, rm } = await import(
+      "node:fs/promises"
     );
-    await assert.rejects(
-      Adb.createClient({ host: "127.0.0.1", port, bin }).listDevices(),
-    );
-    assert.deepEqual(JSON.parse(await readFile(record, "utf8")), [
-      "-P",
-      String(port),
-      "start-server",
-    ]);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const directory = await mkdtemp(join(tmpdir(), "os-adb-configured-bin-"));
+    const server = createServer();
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const port = server.address().port;
+    await new Promise((resolve) => server.close(resolve));
+    try {
+      const bin = join(directory, "adb");
+      const record = join(directory, "args");
+      await writeFile(
+        bin,
+        `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(record)}, JSON.stringify(process.argv.slice(2))); process.exit(1);\n`,
+        { mode: 0o755 },
+      );
+      await assert.rejects(
+        Adb.createClient({ host: "127.0.0.1", port, bin }).listDevices(),
+      );
+      assert.deepEqual(JSON.parse(await readFile(record, "utf8")), [
+        "-P",
+        String(port),
+        "start-server",
+      ]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);

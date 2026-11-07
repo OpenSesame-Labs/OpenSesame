@@ -17,15 +17,15 @@ import { settleInteractionSubject } from "../routes/subject-adapters.js";
 import { applyHostCeremonySubject } from "./ceremony-subject-apply.js";
 import { resolveEntitledSubject } from "./ceremony-subject-resolve.js";
 import {
+  dispatchHostSettlementHttp,
+  hostSettlementDispatchEnabled,
+} from "./host-settlement-http.js";
+import {
   type HostEffect,
   type HostSettlementOutcome,
   type SettledSubjectFacts,
   settleHostSubject,
 } from "./host-settlement.js";
-import {
-  dispatchHostSettlementHttp,
-  hostSettlementDispatchEnabled,
-} from "./host-settlement-http.js";
 import { assertDetailsMatchRequest } from "./interaction-approver-guard.js";
 
 export { resolveEntitledSubject };

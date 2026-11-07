@@ -19,15 +19,6 @@ import {
   nativeOAuthGuard,
 } from "./native-oauth-session.js";
 import {
-  backend,
-  disposers,
-  input,
-  provider,
-  redirectUri,
-  state,
-  token,
-} from "./native-vault.test-support.js";
-import {
   attestNativeVaultRevocation,
   nativeVaultRevocationInstructions,
 } from "./native-vault-attestation.js";
@@ -37,6 +28,15 @@ import {
   configureNativeVault,
   nativeVaultClassification,
 } from "./native-vault-session.js";
+import {
+  backend,
+  disposers,
+  input,
+  provider,
+  redirectUri,
+  state,
+  token,
+} from "./native-vault.test-support.js";
 
 beforeEach(kv.kvForgetAll);
 afterEach(() => {

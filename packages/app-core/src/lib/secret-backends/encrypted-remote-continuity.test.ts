@@ -3,6 +3,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import { kvForgetAll, kvSeams } from "../kv.js";
 import { vaultStore } from "../vault/store.js";
 import { BODY_PATH, tombFileKey } from "../vfs.js";
+import {
+  ENCRYPTED_REMOTE_CONTINUITY_FIELD,
+  createEncryptedRemoteContinuity,
+  encryptedRemoteContinuitySeed,
+  readEncryptedRemoteContinuity,
+} from "./encrypted-remote-continuity.js";
 import { createEncryptedRemoteBackend } from "./encrypted-remote.js";
 import {
   encryptedRemoteFixture,
@@ -10,12 +16,6 @@ import {
   independentSeal,
   initialStore,
 } from "./encrypted-remote.test-support.js";
-import {
-  ENCRYPTED_REMOTE_CONTINUITY_FIELD,
-  createEncryptedRemoteContinuity,
-  encryptedRemoteContinuitySeed,
-  readEncryptedRemoteContinuity,
-} from "./encrypted-remote-continuity.js";
 import { runtimePassword } from "./runtime.test-support.js";
 import type { SecretBackendTransport } from "./transport.js";
 

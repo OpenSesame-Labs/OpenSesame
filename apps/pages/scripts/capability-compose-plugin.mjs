@@ -330,8 +330,7 @@ function mainPlugin(options, ctx) {
       sequential: true,
       handler() {
         const { state, resolved } = ctx;
-        if (!state || state.mode !== "hardened" || resolved.command !== "build")
-          return;
+        if (state?.mode !== "hardened" || resolved.command !== "build") return;
         for (const file of state.publicFiles) {
           if (state.isExcluded(file.capability))
             rmSync(join(ctx.outDir(), publicPathTarget(file.path)), {

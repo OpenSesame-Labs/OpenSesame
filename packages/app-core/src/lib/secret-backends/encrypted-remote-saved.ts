@@ -1,14 +1,14 @@
 import type { CredentialItem } from "@opensesame/vault-core";
 import { readDeviceRows } from "../device-connector-records.js";
-import { vaultStore } from "../vault/store.js";
 import { vaultCredentialField } from "../vault-credential-custody.js";
+import { vaultStore } from "../vault/store.js";
 import { readSecretBackendCredentialItems } from "./credential-custody.js";
-import { createEncryptedRemoteBackend } from "./encrypted-remote.js";
 import {
   encryptedRemoteContinuityError,
   readEncryptedRemoteContinuity,
 } from "./encrypted-remote-codec.js";
 import { createEncryptedRemoteContinuity } from "./encrypted-remote-continuity.js";
+import { createEncryptedRemoteBackend } from "./encrypted-remote.js";
 import { validateSecretBackendDraft } from "./schema.js";
 import {
   readSecretBackendConnection,

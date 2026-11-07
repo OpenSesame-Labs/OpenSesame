@@ -36,22 +36,20 @@ import {
   pollSavedGithubBackups,
   putSavedGithubBackup,
 } from "./vault-backup-github.js";
-
 export {
   readSavedGithubBackup,
   restoreSavedGithubBackup,
 } from "./vault-backup-github.js";
-
-import {
-  buildOfflineBackup,
-  serializeOfflineBackup,
-} from "./vault/offline-backup.js";
-import { GUEST_TOMB, vaultStore } from "./vault/store.js";
 import { backupTargetReceipt } from "./vault-backup-github-owner.js";
 import {
   confirmedBackupCommit,
   readBackupWriteConfirmation,
 } from "./vault-backup-sync-confirmation.js";
+import {
+  buildOfflineBackup,
+  serializeOfflineBackup,
+} from "./vault/offline-backup.js";
+import { GUEST_TOMB, vaultStore } from "./vault/store.js";
 import {
   BODY_PATH,
   HEADER_PATH,
