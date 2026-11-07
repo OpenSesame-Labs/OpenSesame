@@ -118,6 +118,8 @@ mod tests {
             fold_truncated: None,
             resolved_by: None,
             interceptors_registered: 1,
+            // Not built from a declaration document (§7.7.8).
+            declaration: None,
         }
     }
 
