@@ -239,6 +239,10 @@ impl Harness for MockLoopHarness {
                 .iter()
                 .map(|r| serde_json::to_value(r).expect("records serialize"))
                 .collect(),
+            // The CTK runner fills these from the harness declaration and
+            // the vector's host_declaration; a harness starts them empty.
+            postures: Default::default(),
+            load: None,
         }
     }
 
