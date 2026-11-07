@@ -22,8 +22,8 @@ are also useful, and are fixed in `tests/fuzz/cargo/`, not product code.
   fixture under `tests/fuzz/cargo/regressions/<target>/` where one is
   possible, and a dated record in `docs/security/audits/` for anything
   security-relevant.
-- Rust follows rustfmt (1.88.0, the repo's pinned toolchain) and clippy
-  pedantic; a patch must build with `cargo +1.88.0 test --workspace
+- Rust follows rustfmt (the toolchain pinned in `rust-toolchain.toml`) and clippy
+  pedantic; a patch must build with `cargo test --workspace
   --all-targets`.
 - Keep the diff minimal: no drive-by refactors, no dependency bumps, no
   toolchain changes.

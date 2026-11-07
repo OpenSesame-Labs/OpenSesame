@@ -63,5 +63,5 @@ Structural tests in `crates/host-core` assert:
 - Required exports exist (`authorize-and-invoke`, `execute-authorized-proof`, `acknowledge-transition`)
 
 ```bash
-cargo +1.88.0 test -p opensesame-host-core wit_task
+cargo test -p opensesame-host-core wit_task
 ```

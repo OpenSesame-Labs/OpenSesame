@@ -18,7 +18,7 @@ Identity and Host APIs are kept **deliberately separate** — no BFF merge. Cano
 
 ## 2. Toolchain
 
-Pins are canonical in `package.json` (`engines`, `packageManager`, devDependencies), `mise.toml`, and `rust-toolchain.toml` — read them there, do not copy versions into new prose. In short: Node and npm via mise (`mise install --locked`), npm workspaces, Rust pinned by `mise.toml` and `rust-toolchain.toml` (`cargo +1.88.0 ...`), Turbo for workspace tasks, Biome for lint/format, Oxlint anti-slop, Vitest and Playwright for tests. Setup detail: [getting started](docs/getting-started/README.md).
+Pins are canonical in `package.json` (`engines`, `packageManager`, devDependencies), `mise.toml`, and `rust-toolchain.toml` — read them there, do not copy versions into new prose. In short: Node and npm via mise (`mise install --locked`), npm workspaces, Rust pinned by `mise.toml` and `rust-toolchain.toml` (plain `cargo` picks it up; no `+toolchain` override), Turbo for workspace tasks, Biome for lint/format, Oxlint anti-slop, Vitest and Playwright for tests. Setup detail: [getting started](docs/getting-started/README.md).
 
 ## Cursor Cloud specific instructions
 

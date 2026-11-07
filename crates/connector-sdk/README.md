@@ -30,7 +30,7 @@ world must not import `secrets.get` (or `secret-get`) and must expose
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-connector-sdk
+cargo test -p opensesame-connector-sdk
 ```
 
 Changing `spec/wit/connector/world.wit` runs through this crate's

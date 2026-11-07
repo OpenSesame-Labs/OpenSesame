@@ -41,7 +41,7 @@ it. It belongs to the human plane only.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-provider-bitwarden
+cargo test -p opensesame-provider-bitwarden
 ```
 
 Tests run against a loopback stub with recorded cloud and vaultwarden fixtures

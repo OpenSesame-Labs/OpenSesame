@@ -197,7 +197,7 @@ also exactly what a device sees when a definition has not synced to it yet.
 # The client-plane parser and the host-plane parser share one corpus and one
 # rejection table, so either of these tells you the same thing.
 npm run test -w @opensesame/vault-item-types
-cargo +1.88.0 test -p opensesame-vault-item-types
+cargo test -p opensesame-vault-item-types
 ```
 
 To ship a type as a first-party one, drop the file in

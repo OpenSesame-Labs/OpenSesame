@@ -57,7 +57,7 @@ and per-provider `OPENSESAME_PROVIDER_<ID>_CLIENT_ID` and related variables.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-connection-broker
+cargo test -p opensesame-connection-broker
 ```
 
 Unit suites live in `src/tests/`; `tests/connector_transport_mtls.rs` runs a

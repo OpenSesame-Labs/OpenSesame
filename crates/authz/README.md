@@ -53,7 +53,7 @@ Every module is re-exported at the crate root except `duress`.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-authz
+cargo test -p opensesame-authz
 ```
 
 Integration suites are `tests/policy_*.rs`; contract tests sit beside their

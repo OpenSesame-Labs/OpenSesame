@@ -32,10 +32,10 @@ back to the in-process PEP. A projected tuple is never itself authority.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-provider-openfga
+cargo test -p opensesame-provider-openfga
 # The live check is #[ignore]d and needs a running OpenFGA
 OPENSESAME_OPENFGA_URL=http://127.0.0.1:8080 \
-  cargo +1.88.0 test -p opensesame-provider-openfga -- --ignored
+  cargo test -p opensesame-provider-openfga -- --ignored
 npm run test:live-stack   # live OpenFGA/OpenBao/gateway
 ```
 

@@ -22,7 +22,7 @@ bash scripts/dev/dotfiles-bootstrap.sh
 mise install --locked
 mise run deps
 bash scripts/dev/install-dependencies.sh
-cargo +1.88.0 fetch
+cargo fetch
 
 # Grok Build subscription auth. Non-fatal when the Cursor store is absent
 # (local dev). The installer prints status only, never auth file contents.

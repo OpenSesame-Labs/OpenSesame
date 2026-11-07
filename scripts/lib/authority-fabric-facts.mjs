@@ -218,7 +218,6 @@ export function enumerateCargoTests(
   const result = spawnSync(
     "cargo",
     [
-      "+1.88.0",
       "test",
       "-p",
       crate,

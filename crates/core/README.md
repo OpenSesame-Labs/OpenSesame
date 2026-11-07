@@ -26,7 +26,7 @@ should take this facade rather than the domain crate directly (ADR 0017).
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-core
+cargo test -p opensesame-core
 ```
 
 ## Related

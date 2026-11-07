@@ -110,7 +110,9 @@ export function fixtureVersions(root) {
 
 export function collectVersions(root) {
   const cargoLock = readFileSync(join(root, "Cargo.lock"), "utf8");
-  const npmLock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
+  const npmLock = JSON.parse(
+    readFileSync(join(root, "package-lock.json"), "utf8"),
+  );
   const cargo = {};
   for (const name of CARGO_PACKAGES) {
     const v = cargoLockVersions(cargoLock, name);
@@ -122,8 +124,8 @@ export function collectVersions(root) {
     npm[name] = v.length === 0 ? null : v.join(",");
   }
   return {
-    rustc: firstLine(run("rustc", ["+1.88.0", "--version"], root)),
-    cargo: firstLine(run("cargo", ["+1.88.0", "--version"], root)),
+    rustc: firstLine(run("rustc", ["--version"], root)),
+    cargo: firstLine(run("cargo", ["--version"], root)),
     node: firstLine(run("node", ["--version"], root)),
     npm: firstLine(run("npm", ["--version"], root)),
     chromium: process.env.PLAYWRIGHT_CHROMIUM

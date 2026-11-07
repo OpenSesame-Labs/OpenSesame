@@ -42,12 +42,9 @@ pub fn binary() -> Result<PathBuf> {
         return Ok(path);
     }
     let (code, _out, err) = run_bounded(
-        Command::new("cargo").current_dir(repo_root()).args([
-            "+1.88.0",
-            "build",
-            "-p",
-            "opensesame-cli",
-        ]),
+        Command::new("cargo")
+            .current_dir(repo_root())
+            .args(["build", "-p", "opensesame-cli"]),
         Duration::from_secs(2400),
     )?;
     if code != Some(0) || !path.is_file() {

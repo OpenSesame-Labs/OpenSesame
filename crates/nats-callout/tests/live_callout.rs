@@ -4,7 +4,7 @@
 //!
 //! Run with:
 //! `OPENSESAME_MTLS_FIXTURES=1 OPENSESAME_MTLS_BIN_NATS_SERVER=$(bash scripts/mtls/mtls-fixtures.sh path nats-server) \
-//!  cargo +1.88.0 test -p opensesame-nats-callout --test live_callout -- --ignored --nocapture`
+//!  cargo test -p opensesame-nats-callout --test live_callout -- --ignored --nocapture`
 //!
 //! Topology: nats-server (TLS client listener, testkit PKI) → in-process
 //! bridge (nkey user in the AUTH account) → mock Host (an axum

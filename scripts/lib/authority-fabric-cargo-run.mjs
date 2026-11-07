@@ -79,7 +79,6 @@ export function runCargoBatches(resolved, { root, noRun }) {
     const result = spawnSync(
       "cargo",
       [
-        "+1.88.0",
         "test",
         "-p",
         spec.crate,

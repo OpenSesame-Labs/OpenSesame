@@ -50,7 +50,7 @@ person taking the page ends the run's credentials too.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-session-observe
+cargo test -p opensesame-session-observe
 ```
 
 `tests/withdraw_handoff.rs` checks that withdrawing a handoff cannot become a

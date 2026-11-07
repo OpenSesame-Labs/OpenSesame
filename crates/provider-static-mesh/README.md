@@ -33,7 +33,7 @@ NUL byte. Resolving an unknown service returns an empty list.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-provider-static-mesh
+cargo test -p opensesame-provider-static-mesh
 ```
 
 ## Related

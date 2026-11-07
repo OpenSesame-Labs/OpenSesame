@@ -7,7 +7,7 @@
 # system-wide, and no step needs elevation.
 #
 #   eval "$(crates/dns-enforcement/harness/blocky-env.sh up)"
-#   cargo +1.88.0 test -p opensesame-dns-enforcement --test blocky_protocol
+#   cargo test -p opensesame-dns-enforcement --test blocky_protocol
 #   crates/dns-enforcement/harness/blocky-env.sh probe-isolation
 #   crates/dns-enforcement/harness/blocky-env.sh down
 #

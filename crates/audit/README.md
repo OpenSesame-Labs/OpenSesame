@@ -35,7 +35,7 @@ at a key other than the one that checks the signature.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-audit
+cargo test -p opensesame-audit
 npm run audit:miri      # runs this crate's lib tests under Miri, among others
 ```
 

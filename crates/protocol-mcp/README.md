@@ -38,7 +38,7 @@ MCP token be reused as a downstream credential.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-protocol-mcp
+cargo test -p opensesame-protocol-mcp
 npm run test:task-access
 ```
 

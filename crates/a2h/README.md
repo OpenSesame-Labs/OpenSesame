@@ -41,7 +41,7 @@ The crate does no I/O; the gateway sends and receives.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-a2h
+cargo test -p opensesame-a2h
 ```
 
 `tests/protocol.rs` is organised around the three failures that matter: an

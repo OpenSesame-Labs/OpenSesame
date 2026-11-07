@@ -45,8 +45,8 @@ feature.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-authenticator-core
-cargo +1.88.0 build -p opensesame-authenticator-core --features ffi
+cargo test -p opensesame-authenticator-core
+cargo build -p opensesame-authenticator-core --features ffi
 apps/android/scripts/build-core.sh bindings   # regenerate Kotlin/Swift bindings
 ```
 

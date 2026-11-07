@@ -245,8 +245,8 @@ leaves the store, including its anti-rollback revisions, completely untouched.
 ## Tests
 
 ```bash
-cargo +1.88.0 test -p opensesame-kdbx-bridge
-cargo +1.88.0 clippy -p opensesame-kdbx-bridge --all-targets -- -D warnings
+cargo test -p opensesame-kdbx-bridge
+cargo clippy -p opensesame-kdbx-bridge --all-targets -- -D warnings
 ```
 
 - `src/map.rs` — atomic unit tests for every mapping branch, both directions.
@@ -262,7 +262,7 @@ cargo +1.88.0 clippy -p opensesame-kdbx-bridge --all-targets -- -D warnings
   `tests/fixtures/kdbx/`. Regenerate with:
 
   ```bash
-  cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance -- \
+  cargo test -p opensesame-kdbx-bridge --test conformance -- \
     --ignored regenerate_fixture
   ```
 

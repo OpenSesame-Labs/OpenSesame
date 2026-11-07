@@ -10,7 +10,7 @@
 
 ```bash
 npm run dev:host   # scripts/dev/dev-host.sh: sources scripts/dev/local-env.sh, then
-                # cargo +1.88.0 run -p opensesame-cli -- host run --listen 127.0.0.1:8787
+                # cargo run -p opensesame-cli -- host run --listen 127.0.0.1:8787
 ```
 
 The Host refuses to start from a bare `host run`: it needs `OPENSESAME_ENV`

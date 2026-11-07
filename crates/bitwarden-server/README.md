@@ -57,7 +57,7 @@ PHC parsers take, so the scheme reads such a record itself.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-bitwarden-server   # unit + tests/protocol.rs
+cargo test -p opensesame-bitwarden-server   # unit + tests/protocol.rs
 npm run test:bitwarden-oracle                          # + the bw CLI oracle suites
 ```
 

@@ -65,13 +65,13 @@ cryptographic separation between siblings.
 
 ## Tests
 
-* `cargo +1.88.0 test -p opensesame-spiffe-source` — pure profile/bundle/config
+* `cargo test -p opensesame-spiffe-source` — pure profile/bundle/config
   tests, plus `tests/synthetic_workload_api.rs`: a deterministic in-process
   fake Workload API (`fake` module, `fake-workload-api` feature) driven by a
   script of snapshots, errors and disconnects. This is the unit oracle for
   selection, replacement, withdrawal, malformed updates, outage bounds,
   reconnects and rotation. It is not evidence of SPIRE compatibility.
-* `OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-spiffe-source
+* `OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-spiffe-source
   -- --ignored --nocapture` — `tests/spire_reference.rs`: a real
   `spire-server` + `spire-agent` (v1.12.6, linux-amd64 musl, sha256-pinned)
   with join-token node attestation and the `unix` workload attestor, an entry

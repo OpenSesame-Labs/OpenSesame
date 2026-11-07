@@ -83,13 +83,13 @@ service.
 ## Verify
 
 ```bash
-cargo +1.88.0 test -p opensesame-task-bus --features jetstream
-cargo +1.88.0 test -p opensesame-task-bus --no-default-features
+cargo test -p opensesame-task-bus --features jetstream
+cargo test -p opensesame-task-bus --no-default-features
 
 # Real-server suites (pinned nats-server 2.11.17 from scripts/mtls/mtls-fixtures.sh):
 # roles, routes, TLS topology, callout expiry, delivery semantics, mixed mode
 OPENSESAME_MTLS_FIXTURES=1 \
-  cargo +1.88.0 test -p opensesame-task-bus --features live-tests -- --ignored
+  cargo test -p opensesame-task-bus --features live-tests -- --ignored
 ```
 
 Postgres remains the authoritative Identity outbox (ADR 0010). JetStream is a

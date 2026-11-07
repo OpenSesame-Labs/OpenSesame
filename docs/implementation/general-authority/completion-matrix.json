@@ -23,12 +23,12 @@
     "testsRun": 117,
     "gatesRun": 5,
     "authorityFabric": "117 pass / 0 fail / 0 blocked / 1 unsupported",
-    "domainLib": "cargo +1.88.0 test -p opensesame-domain --lib — 400 passed (theater copied_key + PermissionSet control-role tests removed)",
+    "domainLib": "cargo test -p opensesame-domain --lib — 400 passed (theater copied_key + PermissionSet control-role tests removed)",
     "grantRsRatchet": "crates/domain/src/grant.rs 434 → 264 (Grant::recalls_delivered_material theater helper removed; baseline lowered, not raised)",
     "skepticTheaterClosed": {
-      "AT-CONTROL-ROLE": "Admin POST /grants/{id}/authority with credential.export|policy.edit is 403; Owner 201. cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- --exact routes::local_authority_routes::authority_grants::tests::at_control_role_admin_cannot_issue_export_or_policy_edit",
-      "AT-ROTATION": "execute_connection_rotation completes; connection stays Active; leftover provider cookie still 200. cargo +1.88.0 test -p opensesame-connection-broker --lib -- --exact tests::rotation_leftover::rotation_leaves_leftover_provider_session",
-      "AT-COPIED-KEY": "SessionGrant::permits denies after expiry; encrypt_item/decrypt_item still opens copied ciphertext. cargo +1.88.0 test -p opensesame-human-vault --test copied_key_residual -- --exact expiry_denies_fetch_copied_key_still_decrypts"
+      "AT-CONTROL-ROLE": "Admin POST /grants/{id}/authority with credential.export|policy.edit is 403; Owner 201. cargo test -p opensesame-gateway --bin opensesame-gateway -- --exact routes::local_authority_routes::authority_grants::tests::at_control_role_admin_cannot_issue_export_or_policy_edit",
+      "AT-ROTATION": "execute_connection_rotation completes; connection stays Active; leftover provider cookie still 200. cargo test -p opensesame-connection-broker --lib -- --exact tests::rotation_leftover::rotation_leaves_leftover_provider_session",
+      "AT-COPIED-KEY": "SessionGrant::permits denies after expiry; encrypt_item/decrypt_item still opens copied ciphertext. cargo test -p opensesame-human-vault --test copied_key_residual -- --exact expiry_denies_fetch_copied_key_still_decrypts"
     },
     "in-progress": 0
   },
@@ -140,11 +140,11 @@
           "result": "ok \u2014 dry-run plan/quarantine/rollback"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-provider-openfga --lib grant_tuples",
+          "command": "cargo test -p opensesame-provider-openfga --lib grant_tuples",
           "result": "ok \u2014 Rust mapper mirrors GA-F-02"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- authority_grants",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- authority_grants",
           "result": "ok \u2014 issue path still green with live projector hook"
         }
       ],
@@ -159,15 +159,15 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::access_domains::tests",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::access_domains::tests",
           "result": "ok. 3 passed \u2014 create/list/read, cross-realm refuse, terminate fence"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::grant_offers::tests",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::grant_offers::tests",
           "result": "ok. 1 passed \u2014 activate and revoke"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests",
           "result": "ok. 2 passed \u2014 Host issue_authority HTTP"
         }
       ],
@@ -180,7 +180,7 @@
       "title": "Host storage schema for authority records",
       "status": "verified",
       "verification": "command-backed",
-      "evidence": "cargo +1.88.0 test -p opensesame-storage --test authority_schema (8 ok); cargo +1.88.0 test -p opensesame-storage authority --lib (5 ok); crates/storage/migrations/0034_general_authority.sql in migrations.rs",
+      "evidence": "cargo test -p opensesame-storage --test authority_schema (8 ok); cargo test -p opensesame-storage authority --lib (5 ok); crates/storage/migrations/0034_general_authority.sql in migrations.rs",
       "blockedBy": ["GA-A-01"],
       "notes": "AccessDomain forest, grant sidecar, budget CHECK, ancestor fence; Host HTTP routes still separate"
     },
@@ -190,7 +190,7 @@
       "title": "Lifecycle hook publication for expiry",
       "status": "verified",
       "verification": "command-backed",
-      "evidence": "SubjectKind::AuthorityGrant; crates/lifecycle/src/authority_grant_expiry.rs; storage authority/expiry.rs + gateway scan; cargo +1.88.0 test -p opensesame-lifecycle authority_grant_expiry; cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- --exact lifecycle::authority_grant_scan::authority_grant_expiry_reaches_lifecycle_feed_via_scan; fabric GA-V-33 + GA-V-33b pass",
+      "evidence": "SubjectKind::AuthorityGrant; crates/lifecycle/src/authority_grant_expiry.rs; storage authority/expiry.rs + gateway scan; cargo test -p opensesame-lifecycle authority_grant_expiry; cargo test -p opensesame-gateway --bin opensesame-gateway -- --exact lifecycle::authority_grant_scan::authority_grant_expiry_reaches_lifecycle_feed_via_scan; fabric GA-V-33 + GA-V-33b pass",
       "blockedBy": ["GA-H-02"],
       "notes": "Feed half proven; auth-path deny remains fenced_authority expires_at (ADR 0121). Live OpenBao stack still optional/unavailable without .tools/bin/bao."
     },
@@ -202,7 +202,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib validated_grant_chain::tests::receipt_chain_binds_grant_or_lineage",
+          "command": "cargo test -p opensesame-domain --lib validated_grant_chain::tests::receipt_chain_binds_grant_or_lineage",
           "result": "ok \u2014 alone binds grant; lineage binds root+child"
         }
       ],
@@ -278,7 +278,7 @@
           "result": "ok. audience templates with honest support statuses"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests",
           "result": "ok. 2 passed \u2014 issue writes fence-clear authority; members forbidden"
         }
       ],
@@ -370,7 +370,7 @@
           "result": "ok. 1 passed"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-cli --test capability_parity",
+          "command": "cargo test -p opensesame-cli --test capability_parity",
           "result": "ok. 2 passed"
         }
       ],
@@ -491,7 +491,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib",
+          "command": "cargo test -p opensesame-domain --lib",
           "result": "ok. 301 passed; 0 failed",
           "note": "not_before, assurance, auth age, networks, parameter digest, offline, parent budget omission"
         }
@@ -505,7 +505,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib",
+          "command": "cargo test -p opensesame-domain --lib",
           "result": "ok. 301 passed",
           "note": "complete constraint attenuation + resource containment algebra"
         }
@@ -519,7 +519,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib",
+          "command": "cargo test -p opensesame-domain --lib",
           "result": "ok. 301 passed",
           "note": "ValidatedGrantChain private constructor; no serde"
         }
@@ -533,7 +533,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-authz --lib",
+          "command": "cargo test -p opensesame-authz --lib",
           "result": "ok. 29 passed",
           "note": "PolicyEngine requires ValidatedGrantChain; client assurance ignored"
         }
@@ -547,7 +547,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib permission",
+          "command": "cargo test -p opensesame-domain --lib permission",
           "result": "AT-CORRELATED covered",
           "note": "PermissionEntry/PermissionSet; AT-CORRELATED unit test"
         }
@@ -561,11 +561,11 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib access_domain::",
+          "command": "cargo test -p opensesame-domain --lib access_domain::",
           "result": "ok. 55 passed (forest acyclicity, realm bounds, personal non-sharing, depth cap)"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway access_domains",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway access_domains",
           "result": "ok. 3 passed (create/list/read, cross-realm refuse, terminate fences descendant)"
         }
       ],
@@ -579,15 +579,15 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_offers",
+          "command": "cargo test -p opensesame-storage --test authority_offers",
           "result": "ok. 4 passed \u2014 snapshot digest/cap/uniqueness; live without writer refused; trusted writer late-revision bound; unauthorized writer and class refused"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --lib authority::offers_live",
+          "command": "cargo test -p opensesame-storage --lib authority::offers_live",
           "result": "ok. 2 passed \u2014 live create/activate on the Host store"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --lib authority::fix_contractor::",
+          "command": "cargo test -p opensesame-storage --lib authority::fix_contractor::",
           "result": "ok. snapshot late-add refused at offer activation"
         }
       ],
@@ -601,7 +601,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib budget::",
+          "command": "cargo test -p opensesame-domain --lib budget::",
           "result": "ok. 72 passed; 0 failed",
           "note": "reserve/settle/release + parallel conservation; Host invoke spends via reserve_invoke_budgets in intents_budget.rs"
         }
@@ -615,15 +615,15 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-enforcement --lib",
+          "command": "cargo test -p opensesame-enforcement --lib",
           "result": "descriptor/conformance/unsupported + platform_catalog incl. discord-live/blocky-live-saas"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-authz --lib issuance",
+          "command": "cargo test -p opensesame-authz --lib issuance",
           "result": "ok. 5 passed \u2014 broker admitted; apple-ios/android/discord-live/blocky-live-saas refused; unknown platform refused"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- authority_grants",
+          "command": "cargo test -p opensesame-gateway --bin opensesame-gateway -- authority_grants",
           "result": "ok. 4 passed \u2014 default broker issues; unsupported platforms 422 and write no sidecar"
         }
       ],
@@ -637,7 +637,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-dns-enforcement --lib",
+          "command": "cargo test -p opensesame-dns-enforcement --lib",
           "result": "ok. 49 passed; empty-group disable refused; DNS-only coverage"
         },
         {
@@ -654,11 +654,11 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-sandbox --lib",
+          "command": "cargo test -p opensesame-sandbox --lib",
           "result": "ok. 46 passed; native binary refusal; generation fence"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-sandbox --features wasm-runtime,fixtures --test payloads -- --exact a_native_binary_is_refused_by_the_spawn_path_itself",
+          "command": "cargo test -p opensesame-sandbox --features wasm-runtime,fixtures --test payloads -- --exact a_native_binary_is_refused_by_the_spawn_path_itself",
           "result": "ok. 1 passed \u2014 ELF/Mach-O/PE/shebang refused by spawn, not sniffing alone; fabric GA-V-60"
         }
       ]
@@ -671,7 +671,7 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-collab-adapter --tests",
+          "command": "cargo test -p opensesame-collab-adapter --tests",
           "result": "ok across registry(6)/refusals(11)/reconcile(6)/portal(5)/rate_limit(5)/apply(6); live_apply ignored/optional"
         },
         {
@@ -764,11 +764,11 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_fence",
+          "command": "cargo test -p opensesame-storage --test authority_fence",
           "result": "ok. 6 passed (root revoke blocks descendants at commit; cascade closes columns)"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --lib authority::tests::a_revoked_ancestor",
+          "command": "cargo test -p opensesame-storage --lib authority::tests::a_revoked_ancestor",
           "result": "ok. 1 passed; fabric GA-V-25 pass"
         },
         {
@@ -787,19 +787,19 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-domain --lib budget::",
+          "command": "cargo test -p opensesame-domain --lib budget::",
           "result": "ok. 72 passed (BUD-RESERVE domain ledger)"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_atomic",
+          "command": "cargo test -p opensesame-storage --test authority_atomic",
           "result": "ok. 7 listed incl. hundred-children / retry / revoke settle"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --lib authority::fix_workcell",
+          "command": "cargo test -p opensesame-storage --lib authority::fix_workcell",
           "result": "ok. 1 passed (100-cap concurrent conservation); fabric GA-V-47"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --lib authority::invoke_spend",
+          "command": "cargo test -p opensesame-storage --lib authority::invoke_spend",
           "result": "ok. 2 passed (skip when unconfigured; concurrent dispatch conserves capacity)",
           "note": "Host intents create() calls reserve_invoke_budgets before execute and settles after"
         }
@@ -815,15 +815,15 @@
       "verification": "command-backed",
       "evidence": [
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_restore",
+          "command": "cargo test -p opensesame-storage --test authority_restore",
           "result": "ok. 6 passed (restore fences, voids held capacity, outside witness)"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix",
+          "command": "cargo test -p opensesame-storage --test authority_adversarial_matrix",
           "result": "ok. 5 passed incl. at_state_restore_generation_fence + at_multiwriter_lease_fence"
         },
         {
-          "command": "cargo +1.88.0 test -p opensesame-storage --test authority_projection",
+          "command": "cargo test -p opensesame-storage --test authority_projection",
           "result": "ok (existing projection_applied freshness tests)",
           "note": "invoke path fences via intents_projection::authorize_openfga"
         },

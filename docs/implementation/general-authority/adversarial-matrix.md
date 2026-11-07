@@ -8,33 +8,33 @@ stay **still-open** unless a local refusal/uncertainty path is named.
 Reproduce a single domain AT:
 
 ```bash
-cargo +1.88.0 test -p opensesame-domain --lib -- authority_adversarial_matrix::
+cargo test -p opensesame-domain --lib -- authority_adversarial_matrix::
 ```
 
 Reproduce storage AT wrappers:
 
 ```bash
-cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix
+cargo test -p opensesame-storage --test authority_adversarial_matrix
 ```
 
 ## Priority local coverage
 
 | Test ID | Status | file::test | Command |
 |---|---|---|---|
-| AT-REALM-ID | **new** | `authority_adversarial_matrix::at_realm_id_cross_realm_domain_refused` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_realm_id_cross_realm_domain_refused` |
-| AT-REALM-ID (storage) | **new** | `authority_adversarial_matrix::at_realm_id_cross_realm_domain_parent_refused` | `cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_realm_id_cross_realm_domain_parent_refused` |
-| AT-NOT-BEFORE | **new** | `authority_adversarial_matrix::at_not_before_parent_start_bypass_refused` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_not_before_parent_start_bypass_refused` |
-| AT-PARAMETERS | **new** | `authority_adversarial_matrix::at_parameters_digest_and_frozen_intent_refused` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_parameters_digest_and_frozen_intent_refused` |
-| AT-ROLE-EDIT | **new** | `authority_adversarial_matrix::at_role_edit_envelope_does_not_expand` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_role_edit_envelope_does_not_expand` |
-| AT-SNAPSHOT-ADD | **new** | `authority_adversarial_matrix::at_snapshot_add_unreviewed_principal_gets_nothing` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_snapshot_add_unreviewed_principal_gets_nothing` |
-| AT-SNAPSHOT-REMOVE | **new** | `authority_adversarial_matrix::at_snapshot_remove_then_readd_does_not_resurrect` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_snapshot_remove_then_readd_does_not_resurrect` |
-| AT-COHORT-CYCLE | **new** | `authority_adversarial_matrix::at_cohort_cycle_refused` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_cohort_cycle_refused` |
-| AT-COHORT-CYCLE (storage) | **new** | `authority_adversarial_matrix::at_cohort_cycle_domain_reparent_refused` | `cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_cohort_cycle_domain_reparent_refused` |
-| AT-CROSS-GRANT | **new** | `authority_adversarial_matrix::at_cross_grant_action_resource_recombination_refused` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_cross_grant_action_resource_recombination_refused` |
-| AT-APPROVAL-STALE | **new** | `authority_adversarial_matrix::at_approval_stale_intent_digest_refused` + `evidence::tests::at_approval_stale_bound_digest_mismatch` | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_approval_stale_intent_digest_refused` / `cargo +1.88.0 test -p opensesame-authz --lib -- --exact evidence::tests::at_approval_stale_bound_digest_mismatch` |
-| AT-UNKNOWN-FIELD | **new** | `authority_adversarial_matrix::at_unknown_field_schema_refused` (`GrantConstraints` now `deny_unknown_fields`) | `cargo +1.88.0 test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_unknown_field_schema_refused` |
-| AT-STATE-RESTORE | **new** | `authority_adversarial_matrix::at_state_restore_generation_fence` | `cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_state_restore_generation_fence` |
-| AT-MULTIWRITER | **new** | `authority_adversarial_matrix::at_multiwriter_lease_fence` | `cargo +1.88.0 test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_multiwriter_lease_fence` |
+| AT-REALM-ID | **new** | `authority_adversarial_matrix::at_realm_id_cross_realm_domain_refused` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_realm_id_cross_realm_domain_refused` |
+| AT-REALM-ID (storage) | **new** | `authority_adversarial_matrix::at_realm_id_cross_realm_domain_parent_refused` | `cargo test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_realm_id_cross_realm_domain_parent_refused` |
+| AT-NOT-BEFORE | **new** | `authority_adversarial_matrix::at_not_before_parent_start_bypass_refused` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_not_before_parent_start_bypass_refused` |
+| AT-PARAMETERS | **new** | `authority_adversarial_matrix::at_parameters_digest_and_frozen_intent_refused` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_parameters_digest_and_frozen_intent_refused` |
+| AT-ROLE-EDIT | **new** | `authority_adversarial_matrix::at_role_edit_envelope_does_not_expand` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_role_edit_envelope_does_not_expand` |
+| AT-SNAPSHOT-ADD | **new** | `authority_adversarial_matrix::at_snapshot_add_unreviewed_principal_gets_nothing` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_snapshot_add_unreviewed_principal_gets_nothing` |
+| AT-SNAPSHOT-REMOVE | **new** | `authority_adversarial_matrix::at_snapshot_remove_then_readd_does_not_resurrect` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_snapshot_remove_then_readd_does_not_resurrect` |
+| AT-COHORT-CYCLE | **new** | `authority_adversarial_matrix::at_cohort_cycle_refused` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_cohort_cycle_refused` |
+| AT-COHORT-CYCLE (storage) | **new** | `authority_adversarial_matrix::at_cohort_cycle_domain_reparent_refused` | `cargo test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_cohort_cycle_domain_reparent_refused` |
+| AT-CROSS-GRANT | **new** | `authority_adversarial_matrix::at_cross_grant_action_resource_recombination_refused` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_cross_grant_action_resource_recombination_refused` |
+| AT-APPROVAL-STALE | **new** | `authority_adversarial_matrix::at_approval_stale_intent_digest_refused` + `evidence::tests::at_approval_stale_bound_digest_mismatch` | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_approval_stale_intent_digest_refused` / `cargo test -p opensesame-authz --lib -- --exact evidence::tests::at_approval_stale_bound_digest_mismatch` |
+| AT-UNKNOWN-FIELD | **new** | `authority_adversarial_matrix::at_unknown_field_schema_refused` (`GrantConstraints` now `deny_unknown_fields`) | `cargo test -p opensesame-domain --lib -- --exact authority_adversarial_matrix::at_unknown_field_schema_refused` |
+| AT-STATE-RESTORE | **new** | `authority_adversarial_matrix::at_state_restore_generation_fence` | `cargo test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_state_restore_generation_fence` |
+| AT-MULTIWRITER | **new** | `authority_adversarial_matrix::at_multiwriter_lease_fence` | `cargo test -p opensesame-storage --test authority_adversarial_matrix -- --exact at_multiwriter_lease_fence` |
 
 ## Already covered (named behavior; AT aliases where added)
 

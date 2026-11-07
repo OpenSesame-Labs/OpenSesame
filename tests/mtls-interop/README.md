@@ -49,7 +49,7 @@ also serves `apps/pages/scripts/verify-browser-cert.mjs` in
 ```bash
 npm run test:mtls:integration       # fetch and verify fixtures, start servers, run every ignored mTLS suite
 npm run test:mtls:fixtures          # fetch and sha256-verify nats-server, OpenBao, SPIRE, Caddy only
-OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-mtls-interop -- --ignored
+OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-mtls-interop -- --ignored
 ```
 
 Every test is `#[ignore]`d unless run with `--ignored` and

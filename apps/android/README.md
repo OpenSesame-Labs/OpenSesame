@@ -43,7 +43,7 @@ library first, then provide its directory to JNA:
 
 ```bash
 export CARGO_TARGET_DIR="$HOME/.cache/packages/cargo-target"
-cargo +1.88.0 build -p opensesame-authenticator-core --features ffi
+cargo build -p opensesame-authenticator-core --features ffi
 cd apps/android/android
 JAVA_TOOL_OPTIONS="-Djna.library.path=$CARGO_TARGET_DIR/debug" \
   gradle :app:testDebugUnitTest -PopensesameWalletBackendUrl=https://identity.example

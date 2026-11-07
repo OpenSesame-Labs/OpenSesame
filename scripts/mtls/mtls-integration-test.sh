@@ -137,7 +137,7 @@ else
 fi
 
 # ---- 3. ignored Rust suites --------------------------------------------------
-PRESENT="$(cargo +1.88.0 metadata --no-deps --format-version 1 2>/dev/null \
+PRESENT="$(cargo metadata --no-deps --format-version 1 2>/dev/null \
   | python3 -c 'import json,sys; print("\n".join(sorted(p["name"] for p in json.load(sys.stdin)["packages"])))')"
 rust_step() { # id crate required-default profile features... -- filter-args...
   local id="$1" crate="$2" req="$3" profile="$4"; shift 4
@@ -149,7 +149,7 @@ rust_step() { # id crate required-default profile features... -- filter-args...
   step --id "${id}" --claim "${crate}" --runner cargo --required "${req}" --timeout $((STEP_TIMEOUT + 60)) \
     --profile "${profile}" --target "cargo test -p ${crate} -- --ignored" \
     --expected "real-protocol tests of ${crate} run against the pinned fixtures and pass (0 selected = failure)" -- \
-    "${BOUNDED[@]}" cargo +1.88.0 test -p "${crate}" "$@"
+    "${BOUNDED[@]}" cargo test -p "${crate}" "$@"
 }
 rust_step it-spiffe-source opensesame-spiffe-source true "spiffe workload api (spire ${BIN[spire-agent]:+$(bash "${FIXTURES}" version spire-agent)})" --all-features -- --ignored
 rust_step it-ingress-evidence opensesame-ingress-evidence true "trusted_ingress (caddy)" --all-features -- --ignored

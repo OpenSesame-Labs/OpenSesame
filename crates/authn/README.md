@@ -38,7 +38,7 @@ Every module is re-exported at the crate root.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-authn
+cargo test -p opensesame-authn
 ```
 
 Adversarial cases live in `src/adversarial.rs`.

@@ -9,7 +9,7 @@
 # copies ops/compose/prebuilt/opensesame from the build context to
 # /usr/local/bin/opensesame with mode 0755. CI writes that binary; it is not
 # committed. Leave it out of .dockerignore so the context still contains it.
-FROM rust:1.94.1-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6e6621506ba959f9685b308a55 AS chef
+FROM rust:1.97.1-bookworm@sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97 AS chef
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config mold \
   && rm -rf /var/lib/apt/lists/* \

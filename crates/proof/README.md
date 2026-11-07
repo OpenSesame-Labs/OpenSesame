@@ -37,7 +37,7 @@ HTTP Message Signatures subset.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-proof
+cargo test -p opensesame-proof
 npm run audit:shuttle   # includes the shuttle_replay model check
 npm run audit:miri      # includes the replay cache unit tests under Miri
 npm run test:task-access

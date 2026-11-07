@@ -43,7 +43,7 @@ else.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-invoke-through
+cargo test -p opensesame-invoke-through
 npm run audit:daemon-deps   # the daemon dependency budget this crate sits inside
 ```
 

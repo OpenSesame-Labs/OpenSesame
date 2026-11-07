@@ -170,7 +170,7 @@ async function digest(file) {
 function llvmTools(output, host) {
   const sysroot = run(
     "rustc",
-    ["+1.88.0", "--print", "sysroot"],
+    ["--print", "sysroot"],
     output,
     "windows-stack-sysroot",
   );

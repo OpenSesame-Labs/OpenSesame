@@ -75,9 +75,9 @@ Source areas under `src/`: `discovery.rs`, `keychain.rs`, `cli_probe.rs`,
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-daemon
-cargo +1.88.0 test -p opensesame-daemon --features tailscale
-cargo +1.88.0 run -p opensesame-cli -- daemon run --help
+cargo test -p opensesame-daemon
+cargo test -p opensesame-daemon --features tailscale
+cargo run -p opensesame-cli -- daemon run --help
 npm run audit:daemon-deps
 ```
 

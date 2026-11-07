@@ -9,8 +9,8 @@ toolchain. The `opensesame` binary that links them lives in
 plugin `opensesame-surrogate-proxy`).
 
 ```bash
-cargo +1.88.0 test -p opensesame-sealed-store      # one crate
-cargo +1.88.0 test --workspace --all-targets       # everything (CI scopes it to the crates a diff reaches)
+cargo test -p opensesame-sealed-store      # one crate
+cargo test --workspace --all-targets       # everything (CI scopes it to the crates a diff reaches)
 npm run audit:clippy                                  # rustfmt + pedantic Clippy
 ```
 

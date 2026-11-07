@@ -8,8 +8,8 @@ evaluation / mutation. Storage writers and OpenFGA projection stay as named in
 
 | Surface | Evidence |
 |---|---|
-| `ValidatedGrantChain` + authz decide | `cargo +1.88.0 test -p opensesame-authz --lib` |
-| Broker invoke + receipt binding | `cargo +1.88.0 test -p opensesame-broker --lib` |
+| `ValidatedGrantChain` + authz decide | `cargo test -p opensesame-authz --lib` |
+| Broker invoke + receipt binding | `cargo test -p opensesame-broker --lib` |
 | Intent budget / projection helpers | `crates/gateway/src/routes/intents_*.rs` |
 
 ## Access-domain & offer HTTP
@@ -17,8 +17,8 @@ evaluation / mutation. Storage writers and OpenFGA projection stay as named in
 See [`api-surface.md`](api-surface.md). Contract pin:
 
 ```bash
-cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::access_domains::tests
-cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::grant_offers::tests
+cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::access_domains::tests
+cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::grant_offers::tests
 ```
 
 Router merge: `crates/gateway/src/routes/local_authority_routes.rs` merges
@@ -29,7 +29,7 @@ router); `contract.rs` includes all three sources so undocumented routes fail CI
 
 | Surface | Evidence |
 |---|---|
-| `POST .../grants/{grant_id}/authority` | `cargo +1.88.0 test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests` |
+| `POST .../grants/{grant_id}/authority` | `cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests` |
 
 Records sidecar authority on an existing `grants` row (`issue_authority`). Does not insert the legacy envelope.
 

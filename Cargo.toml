@@ -82,7 +82,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/OpenSesame-Labs/OpenSesame"
-rust-version = "1.94.1"
+rust-version = "1.97.1"
 
 [workspace.dependencies]
 anyhow = "1.0.98"
@@ -145,7 +145,7 @@ subtle = "2.6.1"
 tempfile = "3.20.0"
 proptest = "1.7.0"
 utoipa = { version = "5.3.1", features = ["chrono", "uuid"] }
-wasmtime = { version = "49.0.5", default-features = false, features = [
+wasmtime = { version = "50.0.1", default-features = false, features = [
   "runtime",
   "component-model",
   "cranelift",

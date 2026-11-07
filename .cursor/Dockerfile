@@ -2,7 +2,7 @@
 # Bookworm userspace comes from the pinned Rust image (aligned with
 # rust-toolchain.toml). Node, npm, and Rust on PATH come from the locked mise
 # toolchain. Do not COPY the repo — Cursor checks out separately.
-FROM rust:1.88.0-bookworm@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0
+FROM rust:1.97.1-bookworm@sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97
 
 # Login shells reset PATH in /etc/profile. This file puts the mise shims back,
 # and vscode bash sources it for interactive shells. BASH_ENV covers

@@ -30,7 +30,7 @@ with the recipient's key pair. The keys are client-held.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-xkeys
+cargo test -p opensesame-xkeys
 ```
 
 Property tests use `proptest`; saved failure seeds are in

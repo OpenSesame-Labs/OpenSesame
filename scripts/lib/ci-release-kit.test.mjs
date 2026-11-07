@@ -177,7 +177,7 @@ it("the candidate builder prepares Linux DBus through trusted rootless helpers b
   );
   expect(
     body.indexOf('source "$RUNNER_TEMP/opensesame-dbus/env.sh"'),
-  ).toBeLessThan(body.indexOf("cargo +1.88.0 build --locked --release"));
+  ).toBeLessThan(body.indexOf("cargo build --locked --release"));
   expect(body).not.toMatch(/sudo|apt-get install/);
 });
 

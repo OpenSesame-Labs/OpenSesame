@@ -30,7 +30,7 @@ allowlist.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-uds-authn
+cargo test -p opensesame-uds-authn
 npm run audit:daemon-deps
 ```
 

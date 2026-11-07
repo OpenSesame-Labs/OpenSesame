@@ -11,13 +11,13 @@ source "$ROOT/.tools/run/env.sh"
 export OPENSESAME_DEBUG_RUN="${OPENSESAME_DEBUG_RUN:-live-stack}"
 
 echo "== unit/provider tests =="
-cargo +1.88.0 test --lib -p opensesame-provider-openfga -p opensesame-provider-openbao
+cargo test --lib -p opensesame-provider-openfga -p opensesame-provider-openbao
 
 echo "== live OpenFGA/OpenBao rust tests =="
-cargo +1.88.0 test -p opensesame-provider-openfga -p opensesame-provider-openbao -- --ignored --nocapture
+cargo test -p opensesame-provider-openfga -p opensesame-provider-openbao -- --ignored --nocapture
 
 echo "== build gateway/cli =="
-cargo +1.88.0 build -p opensesame-cli
+cargo build -p opensesame-cli
 
 # Start gateway with live providers
 pkill -f 'opensesame host run' 2>/dev/null || true
@@ -105,7 +105,7 @@ print("l3_denied_ok")
 PY
 
 echo "== OpenBao bearer path denied (direct) =="
-cargo +1.88.0 test -p opensesame-provider-openbao live_openbao_denies_bearer -- --ignored --nocapture
+cargo test -p opensesame-provider-openbao live_openbao_denies_bearer -- --ignored --nocapture
 
 echo "== battle tests =="
 ./scripts/test/battle-test.sh

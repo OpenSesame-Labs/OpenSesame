@@ -33,7 +33,7 @@ provider outcome goes to `ReconciliationRequired` instead of being retried.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-rotation
+cargo test -p opensesame-rotation
 npm run audit:shuttle   # shared state never takes an illegal edge
 npm run audit:kani      # bounded proofs in the `kani_proofs` module
 ```

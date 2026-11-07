@@ -6,7 +6,7 @@
 //! agent). Proves the source fetches the configured SVID through the real
 //! Workload API, then deletes the entry and proves withdrawal.
 //!
-//! Run: `OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-spiffe-source -- --ignored --nocapture`
+//! Run: `OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-spiffe-source -- --ignored --nocapture`
 
 #[path = "support/spire.rs"]
 mod spire;

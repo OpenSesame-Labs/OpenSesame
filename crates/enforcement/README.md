@@ -45,7 +45,7 @@ clock reads (the caller passes seconds), and `#![forbid(unsafe_code)]`.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-enforcement
+cargo test -p opensesame-enforcement
 ```
 
 Integration suites: `tests/conformance_rules.rs`, `platform_catalog.rs`,

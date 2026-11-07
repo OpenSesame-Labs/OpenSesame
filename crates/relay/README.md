@@ -33,7 +33,7 @@ the gateway and the holder cannot disagree.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-relay
+cargo test -p opensesame-relay
 npm run test:mutation:rust   # src/lib.rs is in the mutation scope
 ```
 

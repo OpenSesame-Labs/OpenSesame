@@ -162,7 +162,7 @@ local gateway with no Identity API; a security audit note under
   `daemon install` writing a unit (today it only prints how to run
   `opensesame daemon run` as a login item).
 
-**Exit:** `cargo +1.88.0 test --workspace --all-targets`; `npm run test:live-stack`,
+**Exit:** `cargo test --workspace --all-targets`; `npm run test:live-stack`,
 `test:nats-dogfood`, `test:task-access`, `test:mtls`, `test:mtls:integration`
 against `opensesame daemon run`; `npm run audit:daemon-deps` at zero; the
 browserpass and KeePassXC bridge tests through the argv[0] entry points.

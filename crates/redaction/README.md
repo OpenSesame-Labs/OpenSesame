@@ -37,7 +37,7 @@ table, run by both planes.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-redaction
+cargo test -p opensesame-redaction
 npm run audit:miri             # runs this crate's tests under Miri
 npm run test:mutation:rust     # src/lib.rs is in the mutation scope
 ```

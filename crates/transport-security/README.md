@@ -51,7 +51,7 @@ checking off.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-transport-security
+cargo test -p opensesame-transport-security
 npm run test:mtls              # fast suite; this crate is required
 npm run test:mtls:integration  # pinned nats-server / OpenBao / SPIRE / Caddy fixtures
 ```

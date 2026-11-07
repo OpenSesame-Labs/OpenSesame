@@ -104,7 +104,7 @@ jobs:
           npm run test:coverage:ts
       - name: Install pinned Rust coverage driver
         if: matrix.suite == 'rust'
-        run: cargo +1.88.0 install cargo-llvm-cov --version 0.6.21 --locked
+        run: cargo install cargo-llvm-cov --version 0.6.21 --locked
       - name: Rust coverage ratchets
         if: matrix.suite == 'rust'
         run: |

@@ -45,12 +45,12 @@ Every secret is a file path, read once.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-nats-callout
-cargo +1.88.0 build -p opensesame-nats-callout --bin opensesame-nats-auth-bridge
+cargo test -p opensesame-nats-callout
+cargo build -p opensesame-nats-callout --bin opensesame-nats-auth-bridge
 # Live tests against the pinned nats-server are #[ignore]d (callout, xkey,
 # and live_callout_service: discovery + load balancing across two bridges)
 npm run test:mtls:fixtures
-OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-nats-callout -- --ignored
+OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-nats-callout -- --ignored
 ```
 
 The crate is listed in

@@ -238,7 +238,7 @@ pub fn list_secret_changelog(
         .filter(|e| e.project_id == project_id)
         .cloned()
         .collect();
-    entries.sort_by(|a, b| b.occurred_at.cmp(&a.occurred_at));
+    entries.sort_by_key(|e| std::cmp::Reverse(e.occurred_at));
     entries.into_iter().take(limit.clamp(1, 200)).collect()
 }
 

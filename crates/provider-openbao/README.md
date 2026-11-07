@@ -36,10 +36,10 @@ certificate (`auth/cert`).
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-provider-openbao
+cargo test -p opensesame-provider-openbao
 # The live certificate-auth run against the pinned `bao` binary is #[ignore]d
 npm run test:mtls:fixtures
-OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-provider-openbao -- --ignored
+OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-provider-openbao -- --ignored
 ```
 
 A plaintext `bao server -dev` cannot authenticate a certificate, so it is not a

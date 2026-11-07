@@ -46,7 +46,7 @@ Row types are the `Stored*` structs exported from [`src/lib.rs`](src/lib.rs).
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-storage
+cargo test -p opensesame-storage
 npm run test:mutation:rust   # src/lib.rs is in the mutation scope
 ```
 

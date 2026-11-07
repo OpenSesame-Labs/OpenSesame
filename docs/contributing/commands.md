@@ -99,7 +99,7 @@ npm run generate:sbom       # CycloneDX SBOM to sbom/bom.json
 npm run docs:index          # rewrite the generated tables in docs/adr, docs/security/audits and docs/evidence
 npm run verify              # lint + lint:anti-slop + test:anti-slop + quality + test:rust-lint
                           #   + audit:clippy (rustfmt, full-feature Clippy) + test:plugin-boundary + test:all
-                          #   + cargo +1.88.0 test --workspace --all-targets
+                          #   + cargo test --workspace --all-targets
                           #   + ./scripts/test/battle-test.sh — full local gate
 
 # Security/audit gates (scripts/audit/*-gate.sh; the fuzz passes are in scripts/fuzz/)

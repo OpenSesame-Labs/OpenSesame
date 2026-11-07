@@ -223,7 +223,7 @@ record the result and the client versions in the PR.
 
 Prerequisites: a temp sealed store with at least one entry carrying a
 `url:` trailer line and a TOTP, and an `opensesame` build with the relevant
-features on (`cargo +1.88.0 build -p opensesame-cli --features browserpass,gopass,keepassxc`),
+features on (`cargo build -p opensesame-cli --features browserpass,gopass,keepassxc`),
 with the bridge link names created beside it (`opensesame helpers link`).
 
 1. **KeePassXC opens an exported KDBX.**

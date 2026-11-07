@@ -16,7 +16,7 @@
 # built, so a later build of the shipped flavour cannot swap it, and only each
 # test's own sandbox ever installs it.
 #
-# Needs: cargo (+1.88.0), node, git, and a resolvable @env-spec/parser, one of
+# Needs: cargo (pinned by rust-toolchain.toml), node, git, and a resolvable @env-spec/parser, one of
 #   - `npm install` having run (packages/env-spec-bridge/node_modules), or
 #   - OPENSESAME_E2E_ENVSPEC_DIR naming a directory that holds
 #     node_modules/@env-spec/parser (any package manager's layout will do).
@@ -40,7 +40,7 @@ command -v git >/dev/null || fail "git is required (the sealed store is a git re
 # 1. The plugin's test build, copied before anything else can rebuild the
 #    shared binary of the same name.
 echo "proxied-run: building the plugin's test build"
-built="$(cargo +1.88.0 build -q -p opensesame-surrogate-proxy \
+built="$(cargo build -q -p opensesame-surrogate-proxy \
   --features upstream-override --bin opensesame-surrogate-proxy \
   --message-format=json-render-diagnostics \
   | node -e '
@@ -77,6 +77,6 @@ fi
 
 # 3. The tests. `--include-ignored` because a plain `cargo test` has neither piece.
 echo "proxied-run: running apps/cli/tests/proxied_run_{e2e,refusals,signals,signal_edges}.rs"
-cargo +1.88.0 test -p opensesame-cli --test proxied_run_e2e --test proxied_run_refusals \
+cargo test -p opensesame-cli --test proxied_run_e2e --test proxied_run_refusals \
   --test proxied_run_signals --test proxied_run_signal_edges -- --include-ignored "$@"
 echo "proxied-run: OK"

@@ -53,7 +53,7 @@ The library (`src/lib.rs`) exposes the shared plumbing: `default_sock_path`,
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-credential-helpers
+cargo test -p opensesame-credential-helpers
 ```
 
 [`apps/cli/tests/credential_helpers.rs`](../../apps/cli/tests/credential_helpers.rs) runs `opensesame` under each helper name as a subprocess against a stub daemon on a

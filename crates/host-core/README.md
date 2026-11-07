@@ -40,7 +40,7 @@ corresponds to the `opensesame:host@1.0.0` WIT world.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-host-core
+cargo test -p opensesame-host-core
 ```
 
 ## Related

@@ -45,7 +45,7 @@ domain  →  catalogue::matches (fetched whole, matched locally)
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-breach-intel
+cargo test -p opensesame-breach-intel
 ```
 
 Event names are additive only and pinned by a unit test. A test in `subject`

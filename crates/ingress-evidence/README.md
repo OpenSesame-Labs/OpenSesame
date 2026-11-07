@@ -40,10 +40,10 @@ bundle. Everywhere else the fields are stripped.
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-ingress-evidence
+cargo test -p opensesame-ingress-evidence
 # The Caddy reference-proxy tests are #[ignore]d; fetch the pinned fixtures first
 npm run test:mtls:fixtures
-OPENSESAME_MTLS_FIXTURES=1 cargo +1.88.0 test -p opensesame-ingress-evidence -- --ignored
+OPENSESAME_MTLS_FIXTURES=1 cargo test -p opensesame-ingress-evidence -- --ignored
 ```
 
 A change to an error code or a limit changes the shared corpus: update

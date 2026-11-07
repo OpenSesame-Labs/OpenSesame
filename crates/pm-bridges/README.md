@@ -52,10 +52,10 @@ Environment: `OPENSESAME_STORE_PASSWORD` (a native host has no TTY),
 ## Develop
 
 ```bash
-cargo +1.88.0 test -p opensesame-pm-bridges
-cargo +1.88.0 test -p opensesame-pm-bridges --features browserpass,gopass,keepassxc
-cargo +1.88.0 test -p opensesame-cli --features browserpass,gopass   # golden suites
-cargo +1.88.0 build -p opensesame-cli --features keepassxc              # ship a bridge
+cargo test -p opensesame-pm-bridges
+cargo test -p opensesame-pm-bridges --features browserpass,gopass,keepassxc
+cargo test -p opensesame-cli --features browserpass,gopass   # golden suites
+cargo build -p opensesame-cli --features keepassxc              # ship a bridge
 ```
 
 The golden suites drive `opensesame` under each bridge's name and live in

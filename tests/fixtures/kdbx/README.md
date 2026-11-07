@@ -97,7 +97,7 @@ together — the KDBX bytes change every run (fresh seeds, IVs and UUIDs), so a
 stale `.json` is a failing test, not a silent drift:
 
 ```bash
-cargo +1.88.0 test -p opensesame-kdbx-bridge --test conformance -- \
+cargo test -p opensesame-kdbx-bridge --test conformance -- \
   --ignored regenerate_fixture
 ```
 
