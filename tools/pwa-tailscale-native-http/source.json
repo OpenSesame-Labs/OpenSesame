@@ -158,7 +158,7 @@
     ],
     "existingRuntimeImport": {
       "package": "zod",
-      "version": "4.6.6",
+      "version": "4.6.7",
       "qualification": "Declared root Zod4 dependency; the isolated worker bundle verifies its resolved graph.",
       "entryPoint": "zod/v4/mini",
       "initialization": "z.config({ jitless: true }) before schemas; no dynamic-code schema compilation in the isolated worker."
@@ -511,8 +511,8 @@
     "runtimeSha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
     "thirdPartySha256": "9467842c7b63c53ca102a9485075ee375f3ac3a03b51764ed2d247d530df5fa2",
     "zod": {
-      "version": "4.6.6",
-      "packageSha256": "cff7e142055a9dd9bc2947a71ca3fb5e3aacdfda966d7728993ff3656245b94a",
+      "version": "4.6.7",
+      "packageSha256": "c2d190d9ee4e0bdb60332aaa2130a6a98d65ddb903fe1d29248b15de57832c45",
       "licenseSha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
       "entryPoint": "zod/v4/mini"
     },
