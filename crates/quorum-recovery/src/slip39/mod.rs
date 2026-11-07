@@ -4,7 +4,7 @@
 //!
 //! This is the native consumer of `spec/conformance/slip39/` (45 vectors and
 //! the wordlist, read from the one copy there). It does no I/O: randomness is
-//! the caller's [`rand::RngCore`], and a passphrase is a parameter.
+//! the caller's [`rand::Rng`], and a passphrase is a parameter.
 //!
 //! Two levels, as the standard has them: a group threshold over groups, and a
 //! member threshold inside each group. A plain k-of-n is one group.

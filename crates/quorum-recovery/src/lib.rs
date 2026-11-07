@@ -19,7 +19,7 @@
 //! - [`recover`] — the two together.
 //!
 //! The crate does no I/O and reaches no network. Randomness is the caller's
-//! [`rand::RngCore`]; secrets are held in [`Secret`], wiped on drop and never
+//! [`rand::Rng`]; secrets are held in [`Secret`], wiped on drop and never
 //! printed. The committed fixture `spec/conformance/quorum-recovery-fixture.json`
 //! is opened by this crate and by `packages/app-core/src/lib/quorum/`, each
 //! against the other's output.
