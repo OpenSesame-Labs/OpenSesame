@@ -2,7 +2,7 @@
 //! accounts whose keys are made as any Bitwarden client makes them.
 
 use opensesame_provider_bitwarden::{Kdf, MasterKey, SymmetricKey, MIN_PBKDF2_ITERATIONS};
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde_json::{json, Value};
 use sha2::Sha256;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
@@ -42,14 +42,14 @@ pub struct Keys {
 pub fn keys(email: &str) -> Keys {
     let master = MasterKey::derive(PASSWORD.as_bytes(), email, &KDF).unwrap();
     let mut raw = Zeroizing::new(vec![0_u8; 64]);
-    rand::rngs::OsRng.fill_bytes(&mut raw);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut raw);
     Keys {
         login_hash: master.password_hash_b64(PASSWORD.as_bytes()),
         wrapped_user_key: encrypt(&master.stretch(), &raw),
         user_key: SymmetricKey::from_bytes(&raw).unwrap(),
         org_key: {
             let mut org = Zeroizing::new(vec![0_u8; 64]);
-            rand::rngs::OsRng.fill_bytes(&mut org);
+            rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut org);
             SymmetricKey::from_bytes(&org).unwrap()
         },
     }

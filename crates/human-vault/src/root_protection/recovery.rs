@@ -5,7 +5,7 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
     XChaCha20Poly1305, XNonce,
 };
-use rand::RngCore;
+use rand::Rng;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
@@ -28,7 +28,7 @@ pub fn wrap_vrk_with_recovery_key(
     let cipher = XChaCha20Poly1305::new_from_slice(&kek).map_err(|_| ProtectionError::Crypto)?;
     kek.zeroize();
     let mut nonce = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut nonce);
+    rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
         .encrypt(XNonce::from_slice(&nonce), vrk.0.as_ref())
         .map_err(|_| ProtectionError::Crypto)?;
@@ -88,6 +88,6 @@ pub fn fingerprint_recovery_key(recovery_key: &[u8; 32]) -> String {
 #[must_use]
 pub fn generate_recovery_key() -> [u8; 32] {
     let mut key = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut key);
+    rand::rng().fill_bytes(&mut key);
     key
 }

@@ -17,7 +17,7 @@ use opensesame_quorum_recovery::encoding::{b64url_decode, b64url_encode};
 use opensesame_quorum_recovery::hpke::{seal_base, HpkeAead};
 use opensesame_quorum_recovery::slip39::{self, GenerateParams, GroupSpec};
 use opensesame_quorum_recovery::RecoveryBundle;
-use rand::RngCore;
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -43,7 +43,7 @@ fn dir() -> PathBuf {
     PathBuf::from(dir)
 }
 
-fn rust_bundle(ts: &TsOut, rng: &mut impl RngCore) -> (Value, Value, Vec<String>) {
+fn rust_bundle(ts: &TsOut, rng: &mut impl Rng) -> (Value, Value, Vec<String>) {
     let signed = bundle_of(&ts.fixture).signed_policy;
     let mut secret = [0_u8; 32];
     rng.fill_bytes(&mut secret);
@@ -72,7 +72,7 @@ fn rust_bundle(ts: &TsOut, rng: &mut impl RngCore) -> (Value, Value, Vec<String>
     (bundle.to_value(), payload, mnemonics)
 }
 
-fn releases(ts: &TsOut, rng: &mut impl RngCore) -> Vec<Value> {
+fn releases(ts: &TsOut, rng: &mut impl Rng) -> Vec<Value> {
     let recipient = b64url_decode(&ts.recipient.public_key).unwrap();
     ts.fixture
         .guardians
@@ -110,7 +110,7 @@ fn opens_what_typescript_wrote_and_writes_what_typescript_opens() {
     assert_eq!(second.epoch, 2);
     assert!(second.supersedes.is_some_and(|s| s.epoch == 1));
 
-    let mut rng = rand::rngs::OsRng;
+    let mut rng = rand::rand_core::UnwrapErr(rand::rngs::SysRng);
     let (bundle, payload, mnemonics) = rust_bundle(&ts, &mut rng);
     let out = json!({
         "bundle": bundle,

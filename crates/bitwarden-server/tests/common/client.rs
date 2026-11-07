@@ -8,7 +8,7 @@ use aws_lc_rs::signature::KeyPair as _;
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine as _;
 use opensesame_provider_bitwarden::{Kdf, MasterKey, SymmetricKey};
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
 
@@ -60,7 +60,7 @@ pub fn wrap(password: &str, email: &str, kdf: &Kdf, user_key: &[u8]) -> (String,
 
 pub fn encrypt(key: &SymmetricKey, plaintext: &[u8]) -> String {
     let mut iv = [0u8; 16];
-    rand::rngs::OsRng.fill_bytes(&mut iv);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut iv);
     key.encrypt_with_iv(plaintext, iv).unwrap().to_string()
 }
 
@@ -94,7 +94,7 @@ impl Account {
         let email = typed_email.trim().to_ascii_lowercase();
         let email = email.as_str();
         let mut user_key = Zeroizing::new(vec![0u8; 64]);
-        rand::rngs::OsRng.fill_bytes(&mut user_key);
+        rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut user_key);
         let (hash, wrapped) = wrap(password, email, &kdf, &user_key);
         let pair = KeyPair::generate(KeySize::Rsa2048).unwrap();
         let private: Pkcs8V1Der = pair.as_der().unwrap();

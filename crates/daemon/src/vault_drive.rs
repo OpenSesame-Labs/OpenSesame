@@ -13,7 +13,7 @@
 //! the slot's metadata rename is the one commit point: a crash before it
 //! leaves the previous generation whole, never new bytes under an old number.
 use base64::Engine as _;
-use rand_core::RngCore as _;
+use rand::Rng as _;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -244,7 +244,7 @@ impl DriveStore {
         }
         self.ensure_dir()?;
         let mut raw = [0u8; 32];
-        rand_core::OsRng.fill_bytes(&mut raw);
+        rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut raw);
         let key = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
         let meta = SlotMeta {
             slot: uuid::Uuid::new_v4().to_string(),

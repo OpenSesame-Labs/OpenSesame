@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use opensesame_cli_app_integration::{CliAppIntegrationHost, RootTrustRecord};
 use opensesame_sealed_store::{open_osseal, seal_osseal, ItemDataKey};
-use rand_core::{OsRng, RngCore};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
@@ -204,7 +204,7 @@ fn load_or_create_key(path: &Path) -> Result<ItemDataKey, TrustStoreError> {
         return read_key(path);
     }
     let mut raw = [0u8; KEY_LEN];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     let written = write_private(path, &raw);
     let key = ItemDataKey(raw);
     raw.zeroize();

@@ -106,9 +106,9 @@ impl SessionBox {
 /// A fresh 24-byte nonce, base64 encoded.
 #[must_use]
 pub fn random_nonce_b64() -> String {
-    use rand::RngCore;
+    use rand::Rng;
     let mut nonce = [0u8; NONCE_LEN];
-    rand::rngs::OsRng.fill_bytes(&mut nonce);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut nonce);
     encode_b64(&nonce)
 }
 

@@ -6,7 +6,7 @@ use p256::elliptic_curve::ops::Reduce;
 use p256::elliptic_curve::pkcs8::EncodePublicKey;
 use p256::elliptic_curve::Generate;
 use p256::{PublicKey, Scalar};
-use rand_core::{OsRng, RngCore};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -349,7 +349,7 @@ fn as_point(bytes: &[u8]) -> Result<[u8; 65], RootEnrollError> {
 
 fn random_secret() -> Zeroizing<Vec<u8>> {
     let mut raw = [0u8; 32];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     let secret = Zeroizing::new(raw.to_vec());
     raw.zeroize();
     secret
@@ -357,7 +357,7 @@ fn random_secret() -> Zeroizing<Vec<u8>> {
 
 fn random_id() -> String {
     let mut raw = [0u8; 16];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     let id = hex::encode(raw);
     raw.zeroize();
     id

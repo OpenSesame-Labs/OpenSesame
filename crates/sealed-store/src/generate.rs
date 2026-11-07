@@ -5,7 +5,7 @@
 use std::sync::LazyLock;
 
 use rand::seq::SliceRandom;
-use rand::Rng;
+use rand::RngExt;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -92,12 +92,12 @@ pub fn generate_characters(options: &CharOptions) -> Result<String, NoCharacterC
     }
     let union: Vec<char> = pools.concat();
     let length = options.length.max(pools.len());
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut out: Vec<char> = pools
         .iter()
-        .map(|pool| pool[rng.gen_range(0..pool.len())])
+        .map(|pool| pool[rng.random_range(0..pool.len())])
         .collect();
-    out.extend((out.len()..length).map(|_| union[rng.gen_range(0..union.len())]));
+    out.extend((out.len()..length).map(|_| union[rng.random_range(0..union.len())]));
     out.shuffle(&mut rng);
     Ok(out.into_iter().collect())
 }

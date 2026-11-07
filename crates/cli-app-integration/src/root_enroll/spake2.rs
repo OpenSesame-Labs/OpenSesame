@@ -71,10 +71,10 @@ pub(crate) fn scalar_to_bytes(scalar: &Scalar) -> [u8; 32] {
 }
 
 pub(crate) fn random_scalar() -> Scalar {
-    use rand_core::{OsRng, RngCore};
+    use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
     loop {
         let mut bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut bytes);
+        UnwrapErr(SysRng).fill_bytes(&mut bytes);
         if let Some(scalar) = scalar_from_bytes(&bytes) {
             bytes.zeroize();
             return scalar;

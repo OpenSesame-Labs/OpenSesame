@@ -16,7 +16,7 @@ use opensesame_rotation_web::recipe_doc::{
     key_id_of, signing_key_from_seed_hex, CanaryAttestation, RecipeDocument, SigningKey,
     MAX_RECIPE_BYTES,
 };
-use rand::RngCore as _;
+use rand::Rng as _;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
 
@@ -156,7 +156,7 @@ pub(super) fn emit(document: &RecipeDocument, out: Option<&Path>) -> Result<()> 
 /// When `out` exists or cannot be written.
 pub(super) fn keygen(out: &Path) -> Result<Value> {
     let mut seed = Zeroizing::new([0u8; 32]);
-    rand::rngs::OsRng.fill_bytes(&mut seed[..]);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut seed[..]);
     let key = SigningKey::from_bytes(&seed);
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create_new(true);

@@ -101,7 +101,7 @@ fn another_circles_shares_do_not_open_this_bundle() {
     let bundle = bundle_of(&fixture);
     // A valid SLIP-0039 set from a different backup: it recombines, and the
     // secret it gives is not this circle's.
-    let mut rng = rand::rngs::OsRng;
+    let mut rng = rand::rand_core::UnwrapErr(rand::rngs::SysRng);
     let groups = [slip39::GroupSpec {
         threshold: 2,
         count: 3,

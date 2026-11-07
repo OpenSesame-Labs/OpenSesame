@@ -114,9 +114,9 @@ pub fn sign(
 /// Generate a fresh `whsec_` signing secret.
 #[must_use]
 pub fn generate_secret() -> String {
-    use rand::RngCore as _;
+    use rand::Rng as _;
     let mut bytes = [0u8; 24];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     format!(
         "{SECRET_PREFIX}{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)

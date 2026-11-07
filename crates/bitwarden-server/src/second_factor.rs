@@ -8,7 +8,7 @@
 
 use data_encoding::BASE32_NOPAD;
 use opensesame_authenticator_core::{parse_otpauth, totp_code};
-use rand::RngCore as _;
+use rand::Rng as _;
 use subtle::ConstantTimeEq as _;
 
 /// Bitwarden's provider numbers this server serves.
@@ -24,7 +24,7 @@ const DRIFT: i64 = 1;
 
 fn random(len: usize) -> Vec<u8> {
     let mut bytes = vec![0_u8; len];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     bytes
 }
 

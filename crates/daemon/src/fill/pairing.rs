@@ -15,7 +15,7 @@
 
 use chrono::{DateTime, Utc};
 use opensesame_host_core::operator::constant_time_eq;
-use rand_core::{OsRng, RngCore};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -114,7 +114,7 @@ pub(super) fn digest_hex(token: &str) -> String {
 
 fn fresh_code() -> String {
     let mut bytes = [0u8; CODE_LEN];
-    OsRng.fill_bytes(&mut bytes);
+    UnwrapErr(SysRng).fill_bytes(&mut bytes);
     let len = u8::try_from(CODE_ALPHABET.len()).unwrap_or(u8::MAX);
     bytes
         .iter()

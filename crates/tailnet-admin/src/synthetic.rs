@@ -1,6 +1,6 @@
 //! Synthetic Tailscale-shaped credentials for tests. Generated at runtime only.
 
-use rand_core::{OsRng, RngCore};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use secrecy::{ExposeSecret as _, SecretString};
 
 const ALPHANUM: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -9,7 +9,7 @@ fn random_chars(len: usize) -> String {
     let mut out = String::with_capacity(len);
     let mut buf = [0u8; 1];
     for _ in 0..len {
-        OsRng.fill_bytes(&mut buf);
+        UnwrapErr(SysRng).fill_bytes(&mut buf);
         let index = (buf[0] as usize) % ALPHANUM.len();
         out.push(char::from(ALPHANUM[index]));
     }
@@ -18,7 +18,7 @@ fn random_chars(len: usize) -> String {
 
 fn random_segment(min: usize, max: usize) -> String {
     let span = max - min + 1;
-    let length = min + ((OsRng.next_u32() as usize) % span);
+    let length = min + ((UnwrapErr(SysRng).next_u32() as usize) % span);
     random_chars(length)
 }
 

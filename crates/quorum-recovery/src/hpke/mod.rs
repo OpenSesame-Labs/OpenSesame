@@ -12,7 +12,7 @@
 mod context;
 mod kdf;
 
-use rand::RngCore;
+use rand::Rng;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 pub use context::Context;
@@ -115,7 +115,7 @@ pub fn key_pair_from_secret(secret_key: &[u8]) -> Result<KeyPair, HpkeError> {
 }
 
 /// A fresh key pair.
-pub fn generate_key_pair<R: RngCore + ?Sized>(rng: &mut R) -> KeyPair {
+pub fn generate_key_pair<R: Rng + ?Sized>(rng: &mut R) -> KeyPair {
     let mut scalar = [0_u8; 32];
     rng.fill_bytes(&mut scalar);
     let secret = StaticSecret::from(scalar);
@@ -193,7 +193,7 @@ pub fn setup_base_recipient(
 ///
 /// # Errors
 /// [`HpkeError`] for a bad recipient key.
-pub fn seal_base<R: RngCore + ?Sized>(
+pub fn seal_base<R: Rng + ?Sized>(
     rng: &mut R,
     recipient_public: &[u8],
     info: &[u8],

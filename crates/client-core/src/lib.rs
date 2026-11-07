@@ -8,7 +8,7 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
     XChaCha20Poly1305, XNonce,
 };
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -73,7 +73,7 @@ impl DeviceKey {
     #[must_use]
     pub fn generate() -> Self {
         let mut key = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut key);
+        rand::rng().fill_bytes(&mut key);
         Self { key }
     }
 
@@ -96,7 +96,7 @@ impl DeviceKey {
 pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
     let mut nonce_bytes = [0u8; 24];
-    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    rand::rng().fill_bytes(&mut nonce_bytes);
     let nonce = XNonce::from_slice(&nonce_bytes);
     let mut out = nonce_bytes.to_vec();
     let ct = cipher

@@ -1,6 +1,6 @@
 //! Shared cloud wrapping-secret envelope (C05). Matches TS cloud-envelope.ts.
 
-use rand::RngCore;
+use rand::Rng;
 use zeroize::Zeroize;
 
 use crate::hkdf_expand;
@@ -39,10 +39,10 @@ pub fn create_cloud_local_envelope(
         return Err(ProtectionError::InvalidKeyLength);
     }
     let mut wrapping_secret = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut wrapping_secret);
+    rand::rng().fill_bytes(&mut wrapping_secret);
     let kek = derive_local_kek(&wrapping_secret)?;
     let mut iv = [0u8; 12];
-    rand::thread_rng().fill_bytes(&mut iv);
+    rand::rng().fill_bytes(&mut iv);
     let local_capsule = seal_root_capsule(&kek, context, root_key, &iv)?;
     Ok(CloudLocalEnvelope {
         wrapping_secret,

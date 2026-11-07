@@ -1,10 +1,10 @@
 use super::*;
-use rand::{rngs::OsRng, RngCore};
+use rand::{rngs::SysRng, TryRng as _};
 use zeroize::Zeroizing;
 
 fn fixture() -> (SigningKey, LocalHttpMessageSignatureValidator) {
     let mut seed = Zeroizing::new([0u8; 32]);
-    OsRng
+    SysRng
         .try_fill_bytes(&mut *seed)
         .expect("system RNG unavailable");
     let signing_key = SigningKey::from_bytes(&seed);

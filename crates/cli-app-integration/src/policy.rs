@@ -1,6 +1,6 @@
 //! Conformance policy loaded from `spec/conformance/cli-app-integration.json`.
 
-use rand_core::{OsRng, RngCore as _};
+use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng as _};
 use serde::Deserialize;
 
 pub(crate) const SOURCE: &str = include_str!("../../../spec/conformance/cli-app-integration.json");
@@ -37,6 +37,6 @@ pub(crate) fn daemon_pin_probe_verb() -> &'static str {
 /// Random respond nonce for a pending approval row.
 pub(crate) fn respond_nonce() -> String {
     let mut raw = [0u8; 16];
-    OsRng.fill_bytes(&mut raw);
+    UnwrapErr(SysRng).fill_bytes(&mut raw);
     hex::encode(raw)
 }

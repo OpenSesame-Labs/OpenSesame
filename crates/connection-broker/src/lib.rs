@@ -55,7 +55,7 @@ use opensesame_domain::{
     ConnectionId, ConnectionOwnerKind, ConnectionRef, EgressBinding, MaterializationPolicy,
     OrganizationId, ProjectId, Shareability,
 };
-use rand::RngCore;
+use rand::Rng;
 use sqlx::SqlitePool;
 
 pub use crate::catalog::{AuthMethod, Provider};
@@ -165,7 +165,7 @@ fn generated_connection_configuration(provider_id: &str) -> Option<BTreeMap<Stri
         "plain" => Some(BTreeMap::from([("namespace".into(), "opensesame".into())])),
         "sealed-local" => {
             let mut key = [0_u8; 32];
-            rand::rngs::OsRng.fill_bytes(&mut key);
+            rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut key);
             Some(BTreeMap::from([
                 ("location".into(), "opensesame://sealed-local".into()),
                 (

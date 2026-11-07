@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use rand::RngCore;
+use rand::Rng;
 
 use super::cipher::{check_passphrase, decrypt, encrypt, CipherParams, MAX_ITERATION_EXPONENT};
 use super::error::Slip39Error;
@@ -254,7 +254,7 @@ fn check_generate(p: &GenerateParams<'_>) -> Result<(), Slip39Error> {
 ///
 /// # Errors
 /// [`Slip39Error`] for parameters the standard does not allow.
-pub fn generate<R: RngCore + ?Sized>(
+pub fn generate<R: Rng + ?Sized>(
     params: &GenerateParams<'_>,
     rng: &mut R,
 ) -> Result<Vec<Vec<String>>, Slip39Error> {

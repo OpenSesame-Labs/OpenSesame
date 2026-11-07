@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use opensesame_claims::hash_secret;
 use opensesame_domain::{OrganizationId, OrganizationRole};
 use opensesame_storage::agent_capabilities::{AgentGrant, AgentLaunch};
-use rand::RngCore;
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -70,7 +70,7 @@ fn valid_client(value: &str) -> bool {
 
 fn random_secret() -> String {
     let mut bytes = [0_u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     hex::encode(bytes)
 }
 

@@ -19,7 +19,7 @@ base64 = { workspace = true }
 bytes = { workspace = true }
 directories = "6.0.0"
 hex = { workspace = true }
-rand_core = { version = "0.6", features = ["getrandom"] }
+rand = { workspace = true }
 # The OAuth access-token mint only (one fixed POST, redirects off); every
 # device and key call goes through invoke-through.
 reqwest = { workspace = true }

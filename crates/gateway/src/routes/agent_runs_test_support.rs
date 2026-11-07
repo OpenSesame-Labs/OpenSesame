@@ -4,7 +4,7 @@ use opensesame_claims::hash_secret;
 use opensesame_storage::{
     browser_pairing::NewBrowserPairing, host_authorizations::HostAuthorization,
 };
-use rand::RngCore;
+use rand::Rng;
 
 const ORIGIN: &str = "https://control-tests.example";
 
@@ -18,7 +18,7 @@ pub(in crate::routes::agent_runs) struct Browser {
 
 fn secret() -> String {
     let mut bytes = [0_u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rand_core::UnwrapErr(rand::rngs::SysRng).fill_bytes(&mut bytes);
     hex::encode(bytes)
 }
 
