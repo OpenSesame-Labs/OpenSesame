@@ -1,6 +1,7 @@
 import { listDeviceVaults } from "@opensesame/app-core/lib/vaults.js";
 import { type VaultItem, listedItems } from "@opensesame/vault-core";
 import { useState } from "react";
+import { DeleteVaultSheet } from "../components/DeleteVaultSheet.js";
 import { IconKey } from "../components/IconKey.js";
 import { IconRefresh, IconTrash, IconX } from "../components/Icons.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
@@ -69,6 +70,30 @@ function DeleteVaultSection({
   );
 }
 
+/** The open vault's delete confirmation, naming what goes with it. */
+function DestroyConfirm({
+  count,
+  onDestroy,
+  onClose,
+}: {
+  count: number;
+  onDestroy: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <DeleteVaultSheet
+      label={openVaultLabel()}
+      busy={false}
+      itemCount={count}
+      onDelete={() => {
+        onClose();
+        onDestroy();
+      }}
+      onClose={onClose}
+    />
+  );
+}
+
 /** The trashed items, each restorable or deletable — the delete armed. */
 function TrashList({
   armPurge,
@@ -130,6 +155,86 @@ function TrashList({
   );
 }
 
+
+/** The trash section: what is in it, and emptying it behind an armed key. */
+function TrashSection({
+  trashed,
+  trashCount,
+  emptyArmed,
+  purgeArmedId,
+  onArmEmpty,
+  onEmpty,
+  onCancelEmpty,
+  onArmPurge,
+  onPurge,
+  onRestore,
+}: {
+  trashed: VaultItem[];
+  trashCount: string;
+  emptyArmed: boolean;
+  purgeArmedId: string | null;
+  onArmEmpty: () => void;
+  onEmpty: () => void;
+  onCancelEmpty: () => void;
+  onArmPurge: (id: string) => void;
+  onPurge: (id: string) => void;
+  onRestore: (id: string) => void;
+}) {
+  return (
+      <section className="panel set__danger" id="settings-trash">
+        <div className="panel__head">
+          <div>
+            <h2>Trash</h2>
+          </div>
+        </div>
+        <div className="panel__body">
+          {trashed.length === 0 ? (
+            <p className="set__danger-target">Trash is empty.</p>
+          ) : (
+            <>
+              <div className="keyed-row">
+                <p className="set__danger-target">
+                  {trashCount} in the trash
+                  {emptyArmed
+                    ? " · emptying is unrecoverable. Export first if you are not certain."
+                    : ""}
+                </p>
+                {emptyArmed ? (
+                  <>
+                    <IconKey
+                      label="Empty the trash"
+                      armed
+                      onClick={onEmpty}
+                    >
+                      <IconTrash size={16} />
+                    </IconKey>
+                    <IconKey
+                      label="Cancel"
+                      onClick={onCancelEmpty}
+                    >
+                      <IconX size={16} />
+                    </IconKey>
+                  </>
+                ) : (
+                  <IconKey label="Empty the trash" onClick={onArmEmpty}>
+                    <IconTrash size={16} />
+                  </IconKey>
+                )}
+              </div>
+              <TrashList
+                armPurge={onArmPurge}
+                purgeArmedId={purgeArmedId}
+                purge={onPurge}
+                restore={onRestore}
+                trashed={trashed}
+              />
+            </>
+          )}
+        </div>
+      </section>
+  );
+}
+
 /**
  * Deleting the open vault, and the trash it holds. The vault row names
  * which vault and what goes with it before the key is pressed; the
@@ -141,6 +246,7 @@ export function SettingsDangerPanel() {
   const { items } = useVault();
   const store = useVaultStore();
   const [confirmDestroy, setConfirmDestroy] = useState(false);
+  const [destroySheet, setDestroySheet] = useState(false);
   const [emptyArmed, setEmptyArmed] = useState(false);
   const [purgeArmedId, setPurgeArmedId] = useState<string | null>(null);
   const listed = listedItems(items);
@@ -165,75 +271,47 @@ export function SettingsDangerPanel() {
     <>
       <TransferVaultSection />
 
+      {/* Proportional friction: an empty vault arms in place; a vault with
+          anything in it gets the confirmation sheet, naming the count. */}
       <DeleteVaultSection
         confirmDestroy={confirmDestroy}
         count={count}
-        onArm={() => setConfirmDestroy(true)}
+        onArm={() =>
+          listed.length > 0 ? setDestroySheet(true) : setConfirmDestroy(true)
+        }
         onCancel={() => setConfirmDestroy(false)}
         onDestroy={() => void store.destroy()}
       />
+      {destroySheet ? (
+        <DestroyConfirm
+          count={listed.length}
+          onDestroy={() => void store.destroy()}
+          onClose={() => setDestroySheet(false)}
+        />
+      ) : null}
 
-      <section className="panel set__danger" id="settings-trash">
-        <div className="panel__head">
-          <div>
-            <h2>Trash</h2>
-          </div>
-        </div>
-        <div className="panel__body">
-          {trashed.length === 0 ? (
-            <p className="set__danger-target">Trash is empty.</p>
-          ) : (
-            <>
-              <div className="keyed-row">
-                <p className="set__danger-target">
-                  {trashCount} in the trash
-                  {emptyArmed
-                    ? " · emptying is unrecoverable. Export first if you are not certain."
-                    : ""}
-                </p>
-                {emptyArmed ? (
-                  <>
-                    <IconKey
-                      label="Empty the trash"
-                      armed
-                      onClick={() => {
-                        setEmptyArmed(false);
-                        setPurgeArmedId(null);
-                        void store.emptyTrash();
-                      }}
-                    >
-                      <IconTrash size={16} />
-                    </IconKey>
-                    <IconKey
-                      label="Cancel"
-                      onClick={() => setEmptyArmed(false)}
-                    >
-                      <IconX size={16} />
-                    </IconKey>
-                  </>
-                ) : (
-                  <IconKey label="Empty the trash" onClick={armEmpty}>
-                    <IconTrash size={16} />
-                  </IconKey>
-                )}
-              </div>
-              <TrashList
-                armPurge={armPurge}
-                purgeArmedId={purgeArmedId}
-                purge={(id) => {
-                  setPurgeArmedId(null);
-                  void store.purgeItem(id);
-                }}
-                restore={(id) => {
-                  setPurgeArmedId(null);
-                  void store.restoreItem(id);
-                }}
-                trashed={trashed}
-              />
-            </>
-          )}
-        </div>
-      </section>
+      <TrashSection
+        trashed={trashed}
+        trashCount={trashCount}
+        emptyArmed={emptyArmed}
+        purgeArmedId={purgeArmedId}
+        onArmEmpty={armEmpty}
+        onEmpty={() => {
+          setEmptyArmed(false);
+          setPurgeArmedId(null);
+          void store.emptyTrash();
+        }}
+        onCancelEmpty={() => setEmptyArmed(false)}
+        onArmPurge={armPurge}
+        onPurge={(id) => {
+          setPurgeArmedId(null);
+          void store.purgeItem(id);
+        }}
+        onRestore={(id) => {
+          setPurgeArmedId(null);
+          void store.restoreItem(id);
+        }}
+      />
     </>
   );
 }
