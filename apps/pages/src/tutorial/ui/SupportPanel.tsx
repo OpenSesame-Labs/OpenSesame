@@ -3,7 +3,6 @@ import {
   goalOffered,
   tutorialStartsFrom,
 } from "@opensesame/app-core/tutorial/registry/areas.js";
-import { searchHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
   type GuideGoalDescriptor,
   type HelpTopic,
@@ -11,17 +10,24 @@ import {
   helpTopicsForRoute,
   mergedGuideGoals,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { searchHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import { scopeApplies } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
   type ReactElement,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { useComposition } from "../../bindings/capabilities.js";
 import { IconKey } from "../../components/IconKey.js";
-import { IconSupport, IconTrash, IconX } from "../../components/Icons.js";
+import {
+  IconChevronDown,
+  IconSupport,
+  IconTrash,
+  IconX,
+} from "../../components/Icons.js";
 import { useModalFocus } from "../../lib/modal-focus.js";
 import type { SupportEntry } from "../session.js";
 import { useSupport } from "../session.js";
@@ -36,6 +42,7 @@ import {
   questionsFromTopics,
 } from "./SupportQuestions.js";
 import { SupportTutorials } from "./SupportTutorials.js";
+import { useSupportScroll } from "./use-support-scroll.js";
 import { useTutorialGate } from "./use-tutorial-gate.js";
 
 const SPEAKER = {
@@ -112,7 +119,9 @@ function topicsHere(
  */
 export function SupportPanel({
   gate: atGate = false,
-}: { gate?: boolean }): ReactElement {
+}: {
+  gate?: boolean;
+}): ReactElement {
   const { view, support } = useSupport();
   const sheetRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -120,7 +129,15 @@ export function SupportPanel({
   useModalFocus(true, sheetRef, closeRef, close);
 
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"ask" | "tutorials">("ask");
+  const [tab, setTab] = useState<"ask" | "tutorials">(view.initialTab);
+  const { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll } =
+    useSupportScroll(view.transcript);
+  // Asking while Tutorials is up lands the person on their exchange.
+  const seenTranscript = useRef(view.transcript.length);
+  useEffect(() => {
+    if (view.transcript.length > seenTranscript.current) setTab("ask");
+    seenTranscript.current = view.transcript.length;
+  }, [view.transcript.length]);
 
   const gate = useTutorialGate();
   const { plan } = useComposition();
@@ -194,7 +211,11 @@ export function SupportPanel({
           </button>
         </div>
 
-        <div className="sheet__body support__body">
+        <div
+          ref={bodyRef}
+          className="sheet__body support__body"
+          onScroll={onBodyScroll}
+        >
           {atGate ? null : <ProjectLinks />}
           <RemoteSupportPreview warning={view.warning} />
           <Availability
@@ -253,6 +274,7 @@ export function SupportPanel({
               which would lose exactly the turn that matters most: the first
               question somebody asks and the answer they get back. */}
               <section
+                ref={threadRef}
                 className="support__thread"
                 aria-label="Conversation"
                 aria-live="polite"
@@ -360,6 +382,15 @@ export function SupportPanel({
             </div>
           )}
         </div>
+        {unseenAnswer && tab === "ask" ? (
+          <button
+            type="button"
+            className="support__new-answer"
+            onClick={jumpToAnswer}
+          >
+            New answer <IconChevronDown size={14} />
+          </button>
+        ) : null}
         <div className="sheet__foot">
           <SupportComposer query={query} onQueryChange={setQuery} />
         </div>

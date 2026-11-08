@@ -3,10 +3,11 @@ import {
   clampTypedPath,
 } from "@opensesame/app-core/lib/vault/field-limits.js";
 import type { Folder } from "@opensesame/vault-core";
-import { type KeyboardEvent, useRef } from "react";
+import { type KeyboardEvent, useCallback, useRef } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import { IconStar } from "../../components/Icons.js";
 import { isTouchPointer } from "../../lib/gestures.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { EditorFolder } from "./EditorFolder.js";
 import { EditorType } from "./EditorType.js";
 
@@ -20,6 +21,33 @@ import { EditorType } from "./EditorType.js";
  * the slash is typed. The three fields are one row with one rule under it,
  * and ArrowLeft / ArrowRight at an edge of one cross into the next.
  */
+
+/** Land on the name field with the caret at its end. */
+function focusNameEnd(field: HTMLInputElement | null): void {
+  if (!field) return;
+  field.focus();
+  field.setSelectionRange(field.value.length, field.value.length);
+}
+
+/** ArrowLeft/Right at a field's edge crosses into the next path segment. */
+function crossField(
+  row: HTMLDivElement | null,
+  event: KeyboardEvent<HTMLDivElement>,
+): void {
+  const { key, target } = event;
+  if (event.defaultPrevented || event.shiftKey) return;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return;
+  if (!(target instanceof HTMLInputElement)) return;
+  if (target.selectionStart !== target.selectionEnd) return;
+  const fields = [...(row?.querySelectorAll("input") ?? [])];
+  const from = fields.indexOf(target);
+  const edge = key === "ArrowLeft" ? 0 : target.value.length;
+  const next = fields[from + (key === "ArrowLeft" ? -1 : 1)];
+  if (!next || target.selectionStart !== edge) return;
+  event.preventDefault();
+  next.focus();
+}
+
 export function EditorTitle({
   value,
   folders,
@@ -46,28 +74,19 @@ export function EditorTitle({
 }) {
   const nameField = useRef<HTMLInputElement>(null);
   const row = useRef<HTMLDivElement>(null);
+  // A walkthrough may point at the name; it never types into it.
+  const nameGuide = useGuideTarget<HTMLInputElement>("item.editor.name");
+  const bindName = useCallback(
+    (el: HTMLInputElement | null) => {
+      nameField.current = el;
+      nameGuide(el);
+    },
+    [nameGuide],
+  );
 
-  const toName = () => {
-    const field = nameField.current;
-    if (!field) return;
-    field.focus();
-    field.setSelectionRange(field.value.length, field.value.length);
-  };
-
-  function cross(event: KeyboardEvent<HTMLDivElement>) {
-    const { key, target } = event;
-    if (event.defaultPrevented || event.shiftKey) return;
-    if (key !== "ArrowLeft" && key !== "ArrowRight") return;
-    if (!(target instanceof HTMLInputElement)) return;
-    if (target.selectionStart !== target.selectionEnd) return;
-    const fields = [...(row.current?.querySelectorAll("input") ?? [])];
-    const from = fields.indexOf(target);
-    const edge = key === "ArrowLeft" ? 0 : target.value.length;
-    const next = fields[from + (key === "ArrowLeft" ? -1 : 1)];
-    if (!next || target.selectionStart !== edge) return;
-    event.preventDefault();
-    next.focus();
-  }
+  const toName = () => focusNameEnd(nameField.current);
+  const cross = (event: KeyboardEvent<HTMLDivElement>) =>
+    crossField(row.current, event);
 
   return (
     <div className="editor__titlerow">
@@ -80,7 +99,7 @@ export function EditorTitle({
           onPicked={toName}
         />
         <input
-          ref={nameField}
+          ref={bindName}
           className="editor__name pathfield__name"
           aria-label="Name"
           autoComplete="off"

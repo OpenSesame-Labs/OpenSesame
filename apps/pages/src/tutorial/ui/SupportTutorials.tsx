@@ -34,6 +34,14 @@ export function filterLibrary(
     .filter((group) => group.tutorials.length > 0);
 }
 
+/**
+ * Where a new person starts, in the order a first run meets them: make a
+ * first item, bring passwords in, keep a copy safe. Only tours this route
+ * offers are named — the strip is drawn from the library itself, so it can
+ * never promise a walkthrough the gate would refuse.
+ */
+const START_HERE = ["vault.item.create", "vault.import", "vault.export"];
+
 export function SupportTutorials({
   query,
   route,
@@ -49,9 +57,43 @@ export function SupportTutorials({
     () => filterLibrary(tutorialLibrary(route, gate), query),
     [query, route, gate],
   );
+  const startHere = useMemo(() => {
+    if (query.trim() !== "") return [];
+    const offered = new Map(
+      groups.flatMap((group) =>
+        group.tutorials.map((entry) => [entry.goal.id, entry] as const),
+      ),
+    );
+    return START_HERE.flatMap((id) => offered.get(id) ?? []);
+  }, [groups, query]);
   return (
     <section className="support__library" aria-label="Tutorials">
       {groups.length === 0 ? <p className="hint">No matches.</p> : null}
+      {startHere.length > 0 ? (
+        <div className="support__group">
+          <h3 className="support__section-label">Start here</h3>
+          <ul className="support__tutorials">
+            {startHere.map(({ goal, steps }) => (
+              <li key={`start:${goal.id}`}>
+                <button
+                  type="button"
+                  className="support__tutorial"
+                  data-tutorial={goal.id}
+                  onClick={() =>
+                    void support.startGuide(goal.guide, "authored")
+                  }
+                >
+                  <span className="support__tutorial-title">{goal.title}</span>
+                  <span className="support__tutorial-steps">
+                    {steps} {steps === 1 ? "step" : "steps"}
+                  </span>
+                  <IconPlay size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {groups.map((group) => (
         <div key={group.id} className="support__group">
           <h3 className="support__section-label">{group.title}</h3>

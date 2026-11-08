@@ -24,6 +24,27 @@ const NEEDS_ACCOUNT = ["vault.has-items", "vault.has-account"] as const;
 
 export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
   {
+    id: "vault.item.first",
+    title: "Add your first password",
+    routes: [],
+    requires: ["vault.empty"],
+    guide: [
+      "guide/1",
+      'goal "vault.item.first"',
+      'say "This walkthrough adds the vault\'s first item, step by step. Use a real login when you are ready — or a practice one you delete after; fake details are fine. The tour points and explains; only you type, and only you save."',
+      'navigate "/vault"',
+      'wait route "/vault" timeout=15000',
+      'focus "vault.create" "New item opens the editor. Press it when you are ready — nothing is stored until you save inside the editor." side=bottom',
+      'wait target "vault.create" event=activate timeout=60000',
+      'wait target "item.editor.name" event=appear timeout=15000',
+      'focus "item.editor.name" "Name the item: the site or service it is for, as you would look for it later. For a practice run, Practice is a fine name." side=bottom',
+      'say "Under the name are the website, username and password fields. Fill in what you have; anything blank can be added later by editing the item. This tour never points at the password field and never reads what you type."',
+      'focus "item.editor.save" "Save seals the item into the vault on this device. Press Next here first if you want the tour out of the way, then save when the fields hold what they should." side=top',
+      'success "Once saved, the item appears in the list. Open it any time to copy its password without showing it. And because the vault lives in this browser, set up a backup next — the Export walkthrough shows how."',
+      "end",
+    ].join("\n"),
+  },
+  {
     id: "vault.item.find",
     title: "Find an item: filters and search",
     routes: [],
