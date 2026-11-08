@@ -45,7 +45,6 @@ import type { OriginalCommandDrainRecorder } from "./vault/original-command-reti
 import { captureOriginalIdentitySessionCodeData } from "./vault/original-identity-session-code-data.js";
 export { HostSessionError, IdentityError };
 export type { IdentitySession, Principal };
-
 export { isDeviceIdentityMode, isRemoteIdentityConfigured, remoteIdentityApi };
 
 const IDENTITY_FETCH_MS = 8000;
@@ -555,6 +554,7 @@ export const identitySeams = {
   noteUnauthorized: noteUnauthorizedDefault,
   identityJson: identityJsonDefault,
   connectProvisional: connectProvisionalDefault,
+  resumeSession: resumeCookieSession,
   adoptToken: adoptTokenDefault,
   probeIdentity: probeIdentityDefault,
   fetchPrincipal: fetchPrincipalDefault,
