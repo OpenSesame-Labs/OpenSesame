@@ -208,7 +208,13 @@ test("real shipped peer protocol isolates patched Zod and exact public validatio
   );
   const zodIds = ids.filter((id) => id.includes("/node_modules/zod/"));
   assert.ok(zodIds.length > 0);
-  assert.ok(zodIds.every((id) => id.includes("zod@4.6.6/")));
+  assert.equal(
+    JSON.parse(
+      await readFile(join(repo, "node_modules/zod/package.json"), "utf8"),
+    ).version,
+    "4.6.7",
+  );
+  assert.ok(zodIds.every((id) => id.includes("/node_modules/zod/")));
   assert.ok(!ids.some((id) => id.includes("zod@3.")));
   assert.ok(!zodIds.some((id) => id.includes("/node_modules/zod/v3/")));
   const host = values.find(

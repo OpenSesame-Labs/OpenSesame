@@ -56,7 +56,7 @@ async function bridgeBundle(here, repositoryRoot, pins) {
   const packageBytes = await readFile(packagePath);
   const dependency = JSON.parse(packageBytes);
   if (
-    dependency.version !== "4.6.6" ||
+    dependency.version !== "4.6.7" ||
     hash(packageBytes) !== pins.composition.zod.packageSha256
   )
     throw new Error(

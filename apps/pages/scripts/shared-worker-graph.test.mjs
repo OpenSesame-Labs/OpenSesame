@@ -183,7 +183,13 @@ test("module workers retain original owners, patched Zod, pure versions, and com
   const ids = pureChunks.flatMap((v) => Object.keys(v.modules));
   const zodIds = ids.filter((id) => id.includes("/node_modules/zod/"));
   assert.ok(zodIds.length > 0);
-  assert.ok(zodIds.every((id) => id.includes("zod@4.6.6/")));
+  assert.equal(
+    JSON.parse(
+      await readFile(join(repo, "node_modules/zod/package.json"), "utf8"),
+    ).version,
+    "4.6.7",
+  );
+  assert.ok(zodIds.every((id) => id.includes("/node_modules/zod/")));
   assert.ok(!ids.some((id) => id.includes("zod@3.")));
   assert.ok(!zodIds.some((id) => id.includes("/node_modules/zod/v3/")));
   for (const [i, owner] of [sdkOwner, tailnetOwner].entries()) {
