@@ -1,17 +1,21 @@
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 /** @vitest-environment jsdom */
 import {
+  fakeAgentAlwaysUnavailable,
   fakeAgentAnswering,
 } from "@opensesame/support-agent";
-import { screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
+import type { SupportEntry } from "../session.js";
 import {
   ask,
   mount,
   openPanel,
   resetSupport,
+  showQuestions,
 } from "./support-test-harness.js";
+import { useSupportScroll } from "./use-support-scroll.js";
 
 afterEach(() => {
   resetSupport();
@@ -23,6 +27,7 @@ describe("support keeps the exchange in sight", () => {
     const user = userEvent.setup();
     const scrolled: { on: Element; top: number }[] = [];
     const original = Element.prototype.scrollTo;
+    // SAFETY: the double implements scrollTo's same checked signature; restored in finally.
     Element.prototype.scrollTo = function (
       this: Element,
       options?: ScrollToOptions,
@@ -43,6 +48,111 @@ describe("support keeps the exchange in sight", () => {
       expect(scrolled.every((call) => call.on === body)).toBe(true);
     } finally {
       Element.prototype.scrollTo = original;
+    }
+  });
+});
+
+function entry(id: string, kind: SupportEntry["kind"]): SupportEntry {
+  return {
+    id,
+    kind,
+    text: id,
+    suggestions: [],
+    thoughts: null,
+    computer: [],
+    walkthroughs: [],
+  };
+}
+
+function Thread({ entries }: { entries: readonly SupportEntry[] }) {
+  const scroll = useSupportScroll(entries);
+  return (
+    <div ref={scroll.bodyRef} data-testid="body">
+      {scroll.unseenAnswer ? (
+        <button type="button" onClick={scroll.jumpToAnswer}>
+          New answer
+        </button>
+      ) : null}
+      <section ref={scroll.threadRef}>
+        {entries.map((item) => (
+          <article key={item.id}>{item.id}</article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+describe("support scroll, entry by entry", () => {
+  it("scrolls when written help lands question and answer together", async () => {
+    const user = userEvent.setup();
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollTo;
+    // SAFETY: the double implements the same scroller contract; restored in finally.
+    Element.prototype.scrollTo = function (this: Element) {
+      scrolled.push(this);
+    } as typeof Element.prototype.scrollTo;
+    try {
+      mount(fakeAgentAlwaysUnavailable("no_local_model"));
+      const { panel } = await openPanel(user);
+      await showQuestions(user);
+      scrolled.length = 0;
+      await user.click(
+        within(panel).getByRole("button", {
+          name: "Where do I lock the vault?",
+        }),
+      );
+      await screen.findByText(/Locking drops the vault keys/);
+      const body = panel.querySelector(".support__body");
+      // The pair arrived in one breath; the question in it is still causal.
+      expect(scrolled.length).toBeGreaterThan(0);
+      expect(scrolled.every((on) => on === body)).toBe(true);
+    } finally {
+      Element.prototype.scrollTo = original;
+    }
+  });
+
+  it("offers New answer for a below-fold arrival, and the key jumps to it", async () => {
+    const user = userEvent.setup();
+    // jsdom has no layout: the body ends at 100, the late answer at 300.
+    // SAFETY: fixture rect — the checked hook reads only top/bottom on this seam.
+    const rect = (bottom: number): DOMRect =>
+      ({
+        top: bottom - 40,
+        bottom,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 40,
+        x: 0,
+        y: bottom - 40,
+        toJSON() {},
+      }) as DOMRect;
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      if (this.dataset.testid === "body") return rect(100);
+      return rect(this.textContent === "late" ? 300 : 60);
+    };
+    const scrolled: Element[] = [];
+    const originalScroll = Element.prototype.scrollTo;
+    // SAFETY: the double implements the same scroller contract; restored in finally.
+    Element.prototype.scrollTo = function (this: Element) {
+      scrolled.push(this);
+    } as typeof Element.prototype.scrollTo;
+    try {
+      const first = [entry("q1", "question"), entry("a1", "answer")];
+      const { rerender } = render(<Thread entries={first} />);
+      expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
+      scrolled.length = 0;
+      rerender(<Thread entries={[...first, entry("late", "answer")]} />);
+      const jump = await screen.findByRole("button", { name: "New answer" });
+      // The arrival alone never moved the viewport.
+      expect(scrolled).toHaveLength(0);
+      await user.click(jump);
+      expect(scrolled).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+      Element.prototype.scrollTo = originalScroll;
     }
   });
 });

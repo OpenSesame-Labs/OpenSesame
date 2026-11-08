@@ -32,7 +32,8 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
     const delta =
       article.getBoundingClientRect().top - body.getBoundingClientRect().top;
     const top = body.scrollTop + delta;
-    if (typeof body.scrollTo === "function") {
+    // Not every engine implements element scrollTo (jsdom does not).
+    if (body.scrollTo) {
       body.scrollTo({ top, behavior: "instant" });
     } else {
       body.scrollTop = top;
@@ -52,16 +53,30 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
   });
 
   useEffect(() => {
-    const grew = transcript.length > seen.current;
+    const from = seen.current;
+    const grew = transcript.length > from;
     const last = transcript[transcript.length - 1];
-    const shrank = transcript.length < seen.current;
+    const shrank = transcript.length < from;
     seen.current = transcript.length;
     if (shrank) setUnseenAnswer(false);
     if (!grew || !last) return;
-    if (last.kind === "question") owed.current = transcript.length - 1;
-    const article = articleAt(transcript.length - 1);
+    // The person's own question may not be the last entry: written help
+    // appends the question and its answer in one breath. The newest
+    // question among what just landed is still the causal one — scroll
+    // to it and let its answer read under it.
+    let questionAt = -1;
+    for (let index = transcript.length - 1; index >= from; index -= 1) {
+      if (transcript[index]?.kind === "question") {
+        questionAt = index;
+        break;
+      }
+    }
+    if (questionAt >= 0) owed.current = questionAt;
+    const article = articleAt(
+      questionAt >= 0 ? questionAt : transcript.length - 1,
+    );
     if (!article) return;
-    if (last.kind === "question") {
+    if (questionAt >= 0) {
       setUnseenAnswer(false);
       owed.current = null;
       bringToTop(article);
