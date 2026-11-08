@@ -16,7 +16,7 @@ import {
   discardPendingImport,
   holdPendingImport,
 } from "@opensesame/app-core/lib/vault/pending-import.js";
-import { useRef } from "react";
+import { type ComponentType, useRef, useState } from "react";
 import { usePendingImport } from "../../bindings/pending-import.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconDownload, IconX } from "../../components/Icons.js";
@@ -47,12 +47,32 @@ function useImportPicker() {
  * `road` is the door's card, beside Set up your own and Join a session.
  * `foot` is the sign-in screen's link, beside Use without an account.
  */
+type SourceSheetProps = { onPick: () => void; onClose: () => void };
+
 export function ImportRoadButton({
   variant = "road",
 }: {
   variant?: "road" | "foot";
 }) {
-  const { open, picker } = useImportPicker();
+  const { open: pick, picker } = useImportPicker();
+  const [Sheet, setSheet] = useState<ComponentType<SourceSheetProps> | null>(
+    null,
+  );
+  const open = () => {
+    void import("../../sections/vault/import/ImportSourceSheet.js")
+      .then((module) => setSheet(() => module.ImportSourceSheet))
+      // Guidance is an aid, never a gate: no sheet, still the picker.
+      .catch(() => pick());
+  };
+  const sheet = Sheet ? (
+    <Sheet
+      onPick={() => {
+        setSheet(null);
+        pick();
+      }}
+      onClose={() => setSheet(null)}
+    />
+  ) : null;
   if (variant === "foot") {
     return (
       <>
@@ -66,6 +86,7 @@ export function ImportRoadButton({
           Import passwords
         </button>
         {picker}
+        {sheet}
       </>
     );
   }
@@ -87,6 +108,7 @@ export function ImportRoadButton({
         </span>
       </button>
       {picker}
+      {sheet}
     </>
   );
 }
