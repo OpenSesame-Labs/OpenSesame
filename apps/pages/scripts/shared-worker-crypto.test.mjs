@@ -76,13 +76,14 @@ globalThis.kdbx=(salt,type=0,version=0x13)=>kdbx(new TextEncoder().encode("  Pä
 ${checks}`,
   );
   let bundle;
+  const workerPlugin = sharedWorkerGraph({ workers });
   await build({
     configFile: false,
     root: repo,
     publicDir: false,
     logLevel: "silent",
     plugins: [
-      sharedWorkerGraph({ workers }),
+      workerPlugin,
       {
         name: "capture-shared-crypto",
         generateBundle(_options, output) {
@@ -116,11 +117,11 @@ ${checks}`,
       },
     },
   });
-  return { bundle, host, workers, work };
+  return { bundle, host, workers, work, workerPlugin };
 }
 
 test("same installed crypto bytes serve host and isolated Workers without sharing realm state", async () => {
-  const { bundle, host, workers, work } = await fixture();
+  const { bundle, host, workers, work, workerPlugin } = await fixture();
   const values = Object.values(bundle);
   const shared = values.filter(
     (row) =>
@@ -154,17 +155,19 @@ test("same installed crypto bytes serve host and isolated Workers without sharin
     ),
   );
   for (const [index, root] of roots.entries()) {
-    assert.ok(root?.opensesameWorkerChunk);
-    const ids = Object.keys(root.opensesameWorkerChunk.modules);
+    const chunk = workerPlugin.workerChunk(root.fileName);
+    assert.ok(
+      chunk,
+      JSON.stringify(values.map((row) => [row.fileName, row.type])),
+    );
+    const ids = Object.keys(chunk.modules);
     assert.ok(
       !ids.some((id) =>
         /hash-wasm|tiny-cbor/.test(workerRealmSource(id) ?? id),
       ),
       "dependency code must appear once in real classified chunks",
     );
-    assert.ok(
-      root.opensesameWorkerChunk.imports.includes(hashChunks[0].fileName),
-    );
+    assert.ok(chunk.imports.includes(hashChunks[0].fileName));
     const owner = values.find(
       (row) => row.type === "chunk" && workers[index].owner in row.modules,
     );
@@ -173,7 +176,14 @@ test("same installed crypto bytes serve host and isolated Workers without sharin
     for (const row of shared)
       assert.ok(owner.viteMetadata.importedAssets.has(row.fileName));
     for (const file of owner.viteMetadata.importedAssets)
-      assert.ok(bundle[file], file);
+      assert.ok(
+        bundle[file],
+        JSON.stringify({
+          file,
+          imported: [...owner.viteMetadata.importedAssets],
+          bundle: Object.keys(bundle),
+        }),
+      );
   }
   const entry = values.find((row) => row.type === "chunk" && row.isEntry);
   const reachable = new Set();

@@ -22,6 +22,7 @@ async function bundledEntry(
   plan = { owner, specifier, name: "tailscale-node" },
 ) {
   let bundle;
+  const workerPlugin = sharedWorkerGraph({ workers: [plan] });
   await build({
     configFile: false,
     root: repo,
@@ -35,9 +36,7 @@ async function bundledEntry(
             return `export const start=()=>new Worker(new URL(${JSON.stringify(plan.specifier)},import.meta.url),{type:'module'});`;
         },
       },
-      sharedWorkerGraph({
-        workers: [plan],
-      }),
+      workerPlugin,
       {
         name: "capture-shipped-entry",
         generateBundle(_options, output) {
@@ -60,7 +59,7 @@ async function bundledEntry(
     (item) =>
       item.type === "asset" && item.fileName.startsWith(`assets/${plan.name}-`),
   );
-  assert.ok(root?.opensesameWorkerChunk);
+  assert.ok(workerPlugin.workerChunk(root.fileName));
   const input = join(attempt, "entry.json");
   await writeFile(
     input,

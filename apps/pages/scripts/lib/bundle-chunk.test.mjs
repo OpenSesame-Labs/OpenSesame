@@ -13,10 +13,7 @@ const matches = [
   ["/repo/node_modules/scheduler/index.js", "react-dom"],
   ["/repo/node_modules/react-router/index.js", "react-router"],
   ["/repo/node_modules/react-router-dom/dist/index.js", "react-router"],
-  [
-    "/repo/node_modules/react/index.js",
-    "react-dom",
-  ],
+  ["/repo/node_modules/react/index.js", "react-dom"],
   ["/repo/node_modules/react/index.js?commonjs-proxy", "react-dom"],
   [
     "/repo/packages/app-core/src/lib/device-identity-host.ts",
@@ -109,23 +106,27 @@ test("the actual capability plugin keeps partition priority and this fallback", 
     };
     await plugin.config(config, { command: "build", mode: "production" });
     const output = config.build.rollupOptions.output;
-    assert.equal(output.onlyExplicitManualChunks, true);
+    assert.equal(output.codeSplitting.includeDependenciesRecursively, false);
     assert.equal(
-      output.manualChunks(
+      output.codeSplitting.groups[0].name(
         `${tree.appRoot}/src/modules/sharing.drops/runtime.ts`,
       ),
       "cap-sharing.drops",
     );
     assert.equal(
-      output.manualChunks(`${tree.tmpRoot}/node_modules/react/index.js`),
+      output.codeSplitting.groups[0].name(
+        `${tree.tmpRoot}/node_modules/react/index.js`,
+      ),
       "react-dom",
     );
     assert.equal(
-      output.manualChunks(`${tree.appRoot}/src/lib/device-identity-host.ts`),
+      output.codeSplitting.groups[0].name(
+        `${tree.appRoot}/src/lib/device-identity-host.ts`,
+      ),
       "device-identity-host",
     );
     assert.equal(
-      output.manualChunks(`${tree.appRoot}/src/lib/unowned.ts`),
+      output.codeSplitting.groups[0].name(`${tree.appRoot}/src/lib/unowned.ts`),
       undefined,
     );
   } finally {

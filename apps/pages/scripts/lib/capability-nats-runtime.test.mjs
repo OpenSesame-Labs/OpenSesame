@@ -70,7 +70,14 @@ test("the installed NATS SDK initializes with private wrappers and neutral share
         .filter((id) => natsCommonJsSource(id))
         .map((id) => ({ id, name: chunk.name })),
     );
-    assert(wrappers.length > 20, "exercise actual SDK CommonJS modules");
+    assert(
+      wrappers.length > 20,
+      JSON.stringify(
+        chunks.flatMap((chunk) => Object.keys(chunk.modules)).slice(0, 80),
+        null,
+        2,
+      ),
+    );
     assert(wrappers.every((wrapper) => wrapper.name === "live-nats"));
     const excluded = await compose(tree, {
       mode: "hardened",
@@ -80,7 +87,8 @@ test("the installed NATS SDK initializes with private wrappers and neutral share
       }),
     });
     const excludedChunk =
-      excluded.userConfig.build.rollupOptions.output.manualChunks;
+      excluded.userConfig.build.rollupOptions.output.codeSplitting.groups[0]
+        .name;
     for (const { id } of wrappers) assert.equal(excludedChunk(id), undefined);
     const entry = chunks.find((chunk) => chunk.isEntry);
     assert(entry);

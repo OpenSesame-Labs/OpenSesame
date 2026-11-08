@@ -113,10 +113,14 @@ function sdkOwner(bundle, classify) {
   const nativeIds = Object.keys(output.modules).filter(
     (id) => secretBackendSdkChunk(id, classify(id)) !== undefined,
   );
-  if (nativeIds.length !== Object.keys(output.modules).length)
-    throw new Error(
-      "1Password SDK assets need an exclusively native SDK chunk.",
+  if (nativeIds.length !== Object.keys(output.modules).length) {
+    const unexpected = Object.keys(output.modules).filter(
+      (id) => secretBackendSdkChunk(id, classify(id)) === undefined,
     );
+    throw new Error(
+      `1Password SDK assets need an exclusively native SDK chunk: ${unexpected.join(", ")}`,
+    );
+  }
   if (
     !nativeIds.some((id) =>
       id
@@ -140,6 +144,21 @@ function referencesWorker(owner, worker, base) {
     ts.ScriptKind.JS,
   );
   const visit = (node) => {
+    if (
+      ts.isNewExpression(node) &&
+      node.arguments?.length === 2 &&
+      ts.isStringLiteralLike(node.arguments[0]) &&
+      ts.isObjectLiteralExpression(node.arguments[1]) &&
+      node.arguments[1].properties.some(
+        (property) =>
+          ts.isPropertyAssignment(property) &&
+          property.name.getText(ast) === "type" &&
+          ts.isStringLiteralLike(property.initializer) &&
+          property.initializer.text === "module",
+      ) &&
+      new URL(node.arguments[0].text, root).href === target
+    )
+      return true;
     if (
       ts.isNewExpression(node) &&
       node.expression.getText(ast) === "URL" &&
@@ -171,10 +190,14 @@ export function attachOnePasswordAssets(bundle, classify, base = "/") {
     throw new Error(
       "1Password SDK needs exactly one emitted dedicated worker.",
     );
-  if (!referencesWorker(owner, workers[0], base))
-    throw new Error(
-      "1Password native loader must reference its emitted worker.",
+  if (!referencesWorker(owner, workers[0], base)) {
+    const reference = owner.output.code.match(
+      /.{0,100}(?:ROLLUP_FILE_URL|onepassword-sdk\.worker).{0,150}/s,
     );
+    throw new Error(
+      `1Password native loader must reference its emitted worker: ${reference?.[0] ?? "no reference"}`,
+    );
+  }
   owner.output.viteMetadata ??= {};
   owner.output.viteMetadata.importedAssets ??= new Set();
   for (const file of [...Object.values(ONEPASSWORD_ASSETS), workers[0]])

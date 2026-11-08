@@ -54,8 +54,9 @@ describe("virtual modules", () => {
       "msalRedirect",
     ]);
     assert.equal(
-      typeof userConfig.build.rollupOptions.output.manualChunks,
-      "function",
+      userConfig.build.rollupOptions.output.codeSplitting.groups[0]
+        .name instanceof Function,
+      true,
     );
     const contract = JSON.parse(
       distribution.match(/Object\.freeze\((.*)\);\n$/s)[1],
@@ -137,7 +138,8 @@ describe("generated module-table literals", () => {
 describe("chunk partition", () => {
   test("only a capability's own module directory is partitioned into its chunk", async () => {
     const { userConfig } = await compose(tree, { mode: "selective" });
-    const chunkFor = userConfig.build.rollupOptions.output.manualChunks;
+    const chunkFor =
+      userConfig.build.rollupOptions.output.codeSplitting.groups[0].name;
     assert.equal(
       chunkFor(`${tree.appRoot}/src/modules/sharing.drops/runtime.ts`),
       "cap-sharing.drops",
@@ -258,16 +260,18 @@ describe("rollup option forms", () => {
     const { output } = await configure({
       output: { manualChunks: () => "vendor" },
     });
-    assert.equal(output.manualChunks(moduleFile()), "cap-sharing.drops");
-    assert.equal(output.manualChunks(`${tree.appRoot}/src/a.ts`), "vendor");
+    const chunkFor = output.codeSplitting.groups[0].name;
+    assert.equal(chunkFor(moduleFile()), "cap-sharing.drops");
+    assert.equal(chunkFor(`${tree.appRoot}/src/a.ts`), "vendor");
   });
 
   test("a chunk record is superseded by the partition", async () => {
     const { output } = await configure({
       output: { manualChunks: { vendor: ["react"] } },
     });
-    assert.equal(output.manualChunks(moduleFile()), "cap-sharing.drops");
-    assert.equal(output.manualChunks(`${tree.appRoot}/src/a.ts`), undefined);
+    const chunkFor = output.codeSplitting.groups[0].name;
+    assert.equal(chunkFor(moduleFile()), "cap-sharing.drops");
+    assert.equal(chunkFor(`${tree.appRoot}/src/a.ts`), undefined);
   });
 });
 

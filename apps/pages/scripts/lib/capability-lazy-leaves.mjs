@@ -19,7 +19,13 @@ export function commonJsRuntimeChunk(id) {
 
 /** Package-private CommonJS state must initialize with the NATS implementation. */
 export function natsCommonJsSource(id) {
-  if (!id.startsWith("\0")) return null;
+  if (!id.startsWith("\0")) {
+    const source = toPosix(id);
+    if (source.includes("?")) return null;
+    return /\/node_modules\/(?:@nats-io\/|tweetnacl\/)/.test(source)
+      ? source
+      : null;
+  }
   const source = toPosix(id.slice(1)).replace(
     /\?commonjs-(?:exports|module|es-import|proxy)$/,
     "",
@@ -165,7 +171,7 @@ const LAZY_LEAVES = [
     "cap-sharing.relay",
   ],
   // Document enrolment (`push-browser`, `push-enrolment`, `push-seams`) is
-  // pure. `experimentalMinChunkSize` then folds that small chunk into `main`,
+  // pure. `codeSplitting.minSize` then folds that small chunk into `main`,
   // which the gate reads as a static import of `notifications.web-push`
   // (ADR 0130 §4). The capability chunk is the dynamic entry, so these files
   // load with the module and stay off the bootstrap. `push.ts` is the worker

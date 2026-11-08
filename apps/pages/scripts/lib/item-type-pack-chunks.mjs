@@ -1,7 +1,7 @@
 /**
  * One chunk per built-in item-type pack (ADR 0165).
  *
- * A pack's definition is ~2 KB, far under `experimentalMinChunkSize`, so
+ * A pack's definition is ~2 KB, far under `codeSplitting.minSize`, so
  * Rollup folds each into whatever chunk it may — five of the eighteen landed in
  * `main` and `expiry`, which every page load fetches. Naming each module here
  * keeps it a leaf of its own: reached only through the loader's dynamic
