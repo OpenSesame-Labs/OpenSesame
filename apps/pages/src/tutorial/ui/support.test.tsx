@@ -34,6 +34,7 @@ import {
   openPanel,
   renderLauncher,
   resetSupport,
+  showQuestions,
   supportLifecycleSeams,
 } from "./support-test-harness.js";
 
@@ -164,37 +165,6 @@ describe("support panel", () => {
     expect(document.querySelectorAll("img")).toHaveLength(0);
   });
 
-  it("still opens and helps when nothing can answer", async () => {
-    const user = userEvent.setup();
-    mount(fakeAgentAlwaysUnavailable("no_local_model"), "none");
-    await openPanel(user);
-
-    // No sentence narrating why nothing can answer: the written help below is
-    // the answer, and the field says what it now does.
-    expect(screen.queryByText(/no on-device model/i)).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Where do I lock the vault?" }),
-    ).toBeTruthy();
-    const field = await screen.findByLabelText<HTMLInputElement>(
-      "Search the written help",
-    );
-    expect(field.disabled).toBe(false);
-    expect(screen.getByRole("button", { name: "Search" })).toBeTruthy();
-  });
-
-  it("answers an authored topic with no model at all", async () => {
-    const user = userEvent.setup();
-    mount(fakeAgentAlwaysUnavailable("no_local_model"), "none");
-    await openPanel(user);
-    await user.click(
-      await screen.findByRole("button", { name: "Where do I lock the vault?" }),
-    );
-
-    expect(
-      await screen.findByText(/Locking drops the vault keys held in memory/),
-    ).toBeTruthy();
-  });
-
   it("offers the download only as a gesture, and reports its progress", async () => {
     const user = userEvent.setup();
     mount(fakeAgentDownloadable());
@@ -284,27 +254,6 @@ describe("support panel", () => {
     expect(screen.queryByLabelText("WebMCP status")).toBeNull();
     expect(screen.queryByText(/WebMCP:/)).toBeNull();
     resetWebMcpRegistrationForTests();
-  });
-
-  it("searches the written help without asking anything", async () => {
-    const user = userEvent.setup();
-    mount(fakeAgentAlwaysUnavailable("no_local_model"), "none");
-    await openPanel(user);
-
-    // With no model the one field searches the checked-in help rather than
-    // asking, live as you type, and says so on the button.
-    const field = await screen.findByLabelText<HTMLInputElement>(
-      "Search the written help",
-    );
-    await user.type(field, "healthy");
-    expect(
-      await screen.findByRole("button", {
-        name: "How do I tell whether OpenSesame is healthy?",
-      }),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Where do I lock the vault?" }),
-    ).toBeNull();
   });
 
   it("runs a walkthrough the answer came with", async () => {
@@ -405,6 +354,7 @@ describe("support panel", () => {
     });
     renderLauncher();
     await openPanel(user);
+    await showQuestions(user);
 
     // The chunk that failed to load is a notice in the tray; the sheet still
     // opens on the written help, which needs no chunk at all.

@@ -22,23 +22,23 @@ import { EmptyTip } from "../../components/EmptyTip.js";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconEye, IconEyeOff } from "../../components/Icons.js";
-import { useVaultAllTo } from "../../lib/vault-list-path.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
+import { useVaultAllTo } from "../../lib/vault-list-path.js";
 import { AccountFields } from "./AccountFields.js";
 import { CredentialFields } from "./CredentialFields.js";
 import { EditorActions } from "./EditorActions.js";
 import { EditorExtras } from "./EditorExtras.js";
 import { EditorTitle } from "./EditorTitle.js";
 import { UnknownItemType } from "./EditorType.js";
-import { NativeItemFields } from "./NativeItemFields.js";
-import { TypedFieldInputs } from "./TypedFields.js";
 import { useEditorContributions } from "./item-contributions.js";
 import {
   type EditorPersistResult,
   editorDraftError,
   persistEditorDraft,
 } from "./item-editor-persist.js";
+import { NativeItemFields } from "./NativeItemFields.js";
 import { seedDraft } from "./seed-draft.js";
+import { TypedFieldInputs } from "./TypedFields.js";
 import { useEditorPath } from "./useEditorPath.js";
 
 export function ItemEditor({ mode }: { mode: "new" | "edit" }) {

@@ -116,6 +116,18 @@ export function composer(): Promise<HTMLInputElement> {
   );
 }
 
+/**
+ * Bring the written-help questions forward. A fresh panel opens on the
+ * Tutorials tab (the tour is the primary road), so a suite about the
+ * questions list makes the same one tap a person would.
+ */
+export async function showQuestions(
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  const tab = screen.getByRole("tab", { name: /^(Ask|Search)$/ });
+  if (tab.getAttribute("aria-selected") !== "true") await user.click(tab);
+}
+
 export async function ask(
   user: ReturnType<typeof userEvent.setup>,
   question: string,

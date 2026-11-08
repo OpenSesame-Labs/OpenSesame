@@ -84,6 +84,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
     id: "vault",
     title: "Your vault",
     goals: [
+      "vault.item.first",
       "vault.item.create",
       "vault.item.find",
       "vault.item.accounts",

@@ -65,7 +65,7 @@ function useCommandRunner() {
         if (!current()) return;
         if (interpreted.source === "none") {
           if (canAsk && support !== null) {
-            support.open();
+            support.open("ask");
             void support.ask(text);
             setNotice(null);
             setValue("");

@@ -176,6 +176,23 @@
   overflow-wrap: anywhere;
 }
 
+/* An answer that landed below the fold: the offer to jump to it, pinned
+   above the composer. It never scrolls on its own. */
+.support__new-answer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  margin: 0 1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
 /* ——— Waiting on an answer ————————————————————————————————— */
 
 .support__pending {
@@ -341,7 +358,9 @@
   font-size: 0.8438rem;
   text-align: left;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .support__tutorial:hover {
@@ -402,7 +421,9 @@
   font-size: 0.8438rem;
   text-align: left;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .support__topic-open:hover {

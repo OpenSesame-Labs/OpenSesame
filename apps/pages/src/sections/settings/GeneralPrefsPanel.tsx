@@ -2,6 +2,7 @@ import type { VaultPrefs } from "@opensesame/app-core/lib/vault/store.js";
 import { useIdentitySession } from "../../bindings/identity.js";
 import { useIdentityPlane } from "../../lib/use-configured.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
+import { GuidedToursRow } from "./GuidedToursRow.js";
 import { VisualPrefs } from "./VisualPrefs.js";
 
 export function GeneralPrefsPanel() {
@@ -18,24 +19,27 @@ export function GeneralPrefsPanel() {
   };
 
   return (
-    <VisualPrefs
-      prefs={prefs}
-      identity={identity}
-      onTheme={(id) => commit({ theme: id })}
-      onNumber={(key, value) => {
-        if (key === "autoLockMinutes") {
-          commit({ autoLockMinutes: value });
-          return;
-        }
-        commit({ clipboardClearSeconds: value });
-      }}
-      onToggle={(key, value) => {
-        if (key === "lockOnHide") {
-          commit({ lockOnHide: value });
-          return;
-        }
-        commit({ signOutOnLock: value });
-      }}
-    />
+    <>
+      <GuidedToursRow />
+      <VisualPrefs
+        prefs={prefs}
+        identity={identity}
+        onTheme={(id) => commit({ theme: id })}
+        onNumber={(key, value) => {
+          if (key === "autoLockMinutes") {
+            commit({ autoLockMinutes: value });
+            return;
+          }
+          commit({ clipboardClearSeconds: value });
+        }}
+        onToggle={(key, value) => {
+          if (key === "lockOnHide") {
+            commit({ lockOnHide: value });
+            return;
+          }
+          commit({ signOutOnLock: value });
+        }}
+      />
+    </>
   );
 }
