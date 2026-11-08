@@ -131,7 +131,10 @@ describe("what the key opens", () => {
   });
 
   it("asks the shell's questions nowhere: the Ask tab is the gate's own", async () => {
-    const { sheet } = await open("/unlock/door");
+    const { user, sheet } = await open("/unlock/door");
+    await user.click(
+      within(sheet).getByRole("tab", { name: /^(Ask|Search)$/ }),
+    );
     const questions = await within(sheet).findByRole("region", {
       name: "Questions",
     });
@@ -144,6 +147,9 @@ describe("what the key opens", () => {
 
   it("offers a Show me for written help only where its screen can start the tour", async () => {
     const form = await open("/unlock/form");
+    await form.user.click(
+      within(form.sheet).getByRole("tab", { name: /^(Ask|Search)$/ }),
+    );
     const unlock = await within(form.sheet).findByText(
       "How do I unlock the vault?",
     );
@@ -152,6 +158,9 @@ describe("what the key opens", () => {
     ).not.toBeNull();
     cleanup();
     const door = await open("/unlock/door");
+    await door.user.click(
+      within(door.sheet).getByRole("tab", { name: /^(Ask|Search)$/ }),
+    );
     const written = await within(door.sheet).findByText(
       "How do I unlock the vault?",
     );

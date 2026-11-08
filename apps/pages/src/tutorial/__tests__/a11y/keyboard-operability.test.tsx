@@ -112,6 +112,10 @@ describe("keyboard operability", () => {
       transport: "none",
     });
     const sheet = await openPanel(user);
+    // A fresh panel opens on Tutorials: one arrow on the tab strip — keys
+    // only, as this suite promises — brings the questions forward.
+    await tabTo(user, within(sheet).getByRole("tab", { name: "Tutorials" }));
+    await user.keyboard("{ArrowLeft}");
 
     const topic = within(sheet).getByRole("button", {
       name: "Where do I lock the vault?",
@@ -131,6 +135,10 @@ describe("keyboard operability", () => {
       transport: "none",
     });
     const sheet = await openPanel(user);
+    // A fresh panel opens on Tutorials: one arrow on the tab strip — keys
+    // only, as this suite promises — brings the questions forward.
+    await tabTo(user, within(sheet).getByRole("tab", { name: "Tutorials" }));
+    await user.keyboard("{ArrowLeft}");
 
     // With no model the one field searches the written help, live as you type.
     const search = within(sheet).getByLabelText("Search the written help");

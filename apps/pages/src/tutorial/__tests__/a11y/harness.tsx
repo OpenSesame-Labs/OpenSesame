@@ -7,6 +7,8 @@
  * card is called, whether anything animates — are questions about what is in
  * the document, and a renderer that only records calls cannot answer them.
  */
+
+import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import {
   GUIDE_GOALS,
   HELP_TOPICS,
@@ -14,16 +16,14 @@ import {
 } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { GUIDE_ROUTES } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
-import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
-
-import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
 import {
   clearMountedGuideTargets,
+  guideTargetIds,
   mountGuideTarget,
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
-import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import type { GuideTargetId } from "@opensesame/guide-lang";
+import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import {
   createFakeRoutes,
   createFakeState,
@@ -302,8 +302,26 @@ export function tutorialCard(): Promise<HTMLElement> {
   );
 }
 
+/** Flip the open panel to its Ask/Search tab, where the questions live. */
+export async function showQuestions(user: TestUser): Promise<void> {
+  const tab = document.getElementById("support-tab-ask");
+  if (!tab) throw new Error("the support panel is not open");
+  if (tab.getAttribute("aria-selected") !== "true") await user.click(tab);
+}
+
 /** The "Show me" button beside a named walkthrough or help question. */
 export function walkthrough(title: string): HTMLElement {
+  // A fresh panel opens on Tutorials: the walkthrough is a library row
+  // there, keyed by goal id. The Questions articles remain the fallback
+  // for a panel already flipped to Ask.
+  const library = screen.queryByRole("region", { name: "Tutorials" });
+  if (library) {
+    const goal = GUIDE_GOALS.find((entry) => entry.title === title);
+    const row = goal
+      ? library.querySelector<HTMLElement>(`[data-tutorial="${goal.id}"]`)
+      : null;
+    if (row) return row;
+  }
   const region = screen.getByRole("region", { name: "Questions" });
   const goal = GUIDE_GOALS.find((entry) => entry.title === title);
   const topic = goal
