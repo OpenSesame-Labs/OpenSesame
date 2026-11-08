@@ -14,8 +14,8 @@ import type {
   ProvisionalSession,
 } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
-import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { decodeJwt } from "jose";
 import { normalizeIssuer } from "../interactions/issuer-normalization.js";
@@ -667,7 +667,7 @@ async function linkFromVerifiedIdToken(
 
   const identity = result.identity;
   const body = LinkIdentityResponseSchema.parse({
-    principalId,
+    principalId: identity.principalId,
     identity: {
       id: identity.id,
       kind: identity.kind,
@@ -686,7 +686,7 @@ async function linkFromVerifiedIdToken(
     // main's pre-refactor code returned before this point in that case.
     await ensurePersonalOnAuthenticatedSession(
       ctx,
-      principalId,
+      identity.principalId,
       c.get("correlationId"),
     );
   }

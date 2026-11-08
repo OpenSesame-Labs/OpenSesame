@@ -35,6 +35,8 @@ type World = {
 type DeviceOptions = {
   vault: "empty" | "locked" | "unlocked";
   hasSession?: boolean;
+  /** No session in memory, but the cookie still resumes one. */
+  resumable?: boolean;
   linkFails?: Error;
 };
 
@@ -42,22 +44,28 @@ let world: World;
 
 function givenADevice(options: DeviceOptions): void {
   world = { vaultCreated: false, linkedTokens: [], provisionalMints: 0 };
+  const held = {
+    principalId: "prn_same",
+    accessToken: "pst_1",
+    issuerOrigin: "https://id.test",
+  };
+  let session: typeof held | null = options.hasSession === false ? null : held;
   Object.assign(guestAuthDependencies, {
     isRemoteIdentityConfigured: () => true,
     vaultStatus: () => options.vault,
     createGuest: vi.fn(async () => {
       world.vaultCreated = true;
     }),
-    currentSession: () =>
-      options.hasSession === false
-        ? null
-        : {
-            principalId: "prn_same",
-            accessToken: "pst_1",
-            issuerOrigin: "https://id.test",
-          },
+    currentSession: () => session,
+    resumeSession: vi.fn(async () => {
+      if (!options.resumable) return null;
+      session = held;
+      return session;
+    }),
     connectProvisional: vi.fn(async () => {
       world.provisionalMints += 1;
+      session = held;
+      return session;
     }),
     identityJson: vi.fn(async (_path: string, init?: RequestInit) => {
       if (options.linkFails) throw options.linkFails;
@@ -138,6 +146,39 @@ describe("first-run federated sign-in journey", () => {
 });
 
 describe("returning-visitor journey", () => {
+  it("reuses the persistent user the cookie still holds, instead of minting a new one", async () => {
+    // Given a returning device: no vault, no session in memory (the
+    // redirect cleared it), but the HttpOnly cookie still resumes the
+    // principal this person already is.
+    givenADevice({ vault: "empty", hasSession: false, resumable: true });
+
+    // When they sign in with Google again
+    await adoptFederatedIdentity("id-token");
+
+    // Then no new principal was minted for the link, and nobody is told a
+    // new identity appeared — they were reused.
+    expect(world.provisionalMints).toBe(0);
+    expect(world.linkedTokens).toEqual(["id-token"]);
+    expect(listNotices().some((n) => n.id === "federated.new-identity")).toBe(
+      false,
+    );
+  });
+
+  it("says out loud when a sign-in really does create a new identity", async () => {
+    // Given a device with no resumable session at all
+    givenADevice({ vault: "empty", hasSession: false, resumable: false });
+
+    // When they sign in with a provider
+    await adoptFederatedIdentity("id-token");
+
+    // Then the account behind the link was created for this sign-in, and
+    // the person is told — a duplicate identity is never minted silently.
+    expect(world.provisionalMints).toBe(1);
+    expect(world.linkedTokens).toEqual(["id-token"]);
+    const notice = listNotices().find((n) => n.id === "federated.new-identity");
+    expect(notice?.title).toBe("New OpenSesame identity");
+  });
+
   it("upgrades an existing guest in place, without minting a second identity", async () => {
     // Given someone already using the app as a guest
     givenADevice({ vault: "unlocked" });

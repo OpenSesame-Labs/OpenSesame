@@ -6,8 +6,18 @@
  * the OIDC redirect; browser storage never receives the bearer.
  */
 
-import { sessionStore } from "../ports.js";
+import {
+  clearPendingLink,
+  markPendingLink,
+  pendingLinkMarked,
+} from "./federated-pending-link.js";
 import { loadSession as loadFederationSession } from "./federation.js";
+
+export {
+  forgetPendingLink,
+  storedKeyPresent,
+} from "./federated-pending-link.js";
+
 import { assertGuestsAllowed } from "./guest-access.js";
 import { claimProvisionalHistoryAccounts } from "./history-backups.js";
 import {
@@ -19,22 +29,20 @@ import {
   connectProvisional,
   currentSession,
   identityJson,
+  identitySeams,
   isRemoteIdentityConfigured,
 } from "./identity.js";
 import {
   mintGuestSessionPersonLocked,
   readGuestSessionPerson,
 } from "./local-guest.js";
-import { clearNotices, listNotices, pushNotice } from "./notices.js";
+import {
+  clearNotices,
+  listNotices,
+  pushNotice,
+  setStatusNotice,
+} from "./notices.js";
 import { vaultStore } from "./vault/store.js";
-
-/**
- * Set while a verified upstream identity is waiting to be attached, cleared the
- * moment the link lands. Notices are in-memory and die on reload; this marker
- * is what lets the prompt be raised again for the same pending link without
- * inventing one on every reload of an already-linked session.
- */
-const PENDING_LINK_KEY = "opensesame:federation:pending-link";
 
 const FEDERATED_NOTICE_TITLE = "Finish attaching your sign-in";
 const FEDERATED_NOTICE_BODY =
@@ -51,6 +59,7 @@ const COLLISION_MESSAGE =
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
   connectProvisional,
+  resumeSession: () => identitySeams.resumeSession(),
   currentSession,
   isRemoteIdentityConfigured,
   identityJson,
@@ -62,59 +71,6 @@ export const guestAuthDependencies = {
   ensureDefaultAccess: async (_tomb: string): Promise<void> => {},
 };
 // Stryker restore all
-
-/**
- * Presence check for a storage key that fails closed.
- *
- * Private mode, a spent quota, or a browser configured to block site data all
- * make `sessionStorage` *throw* rather than return null. A probe that cannot
- * read must answer "absent", never "present" — answering "present" would make
- * a locked-vault sign-in look resumable when nothing was stored.
- *
- * Exported only so a test can assert it returns exactly `false` on a throwing
- * store. Every caller negates the result, so `undefined` would behave
- * identically at every call site and the failure would be invisible.
- */
-export function storedKeyPresent(key: string): boolean {
-  try {
-    return sessionStore().getItem(key) !== null;
-  } catch {
-    return false;
-  }
-}
-
-function markPendingLink(): void {
-  try {
-    // A literal "1", not secret material: the rule guards against storing
-    // something an XSS could exfiltrate, and the only thing this leaks is
-    // that a link is pending, which the notice on screen already says.
-    // ast-grep-ignore: ts-localstorage-set
-    sessionStore().setItem(PENDING_LINK_KEY, "1");
-  } catch {
-    /* private mode — the in-memory notice is the only prompt then */
-  }
-}
-
-function clearPendingLink(): void {
-  try {
-    sessionStore().removeItem(PENDING_LINK_KEY);
-  } catch {
-    /* nothing was stored */
-  }
-}
-
-/**
- * Drop a link that was waiting on an unlock. Sign-out calls this: the
- * assertion it would have attached is being forgotten in the same breath, so
- * a prompt to finish attaching it would name an account that is gone.
- */
-export function forgetPendingLink(): void {
-  clearPendingLink();
-}
-
-function pendingLinkMarked(): boolean {
-  return storedKeyPresent(PENDING_LINK_KEY);
-}
 
 let inFlightClaim: Promise<void> | null = null;
 
@@ -192,11 +148,20 @@ async function resumeGuestSessionDefault(): Promise<void> {
   await claimGuestAuthDefault();
 }
 
-async function linkGuestAccountDefault(idToken: string): Promise<void> {
+async function linkGuestAccountDefault(
+  idToken: string,
+): Promise<{ mintedPrincipal: boolean }> {
+  let mintedPrincipal = false;
   if (!guestAuthDependencies.currentSession()) {
-    // Resume the server-authenticated HttpOnly cookie; no bearer crosses
-    // browser storage while the upstream redirect is in progress.
-    await guestAuthDependencies.connectProvisional();
+    // Resume the server-authenticated HttpOnly cookie first — that is the
+    // persistent user, reused. Only when no session survived does
+    // connecting mint a new provisional principal, and the caller is told
+    // so a brand-new identity is never created silently.
+    const resumed = await guestAuthDependencies.resumeSession();
+    if (!resumed) {
+      mintedPrincipal = true;
+      await guestAuthDependencies.connectProvisional();
+    }
   }
   await guestAuthDependencies.identityJson("/v1/principals/link-identities", {
     method: "POST",
@@ -211,6 +176,7 @@ async function linkGuestAccountDefault(idToken: string): Promise<void> {
     }
   }
   clearNotices();
+  return { mintedPrincipal };
 }
 
 /** A 409 from link-identities is the only outcome with its own plain words. */
@@ -256,7 +222,7 @@ async function adoptFederatedIdentityDefault(
     // No principal to link to, so nothing to defer or retry. A true first run
     // still opens the same ephemeral vault a guest gets; a locked vault stays
     // locked, and the caller's "signed in, now unlock" banner says so.
-    if (status === "empty") await openGuestVault("fresh");
+    if (status === "empty") await openGuestVault("resume");
     const federation = guestAuthDependencies.loadFederationSession();
     if (federation?.pairwiseSub) {
       try {
@@ -270,9 +236,19 @@ async function adoptFederatedIdentityDefault(
   }
 
   if (status === "empty") {
-    await openGuestVault("fresh");
+    await openGuestVault("resume");
     try {
-      await linkGuestAccountDefault(idToken);
+      const { mintedPrincipal } = await linkGuestAccountDefault(idToken);
+      if (mintedPrincipal) {
+        // Said out loud, never silent: no session survived on this device,
+        // so this sign-in stands on a principal created for it just now.
+        setStatusNotice({
+          id: "federated.new-identity",
+          tone: "info",
+          title: "New OpenSesame identity",
+          body: "This sign-in created a new OpenSesame identity on this device, because no earlier session was found here to attach it to. If you already have an identity with a vault on this device, unlock that vault and attach this sign-in from there instead.",
+        });
+      }
       clearPendingLink();
       return { kind: "linked" };
     } catch (caught) {
@@ -332,7 +308,7 @@ async function adoptFederatedIdentityDefault(
  */
 async function openVaultAfterSignInDefault(): Promise<boolean> {
   if (guestAuthDependencies.vaultStatus() === "empty") {
-    await openGuestVault("fresh");
+    await openGuestVault("resume");
   }
   return guestAuthDependencies.vaultStatus() === "unlocked";
 }
@@ -381,7 +357,9 @@ export async function claimGuestAuth(): Promise<void> {
   return guestAuthSeams.claimGuestAuth();
 }
 
-export async function linkGuestAccount(idToken: string): Promise<void> {
+export async function linkGuestAccount(
+  idToken: string,
+): Promise<{ mintedPrincipal: boolean }> {
   return guestAuthSeams.linkGuestAccount(idToken);
 }
 
