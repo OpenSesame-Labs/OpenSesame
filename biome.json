@@ -1,16 +1,37 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "organizeImports": { "enabled": true },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "identifierOrder": "lexicographic"
+          }
+        }
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
-      "correctness": { "noUnusedImports": "error" }
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedImports": "error",
+        "usePlaywrightValidDescribeCallback": "off"
+      },
+      "performance": {
+        "useDomNodeTextContent": "off"
+      },
+      "suspicious": {
+        "noUndeclaredEnvVars": "off",
+        "noTemplateCurlyInString": "off"
+      }
     }
   },
   "formatter": {
@@ -19,40 +40,75 @@
     "indentWidth": 2
   },
   "files": {
-    "ignore": [
-      "**/dist/**",
-      "**/dev-dist/**",
-      "**/node_modules/**",
-      "**/target/**",
-      "**/.tools/**",
-      "**/tools/oxlint/anti-slop/**",
-      "**/skills/install-anti-slop/**",
-      ".agents/skills/**",
-      ".claude/skills/**",
-      ".grok/skills/**",
-      "skills-lock.json",
-      "**/sbom/**",
-      "tests/fixtures/kdbx/roundtrip.expected.json",
-      "packages/app-core/src/lib/sops/fixtures/upstream/**",
-      "docs/design/**",
-      "spec/connectors/catalog.view.json",
-      "spec/agent-hooks/conformance/**",
-      "spec/conformance/slip39/vectors.json",
-      "spec/conformance/pepper-position-vectors.json",
-      "packages/vault-item-types/src/**/*.generated.ts"
+    "includes": [
+      "**",
+      "!**/*.md",
+      "!**/*.html",
+      "!**/*.yaml",
+      "!**/*.yml",
+      "!**/dist",
+      "!**/dev-dist",
+      "!**/node_modules",
+      "!**/target",
+      "!**/.tools",
+      "!**/tools/oxlint/anti-slop",
+      "!**/skills/install-anti-slop",
+      "!.agents/skills",
+      "!.claude/skills",
+      "!.grok/skills",
+      "!skills-lock.json",
+      "!**/sbom",
+      "!tests/fixtures/kdbx/roundtrip.expected.json",
+      "!packages/app-core/src/lib/sops/fixtures/upstream",
+      "!docs/design",
+      "!spec/connectors/catalog.view.json",
+      "!spec/agent-hooks/conformance",
+      "!spec/conformance/slip39/vectors.json",
+      "!spec/conformance/pepper-position-vectors.json",
+      "!packages/vault-item-types/src/**/*.generated.ts"
     ]
   },
   "overrides": [
     {
-      "include": [
+      "includes": [
         "apps/pages/public/static-auth/1.0.5/opensesame-auth.min.js",
         "apps/pages/public/auth.js",
         "apps/pages/public/static-auth/1.0.4/opensesame-auth.min.js",
         "apps/pages/public/static-auth/1.0.3/opensesame-auth.min.js"
       ],
-      "linter": { "enabled": false },
-      "formatter": { "enabled": false },
-      "organizeImports": { "enabled": false }
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      },
+      "assist": {
+        "actions": {
+          "source": {
+            "organizeImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/scripts/**/*.mjs"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/*.test-support.tsx"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noComponentHookFactories": "off"
+          }
+        }
+      }
     }
   ]
 }

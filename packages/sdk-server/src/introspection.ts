@@ -65,7 +65,8 @@ function isDeepJsonObject(value: BoundaryValue): value is JsonObject {
 }
 
 function expectedAudiences(audience: string | readonly string[]): string[] {
-  const list = new Array<string>()
+  // SAFETY: the audience boundary admits only strings or readonly string arrays.
+  const list = ([] as string[])
     .concat(audience)
     .filter((entry) => isString(entry) && entry.length > 0);
   if (list.length === 0) {
@@ -78,9 +79,8 @@ function expectedAudiences(audience: string | readonly string[]): string[] {
 function audienceMatches(value: BoundaryValue, expected: string[]): boolean {
   const aud = readJwtAudience(value);
   if (aud === undefined) return false;
-  return new Array<string>()
-    .concat(aud)
-    .some((entry) => expected.includes(entry));
+  // SAFETY: the readJwtAudience I/O boundary validates aud as string | readonly string[].
+  return ([] as string[]).concat(aud).some((entry) => expected.includes(entry));
 }
 
 /**
