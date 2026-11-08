@@ -81,6 +81,56 @@ describe("claiming a guest principal with an upstream id_token", () => {
     });
   });
 
+  it("rebinds a throwaway provisional to the existing principal on return sign-in", async () => {
+    const { privateKey, jwks } = await mintKeys();
+    orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json(jwks))),
+    );
+    const { app } = createControlPlane();
+    const first = await guest(app);
+    const token = await new SignJWT({})
+      .setProtectedHeader({ alg: "RS256", kid: "claim-1" })
+      .setIssuer(ISSUER)
+      .setAudience("origin:http://127.0.0.1:8788")
+      .setSubject("returning@upstream")
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(privateKey);
+    const linked = await app.request("/v1/principals/link-identities", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${first.accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ idToken: token }),
+    });
+    expect(linked.status).toBe(201);
+
+    // The same person returns with no surviving session: a fresh throwaway
+    // provisional is minted for the trip, but the verified identity must
+    // land back on the original principal and rebind the session there.
+    const second = await guest(app);
+    expect(second.principalId).not.toBe(first.principalId);
+    const rebound = await app.request("/v1/principals/link-identities", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${second.accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ idToken: token }),
+    });
+    expect(rebound.status).toBe(200);
+    const body = overlapCast(await rebound.json());
+    expect(body.principalId).toBe(first.principalId);
+    expect(body.accessToken).toBeTruthy();
+    const me = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${body.accessToken}` },
+    });
+    expect(overlapCast(await me.json()).id).toBe(first.principalId);
+  });
+
   it("refuses a correctly signed token issued for another client without attaching identity", async () => {
     const { privateKey, jwks } = await mintKeys();
     orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;

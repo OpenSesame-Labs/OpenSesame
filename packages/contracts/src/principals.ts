@@ -83,6 +83,14 @@ export type LinkIdentityRequest = z.infer<typeof LinkIdentityRequestSchema>;
 export const LinkIdentityResponseSchema = z.object({
   identity: IdentitySummarySchema,
   principalId: z.string(),
+  /**
+   * A fresh first-party session token, present only when the identity
+   * landed on a different principal than the caller's session (verified-
+   * email join or tuple reuse): the session is rebound to the principal
+   * the identity belongs to, and the client must adopt this token.
+   */
+  accessToken: z.string().optional(),
+  expiresAt: z.string().optional(),
 });
 export type LinkIdentityResponse = z.infer<typeof LinkIdentityResponseSchema>;
 
