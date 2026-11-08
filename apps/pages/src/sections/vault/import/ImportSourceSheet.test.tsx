@@ -15,7 +15,7 @@ describe("the guided import source stage", () => {
     ).toBeTruthy();
     // Chrome is the default first-run source, with Chrome's own steps.
     expect(screen.getByText(/Chrome: Settings/)).toBeTruthy();
-    await user.click(screen.getByRole("option", { name: "Firefox" }));
+    await user.click(screen.getByRole("button", { name: "Firefox" }));
     expect(screen.getByText(/Firefox → Passwords/)).toBeTruthy();
     // The honest limits ride along: no silent browser reading, and the
     // exported file itself is the risk to clean up.
@@ -27,7 +27,7 @@ describe("the guided import source stage", () => {
     const user = userEvent.setup();
     const onPick = vi.fn();
     render(<ImportSourceSheet onPick={onPick} onClose={vi.fn()} />);
-    await user.click(screen.getByRole("option", { name: /Bitwarden/ }));
+    await user.click(screen.getByRole("button", { name: /Bitwarden/ }));
     expect(onPick).not.toHaveBeenCalled();
     await user.click(
       screen.getByRole("button", { name: "Choose the exported file" }),

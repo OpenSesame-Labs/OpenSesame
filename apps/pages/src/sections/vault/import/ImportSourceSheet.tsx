@@ -53,18 +53,15 @@ export function ImportSourceSheet({
         <p className="import-source__lede">Where are your passwords now?</p>
         <div
           className="import-source__tiles"
-          role="listbox"
+          role="radiogroup"
           aria-label="Source"
         >
           {SOURCES.map((source) => (
             <button
               key={source.id}
               type="button"
-              role="option"
-              aria-selected={selected === source.id}
-              className={`btn choice import-source__tile${
-                selected === source.id ? " is-active" : ""
-              }`}
+              aria-pressed={selected === source.id}
+              className="btn choice import-source__tile"
               onClick={() => setSelected(source.id)}
             >
               {source.name}
