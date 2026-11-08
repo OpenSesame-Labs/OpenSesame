@@ -23,9 +23,11 @@ import { claimProvisionalHistoryAccounts } from "./history-backups.js";
 import {
   GUEST_NOTICE_BODY,
   GUEST_NOTICE_TITLE,
+  announceMintedIdentity,
 } from "./history-claim-notice.js";
 import {
   IdentityError,
+  adoptToken,
   connectProvisional,
   currentSession,
   identityJson,
@@ -58,6 +60,7 @@ const COLLISION_MESSAGE =
 
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
+  adoptToken,
   connectProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
@@ -148,9 +151,11 @@ async function resumeGuestSessionDefault(): Promise<void> {
   await claimGuestAuthDefault();
 }
 
+export type LinkGuestAccountOutcome = { mintedPrincipal: boolean };
+
 async function linkGuestAccountDefault(
   idToken: string,
-): Promise<{ mintedPrincipal: boolean }> {
+): Promise<LinkGuestAccountOutcome> {
   let mintedPrincipal = false;
   if (!guestAuthDependencies.currentSession()) {
     // Resume the server-authenticated HttpOnly cookie first — that is the
@@ -163,11 +168,24 @@ async function linkGuestAccountDefault(
       await guestAuthDependencies.connectProvisional();
     }
   }
-  await guestAuthDependencies.identityJson("/v1/principals/link-identities", {
+  const linked = await guestAuthDependencies.identityJson<{
+    principalId?: string;
+    accessToken?: string;
+  }>("/v1/principals/link-identities", {
     method: "POST",
     body: JSON.stringify({ idToken }),
   });
-  const principalId = guestAuthDependencies.currentSession()?.principalId;
+  // The verified identity can belong to a principal that already exists
+  // (verified-email join, or the same upstream account returning): the
+  // server rebound the session to that principal and issued its token.
+  // Adopt it, so this device continues as the person it used to be rather
+  // than as a provisional minted for the trip — nothing new was created.
+  if (linked?.accessToken) {
+    mintedPrincipal = false;
+    await guestAuthDependencies.adoptToken(linked.accessToken);
+  }
+  const principalId =
+    linked?.principalId ?? guestAuthDependencies.currentSession()?.principalId;
   if (principalId) {
     try {
       await claimProvisionalHistoryAccounts(principalId);
@@ -240,14 +258,7 @@ async function adoptFederatedIdentityDefault(
     try {
       const { mintedPrincipal } = await linkGuestAccountDefault(idToken);
       if (mintedPrincipal) {
-        // Said out loud, never silent: no session survived on this device,
-        // so this sign-in stands on a principal created for it just now.
-        setStatusNotice({
-          id: "federated.new-identity",
-          tone: "info",
-          title: "New OpenSesame identity",
-          body: "This sign-in created a new OpenSesame identity on this device, because no earlier session was found here to attach it to. If you already have an identity with a vault on this device, unlock that vault and attach this sign-in from there instead.",
-        });
+        announceMintedIdentity();
       }
       clearPendingLink();
       return { kind: "linked" };
@@ -282,16 +293,22 @@ async function adoptFederatedIdentityDefault(
     return { kind: "pending_link" };
   }
 
+  await linkToOpenVault(idToken);
+  clearPendingLink();
+  return { kind: "linked" };
+}
+
+/** Attach to the principal behind the open vault; a collision says so plainly. */
+async function linkToOpenVault(idToken: string): Promise<void> {
   try {
-    await linkGuestAccountDefault(idToken);
+    const { mintedPrincipal } = await linkGuestAccountDefault(idToken);
+    if (mintedPrincipal) announceMintedIdentity();
   } catch (caught) {
     if (caught instanceof IdentityError && caught.status === 409) {
       throw new Error(COLLISION_MESSAGE);
     }
     throw caught;
   }
-  clearPendingLink();
-  return { kind: "linked" };
 }
 
 /**
@@ -359,7 +376,7 @@ export async function claimGuestAuth(): Promise<void> {
 
 export async function linkGuestAccount(
   idToken: string,
-): Promise<{ mintedPrincipal: boolean }> {
+): Promise<LinkGuestAccountOutcome> {
   return guestAuthSeams.linkGuestAccount(idToken);
 }
 

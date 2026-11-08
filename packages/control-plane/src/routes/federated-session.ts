@@ -106,7 +106,7 @@ export type FederatedSessionAdoption = {
  * uses, so `middleware/auth.ts` authenticates it identically and
  * `POST /v1/principals/provisional/revoke` ends it identically.
  */
-async function adoptSession(
+export async function adoptSession(
   ctx: AppContext,
   principalId: string,
   correlationId: string,

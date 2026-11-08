@@ -13,31 +13,21 @@ import type {
   Principal,
   ProvisionalSession,
 } from "@opensesame/os-domain";
-import { isString } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { decodeJwt } from "jose";
-import { normalizeIssuer } from "../interactions/issuer-normalization.js";
-import { resolveTrustedIssuer } from "../interactions/trust.js";
 import { peerAddress } from "../lib/peer-address.js";
 import { cookieAuthAllowed, requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
 import { serializeKeyed } from "../serialize.js";
-import { emailLinkFields } from "../services/email-authority.js";
-import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
 import { authorizeMappingResolve } from "../transport/mapping-auth.js";
-import {
-  OrgAssertionError,
-  originAudiences,
-  verifyOrgIdToken,
-} from "./org-assertion.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
 } from "./organizations.js";
+import { linkFromVerifiedIdToken } from "./principals-link.js";
 import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
 
 export const principalRoutes = new Hono<{ Variables: Variables }>();
@@ -575,125 +565,6 @@ principalRoutes.post(
   },
 );
 
-function issuerKey(issuer: string): string {
-  return normalizeIssuer(issuer);
-}
-
-/**
- * ADR 0033 production path: decode `iss`, allowlist it, verify the token, then
- * hand the verified subject to the shared identity-link service. Storage,
- * promotion and audit all live in that service so the hosted relying-party leg
- * behaves identically.
- */
-async function linkFromVerifiedIdToken(
-  c: Context<{ Variables: Variables }>,
-  principalId: string,
-  idToken: string,
-) {
-  const ctx = c.get("ctx");
-  let rawIssuer = "";
-  let issuer = "";
-  try {
-    const claims = decodeJwt(idToken);
-    rawIssuer = isString(claims.iss) ? claims.iss : "";
-    issuer = rawIssuer ? issuerKey(rawIssuer) : "";
-  } catch {
-    return c.json({ error: "invalid_token", message: "Not a JWT." }, 400);
-  }
-  const trusted = ctx.config.trustedUpstreamIssuers.map(issuerKey);
-  if (!issuer || !trusted.includes(issuer)) {
-    return c.json(
-      {
-        error: "untrusted_issuer",
-        message: "That identity issuer is not in the allowlist.",
-      },
-      403,
-    );
-  }
-
-  let verified: Awaited<ReturnType<typeof verifyOrgIdToken>>;
-  try {
-    // The allowlist is compared normalized, but jose compares `iss` exactly.
-    // Hand it the token's own spelling (a trailing slash is legal in an
-    // issuer identifier) or a valid token from that issuer is refused.
-    verified = await verifyOrgIdToken(idToken, rawIssuer, {
-      expectedAudiences: originAudiences(ctx.config),
-      blockPrivateIssuerHosts: ctx.config.isProduction,
-    });
-  } catch (error) {
-    if (error instanceof OrgAssertionError) {
-      const status = error.code === "upstream_unavailable" ? 502 : 401;
-      return c.json({ error: error.code, message: error.message }, status);
-    }
-    throw error;
-  }
-
-  /*
-   * Email may join accounts (ADR 0057 D15), but only when the issuer that
-   * asserted it has the standing to. Passing the allowlist above says this
-   * deployment federates to the issuer; it does not say the issuer verifies
-   * the addresses it claims. An issuer that hands out `email_verified: true`
-   * for anything typed into a profile would otherwise be a way onto whichever
-   * principal already owns the address.
-   */
-  const trust = await resolveTrustedIssuer(ctx, issuer);
-  if (!trust) {
-    return c.json(
-      {
-        error: "untrusted_issuer",
-        message: "That identity issuer is not in the allowlist.",
-      },
-      403,
-    );
-  }
-  const result = await attachVerifiedExternalIdentity(ctx, principalId, {
-    issuer,
-    subject: verified.sub,
-    correlationId: c.get("correlationId"),
-    ...(verified.name !== undefined
-      ? { displayHint: verified.name }
-      : undefined),
-    ...(await emailLinkFields(
-      ctx,
-      trust,
-      verified.email,
-      verified.emailVerified,
-    )),
-  });
-
-  if (!result.ok) {
-    return c.json({ error: result.error, message: result.message }, 409);
-  }
-
-  const identity = result.identity;
-  const body = LinkIdentityResponseSchema.parse({
-    principalId: identity.principalId,
-    identity: {
-      id: identity.id,
-      kind: identity.kind,
-      issuer: identity.issuer,
-      subject: identity.subject,
-      ...(identity.displayHint !== undefined
-        ? { displayHint: identity.displayHint }
-        : undefined),
-      assurance: identity.assurance,
-      linkedAt: identity.linkedAt.toISOString(),
-    },
-  });
-  if (!result.alreadyLinked) {
-    // First authenticated session for this principal (see the dev-seam path).
-    // Only on a fresh link: an idempotent re-link is not a first session, and
-    // main's pre-refactor code returned before this point in that case.
-    await ensurePersonalOnAuthenticatedSession(
-      ctx,
-      identity.principalId,
-      c.get("correlationId"),
-    );
-  }
-
-  return result.alreadyLinked ? c.json(body) : c.json(body, 201);
-}
-
 principalRoutes.delete("/identities/:id", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const principalId = authenticatedPrincipalId(c.get("principalId"));
@@ -788,6 +659,7 @@ principalRoutes.get("/mapping/resolve", async (c) => {
     subject: identity.subject,
   });
 });
+
 import {
   removeOrphanTokens,
   revokeSessionTokens,
