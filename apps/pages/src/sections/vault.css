@@ -21,6 +21,18 @@
   display: none;
 }
 
+/* The tree pane's create road: it makes vaults, so it says so, and it lands
+   on the one road that seals a new vault (Settings → Vaults). */
+.vault__new-vault {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
 .vault__list {
   display: flex;
   flex-direction: column;

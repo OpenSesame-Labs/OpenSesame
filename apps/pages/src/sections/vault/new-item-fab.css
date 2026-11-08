@@ -26,7 +26,9 @@
   color: var(--canvas);
   /* The edge is a ring, not a border: a border would take a pixel off every
      side of the target inside, and the + is 56px or it is not. */
-  box-shadow: 0 0 0 1px var(--line), var(--shadow);
+  box-shadow:
+    0 0 0 1px var(--line),
+    var(--shadow);
   /* A held finger slides to choose; it is not selecting, and a held link
      must not raise the platform's own preview. */
   -webkit-touch-callout: none;
@@ -64,14 +66,14 @@
   outline-color: var(--canvas);
 }
 
-/* The last row clears the button instead of ending under it. */
-.vault[data-pane="list"] .vtree__rows,
-.vault[data-pane="tree"] .vault__tree {
+/* The last row clears the button instead of ending under it. The tree pane
+   has no button (its create road is the New vault row), so only the list
+   keeps this clearance. */
+.vault[data-pane="list"] .vtree__rows {
   scroll-padding-bottom: calc(var(--fab-size) + var(--fab-gap) * 2);
 }
 
-.vault[data-pane="list"] .vtree__rows::after,
-.vault[data-pane="tree"] .vault__tree::after {
+.vault[data-pane="list"] .vtree__rows::after {
   content: "";
   display: block;
   height: calc(var(--fab-size) + var(--fab-gap));

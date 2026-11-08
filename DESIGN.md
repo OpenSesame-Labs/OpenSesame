@@ -270,10 +270,12 @@ phone's actions are redrawn for a thumb:
   no sheet. **Holding it draws a drag area** (`AddSlide`): a square zone above
   the button and one below, each named beside it — slide up to Import, slide
   down to Export — and the zone under the finger is inked. Letting go on a
-  zone runs it; letting go anywhere else, or a cancelled touch, chooses
-  nothing, and the lift that ends a hold never follows the `+` link. A
-  keyboard, a mouse or a screen reader, which cannot slide, still gets `Add
-  actions`, the app's own context menu of the same entries; a held finger never
+  zone runs it; letting go anywhere else opens `Add actions`, the app's own
+  context menu of the same entries, which stays after the finger lifts so it
+  can be tapped — a cancelled touch still chooses and opens nothing, and the
+  lift that ends a hold never follows the `+` link. A
+  keyboard, a mouse or a screen reader, which cannot slide, gets the same
+  `Add actions` menu from the context-menu key; a finger still down never
   opens it. The drag area is drawn on the body in fixed coordinates, because
   the vault's box clips. The button is drawn in the vault's box, which never scrolls (its rows do), so it
   is always under the thumb, above the pane's status line and clear of the
@@ -1032,7 +1034,12 @@ role comes from the element rather than an attribute.
 An empty state must say what would be here and why it is not — offline,
 unauthenticated, or genuinely empty — and offer the action that fills it, as
 plain text with no icon tile. Vault commands stay in the top path strip, not
-in a second empty-state button row. The vault's unselected buffer is two mono
+in a second empty-state button row. One carve-out: a vault with nothing
+sealed at all is a first-run surface, not an empty list — its empty state
+carries the two first-item roads as acting keys (the guided first-password
+walkthrough, and guided import), because a person new to the app has no
+list to act on and nothing yet to lose; the keys vanish with the first
+sealed item, and no filtered or folder empty state ever draws them. The vault's unselected buffer is two mono
 lines: what is sealed, and the keys — because moving the cursor previews
 items, there is nothing else for it to say. Password-health warnings live in
 the global notifications panel so they remain visible from every section.

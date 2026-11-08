@@ -65,19 +65,21 @@
   --text-max: 46rem;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 1px 4px -1px
-    rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 16px 40px -12px rgba(0, 0, 0, 0.14), 0 4px 12px -6px
-    rgba(0, 0, 0, 0.08);
+  --shadow:
+    0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.05);
+  --shadow-lg:
+    0 16px 40px -12px rgba(0, 0, 0, 0.14), 0 4px 12px -6px rgba(0, 0, 0, 0.08);
 
   --rail-w: 15.5rem;
   --list-w: 21rem;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
+  --font:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
     "Noto Sans", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
+  --mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
 
   color-scheme: light;
   font-family: var(--font);
@@ -126,10 +128,10 @@
     --s-4: #4d4d4d;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5), 0 2px 6px -2px
-      rgba(0, 0, 0, 0.35);
-    --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -8px
-      rgba(0, 0, 0, 0.4);
+    --shadow:
+      0 6px 16px -4px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
+    --shadow-lg:
+      0 24px 48px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -8px rgba(0, 0, 0, 0.4);
 
     color-scheme: dark;
   }
@@ -175,10 +177,10 @@
   --s-4: #4d4d4d;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5), 0 2px 6px -2px
-    rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -8px
-    rgba(0, 0, 0, 0.4);
+  --shadow:
+    0 6px 16px -4px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
+  --shadow-lg:
+    0 24px 48px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -8px rgba(0, 0, 0, 0.4);
 
   color-scheme: dark;
 }
@@ -339,8 +341,11 @@ kbd {
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease),
-    color 140ms var(--ease), transform 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease),
+    color 140ms var(--ease),
+    transform 140ms var(--ease);
 }
 
 .btn:hover:not(:disabled) {
@@ -472,7 +477,9 @@ kbd {
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
-  transition: background 140ms var(--ease), color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    color 140ms var(--ease);
 }
 
 .icon-btn > svg {
@@ -967,7 +974,9 @@ input[type="radio"] {
   text-decoration: none;
   white-space: nowrap;
   opacity: 0.85;
-  transition: background 140ms var(--ease), opacity 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    opacity 140ms var(--ease);
 }
 
 .railtree__row:hover {
@@ -1604,6 +1613,19 @@ body {
 
 .empty__tip span {
   min-width: 0;
+}
+
+/* A truly empty vault's first-run offer: the two ways a first item gets
+   in, as full touch-height keys under the empty heading. */
+.empty__first {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.empty__first-key {
+  min-height: 2.75rem;
 }
 
 /* Keyboard tips stay off touch-primary surfaces (DESIGN.md § Touch); one
@@ -2468,7 +2490,9 @@ body {
   border-bottom: 1px solid var(--line-strong);
   background: transparent;
   overflow: hidden;
-  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+  transition:
+    border-color 140ms var(--ease),
+    box-shadow 140ms var(--ease);
 }
 
 .f__shell:focus-within {
@@ -2556,7 +2580,9 @@ body {
   font-family: var(--mono);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease),
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease),
     color 140ms var(--ease);
 }
 
@@ -2589,7 +2615,9 @@ body {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: border-color 140ms var(--ease), background 140ms var(--ease),
+  transition:
+    border-color 140ms var(--ease),
+    background 140ms var(--ease),
     transform 140ms var(--ease);
 }
 
@@ -3140,10 +3168,15 @@ fieldset.picker {
   border-bottom: 1.5px dashed var(--line-strong);
   border-radius: 0;
   background-color: transparent;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: right 0.45rem center, right 0.23rem center;
-  background-size: 0.22rem 0.22rem, 0.22rem 0.22rem;
+  background-position:
+    right 0.45rem center,
+    right 0.23rem center;
+  background-size:
+    0.22rem 0.22rem,
+    0.22rem 0.22rem;
   background-repeat: no-repeat;
   color: var(--accent);
   font: inherit;
@@ -3202,7 +3235,9 @@ fieldset.picker {
   border-radius: 0;
   background: var(--surface-3);
   cursor: pointer;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .toggle::after {
@@ -3309,7 +3344,9 @@ fieldset.picker {
     border: 1px solid var(--accent-line);
     border-radius: var(--radius);
     background-color: var(--accent-wash);
-    background-position: right 0.55rem center, right 0.33rem center;
+    background-position:
+      right 0.55rem center,
+      right 0.33rem center;
     vertical-align: middle;
   }
 
@@ -3342,7 +3379,9 @@ fieldset.picker {
     border: 1px solid var(--line-strong);
     border-radius: 0;
     background: var(--surface-3);
-    transition: background 140ms var(--ease), border-color 140ms var(--ease);
+    transition:
+      background 140ms var(--ease),
+      border-color 140ms var(--ease);
   }
 
   .toggle::after {

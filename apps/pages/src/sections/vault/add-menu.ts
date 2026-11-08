@@ -19,6 +19,13 @@ export type AddEntry = {
 };
 
 const entries = new Map<string, AddEntry>();
+const listeners = new Set<() => void>();
+let version = 0;
+
+function changed(): void {
+  version += 1;
+  for (const listener of listeners) listener();
+}
 
 export function addEntries(): AddEntry[] {
   return [...entries.values()].sort(
@@ -27,14 +34,30 @@ export function addEntries(): AddEntry[] {
   );
 }
 
+/** For `useSyncExternalStore`: the entries change as flows mount. */
+export function subscribeAddEntries(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function addEntriesVersion(): number {
+  return version;
+}
+
 /** Register an entry while the calling flow is mounted. */
 export function useAddEntry(entry: AddEntry): void {
   const { id, label, order, slide, run } = entry;
   useEffect(() => {
     const own = { id, label, order, slide, run };
     entries.set(id, own);
+    changed();
     return () => {
-      if (entries.get(id) === own) entries.delete(id);
+      if (entries.get(id) === own) {
+        entries.delete(id);
+        changed();
+      }
     };
   }, [id, label, order, slide, run]);
 }

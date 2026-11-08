@@ -8,6 +8,44 @@
   gap: 0.85rem;
 }
 
+/* The guided source stage: where the passwords live, how that place
+   exports them, then the picker. */
+.import-source {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.import-source__lede {
+  margin: 0;
+}
+
+.import-source__tiles {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.import-source__tile {
+  min-height: 2.75rem;
+  text-align: start;
+}
+
+.import-source__steps h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+}
+
+.import-source__steps p {
+  margin: 0;
+}
+
+.import-source__facts {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--ink-2);
+}
+
 .imp__preview {
   display: grid;
   gap: 0.75rem;
