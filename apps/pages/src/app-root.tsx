@@ -44,6 +44,7 @@ import {
 import { DeadmanRelease } from "./screens/DeadmanRelease.js";
 import { FederationReturn as DefaultFederationReturn } from "./screens/FederationReturn.js";
 import { UnlockScreen as DefaultUnlockScreen } from "./screens/UnlockScreen.js";
+import { useExportFlow } from "./sections/vault/ExportKey.js";
 import { GateHost } from "./tutorial/gate-seat.js";
 
 export { useCapabilityGate } from "./app-root-hooks.js";
@@ -275,7 +276,9 @@ export function AppRoot({ slots }: { slots?: Partial<AppSlots> } = {}) {
   const wrappers = resolved.useShellWrappers();
   const { status, tomb, items, guest } = resolved.useVault();
   useRotationQueue(status, tomb, items, guest);
-  useStorageRiskNotice(status, tomb, items, guest);
+  // The storage-risk notice's act opens this sheet in place.
+  const exportFlow = useExportFlow();
+  useStorageRiskNotice(status, tomb, items, guest, exportFlow.show);
   const isAuthCallback = resolved.hasAuthResponse(location.search);
   const isDeadmanRelease = location.pathname === "/deadman";
   useEffect(() => activatePlan(compositionStore), []);
@@ -332,6 +335,7 @@ export function AppRoot({ slots }: { slots?: Partial<AppSlots> } = {}) {
   return (
     <AppSlotsContext.Provider value={resolved}>
       <Notices shellless={shellless}>{body}</Notices>
+      {exportFlow.element}
       <ContextMenuLayer />
     </AppSlotsContext.Provider>
   );
