@@ -228,6 +228,31 @@ it("rejects global checks disabled outside the generated override", () => {
   }
 });
 
+it("rejects JavaScript and empty-include overrides on authored code", () => {
+  const f = fixture();
+  for (const override of [
+    {
+      javascript: {
+        linter: { enabled: false },
+        formatter: { enabled: false },
+      },
+    },
+    { linter: { includes: [] } },
+    { formatter: { includes: [] } },
+  ]) {
+    f.json("biome.json", {
+      ...f.config,
+      overrides: [
+        artifactOverride(f.paths),
+        { includes: ["packages/static-auth/**"], ...override },
+      ],
+    });
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      "Generated-code exception drift",
+    );
+  }
+});
+
 it.each([
   { files: { includes: ["packages/**"] } },
   { files: { includes: [] } },
@@ -240,10 +265,20 @@ it.each([
   { javascript: { assist: { enabled: false } } },
   { assist: { includes: [] } },
   { assist: { includes: ["**", "!packages/**"] } },
+  {
+    assist: {
+      actions: { source: { organizeImports: "on" } },
+      includes: ["**", "!packages"],
+    },
+  },
+  { javascript: { linter: { enabled: false } } },
+  { javascript: { formatter: { enabled: false } } },
   { linter: { enabled: true, includes: [] } },
   { linter: { enabled: true, includes: ["**/*.min.js"] } },
+  { linter: { enabled: true, includes: ["**", "!packages"] } },
   { formatter: { enabled: true, includes: [] } },
   { formatter: { enabled: true, includes: ["**/*.min.js"] } },
+  { formatter: { enabled: true, includes: ["**", "!**/src"] } },
 ])("rejects narrowed checks and import organization: %j", (patch) => {
   const f = fixture();
   f.json("biome.json", { ...f.config, ...patch });

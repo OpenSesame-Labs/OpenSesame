@@ -44,13 +44,12 @@ export const integrity = (bytes) =>
   `sha384-${createHash("sha384").update(bytes).digest("base64")}`;
 
 const authoredSource = "packages/static-auth/src/index.ts";
-const included = (includes, path, directories = false) => {
+const included = (includes, path) => {
   if (includes?.length === 0) return false;
   const patterns = includes ?? [];
   const candidates = [path];
-  if (directories)
-    for (let parent = dirname(path); parent !== "."; parent = dirname(parent))
-      candidates.push(parent);
+  for (let parent = dirname(path); parent !== "."; parent = dirname(parent))
+    candidates.push(parent);
   const positive = patterns.filter((pattern) => !pattern.startsWith("!"));
   const admitted =
     positive.length === 0 ||
@@ -216,13 +215,18 @@ export function validateStaticAuth(rootPath) {
       true,
       "Authored-code checks must stay enabled",
     );
+    assert.notEqual(
+      config.javascript?.[tool]?.enabled,
+      false,
+      "Authored-code checks must stay enabled",
+    );
     assert.ok(
       included(config[tool]?.includes, authoredSource),
       "Authored-code checks must stay enabled",
     );
   }
   for (const path of [...paths, authoredSource])
-    if (!included(config.files?.includes, path, true))
+    if (!included(config.files?.includes, path))
       throw new Error("Artifacts and authored sources must stay included");
   assert.equal(
     organizeImports(config, authoredSource),
@@ -233,6 +237,10 @@ export function validateStaticAuth(rootPath) {
     (entry) =>
       entry.linter?.enabled === false ||
       entry.formatter?.enabled === false ||
+      entry.linter?.includes?.length === 0 ||
+      entry.formatter?.includes?.length === 0 ||
+      entry.javascript?.linter?.enabled === false ||
+      entry.javascript?.formatter?.enabled === false ||
       organizeImports(entry, paths[0]) === "off",
   );
   assert.deepEqual(
