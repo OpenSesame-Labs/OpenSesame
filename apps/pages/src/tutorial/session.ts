@@ -623,7 +623,8 @@ export function SupportProvider({
     const previous = { ...webmcpSupportSeam };
     Object.assign(webmcpSupportSeam, {
       openSupport: (topic: string | null) => {
-        controller.open();
+        // A named topic is an answer to read: land on Ask, not Tutorials.
+        controller.open(topic ? "ask" : undefined);
         const authored = HELP_TOPICS.find((entry) => entry.id === topic);
         if (authored) {
           controller.answerFromAuthoredHelp(authored.title, authored.answer);

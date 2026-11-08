@@ -22,6 +22,7 @@ import {
   launcher,
   mountSupport,
   openPanel,
+  showQuestions,
   tutorialCard,
   walkthrough,
 } from "./harness.js";
@@ -92,6 +93,11 @@ describe("support dialog semantics", () => {
     mountSupport({ agent: fakeAgentAnswering("Anything.") });
     const sheet = await openPanel(user);
 
+    // A fresh panel opens on Tutorials; the Questions landmark is one tab over.
+    expect(
+      within(sheet).getByRole("region", { name: "Tutorials" }),
+    ).toBeTruthy();
+    await showQuestions(user);
     expect(
       within(sheet).getByRole("region", { name: "Questions" }),
     ).toBeTruthy();

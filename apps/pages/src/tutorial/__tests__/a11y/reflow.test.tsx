@@ -24,6 +24,7 @@ import {
   mountSupport,
   openPanel,
   reachable,
+  showQuestions,
   tabTo,
 } from "./harness.js";
 
@@ -81,6 +82,7 @@ describe("the panel at a narrow viewport", () => {
       expect(scrolling.contains(control)).toBe(false);
     }
     // The help, which is the long part, is what scrolls.
+    await showQuestions(user);
     expect(
       scrolling.contains(
         within(sheet).getByRole("region", { name: "Questions" }),

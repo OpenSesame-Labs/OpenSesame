@@ -6,10 +6,10 @@
  * hold, or whose screen is somewhere else, is not offered here.
  */
 
-import { INITIAL_SNAPSHOT } from "@opensesame/app-core/lib/capabilities/store-types.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
-import type { VaultState } from "@opensesame/app-core/lib/vault/store-state.js";
+import { INITIAL_SNAPSHOT } from "@opensesame/app-core/lib/capabilities/store-types.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import type { VaultState } from "@opensesame/app-core/lib/vault/store-state.js";
 import type { EffectivePlan } from "@opensesame/capability-composition";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import type { RecoveryCodesRecord, VaultHeader } from "@opensesame/vault-core";
@@ -17,7 +17,12 @@ import { within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { profilePlan } from "../../lib/capabilities/__tests__/vault-profiles.js";
-import { mount, openPanel, resetSupport } from "./support-test-harness.js";
+import {
+  mount,
+  openPanel,
+  resetSupport,
+  showQuestions,
+} from "./support-test-harness.js";
 
 const HIDDEN = [
   "How do I set a duress code?",
@@ -63,6 +68,7 @@ async function titles(route: string): Promise<readonly string[]> {
   const user = userEvent.setup();
   mount(fakeAgentAlwaysUnavailable("no_local_model"), "none", null, route);
   const { panel } = await openPanel(user);
+  await showQuestions(user);
   const questions = within(panel).getByRole("region", { name: "Questions" });
   return within(questions)
     .getAllByRole("button")
