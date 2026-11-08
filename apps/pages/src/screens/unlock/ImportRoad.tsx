@@ -59,11 +59,11 @@ export function ImportRoadButton({
         <button
           type="button"
           className="unlock__switch"
-          aria-label="Import a file"
-          title="an OpenSesame backup or a .env file"
+          aria-label="Import passwords from a file"
+          title="a browser or password-manager export, an OpenSesame backup or a .env file"
           onClick={open}
         >
-          Import a file
+          Import passwords
         </button>
         {picker}
       </>
@@ -74,16 +74,16 @@ export function ImportRoadButton({
       <button
         type="button"
         className="road road--wide"
-        aria-label="Import a file"
+        aria-label="Import passwords from a file"
         aria-describedby="door-import-kind"
         onClick={open}
       >
         <span className="road__mark" aria-hidden="true">
           <IconDownload size={20} />
         </span>
-        <span className="road__name">Import a file</span>
+        <span className="road__name">Import passwords</span>
         <span className="road__kind" id="door-import-kind">
-          a backup or a .env file
+          from a browser export, another manager, a backup or a .env file
         </span>
       </button>
       {picker}

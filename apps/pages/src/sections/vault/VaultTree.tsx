@@ -13,18 +13,19 @@ import {
   tombPath,
 } from "@opensesame/vault-core";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { EmptyTip } from "../../components/EmptyTip.js";
 import { IconChevronRight } from "../../components/Icons.js";
-import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { searchInCommandBar } from "../../lib/command-bar/focus.js";
 import { focusRailListing, registerVaultKeymap } from "../../lib/keymap.js";
 import { pageSteps, viewportIndex } from "../../lib/tree-motion.js";
 import { useClaimedDrags } from "../../lib/use-claimed-drags.js";
-import { VaultPathbar } from "./VaultPathbar.js";
-import { Decorations } from "./VaultRowDecorations.js";
 import { useMenuFlip } from "./use-menu-flip.js";
 import type { SharedItemMarks } from "./use-shared-items.js";
 import { useVaultSearch } from "./use-vault-search.js";
+import { VaultPathbar } from "./VaultPathbar.js";
+import { Highlight } from "./VaultHighlight.js";
+import { Decorations } from "./VaultRowDecorations.js";
 import { type VaultTreeActions, vaultRowMenu } from "./vault-menu.js";
 import { VaultRowMenu } from "./vault-row-menu.js";
 import { guideBlocks } from "./vault-tree-blocks.js";
@@ -42,6 +43,7 @@ type VaultTreeProps = {
   actions: VaultTreeActions;
   verbs?: ReactNode;
   emptyMessage: string;
+  firstRun?: ReactNode;
 };
 
 export const vaultTreeSeams = {
@@ -49,18 +51,6 @@ export const vaultTreeSeams = {
   loadCollapsed: loadCollapsedDefault,
   saveCollapsed: saveCollapsedDefault,
 };
-
-function Highlight({ text, query }: { text: string; query: string }) {
-  const at = query ? text.toLowerCase().indexOf(query) : -1;
-  if (at < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, at)}
-      <mark>{text.slice(at, at + query.length)}</mark>
-      {text.slice(at + query.length)}
-    </>
-  );
-}
 
 export function VaultTree({
   items,
@@ -72,6 +62,7 @@ export function VaultTree({
   actions,
   verbs,
   emptyMessage,
+  firstRun,
 }: VaultTreeProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [cursor, setCursor] = useState<string | null>(null);
@@ -278,6 +269,7 @@ export function VaultTree({
           <EmptyTip
             tip={emptyMessage === "Trash is empty" ? "keymap" : "vaultEmpty"}
           />
+          {firstRun}
         </div>
       ) : null}
 

@@ -1,17 +1,8 @@
-import { vaultFilterLabel } from "@opensesame/app-core/lib/crumbs.js";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router";
-
 import { accessIdentitySharePath } from "@opensesame/app-core/lib/access-routes.js";
+import { vaultFilterLabel } from "@opensesame/app-core/lib/crumbs.js";
 import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
-import { resolveFilterSlug } from "@opensesame/app-core/lib/vault-filter-slug.js";
 import { itemCreatePath } from "@opensesame/app-core/lib/vault/item-path.js";
+import { resolveFilterSlug } from "@opensesame/app-core/lib/vault-filter-slug.js";
 import {
   type VaultItem,
   itemTypeId,
@@ -19,6 +10,15 @@ import {
   listedItems,
   sortItems,
 } from "@opensesame/vault-core";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { IconChevronLeft } from "../components/Icons.js";
 import { NavTree } from "../components/NavTree.js";
 import { UpLink } from "../components/UpLink.js";
@@ -26,21 +26,22 @@ import { clearCommandBarSearch } from "../lib/command-bar/focus.js";
 import { swipeBack } from "../lib/gestures.js";
 import { AscendProvider, usePaneTrail } from "../lib/pane-trail.js";
 import { useNarrow } from "../lib/use-narrow.js";
-import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
 import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
+import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
+import { accountSecretToCopy } from "./vault/account-copy.js";
+import { credentialChoices } from "./vault/account-credentials.js";
+import { FirstItemOffer } from "./vault/FirstItemOffer.js";
 import { LiveSessionBanner } from "./vault/LiveSessionBanner.js";
 import { NewItemFab } from "./vault/NewItemFab.js";
 import { TrashCommands, trashItemActions } from "./vault/TrashCommands.js";
+import { useSharedItems } from "./vault/use-shared-items.js";
+import { useVaultFocus } from "./vault/use-vault-focus.js";
+import { useVaultPaneRefs } from "./vault/use-vault-pane-refs.js";
 import { VaultActions } from "./vault/VaultActions.js";
 import { VaultDropPicker } from "./vault/VaultDropPicker.js";
 import { VaultFilterMenu } from "./vault/VaultFilterMenu.js";
 import { VaultTree } from "./vault/VaultTree.js";
 import { VaultWelcome } from "./vault/VaultWelcome.js";
-import { accountSecretToCopy } from "./vault/account-copy.js";
-import { credentialChoices } from "./vault/account-credentials.js";
-import { useSharedItems } from "./vault/use-shared-items.js";
-import { useVaultFocus } from "./vault/use-vault-focus.js";
-import { useVaultPaneRefs } from "./vault/use-vault-pane-refs.js";
 import "./vault.css";
 import {
   chipTypeIds,
@@ -294,6 +295,9 @@ export function VaultSection() {
           {narrow ? (
             <>
               <NavTree />
+              <Link className="vault__new-vault" to="/settings/vaults">
+                New vault
+              </Link>
             </>
           ) : null}
         </div>
@@ -315,6 +319,13 @@ export function VaultSection() {
             total={total}
             emptyMessage={
               filter === "trash" ? "Trash is empty" : "Nothing here"
+            }
+            firstRun={
+              <FirstItemOffer
+                createPath={createPath}
+                listedCount={listed.length}
+                inTrash={inTrash}
+              />
             }
             verbs={
               <>
@@ -362,11 +373,14 @@ export function VaultSection() {
           <Outlet />
         </div>
 
-        {/* A phone's primary action, pinned to the corner of the tree and the
-          list; the item's own screen has its own keys, and the trash has
-          nothing to add to. */}
+        {/* A phone's primary action, pinned to the corner of the list only:
+          a create affordance exists only on a list whose contents it
+          creates. On the section tree a `+` read as "new vault" while it
+          made an item, so the tree has none — its create road is the
+          "New vault" row under the tree. The item's own screen has its own
+          keys, and the trash has nothing to add to. */}
         <NewItemFab
-          shown={narrow && showing !== "detail" && !inTrash}
+          shown={narrow && showing === "list" && !inTrash}
           to={createPath}
           fabRef={recordNewItem}
         />

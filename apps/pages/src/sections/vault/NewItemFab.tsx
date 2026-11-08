@@ -2,16 +2,16 @@ import { reportGuideActivation } from "@opensesame/app-core/tutorial/registry/ta
 import { useCallback } from "react";
 import { Link } from "react-router";
 import { useContributions } from "../../bindings/contributions.js";
-import { IconPlus } from "../../components/Icons.js";
 import {
   type MenuOpening,
   openContextMenu,
 } from "../../components/context-menu/menu-model.js";
+import { IconPlus } from "../../components/Icons.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { AddSlide } from "./AddSlide.js";
-import { ExportEntry } from "./ExportKey.js";
 import { type AddEntry, addEntries } from "./add-menu.js";
 import { useAddSlide } from "./add-slide.js";
+import { ExportEntry } from "./ExportKey.js";
 import { PasswordsOnboardingOffer } from "./passwords-onboarding-offer.js";
 import "./new-item-fab.css";
 
@@ -49,7 +49,8 @@ function openAddMenu(event: MenuOpening, anchor: Element | null): void {
  *
  * The `+` is one tap. Holding it draws a drag area around it, with the other
  * ways to add named on it: slide up to Import, down to Export, and let go
- * there (`AddSlide`). Letting go anywhere else chooses nothing. It is a sharp
+ * there (`AddSlide`). Letting go anywhere else opens those ways as a menu
+ * that stays after the lift, to be tapped. It is a sharp
  * square, like every control (DESIGN.md § Shapes).
  */
 export function NewItemFab({
@@ -60,7 +61,7 @@ export function NewItemFab({
   to: string;
   /** The shell's record of where New item is, for focus and the guide. */
   fabRef?: (element: HTMLAnchorElement | null) => void;
-  /** Where the button is drawn: a phone's tree and list, never an item or the trash. */
+  /** Where the button is drawn: a phone's list only, never the tree, an item or the trash. */
   shown: boolean;
 }) {
   if (!shown) return null;
@@ -83,7 +84,19 @@ function AddButton({
   const exportGuide = useGuideTarget<HTMLAnchorElement>("vault.export", {
     activation: "manual",
   });
-  const slide = useAddSlide(chooseEntry);
+  const openMenuOnLift = useCallback(
+    (lift: { clientX: number; clientY: number; anchor: HTMLElement }) =>
+      openAddMenu(
+        {
+          clientX: lift.clientX,
+          clientY: lift.clientY,
+          preventDefault: () => undefined,
+        },
+        lift.anchor,
+      ),
+    [],
+  );
+  const slide = useAddSlide(chooseEntry, openMenuOnLift);
   const plusRef = useCallback(
     (element: HTMLAnchorElement | null) => {
       importGuide(element);
