@@ -8,7 +8,13 @@
  * the narrower "Forgotten how to unlock?" panel is open, so only one
  * erase question is on the screen at a time.
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { UnlockScreen } from "./UnlockScreen.js";
 import { resetUnlockHarness, v } from "./unlock-screen-harness.js";
@@ -81,5 +87,24 @@ describe("Reset this browser on the lock screens", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Keep it" }));
     expect(question()).toBeTruthy();
+  });
+});
+
+describe("deleting a locked vault from the unlock screen", () => {
+  it("offers vault deletion behind a confirm step", async () => {
+    sealed();
+    render(<UnlockScreen />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Forgotten how to unlock?" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete this vault" }));
+    // The press only opens the confirmation sheet, in its locked form:
+    // no count read out of a sealed vault, and no export offered.
+    expect(v.store.destroy).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Delete a vault" }).textContent,
+    ).toContain("not possible while locked");
+    fireEvent.click(screen.getByRole("button", { name: "Delete vault" }));
+    await waitFor(() => expect(v.store.destroy).toHaveBeenCalledTimes(1));
   });
 });

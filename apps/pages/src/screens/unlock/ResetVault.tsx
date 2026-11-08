@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { DeleteVaultSheet } from "../../components/DeleteVaultSheet.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconTrash, IconX } from "../../components/Icons.js";
 
@@ -6,6 +8,12 @@ import { IconTrash, IconX } from "../../components/Icons.js";
  * two keys — delete this vault, or keep it. The verbs are the keys' names,
  * never words painted on them (DESIGN.md § Actions are symbols). Closed, it
  * is the question itself.
+ *
+ * The delete key never deletes: it opens the same confirmation sheet every
+ * delete road shares, in its locked form — no count (the vault is sealed
+ * and is never read to count it), no export (not possible while locked),
+ * and the sheet's close key as the way back, so a locked-out person is
+ * never one stray press from losing the vault or trapped into deleting it.
  */
 export function ResetVault({
   open,
@@ -18,6 +26,7 @@ export function ResetVault({
   onDelete: () => void;
   onKeep: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   if (!open) {
     return (
       <button type="button" className="unlock__switch" onClick={onOpen}>
@@ -33,13 +42,25 @@ export function ResetVault({
         only clears the file so you can start again.
       </p>
       <div className="actions">
-        <IconKey label="Delete this vault" onClick={onDelete}>
+        <IconKey label="Delete this vault" onClick={() => setConfirming(true)}>
           <IconTrash size={16} />
         </IconKey>
         <IconKey label="Keep it" small onClick={onKeep}>
           <IconX size={16} />
         </IconKey>
       </div>
+      {confirming ? (
+        <DeleteVaultSheet
+          label="This vault"
+          busy={false}
+          locked
+          onDelete={() => {
+            setConfirming(false);
+            onDelete();
+          }}
+          onClose={() => setConfirming(false)}
+        />
+      ) : null}
     </div>
   );
 }
