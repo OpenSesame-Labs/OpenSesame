@@ -54,9 +54,7 @@ const included = (includes, path) => {
   const admitted =
     includes === undefined ||
     (positive.length > 0 &&
-      positive.some((pattern) =>
-        candidates.some((candidate) => matchesGlob(candidate, pattern)),
-      ));
+      positive.some((pattern) => matchesGlob(path, pattern)));
   const excluded = patterns.some(
     (pattern) =>
       pattern.startsWith("!") &&
