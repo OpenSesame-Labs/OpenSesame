@@ -52,10 +52,11 @@ const included = (includes, path) => {
     candidates.push(parent);
   const positive = patterns.filter((pattern) => !pattern.startsWith("!"));
   const admitted =
-    positive.length === 0 ||
-    positive.some((pattern) =>
-      candidates.some((candidate) => matchesGlob(candidate, pattern)),
-    );
+    includes === undefined ||
+    (positive.length > 0 &&
+      positive.some((pattern) =>
+        candidates.some((candidate) => matchesGlob(candidate, pattern)),
+      ));
   const excluded = patterns.some(
     (pattern) =>
       pattern.startsWith("!") &&

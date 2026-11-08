@@ -261,10 +261,12 @@ it.each([
   { files: { includes: ["**", "!!packages"] } },
   { files: { includes: ["**", "!**/src"] } },
   { files: { includes: ["**", "!**/*.ts"] } },
+  { files: { includes: ["!**/*.min.js"] } },
   { assist: { enabled: false } },
   { javascript: { assist: { enabled: false } } },
   { assist: { includes: [] } },
   { assist: { includes: ["**", "!packages/**"] } },
+  { assist: { includes: ["!**/*.min.js"] } },
   {
     assist: {
       actions: { source: { organizeImports: "on" } },
@@ -275,9 +277,11 @@ it.each([
   { javascript: { formatter: { enabled: false } } },
   { linter: { enabled: true, includes: [] } },
   { linter: { enabled: true, includes: ["**/*.min.js"] } },
+  { linter: { enabled: true, includes: ["!**/*.min.js"] } },
   { linter: { enabled: true, includes: ["**", "!packages"] } },
   { formatter: { enabled: true, includes: [] } },
   { formatter: { enabled: true, includes: ["**/*.min.js"] } },
+  { formatter: { enabled: true, includes: ["!**/*.min.js"] } },
   { formatter: { enabled: true, includes: ["**", "!**/src"] } },
 ])("rejects narrowed checks and import organization: %j", (patch) => {
   const f = fixture();
