@@ -27,8 +27,8 @@ import { useVault } from "../../lib/vault/hooks.js";
 import { withWakeLock } from "../../lib/wake-lock.js";
 import { downloadSeams } from "../../screens/capabilities/download.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-import { ExportBackupMenu } from "./ExportKey.menu.js";
 import { useAddEntry } from "./add-menu.js";
+import { ExportBackupMenu } from "./ExportKey.menu.js";
 
 const NOTICE = "vault-export";
 
@@ -211,7 +211,7 @@ function ExportSheet({ onClose }: { onClose: () => void }) {
 }
 
 /** The export flow: the encrypted-backup sheet, opened and closed. */
-function useExportFlow() {
+export function useExportFlow() {
   const [open, setOpen] = useState(false);
   const show = useCallback(() => setOpen(true), []);
   const close = useCallback(() => setOpen(false), []);

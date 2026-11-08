@@ -8,8 +8,10 @@ import {
   useStorageRiskNotice,
 } from "./storage-risk-notice.js";
 
-const item = { id: "i1", deletedAt: null } as unknown as VaultItem;
-const trashed = { id: "i2", deletedAt: "2026-01-01" } as unknown as VaultItem;
+// SAFETY: fixture item — the checked hook reads only `deletedAt` on this seam.
+const item = { id: "i1", deletedAt: null } as VaultItem;
+// SAFETY: fixture item — the checked hook reads only `deletedAt` on this seam.
+const trashed = { id: "i2", deletedAt: "2026-01-01" } as VaultItem;
 
 const original = { ...storageRiskSeams };
 let setNotice: ReturnType<typeof vi.fn>;
@@ -20,7 +22,6 @@ beforeEach(() => {
   dismiss = vi.fn();
   Object.assign(storageRiskSeams, {
     getBackupStatus: async () => ({ target: null, pendingEvents: 0 }),
-    storagePersisted: async () => false,
     setStatusNotice: setNotice,
     dismissNotice: dismiss,
   });
@@ -31,9 +32,10 @@ afterEach(() => {
 });
 
 describe("the browser-storage warning", () => {
-  it("warns on unlock when items are sealed with no backup and no persistence", async () => {
+  it("warns on unlock when items are sealed with no working backup", async () => {
     renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
     await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+    // SAFETY: the seam is this suite's own vi.fn; the recorded call matches the notice input contract.
     const input = setNotice.mock.calls[0]?.[0] as {
       id: string;
       body: string;
@@ -53,27 +55,42 @@ describe("the browser-storage warning", () => {
     expect(setNotice).not.toHaveBeenCalled();
   });
 
-  it("stays silent when a backup is enabled or storage is persistent", async () => {
+  it("stays silent only when a backup is enabled, error-free and caught up", async () => {
     Object.assign(storageRiskSeams, {
       getBackupStatus: async () => ({
-        target: { enabled: true },
+        target: { enabled: true, lastError: null },
         pendingEvents: 0,
       }),
-    });
-    const { unmount } = renderHook(() =>
-      useStorageRiskNotice("unlocked", "personal", [item]),
-    );
-    await Promise.resolve();
-    expect(setNotice).not.toHaveBeenCalled();
-    unmount();
-
-    Object.assign(storageRiskSeams, {
-      getBackupStatus: async () => ({ target: null, pendingEvents: 0 }),
-      storagePersisted: async () => true,
     });
     renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
     await Promise.resolve();
     expect(setNotice).not.toHaveBeenCalled();
+  });
+
+  it("warns when the backup is enabled but failing or behind", async () => {
+    Object.assign(storageRiskSeams, {
+      getBackupStatus: async () => ({
+        target: { enabled: true, lastError: "push rejected" },
+        pendingEvents: 3,
+      }),
+    });
+    renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
+    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+  });
+
+  it("opens the export sheet from the notice's own act", async () => {
+    const onExport = vi.fn();
+    renderHook(() =>
+      useStorageRiskNotice("unlocked", "personal", [item], false, onExport),
+    );
+    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+    // SAFETY: the seam is this suite's own vi.fn; the recorded call matches the notice input contract.
+    const input = setNotice.mock.calls[0]?.[0] as {
+      act?: { label: string; run: () => void };
+    };
+    expect(input.act?.label).toBe("Export a copy");
+    input.act?.run();
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 
   it("fires when the first item is sealed, and withdraws on lock", async () => {
