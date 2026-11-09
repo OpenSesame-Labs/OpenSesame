@@ -4,6 +4,15 @@
  * pane (`/vault/list`) — a phone's bare `/vault` is the section tree, where
  * neither the list nor New item is mounted — and both wait for the person
  * to press New item themselves: a tour points, the person acts.
+ *
+ * The first-item tour's Save step waits for the editor to DISAPPEAR, not
+ * for Save to be pressed: `activate` fires before the form runs, so a
+ * rejected draft would end the tour with nothing saved. The editor only
+ * closes once the save has sealed (or the person leaves it), and a
+ * successful save lands on the item's own page — so the tour then opens
+ * the list itself and finishes standing over the saved item. Like every
+ * beat the step can be skipped with Next; followed, it cannot complete
+ * early.
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
@@ -24,11 +33,12 @@ export const FIRST_ITEM_GOAL: GuideGoalDescriptor = {
     'wait target "item.editor.name" event=appear timeout=15000',
     'focus "item.editor.name" "Name the item: the site or service it is for, as you would look for it later. For a practice run, Practice is a fine name." side=bottom',
     'say "Under the name are the website, username and password fields. Fill in what you have; anything blank can be added later by editing the item. This tour never points at the password field and never reads what you type."',
-    'focus "item.editor.save" "When the fields hold what they should, press Save — it seals the item into the vault on this device. The tour waits here until you do; take as long as you need." side=top',
-    'wait target "item.editor.save" event=activate timeout=300000',
+    'focus "item.editor.save" "When the fields hold what they should, press Save — it seals the item into the vault on this device. The tour waits here until the editor closes; take as long as you need, and fix anything the editor asks about first." side=top',
+    'wait target "item.editor.save" event=disappear timeout=60000',
+    'navigate "/vault/list"',
     'wait route "/vault/list" timeout=15000',
     'wait target "vault.list" event=appear timeout=15000',
-    'focus "vault.list" "There it is — your first item, sealed in the list. Open it any time to copy its password without showing it." side=right',
+    'focus "vault.list" "Saved items stand in this list — yours included, once you have saved it. Open it any time to copy its password without showing it." side=right',
     'success "Because the vault lives in this browser, set up a backup next — the Export walkthrough shows how, and the unlock screen will remind you until one is working."',
     "end",
   ].join("\n"),
