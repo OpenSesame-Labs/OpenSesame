@@ -23,17 +23,11 @@ function isTrashed(item: VaultItem): boolean {
 
 /** Deleting the open vault: the row names which vault and what goes with it. */
 function DeleteVaultSection({
-  confirmDestroy,
   count,
   onArm,
-  onCancel,
-  onDestroy,
 }: {
-  confirmDestroy: boolean;
   count: string;
   onArm: () => void;
-  onCancel: () => void;
-  onDestroy: () => void;
 }) {
   return (
     <section className="panel set__danger" id="settings-delete-vault">
@@ -46,24 +40,11 @@ function DeleteVaultSection({
         <div className="keyed-row">
           <p className="set__danger-target">
             <strong>{openVaultLabel()}</strong>
-            {confirmDestroy
-              ? ` · ${count} will be unrecoverable. Export first if you are not certain.`
-              : ` · ${count}`}
+            {` · ${count}`}
           </p>
-          {confirmDestroy ? (
-            <>
-              <IconKey label="Delete permanently" armed onClick={onDestroy}>
-                <IconTrash size={16} />
-              </IconKey>
-              <IconKey label="Cancel" onClick={onCancel}>
-                <IconX size={16} />
-              </IconKey>
-            </>
-          ) : (
-            <IconKey label="Delete this vault" onClick={onArm}>
-              <IconTrash size={16} />
-            </IconKey>
-          )}
+          <IconKey label="Delete this vault" onClick={onArm}>
+            <IconTrash size={16} />
+          </IconKey>
         </div>
       </div>
     </section>
@@ -245,7 +226,6 @@ function TrashSection({
 export function SettingsDangerPanel() {
   const { items } = useVault();
   const store = useVaultStore();
-  const [confirmDestroy, setConfirmDestroy] = useState(false);
   const [destroySheet, setDestroySheet] = useState(false);
   const [emptyArmed, setEmptyArmed] = useState(false);
   const [purgeArmedId, setPurgeArmedId] = useState<string | null>(null);
@@ -271,16 +251,12 @@ export function SettingsDangerPanel() {
     <>
       <TransferVaultSection />
 
-      {/* Proportional friction: an empty vault arms in place; a vault with
-          anything in it gets the confirmation sheet, naming the count. */}
+      {/* One confirmation for every delete road (DeleteVaultSheet): the
+          sheet, naming the count — an empty vault included. An in-place
+          arm here was a second, weaker ceremony the gauntlet struck. */}
       <DeleteVaultSection
-        confirmDestroy={confirmDestroy}
         count={count}
-        onArm={() =>
-          listed.length > 0 ? setDestroySheet(true) : setConfirmDestroy(true)
-        }
-        onCancel={() => setConfirmDestroy(false)}
-        onDestroy={() => void store.destroy()}
+        onArm={() => setDestroySheet(true)}
       />
       {destroySheet ? (
         <DestroyConfirm

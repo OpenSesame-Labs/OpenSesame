@@ -62,6 +62,15 @@ export type AttachIdentityInput = {
   displayHint?: string;
   emailNormalized?: string;
   emailVerified?: boolean;
+  /**
+   * Whether a verified-email match may land this identity on the OTHER
+   * principal that owns the address (D15). Defaults to true — the admission
+   * legs call with a just-minted provisional that exists to be bound. An
+   * authenticated link road acting for a durable caller passes false: for
+   * them the same landing is a merge, and merging takes dual authentication,
+   * so the attach refuses with `identity_collision` instead of fusing.
+   */
+  joinByVerifiedEmail?: boolean;
   /** Provenance for the identity row, e.g. `{ nameIdFormat }` for SAML. */
   metadata?: Record<string, string>;
 };
@@ -149,6 +158,13 @@ export async function attachVerifiedExternalIdentity(
     emailMatch && emailMatch.principalId !== principalId
       ? emailMatch
       : undefined;
+  if (emailOwner && input.joinByVerifiedEmail === false) {
+    return {
+      ok: false,
+      error: "identity_collision",
+      message: IDENTITY_COLLISION_MESSAGE,
+    };
+  }
   const ownerPrincipalId = emailOwner ? emailOwner.principalId : principalId;
 
   // Same email on another principal must never auto-link. Audit and continue.

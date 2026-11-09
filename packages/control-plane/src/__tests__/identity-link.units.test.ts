@@ -345,6 +345,68 @@ describe("email is evidence, never a join key", () => {
     ).toHaveLength(0);
   });
 
+  it("lands a verified-email join on the address's owner by default (D15)", async () => {
+    f.principals.set(
+      "prn_someone_else",
+      principal({
+        id: "prn_someone_else",
+        state: "active",
+        assurance: "verified",
+      }),
+    );
+    f.identities.push(
+      identity({
+        id: "xid_other",
+        principalId: "prn_someone_else",
+        subject: "a-different-subject",
+        emailNormalized: "person@example.com",
+        emailVerified: true,
+      }),
+    );
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", {
+      ...INPUT,
+      emailNormalized: "person@example.com",
+      emailVerified: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(f.created[0]?.principalId).toBe("prn_someone_else");
+  });
+
+  it("refuses the verified-email join before writing anything when the road forbids it", async () => {
+    // Chair gauntlet round 3: an authenticated link road acting for a
+    // durable caller must not silently merge onto the address's owner.
+    // The fence refuses ahead of the write — no row lands anywhere.
+    f.principals.set(
+      "prn_someone_else",
+      principal({
+        id: "prn_someone_else",
+        state: "active",
+        assurance: "verified",
+      }),
+    );
+    f.identities.push(
+      identity({
+        id: "xid_other",
+        principalId: "prn_someone_else",
+        subject: "a-different-subject",
+        emailNormalized: "person@example.com",
+        emailVerified: true,
+      }),
+    );
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", {
+      ...INPUT,
+      emailNormalized: "person@example.com",
+      emailVerified: true,
+      joinByVerifiedEmail: false,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(f.created).toHaveLength(0);
+  });
+
   it("does not look for peers when no email was supplied", async () => {
     const spy = vi.spyOn(
       f.ctx.repos.externalIdentities,

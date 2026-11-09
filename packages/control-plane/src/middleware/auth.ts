@@ -24,7 +24,7 @@ async function principalStillAuthenticates(
   );
 }
 
-async function resolveProvisionalSession(
+export async function resolveProvisionalSession(
   ctx: AppContext,
   token: string,
 ): Promise<{ principalId: string; sessionId: string } | undefined> {

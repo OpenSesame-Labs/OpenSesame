@@ -2,11 +2,12 @@ import { LinkIdentityResponseSchema } from "@opensesame/contracts";
 import type { ExternalIdentity } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
 import type { Context } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import { decodeJwt } from "jose";
 import type { AppContext } from "../context.js";
 import { normalizeIssuer } from "../interactions/issuer-normalization.js";
 import { resolveTrustedIssuer } from "../interactions/trust.js";
+import { resolveProvisionalSession } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { revokeSessionTokens } from "../repos/session-storage.js";
 import { emailLinkFields } from "../services/email-authority.js";
@@ -122,15 +123,27 @@ function isThrowaway(
  * still counted against the provisional ceiling).
  */
 async function revokePresentedSession(c: LinkContext, ctx: AppContext) {
-  const sessionId = c.get("provisionalSessionId");
-  if (!sessionId) return;
-  const presented = await ctx.stores.provisionalSessions.get(sessionId);
-  if (!presented || presented.revokedAt) return;
-  await ctx.stores.provisionalSessions.set(sessionId, {
-    ...presented,
-    revokedAt: ctx.clock(),
-  });
-  await revokeSessionTokens(ctx.stores, sessionId);
+  const sessionIds = new Set<string>();
+  const authenticated = c.get("provisionalSessionId");
+  if (authenticated) sessionIds.add(authenticated);
+  // Bearer [REDACTED] in the auth middleware, so a request can carry a cookie
+  // session the middleware never resolved. The adoption overwrote that
+  // cookie; its distinct server row must end too, not linger live until
+  // expiry as an orphan nobody holds.
+  const cookie = getCookie(c, ctx.config.provisionalCookieName);
+  if (cookie) {
+    const resolved = await resolveProvisionalSession(ctx, cookie);
+    if (resolved) sessionIds.add(resolved.sessionId);
+  }
+  for (const sessionId of sessionIds) {
+    const presented = await ctx.stores.provisionalSessions.get(sessionId);
+    if (!presented || presented.revokedAt) continue;
+    await ctx.stores.provisionalSessions.set(sessionId, {
+      ...presented,
+      revokedAt: ctx.clock(),
+    });
+    await revokeSessionTokens(ctx.stores, sessionId);
+  }
 }
 
 /**
@@ -232,7 +245,14 @@ export async function linkFromVerifiedIdToken(
    */
   const trust = await resolveTrustedIssuer(ctx, issuer);
   if (!trust) return c.json(UNTRUSTED_ISSUER, 403);
+  // The throwaway fence sits BEFORE the attach, not only around the
+  // session adoption after it: attach itself performs the D15 email
+  // join, so a durable caller would otherwise have their verified
+  // identity silently merged onto the principal that owns the address
+  // even though their session never switched.
+  const caller = await ctx.repos.principals.getById(principalId);
   const result = await attachVerifiedExternalIdentity(ctx, principalId, {
+    joinByVerifiedEmail: isThrowaway(caller),
     issuer,
     subject: verified.sub,
     correlationId: c.get("correlationId"),
