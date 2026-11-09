@@ -55,8 +55,9 @@ findings there at the time of writing.
    lookalikes by structure, but issuance could only be checked by sending them
    to the provider. They stayed reported until the repository owner confirmed
    they were hand-made test constants that were never functional; they are now
-   fingerprinted like the rest. History findings warn unless
-   `OPENSESAME_BETTERLEAKS_HISTORY_FAIL=1`.
+   fingerprinted like the rest. The gate warns on history findings unless
+   `OPENSESAME_BETTERLEAKS_HISTORY_FAIL=1`; the scheduled `security.yml` job sets
+   it, so a new finding on any ref fails that run.
 
 ## Consequences
 
