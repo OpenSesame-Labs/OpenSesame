@@ -311,8 +311,13 @@ async function sessionMayClaim(
   principal: Principal,
   expectedEmail?: string,
 ): Promise<boolean> {
+  // Provisional in EITHER dimension is provisional: a half-promoted
+  // record (active state, provisional assurance — or the reverse) owes
+  // the same verified-email proof as a fully provisional one before it
+  // may claim an agent. Gating on both let a half-promoted human with
+  // no verified email at all complete an emailless claim.
   if (
-    principal.assurance === "provisional" &&
+    principal.assurance === "provisional" ||
     principal.state === "provisional"
   ) {
     const identities = await ctx.repos.externalIdentities.listByPrincipal(
@@ -481,6 +486,7 @@ export async function exchangeJwtBearer(
     throw agentAuthError("invalid_grant", 400, "assertion claim state stale");
   }
   const principal = await loadPrincipal(ctx, registration.principalId);
+  if (claimed) assertClaimedPrincipalSettled(principal);
   const requested = requestedScope
     ? requestedScope.split(/[\s+]+/).filter(Boolean)
     : undefined;
@@ -504,6 +510,24 @@ export async function exchangeJwtBearer(
     scope: scopes.join(" "),
   };
 }
+/**
+ * Claimed tokens act for the claiming human, whom claimAgentRegistration
+ * installs as registration.principalId. They are minted only for a
+ * settled human — active state, non-provisional assurance. An agent
+ * polling or exchanging must not promote anyone itself, so a legacy
+ * half-promoted claimed registration refuses here until a human road
+ * (federated sign-in, re-link, claim completion) finishes the promotion.
+ * Unclaimed registrations keep loading their own by-design provisional
+ * agent principal via loadPrincipal.
+ */
+function assertClaimedPrincipalSettled(
+  principal: Awaited<ReturnType<typeof loadPrincipal>>,
+): void {
+  if (principal.state !== "active" || principal.assurance === "provisional") {
+    throw agentAuthError("invalid_grant", 400, "principal unavailable");
+  }
+}
+
 export async function pollClaimGrant(
   ctx: AppContext,
   claimToken: string,
@@ -556,6 +580,7 @@ export async function pollClaimGrant(
     throw agentAuthError("authorization_pending", 400);
   }
   const principal = await loadPrincipal(ctx, registration.principalId);
+  assertClaimedPrincipalSettled(principal);
   const scopes = effectiveScopes(ctx, registration, principal);
   const assertion = await mintAssertion(ctx, registration, true, scopes, now);
   const access = await mintAccessToken(ctx, registration, scopes, true, now);
