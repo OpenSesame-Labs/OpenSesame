@@ -12,8 +12,12 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
-import { removeOrphanTokens } from "../repos/session-storage.js";
+import {
+  removeOrphanTokens,
+  revokeSessionTokens,
+} from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
+import { ensureVerifiedIdentityPrincipalActive } from "../services/identity-link.js";
 import { MAX_PROVISIONAL } from "./principals.js";
 
 /**
@@ -49,6 +53,11 @@ const MAX_ACCESS_TOKEN_LENGTH = 8192;
 
 export class ProvisionalCapacityError extends Error {
   override readonly name = "ProvisionalCapacityError";
+}
+
+/** The principal an adoption was asked to bind is not sign-in-able. */
+export class PrincipalNotActiveError extends Error {
+  override readonly name = "PrincipalNotActiveError";
 }
 
 const FederatedSessionRequestSchema = z.object({
@@ -197,9 +206,50 @@ export async function adoptSessionWithinCapacity(
         if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL)
           throw new ProvisionalCapacityError();
       }
+      // The owner fence lives at the mint itself, under the same lock:
+      // every caller's earlier read is stale by the time the session is
+      // written, and a half-promoted owner (active state, provisional
+      // assurance) is finished here rather than bound as-is.
+      if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
+        throw new PrincipalNotActiveError();
+      }
       return adoptSession(ctx, principalId, correlationId);
     },
   );
+}
+
+/**
+ * Whether a principal an adoption was just minted for is still
+ * adoptable, and if not, end that adoption before any cookie or token
+ * names it.
+ *
+ * The in-mint fence above cannot see a suspension that lands while the
+ * session rows are being written, and every caller's earlier read is
+ * staler still. The minted session is found through its token row
+ * directly — session resolution refuses suspended principals, so it
+ * cannot name the row that needs ending here.
+ */
+export async function settleAdoption(
+  ctx: AppContext,
+  adoption: FederatedSessionAdoption,
+): Promise<boolean> {
+  if (await ensureVerifiedIdentityPrincipalActive(ctx, adoption.principalId)) {
+    return true;
+  }
+  const sessionId = await ctx.stores.provisionalTokens.get(
+    adoption.accessToken,
+  );
+  if (sessionId) {
+    const session = await ctx.stores.provisionalSessions.get(sessionId);
+    if (session && !session.revokedAt) {
+      await ctx.stores.provisionalSessions.set(sessionId, {
+        ...session,
+        revokedAt: ctx.clock(),
+      });
+    }
+    await revokeSessionTokens(ctx.stores, sessionId);
+  }
+  return false;
 }
 
 /**
@@ -290,8 +340,10 @@ export function createFederatedSessionRoutes(): Hono<{ Variables: Variables }> {
         principal.id,
         c.get("correlationId"),
       );
+      if (!(await settleAdoption(ctx, adopted))) return invalid();
       return c.json(adopted, 200);
     } catch (error) {
+      if (error instanceof PrincipalNotActiveError) return invalid();
       if (
         error instanceof ProvisionalCapacityError ||
         (error instanceof Error && /capacity/i.test(error.message))

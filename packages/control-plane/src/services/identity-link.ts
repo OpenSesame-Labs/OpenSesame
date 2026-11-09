@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
 import { ConflictError, type UnitOfWork } from "@opensesame/database";
-import type { ExternalIdentity } from "@opensesame/os-domain";
+import type { ExternalIdentity, Principal } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 
 /**
@@ -111,24 +111,24 @@ const IDENTITY_COLLISION_MESSAGE =
  * verified owner forever. Suspended, closed and missing principals are
  * never promoted or admitted.
  */
-export async function ensureVerifiedIdentityPrincipalActive(
+export async function ensureVerifiedIdentityPrincipal(
   ctx: AppContext,
   principalId: string,
   uow?: UnitOfWork,
-): Promise<boolean> {
+): Promise<Principal | null> {
   const principal = await ctx.repos.principals.getById(principalId);
   if (
     !principal ||
     principal.state === "suspended" ||
     principal.state === "closed"
   ) {
-    return false;
+    return null;
   }
   if (
     principal.state !== "provisional" &&
     principal.assurance !== "provisional"
   ) {
-    return principal.state === "active";
+    return principal.state === "active" ? principal : null;
   }
   const now = ctx.clock();
   try {
@@ -143,14 +143,28 @@ export async function ensureVerifiedIdentityPrincipalActive(
       principal.version,
       uow,
     );
-    return updated.state === "active" && updated.assurance !== "provisional";
+    return updated.state === "active" && updated.assurance !== "provisional"
+      ? updated
+      : null;
   } catch (err) {
     if (err instanceof ConflictError) {
       const current = await ctx.repos.principals.getById(principalId);
-      return current?.state === "active" && current.assurance !== "provisional";
+      return current?.state === "active" && current.assurance !== "provisional"
+        ? current
+        : null;
     }
     throw err;
   }
+}
+
+export async function ensureVerifiedIdentityPrincipalActive(
+  ctx: AppContext,
+  principalId: string,
+  uow?: UnitOfWork,
+): Promise<boolean> {
+  return (
+    (await ensureVerifiedIdentityPrincipal(ctx, principalId, uow)) !== null
+  );
 }
 
 /**

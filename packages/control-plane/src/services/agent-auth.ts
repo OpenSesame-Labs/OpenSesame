@@ -12,24 +12,22 @@ import { ConflictError } from "@opensesame/database";
 import {
   type AgentRegistration,
   type Principal,
+  claimAgentRegistration,
   digestAgentAccessToken,
   digestAgentClaimAttemptToken,
   digestAgentClaimToken,
   generateAgentClaimToken,
   generateAgentRegistrationId,
   overlapCast,
+  revokeAgentRegistration,
   verifyAgentUserCode,
 } from "@opensesame/os-domain";
-import {
-  claimAgentRegistration,
-  revokeAgentRegistration,
-} from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
 import {
   providerAssertionIsAdvertised,
   registerProviderAssertion,
 } from "./agent-auth-id-jag.js";
+import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
 import {
   type AgentAuthRuntime,
   agentAuthRuntime,
@@ -45,13 +43,15 @@ import {
   mintAssertion,
   startClaimAttempt,
 } from "./agent-auth-shared.js";
+import { ensureVerifiedIdentityPrincipalActive } from "./identity-link.js";
+
 export type { AgentAuthRuntime };
 export {
   agentAuthRuntime,
-  resetAgentAuthRuntimeForTests,
   consumeAgentAuthMintBudget,
   providerAssertionIsAdvertised,
   registerProviderAssertion,
+  resetAgentAuthRuntimeForTests,
 };
 export async function registerAnonymous(
   ctx: AppContext,
@@ -382,6 +382,21 @@ export async function completeClaim(
   const expectedEmail =
     attempt.emailNormalized ?? registration.claimEmailNormalized;
   if (!(await sessionMayClaim(ctx, principal, expectedEmail))) {
+    return { ok: false, error: "invalid_request", status: 400 };
+  }
+  // A leftover provisional human who just proved the claim (session +
+  // user code + the verified email sessionMayClaim required) is finished
+  // here: claimed tokens are minted for registration.principalId, which
+  // claimAgentRegistration sets to this human, and a provisional human
+  // must not be the principal claimed tokens act for. Promotion is owed
+  // only on that verified-email proof, so it is checked, not assumed.
+  const claimIdentities = await ctx.repos.externalIdentities.listByPrincipal(
+    principal.id,
+  );
+  if (
+    claimIdentities.some((identity) => identity.emailVerified) &&
+    !(await ensureVerifiedIdentityPrincipalActive(ctx, principal.id))
+  ) {
     return { ok: false, error: "invalid_request", status: 400 };
   }
   try {
