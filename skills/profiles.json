@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Skill ownership tiers. core skills are first-party, live in skills/, and must always be present. Optional profiles are third-party, canonical under .agents/skills/ (or .agents/skills-optional/ when installed separately), and may be absent without failing core validation. See skills/README.md.",
+  "description": "Skill ownership tiers. core skills are first-party, live in skills/, and must always be present. Optional profiles are third-party, canonical under the gitignored .agents/skills/ (or .agents/skills-optional/ when installed separately), and may be absent without failing core validation. See skills/README.md.",
   "canonical": {
     "core": "skills/",
     "optional": [".agents/skills/", ".agents/skills-optional/"]

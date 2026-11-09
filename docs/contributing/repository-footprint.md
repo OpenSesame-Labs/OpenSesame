@@ -39,8 +39,10 @@ with their tests, not in a screenshot history directory.
 
 ## Agent harnesses and installs
 
-Third-party skills have one canonical installation under `.agents/skills/`.
-Identical mirrors in `.claude/skills/` and `.grok/skills/` use relative links;
+Harness dot folders are never tracked (see [agent setup](agent-setup.md)).
+Third-party skills have one canonical local installation under the gitignored
+`.agents/skills/`. Identical mirrors in `.claude/skills/` and `.grok/skills/`
+use relative links;
 intentional harness-specific files remain separate. First-party skills remain
 in `skills/`. Install or update the canonical skill once, review it, then run
 `node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. The sync command

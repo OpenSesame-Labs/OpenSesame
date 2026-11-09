@@ -108,7 +108,9 @@ export function loadProfiles(root) {
   return { core, optional, all: seen };
 }
 function resolveCanonical(root, name) {
-  for (const base of [".agents/skills", ".agents/skills-optional"]) {
+  // First-party skills are canonical in skills/. The .agents/ discovery
+  // aliases are local install output (dotfiles-managed), never required.
+  for (const base of ["skills", ".agents/skills", ".agents/skills-optional"]) {
     const candidate = join(root, base, name);
     if (existsSync(candidate)) return candidate;
   }
@@ -127,12 +129,13 @@ function checkCore(root, profiles) {
   for (const name of profiles.core) {
     if (!existsSync(join(skillsDir, name, "SKILL.md")))
       throw new Error(`Missing core skill: skills/${name}/SKILL.md`);
+    // The .agents/skills discovery alias is optional local output. When a
+    // harness setup has created one, it must still point at skills/<name>.
     const alias = join(root, ".agents/skills", name);
-    if (!existsSync(join(root, ".agents/skills")))
-      throw new Error(`Missing core alias root: .agents/skills/${name}`);
-    if (!existsSync(alias))
-      throw new Error(`Missing core alias: .agents/skills/${name}`);
-    if (realpathSync(alias) !== realpathSync(join(skillsDir, name)))
+    if (
+      existsSync(alias) &&
+      realpathSync(alias) !== realpathSync(join(skillsDir, name))
+    )
       throw new Error(
         `Core alias does not resolve to skills/${name}: ${alias}`,
       );
@@ -171,7 +174,7 @@ function syncMirror(root, agent, name, check, profiles) {
       return [];
     }
     throw new Error(
-      `Choose a canonical .agents/skills/${name} before syncing ${agent}`,
+      `Choose a canonical skills/${name} before syncing ${agent}`,
     );
   }
   inside(root, source);
