@@ -3,6 +3,7 @@ import { type JsonObject, overlapCast } from "@opensesame/os-domain";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+
 async function app() {
   return createControlPlane({
     config: {
@@ -55,7 +56,7 @@ describe("AgentAuth provider ID-JAG", () => {
     const jwk = await exportJWK(publicKey);
     jwk.kid = "idp-1";
     jwk.alg = "ES256";
-    const hono = createControlPlane({
+    const cp = createControlPlane({
       config: {
         port: 0,
         publicUrl: "http://127.0.0.1:8788",
@@ -75,8 +76,8 @@ describe("AgentAuth provider ID-JAG", () => {
           },
         ]),
       },
-    }).app;
-    return { hono, privateKey };
+    });
+    return { hono: cp.app, ctx: cp.ctx, privateKey };
   }
 
   type IdJagOverrides = {
@@ -159,6 +160,67 @@ describe("AgentAuth provider ID-JAG", () => {
     expect(payload.act?.sub).toMatch(/^osact_/);
     expect(payload.act?.sub).not.toMatch(/^prn_/);
     expect(String(payload.sub)).toMatch(/^areg_/);
+  });
+
+  it("refuses a suspended existing owner at registration and at exchange", async () => {
+    // Gauntlet round 6 (kimi): the existing-tuple resolver accepted any
+    // non-null principal, so a suspended owner still got a fresh claimed
+    // assertion — and loadPrincipal let it exchange for access tokens.
+    const { hono, ctx, privateKey } = await providerApp();
+    const first = await json(
+      await hono.request("/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "identity_assertion",
+          assertion_type: "urn:ietf:params:oauth:token-type:id-jag",
+          assertion: await idJag(privateKey, {
+            sub: "user_suspended_1",
+            email: "suspended@example.com",
+          }),
+        }),
+      }),
+    );
+    expect(first.identity_assertion).toBeTruthy();
+    const identity = await ctx.repos.externalIdentities.findByTuple({
+      kind: "auth_md",
+      issuer: "https://idp.example",
+      subject: "user_suspended_1",
+    });
+    if (!identity) throw new Error("expected the auth_md identity");
+    const owner = await ctx.repos.principals.getById(identity.principalId);
+    if (!owner) throw new Error("expected the owning principal");
+    await ctx.repos.principals.update(
+      owner.id,
+      { state: "suspended", updatedAt: new Date() },
+      owner.version,
+    );
+
+    const again = await hono.request("/agent/identity", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "identity_assertion",
+        assertion_type: "urn:ietf:params:oauth:token-type:id-jag",
+        assertion: await idJag(privateKey, {
+          sub: "user_suspended_1",
+          email: "suspended@example.com",
+        }),
+      }),
+    });
+    expect(again.status).not.toBe(200);
+    expect((await json(again)).identity_assertion).toBeUndefined();
+
+    const token = await hono.request("/oauth2/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: String(first.identity_assertion),
+      }),
+    });
+    expect(token.status).not.toBe(200);
+    expect((await json(token)).access_token).toBeUndefined();
   });
 
   it("rejects an untrusted issuer and a replayed jti", async () => {

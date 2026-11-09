@@ -183,6 +183,23 @@ export async function attachVerifiedExternalIdentity(
   });
   if (existing) {
     if (existing.principalId === principalId) {
+      // Idempotent in rows, not in owner state: a verified tuple left on
+      // a provisional principal by the old crash window is finished by
+      // this re-presentation (the same proof the first attach promotes
+      // on), and a suspended owner does not collect a success answer. A
+      // principal row that is already gone keeps the tolerant answer the
+      // fresh-write path gives — no other principal is involved.
+      const owner = await ctx.repos.principals.getById(principalId);
+      if (
+        owner &&
+        !(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))
+      ) {
+        return {
+          ok: false,
+          error: "identity_collision",
+          message: IDENTITY_COLLISION_MESSAGE,
+        };
+      }
       return { ok: true, alreadyLinked: true, identity: existing };
     }
     return {
