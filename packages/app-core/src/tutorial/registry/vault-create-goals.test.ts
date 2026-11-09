@@ -1,20 +1,55 @@
-import { describe, expect, it } from "vitest";
+import {
+  AUTHORED_GUIDE_LIMITS,
+  compileGuide,
+} from "@opensesame/guide-lang";
+import { planGuideSteps } from "@opensesame/guide-runtime";
+import { beforeAll, describe, expect, it } from "vitest";
+import { guideGoalIds } from "./goals.js";
+import { registerGuidePredicates } from "./predicates.js";
+import { mergedGuideRoutes } from "./routes.js";
+import { guidePredicateIds } from "./state.js";
+import { guideTargetIds } from "./targets.js";
 import { CREATE_ITEM_GOAL, FIRST_ITEM_GOAL } from "./vault-create-goals.js";
 
-// Grok gauntlet round 4: the first-item walkthrough used to end on Next
-// at the Save control, before any secret was saved or listed. The tour
-// is not done until the person has saved and the item stands in the list.
+// Grok gauntlet rounds 4-5: the first-item walkthrough declared success
+// before any secret was saved. A beat's trailing wait is its `until` in
+// the compiled plan — assert at that level, not on string order: the
+// Save beat is only satisfied once the editor has disappeared (a press
+// that validation rejects leaves it standing), and the close comes
+// after a beat standing over the list the saved item appears in.
+beforeAll(() => registerGuidePredicates());
+
 describe("the guided first item", () => {
-  it("waits for the person's own save, then for the item in the list", () => {
-    const guide = FIRST_ITEM_GOAL.guide;
-    const saveWait = guide.indexOf(
-      'wait target "item.editor.save" event=activate',
+  it("cannot complete its Save step until the editor closes, then stands over the list", () => {
+    const compiled = compileGuide(
+      FIRST_ITEM_GOAL.guide,
+      {
+        goals: guideGoalIds(),
+        targets: guideTargetIds(),
+        routes: mergedGuideRoutes().map((route) => route.id),
+        predicates: guidePredicateIds(),
+      },
+      AUTHORED_GUIDE_LIMITS,
     );
-    const listWait = guide.indexOf('wait target "vault.list" event=appear');
-    const success = guide.indexOf("success ");
-    expect(saveWait).toBeGreaterThan(-1);
-    expect(listWait).toBeGreaterThan(saveWait);
-    expect(success).toBeGreaterThan(listWait);
+    expect(compiled.ok).toBe(true);
+    if (!compiled.ok) return;
+    const plan = planGuideSteps(compiled.program);
+    const saveBeat = plan.beats.find(
+      (beat) => beat.target === "item.editor.save",
+    );
+    expect(saveBeat?.until).toMatchObject({
+      kind: "wait",
+      subject: "target",
+      target: "item.editor.save",
+      event: "disappear",
+    });
+    const listBeat = plan.beats.find((beat) => beat.target === "vault.list");
+    expect(listBeat).toBeDefined();
+    expect(listBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);
+    expect(listBeat?.route).toBe("/vault/list");
+    const close = plan.beats[plan.beats.length - 1];
+    expect(close?.kind).toBe("close");
+    expect(close?.ordinal).toBeGreaterThan(listBeat?.ordinal ?? -1);
   });
 
   it("opens the phone list pane before pointing at New item", () => {
