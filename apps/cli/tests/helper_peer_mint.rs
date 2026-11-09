@@ -14,16 +14,17 @@
 
 mod helper_stub;
 mod named;
+mod spawned;
 
-use std::fs::File;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::Path;
-use std::process::{Child, Command, Output, Stdio};
+use std::process::{Command, Output};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use helper_stub::{run_helper, spawn_stub_daemon, without_inherited_opensesame_env};
+use spawned::{start, Process};
 
 /// The daemon's own operator token.
 const OPERATOR: &str = "vtok_dummy_marker_operator_0123456789abcdef";
@@ -129,16 +130,6 @@ fn no_helper_forwards_the_operator_token_its_environment_holds() {
 
 // ——— against the real daemon ——————————————————————————————————————
 
-/// A child process that is killed when the test ends, however it ends.
-struct Process(Child);
-
-impl Drop for Process {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
 /// A Host API stand-in: answers every request with the mint body and records
 /// each request whole.
 fn spawn_host() -> (String, Arc<Mutex<Vec<String>>>) {
@@ -188,36 +179,21 @@ fn request_complete(raw: &[u8]) -> bool {
     body.len() >= declared
 }
 
-fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .expect("bind")
-        .local_addr()
-        .expect("address")
-        .port()
-}
-
-fn spawn_daemon(dir: &Path, host_api: &str, port: u16) -> Process {
-    let log = File::create(dir.join("daemon.log")).expect("log file");
-    let err = log.try_clone().expect("log handle");
-    Process(
-        Command::new(env!("CARGO_BIN_EXE_opensesame"))
-            .env_clear()
-            .env("HOME", dir)
-            .env("OPENSESAME_ENV", "development")
-            .env("NODE_ENV", "development")
-            .env("OPENSESAME_ALLOW_DEV_DEFAULTS", "1")
-            .env("OPENSESAME_OPERATOR_TOKEN", OPERATOR)
-            .env("OPENSESAME_HOST_API", host_api)
-            .args(["daemon", "run", "--listen"])
-            .arg(format!("127.0.0.1:{port}"))
-            .arg("--sock")
-            .arg(dir.join("agent.sock"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::from(log))
-            .stderr(Stdio::from(err))
-            .spawn()
-            .expect("spawn the daemon"),
-    )
+fn daemon_command(dir: &Path, host_api: &str, port: u16) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_opensesame"));
+    command
+        .env_clear()
+        .env("HOME", dir)
+        .env("OPENSESAME_ENV", "development")
+        .env("NODE_ENV", "development")
+        .env("OPENSESAME_ALLOW_DEV_DEFAULTS", "1")
+        .env("OPENSESAME_OPERATOR_TOKEN", OPERATOR)
+        .env("OPENSESAME_HOST_API", host_api)
+        .args(["daemon", "run", "--listen"])
+        .arg(format!("127.0.0.1:{port}"))
+        .arg("--sock")
+        .arg(dir.join("agent.sock"));
+    command
 }
 
 /// The real daemon over a Host stand-in, its socket ready: the state dir,
@@ -225,17 +201,13 @@ fn spawn_daemon(dir: &Path, host_api: &str, port: u16) -> Process {
 fn boot() -> (tempfile::TempDir, Process, u16, Arc<Mutex<Vec<String>>>) {
     let dir = tempfile::tempdir().expect("state dir");
     let (host_api, host_seen) = spawn_host();
-    let port = free_port();
-    let daemon = spawn_daemon(dir.path(), &host_api, port);
     let sock = dir.path().join("agent.sock");
-    let deadline = Instant::now() + Duration::from_secs(60);
-    while !sock.exists() {
-        assert!(
-            Instant::now() < deadline,
-            "timed out waiting for the daemon"
-        );
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    let (daemon, port) = start(
+        "the daemon",
+        &dir.path().join("daemon.log"),
+        |port| daemon_command(dir.path(), &host_api, port),
+        |_| sock.exists(),
+    );
     (dir, daemon, port, host_seen)
 }
 

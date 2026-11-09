@@ -268,10 +268,20 @@ api_addr = "https://127.0.0.1:{port}"
         bao
     }
 
-    async fn wait_ready(&self) {
+    /// Poll the health route until it answers. A server that exits first is
+    /// reported at once with its log: the port `free_port` found can be taken
+    /// before the server binds it, and the server then exits instead.
+    async fn wait_ready(&mut self) {
         let client = self.client(Some(&self.client_a), &self.ca);
         let deadline = Instant::now() + Duration::from_secs(30);
         while Instant::now() < deadline {
+            if let Some(status) = self.child.try_wait().expect("poll openbao") {
+                let log = std::fs::read_to_string(&self.log_path).unwrap_or_default();
+                panic!(
+                    "openbao exited with {status} before it was reachable on 127.0.0.1:{}\n{log}",
+                    self.port
+                );
+            }
             if client
                 .get(format!("{}/v1/sys/health", self.base()))
                 .send()

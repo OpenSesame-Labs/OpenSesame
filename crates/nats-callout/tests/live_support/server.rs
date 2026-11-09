@@ -73,7 +73,8 @@ impl NatsServer {
     /// # Panics
     ///
     /// When `OPENSESAME_MTLS_BIN_NATS_SERVER` is unset, the process will not
-    /// start, or it does not report a server key within ten seconds.
+    /// start, exits before it reports a server key, or does not report one
+    /// within thirty seconds.
     #[must_use]
     pub fn start(
         dir: &Path,
@@ -101,14 +102,14 @@ impl NatsServer {
             ),
         )
         .expect("write nats.conf");
-        let child = Command::new(&binary)
+        let mut child = Command::new(&binary)
             .arg("-c")
             .arg(&config)
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
             .expect("spawn nats-server");
-        let server_public_key = wait_for_key(monitor_port);
+        let server_public_key = wait_for_key(&mut child, monitor_port);
         Self {
             child,
             client_port,
@@ -140,17 +141,32 @@ impl Drop for NatsServer {
 /// Poll `/varz` until the server reports its public nkey (`server_id`, which
 /// nats-server sets to the server key pair's public key). The deadline is
 /// generous: the live tests spawn one server per test and run in parallel, so
-/// a loaded machine can take a while to report.
-fn wait_for_key(monitor_port: u16) -> String {
+/// a loaded machine can take a while to report. A server that exits first
+/// fails at once with its stderr: a port `free_port` found can be taken before
+/// nats-server binds it, and nats-server then exits instead of reporting.
+fn wait_for_key(child: &mut Child, monitor_port: u16) -> String {
     let deadline = Instant::now() + Duration::from_secs(30);
     let url = format!("http://127.0.0.1:{monitor_port}/varz");
     while Instant::now() < deadline {
+        if let Some(status) = child.try_wait().expect("poll nats-server") {
+            let stderr = stderr_of(child);
+            panic!("nats-server exited with {status} before it reported a server key:\n{stderr}");
+        }
         if let Some(id) = server_key(&url) {
             return id;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
     panic!("nats-server did not report a server key on {url}");
+}
+
+/// What an exited child wrote to its piped stderr.
+fn stderr_of(child: &mut Child) -> String {
+    let mut text = String::new();
+    if let Some(mut pipe) = child.stderr.take() {
+        let _ = std::io::Read::read_to_string(&mut pipe, &mut text);
+    }
+    text
 }
 
 /// One `/varz` read, or `None` while the server is still coming up.
