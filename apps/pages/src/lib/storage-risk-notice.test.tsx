@@ -55,16 +55,31 @@ describe("the browser-storage warning", () => {
     expect(setNotice).not.toHaveBeenCalled();
   });
 
-  it("stays silent only when a backup is enabled, error-free and caught up", async () => {
+  it("stays silent only when a backup is enabled, error-free, caught up and has synced", async () => {
     Object.assign(storageRiskSeams, {
       getBackupStatus: async () => ({
-        target: { enabled: true, lastError: null },
+        target: {
+          enabled: true,
+          lastError: null,
+          lastSyncedAt: "2026-01-01T00:00:00Z",
+        },
         pendingEvents: 0,
       }),
     });
     renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
     await Promise.resolve();
     expect(setNotice).not.toHaveBeenCalled();
+  });
+
+  it("warns when the backup is enabled but has never synced", async () => {
+    Object.assign(storageRiskSeams, {
+      getBackupStatus: async () => ({
+        target: { enabled: true, lastError: null, lastSyncedAt: null },
+        pendingEvents: 0,
+      }),
+    });
+    renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
+    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
   });
 
   it("warns when the backup is enabled but failing or behind", async () => {

@@ -64,7 +64,13 @@ function entry(id: string, kind: SupportEntry["kind"]): SupportEntry {
   };
 }
 
-function Thread({ entries }: { entries: readonly SupportEntry[] }) {
+function Thread({
+  entries,
+  mounted = true,
+}: {
+  entries: readonly SupportEntry[];
+  mounted?: boolean;
+}) {
   const scroll = useSupportScroll(entries);
   return (
     <div ref={scroll.bodyRef} data-testid="body">
@@ -73,11 +79,13 @@ function Thread({ entries }: { entries: readonly SupportEntry[] }) {
           New answer
         </button>
       ) : null}
-      <section ref={scroll.threadRef}>
-        {entries.map((item) => (
-          <article key={item.id}>{item.id}</article>
-        ))}
-      </section>
+      {mounted ? (
+        <section ref={scroll.threadRef}>
+          {entries.map((item) => (
+            <article key={item.id}>{item.id}</article>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -152,6 +160,38 @@ describe("support scroll, entry by entry", () => {
       expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
     } finally {
       HTMLElement.prototype.getBoundingClientRect = originalRect;
+      Element.prototype.scrollTo = originalScroll;
+    }
+  });
+
+  it("marks an answer unseen when it lands while the thread is unmounted", async () => {
+    const user = userEvent.setup();
+    const scrolled: Element[] = [];
+    const originalScroll = Element.prototype.scrollTo;
+    // SAFETY: the double implements the same scroller contract; restored in finally.
+    Element.prototype.scrollTo = function (this: Element) {
+      scrolled.push(this);
+    } as typeof Element.prototype.scrollTo;
+    try {
+      const first = [entry("q1", "question"), entry("a1", "answer")];
+      const { rerender } = render(<Thread entries={first} />);
+      scrolled.length = 0;
+      // The Tutorials tab replaces the thread after the first exchange was seen.
+      rerender(<Thread entries={first} mounted={false} />);
+      rerender(
+        <Thread
+          entries={[...first, entry("late", "answer")]}
+          mounted={false}
+        />,
+      );
+      expect(scrolled).toHaveLength(0);
+      // The panel flips to Ask and the thread mounts: the chip is waiting.
+      rerender(<Thread entries={[...first, entry("late", "answer")]} />);
+      const jump = await screen.findByRole("button", { name: "New answer" });
+      await user.click(jump);
+      expect(scrolled).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
+    } finally {
       Element.prototype.scrollTo = originalScroll;
     }
   });

@@ -51,11 +51,7 @@ export function ImportSourceSheet({
     >
       <div className="import-source">
         <p className="import-source__lede">Where are your passwords now?</p>
-        <div
-          className="import-source__tiles"
-          role="radiogroup"
-          aria-label="Source"
-        >
+        <fieldset className="import-source__tiles" aria-label="Source">
           {SOURCES.map((source) => (
             <button
               key={source.id}
@@ -67,7 +63,7 @@ export function ImportSourceSheet({
               {source.name}
             </button>
           ))}
-        </div>
+        </fieldset>
         {adapter ? (
           <div className="import-source__steps">
             <h3>Export from {adapter.shortName} first</h3>

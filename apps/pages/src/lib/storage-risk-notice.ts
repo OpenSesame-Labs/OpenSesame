@@ -4,7 +4,7 @@
  * has no working backup.
  *
  * The predicate is state, never a counter — items sealed and no backup
- * target that is enabled, error-free and caught up. While it holds, one
+ * target that is enabled, error-free, caught up and has synced before. While it holds, one
  * standing tray notice says exactly what is lost and how: clearing this
  * site's data deletes the vault and its device key with no recovery.
  * (A plain cache clear that keeps site data does not do this, and the
@@ -66,11 +66,14 @@ export function useStorageRiskNotice(
     void (async () => {
       const backup = await storageRiskSeams.getBackupStatus().catch(() => null);
       if (!live) return;
-      // Enabled is not backed up: a target that is failing, or still
-      // holding unsynced events, has not kept what the vault sealed.
+      // Enabled is not backed up: a target that is failing, still holding
+      // unsynced events, or has never completed a sync at all (a fresh
+      // binding sits pending with nothing copied) has not kept what the
+      // vault sealed.
       const backedUp =
         backup?.target?.enabled === true &&
         backup.target.lastError === null &&
+        backup.target.lastSyncedAt !== null &&
         backup.pendingEvents === 0;
       if (backedUp) {
         if (shown.current) {

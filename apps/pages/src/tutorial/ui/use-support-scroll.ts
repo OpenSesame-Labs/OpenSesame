@@ -14,6 +14,24 @@ import type { SupportEntry } from "../session.js";
  * fold it offers a "New answer" key instead, so reading an older answer is
  * never interrupted. Focus never moves; the live region still announces.
  */
+/** Scroll `body` to an absolute top, on engines with or without scrollTo. */
+function scrollBodyTo(body: HTMLElement, top: number): void {
+  // Not every engine implements element scrollTo (jsdom does not).
+  if (body.scrollTo) body.scrollTo({ top, behavior: "instant" });
+  else body.scrollTop = top;
+}
+
+/** The newest question among the entries that landed since `from`, or -1. */
+function newestQuestionAt(
+  transcript: readonly SupportEntry[],
+  from: number,
+): number {
+  for (let index = transcript.length - 1; index >= from; index -= 1) {
+    if (transcript[index]?.kind === "question") return index;
+  }
+  return -1;
+}
+
 export function useSupportScroll(transcript: readonly SupportEntry[]) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLElement>(null);
@@ -31,13 +49,7 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
     if (!body) return;
     const delta =
       article.getBoundingClientRect().top - body.getBoundingClientRect().top;
-    const top = body.scrollTop + delta;
-    // Not every engine implements element scrollTo (jsdom does not).
-    if (body.scrollTo) {
-      body.scrollTo({ top, behavior: "instant" });
-    } else {
-      body.scrollTop = top;
-    }
+    scrollBodyTo(body, body.scrollTop + delta);
   }, []);
 
   // A question asked while another tab is up has no article yet — the
@@ -64,18 +76,19 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
     // appends the question and its answer in one breath. The newest
     // question among what just landed is still the causal one — scroll
     // to it and let its answer read under it.
-    let questionAt = -1;
-    for (let index = transcript.length - 1; index >= from; index -= 1) {
-      if (transcript[index]?.kind === "question") {
-        questionAt = index;
-        break;
-      }
-    }
+    const questionAt = newestQuestionAt(transcript, from);
     if (questionAt >= 0) owed.current = questionAt;
     const article = articleAt(
       questionAt >= 0 ? questionAt : transcript.length - 1,
     );
-    if (!article) return;
+    if (!article) {
+      // The thread is not on screen (the Tutorials tab is up): an answer
+      // that lands now would otherwise arrive with no scroll and no chip
+      // when the panel flips to Ask. Mark it unseen; the chip offers the
+      // jump and the owed debt is only ever a question's.
+      if (questionAt < 0) setUnseenAnswer(true);
+      return;
+    }
     if (questionAt >= 0) {
       setUnseenAnswer(false);
       owed.current = null;
