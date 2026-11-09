@@ -5,14 +5,15 @@
  * neither the list nor New item is mounted — and both wait for the person
  * to press New item themselves: a tour points, the person acts.
  *
- * The first-item tour's Save step waits for the editor to DISAPPEAR, not
- * for Save to be pressed: `activate` fires before the form runs, so a
- * rejected draft would end the tour with nothing saved. The editor only
- * closes once the save has sealed (or the person leaves it), and a
- * successful save lands on the item's own page — so the tour then opens
- * the list itself and finishes standing over the saved item. Like every
- * beat the step can be skipped with Next; followed, it cannot complete
- * early.
+ * The first-item tour's Save step waits until the vault HOLDS an item
+ * (`vault.has-items`), not for Save to be pressed or the editor to
+ * close: `activate` fires before the form runs, so a rejected draft
+ * would complete the step, and Cancel or Escape closes the editor
+ * without a write. Only a save that actually seals makes the predicate
+ * true. A successful save lands on the item's own page — so the tour
+ * then opens the list itself and finishes standing over the saved
+ * item. Like every beat the step can be skipped with Next; no editor
+ * action completes it early.
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
@@ -33,8 +34,8 @@ export const FIRST_ITEM_GOAL: GuideGoalDescriptor = {
     'wait target "item.editor.name" event=appear timeout=15000',
     'focus "item.editor.name" "Name the item: the site or service it is for, as you would look for it later. For a practice run, Practice is a fine name." side=bottom',
     'say "Under the name are the website, username and password fields. Fill in what you have; anything blank can be added later by editing the item. This tour never points at the password field and never reads what you type."',
-    'focus "item.editor.save" "When the fields hold what they should, press Save — it seals the item into the vault on this device. The tour waits here until the editor closes; take as long as you need, and fix anything the editor asks about first." side=top',
-    'wait target "item.editor.save" event=disappear timeout=60000',
+    'focus "item.editor.save" "When the fields hold what they should, press Save — it seals the item into the vault on this device. The tour waits here until the item is saved; take as long as you need, and fix anything the editor asks about first." side=top',
+    'wait state "vault.has-items" is=true timeout=60000',
     'navigate "/vault/list"',
     'wait route "/vault/list" timeout=15000',
     'wait target "vault.list" event=appear timeout=15000',
