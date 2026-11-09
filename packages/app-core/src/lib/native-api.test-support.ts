@@ -6,6 +6,22 @@ import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import * as kv from "./kv.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
 
+const SECRET_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+/** Runtime-only credential text. Callers must not write the result to disk. */
+export function syntheticNativeSecret(length: number): string {
+  if (!Number.isSafeInteger(length) || length < 1 || length > 256)
+    throw new Error("Synthetic secret length is out of range");
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const byte of bytes) {
+    out += SECRET_ALPHABET.charAt(byte % SECRET_ALPHABET.length);
+  }
+  return out;
+}
+
 export function installNativeApiTests(): void {
   beforeEach(() => {
     kv.kvForgetAll();

@@ -1,7 +1,10 @@
 import { generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { GOOGLE_WALLET_CONFIGURATION_POLICY } from "@opensesame/wallet/google-wallet-policy";
+import {
+  GOOGLE_WALLET_CONFIGURATION_POLICY,
+  syntheticPkcs8PrivateKeyPem,
+} from "@opensesame/wallet/google-wallet-policy";
 import { describe, expect, it } from "vitest";
 import { googleWalletConfigurationPolicy } from "../../scripts/emit-google-wallet-configuration.mjs";
 import {
@@ -77,15 +80,9 @@ describe("Google Wallet shared configuration policy", () => {
       ["generated_pkcs1_rsa", pkcs1],
       ["not-a-private-key", "not-a-private-key"],
       ["oversized", "a".repeat(32769)],
-      [
-        "invalid_der",
-        `-----BEGIN PRIVATE KEY-----\n${"A".repeat(256)}\n-----END PRIVATE KEY-----`,
-      ],
+      ["invalid_der", syntheticPkcs8PrivateKeyPem("A".repeat(256))],
       ["generated_ec_pkcs8", ec],
-      [
-        "invalid_padding",
-        `-----BEGIN PRIVATE KEY-----\n${"A".repeat(240)}=A\n-----END PRIVATE KEY-----`,
-      ],
+      ["invalid_padding", syntheticPkcs8PrivateKeyPem(`${"A".repeat(240)}=A`)],
     ]);
     for (const item of vectors.key_cases) {
       const key = keys.get(item.value);

@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
+import {
+  installNativeApiTests,
+  syntheticNativeSecret,
+} from "./native-api.test-support.js";
 import {
   accessTokenKey,
   bytesBase64,
@@ -16,7 +19,7 @@ installNativeApiTests();
 const ORG = "7a1d3c52-0b6e-4d6f-9f10-2f3c4d5e6f70";
 const ACCOUNT = "3f2a1b0c-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
 const SECRET_ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-const SERVICE_SECRET = "Ab3dEf6hIj9lMn2pQr5tUv8xYz1bCd4e";
+const SERVICE_SECRET = syntheticNativeSecret(32);
 const enc = new TextEncoder();
 
 const keyBytes = randomBytes(16);

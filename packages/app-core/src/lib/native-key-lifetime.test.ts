@@ -4,7 +4,10 @@ import { expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
+import {
+  installNativeApiTests,
+  syntheticNativeSecret,
+} from "./native-api.test-support.js";
 import {
   encryptBytes,
   masterKey,
@@ -90,7 +93,7 @@ async function fixture() {
         email,
         master_password: password,
         client_id: "user.3f2a1b0c-9d8e-4f7a-8b6c-5d4e3f2a1b0c",
-        client_secret: "AbCdEf0123456789GhIjKlMn",
+        client_secret: syntheticNativeSecret(24),
       },
     },
     transport,

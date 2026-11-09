@@ -12,6 +12,7 @@ import {
   NATIVE_PROVIDER_CONTROLS,
 } from "../lib/exposure-native-provider.mjs";
 import {
+  encodeSourceDigest,
   exposureViolations,
   parsePolicy,
   validatePolicy,
@@ -215,7 +216,7 @@ test("bounded native discovery follows named helpers without reclassifying exist
 test("a saved helper hash and artifact row cannot borrow native custody classification", () => {
   const value = matrix();
   const path = futureSources[0];
-  value.sources[path] = sha256(Buffer.alloc(0));
+  value.sources[path] = encodeSourceDigest(sha256(Buffer.alloc(0)));
   value.surfaces.push({
     ...structuredClone(row(value)),
     id: "provider-result-bookkeeping",
@@ -307,7 +308,7 @@ for (const path of [
       /EM-COVERAGE: unclassified protected source/u,
     );
     const value = matrix();
-    value.sources[path] = sha256(Buffer.from(f.read(path)));
+    value.sources[path] = encodeSourceDigest(sha256(Buffer.from(f.read(path))));
     assert.throws(() => validatePolicy(value), /unbound or invalid source/u);
   });
 }
