@@ -158,7 +158,7 @@
     ],
     "existingRuntimeImport": {
       "package": "zod",
-      "version": "4.6.7",
+      "version": "4.6.6",
       "qualification": "Declared root Zod4 dependency; the isolated worker bundle verifies its resolved graph.",
       "entryPoint": "zod/v4/mini",
       "initialization": "z.config({ jitless: true }) before schemas; no dynamic-code schema compilation in the isolated worker."
@@ -517,10 +517,10 @@
       "entryPoint": "zod/v4/mini"
     },
     "vite": {
-      "version": "6.4.5",
-      "packageSha256": "0ac6ea0598168f203cad40e7b6e0f892987109262a296e29abf039f1b26099ee"
+      "version": "8.3.5",
+      "packageSha256": "c9586ac07b42763a8a7f6aac6b4a805d70f057bd8c67c43da81c0cc4e5da8293"
     },
-    "bridgeSha256": "793387336ec82efba5ab831e5a6e6469f3f29a29aa1517603c85d65176e3778d",
+    "bridgeSha256": "7053394b70fa9298b4350a0c0fc4009ad1c5ba08d9cf3be75d9eee06ec722f47",
     "files": [
       {
         "path": "build.mjs",
@@ -532,7 +532,7 @@
       },
       {
         "path": "native-assets.mjs",
-        "sha256": "a547959e0bc0ccf142569ed777d1c62ed7dd233793dcab3fed0af4fba91fcad9"
+        "sha256": "96b9ab34c72aab15c5f0097fb6577a07223fe6191081d160c6ebe32b0f4feb49"
       },
       {
         "path": "compose-native.test.mjs",
@@ -654,7 +654,7 @@
       "arguments": ["-11", "-I", "3", "-p", "2", "-b", "1024", "-n", "-c"],
       "qualification": "Owned build-only source compilation, not an installed PWA dependency. Each output must decode to the exact complete input bytes; source archive, notices, compiler and executable provenance are retained. No four-phase Go build or runtime feature change."
     },
-    "bridgeUnminifiedSha256": "16634ddf135222b7a507fc47aa2d4c4881163b95bb277aee79aac487299af9c3",
+    "bridgeUnminifiedSha256": "072a5af7f3eb729ec1a0ea85d7764a93a662ebf8cf32d7dd773027bcb0b51ce1",
     "runtimeMinifiedSha256": "3e61b3267aa67a553c289335805e5947e2f80935f782d3d6bcb30adb15674017",
     "terser": {
       "version": "5.51.2",

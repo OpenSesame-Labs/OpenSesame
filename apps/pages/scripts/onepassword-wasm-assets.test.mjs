@@ -233,6 +233,12 @@ it("attaches four actual dependencies only to an exclusively owned native leaf",
   expect(bundle["assets/common.js"].viteMetadata).toBeUndefined();
   expect(bundle[worker].viteMetadata).toBeUndefined();
 });
+it("accepts a minified constructor alias with a literal module worker URL", () => {
+  const bundle = ownedBundle();
+  bundle["assets/native.js"].code =
+    `new e(${JSON.stringify(`/OpenSesame/${worker}`)},{type:"module",name:"opensesame-onepassword"})`;
+  expect(attachOnePasswordAssets(bundle, optional, "/OpenSesame/")).toBe(true);
+});
 it.each([
   "onepassword.ts",
   "factory.ts",

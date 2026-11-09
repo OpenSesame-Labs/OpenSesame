@@ -13,7 +13,9 @@ const normalized = (path) => path.replaceAll("\\", "/");
 const occurrences = (source, fragment) => source.split(fragment).length - 1;
 function requireMatch(value, expected, label) {
   if (value !== expected)
-    throw new Error(`Browser AI SDK pin mismatch: ${label}`);
+    throw new Error(
+      `Browser AI SDK pin mismatch: ${label} (received ${value}, expected ${expected})`,
+    );
 }
 
 function packageInput(source, expected, label) {
@@ -163,9 +165,9 @@ export function assertAiBrowserOutput(bundle, input) {
   requireMatch(modules.length, 1, "emitted gateway error module");
   const info = modules[0][1];
   requireMatch(
-    info.renderedLength,
-    pins.gatewayErrorRenderedBytes,
-    "class-only bytes",
+    pins.gatewayErrorRenderedBytes.includes(info.renderedLength),
+    true,
+    `class-only bytes ${info.renderedLength}`,
   );
   requireMatch(
     JSON.stringify([...info.renderedExports].sort()),

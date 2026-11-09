@@ -234,8 +234,13 @@ export default defineConfig({
         // `capability-lazy-leaves.mjs`) so the bootstrap does not
         // static-import an optional module (ADR 0130 §4) and the device
         // walks can still import the host by file name.
-        experimentalMinChunkSize: 64_000,
-        manualChunks: bundleChunk,
+        codeSplitting: {
+          minSize: 64_000,
+          includeDependenciesRecursively: false,
+          groups: [
+            { name: bundleChunk, includeDependenciesRecursively: false },
+          ],
+        },
       },
       // Every HTML entry is listed here; `capabilityCompose()`'s config hook
       // removes the ones owned by a capability a hardened build excludes

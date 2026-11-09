@@ -5,8 +5,12 @@ import ts from "typescript";
 import { searchForWorkspaceRoot, transformWithEsbuild } from "vite";
 import { bitwardenWorkerAssets } from "./bitwarden-worker-assets.mjs";
 import { workerRealmSource } from "./lib/capability-graph.mjs";
+import { chunkName, installChunkName } from "./lib/code-splitting.mjs";
+import {
+  emitWorkerChunks,
+  prunePlaceholderAssets,
+} from "./lib/worker-emission.mjs";
 import { defaultWorkers, workerPlanOwners } from "./shared-worker-plans.mjs";
-
 const PREFIX = "\0opensesame-worker:";
 const purePackages =
   /\/node_modules\/(?:zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//;
@@ -24,7 +28,14 @@ const closedLeaves = [
 function pureSources(root) {
   const workspace = searchForWorkspaceRoot(root);
   const closed = new Set(closedLeaves.map((file) => resolve(workspace, file)));
-  return { closed, test: (id) => purePackages.test(id) || closed.has(id) };
+  return {
+    closed,
+    test: (id) =>
+      id === "\0rolldown/runtime.js" ||
+      /^\0@oxc-project\+runtime@.*\/helpers\/esm\//.test(id) ||
+      purePackages.test(id) ||
+      closed.has(id),
+  };
 }
 const virtual = (realm, file) =>
   `${PREFIX}${realm}:${Buffer.from(file).toString("base64url")}${extname(file)}`;
@@ -197,35 +208,41 @@ function hostModuleError(chunk, minted, label, pure) {
       .join(", ")}`,
   );
 }
-function purePartitions(ctx, roots, previous, pure) {
+function purePartitions(_ctx, roots, previous, pure) {
   if (previous && !(previous instanceof Function))
     throw new Error(
       "Worker dependency partitions need the existing manual-chunk function.",
     );
-  const isolated = new Map();
-  const pending = [...roots];
-  while (pending.length) {
-    const id = pending.pop();
-    if (isolated.has(id) || !pure.test(id.replaceAll("\\", "/"))) continue;
-    const normalized = id.replaceAll("\\", "/");
-    const match = normalized.match(
-      /\/node_modules\/(zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//,
-    );
-    const packageRoot = match
-      ? normalized.slice(0, match.index + match[0].length)
-      : normalized;
-    const identity = createHash("sha256")
-      .update(packageRoot)
-      .digest("hex")
-      .slice(0, 8);
-    isolated.set(
-      id,
-      `native-worker-${(match?.[1] ?? basename(normalized, ".ts")).replaceAll("/", "-").replace("@", "")}-${identity}`,
-    );
-    const info = ctx.getModuleInfo(id);
-    if (info) pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
-  }
-  return (id, api) => isolated.get(id) ?? previous?.(id, api);
+  let isolated;
+  const partitions = (api) => {
+    if (isolated) return isolated;
+    isolated = new Map();
+    const pending = [...roots];
+    while (pending.length) {
+      const id = pending.pop();
+      if (isolated.has(id) || !pure.test(id.replaceAll("\\", "/"))) continue;
+      const normalized = id.replaceAll("\\", "/");
+      const match = normalized.match(
+        /\/node_modules\/(zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//,
+      );
+      const packageRoot = match
+        ? normalized.slice(0, match.index + match[0].length)
+        : normalized;
+      const identity = createHash("sha256")
+        .update(packageRoot)
+        .digest("hex")
+        .slice(0, 8);
+      isolated.set(
+        id,
+        `native-worker-${(match?.[1] ?? basename(normalized, ".ts")).replaceAll("/", "-").replace("@", "")}-${identity}`,
+      );
+      const info = api.getModuleInfo(id);
+      if (info)
+        pending.push(...info.importedIds, ...info.dynamicallyImportedIds);
+    }
+    return isolated;
+  };
+  return (id, api) => partitions(api).get(id) ?? previous?.(id, api);
 }
 function workerClosure(bundle, file, minted, pure, seen = new Set()) {
   if (seen.has(file)) return seen;
@@ -256,12 +273,23 @@ function workerClosure(bundle, file, minted, pure, seen = new Set()) {
   }
   return seen;
 }
-
-function attachWorkerClosures(ctx, bundle, owners, minted, pure) {
+function attachWorkerClosures(
+  ctx,
+  bundle,
+  owners,
+  minted,
+  pure,
+  refs,
+  emittedChunks,
+) {
+  const workerFiles = new Set(
+    [...refs.values()].map((ref) => ctx.getFileName(ref)),
+  );
   const privateChunks = Object.values(bundle).filter(
     (out) =>
       out.type === "chunk" &&
-      Object.keys(out.modules).some((id) => id.startsWith(PREFIX)),
+      (workerFiles.has(out.fileName) ||
+        Object.keys(out.modules).some((id) => id.startsWith(PREFIX))),
   );
   for (const chunk of privateChunks) {
     if (
@@ -292,24 +320,16 @@ function attachWorkerClosures(ctx, bundle, owners, minted, pure) {
       }
     }
   }
-  for (const chunk of privateChunks)
-    bundle[chunk.fileName] = {
-      type: "asset",
-      fileName: chunk.fileName,
-      names: [],
-      originalFileNames: [],
-      needsCodeReference: false,
-      source: chunk.code,
-      opensesameWorkerChunk: chunk,
-    };
+  prunePlaceholderAssets(bundle);
+  emitWorkerChunks(ctx, bundle, privateChunks, emittedChunks);
 }
-
 /** Share audited library/codec bytes, not realm instances. @returns {import("vite").Plugin} */
 export function sharedWorkerGraph({ workers } = {}) {
   const refs = new Map();
   const owners = new Map();
   const minted = new Set();
   const pureRoots = new Set();
+  const emittedChunks = new Map();
   let plans = workers;
   let sdk;
   let pure;
@@ -317,12 +337,16 @@ export function sharedWorkerGraph({ workers } = {}) {
     name: "opensesame-shared-worker-graph",
     apply: "build",
     enforce: "pre",
+    workerChunk(fileName) {
+      return emittedChunks.get(fileName);
+    },
     buildStart() {
       sdk = bitwardenWorkerAssets(plans);
       pureRoots.clear();
       minted.clear();
       refs.clear();
       owners.clear();
+      emittedChunks.clear();
     },
     configResolved(config) {
       pure = pureSources(config.root);
@@ -351,20 +375,25 @@ export function sharedWorkerGraph({ workers } = {}) {
       return transformWorkerURLs(this, code, id, plans, refs, owners, minted);
     },
     outputOptions(options) {
-      return {
-        ...options,
-        manualChunks: purePartitions(
-          this,
-          pureRoots,
-          options.manualChunks,
-          pure,
-        ),
-      };
+      const previous = chunkName(options);
+      installChunkName(
+        options,
+        purePartitions(this, pureRoots, previous, pure),
+      );
+      return options;
     },
     generateBundle: {
       order: "pre",
       handler(_options, bundle) {
-        attachWorkerClosures(this, bundle, owners, minted, pure);
+        attachWorkerClosures(
+          this,
+          bundle,
+          owners,
+          minted,
+          pure,
+          refs,
+          emittedChunks,
+        );
       },
     },
   };

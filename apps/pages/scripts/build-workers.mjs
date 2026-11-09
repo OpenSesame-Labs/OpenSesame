@@ -38,7 +38,8 @@ const EXTRA_VARIANTS = new Map([
 const isText = (value) =>
   Object.prototype.toString.call(value) === "[object String]";
 
-const PUSH_HANDLER = /addEventListener\(\s*["'](?:push|notificationclick)["']/;
+const PUSH_HANDLER =
+  /addEventListener\(\s*["'`](?:push|notificationclick)["'`]/;
 
 function distributedVariants(env) {
   const fromEnv = env.OPENSESAME_DISTRIBUTED_WORKERS;

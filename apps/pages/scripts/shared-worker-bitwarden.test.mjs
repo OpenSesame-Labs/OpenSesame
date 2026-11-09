@@ -39,13 +39,14 @@ globalThis.hostOnly=z.object({id:z.string()}).strict();
 globalThis.createClient=createBrowserBitwardenClient;`,
   );
   let bundle;
+  const workerPlugin = shared ? sharedWorkerGraph({ workers: [plan] }) : null;
   await build({
     configFile: false,
     root: repo,
     publicDir: false,
     logLevel: "silent",
     plugins: [
-      ...(shared ? [sharedWorkerGraph({ workers: [plan] })] : []),
+      ...(workerPlugin ? [workerPlugin] : []),
       {
         name: "capture-bws-fixture",
         generateBundle(_options, output) {
@@ -82,7 +83,7 @@ globalThis.createClient=createBrowserBitwardenClient;`,
       },
     },
   });
-  return bundle;
+  return { bundle, workerPlugin };
 }
 function measure(bundle) {
   let raw = 0;
@@ -99,18 +100,20 @@ function measure(bundle) {
 }
 
 test("real BWS worker shares pure Zod while preserving private SDK state and every emitted dependency", async () => {
-  const baseline = await fixture(false);
-  const candidate = await fixture(true);
+  const { bundle: baseline } = await fixture(false);
+  const { bundle: candidate, workerPlugin } = await fixture(true);
   const before = measure(baseline);
   const after = measure(candidate);
   const values = Object.values(candidate);
   const worker = values.find(
-    (value) => value.opensesameWorkerChunk?.name === plan.name,
+    (value) =>
+      value.type === "asset" &&
+      value.fileName.startsWith(`assets/${plan.name}-`),
   );
   assert.ok(worker, "BWS must be a registered isolated worker");
-  const workerModules = Object.keys(worker.opensesameWorkerChunk.modules).map(
-    workerRealmSource,
-  );
+  const workerModules = Object.keys(
+    workerPlugin.workerChunk(worker.fileName).modules,
+  ).map(workerRealmSource);
   assert.ok(workerModules.includes(glue));
   assert.ok(workerModules.includes(wasm));
   assert.ok(!workerModules.includes(owner));

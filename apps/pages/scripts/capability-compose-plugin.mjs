@@ -37,6 +37,7 @@ import {
   lazyLeafChunk,
   natsCommonJsSource,
 } from "./lib/capability-lazy-leaves.mjs";
+import { chunkName, installChunkName } from "./lib/code-splitting.mjs";
 import { itemTypePackChunk } from "./lib/item-type-pack-chunks.mjs";
 import { walk } from "./lib/verify-dist-checks.mjs";
 
@@ -54,15 +55,6 @@ const toPosix = (path) => path.replace(/\\/g, "/");
 function namedInputs(input) {
   if (!input || Array.isArray(input) || Object(input) !== input) return null;
   return input;
-}
-
-/**
- * Rollup's `manualChunks` (`ManualChunksOption`) is a chunk function or a
- * record of chunk alias → modules. The partition defers to the function form
- * and supersedes the record form, so only a function decodes.
- */
-function chunkFunction(manualChunks) {
-  return manualChunks instanceof Function ? manualChunks : null;
 }
 
 function pruneInputs(build, state) {
@@ -105,7 +97,7 @@ function partitionable(id) {
   return toPosix(id).includes("/src/modules/");
 }
 
-function installManualChunks(build, state) {
+function installCodeSplitting(build, state) {
   if (!build.rollupOptions) build.rollupOptions = {};
   const rollupOptions = build.rollupOptions;
   if (!rollupOptions.output) rollupOptions.output = {};
@@ -113,14 +105,13 @@ function installManualChunks(build, state) {
     ? rollupOptions.output
     : [rollupOptions.output];
   for (const output of outputs) {
-    const previous = chunkFunction(output.manualChunks);
-    // Only the modules named below go into a `cap-*` chunk. Rollup's
+    const previous = chunkName(output);
+    // Only the modules named below go into a `cap-*` chunk. Rolldown's
     // default would also pull every dependency a named module has into its
     // chunk — React, the vault ciphers, the WebMCP context — so the entry
     // would import core code from an optional chunk, and the chunk would be
     // statically reachable from the first page load.
-    output.onlyExplicitManualChunks = true;
-    output.manualChunks = (id, api) => {
+    installChunkName(output, (id, api) => {
       const runtime = commonJsRuntimeChunk(id);
       if (runtime) return runtime;
       // A built-in item type is a pack, a download of its own (ADR 0165).
@@ -149,7 +140,7 @@ function installManualChunks(build, state) {
           return `cap-${entry.capability}`;
       }
       return previous ? previous(id, api) : undefined;
-    };
+    });
   }
 }
 
@@ -295,7 +286,7 @@ function mainPlugin(options, ctx) {
       ctx.state = state;
       if (!userConfig.build) userConfig.build = {};
       pruneInputs(userConfig.build, state);
-      installManualChunks(userConfig.build, state);
+      installCodeSplitting(userConfig.build, state);
       return {
         define: {
           "import.meta.env.OPENSESAME_BUILD_MODE": JSON.stringify(state.mode),

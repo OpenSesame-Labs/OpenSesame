@@ -1,7 +1,7 @@
 /**
  * Keep the client renderer out of the entry chunk. A hardened profile's
  * largest asset is `main`, and react-dom is what puts it over the 693 KiB
- * ceiling. `onlyExplicitManualChunks` (capability-compose) keeps each name
+ * ceiling. `includeDependenciesRecursively: false` (capability-compose) keeps each name
  * to the files matched here, so the entry imports the renderer instead of
  * carrying its source.
  */
@@ -27,7 +27,7 @@ export function bundleChunk(id) {
   }
   // The device-identity and device-inbox walks import this chunk by the
   // file name `device-identity-host-*.js`. A pure chunk under
-  // `experimentalMinChunkSize` is folded into a neighbour, and the name
+  // `codeSplitting.minSize` is folded into a neighbour, and the name
   // disappears (`assets/undefined`). Manual chunks are not folded.
   if (path.includes("/lib/device-identity-host.ts")) {
     return "device-identity-host";
@@ -55,7 +55,7 @@ export function bundleChunk(id) {
     return "peer-trust";
   }
   // @peculiar/x509 imports reflect-metadata, then tsyringe. The lite
-  // polyfill is under experimentalMinChunkSize, so Rollup folds it into a
+  // polyfill is under codeSplitting.minSize, so Rollup folds it into a
   // parent and the shared x509 chunk runs tsyringe's check first. That throw
   // is a vite:preloadError, and the full profile reloads forever. One manual
   // chunk keeps the polyfill ahead of the check. Profiles that never load
