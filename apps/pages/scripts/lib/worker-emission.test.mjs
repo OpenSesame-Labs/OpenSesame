@@ -21,6 +21,7 @@ it("retains worker metadata for capability graph consumers", () => {
     emittedChunks,
   );
   assert.equal(workerChunkFor(bundle, chunk.fileName), chunk);
+  assert.equal(workerChunkFor({}, chunk.fileName), chunk);
   assert.equal(emitted[0].type, "asset");
   assert.equal(emitted[0].source, chunk.code);
 });

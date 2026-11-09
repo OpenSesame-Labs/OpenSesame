@@ -1,7 +1,7 @@
-const chunksByBundle = new WeakMap();
+const chunksByFileName = new Map();
 
-export function workerChunkFor(bundle, fileName) {
-  return chunksByBundle.get(bundle)?.get(fileName);
+export function workerChunkFor(_bundle, fileName) {
+  return chunksByFileName.get(fileName);
 }
 
 export function prunePlaceholderAssets(bundle) {
@@ -16,8 +16,9 @@ export function prunePlaceholderAssets(bundle) {
 }
 
 export function emitWorkerChunks(ctx, bundle, chunks, emittedChunks) {
-  chunksByBundle.set(bundle, emittedChunks);
+  chunksByFileName.clear();
   for (const chunk of chunks) {
+    chunksByFileName.set(chunk.fileName, chunk);
     emittedChunks.set(chunk.fileName, chunk);
     Reflect.deleteProperty(bundle, chunk.fileName);
     ctx.emitFile({

@@ -229,6 +229,17 @@ it("the compiled gateway retains exactly official errors and no network provider
   expect(() => assertOutput({ wrongExports })).toThrow(
     "official error exports",
   );
+  const wrongLength = {
+    ...chunk,
+    modules: {
+      ...chunk.modules,
+      [input.gatewayPath]: {
+        ...chunk.modules[input.gatewayPath],
+        renderedLength: 128907,
+      },
+    },
+  };
+  expect(() => assertOutput({ wrongLength })).toThrow("class-only bytes");
   expect(() =>
     assertOutput({
       changed: {

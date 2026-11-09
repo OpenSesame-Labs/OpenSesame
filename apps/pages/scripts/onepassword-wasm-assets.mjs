@@ -143,7 +143,8 @@ function importWorkerFactories(node, factories) {
   )
     return;
   for (const element of node.importClause.namedBindings.elements)
-    if (element.propertyName?.text === "E") factories.add(element.name.text);
+    if ((element.propertyName ?? element.name).text === "E")
+      factories.add(element.name.text);
 }
 
 function assignedWorkerConstructor(node, factories, constructors) {
