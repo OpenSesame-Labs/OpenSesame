@@ -27,23 +27,18 @@ import {
 } from "./history-claim-notice.js";
 import {
   IdentityError,
-  adoptToken,
   connectProvisional,
   currentSession,
   identityJson,
   identitySeams,
   isRemoteIdentityConfigured,
+  rebindSession,
 } from "./identity.js";
 import {
   mintGuestSessionPersonLocked,
   readGuestSessionPerson,
 } from "./local-guest.js";
-import {
-  clearNotices,
-  listNotices,
-  pushNotice,
-  setStatusNotice,
-} from "./notices.js";
+import { clearNotices, listNotices, pushNotice } from "./notices.js";
 import { vaultStore } from "./vault/store.js";
 
 const FEDERATED_NOTICE_TITLE = "Finish attaching your sign-in";
@@ -60,7 +55,7 @@ const COLLISION_MESSAGE =
 
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
-  adoptToken,
+  rebindSession,
   connectProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
@@ -178,11 +173,12 @@ async function linkGuestAccountDefault(
   // The verified identity can belong to a principal that already exists
   // (verified-email join, or the same upstream account returning): the
   // server rebound the session to that principal and issued its token.
-  // Adopt it, so this device continues as the person it used to be rather
+  // Stand on it (rebind, not adopt: the cookie already names it), so this
+  // device continues as the person it used to be rather
   // than as a provisional minted for the trip — nothing new was created.
   if (linked?.accessToken) {
     mintedPrincipal = false;
-    await guestAuthDependencies.adoptToken(linked.accessToken);
+    await guestAuthDependencies.rebindSession(linked.accessToken);
   }
   const principalId =
     linked?.principalId ?? guestAuthDependencies.currentSession()?.principalId;

@@ -10,7 +10,11 @@ import { resolveTrustedIssuer } from "../interactions/trust.js";
 import type { Variables } from "../middleware/context.js";
 import { emailLinkFields } from "../services/email-authority.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
-import { adoptSession } from "./federated-session.js";
+import {
+  type FederatedSessionAdoption,
+  ProvisionalCapacityError,
+  adoptSessionWithinCapacity,
+} from "./federated-session.js";
 import {
   OrgAssertionError,
   originAudiences,
@@ -125,7 +129,11 @@ async function collisionRebind(
   const throwaway =
     caller?.state === "provisional" || caller?.assurance === "provisional";
   if (!existing || !throwaway) return null;
-  const adoption = await adoptSession(
+  // The hosted leg refuses a non-active principal at exchange; a rebind
+  // must not hand a suspended or closed principal a fresh session either.
+  const owner = await ctx.repos.principals.getById(existing.principalId);
+  if (owner?.state !== "active") return null;
+  const adoption = await adoptSessionWithinCapacity(
     ctx,
     existing.principalId,
     c.get("correlationId"),
@@ -138,6 +146,27 @@ async function collisionRebind(
       accessToken: adoption.accessToken,
       expiresAt: adoption.expiresAt,
     }),
+  );
+}
+
+/**
+ * The verified-email join landed the identity on a different principal:
+ * adopt a session for that owner, but only while they are active — anyone
+ * else keeps the session they arrived with.
+ */
+async function adoptJoinedIdentity(
+  c: LinkContext,
+  ctx: AppContext,
+  principalId: string,
+  identity: ExternalIdentity,
+): Promise<FederatedSessionAdoption | undefined> {
+  if (identity.principalId === principalId) return undefined;
+  const owner = await ctx.repos.principals.getById(identity.principalId);
+  if (owner?.state !== "active") return undefined;
+  return adoptSessionWithinCapacity(
+    ctx,
+    identity.principalId,
+    c.get("correlationId"),
   );
 }
 
@@ -203,11 +232,17 @@ export async function linkFromVerifiedIdToken(
   const identity = result.identity;
   // The identity landed on a different principal than the caller's session
   // (verified-email join): bind the session to the principal it belongs to,
-  // as identity-link's contract requires of callers that just minted.
-  const adoption =
-    identity.principalId !== principalId
-      ? await adoptSession(ctx, identity.principalId, c.get("correlationId"))
-      : undefined;
+  // as identity-link's contract requires of callers that just minted. Only
+  // an active principal is adopted into; anyone else keeps the session
+  // they arrived with.
+  let adoption: FederatedSessionAdoption | undefined;
+  try {
+    adoption = await adoptJoinedIdentity(c, ctx, principalId, identity);
+  } catch (error) {
+    if (error instanceof ProvisionalCapacityError)
+      return c.json({ error: "provisional_capacity" }, 429);
+    throw error;
+  }
   if (adoption) setSessionCookie(c, ctx, adoption.accessToken);
   const body = LinkIdentityResponseSchema.parse({
     principalId: identity.principalId,
