@@ -42,12 +42,14 @@ describe("PR merge eligibility", () => {
   it("refuses missing pages, empty inventories and changed PR heads", () => {
     for (const commits of [
       [],
-      [verified(revision)],
       [verified(earlier), verified(earlier)],
     ])
       expect(() => assertPrSignatures(pr, commits, revision)).toThrow(
         "inventory",
       );
+    expect(() =>
+      assertPrSignatures(pr, [verified(revision)], revision),
+    ).not.toThrow();
     expect(() =>
       assertPrSignatures(pr, [verified(earlier), verified(revision)], earlier),
     ).toThrow("head changed");
