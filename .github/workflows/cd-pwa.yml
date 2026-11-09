@@ -60,7 +60,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Job-local npm downloads. This workflow does not restore or save the Actions cache.
+  # Job-local npm downloads. npm is not restored or saved.
+  # The mise tool directory is restored read-only from the trunk CI key and never saved.
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
   PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
   PAGES_DEPLOYMENT_PROFILE: ${{ vars.PAGES_DEPLOYMENT_PROFILE || 'shared_origin_demo' }}
@@ -84,13 +85,20 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Require trunk CI for this commit
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_REF: ${{ github.ref }}
           CI_GATE_INTERVAL_MS: "10000"
         run: node scripts/release/cd-main-ci-gate.mjs
 
@@ -153,11 +161,18 @@ jobs:
           else
             echo "No CI full-profile artifact (compile locally)"
           fi
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
         if: steps.ci_full_profile_dist.outcome != 'success'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        if: steps.ci_full_profile_dist.outcome != 'success'
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Install Pages workspace dependencies
         if: steps.ci_full_profile_dist.outcome != 'success'
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
@@ -216,10 +231,16 @@ jobs:
         with:
           name: pwa-full-profile-dist-${{ github.run_id }}
           path: apps/pages/dist-profiles/pwa-proof/full
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Install Pages workspace dependencies
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
       - name: Install sharp for install-profile proof gate
@@ -284,10 +305,16 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Plan version
         id: plan
         run: |
@@ -380,10 +407,16 @@ jobs:
         with:
           name: cd-pwa-meta-${{ github.run_id }}
           path: artifacts/cd-pwa-meta
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Require the staged metadata
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
@@ -442,10 +475,16 @@ jobs:
             /package-lock.json
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24 hurl@8.1.0
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise, Node 24, and Hurl
+        run: bash scripts/lib/install-mise-locked.sh node@24 hurl@8.1.0
       - name: Install the frozen dependency graph
         run: npm ci
       - name: Resolve headless Chromium for preview smoke evidence
@@ -515,10 +554,16 @@ jobs:
             /mise.lock
             /package.json
             /package-lock.json
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: pages-dist-${{ github.run_id }}
@@ -559,8 +604,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Commit comments need contents: write. The issues permission does not cover them.
+    # Read-only mise tool cache restore needs actions: read. This job does not save.
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -573,10 +620,16 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Annotate the run and comment on the commit
         env:
           GH_TOKEN: ${{ github.token }}

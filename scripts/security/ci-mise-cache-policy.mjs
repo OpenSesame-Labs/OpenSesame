@@ -3,6 +3,10 @@
  * check out workflow_call inputs (candidate source_sha) or run release/CD pipelines
  * must not restore or save that cache after untrusted checkout — see CodeQL
  * actions/cache-poisoning/poisonable-step and jdx/mise-action release guidance.
+ *
+ * cd-pwa.yml runs only on push to main and workflow_dispatch. cd-pwa-profile-proof.yml
+ * runs on pull_request for the install-profile proof. Neither uses mise-action.
+ * Both may restore the trunk mise tool cache and must not save it.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

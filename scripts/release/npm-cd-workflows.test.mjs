@@ -282,13 +282,31 @@ test("CD promotes staged artifacts with automated gates only", () => {
     /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,
   );
   assert.match(pwaSmoke, /cd-pwa-preview-smoke\/run\.mjs/);
-  assert.match(pwaSmoke, /install_args: node@24 hurl@8\.1\.0/);
+  assert.match(
+    pwaSmoke,
+    /bash scripts\/lib\/install-mise-locked\.sh node@24 hurl@8\.1\.0/,
+  );
+  assert.doesNotMatch(pwaSmoke, /install_args:/);
   assert.doesNotMatch(pwaSmoke, /cd-preview-smoke\.mjs/);
   assert.match(pwaSmoke, /pages-dist-\$\{\{ github\.run_id \}\}/);
   assert.match(pwaSmoke, /STAGED_DIST: apps\/pages\/dist/);
   assert.match(pwaSmoke, /SMOKE_EVIDENCE_OUT: artifacts\/cd-pwa-preview-smoke/);
   assert.match(pwaSmoke, /ensure-chrome-headless-shell\.mjs/);
-  assert.doesNotMatch(pwaSmoke, /uses:\s+actions\/cache/);
+  assert.doesNotMatch(pwaSmoke, /uses:\s+actions\/cache@/);
+  assert.doesNotMatch(pwaSmoke, /actions\/cache\/save@/);
+  assert.match(
+    pwaSmoke,
+    /actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
+  assert.match(pwaSmoke, /path: ~\/\.local\/share\/mise/);
+  assert.doesNotMatch(pwa, /jdx\/mise-action/);
+  assert.doesNotMatch(pwa, /uses:\s+actions\/cache@/);
+  assert.doesNotMatch(pwa, /actions\/cache\/save@/);
+  assert.doesNotMatch(pwa, /^[ \t]+cache:[ \t]+true[ \t]*$/m);
+  assert.match(
+    pwa,
+    /actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
   assert.doesNotMatch(pwaSmoke, /npx playwright install chromium/);
   assert.match(pwaSmoke, /cd-pwa-preview-smoke-\$\{\{ github\.run_id \}\}/);
   const proofPaths = read(".github/workflows/cd-npm-publish-proof.yml");

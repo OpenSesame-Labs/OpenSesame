@@ -17,6 +17,7 @@ const miseLine =
 const allowedArgs = new Set([
   "node",
   "node@24",
+  "hurl@8.1.0",
   "rust",
   "rust@1.97.1",
   "rust[components=miri]@nightly-2026-08-01",
@@ -46,16 +47,38 @@ function runText(step) {
   return readString(step?.run) ?? "";
 }
 
+/**
+ * PWA CD does not use mise-action. GitHub 504s on the action's jdx/mise
+ * release metadata fetch. Those jobs install the pinned tarball instead.
+ * Preview smoke also installs the locked Hurl used by the Pages checks.
+ */
+const lockedMiseWorkflows = new Set(["cd-pwa.yml", "cd-pwa-profile-proof.yml"]);
+const lockedMiseBootstraps = new Set([
+  "bash scripts/lib/install-mise-locked.sh node@24",
+  "bash scripts/lib/install-mise-locked.sh node@24 hurl@8.1.0",
+]);
+
+function installsLockedMise(step) {
+  return lockedMiseBootstraps.has(runText(step).trim());
+}
+
 test("workflows do not set up Node with setup-node, pnpm, or corepack", () => {
   const files = workflows();
   assert.ok(files.length > 0);
   for (const { name, text } of files) {
-    assert.doesNotMatch(text, /actions\/setup-node/u, name);
+    // The signed-commit gate installs only Node 24. It does not run the toolchain.
+    if (name !== "ci-grok-commits.yml") {
+      assert.doesNotMatch(text, /actions\/setup-node/u, name);
+      assert.doesNotMatch(text, /setup-node/u, name);
+    }
     assert.doesNotMatch(text, /pnpm\/action-setup/u, name);
     assert.doesNotMatch(text, /\bcorepack\b/u, name);
-    assert.doesNotMatch(text, /setup-node/u, name);
     assert.doesNotMatch(text, /cache:\s*pnpm/u, name);
-    assert.doesNotMatch(nonComment(text), /\bpnpm\b/u, name);
+    assert.doesNotMatch(
+      nonComment(text),
+      /\bpnpm\b(?!-workspace\.yaml)/u,
+      name,
+    );
   }
 });
 
@@ -64,20 +87,40 @@ test("npm jobs install Node with the pinned mise-action", () => {
   for (const { name, text } of workflows()) {
     const jobs = parse(text).jobs ?? {};
     const expectCacheDisabled = cacheDisabled.has(name);
+    const lockedBootstrap = lockedMiseWorkflows.has(name);
     let parsedMise = 0;
     for (const [id, job] of Object.entries(jobs)) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
       const label = `${name}:${id}`;
       const miseAt = [];
+      const bootstrapAt = [];
       let npmAt = -1;
+      let nodeAt = -1;
       steps.forEach((step, index) => {
         if (step?.uses === miseUses) miseAt.push(index);
-        if (npmAt < 0 && /\bnpm\s+(?:ci|run|exec)\b/u.test(runText(step))) {
+        if (installsLockedMise(step)) bootstrapAt.push(index);
+        const run = runText(step);
+        if (npmAt < 0 && /\bnpm\s+(?:ci|run|exec)\b/u.test(run)) {
           npmAt = index;
         }
+        if (nodeAt < 0 && /\bnode\s+\S/u.test(run)) nodeAt = index;
       });
       parsedMise += miseAt.length;
-      if (npmAt >= 0) {
+      if (lockedBootstrap) {
+        assert.equal(miseAt.length, 0, `${label} uses mise-action`);
+        if (npmAt >= 0 || nodeAt >= 0) {
+          assert.ok(
+            bootstrapAt.length > 0,
+            `${label} runs node without locked mise`,
+          );
+        }
+        if (npmAt >= 0) {
+          assert.ok(
+            bootstrapAt[0] < npmAt,
+            `${label} runs npm before locked mise`,
+          );
+        }
+      } else if (npmAt >= 0) {
         assert.ok(miseAt.length > 0, `${label} runs npm without mise`);
         assert.ok(miseAt[0] < npmAt, `${label} installs npm before mise`);
       }
@@ -96,7 +139,14 @@ test("npm jobs install Node with the pinned mise-action", () => {
       }
       for (const index of miseAt) {
         const step = steps[index];
-        const cacheExpected = !expectCacheDisabled;
+        // Untrusted refs install mise with its Actions cache off. Trusted refs
+        // on ci.yml keep cache: true and cache_save: false. Nightly selection
+        // jobs set cache: false so they cannot write the default-branch cache.
+        const untrustedOnly = step.if === "env.TRUSTED_CACHE_SAVE != 'true'";
+        const nightlyOptOut =
+          name === "dev-nightly.yml" || name === "dev-nightly-qualify.yml";
+        const cacheExpected =
+          untrustedOnly || nightlyOptOut ? false : !expectCacheDisabled;
         assert.equal(step.with?.cache, cacheExpected, label);
         const args = readString(step.with?.install_args);
         assert.notEqual(args, undefined, label);
@@ -144,9 +194,39 @@ test("npm jobs install Node with the pinned mise-action", () => {
     const rawMise = text
       .split("\n")
       .filter((line) => line.includes("jdx/mise-action@"));
+    if (lockedBootstrap) {
+      assert.equal(rawMise.length, 0, name);
+      assert.equal(parsedMise, 0, name);
+      assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/u);
+    }
     assert.equal(rawMise.length, parsedMise, name);
     for (const line of rawMise) assert.match(line, miseLine, name);
   }
+});
+
+test("PWA CD installs tools with the locked mise bootstrap, not mise-action", () => {
+  for (const name of lockedMiseWorkflows) {
+    const text = readFileSync(join(workflowDir, name), "utf8");
+    assert.doesNotMatch(text, /jdx\/mise-action/u, name);
+    assert.doesNotMatch(text, /install_args:/u, name);
+    assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
+    assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+    assert.match(
+      text,
+      /bash scripts\/lib\/install-mise-locked\.sh node@24/u,
+      name,
+    );
+  }
+  const pwa = readFileSync(join(workflowDir, "cd-pwa.yml"), "utf8");
+  const proof = readFileSync(
+    join(workflowDir, "cd-pwa-profile-proof.yml"),
+    "utf8",
+  );
+  assert.match(
+    pwa,
+    /bash scripts\/lib\/install-mise-locked\.sh node@24 hurl@8\.1\.0/u,
+  );
+  assert.doesNotMatch(proof, /hurl@/u);
 });
 
 function rustTokens(step) {

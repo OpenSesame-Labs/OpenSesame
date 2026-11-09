@@ -38,14 +38,51 @@ test("privileged workflow list matches workflow_call and release filenames", () 
   assert.ok(!disabled.includes("cd-npm-publish-proof.yml"));
 });
 
-test("privileged workflows do not restore or save Actions caches", () => {
+const miseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+
+const readOnlyMiseRestore = new Set(["cd-pwa.yml", "cd-pwa-profile-proof.yml"]);
+
+function assertReadOnlyMiseRestore(name, text) {
+  const steps = text.split(/\n {6}- /u);
+  let restores = 0;
+  for (const step of steps) {
+    if (!step.includes("actions/cache")) continue;
+    restores += 1;
+    assert.ok(
+      step.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
+      name,
+    );
+    assert.ok(step.includes("path: ~/.local/share/mise\n"), name);
+    assert.ok(step.includes(`${miseRestoreKey}\n`), name);
+    assert.ok(
+      step.includes("mise-v2-${{ runner.os }}-seed-main-node-\n"),
+      name,
+    );
+    assert.ok(step.includes("mise-v1-linux-"), name);
+    assert.equal(step.includes("actions/cache/save@"), false, name);
+  }
+  assert.ok(restores > 0, name);
+  assert.equal(text.includes("actions/cache/save@"), false, name);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+}
+
+test("privileged workflows do not save Actions caches", () => {
   const disabled = workflowsWithMiseCacheDisabled();
   assert.ok(disabled.length > 0);
+  const ci = readFileSync(join(workflowDir, "ci.yml"), "utf8");
+  assert.ok(ci.includes(miseRestoreKey));
   for (const name of disabled) {
     const text = readFileSync(join(workflowDir, name), "utf8");
+    assert.equal(text.includes("actions/cache/save@"), false, name);
+    assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+    assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+    if (readOnlyMiseRestore.has(name)) {
+      assertReadOnlyMiseRestore(name, text);
+      continue;
+    }
     assert.equal(cacheUse.test(text), false, name);
     cacheUse.lastIndex = 0;
-    assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
   }
 });
 
