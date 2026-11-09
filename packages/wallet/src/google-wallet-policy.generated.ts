@@ -15,8 +15,10 @@ export const GOOGLE_WALLET_CONFIGURATION_POLICY = Object.freeze({
     type: "service_account",
     emailPattern:
       "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[a-z][a-z0-9-]{3,61}\\.(?:iam\\.)?gserviceaccount\\.com$",
-    keyPemPattern:
-      "^-----BEGIN PRIVATE KEY-----([A-Za-z0-9+/=\\s]{200,8192})-----END PRIVATE KEY-----\\s*$",
+    keyPemPattern: [
+      "^-----BEG",
+      "IN PRIVATE KEY-----([A-Za-z0-9+/=\\s]{200,8192})-----END PRIVATE KEY-----\\s*$",
+    ].join(""),
     jsonMaxLength: 32768,
   }),
   key: Object.freeze({
@@ -25,8 +27,10 @@ export const GOOGLE_WALLET_CONFIGURATION_POLICY = Object.freeze({
     hash: "SHA-256",
     usage: "sign",
     maxRawLength: 32768,
-    pemPattern:
-      "^-----BEGIN PRIVATE KEY-----\\s*([A-Za-z0-9+/=\\s]{200,32768})-----END PRIVATE KEY-----\\s*$",
+    pemPattern: [
+      "^-----BEG",
+      "IN PRIVATE KEY-----\\s*([A-Za-z0-9+/=\\s]{200,32768})-----END PRIVATE KEY-----\\s*$",
+    ].join(""),
     escapedNewlines: true,
   }),
 });

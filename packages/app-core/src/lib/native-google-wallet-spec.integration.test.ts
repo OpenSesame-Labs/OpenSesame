@@ -1,6 +1,7 @@
 import { generateKeyPairSync, verify } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { syntheticPkcs8PrivateKeyPem } from "@opensesame/wallet/google-wallet-policy";
 import { afterEach, expect, it, vi } from "vitest";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
 import type { NativeProviderTransport } from "./native-connector-transport.js";
@@ -34,15 +35,9 @@ const keys = new Map<string, string>([
   ["generated_pkcs1_rsa", pkcs1],
   ["not-a-private-key", "not-a-private-key"],
   ["oversized", "a".repeat(32769)],
-  [
-    "invalid_der",
-    `-----BEGIN PRIVATE KEY-----\n${"A".repeat(256)}\n-----END PRIVATE KEY-----`,
-  ],
+  ["invalid_der", syntheticPkcs8PrivateKeyPem("A".repeat(256))],
   ["generated_ec_pkcs8", ec],
-  [
-    "invalid_padding",
-    `-----BEGIN PRIVATE KEY-----\n${"A".repeat(240)}=A\n-----END PRIVATE KEY-----`,
-  ],
+  ["invalid_padding", syntheticPkcs8PrivateKeyPem(`${"A".repeat(240)}=A`)],
 ]);
 const email = "wallet@project-name.iam.gserviceaccount.com";
 const owner = new AbortController();

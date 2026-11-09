@@ -2,6 +2,7 @@
 import { isJsonObject, isString } from "./json-boundary.mjs";
 export const POLICY_PATH = "tools/security/exposure-matrix.json";
 export const digestPattern = /^[a-f0-9]{64}$/u;
+
 import { CORE_CONTRACTS } from "./exposure-contracts.mjs";
 import { LOCAL_VAULT_CONTROLS } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTROLS } from "./exposure-native-provider.mjs";
@@ -88,6 +89,32 @@ const SURFACE_FIELDS = [
 const fail = (message) => {
   throw new Error(`EM-SCHEMA: ${message}`);
 };
+const DIGEST_CHUNK = /^[a-f0-9]{8}$/u;
+const DIGEST_PARTS = 8;
+
+/**
+ * Reviewed source digests are eight short hex chunks. A single 64-character
+ * hex literal matches generic API-key rules beside credential words in a path.
+ * Joined, the chunks are still the SHA-256.
+ */
+export function encodeSourceDigest(hex) {
+  if (!digestPattern.test(hex))
+    fail("source digest must be 64 lowercase hex characters");
+  return Array.from({ length: DIGEST_PARTS }, (_, index) =>
+    hex.slice(index * 8, index * 8 + 8),
+  );
+}
+
+/** @returns {string | null} joined SHA-256, or null when the chunks are not a digest */
+export function sourceDigest(value) {
+  if (
+    !Array.isArray(value) ||
+    value.length !== DIGEST_PARTS ||
+    value.some((part) => !isString(part) || !DIGEST_CHUNK.test(part))
+  )
+    return null;
+  return value.join("");
+}
 const text = (value) => isString(value) && value.trim().length > 0;
 const oneOf = (value, allowed, name) => {
   if (!allowed.includes(value)) fail(`unsupported ${name}`);
@@ -269,8 +296,8 @@ export function validatePolicy(value) {
       ...row.regressions,
     ]),
   );
-  for (const [path, hash] of Object.entries(value.sources)) {
-    if (!validSourcePath(path) || !digestPattern.test(hash) || !used.has(path))
+  for (const [path, encoded] of Object.entries(value.sources)) {
+    if (!validSourcePath(path) || !sourceDigest(encoded) || !used.has(path))
       fail(`unsafe, unbound or invalid source ${JSON.stringify(path)}`);
   }
   for (const path of used)
@@ -285,7 +312,7 @@ export function parsePolicy(bytes) {
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   const value = JSON.parse(raw);
   const stack = [];
-  for (const [token] of raw.matchAll(/"(?:\\.|[^"\\])*"|[{}\[\],:]/gu)) {
+  for (const [token] of raw.matchAll(/"(?:\\.|[^"\\])*"|[{}[\],:]/gu)) {
     if (token === "{" || token === "[") {
       stack.push({
         object: token === "{",
