@@ -160,22 +160,18 @@ const LAZY_LEAVES = [
     "tailnet-plugin-pairing",
   ],
   // The relay's HTTP client (ADR 0181) is a small pure leaf reached only by
-  // the org-vault directory panels. At the 12 KB merge floor Rollup folds it
-  // into a neighbour whenever the Settings sections reshuffle the chunks
-  // around it, and the gate reads the fold as a static import of
-  // `sharing.relay` from the bootstrap (ADR 0130 §4). Pinned to the
-  // capability's own chunk, it loads with the module and stays off the entry.
+  // the org-vault directory panels. Its explicit capability chunk keeps it
+  // dynamic instead of letting automatic chunking make it an entry dependency
+  // (ADR 0130 §4).
   [
     "/packages/app-core/src/lib/vault-relay/client",
     "sharing.relay",
     "cap-sharing.relay",
   ],
   // Document enrolment (`push-browser`, `push-enrolment`, `push-seams`) is
-  // pure. `codeSplitting.minSize` then folds that small chunk into `main`,
-  // which the gate reads as a static import of `notifications.web-push`
-  // (ADR 0130 §4). The capability chunk is the dynamic entry, so these files
-  // load with the module and stay off the bootstrap. `push.ts` is the worker
-  // half and is not matched here.
+  // pure. Its explicit capability chunk is the dynamic entry, so these files
+  // load with the module and stay off the bootstrap (ADR 0130 §4). `push.ts`
+  // is the worker half and is not matched here.
   ["/src/lib/push-", "notifications.web-push", "cap-notifications.web-push"],
   [
     "/src/modules/identity.ceremonies/ClaimDifferentLink",

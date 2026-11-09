@@ -50,7 +50,7 @@ async function bundledEntry(
       minify: false,
       rollupOptions: {
         input: plan.owner,
-        output: { format: "es", onlyExplicitManualChunks: true },
+        output: { format: "es" },
       },
     },
   });

@@ -100,7 +100,6 @@ globalThis.route=v=>NativeHTTPConfiguration.safeParse(v).success;`
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
           manualChunks: (id) =>
             id === owner || id.includes("/node_modules/zod/")
               ? "host-with-pure-dependencies"

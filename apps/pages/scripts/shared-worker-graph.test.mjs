@@ -132,8 +132,6 @@ async function fixture({
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          experimentalMinChunkSize: 32000,
-          onlyExplicitManualChunks: true,
           manualChunks:
             manualChunks ??
             ((id) =>

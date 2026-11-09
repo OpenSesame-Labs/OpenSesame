@@ -89,7 +89,7 @@ async function bundle(source, selected = false) {
       write: false,
       minify: false,
       rollupOptions: {
-        output: { experimentalMinChunkSize: 32000 },
+        output: {},
       },
     },
   });

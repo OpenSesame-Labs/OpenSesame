@@ -40,13 +40,14 @@ beforeAll(async () => {
     input,
     `import {createBrowserBitwardenClient} from ${JSON.stringify(owner)}; globalThis.client=createBrowserBitwardenClient;`,
   );
+  const workerPlugin = sharedWorkerGraph({ workers: [plan] });
   await build({
     configFile: false,
     root: repo,
     publicDir: false,
     logLevel: "silent",
     plugins: [
-      sharedWorkerGraph({ workers: [plan] }),
+      workerPlugin,
       {
         name: "capture-compiled-bws-gzip",
         generateBundle(_options, output) {
@@ -72,15 +73,16 @@ beforeAll(async () => {
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
         },
       },
     },
   });
   entry = Object.values(bundle).find(
-    (output) => output.opensesameWorkerChunk?.name === plan.name,
+    (output) =>
+      output.type === "asset" &&
+      output.fileName.startsWith(`assets/${plan.name}-`),
   )?.fileName;
-  assert.ok(entry);
+  assert.ok(workerPlugin.workerChunk(entry));
   assert.equal(
     Object.values(bundle).filter((output) => output.fileName.endsWith(".gz"))
       .length,
@@ -95,7 +97,9 @@ afterAll(() => rm(root, { recursive: true, force: true }));
 async function serve(mode) {
   const requests = [];
   const server = createServer((request, response) => {
-    const path = request.url.slice("/subpath/".length);
+    const path = request.url.startsWith("/subpath/")
+      ? request.url.slice("/subpath/".length)
+      : request.url.slice(1);
     requests.push({
       path: request.url,
       authorization: request.headers.authorization,

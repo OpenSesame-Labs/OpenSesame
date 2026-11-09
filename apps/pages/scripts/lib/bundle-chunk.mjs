@@ -22,9 +22,8 @@ export function bundleChunk(id) {
     return "react-router";
   }
   // The device-identity and device-inbox walks import this chunk by the
-  // file name `device-identity-host-*.js`. A pure chunk under
-  // `codeSplitting.minSize` is folded into a neighbour, and the name
-  // disappears (`assets/undefined`). Manual chunks are not folded.
+  // file name `device-identity-host-*.js`. Rolldown's automatic merging does
+  // not preserve that name, so this explicit group keeps it.
   if (path.includes("/lib/device-identity-host.ts")) {
     return "device-identity-host";
   }

@@ -57,19 +57,28 @@ async function emittedPolicy(dir, pinned) {
       minify: true,
       rollupOptions: {
         input: "entry",
-        preserveEntrySignatures: "strict",
+        preserveEntrySignatures: "allow-extension",
         output: {
           format: "es",
-          onlyExplicitManualChunks: true,
-          manualChunks(id) {
-            if (id === policy) return "session-connections";
-            if (id === state)
-              return (
-                (pinned && lazyLeafChunk(id, classification)) ||
-                "cap-connectors.external"
-              );
-            if (id === "\0session") return "session-connections";
-            if (id === "\0runtime") return "cap-connectors.external";
+          strictExecutionOrder: true,
+          codeSplitting: {
+            includeDependenciesRecursively: false,
+            groups: [
+              {
+                includeDependenciesRecursively: false,
+                minSize: 0,
+                name(id) {
+                  if (id === policy) return "session-connections";
+                  if (id === state)
+                    return (
+                      (pinned && lazyLeafChunk(id, classification)) ||
+                      "cap-connectors.external"
+                    );
+                  if (id === "\0session") return "session-connections";
+                  if (id === "\0runtime") return "cap-connectors.external";
+                },
+              },
+            ],
           },
         },
       },

@@ -108,12 +108,15 @@ export function createGzipWasmAssetFetch(
   nativeFetch: SecretBackendFetch,
   failure: AssetFailure,
 ): SecretBackendFetch {
-  const url = asset.url;
+  const url = new URL(asset.url, globalThis.location?.href).href;
   const compressedPin = capturedPin(asset.compressed, failure);
   const rawPin = capturedPin(asset.raw, failure);
   return async (input, init) => {
     check();
-    const request = new Request(input, init);
+    const request = new Request(
+      input instanceof Request ? input : new URL(input, url),
+      init,
+    );
     if (request.url !== url || request.method !== "GET") throw failure();
     const combined = AbortSignal.any([signal, request.signal]);
     const response = await nativeFetch(request.url, {

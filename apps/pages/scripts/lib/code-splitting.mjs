@@ -25,8 +25,7 @@ export function installChunkName(output, name) {
   const current = Array.isArray(output.codeSplitting?.groups)
     ? output.codeSplitting
     : {};
-  const minSize = output.experimentalMinChunkSize;
-  const codeSplitting = {
+  output.codeSplitting = {
     ...current,
     includeDependenciesRecursively: false,
     groups: [
@@ -38,8 +37,6 @@ export function installChunkName(output, name) {
       })),
     ],
   };
-  if (minSize !== undefined) codeSplitting.minSize = minSize;
-  output.codeSplitting = codeSplitting;
   output.strictExecutionOrder = true;
   Reflect.deleteProperty(output, "manualChunks");
   Reflect.deleteProperty(output, "onlyExplicitManualChunks");

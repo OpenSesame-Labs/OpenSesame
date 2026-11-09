@@ -143,35 +143,78 @@ function referencesWorker(owner, worker, base) {
     true,
     ts.ScriptKind.JS,
   );
+  const factories = new Set();
+  const constructors = new Set();
+  const imports = (node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteralLike(node.moduleSpecifier) &&
+      /\/ports-[^/]+\.js$/.test(node.moduleSpecifier.text) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    )
+      for (const element of node.importClause.namedBindings.elements)
+        if (element.propertyName?.text === "E")
+          factories.add(element.name.text);
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isCallExpression(node.initializer) &&
+      ts.isIdentifier(node.initializer.expression) &&
+      factories.has(node.initializer.expression.text)
+    )
+      constructors.add(node.name.text);
+    return ts.forEachChild(node, imports);
+  };
+  imports(ast);
+  const urlMatches = (literal, parent = root) => {
+    try {
+      return new URL(literal, parent).href === target;
+    } catch {
+      return false;
+    }
+  };
+  const moduleOptions = (node, requiredName) => {
+    if (!ts.isObjectLiteralExpression(node)) return false;
+    const values = new Map();
+    for (const property of node.properties)
+      if (
+        ts.isPropertyAssignment(property) &&
+        ts.isStringLiteralLike(property.initializer)
+      )
+        values.set(property.name.getText(ast), property.initializer.text);
+    return (
+      values.get("type") === "module" &&
+      (requiredName === undefined || values.get("name") === requiredName)
+    );
+  };
   const visit = (node) => {
     if (
       ts.isNewExpression(node) &&
       node.arguments?.length === 2 &&
-      ts.isStringLiteralLike(node.arguments[0]) &&
-      ts.isObjectLiteralExpression(node.arguments[1]) &&
-      node.arguments[1].properties.some(
-        (property) =>
-          ts.isPropertyAssignment(property) &&
-          property.name.getText(ast) === "type" &&
-          ts.isStringLiteralLike(property.initializer) &&
-          property.initializer.text === "module",
-      ) &&
-      new URL(node.arguments[0].text, root).href === target
-    )
-      return true;
+      ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      const callee = node.expression;
+      const direct = ts.isIdentifier(callee) && callee.text === "Worker";
+      const aliased =
+        ts.isIdentifier(callee) &&
+        (factories.has(callee.text) || constructors.has(callee.text));
+      if (
+        (direct && moduleOptions(node.arguments[1])) ||
+        (aliased && moduleOptions(node.arguments[1], "opensesame-onepassword"))
+      )
+        if (urlMatches(node.arguments[0].text)) return true;
+    }
     if (
       ts.isNewExpression(node) &&
       node.expression.getText(ast) === "URL" &&
       node.arguments?.length === 2 &&
       ts.isStringLiteralLike(node.arguments[0]) &&
-      node.arguments[1].getText(ast) === "import.meta.url"
-    ) {
-      if (
-        new URL(node.arguments[0].text, new URL(owner.file, root)).href ===
-        target
-      )
-        return true;
-    }
+      node.arguments[1].getText(ast) === "import.meta.url" &&
+      urlMatches(node.arguments[0].text, new URL(owner.file, root))
+    )
+      return true;
     return ts.forEachChild(node, visit);
   };
   return visit(ast) === true;
