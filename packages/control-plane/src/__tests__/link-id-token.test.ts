@@ -194,6 +194,64 @@ describe("claiming a guest principal with an upstream id_token", () => {
     expect(overlapCast(await cookieMe.json()).id).toBe(first.principalId);
   });
 
+  it("ends a distinct cookie session the rebind request also carried", {
+    timeout: 30_000,
+  }, async () => {
+    // Bearer [REDACTED] in the auth middleware, so the cookie session is
+    // never the authenticated one — but the rebind overwrites the cookie,
+    // and its server row must not linger live as an orphan.
+    const { privateKey, jwks } = await mintKeys();
+    orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json(jwks))),
+    );
+    const { app } = createControlPlane();
+    const first = await guest(app);
+    const token = await new SignJWT({})
+      .setProtectedHeader({ alg: "RS256", kid: "claim-1" })
+      .setIssuer(ISSUER)
+      .setAudience("origin:http://127.0.0.1:8788")
+      .setSubject("orphan@upstream")
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(privateKey);
+    const linked = await app.request("/v1/principals/link-identities", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${first.accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ idToken: token }),
+    });
+    expect(linked.status).toBe(201);
+
+    const bearerGuest = await guest(app);
+    const cookieGuest = await guest(app);
+    const rebound = await app.request("/v1/principals/link-identities", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${bearerGuest.accessToken}`,
+        cookie: `os_provisional=${cookieGuest.accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ idToken: token }),
+    });
+    expect(rebound.status).toBe(200);
+    expect(overlapCast(await rebound.json()).principalId).toBe(
+      first.principalId,
+    );
+
+    const bearerMe = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${bearerGuest.accessToken}` },
+    });
+    expect(bearerMe.status).toBe(401);
+    const cookieMe = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${cookieGuest.accessToken}` },
+    });
+    expect(cookieMe.status).toBe(401);
+  });
+
   // Three signings and three link round-trips: give loaded CI room.
   it("still refuses a registered caller whose subject another principal owns", {
     timeout: 30_000,

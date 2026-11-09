@@ -184,6 +184,26 @@ describe("SettingsSection", () => {
     expect(store.destroy).toHaveBeenCalledTimes(1);
   });
 
+  it("confirms an empty vault in the same sheet, not an in-place arm", async () => {
+    // Chair gauntlet round 3: DeleteVaultSheet is the one confirmation
+    // every delete road shares — the empty vault included.
+    vault.current.items = [];
+    renderSettings("#danger");
+    await userEvent.click(
+      screen.getByRole("button", { name: /Delete this vault/i }),
+    );
+    const sheet = screen.getByRole("dialog", { name: "Delete a vault" });
+    expect(sheet.textContent).toContain("0 sealed items in this browser");
+    expect(
+      screen.queryByRole("button", { name: /Delete permanently/i }),
+    ).toBeNull();
+    expect(store.destroy).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(sheet).getByRole("button", { name: /Delete vault/i }),
+    );
+    expect(store.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it("lists the trash and empties it only after arming", async () => {
     vault.current.items = [
       { id: "itm_1", name: "Alpha", deletedAt: "2026-09-01" },

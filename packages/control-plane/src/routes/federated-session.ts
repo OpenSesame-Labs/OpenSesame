@@ -174,9 +174,13 @@ export async function adoptSessionWithinCapacity(
   principalId: string,
   correlationId: string,
 ): Promise<FederatedSessionAdoption> {
+  // The SAME key the mint roads serialize on ("provisional-mint" in
+  // principals.ts and interactions/handlers.ts): capacity is one shared
+  // read-then-write over provisionalSessions, and two keys would let a
+  // mint and an adoption each pass the size read concurrently.
   return serializeKeyed(
     ctx.stores.principalMutations,
-    "federated-session",
+    "provisional-mint",
     async () => {
       if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL) {
         // Expired/revoked rows are not live sessions. Drop them (and the
