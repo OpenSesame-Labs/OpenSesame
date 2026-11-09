@@ -22,9 +22,9 @@ exceptions trains people to add exceptions without reading.
 
 The existing working-tree review manifest binds each exception to the SHA-256
 of the whole file. That is precise but brittle for a regenerated file: the
-manifest's rows for `tools/security/exposure-matrix.json` no longer match its
-current bytes, so the gitleaks working-tree gate reports 95 unreviewed
-findings there at the time of writing.
+manifest's rows for `tools/security/exposure-matrix.json` went stale as the file
+changed, and the gitleaks working-tree gate reported 95 unreviewed findings
+there until the tip stopped carrying digests in that form (#2535).
 
 ## Decision
 
