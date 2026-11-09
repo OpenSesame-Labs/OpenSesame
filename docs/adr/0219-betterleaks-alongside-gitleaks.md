@@ -50,10 +50,12 @@ findings there at the time of writing.
      bound by the exposure matrix, so the exemption goes in config.
 5. **History is immutable, so it is fingerprinted, never path-exempted.**
    Fingerprints bind one commit, path, rule and line.
-6. **An unverified credential-shaped finding stays visible.** Four historical
-   `tailscale-api-key` hits are hand-built lookalikes by structure, but
-   issuance could only be checked by sending them to the provider. They are
-   left reported; history findings warn unless
+6. **An unverified credential-shaped finding stays visible; a confirmed one is
+   fingerprinted.** Five historical `tailscale-api-key` hits were hand-built
+   lookalikes by structure, but issuance could only be checked by sending them
+   to the provider. They stayed reported until the repository owner confirmed
+   they were hand-made test constants that were never functional; they are now
+   fingerprinted like the rest. History findings warn unless
    `OPENSESAME_BETTERLEAKS_HISTORY_FAIL=1`.
 
 ## Consequences

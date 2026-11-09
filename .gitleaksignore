@@ -510,7 +510,7 @@ aacaed356a23e5166b530355df57c2fa8131ae1f:apps/pages/src/lib/embedded-catalog.ts:
 652e153685ef7f15cadefa9ed65dd30710855689:.grok/skills/stitch-extract-static-html/SKILL.md:generic-password:161
 
 # Betterleaks review of history reachable only from other branches (CI scans every ref). Same rules as above:
-# commit, path, rule and line are all bound. The `tailscale-api-key.1` findings are deliberately NOT listed here.
+# commit, path, rule and line are all bound.
 # private-key (other branches): copies of the Google Wallet PEM validation regex and the `"A".repeat(256)` rejection tests,
 # including inside `*.patch` files. No key material: the patch "bodies" hold 79-80 distinct characters, which base64 cannot.
 15a9c9883e4afc4258c9558810c50e9538fde4e1:.github/verify-inputs/2241-combined.patch:private-key:98
@@ -652,3 +652,12 @@ d9c1a9737292820cbd733837d5c50400e0d685c8:.github/connector-stack/payload.json:ge
 fa3c35c0bec82d0076f8bcd18cadc068a21c7def:.github/connector-stack/payload.json:generic-password:1
 fc7be21cd3903075dd5ae66a8de3f58120120fd8:.github/connector-stack/payload.json:generic-password:1
 fd6aa8a23c7ff0642eab53a5b2ad236f9fbbedf7:packages/app-core/src/lib/retired-credentials/test-support.ts:generic-password:45
+
+# tailscale-api-key.1: hand-made test constants shaped like a Tailscale API key, in test files since removed. Confirmed by the
+# repository owner to be synthetic and never functional (written by hand for tests, none ever issued). Not quoted here: the
+# key-material gate forbids the provider stem in tracked files.
+17ccb6ae8759525000d4467b8552bb5674a1fc64:packages/app-core/src/lib/native-tailscale.test-support.ts:tailscale-api-key.1:3
+3ae4e77faeb594022054ff049dc320867a3a16fe:crates/tailnet-admin/src/credential_envelope_tests.rs:tailscale-api-key.1:263
+bbd009927ef24230181d5c884202d865a3c86c98:crates/daemon/src/tailnet_admin_conformance_tests.rs:tailscale-api-key.1:22
+eb81a0ad453402f3514b2f0ab5f6d4d2d7313eb1:apps/pages/scripts/lib/tailscale-stub.mjs:tailscale-api-key.1:14
+eb81a0ad453402f3514b2f0ab5f6d4d2d7313eb1:crates/daemon/src/tailnet_admin_conformance_tests.rs:tailscale-api-key.1:22
