@@ -18,6 +18,7 @@ import {
 } from "./capability-graph.mjs";
 import { secretBackendSdkChunk } from "./capability-lazy-leaves.mjs";
 import { itemTypePackChunk } from "./item-type-pack-chunks.mjs";
+import { workerChunkFor } from "./worker-emission.mjs";
 
 // Rollup OutputAsset.source is an I/O boundary, not an unchecked coercion.
 const rollupAssetSource = z.union([z.string(), z.instanceof(Uint8Array)]);
@@ -85,8 +86,8 @@ function collectOutputs(bundle, state, base, classify) {
       chunks.push(chunkRecord(file, output, classify));
       continue;
     }
-    if (output.opensesameWorkerChunk) {
-      const worker = output.opensesameWorkerChunk;
+    const worker = workerChunkFor(output, file) ?? output.opensesameWorkerChunk;
+    if (worker) {
       if (
         worker.code !== output.source ||
         worker.fileName !== file ||

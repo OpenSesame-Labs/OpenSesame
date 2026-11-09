@@ -106,8 +106,6 @@ ${checks}`,
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
-          experimentalMinChunkSize: 32000,
           manualChunks: (id) =>
             id === host ||
             /\/node_modules\/(?:hash-wasm|@levischuck\/tiny-cbor)\//.test(id)

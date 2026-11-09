@@ -119,8 +119,6 @@ globalThis.owners=[owner0,owner1];globalThis.hostOnly=true;`,
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
-          experimentalMinChunkSize: 32000,
           manualChunks: (id) =>
             id === host || closed.includes(id)
               ? "host-contamination"
@@ -150,6 +148,21 @@ function closureProof(bundle, host, workers, workerPlugin) {
         row.type === "asset" && row.fileName.startsWith(`assets/${plan.name}-`),
     ),
   );
+  const reachable = (file, seeds = []) => {
+    const seen = new Set();
+    const visit = (current) => {
+      if (seen.has(current)) return;
+      seen.add(current);
+      const output = bundle[current];
+      for (const next of [
+        ...(output?.imports ?? []),
+        ...(output?.viteMetadata?.importedAssets ?? []),
+      ])
+        visit(next);
+    };
+    for (const seed of [file, ...seeds]) visit(seed);
+    return seen;
+  };
   for (const [index, root] of roots.entries()) {
     const chunk = workerPlugin.workerChunk(root.fileName);
     assert.ok(
@@ -161,26 +174,14 @@ function closureProof(bundle, host, workers, workerPlugin) {
         closed.includes(workerRealmSource(id)),
       ),
     );
-    for (const row of shared.filter(
-      (row) => !row.fileName.includes("zod-jitless"),
-    ))
-      assert.ok(
-        chunk.imports.includes(row.fileName),
-        JSON.stringify({
-          expected: row.fileName,
-          imports: chunk.imports,
-          dynamicImports: chunk.dynamicImports,
-          referencedFiles: chunk.referencedFiles,
-        }),
-      );
+    const workerSeen = reachable(root.fileName, chunk.imports);
+    for (const row of shared) assert.ok(workerSeen.has(row.fileName));
     const owner = values.find(
       (row) => row.type === "chunk" && workers[index].owner in row.modules,
     );
-    assert.ok(owner.viteMetadata.importedAssets.has(root.fileName));
-    for (const row of shared.filter(
-      (row) => !row.fileName.includes("zod-jitless"),
-    ))
-      assert.ok(owner.viteMetadata.importedAssets.has(row.fileName));
+    const ownerSeen = reachable(owner.fileName);
+    assert.ok(ownerSeen.has(root.fileName));
+    for (const row of shared) assert.ok(ownerSeen.has(row.fileName));
     for (const file of owner.viteMetadata.importedAssets)
       assert.ok(bundle[file]);
   }

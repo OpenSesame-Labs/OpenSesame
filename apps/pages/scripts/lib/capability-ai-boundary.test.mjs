@@ -148,12 +148,19 @@ async function buildFixture(partitionFacade, includeAI = true) {
         input: entry,
         output: {
           format: "es",
-          experimentalMinChunkSize: 32000,
-          onlyExplicitManualChunks: true,
-          manualChunks: (id) =>
-            !partitionFacade && id === facade
-              ? undefined
-              : lazyLeafChunk(id, classify(id)),
+          codeSplitting: {
+            includeDependenciesRecursively: false,
+            groups: [
+              {
+                includeDependenciesRecursively: false,
+                minSize: 0,
+                name: (id) =>
+                  !partitionFacade && id === facade
+                    ? undefined
+                    : lazyLeafChunk(id, classify(id)),
+              },
+            ],
+          },
         },
       },
     },

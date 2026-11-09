@@ -236,7 +236,7 @@ it("attaches four actual dependencies only to an exclusively owned native leaf",
 it("accepts a minified constructor alias with a literal module worker URL", () => {
   const bundle = ownedBundle();
   bundle["assets/native.js"].code =
-    `new e(${JSON.stringify(`/OpenSesame/${worker}`)},{type:"module",name:"opensesame-onepassword"})`;
+    `import { E as e } from "./ports-test.js";\nnew e(${JSON.stringify(`/OpenSesame/${worker}`)},{type:"module",name:"opensesame-onepassword"})`;
   expect(attachOnePasswordAssets(bundle, optional, "/OpenSesame/")).toBe(true);
 });
 it.each([
@@ -323,6 +323,8 @@ it("requires an exact parsed worker URL reference, not a comment, near filename 
     `// new URL("/OpenSesame/${worker}", import.meta.url)`,
     `new URL("/OpenSesame/${worker}.other", import.meta.url)`,
     `new URL("https://other.example/OpenSesame/${worker}", import.meta.url)`,
+    `new URL("/OpenSesame/${worker}",{type:"module",name:"opensesame-onepassword"})`,
+    `new e("/OpenSesame/${worker}",{type:"module",name:"opensesame-onepassword"})`,
   ]) {
     const bundle = ownedBundle();
     bundle["assets/native.js"].code = code;

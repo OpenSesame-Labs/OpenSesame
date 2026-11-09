@@ -156,19 +156,19 @@ export function assertAiBrowserGraph(context, input) {
   return true;
 }
 
-/** Class-only dependency is truthful: no provider constructor/auth/HTTP survives. */
-export function assertAiBrowserOutput(bundle, input) {
+/** Pin the full-app gateway contribution and prove exports and runtime. */
+export function assertAiBrowserOutput(
+  bundle,
+  input,
+  expectedRenderedLength = pins.gatewayErrorRenderedBytes,
+) {
   const modules = Object.values(bundle)
     .filter((entry) => entry.type === "chunk")
     .flatMap((entry) => Object.entries(entry.modules))
     .filter(([id]) => normalized(id) === input.gatewayPath);
   requireMatch(modules.length, 1, "emitted gateway error module");
   const info = modules[0][1];
-  requireMatch(
-    pins.gatewayErrorRenderedBytes.includes(info.renderedLength),
-    true,
-    `class-only bytes ${info.renderedLength}`,
-  );
+  requireMatch(info.renderedLength, expectedRenderedLength, "class-only bytes");
   requireMatch(
     JSON.stringify([...info.renderedExports].sort()),
     JSON.stringify(["GatewayAuthenticationError", "GatewayError"]),

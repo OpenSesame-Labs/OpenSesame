@@ -51,7 +51,6 @@ test("the installed NATS SDK initializes with private wrappers and neutral share
           input,
           output: {
             ...userConfig.build.rollupOptions.output,
-            experimentalMinChunkSize: 32000,
           },
         },
       },

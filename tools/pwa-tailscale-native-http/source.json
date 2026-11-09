@@ -158,8 +158,8 @@
     ],
     "existingRuntimeImport": {
       "package": "zod",
-      "version": "4.6.6",
-      "qualification": "Declared root Zod4 dependency; the isolated worker bundle verifies its resolved graph.",
+      "version": "4.6.7",
+      "qualification": "Declared root Zod 4.6.7 dependency; the isolated worker bundle verifies its resolved graph.",
       "entryPoint": "zod/v4/mini",
       "initialization": "z.config({ jitless: true }) before schemas; no dynamic-code schema compilation in the isolated worker."
     },

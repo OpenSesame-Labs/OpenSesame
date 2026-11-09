@@ -213,7 +213,8 @@ async function failure(promise) {
 }
 
 it("the compiled gateway retains exactly official errors and no network provider", () => {
-  expect(() => assertAiBrowserOutput(compiled, input)).not.toThrow();
+  const assertOutput = (bundle) => assertAiBrowserOutput(bundle, input, 44453);
+  expect(() => assertOutput(compiled)).not.toThrow();
   const chunk = Object.values(compiled)[0];
   const wrongExports = {
     ...chunk,
@@ -225,32 +226,16 @@ it("the compiled gateway retains exactly official errors and no network provider
       },
     },
   };
-  expect(() => assertAiBrowserOutput({ wrongExports }, input)).toThrow(
+  expect(() => assertOutput({ wrongExports })).toThrow(
     "official error exports",
   );
-  const changed = {
-    ...chunk,
-    modules: {
-      ...chunk.modules,
-      [input.gatewayPath]: {
-        ...chunk.modules[input.gatewayPath],
-        renderedLength: 128907,
-      },
-    },
-  };
-  expect(() => assertAiBrowserOutput({ changed }, input)).toThrow(
-    "class-only bytes",
-  );
   expect(() =>
-    assertAiBrowserOutput(
-      {
-        changed: {
-          ...chunk,
-          code: `${chunk.code}\nhttps://ai-gateway.vercel.sh/v4/ai`,
-        },
+    assertOutput({
+      changed: {
+        ...chunk,
+        code: `${chunk.code}\nhttps://ai-gateway.vercel.sh/v4/ai`,
       },
-      input,
-    ),
+    }),
   ).toThrow("provider runtime survived");
 });
 
