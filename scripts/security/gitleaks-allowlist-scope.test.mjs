@@ -4,7 +4,12 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const config = readFileSync(`${root}.gitleaks.toml`, "utf8");
+// Both scanners' configs are held to the same rule: gitleaks 8.x reads
+// `.gitleaks.toml`, Betterleaks reads `.betterleaks.toml` (which extends it).
+const configs = [".gitleaks.toml", ".betterleaks.toml"].map((name) => ({
+  name,
+  text: readFileSync(`${root}${name}`, "utf8"),
+}));
 const ignore = readFileSync(`${root}.gitleaksignore`, "utf8");
 
 // Read TOML path arrays without mistaking a `]` in a quoted regex for the
@@ -47,20 +52,22 @@ function regexFor(pattern) {
 
 test("global path exclusions do not hide secrets in production or vendor source", () => {
   const paths = ["scripts/test/live-turn/third_party/unreviewed/new_module.go"];
-  const blocks = config.split(/^\[\[allowlists\]\]\s*$/m).slice(1);
-  assert.ok(blocks.length > 0, "Expected global allowlists");
-  for (const block of blocks) {
-    for (const pattern of pathPatterns(block)) {
-      const regex = regexFor(pattern);
-      for (const path of paths) {
-        const parts = path.split("/");
-        for (let size = 1; size <= parts.length; size++) {
-          const candidate = parts.slice(0, size).join("/");
-          assert.equal(
-            regex.test(candidate),
-            false,
-            `${candidate} must not be excluded by ${pattern}`,
-          );
+  for (const { name, text } of configs) {
+    const blocks = text.split(/^\[\[allowlists\]\]\s*$/m).slice(1);
+    assert.ok(blocks.length > 0, `Expected global allowlists in ${name}`);
+    for (const block of blocks) {
+      for (const pattern of pathPatterns(block)) {
+        const regex = regexFor(pattern);
+        for (const path of paths) {
+          const parts = path.split("/");
+          for (let size = 1; size <= parts.length; size++) {
+            const candidate = parts.slice(0, size).join("/");
+            assert.equal(
+              regex.test(candidate),
+              false,
+              `${candidate} must not be excluded by ${pattern} in ${name}`,
+            );
+          }
         }
       }
     }

@@ -454,3 +454,57 @@ f846b6d220dd641826ae1c25653237f30f3c3b07:packages/app-core/src/lib/byo-connectio
 fd6aa8a23c7ff0642eab53a5b2ad236f9fbbedf7:packages/cli/src/vault-sync-security.test.ts:generic-api-key:33
 feed28663af4caf54c619045c6c0ce2c15854462:assets/index-BKfubflw.js:generic-api-key:185
 ff102eea2ec4378546c47402a7ed737fb668ff6d:apps/cli/src/github/tests.rs:generic-api-key:128
+
+# Betterleaks full-history review. Each block was read at its commit; every value is synthetic, a label, or a test canary.
+# Fingerprints bind one immutable commit, path, rule and line; they do not exempt a path.
+# proof-full-access-api-key: WebAuthn PRF adapter error-code string literals (identifiers, not Proof API keys)
+# at their pre-rename path `apps/pages/src/lib/vault/protection/adapters/`. (Not quoted here: this file is scanned.)
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/lib/vault/protection/adapters/webauthn-prf-output.ts:proof-full-access-api-key:21
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/lib/vault/protection/adapters/webauthn-prf-output.ts:proof-full-access-api-key:77
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/lib/vault/protection/adapters/webauthn-prf.test.ts:proof-full-access-api-key:137
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/lib/vault/protection/adapters/webauthn-prf.ts:proof-full-access-api-key:121
+# private-key: PEM delimiters inside a validation regex and `"A".repeat(256)` rejection tests; no key material.
+8c55bc9df13daa44fb9721c21a55964e27beff68:packages/app-core/src/lib/native-google-wallet-policy.test.ts:private-key:82
+8c55bc9df13daa44fb9721c21a55964e27beff68:packages/app-core/src/lib/native-google-wallet-spec.integration.test.ts:private-key:39
+8c55bc9df13daa44fb9721c21a55964e27beff68:packages/wallet/src/google-wallet-policy.generated.ts:private-key:19
+8c55bc9df13daa44fb9721c21a55964e27beff68:packages/wallet/src/google-wallet-policy.test.ts:private-key:36
+8c55bc9df13daa44fb9721c21a55964e27beff68:spec/connectors/google-wallet-configuration.json:private-key:21
+# generic-credential-uri: synthetic `user:pw@host` inputs to redaction and URL-rejection tests.
+4d1ac3a5d5d59a243650fbe3c184ea439b9ec82c:crates/connection-broker/src/custom_provider.rs:generic-credential-uri:313
+62db7ea5f9691c01674c6ffa7f597d65948d1492:crates/redaction/src/lib.rs:generic-credential-uri:103
+62db7ea5f9691c01674c6ffa7f597d65948d1492:crates/redaction/src/lib.rs:generic-credential-uri:112
+8a47abd49b9bbd29eca5c8d0b06f1163fe18a233:apps/daemon/src/duress_receiver/mod.rs:generic-credential-uri:255
+92cebd3d5dfd83367abfadec423aa6e26f101ddd:crates/invoke-through/src/invoke.rs:generic-credential-uri:514
+# generic-password: UI label and prompt strings (`"Show password"`, `current-password`, ...), not credentials.
+0ca3137fc7ba0051307a0b13c93dc6a214e3b5c7:apps/pages/src/pages/UnlockPage.tsx:generic-password:59
+13592038d14c6f9daa1220de7ecf526d6bd64bd9:apps/pages/src/sections/vault/PasswordFieldRow.tsx:generic-password:45
+65fcd4d73e33cda59ef825bc4f05dd279fabe886:apps/pages/src/sections/vault/ItemEditor.tsx:generic-password:200
+6771ed95903477521cdf8fa0116d597801defdc4:apps/pages/src/sections/settings/security/SecretKeyCard.tsx:generic-password:147
+6771ed95903477521cdf8fa0116d597801defdc4:apps/pages/src/sections/vault/ItemEditor.tsx:generic-password:328
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/sections/SettingsMasterPasswordPanel.tsx:generic-password:102
+79b8166cfa60ce745822bb5a13de3459ba660422:apps/pages/src/sections/vault/LoginFields.tsx:generic-password:49
+b03fea43555c575194483b4207ca7cefed9df4bd:apps/pages/src/sections/settings/security/KeyCeremony.tsx:generic-password:30
+b03fea43555c575194483b4207ca7cefed9df4bd:apps/pages/src/sections/settings/security/KeyCeremony.tsx:generic-password:36
+b03fea43555c575194483b4207ca7cefed9df4bd:apps/pages/src/sections/settings/security/KeyCeremony.tsx:generic-password:42
+b0eee3c01fd675ef213bd3d40287e580779dda11:apps/pages/src/sections/vault/PasswordFieldRow.tsx:generic-password:52
+f693b45740baf50d605df34b04ae38ed03b3ea21:apps/pages/src/sections/SettingsSection.tsx:generic-password:532
+# generic-password: the `"1password": "1Password"` product-name map in the embedded catalog.
+6c42e8df43d99ca3ae86c45727bc7b2314ec5c6b:apps/pages/src/lib/embedded-catalog.ts:generic-password:48
+7724fa3a169127a8efd356d046eeb619f0a22f8c:apps/pages/src/lib/embedded-catalog-data.ts:generic-password:84
+aacaed356a23e5166b530355df57c2fa8131ae1f:apps/pages/src/lib/embedded-catalog.ts:generic-password:73
+# generic-password: synthetic `hunter2` / `SUPERSECRET` / `pw-12345` payloads asserted to be redacted, and a JSON escape-sequence test string.
+2b7727b691b650aad46db60f05480dde3640e4e6:apps/gateway/src/security/dispatch.rs:generic-password:168
+2b7727b691b650aad46db60f05480dde3640e4e6:apps/gateway/src/security/notify.rs:generic-password:103
+2b7727b691b650aad46db60f05480dde3640e4e6:apps/gateway/src/security/sinks.rs:generic-password:174
+2b7727b691b650aad46db60f05480dde3640e4e6:crates/security-events/src/notice.rs:generic-password:365
+2b7727b691b650aad46db60f05480dde3640e4e6:crates/security-events/src/render/alertmanager.rs:generic-password:99
+2b7727b691b650aad46db60f05480dde3640e4e6:crates/security-events/src/render/pagerduty.rs:generic-password:120
+5486ed830b30e756e6e23979011f133e50b56af7:crates/provider-bitwarden/src/api/wire.rs:generic-password:191
+5486ed830b30e756e6e23979011f133e50b56af7:crates/redaction/src/writer.rs:generic-password:181
+59ed1c2aa8213701128a1a5aa1a213a8ed107ee7:crates/rotation-web/src/login_surrogate/json.rs:generic-password:281
+5e069bdfa4cdbc72d8f1f8e3b5e5a0b639dfd19f:packages/fuzz/src/audit_redact.ts:generic-password:10
+86f79c3dfe5504ca01dc923f72782910a2f5a9af:crates/rotation-web/src/login_surrogate/json.rs:generic-password:277
+# generic-password: the `password: '123456'` example in a mirrored agent-skill doc snippet.
+652e153685ef7f15cadefa9ed65dd30710855689:.agents/skills/stitch-extract-static-html/SKILL.md:generic-password:161
+652e153685ef7f15cadefa9ed65dd30710855689:.claude/skills/stitch-extract-static-html/SKILL.md:generic-password:161
+652e153685ef7f15cadefa9ed65dd30710855689:.grok/skills/stitch-extract-static-html/SKILL.md:generic-password:161

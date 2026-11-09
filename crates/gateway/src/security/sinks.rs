@@ -175,7 +175,7 @@ mod tests {
                 "subject_id": "cert-1",
                 "remaining_seconds": 64_800,
                 "secrets_returned": false,
-                "password": "hunter2",
+                "password": "hunter2", // gitleaks:allow
             }),
         }
     }

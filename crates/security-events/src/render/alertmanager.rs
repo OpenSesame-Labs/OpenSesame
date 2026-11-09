@@ -96,7 +96,7 @@ mod tests {
             occurred_at: "2026-08-30T00:00:00Z".parse().unwrap(),
             summary: "certificate expires in 18 hours".into(),
             detail: None,
-            payload: json!({"remaining_seconds": 64_800, "password": "hunter2"}),
+            payload: json!({"remaining_seconds": 64_800, "password": "hunter2"}), // gitleaks:allow
         }
     }
 

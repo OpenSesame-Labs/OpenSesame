@@ -110,6 +110,7 @@ npm run audit:clippy          # rustfmt + full-feature Clippy; pedantic/complexi
 npm run audit:osv
 npm run audit:cargo-audit
 npm run audit:gitleaks
+npm run audit:betterleaks      # needs the pinned binary: scripts/dev/install-betterleaks.sh (-> .tools/bin); history findings warn unless OPENSESAME_BETTERLEAKS_HISTORY_FAIL=1
 npm run audit:semgrep
 npm run audit:deepsec          # .deepsec pattern scan (+ AI process when credentials allow)
 npm run audit:browser-dispositions # re-probes every recorded request in spec/connectors/browser-dispositions.json from the

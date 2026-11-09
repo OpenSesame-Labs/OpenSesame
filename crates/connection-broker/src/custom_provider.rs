@@ -319,7 +319,7 @@ mod tests {
     fn rejects_plaintext_and_decorated_urls() {
         for bad in [
             "http://mcp.acme.dev",
-            "https://user:pw@mcp.acme.dev",
+            "https://user:pw@mcp.acme.dev", // gitleaks:allow
             "https://mcp.acme.dev/?x=1",
             "https://mcp.acme.dev/#frag",
             "not a url",
