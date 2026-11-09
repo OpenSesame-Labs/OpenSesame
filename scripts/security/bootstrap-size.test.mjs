@@ -104,18 +104,12 @@ test("bootstrap installs frozen dependencies once and notices lock changes", (t)
     })}\n`,
   );
   assert.equal(f.install().status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("failed installs never acquire a success fingerprint", (t) => {
   const f = fixture(t);
-  assert.notEqual(
-    f.install({ BOOTSTRAP_TEST_FAIL: "1" }).status,
-    0,
-  );
+  assert.notEqual(f.install({ BOOTSTRAP_TEST_FAIL: "1" }).status, 0);
   assert.equal(
     existsSync(join(f.dir, "node_modules/.cache/opensesame-install.sha256")),
     false,
@@ -133,10 +127,7 @@ test("an untracked new workspace manifest invalidates the install fingerprint", 
     '{"name":"new-package"}\n',
   );
   assert.equal(f.install().status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("direct installs force noninteractive npm and reuse a matching installation", (t) => {

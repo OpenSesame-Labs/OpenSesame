@@ -176,7 +176,10 @@ exit 0
   assert.match(log, /GIT_CONFIG_NOSYSTEM=1/);
   assert.match(log, /GIT_CONFIG_COUNT=unset/);
   assert.match(log, /GIT_CONFIG_PARAMETERS=unset/);
-  assert.doesNotMatch(log, /ghp_should_not_leak|ghs_should_not_leak|supersecret|x-access-token/);
+  assert.doesNotMatch(
+    log,
+    /ghp_should_not_leak|ghs_should_not_leak|supersecret|x-access-token/,
+  );
   assertTools(f.home);
 });
 
