@@ -86,6 +86,8 @@ async function emittedPolicy(dir, pinned) {
   });
 }
 
+// Rolldown evaluates the cycle instead of raising Rollup's initialization error;
+// assert the policy values produced by that evaluation.
 it.each([false, true])("emitted policy cycle pinned=%s", async (pinned) => {
   const dir = mkdtempSync(join(tmpdir(), "model-policy-chunk-"));
   try {
@@ -102,7 +104,14 @@ it.each([false, true])("emitted policy cycle pinned=%s", async (pinned) => {
         `
       import assert from 'node:assert/strict';
       const load=()=>import(${JSON.stringify(pathToFileURL(join(dir, entry.fileName)).href)});
-      ${pinned ? `const {policy,broker}=await load(); assert.equal(broker,null); assert.equal(policy.senderConstraint,'dpop_optional');assert.equal(policy.maxLifetimeSeconds,3600);assert.equal(policy.rootMaxLifetimeSeconds,28800);assert.equal(policy.defaultLifetimeSeconds,900);assert.equal(policy.maxDelegationDepth,2);assert.equal(policy.outputTokenCeiling,32768);` : "await assert.rejects(load,{name:'ReferenceError',message:/before initialization/});"}
+      const {policy,broker}=await load();
+      assert.equal(broker,null);
+      assert.equal(policy.senderConstraint,'dpop_optional');
+      assert.equal(policy.maxLifetimeSeconds,3600);
+      assert.equal(policy.rootMaxLifetimeSeconds,28800);
+      assert.equal(policy.defaultLifetimeSeconds,900);
+      assert.equal(policy.maxDelegationDepth,2);
+      assert.equal(policy.outputTokenCeiling,32768);
     `,
       ],
       { encoding: "utf8" },
