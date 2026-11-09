@@ -223,9 +223,13 @@ jobs:
       # Detection only. The gate never passes `--validation`, so no candidate
       # secret is sent to a provider API. Reports stay in a private directory
       # outside the checkout and are not uploaded.
+      # History is enforced: a new finding on any ref turns this run red. The
+      # working tree and every ref are clean at the time of writing; resolve a
+      # finding (or add a reviewed, commit-bound fingerprint), do not unset this.
       - name: Scan
         env:
           OPENSESAME_AUDIT_DIR: ${{ runner.temp }}/betterleaks-audit
+          OPENSESAME_BETTERLEAKS_HISTORY_FAIL: "1"
         run: |
           export PATH="$RUNNER_TEMP/bin:$PATH"
           bash scripts/audit/betterleaks-gate.sh
