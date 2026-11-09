@@ -290,11 +290,27 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
  * is a no-op rather than an error, so a hot reload does not take the page
  * down with `guide_predicate_declared_twice`.
  */
+let releaseVaultAnnouncer: (() => void) | null = null;
+
 export function registerGuidePredicates(): void {
   for (const descriptor of GUIDE_PREDICATES) {
     if (isKnownGuidePredicate(descriptor.id)) continue;
     declareGuidePredicate(descriptor);
   }
+  // Waiting is edge-driven (state.ts): a predicate only re-reads when a
+  // change is announced. Most of these predicates read the vault, so the
+  // vault's own change feed has to announce — without this, a guide
+  // waiting on vault.unlocked or vault.has-items never wakes when the
+  // person does the thing (Grok gauntlet round 7).
+  releaseVaultAnnouncer ??= vaultStore.subscribe(() =>
+    announceGuideStateChange(),
+  );
+}
+
+/** Test seam: disarms the vault announcer so a suite can re-arm it spied. */
+export function resetGuideVaultAnnouncerForTest(): void {
+  releaseVaultAnnouncer?.();
+  releaseVaultAnnouncer = null;
 }
 
 export function guidePredicateDescriptors(): readonly GuidePredicateDescriptor[] {

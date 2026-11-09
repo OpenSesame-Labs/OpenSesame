@@ -25,10 +25,12 @@ import {
   provideGuidePluginPanel,
   provideGuideSupportModelPicks,
   registerGuidePredicates,
+  resetGuideVaultAnnouncerForTest,
 } from "./predicates.js";
 import {
   guidePredicateIds,
   isKnownGuidePredicate,
+  observeGuidePredicate,
   readGuidePredicate,
   resetGuidePredicatesForTest,
 } from "./state.js";
@@ -238,5 +240,53 @@ describe("reading a predicate", () => {
     expect(() => readGuidePredicate("vault.master-password")).toThrow(
       /guide_predicate_unknown/,
     );
+  });
+});
+
+describe("announcing vault changes to waiting guides (Grok round 7)", () => {
+  it("wakes a vault.has-items wait when the vault changes, subscribing once", async () => {
+    resetGuideVaultAnnouncerForTest();
+    const feed = new Set<() => void>();
+    const subscribe = vi
+      .spyOn(vaultStore, "subscribe")
+      .mockImplementation((listener: () => void) => {
+        feed.add(listener);
+        return () => feed.delete(listener);
+      });
+    const snapshot = vi.spyOn(vaultStore, "getSnapshot");
+    try {
+      registerGuidePredicates();
+      registerGuidePredicates();
+      expect(subscribe).toHaveBeenCalledTimes(1);
+
+      snapshot.mockReturnValue({
+        ...vaultStore.getSnapshot(),
+        items: [],
+      });
+      const controller = new AbortController();
+      let woke = false;
+      const waiting = observeGuidePredicate(
+        "vault.has-items",
+        true,
+        controller.signal,
+      ).then(() => {
+        woke = true;
+      });
+      await Promise.resolve();
+      expect(woke).toBe(false);
+
+      snapshot.mockReturnValue({
+        ...vaultStore.getSnapshot(),
+        items: [createItem("secret", "practice")],
+      });
+      for (const listener of [...feed]) listener();
+      await waiting;
+      expect(woke).toBe(true);
+    } finally {
+      subscribe.mockRestore();
+      snapshot.mockRestore();
+      resetGuideVaultAnnouncerForTest();
+      registerGuidePredicates();
+    }
   });
 });
