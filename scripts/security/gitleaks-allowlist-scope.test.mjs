@@ -81,7 +81,7 @@ test("historical exceptions are bound to an immutable commit and finding", () =>
   assert.ok(lines.length > 0, "Expected reviewed historical fingerprints");
   assert.equal(new Set(lines).size, lines.length, "Duplicate fingerprints");
   for (const line of lines)
-    assert.match(line, /^[a-f0-9]{40}:[^:\n]+:[a-z0-9-]+:[1-9][0-9]*$/);
+    assert.match(line, /^[a-f0-9]{40}:[^:\n]+:[a-z0-9.-]+:[1-9][0-9]*$/);
   assert.ok(
     !lines.some((line) =>
       line.startsWith(
