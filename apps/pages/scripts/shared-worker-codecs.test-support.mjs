@@ -81,7 +81,7 @@ import {readFile} from "node:fs/promises";
 const {outputs,roots,known}=JSON.parse(await readFile(process.argv[1],"utf8"));
 const realms=[];
 for(const [index,entry]of roots.entries()){
- const context=createContext({TextEncoder,TextDecoder,crypto:webcrypto,atob,AbortController,AbortSignal,Request,Response,Blob,ReadableStream,TransformStream,DecompressionStream},{codeGeneration:{strings:false,wasm:false}});
+ const context=createContext({TextEncoder,TextDecoder,URL,crypto:webcrypto,atob,AbortController,AbortSignal,Request,Response,Blob,ReadableStream,TransformStream,DecompressionStream},{codeGeneration:{strings:false,wasm:false}});
  const modules=new Map();
  const load=file=>{if(!modules.has(file))modules.set(file,new SourceTextModule(outputs[file],{context,identifier:file}));return modules.get(file);};
  const module=load(entry);
