@@ -11,6 +11,7 @@ const phases = new Map([
   ["build.log", "native-build"],
   ["source-download.log", "source-download"],
   ["compiler-download.log", "compiler-download"],
+  ["audit.log", "native-audit"],
 ]);
 const reasons = new Set([
   "exit",
@@ -47,6 +48,16 @@ const innerLogs = [
   "select-native-toolchain",
   "extract-compiler",
   "extract-source",
+];
+// Audit runs the same owned staging commands, then the package scanner.
+const auditLogs = [
+  ...innerLogs,
+  "native-peer-get-patch",
+  "codeql-wasm-security-patch",
+  "native-audit-tags",
+  "native-audit-tool",
+  "native-audit-graph",
+  "native-audit-packages",
 ];
 
 /** The reviewed CI redaction rules, applied before any new diagnostic output. */
@@ -161,14 +172,21 @@ async function readLog(path, budget) {
   }
 }
 function ownedWork(work, logPath) {
+  const parent = basename(dirname(work));
+  const scope = basename(dirname(dirname(work)));
+  const root = basename(dirname(dirname(dirname(work))));
+  const buildTree =
+    parent === "work" &&
+    scope === "pwa-tailscale-native-http" &&
+    root === ".cache";
+  // prepareNativeAudit owns <audit-dir>/native-go/work/<uuid>, including CI temp.
+  const auditTree = parent === "work" && scope === "native-go";
   return (
     resolve(work) === work &&
     /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
       basename(work),
     ) &&
-    basename(dirname(work)) === "work" &&
-    basename(dirname(dirname(work))) === "pwa-tailscale-native-http" &&
-    basename(dirname(dirname(dirname(work)))) === ".cache" &&
+    (buildTree || auditTree) &&
     dirname(logPath) === work &&
     phases.has(basename(logPath))
   );
@@ -177,6 +195,8 @@ async function logsFor(work, logPath) {
   const names = [basename(logPath)];
   if (basename(logPath) === "build.log")
     names.push(...innerLogs.map((name) => `build/logs/${name}.log`));
+  if (basename(logPath) === "audit.log")
+    names.push(...auditLogs.map((name) => `audit/logs/${name}.log`));
   const logs = [];
   const budget = { remaining: MAX_BYTES };
   for (const name of names) {

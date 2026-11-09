@@ -364,13 +364,21 @@
       {
         "before": "golang.org/x/text v0.40.0/go.mod h1:hpnzDAfGV753zIKo+wk3u1bVKCGPbrnF7+7LBF/UHVY=",
         "after": "golang.org/x/text v0.43.0/go.mod h1:hbSIYA/amXcRXTFSZqh8tWHEoqRvvbKPJ2uz/KU+a+s="
+      },
+      {
+        "before": "github.com/klauspost/compress v1.19.1 h1:VsB4HPswih7mmZ8WleSFQ75c/Ui1M4trX5oAsJnhSlk=",
+        "after": "github.com/klauspost/compress v1.20.2 h1:v5tiZvm1KGLyg5d5oXdXe3lsSPrbEUiKoXGia//I7Qo="
+      },
+      {
+        "before": "github.com/klauspost/compress v1.19.1/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=",
+        "after": "github.com/klauspost/compress v1.20.2/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI="
       }
     ],
-    "qualification": "Keep original upstream go.mod/go.sum/assertion bytes. Derive an owned alternate module by exact version and checksum-line replacements for the fallback bundle and the nine minimum Go MVS dependency updates selected by x/net v0.62.0. No requirement or checksum reordering. Explicit go.toolchain.rev patch preserves the mismatch assertion.",
+    "qualification": "Keep original upstream go.mod/go.sum/assertion bytes. Derive an owned alternate module by exact version and checksum-line replacements for the fallback bundle, the nine minimum Go MVS dependency updates selected by x/net v0.62.0, and github.com/klauspost/compress v1.19.1 to v1.20.2 (GO-2026-6865). No requirement or checksum reordering. Explicit go.toolchain.rev patch preserves the mismatch assertion.",
     "files": [
       {
         "path": "select-toolchain.mjs",
-        "sha256": "b1ce9307c78dbaf493f790f85b39ef023eae2c8dbbf3084b87446feb07dfe095"
+        "sha256": "b8a0107cc344a9604575d4c38379594e70ab7a239d151c7a6442bfa44b0e8d0c"
       },
       {
         "path": "select-toolchain.test.mjs",
@@ -427,6 +435,11 @@
         "module": "golang.org/x/text",
         "beforeVersion": "v0.40.0",
         "version": "v0.43.0"
+      },
+      {
+        "module": "github.com/klauspost/compress",
+        "beforeVersion": "v1.19.1",
+        "version": "v1.20.2"
       }
     ]
   },
@@ -506,8 +519,8 @@
   },
   "composition": {
     "status": "Unactivated assets; no normal PWA provider-runtime completion claim.",
-    "modSha256": "c3a279c50fca06d75500d70a1a11bcf3dc7f43d5a14ecdb78a9e67f19b93d569",
-    "sumSha256": "e104eb1b5b2f2e26a073d9a0747a13a32e6e33ddcdae77fc9e0f068128b5ebff",
+    "modSha256": "f23d76489a304c3485e788637fe4cae4b514e5ff50637a086b8975a71b0609e5",
+    "sumSha256": "f9630feff0c98eaab15df73ff35460fdfcd22c39cbe69498d1b34d3a9933b612",
     "runtimeSha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
     "thirdPartySha256": "9467842c7b63c53ca102a9485075ee375f3ac3a03b51764ed2d247d530df5fa2",
     "zod": {
@@ -556,7 +569,7 @@
       },
       {
         "path": "preparation-diagnostics.mjs",
-        "sha256": "458c2aae4ef30730a3dbe6f659a870d1140077d8baa4bb254321ca658c127b2f"
+        "sha256": "099e8ab0041acf8a4be45e52af80a997f72f7099638fa1763f16297978b91998"
       },
       {
         "path": "build-failure-context.test.mjs",
@@ -608,7 +621,7 @@
       },
       {
         "path": "native-audit.mjs",
-        "sha256": "9d1ea8edd9eed713e98b0268a82457c4be8e3160ea014a55edd3cf7929229173"
+        "sha256": "8e61b2ff9b4991daeb11a0c8ad24b6e4908b1927363a659f79cc3f9c1547424f"
       },
       {
         "path": "native-audit.test.mjs",

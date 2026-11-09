@@ -250,23 +250,28 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  const repository = fileURLToPath(new URL("../..", import.meta.url));
-  const metadata = JSON.parse(
-    await readFile(
-      join(
-        repository,
-        "apps/pages/src/lib/capabilities/tailscale-artifacts.json",
+  try {
+    const repository = fileURLToPath(new URL("../..", import.meta.url));
+    const metadata = JSON.parse(
+      await readFile(
+        join(
+          repository,
+          "apps/pages/src/lib/capabilities/tailscale-artifacts.json",
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
-  );
-  const { prepareNativeAudit } = await import("./prepare-distribution.mjs");
-  const result = await prepareNativeAudit(
-    repository,
-    metadata.native.sourceMetadataSha256,
-    process.env.OPENSESAME_AUDIT_DIR,
-  );
-  console.log(
-    `Native JS/WASM package audit: ${result.packages} packages, ${result.modules} modules, zero affected imported packages; module-only advisories retained: ${result.moduleOnlyAdvisories.join(", ") || "none"}.`,
-  );
+    );
+    const { prepareNativeAudit } = await import("./prepare-distribution.mjs");
+    const result = await prepareNativeAudit(
+      repository,
+      metadata.native.sourceMetadataSha256,
+      process.env.OPENSESAME_AUDIT_DIR,
+    );
+    console.log(
+      `Native JS/WASM package audit: ${result.packages} packages, ${result.modules} modules, zero affected imported packages; module-only advisories retained: ${result.moduleOnlyAdvisories.join(", ") || "none"}.`,
+    );
+  } catch (error) {
+    console.error(error.message);
+    throw error;
+  }
 }
