@@ -58,7 +58,7 @@ if [[ "$dir_status" -gt 1 ]]; then
   echo "betterleaks gate: FAIL (scanner error status=$dir_status)" >&2
   exit 1
 fi
-# Betterleaks writes no report when it finds nothing; classify expects an array.
+# classify expects a JSON array. Betterleaks writes `[]` when clean; do not depend on it.
 [[ -f "$WORK_DIR/raw.json" ]] || printf '[]\n' > "$WORK_DIR/raw.json"
 if ! node "$REVIEW_GATE" classify "$ROOT" "$REVIEW_MANIFEST" "$WORK_DIR/state.json" \
   "$WORK_DIR/raw.json" "$REPORT_DIR" "$dir_status"; then
@@ -67,7 +67,8 @@ if ! node "$REVIEW_GATE" classify "$ROOT" "$REVIEW_MANIFEST" "$WORK_DIR/state.js
   exit 1
 fi
 
-echo "==> betterleaks git (full history)"
+# `betterleaks git` walks every ref, not just HEAD: stale branches are in scope.
+echo "==> betterleaks git (full history, all refs)"
 if [[ "$(git rev-parse --is-shallow-repository 2>/dev/null)" == "true" ]]; then
   echo "betterleaks gate: WARN (shallow clone; history scan covers only the fetched commits)" >&2
 fi
