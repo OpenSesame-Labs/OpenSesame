@@ -15,7 +15,10 @@ import {
   resetSupport,
   showQuestions,
 } from "./support-test-harness.js";
-import { useSupportScroll } from "./use-support-scroll.js";
+import {
+  useAskOnQuestion,
+  useSupportScroll,
+} from "./use-support-scroll.js";
 
 afterEach(() => {
   resetSupport();
@@ -193,6 +196,66 @@ describe("support scroll, entry by entry", () => {
       expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
     } finally {
       Element.prototype.scrollTo = originalScroll;
+    }
+  });
+});
+
+describe("tab follow and jump focus (Kimi a11y seat)", () => {
+  it("flips to Ask only for the person's own question, never an async answer", () => {
+    const flips: string[] = [];
+    const Probe = ({ entries }: { entries: readonly SupportEntry[] }) => {
+      useAskOnQuestion(entries, (tab) => flips.push(tab));
+      return null;
+    };
+    const first = [entry("q1", "question")];
+    const { rerender } = render(<Probe entries={first} />);
+    expect(flips).toEqual([]);
+    rerender(<Probe entries={[...first, entry("a1", "answer")]} />);
+    expect(flips).toEqual([]);
+    rerender(
+      <Probe
+        entries={[...first, entry("a1", "answer"), entry("q2", "question")]}
+      />,
+    );
+    expect(flips).toEqual(["ask"]);
+  });
+
+  it("lands focus on the composer when the New answer key unmounts itself", async () => {
+    const user = userEvent.setup();
+    const rect = (bottom: number): DOMRect =>
+      ({
+        top: bottom - 40,
+        bottom,
+        left: 0,
+        right: 100,
+        width: 100,
+        height: 40,
+        x: 0,
+        y: bottom - 40,
+        toJSON() {},
+      }) as DOMRect;
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      if (this.classList.contains("support__body")) return rect(100);
+      return rect(this.textContent?.includes("The lock sits") ? 300 : 60);
+    };
+    try {
+      mount(
+        fakeAgentAnswering("The lock sits at the right of the statusline."),
+      );
+      await openPanel(user);
+      await ask(user, "where is the lock");
+      const chip = await screen.findByRole("button", {
+        name: /New answer/,
+      });
+      chip.focus();
+      await user.click(chip);
+      expect(screen.queryByRole("button", { name: /New answer/ })).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByPlaceholderText("Ask about this screen"),
+      );
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
     }
   });
 });

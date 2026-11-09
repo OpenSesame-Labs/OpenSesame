@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SupportEntry } from "../session.js";
 
 /**
@@ -32,7 +38,10 @@ function newestQuestionAt(
   return -1;
 }
 
-export function useSupportScroll(transcript: readonly SupportEntry[]) {
+export function useSupportScroll(
+  transcript: readonly SupportEntry[],
+  afterJumpRef?: RefObject<HTMLElement | null>,
+) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLElement>(null);
   const seen = useRef(0);
@@ -109,7 +118,9 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
     const article = articleAt(seen.current - 1);
     if (article) bringToTop(article);
     setUnseenAnswer(false);
-  }, [articleAt, bringToTop]);
+    // The New answer key unmounts itself: leave focus somewhere useful.
+    afterJumpRef?.current?.focus({ preventScroll: true });
+  }, [afterJumpRef, articleAt, bringToTop]);
 
   /** Reading down to the answer by hand clears the offer. */
   const onBodyScroll = useCallback(() => {
@@ -126,4 +137,22 @@ export function useSupportScroll(transcript: readonly SupportEntry[]) {
   }, [unseenAnswer, articleAt]);
 
   return { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll };
+}
+
+/**
+ * Asking while Tutorials is up lands the person on their exchange — and
+ * only asking does. An async answer arriving on the Tutorials tab must
+ * not flip the panel out from under whatever has keyboard focus there;
+ * it waits behind the New answer key instead.
+ */
+export function useAskOnQuestion(
+  transcript: readonly SupportEntry[],
+  setTab: (tab: "ask") => void,
+): void {
+  const seen = useRef(transcript.length);
+  useEffect(() => {
+    const from = seen.current;
+    seen.current = transcript.length;
+    if (newestQuestionAt(transcript, from) >= 0) setTab("ask");
+  }, [transcript, setTab]);
 }
