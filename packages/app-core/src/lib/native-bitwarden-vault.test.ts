@@ -1,8 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, expect, it, vi } from "vitest";
 import { readDeviceRows } from "./device-connector-records.js";
+import {
+  installNativeApiTests,
+  syntheticNativeSecret,
+} from "./native-api.test-support.js";
 import type { NativeApiConfigureInput } from "./native-api-connectors.js";
-import { installNativeApiTests } from "./native-api.test-support.js";
 import {
   encryptBytes,
   masterKey,
@@ -17,7 +20,7 @@ installNativeApiTests();
 const EMAIL = "Me@Example.com";
 const PASSWORD = "correct horse battery staple";
 const CLIENT_ID = "user.3f2a1b0c-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
-const CLIENT_SECRET = "AbCdEf0123456789GhIjKlMn";
+const CLIENT_SECRET = syntheticNativeSecret(24);
 const LOGIN_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const KEYED_ID = "33333333-3333-4333-8333-333333333333";

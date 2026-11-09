@@ -172,7 +172,7 @@ mod tests {
             occurred_at: now(),
             summary: "a stored secret appears in a public breach corpus".into(),
             detail: None,
-            payload: json!({"occurrences": 42, "password": "hunter2"}),
+            payload: json!({"occurrences": 42, "password": "hunter2"}), // gitleaks:allow
         }
     }
 

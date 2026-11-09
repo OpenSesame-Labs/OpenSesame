@@ -42,12 +42,12 @@ runs it.
 ## audit/ — `npm run audit:*`
 
 One `*-gate.sh` per tool: `cve-lite`, `ast-grep-security`, `clippy`,
-`osv-scanner`, `cargo-audit`, `gitleaks`, `semgrep`, `deepsec`, `daemon-deps`
+`osv-scanner`, `cargo-audit`, `gitleaks`, `betterleaks`, `semgrep`, `deepsec`, `daemon-deps`
 (the daemon's dependency budget), `plugin-boundary` (the default binary and the
 daemon reach no plugin crate), `kani` (bounded proofs), `miri` (undefined
 behaviour) and `shuttle` (concurrency). The gates that produce a report
 (`cve-lite`, `ast-grep-security`, `clippy`, `osv-scanner`, `cargo-audit`,
-`gitleaks`, `semgrep`) write it to a fresh private directory outside the
+`gitleaks`, `betterleaks`, `semgrep`) write it to a fresh private directory outside the
 checkout (`OPENSESAME_AUDIT_DIR`, default under `$TMPDIR`) and print its path;
 the others report on the terminal (`deepsec` keeps its state under
 `.deepsec/`). What each tool covers and why it was chosen:

@@ -43,8 +43,9 @@ describe("full-history checkouts are blobless", () => {
       }
     }
     // cd-npm-cli and cd-pwa plan releases from HEAD only, so those checkouts
-    // are fetch-depth 1. The remaining full-history sites stay blobless.
-    expect(sites).toBe(15);
+    // are fetch-depth 1. The remaining full-history sites stay blobless
+    // (the 16th is the Betterleaks history scan in security.yml).
+    expect(sites).toBe(16);
   });
 
   it("keeps ancestry, name-only diffs, and a clean worktree without historical blobs", () => {

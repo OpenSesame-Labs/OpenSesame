@@ -12,6 +12,7 @@ Evaluation of candidate scanners/harnesses for OpenSesame (polyglot Rust/TS, aut
 | **ast-grep** | Structural SAST for XSS/crypto/injection antipatterns | `npm run audit:ast-grep` (`tools/security/ast-grep-rules.yml`) |
 | **cargo clippy** | Rust correctness / suspicious patterns (`-D warnings`, pedantic) | `npm run audit:clippy` (`scripts/audit/clippy-gate.sh`; also part of `npm run verify`; no CI workflow runs it) |
 | **gitleaks** | Secret scanning; catches accidental keys in source | `npm run audit:gitleaks` (`.gitleaks.toml` prunes `target`/`node_modules`) |
+| **Betterleaks** | Secret scanning by the gitleaks authors' successor engine; adds the `generic-password` and `generic-credential-uri` rules and token-efficiency filtering that gitleaks 8.x lacks. Detection only: the gate never passes `--validation`, so no candidate secret is sent to a provider. | `npm run audit:betterleaks` (`scripts/audit/betterleaks-gate.sh`; `.betterleaks.toml` extends `.gitleaks.toml`; pinned installer `scripts/dev/install-betterleaks.sh`; scheduled in `security.yml`) |
 | **cargo-deny** | RustSec advisories, license, source policy | `cargo deny check` + workspace `deny.toml` (run by the nightly dependency-triage routine; no `npm` script) |
 | **npm audit** | npm advisory DB for TS apps/packages | `npm audit` after dep bumps |
 | **Semgrep** | Static rules (`p/rust`, `p/typescript`, `p/javascript`) on source trees | `npm run audit:semgrep` (apps/crates/packages only) |

@@ -282,4 +282,5 @@ looks arbitrary, the ADR it cites explains it.
 | [0216](0216-deterministic-exposure-matrix.md) | Enforce the exposure matrix at reviewed boundaries | Accepted |
 | [0217](0217-aws-sts-mint.md) | The AWS mint: STS AssumeRole for a bound role | Accepted |
 | [0218](0218-registered-oauth-applications-and-the-bridge.md) | A person's own OAuth application connects through the page, and through the bridge where the provider refuses web pages | Accepted |
-| [0219](0219-no-ai-harness-dotfiles-in-the-product-repo.md) | The product repository tracks no AI-harness dotfiles or dot folders | Accepted |
+| [0219](0219-betterleaks-alongside-gitleaks.md) | Scan with Betterleaks alongside gitleaks, and resolve findings by reviewed, narrowly scoped exemption | Accepted |
+| [0220](0220-no-ai-harness-dotfiles-in-the-product-repo.md) | The product repository tracks no AI-harness dotfiles or dot folders | Accepted |

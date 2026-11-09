@@ -265,7 +265,7 @@ mod tests {
         assert!(assert_safe_peer_origin("https://peer.example").is_ok());
         assert!(assert_safe_peer_origin("http://127.0.0.1:9").is_ok());
         assert!(assert_safe_peer_origin("http://169.254.169.254/").is_err());
-        assert!(assert_safe_peer_origin("https://user:pass@x/").is_err());
+        assert!(assert_safe_peer_origin("https://user:pass@x/").is_err()); // gitleaks:allow
     }
 
     #[test]

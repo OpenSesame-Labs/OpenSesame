@@ -79,6 +79,7 @@
     "audit:osv": "bash ./scripts/audit/osv-scanner-gate.sh",
     "audit:cargo-audit": "bash ./scripts/audit/cargo-audit-gate.sh",
     "audit:gitleaks": "bash ./scripts/audit/gitleaks-gate.sh",
+    "audit:betterleaks": "bash ./scripts/audit/betterleaks-gate.sh",
     "audit:semgrep": "bash ./scripts/audit/semgrep-gate.sh",
     "audit:deepsec": "bash ./scripts/audit/deepsec-gate.sh",
     "audit:daemon-deps": "bash ./scripts/audit/daemon-deps-gate.sh",

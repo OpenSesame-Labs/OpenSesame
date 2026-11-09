@@ -1,0 +1,201 @@
+# Betterleaks config — the same rules and path pruning as `.gitleaks.toml`, plus
+# the exemptions for the rules Betterleaks adds that gitleaks 8.x does not ship.
+#
+# Why a second file, and why it extends the first:
+#   * `.gitleaks.toml` is read by gitleaks 8.30.1 and must stay parseable by it.
+#     A rule redefinition such as `generic-password` is a hard error there.
+#   * `[extend] path` inherits the rules and the plural `[[allowlists]]` (build
+#     output pruning, remediated commits, reviewed fixtures) from that file, and
+#     through it the built-in defaults. So there is one place for path pruning.
+#   * Do NOT add a top-level `filter` here. A config's global `filter` replaces
+#     the built-in default's placeholder filters instead of adding to them, which
+#     un-suppresses real placeholder noise (and `github-pat` fixtures).
+#   * `extend.path` is resolved against the working directory, so run Betterleaks
+#     from the repository root (`scripts/audit/betterleaks-gate.sh` does).
+#
+# How an exemption is written (read before adding one):
+#   * Each `[[allowlists]]` below names `targetRules`. Provider-specific rules
+#     (AWS, GitHub, private keys, cloud tokens ...) are never exempted by path,
+#     so a real credential pasted into a test file is still reported.
+#   * Where a path alone is too broad, `condition = "AND"` pins the exemption to
+#     the path AND the exact value or value shape that was read and judged.
+#   * Every entry records what was reviewed. A finding that is NOT one of these
+#     is either a real secret to remove, or a new reviewed case to add here with
+#     its evidence. Never widen a pattern to make a scan pass.
+#   * Line-level exemptions in Rust `#[cfg(test)]` modules (which no path can
+#     express) use a trailing `// betterleaks:allow`; Betterleaks also honours
+#     `gitleaks:allow`, the convention already used across this repository.
+
+title = "opensesame (betterleaks)"
+
+[extend]
+path = ".gitleaks.toml"
+
+# ---------------------------------------------------------------------------
+# 1. Test and fixture credentials.
+#
+# The three generic rules match any `password: "..."`, `scheme://user:pw@host`
+# or long high-entropy string. In test, fixture, snapshot, vector and
+# verification-harness files those are synthetic by construction. Reviewed: every
+# hit in these paths was a literal test password, a `user:pass@host` example, a
+# test vector or a digest; none is a provider credential.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Synthetic credentials in test, fixture, snapshot, vector and verification-harness paths (generic rules only)"
+targetRules = ["generic-password", "generic-credential-uri", "generic-api-key"]
+paths = [
+  # Test directories under the product roots only. `scripts/` is deliberately
+  # not a root: `scripts/test/**/third_party/` holds vendored code that must stay
+  # scanned (scripts/security/gitleaks-allowlist-scope.test.mjs pins that).
+  '''^(?:apps|packages|crates|tools|spec|examples|marketplace)/(?:[^/]+/)*(?:tests?|__tests__|__snapshots__|snapshots|fixtures?|e2e|conformance|original-browser-physical)(?:/|$)''',
+  '''^tests/''',
+  '''\.(?:test|spec|e2e|fixture|support|test-support|characterization)\.(?:[cm]?[jt]sx?)$''',
+  '''\.snap$''',
+  '''(?:_test\.go|_tests?\.rs)$''',
+  '''(^|/)tests\.rs$''',
+  '''-vectors\.json$''',
+  # The Pages browser-verification harness: scripts that drive a real browser
+  # against seeded, throwaway vaults. They are test code that is not named like it.
+  '''^apps/pages/scripts/''',
+  '''^spec/log-scrub/''',
+]
+
+# ---------------------------------------------------------------------------
+# 2. UI labels, prompts and identifiers that contain the word "password".
+#
+# `password: "Password"` in a label map, `autoComplete="current-password"`, the
+# `"Export password: "` prompt and the `"master_password"` identifier are the
+# words, not a credential. Pinned to the exact source files that were read AND to
+# a letters-only shape (no digits), so a real password literal in the same file,
+# which would carry digits or symbols, is still reported.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Password UI labels, prompts and identifiers in non-test sources (letters-only values)"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = [
+  '''^apps/browser-extension/runner/vault\.ts$''',
+  '''^apps/pages/src/screens/UnlockScreen\.tsx$''',
+  '''^apps/pages/src/screens/unlock/labels\.ts$''',
+  '''^apps/pages/src/sections/connections/secret-backends/SecretBackendItemFields\.tsx$''',
+  '''^apps/pages/src/sections/settings/VaultKeyProtectionCeremonies\.tsx$''',
+  '''^apps/pages/src/sections/settings/security/key-kinds\.tsx$''',
+  '''^apps/pages/src/sections/vault/MethodPicker\.tsx$''',
+  '''^apps/pages/src/sections/vault/PasswordControl\.tsx$''',
+  '''^packages/app-core/src/lib/native-bitwarden-vault-api\.ts$''',
+  '''^packages/app-core/src/sections/settings/vault-key-protection-ceremonies-model\.ts$''',
+  '''^packages/cli/src/vault-items\.ts$''',
+  '''^packages/vault-core/src/credential\.ts$''',
+]
+regexes = ['''^[A-Za-z][A-Za-z _:;,'.-]*$''']
+
+# ---------------------------------------------------------------------------
+# 3. Documentation examples.
+#
+# ADRs, audits, the operator guide and READMEs quote `app:hunter2@db`,
+# `user:password@postgres` and signature fragments such as `password:
+# Option<&str>` to explain the secret-handling rules. Matched by exact value, so
+# any other value in documentation is still reported.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Documentation example credentials, by exact value"
+targetRules = ["generic-credential-uri", "generic-password"]
+condition = "AND"
+paths = ['''^docs/''', '''^crates/kdbx-bridge/README\.md$''', '''^packages/database/README\.md$''']
+regexes = [
+  '''^(?:hunter2|opensesame|pass|password|pw|Password|Master password|Confirm password|Set password|Option<&str>)$''',
+  '''^Twelve characters or more\. The reminder you save shows at unlock\.$''',
+]
+
+# ---------------------------------------------------------------------------
+# 4. Development placeholders that are the documented default, not a secret.
+#
+# `change-me-in-real-deploy` is the compose placeholder the deployment guide
+# tells operators to replace. `opensesame:opensesame` is the loopback-only
+# development and CI service-container Postgres credential. Pinned to the exact
+# value AND the exact files that declare it.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "Documented development and CI service-container placeholders, by exact value and file"
+targetRules = ["generic-credential-uri", "generic-password"]
+condition = "AND"
+paths = [
+  '''^\.env\.schema$''',
+  '''^\.github/workflows/[^/]+\.ya?ml$''',
+  '''^ops/compose/docker-compose\.yml$''',
+  '''^packages/database/drizzle\.config\.ts$''',
+]
+regexes = ['''^(?:opensesame|change-me-in-real-deploy)$''']
+
+[[allowlists]]
+description = "Fixture passphrase for the throwaway vault in the customer-encryption browser check"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^scripts/test/customer-vault-browser-checks\.mjs$''']
+regexes = ['''^shared operator browser fixture password$''']
+
+# ---------------------------------------------------------------------------
+# 5. Content digests and version strings that look like keys.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "SHA-256 file fingerprints in the exposure matrix (a regenerated digest map, JSON cannot carry a comment)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tools/security/exposure-matrix\.json$''']
+regexes = ['''^[0-9a-f]{64}$''']
+
+[[allowlists]]
+description = "Dependency version in a generated mise lock (`'@inquirer/password': 4.0.23`)"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^\.mise/locks/''']
+regexes = ['''^[0-9]+(?:\.[0-9]+)+$''']
+
+[[allowlists]]
+description = "Prose description of the change-password recipe field in the secret-debug allowlist"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^scripts/lib/secret-debug-allowlist\.json$''']
+regexes = ['''^A recipe field: the change-password PAGE ''']
+
+# Rust source lines where an inline `gitleaks:allow` cannot be used: one sits in
+# a `///` doc comment (the marker would render into the docs), one is at the
+# line-width limit (rustfmt moves a trailing comment to its own line, where it no
+# longer applies to the finding), and one is a protected source whose digest is
+# bound by tools/security/exposure-matrix.json, so ANY edit to it needs the full
+# exposure review. Exact file AND exact value.
+[[allowlists]]
+description = "Section title quoted in a `///` doc comment, misread as a `login(..., \"...\")` argument"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^crates/rotation-web/src/recipe_doc/mod\.rs$''']
+regexes = ['''^Signing and trust$''']
+
+[[allowlists]]
+description = "Synthetic wire-format fixture password in a protected source (editing it, even a comment, drifts the exposure matrix: npm run audit:exposure)"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^crates/provider-bitwarden/src/api/wire\.rs$''']
+regexes = ['''^pw-12345$''']
+
+[[allowlists]]
+description = "Synthetic `http://user:secret@127.0.0.1` URL the NATS validator test asserts is refused"
+targetRules = ["generic-credential-uri"]
+condition = "AND"
+paths = ['''^crates/task-bus/src/validate\.rs$''']
+regexes = ['''^secret$''']
+
+# ---------------------------------------------------------------------------
+# 6. Rule false positive: WebAuthn PRF error codes.
+#
+# `proof-full-access-api-key` matches any quoted `prf_[A-Za-z0-9_-]{20,80}`.
+# `prf_enabled_without_output` and `prf_extension_unavailable` are the string
+# literal error codes of the WebAuthn PRF adapter ("prf" = pseudo-random
+# function), not Proof API keys. Exact values, one directory.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "WebAuthn PRF error-code identifiers that collide with the Proof API key prefix"
+targetRules = ["proof-full-access-api-key"]
+condition = "AND"
+paths = ['''^packages/app-core/src/lib/vault/protection/adapters/''']
+regexes = ['''^prf_(?:enabled_without_output|extension_unavailable)$''']

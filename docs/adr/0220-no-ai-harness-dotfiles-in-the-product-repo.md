@@ -1,4 +1,4 @@
-# ADR 0219 — The product repository tracks no AI-harness dotfiles or dot folders
+# ADR 0220 — The product repository tracks no AI-harness dotfiles or dot folders
 
 - **Status:** Accepted
 - **Date:** 2026-11-09

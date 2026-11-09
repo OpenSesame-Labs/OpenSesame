@@ -11,6 +11,7 @@ import {
   LOCAL_VAULT_CONTROLS,
 } from "../lib/exposure-local-vault.mjs";
 import {
+  encodeSourceDigest,
   exposureViolations,
   parsePolicy,
   validatePolicy,
@@ -209,7 +210,7 @@ test("bounded discovery follows named local entry, verification and persistence 
 test("local activation helpers cannot borrow a new artifact row in the same area", () => {
   const value = matrix();
   const path = futureSources[0];
-  value.sources[path] = sha256(Buffer.alloc(0));
+  value.sources[path] = encodeSourceDigest(sha256(Buffer.alloc(0)));
   value.surfaces.push({
     ...structuredClone(row(value)),
     id: "local-helper-bookkeeping",
@@ -294,7 +295,7 @@ test("new named helpers need classification even if somebody saves their hash", 
     /EM-COVERAGE: unclassified protected source/u,
   );
   const value = matrix();
-  value.sources[path] = sha256(Buffer.from(bytes));
+  value.sources[path] = encodeSourceDigest(sha256(Buffer.from(bytes)));
   assert.throws(() => validatePolicy(value), /unbound or invalid source/u);
   f.write(POLICY, `${JSON.stringify(value, null, 2)}\n`);
   assertBlocked(f.run(), /EM-SCHEMA/u);

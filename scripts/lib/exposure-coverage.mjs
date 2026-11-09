@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { CORE_CONTRACTS } from "./exposure-contracts.mjs";
 import { LOCAL_VAULT_CONTRACT } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTRACT } from "./exposure-native-provider.mjs";
+import { sourceDigest } from "./exposure-policy.mjs";
 
 const TEST =
   /(?:\.(?:test|spec)\.[cm]?[jt]sx?$|_tests?(?:_[^/]+)?\.rs$|\/tests\.rs$|\/(?:__tests__|tests|fixtures|test_support|test-support)\/)/u;
@@ -142,8 +143,10 @@ function requiredBindings(policy) {
 
 function fingerprintViolations(sources, snapshot) {
   const errors = [];
-  for (const [path, digest] of Object.entries(sources)) {
+  for (const [path, encoded] of Object.entries(sources)) {
     try {
+      const digest = sourceDigest(encoded);
+      if (!digest) throw new Error("invalid source fingerprint");
       if (!/^100(?:644|755)$/u.test(snapshot.mode(path)))
         throw new Error("source is not a regular file");
       if (sha256(snapshot.read(path)) !== digest)

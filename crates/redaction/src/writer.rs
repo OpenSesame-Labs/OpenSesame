@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn json_lines_are_scrubbed_field_by_field() {
-        let line = br#"{"level":"INFO","fields":{"message":"sent https://h.example/x#token=osc_clm_AbC123.secretpart","password":"hunter2","note":"{\"api_key\":\"k_1\"}"}}"#;
+        let line = br#"{"level":"INFO","fields":{"message":"sent https://h.example/x#token=osc_clm_AbC123.secretpart","password":"hunter2","note":"{\"api_key\":\"k_1\"}"}}"#; // gitleaks:allow
         let mut input = line.to_vec();
         input.push(b'\n');
         let out = run(Format::Json, &[&input]);
