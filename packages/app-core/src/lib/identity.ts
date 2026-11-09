@@ -43,9 +43,15 @@ import { loadSettings } from "./settings.js";
 import type { OriginalRemoteCodeHandle } from "./vault/captured-remote-code-data.js";
 import type { OriginalCommandDrainRecorder } from "./vault/original-command-retirement-data.js";
 import { captureOriginalIdentitySessionCodeData } from "./vault/original-identity-session-code-data.js";
-export { HostSessionError, IdentityError };
+
 export type { IdentitySession, Principal };
-export { isDeviceIdentityMode, isRemoteIdentityConfigured, remoteIdentityApi };
+export {
+  HostSessionError,
+  IdentityError,
+  isDeviceIdentityMode,
+  isRemoteIdentityConfigured,
+  remoteIdentityApi,
+};
 
 const IDENTITY_FETCH_MS = 8000;
 const PROBE_MS = 4000;
@@ -171,10 +177,13 @@ function endSessionDefault(): void {
     });
 }
 
-function revokeRequest(bearer?: string): Promise<Response> {
+function revokeRequest(
+  bearer?: string,
+  credentials: RequestCredentials = "include",
+): Promise<Response> {
   return identityPlaneRequest("/v1/principals/provisional/revoke", {
     method: "POST",
-    credentials: "include",
+    credentials,
     timeoutMs: IDENTITY_FETCH_MS,
     ...(bearer
       ? { headers: { authorization: `Bearer ${bearer}` } }
@@ -415,16 +424,8 @@ async function resumeCookieSession(): Promise<IdentitySession | null> {
   }
 }
 
-/** Adopt a token the operator already holds (CLI `opensesame-id`, tests). */
-async function adoptTokenDefault(accessToken: string): Promise<void> {
-  const token = accessToken.trim();
-  if (session?.accessToken === token) return;
-  const epoch = sessionEpoch;
-  const issuerOrigin = identityOrigin();
-  // Prove the token itself works before ending the working session, with the
-  // cookie deliberately withheld. A mistyped token would otherwise appear to
-  // work by riding a leftover cookie, and every ceremony would run as the
-  // wrong principal.
+/** Prove a token with the cookie withheld; returns its principal. */
+async function proveTokenOwner(token: string): Promise<string> {
   const res = await identityPlaneRequest("/v1/principals/me", {
     headers: { authorization: `Bearer ${token}` },
     credentials: "omit",
@@ -435,11 +436,53 @@ async function adoptTokenDefault(accessToken: string): Promise<void> {
   if (!isJsonObject(me) || !isString(me.id)) {
     throw new IdentityError("Identity returned an invalid principal.", 502);
   }
+  return me.id;
+}
+
+/**
+ * Stand on a rebound session: end only the previous bearer, cookies
+ * withheld, since the cookie already names this token and the revoke
+ * route ends every credential a request presents.
+ */
+function standOnRebound(
+  token: string,
+  principalId: string,
+  issuerOrigin: string,
+): void {
+  const previous =
+    session && !session.cookieOnly && session.issuerOrigin === issuerOrigin
+      ? session.accessToken
+      : undefined;
+  session = { principalId, accessToken: token, adopted: true, issuerOrigin };
+  setOrphan(false);
+  emit();
+  if (previous && previous !== token) {
+    pendingRevoke = (pendingRevoke ?? Promise.resolve())
+      .then(() => revokeRequest(previous, "omit"))
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+}
+
+/** Adopt a token the operator already holds (CLI `opensesame-id`, tests). */
+async function adoptTokenDefault(
+  accessToken: string,
+  rebound = false,
+): Promise<void> {
+  const token = accessToken.trim();
+  if (session?.accessToken === token) return;
+  const epoch = sessionEpoch;
+  const issuerOrigin = identityOrigin();
+  const principalId = await proveTokenOwner(token);
   if (sessionEpoch !== epoch) {
     throw new IdentityError(
       "The session was ended while adopting that token. Try again.",
       409,
     );
+  }
+  if (rebound) {
+    standOnRebound(token, principalId, issuerOrigin);
+    return;
   }
   // Only now end what came before, detected orphan or not: a cookie this tab
   // never saw would otherwise keep acting alongside the pasted token.
@@ -460,7 +503,7 @@ async function adoptTokenDefault(accessToken: string): Promise<void> {
     );
   }
   session = {
-    principalId: me.id ?? "unknown",
+    principalId,
     accessToken: token,
     adopted: true,
     issuerOrigin,
@@ -556,6 +599,7 @@ export const identitySeams = {
   connectProvisional: connectProvisionalDefault,
   resumeSession: resumeCookieSession,
   adoptToken: adoptTokenDefault,
+  rebindSession: (accessToken: string) => adoptTokenDefault(accessToken, true),
   probeIdentity: probeIdentityDefault,
   fetchPrincipal: fetchPrincipalDefault,
   restoreSession: restoreSessionDefault,
@@ -615,6 +659,10 @@ export async function connectProvisional(): Promise<IdentitySession> {
 }
 export async function adoptToken(accessToken: string): Promise<void> {
   return identitySeams.adoptToken(accessToken);
+}
+/** Stand on a session the link route rebound to an existing principal. */
+export async function rebindSession(accessToken: string): Promise<void> {
+  return identitySeams.rebindSession(accessToken);
 }
 export async function probeIdentity(): Promise<HealthState> {
   return identitySeams.probeIdentity();

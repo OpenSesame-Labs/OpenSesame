@@ -131,6 +131,107 @@ describe("claiming a guest principal with an upstream id_token", () => {
     expect(overlapCast(await me.json()).id).toBe(first.principalId);
   });
 
+  it("keeps the rebound session alive when the old Bearer is revoked without its cookie", async () => {
+    // The client's rebind ends the throwaway session by Bearer alone,
+    // withholding cookies: the revoke route ends every credential a
+    // request presents, and the cookie already names the rebound session.
+    const { privateKey, jwks } = await mintKeys();
+    orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json(jwks))),
+    );
+    const { app } = createControlPlane();
+    const first = await guest(app);
+    const token = await new SignJWT({})
+      .setProtectedHeader({ alg: "RS256", kid: "claim-1" })
+      .setIssuer(ISSUER)
+      .setAudience("origin:http://127.0.0.1:8788")
+      .setSubject("surviving@upstream")
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(privateKey);
+    const link = (bearer: string) =>
+      app.request("/v1/principals/link-identities", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ idToken: token }),
+      });
+    expect((await link(first.accessToken)).status).toBe(201);
+    const second = await guest(app);
+    const rebound = await link(second.accessToken);
+    expect(rebound.status).toBe(200);
+    const body = overlapCast(await rebound.json());
+    const cookie = rebound.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain(body.accessToken);
+
+    // Revoke the throwaway by Bearer only — no cookie presented.
+    const revoke = await app.request("/v1/principals/provisional/revoke", {
+      method: "POST",
+      headers: { authorization: `Bearer ${second.accessToken}` },
+    });
+    expect(revoke.status).toBe(204);
+    const oldMe = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${second.accessToken}` },
+    });
+    expect(oldMe.status).toBe(401);
+    // The rebound session survives, by Bearer and by its cookie alike.
+    const bearerMe = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${body.accessToken}` },
+    });
+    expect(bearerMe.status).toBe(200);
+    expect(overlapCast(await bearerMe.json()).id).toBe(first.principalId);
+    const cookieMe = await app.request("/v1/principals/me", {
+      headers: { cookie: cookie.split(";")[0] ?? "" },
+    });
+    expect(cookieMe.status).toBe(200);
+    expect(overlapCast(await cookieMe.json()).id).toBe(first.principalId);
+  });
+
+  it("still refuses a registered caller whose subject another principal owns", async () => {
+    const { privateKey, jwks } = await mintKeys();
+    orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json(jwks))),
+    );
+    const { app } = createControlPlane();
+    const sign = (subject: string) =>
+      new SignJWT({})
+        .setProtectedHeader({ alg: "RS256", kid: "claim-1" })
+        .setIssuer(ISSUER)
+        .setAudience("origin:http://127.0.0.1:8788")
+        .setSubject(subject)
+        .setIssuedAt()
+        .setExpirationTime("5m")
+        .sign(privateKey);
+    const link = (bearer: string, idToken: string) =>
+      app.request("/v1/principals/link-identities", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+    const first = await guest(app);
+    const theirs = await sign("theirs@upstream");
+    expect((await link(first.accessToken, theirs)).status).toBe(201);
+    // A second principal with its own verified identity is registered, not
+    // a throwaway: presenting the first subject is a collision, not a
+    // rebind — merging two real accounts takes dual authentication.
+    const second = await guest(app);
+    expect(
+      (await link(second.accessToken, await sign("mine@upstream"))).status,
+    ).toBe(201);
+    const refused = await link(second.accessToken, theirs);
+    expect(refused.status).toBe(409);
+    expect(overlapCast(await refused.json()).accessToken).toBeUndefined();
+  });
+
   it("refuses a correctly signed token issued for another client without attaching identity", async () => {
     const { privateKey, jwks } = await mintKeys();
     orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;

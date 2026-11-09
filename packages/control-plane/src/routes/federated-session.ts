@@ -47,7 +47,7 @@ import { MAX_PROVISIONAL } from "./principals.js";
 /** Nobody's access token is longer than this; anything bigger is not one. */
 const MAX_ACCESS_TOKEN_LENGTH = 8192;
 
-class ProvisionalCapacityError extends Error {
+export class ProvisionalCapacityError extends Error {
   override readonly name = "ProvisionalCapacityError";
 }
 
@@ -163,6 +163,42 @@ export async function adoptSession(
 }
 
 /**
+ * Adopt a session under the same serialized provisional ceiling as the
+ * interaction mint: sweep dead rows, refuse at capacity, then mint — all
+ * under one lock, so two concurrent adoptions at the boundary cannot both
+ * pass the size read. Every road that binds a session to an existing
+ * principal goes through here.
+ */
+export async function adoptSessionWithinCapacity(
+  ctx: AppContext,
+  principalId: string,
+  correlationId: string,
+): Promise<FederatedSessionAdoption> {
+  return serializeKeyed(
+    ctx.stores.principalMutations,
+    "federated-session",
+    async () => {
+      if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL) {
+        // Expired/revoked rows are not live sessions. Drop them (and the
+        // tokens that pointed at them) before refusing a sign-in.
+        const now = ctx.clock();
+        for (const [
+          id,
+          session,
+        ] of await ctx.stores.provisionalSessions.entries()) {
+          if (session.revokedAt || session.expiresAt <= now)
+            await deleteSecurityMapEntry(ctx.stores.provisionalSessions, id);
+        }
+        await removeOrphanTokens(ctx.stores);
+        if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL)
+          throw new ProvisionalCapacityError();
+      }
+      return adoptSession(ctx, principalId, correlationId);
+    },
+  );
+}
+
+/**
  * `POST /v1/principals/federated-session` (C13).
  *
  * INTEGRATOR: mount alongside the principal routes in `src/app.ts` — S1 owns
@@ -245,30 +281,10 @@ export function createFederatedSessionRoutes(): Hono<{ Variables: Variables }> {
     // check and mint share one lock, so two concurrent exchanges at the
     // boundary cannot both pass the size read.
     try {
-      const adopted = await serializeKeyed(
-        ctx.stores.principalMutations,
-        "federated-session",
-        async () => {
-          if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL) {
-            // Expired/revoked rows are not live sessions. Drop them (and the
-            // tokens that pointed at them) before refusing a sign-in.
-            const now = ctx.clock();
-            for (const [
-              id,
-              session,
-            ] of await ctx.stores.provisionalSessions.entries()) {
-              if (session.revokedAt || session.expiresAt <= now)
-                await deleteSecurityMapEntry(
-                  ctx.stores.provisionalSessions,
-                  id,
-                );
-            }
-            await removeOrphanTokens(ctx.stores);
-            if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL)
-              throw new ProvisionalCapacityError();
-          }
-          return adoptSession(ctx, principal.id, c.get("correlationId"));
-        },
+      const adopted = await adoptSessionWithinCapacity(
+        ctx,
+        principal.id,
+        c.get("correlationId"),
       );
       return c.json(adopted, 200);
     } catch (error) {
