@@ -1,4 +1,12 @@
-# Fast PR gate: every commit must be GitHub-verified and Grok-authored.
+# Fast PR gate: every commit on the PR must carry a GitHub-verified signature
+# (the branch ruleset requires verified signatures). Authorship is not checked:
+# a commit does not need to involve Grok.
+#
+# The name below is historical. This job used to demand Grok attribution as well.
+# It is kept because the default-branch ruleset requires the status context
+# "Grok signed commits" by name (ops/github/default-branch.json); renaming the job
+# without changing the ruleset first would leave that required check pending on
+# every PR.
 name: Grok signed commits
 
 on:
@@ -29,12 +37,12 @@ jobs:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "24"
-      - name: Verify Grok-authored verified commits
+      - name: Verify commit signatures
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          node scripts/release/check-pr-grok-commits.mjs
+          node scripts/release/check-pr-signatures.mjs
           "$GITHUB_REPOSITORY"
           "${{ github.event.pull_request.number }}"
           "${{ github.event.pull_request.head.sha }}"
