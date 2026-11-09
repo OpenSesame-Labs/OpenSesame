@@ -14,13 +14,14 @@ import { CREATE_ITEM_GOAL, FIRST_ITEM_GOAL } from "./vault-create-goals.js";
 // Grok gauntlet rounds 4-5: the first-item walkthrough declared success
 // before any secret was saved. A beat's trailing wait is its `until` in
 // the compiled plan — assert at that level, not on string order: the
-// Save beat is only satisfied once the editor has disappeared (a press
-// that validation rejects leaves it standing), and the close comes
+// Save beat is only satisfied once the vault actually holds an item
+// (a rejected press, Cancel and Escape never make that true), and the
+// close comes
 // after a beat standing over the list the saved item appears in.
 beforeAll(() => registerGuidePredicates());
 
 describe("the guided first item", () => {
-  it("cannot complete its Save step until the editor closes, then stands over the list", () => {
+  it("cannot complete its Save step until the vault holds the item, then stands over the list", () => {
     const compiled = compileGuide(
       FIRST_ITEM_GOAL.guide,
       {
@@ -39,9 +40,9 @@ describe("the guided first item", () => {
     );
     expect(saveBeat?.until).toMatchObject({
       kind: "wait",
-      subject: "target",
-      target: "item.editor.save",
-      event: "disappear",
+      subject: "state",
+      predicate: "vault.has-items",
+      expected: true,
     });
     const listBeat = plan.beats.find((beat) => beat.target === "vault.list");
     expect(listBeat).toBeDefined();
