@@ -13,6 +13,9 @@
 #     unresolved advisories remain visible, with no configured exceptions)
 #   - gitleaks over full history (same engine as `pnpm audit:gitleaks` and
 #     the pre-commit hook; .gitleaks.toml carries the allowlists)
+#   - Betterleaks over the working tree and full history (`npm run
+#     audit:betterleaks`; .betterleaks.toml extends .gitleaks.toml and carries
+#     the exemptions for the generic-password and generic-credential-uri rules)
 #   - Tailscale key material (`node scripts/security/tailscale-key-material-gate.mjs`)
 #   - OpenSSF Scorecard (checks the repo against the OpenSSF supply-chain
 #     criteria and publishes the score to the code-scanning dashboard and
@@ -195,6 +198,37 @@ jobs:
           # Org repositories require a license; the secret is configured on the repo.
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  betterleaks:
+    name: betterleaks (working tree and full history)
+    runs-on: ubuntu-latest
+    # A blobless full-history walk fetches blobs on demand, which is slower than
+    # the 20-minute default the other scans use (same budget as the gitleaks job).
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          # Full history so the scheduled pass sees what a working-tree scan
+          # cannot. Blobless like every other full-history checkout
+          # (scripts/lib/ci-blobless-checkout.test.mjs).
+          fetch-depth: 0
+          filter: blob:none
+      # One pin for developers and CI: the version and per-platform SHA-256 live
+      # in the installer, which refuses on a checksum mismatch.
+      - name: Install the pinned Betterleaks
+        run: bash scripts/dev/install-betterleaks.sh "$RUNNER_TEMP/bin"
+      # Detection only. The gate never passes `--validation`, so no candidate
+      # secret is sent to a provider API. Reports stay in a private directory
+      # outside the checkout and are not uploaded.
+      - name: Scan
+        env:
+          OPENSESAME_AUDIT_DIR: ${{ runner.temp }}/betterleaks-audit
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          bash scripts/audit/betterleaks-gate.sh
 
   scorecard:
     name: OpenSSF Scorecard

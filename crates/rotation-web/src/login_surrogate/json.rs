@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(out.capacity(), out.len());
         assert_eq!(
             std::str::from_utf8(&out).unwrap(),
-            r#"{"a":1.5,"b":2,"c":-3.25,"password":"\u0001\"\\"}"#
+            r#"{"a":1.5,"b":2,"c":-3.25,"password":"\u0001\"\\"}"# // gitleaks:allow
         );
     }
 
