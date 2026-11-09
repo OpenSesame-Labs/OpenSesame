@@ -40,6 +40,13 @@ grok_configure_grok_hooks() {
   if [[ -n "$root" ]]; then
     cd "$root"
   fi
-  git config core.hooksPath .githooks-grok
-  chmod +x .githooks-grok/pre-push
+  # The Grok pre-push guard lives in the OpenSesame Labs dotfiles, not in
+  # this repo. Pointing core.hooksPath at a missing directory would silently
+  # disable every git hook, so only opt in when the guard is present.
+  if [[ -f .githooks-grok/pre-push ]]; then
+    git config core.hooksPath .githooks-grok
+    chmod +x .githooks-grok/pre-push
+  else
+    printf 'grok-git-signing: .githooks-grok/pre-push not present; leaving core.hooksPath unchanged\n' >&2
+  fi
 }

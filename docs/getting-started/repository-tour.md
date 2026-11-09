@@ -17,16 +17,18 @@ tests/         cross-cutting test suites and shared fixtures
 tools/         development tooling: lint plugins, quality baselines, dev servers
 scripts/       the scripts behind `npm <task>`: quality/, audit/, fuzz/, test/, mtls/, security/, wallet/, release/, dev/, shared logic in lib/
 ops/           deployment references, repo governance, scheduled routines
-skills/        agent skills (also exposed through .agents/skills)
+skills/        first-party agent skills
 patches/       npm run patches applied to third-party dependencies
 docs/          documentation
 ```
 
 Dot-directories hold tool configuration that tools look up by name:
 `.github/` (CI), `.githooks/` (local hooks), `.devcontainer/`, `.cargo/`,
-`.opensesame/` (this repository's item-type marketplace index), and the
-agent/editor directories `.agents/`, `.claude/`, `.codex/`, `.cursor/`,
-`.grok/` (the task-swarm workflow), `.impeccable/`, `.deepsec/`.
+`.opensesame/` (this repository's item-type marketplace index), and
+`.deepsec/` (the deepsec scanner workspace). AI-harness dot folders
+(`.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.grok/`, `.impeccable/`,
+`.stitch/`) are not part of this repository; they live in the OpenSesame Labs
+dotfiles repo and are gitignored here.
 
 ## The three planes in the tree
 

@@ -5,8 +5,8 @@ Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/S
 ## 7. Skills
 
 First-party agent skills live under `skills/*/SKILL.md` (tracked canonical
-source). `.agents/skills/` holds symlinks to the same directories for tools
-that look there instead. Third-party skills (`impeccable` and the design
+source). Harness discovery links to these directories are set up by the
+OpenSesame Labs dotfiles, not tracked here. Third-party skills (`impeccable` and the design
 skills below) are installed into `.agents/skills/` as gitignored output,
 refreshed to latest at container start by
 `scripts/dev/install-agent-skills.sh`; `.claude/skills/` and `.grok/skills/`

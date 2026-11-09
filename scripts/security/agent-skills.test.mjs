@@ -149,21 +149,23 @@ test("optional skill under skills-optional links like the default root", (t) => 
   assert.equal(syncAgentSkills(f.root, { check: true }).length, 0);
 });
 
-test("core skill missing its .agents alias fails", (t) => {
+test("core skills need no tracked .agents alias, but an existing alias must resolve to skills/", (t) => {
   const f = fixture(t);
-  writeProfiles(f, { core: { skills: ["core-example"] } });
+  writeProfiles(f, { core: { skills: ["core-example", "other"] } });
   f.put("skills/core-example/SKILL.md", "# Core\n");
+  f.put("skills/other/SKILL.md", "# Other\n");
+  // No .agents/ at all: the harness setup is user scope, so this is valid.
+  assert.equal(syncAgentSkills(f.root, { check: true }).length, 0);
   mkdirSync(join(f.root, ".agents/skills"), { recursive: true });
-  assert.throws(
-    () => syncAgentSkills(f.root, { check: true }),
-    /Missing core alias/u,
-  );
   symlinkSync(
-    "../../skills/core-example",
+    "../../skills/other",
     join(f.root, ".agents/skills/core-example"),
     "dir",
   );
-  assert.equal(syncAgentSkills(f.root, { check: true }).length, 0);
+  assert.throws(
+    () => syncAgentSkills(f.root, { check: true }),
+    /Core alias does not resolve/u,
+  );
 });
 
 test("shared Impeccable launcher retains Claude-specific reference directory", (t) => {

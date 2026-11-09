@@ -2,14 +2,14 @@
 
 Agent skills — self-contained instructions a coding agent loads for one kind
 of task. Each directory holds a `SKILL.md` with a `description` the agent
-matches against. [`.agents/skills/`](../.agents/skills) links to each of these
-for tools that look there; those 8 aliases are the only `.agents/` entries in
-source control. Third-party skills are **install output, not source**: they
-are restored into `.agents/skills/` (plus harness mirrors) by
+matches against. This repo tracks no `.agents/` or other harness dot
+entries: your dotfiles link each of these into the discovery path your tool
+reads. Third-party skills are **install output, not source**: they
+are restored into the gitignored `.agents/skills/` (plus harness mirrors) by
 `scripts/dev/install-agent-skills.sh` — run at every devcontainer start, or
 `npm run skills:install` locally — from the catalogue in
 [`skills-lock.json`](../skills-lock.json), and every harness root is
-gitignored except the repo-built adapters whitelisted in `.gitignore`.
+gitignored outright.
 
 After a reviewed upstream update, run `node scripts/dev/sync-agent-skills.mjs`
 then `node scripts/dev/sync-agent-skills.mjs --check`. Install or update the
@@ -21,12 +21,12 @@ never discards differing instructions. Installed trees are never staged.
 
 The machine-readable catalogue is [`profiles.json`](profiles.json). Edit it
 together with this file; `sync-agent-skills.mjs --check` fails on a `skills/`
-or `.agents/skills/` entry that no profile lists, a core skill without its
-`.agents/skills/` alias, or a skill listed in two profiles.
+or `.agents/skills/` entry that no profile lists, a core skill whose existing
+`.agents/skills/` alias points elsewhere, or a skill listed in two profiles.
 
 - **First-party default (`core`, required).** Authored here, canonical in
-  `skills/`, aliased from `.agents/skills/`. Core validation requires every
-  one of them.
+  `skills/`. Core validation requires every one of them; local
+  `.agents/skills/` aliases are optional.
 - **Reusable optional (`reusable-optional`).** Third-party and generic, but
   part of a workflow this repo uses (the applicable Stitch toolchain,
   `impeccable`, `gdp-ts`). Canonical in `.agents/skills/`; a separate install
@@ -109,9 +109,9 @@ as the contract for `apps/pages` (`DESIGN.md` wins on any conflict).
 | `shadcn-ui` | Unused stack: the Stitch-build shadcn variant (Radix/Tailwind). Not used by this app. Distinct from `shadcn`. |
 | `stitch-react-native` | Unused stack: React Native conversion. Not used by this app. |
 
-A new first-party skill gets a directory here, a symlink in `.agents/skills/`,
-a row in the [skills index](../docs/contributing/skills.md), an entry under
-`core` in `profiles.json`, and whitelist lines in `.gitignore` (both the
-`skills/` and `.agents/skills/` sections — harness roots ignore by default). A new third-party skill gets an entry
+A new first-party skill gets a directory here, a row in the
+[skills index](../docs/contributing/skills.md), an entry under `core` in
+`profiles.json`, and a whitelist line in the `skills/` section of `.gitignore`.
+Nothing is added under `.agents/` (harness roots are ignored outright). A new third-party skill gets an entry
 in one optional profile in `profiles.json` (and a `skills-lock.json` entry when
 its updater provides one).

@@ -147,9 +147,10 @@ findings. Keep scanner runs, raw reviews, assignments, transcripts and generated
 working output in ignored `work/` or private temporary storage; summarize results
 on the PR. Never append per-run artifact directories to the default branch.
 
-Install third-party skills once under `.agents/skills/`, preserve intentional
-agent-specific variants, and run `node scripts/dev/sync-agent-skills.mjs` to
-restore shared links. Do not install full copied trees for each harness.
+Install third-party skills once (user scope, or under the gitignored
+`.agents/skills/`), preserve intentional agent-specific variants, and run
+`node scripts/dev/sync-agent-skills.mjs` to restore shared links. Do not
+install full copied trees for each harness.
 Use the existing dependency, Cargo and browser caches; install only when needed.
 Session startup must never generate migrations, baselines or tracked reports.
 Clean only task-owned scratch/build output when the task finishes; preserve active

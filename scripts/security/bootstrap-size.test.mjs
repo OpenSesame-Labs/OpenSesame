@@ -18,12 +18,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), "bootstrap-size-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  for (const folder of ["scripts/dev", ".claude/hooks", "bin"])
+  for (const folder of ["scripts/dev", "bin"])
     mkdirSync(join(dir, folder), { recursive: true });
-  for (const name of [
-    "scripts/dev/install-dependencies.sh",
-    ".claude/hooks/session-start.sh",
-  ])
+  for (const name of ["scripts/dev/install-dependencies.sh"])
     copyFileSync(join(root, name), join(dir, name));
   writeFileSync(
     join(dir, "package.json"),
@@ -83,25 +80,17 @@ function fixture(t) {
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 10000,
     });
-  const run = (extra = {}) => invoke(".claude/hooks/session-start.sh", extra);
   const install = (extra = {}) =>
     invoke("scripts/dev/install-dependencies.sh", extra);
   const calls = () =>
     existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
-  return { dir, run, install, calls, ciLog };
+  return { dir, install, calls, ciLog };
 }
 
-test("session and remote harness flags do not implicitly install or generate", (t) => {
-  const f = fixture(t);
-  for (const flags of [{}, { CLAUDECODE: "1" }, { CLAUDE_CODE_REMOTE: "true" }])
-    assert.equal(f.run(flags).status, 0);
-  assert.deepEqual(f.calls(), []);
-});
-
-test("explicit bootstrap installs frozen dependencies once and notices lock changes", (t) => {
+test("bootstrap installs frozen dependencies once and notices lock changes", (t) => {
   const f = fixture(t);
   for (let n = 0; n < 2; n++) {
-    const result = f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" });
+    const result = f.install();
     assert.equal(result.status, 0, result.stderr);
   }
   assert.deepEqual(f.calls(), ["ci"]);
@@ -114,50 +103,31 @@ test("explicit bootstrap installs frozen dependencies once and notices lock chan
       packages: { "": { name: "bootstrap", version: "changed" } },
     })}\n`,
   );
-  assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.equal(f.install().status, 0);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("failed installs never acquire a success fingerprint", (t) => {
   const f = fixture(t);
-  assert.notEqual(
-    f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1", BOOTSTRAP_TEST_FAIL: "1" }).status,
-    0,
-  );
+  assert.notEqual(f.install({ BOOTSTRAP_TEST_FAIL: "1" }).status, 0);
   assert.equal(
     existsSync(join(f.dir, "node_modules/.cache/opensesame-install.sha256")),
     false,
   );
-  assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
+  assert.equal(f.install().status, 0);
   assert.equal(f.calls().length, 2);
-});
-
-test("production credential gate remains in effect for explicit bootstrap", (t) => {
-  const f = fixture(t);
-  assert.equal(
-    f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1", OPENSESAME_ENV: "production" })
-      .status,
-    0,
-  );
-  assert.deepEqual(f.calls(), []);
 });
 
 test("an untracked new workspace manifest invalidates the install fingerprint", (t) => {
   const f = fixture(t);
-  assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
+  assert.equal(f.install().status, 0);
   mkdirSync(join(f.dir, "packages/new-package"), { recursive: true });
   writeFileSync(
     join(f.dir, "packages/new-package/package.json"),
     '{"name":"new-package"}\n',
   );
-  assert.equal(f.run({ OPENSESAME_AGENT_BOOTSTRAP: "1" }).status, 0);
-  assert.deepEqual(f.calls(), [
-    "ci",
-    "ci",
-  ]);
+  assert.equal(f.install().status, 0);
+  assert.deepEqual(f.calls(), ["ci", "ci"]);
 });
 
 test("direct installs force noninteractive npm and reuse a matching installation", (t) => {
@@ -252,32 +222,4 @@ test("a changed lock and failed install invalidate the earlier success marker", 
   assert.equal(f.calls().length, 3);
   assert.equal(f.install().status, 0);
   assert.equal(f.calls().length, 3);
-});
-
-test("cloud bootstrap installs mise from a pinned checksum tarball", () => {
-  const dockerfile = readFileSync(join(root, ".cursor/Dockerfile"), "utf8");
-  const installScript = readFileSync(join(root, ".cursor/install.sh"), "utf8");
-  assert.match(dockerfile, /ARG MISE_VERSION=\d+\.\d+\.\d+/);
-  assert.doesNotMatch(dockerfile, /MISE_VERSION=latest/);
-  assert.match(dockerfile, /ARG MISE_SHA256_LINUX_X64=[a-f0-9]{64}/);
-  assert.match(dockerfile, /ARG MISE_SHA256_LINUX_ARM64=[a-f0-9]{64}/);
-  assert.match(dockerfile, /sha256sum -c --strict/);
-  assert.match(
-    dockerfile,
-    /archive="mise-v\$\{MISE_VERSION\}-\$\{mise_target\}\.tar\.gz"/,
-  );
-  assert.match(
-    dockerfile,
-    /https:\/\/github\.com\/jdx\/mise\/releases\/download\/v\$\{MISE_VERSION\}\/\$\{archive\}/,
-  );
-  assert.match(dockerfile, /\.tar\.gz/);
-  assert.match(dockerfile, /MISE_DATA_DIR=\/opt\/mise/);
-  assert.match(dockerfile, /mise install --locked/);
-  assert.match(installScript, /mise install --locked/);
-  assert.match(installScript, /mise run deps/);
-  for (const text of [dockerfile, installScript]) {
-    assert.doesNotMatch(text, /mise\.run/);
-    assert.doesNotMatch(text, /curl[^\n]*\|\s*(?:ba)?sh/);
-    assert.doesNotMatch(text, /\bcorepack\b/);
-  }
 });

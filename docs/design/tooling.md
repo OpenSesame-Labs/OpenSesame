@@ -78,16 +78,17 @@ tokens (greyscale, square corners, 44px keys).
 
 ## Stitch
 
-Google Stitch prototypes from a `DESIGN.md`: `.stitch/DESIGN.md` is written in
-Stitch's semantic format from the app's live tokens, and the `stitch-*` skills
+Google Stitch prototypes from a `DESIGN.md`: the Stitch-format `DESIGN.md`
+(kept in the OpenSesame Labs dotfiles repo as `.stitch/DESIGN.md`, not tracked
+here) is written in Stitch's semantic format from the app's live tokens, and the `stitch-*` skills
 know how to generate screens, vary them, manage the design system and pull a
 prototype back as static HTML.
 
 - **Set-up.** Create a Stitch project for OpenSesame, paste its `projects/<id>`
-  into `.stitch/DESIGN.md`'s Project ID line, then upload the design system
+  into that file's Project ID line, then upload the design system
   (`stitch::manage-design-system`: "Upload our design system from
   `.stitch/DESIGN.md`"). Generated screens and extracted HTML land under
-  `.stitch/designs/` and stay out of git.
+  `.stitch/designs/`; the whole `.stitch/` folder is gitignored here.
 - **Credentials.** `STITCH_API_KEY` (Stitch › Settings › API keys) is declared
   `@sensitive` in `.env.schema` and read from the environment by every agent
   configuration below; it is never written into a config file.
@@ -131,7 +132,9 @@ library: a rule that cannot be expressed in tokens shows up as a gap.
 
 ## Per-agent configuration
 
-Skills have one canonical installation under `.agents/skills/`. First-party
+Harness config is not tracked in this repo; the files named below live in the
+OpenSesame Labs dotfiles repo. Skills have one canonical local installation
+under the gitignored `.agents/skills/`. First-party
 skills are canonical in `skills/`; third-party skills are optional profiles
 catalogued in `skills/profiles.json` (see `skills/README.md`), not universal
 defaults. Most are catalogued in `skills-lock.json` and installed at latest
@@ -144,7 +147,7 @@ same two servers everywhere.
 
 | Agent | Skills | MCP servers (Storybook + Stitch + shadcn) |
 |-------|--------|----------------------------------|
-| Claude Code | `.claude/skills/` (installed mirror links); Stitch marketplace plugins are user-scope opt-in (see `docs/contributing/agent-setup.md`), not enabled by tracked settings | `.mcp.json` (`${STITCH_API_KEY}`) |
+| Claude Code | `.claude/skills/` (installed mirror links); Stitch marketplace plugins are user-scope opt-in (see `docs/contributing/agent-setup.md`), not enabled by default | `.mcp.json` (`${STITCH_API_KEY}`) |
 | Cursor | `.agents/skills/` | `.cursor/mcp.json` (`${env:STITCH_API_KEY}`) |
 | Codex | `.agents/skills/` | `.codex/config.toml` (`env_http_headers`) |
 | Grok Build | `.grok/skills/` | add the two URLs with `grok mcp add`; the key as the `X-Goog-Api-Key` header |

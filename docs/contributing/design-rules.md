@@ -583,7 +583,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   (`docs/design/tooling.md`): Storybook (`apps/pages/stories/`) *defines* the
   system and every delivered component gets a story on the app's own CSS;
   Figma *sets the look* a story must match through its Design tab; Stitch
-  *prototypes* alternatives from `.stitch/DESIGN.md`. A story never restyles a
+  *prototypes* alternatives from its Stitch-format `DESIGN.md` (dotfiles repo). A story never restyles a
   component, and nothing moves from Stitch into `apps/pages` without a frame
   and a component first. An action that
   executes is an icon key (`icon-btn`, or `.go` for the action that ends the
@@ -621,7 +621,7 @@ Full prose moved from `AGENTS.md` §5. `AGENTS.md` §5 keeps the one-line invari
   Escape and the scrim) is the only dismiss, so a `CeremonyShell` `secondary`
   that only says "Keep it", "Not now" or "Cancel" is a second X and fails;
   focus lands on the close key.
-- No `sudo` (`.cursor/rules/no-sudo.mdc`).
+- No `sudo` ([AGENTS.md](../../AGENTS.md)).
 - Configuration follows the `.env.schema` env-spec pattern (`@type`,
   `@required`, `@sensitive`, `@public` annotations). Never commit live
   secrets; dev signing keys and claim peppers are generated outside git.

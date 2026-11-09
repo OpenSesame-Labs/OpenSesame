@@ -39,7 +39,7 @@ The disk stays near full. A new worktree gets source only.
 ### Swarm
 
 Independent slices run together as a workflow (the standing entry point is
-`.grok/workflows/task-swarm.rhai`, or a task-specific script when the slices
+the `task-swarm.rhai` Grok workflow (OpenSesame Labs dotfiles), or a task-specific script when the slices
 are fixed). Each slice is one agent
 with a self-contained prompt and a disjoint set of files. Agents write only
 inside the task worktree. The parent integrates, reviews, and is the only
@@ -105,4 +105,4 @@ This section is how the work is hosted. It does not waive those gates.
 task queue. Each routine starts with this same worktree, shared-cache, swarm,
 stack, disk-check, and squash-merge sequence. A routine that edits the tree
 does that work in its own `<worktree-dir>`, with independent findings fanned
-out through `.grok/workflows/task-swarm.rhai`.
+out through the `task-swarm.rhai` Grok workflow (OpenSesame Labs dotfiles).

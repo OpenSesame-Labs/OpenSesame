@@ -1,8 +1,8 @@
 # Kimi Code CLI on Cursor Cloud Agents
 
 OpenSesame Cloud Agent images install **Kimi Code CLI** (`@moonshot-ai/kimi-code`,
-pinned in [`.cursor/Dockerfile`](../../.cursor/Dockerfile)) on `PATH` for login
-shells via `/etc/profile.d/kimi-code.sh` (same pattern as cargo).
+pinned in the image definition kept in the OpenSesame Labs dotfiles repo) on
+`PATH` for login shells via `/etc/profile.d/kimi-code.sh` (same pattern as cargo).
 
 ## Authentication order
 
@@ -33,7 +33,7 @@ with `-p`).
 
 ## Tier 2 in the coding chain
 
-**Grok Build CLI is tier 1** (see `.cursor/rules/grok-build-first.mdc` and
+**Grok Build CLI is tier 1** (see the `grok-build-first` rule in the OpenSesame Labs dotfiles repo and
 `scripts/dev/agent-coding-preflight.sh`). Use Kimi for coding **after** Grok
 hits weekly limit or quota (402/403/429), while Kimi subscription allows.
 

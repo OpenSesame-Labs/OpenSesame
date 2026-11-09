@@ -1,25 +1,28 @@
 # Agent setup (user scope)
 
-Tracked harness files in this repo are product adapters only: product
-hooks/enforcement and project-scoped MCP definitions. Everything personal
-— model/subscription routing, permission auto-allows, plugin enablement,
-API keys, dotfiles — is user scope. This page is how to set that up.
-Canonical product/agent rules remain `AGENTS.md`.
+This repository tracks **no AI-harness dotfiles or dot folders**. Hooks,
+rules, MCP definitions, workflows, permission auto-allows, model and
+subscription routing, plugin enablement, API keys and skill discovery links
+all live in the OpenSesame Labs dotfiles repo and are applied per user. Canonical
+product/agent rules remain `AGENTS.md`.
 
-## What stays tracked (project scope)
+## What is not tracked here
 
-| File | Contents |
-| --- | --- |
-| `.claude/settings.json` | Product hooks only (`session-start.sh`, `design-lint.sh`) |
-| `.codex/config.toml`, `.mcp.json`, `.cursor/mcp.json`, `opencode.json` | Project MCP trio: Storybook (`localhost:6006/mcp`), Stitch, shadcn `4.21.4` (pinned). Keys are env-var references, never values |
-| `.codex/hooks.json` | Product impeccable UI hooks |
-| `.cursor/rules/*.mdc` | Product rules. `grok-build-first`/`kimi-first` are thin adapters pointing here |
-| `.github/copilot-instructions.md` | Bridge to `AGENTS.md` |
-| `skills/` + 8 `.agents/skills/` aliases | First-party skill source and its discovery links. Third-party skills under `.agents/skills/` and the `.claude/skills`/`.grok/skills` mirrors are gitignored install output (see below) |
+`.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.grok/`, `.githooks-grok/`,
+`.impeccable/` (at any depth), `.stitch/` and `.mcp.json` are gitignored
+outright, with no whitelist. Anything an installer or harness writes there is
+local output and can never be staged. `opencode.json` and
+`.github/copilot-instructions.md` are not dot folders and are not covered by
+this rule.
 
-In `opencode.json`, Storybook and Stitch default to `enabled: false`
-(they error without a running Storybook / a personal key). Enable them in
-your user config when you use them; shadcn (local, pinned) stays enabled.
+What stays tracked is the product's own source: first-party skills in
+`skills/` (canonical `SKILL.md` sources and the `skills/profiles.json`
+catalogue), `AGENTS.md`, and the repo tooling under `scripts/`.
+`node scripts/dev/sync-agent-skills.mjs --check` validates `skills/` and any
+`.agents/skills/` links that exist locally; it does not require them.
+
+Your dotfiles are responsible for linking each `skills/<name>` into the
+discovery paths your harness reads (for example `~/.agents/skills`).
 
 ## Personal setup (user scope)
 
@@ -91,11 +94,12 @@ product gate commands most contributors allow:
 ### Stitch plugins and `STITCH_API_KEY`
 
 Stitch needs your own key: `export STITCH_API_KEY=...` in your shell/dotfiles
-(secret store preferred). The tracked MCP stubs only name the env var.
+(secret store preferred). MCP definitions that name the env var live in your
+dotfiles, not in this repo.
 
 The `google-labs-code/stitch-skills` marketplace plugins
 (`stitch-design`, `stitch-build`, `stitch-utilities`) are **not**
-auto-enabled by tracked settings — the same skills install (latest,
+auto-enabled — the same skills install (latest,
 unpinned) into `.agents/skills/stitch-*` per the `skills-lock.json`
 catalogue at container start. To use the
 marketplace copies instead, enable them in your user Claude settings
@@ -105,7 +109,8 @@ marketplace copies instead, enable them in your user Claude settings
 ### Model routing (operator profiles)
 
 Tier routing, subscription auth, and quota fallbacks are operator setup.
-This section is the chain's home; the `.cursor/rules/` adapters point here.
+This section is the chain's home; the harness rule adapters in the dotfiles
+repo point here.
 
 1. **Tier 1 — Grok Build CLI.** Delegate coding through
    `scripts/dev/grok-headless.sh` (subscription auth from
@@ -116,20 +121,21 @@ This section is the chain's home; the `.cursor/rules/` adapters point here.
    `scripts/dev/agent-coding-preflight.sh` before batch work.
 2. **Tier 2 — Kimi Code CLI.** Only when Grok itself reports a weekly
    limit/quota. Auth via `kimi login` (or `KIMI_MODEL_API_KEY`); runbook
-   `.cursor/kimi-code.md`.
+   `kimi-code.md` in the dotfiles repo.
 3. **Tier 3 — Cursor.** When Kimi is also exhausted: Grok model for
    security/red-team work, Composer/auto otherwise.
 
 Record the tier used and why in the PR Provenance section. Details:
-`.cursor/kimi-code.md` and `docs/operators/kimi-code-cloud.md` for runbooks,
+`kimi-code.md` (dotfiles repo) and `docs/operators/kimi-code-cloud.md` for runbooks,
 and `scripts/dev/{grok,kimi,agent-coding}-preflight.sh` before batch work.
 Never commit auth files, API keys, or `auth.preferred_method = "api_key"`
-for device-login setups (see `.grok/config.toml`).
+for device-login setups (see the Grok config in the dotfiles repo).
 
 ## Profiles
 
-- **Default (tracked):** clone and open in any harness. Product hooks and
-  MCP definitions work; nothing personal is assumed.
+- **Default (clone):** clone and open in any harness. No harness config is
+  tracked; apply the OpenSesame Labs dotfiles for hooks, rules and MCP
+  definitions. Nothing personal is assumed by the repo.
 - **Personal (user):** chezmoi dotfiles + `~/.agents/skills` + Claude link
   adapter + `settings.local.json` + your `STITCH_API_KEY`.
 - **Devcontainer:** `.devcontainer/devcontainer.json` — pinned Rust image,
@@ -160,9 +166,8 @@ for device-login setups (see `.grok/config.toml`).
   container start (`skills-lock.json` is the catalogue, not a pin).
   Catalogue changes are reviewed commits; check
   `.agents/.skills-currency.json` for what the last start installed.
-- Harness config changes in-repo: keep them adapter-sized. Rollback is a
-  plain `git revert` of the config commit — personal state above is
-  unaffected because none of it is tracked.
+- Harness config changes: make them in the dotfiles repo, not here. Rollback
+  is a revert there — this repo carries none of it.
 - Devcontainer: rebuild (`Dev Containers: Rebuild Container`) after image
   or feature changes; the per-workspace npm-store volume survives
   rebuilds, executable caches do not. Delete the `opensesame-*` volumes
@@ -170,18 +175,11 @@ for device-login setups (see `.grok/config.toml`).
 
 ## Acceptance checklist
 
-- [ ] Tracked settings contain no model/provider routing, permission
-      allows, plugin enablement, API keys, or absolute home paths
-      (`git grep -nE 'api_key|STITCH_API_KEY=|/Users/|/home/[a-z]' -- .claude .codex .cursor .grok .devcontainer opencode.json .mcp.json` is clean apart from env-var names)
-- [ ] `python3 -m json.tool` parses every tracked `*.json` harness file;
-      `python3 -c "import tomllib,sys; [tomllib.load(open(f,'rb')) for f in sys.argv[1:]]"` parses `.codex/config.toml` and `.grok/config.toml`
+- [ ] No harness dotfiles are tracked:
+      `git ls-files | grep -E '(^|/)\.(agents|claude|codex|cursor|grok|impeccable|stitch|githooks-grok)(/|$)|(^|/)\.mcp\.json$'` prints nothing
 - [ ] `node scripts/dev/sync-agent-skills.mjs --check` exits 0; no broken
       symlinks under `.claude/skills`, `.grok/skills`, `.agents/skills`
-- [ ] Product hooks still fire: edit a `.tsx` file → design-lint /
-      impeccable hook runs; session start stays inert without
-      `OPENSESAME_AGENT_BOOTSTRAP=1`
-- [ ] MCP trio definitions identical across `.codex/config.toml`,
-      `.mcp.json`, `.cursor/mcp.json`, `opencode.json` (URLs + `shadcn@4.21.4`)
+      (when present locally)
 - [ ] Devcontainer: `postStart` runs only the skills install, no `postAttach`,
       no `host.docker.internal`,
       no `${localEnv:HOME}` mount; `id` in lifecycle is `vscode`;

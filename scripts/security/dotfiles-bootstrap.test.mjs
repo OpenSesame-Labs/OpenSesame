@@ -176,7 +176,10 @@ exit 0
   assert.match(log, /GIT_CONFIG_NOSYSTEM=1/);
   assert.match(log, /GIT_CONFIG_COUNT=unset/);
   assert.match(log, /GIT_CONFIG_PARAMETERS=unset/);
-  assert.doesNotMatch(log, /ghp_should_not_leak|ghs_should_not_leak|supersecret|x-access-token/);
+  assert.doesNotMatch(
+    log,
+    /ghp_should_not_leak|ghs_should_not_leak|supersecret|x-access-token/,
+  );
   assertTools(f.home);
 });
 
@@ -281,39 +284,13 @@ test("devcontainer and cloud install run dotfiles before npm ci via mise", () =>
   });
   assert.equal(syntax.status, 0, syntax.stderr);
 
-  const install = read(".cursor/install.sh");
-  const installBoot = install.indexOf("bash scripts/dev/dotfiles-bootstrap.sh");
-  const installLocked = install.indexOf("mise install --locked");
-  const installDeps = install.indexOf("mise run deps");
-  assert.ok(
-    installBoot >= 0 &&
-      installBoot < installLocked &&
-      installLocked < installDeps,
-  );
-  assert.doesNotMatch(install, /staging\/tyler-dotfiles/);
-  assert.doesNotMatch(install, /\bcorepack\b|pnpm@/);
-  assert.doesNotMatch(install, /curl[^\n]*\|\s*(?:ba)?sh/);
-
   const devcontainer = JSON.parse(read(".devcontainer/devcontainer.json"));
   const dockerfile = read(".devcontainer/Dockerfile");
-  const cloud = read(".cursor/Dockerfile");
   assert.equal(devcontainer.features, undefined);
   assert.equal(devcontainer.mounts, undefined);
   assert.equal(JSON.stringify(devcontainer).includes("corepack"), false);
   assert.equal(JSON.stringify(devcontainer).includes("pnpm"), false);
   assert.equal(JSON.stringify(devcontainer).includes("features/node"), false);
-  for (const name of [
-    "MISE_VERSION",
-    "MISE_SHA256_LINUX_X64",
-    "MISE_SHA256_LINUX_ARM64",
-  ]) {
-    const pattern = new RegExp(`ARG ${name}=(\\S+)`);
-    assert.equal(
-      dockerfile.match(pattern)?.[1],
-      cloud.match(pattern)?.[1],
-      name,
-    );
-  }
   assert.match(dockerfile, /sha256sum -c --strict/);
   assert.match(dockerfile, /mise\.toml and mise\.lock/);
   assert.doesNotMatch(dockerfile, /mise\.run/);

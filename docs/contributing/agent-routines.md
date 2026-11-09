@@ -68,7 +68,7 @@ database). It uses the existing npm cache and
 `CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target`, and it does not copy
 `node_modules` or `target/` into that worktree.
 
-Independent findings run together through `.grok/workflows/task-swarm.rhai`:
+Independent findings run together through the `task-swarm.rhai` Grok workflow (OpenSesame Labs dotfiles):
 one agent per disjoint set of files, and the parent integrates. Each logical
 slice is its own GitHub-verified commit (`createCommitOnBranch`) on a stacked
 pull request. After each commit the session runs `df -h /` and deletes only
