@@ -41,8 +41,8 @@ import { chunkName, installChunkName } from "./lib/code-splitting.mjs";
 import { itemTypePackChunk } from "./lib/item-type-pack-chunks.mjs";
 import { walk } from "./lib/verify-dist-checks.mjs";
 
-export { loadInventory } from "./lib/capability-compose-state.mjs";
 export { buildGraph } from "./lib/capability-build-graph.mjs";
+export { loadInventory } from "./lib/capability-compose-state.mjs";
 
 const toPosix = (path) => path.replace(/\\/g, "/");
 
@@ -321,8 +321,7 @@ function mainPlugin(options, ctx) {
       sequential: true,
       handler() {
         const { state, resolved } = ctx;
-        if (!state || state.mode !== "hardened" || resolved.command !== "build")
-          return;
+        if (state?.mode !== "hardened" || resolved.command !== "build") return;
         for (const file of state.publicFiles) {
           if (state.isExcluded(file.capability))
             rmSync(join(ctx.outDir(), publicPathTarget(file.path)), {

@@ -11,6 +11,7 @@ import {
   prunePlaceholderAssets,
 } from "./lib/worker-emission.mjs";
 import { defaultWorkers, workerPlanOwners } from "./shared-worker-plans.mjs";
+
 const PREFIX = "\0opensesame-worker:";
 const purePackages =
   /\/node_modules\/(?:zod|@noble\/(?:ciphers|hashes)|hash-wasm|@levischuck\/tiny-cbor)\//;
@@ -247,7 +248,7 @@ function purePartitions(_ctx, roots, previous, pure) {
 function workerClosure(bundle, file, minted, pure, seen = new Set()) {
   if (seen.has(file)) return seen;
   const output = bundle[file];
-  if (!output || output.type !== "chunk")
+  if (output?.type !== "chunk")
     throw new Error("Worker closure needs an emitted chunk.");
   if (
     Object.keys(output.modules).some(
