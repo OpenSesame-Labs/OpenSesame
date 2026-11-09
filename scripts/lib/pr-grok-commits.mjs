@@ -1,11 +1,17 @@
 import {
   GROK_AUTHOR_EMAIL,
   GROK_AUTHOR_NAME,
-  appendGrokCoAuthorTrailer,
   grokCoAuthorTrailer,
 } from "./grok-commit-identity.mjs";
-import { assertPrSignatures } from "./pr-signatures.mjs";
 
+/**
+ * Whether a commit is attributed to Grok (author, or a Co-authored-by trailer).
+ *
+ * Used by the Grok replay tool (`scripts/release/land-signed-stack.mjs`) to check
+ * the commits it creates. It is NOT a pull-request gate: nothing requires a
+ * commit to involve Grok. The PR gate checks signatures only
+ * (`scripts/lib/pr-signatures.mjs`).
+ */
 export function commitAttributesGrok(entry) {
   const author = entry.commit?.author;
   if (
@@ -17,23 +23,3 @@ export function commitAttributesGrok(entry) {
   const message = entry.commit?.message ?? "";
   return message.includes(grokCoAuthorTrailer());
 }
-
-/** Match Grok Build + ruleset: GitHub-verified and Grok-attributed. */
-export function assertPrGrokCommits(pr, commits, expectedHead) {
-  assertPrSignatures(pr, commits, expectedHead);
-  const wrongAuthor = commits.filter((entry) => !commitAttributesGrok(entry));
-  if (wrongAuthor.length) {
-    throw new Error(
-      `Grok-attributed commits required: ${wrongAuthor
-        .map(
-          (entry) =>
-            `${entry.sha} (${entry.commit?.author?.name ?? "?"} <${entry.commit?.author?.email ?? "?"}>)`,
-        )
-        .join(
-          ", ",
-        )}. Author as Grok <${GROK_AUTHOR_EMAIL}> or include ${grokCoAuthorTrailer()} in the message.`,
-    );
-  }
-}
-
-export { appendGrokCoAuthorTrailer, grokCoAuthorTrailer };
