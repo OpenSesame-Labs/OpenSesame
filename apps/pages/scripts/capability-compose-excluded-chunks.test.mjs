@@ -89,7 +89,7 @@ async function bundle(source, selected = false) {
       write: false,
       minify: false,
       rollupOptions: {
-        output: { experimentalMinChunkSize: 32000 },
+        output: {},
       },
     },
   });
@@ -153,7 +153,8 @@ test("excluded ownership defers to the caller while selected and shared pins ret
       },
     };
     await plugin.config(config, { command: "build", mode: "production" });
-    const chunkFor = config.build.rollupOptions.output.manualChunks;
+    const chunkFor =
+      config.build.rollupOptions.output.codeSplitting.groups[0].name;
     assert.equal(
       chunkFor(model, api),
       selected ? "directory-signin-model" : "caller",

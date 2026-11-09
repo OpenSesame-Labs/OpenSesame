@@ -24,7 +24,7 @@
     "facadeDelegate": "return sdkGenerateObject(options);",
     "callerModel": "model: createPromptLanguageModel({ api }),"
   },
-  "gatewayErrorRenderedBytes": 3128,
+  "gatewayErrorRenderedBytes": 48261,
   "forbiddenRuntimeFragments": [
     "https://ai-gateway.vercel.sh/v4/ai",
     "ai-gateway-protocol-version",

@@ -1,11 +1,10 @@
 /**
  * One chunk per built-in item-type pack (ADR 0165).
  *
- * A pack's definition is ~2 KB, far under `experimentalMinChunkSize`, so
- * Rollup folds each into whatever chunk it may — five of the eighteen landed in
- * `main` and `expiry`, which every page load fetches. Naming each module here
- * keeps it a leaf of its own: reached only through the loader's dynamic
- * `import()`, fetched when a person switches the type on.
+ * A pack's definition is ~2 KB, so automatic chunking may place it in a larger
+ * eagerly loaded chunk. Naming each module here keeps it a leaf of its own:
+ * reached only through the loader's dynamic `import()`, fetched when a person
+ * switches the type on.
  */
 
 const toPosix = (path) => path.replace(/\\/g, "/");

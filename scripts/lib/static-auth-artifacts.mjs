@@ -93,6 +93,20 @@ const organizeImports = (entry, path) => {
   return [action?.level ?? action, "off"][Number(!enabled)];
 };
 
+const toolDisabled = (entry, tool) => entry?.[tool]?.enabled === false;
+
+function generatedCodeException(entry, path) {
+  return [
+    toolDisabled(entry, "linter"),
+    toolDisabled(entry, "formatter"),
+    entry.linter?.includes?.length === 0,
+    entry.formatter?.includes?.length === 0,
+    toolDisabled(entry.javascript, "linter"),
+    toolDisabled(entry.javascript, "formatter"),
+    organizeImports(entry, path) === "off",
+  ].some(Boolean);
+}
+
 /** Biome 2 ignores by negated `files.includes` entries (`!` or force-ignore `!!`). */
 const ignoredPatterns = (config) =>
   (config.files?.includes ?? [])
@@ -232,15 +246,8 @@ export function validateStaticAuth(rootPath) {
     "on",
     "Authored-code checks must stay enabled",
   );
-  const exceptions = (config.overrides ?? []).filter(
-    (entry) =>
-      entry.linter?.enabled === false ||
-      entry.formatter?.enabled === false ||
-      entry.linter?.includes?.length === 0 ||
-      entry.formatter?.includes?.length === 0 ||
-      entry.javascript?.linter?.enabled === false ||
-      entry.javascript?.formatter?.enabled === false ||
-      organizeImports(entry, paths[0]) === "off",
+  const exceptions = (config.overrides ?? []).filter((entry) =>
+    generatedCodeException(entry, paths[0]),
   );
   assert.deepEqual(
     exceptions,

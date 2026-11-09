@@ -100,7 +100,6 @@ globalThis.route=v=>NativeHTTPConfiguration.safeParse(v).success;`
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
           manualChunks: (id) =>
             id === owner || id.includes("/node_modules/zod/")
               ? "host-with-pure-dependencies"
@@ -109,7 +108,7 @@ globalThis.route=v=>NativeHTTPConfiguration.safeParse(v).success;`
       },
     },
   });
-  return { bundle, owner, worker, work };
+  return { bundle, owner, worker, work, plugin };
 }
 async function evaluateProtocol(bundle, root, work) {
   const outputs = Object.fromEntries(
@@ -186,26 +185,24 @@ process.stdout.write('real-shipped-protocol-csp-strict-ok');`;
 }
 
 test("real shipped peer protocol isolates patched Zod and exact public validation dependencies", async () => {
-  const { bundle, owner, work } = await fixture();
+  const { bundle, owner, work, plugin } = await fixture();
   const values = Object.values(bundle);
   const root = values.find(
     (value) =>
       value.type === "asset" &&
       value.fileName.startsWith("assets/tailscale-node-"),
   );
-  assert.ok(root?.opensesameWorkerChunk);
-  const workerFiles = Object.keys(root.opensesameWorkerChunk.modules).map(
-    workerRealmSource,
-  );
+  assert.ok(plugin.workerChunk(root.fileName));
+  const workerFiles = Object.keys(
+    plugin.workerChunk(root.fileName).modules,
+  ).map(workerRealmSource);
   for (const file of [
     protocol,
     join(core, "tailscale/browser-node-peer-http.ts"),
     join(core, "tailscale/browser-node-port.ts"),
   ])
     assert.ok(workerFiles.includes(file), file);
-  const ids = values.flatMap((value) =>
-    Object.keys(value.modules ?? value.opensesameWorkerChunk?.modules ?? {}),
-  );
+  const ids = values.flatMap((value) => Object.keys(value.modules ?? {}));
   const zodIds = ids.filter((id) => id.includes("/node_modules/zod/"));
   assert.ok(zodIds.length > 0);
   assert.equal(
@@ -256,7 +253,7 @@ const streamRegistry = join(
   "apps/pages/src/modules/networking.tailnet/browser/worker-native-http.ts",
 );
 test("shipped native stream registry stays in the isolated tailscale Worker graph", async () => {
-  const { bundle, work } = await fixture({
+  const { bundle, work, plugin } = await fixture({
     extraImport: `import {WorkerNativeHTTP} from ${JSON.stringify(streamRegistry)};globalThis.streamRegistry=WorkerNativeHTTP;`,
   });
   const root = Object.values(bundle).find(
@@ -264,8 +261,8 @@ test("shipped native stream registry stays in the isolated tailscale Worker grap
       value.type === "asset" &&
       value.fileName.startsWith("assets/tailscale-node-"),
   );
-  assert.ok(root?.opensesameWorkerChunk);
-  const files = Object.keys(root.opensesameWorkerChunk.modules).map(
+  assert.ok(plugin.workerChunk(root.fileName));
+  const files = Object.keys(plugin.workerChunk(root.fileName).modules).map(
     workerRealmSource,
   );
   assert.ok(files.includes(streamRegistry));
@@ -307,7 +304,7 @@ test.each([
   "shipped peer adapter stays in the private native Worker graph: %s",
   async (file, exported) => {
     const adapter = join(dirname(streamRegistry), file);
-    const { bundle, work } = await fixture({
+    const { bundle, work, plugin } = await fixture({
       extraImport: `import {${exported}} from ${JSON.stringify(adapter)};globalThis.originalPeerAdapter=${exported};`,
     });
     const root = Object.values(bundle).find(
@@ -315,8 +312,8 @@ test.each([
         value.type === "asset" &&
         value.fileName.startsWith("assets/tailscale-node-"),
     );
-    assert.ok(root?.opensesameWorkerChunk);
-    const files = Object.keys(root.opensesameWorkerChunk.modules).map(
+    assert.ok(plugin.workerChunk(root.fileName));
+    const files = Object.keys(plugin.workerChunk(root.fileName).modules).map(
       workerRealmSource,
     );
     assert.ok(files.includes(adapter));

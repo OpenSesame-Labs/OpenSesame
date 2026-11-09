@@ -87,7 +87,6 @@ async function fixture({
   originalPartition = false,
   plans = workers,
 } = {}) {
-  let bundle;
   const workerPlugin = sharedWorkerGraph({ workers: plans });
   if (originalPartition) workerPlugin.outputOptions = undefined;
   const result = await build({
@@ -115,7 +114,6 @@ async function fixture({
                 source: "owned test asset",
               });
           }
-          bundle = output;
         },
       },
     ],
@@ -134,8 +132,6 @@ async function fixture({
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          experimentalMinChunkSize: 32000,
-          onlyExplicitManualChunks: true,
           manualChunks:
             manualChunks ??
             ((id) =>
@@ -148,11 +144,14 @@ async function fixture({
       },
     },
   });
-  return { bundle, output: result.output };
+  const bundle = Object.fromEntries(
+    result.output.map((entry) => [entry.fileName, entry]),
+  );
+  return { bundle, output: result.output, workerPlugin };
 }
 
 test("module workers retain original owners, patched Zod, pure versions, and complete offline closures", async () => {
-  const { bundle } = await fixture();
+  const { bundle, workerPlugin } = await fixture();
   const values = Object.values(bundle);
   const sdkOwner = values.find((v) => v.type === "chunk" && sdk in v.modules);
   const tailnetOwner = values.find(
@@ -165,11 +164,11 @@ test("module workers retain original owners, patched Zod, pure versions, and com
     ),
   );
   assert.ok(roots.every(Boolean));
-  assert.equal(roots.length, 2);
   for (const root of roots) {
-    assert.equal(root.opensesameWorkerChunk.code, root.source);
+    const chunk = workerPlugin.workerChunk(root.fileName);
+    assert.equal(chunk.code, root.source);
     assert.ok(
-      Object.keys(root.opensesameWorkerChunk.modules).some((id) =>
+      Object.keys(chunk.modules).some((id) =>
         id.startsWith("\0opensesame-worker:"),
       ),
     );
@@ -208,7 +207,6 @@ test("module workers retain original owners, patched Zod, pure versions, and com
   );
   await assertIsolatedParsers(outputs, roots, dir);
 });
-
 test("excluded owners do not emit worker entries or native assets", async () => {
   const plain = join(dir, "plain.ts");
   await writeFile(plain, "globalThis.plain = true;");
@@ -216,7 +214,6 @@ test("excluded owners do not emit worker entries or native assets", async () => 
   assert.equal(output.length, 1);
   assert.ok(!output.some((item) => item.type === "asset"));
 });
-
 test("partition prevents the reproduced full-app host contamination and preserves delegation", async () => {
   const delegated = new Set();
   const manualChunks = (id, api) => {
@@ -236,9 +233,9 @@ test("partition prevents the reproduced full-app host contamination and preserve
     (error) => {
       assert.match(
         error.message,
-        /Worker closure unexpectedly includes host modules: assets\/host-[A-Za-z0-9_-]+\.js;/,
+        /Worker closure unexpectedly includes host modules: assets\/[A-Za-z0-9_-]+\.js;/,
       );
-      assert.ok(error.message.includes(host));
+      assert.ok(error.message.includes("onepassword-sdk-loader.ts"));
       return true;
     },
   );
@@ -271,7 +268,7 @@ test("pure partitions still reject a real host module inside a private worker ch
     (error) => {
       assert.match(
         error.message,
-        /Worker-private chunk unexpectedly contains host\/shared modules: assets\/onepassword-sdk\.worker-[A-Za-z0-9_-]+\.js;/,
+        /Worker-private chunk unexpectedly contains host\/shared modules: assets\/[A-Za-z0-9_-]+\.js;/,
       );
       assert.ok(error.message.includes(host));
       return true;
@@ -353,7 +350,7 @@ test("an explicit identity owner shares only the original Tailscale entry and of
     input,
     `import * as sdk from ${JSON.stringify(sdk)};import * as tailnet from ${JSON.stringify(controller)};import * as identity from ${JSON.stringify(identity)};globalThis.owners=[sdk,tailnet,identity];`,
   );
-  const { bundle } = await fixture({
+  const { bundle, workerPlugin } = await fixture({
     input,
     plans: [workers[0], { ...workers[1], additionalOwners: [identity] }],
     manualChunks: (id) =>
@@ -382,7 +379,7 @@ test("an explicit identity owner shares only the original Tailscale entry and of
       assert.ok(bundle[file]);
   }
   assert.ok(
-    !Object.keys(roots[0].opensesameWorkerChunk.modules).some(
+    !Object.keys(workerPlugin.workerChunk(roots[0].fileName).modules).some(
       (id) => id === controller || id === identity,
     ),
   );

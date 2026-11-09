@@ -113,10 +113,14 @@ function sdkOwner(bundle, classify) {
   const nativeIds = Object.keys(output.modules).filter(
     (id) => secretBackendSdkChunk(id, classify(id)) !== undefined,
   );
-  if (nativeIds.length !== Object.keys(output.modules).length)
-    throw new Error(
-      "1Password SDK assets need an exclusively native SDK chunk.",
+  if (nativeIds.length !== Object.keys(output.modules).length) {
+    const unexpected = Object.keys(output.modules).filter(
+      (id) => secretBackendSdkChunk(id, classify(id)) === undefined,
     );
+    throw new Error(
+      `1Password SDK assets need an exclusively native SDK chunk: ${unexpected.join(", ")}`,
+    );
+  }
   if (
     !nativeIds.some((id) =>
       id
@@ -129,6 +133,94 @@ function sdkOwner(bundle, classify) {
   return { file, output };
 }
 
+function importWorkerFactories(node, factories) {
+  if (
+    !ts.isImportDeclaration(node) ||
+    !ts.isStringLiteralLike(node.moduleSpecifier) ||
+    !/\/ports-[^/]+\.js$/.test(node.moduleSpecifier.text) ||
+    !node.importClause?.namedBindings ||
+    !ts.isNamedImports(node.importClause.namedBindings)
+  )
+    return;
+  for (const element of node.importClause.namedBindings.elements)
+    if ((element.propertyName ?? element.name).text === "E")
+      factories.add(element.name.text);
+}
+
+function assignedWorkerConstructor(node, factories, constructors) {
+  if (
+    !ts.isVariableDeclaration(node) ||
+    !ts.isIdentifier(node.name) ||
+    !node.initializer ||
+    !ts.isCallExpression(node.initializer) ||
+    !ts.isIdentifier(node.initializer.expression) ||
+    !factories.has(node.initializer.expression.text)
+  )
+    return;
+  constructors.add(node.name.text);
+}
+
+function importedWorkerFactories(ast) {
+  const factories = new Set();
+  const constructors = new Set();
+  const visit = (node) => {
+    importWorkerFactories(node, factories);
+    assignedWorkerConstructor(node, factories, constructors);
+    return ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return { factories, constructors };
+}
+
+function moduleWorkerOptions(node, ast, requiredName) {
+  if (!ts.isObjectLiteralExpression(node)) return false;
+  const values = new Map();
+  for (const property of node.properties)
+    if (
+      ts.isPropertyAssignment(property) &&
+      ts.isStringLiteralLike(property.initializer)
+    )
+      values.set(property.name.getText(ast), property.initializer.text);
+  return (
+    values.get("type") === "module" &&
+    (requiredName === undefined || values.get("name") === requiredName)
+  );
+}
+
+function workerConstruction(node, ast, factories, constructors, urlMatches) {
+  if (
+    !ts.isNewExpression(node) ||
+    node.arguments?.length !== 2 ||
+    !ts.isStringLiteralLike(node.arguments[0]) ||
+    !urlMatches(node.arguments[0].text)
+  )
+    return false;
+  const callee = node.expression;
+  if (ts.isIdentifier(callee) && callee.text === "Worker")
+    return moduleWorkerOptions(node.arguments[1], ast);
+  if (
+    ts.isIdentifier(callee) &&
+    (factories.has(callee.text) || constructors.has(callee.text))
+  )
+    return moduleWorkerOptions(
+      node.arguments[1],
+      ast,
+      "opensesame-onepassword",
+    );
+  return false;
+}
+
+function workerUrlConstruction(node, ast, ownerFile, root, urlMatches) {
+  return (
+    ts.isNewExpression(node) &&
+    node.expression.getText(ast) === "URL" &&
+    node.arguments?.length === 2 &&
+    ts.isStringLiteralLike(node.arguments[0]) &&
+    node.arguments[1].getText(ast) === "import.meta.url" &&
+    urlMatches(node.arguments[0].text, new URL(ownerFile, root))
+  );
+}
+
 function referencesWorker(owner, worker, base) {
   const root = new URL(base, "https://opensesame-build.invalid/");
   const target = new URL(worker, root).href;
@@ -139,20 +231,19 @@ function referencesWorker(owner, worker, base) {
     true,
     ts.ScriptKind.JS,
   );
-  const visit = (node) => {
-    if (
-      ts.isNewExpression(node) &&
-      node.expression.getText(ast) === "URL" &&
-      node.arguments?.length === 2 &&
-      ts.isStringLiteralLike(node.arguments[0]) &&
-      node.arguments[1].getText(ast) === "import.meta.url"
-    ) {
-      if (
-        new URL(node.arguments[0].text, new URL(owner.file, root)).href ===
-        target
-      )
-        return true;
+  const { factories, constructors } = importedWorkerFactories(ast);
+  const urlMatches = (literal, parent = root) => {
+    try {
+      return new URL(literal, parent).href === target;
+    } catch {
+      return false;
     }
+  };
+  const visit = (node) => {
+    if (workerConstruction(node, ast, factories, constructors, urlMatches))
+      return true;
+    if (workerUrlConstruction(node, ast, owner.file, root, urlMatches))
+      return true;
     return ts.forEachChild(node, visit);
   };
   return visit(ast) === true;
@@ -171,10 +262,14 @@ export function attachOnePasswordAssets(bundle, classify, base = "/") {
     throw new Error(
       "1Password SDK needs exactly one emitted dedicated worker.",
     );
-  if (!referencesWorker(owner, workers[0], base))
-    throw new Error(
-      "1Password native loader must reference its emitted worker.",
+  if (!referencesWorker(owner, workers[0], base)) {
+    const reference = owner.output.code.match(
+      /.{0,100}(?:ROLLUP_FILE_URL|onepassword-sdk\.worker).{0,150}/s,
     );
+    throw new Error(
+      `1Password native loader must reference its emitted worker: ${reference?.[0] ?? "no reference"}`,
+    );
+  }
   owner.output.viteMetadata ??= {};
   owner.output.viteMetadata.importedAssets ??= new Set();
   for (const file of [...Object.values(ONEPASSWORD_ASSETS), workers[0]])

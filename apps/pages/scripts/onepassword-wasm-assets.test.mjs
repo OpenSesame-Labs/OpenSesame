@@ -25,6 +25,7 @@ import {
   onePasswordPackageRoot,
   onePasswordWasmAssets,
 } from "./onepassword-wasm-assets.mjs";
+
 const packageRoot = onePasswordPackageRoot();
 const original = readFileSync(join(packageRoot, "nodejs/core.js"), "utf8");
 const temporary = [];
@@ -233,6 +234,12 @@ it("attaches four actual dependencies only to an exclusively owned native leaf",
   expect(bundle["assets/common.js"].viteMetadata).toBeUndefined();
   expect(bundle[worker].viteMetadata).toBeUndefined();
 });
+it("accepts a minified constructor alias with a literal module worker URL", () => {
+  const bundle = ownedBundle();
+  bundle["assets/native.js"].code =
+    `import { E as e } from "./ports-test.js";\nnew e(${JSON.stringify(`/OpenSesame/${worker}`)},{type:"module",name:"opensesame-onepassword"})`;
+  expect(attachOnePasswordAssets(bundle, optional, "/OpenSesame/")).toBe(true);
+});
 it.each([
   "onepassword.ts",
   "factory.ts",
@@ -317,6 +324,8 @@ it("requires an exact parsed worker URL reference, not a comment, near filename 
     `// new URL("/OpenSesame/${worker}", import.meta.url)`,
     `new URL("/OpenSesame/${worker}.other", import.meta.url)`,
     `new URL("https://other.example/OpenSesame/${worker}", import.meta.url)`,
+    `new URL("/OpenSesame/${worker}",{type:"module",name:"opensesame-onepassword"})`,
+    `new e("/OpenSesame/${worker}",{type:"module",name:"opensesame-onepassword"})`,
   ]) {
     const bundle = ownedBundle();
     bundle["assets/native.js"].code = code;

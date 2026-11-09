@@ -226,16 +226,15 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        // Merge a chunk under 64 KB into one that every path loading it
-        // already loads. The precache gzips each file alone; a 64 KB floor
-        // reduces that repeated compression overhead. A pure chunk still
-        // folds into a neighbour at this floor. Pin a chunk that must keep its
-        // name (`device-identity-host` below; web-push enrolment in
-        // `capability-lazy-leaves.mjs`) so the bootstrap does not
-        // static-import an optional module (ADR 0130 §4) and the device
-        // walks can still import the host by file name.
-        experimentalMinChunkSize: 64_000,
-        manualChunks: bundleChunk,
+        // Rolldown has no equivalent of Rollup's small-chunk merge floor.
+        // Explicit capability groups stay dynamic without depending on one;
+        // smaller automatic chunks are accepted (ADR 0130 §4).
+        codeSplitting: {
+          includeDependenciesRecursively: false,
+          groups: [
+            { name: bundleChunk, includeDependenciesRecursively: false },
+          ],
+        },
       },
       // Every HTML entry is listed here; `capabilityCompose()`'s config hook
       // removes the ones owned by a capability a hardened build excludes

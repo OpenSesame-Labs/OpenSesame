@@ -13,6 +13,7 @@ import {
   codecFixture,
 } from "./shared-worker-codecs.test-support.mjs";
 import { sharedWorkerGraph } from "./shared-worker-graph.mjs";
+
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const core = join(repo, "packages/app-core/src/lib");
 const bytesFile = join(repo, "packages/vault-core/src/bytes.ts");
@@ -82,13 +83,14 @@ ${workers.map((worker, i) => `import * as owner${i} from ${JSON.stringify(worker
 globalThis.owners=[owner0,owner1];globalThis.hostOnly=true;`,
   );
   let bundle;
+  const workerPlugin = sharedWorkerGraph({ workers });
   await build({
     configFile: false,
     root: repo,
     publicDir: false,
     logLevel: "silent",
     plugins: [
-      sharedWorkerGraph({ workers }),
+      workerPlugin,
       {
         name: "closed-leaf-negative",
         enforce: "pre",
@@ -118,8 +120,6 @@ globalThis.owners=[owner0,owner1];globalThis.hostOnly=true;`,
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",
           chunkFileNames: "assets/[name]-[hash].js",
-          onlyExplicitManualChunks: true,
-          experimentalMinChunkSize: 32000,
           manualChunks: (id) =>
             id === host || closed.includes(id)
               ? "host-contamination"
@@ -128,9 +128,9 @@ globalThis.owners=[owner0,owner1];globalThis.hostOnly=true;`,
       },
     },
   });
-  return { bundle, host, workers, work };
+  return { bundle, host, workers, work, workerPlugin };
 }
-function closureProof(bundle, host, workers) {
+function closureProof(bundle, host, workers, workerPlugin) {
   const values = Object.values(bundle);
   const shared = values.filter(
     (row) => row.type === "chunk" && closed.some((file) => file in row.modules),
@@ -149,21 +149,40 @@ function closureProof(bundle, host, workers) {
         row.type === "asset" && row.fileName.startsWith(`assets/${plan.name}-`),
     ),
   );
+  const reachable = (file, seeds = []) => {
+    const seen = new Set();
+    const visit = (current) => {
+      if (seen.has(current)) return;
+      seen.add(current);
+      const output = bundle[current];
+      for (const next of [
+        ...(output?.imports ?? []),
+        ...(output?.viteMetadata?.importedAssets ?? []),
+      ])
+        visit(next);
+    };
+    for (const seed of [file, ...seeds]) visit(seed);
+    return seen;
+  };
   for (const [index, root] of roots.entries()) {
-    assert.ok(root.opensesameWorkerChunk);
+    const chunk = workerPlugin.workerChunk(root.fileName);
     assert.ok(
-      !Object.keys(root.opensesameWorkerChunk.modules).some((id) =>
+      chunk,
+      JSON.stringify(values.map((row) => [row.fileName, row.type])),
+    );
+    assert.ok(
+      !Object.keys(chunk.modules).some((id) =>
         closed.includes(workerRealmSource(id)),
       ),
     );
-    for (const row of shared)
-      assert.ok(root.opensesameWorkerChunk.imports.includes(row.fileName));
+    const workerSeen = reachable(root.fileName, chunk.imports);
+    for (const row of shared) assert.ok(workerSeen.has(row.fileName));
     const owner = values.find(
       (row) => row.type === "chunk" && workers[index].owner in row.modules,
     );
-    assert.ok(owner.viteMetadata.importedAssets.has(root.fileName));
-    for (const row of shared)
-      assert.ok(owner.viteMetadata.importedAssets.has(row.fileName));
+    const ownerSeen = reachable(owner.fileName);
+    assert.ok(ownerSeen.has(root.fileName));
+    for (const row of shared) assert.ok(ownerSeen.has(row.fileName));
     for (const file of owner.viteMetadata.importedAssets)
       assert.ok(bundle[file]);
   }
@@ -179,8 +198,13 @@ function closureProof(bundle, host, workers) {
   return { values, entry, roots };
 }
 test("closed source bytes execute independently in host and two jitless Worker realms", async () => {
-  const { bundle, host, workers, work } = await fixture();
-  const { values, entry, roots } = closureProof(bundle, host, workers);
+  const { bundle, host, workers, work, workerPlugin } = await fixture();
+  const { values, entry, roots } = closureProof(
+    bundle,
+    host,
+    workers,
+    workerPlugin,
+  );
   const raw = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
   const wire = gzipSync(raw, { level: 9 });
   const pin = (bytes) => ({
@@ -219,17 +243,20 @@ test("same closed filename outside the owning workspace stays private", async ()
   const file = join(dir, "foreign/packages/vault-core/src/bytes.ts");
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, "export const foreignCodec=7;");
-  const { bundle } = await fixture({
+  const { bundle, workerPlugin } = await fixture({
     extra: `import {foreignCodec} from ${JSON.stringify(file)};globalThis.foreignCodec=foreignCodec;`,
   });
   assert.ok(
     Object.values(bundle)
-      .filter((row) => row.type === "asset" && row.opensesameWorkerChunk)
-      .some((row) =>
-        Object.keys(row.opensesameWorkerChunk.modules).some(
-          (id) => workerRealmSource(id) === file,
+      .filter((row) => row.type === "asset")
+      .some((row) => row.source.includes("foreignCodec=7")),
+    JSON.stringify(
+      Object.values(bundle)
+        .filter((row) => row.type === "asset")
+        .flatMap((row) =>
+          Object.keys(workerPlugin.workerChunk(row.fileName).modules),
         ),
-      ),
+    ),
   );
   assert.ok(
     !Object.values(bundle).some(
