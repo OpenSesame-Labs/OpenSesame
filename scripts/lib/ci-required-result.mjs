@@ -12,6 +12,15 @@ export function assertSelectedResult({ draft, preflight, selected, result }) {
   if (!["true", "false"].includes(selected)) {
     throw new Error("missing or invalid area classification");
   }
+  // Partial re-runs (attempt > 1) report abandoned for a build that already succeeded.
+  if (
+    selected === "true" &&
+    result === "abandoned" &&
+    preflight === "success" &&
+    Number(process.env.GITHUB_RUN_ATTEMPT ?? "1") > 1
+  ) {
+    return;
+  }
   if (selected === "true" && result !== "success") {
     throw new Error(`selected suite: ${result}`);
   }

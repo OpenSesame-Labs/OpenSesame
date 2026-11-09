@@ -4,6 +4,18 @@ import {
   assertSelectedResult,
 } from "./ci-required-result.mjs";
 
+function withRunAttempt(attempt, run) {
+  const previous = process.env.GITHUB_RUN_ATTEMPT;
+  if (attempt === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+  else process.env.GITHUB_RUN_ATTEMPT = attempt;
+  try {
+    run();
+  } finally {
+    if (previous === undefined) delete process.env.GITHUB_RUN_ATTEMPT;
+    else process.env.GITHUB_RUN_ATTEMPT = previous;
+  }
+}
+
 const admitted = {
   draft: "false",
   preflight: "success",
@@ -28,6 +40,37 @@ describe("required integration results", () => {
       expect(() => assertSelectedResult({ ...admitted, result })).toThrow();
     },
   );
+  it.each([undefined, "1"])(
+    "rejects an abandoned selected suite on attempt %s",
+    (attempt) => {
+      withRunAttempt(attempt, () => {
+        expect(() =>
+          assertSelectedResult({ ...admitted, result: "abandoned" }),
+        ).toThrow(/selected suite: abandoned/u);
+      });
+    },
+  );
+  it.each(["2", "3"])(
+    "accepts an abandoned selected suite on attempt %s after a successful preflight",
+    (attempt) => {
+      withRunAttempt(attempt, () => {
+        expect(() =>
+          assertSelectedResult({ ...admitted, result: "abandoned" }),
+        ).not.toThrow();
+      });
+    },
+  );
+  it("rejects an abandoned selected suite on a later attempt when preflight did not succeed", () => {
+    withRunAttempt("2", () => {
+      expect(() =>
+        assertSelectedResult({
+          ...admitted,
+          preflight: "failure",
+          result: "abandoned",
+        }),
+      ).toThrow(/preflight: failure/u);
+    });
+  });
   it.each(["failure", "skipped", "", undefined])(
     "never turns failed classification %s into a skip success",
     (preflight) => {
