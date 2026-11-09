@@ -63,7 +63,7 @@ export function useStorageRiskNotice(
       return;
     }
     let live = true;
-    void (async () => {
+    const evaluate = async () => {
       const backup = await storageRiskSeams.getBackupStatus().catch(() => null);
       if (!live) return;
       // Enabled is not backed up: a target that is failing, still holding
@@ -82,6 +82,7 @@ export function useStorageRiskNotice(
         }
         return;
       }
+      if (shown.current) return;
       shown.current = true;
       storageRiskSeams.setStatusNotice({
         id: STORAGE_RISK_NOTICE_ID,
@@ -97,9 +98,14 @@ export function useStorageRiskNotice(
             }
           : { open: { to: "/vault?f=all", label: "Export a copy" } }),
       });
-    })();
+    };
+    void evaluate();
+    // Backup state changes under the notice (a target enabled or syncing in
+    // Settings right now): re-read it so the warning is never stale-false.
+    const timer = setInterval(() => void evaluate(), 30_000);
     return () => {
       live = false;
+      clearInterval(timer);
     };
   }, [status, tomb, guest, count]);
 }
