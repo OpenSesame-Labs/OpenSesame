@@ -3,6 +3,10 @@
  * check out workflow_call inputs (candidate source_sha) or run release/CD pipelines
  * must not restore or save that cache after untrusted checkout — see CodeQL
  * actions/cache-poisoning/poisonable-step and jdx/mise-action release guidance.
+ *
+ * security.yml runs on a weekly schedule and workflow_dispatch. It does not
+ * use mise-action. It may restore the trunk mise tool cache (node and go
+ * keys) and must not save it.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

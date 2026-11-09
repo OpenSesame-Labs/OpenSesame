@@ -41,16 +41,24 @@ jobs:
     name: Native JS/WASM source graph and Go advisories
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The mise tool directory is restored read-only and is not saved.
     permissions:
       contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: true
-          install_args: node
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node
+        run: bash scripts/lib/install-mise-locked.sh node
       - name: Install the locked audit runtime
         run: npm ci --ignore-scripts
       - name: Scan the composed production import graph and selected standard library
@@ -123,16 +131,24 @@ jobs:
     name: TURN cryptography source and advisories
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # The mise tool directory is restored read-only and is not saved.
     permissions:
       contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: true
-          install_args: go
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-go-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-go-
+            mise-v1-linux-
+      - name: Install pinned mise and Go
+        run: bash scripts/lib/install-mise-locked.sh go
       - name: Verify upstream source and scan all imported packages
         run: bash scripts/test/live-turn/audit-crypto.sh
 

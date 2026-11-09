@@ -38,6 +38,44 @@ test("privileged workflow list matches workflow_call and release filenames", () 
   assert.ok(!disabled.includes("cd-npm-publish-proof.yml"));
 });
 
+const nodeMiseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+const goMiseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-go-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+
+function assertSecurityMiseRestore(text) {
+  const name = "security.yml";
+  const steps = text.split(/\n {6}- /u);
+  const tools = [];
+  for (const step of steps) {
+    if (!step.includes("actions/cache")) continue;
+    const tool = step.includes(goMiseRestoreKey)
+      ? "go"
+      : step.includes(nodeMiseRestoreKey)
+        ? "node"
+        : "";
+    assert.ok(tool === "node" || tool === "go", name);
+    tools.push(tool);
+    assert.ok(
+      step.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
+      name,
+    );
+    assert.ok(step.includes("path: ~/.local/share/mise\n"), name);
+    assert.ok(
+      step.includes(`mise-v2-\${{ runner.os }}-seed-main-${tool}-\n`),
+      name,
+    );
+    assert.ok(step.includes("mise-v1-linux-"), name);
+    const other = tool === "node" ? "go" : "node";
+    assert.equal(step.includes(`-seed-main-${other}-`), false, name);
+    assert.equal(step.includes("actions/cache/save@"), false, name);
+  }
+  assert.deepEqual(tools.sort(), ["go", "node"], name);
+  assert.equal(text.includes("actions/cache/save@"), false, name);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+  assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+}
+
 test("privileged workflows do not restore or save Actions caches", () => {
   const disabled = workflowsWithMiseCacheDisabled();
   assert.ok(disabled.length > 0);
@@ -47,6 +85,14 @@ test("privileged workflows do not restore or save Actions caches", () => {
     cacheUse.lastIndex = 0;
     assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
   }
+});
+
+test("security monitoring restores the mise tool cache and does not save it", () => {
+  const text = readFileSync(join(workflowDir, "security.yml"), "utf8");
+  assert.equal(miseCacheDisabledForWorkflow("security.yml"), false);
+  assert.ok(text.includes(nodeMiseRestoreKey));
+  assert.ok(text.includes(goMiseRestoreKey));
+  assertSecurityMiseRestore(text);
 });
 
 test("actions/cache and actions/cache/restore stay on the repo pin", () => {

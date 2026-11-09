@@ -312,7 +312,7 @@ test("scheduled native auditing fails closed on the real production graph after 
   assert.ok(workflow.on.schedule.length > 0);
   assert.ok(Object.hasOwn(workflow.on, "workflow_dispatch"));
   const job = workflow.jobs["native-go"];
-  assert.deepEqual(job.permissions, { contents: "read" });
+  assert.deepEqual(job.permissions, { actions: "read", contents: "read" });
   assert.equal(job.if, undefined);
   assert.equal(job.needs, undefined);
   const install = job.steps.findIndex(

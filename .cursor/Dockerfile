@@ -52,6 +52,7 @@ RUN apt-get update \
 
 # Pinned GitHub release tarball. The digests are checked before extraction.
 # Both image architectures are pinned; the build picks the one it is building.
+# scripts/lib/mise-pins.sh must stay equal to these three ARGs.
 ARG MISE_VERSION=2026.10.18
 ARG MISE_SHA256_LINUX_X64=0d41b60745a6273a80089c86f80d8729042d2f57f87fda70aecc7d1c3ffbd3be
 ARG MISE_SHA256_LINUX_ARM64=c5a49a47f8184f5649f3d8685b408bd72325a823f41cf618c60f3ffc303090a1
