@@ -399,6 +399,8 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
           SMOKE_PUBLISHED_PACKAGE: "@opensesame-labs/web-pwa"
+          # ~14MB tarball; npm often exceeds the default 300s CLI budget (run 42707282141).
+          SMOKE_REGISTRY_DEADLINE_MS: "900000"
         run: node scripts/release/cd-registry-wait.mjs
 
   deploy:
