@@ -8,6 +8,7 @@ import type { AppContext } from "../context.js";
 import { normalizeIssuer } from "../interactions/issuer-normalization.js";
 import { resolveTrustedIssuer } from "../interactions/trust.js";
 import type { Variables } from "../middleware/context.js";
+import { revokeSessionTokens } from "../repos/session-storage.js";
 import { emailLinkFields } from "../services/email-authority.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
 import {
@@ -106,6 +107,32 @@ async function verifyToken(
   }
 }
 
+/** A caller with nothing of their own to merge from. */
+function isThrowaway(
+  caller: { state: string; assurance: string } | undefined | null,
+): boolean {
+  return caller?.state === "provisional" || caller?.assurance === "provisional";
+}
+
+/**
+ * End the session that authenticated this link once its replacement is
+ * bound. The presented session predates the adoption in this handler, so
+ * revoking it can never name the rebound one; leaving it would strand a
+ * live throwaway row (unreachable once its cookie is overwritten, but
+ * still counted against the provisional ceiling).
+ */
+async function revokePresentedSession(c: LinkContext, ctx: AppContext) {
+  const sessionId = c.get("provisionalSessionId");
+  if (!sessionId) return;
+  const presented = await ctx.stores.provisionalSessions.get(sessionId);
+  if (!presented || presented.revokedAt) return;
+  await ctx.stores.provisionalSessions.set(sessionId, {
+    ...presented,
+    revokedAt: ctx.clock(),
+  });
+  await revokeSessionTokens(ctx.stores, sessionId);
+}
+
 /**
  * A verified token for a subject another principal already owns is a
  * sign-in to that principal when the caller is a throwaway provisional
@@ -126,9 +153,7 @@ async function collisionRebind(
     subject: verified.sub,
   });
   const caller = await ctx.repos.principals.getById(principalId);
-  const throwaway =
-    caller?.state === "provisional" || caller?.assurance === "provisional";
-  if (!existing || !throwaway) return null;
+  if (!existing || !isThrowaway(caller)) return null;
   // The hosted leg refuses a non-active principal at exchange; a rebind
   // must not hand a suspended or closed principal a fresh session either.
   const owner = await ctx.repos.principals.getById(existing.principalId);
@@ -139,6 +164,7 @@ async function collisionRebind(
     c.get("correlationId"),
   );
   setSessionCookie(c, ctx, adoption.accessToken);
+  await revokePresentedSession(c, ctx);
   return c.json(
     LinkIdentityResponseSchema.parse({
       principalId: existing.principalId,
@@ -161,6 +187,12 @@ async function adoptJoinedIdentity(
   identity: ExternalIdentity,
 ): Promise<FederatedSessionAdoption | undefined> {
   if (identity.principalId === principalId) return undefined;
+  // A registered caller is never silently switched onto another principal
+  // by an email match: rebinding is for the throwaway minted for this
+  // sign-in, exactly as the collision road fences it. A real account's
+  // join is a merge, and merging takes dual authentication.
+  const caller = await ctx.repos.principals.getById(principalId);
+  if (!isThrowaway(caller)) return undefined;
   const owner = await ctx.repos.principals.getById(identity.principalId);
   if (owner?.state !== "active") return undefined;
   return adoptSessionWithinCapacity(
@@ -217,14 +249,20 @@ export async function linkFromVerifiedIdToken(
 
   if (!result.ok) {
     if (result.error === "identity_collision") {
-      const rebound = await collisionRebind(
-        c,
-        ctx,
-        principalId,
-        issuer,
-        verified,
-      );
-      if (rebound) return rebound;
+      try {
+        const rebound = await collisionRebind(
+          c,
+          ctx,
+          principalId,
+          issuer,
+          verified,
+        );
+        if (rebound) return rebound;
+      } catch (error) {
+        if (error instanceof ProvisionalCapacityError)
+          return c.json({ error: "provisional_capacity" }, 429);
+        throw error;
+      }
     }
     return c.json({ error: result.error, message: result.message }, 409);
   }
@@ -243,7 +281,10 @@ export async function linkFromVerifiedIdToken(
       return c.json({ error: "provisional_capacity" }, 429);
     throw error;
   }
-  if (adoption) setSessionCookie(c, ctx, adoption.accessToken);
+  if (adoption) {
+    setSessionCookie(c, ctx, adoption.accessToken);
+    await revokePresentedSession(c, ctx);
+  }
   const body = LinkIdentityResponseSchema.parse({
     principalId: identity.principalId,
     ...(adoption

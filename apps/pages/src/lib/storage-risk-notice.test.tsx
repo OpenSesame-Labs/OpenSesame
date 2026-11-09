@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import type { VaultItem } from "@opensesame/vault-core";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   STORAGE_RISK_NOTICE_ID,
@@ -91,6 +91,45 @@ describe("the browser-storage warning", () => {
     });
     renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
     await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+  });
+
+  it("withdraws once a backup starts working, without waiting for unlock", async () => {
+    vi.useFakeTimers();
+    try {
+      let status: {
+        target: {
+          enabled: boolean;
+          lastError: string | null;
+          lastSyncedAt: string | null;
+        };
+        pendingEvents: number;
+      } = {
+        target: { enabled: true, lastError: null, lastSyncedAt: null },
+        pendingEvents: 0,
+      };
+      Object.assign(storageRiskSeams, {
+        getBackupStatus: async () => status,
+      });
+      renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(setNotice).toHaveBeenCalledTimes(1);
+      status = {
+        target: {
+          enabled: true,
+          lastError: null,
+          lastSyncedAt: "2026-01-01T00:00:00Z",
+        },
+        pendingEvents: 0,
+      };
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(dismiss).toHaveBeenCalledWith(STORAGE_RISK_NOTICE_ID);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("opens the export sheet from the notice's own act", async () => {

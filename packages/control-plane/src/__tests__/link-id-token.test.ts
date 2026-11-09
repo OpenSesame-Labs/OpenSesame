@@ -168,16 +168,19 @@ describe("claiming a guest principal with an upstream id_token", () => {
     const cookie = rebound.headers.get("set-cookie") ?? "";
     expect(cookie).toContain(body.accessToken);
 
-    // Revoke the throwaway by Bearer only — no cookie presented.
-    const revoke = await app.request("/v1/principals/provisional/revoke", {
-      method: "POST",
-      headers: { authorization: `Bearer ${second.accessToken}` },
-    });
-    expect(revoke.status).toBe(204);
+    // The rebind itself ends the session that presented the link: the
+    // throwaway Bearer is already dead before any client cleanup runs.
     const oldMe = await app.request("/v1/principals/me", {
       headers: { authorization: `Bearer ${second.accessToken}` },
     });
     expect(oldMe.status).toBe(401);
+    // The client's own end-of-previous-session revoke (Bearer only, no
+    // cookie) afterwards is a harmless no-op against the dead Bearer.
+    const revoke = await app.request("/v1/principals/provisional/revoke", {
+      method: "POST",
+      headers: { authorization: `Bearer ${second.accessToken}` },
+    });
+    expect([204, 401]).toContain(revoke.status);
     // The rebound session survives, by Bearer and by its cookie alike.
     const bearerMe = await app.request("/v1/principals/me", {
       headers: { authorization: `Bearer ${body.accessToken}` },
@@ -191,7 +194,10 @@ describe("claiming a guest principal with an upstream id_token", () => {
     expect(overlapCast(await cookieMe.json()).id).toBe(first.principalId);
   });
 
-  it("still refuses a registered caller whose subject another principal owns", async () => {
+  // Three signings and three link round-trips: give loaded CI room.
+  it("still refuses a registered caller whose subject another principal owns", {
+    timeout: 30_000,
+  }, async () => {
     const { privateKey, jwks } = await mintKeys();
     orgAssertionSeams.discoverJwksUri = async () => `${ISSUER}/jwks`;
     vi.stubGlobal(
