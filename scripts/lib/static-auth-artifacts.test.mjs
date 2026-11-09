@@ -73,8 +73,8 @@ function fixture() {
   const config = {
     linter: { enabled: true },
     formatter: { enabled: true },
-    organizeImports: { enabled: true },
-    files: { ignore: ["**/node_modules/**"] },
+    assist: { actions: { source: { organizeImports: "on" } } },
+    files: { includes: ["**", "!**/node_modules"] },
     overrides: [artifactOverride(paths)],
   };
   json(manifestPath, manifest);
@@ -185,9 +185,11 @@ it("refuses broad or authored-code exceptions and ignored artifact directories",
   }
   f.json("biome.json", {
     ...f.config,
-    files: { ignore: ["apps/pages/public/static-auth/**"] },
+    files: { includes: ["**", "!apps/pages/public/static-auth/**"] },
   });
-  expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
+  expect(() => validateStaticAuth(f.root)).toThrow(
+    /not ignored directories|Artifacts and authored sources must stay included/,
+  );
 });
 
 it("keeps both lint entrypoints gated by rebuilt artifacts and source tests", () => {
@@ -209,12 +211,94 @@ it("keeps both lint entrypoints gated by rebuilt artifacts and source tests", ()
 
 it("rejects global checks disabled outside the generated override", () => {
   const f = fixture();
-  for (const tool of ["linter", "formatter", "organizeImports"]) {
+  for (const tool of ["linter", "formatter"]) {
     f.json("biome.json", { ...f.config, [tool]: { enabled: false } });
     expect(() => validateStaticAuth(f.root)).toThrow(
       "Authored-code checks must stay enabled",
     );
   }
+  for (const organizeImports of ["off", { level: "off", options: {} }]) {
+    f.json("biome.json", {
+      ...f.config,
+      assist: { actions: { source: { organizeImports } } },
+    });
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      "Authored-code checks must stay enabled",
+    );
+  }
+});
+
+it("rejects JavaScript and empty-include overrides on authored code", () => {
+  const f = fixture();
+  for (const override of [
+    {
+      javascript: {
+        linter: { enabled: false },
+        formatter: { enabled: false },
+      },
+    },
+    { linter: { includes: [] } },
+    { formatter: { includes: [] } },
+  ]) {
+    f.json("biome.json", {
+      ...f.config,
+      overrides: [
+        artifactOverride(f.paths),
+        { includes: ["packages/static-auth/**"], ...override },
+      ],
+    });
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      "Generated-code exception drift",
+    );
+  }
+});
+
+it.each([
+  { files: { includes: ["packages/**"] } },
+  { files: { includes: ["*"] } },
+  { files: { includes: ["packages"] } },
+  { files: { includes: [] } },
+  { files: { includes: ["**", "!packages/**"] } },
+  { files: { includes: ["**", "!packages"] } },
+  { files: { includes: ["**", "!!packages"] } },
+  { files: { includes: ["**", "!**/src"] } },
+  { files: { includes: ["**", "!**/*.ts"] } },
+  { files: { includes: ["!**/*.min.js"] } },
+  { assist: { enabled: false } },
+  { javascript: { assist: { enabled: false } } },
+  { assist: { includes: [] } },
+  { assist: { includes: ["**", "!packages/**"] } },
+  { assist: { includes: ["!**/*.min.js"] } },
+  {
+    assist: {
+      actions: { source: { organizeImports: "on" } },
+      includes: ["**", "!packages"],
+    },
+  },
+  {
+    assist: {
+      actions: { source: { organizeImports: "on" } },
+      includes: ["packages"],
+    },
+  },
+  { javascript: { linter: { enabled: false } } },
+  { javascript: { formatter: { enabled: false } } },
+  { linter: { enabled: true, includes: [] } },
+  { linter: { enabled: true, includes: ["*"] } },
+  { linter: { enabled: true, includes: ["**/*.min.js"] } },
+  { linter: { enabled: true, includes: ["!**/*.min.js"] } },
+  { linter: { enabled: true, includes: ["**", "!packages"] } },
+  { formatter: { enabled: true, includes: [] } },
+  { formatter: { enabled: true, includes: ["packages/*"] } },
+  { formatter: { enabled: true, includes: ["**/*.min.js"] } },
+  { formatter: { enabled: true, includes: ["!**/*.min.js"] } },
+  { formatter: { enabled: true, includes: ["**", "!**/src"] } },
+])("rejects narrowed checks and import organization: %j", (patch) => {
+  const f = fixture();
+  f.json("biome.json", { ...f.config, ...patch });
+  expect(() => validateStaticAuth(f.root)).toThrow(
+    /Artifacts and authored sources must stay included|Authored-code checks must stay enabled/,
+  );
 });
 
 it("rejects invalid UTF-8 rather than hashing replacement characters", () => {
@@ -229,12 +313,14 @@ it("rejects invalid UTF-8 rather than hashing replacement characters", () => {
   expect(() => validateStaticAuth(f.root)).toThrow();
 });
 
-it.each(["**/*.js", "**", "apps", "**/public/**"])(
+it.each(["!**/*.js", "!**", "!apps", "!**/public/**", "!!**/public"])(
   "rejects indirect artifact exclusions through %s",
   (pattern) => {
     const f = fixture();
-    f.json("biome.json", { ...f.config, files: { ignore: [pattern] } });
-    expect(() => validateStaticAuth(f.root)).toThrow("not ignored directories");
+    f.json("biome.json", { ...f.config, files: { includes: ["**", pattern] } });
+    expect(() => validateStaticAuth(f.root)).toThrow(
+      /not ignored directories|Artifacts and authored sources must stay included/,
+    );
   },
 );
 
