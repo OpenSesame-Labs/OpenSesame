@@ -77,13 +77,24 @@ fn spawn(bin: &Path, args: &[&str], log: &Path) -> Result<Child, String> {
         .map_err(|e| format!("spawn {}: {e}", bin.display()))
 }
 
+/// Poll `probe` until it holds. A `child` that exits first is reported at
+/// once, with its `log`: the port `free_port` found can be taken before the
+/// server binds it, and the server then exits instead of answering.
 fn wait_until(
     what: &str,
     timeout: Duration,
+    child: &mut Child,
+    log: &Path,
     mut probe: impl FnMut() -> bool,
 ) -> Result<(), String> {
     let start = Instant::now();
     while start.elapsed() < timeout {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            let log = std::fs::read_to_string(log).unwrap_or_default();
+            return Err(format!(
+                "{what}: the process exited with {status} first; its log:\n{log}"
+            ));
+        }
         if probe() {
             return Ok(());
         }
@@ -174,15 +185,16 @@ fn start_server(
     std::fs::write(root.join("server.conf"), server_conf(port, socket, root))
         .map_err(|e| e.to_string())?;
     let conf = root.join("server.conf").to_string_lossy().into_owned();
-    let child = spawn(
-        server_bin,
-        &["run", "-config", &conf],
-        &root.join("server.log"),
-    )?;
+    let log = root.join("server.log");
+    let mut child = spawn(server_bin, &["run", "-config", &conf], &log)?;
     let ss = socket.to_string_lossy().into_owned();
-    wait_until("spire-server healthcheck", Duration::from_secs(60), || {
-        run(server_bin, &["healthcheck", "-socketPath", &ss]).is_ok()
-    })?;
+    wait_until(
+        "spire-server healthcheck",
+        Duration::from_secs(60),
+        &mut child,
+        &log,
+        || run(server_bin, &["healthcheck", "-socketPath", &ss]).is_ok(),
+    )?;
     let out = run(
         server_bin,
         &[
@@ -213,15 +225,20 @@ fn start_agent(
     std::fs::write(root.join("agent.conf"), agent_conf(port, socket, root))
         .map_err(|e| e.to_string())?;
     let conf = root.join("agent.conf").to_string_lossy().into_owned();
-    let child = spawn(
+    let log = root.join("agent.log");
+    let mut child = spawn(
         agent_bin,
         &["run", "-config", &conf, "-joinToken", token],
-        &root.join("agent.log"),
+        &log,
     )?;
     let as_ = socket.to_string_lossy().into_owned();
-    wait_until("spire-agent healthcheck", Duration::from_secs(60), || {
-        run(agent_bin, &["healthcheck", "-socketPath", &as_]).is_ok()
-    })?;
+    wait_until(
+        "spire-agent healthcheck",
+        Duration::from_secs(60),
+        &mut child,
+        &log,
+        || run(agent_bin, &["healthcheck", "-socketPath", &as_]).is_ok(),
+    )?;
     Ok(child)
 }
 

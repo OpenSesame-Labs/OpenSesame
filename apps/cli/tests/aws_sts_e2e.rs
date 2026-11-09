@@ -13,16 +13,17 @@
 
 mod helper_stub;
 mod named;
+mod spawned;
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 use base64::Engine as _;
 use helper_stub::run_helper;
 use opensesame_connection_broker::aws_sts::stand_in::{self, Expect, Reply};
 use serde_json::{json, Value};
+use spawned::{start, Process};
 
 const OPERATOR: &str = "vtok_dummy_marker_operator_0123456789abcdef";
 const AKID: &str = "AKIAVTOKDUMMYMARKER0";
@@ -30,45 +31,6 @@ const SECRET: &str = "vtok_dummy_marker_0123456789abcdef";
 const SESSION: &str = "vtok_dummy_marker_session_0123456789";
 const EXTERNAL_ID: &str = "vtok_dummy_marker_external_0123456789";
 const SOURCE: [&str; 4] = [AKID, SECRET, SESSION, EXTERNAL_ID];
-
-/// A child process that is killed when the test ends, however it ends.
-struct Process(Child);
-
-impl Drop for Process {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
-fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .expect("bind")
-        .local_addr()
-        .expect("address")
-        .port()
-}
-
-fn spawn(command: &mut Command, log: &Path) -> Process {
-    let out = File::create(log).expect("log file");
-    let err = out.try_clone().expect("log handle");
-    Process(
-        command
-            .stdin(Stdio::null())
-            .stdout(Stdio::from(out))
-            .stderr(Stdio::from(err))
-            .spawn()
-            .expect("spawn opensesame"),
-    )
-}
-
-fn wait_for(what: &str, ready: impl Fn() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(60);
-    while !ready() {
-        assert!(Instant::now() < deadline, "timed out waiting for {what}");
-        std::thread::sleep(Duration::from_millis(100));
-    }
-}
 
 struct Host {
     api: String,
@@ -130,6 +92,35 @@ fn opensesame(dir: &Path) -> Command {
     command
 }
 
+/// The Host on `port`, its database in `dir`, minting from the STS stand-in.
+fn host_command(dir: &Path, port: u16, sts: &str) -> Command {
+    let api = format!("http://127.0.0.1:{port}");
+    let key = base64::engine::general_purpose::STANDARD.encode([7u8; 32]);
+    let mut command = opensesame(dir);
+    command
+        .args(["host", "run", "--listen", &format!("127.0.0.1:{port}")])
+        .args(["--resource", &api, "--issuer", "http://127.0.0.1:1"])
+        .arg("--database-url")
+        .arg(format!(
+            "sqlite://{}?mode=rwc",
+            dir.join("host.db").display()
+        ))
+        .env("OPENSESAME_CONNECTION_KEY", &key)
+        .env("OPENSESAME_TEST_AWS_STS_ENDPOINT", sts);
+    command
+}
+
+/// The daemon on TCP `port` and the socket `sock`, forwarding to `api`.
+fn daemon_command(dir: &Path, api: &str, sock: &Path, port: u16) -> Command {
+    let mut command = opensesame(dir);
+    command
+        .args(["daemon", "run", "--listen", &format!("127.0.0.1:{port}")])
+        .arg("--sock")
+        .arg(sock)
+        .env("OPENSESAME_HOST_API", api);
+    command
+}
+
 struct Stack {
     host: Host,
     /// The daemon's loopback TCP address, for its operator routes.
@@ -153,47 +144,29 @@ fn boot(reply: Reply) -> Stack {
         },
         reply,
     ));
-    let (host_port, daemon_port) = (free_port(), free_port());
-    let api = format!("http://127.0.0.1:{host_port}");
-    let key = base64::engine::general_purpose::STANDARD.encode([7u8; 32]);
-    let host = spawn(
-        opensesame(dir.path())
-            .args(["host", "run", "--listen", &format!("127.0.0.1:{host_port}")])
-            .args(["--resource", &api, "--issuer", "http://127.0.0.1:1"])
-            .arg("--database-url")
-            .arg(format!(
-                "sqlite://{}?mode=rwc",
-                dir.path().join("host.db").display()
-            ))
-            .env("OPENSESAME_CONNECTION_KEY", &key)
-            .env("OPENSESAME_TEST_AWS_STS_ENDPOINT", &stand_in.base),
-        &dir.path().join("host.log"),
-    );
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .expect("client");
-    wait_for("the Host", || {
-        client
-            .get(format!("{api}/health/live"))
-            .send()
-            .is_ok_and(|response| response.status().is_success())
-    });
-    let sock = dir.path().join("agent.sock");
-    let daemon = spawn(
-        opensesame(dir.path())
-            .args([
-                "daemon",
-                "run",
-                "--listen",
-                &format!("127.0.0.1:{daemon_port}"),
-            ])
-            .arg("--sock")
-            .arg(&sock)
-            .env("OPENSESAME_HOST_API", &api),
-        &dir.path().join("daemon.log"),
+    let (host, host_port) = start(
+        "the Host",
+        &dir.path().join("host.log"),
+        |port| host_command(dir.path(), port, &stand_in.base),
+        |port| {
+            client
+                .get(format!("http://127.0.0.1:{port}/health/live"))
+                .send()
+                .is_ok_and(|response| response.status().is_success())
+        },
     );
-    wait_for("the daemon socket", || sock.exists());
+    let api = format!("http://127.0.0.1:{host_port}");
+    let sock = dir.path().join("agent.sock");
+    let (daemon, daemon_port) = start(
+        "the daemon socket",
+        &dir.path().join("daemon.log"),
+        |port| daemon_command(dir.path(), &api, &sock, port),
+        |_| sock.exists(),
+    );
     Stack {
         host: Host { api, http: client },
         daemon: format!("http://127.0.0.1:{daemon_port}"),
