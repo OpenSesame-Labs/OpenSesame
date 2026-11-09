@@ -4,17 +4,17 @@ import {
   createHash,
   randomBytes,
 } from "node:crypto";
-import {
-  SAML,
-  ValidateInResponseTo,
-  generateServiceProviderMetadata,
-} from "@node-saml/node-saml";
 // The DOM helpers node-saml itself validates with. Reaching for the same
 // parser — rather than a second XML dependency, or a regex over signed
 // material — is what keeps "what we routed on" and "what was verified" the
 // same document. The package pins exactly and publishes no `exports` map, so
 // the path is stable for this version and moves only when the pin does.
 import type { Profile } from "@node-saml/node-saml";
+import {
+  SAML,
+  ValidateInResponseTo,
+  generateServiceProviderMetadata,
+} from "@node-saml/node-saml";
 import { parseDomFromString, xpath } from "@node-saml/node-saml/lib/xml.js";
 import { appendAuditEvent } from "@opensesame/audit";
 import {
@@ -40,7 +40,10 @@ import {
   assertPublicUpstreamUrl,
   guardedFetch,
 } from "../services/guarded-fetch.js";
-import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import {
+  attachVerifiedExternalIdentity,
+  ensureVerifiedIdentityPrincipalActive,
+} from "../services/identity-link.js";
 import { organizationAssertedEmailIsVerified } from "../services/org-email-trust.js";
 import {
   ProvisionalMintRefusedError,
@@ -1119,11 +1122,12 @@ export async function admitSamlSubject(
   let principalId: string;
   let sessionToken: string | undefined;
   if (resolved) {
-    const principal = await ctx.repos.principals.getById(resolved.principalId);
+    // The verified assertion is the proof the original attach promotes
+    // on, so a tuple left on a provisional owner is finished here rather
+    // than signed in as provisional (or stranded). Suspended, closed and
+    // missing owners do not sign in.
     if (
-      !principal ||
-      principal.state === "suspended" ||
-      principal.state === "closed"
+      !(await ensureVerifiedIdentityPrincipalActive(ctx, resolved.principalId))
     ) {
       return {
         ok: false,
@@ -1206,6 +1210,13 @@ export async function admitSamlSubject(
       return { ok: false, status: 409, message: attached.message };
     }
     principalId = attached.identity.principalId;
+    if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
+      return {
+        ok: false,
+        status: 403,
+        message: "This account is not able to sign in.",
+      };
+    }
     await ensurePersonalOnAuthenticatedSession(
       ctx,
       principalId,

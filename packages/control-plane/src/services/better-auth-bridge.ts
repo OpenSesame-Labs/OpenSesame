@@ -1,6 +1,8 @@
 import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeEmail } from "./email-normalization.js";
+
 export { normalizeEmail } from "./email-normalization.js";
+
 import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,
@@ -20,7 +22,10 @@ import {
 } from "../interactions/handlers.js";
 import { normalizeIssuer } from "../interactions/registry.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
-import { attachVerifiedExternalIdentity } from "./identity-link.js";
+import {
+  attachVerifiedExternalIdentity,
+  ensureVerifiedIdentityPrincipalActive,
+} from "./identity-link.js";
 
 /**
  * The bridge between Better Auth and canonical identity (C20 / D16 / T33).
@@ -328,8 +333,7 @@ export async function principalForBetterAuthSubject(
 
   const knownPrincipalId = mapped?.principalId ?? existing?.principalId;
   if (knownPrincipalId) {
-    const principal = await ctx.repos.principals.getById(knownPrincipalId);
-    if (!principal || principal.state !== "active") {
+    if (!(await ensureVerifiedIdentityPrincipalActive(ctx, knownPrincipalId))) {
       throw new BetterAuthBridgeError(
         "principal_unavailable",
         "This account is not able to sign in.",
@@ -391,8 +395,7 @@ export async function principalForBetterAuthSubject(
   // address to a principal that already owned it through another leg, and the
   // principal minted a moment ago is then not the account signing in.
   const principalId = attached.identity.principalId;
-  const attachedPrincipal = await ctx.repos.principals.getById(principalId);
-  if (!attachedPrincipal || attachedPrincipal.state !== "active") {
+  if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
     throw new BetterAuthBridgeError(
       "principal_unavailable",
       "This account is not able to sign in.",

@@ -304,6 +304,21 @@ export async function linkFromVerifiedIdToken(
   if (adoption) {
     setSessionCookie(c, ctx, adoption.accessToken);
     await revokePresentedSession(c, ctx);
+  } else if (identity.principalId !== principalId) {
+    // The join landed elsewhere but no session was adopted. That is a
+    // plain link answer only while the owner is still active; a race
+    // into suspension must not be reported as a successful sign-in.
+    const owner = await ctx.repos.principals.getById(identity.principalId);
+    if (owner?.state !== "active") {
+      return c.json(
+        {
+          error: "identity_collision",
+          message:
+            "External identity already bound to another principal; merge requires dual authentication",
+        },
+        409,
+      );
+    }
   }
   const body = LinkIdentityResponseSchema.parse({
     principalId: identity.principalId,

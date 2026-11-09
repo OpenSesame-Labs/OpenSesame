@@ -143,14 +143,24 @@ function makeFakes(): Fakes {
           state.identities.push(stored);
           return stored;
         },
+        deleteById: async (id: string) => {
+          const before = state.identities.length;
+          state.identities = state.identities.filter((row) => row.id !== id);
+          return state.identities.length !== before;
+        },
       },
       principals: {
         getById: async (id: string) => state.principals.get(id) ?? null,
         update: async (id: string, patch: PrincipalPatch, _version: number) => {
           state.updates.push({ id, patch });
-          return state.principals.get(id) ?? null;
+          const current = state.principals.get(id);
+          if (!current) return null;
+          const next = { ...current, ...patch, version: current.version + 1 };
+          state.principals.set(id, next);
+          return next;
         },
       },
+      transaction: async (fn: (uow: unknown) => Promise<unknown>) => fn({}),
       auditEvents: {
         append: async (event: AuditEvent) => {
           state.audits.push({
@@ -438,6 +448,55 @@ describe("email is evidence, never a join key", () => {
 
     expect(result).toMatchObject({ ok: false, error: "identity_collision" });
     expect(f.created).toHaveLength(0);
+  });
+
+  it("does not leave the join written when the owner is suspended during the write", async () => {
+    // Gauntlet round 5: the pre-write state read and the identity insert
+    // are separate awaits. A suspension landing between them must not
+    // leave a fresh identity bound to a dead principal or report success.
+    f.principals.set(
+      "prn_someone_else",
+      principal({
+        id: "prn_someone_else",
+        state: "active",
+        assurance: "verified",
+      }),
+    );
+    f.identities.push(
+      identity({
+        id: "xid_other",
+        principalId: "prn_someone_else",
+        subject: "a-different-subject",
+        emailNormalized: "person@example.com",
+        emailVerified: true,
+      }),
+    );
+    f.createImpl = async (record) => {
+      f.principals.set(
+        "prn_someone_else",
+        principal({
+          id: "prn_someone_else",
+          state: "suspended",
+          assurance: "verified",
+          version: 2,
+        }),
+      );
+      return record;
+    };
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", {
+      ...INPUT,
+      emailNormalized: "person@example.com",
+      emailVerified: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(
+      f.identities.filter((row) => row.subject === INPUT.subject),
+    ).toHaveLength(0);
+    expect(
+      f.audits.filter((a) => a.eventType === "principal.identity_linked"),
+    ).toHaveLength(0);
   });
 
   it("does not look for peers when no email was supplied", async () => {
