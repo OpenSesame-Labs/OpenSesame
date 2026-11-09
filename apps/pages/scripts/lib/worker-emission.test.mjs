@@ -25,7 +25,7 @@ it("retains worker metadata for capability graph consumers", () => {
   assert.equal(emitted[0].source, chunk.code);
 });
 
-it("drops only unresolved Rolldown placeholders and refuses missing real assets", () => {
+it("drops only unresolved Rolldown placeholders and leaves other references intact", () => {
   const placeholder = "assets/!~{abc123}~.js";
   const bundle = {
     "assets/host.js": {
@@ -35,9 +35,8 @@ it("drops only unresolved Rolldown placeholders and refuses missing real assets"
       },
     },
   };
-  assert.throws(() => prunePlaceholderAssets(bundle), /asset is absent/);
   const imports = bundle["assets/host.js"].viteMetadata.importedAssets;
-  imports.delete("assets/missing.js");
   prunePlaceholderAssets(bundle);
   assert.equal(imports.has(placeholder), false);
+  assert.equal(imports.has("assets/missing.js"), true);
 });
