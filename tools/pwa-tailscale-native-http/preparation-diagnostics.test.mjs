@@ -289,6 +289,92 @@ test("labelled credentials, headers, URL secrets, JWT and truncated private keys
   assert.match(output, /compile failed/);
 });
 
+test("audit.log records the native-audit phase and only allowlisted redacted audit logs", async (t) => {
+  const f = await fixture(t);
+  const outside = join(f.root, "outside-audit.log");
+  await mkdir(join(f.work, "audit/logs"), { recursive: true });
+  await writeFile(outside, "OUTSIDE-CONFIDENTIAL\n");
+  await writeFile(
+    join(f.work, "audit.log"),
+    "audit failed: GO-2026-6865\nhttps://user:audit-secret@proxy.example/\n",
+  );
+  await symlink(outside, join(f.work, "audit/logs/native-audit-tags.log"));
+  await writeFile(
+    join(f.work, "audit/logs/unknown.log"),
+    "UNKNOWN-CONFIDENTIAL\n",
+  );
+  await writeFile(
+    join(f.work, "audit/logs/native-audit-packages.log"),
+    "package scan failed\nAuthorization: Bearer audit-token\n",
+  );
+  await writeFile(
+    join(f.work, "build/logs/baseline.log"),
+    "BUILD-CONFIDENTIAL\n",
+  );
+  const error = new Error("Native asset preparation failed");
+  await describePreparationFailure(error, f.work, join(f.work, "audit.log"), {
+    reason: "exit",
+    exitCode: 1,
+    signal: null,
+  });
+  const record = await receipt(f, "native-audit");
+  assert.equal(record.phase, "native-audit");
+  assert.equal(record.exitCode, 1);
+  assert.deepEqual(
+    record.logs.map((entry) => entry.name),
+    ["audit.log", "audit/logs/native-audit-packages.log"],
+  );
+  const output = JSON.stringify(record) + error.message;
+  assert.match(output, /GO-2026-6865/);
+  assert.match(output, /package scan failed/);
+  for (const secret of [
+    "audit-secret",
+    "audit-token",
+    "OUTSIDE-CONFIDENTIAL",
+    "UNKNOWN-CONFIDENTIAL",
+    "BUILD-CONFIDENTIAL",
+  ])
+    assert.ok(!output.includes(secret), secret);
+});
+
+test("the native-go audit directory records diagnostics and unrelated trees do not", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "native-audit-diagnostics-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const work = join(root, "native-go/work", randomUUID());
+  await mkdir(join(work, "audit/logs"), { recursive: true });
+  const log = join(work, "audit.log");
+  await writeFile(log, "retained audit failure\n");
+  await writeFile(
+    join(work, "audit/logs/select-native-toolchain.log"),
+    "toolchain selection failed\n",
+  );
+  const error = new Error("Native asset preparation failed");
+  await describePreparationFailure(error, work, log, originalState);
+  const record = JSON.parse(
+    await readFile(
+      join(work, "native-preparation-native-audit-failure.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(record.phase, "native-audit");
+  assert.deepEqual(
+    record.logs.map((entry) => entry.name),
+    ["audit.log", "audit/logs/select-native-toolchain.log"],
+  );
+  assert.match(error.message, /retained audit failure/);
+  assert.match(error.message, /toolchain selection failed/);
+  const other = join(root, "other/work", randomUUID());
+  await mkdir(other, { recursive: true });
+  const untouched = new Error("unchanged");
+  await describePreparationFailure(
+    untouched,
+    other,
+    join(other, "audit.log"),
+    originalState,
+  );
+  assert.equal(untouched.message, "unchanged");
+});
+
 test("unwritable or unsafe receipt targets and frozen errors never replace the initiating failure", async (t) => {
   const f = await fixture(t);
   const outside = join(f.root, "outside.json");

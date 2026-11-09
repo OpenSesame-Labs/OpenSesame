@@ -51,9 +51,70 @@ jobs:
       - name: Install the locked audit runtime
         run: npm ci --ignore-scripts
       - name: Scan the composed production import graph and selected standard library
-        # The helper owns a fresh private temporary directory; raw audit output
-        # is neither checked into the repository nor uploaded as a public artifact.
+        # The helper owns a fresh private temporary directory. Success does not
+        # check audit output into the repository or upload it as a public artifact.
+        # Only a failed run uploads redacted logs.
+        env:
+          OPENSESAME_AUDIT_DIR: ${{ runner.temp }}/opensesame-native-audit
         run: node tools/pwa-tailscale-native-http/native-audit.mjs
+      - name: Retain redacted native audit failure logs
+        if: ${{ failure() && !cancelled() }}
+        env:
+          OPENSESAME_AUDIT_DIR: ${{ runner.temp }}/opensesame-native-audit
+          NATIVE_AUDIT_FAILURE_LOGS: ${{ runner.temp }}/native-audit-failure-logs
+        run: |
+          node --input-type=module <<'EOF'
+          import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+          import { join } from "node:path";
+          import { redactPreparationLog } from "./tools/pwa-tailscale-native-http/preparation-diagnostics.mjs";
+          const root = process.env.OPENSESAME_AUDIT_DIR;
+          const out = process.env.NATIVE_AUDIT_FAILURE_LOGS;
+          await mkdir(out, { recursive: true, mode: 0o700 });
+          let names = [];
+          try {
+            names = await readdir(join(root, "native-go/work"));
+          } catch {
+            names = [];
+          }
+          const files = [
+            "audit.log",
+            "native-preparation-native-audit-failure.json",
+          ];
+          let wrote = 0;
+          for (const name of names) {
+            if (!/^[0-9a-f-]{36}$/.test(name)) continue;
+            for (const file of files) {
+              try {
+                const text = await readFile(
+                  join(root, "native-go/work", name, file),
+                  "utf8",
+                );
+                await writeFile(
+                  join(out, `${name}-${file}`),
+                  redactPreparationLog(text),
+                  { mode: 0o600 },
+                );
+                wrote += 1;
+              } catch {
+                // A missing receipt or log is skipped; the scan failure remains.
+              }
+            }
+          }
+          if (!wrote)
+            await writeFile(
+              join(out, "no-owned-audit-log.txt"),
+              "No retained native audit log was available to redact.\n",
+              { mode: 0o600 },
+            );
+          EOF
+      - name: Upload redacted native audit failure logs
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-audit-failure-logs
+          path: ${{ runner.temp }}/native-audit-failure-logs
+          retention-days: 5
+          if-no-files-found: ignore
 
   turn-crypto:
     name: TURN cryptography source and advisories

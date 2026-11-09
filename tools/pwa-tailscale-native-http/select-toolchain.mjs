@@ -50,6 +50,7 @@ export async function selectNativeToolchain({
     "telemetry",
     "text",
   ].map((name) => `golang.org/x/${name}`);
+  modules.push("github.com/klauspost/compress");
   if (
     selection.dependencies?.length !== modules.length ||
     selection.dependencies.some(

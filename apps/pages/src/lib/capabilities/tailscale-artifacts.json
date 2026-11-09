@@ -3,20 +3,20 @@
     "version": "native-b31d8a75a-go1.27.3",
     "browserSDKVersion": "1.102.3-3-tb31d8a75a-g5e651e16f",
     "browserSDKHash": "318a91bdbc32d4aa57a7ffa554368d390e96bf7128419b4561f98001e86e3795",
-    "gzipHash": "0cbc03eb97dc2cd27987da14acc8fcd4d3ec204167c690f1ab13d14f7b9255b1",
-    "wasmHash": "7703f2ab3ee3339bb2cb9e817bba89c57ff23fa4968a6993e0d4fdbe0d2eb80a",
+    "gzipHash": "7c2fbd4566a5eb89a6b4a4175b20ea670bd237e8c151ade983d6adec6ee13601",
+    "wasmHash": "4bdb212cfc4c16ed69b11c36caeac21a9c04c9c063101996bcd97e36fbda76a8",
     "runtimeHash": "3e61b3267aa67a553c289335805e5947e2f80935f782d3d6bcb30adb15674017",
     "nativeHTTPHash": "7053394b70fa9298b4350a0c0fc4009ad1c5ba08d9cf3be75d9eee06ec722f47"
   },
   "native": {
-    "sourceMetadataSha256": "c99740c8923ff014a605796019d0a6a5da9583d910183220a62e9ead09620d4a",
-    "manifestSha256": "0e0b39da6a1d39b142259d3e2252c595828a276d585c3238c7606217aa5f6b9a",
+    "sourceMetadataSha256": "0431886a2e5819ed47257e70a0d3bb1d03e0b16836057901a6a0acbc37804395",
+    "manifestSha256": "382fd55f129e71a7ecb32557d6debb7d2b5f6c274ae37661c0e4c4135b8d37c7",
     "sourceCommit": "b31d8a75af155bcf19853d1a66041782d13e56ae",
     "compilerCommit": "7ef7b403648ac3a9481a6e88e8b894eff50b0167",
     "publicRootsVersion": "v0.0.0-20261014201258-cf169cd0986f"
   },
   "assets": {
-    "wasm": "tailscale/main-0cbc03eb97dc2cd2.wasm.gz",
+    "wasm": "tailscale/main-7c2fbd4566a5eb89.wasm.gz",
     "runtime": "tailscale/go-runtime-3e61b3267aa67a55.js",
     "nativeHTTP": "tailscale/native-http-7053394b70fa9298.js",
     "license": "tailscale/LICENSE.txt",

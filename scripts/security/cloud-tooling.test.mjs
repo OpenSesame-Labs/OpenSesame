@@ -324,12 +324,28 @@ test("scheduled native auditing fails closed on the real production graph after 
   );
   assert.ok(install >= 0 && audit > install);
   assert.equal(job.steps[install].run, "npm ci --ignore-scripts");
+  const uploads = job.steps.filter((step) =>
+    (step.uses ?? "").includes("upload-artifact"),
+  );
+  assert.equal(uploads.length, 1);
+  assert.equal(uploads[0].if, "${{ failure() && !cancelled() }}");
+  assert.equal(uploads[0].with?.name, "native-audit-failure-logs");
+  assert.match(String(uploads[0].with?.path), /native-audit-failure-logs/);
+  const redact = job.steps.find((step) =>
+    String(step.run ?? "").includes("redactPreparationLog"),
+  );
+  assert.equal(redact?.if, "${{ failure() && !cancelled() }}");
   for (const step of job.steps) {
     assert.notEqual(step["continue-on-error"], true);
-    assert.doesNotMatch(step.uses ?? "", /upload-artifact/);
+    if (step !== uploads[0])
+      assert.doesNotMatch(step.uses ?? "", /upload-artifact/);
   }
   assert.equal(job.steps[audit].if, undefined);
-  assert.equal(job.steps[audit].env?.OPENSESAME_AUDIT_DIR, undefined);
+  assert.match(
+    String(job.steps[audit].env?.OPENSESAME_AUDIT_DIR),
+    /\$\{\{ runner\.temp \}\}.*opensesame-native-audit/,
+  );
+  assert.doesNotMatch(job.steps[audit].run ?? "", /upload-artifact/);
   assert.ok(workflow.jobs["turn-crypto"]);
   const osv = workflow.jobs["osv-scanner"];
   assert.deepEqual(osv.permissions, {
