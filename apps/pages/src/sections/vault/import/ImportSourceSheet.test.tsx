@@ -15,8 +15,18 @@ describe("the guided import source stage", () => {
     ).toBeTruthy();
     // Chrome is the default first-run source, with Chrome's own steps.
     expect(screen.getByText(/Chrome: Settings/)).toBeTruthy();
+    // The tiles are a labelled group of toggles; the chosen one is pressed.
+    const group = screen.getByRole("group", { name: "Source" });
+    expect(group.querySelector('[aria-pressed="true"]')?.textContent).toContain(
+      "Chrome",
+    );
     await user.click(screen.getByRole("button", { name: "Firefox" }));
     expect(screen.getByText(/Firefox → Passwords/)).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Firefox" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     // The honest limits ride along: no silent browser reading, and the
     // exported file itself is the risk to clean up.
     expect(screen.getByText(/cannot read your browser itself/)).toBeTruthy();
