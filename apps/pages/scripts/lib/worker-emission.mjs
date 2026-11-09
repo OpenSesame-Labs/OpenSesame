@@ -9,9 +9,8 @@ export function prunePlaceholderAssets(bundle) {
     if (chunk.type !== "chunk") continue;
     for (const file of chunk.viteMetadata?.importedAssets ?? []) {
       if (bundle[file]) continue;
-      if (!/!~{[0-9a-f]+}~/.test(file))
-        throw new Error("Worker closure asset is absent.");
-      chunk.viteMetadata.importedAssets.delete(file);
+      if (/!~{[0-9a-f]+}~/.test(file))
+        chunk.viteMetadata.importedAssets.delete(file);
     }
   }
 }

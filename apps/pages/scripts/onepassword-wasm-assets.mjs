@@ -133,6 +133,93 @@ function sdkOwner(bundle, classify) {
   return { file, output };
 }
 
+function importWorkerFactories(node, factories) {
+  if (
+    !ts.isImportDeclaration(node) ||
+    !ts.isStringLiteralLike(node.moduleSpecifier) ||
+    !/\/ports-[^/]+\.js$/.test(node.moduleSpecifier.text) ||
+    !node.importClause?.namedBindings ||
+    !ts.isNamedImports(node.importClause.namedBindings)
+  )
+    return;
+  for (const element of node.importClause.namedBindings.elements)
+    if (element.propertyName?.text === "E") factories.add(element.name.text);
+}
+
+function assignedWorkerConstructor(node, factories, constructors) {
+  if (
+    !ts.isVariableDeclaration(node) ||
+    !ts.isIdentifier(node.name) ||
+    !node.initializer ||
+    !ts.isCallExpression(node.initializer) ||
+    !ts.isIdentifier(node.initializer.expression) ||
+    !factories.has(node.initializer.expression.text)
+  )
+    return;
+  constructors.add(node.name.text);
+}
+
+function importedWorkerFactories(ast) {
+  const factories = new Set();
+  const constructors = new Set();
+  const visit = (node) => {
+    importWorkerFactories(node, factories);
+    assignedWorkerConstructor(node, factories, constructors);
+    return ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return { factories, constructors };
+}
+
+function moduleWorkerOptions(node, ast, requiredName) {
+  if (!ts.isObjectLiteralExpression(node)) return false;
+  const values = new Map();
+  for (const property of node.properties)
+    if (
+      ts.isPropertyAssignment(property) &&
+      ts.isStringLiteralLike(property.initializer)
+    )
+      values.set(property.name.getText(ast), property.initializer.text);
+  return (
+    values.get("type") === "module" &&
+    (requiredName === undefined || values.get("name") === requiredName)
+  );
+}
+
+function workerConstruction(node, ast, factories, constructors, urlMatches) {
+  if (
+    !ts.isNewExpression(node) ||
+    node.arguments?.length !== 2 ||
+    !ts.isStringLiteralLike(node.arguments[0]) ||
+    !urlMatches(node.arguments[0].text)
+  )
+    return false;
+  const callee = node.expression;
+  if (ts.isIdentifier(callee) && callee.text === "Worker")
+    return moduleWorkerOptions(node.arguments[1], ast);
+  if (
+    ts.isIdentifier(callee) &&
+    (factories.has(callee.text) || constructors.has(callee.text))
+  )
+    return moduleWorkerOptions(
+      node.arguments[1],
+      ast,
+      "opensesame-onepassword",
+    );
+  return false;
+}
+
+function workerUrlConstruction(node, ast, ownerFile, root, urlMatches) {
+  return (
+    ts.isNewExpression(node) &&
+    node.expression.getText(ast) === "URL" &&
+    node.arguments?.length === 2 &&
+    ts.isStringLiteralLike(node.arguments[0]) &&
+    node.arguments[1].getText(ast) === "import.meta.url" &&
+    urlMatches(node.arguments[0].text, new URL(ownerFile, root))
+  );
+}
+
 function referencesWorker(owner, worker, base) {
   const root = new URL(base, "https://opensesame-build.invalid/");
   const target = new URL(worker, root).href;
@@ -143,31 +230,7 @@ function referencesWorker(owner, worker, base) {
     true,
     ts.ScriptKind.JS,
   );
-  const factories = new Set();
-  const constructors = new Set();
-  const imports = (node) => {
-    if (
-      ts.isImportDeclaration(node) &&
-      ts.isStringLiteralLike(node.moduleSpecifier) &&
-      /\/ports-[^/]+\.js$/.test(node.moduleSpecifier.text) &&
-      node.importClause?.namedBindings &&
-      ts.isNamedImports(node.importClause.namedBindings)
-    )
-      for (const element of node.importClause.namedBindings.elements)
-        if (element.propertyName?.text === "E")
-          factories.add(element.name.text);
-    if (
-      ts.isVariableDeclaration(node) &&
-      ts.isIdentifier(node.name) &&
-      node.initializer &&
-      ts.isCallExpression(node.initializer) &&
-      ts.isIdentifier(node.initializer.expression) &&
-      factories.has(node.initializer.expression.text)
-    )
-      constructors.add(node.name.text);
-    return ts.forEachChild(node, imports);
-  };
-  imports(ast);
+  const { factories, constructors } = importedWorkerFactories(ast);
   const urlMatches = (literal, parent = root) => {
     try {
       return new URL(literal, parent).href === target;
@@ -175,45 +238,10 @@ function referencesWorker(owner, worker, base) {
       return false;
     }
   };
-  const moduleOptions = (node, requiredName) => {
-    if (!ts.isObjectLiteralExpression(node)) return false;
-    const values = new Map();
-    for (const property of node.properties)
-      if (
-        ts.isPropertyAssignment(property) &&
-        ts.isStringLiteralLike(property.initializer)
-      )
-        values.set(property.name.getText(ast), property.initializer.text);
-    return (
-      values.get("type") === "module" &&
-      (requiredName === undefined || values.get("name") === requiredName)
-    );
-  };
   const visit = (node) => {
-    if (
-      ts.isNewExpression(node) &&
-      node.arguments?.length === 2 &&
-      ts.isStringLiteralLike(node.arguments[0])
-    ) {
-      const callee = node.expression;
-      const direct = ts.isIdentifier(callee) && callee.text === "Worker";
-      const aliased =
-        ts.isIdentifier(callee) &&
-        (factories.has(callee.text) || constructors.has(callee.text));
-      if (
-        (direct && moduleOptions(node.arguments[1])) ||
-        (aliased && moduleOptions(node.arguments[1], "opensesame-onepassword"))
-      )
-        if (urlMatches(node.arguments[0].text)) return true;
-    }
-    if (
-      ts.isNewExpression(node) &&
-      node.expression.getText(ast) === "URL" &&
-      node.arguments?.length === 2 &&
-      ts.isStringLiteralLike(node.arguments[0]) &&
-      node.arguments[1].getText(ast) === "import.meta.url" &&
-      urlMatches(node.arguments[0].text, new URL(owner.file, root))
-    )
+    if (workerConstruction(node, ast, factories, constructors, urlMatches))
+      return true;
+    if (workerUrlConstruction(node, ast, owner.file, root, urlMatches))
       return true;
     return ts.forEachChild(node, visit);
   };

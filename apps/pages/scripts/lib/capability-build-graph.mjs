@@ -86,7 +86,7 @@ function collectOutputs(bundle, state, base, classify) {
       chunks.push(chunkRecord(file, output, classify));
       continue;
     }
-    const worker = workerChunkFor(output, file) ?? output.opensesameWorkerChunk;
+    const worker = workerChunkFor(bundle, file) ?? output.opensesameWorkerChunk;
     if (worker) {
       if (
         worker.code !== output.source ||
