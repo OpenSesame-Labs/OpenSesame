@@ -15,7 +15,6 @@ import { scopeApplies } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
   type ReactElement,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -42,7 +41,10 @@ import {
   questionsFromTopics,
 } from "./SupportQuestions.js";
 import { SupportTutorials } from "./SupportTutorials.js";
-import { useSupportScroll } from "./use-support-scroll.js";
+import {
+  useAskOnQuestion,
+  useSupportScroll,
+} from "./use-support-scroll.js";
 import { useTutorialGate } from "./use-tutorial-gate.js";
 
 const SPEAKER = {
@@ -130,14 +132,10 @@ export function SupportPanel({
 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"ask" | "tutorials">(view.initialTab);
+  const composerRef = useRef<HTMLInputElement>(null);
   const { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll } =
-    useSupportScroll(view.transcript);
-  // Asking while Tutorials is up lands the person on their exchange.
-  const seenTranscript = useRef(view.transcript.length);
-  useEffect(() => {
-    if (view.transcript.length > seenTranscript.current) setTab("ask");
-    seenTranscript.current = view.transcript.length;
-  }, [view.transcript.length]);
+    useSupportScroll(view.transcript, composerRef);
+  useAskOnQuestion(view.transcript, setTab);
 
   const gate = useTutorialGate();
   const { plan } = useComposition();
@@ -392,7 +390,7 @@ export function SupportPanel({
           </button>
         ) : null}
         <div className="sheet__foot">
-          <SupportComposer query={query} onQueryChange={setQuery} />
+          <SupportComposer query={query} onQueryChange={setQuery} inputRef={composerRef} />
         </div>
       </section>
     </div>
