@@ -41,6 +41,7 @@ function newestQuestionAt(
 export function useSupportScroll(
   transcript: readonly SupportEntry[],
   afterJumpRef?: RefObject<HTMLElement | null>,
+  onJump?: () => void,
 ) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLElement>(null);
@@ -92,9 +93,9 @@ export function useSupportScroll(
     );
     if (!article) {
       // The thread is not on screen (the Tutorials tab is up): an answer
-      // that lands now would otherwise arrive with no scroll and no chip
-      // when the panel flips to Ask. Mark it unseen; the chip offers the
-      // jump and the owed debt is only ever a question's.
+      // that lands now must not flip the panel or scroll anything. Mark
+      // it unseen; the New answer key shows on either tab and choosing
+      // it is what moves the panel to the conversation.
       if (questionAt < 0) setUnseenAnswer(true);
       return;
     }
@@ -115,12 +116,17 @@ export function useSupportScroll(
 
   /** The "New answer" key: jump to the newest entry, then stand down. */
   const jumpToAnswer = useCallback(() => {
+    // The key shows on either tab: choosing it is what moves the panel.
+    onJump?.();
     const article = articleAt(seen.current - 1);
     if (article) bringToTop(article);
+    // Thread not mounted yet (Tutorials was up): owe the scroll to the
+    // render that mounts it, same debt a question's causal scroll uses.
+    else owed.current = seen.current - 1;
     setUnseenAnswer(false);
     // The New answer key unmounts itself: leave focus somewhere useful.
     afterJumpRef?.current?.focus({ preventScroll: true });
-  }, [afterJumpRef, articleAt, bringToTop]);
+  }, [afterJumpRef, articleAt, bringToTop, onJump]);
 
   /** Reading down to the answer by hand clears the offer. */
   const onBodyScroll = useCallback(() => {

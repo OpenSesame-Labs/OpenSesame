@@ -134,7 +134,7 @@ export function SupportPanel({
   const [tab, setTab] = useState<"ask" | "tutorials">(view.initialTab);
   const composerRef = useRef<HTMLInputElement>(null);
   const { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll } =
-    useSupportScroll(view.transcript, composerRef);
+    useSupportScroll(view.transcript, composerRef, () => setTab("ask"));
   useAskOnQuestion(view.transcript, setTab);
 
   const gate = useTutorialGate();
@@ -380,7 +380,7 @@ export function SupportPanel({
             </div>
           )}
         </div>
-        {unseenAnswer && tab === "ask" ? (
+        {unseenAnswer ? (
           <button
             type="button"
             className="support__new-answer"

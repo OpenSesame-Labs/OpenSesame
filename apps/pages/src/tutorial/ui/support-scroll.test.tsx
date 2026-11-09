@@ -70,11 +70,13 @@ function entry(id: string, kind: SupportEntry["kind"]): SupportEntry {
 function Thread({
   entries,
   mounted = true,
+  onJump,
 }: {
   entries: readonly SupportEntry[];
   mounted?: boolean;
+  onJump?: () => void;
 }) {
-  const scroll = useSupportScroll(entries);
+  const scroll = useSupportScroll(entries, undefined, onJump);
   return (
     <div ref={scroll.bodyRef} data-testid="body">
       {scroll.unseenAnswer ? (
@@ -256,6 +258,45 @@ describe("tab follow and jump focus (Kimi a11y seat)", () => {
       );
     } finally {
       HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+});
+
+describe("the New answer key on the Tutorials tab (Grok round 4)", () => {
+  it("is offered while the thread is unmounted, and choosing it moves the panel and pays the scroll on mount", async () => {
+    const user = userEvent.setup();
+    const scrolled: Element[] = [];
+    const originalScroll = Element.prototype.scrollTo;
+    // SAFETY: the double implements the same scroller contract; restored in finally.
+    Element.prototype.scrollTo = function (this: Element) {
+      scrolled.push(this);
+    } as typeof Element.prototype.scrollTo;
+    const jumps: number[] = [];
+    const onJump = () => jumps.push(1);
+    try {
+      const first = [entry("q1", "question")];
+      const { rerender } = render(
+        <Thread entries={first} mounted={false} onJump={onJump} />,
+      );
+      rerender(
+        <Thread
+          entries={[...first, entry("late", "answer")]}
+          mounted={false}
+          onJump={onJump}
+        />,
+      );
+      const chip = await screen.findByRole("button", {
+        name: "New answer",
+      });
+      await user.click(chip);
+      expect(jumps).toHaveLength(1);
+      expect(scrolled).toHaveLength(0);
+      rerender(
+        <Thread entries={[...first, entry("late", "answer")]} onJump={onJump} />,
+      );
+      expect(scrolled).toHaveLength(1);
+    } finally {
+      Element.prototype.scrollTo = originalScroll;
     }
   });
 });
