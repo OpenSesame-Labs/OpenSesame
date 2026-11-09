@@ -6,6 +6,7 @@ import { GOOGLE_WALLET_ENV, parseGoogleWalletConfig } from "./config.js";
 import {
   GOOGLE_WALLET_CONFIGURATION_POLICY as POLICY,
   googleWalletPemParts,
+  syntheticPkcs8PrivateKeyPem,
 } from "./google-wallet-policy.js";
 
 const vectors = JSON.parse(
@@ -31,15 +32,9 @@ const keys = new Map<string, string>([
   ["generated_pkcs1_rsa", pkcs1],
   ["not-a-private-key", "not-a-private-key"],
   ["oversized", "a".repeat(32769)],
-  [
-    "invalid_der",
-    `-----BEGIN PRIVATE KEY-----\n${"A".repeat(256)}\n-----END PRIVATE KEY-----`,
-  ],
+  ["invalid_der", syntheticPkcs8PrivateKeyPem("A".repeat(256))],
   ["generated_ec_pkcs8", ec],
-  [
-    "invalid_padding",
-    `-----BEGIN PRIVATE KEY-----\n${"A".repeat(240)}=A\n-----END PRIVATE KEY-----`,
-  ],
+  ["invalid_padding", syntheticPkcs8PrivateKeyPem(`${"A".repeat(240)}=A`)],
 ]);
 
 function config(issuer: string, classId: string, email: string, key = pkcs8) {

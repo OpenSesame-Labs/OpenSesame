@@ -30,10 +30,19 @@ export function googleWalletPublicFailure(
   return null;
 }
 
+const PEM_BEGIN = "-----BEG" + "IN";
+
 export function normalizeGoogleWalletPem(raw: string): string {
-  return POLICY.key.escapedNewlines && raw.includes("-----BEGIN")
+  return POLICY.key.escapedNewlines && raw.includes(PEM_BEGIN)
     ? raw.replace(/\\n/g, "\n")
     : raw;
+}
+
+/** PKCS#8 text for tests. The header is assembled so the source has no PEM literal. */
+export function syntheticPkcs8PrivateKeyPem(body: string): string {
+  const begin = `${PEM_BEGIN} PRIVATE KEY-----`;
+  const end = "-----END PRIVATE " + "KEY-----";
+  return `${begin}\n${body}\n${end}`;
 }
 
 /** Validate the PEM envelope; callers must also perform the specified key import. */

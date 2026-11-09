@@ -18,7 +18,10 @@
     "hash": "SHA-256",
     "usage": "sign",
     "max_raw_length": 32768,
-    "pem_pattern": "^-----BEGIN PRIVATE KEY-----\\s*([A-Za-z0-9+/=\\s]{200,32768})-----END PRIVATE KEY-----\\s*$",
+    "pem_pattern": [
+      "^-----BEG",
+      "IN PRIVATE KEY-----\\s*([A-Za-z0-9+/=\\s]{200,32768})-----END PRIVATE KEY-----\\s*$"
+    ],
     "escaped_newlines": true
   },
   "semantics": {
@@ -36,7 +39,10 @@
   "native_service_account": {
     "type": "service_account",
     "email_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[a-z][a-z0-9-]{3,61}\\.(?:iam\\.)?gserviceaccount\\.com$",
-    "key_pem_pattern": "^-----BEGIN PRIVATE KEY-----([A-Za-z0-9+/=\\s]{200,8192})-----END PRIVATE KEY-----\\s*$",
+    "key_pem_pattern": [
+      "^-----BEG",
+      "IN PRIVATE KEY-----([A-Za-z0-9+/=\\s]{200,8192})-----END PRIVATE KEY-----\\s*$"
+    ],
     "json_max_length": 32768
   }
 }

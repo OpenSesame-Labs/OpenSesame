@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  encodeSourceDigest,
   exposureViolations,
   parsePolicy,
   validatePolicy,
@@ -350,9 +351,15 @@ const invalid = [
     },
   ],
   [
+    "contiguous fingerprint",
+    (value) => {
+      value.sources[Object.keys(value.sources)[0]] = "a".repeat(64);
+    },
+  ],
+  [
     "unbound fingerprint",
     (value) => {
-      value.sources["unused.ts"] = "a".repeat(64);
+      value.sources["unused.ts"] = encodeSourceDigest("a".repeat(64));
     },
   ],
   [
