@@ -1,5 +1,17 @@
-import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   applyReleaseTagPolicies,
@@ -13,20 +25,66 @@ const policy = JSON.parse(
   readFileSync(new URL("ops/github/default-branch.json", root), "utf8"),
 );
 
-it("verifies the checked-in Gradle bootstrap against the official wrapper checksum", () => {
-  const wrapper = readFileSync(
-    new URL("gradle/wrapper/gradle-wrapper.jar", root),
-  );
-  // https://services.gradle.org/distributions/gradle-8.13-wrapper.jar.sha256
-  expect(createHash("sha256").update(wrapper).digest("hex")).toBe(
-    "81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f",
-  );
-  const properties = readFileSync(
-    new URL("gradle/wrapper/gradle-wrapper.properties", root),
-    "utf8",
-  );
-  expect(properties).toMatch(/^distributionSha256Sum=[a-f0-9]{64}$/m);
-  expect(properties).toContain("gradle-8.13-bin.zip");
+it("delegates Gradle through a text launcher with no checked-in wrapper binary", () => {
+  const launcher = readFileSync(new URL("gradlew", root), "utf8");
+  expect(launcher).toContain("Gradle 8.13");
+  expect(launcher).toContain("apps/android/android");
+  expect(launcher).toContain("readlink");
+  expect(launcher).toContain("pwd -P");
+  expect(() =>
+    readFileSync(new URL("gradle/wrapper/gradle-wrapper.jar", root)),
+  ).toThrow();
+});
+
+it("resolves a symlinked gradlew chain back to the Android project", () => {
+  const repoRoot = fileURLToPath(root);
+  const launcherPath = fileURLToPath(new URL("gradlew", root));
+  const dir = mkdtempSync(join(tmpdir(), "gradlew-link-"));
+  try {
+    const fake = join(dir, "gradle");
+    writeFileSync(
+      fake,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "--version" ]; then',
+        "  echo 'Gradle 8.13'",
+        "  exit 0",
+        "fi",
+        "printf '%s\\n' \"$@\"",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(fake, 0o755);
+    const nested = join(dir, "bin");
+    mkdirSync(nested);
+    // Relative hop, then an absolute hop: the chain the wrapper used to walk.
+    symlinkSync(launcherPath, join(nested, "hop"));
+    const chain = join(dir, "gradlew");
+    symlinkSync("bin/hop", chain);
+    const env = {
+      ...process.env,
+      PATH: `${dir}${delimiter}${process.env.PATH}`,
+    };
+    const chained = spawnSync("sh", [chain, "tasks"], {
+      env,
+      encoding: "utf8",
+    });
+    expect(chained.status, chained.stderr).toBe(0);
+    expect(chained.stdout).toBe(
+      `--project-dir\n${join(repoRoot, "apps/android/android")}\ntasks\n`,
+    );
+    // A symlinked parent directory must not become APP_HOME either.
+    const viaParent = join(dir, "parent");
+    symlinkSync(repoRoot, viaParent);
+    const parent = spawnSync("sh", [join(viaParent, "gradlew"), "tasks"], {
+      env,
+      encoding: "utf8",
+    });
+    expect(parent.status, parent.stderr).toBe(0);
+    expect(parent.stdout).toBe(chained.stdout);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 describe("repository governance ownership", () => {
@@ -49,8 +107,14 @@ describe("repository governance ownership", () => {
 });
 
 describe("repository governance default-branch rules", () => {
-  it("requires current Actions checks without impossible sole-owner approval", () => {
-    expect(policy.bypass_actors).toEqual([]);
+  it("requires reviewed changes with a pull-request-only admin bypass", () => {
+    expect(policy.bypass_actors).toEqual([
+      {
+        actor_id: 5,
+        actor_type: "RepositoryRole",
+        bypass_mode: "pull_request",
+      },
+    ]);
     expect(policy.conditions.ref_name).toEqual({
       include: ["~DEFAULT_BRANCH"],
       exclude: [],
@@ -78,8 +142,9 @@ describe("repository governance default-branch rules", () => {
       (rule) => rule.type === "pull_request",
     ).parameters;
     expect(review.required_review_thread_resolution).toBe(true);
-    expect(review.required_approving_review_count).toBe(0);
-    expect(review.require_code_owner_review).toBe(false);
+    expect(review.required_approving_review_count).toBe(2);
+    expect(review.require_code_owner_review).toBe(true);
+    expect(review.require_last_push_approval).toBe(true);
   });
 
   it("declares a squash merge queue that supersedes strict up-to-date", () => {
@@ -242,7 +307,9 @@ it("keeps version-tag creation and mutation owner-only", () => {
   expect(tags.bypass_actors).toEqual([
     { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" },
   ]);
-  expect(policy.bypass_actors).toEqual([]);
+  expect(policy.bypass_actors).toEqual([
+    { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "pull_request" },
+  ]);
   expect(selectRuleset([tags, tagCreation], tagCreation.name)).toBe(
     tagCreation,
   );
