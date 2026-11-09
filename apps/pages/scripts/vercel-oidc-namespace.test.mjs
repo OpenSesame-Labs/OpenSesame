@@ -237,17 +237,17 @@ it("retains original valid JWT signature/JWKS verification over actual owned TLS
 it.each([
   {
     name: "issuer",
-    expected: "TypeError",
+    expected: "VercelOidcTokenValidationError",
     claims: { iss: "https://wrong.example" },
   },
   {
     name: "project",
-    expected: "TypeError",
+    expected: "VercelOidcTokenValidationError",
     claims: { project_id: "foreign-project" },
   },
   {
     name: "environment",
-    expected: "TypeError",
+    expected: "VercelOidcTokenValidationError",
     claims: { environment: "production" },
   },
   {

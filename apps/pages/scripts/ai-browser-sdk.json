@@ -1,19 +1,19 @@
 {
   "sdk": {
     "name": "ai",
-    "version": "7.0.162",
-    "sha256": "1828b4d02645070fa8225acea369f20b2e220d7e23801932834159abf1aeb2f7"
+    "version": "7.0.163",
+    "sha256": "0947f9f6b0bcf56cd5cffc2cd326d106074c1ec492b81850988834257642518b"
   },
   "gateway": {
     "name": "@ai-sdk/gateway",
-    "version": "4.0.135",
-    "sha256": "9b5d97c552c33d48f157deb18f36f9a734820fd0416cdb454c1ec2d5b51a4cf2"
+    "version": "4.0.136",
+    "sha256": "8dec4ef90aa0c6e183a824acde0dd252f3f88ea71dd3e2c299a7cb136012ccca"
   },
   "facade": "packages/app-core/src/lib/command-bar/interpret-generate-object.ts",
   "caller": "packages/app-core/src/lib/command-bar/interpret.ts",
   "sources": {
-    "sdkSource": "c63804873550c512d2d3e2daaa590c6daa4da408e0fbe1a52075a65d0d8b9866",
-    "gatewaySource": "994e914f75d775bcf1fc8666ffff87da31e23f4fb5f7c3b13c8e746791897fcb",
+    "sdkSource": "3aec9834d76b2a5f1d29abf0dfceaefe8a4fa39a4a89cb4dfbb98e251cace5fa",
+    "gatewaySource": "f5618786e9aa47f4a27dd75f88556da70699d20682a5ccf3c4772d8f6c04a103",
     "facadeSource": "de06516dad69aea60d261d3a763bd9b231b52cdb3e9c9afd8eb56da2c418f3f4",
     "callerSource": "09ab63db71f532639a1990d9829ffee47339e055d2c61da4db224002114b9194"
   },
@@ -24,7 +24,7 @@
     "facadeDelegate": "return sdkGenerateObject(options);",
     "callerModel": "model: createPromptLanguageModel({ api }),"
   },
-  "gatewayErrorRenderedBytes": 48261,
+  "gatewayErrorRenderedBytes": 48933,
   "forbiddenRuntimeFragments": [
     "https://ai-gateway.vercel.sh/v4/ai",
     "ai-gateway-protocol-version",

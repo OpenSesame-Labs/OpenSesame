@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 
 const pins = {
   oidcPackage:
-    "c44c4f97779f4e84cbc5f0b8d6bde837ad9ca1a9d7d1f65e17fafd0851e0a4dc",
+    "fd54eeb932eb67ec952e0f4bcdd0db0a72e7747d85c7c2395addcb03b9ab9dbc",
   oidcBrowser:
     "88827584f41f0ec9833d15c6897dc4a09dd753b6574d0fba6b50831319d65dd8",
   verifier: "4d3d5c3066e0ed6a65c3b0404fbe31e6f12ff85aa10dc81ef3a9f6fb663beac2",
@@ -15,7 +15,7 @@ const pins = {
   joseBrowser:
     "44c315d5a0ffabb93fa3e70be939e468b1de6c2ca425742e81c8bab826af9ff4",
   connectPackage:
-    "715fea2318521c0978a2a292aa4350575e236b9ac05dee1d5f8b78e4fd5cf042",
+    "4f9f816287b58a8e1cfc3bc1c01e4f567eddd4ab387b0c32471cc9fa34d2342e",
 };
 const digest = (source) => createHash("sha256").update(source).digest("hex");
 function equal(actual, expected, name) {
@@ -49,7 +49,7 @@ export function readOidcNamespaceInputs(root) {
   const metadata = JSON.parse(
     checked(resolve(oidcRoot, "package.json"), "oidcPackage"),
   );
-  equal(metadata.version, "4.0.6", "OIDC version");
+  equal(metadata.version, "4.0.7", "OIDC version");
   equal(
     metadata.exports["."].browser,
     "./dist/index-browser.js",
