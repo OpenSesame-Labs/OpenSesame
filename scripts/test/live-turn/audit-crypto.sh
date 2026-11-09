@@ -12,10 +12,15 @@ trap 'rm -rf -- "$scratch"' EXIT
 # Go verifies the module zip against the checksum database; the verifier also
 # checks the pinned checksum, upstream commit and every included source byte.
 (cd "$scratch" && "$GO" mod download -json "golang.org/x/crypto@$version") > "$scratch/upstream.json"
-python3 "$ROOT/verify-crypto-subset.py" --upstream-metadata "$scratch/upstream.json"
+python3 "$ROOT/verify-crypto-subset.py" --upstream-metadata "$scratch/upstream.json" --overlay "$scratch/overlay.json"
 
-# Exercise the original upstream vectors and optimized/generic implementations.
-(cd "$ROOT/third_party/x-crypto" && "$GO" test -mod=readonly ./... && "$GO" test -mod=readonly -tags=purego ./...)
+# The two vector tests are not vendored. -overlay compiles the checksum-verified
+# copies from the downloaded module for both optimized and generic builds.
+(
+  cd "$ROOT/third_party/x-crypto"
+  "$GO" test -mod=readonly -overlay "$scratch/overlay.json" ./...
+  "$GO" test -mod=readonly -tags=purego -overlay "$scratch/overlay.json" ./...
+)
 
 # No replacement or vendored directory is copied: govulncheck sees the actual
 # maintained upstream version and reports every advisory in imported packages,

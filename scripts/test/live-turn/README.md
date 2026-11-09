@@ -10,14 +10,20 @@ The upstream `golang.org/x/crypto` module still distributes the unsupported
 OpenPGP implementation identified by GO-2026-5932, with no fixed module version.
 TURN's Pion DTLS dependency needs only cryptobyte and ChaCha20-Poly1305. The local
 replacement in `third_party/x-crypto` contains those upstream packages and their
-dependencies, original tests, vectors, architecture implementations, LICENSE and
+dependencies, original tests, architecture implementations, LICENSE and
 PATENTS. It physically excludes OpenPGP and the other unused packages. It keeps
 the real upstream module identity; the cryptographic source is unchanged.
 
 `UPSTREAM.json` records the upstream release, commit, module checksum and every
-included file's SHA-256. Only `go.mod` and `go.sum` describe a smaller dependency
-set. This source subset is maintained here; upstream does not publish it as a
-separate release.
+included file's SHA-256. `chacha20/vectors_test.go` and
+`internal/poly1305/vectors_test.go` are not stored in the tree; their digests
+stay under `test_vector_files`. `audit-crypto.sh` checks those bytes against
+the checksum-verified module from `go mod download -json`, then runs `go test
+-overlay` so those upstream files are compiled. Use that script to test this
+module. A plain `go test` does not include those vectors.
+`chacha20poly1305/chacha20poly1305_vectors_test.go` stays vendored. Only
+`go.mod` and `go.sum` describe a smaller dependency set. This source subset is
+maintained here; upstream does not publish it as a separate release.
 
 Run the mandatory companion audit whenever scanning dependency advisories:
 
@@ -45,8 +51,9 @@ advisory coverage for the included cryptography.
 
 When updating, download the exact new upstream version with `go mod download
 -json`, copy the same complete package directories and licenses without editing
-source, regenerate the file hashes and provenance, and update the main module's
-required version. Review upstream changes and dependency requirements, then run
+source, leave the two overlay vector tests out of the tree, record their
+hashes in `test_vector_files`, regenerate the other file hashes and provenance,
+and update the main module's required version. Review upstream changes and dependency requirements, then run
 the companion audit and TURN/browser transport tests. A changed package boundary
 requires review of the verifier and its dependency coverage too.
 

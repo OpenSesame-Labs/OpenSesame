@@ -24,7 +24,6 @@
     "chacha20/chacha_s390x.go": "c754fd607f74f77626e35539e66d1054ade460b7381cdcba612b2f9b422f1751",
     "chacha20/chacha_s390x.s": "0e56fbb71b8404dbb2e58f9ff0b14e433fb32be3db313865c350bc1abd76d012",
     "chacha20/chacha_test.go": "2ed764746579089f54cec09b8def26813f214dba6a95a85e3e32e3811f265ce3",
-    "chacha20/vectors_test.go": "792b8a5df7e455eaa371ba649b17ee95693deefdaeb85f324322db91ea58a432",
     "chacha20/xor.go": "c3adc8555766e36629b4dd3fcd579969d2d2737c65a379db997253a2b7b18072",
     "chacha20poly1305/chacha20poly1305.go": "08400b984074331e97c7e2a1d9701f14cb8f9919b3eb3e0d1bb8e3549961cac2",
     "chacha20poly1305/chacha20poly1305_amd64.go": "bae40d20a6077f0f5570b28086cdc4cb6e51aaa757e54b32ba99770f8b234869",
@@ -56,7 +55,10 @@
     "internal/poly1305/sum_ppc64x.s": "b879522e9c8a5650016a967ded7b0895ffa5fd6d6f2875903147840d37ee5705",
     "internal/poly1305/sum_riscv64.s": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
     "internal/poly1305/sum_s390x.go": "2c397170a5922ad79a20b44cc8daf82c5a263b9c2578df685f03973f6b1fc931",
-    "internal/poly1305/sum_s390x.s": "e6e9f457d640052142a2e8ca672498c73d73be426d5262576e2ecb81b5d13d6d",
+    "internal/poly1305/sum_s390x.s": "e6e9f457d640052142a2e8ca672498c73d73be426d5262576e2ecb81b5d13d6d"
+  },
+  "test_vector_files": {
+    "chacha20/vectors_test.go": "792b8a5df7e455eaa371ba649b17ee95693deefdaeb85f324322db91ea58a432",
     "internal/poly1305/vectors_test.go": "636bc6dde09403bb787819a8a0f8b5521d5655bad6c3c17c21907106cbb96e31"
   }
 }
