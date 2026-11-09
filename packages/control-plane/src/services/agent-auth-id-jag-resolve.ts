@@ -11,7 +11,7 @@ import {
   generateAgentRegistrationId,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { ensureVerifiedIdentityPrincipalActive } from "./identity-link.js";
+import { ensureVerifiedIdentityPrincipal } from "./identity-link.js";
 
 type BuiltProviderRegistration = {
   registration: AgentRegistration;
@@ -122,16 +122,15 @@ export async function resolveProviderRegistration(
   // same admission rules as every other federated leg: a leftover
   // provisional owner is promoted in place, and a suspended, closed or
   // missing owner is refused before any registration is built — never
-  // handed a fresh claimed assertion.
-  if (
-    principalId &&
-    !(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))
-  ) {
+  // handed a fresh claimed assertion. The settled row the fence returns
+  // is the row the registration is built from; a second read here would
+  // reopen the window the fence just closed.
+  const principal = principalId
+    ? await ensureVerifiedIdentityPrincipal(ctx, principalId)
+    : null;
+  if (principalId && !principal) {
     throw agentAuthError("invalid_request", 400, "principal unavailable");
   }
-  const principal = principalId
-    ? await ctx.repos.principals.getById(principalId)
-    : null;
 
   const built = buildProviderRegistration(
     ctx,
