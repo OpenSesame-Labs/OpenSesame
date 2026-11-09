@@ -22,7 +22,7 @@
   "dependencies": {
     "@opensesame/os-domain": "*",
     "@simplewebauthn/server": "13.3.2",
-    "better-auth": "1.7.17"
+    "better-auth": "1.7.18"
   },
   "devDependencies": {
     "@opensesame/testing": "*",
