@@ -147,6 +147,38 @@ async function revokePresentedSession(c: LinkContext, ctx: AppContext) {
 }
 
 /**
+ * Whether a principal an adoption was just minted for is still adoptable,
+ * and if not, end that adoption before any cookie or token names it.
+ *
+ * `adoptJoinedIdentity`/`collisionRebind` read the owner before minting;
+ * a suspension landing between that read and the response would otherwise
+ * still set the cookie and answer 201. The minted session is found
+ * through its token row directly — session resolution refuses suspended
+ * principals, so it cannot name the row that needs ending here.
+ */
+async function settleAdoption(
+  ctx: AppContext,
+  adoption: FederatedSessionAdoption,
+): Promise<boolean> {
+  const owner = await ctx.repos.principals.getById(adoption.principalId);
+  if (owner?.state === "active") return true;
+  const sessionId = await ctx.stores.provisionalTokens.get(
+    adoption.accessToken,
+  );
+  if (sessionId) {
+    const session = await ctx.stores.provisionalSessions.get(sessionId);
+    if (session && !session.revokedAt) {
+      await ctx.stores.provisionalSessions.set(sessionId, {
+        ...session,
+        revokedAt: ctx.clock(),
+      });
+    }
+    await revokeSessionTokens(ctx.stores, sessionId);
+  }
+  return false;
+}
+
+/**
  * A verified token for a subject another principal already owns is a
  * sign-in to that principal when the caller is a throwaway provisional
  * (nothing to merge from): rebind, exactly as the hosted leg does on a
@@ -176,6 +208,7 @@ async function collisionRebind(
     existing.principalId,
     c.get("correlationId"),
   );
+  if (!(await settleAdoption(ctx, adoption))) return null;
   setSessionCookie(c, ctx, adoption.accessToken);
   await revokePresentedSession(c, ctx);
   return c.json(
@@ -300,6 +333,16 @@ export async function linkFromVerifiedIdToken(
     if (error instanceof ProvisionalCapacityError)
       return c.json({ error: "provisional_capacity" }, 429);
     throw error;
+  }
+  if (adoption && !(await settleAdoption(ctx, adoption))) {
+    return c.json(
+      {
+        error: "identity_collision",
+        message:
+          "External identity already bound to another principal; merge requires dual authentication",
+      },
+      409,
+    );
   }
   if (adoption) {
     setSessionCookie(c, ctx, adoption.accessToken);

@@ -97,6 +97,28 @@ export async function verifySiopIdToken(
   return verifySelfIssuedIdToken(input);
 }
 
+/**
+ * Whether a principal may collect a fresh SIOP link. This is a link road,
+ * not a sign-in: the caller already holds a session, and proving
+ * possession of a self-issued key they generated does not promote a
+ * provisional guest to verified. But a suspended, closed or vanished
+ * principal collects no new verified identity — the session middleware
+ * refuses them at the door, and this covers a suspension landing while
+ * the link is in flight.
+ */
+async function principalMayHoldSiopLink(
+  ctx: AppContext,
+  principalId: string,
+): Promise<boolean> {
+  const principal = await ctx.repos.principals.getById(principalId);
+  return (
+    principal !== null &&
+    principal !== undefined &&
+    principal.state !== "suspended" &&
+    principal.state !== "closed"
+  );
+}
+
 export async function linkVerifiedSiopSubject(
   ctx: AppContext,
   input: LinkSiopInput,
@@ -165,8 +187,15 @@ export async function linkVerifiedSiopSubject(
   });
   if (existing) {
     if (existing.principalId === input.principalId) {
+      if (!(await principalMayHoldSiopLink(ctx, input.principalId))) {
+        return { ok: false, error: "identity_collision" };
+      }
       return { ok: true, alreadyLinked: true, identity: existing };
     }
+    return { ok: false, error: "identity_collision" };
+  }
+
+  if (!(await principalMayHoldSiopLink(ctx, input.principalId))) {
     return { ok: false, error: "identity_collision" };
   }
 
@@ -190,12 +219,23 @@ export async function linkVerifiedSiopSubject(
         issuer: verified.iss,
         subject: verified.sub,
       });
-      if (peer?.principalId === input.principalId) {
+      if (
+        peer?.principalId === input.principalId &&
+        (await principalMayHoldSiopLink(ctx, input.principalId))
+      ) {
         return { ok: true, alreadyLinked: true, identity: peer };
       }
       return { ok: false, error: "identity_collision" };
     }
     throw error;
+  }
+
+  // Settled re-read, as in attach: a suspension landing during the
+  // insert unbinds the fresh row instead of leaving a verified identity
+  // on a dead principal behind a succeeded audit event.
+  if (!(await principalMayHoldSiopLink(ctx, input.principalId))) {
+    await ctx.repos.externalIdentities.deleteById(identity.id);
+    return { ok: false, error: "identity_collision" };
   }
 
   const auditEvent = {

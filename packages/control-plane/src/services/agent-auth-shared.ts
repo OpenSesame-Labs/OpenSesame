@@ -16,8 +16,8 @@ import {
   generateAgentClaimAttemptToken,
   generateAgentUserCode,
   hmacDigest,
+  markAgentRegistrationClaimPending,
 } from "@opensesame/os-domain";
-import { markAgentRegistrationClaimPending } from "@opensesame/os-domain";
 import {
   evaluateAgentAuthScopes,
   intersectAgentAuthScopes,
@@ -188,6 +188,13 @@ export async function loadPrincipal(
   const principal = await ctx.repos.principals.getById(id);
   if (!principal) {
     throw agentAuthError("invalid_grant", 400, "principal missing");
+  }
+  // Suspension and closure take effect at the next exchange, not when
+  // the assertion expires — the same lease rule the session middleware
+  // applies. Provisional principals still load: an unclaimed agent
+  // registration's own principal is one by design.
+  if (principal.state === "suspended" || principal.state === "closed") {
+    throw agentAuthError("invalid_grant", 400, "principal unavailable");
   }
   return principal;
 }

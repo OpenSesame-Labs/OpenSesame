@@ -243,14 +243,50 @@ describe("attaching an identity nobody holds yet", () => {
 
 describe("attaching an identity that already exists", () => {
   it("is idempotent when this principal already owns it", async () => {
+    f.principals.set(
+      "prn_1",
+      principal({ state: "active", assurance: "verified" }),
+    );
     f.identities.push(identity({ principalId: "prn_1" }));
 
     const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
 
     expect(result).toMatchObject({ ok: true, alreadyLinked: true });
-    // No second row, and no principal churn.
+    // No second row, and no principal churn for an already-active owner.
     expect(f.created).toHaveLength(0);
     expect(f.updates).toHaveLength(0);
+  });
+
+  it("finishes a leftover provisional owner's promotion on an idempotent re-link", async () => {
+    // Gauntlet round 6 (cursor): the old crash window between identity
+    // creation and promotion left verified tuples on provisional
+    // principals. Re-presenting that tuple is the same verified proof
+    // the first attach promotes on — an idempotent answer must not
+    // report success while leaving the owner half-promoted.
+    f.identities.push(identity({ principalId: "prn_1" }));
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
+
+    expect(result).toMatchObject({ ok: true, alreadyLinked: true });
+    expect(f.created).toHaveLength(0);
+    expect(f.updates).toHaveLength(1);
+    expect(f.principals.get("prn_1")).toMatchObject({
+      state: "active",
+      assurance: "verified",
+    });
+  });
+
+  it("refuses an idempotent re-link for a suspended owner", async () => {
+    f.principals.set(
+      "prn_1",
+      principal({ state: "suspended", assurance: "verified" }),
+    );
+    f.identities.push(identity({ principalId: "prn_1" }));
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(f.created).toHaveLength(0);
   });
 
   it("refuses when another principal owns it", async () => {
