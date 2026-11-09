@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   resetSamlCompletionCodes,
   resetSamlMetadataCache,
+  resetSamlMintBudget,
   samlRelayPath,
   samlServiceProviderMetadata,
 } from "../interactions/saml.js";
@@ -502,6 +503,66 @@ describe("native SAML SP, SP-initiated", () => {
       subject,
     });
     expect(identity).toBeTruthy();
+  }, 30_000);
+
+  it("promotes a leftover provisional owner before a returning SAML sign-in", async () => {
+    // Earlier tests in this file have spent the per-organization mint
+    // budget for this minute; this test needs one first sign-in of its own.
+    resetSamlMintBudget();
+    const subject = `saml-return-provisional-${Date.now()}`;
+    idp.setSubject(subject);
+
+    const first = await runSamlLegToPostBinding(base, "acme");
+    const firstAcs = await postAcsCookieless(first.binding.action, {
+      SAMLResponse: first.binding.fields.SAMLResponse ?? "",
+    });
+    expect(firstAcs.status).toBe(303);
+    const firstComplete = await req(
+      base,
+      first.jar,
+      firstAcs.headers.get("location") ?? "",
+    );
+    expect(firstComplete.status).toBe(303);
+
+    const identity = await started.ctx.repos.externalIdentities.findByTuple({
+      kind: "saml",
+      issuer: idp.saml.entityId,
+      tenant: organizationId,
+      subject,
+    });
+    if (!identity) throw new Error("expected the first SAML identity");
+    const promoted = await started.ctx.repos.principals.getById(
+      identity.principalId,
+    );
+    if (!promoted) throw new Error("expected the SAML principal");
+    // Simulate the crash window between identity creation and promotion:
+    // the verified tuple exists, but its owner never became durable.
+    await started.ctx.repos.principals.update(
+      identity.principalId,
+      {
+        state: "provisional",
+        assurance: "provisional",
+        verifiedAt: undefined,
+        updatedAt: new Date(),
+      },
+      promoted.version,
+    );
+
+    const second = await runSamlLegToPostBinding(base, "acme");
+    const secondAcs = await postAcsCookieless(second.binding.action, {
+      SAMLResponse: second.binding.fields.SAMLResponse ?? "",
+    });
+    expect(secondAcs.status).toBe(303);
+    const complete = await req(
+      base,
+      second.jar,
+      secondAcs.headers.get("location") ?? "",
+    );
+    expect(complete.status).toBe(303);
+    const owner = await started.ctx.repos.principals.getById(
+      identity.principalId,
+    );
+    expect(owner).toMatchObject({ state: "active", assurance: "verified" });
   }, 30_000);
 
   it("gives one uniform answer for a slug it cannot start", async () => {

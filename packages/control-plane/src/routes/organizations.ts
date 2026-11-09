@@ -26,7 +26,10 @@ import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
 import { serializeKeyed } from "../serialize.js";
 import { emailLinkFields } from "../services/email-authority.js";
-import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import {
+  attachVerifiedExternalIdentity,
+  ensureVerifiedIdentityPrincipalActive,
+} from "../services/identity-link.js";
 import {
   removeOrganizationMembership,
   writeOrganization,
@@ -41,7 +44,9 @@ import { createOrganization } from "../services/verified-admin.js";
 import { getUsage } from "../state.js";
 import { OrgAssertionError, type VerifiedOrgIdToken } from "./org-assertion.js";
 import { issuerForMethod, tenantAuthMethods } from "./org-auth-methods.js";
-export { usesNativeSaml, tenantAuthMethods } from "./org-auth-methods.js";
+
+export { tenantAuthMethods, usesNativeSaml } from "./org-auth-methods.js";
+
 import { normalizeEmailDomain } from "./org-domains.js";
 import { organizationIssuerErrorHandler } from "./org-issuer-errors.js";
 import {
@@ -61,11 +66,11 @@ import {
 import { provisionedRoleForSubject } from "./scim.js";
 import { asVerifiedPrincipal } from "./verified-principal-gate.js";
 
+export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 export {
   jitJoinOrganization,
   serializeMembershipMutation,
 } from "./organization-membership.js";
-export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 
 export const organizationRoutes = new Hono<{ Variables: Variables }>();
 organizationRoutes.onError(organizationIssuerErrorHandler);
@@ -667,6 +672,17 @@ organizationRoutes.post(
     // same way hosted SSO, LDAP, and SAML do. The caller is not made a member
     // and their session stays the provisional principal they presented.
     const memberPrincipalId = attached.identity.principalId;
+    if (
+      !(await ensureVerifiedIdentityPrincipalActive(ctx, memberPrincipalId))
+    ) {
+      return c.json(
+        {
+          error: "principal_inactive",
+          message: "This account is not able to sign in.",
+        },
+        403,
+      );
+    }
     // A subject the directory provisioned into a role joins at that role, not
     // at `member` (C15) — the same answer this tenant's hosted sign-in gives.
     const role = await provisionedRoleForSubject(ctx, org.id, assertion.sub);
@@ -987,4 +1003,5 @@ organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   }
   return c.json(toResponse(org, membership.role));
 });
+
 import { removeOrphanTokens } from "../repos/session-storage.js";
