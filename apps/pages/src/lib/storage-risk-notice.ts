@@ -22,7 +22,7 @@
  * the vault's own state on every unlock, so there is no nag flag to seal.
  */
 
-import { getBackupStatus } from "@opensesame/app-core/lib/backup.js";
+import { hasWorkingBackupTarget } from "@opensesame/app-core/lib/backup.js";
 import {
   dismissNotice,
   setStatusNotice,
@@ -33,7 +33,7 @@ import { useEffect, useRef } from "react";
 export const STORAGE_RISK_NOTICE_ID = "vault.storage-risk";
 
 export const storageRiskSeams = {
-  getBackupStatus,
+  hasWorkingBackupTarget,
   setStatusNotice,
   dismissNotice,
 };
@@ -64,17 +64,19 @@ export function useStorageRiskNotice(
     }
     let live = true;
     const evaluate = async () => {
-      const backup = await storageRiskSeams.getBackupStatus().catch(() => null);
-      if (!live) return;
       // Enabled is not backed up: a target that is failing, still holding
       // unsynced events, or has never completed a sync at all (a fresh
       // binding sits pending with nothing copied) has not kept what the
-      // vault sealed.
-      const backedUp =
-        backup?.target?.enabled === true &&
-        backup.target.lastError === null &&
-        backup.target.lastSyncedAt !== null &&
-        backup.pendingEvents === 0;
+      // vault sealed — and the claim is about the vault, so every
+      // configured target counts, not only the first row. A read failure
+      // fails closed: unknown is not backed up.
+      let backedUp = false;
+      try {
+        backedUp = storageRiskSeams.hasWorkingBackupTarget();
+      } catch {
+        backedUp = false;
+      }
+      if (!live) return;
       if (backedUp) {
         if (shown.current) {
           shown.current = false;

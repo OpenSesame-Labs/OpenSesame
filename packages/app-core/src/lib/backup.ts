@@ -16,6 +16,7 @@ import {
 import {
   type LocalBackupTarget,
   clearLocalBackupTarget,
+  listLocalBackupTargets,
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
@@ -188,6 +189,23 @@ export async function getBackupStatus(
   providerId?: string | null,
 ): Promise<BackupStatus> {
   return backupSeams.getBackupStatus(providerId);
+}
+
+/**
+ * Whether ANY configured target is actually keeping the vault: enabled,
+ * error-free, caught up, and synced at least once. Provider-scoped readers
+ * (`getBackupStatus`) answer for one target; a claim about the vault as a
+ * whole — "no copy anywhere else yet" — must look at every row, or a
+ * healthy second target leaves it false.
+ */
+export function hasWorkingBackupTarget(): boolean {
+  return listLocalBackupTargets().some(
+    (row) =>
+      row.enabled &&
+      row.lastError === null &&
+      row.lastSyncedAt !== null &&
+      row.pendingEvents === 0,
+  );
 }
 
 export async function listGithubInstallations(

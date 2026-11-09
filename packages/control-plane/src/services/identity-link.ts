@@ -165,6 +165,21 @@ export async function attachVerifiedExternalIdentity(
       message: IDENTITY_COLLISION_MESSAGE,
     };
   }
+  if (emailOwner) {
+    // The adoption roads refuse a suspended or closed owner, but they run
+    // after this write: without the same fence here, the identity lands on
+    // a dead principal and the caller is still told it linked. A
+    // provisional owner is not refused — the promotion below makes it
+    // active in this same call, which is what adoption then reads.
+    const owner = await ctx.repos.principals.getById(emailOwner.principalId);
+    if (!owner || owner.state === "suspended" || owner.state === "closed") {
+      return {
+        ok: false,
+        error: "identity_collision",
+        message: IDENTITY_COLLISION_MESSAGE,
+      };
+    }
+  }
   const ownerPrincipalId = emailOwner ? emailOwner.principalId : principalId;
 
   // Same email on another principal must never auto-link. Audit and continue.

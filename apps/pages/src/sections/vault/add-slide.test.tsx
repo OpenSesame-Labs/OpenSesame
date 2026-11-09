@@ -336,6 +336,23 @@ describe("the Add button's slide, edge cases", () => {
     expect(picker).toHaveBeenCalledOnce();
   });
 
+  it("a cancelled hold swallows the click that trails it, and opens nothing", () => {
+    // Gauntlet round 4 (opencode): cancel cleared the swallow window, so a
+    // compatibility click after pointercancel followed the + into New item.
+    // A cancelled touch opens and runs nothing — the click included.
+    renderVault("/vault?f=all");
+    armed();
+    fire("pointercancel", 500);
+    expect(document.querySelector(".add-slide")).toBeNull();
+    expect(contextMenuSnapshot()).toBeNull();
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => {
+      plus().dispatchEvent(click);
+    });
+    expect(click.defaultPrevented).toBe(true);
+    expect(screen.getByTestId("arrival").textContent).toBe("POP");
+  });
+
   it("a click the browser never made does not swallow a later one", () => {
     renderVault("/vault?f=all");
     armed();

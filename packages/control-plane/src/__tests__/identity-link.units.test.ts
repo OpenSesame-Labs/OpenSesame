@@ -407,6 +407,39 @@ describe("email is evidence, never a join key", () => {
     expect(f.created).toHaveLength(0);
   });
 
+  it("refuses the verified-email join before writing anything when the owner is suspended", async () => {
+    // Gauntlet round 4 (grok/opencode/kimi): the adoption roads refuse a
+    // non-active owner, but the attach wrote the identity row onto that
+    // owner first and the route still answered 201 with its id. The fence
+    // belongs ahead of the write, at the admission chokepoint.
+    f.principals.set(
+      "prn_someone_else",
+      principal({
+        id: "prn_someone_else",
+        state: "suspended",
+        assurance: "verified",
+      }),
+    );
+    f.identities.push(
+      identity({
+        id: "xid_other",
+        principalId: "prn_someone_else",
+        subject: "a-different-subject",
+        emailNormalized: "person@example.com",
+        emailVerified: true,
+      }),
+    );
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", {
+      ...INPUT,
+      emailNormalized: "person@example.com",
+      emailVerified: true,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(f.created).toHaveLength(0);
+  });
+
   it("does not look for peers when no email was supplied", async () => {
     const spy = vi.spyOn(
       f.ctx.repos.externalIdentities,
