@@ -164,7 +164,10 @@ function createSlide(
     },
     cancel() {
       touchUntil = Date.now() + 700;
-      liftedUntil = 0;
+      // An armed hold still owes its swallow: a browser may trail
+      // pointercancel with a compatibility click, and a cancelled touch
+      // opens and runs nothing — following the + included.
+      liftedUntil = live ? Date.now() + LIFT_CLICK_MS : 0;
       stop();
     },
   };

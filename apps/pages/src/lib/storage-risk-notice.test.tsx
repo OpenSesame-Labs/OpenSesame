@@ -21,7 +21,7 @@ beforeEach(() => {
   setNotice = vi.fn();
   dismiss = vi.fn();
   Object.assign(storageRiskSeams, {
-    getBackupStatus: async () => ({ target: null, pendingEvents: 0 }),
+    hasWorkingBackupTarget: () => false,
     setStatusNotice: setNotice,
     dismissNotice: dismiss,
   });
@@ -55,74 +55,31 @@ describe("the browser-storage warning", () => {
     expect(setNotice).not.toHaveBeenCalled();
   });
 
-  it("stays silent only when a backup is enabled, error-free, caught up and has synced", async () => {
+  // Which target states count as "working" (never synced, failing, behind,
+  // a healthy second row) is pinned where the predicate lives:
+  // packages/app-core/src/lib/backup.test.ts (`hasWorkingBackupTarget`).
+  it("stays silent when a backup target is working", async () => {
     Object.assign(storageRiskSeams, {
-      getBackupStatus: async () => ({
-        target: {
-          enabled: true,
-          lastError: null,
-          lastSyncedAt: "2026-01-01T00:00:00Z",
-        },
-        pendingEvents: 0,
-      }),
+      hasWorkingBackupTarget: () => true,
     });
     renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
     await Promise.resolve();
     expect(setNotice).not.toHaveBeenCalled();
   });
 
-  it("warns when the backup is enabled but has never synced", async () => {
-    Object.assign(storageRiskSeams, {
-      getBackupStatus: async () => ({
-        target: { enabled: true, lastError: null, lastSyncedAt: null },
-        pendingEvents: 0,
-      }),
-    });
-    renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
-    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
-  });
-
-  it("warns when the backup is enabled but failing or behind", async () => {
-    Object.assign(storageRiskSeams, {
-      getBackupStatus: async () => ({
-        target: { enabled: true, lastError: "push rejected" },
-        pendingEvents: 3,
-      }),
-    });
-    renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
-    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
-  });
-
   it("withdraws once a backup starts working, without waiting for unlock", async () => {
     vi.useFakeTimers();
     try {
-      let status: {
-        target: {
-          enabled: boolean;
-          lastError: string | null;
-          lastSyncedAt: string | null;
-        };
-        pendingEvents: number;
-      } = {
-        target: { enabled: true, lastError: null, lastSyncedAt: null },
-        pendingEvents: 0,
-      };
+      let working = false;
       Object.assign(storageRiskSeams, {
-        getBackupStatus: async () => status,
+        hasWorkingBackupTarget: () => working,
       });
       renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
       await act(async () => {
         await Promise.resolve();
       });
       expect(setNotice).toHaveBeenCalledTimes(1);
-      status = {
-        target: {
-          enabled: true,
-          lastError: null,
-          lastSyncedAt: "2026-01-01T00:00:00Z",
-        },
-        pendingEvents: 0,
-      };
+      working = true;
       await act(async () => {
         await vi.advanceTimersByTimeAsync(30_000);
       });
