@@ -4,8 +4,7 @@ Release and merge-gate tooling run from a terminal or CI.
 
 | File | Role |
 |------|------|
-| `check-pr-signatures.mjs` | Fails a PR whose commits are not GitHub-verified (`scripts/lib/pr-signatures.mjs`) |
-| `check-pr-grok-commits.mjs` | Fails a PR whose commits are not Grok-authored and verified (`scripts/lib/pr-grok-commits.mjs`) |
+| `check-pr-signatures.mjs` | Fails a PR with any commit that lacks a GitHub-verified signature (`scripts/lib/pr-signatures.mjs`); run by the `Grok signed commits` job, whose name is historical, and by the prerelease checks |
 | `land-signed-stack.mjs` | Replays a local branch stack as GitHub-verified commits |
 | `candidate.mjs`, `lib/candidate-*.mjs` | Select and admit immutable candidates; verify source, provenance, qualification receipts and existing publication |
 | `artifact-transfer.mjs`, `archive-safe.py` | Verify immutable artifact identity and downloaded bytes before safe extraction |
