@@ -45,6 +45,49 @@ function classify(path) {
   }
 }
 
+/** The lines of build-core.sh that default the bindgen Cargo home and target. */
+function bindgenDefaultLines() {
+  const build = readFileSync(
+    join(root, "apps/android/scripts/build-core.sh"),
+    "utf8",
+  );
+  return build
+    .split("\n")
+    .filter((line) => /^ {2}local bindgen_(cargo_home|target)=/.test(line));
+}
+
+/** The ambient environment with every Cargo cache override removed. */
+function environmentWithoutCargoOverrides() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name]) =>
+        ![
+          "OPENSESAME_BINDGEN_CARGO_HOME",
+          "OPENSESAME_BINDGEN_TARGET_DIR",
+          "CARGO_HOME",
+          "CARGO_TARGET_DIR",
+        ].includes(name),
+    ),
+  );
+}
+
+/** Runs build-core.sh's own default lines against `repoRoot`, then makes the cache. */
+function createBindgenCache(defaults, repoRoot, env) {
+  execFileSync(
+    "bash",
+    [
+      "-euc",
+      `repo_root="$1"; cache() { ${defaults.join("\n")}
+mkdir -p "$bindgen_cargo_home" "$bindgen_target"
+touch "$bindgen_cargo_home/.package-cache"
+}; cache`,
+      "--",
+      repoRoot,
+    ],
+    { env, stdio: "pipe" },
+  );
+}
+
 describe("native mobile required checks", () => {
   it("can create the default bindgen Cargo cache in a fresh checkout", () => {
     const fixture = mkdtempSync(join(tmpdir(), "opensesame-native-cache-"));
@@ -55,38 +98,10 @@ describe("native mobile required checks", () => {
           join(fixture, "missing-checkout-target"),
           join(fixture, "target"),
         );
-      const build = readFileSync(
-        join(root, "apps/android/scripts/build-core.sh"),
-        "utf8",
-      );
-      const defaults = build
-        .split("\n")
-        .filter((line) => /^ {2}local bindgen_(cargo_home|target)=/.test(line));
+      const defaults = bindgenDefaultLines();
       expect(defaults).toHaveLength(2);
-      const environment = Object.fromEntries(
-        Object.entries(process.env).filter(
-          ([name]) =>
-            ![
-              "OPENSESAME_BINDGEN_CARGO_HOME",
-              "OPENSESAME_BINDGEN_TARGET_DIR",
-              "CARGO_HOME",
-              "CARGO_TARGET_DIR",
-            ].includes(name),
-        ),
-      );
-      execFileSync(
-        "bash",
-        [
-          "-euc",
-          `repo_root="$1"; cache() { ${defaults.join("\n")}
-mkdir -p "$bindgen_cargo_home" "$bindgen_target"
-touch "$bindgen_cargo_home/.package-cache"
-}; cache`,
-          "--",
-          fixture,
-        ],
-        { env: environment, stdio: "pipe" },
-      );
+      const environment = environmentWithoutCargoOverrides();
+      createBindgenCache(defaults, fixture, environment);
       expect(
         lstatSync(
           join(
@@ -96,22 +111,10 @@ touch "$bindgen_cargo_home/.package-cache"
         ).isFile(),
       ).toBe(true);
       const ambient = join(fixture, "ambient-cargo");
-      execFileSync(
-        "bash",
-        [
-          "-euc",
-          `repo_root="$1"; cache() { ${defaults.join("\n")}
-mkdir -p "$bindgen_cargo_home" "$bindgen_target"
-touch "$bindgen_cargo_home/.package-cache"
-}; cache`,
-          "--",
-          fixture,
-        ],
-        {
-          env: { ...environment, CARGO_HOME: ambient },
-          stdio: "pipe",
-        },
-      );
+      createBindgenCache(defaults, fixture, {
+        ...environment,
+        CARGO_HOME: ambient,
+      });
       expect(lstatSync(join(ambient, ".package-cache")).isFile()).toBe(true);
     } finally {
       rmSync(fixture, { recursive: true, force: true });

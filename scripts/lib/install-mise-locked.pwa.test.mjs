@@ -76,6 +76,111 @@ function assertRestore(step, id) {
   assert.equal(step.uses?.includes("actions/cache/save@"), false, id);
 }
 
+/** Where a job's first checkout, its cache restore, bootstrap and tool steps sit. */
+function stepPositions(steps) {
+  let checkoutAt = -1;
+  let restoreAt = -1;
+  let bootAt = -1;
+  const toolAt = [];
+  steps.forEach((step, index) => {
+    const uses = readString(step?.uses) ?? "";
+    const run = runOf(step).trim();
+    if (uses.startsWith("actions/checkout@") && checkoutAt < 0) {
+      checkoutAt = index;
+    }
+    if (uses.startsWith("actions/cache/restore@")) restoreAt = index;
+    if (run === nodeBootstrap || run === hurlBootstrap) bootAt = index;
+    if (needsToolchain(step)) toolAt.push(index);
+  });
+  return { checkoutAt, restoreAt, bootAt, toolAt };
+}
+
+/** A sparse checkout must still carry the installer, its pins and the mise files. */
+function assertSparseCheckoutCoversInstaller(job, label) {
+  const patterns = sparsePatterns(job);
+  assert.equal(pathCoveredBySparseCheckout(scriptRel, patterns), true, label);
+  assert.equal(pathCoveredBySparseCheckout(pinsRel, patterns), true, label);
+  if (patterns.length > 0) {
+    assert.ok(patterns.includes("/mise.toml"), label);
+    assert.ok(
+      patterns.includes("mise.lock") || patterns.includes("/mise.lock"),
+      label,
+    );
+  }
+}
+
+/** Restoring the cache needs actions: read, on the job or on the workflow. */
+function assertActionsRead(doc, job, label) {
+  if (job.permissions !== undefined) {
+    assert.equal(job.permissions.actions, "read", label);
+  } else {
+    assert.equal(doc.permissions?.actions, "read", label);
+  }
+}
+
+/** Tools run after the bootstrap, except the resolver that runs on the runner's Node. */
+function assertToolsFollowBootstrap({
+  name,
+  id,
+  label,
+  steps,
+  bootAt,
+  toolAt,
+}) {
+  for (const index of toolAt) {
+    const run = runOf(steps[index]).trim();
+    if (
+      name === "cd-pwa.yml" &&
+      id === "build_full_profile" &&
+      run === runnerNode
+    ) {
+      assert.ok(index < bootAt, `${label} resolver must stay ahead of mise`);
+      assert.equal(steps[index].if, undefined, label);
+      continue;
+    }
+    assert.ok(index > bootAt, `${label} runs tools before locked mise`);
+  }
+}
+
+/** Only the full-profile build skips restore and bootstrap when CI's dist is reused. */
+function assertBootstrapCondition({
+  name,
+  id,
+  label,
+  steps,
+  restoreAt,
+  bootAt,
+}) {
+  if (name === "cd-pwa.yml" && id === "build_full_profile") {
+    assert.equal(steps[restoreAt].if, compileIf, label);
+    assert.equal(steps[bootAt].if, compileIf, label);
+  } else {
+    assert.equal(steps[restoreAt].if, undefined, label);
+    assert.equal(steps[bootAt].if, undefined, label);
+  }
+}
+
+/** One job: no tools means no bootstrap; otherwise checkout, restore, bootstrap, tools. */
+function assertJobBootstrapsLockedMise({ doc, name, id, job }) {
+  const steps = Array.isArray(job?.steps) ? job.steps : [];
+  const label = `${name}:${id}`;
+  const { checkoutAt, restoreAt, bootAt, toolAt } = stepPositions(steps);
+  if (toolAt.length === 0) {
+    assert.equal(restoreAt, -1, `${label} restores without tools`);
+    assert.equal(bootAt, -1, `${label} bootstraps without tools`);
+    return;
+  }
+  assert.ok(checkoutAt >= 0, label);
+  assert.ok(restoreAt > checkoutAt, `${label} restores after checkout`);
+  assert.ok(bootAt > restoreAt, `${label} bootstraps after restore`);
+  assert.equal(runOf(steps[bootAt]).trim(), expectedBootstrap(name, id), label);
+  assertRestore(steps[restoreAt], label);
+  assertSparseCheckoutCoversInstaller(job, label);
+  assertActionsRead(doc, job, label);
+  assertToolsFollowBootstrap({ name, id, label, steps, bootAt, toolAt });
+  assertBootstrapCondition({ name, id, label, steps, restoreAt, bootAt });
+}
+
 describe("locked mise bootstrap: PWA CD", () => {
   it("covers PWA CD jobs and does not save the cache", () => {
     const ci = read(".github/workflows/ci.yml");
@@ -102,83 +207,7 @@ describe("locked mise bootstrap: PWA CD", () => {
       const ids = Object.keys(jobs);
       assert.ok(ids.length > 0, name);
       for (const id of ids) {
-        const job = jobs[id];
-        const steps = Array.isArray(job?.steps) ? job.steps : [];
-        const label = `${name}:${id}`;
-        let checkoutAt = -1;
-        let restoreAt = -1;
-        let bootAt = -1;
-        const toolAt = [];
-        steps.forEach((step, index) => {
-          const uses = readString(step?.uses) ?? "";
-          const run = runOf(step).trim();
-          if (uses.startsWith("actions/checkout@") && checkoutAt < 0) {
-            checkoutAt = index;
-          }
-          if (uses.startsWith("actions/cache/restore@")) restoreAt = index;
-          if (run === nodeBootstrap || run === hurlBootstrap) bootAt = index;
-          if (needsToolchain(step)) toolAt.push(index);
-        });
-        if (toolAt.length === 0) {
-          assert.equal(restoreAt, -1, `${label} restores without tools`);
-          assert.equal(bootAt, -1, `${label} bootstraps without tools`);
-          continue;
-        }
-        assert.ok(checkoutAt >= 0, label);
-        assert.ok(restoreAt > checkoutAt, `${label} restores after checkout`);
-        assert.ok(bootAt > restoreAt, `${label} bootstraps after restore`);
-        assert.equal(
-          runOf(steps[bootAt]).trim(),
-          expectedBootstrap(name, id),
-          label,
-        );
-        assertRestore(steps[restoreAt], label);
-        const patterns = sparsePatterns(job);
-        assert.equal(
-          pathCoveredBySparseCheckout(scriptRel, patterns),
-          true,
-          label,
-        );
-        assert.equal(
-          pathCoveredBySparseCheckout(pinsRel, patterns),
-          true,
-          label,
-        );
-        if (patterns.length > 0) {
-          assert.ok(patterns.includes("/mise.toml"), label);
-          assert.ok(
-            patterns.includes("mise.lock") || patterns.includes("/mise.lock"),
-            label,
-          );
-        }
-        if (job.permissions !== undefined) {
-          assert.equal(job.permissions.actions, "read", label);
-        } else {
-          assert.equal(doc.permissions?.actions, "read", label);
-        }
-        for (const index of toolAt) {
-          const run = runOf(steps[index]).trim();
-          if (
-            name === "cd-pwa.yml" &&
-            id === "build_full_profile" &&
-            run === runnerNode
-          ) {
-            assert.ok(
-              index < bootAt,
-              `${label} resolver must stay ahead of mise`,
-            );
-            assert.equal(steps[index].if, undefined, label);
-            continue;
-          }
-          assert.ok(index > bootAt, `${label} runs tools before locked mise`);
-        }
-        if (name === "cd-pwa.yml" && id === "build_full_profile") {
-          assert.equal(steps[restoreAt].if, compileIf, label);
-          assert.equal(steps[bootAt].if, compileIf, label);
-        } else {
-          assert.equal(steps[restoreAt].if, undefined, label);
-          assert.equal(steps[bootAt].if, undefined, label);
-        }
+        assertJobBootstrapsLockedMise({ doc, name, id, job: jobs[id] });
       }
       if (name === "cd-pwa.yml") {
         assert.equal(jobs.promotion_failed?.permissions?.actions, "read");
