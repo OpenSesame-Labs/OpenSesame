@@ -1,13 +1,19 @@
+import { guideGoalIds } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { registerGuidePredicates } from "@opensesame/app-core/tutorial/registry/predicates.js";
+import {
+  guideRouteForLocation,
+  mergedGuideRoutes,
+} from "@opensesame/app-core/tutorial/registry/routes.js";
+import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
+import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
+  CREATE_ITEM_GOAL,
+  FIRST_ITEM_GOAL,
+} from "@opensesame/app-core/tutorial/registry/vault-create-goals.js";
+import { guideNavigationPath } from "@opensesame/app-core/tutorial/registry/vault-routes.js";
 import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import { planGuideSteps } from "@opensesame/guide-runtime";
 import { beforeAll, describe, expect, it } from "vitest";
-import { guideGoalIds } from "./goals.js";
-import { registerGuidePredicates } from "./predicates.js";
-import { guideRouteForLocation, mergedGuideRoutes } from "./routes.js";
-import { guidePredicateIds } from "./state.js";
-import { guideTargetIds } from "./targets.js";
-import { CREATE_ITEM_GOAL, FIRST_ITEM_GOAL } from "./vault-create-goals.js";
-import { guideNavigationPath } from "./vault-routes.js";
 
 // Grok gauntlet rounds 4-5: the first-item walkthrough declared success
 // before any secret was saved. A beat's trailing wait is its `until` in
