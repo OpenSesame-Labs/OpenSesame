@@ -8,6 +8,7 @@
 import { CAPABILITY_BOOT_KEYS } from "@opensesame/app-core/lib/capabilities/keys.js";
 import { DURESS_BOOT_KEYS } from "@opensesame/app-core/lib/duress/store/boot-keys.js";
 import { GUEST_ACCESS_KEY } from "@opensesame/app-core/lib/guest-access.js";
+import { GUIDANCE_KEY } from "@opensesame/app-core/lib/guidance.js";
 import { HONEY_TOKEN_KEY } from "@opensesame/app-core/lib/honey-tokens.js";
 import { LAST_VAULT_KEY } from "@opensesame/app-core/lib/last-vault.js";
 import {
@@ -59,6 +60,10 @@ export const CORE_BOOT_KEYS: readonly string[] = [
   // Journal reads are synchronous: unhydrated, the code typed after a reload
   // matches nothing and fails like a wrong password.
   ...DURESS_BOOT_KEYS,
+  // Which walkthroughs and recommendations this device already answered, and
+  // how tours are offered. Read at the front door, before any vault exists;
+  // unhydrated, every reload would offer the first screen's tour again.
+  GUIDANCE_KEY,
   // Installation id, selection, receipt, policies, generation counter.
   ...CAPABILITY_BOOT_KEYS,
 ];

@@ -23,6 +23,10 @@ export const FIRST_ITEM_GOAL: GuideGoalDescriptor = {
   title: "Add your first password",
   routes: [],
   requires: ["vault.empty"],
+  // The tour names the website, username and password fields, which exist
+  // only while the item types are on. A Minimal vault is offered the switch
+  // first (`FirstItemOffer`, ADR 0221), and this tour once the types are in.
+  capabilities: ["vault.derived-records"],
   guide: [
     "guide/1",
     'goal "vault.item.first"',

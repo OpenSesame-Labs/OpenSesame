@@ -53,9 +53,9 @@
   text-wrap: balance;
 }
 
-/* Two roads, side by side where there is room, stacked on a phone. Neither
-   is the primary: both are the object of a choice, so both wear the surface
-   and a hairline, and the ink stays for the commits behind them. */
+/* Two roads, side by side where there is room, stacked on a phone. Both are
+   the object of a choice, so both wear the surface; the one a newcomer
+   should take is the lead (`road--lead`) and carries the ink on its edge. */
 .door__roads {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -90,8 +90,25 @@
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 140ms var(--ease), background 140ms var(--ease),
+  transition:
+    border-color 140ms var(--ease),
+    background 140ms var(--ease),
     transform 140ms var(--ease);
+}
+
+/* The road a person with no reason to choose otherwise should take (ADR
+   0221): the same object, with the ink on its edge and its mark. One per
+   group at most; the others stay hairline so the lead reads at a glance. */
+.road.road--lead {
+  border-color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.road.road--lead .road__mark,
+.road.road--lead:hover:not(:disabled) .road__mark {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--canvas);
 }
 
 .road:hover:not(:disabled) {

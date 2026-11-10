@@ -28,7 +28,7 @@ import { AscendProvider, usePaneTrail } from "../lib/pane-trail.js";
 import { useNarrow } from "../lib/use-narrow.js";
 import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
-import { accountSecretToCopy } from "./vault/account-copy.js";
+import { accountSecretToCopy, passwordCopied } from "./vault/account-copy.js";
 import { credentialChoices } from "./vault/account-credentials.js";
 import { FirstItemOffer } from "./vault/FirstItemOffer.js";
 import { LiveSessionBanner } from "./vault/LiveSessionBanner.js";
@@ -115,6 +115,9 @@ export function VaultSection() {
       : undefined,
     folderId,
   );
+  const firstRun = { createPath, listedCount: listed.length, inTrash };
+  // Both panes stay mounted on a phone, so the roads are drawn in one only.
+  const onTree = narrow && showing === "tree";
   const treeFolders = useMemo(() => {
     if (folderId) return [];
     if (
@@ -151,7 +154,7 @@ export function VaultSection() {
       copySecret: (item: VaultItem) => {
         if (item.kind === "account") {
           const value = accountSecretToCopy(item);
-          if (value) void copySecret(value);
+          if (value) void copySecret(value).then(passwordCopied);
           return;
         }
         const value = concealedValue(item);
@@ -298,6 +301,9 @@ export function VaultSection() {
               <Link className="vault__new-vault" to="/settings/vaults">
                 New vault
               </Link>
+              {/* A phone lands on this tree: the first-run roads stand here,
+                  not one tap away behind a filter (ADR 0221). */}
+              {onTree ? <FirstItemOffer {...firstRun} /> : null}
             </>
           ) : null}
         </div>
@@ -320,13 +326,7 @@ export function VaultSection() {
             emptyMessage={
               filter === "trash" ? "Trash is empty" : "Nothing here"
             }
-            firstRun={
-              <FirstItemOffer
-                createPath={createPath}
-                listedCount={listed.length}
-                inTrash={inTrash}
-              />
-            }
+            firstRun={onTree ? null : <FirstItemOffer {...firstRun} />}
             verbs={
               <>
                 <UpLink

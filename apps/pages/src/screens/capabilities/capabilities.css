@@ -16,6 +16,12 @@
   min-inline-size: 0;
 }
 
+/* The one line over the configuration roads: what is being chosen, and that
+   it is not final. */
+.capset__lede {
+  margin: 0 0 0.75rem;
+}
+
 .capset__tools {
   display: flex;
   align-items: center;

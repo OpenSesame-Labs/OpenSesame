@@ -1,3 +1,4 @@
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { concealedValue } from "@opensesame/app-core/sections/vault-section-model.js";
 import {
   type AccountItem,
@@ -27,4 +28,13 @@ export function canCopySecret(item: VaultItem): boolean {
  */
 export function accountSecretToCopy(item: AccountItem): string | null {
   return handoff(produceAccountPassword(item))?.now ?? credentialLine(item);
+}
+
+/**
+ * A password reached the clipboard. That is the moment autofill would have
+ * saved the trip, so it is said to the recommender (ADR 0221); a copy that
+ * failed says nothing.
+ */
+export function passwordCopied(result: string): void {
+  if (result === "copied") signalRecommendation("password.copied");
 }

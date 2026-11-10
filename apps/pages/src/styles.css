@@ -1263,6 +1263,24 @@ body {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
 }
 
+/* An offer or a recommendation (ADR 0221): the same card, kept until it is
+   answered, with one worded key. The ink rule on its leading edge is what
+   tells it from an echo — no hue, no wash. */
+.toast--offer {
+  border-inline-start: 3px solid var(--ink);
+}
+
+.toast__choice {
+  /* Sized to its words, at the card's leading edge; the dismiss key follows. */
+  margin-inline-end: auto;
+}
+
+@media (pointer: coarse) {
+  .toast__choice {
+    min-block-size: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .toast {
     animation: toast-in 160ms var(--ease);
@@ -1629,8 +1647,25 @@ body {
   margin-top: 1rem;
 }
 
+/* On a phone the roads also stand under the section tree, the first pane. */
+.vault__tree > .empty__first {
+  padding: 0 1rem 1rem;
+}
+
 .empty__first-key {
   min-height: 2.75rem;
+  /* A road's words wrap inside a narrow list pane rather than push it wide. */
+  white-space: normal;
+  text-align: center;
+}
+
+/* Why the vault looks the way it does, said once above the road that
+   changes it (DESIGN.md § Empty states: what would be here, and why not). */
+.empty__first-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 
 /* Keyboard tips stay off touch-primary surfaces (DESIGN.md § Touch); one
@@ -3624,6 +3659,13 @@ button.vault-row__body:hover:not(:disabled) {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 3px;
+}
+
+/* Setup draws the rail as an ordered list; it keeps the div's geometry. */
+ol.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .steps__seg {

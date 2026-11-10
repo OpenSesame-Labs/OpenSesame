@@ -1,4 +1,5 @@
 import { registerDraftSaver } from "@opensesame/app-core/lib/dirty-edit.js";
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
 import {
   acceptsDraftUsername,
@@ -250,6 +251,7 @@ function EditorForm({ mode }: { mode: "new" | "edit" }) {
       formRef.current?.dispatchEvent(
         new Event("os-edit-committed", { bubbles: true }),
       );
+      signalRecommendation("item.saved");
       navigate(`/vault/${result.id}`);
     } finally {
       setSaving(false);

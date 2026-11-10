@@ -1,3 +1,8 @@
+import { FIXTURE_CATALOG } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
+import {
+  double,
+  installDoublePorts,
+} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   cleanup,
   fireEvent,
@@ -7,12 +12,6 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { FIXTURE_CATALOG } from "@opensesame/app-core/lib/configuration/doubles/composition-fixture.js";
-import {
-  double,
-  installDoublePorts,
-} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { SetupScreen } from "../SetupScreen.js";
 import { DEFAULT_EXTENSIONS } from "./default-extensions.js";
 import { resetSetupScreen } from "./test-harness.js";
@@ -87,21 +86,43 @@ describe("the configuration choice (ADR 0154)", () => {
 
   it("describes custom as picking capabilities, apart from full", () => {
     render(<SetupScreen onDone={vi.fn()} />);
-    expect(screen.getByText("pick individual capabilities")).toBeTruthy();
-    expect(screen.getByText("everything enabled")).toBeTruthy();
+    expect(
+      screen.getByText("Pick each capability yourself, one tab at a time."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Everything this build can run, switched on."),
+    ).toBeTruthy();
     expect(screen.queryByText("the full setup")).toBeNull();
+  });
+
+  it("says in plain words what each road's vault holds (ADR 0221)", () => {
+    render(<SetupScreen onDone={vi.fn()} />);
+    // The recommended road says so, and names passwords.
+    expect(
+      screen.getByText(/^Recommended\. Passwords, passkeys, cards and notes/),
+    ).toBeTruthy();
+    // Minimal says what it lacks, so nobody seals a vault with no password
+    // type without having been told.
+    expect(
+      screen.getByText(
+        /No password, card or note types until you turn them on/,
+      ),
+    ).toBeTruthy();
+    // One line over the roads says the choice is not final.
+    expect(screen.getByText(/can be changed later in\s+Settings/)).toBeTruthy();
   });
 
   it("walks the configuration choices with the arrow keys", () => {
     const onDone = vi.fn();
     render(<SetupScreen onDone={onDone} />);
-    const minimal = screen.getByRole("button", { name: /^Minimal$/ });
-    expect(document.activeElement).toBe(minimal);
-    fireEvent.keyDown(minimal, { key: "ArrowRight" });
+    // Default leads the row and is where the keyboard lands (ADR 0221).
+    const lead = screen.getByRole("button", { name: /^Default$/ });
+    expect(document.activeElement).toBe(lead);
+    fireEvent.keyDown(lead, { key: "ArrowRight" });
     expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: /^Default$/ }),
+      screen.getByRole("button", { name: /^Minimal$/ }),
     );
-    fireEvent.keyDown(screen.getByRole("button", { name: /^Default$/ }), {
+    fireEvent.keyDown(screen.getByRole("button", { name: /^Minimal$/ }), {
       key: "ArrowRight",
     });
     expect(document.activeElement).toBe(
@@ -123,7 +144,7 @@ describe("the configuration choice (ADR 0154)", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: /^Full$/ }), {
       key: "Home",
     });
-    expect(document.activeElement).toBe(minimal);
+    expect(document.activeElement).toBe(lead);
     // Moving focus never commits anything.
     expect(onDone).not.toHaveBeenCalled();
     expect(double.commits).toHaveLength(0);

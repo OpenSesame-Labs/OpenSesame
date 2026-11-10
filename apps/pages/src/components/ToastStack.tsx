@@ -6,6 +6,9 @@
  * takes no layout space, so an arrival cannot resize a pane. The tray keeps
  * the notice.
  *
+ * An offer or a recommendation (ADR 0221) is the same card with a worded key
+ * and no clock: it stays until it is answered or taken back.
+ *
  * It is one polite live region, drawn whether or not anything is showing, so
  * an arrival is announced where it is added. A failure is a tone on a notice
  * card, not a box and not an alert (DESIGN.md § Status is a symbol).
@@ -15,6 +18,7 @@ import {
   type ToastMessage,
   arrivalSurface,
   desktopRinging,
+  subscribeToastHides,
   subscribeToasts,
   toastOf,
 } from "@opensesame/app-core/lib/notice-toast.js";
@@ -47,6 +51,7 @@ export function ToastStack() {
   }, []);
 
   useEffect(() => subscribeToasts(add), [add]);
+  useEffect(() => subscribeToastHides(dismiss), [dismiss]);
   useEffect(
     () =>
       subscribeNoticeArrivals((notice) => {
@@ -88,20 +93,24 @@ function Toast({
   const [reading, setReading] = useState(false);
   const left = useRef(TOAST_MS);
   const since = useRef(0);
+  const { sticky } = toast;
   useEffect(() => {
-    if (reading) return;
+    // An offer waits to be answered; only an echo leaves on the clock.
+    if (reading || sticky) return;
     since.current = Date.now();
     const timer = setTimeout(() => onDone(toast.id), left.current);
     return () => {
       clearTimeout(timer);
       left.current -= Date.now() - since.current;
     };
-  }, [reading, onDone, toast.id]);
+  }, [reading, sticky, onDone, toast.id]);
 
   const { tone } = toast;
   return (
     <article
-      className={`notice-card notice-card--${tone} toast`}
+      className={`notice-card notice-card--${tone} toast${
+        sticky ? " toast--offer" : ""
+      }`}
       onPointerEnter={() => setReading(true)}
       onPointerLeave={() => setReading(false)}
       onFocus={() => setReading(true)}
@@ -113,6 +122,18 @@ function Toast({
       </h3>
       <p>{toast.body}</p>
       <div className="actions">
+        {toast.choice ? (
+          <button
+            type="button"
+            className="btn btn--primary btn--sm choice toast__choice"
+            onClick={() => {
+              onDone(toast.id);
+              toast.choice?.run();
+            }}
+          >
+            {toast.choice.label}
+          </button>
+        ) : null}
         {toast.open ? (
           <IconKey
             label={toast.open.label}
@@ -125,7 +146,14 @@ function Toast({
             <IconArrowRight size={16} />
           </IconKey>
         ) : null}
-        <IconKey label="Dismiss" small onClick={() => onDone(toast.id)}>
+        <IconKey
+          label="Dismiss"
+          small
+          onClick={() => {
+            onDone(toast.id);
+            toast.onDismiss?.();
+          }}
+        >
           <IconX size={16} />
         </IconKey>
       </div>

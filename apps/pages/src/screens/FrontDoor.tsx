@@ -15,7 +15,9 @@
  * the card the cipher dial idles, as it does on every lock-v5 gate.
  *
  * The keyboard lands on the first road; Tab walks to the second, and Skip
- * sits in the card's corner where a skip always lives.
+ * sits in the card's corner where a skip always lives. That first road is
+ * the lead (`road--lead`, ADR 0221) and says so in its second line: testers
+ * met three equal boxes and could not tell which one was for them.
  */
 
 import { clearAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
@@ -106,7 +108,7 @@ export function FrontDoor({
               setupRef(element);
             }}
             type="button"
-            className="road"
+            className="road road--lead"
             aria-label="Set up your own"
             aria-describedby="door-setup-kind"
             onClick={() => onOpenSetup()}
@@ -116,7 +118,7 @@ export function FrontDoor({
             </span>
             <span className="road__name">Set up your own</span>
             <span className="road__kind" id="door-setup-kind">
-              a few optional steps
+              start here if you are new — a new vault on this device
             </span>
           </button>
           <JoinRoadButton onOpen={onOpenJoin} />

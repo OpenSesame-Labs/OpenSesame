@@ -1,3 +1,4 @@
+import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   cleanup,
   fireEvent,
@@ -7,8 +8,6 @@ import {
 } from "@testing-library/react";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { expectInTray, inTray } from "../components/tray.test-support.js";
 import { SetupScreen } from "./SetupScreen.js";
 import {
@@ -318,11 +317,24 @@ describe("an OpenSesame identity service", () => {
 });
 
 describe("where the keyboard lands", () => {
-  it("lands the configuration choice on Minimal", () => {
+  it("lands the configuration choice on Default, the recommended road", () => {
     render(<SetupScreen onDone={vi.fn()} />);
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: /^Minimal$/ }),
-    );
+    const lead = screen.getByRole("button", { name: /^Default$/ });
+    expect(document.activeElement).toBe(lead);
+    expect(lead.className).toContain("road--lead");
+    // Default is first in the document, so it is first for Tab and a reader.
+    expect(
+      screen
+        .getAllByRole("button")
+        .filter((button) => button.className.includes("road"))
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Default", "Minimal", "Full", "Custom"]);
+  });
+
+  it("says in sight what Skip all does", () => {
+    render(<SetupScreen onDone={vi.fn()} />);
+    expect(screen.getByText("Skip setup — decide later")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Skip all" })).toBeTruthy();
   });
 
   it("lands the ceremony on its commit, never on a provider's Remove", () => {

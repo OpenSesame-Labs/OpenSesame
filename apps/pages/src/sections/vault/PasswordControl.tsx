@@ -1,3 +1,4 @@
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
 import type { PasswordMethod } from "@opensesame/vault-core";
 import { useState } from "react";
@@ -74,6 +75,7 @@ export function PasswordControl({
               if (made) {
                 onEdit(made);
                 setReveal(true);
+                signalRecommendation("password.generated");
               }
             })();
           }}

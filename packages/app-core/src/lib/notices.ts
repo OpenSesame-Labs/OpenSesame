@@ -62,6 +62,12 @@ export type NoticeAct = {
   run: () => void;
   icon?: "power" | "export" | "settings";
   opens?: boolean;
+  /**
+   * The toast that echoes this notice draws the act as a worded key — the
+   * object of a choice, as a recommendation's is (ADR 0221). The tray still
+   * draws its icon key.
+   */
+  worded?: boolean;
 };
 
 export type StatusNoticeInput = {

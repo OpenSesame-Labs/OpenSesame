@@ -37,16 +37,38 @@ export type ToastMessage = Readonly<{
   title: string;
   body: string;
   open?: NoticeOpen;
+  /**
+   * A worded key: the object of a choice ("Show me", "Turn on"), drawn as the
+   * card's primary. An offer or a recommendation has one (ADR 0221); the echo
+   * of a tray notice does not.
+   */
+  choice?: ToastChoice;
+  /**
+   * Stays until it is answered. An offer nobody has read is not an offer, so
+   * it does not leave on a clock; it leaves when its key or its dismiss is
+   * pressed, or when whoever showed it takes it back (`hideToast`).
+   */
+  sticky?: boolean;
+  /** The person pressed Dismiss. Not called when the card is taken back. */
+  onDismiss?: () => void;
 }>;
 
+/** A worded key on a toast and what pressing it does. */
+export type ToastChoice = Readonly<{ label: string; run: () => void }>;
+
 export function toastOf(notice: Notice): ToastMessage {
-  return {
+  const echo: ToastMessage = {
     id: notice.id,
     tone: notice.tone ?? "info",
     title: notice.title,
     body: notice.body,
     open: notice.open,
   };
+  const { act } = notice;
+  if (act?.worded !== true) return echo;
+  // A recommendation's act is the answer to its card, so the echo carries it
+  // as a worded key (ADR 0221). Any other act stays the tray's.
+  return { ...echo, choice: { label: act.label, run: act.run } };
 }
 
 type ToastListener = (toast: ToastMessage) => void;
@@ -55,6 +77,21 @@ const toastListeners = new Set<ToastListener>();
 /** Show a toast in the page. A toast that nobody is listening for is dropped. */
 export function showToast(toast: ToastMessage): void {
   for (const listener of [...toastListeners]) listener(toast);
+}
+
+type ToastHideListener = (id: string) => void;
+const toastHideListeners = new Set<ToastHideListener>();
+
+/** Take a toast back: the screen it spoke about is gone. */
+export function hideToast(id: string): void {
+  for (const listener of [...toastHideListeners]) listener(id);
+}
+
+export function subscribeToastHides(listener: ToastHideListener): () => void {
+  toastHideListeners.add(listener);
+  return () => {
+    toastHideListeners.delete(listener);
+  };
 }
 
 export function subscribeToasts(listener: ToastListener): () => void {
