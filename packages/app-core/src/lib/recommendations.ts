@@ -40,8 +40,11 @@ export type RecommendationFacts = Readonly<{
   integrationDrawn: (id: IntegrationId) => boolean;
   /** A forge backup is saved on this device. */
   backupSaved: boolean;
-  /** Password reset can run now; null while it is not known. */
-  passwordResetReady: boolean | null;
+  /**
+   * What password reset still lacks while its switch is on: a computer-use
+   * runtime, or a model to drive it. Null when it can run, or is not known.
+   */
+  passwordResetBlocker: "runtime" | "model" | null;
 }>;
 
 /**
@@ -94,8 +97,18 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
     },
     wanted: (facts) =>
       facts.featureOn("password-reset") &&
-      facts.passwordResetReady === false &&
+      facts.passwordResetBlocker === "runtime" &&
       facts.integrationDrawn("password-reset"),
+  },
+  {
+    id: "password-reset-model",
+    title: "Choose a model for password reset",
+    body: "Password reset is on and has a runtime, but no model to drive it. Choose one and a generated password is changed on the site too.",
+    label: "Choose a model",
+    action: { kind: "open", to: "/settings/features#feature-ai" },
+    wanted: (facts) =>
+      facts.featureOn("password-reset") &&
+      facts.passwordResetBlocker === "model",
   },
   {
     id: "breach-checks",
@@ -132,6 +145,7 @@ export const RECOMMENDATIONS_FOR = {
   "password.generated": [
     "password-reset",
     "password-reset-runtime",
+    "password-reset-model",
     "breach-checks",
   ],
   "password.copied": ["autofill"],

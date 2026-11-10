@@ -84,6 +84,11 @@ describe("the recommender", () => {
       id: "recommend.backups",
       title: "Back this vault up automatically",
       act: { label: "Set up backups", worded: true },
+      // Kept across a reload, where the act's closure is not.
+      open: {
+        to: "/settings/integrations#integration-backups",
+        label: "Set up backups",
+      },
     });
     expect(loadGuidance().recommendations).toEqual(["backups"]);
   });
@@ -154,6 +159,26 @@ describe("the recommender", () => {
     signalRecommendation("password.copied");
     await settle();
     expect(listNotices()).toHaveLength(0);
+  });
+
+  it("keeps a route for a feature recommendation too", async () => {
+    mount();
+    signalRecommendation("password.copied");
+    await settle();
+    expect(listNotices()[0]?.open?.to).toBe(
+      "/settings/features#feature-autofill",
+    );
+  });
+
+  it("names the model when password reset has a runtime and no model", async () => {
+    on = ["password-reset"];
+    recommenderSeams.passwordResetBlocker = () => Promise.resolve("model");
+    mount();
+    signalRecommendation("password.generated");
+    await settle();
+    const [notice] = listNotices();
+    expect(notice?.id).toBe("recommend.password-reset-model");
+    expect(notice?.open?.to).toBe("/settings/features#feature-ai");
   });
 
   it("is silent when guidance is off", async () => {

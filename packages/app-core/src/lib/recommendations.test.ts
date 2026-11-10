@@ -19,7 +19,7 @@ function facts(over: Partial<RecommendationFacts> = {}): RecommendationFacts {
     featureAvailable: () => true,
     integrationDrawn: () => true,
     backupSaved: false,
-    passwordResetReady: null,
+    passwordResetBlocker: null,
     ...over,
   };
 }
@@ -72,17 +72,27 @@ describe("what an act recommends", () => {
   it("moves on to the runtime once the feature is on but not ready", () => {
     const on = facts({
       featureOn: (id) => id === "password-reset",
-      passwordResetReady: false,
+      passwordResetBlocker: "runtime",
     });
     expect(pickRecommendation("password.generated", on, new Set())?.id).toBe(
       "password-reset-runtime",
     );
   });
 
+  it("names the model, not the runtime, when a model is what is missing", () => {
+    const on = facts({
+      featureOn: (id) => id === "password-reset",
+      passwordResetBlocker: "model",
+    });
+    expect(pickRecommendation("password.generated", on, new Set())?.id).toBe(
+      "password-reset-model",
+    );
+  });
+
   it("recommends nothing about password reset once it can run", () => {
     const ready = facts({
       featureOn: (id) => id === "password-reset" || id === "security-checks",
-      passwordResetReady: true,
+      passwordResetBlocker: null,
     });
     expect(
       pickRecommendation("password.generated", ready, new Set()),

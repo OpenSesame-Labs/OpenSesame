@@ -137,9 +137,21 @@ describe("a recommendation's echo", () => {
         tone: "info",
         title: "Back this vault up automatically",
         body: "Everything here lives in this browser.",
+        open: {
+          to: "/settings/integrations#integration-backups",
+          label: "Set up backups",
+        },
         act: { label: "Set up backups", worded: true, run },
       });
     });
+    // It is a one-time prompt: it does not leave on the clock.
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 5);
+    });
+    // One key, not two: the route kept for a reload is the same answer.
+    expect(
+      screen.getAllByRole("button", { name: "Set up backups" }),
+    ).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Set up backups" }));
     expect(run).toHaveBeenCalledTimes(1);
   });

@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
 import {
+  forgetGuidanceAnswers,
+  forgetSessionAnswers,
   guidanceSeams,
   loadGuidance,
   setGuidanceMode,
@@ -58,7 +60,7 @@ beforeEach(() => {
   };
   firstVisitSeams.modalOpen = () => false;
   firstVisitSeams.useGate = () => GATE;
-  firstVisitSeams.answeredThisSession = new Set();
+  forgetSessionAnswers();
   stops = [
     subscribeToasts((toast) => shown.push(toast)),
     subscribeToastHides((id) => hidden.push(id)),
@@ -107,7 +109,7 @@ describe("the first-visit offer", () => {
     expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
     view.unmount();
     shown = [];
-    firstVisitSeams.answeredThisSession = new Set();
+    forgetSessionAnswers();
     mount(controller().support);
     settle();
     expect(shown).toHaveLength(0);
@@ -128,10 +130,23 @@ describe("the first-visit offer", () => {
     expect(shown).toHaveLength(0);
     again.unmount();
     // A later session: the next tour in line.
-    firstVisitSeams.answeredThisSession = new Set();
+    forgetSessionAnswers();
     mount(security().support);
     settle();
     expect(shown[0]?.id).toBe("first-visit:vault.recovery-codes");
+  });
+
+  it("offers again in the same session once the answers are forgotten", () => {
+    const first = mount(controller().support);
+    settle();
+    shown[0]?.onDismiss?.();
+    first.unmount();
+    shown = [];
+    // Settings › Guided tours › Offer again: no reload should be needed.
+    forgetGuidanceAnswers();
+    mount(controller().support);
+    settle();
+    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
   });
 
   it("takes the card back when the person moves on", () => {

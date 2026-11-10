@@ -109,10 +109,15 @@ export const recommenderSeams = {
   /** Resolves null when the switch landed, else why it did not. */
   turnOn,
   backupSaved: (): boolean => savedGitBackupCount() > 0,
-  passwordResetReady: async (
+  /** What password reset lacks now: a runtime, a model, or nothing. */
+  passwordResetBlocker: async (
     approved: readonly string[] | undefined,
-  ): Promise<boolean> =>
-    (await passwordResetVaultUiSeams.evaluateReadiness(approved)).ok,
+  ): Promise<"runtime" | "model" | null> => {
+    const readiness =
+      await passwordResetVaultUiSeams.evaluateReadiness(approved);
+    if (readiness.ok || readiness.reason === "feature-off") return null;
+    return readiness.reason;
+  },
 };
 
 const noticeId = (id: string) => `recommend.${id}`;
@@ -179,6 +184,15 @@ function make(entry: Recommendation, navigate: (to: string) => void): void {
     tone: "info",
     title: entry.title,
     body: entry.body,
+    // The act is a closure and is not kept across a reload; the route is. A
+    // restored row still leads to where the recommendation is answered.
+    open: {
+      to:
+        action.kind === "open"
+          ? action.to
+          : `/settings/features#feature-${action.feature}`,
+      label: entry.label,
+    },
     act: {
       label: entry.label,
       icon: action.kind === "feature" ? "power" : "settings",
@@ -203,17 +217,17 @@ export function Recommender(): null {
       if (guidance.mode === "off") return;
       const now = live.current;
       // Readiness is asked only where a recommendation turns on it.
-      const passwordResetReady =
+      const passwordResetBlocker =
         trigger === "password.generated" &&
         now.device.featureOn("password-reset")
-          ? await recommenderSeams.passwordResetReady(now.device.approved)
+          ? await recommenderSeams.passwordResetBlocker(now.device.approved)
           : null;
       const facts: RecommendationFacts = {
         featureOn: now.device.featureOn,
         featureAvailable: now.device.featureAvailable,
         integrationDrawn: now.device.integrationDrawn,
         backupSaved: recommenderSeams.backupSaved(),
-        passwordResetReady,
+        passwordResetBlocker,
       };
       const entry = pickRecommendation(
         trigger,

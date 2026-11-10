@@ -20,7 +20,11 @@
  * build without guided help has no offers either.
  */
 
-import { rememberTourAnswered } from "@opensesame/app-core/lib/guidance.js";
+import {
+  noteScreenAnswered,
+  rememberTourAnswered,
+  screenAnsweredThisSession,
+} from "@opensesame/app-core/lib/guidance.js";
 import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
 import { useEffect, useMemo } from "react";
@@ -39,12 +43,6 @@ export const firstVisitSeams = {
     document.querySelector('[aria-modal="true"], dialog[open]') !== null,
   /** The library's own gate: what is drawn, what holds, what is installed. */
   useGate: useTutorialGate,
-  /**
-   * The screens that already had an offer answered since the page loaded. A
-   * screen with several tours offers one of them per session, so coming back
-   * to it is not met with the next card each time.
-   */
-  answeredThisSession: new Set<string>(),
 };
 
 const offerId = (goal: string) => `first-visit:${goal}`;
@@ -69,12 +67,12 @@ export function FirstVisitOffer(): null {
     let shown: string | null = null;
     const timer = setTimeout(() => {
       if (firstVisitSeams.modalOpen()) return;
-      if (firstVisitSeams.answeredThisSession.has(route)) return;
+      if (screenAnsweredThisSession(route)) return;
       const tour = firstVisitTour(route, answered, gate);
       if (tour === null) return;
       const { goal, steps } = tour;
       const answer = () => {
-        firstVisitSeams.answeredThisSession.add(route);
+        noteScreenAnswered(route);
         rememberTourAnswered(goal.id);
       };
       const start = () => {

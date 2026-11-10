@@ -154,8 +154,32 @@ export function rememberRecommendationMade(id: string): void {
   remember("recommendations", id);
 }
 
-/** Offer everything again, as on a new device. The mode is kept. */
+/**
+ * The screens that had an offer answered since the page loaded. Memory only:
+ * a screen with several tours offers one per session, so coming back to it is
+ * not met with the next card each time.
+ */
+const answeredThisSession = new Set<string>();
+
+export function noteScreenAnswered(route: string): void {
+  answeredThisSession.add(route);
+}
+
+export function screenAnsweredThisSession(route: string): boolean {
+  return answeredThisSession.has(route);
+}
+
+/** A new session, as a reload makes one. */
+export function forgetSessionAnswers(): void {
+  answeredThisSession.clear();
+}
+
+/**
+ * Offer everything again, as on a new device. The mode is kept. The session's
+ * own memory goes too, so the screens offer again without a reload.
+ */
 export function forgetGuidanceAnswers(): void {
+  forgetSessionAnswers();
   const current = loadGuidance();
   if (current.tours.length === 0 && current.recommendations.length === 0) {
     return;

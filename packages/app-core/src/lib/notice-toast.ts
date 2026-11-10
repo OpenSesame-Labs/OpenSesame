@@ -67,8 +67,17 @@ export function toastOf(notice: Notice): ToastMessage {
   const { act } = notice;
   if (act?.worded !== true) return echo;
   // A recommendation's act is the answer to its card, so the echo carries it
-  // as a worded key (ADR 0221). Any other act stays the tray's.
-  return { ...echo, choice: { label: act.label, run: act.run } };
+  // as a worded key and stays until it is answered (ADR 0221). The route the
+  // notice keeps for a reload is the same answer, so the card draws one key,
+  // not two. Any other act stays the tray's.
+  return {
+    id: echo.id,
+    tone: echo.tone,
+    title: echo.title,
+    body: echo.body,
+    sticky: true,
+    choice: { label: act.label, run: act.run },
+  };
 }
 
 type ToastListener = (toast: ToastMessage) => void;

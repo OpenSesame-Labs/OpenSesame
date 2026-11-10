@@ -143,7 +143,7 @@ made on this device is made, once:
 
 | Act | Recommends, in order |
 |---|---|
-| Password generated | Password reset · its runtime · Breach checks |
+| Password generated | Password reset · its runtime · its model · Breach checks |
 | Password copied | Browser autofill |
 | Item saved | Backups · Breach checks · Browser autofill |
 | Vault exported | Backups |
@@ -155,7 +155,10 @@ that is not saved. A recommendation never names something this build does not
 ship, an operator withheld, or the person already set up.
 
 A recommendation is an ordinary notice. It rings as a toast with one worded
-key and stays in the tray until dismissed — no second surface. The key either
+key that stays until it is answered, and it stays in the tray until dismissed
+— no second surface. The notice also keeps the route its key leads to, so a
+row restored after a reload, where the key's closure is gone, still leads
+somewhere. The key either
 switches the feature on in place (the feature's own proposal, commit and
 consent receipt; nothing is fetched or activated before the press) and then
 leads to whatever is left to connect, or opens the integration's section. It
@@ -187,6 +190,6 @@ worded choice. Dismiss stays an icon key.
 - The browser walks meet an offer card on fresh profiles. It blocks nothing,
   but a walk that asserts "no toast is showing" on arrival needs
   `guidance.v1` set to `off` first.
-- Recommendations are authored, five of them. Adding one is a registry entry
+- Recommendations are authored, six of them. Adding one is a registry entry
   and a signal at the act; `recommendations.test.ts` fails one that points at
   a feature or section that does not exist.
