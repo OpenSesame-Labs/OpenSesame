@@ -67,13 +67,17 @@ export function grokBuildProofPresent(entry) {
 }
 
 /**
- * GitHub-verified replay: cursor[bot] author with Grok co-author (land-signed-stack).
+ * GitHub-verified replay with a Grok co-author (land-signed-stack). The replay
+ * author is whoever's token ran it: cursor[bot], or Tyler's own account.
+ * signed-replay.mjs appends the Grok trailer to every replayed commit, so a
+ * replay under Tyler's verified identity must pass here too.
  */
 export function grokVerifiedReplayAttribution(entry) {
   if (entry.commit?.verification?.verified !== true) return false;
   if (!commitClaimsGrok(entry)) return false;
   if (authorEmail(entry) === GROK_AUTHOR_EMAIL) return true;
   if (CURSOR_BOT_EMAIL.test(authorEmail(entry))) return true;
+  if (TYLER_EMAIL.test(authorEmail(entry))) return true;
   return false;
 }
 

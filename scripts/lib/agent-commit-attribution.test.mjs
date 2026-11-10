@@ -88,6 +88,29 @@ describe("assertCommitAgentAttribution", () => {
     ).toThrow(/Grok attribution requires Grok Build proof/);
   });
 
+  it("accepts a verified replay under Tyler's account, and not an unverified one", () => {
+    const tyler = "145080887+Tyler-R-Kendrick@users.noreply.github.com";
+    const message = `fix\n\n${grokCoAuthorTrailer()}`;
+    // land-signed-stack run with Tyler's token: author is Tyler, and
+    // signed-replay.mjs has appended the Grok trailer.
+    expect(() =>
+      assertCommitAgentAttribution(
+        commit(head, true, "Tyler Kendrick", tyler, message),
+      ),
+    ).not.toThrow();
+    // The display name alone is not enough: the id-bound address is required.
+    expect(() =>
+      assertCommitAgentAttribution(
+        commit(head, true, "Tyler Kendrick", "human@example.com", message),
+      ),
+    ).toThrow(/Grok attribution requires Grok Build proof/);
+    expect(() =>
+      assertCommitAgentAttribution(
+        commit(head, false, "Tyler Kendrick", tyler, message),
+      ),
+    ).toThrow(/Grok attribution requires Grok Build proof/);
+  });
+
   it("accepts Grok claim with chunk-run proof", () => {
     expect(() =>
       assertCommitAgentAttribution(
