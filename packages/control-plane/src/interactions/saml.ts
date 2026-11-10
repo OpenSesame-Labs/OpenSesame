@@ -4,17 +4,17 @@ import {
   createHash,
   randomBytes,
 } from "node:crypto";
-import {
-  SAML,
-  ValidateInResponseTo,
-  generateServiceProviderMetadata,
-} from "@node-saml/node-saml";
 // The DOM helpers node-saml itself validates with. Reaching for the same
 // parser — rather than a second XML dependency, or a regex over signed
 // material — is what keeps "what we routed on" and "what was verified" the
 // same document. The package pins exactly and publishes no `exports` map, so
 // the path is stable for this version and moves only when the pin does.
 import type { Profile } from "@node-saml/node-saml";
+import {
+  SAML,
+  ValidateInResponseTo,
+  generateServiceProviderMetadata,
+} from "@node-saml/node-saml";
 import { parseDomFromString, xpath } from "@node-saml/node-saml/lib/xml.js";
 import { appendAuditEvent } from "@opensesame/audit";
 import {
@@ -41,6 +41,7 @@ import {
   guardedFetch,
 } from "../services/guarded-fetch.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
 import { organizationAssertedEmailIsVerified } from "../services/org-email-trust.js";
 import {
   ProvisionalMintRefusedError,
@@ -1053,6 +1054,12 @@ export type SamlAdmission =
     }
   | { ok: false; status: 403 | 409 | 429; message: string };
 
+const OWNER_REFUSED: SamlAdmission = {
+  ok: false,
+  status: 403,
+  message: "This account is not able to sign in.",
+};
+
 /**
  * Find-or-mint the principal a verified assertion names, and JIT-join it.
  *
@@ -1119,18 +1126,10 @@ export async function admitSamlSubject(
   let principalId: string;
   let sessionToken: string | undefined;
   if (resolved) {
-    const principal = await ctx.repos.principals.getById(resolved.principalId);
-    if (
-      !principal ||
-      principal.state === "suspended" ||
-      principal.state === "closed"
-    ) {
-      return {
-        ok: false,
-        status: 403,
-        message: "This account is not able to sign in.",
-      };
-    }
+    // The verified assertion is the proof attach promotes on: a leftover
+    // provisional owner is finished here; a dead or missing one is refused.
+    if (!(await settleVerifiedOwner(ctx, resolved.principalId)))
+      return OWNER_REFUSED;
     principalId = resolved.principalId;
   } else {
     if (!consumeSamlMintBudget(tenant, ctx.clock().getTime())) {
@@ -1206,6 +1205,7 @@ export async function admitSamlSubject(
       return { ok: false, status: 409, message: attached.message };
     }
     principalId = attached.identity.principalId;
+    if (!(await settleVerifiedOwner(ctx, principalId))) return OWNER_REFUSED;
     await ensurePersonalOnAuthenticatedSession(
       ctx,
       principalId,

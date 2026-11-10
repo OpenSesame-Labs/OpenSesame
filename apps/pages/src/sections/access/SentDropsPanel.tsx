@@ -165,9 +165,9 @@ function SentDropRow({
       </div>
       <span className="vault-row__meta">{formatTime(drop.createdAt)}</span>
       {drop.portable ? (
-        <p className="hint">
-          Saved copies can reopen after expiry. Revocation is unavailable.
-        </p>
+        <span className="vault-row__meta">
+          Reopens after expiry · cannot be revoked
+        </span>
       ) : null}
       <SentDropTrail trail={trail} />
     </li>

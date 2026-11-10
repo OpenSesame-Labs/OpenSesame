@@ -104,9 +104,11 @@ export function AppVaultShell({
               <Route
                 path="/save"
                 element={
-                  <Suspense fallback={<VaultContentSkeleton />}>
-                    <DefaultSaveRequestScreen />
-                  </Suspense>
+                  <Framed>
+                    <Suspense fallback={<VaultContentSkeleton />}>
+                      <DefaultSaveRequestScreen />
+                    </Suspense>
+                  </Framed>
                 }
               />
               <Route path={JOIN_COMMAND_PATH} element={<JoinRoadRoute />} />

@@ -45,6 +45,10 @@ const SECTION_ROUTES: readonly GuideRouteDescriptor[] = [
   },
   { id: "/vault", title: "Vault — every item this deployment holds" },
   { id: "/vault/health", title: "Vault health — weak, reused and aging items" },
+  {
+    id: "/vault/list",
+    title: "Vault list — the items a filter names (a phone's list pane)",
+  },
   { id: "/vault/item", title: "An item — the pane of one item in the vault" },
   {
     id: "/vault/trash",
@@ -198,7 +202,11 @@ export function guideRouteWithin(
 }
 
 /** `/vault/<id>`: one item's pane. `new` and `health` are screens of their own. */
-const ITEM_PANE = /^\/vault\/(?!new(?:\/|$)|health(?:\/|$))[^/]+\/?$/;
+const ITEM_PANE =
+  /^\/vault\/(?!new(?:\/|$)|health(?:\/|$)|list(?:\/|$))[^/]+\/?$/;
+
+/** `/vault/new[/kind]`: the editor for an item that does not exist yet. */
+const NEW_ITEM_EDITOR = /^\/vault\/new(?:\/|$)/;
 
 /**
  * Where the person stands, to the precision a tour needs. A path alone cannot
@@ -213,10 +221,17 @@ export function guideRouteForLocation(
   const section = guideRouteForPath(pathname);
   if (section !== "/vault") return section;
   if (pathname === "/vault" || pathname === "/vault/") {
-    return new URLSearchParams(search).get("f") === "trash"
-      ? "/vault/trash"
-      : "/vault";
+    const params = new URLSearchParams(search);
+    if (params.get("f") === "trash") return "/vault/trash";
+    // A named filter or folder is the list pane: on a phone the bare /vault
+    // is the section tree, where the list and New item are not mounted.
+    return params.has("f") || params.has("folder") ? "/vault/list" : "/vault";
   }
+  // The new-item editor opens from the list and reports as it, as it did
+  // while the list was the bare /vault. A create tour's steps stand on the
+  // list route; were the editor somewhere else, Back or Replay would
+  // navigate to the list and take the unsaved draft with it.
+  if (NEW_ITEM_EDITOR.test(pathname)) return "/vault/list";
   return ITEM_PANE.test(pathname) ? "/vault/item" : "/vault";
 }
 

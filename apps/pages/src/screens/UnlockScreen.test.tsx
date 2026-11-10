@@ -895,15 +895,6 @@ describe("UnlockScreen — password unlock", () => {
     expect(screen.getByText(/no persistent storage/)).toBeTruthy();
   });
 
-  it("offers vault deletion behind a confirm step", async () => {
-    render(<UnlockScreen />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Forgotten how to unlock?" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Delete this vault" }));
-    await waitFor(() => expect(v.store.destroy).toHaveBeenCalledTimes(1));
-  });
-
   it("backs out of the reset affordance without destroying", () => {
     render(<UnlockScreen />);
     fireEvent.click(

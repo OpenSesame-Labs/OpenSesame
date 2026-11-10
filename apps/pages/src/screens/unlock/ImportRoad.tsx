@@ -16,7 +16,7 @@ import {
   discardPendingImport,
   holdPendingImport,
 } from "@opensesame/app-core/lib/vault/pending-import.js";
-import { useRef } from "react";
+import { type ComponentType, useRef, useState } from "react";
 import { usePendingImport } from "../../bindings/pending-import.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconDownload, IconX } from "../../components/Icons.js";
@@ -43,6 +43,45 @@ function useImportPicker() {
   return { open: () => input.current?.click(), picker };
 }
 
+type SourceSheetProps = { onPick: () => void; onClose: () => void };
+
+/**
+ * The guided way to a file, for a person who does not have one yet: the
+ * source sheet walks the export, then the OS picker takes the result. The
+ * file is only held — the vault's Import key reads it, in the sheet it
+ * owns, so nothing here loads the pipeline or outlives its own button.
+ */
+export function useGuidedImport() {
+  const { open: pick, picker } = useImportPicker();
+  const [Sheet, setSheet] = useState<ComponentType<SourceSheetProps> | null>(
+    null,
+  );
+  const open = () => {
+    void import("../../sections/vault/import/ImportSourceSheet.js")
+      .then((module) => setSheet(() => module.ImportSourceSheet))
+      // Guidance is an aid, never a gate: no sheet, still the picker.
+      .catch(() => pick());
+  };
+  const sheet = Sheet ? (
+    <Sheet
+      onPick={() => {
+        setSheet(null);
+        pick();
+      }}
+      onClose={() => setSheet(null)}
+    />
+  ) : null;
+  return {
+    open,
+    element: (
+      <>
+        {picker}
+        {sheet}
+      </>
+    ),
+  };
+}
+
 /**
  * `road` is the door's card, beside Set up your own and Join a session.
  * `foot` is the sign-in screen's link, beside Use without an account.
@@ -52,20 +91,20 @@ export function ImportRoadButton({
 }: {
   variant?: "road" | "foot";
 }) {
-  const { open, picker } = useImportPicker();
+  const { open, element } = useGuidedImport();
   if (variant === "foot") {
     return (
       <>
         <button
           type="button"
           className="unlock__switch"
-          aria-label="Import a file"
-          title="an OpenSesame backup or a .env file"
+          aria-label="Import passwords from a file"
+          title="a browser or password-manager export, an OpenSesame backup or a .env file"
           onClick={open}
         >
-          Import a file
+          Import passwords
         </button>
-        {picker}
+        {element}
       </>
     );
   }
@@ -74,19 +113,19 @@ export function ImportRoadButton({
       <button
         type="button"
         className="road road--wide"
-        aria-label="Import a file"
+        aria-label="Import passwords from a file"
         aria-describedby="door-import-kind"
         onClick={open}
       >
         <span className="road__mark" aria-hidden="true">
           <IconDownload size={20} />
         </span>
-        <span className="road__name">Import a file</span>
+        <span className="road__name">Import passwords</span>
         <span className="road__kind" id="door-import-kind">
-          a backup or a .env file
+          from a browser export, another manager, a backup or a .env file
         </span>
       </button>
-      {picker}
+      {element}
     </>
   );
 }

@@ -23,6 +23,16 @@ describe("where a tour's navigate goes", () => {
     );
   });
 
+  it("opens the list pane, not a phone's section tree", () => {
+    expect(guideNavigationPath("/vault/list", here("/vault"))).toBe(
+      "/vault?f=all",
+    );
+    // Already standing on a list: nothing moves.
+    expect(
+      guideNavigationPath("/vault/list", here("/vault", "?f=favorites")),
+    ).toBeNull();
+  });
+
   it("opens the first item that is not in the trash", () => {
     const trashed = {
       ...createItem("secret", "gone"),

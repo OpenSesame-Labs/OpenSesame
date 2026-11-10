@@ -1,4 +1,9 @@
 /** @vitest-environment jsdom */
+
+import {
+  discardPendingImport,
+  holdPendingImport,
+} from "@opensesame/app-core/lib/vault/pending-import.js";
 import {
   act,
   cleanup,
@@ -20,11 +25,11 @@ import { createKeymapHandler } from "../lib/keymap.js";
 import { stubScreen } from "../lib/use-narrow.test-support.js";
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
 import { VaultSection } from "./VaultSection.js";
-import { ItemDetail } from "./vault/ItemDetail.js";
 import { slideZones } from "./vault/add-slide.js";
+import { ItemDetail } from "./vault/ItemDetail.js";
 import "./vault/commands.test-support.js";
-import { vaultTreeSeams } from "./vault/VaultTree.js";
 import { makeAccount } from "./vault/section-items.test-support.js";
+import { vaultTreeSeams } from "./vault/VaultTree.js";
 
 Object.assign(vaultHooksSeams, { useCopySecret: () => vi.fn() });
 Object.assign(vaultTreeSeams, {
@@ -138,7 +143,7 @@ describe("the vault on a phone", () => {
   });
 
   it("Add is one button: a sharp + with no ellipsis and no button beside it", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     const add = drawn(".vault > .fab");
     const plus = within(add).getByRole("link", {
       name: "New item",
@@ -151,7 +156,7 @@ describe("the vault on a phone", () => {
   });
 
   it("keeps import and export in the hold zones and the keyboard menu", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     const plus = screen.getByRole("link", { name: "New item" });
     fireEvent.contextMenu(plus);
     expect(
@@ -181,7 +186,17 @@ describe("the vault on a phone", () => {
     expect(bar.querySelector('[title="Search (/)"]')).toBeNull();
   });
 
-  it("the corner button follows the tree and the list, and leaves the item and the trash alone", () => {
+  it("the corner button is the list's alone: the tree's create road is New vault", () => {
+    renderVault("/vault");
+    expect(pane()).toBe("tree");
+    // No + on the vault-selection level: there it read as "new vault" while
+    // it made an item. The row that does make a vault says so.
+    expect(document.querySelector(".fab")).toBeNull();
+    expect(screen.queryByRole("link", { name: "New item" })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "New vault" }).getAttribute("href"),
+    ).toBe("/settings/vaults");
+    cleanup();
     renderVault("/vault?f=all");
     expect(document.querySelectorAll(".fab")).toHaveLength(1);
     cleanup();
@@ -190,6 +205,57 @@ describe("the vault on a phone", () => {
     cleanup();
     renderVault("/vault/itm_1?f=all");
     expect(document.querySelector(".fab")).toBeNull();
+  });
+
+  it("a truly empty vault initializes the first-item walkthrough offer; an empty filter never does", async () => {
+    vault.items = [];
+    renderVault("/vault?f=all");
+    // Guided where support is mounted; the plain create road where it is not.
+    expect(screen.getByText(/Add your first password/)).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "Import passwords instead" }),
+    ).toBeTruthy();
+    cleanup();
+    // Something sealed, an empty filter: the first-run offer is gone.
+    vault.items = [makeAccount({ id: "itm_1", name: "GitHub" })];
+    renderVault("/vault?f=favorites");
+    expect(screen.queryByText(/Add your first password/)).toBeNull();
+    expect(screen.queryByText(/Import passwords instead/)).toBeNull();
+  });
+
+  it("the empty vault's import offer hands its file to the Import key the phone mounts", async () => {
+    vault.items = [];
+    renderVault("/vault?f=all");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Import passwords instead" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose the exported file" }),
+    );
+    // The offer's own picker: the sheet that opens is the Import key's, so
+    // it is not inside the empty state the import is about to end.
+    const offer = drawn(".empty__first");
+    fireEvent.change(within(offer).getByLabelText("Choose a file to import"), {
+      target: { files: [new File(["API_KEY=sk-123\n"], "app.env")] },
+    });
+    const sheet = await screen.findByRole("dialog", { name: "Import items" });
+    expect(offer.contains(sheet)).toBe(false);
+  });
+
+  it("a file chosen at the door opens its sheet on the tree a new vault lands on", async () => {
+    vault.items = [];
+    holdPendingImport(new File(["API_KEY=sk-123\n"], "app.env"));
+    try {
+      renderVault("/vault");
+      // The tree draws no Add button, and the flows it starts are mounted all the same.
+      expect(pane()).toBe("tree");
+      expect(document.querySelector(".fab")).toBeNull();
+      expect(
+        await screen.findByRole("dialog", { name: "Import items" }),
+      ).toBeTruthy();
+    } finally {
+      discardPendingImport();
+    }
   });
 
   it("a search left in the address narrows the list and rides back from an item", () => {

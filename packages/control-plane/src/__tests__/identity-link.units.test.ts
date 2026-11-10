@@ -1,13 +1,14 @@
 import { ConflictError } from "@opensesame/database";
-import type {
-  AuditEvent,
-  ExternalIdentity,
-  Principal,
-} from "@opensesame/os-domain";
-import { overlapCast } from "@opensesame/os-domain";
+import type { Principal } from "@opensesame/os-domain";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppContext } from "../context.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import {
+  type Fakes,
+  INPUT,
+  identity,
+  makeFakes,
+  principal,
+} from "./identity-link-fakes.js";
 
 /**
  * Atomic unit tests for the one function that decides whether an upstream
@@ -27,151 +28,6 @@ import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
  * concurrent double sign-in would look like a server fault instead of the
  * collision it is.
  */
-
-const NOW = new Date("2026-08-22T12:00:00.000Z");
-
-type Fakes = {
-  ctx: AppContext;
-  identities: ExternalIdentity[];
-  principals: Map<string, Principal>;
-  audits: { eventType: string; outcome: string }[];
-  auditEvents: AuditEvent[];
-  created: ExternalIdentity[];
-  updates: { id: string; patch: PrincipalPatch }[];
-  createImpl: (identity: ExternalIdentity) => Promise<ExternalIdentity>;
-};
-
-/**
- * The verified-email index, resolved exactly as `ExternalIdentityRepository`
- * does (`packages/database`): only rows whose assurance is `verified` and
- * whose `emailVerified` is not explicitly false are candidates, and when
- * several match, the oldest owning principal wins with the principal id as the
- * tie-break. `email_normalized` is deliberately non-unique in the schema, so
- * that ordering is the contract rather than an accident of insertion (T32).
- */
-function verifiedEmailOwner(
-  state: Fakes,
-  emailNormalized: string,
-): ExternalIdentity | null {
-  const candidates = state.identities
-    .filter(
-      (e) =>
-        e.emailNormalized === emailNormalized &&
-        e.assurance === "verified" &&
-        e.emailVerified !== false,
-    )
-    .flatMap((row) => {
-      const owner = state.principals.get(row.principalId);
-      return owner ? [{ row, owner }] : [];
-    })
-    .sort((a, b) => {
-      const byAge = a.owner.createdAt.getTime() - b.owner.createdAt.getTime();
-      if (byAge !== 0) return byAge;
-      return a.owner.id.localeCompare(b.owner.id);
-    });
-  return candidates[0]?.row ?? null;
-}
-
-type PrincipalPatch = Parameters<
-  AppContext["repos"]["principals"]["update"]
->[1];
-
-function principal(overrides: Partial<Principal> = {}): Principal {
-  return {
-    id: "prn_1",
-    state: "provisional",
-    assurance: "provisional",
-    createdAt: NOW,
-    updatedAt: NOW,
-    version: 1,
-    ...overrides,
-  };
-}
-
-function identity(overrides: Partial<ExternalIdentity> = {}): ExternalIdentity {
-  return {
-    id: "xid_existing",
-    principalId: "prn_1",
-    kind: "oidc",
-    issuer: "https://shoo.dev",
-    subject: "sub-1",
-    assurance: "verified",
-    linkedAt: NOW,
-    metadata: {},
-    ...overrides,
-  };
-}
-
-function makeFakes(): Fakes {
-  const state: Fakes = {
-    identities: [],
-    principals: new Map([["prn_1", principal()]]),
-    audits: [],
-    auditEvents: [],
-    created: [],
-    updates: [],
-    createImpl: async (record) => record,
-    ctx: overlapCast({}),
-  };
-
-  state.ctx = overlapCast({
-    clock: () => NOW,
-    repos: {
-      externalIdentities: {
-        // Honours `kind` as the real repository does: the unique index is
-        // (kind, issuer, tenant, subject), so a lookup that ignored the kind
-        // would let an OIDC identity collide with a non-OIDC one that happens
-        // to share an issuer and subject.
-        findByTuple: async (q: {
-          kind: string;
-          issuer: string;
-          subject: string;
-        }) =>
-          state.identities.find(
-            (e) =>
-              e.kind === q.kind &&
-              e.issuer === q.issuer &&
-              e.subject === q.subject,
-          ) ?? null,
-        listByEmailNormalized: async (email: string) =>
-          state.identities.filter((e) => e.emailNormalized === email),
-        findVerifiedByEmail: async (email: string) =>
-          verifiedEmailOwner(state, email),
-        create: async (record: ExternalIdentity) => {
-          const stored = await state.createImpl(record);
-          state.created.push(stored);
-          state.identities.push(stored);
-          return stored;
-        },
-      },
-      principals: {
-        getById: async (id: string) => state.principals.get(id) ?? null,
-        update: async (id: string, patch: PrincipalPatch, _version: number) => {
-          state.updates.push({ id, patch });
-          return state.principals.get(id) ?? null;
-        },
-      },
-      auditEvents: {
-        append: async (event: AuditEvent) => {
-          state.audits.push({
-            eventType: event.eventType,
-            outcome: event.outcome,
-          });
-          state.auditEvents.push(event);
-          return event;
-        },
-      },
-    },
-  });
-
-  return state;
-}
-
-const INPUT = {
-  issuer: "https://shoo.dev",
-  subject: "sub-1",
-  correlationId: "corr-1",
-};
 
 let f: Fakes;
 
@@ -233,14 +89,50 @@ describe("attaching an identity nobody holds yet", () => {
 
 describe("attaching an identity that already exists", () => {
   it("is idempotent when this principal already owns it", async () => {
+    f.principals.set(
+      "prn_1",
+      principal({ state: "active", assurance: "verified" }),
+    );
     f.identities.push(identity({ principalId: "prn_1" }));
 
     const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
 
     expect(result).toMatchObject({ ok: true, alreadyLinked: true });
-    // No second row, and no principal churn.
+    // No second row, and no principal churn for an already-active owner.
     expect(f.created).toHaveLength(0);
     expect(f.updates).toHaveLength(0);
+  });
+
+  it("finishes a leftover provisional owner's promotion on an idempotent re-link", async () => {
+    // Gauntlet round 6 (cursor): the old crash window between identity
+    // creation and promotion left verified tuples on provisional
+    // principals. Re-presenting that tuple is the same verified proof
+    // the first attach promotes on — an idempotent answer must not
+    // report success while leaving the owner half-promoted.
+    f.identities.push(identity({ principalId: "prn_1" }));
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
+
+    expect(result).toMatchObject({ ok: true, alreadyLinked: true });
+    expect(f.created).toHaveLength(0);
+    expect(f.updates).toHaveLength(1);
+    expect(f.principals.get("prn_1")).toMatchObject({
+      state: "active",
+      assurance: "verified",
+    });
+  });
+
+  it("refuses an idempotent re-link for a suspended owner", async () => {
+    f.principals.set(
+      "prn_1",
+      principal({ state: "suspended", assurance: "verified" }),
+    );
+    f.identities.push(identity({ principalId: "prn_1" }));
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(f.created).toHaveLength(0);
   });
 
   it("refuses when another principal owns it", async () => {
@@ -343,6 +235,35 @@ describe("email is evidence, never a join key", () => {
         (a) => a.eventType === "principal.identity_link_email_collision",
       ),
     ).toHaveLength(0);
+  });
+
+  it("lands a verified-email join on the address's owner by default (D15)", async () => {
+    f.principals.set(
+      "prn_someone_else",
+      principal({
+        id: "prn_someone_else",
+        state: "active",
+        assurance: "verified",
+      }),
+    );
+    f.identities.push(
+      identity({
+        id: "xid_other",
+        principalId: "prn_someone_else",
+        subject: "a-different-subject",
+        emailNormalized: "person@example.com",
+        emailVerified: true,
+      }),
+    );
+
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", {
+      ...INPUT,
+      emailNormalized: "person@example.com",
+      emailVerified: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(f.created[0]?.principalId).toBe("prn_someone_else");
   });
 
   it("does not look for peers when no email was supplied", async () => {

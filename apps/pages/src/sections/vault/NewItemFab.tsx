@@ -2,16 +2,17 @@ import { reportGuideActivation } from "@opensesame/app-core/tutorial/registry/ta
 import { useCallback } from "react";
 import { Link } from "react-router";
 import { useContributions } from "../../bindings/contributions.js";
-import { IconPlus } from "../../components/Icons.js";
 import {
   type MenuOpening,
   openContextMenu,
 } from "../../components/context-menu/menu-model.js";
+import { IconPlus } from "../../components/Icons.js";
+import { useNarrow } from "../../lib/use-narrow.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { AddSlide } from "./AddSlide.js";
-import { ExportEntry } from "./ExportKey.js";
 import { type AddEntry, addEntries } from "./add-menu.js";
 import { useAddSlide } from "./add-slide.js";
+import { ExportEntry } from "./ExportKey.js";
 import { PasswordsOnboardingOffer } from "./passwords-onboarding-offer.js";
 import "./new-item-fab.css";
 
@@ -49,7 +50,8 @@ function openAddMenu(event: MenuOpening, anchor: Element | null): void {
  *
  * The `+` is one tap. Holding it draws a drag area around it, with the other
  * ways to add named on it: slide up to Import, down to Export, and let go
- * there (`AddSlide`). Letting go anywhere else chooses nothing. It is a sharp
+ * there (`AddSlide`). Letting go anywhere else opens those ways as a menu
+ * that stays after the lift, to be tapped. It is a sharp
  * square, like every control (DESIGN.md § Shapes).
  */
 export function NewItemFab({
@@ -60,11 +62,29 @@ export function NewItemFab({
   to: string;
   /** The shell's record of where New item is, for focus and the guide. */
   fabRef?: (element: HTMLAnchorElement | null) => void;
-  /** Where the button is drawn: a phone's tree and list, never an item or the trash. */
+  /** Where the button is drawn: a phone's list only, never the tree, an item or the trash. */
   shown: boolean;
 }) {
-  if (!shown) return null;
-  return <AddButton to={to} fabRef={fabRef} />;
+  const narrow = useNarrow();
+  if (!narrow) return null;
+  return (
+    <>
+      {shown ? <AddButton to={to} fabRef={fabRef} /> : null}
+      <AddFlows />
+    </>
+  );
+}
+
+/**
+ * The flows the Add button starts, mounted for as long as a phone's vault is:
+ * they draw nothing but their sheets. A file chosen at the door is read by
+ * one of them (ADR 0188), and a new vault lands on the section tree, where
+ * the button is not drawn — so the flows cannot live inside the button, or
+ * the file would wait unread until the person happened to open a list.
+ */
+function AddFlows() {
+  const flows = useContributions("vault-command");
+  return flows.map(({ id, Entry }) => (Entry ? <Entry key={id} /> : null));
 }
 
 function AddButton({
@@ -74,7 +94,6 @@ function AddButton({
   to: string;
   fabRef?: (element: HTMLAnchorElement | null) => void;
 }) {
-  const flows = useContributions("vault-command");
   // The button is not clicked to reach Import or Export, so the guide is told
   // when one is chosen (`chooseEntry`) rather than when the `+` is tapped.
   const importGuide = useGuideTarget<HTMLAnchorElement>("vault.import", {
@@ -83,7 +102,19 @@ function AddButton({
   const exportGuide = useGuideTarget<HTMLAnchorElement>("vault.export", {
     activation: "manual",
   });
-  const slide = useAddSlide(chooseEntry);
+  const openMenuOnLift = useCallback(
+    (lift: { clientX: number; clientY: number; anchor: HTMLElement }) =>
+      openAddMenu(
+        {
+          clientX: lift.clientX,
+          clientY: lift.clientY,
+          preventDefault: () => undefined,
+        },
+        lift.anchor,
+      ),
+    [],
+  );
+  const slide = useAddSlide(chooseEntry, openMenuOnLift);
   const plusRef = useCallback(
     (element: HTMLAnchorElement | null) => {
       importGuide(element);
@@ -94,6 +125,7 @@ function AddButton({
   );
   return (
     <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only replaces the context menu of the link it wraps; every action stays on that link */}
       <div
         className="fab"
         data-own-hold=""
@@ -117,8 +149,6 @@ function AddButton({
         </Link>
       </div>
       {slide.state ? <AddSlide slide={slide.state} /> : null}
-      {/* The flows the slide starts: they draw nothing but their sheets. */}
-      {flows.map(({ id, Entry }) => (Entry ? <Entry key={id} /> : null))}
       <PasswordsOnboardingOffer placement="add-menu" />
       <ExportEntry />
     </>

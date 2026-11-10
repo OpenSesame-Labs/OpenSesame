@@ -5,12 +5,12 @@ import { FormCommit } from "../../../components/FormCommit.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconRefresh } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { nativeError, nativePublicUrl } from "./native-connector-ui-values.js";
 import type {
   NativeConnectorCallbacks,
   NativeConnectorController,
   NativeRevocationGuide,
 } from "./native-connector-ui.js";
+import { nativeError, nativePublicUrl } from "./native-connector-ui-values.js";
 
 function useNativeRevocationGuide(
   controller: NativeConnectorController,
@@ -91,9 +91,14 @@ function NativeRevocationConfirmation({
           tone="warn"
           label="Provider revocation guide is unavailable. Try again after the authorization operation finishes."
         />
-        <button type="button" disabled={disabled} onClick={retryGuide}>
-          Retry provider revocation guide
-        </button>
+        <IconKey
+          small
+          label="Retry provider revocation guide"
+          disabled={disabled}
+          onClick={retryGuide}
+        >
+          <IconRefresh size={16} />
+        </IconKey>
       </div>
     );
   if (!instructions) return null;

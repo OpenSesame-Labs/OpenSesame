@@ -10,7 +10,9 @@ import {
 } from "./guest-auth.js";
 import { IdentityError } from "./identity.js";
 import { clearNotices, listNotices } from "./notices.js";
+
 const connectProvisional = vi.fn();
+const rebindSession = vi.fn();
 const identityJson = vi.fn();
 const currentSession = vi.fn();
 const createGuest = vi.fn();
@@ -19,6 +21,7 @@ const loadFederationSession = vi.fn();
 const isRemoteIdentityConfigured = vi.fn(() => true);
 
 Object.assign(guestAuthDependencies, {
+  rebindSession,
   connectProvisional,
   isRemoteIdentityConfigured,
   identityJson,
@@ -32,6 +35,8 @@ beforeEach(() => {
   clearNotices();
   sessionStorage.clear();
   connectProvisional.mockReset();
+  rebindSession.mockReset();
+  rebindSession.mockResolvedValue(undefined);
   identityJson.mockReset();
   currentSession.mockReset();
   createGuest.mockReset();
@@ -167,6 +172,18 @@ describe("linkGuestAccount", () => {
       }),
     );
     expect(listNotices()).toHaveLength(0);
+  });
+
+  it("stands on the rebound session when the identity already belongs to another principal", async () => {
+    identityJson.mockResolvedValue({
+      principalId: "prn_existing",
+      accessToken: "rebound-tok",
+      identity: { assurance: "verified" },
+    });
+    const outcome = await linkGuestAccount("id.token.here");
+    expect(rebindSession).toHaveBeenCalledTimes(1);
+    expect(rebindSession.mock.calls[0]?.[0]).toBe("rebound-tok");
+    expect(outcome).toEqual({ mintedPrincipal: false });
   });
 
   it("resumes the HttpOnly cookie when navigation cleared memory", async () => {

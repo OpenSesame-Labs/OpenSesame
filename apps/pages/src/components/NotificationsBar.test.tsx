@@ -1,3 +1,11 @@
+import { setDesktopRinging } from "@opensesame/app-core/lib/notice-toast.js";
+import {
+  clearNotices,
+  pushNotice,
+  setStatusNotice,
+} from "@opensesame/app-core/lib/notices.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { createItem } from "@opensesame/vault-core";
 import {
   act,
   cleanup,
@@ -8,15 +16,6 @@ import {
 import { MemoryRouter } from "react-router";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { setDesktopRinging } from "@opensesame/app-core/lib/notice-toast.js";
-import {
-  clearNotices,
-  pushNotice,
-  setStatusNotice,
-} from "@opensesame/app-core/lib/notices.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { createItem } from "@opensesame/vault-core";
 import { withPassword } from "../sections/vault/account.test-support.js";
 import {
   NotificationsBar,
@@ -126,6 +125,41 @@ describe("NotificationsBar", () => {
     expect(
       screen.getByRole("button", { name: "Notifications — none" }),
     ).toBeTruthy();
+  });
+
+  it("closes before an act that opens a sheet of its own, and stays for one that does not", () => {
+    const opened = vi.fn();
+    const done = vi.fn();
+    setStatusNotice({
+      id: "storage",
+      tone: "warn",
+      title: "This vault lives only in this browser",
+      body: "Export an encrypted copy.",
+      act: { label: "Export a copy", icon: "export", opens: true, run: opened },
+    });
+    setStatusNotice({
+      id: "legacy",
+      tone: "info",
+      title: "Legacy identity is on",
+      body: "It can be turned off.",
+      act: { label: "Turn off", run: done },
+    });
+    render(
+      <MemoryRouter>
+        <NotificationsBar />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Notifications — 2 pending" }),
+    );
+    // An act done in place leaves the tray where it is.
+    fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Two sheets would both trap Tab: the tray gives way to the one it opens.
+    fireEvent.click(screen.getByRole("button", { name: "Export a copy" }));
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("announces an error-tone status notice as an alert", () => {

@@ -1,17 +1,24 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearLocalBackupTarget } from "./backup-target-local.js";
 import {
   backupSeams,
   branchForEnvironment,
   filterGithubBackupConnections,
   getBackupStatus,
+  hasCatchingUpBackupTarget,
+  hasWorkingBackupTarget,
   installationIdFromLocation,
+  newestWorkingBackupSync,
   ownerRepoFromRemote,
   putBackupTarget,
   resyncBackup,
   setBackupTargetEnabled,
 } from "./backup.js";
+import {
+  type LocalBackupTarget,
+  clearLocalBackupTarget,
+  writeLocalBackupTarget,
+} from "./backup-target-local.js";
 import {
   publishBackupSyncEvent,
   subscribeBackupSyncEvents,
@@ -33,6 +40,101 @@ afterEach(() => {
 });
 
 describe("browser-local backup target", () => {
+  it("counts a working backup on any target, not only the first row", () => {
+    // Gauntlet round 4 (kimi): the storage warning read rows[0] only, so a
+    // healthy second target never withdrew a warning that claimed there was
+    // "no copy anywhere else yet".
+    const row = (over: Partial<LocalBackupTarget>): LocalBackupTarget => ({
+      kind: "github_app",
+      providerId: "github",
+      connectionId: null,
+      integrationId: "",
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+      branch: "main",
+      enabled: true,
+      status: "ready",
+      lastCommitSha: null,
+      lastSyncedAt: null,
+      lastError: "offline",
+      config: null,
+      pendingEvents: 3,
+      ...over,
+    });
+    writeLocalBackupTarget(row({}));
+    expect(hasWorkingBackupTarget()).toBe(false);
+    // Enabled but never synced, then failing/behind: still not working.
+    writeLocalBackupTarget(row({ lastError: null, pendingEvents: 0 }));
+    expect(hasWorkingBackupTarget()).toBe(false);
+    writeLocalBackupTarget(
+      row({ lastSyncedAt: "2026-01-01T00:00:00Z", pendingEvents: 0 }),
+    );
+    expect(hasWorkingBackupTarget()).toBe(false);
+    writeLocalBackupTarget(
+      row({
+        kind: "git_remote",
+        providerId: "git_remote",
+        connectionId: "conn_2",
+        lastError: null,
+        lastSyncedAt: "2026-01-01T00:00:00Z",
+        pendingEvents: 0,
+      }),
+    );
+    expect(hasWorkingBackupTarget()).toBe(true);
+  });
+
+  it("tells a healthy target that is merely behind from one that never kept anything", () => {
+    const row = (over: Partial<LocalBackupTarget>): LocalBackupTarget => ({
+      kind: "github_app",
+      providerId: "github",
+      connectionId: null,
+      integrationId: "",
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+      branch: "main",
+      enabled: true,
+      status: "ready",
+      lastCommitSha: null,
+      lastSyncedAt: "2026-01-01T00:00:00Z",
+      lastError: null,
+      config: null,
+      pendingEvents: 1,
+      ...over,
+    });
+    // Synced before, error-free, events queued: behind, not broken.
+    writeLocalBackupTarget(row({}));
+    expect(hasWorkingBackupTarget()).toBe(false);
+    expect(hasCatchingUpBackupTarget()).toBe(true);
+    // Only a working target's sync says when the vault was last kept.
+    expect(newestWorkingBackupSync()).toBeNull();
+    writeLocalBackupTarget(row({ pendingEvents: 0 }));
+    expect(newestWorkingBackupSync()).toBe("2026-01-01T00:00:00Z");
+    writeLocalBackupTarget(
+      row({
+        kind: "git_remote",
+        providerId: "git_remote",
+        connectionId: "conn_2",
+        lastSyncedAt: "2026-02-01T00:00:00Z",
+        pendingEvents: 0,
+      }),
+    );
+    expect(newestWorkingBackupSync()).toBe("2026-02-01T00:00:00Z");
+    writeLocalBackupTarget(row({ pendingEvents: 1 }));
+    // Never synced, failing, or switched off is not catching up.
+    writeLocalBackupTarget(row({ lastSyncedAt: null }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    writeLocalBackupTarget(row({ lastError: "offline" }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    writeLocalBackupTarget(row({ enabled: false }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    // Caught up is working, and no longer catching up.
+    writeLocalBackupTarget(row({ pendingEvents: 0 }));
+    expect(hasWorkingBackupTarget()).toBe(true);
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+  });
+
   it("stores a target on this device and reports it", async () => {
     const target = await putBackupTarget({
       connectionId: "conn_1",

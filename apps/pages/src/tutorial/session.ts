@@ -1,11 +1,11 @@
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
   HELP_TOPICS,
   type HelpTopic,
   guideGoal,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
@@ -56,6 +56,7 @@ import {
   loadBrowserEngine,
 } from "./engine.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
+import { emptyView } from "./session-view.js";
 import { SupportContext } from "./support-context.js";
 import {
   GUIDE_ERROR_TEXT,
@@ -68,6 +69,7 @@ import {
   writtenHelpSaysText,
 } from "./ui/messages.js";
 import { useSupportRouteSync } from "./use-support-route.js";
+
 export type {
   GuideOrigin,
   SupportAcquireResult,
@@ -102,8 +104,11 @@ export type SupportEntry = {
   /** Checked-in walkthroughs that go with the written help this line rests on. */
   readonly walkthroughs: readonly SupportWalkthrough[];
 };
+export type SupportTab = "ask" | "tutorials";
+
 export type SupportView = {
   readonly open: boolean;
+  readonly initialTab: SupportTab;
   /** True once the engine has loaded. The written help works before it does. */
   readonly ready: boolean;
   readonly thinking: boolean;
@@ -120,7 +125,7 @@ export type SupportView = {
 export interface SupportController {
   subscribe(listener: () => void): () => void;
   view(): SupportView;
-  open(): void;
+  open(tab?: SupportTab): void;
   close(): void;
   setRoute(route: GuideRouteId): void;
   setNavigator(navigate: (route: GuideRouteId) => void): void;
@@ -152,20 +157,6 @@ export type SupportSessionDependencies = {
   onLock: (handler: () => void) => () => void;
   clearTargets: () => void;
 };
-
-function emptyView(route: GuideRouteId): SupportView {
-  return {
-    open: false,
-    ready: false,
-    thinking: false,
-    availability: null,
-    transport: "none",
-    warning: null,
-    transcript: [],
-    guide: null,
-    route,
-  };
-}
 
 export function createSupportController(
   dependencies: SupportSessionDependencies,
@@ -433,9 +424,11 @@ export function createSupportController(
     view() {
       return state;
     },
-    open() {
+    open(tab) {
       if (state.open) return;
-      set({ open: true });
+      const initialTab =
+        tab ?? (state.transcript.length === 0 ? "tutorials" : "ask");
+      set({ open: true, initialTab });
       void refreshAvailability();
     },
     close() {
@@ -600,7 +593,9 @@ export function useSupportRoute(route: GuideRouteId): void {
  */
 export function SupportProvider({
   children,
-}: { children?: ReactNode }): ReactElement {
+}: {
+  children?: ReactNode;
+}): ReactElement {
   const [controller] = useState(() =>
     createSupportController(supportSessionSeams),
   );
@@ -628,7 +623,8 @@ export function SupportProvider({
     const previous = { ...webmcpSupportSeam };
     Object.assign(webmcpSupportSeam, {
       openSupport: (topic: string | null) => {
-        controller.open();
+        // A named topic is an answer to read: land on Ask, not Tutorials.
+        controller.open(topic ? "ask" : undefined);
         const authored = HELP_TOPICS.find((entry) => entry.id === topic);
         if (authored) {
           controller.answerFromAuthoredHelp(authored.title, authored.answer);

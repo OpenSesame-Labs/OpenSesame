@@ -1,7 +1,7 @@
 import type { VaultPrefs } from "@opensesame/app-core/lib/vault/store.js";
 import type { JsonObject } from "@opensesame/os-domain";
 import { type Folder, syncInstalledTypes } from "@opensesame/vault-core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
 import { MemoryRouter } from "react-router";
@@ -62,7 +62,9 @@ const store = vi.hoisted(() => {
   api.commitPrefs.mockImplementation(async (next) => api.setPrefs(next));
   return api;
 });
+
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -71,11 +73,15 @@ Object.assign(vaultHooksSeams, {
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 const loadSettings = vi.hoisted(() => vi.fn());
 const saveSettings = vi.hoisted(() => vi.fn());
+
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
+
 const originalSettingsSeams = { ...settingsSeams };
 Object.assign(settingsSeams, { loadSettings, saveSettings });
 afterAll(() => Object.assign(settingsSeams, originalSettingsSeams));
+
 import { passwordSeams } from "@opensesame/app-core/lib/vault/password.js";
+
 const originalPasswordSeams = { ...passwordSeams };
 Object.assign(passwordSeams, {
   estimateStrength: (password: string) => ({
@@ -87,8 +93,10 @@ Object.assign(passwordSeams, {
   generate: () => "harbor-cinder-lattice-quarry",
 });
 afterAll(() => Object.assign(passwordSeams, originalPasswordSeams));
+
 import { registerOptionalTutorials } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
 import { type SettingsPanels, SettingsSection } from "./SettingsSection.js";
+
 const stubPanels: SettingsPanels = {
   UnlockMethodsPanel: () => <div data-testid="unlock-methods-panel" />,
   InstallPanel: () => <div data-testid="install-panel" />,
@@ -159,16 +167,39 @@ describe("SettingsSection", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /Delete this vault/i }),
     );
-    expect(
-      screen.getByText(/2 items \(0 in trash\) will be unrecoverable/),
-    ).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+    // A vault with items confirms in the shared sheet, naming the count.
+    const sheet = screen.getByRole("dialog", { name: "Delete a vault" });
+    expect(sheet.textContent).toContain("2 sealed items in this browser");
+    expect(store.destroy).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(sheet).getByRole("button", { name: /Close/i }),
+    );
     expect(store.destroy).not.toHaveBeenCalled();
     await userEvent.click(
       screen.getByRole("button", { name: /Delete this vault/i }),
     );
     await userEvent.click(
-      screen.getByRole("button", { name: /Delete permanently/i }),
+      screen.getByRole("button", { name: /Delete vault/i }),
+    );
+    expect(store.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms an empty vault in the same sheet, not an in-place arm", async () => {
+    // Chair gauntlet round 3: DeleteVaultSheet is the one confirmation
+    // every delete road shares — the empty vault included.
+    vault.current.items = [];
+    renderSettings("#danger");
+    await userEvent.click(
+      screen.getByRole("button", { name: /Delete this vault/i }),
+    );
+    const sheet = screen.getByRole("dialog", { name: "Delete a vault" });
+    expect(sheet.textContent).toContain("0 sealed items in this browser");
+    expect(
+      screen.queryByRole("button", { name: /Delete permanently/i }),
+    ).toBeNull();
+    expect(store.destroy).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(sheet).getByRole("button", { name: /Delete vault/i }),
     );
     expect(store.destroy).toHaveBeenCalledTimes(1);
   });

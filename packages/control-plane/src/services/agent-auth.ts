@@ -12,24 +12,26 @@ import { ConflictError } from "@opensesame/database";
 import {
   type AgentRegistration,
   type Principal,
+  claimAgentRegistration,
   digestAgentAccessToken,
   digestAgentClaimAttemptToken,
   digestAgentClaimToken,
   generateAgentClaimToken,
   generateAgentRegistrationId,
   overlapCast,
+  revokeAgentRegistration,
   verifyAgentUserCode,
 } from "@opensesame/os-domain";
-import {
-  claimAgentRegistration,
-  revokeAgentRegistration,
-} from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
+import {
+  assertClaimedPrincipalSettled,
+  claimantAdmitted,
+} from "./agent-auth-claim-fence.js";
 import {
   providerAssertionIsAdvertised,
   registerProviderAssertion,
 } from "./agent-auth-id-jag.js";
+import { linkProviderIdentityOnClaim } from "./agent-auth-id-jag-link.js";
 import {
   type AgentAuthRuntime,
   agentAuthRuntime,
@@ -45,13 +47,14 @@ import {
   mintAssertion,
   startClaimAttempt,
 } from "./agent-auth-shared.js";
+
 export type { AgentAuthRuntime };
 export {
   agentAuthRuntime,
-  resetAgentAuthRuntimeForTests,
   consumeAgentAuthMintBudget,
   providerAssertionIsAdvertised,
   registerProviderAssertion,
+  resetAgentAuthRuntimeForTests,
 };
 export async function registerAnonymous(
   ctx: AppContext,
@@ -306,30 +309,6 @@ export async function initClaim(
   };
 }
 
-async function sessionMayClaim(
-  ctx: AppContext,
-  principal: Principal,
-  expectedEmail?: string,
-): Promise<boolean> {
-  if (
-    principal.assurance === "provisional" &&
-    principal.state === "provisional"
-  ) {
-    const identities = await ctx.repos.externalIdentities.listByPrincipal(
-      principal.id,
-    );
-    if (!identities.some((identity) => identity.emailVerified)) return false;
-  }
-  if (!expectedEmail) return true;
-  const identities = await ctx.repos.externalIdentities.listByPrincipal(
-    principal.id,
-  );
-  return identities.some(
-    (identity) =>
-      identity.emailVerified === true &&
-      identity.emailNormalized === expectedEmail,
-  );
-}
 export async function completeClaim(
   ctx: AppContext,
   principalId: string,
@@ -381,7 +360,7 @@ export async function completeClaim(
   const principal = await loadPrincipal(ctx, principalId);
   const expectedEmail =
     attempt.emailNormalized ?? registration.claimEmailNormalized;
-  if (!(await sessionMayClaim(ctx, principal, expectedEmail))) {
+  if (!(await claimantAdmitted(ctx, principal, expectedEmail))) {
     return { ok: false, error: "invalid_request", status: 400 };
   }
   try {
@@ -466,6 +445,7 @@ export async function exchangeJwtBearer(
     throw agentAuthError("invalid_grant", 400, "assertion claim state stale");
   }
   const principal = await loadPrincipal(ctx, registration.principalId);
+  if (claimed) assertClaimedPrincipalSettled(principal);
   const requested = requestedScope
     ? requestedScope.split(/[\s+]+/).filter(Boolean)
     : undefined;
@@ -541,6 +521,7 @@ export async function pollClaimGrant(
     throw agentAuthError("authorization_pending", 400);
   }
   const principal = await loadPrincipal(ctx, registration.principalId);
+  assertClaimedPrincipalSettled(principal);
   const scopes = effectiveScopes(ctx, registration, principal);
   const assertion = await mintAssertion(ctx, registration, true, scopes, now);
   const access = await mintAccessToken(ctx, registration, scopes, true, now);

@@ -20,9 +20,9 @@ import {
   isIdentityConnectionProvider,
 } from "../identity/IdentityConnectionPanels.js";
 import { TailscalePanels } from "../tailscale/TailscalePanels.js";
-import { ConnectTransportPanel } from "./ConnectTransportPanel.js";
 import { ConnectorPanel } from "./ConnectorPanel.js";
 import { ConnectorSettingsForm } from "./ConnectorSettingsForm.js";
+import { ConnectTransportPanel } from "./ConnectTransportPanel.js";
 import { LinearConnectorForm } from "./LinearConnectorForm.js";
 import { LinearConnectorSummary } from "./LinearConnectorSummary.js";
 import { NativeConnectorPanels } from "./NativeConnectorPanels.js";
@@ -178,13 +178,6 @@ function LinearMcpPanels({
               <summary>Advanced: existing OAuth app or API key</summary>
               {advanced ? (
                 <div className="cx-form">
-                  <p className="hint">
-                    Linear MCP authorization is the default and does not need a
-                    registered OAuth application. Use this separate GraphQL
-                    connection only when your workspace requires the specialized
-                    API route; its credential is never shared with the MCP
-                    connection.
-                  </p>
                   <LinearConnectorForm
                     plan={plan}
                     onFlash={onFlash}

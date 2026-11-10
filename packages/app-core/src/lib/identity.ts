@@ -1,10 +1,4 @@
-import {
-  type BoundaryValue,
-  type JsonObject,
-  isJsonObject,
-  isString,
-  overlapCast,
-} from "@opensesame/os-domain";
+import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
 /**
  * Identity plane session.
  *
@@ -29,24 +23,30 @@ import {
   resolveIdentityBase,
 } from "./device-identity.js";
 import {
+  type HealthState,
+  type ProbeResult,
+  probeIdentityPlane,
+} from "./identity-probe.js";
+import {
   HostSessionError,
   IdentityError,
   type IdentitySession,
   type Principal,
 } from "./identity-session-types.js";
-import {
-  type FailureClass,
-  classifyResponse,
-  classifyThrown,
-} from "./probe-failure.js";
+import { proveTokenOwner, readError } from "./identity-token-proof.js";
 import { loadSettings } from "./settings.js";
 import type { OriginalRemoteCodeHandle } from "./vault/captured-remote-code-data.js";
 import type { OriginalCommandDrainRecorder } from "./vault/original-command-retirement-data.js";
 import { captureOriginalIdentitySessionCodeData } from "./vault/original-identity-session-code-data.js";
-export { HostSessionError, IdentityError };
-export type { IdentitySession, Principal };
 
-export { isDeviceIdentityMode, isRemoteIdentityConfigured, remoteIdentityApi };
+export type { HealthState, IdentitySession, Principal, ProbeResult };
+export {
+  HostSessionError,
+  IdentityError,
+  isDeviceIdentityMode,
+  isRemoteIdentityConfigured,
+  remoteIdentityApi,
+};
 
 const IDENTITY_FETCH_MS = 8000;
 const PROBE_MS = 4000;
@@ -172,10 +172,13 @@ function endSessionDefault(): void {
     });
 }
 
-function revokeRequest(bearer?: string): Promise<Response> {
+function revokeRequest(
+  bearer?: string,
+  credentials: RequestCredentials = "include",
+): Promise<Response> {
   return identityPlaneRequest("/v1/principals/provisional/revoke", {
     method: "POST",
-    credentials: "include",
+    credentials,
     timeoutMs: IDENTITY_FETCH_MS,
     ...(bearer
       ? { headers: { authorization: `Bearer ${bearer}` } }
@@ -268,17 +271,6 @@ async function hostFetchDefault(
     if (error instanceof BrowserPairingError)
       throw new HostSessionError("setup_required", error.message);
     throw error;
-  }
-}
-
-async function readError(res: Response): Promise<string> {
-  try {
-    const body: JsonObject = overlapCast(await res.json());
-    if (isString(body.message)) return body.message;
-    if (isString(body.error)) return body.error;
-    return `Request failed (${res.status}).`;
-  } catch {
-    return `Request failed (${res.status}).`;
   }
 }
 
@@ -416,31 +408,66 @@ async function resumeCookieSession(): Promise<IdentitySession | null> {
   }
 }
 
+/**
+ * Stand on a rebound session: end only the previous bearer, cookies
+ * withheld, since the cookie already names this token and the revoke
+ * route ends every credential a request presents.
+ */
+function standOnRebound(
+  token: string,
+  principalId: string,
+  issuerOrigin: string,
+): void {
+  const previous =
+    session && !session.cookieOnly && session.issuerOrigin === issuerOrigin
+      ? session.accessToken
+      : undefined;
+  session = { principalId, accessToken: token, adopted: true, issuerOrigin };
+  setOrphan(false);
+  emit();
+  if (previous && previous !== token) {
+    pendingRevoke = (pendingRevoke ?? Promise.resolve())
+      .then(() => revokeRequest(previous, "omit"))
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+}
+
 /** Adopt a token the operator already holds (CLI `opensesame-id`, tests). */
-async function adoptTokenDefault(accessToken: string): Promise<void> {
+/**
+ * A sign-out or lock landed while a token was on its way. A rebound token
+ * already has a server session and the cookie, so it is ended here too.
+ */
+function refuseEndedSession(serverBoundToken?: string): never {
+  if (serverBoundToken) {
+    pendingRevoke = (pendingRevoke ?? Promise.resolve())
+      .then(() => revokeRequest(serverBoundToken))
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+  throw new IdentityError(
+    "The session was ended while adopting that token. Try again.",
+    409,
+  );
+}
+
+async function adoptTokenDefault(
+  accessToken: string,
+  rebound = false,
+  expectedEpoch?: number,
+): Promise<void> {
   const token = accessToken.trim();
   if (session?.accessToken === token) return;
-  const epoch = sessionEpoch;
+  // A rebind names the epoch its link request started in: the session can
+  // end while that request is in flight, before this function ever runs.
+  const epoch = expectedEpoch ?? sessionEpoch;
+  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
   const issuerOrigin = identityOrigin();
-  // Prove the token itself works before ending the working session, with the
-  // cookie deliberately withheld. A mistyped token would otherwise appear to
-  // work by riding a leftover cookie, and every ceremony would run as the
-  // wrong principal.
-  const res = await identityPlaneRequest("/v1/principals/me", {
-    headers: { authorization: `Bearer ${token}` },
-    credentials: "omit",
-    timeoutMs: IDENTITY_FETCH_MS,
-  });
-  if (!res.ok) throw new IdentityError(await readError(res), res.status);
-  const me: BoundaryValue = await res.json();
-  if (!isJsonObject(me) || !isString(me.id)) {
-    throw new IdentityError("Identity returned an invalid principal.", 502);
-  }
-  if (sessionEpoch !== epoch) {
-    throw new IdentityError(
-      "The session was ended while adopting that token. Try again.",
-      409,
-    );
+  const principalId = await proveTokenOwner(token, IDENTITY_FETCH_MS);
+  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
+  if (rebound) {
+    standOnRebound(token, principalId, issuerOrigin);
+    return;
   }
   // Only now end what came before, detected orphan or not: a cookie this tab
   // never saw would otherwise keep acting alongside the pasted token.
@@ -461,7 +488,7 @@ async function adoptTokenDefault(accessToken: string): Promise<void> {
     );
   }
   session = {
-    principalId: me.id ?? "unknown",
+    principalId,
     accessToken: token,
     adopted: true,
     issuerOrigin,
@@ -496,46 +523,8 @@ function restoreSessionDefault(
   emit();
 }
 
-export type HealthState = "unknown" | "reachable" | "unreachable";
-
-/** A probe result that says *why*, for the connectivity monitor. */
-export type ProbeResult = {
-  health: HealthState;
-  failure: FailureClass | null;
-};
-
 export async function probeIdentityDetailed(): Promise<ProbeResult> {
-  // Device-native mode is always the local host — never probe the network.
-  if (isDeviceIdentityMode()) {
-    return { health: "reachable", failure: null };
-  }
-  const base = identityBase();
-  if (!base) return { health: "unreachable", failure: null };
-  try {
-    const res = await identityPlaneRequest("/v1/health/live", {
-      credentials: "omit",
-      timeoutMs: PROBE_MS,
-    });
-    if (!res.ok) {
-      return { health: "unreachable", failure: classifyResponse(res.status) };
-    }
-    // A foreign listener on :8788 can answer with 401 JSON and look "up".
-    // OpenSesame control-plane always returns `{ "status": "ok" }`.
-    try {
-      const body = overlapCast(await res.json());
-      return body.status === "ok"
-        ? { health: "reachable", failure: null }
-        : { health: "unreachable", failure: "not-opensesame" };
-    } catch {
-      return { health: "unreachable", failure: "not-opensesame" };
-    }
-  } catch (error) {
-    const thrown =
-      error instanceof DOMException || error instanceof Error
-        ? error
-        : String(error);
-    return { health: "unreachable", failure: classifyThrown(thrown) };
-  }
+  return probeIdentityPlane(identityBase, PROBE_MS);
 }
 
 async function probeIdentityDefault(): Promise<HealthState> {
@@ -555,7 +544,10 @@ export const identitySeams = {
   noteUnauthorized: noteUnauthorizedDefault,
   identityJson: identityJsonDefault,
   connectProvisional: connectProvisionalDefault,
+  resumeSession: resumeCookieSession,
   adoptToken: adoptTokenDefault,
+  rebindSession: (accessToken: string, expectedEpoch?: number) =>
+    adoptTokenDefault(accessToken, true, expectedEpoch),
   probeIdentity: probeIdentityDefault,
   fetchPrincipal: fetchPrincipalDefault,
   restoreSession: restoreSessionDefault,
@@ -615,6 +607,13 @@ export async function connectProvisional(): Promise<IdentitySession> {
 }
 export async function adoptToken(accessToken: string): Promise<void> {
   return identitySeams.adoptToken(accessToken);
+}
+/** Stand on a session the link route rebound to an existing principal. */
+export async function rebindSession(
+  accessToken: string,
+  expectedEpoch?: number,
+): Promise<void> {
+  return identitySeams.rebindSession(accessToken, expectedEpoch);
 }
 export async function probeIdentity(): Promise<HealthState> {
   return identitySeams.probeIdentity();

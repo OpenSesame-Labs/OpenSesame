@@ -1,6 +1,8 @@
 import type { OwnedAiImage } from "@opensesame/app-core/lib/ai-connections/owned-image.js";
 import { useEffect, useRef, useState } from "react";
+import { FailureNotice } from "../../../components/FailureNotice.js";
 import { FormCommit } from "../../../components/FormCommit.js";
+import { StatusMark } from "../../../components/StatusMark.js";
 
 /** Only locally decoded pixels become a ready preview or downloadable file. */
 export function AiGeneratedImage({ image }: { image: OwnedAiImage }) {
@@ -102,7 +104,20 @@ export function AiGeneratedImage({ image }: { image: OwnedAiImage }) {
     }
   };
   if (failed === image)
-    return <p role="alert">The generated image could not be decoded.</p>;
+    return (
+      <>
+        <StatusMark
+          tone="err"
+          label="The generated image could not be decoded."
+        />
+        <FailureNotice
+          id="ai-generated-image"
+          title="Generated image"
+          message="The generated image could not be decoded."
+          occurrence={image}
+        />
+      </>
+    );
   if (!current) return null;
   return (
     <div>

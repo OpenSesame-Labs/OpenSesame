@@ -52,11 +52,14 @@ it("does not fall back to another item when the requested item is unavailable", 
       onSave={() => undefined}
     />,
   );
+  // A draft that cannot be saved yet is a mark on the field, not an alert.
   expect(
-    screen.getByText(
-      /That item is no longer available to share\. Choose another item or resource\./,
-    ),
+    screen.getByRole("img", {
+      name: "That item is no longer available to share. Choose another item or resource.",
+    }),
   ).toBeTruthy();
+  expect(screen.getByText("Item unavailable")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("button", { name: "Grant" })).toHaveProperty(
     "disabled",
     true,

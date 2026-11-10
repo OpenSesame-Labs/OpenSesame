@@ -14,6 +14,7 @@ import {
   disposeSupport,
   mountSupport,
   openPanel,
+  showQuestions,
 } from "../__tests__/a11y/harness.js";
 
 afterEach(disposeSupport);
@@ -27,6 +28,7 @@ async function askTitles(route: string): Promise<readonly string[]> {
     targets: ["shell.lock"],
   });
   const sheet = await openPanel(user);
+  await showQuestions(user);
   const questions = await within(sheet).findByRole("region", {
     name: "Questions",
   });
@@ -68,6 +70,7 @@ describe("written help with no walkthrough", () => {
       transport: "none",
     });
     const sheet = await openPanel(user);
+    await showQuestions(user);
     const search = within(sheet).getByLabelText("Search the written help");
     await user.type(search, "unlock the vault");
     const row = await within(sheet).findByRole("button", {

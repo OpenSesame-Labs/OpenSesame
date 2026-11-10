@@ -20,8 +20,8 @@ import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { VaultSection } from "../VaultSection.js";
 import { SLIDE_ENTER } from "./add-slide.js";
 import "./commands.test-support.js";
-import { vaultTreeSeams } from "./VaultTree.js";
 import { makeAccount } from "./section-items.test-support.js";
+import { vaultTreeSeams } from "./VaultTree.js";
 
 Object.assign(vaultHooksSeams, { useCopySecret: () => vi.fn() });
 Object.assign(vaultTreeSeams, {
@@ -87,6 +87,7 @@ describe("holding the Add button on a phone", () => {
     vi.useFakeTimers();
   });
   afterEach(() => {
+    closeContextMenu();
     vi.useRealTimers();
     vi.restoreAllMocks();
     cleanup();
@@ -126,7 +127,7 @@ describe("holding the Add button on a phone", () => {
     });
 
   it("draws the drag area only once held, naming Import above and Export below", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     act(() => {
       plus().dispatchEvent(pointer("pointerdown", { y: 500 }));
     });
@@ -146,7 +147,7 @@ describe("holding the Add button on a phone", () => {
   });
 
   it("inks the zone the finger is over, and lets go of it when the finger leaves", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     hold();
     move(500 - SLIDE_ENTER + 4);
     expect(lit()).toEqual([]);
@@ -159,7 +160,7 @@ describe("holding the Add button on a phone", () => {
   });
 
   it("lifting on Import starts the file picker, and the lift does not follow the +", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     const picker = vi
       .spyOn(HTMLInputElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -187,7 +188,7 @@ describe("holding the Add button on a phone", () => {
       header: null,
       status: "unlocked",
     });
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     hold();
     move(500 + SLIDE_ENTER + 30);
     lift(500 + SLIDE_ENTER + 30);
@@ -198,8 +199,8 @@ describe("holding the Add button on a phone", () => {
     vaultHooksSeams.useVault = real;
   });
 
-  it("lifting anywhere else chooses nothing", () => {
-    renderVault("/vault");
+  it("lifting anywhere else runs nothing yet: the entries stay as a tappable menu", () => {
+    renderVault("/vault?f=all");
     const picker = vi
       .spyOn(HTMLInputElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -207,12 +208,27 @@ describe("holding the Add button on a phone", () => {
     move(500 - SLIDE_ENTER - 30);
     move(500);
     lift(500);
+    // Nothing ran on the lift itself…
     expect(picker).not.toHaveBeenCalled();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.querySelector(".add-slide")).toBeNull();
+    // …but the choices are still on screen after the finger is off.
+    expect(contextMenuSnapshot()?.label).toBe("Add actions");
+    expect(
+      contextMenuSnapshot()
+        ?.groups.flat()
+        .map((entry) => entry.label),
+    ).toEqual(["Import items", "Export items"]);
+    // And tapping one now runs it.
+    const entry = contextMenuSnapshot()
+      ?.groups.flat()
+      .find((candidate) => candidate.id === "import");
+    act(() => entry?.run());
+    expect(picker).toHaveBeenCalledOnce();
+    closeContextMenu();
   });
 
   it("a finger that wanders before the hold arms is a scroll, not a hold", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     act(() => {
       plus().dispatchEvent(pointer("pointerdown", { y: 500 }));
     });
@@ -224,7 +240,7 @@ describe("holding the Add button on a phone", () => {
   });
 
   it("a tap is still one tap: no drag area, and the click follows the +", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     act(() => {
       plus().dispatchEvent(pointer("pointerdown", { y: 500 }));
       plus().dispatchEvent(pointer("pointerup", { y: 500 }));
@@ -241,18 +257,22 @@ describe("holding the Add button on a phone", () => {
     expect(screen.getByTestId("arrival").textContent).toBe("PUSH");
   });
 
-  it("a held finger never opens the page's menu or the Add menu", () => {
-    renderVault("/vault");
+  it("a finger still down never opens a menu; the lift itself opens Add actions", () => {
+    renderVault("/vault?f=all");
     hold();
     fireEvent.contextMenu(plus());
     expect(contextMenuSnapshot()).toBeNull();
     lift(500);
+    // The lift opened the persistent menu — that is the point of the road.
+    expect(contextMenuSnapshot()?.label).toBe("Add actions");
+    closeContextMenu();
+    // The lift's own contextmenu (still inside the hold window) adds nothing.
     fireEvent.contextMenu(plus());
     expect(contextMenuSnapshot()).toBeNull();
   });
 
   it("a keyboard or a mouse, which cannot slide, gets the entries as a menu", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     fireEvent.contextMenu(plus());
     expect(contextMenuSnapshot()?.label).toBe("Add actions");
     expect(
@@ -264,7 +284,7 @@ describe("holding the Add button on a phone", () => {
   });
 
   it("lists Import before Export, each a flow the button mounts", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     fireEvent.contextMenu(plus());
     const entries = contextMenuSnapshot()?.groups.flat() ?? [];
     expect(entries.map((entry) => entry.id)).toEqual(["import", "export"]);
@@ -283,6 +303,7 @@ describe("the Add button's slide, edge cases", () => {
     vi.useFakeTimers();
   });
   afterEach(() => {
+    closeContextMenu();
     vi.useRealTimers();
     vi.restoreAllMocks();
     cleanup();
@@ -302,7 +323,7 @@ describe("the Add button's slide, edge cases", () => {
   };
 
   it("a second finger lifting does not choose what the first one is over", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     const picker = vi
       .spyOn(HTMLInputElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -315,8 +336,25 @@ describe("the Add button's slide, edge cases", () => {
     expect(picker).toHaveBeenCalledOnce();
   });
 
+  it("a cancelled hold swallows the click that trails it, and opens nothing", () => {
+    // Gauntlet round 4 (opencode): cancel cleared the swallow window, so a
+    // compatibility click after pointercancel followed the + into New item.
+    // A cancelled touch opens and runs nothing — the click included.
+    renderVault("/vault?f=all");
+    armed();
+    fire("pointercancel", 500);
+    expect(document.querySelector(".add-slide")).toBeNull();
+    expect(contextMenuSnapshot()).toBeNull();
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => {
+      plus().dispatchEvent(click);
+    });
+    expect(click.defaultPrevented).toBe(true);
+    expect(screen.getByTestId("arrival").textContent).toBe("POP");
+  });
+
   it("a click the browser never made does not swallow a later one", () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     armed();
     fire("pointerup", 500);
     act(() => {
@@ -331,7 +369,7 @@ describe("the Add button's slide, edge cases", () => {
   });
 
   it("choosing from the menu tells the guide, as the slide does", async () => {
-    renderVault("/vault");
+    renderVault("/vault?f=all");
     const controller = new AbortController();
     const settled = vi.fn();
     void observeGuideTarget("vault.import", "activate", controller.signal)

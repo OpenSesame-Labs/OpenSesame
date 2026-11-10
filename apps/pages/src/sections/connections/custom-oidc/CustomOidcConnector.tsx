@@ -9,7 +9,14 @@ import {
 } from "@opensesame/app-core/lib/custom-oidc.js";
 import { useState } from "react";
 import { Link } from "react-router";
-import { IconChevronLeft, IconPlus } from "../../../components/Icons.js";
+import { FormCommit } from "../../../components/FormCommit.js";
+import { IconKey } from "../../../components/IconKey.js";
+import {
+  IconChevronLeft,
+  IconLock,
+  IconPhone,
+  IconPlus,
+} from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { useVaultStore } from "../../../lib/vault/hooks.js";
 import {
@@ -212,13 +219,9 @@ function OidcClientFields({ editor }: { editor: CustomOidcEditor }) {
           id="oidc-relay"
           value={config.tokenRelayUrl}
           placeholder="https://relay.example/oidc/token"
+          title="A relay you control performs the token exchange, so the client secret stays off this device."
           onChange={(event) => set("tokenRelayUrl", event.target.value)}
         />
-        <p className="hint">
-          Use a relay you control to keep the client secret off this device. The
-          relay receives the same authorization-code form and performs the
-          exchange at the token endpoint.
-        </p>
       </div>
       <div className="field">
         <label htmlFor="oidc-scopes">Scopes</label>
@@ -283,34 +286,30 @@ function OidcActions({ editor }: { editor: CustomOidcEditor }) {
   } = editor;
   return (
     <>
-      <div className="button-row">
-        <button
-          type="button"
-          className="btn btn--sm btn--primary"
-          disabled={busy}
-          onClick={() => void start()}
-        >
-          <IconPlus size={14} /> Start sign-in
-        </button>
-        <button
-          type="button"
-          className="btn btn--sm"
+      <FormCommit
+        label="Start sign-in"
+        busy={busy}
+        disabled={busy}
+        icon={<IconPlus size={18} />}
+        onClick={() => void start()}
+      >
+        <IconKey
+          label="Save encrypted"
           disabled={busy}
           onClick={() => void save()}
         >
-          Save encrypted
-        </button>
-      </div>
-      {config.deviceAuthorizationEndpoint ? (
-        <button
-          type="button"
-          className="btn btn--sm"
-          disabled={busy}
-          onClick={() => void startDevice()}
-        >
-          Use device code
-        </button>
-      ) : null}
+          <IconLock size={16} />
+        </IconKey>
+        {config.deviceAuthorizationEndpoint ? (
+          <IconKey
+            label="Use device code"
+            disabled={busy}
+            onClick={() => void startDevice()}
+          >
+            <IconPhone size={16} />
+          </IconKey>
+        ) : null}
+      </FormCommit>
       {device ? (
         <output className="note note--ok">
           Open {device.verificationUri} and enter{" "}

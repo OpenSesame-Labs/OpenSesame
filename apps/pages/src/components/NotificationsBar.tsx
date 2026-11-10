@@ -45,7 +45,9 @@ import {
   IconLogin,
   IconPower,
   IconRefresh,
+  IconSettings,
   IconShield,
+  IconUpload,
   IconX,
 } from "./Icons.js";
 
@@ -94,7 +96,10 @@ export function useNoticeCount(): number {
 function NotificationsBarDefault({
   form = "key",
   onClose,
-}: { form?: NotificationsForm; onClose?: () => void }) {
+}: {
+  form?: NotificationsForm;
+  onClose?: () => void;
+}) {
   const { notices, health, queued, count } = useNotices();
   const [open, setOpen] = useState(form === "panel");
 
@@ -254,10 +259,20 @@ function NotificationsBarDefault({
   );
 }
 
+/** The face of a notice's act: what the key does, not one mark for all. */
+function ActIcon({ icon }: { icon: NonNullable<Notice["act"]>["icon"] }) {
+  if (icon === "export") return <IconUpload size={16} />;
+  if (icon === "settings") return <IconSettings size={16} />;
+  return <IconPower size={16} />;
+}
+
 export function StatusNoticeCard({
   notice,
   onOpen,
-}: { notice: Notice; onOpen: () => void }) {
+}: {
+  notice: Notice;
+  onOpen: () => void;
+}) {
   const tone = notice.tone ?? "info";
   const navigate = useNavigate();
   return (
@@ -290,9 +305,12 @@ export function StatusNoticeCard({
           <IconKey
             label={notice.act.label}
             small
-            onClick={() => notice.act?.run()}
+            onClick={() => {
+              if (notice.act?.opens) onOpen();
+              notice.act?.run();
+            }}
           >
-            <IconPower size={16} />
+            <ActIcon icon={notice.act.icon} />
           </IconKey>
         ) : null}
         {notice.retry ? (
@@ -325,7 +343,10 @@ export const notificationsBarSeams = {
 export function NotificationsBar({
   form,
   onClose,
-}: { form?: NotificationsForm; onClose?: () => void } = {}) {
+}: {
+  form?: NotificationsForm;
+  onClose?: () => void;
+} = {}) {
   const Impl = notificationsBarSeams.NotificationsBar;
   return <Impl form={form} onClose={onClose} />;
 }

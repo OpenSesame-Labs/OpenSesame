@@ -45,7 +45,9 @@ function choose(file: File): void {
 describe("starting a vault from a file at the front door", () => {
   it("offers it as a road beside setting up and joining, with the guest Skip still in the corner", () => {
     render(<UnlockScreen />);
-    expect(screen.getByRole("button", { name: "Import a file" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Import passwords from a file" }),
+    ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /^Set up your own/ }),
     ).toBeTruthy();
@@ -96,7 +98,9 @@ describe("starting a vault from a file at the front door", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "open-sesame" }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Import a file" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Import passwords from a file" }),
+    ).toBeTruthy();
   });
 });
 
@@ -141,7 +145,9 @@ describe("starting a vault from a file once the door has retired", () => {
       awaitingSecondStep: false,
     };
     render(<UnlockScreen />);
-    expect(screen.queryByRole("button", { name: "Import a file" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Import passwords from a file" }),
+    ).toBeNull();
   });
 
   it("lets a held file go when the vault it was for is found sealed and locked", () => {

@@ -104,7 +104,11 @@ describe("a core-only plan", () => {
 describe("where the person stands, to the precision a tour needs", () => {
   it("tells the list, an item's pane and the trash apart", () => {
     expect(guideRouteForLocation("/vault")).toBe("/vault");
-    expect(guideRouteForLocation("/vault", "?f=favorites")).toBe("/vault");
+    // A named filter is the list pane — on a phone the bare /vault is the
+    // section tree, where the list and New item are not mounted.
+    expect(guideRouteForLocation("/vault", "?f=favorites")).toBe("/vault/list");
+    expect(guideRouteForLocation("/vault", "?f=all")).toBe("/vault/list");
+    expect(guideRouteForLocation("/vault", "?folder=f_1")).toBe("/vault/list");
     expect(guideRouteForLocation("/vault", "?f=trash")).toBe("/vault/trash");
     expect(guideRouteForLocation("/vault/itm_1")).toBe("/vault/item");
     expect(guideRouteForLocation("/vault/itm_1/")).toBe("/vault/item");
@@ -115,8 +119,10 @@ describe("where the person stands, to the precision a tour needs", () => {
 
   it("keeps the screens that are not an item's pane where they were", () => {
     expect(guideRouteForLocation("/vault/health")).toBe("/vault/health");
-    expect(guideRouteForLocation("/vault/new/login")).toBe("/vault");
-    expect(guideRouteForLocation("/vault/new")).toBe("/vault");
+    // The new-item editor reports as the list it opens from, so a tour
+    // standing on the list never navigates an unsaved draft away.
+    expect(guideRouteForLocation("/vault/new/login")).toBe("/vault/list");
+    expect(guideRouteForLocation("/vault/new")).toBe("/vault/list");
     expect(guideRouteForLocation("/vault/itm_1/edit")).toBe("/vault");
     expect(guideRouteForLocation("/settings/security")).toBe(
       "/settings/security",

@@ -26,10 +26,12 @@ import { type GuideRouteId, scopeApplies } from "./routes.js";
 import { SETUP_GOALS, SETUP_HELP, SHELL_GOALS } from "./setup-goals.js";
 import { SHELL_HELP } from "./shell-goals.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
+import { CREATE_ITEM_GOAL, FIRST_ITEM_GOAL } from "./vault-create-goals.js";
+
 export { CAPABILITY_TUTORIALS } from "./capability-tutorials.js";
 export { FEATURE_TUTORIALS } from "./feature-goals.js";
-export { INTEGRATION_TUTORIALS } from "./integration-goals.js";
 export type { GuideGoalDescriptor, HelpTopic } from "./goal-types.js";
+export { INTEGRATION_TUTORIALS } from "./integration-goals.js";
 
 /**
  * The goals the core shell always offers. A goal that walks an optional
@@ -83,23 +85,8 @@ export const CORE_GUIDE_GOALS: readonly GuideGoalDescriptor[] = [
       "end",
     ].join("\n"),
   },
-  {
-    id: "vault.item.create",
-    title: "Add an item to the vault",
-    routes: [],
-    guide: [
-      "guide/1",
-      'goal "vault.item.create"',
-      'say "Items are sealed on this device. Nothing you type here is uploaded anywhere."',
-      'navigate "/vault"',
-      'wait route "/vault" timeout=15000',
-      'focus "vault.list" "Everything the vault holds is listed here, grouped by folder and narrowed by whichever filter is active." side=right',
-      'focus "vault.create" "New item opens the editor for the kind the current filter names — an account unless you narrowed the list. Nothing is stored until you save. The n key does the same from the list." side=bottom',
-      'wait target "vault.create" event=activate timeout=60000',
-      'success "Name it, enter the secret and save. The item is sealed with the rest of the vault."',
-      "end",
-    ].join("\n"),
-  },
+  FIRST_ITEM_GOAL,
+  CREATE_ITEM_GOAL,
   HEALTH_REVIEW_GOAL,
   ENVIRONMENTS_GOAL,
   {
@@ -165,8 +152,8 @@ export const CORE_GUIDE_GOALS: readonly GuideGoalDescriptor[] = [
       "guide/1",
       'goal "vault.export"',
       'say "An export is one encrypted backup file: the sealed vault body plus its key-wrapping header. It is opened again with the unlock the vault already has, for moving to another device."',
-      'navigate "/vault"',
-      'wait route "/vault" timeout=15000',
+      'navigate "/vault/list"',
+      'wait route "/vault/list" timeout=15000',
       'focus "vault.export" "Export opens the export sheet; on a phone, hold the + and slide down, then let go on Export. Nothing is written until you choose where to save it." side=bottom',
       "end",
     ].join("\n"),

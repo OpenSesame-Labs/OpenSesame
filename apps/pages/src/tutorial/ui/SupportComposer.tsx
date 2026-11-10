@@ -3,6 +3,7 @@ import {
   type FormEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   createContext,
   useContext,
   useId,
@@ -60,9 +61,11 @@ export function useSupportMarkSlot(): HTMLElement | null {
 export function SupportComposer({
   query,
   onQueryChange,
+  inputRef,
 }: {
   query: string;
   onQueryChange: (next: string) => void;
+  inputRef?: RefObject<HTMLInputElement | null>;
 }): ReactElement {
   const { view, support } = useSupport();
   const askId = useId();
@@ -95,6 +98,7 @@ export function SupportComposer({
       </label>
       <div className="f__shell">
         <input
+          ref={inputRef}
           id={askId}
           className="f__input"
           type={modelReady ? "text" : "search"}

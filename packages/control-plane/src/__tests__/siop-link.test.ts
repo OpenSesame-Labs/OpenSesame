@@ -8,6 +8,10 @@ import { generateKeyPair } from "jose";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetSiopChallengeBudget } from "../routes/siop-link.js";
+import {
+  createSiopLinkChallenge,
+  linkVerifiedSiopSubject,
+} from "../services/siop-verify.js";
 
 const AUDIENCE = "https://id.example/siop-bridge";
 
@@ -198,5 +202,46 @@ describe("POST /v1/siop/challenges and /link", () => {
     );
     expect(limited.status).toBe(429);
     expect(overlapCast(await limited.json()).error).toBe("rate_limited");
+  });
+});
+
+describe("linkVerifiedSiopSubject owner state", () => {
+  it("refuses to bind a fresh SIOP identity to a suspended principal", async () => {
+    // Gauntlet round 6 (opencode): this service wrote the identity row
+    // directly, around the shared attach fences, so a principal suspended
+    // after its session was issued still collected a fresh verified link.
+    const { ctx } = createControlPlane();
+    const now = ctx.clock();
+    await ctx.repos.principals.create({
+      id: "prn_siop_suspended",
+      state: "suspended",
+      assurance: "verified",
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+    });
+    const challenge = await createSiopLinkChallenge(ctx, "prn_siop_suspended", {
+      audience: AUDIENCE,
+      expectedIssuer: STATIC_SELF_ISSUED_ISSUER,
+    });
+    const { privateKey, publicJwk } = await es256Pair();
+    const idToken = await buildSelfIssuedIdToken({
+      profile: { kind: "static" },
+      audience: AUDIENCE,
+      nonce: challenge.nonce,
+      publicJwk,
+      signingKey: privateKey,
+    });
+
+    const result = await linkVerifiedSiopSubject(ctx, {
+      principalId: "prn_siop_suspended",
+      challengeId: challenge.id,
+      idToken,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: "identity_collision" });
+    expect(
+      await ctx.repos.externalIdentities.listByPrincipal("prn_siop_suspended"),
+    ).toHaveLength(0);
   });
 });

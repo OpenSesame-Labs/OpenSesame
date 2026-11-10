@@ -1,13 +1,14 @@
-import { listShareTargets } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import {
   SHARE_DURATIONS,
   SHARE_POLICIES,
   type ShareKind,
   type ShareScopeLists,
 } from "@opensesame/app-core/lib/local-share-grants.js";
+import { listShareTargets } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { FormCommit } from "../../components/FormCommit.js";
 import { IconX } from "../../components/Icons.js";
+import { StatusMark } from "../../components/StatusMark.js";
 import { shareGrantCommitLabel } from "./share-grant-commit-label.js";
 
 type SaveInput = {
@@ -262,9 +263,12 @@ function ShareFields({
             </select>
           </Field>
           {itemUnavailable ? (
-            <p className="hint" role="alert">
-              That item is no longer available to share. Choose another item or
-              resource.
+            <p className="hint">
+              <StatusMark
+                tone="warn"
+                label="That item is no longer available to share. Choose another item or resource."
+              />{" "}
+              Item unavailable
             </p>
           ) : resources.length === 0 ? (
             <p className="hint">{EMPTY_SCOPE[kind]}</p>

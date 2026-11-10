@@ -77,6 +77,22 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     capabilityId: null,
   },
   {
+    id: "item.editor.name",
+    description:
+      "The name field at the head of the item editor: what the item is called in the list, between its folder and its type. A tour may point at it; it never types into it.",
+    role: "surface",
+    routes: ["/vault/item"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "item.editor.save",
+    description:
+      "The editor's save key: seals the item into the vault with everything entered. Nothing is stored until this is pressed, by the person — a tour never presses it.",
+    role: "action",
+    routes: ["/vault/item"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
     id: "item.favorite",
     description:
       "The star on an open item: marks it as a favorite, or takes the mark off. A favorite is listed under the Favorites filter and starred in the list.",

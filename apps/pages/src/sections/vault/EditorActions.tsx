@@ -1,6 +1,6 @@
-import type { Ref } from "react";
 import { Link } from "react-router";
 import { IconCheck, IconX } from "../../components/Icons.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 
 /**
  * Render after all fields so keyboard and visual order agree. The save is the
@@ -11,17 +11,17 @@ export function EditorActions({
   busy,
   label,
   closeTo,
-  saveRef,
 }: {
   busy: boolean;
   label: string;
   closeTo: string;
-  saveRef?: Ref<HTMLButtonElement>;
 }) {
+  // A walkthrough may point at Save; it never presses it.
+  const guideRef = useGuideTarget<HTMLButtonElement>("item.editor.save");
   return (
     <div className="editor__actions go-row">
       <button
-        ref={saveRef}
+        ref={guideRef}
         type="submit"
         className="go"
         disabled={busy}

@@ -4,8 +4,8 @@ import { AddSlide } from "../sections/vault/AddSlide.js";
 import { type AddEntry, useAddEntry } from "../sections/vault/add-menu.js";
 import { useAddSlide } from "../sections/vault/add-slide.js";
 import { useOptionalGuideTarget } from "../tutorial/registry/react.jsx";
-import { IconPlus } from "./Icons.js";
 import { openContextMenu } from "./context-menu/menu-model.js";
+import { IconPlus } from "./Icons.js";
 import type { useRecordWorkspace } from "./record-workspace-state.js";
 
 function controls(list: RefObject<HTMLDivElement | null>) {
@@ -46,7 +46,10 @@ function SlideEntry({
 export function RecordAdd({
   model,
   guide,
-}: { model: ReturnType<typeof useRecordWorkspace>; guide?: GuideTargetId }) {
+}: {
+  model: ReturnType<typeof useRecordWorkspace>;
+  guide?: GuideTargetId;
+}) {
   const {
     list,
     createControl,
@@ -56,7 +59,40 @@ export function RecordAdd({
     exportLabel,
   } = model;
   const choose = useCallback((entry: AddEntry) => entry.run(), []);
-  const slide = useAddSlide(choose);
+  const menuEntries = useCallback(
+    () =>
+      controls(list)
+        .filter(
+          (control) =>
+            !/^(New|Add|Register|Create|Grant)\b/.test(
+              control.getAttribute("aria-label") ?? "",
+            ),
+        )
+        .map((control, index) => ({
+          id: `record-command-${index}`,
+          label: control.getAttribute("aria-label") ?? "Command",
+          disabled: control.matches(":disabled"),
+          run: () => control.click(),
+        })),
+    [list],
+  );
+  // A hold lifted in place opens the same menu, to be tapped — the vault's
+  // Add button behaves the same way.
+  const openMenuOnLift = useCallback(
+    (lift: { clientX: number; clientY: number; anchor: HTMLElement }) =>
+      openContextMenu(
+        {
+          clientX: lift.clientX,
+          clientY: lift.clientY,
+          preventDefault: () => undefined,
+        },
+        lift.anchor,
+        "Add actions",
+        [menuEntries()],
+      ),
+    [menuEntries],
+  );
+  const slide = useAddSlide(choose, openMenuOnLift);
   // The proxy is pointable; activation is reported once by the original
   // command it clicks, which retains its normal guide binding.
   const guideRef = useOptionalGuideTarget<HTMLButtonElement>(guide, {
@@ -81,20 +117,9 @@ export function RecordAdd({
         onContextMenu={(event) => {
           event.preventDefault();
           if (slide.holding()) return;
-          const entries = controls(list)
-            .filter(
-              (control) =>
-                !/^(New|Add|Register|Create|Grant)\b/.test(
-                  control.getAttribute("aria-label") ?? "",
-                ),
-            )
-            .map((control, index) => ({
-              id: `record-command-${index}`,
-              label: control.getAttribute("aria-label") ?? "Command",
-              disabled: control.matches(":disabled"),
-              run: () => control.click(),
-            }));
-          openContextMenu(event, event.currentTarget, "Add actions", [entries]);
+          openContextMenu(event, event.currentTarget, "Add actions", [
+            menuEntries(),
+          ]);
         }}
         onClick={(event) => {
           slide.bind.onClick(event);

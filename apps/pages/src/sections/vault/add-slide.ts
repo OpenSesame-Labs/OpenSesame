@@ -10,8 +10,11 @@ import { type AddEntry, addEntries } from "./add-menu.js";
  * finger may not wander before it arms, so a scroll that began on the button is
  * never a hold. Once armed the drag area is drawn and the pointer is captured:
  * the finger can leave the button and still be the one choosing. Releasing over
- * a zone runs its entry; releasing anywhere else, or a cancelled touch, runs
- * nothing. The lift that ends a hold is never also a tap on the `+`.
+ * a zone runs its entry. Releasing anywhere else runs nothing yet — it opens
+ * the same entries as a menu that stays after the finger lifts, so a person
+ * who held without sliding can still tap Import or Export; only choosing,
+ * the scrim, or Escape closes it. A cancelled touch opens and runs nothing.
+ * The lift that ends a hold is never also a tap on the `+`.
  */
 
 export type Slide = "up" | "down";
@@ -61,9 +64,37 @@ function touchLike(event: PointerEvent): boolean {
  * is small: pointer events in, `show` told what to draw, `choose` told what
  * was chosen.
  */
+/** Where a lift happened, for the menu a lift in place opens. */
+export type LiftPoint = Readonly<{
+  clientX: number;
+  clientY: number;
+  anchor: HTMLElement;
+}>;
+
+/** What a hold's lift does: run the zone it ended over, or leave the menu up. */
+function settleLift(
+  held: SlideState | null,
+  event: PointerEvent<HTMLElement>,
+  choose: (entry: AddEntry) => void,
+  openMenu: (lift: LiftPoint) => void,
+): void {
+  const entry = held?.over ? held.zones[held.over] : undefined;
+  if (entry) choose(entry);
+  else if (held) {
+    // Held but never slid onto a zone: keep the choices on screen as a
+    // menu the person can tap now the finger is off.
+    openMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      anchor: event.currentTarget,
+    });
+  }
+}
+
 function createSlide(
   show: (state: SlideState | null) => void,
   choose: (entry: AddEntry) => void,
+  openMenu: (lift: LiftPoint) => void,
 ) {
   let live: SlideState | null = null;
   let down: Touch | null = null;
@@ -139,20 +170,28 @@ function createSlide(
       const held = live;
       if (held) liftedUntil = Date.now() + LIFT_CLICK_MS;
       stop();
-      const entry = held?.over ? held.zones[held.over] : undefined;
-      if (entry) choose(entry);
+      settleLift(held, event, choose, openMenu);
     },
     cancel() {
       touchUntil = Date.now() + 700;
-      liftedUntil = 0;
+      // An armed hold still owes its swallow: a browser may trail
+      // pointercancel with a compatibility click, and a cancelled touch
+      // opens and runs nothing — following the + included.
+      liftedUntil = live ? Date.now() + LIFT_CLICK_MS : 0;
       stop();
     },
   };
 }
 
-export function useAddSlide(choose: (entry: AddEntry) => void) {
+export function useAddSlide(
+  choose: (entry: AddEntry) => void,
+  openMenu: (lift: LiftPoint) => void,
+) {
   const [state, setState] = useState<SlideState | null>(null);
-  const slide = useMemo(() => createSlide(setState, choose), [choose]);
+  const slide = useMemo(
+    () => createSlide(setState, choose, openMenu),
+    [choose, openMenu],
+  );
   // A hold that outlives the button (a route change under the finger) ends.
   useEffect(() => slide.cancel, [slide]);
   return {

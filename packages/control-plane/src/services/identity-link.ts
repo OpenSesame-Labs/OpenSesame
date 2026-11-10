@@ -3,6 +3,7 @@ import { appendAuditEvent } from "@opensesame/audit";
 import { ConflictError } from "@opensesame/database";
 import type { ExternalIdentity } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { settleVerifiedOwner } from "./identity-principal-fence.js";
 
 /**
  * Canonical binding of a *verified* upstream identity to a principal.
@@ -62,6 +63,15 @@ export type AttachIdentityInput = {
   displayHint?: string;
   emailNormalized?: string;
   emailVerified?: boolean;
+  /**
+   * Whether a verified-email match may land this identity on the OTHER
+   * principal that owns the address (D15). Defaults to true — the admission
+   * legs call with a just-minted provisional that exists to be bound. An
+   * authenticated link road acting for a durable caller passes false: for
+   * them the same landing is a merge, and merging takes dual authentication,
+   * so the attach refuses with `identity_collision` instead of fusing.
+   */
+  joinByVerifiedEmail?: boolean;
   /** Provenance for the identity row, e.g. `{ nameIdFormat }` for SAML. */
   metadata?: Record<string, string>;
 };
@@ -120,6 +130,20 @@ export async function attachVerifiedExternalIdentity(
   });
   if (existing) {
     if (existing.principalId === principalId) {
+      // Idempotent in rows, not in owner state: a verified tuple left on
+      // a provisional principal by the old crash window is finished by
+      // this re-presentation (the same proof the first attach promotes
+      // on), and a suspended owner does not collect a success answer. A
+      // principal row that is already gone keeps the tolerant answer the
+      // fresh-write path gives — no other principal is involved.
+      const owner = await ctx.repos.principals.getById(principalId);
+      if (owner && !(await settleVerifiedOwner(ctx, principalId))) {
+        return {
+          ok: false,
+          error: "identity_collision",
+          message: IDENTITY_COLLISION_MESSAGE,
+        };
+      }
       return { ok: true, alreadyLinked: true, identity: existing };
     }
     return {
@@ -149,6 +173,28 @@ export async function attachVerifiedExternalIdentity(
     emailMatch && emailMatch.principalId !== principalId
       ? emailMatch
       : undefined;
+  if (emailOwner && input.joinByVerifiedEmail === false) {
+    return {
+      ok: false,
+      error: "identity_collision",
+      message: IDENTITY_COLLISION_MESSAGE,
+    };
+  }
+  if (emailOwner) {
+    // The adoption roads refuse a suspended or closed owner, but they run
+    // after this write: without the same fence here, the identity lands on
+    // a dead principal and the caller is still told it linked. A
+    // provisional owner is not refused — the promotion below makes it
+    // active in this same call, which is what adoption then reads.
+    const owner = await ctx.repos.principals.getById(emailOwner.principalId);
+    if (!owner || owner.state === "suspended" || owner.state === "closed") {
+      return {
+        ok: false,
+        error: "identity_collision",
+        message: IDENTITY_COLLISION_MESSAGE,
+      };
+    }
+  }
   const ownerPrincipalId = emailOwner ? emailOwner.principalId : principalId;
 
   // Same email on another principal must never auto-link. Audit and continue.
@@ -193,29 +239,59 @@ export async function attachVerifiedExternalIdentity(
       : undefined),
   };
   try {
-    await ctx.repos.externalIdentities.create(identity);
+    // The row and its owner's promotion commit together: a crash between
+    // the two writes used to leave a verified tuple on a provisional
+    // principal. The owner is re-read inside the transaction because the
+    // pre-write fence cannot see a suspension that lands while the insert
+    // is in flight; refusing here rolls the new row back out with it.
+    await ctx.repos.transaction(async (uow) => {
+      await ctx.repos.externalIdentities.create(identity, uow);
+      // Every read in here goes through `uow`: a read on the root
+      // connection would wait on a second connection while this
+      // transaction holds the first, and hangs where there is only one.
+      const target = await ctx.repos.principals.getById(ownerPrincipalId, uow);
+      // A self-attach whose principal row is already gone keeps the old
+      // tolerant answer (the row is the caller's own; there is no owner
+      // to protect and the FK has the last word in real repositories).
+      // An email join onto SOMEONE ELSE never gets that tolerance.
+      if (
+        (target !== null || emailOwner !== undefined) &&
+        !(await settleVerifiedOwner(ctx, ownerPrincipalId, uow))
+      ) {
+        throw new ConflictError(IDENTITY_COLLISION_MESSAGE);
+      }
+    });
   } catch (err) {
     if (err instanceof ConflictError) {
+      // Real repositories roll the transaction back; a repository that
+      // applied the insert before reporting the conflict gets the same
+      // answer by hand. The id is this call's own UUID, so this can never
+      // remove the row another request won the race with.
+      await ctx.repos.externalIdentities
+        .deleteById(identity.id)
+        .catch(() => false);
       return { ok: false, error: "identity_collision", message: err.message };
     }
     throw err;
   }
 
-  const principal = await ctx.repos.principals.getById(ownerPrincipalId);
+  // A suspension can still land after the in-transaction read and before
+  // the commit becomes visible here. Success is only reported for an
+  // owner that is active at the moment this call settles; anything else
+  // unbinds the fresh row and refuses, and the callers' own final state
+  // checks cover a suspension after even this read.
+  const settled = await ctx.repos.principals.getById(ownerPrincipalId);
   if (
-    principal &&
-    (principal.assurance === "provisional" || principal.state === "provisional")
+    (settled === null && emailOwner !== undefined) ||
+    (settled !== null &&
+      (settled.state !== "active" || settled.assurance === "provisional"))
   ) {
-    await ctx.repos.principals.update(
-      ownerPrincipalId,
-      {
-        state: "active",
-        assurance: "verified",
-        verifiedAt: now,
-        updatedAt: now,
-      },
-      principal.version,
-    );
+    await ctx.repos.externalIdentities.deleteById(identity.id);
+    return {
+      ok: false,
+      error: "identity_collision",
+      message: IDENTITY_COLLISION_MESSAGE,
+    };
   }
 
   if (emailOwner) {

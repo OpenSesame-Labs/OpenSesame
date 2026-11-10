@@ -151,10 +151,16 @@ export function DropCardMetaRows({
         <span className="frow__value">{expiresLabel}</span>
       </FieldRow>
       {portable ? (
-        <p className="hint">
-          A saved link and code can reopen this copy after that time. It cannot
-          be revoked.
-        </p>
+        <>
+          <FieldRow label="After expiry">
+            <span className="frow__value">
+              A saved link and code still open it
+            </span>
+          </FieldRow>
+          <FieldRow label="Revoke">
+            <span className="frow__value">Not possible</span>
+          </FieldRow>
+        </>
       ) : null}
     </>
   );

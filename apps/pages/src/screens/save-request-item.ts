@@ -8,6 +8,7 @@ import {
   createItem,
   createTypedItem,
   detectCardBrand,
+  manualPassword,
   newId,
   parseTotp,
 } from "@opensesame/vault-core";
@@ -61,11 +62,14 @@ function loginItem(request: SaveRequest, sourceOrigin: string): VaultItem {
     saveRequestField(request, "password");
   const first = item.methods[0];
   if (password && first?.type === "password") {
-    item.methods[0] = {
-      ...first,
-      secret: password,
-      changedAt: new Date().toISOString(),
-    };
+    // A new account's password method is derived: its `secret` is the root
+    // an algorithm computes from, not a password, and it leaves a slot for a
+    // pepper. A password the site already chose is kept as it is.
+    item.methods[0] = manualPassword(
+      first.id,
+      password,
+      new Date().toISOString(),
+    );
   }
   const otp = saveRequestField(request, "one-time-code");
   if (otp) {

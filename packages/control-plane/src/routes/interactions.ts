@@ -44,6 +44,7 @@ import type { Variables } from "../middleware/context.js";
 import { claimPageSecurityHeaders } from "../middleware/security-headers.js";
 import { emailLinkFields } from "../services/email-authority.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
 import {
   renderConsentPage,
   renderLoginPage,
@@ -584,10 +585,7 @@ export function createInteractionRoutes(): Hono<
 
     let accountId: string;
     if (existing) {
-      const principal = await ctx.repos.principals.getById(
-        existing.principalId,
-      );
-      if (principal && principal.state !== "active") {
+      if (!(await settleVerifiedOwner(ctx, existing.principalId))) {
         return c.text("This account is not able to sign in.", 403);
       }
       accountId = existing.principalId;
@@ -655,6 +653,8 @@ export function createInteractionRoutes(): Hono<
       // never the mint — the alternative is signing somebody in as a guest
       // that carries none of their history.
       accountId = attached.identity.principalId;
+      if (!(await settleVerifiedOwner(ctx, accountId)))
+        return c.text("This account is not able to sign in.", 403);
       // The same first-authenticated-session guarantee POST
       // /v1/principals/link-identities gives: a principal that just became
       // verified gets its personal project. Both federated surfaces have to

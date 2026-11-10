@@ -29,6 +29,7 @@ import type {
 } from "../interactions/types.js";
 import type { Variables } from "../middleware/context.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
 import { organizationAssertedEmailIsVerified } from "../services/org-email-trust.js";
 import {
   renderLoginPage,
@@ -297,10 +298,7 @@ export function createLdapInteractionRoutes(
 
     let accountId: string;
     if (existing) {
-      const principal = await ctx.repos.principals.getById(
-        existing.principalId,
-      );
-      if (!principal || principal.state !== "active") {
+      if (!(await settleVerifiedOwner(ctx, existing.principalId))) {
         return c.text("This account is not able to sign in.", 403);
       }
       accountId = existing.principalId;
@@ -349,6 +347,8 @@ export function createLdapInteractionRoutes(
       // have attached this directory identity to a principal that already
       // existed (D15), and that principal is the account signing in.
       accountId = attached.identity.principalId;
+      if (!(await settleVerifiedOwner(ctx, accountId)))
+        return c.text("This account is not able to sign in.", 403);
       await ensurePersonalOnAuthenticatedSession(ctx, accountId, correlationId);
       if (accountId === minted.principalId) {
         setCookie(c, ctx.config.provisionalCookieName, minted.accessToken, {

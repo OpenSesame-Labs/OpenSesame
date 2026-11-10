@@ -16,8 +16,14 @@ import {
 } from "@opensesame/app-core/lib/honey-tokens.js";
 import type { PluginNotice } from "@opensesame/app-core/lib/plugins/wire.js";
 import { useEffect, useState } from "react";
+import { FailureNotice } from "../../../components/FailureNotice.js";
 import { IconKey } from "../../../components/IconKey.js";
-import { IconCopy, IconRefresh, IconTrash } from "../../../components/Icons.js";
+import {
+  IconCopy,
+  IconPlus,
+  IconRefresh,
+  IconTrash,
+} from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { useVaultStore } from "../../../lib/vault/hooks.js";
 import "./plugins.css";
@@ -99,14 +105,13 @@ function HoneyTokenForm({
           }}
         />
       </label>
-      <button
-        type="button"
-        className="btn btn--sm"
+      <IconKey
+        label="Issue token"
         disabled={label.trim() === ""}
         onClick={onIssue}
       >
-        Issue token
-      </button>
+        <IconPlus size={16} />
+      </IconKey>
     </div>
   );
 }
@@ -141,7 +146,9 @@ function HoneyList({
 
 export function HoneyTokensPanel({
   notices,
-}: { notices: readonly PluginNotice[] }) {
+}: {
+  notices: readonly PluginNotice[];
+}) {
   const store = useVaultStore();
   const scope = store.activeTomb?.() ?? "";
   const [rows, setRows] = useState<HoneyTokenRecord[]>([]);
@@ -213,11 +220,7 @@ export function HoneyTokensPanel({
         </p>
       </div>
       <HoneyTokenForm label={label} onLabel={setLabel} onIssue={issue} />
-      {error ? (
-        <p className="plugin-tile__honey-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <FailureNotice id="honey-tokens" title="Honey tokens" message={error} />
       <HoneyList
         rows={rows}
         onCopy={(token) => void copy(token)}

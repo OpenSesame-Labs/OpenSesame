@@ -4,6 +4,7 @@ import { decodeAiImage } from "@opensesame/app-core/lib/ai-connections/image-out
 import { imageOwnerFixture } from "@opensesame/app-core/lib/ai-connections/image-owner.test-support.js";
 import { OwnedAiImage } from "@opensesame/app-core/lib/ai-connections/owned-image.js";
 import { RASTER_FIXTURES } from "@opensesame/app-core/lib/ai-connections/stability-tls.test-support.js";
+import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   act,
@@ -20,6 +21,7 @@ import { previewHost } from "./image-preview.test-support.js";
 
 const teardown: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
+  clearNotices();
   cleanup();
   for (const close of teardown.splice(0).reverse()) await close();
 });
@@ -119,9 +121,21 @@ it.each(["invalid-codec", "dimension-mismatch"])(
         f.host.pending[0].resolve();
       }
     });
-    expect(screen.getByRole("alert").textContent).toContain(
-      "could not be decoded",
-    );
+    // The failure is a mark where the image would be, and a tray notice:
+    // nothing is drawn as an alert in the page.
+    expect(
+      screen.getByRole("img", {
+        name: "The generated image could not be decoded.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      listNotices().some(
+        (notice) =>
+          notice.id === "ai-generated-image" &&
+          notice.body === "The generated image could not be decoded.",
+      ),
+    ).toBe(true);
     expect(screen.queryByRole("img", { name: "Generated artwork" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Download image" })).toBeNull();
     expect(f.host.revoked).toEqual(["blob:owned-image-1"]);

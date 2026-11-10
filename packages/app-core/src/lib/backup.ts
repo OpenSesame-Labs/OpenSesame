@@ -16,6 +16,7 @@ import {
 import {
   type LocalBackupTarget,
   clearLocalBackupTarget,
+  listLocalBackupTargets,
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
@@ -25,6 +26,7 @@ import {
   startVaultBackupObserver,
 } from "./vault-backup-observer.js";
 import { syncVaultBackup } from "./vault-backup-sync.js";
+
 export type { PutBackupTargetInput } from "./backup-target-build.js";
 
 export type BackupTargetView = {
@@ -188,6 +190,57 @@ export async function getBackupStatus(
   providerId?: string | null,
 ): Promise<BackupStatus> {
   return backupSeams.getBackupStatus(providerId);
+}
+
+/**
+ * Whether ANY configured target is actually keeping the vault: enabled,
+ * error-free, caught up, and synced at least once. Provider-scoped readers
+ * (`getBackupStatus`) answer for one target; a claim about the vault as a
+ * whole — "no copy anywhere else yet" — must look at every row, or a
+ * healthy second target leaves it false.
+ */
+export function hasWorkingBackupTarget(): boolean {
+  return listLocalBackupTargets().some(
+    (row) =>
+      row.enabled &&
+      row.lastError === null &&
+      row.lastSyncedAt !== null &&
+      row.pendingEvents === 0,
+  );
+}
+
+/**
+ * When a working target last took the vault: the newest `lastSyncedAt` among
+ * them, or null with none. Where a plan holds automatic backup no sync
+ * follows a save, so `pendingEvents` stays at zero however much is saved;
+ * only this time says whether what was saved since is kept.
+ */
+export function newestWorkingBackupSync(): string | null {
+  let newest: string | null = null;
+  for (const row of listLocalBackupTargets()) {
+    const synced = row.lastSyncedAt;
+    if (!row.enabled || row.lastError !== null || synced === null) continue;
+    if (row.pendingEvents !== 0) continue;
+    if (newest === null || Date.parse(synced) > Date.parse(newest))
+      newest = synced;
+  }
+  return newest;
+}
+
+/**
+ * Whether a target that has kept the vault before is merely behind: enabled,
+ * error-free, synced at least once, with events still to send. Every vault
+ * change — an unlock included — queues events before its sync runs, so a
+ * healthy target is here for the moment each sync takes.
+ */
+export function hasCatchingUpBackupTarget(): boolean {
+  return listLocalBackupTargets().some(
+    (row) =>
+      row.enabled &&
+      row.lastError === null &&
+      row.lastSyncedAt !== null &&
+      row.pendingEvents > 0,
+  );
 }
 
 export async function listGithubInstallations(
