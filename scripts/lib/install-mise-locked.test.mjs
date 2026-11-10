@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import * as nodeTest from "node:test";
 import { fileURLToPath } from "node:url";
@@ -106,6 +116,94 @@ describe("locked mise bootstrap", () => {
       pin(pins, "MISE_SHA256_LINUX_X64"),
       pin(pins, "MISE_SHA256_LINUX_ARM64"),
     );
+  });
+
+  it("exports the mise.toml environment to later steps, without PATH", () => {
+    // Run the real script against a stub mise and a stub curl. mise-action
+    // exported the [env] table to GITHUB_ENV; cd-ghcr-publish.yml uploads from
+    // ${{ env.CARGO_TARGET_DIR }}, which is empty if the installer does not.
+    const work = mkdtempSync(join(tmpdir(), "mise-locked-"));
+    try {
+      const lib = join(work, "repo/scripts/lib");
+      const bin = join(work, "bin");
+      const pack = join(work, "pack/mise/bin");
+      for (const dir of [lib, bin, pack, join(work, "home")])
+        mkdirSync(dir, { recursive: true });
+      cpSync(join(root, scriptRel), join(lib, "install-mise-locked.sh"));
+      writeFileSync(join(work, "repo/mise.toml"), "");
+      writeFileSync(join(work, "repo/mise.lock"), "");
+      writeFileSync(
+        join(pack, "mise"),
+        [
+          "#!/usr/bin/env bash",
+          'if [[ "$1" == env ]]; then',
+          "  printf '%s\\n' 'CARGO_TARGET_DIR=/cache/cargo-target' 'RUSTUP_TOOLCHAIN=1.97.1' 'PATH=/stub/shims:/usr/bin'",
+          "fi",
+          "exit 0",
+          "",
+        ].join("\n"),
+      );
+      chmodSync(join(pack, "mise"), 0o755);
+      const tarball = join(work, "mise.tar.gz");
+      const tar = spawnSync(
+        "tar",
+        ["-czf", tarball, "-C", join(work, "pack"), "mise/bin/mise"],
+        { encoding: "utf8" },
+      );
+      assert.equal(tar.status, 0, tar.stderr);
+      const sum = spawnSync("sha256sum", [tarball], { encoding: "utf8" });
+      assert.equal(sum.status, 0, sum.stderr);
+      const digest = sum.stdout.split(" ")[0];
+      writeFileSync(
+        join(lib, "mise-pins.sh"),
+        `MISE_VERSION=0.0.0\nMISE_SHA256_LINUX_X64=${digest}\nMISE_SHA256_LINUX_ARM64=${digest}\n`,
+      );
+      // The stub serves the prepared tarball for whatever URL is requested.
+      writeFileSync(
+        join(bin, "curl"),
+        [
+          "#!/usr/bin/env bash",
+          'out=""',
+          "while [[ $# -gt 0 ]]; do",
+          '  if [[ "$1" == --output ]]; then out="$2"; shift; fi',
+          "  shift",
+          "done",
+          `cp ${JSON.stringify(tarball)} "$out"`,
+          "",
+        ].join("\n"),
+      );
+      chmodSync(join(bin, "curl"), 0o755);
+      const githubEnv = join(work, "github-env");
+      const githubPath = join(work, "github-path");
+      writeFileSync(githubEnv, "");
+      writeFileSync(githubPath, "");
+      const run = spawnSync(
+        "bash",
+        [join(lib, "install-mise-locked.sh"), "rust"],
+        {
+          encoding: "utf8",
+          env: {
+            PATH: `${bin}:${process.env.PATH}`,
+            HOME: join(work, "home"),
+            GITHUB_WORKSPACE: join(work, "repo"),
+            GITHUB_ENV: githubEnv,
+            GITHUB_PATH: githubPath,
+          },
+        },
+      );
+      assert.equal(run.status, 0, run.stderr);
+      const exported = readFileSync(githubEnv, "utf8").trim().split("\n");
+      assert.ok(exported.includes("CARGO_TARGET_DIR=/cache/cargo-target"));
+      assert.ok(exported.includes("RUSTUP_TOOLCHAIN=1.97.1"));
+      assert.ok(exported.includes("MISE_YES=1"));
+      assert.equal(
+        exported.some((line) => line.startsWith("PATH=")),
+        false,
+      );
+      assert.match(readFileSync(githubPath, "utf8"), /\.local\/bin\n/u);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 
   it("installs the pinned tarball and locked tools", () => {

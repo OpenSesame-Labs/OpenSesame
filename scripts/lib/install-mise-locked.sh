@@ -107,6 +107,29 @@ cd "$root"
 "$mise_bin" install --locked "$@"
 "$mise_bin" reshim
 
+# The mise-action step this replaces exported the [env] table of mise.toml (CARGO_TARGET_DIR,
+# RUSTUP_TOOLCHAIN, ...) to later steps, and workflows read it through
+# ${{ env.NAME }}. A shim only gives it to its own child process, so export it
+# here too. PATH is not written: GITHUB_PATH above already carries it.
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  mise_env=$("$mise_bin" env --dotenv)
+  while IFS= read -r line; do
+    case "$line" in
+      "" | PATH=*) ;;
+      [A-Za-z_]*=[\"\']*)
+        # GITHUB_ENV takes the value literally; a quoted value would keep its quotes.
+        printf 'refusing quoted mise env line: %s\n' "${line%%=*}" >&2
+        exit 1
+        ;;
+      [A-Za-z_]*=*) printf '%s\n' "$line" >> "$GITHUB_ENV" ;;
+      *)
+        printf 'unexpected mise env output\n' >&2
+        exit 1
+        ;;
+    esac
+  done <<< "$mise_env"
+fi
+
 needs_node=0
 for tool in "$@"; do
   case "$tool" in
