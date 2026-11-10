@@ -21,7 +21,9 @@
 homepage: "https://github.com/OpenSesame-Labs/OpenSesame"
 language: rust
 main_repo: "https://github.com/OpenSesame-Labs/OpenSesame"
-primary_contact: "contact.tylerkendrick@gmail.com"
+# TODO(enrollment): replace with the address that should receive ClusterFuzz
+# build failures and crash reports before opening the upstream PR.
+primary_contact: "set-before-filing@example.com"
 fuzzing_engines:
   - libfuzzer
 # Address only, matching the proven OSS-Fuzz Rust pattern (hyperium et al.);
