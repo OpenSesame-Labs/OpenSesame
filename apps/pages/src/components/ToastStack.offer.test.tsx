@@ -132,6 +132,63 @@ describe("an offer toast (ADR 0221)", () => {
   });
 });
 
+describe("where the keyboard is left", () => {
+  function stackBesideAKey() {
+    return render(
+      <MemoryRouter>
+        <button type="button">Save item</button>
+        <ToastStack />
+      </MemoryRouter>,
+    );
+  }
+
+  it("hands focus back when a card's key is pressed from the keyboard", () => {
+    stackBesideAKey();
+    const page = screen.getByRole("button", { name: "Save item" });
+    page.focus();
+    act(() => {
+      showToast({
+        id: "recommend",
+        tone: "info",
+        title: "Check passwords against known breaches",
+        body: "Only five characters of a hash leave this device.",
+        sticky: true,
+        choice: { label: "Turn on breach checks", run: () => {} },
+      });
+    });
+    const key = screen.getByRole("button", { name: "Turn on breach checks" });
+    key.focus();
+    fireEvent.click(key);
+    // The key went with its card; focus is not left on the document.
+    expect(document.activeElement).toBe(page);
+  });
+
+  it("hands focus back from Dismiss too", () => {
+    stackBesideAKey();
+    const page = screen.getByRole("button", { name: "Save item" });
+    page.focus();
+    act(() => {
+      showToast({ id: "echo", tone: "info", title: "Saved", body: "Done." });
+    });
+    const dismiss = screen.getByRole("button", { name: "Dismiss" });
+    dismiss.focus();
+    fireEvent.click(dismiss);
+    expect(document.activeElement).toBe(page);
+  });
+
+  it("moves nothing when the card leaves by itself", () => {
+    stackBesideAKey();
+    const page = screen.getByRole("button", { name: "Save item" });
+    act(() => {
+      showToast({ id: "echo", tone: "info", title: "Saved", body: "Done." });
+    });
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS + 10);
+    });
+    expect(document.activeElement).not.toBe(page);
+  });
+});
+
 describe("the limit, with offers on screen", () => {
   const echo = (id: string): ToastMessage => ({
     id,

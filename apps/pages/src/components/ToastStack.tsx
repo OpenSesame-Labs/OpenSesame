@@ -29,6 +29,7 @@ import {
 } from "@opensesame/app-core/lib/notices.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
 import { IconKey } from "./IconKey.js";
 import { IconAlert, IconArrowRight, IconInfo, IconX } from "./Icons.js";
@@ -75,6 +76,41 @@ export function ToastStack() {
     setShown((current) => current.filter((item) => item.id !== id));
   }, []);
 
+  // A card's key goes with its card. Where the press was made from the
+  // keyboard, focus goes back to wherever it was before it entered the
+  // stack, instead of falling to the document (DESIGN.md § keyboard).
+  const region = useRef<HTMLOutputElement>(null);
+  const before = useRef<Element | null>(null);
+  const handBack = useRef(false);
+  useEffect(() => {
+    const note = (event: FocusEvent) => {
+      const { target } = event;
+      if (!(target instanceof Element)) return;
+      if (!region.current?.contains(target)) before.current = target;
+    };
+    document.addEventListener("focusin", note);
+    return () => document.removeEventListener("focusin", note);
+  }, []);
+  const answer = useCallback(
+    (id: string) => {
+      handBack.current =
+        region.current?.contains(document.activeElement) === true;
+      dismiss(id);
+    },
+    [dismiss],
+  );
+  // After the card is gone: only if nothing else took focus meanwhile — a
+  // tour's card, or the page a key navigated to, keeps it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the stack changes
+  useEffect(() => {
+    if (!handBack.current) return;
+    handBack.current = false;
+    const lost =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (lost) landFocus(before.current);
+  }, [shown]);
+
   // The cards that echo a tray notice, by the notice's id. An echo that
   // waits to be answered must go when its notice does — answered or
   // dismissed from the tray — or it would stand there offering a key for
@@ -111,12 +147,12 @@ export function ToastStack() {
   );
 
   return (
-    <output className="toasts" aria-live="polite">
+    <output className="toasts" aria-live="polite" ref={region}>
       {shown.map((toast) => (
         <Toast
           key={toast.id}
           toast={toast}
-          onDone={dismiss}
+          onDone={answer}
           onOpen={(to) => navigate(to)}
         />
       ))}
