@@ -401,7 +401,13 @@ test("CLI gate polls every 5s and stage overlaps it without a shorter deadline",
   );
   assert.doesNotMatch(stage, /\n {4}needs:/);
   assert.match(preview, /needs: \[stage, main_ci\]/);
-  assert.doesNotMatch(cli, /uses:\s+actions\/cache/);
+  assert.doesNotMatch(cli, /uses:\s+actions\/cache@/);
+  assert.doesNotMatch(cli, /actions\/cache\/save@/);
+  assert.match(
+    cli,
+    /actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
+  assert.match(cli, /path: ~\/\.local\/share\/mise/);
   assert.doesNotMatch(cli, /TRUSTED_CACHE_SAVE:/);
   assert.doesNotMatch(cli, /path: node_modules/);
 });

@@ -41,7 +41,8 @@ permissions:
 
 # Pending runs otherwise stay queued with no jobs until the active run ends.
 env:
-  # Job-local npm downloads. This workflow does not restore or save the Actions cache.
+  # Job-local npm downloads. npm is not restored or saved.
+  # The mise tool directory is restored read-only from the trunk CI key and never saved.
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.npm-cache
 
 concurrency:
@@ -65,12 +66,19 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Require trunk CI for this commit
         env:
+          GITHUB_REF: ${{ github.ref }}
           GH_TOKEN: ${{ github.token }}
           # 5s polls. Attempts keep the default sleep budget:
           # (475 - 1) * 5000 ms = (80 - 1) * 30000 ms.
@@ -120,10 +128,16 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Plan version
         id: plan
         run: |
@@ -203,10 +217,16 @@ jobs:
         with:
           name: cd-npm-cli-meta-${{ github.run_id }}
           path: artifacts/cd-npm-cli-meta
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Require the staged metadata
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
@@ -246,10 +266,16 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Prove alpha npm resolves and runs
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
@@ -292,10 +318,16 @@ jobs:
         with:
           name: cd-npm-cli-meta-${{ github.run_id }}
           path: artifacts/cd-npm-cli-meta
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Require the staged metadata
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
@@ -318,8 +350,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Commit comments need contents: write. The issues permission does not cover them.
+    # Read-only mise tool cache restore needs actions: read. This job does not save.
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -332,10 +366,16 @@ jobs:
             scripts/release
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Annotate the run and comment on the commit
         env:
           GH_TOKEN: ${{ github.token }}

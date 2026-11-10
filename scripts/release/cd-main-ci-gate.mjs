@@ -72,13 +72,26 @@ export function readGateConfig(env) {
   if (!/^[0-9a-f]{40}$/u.test(sha)) {
     throw new Error("GITHUB_SHA must be 40 lowercase hex characters");
   }
+  const gitRef = readString(env.GITHUB_REF);
   return {
     token,
     repository,
     sha,
+    gitRef,
     attempts: readCount(env.CI_GATE_ATTEMPTS, 80, "CI_GATE_ATTEMPTS"),
     intervalMs: readDelay(env.CI_GATE_INTERVAL_MS, 30_000),
   };
+}
+
+/** CD may dispatch off main for dry-runs; admission still requires a main push. */
+export function requireMainBranchRef(gitRef) {
+  if (gitRef === undefined) return;
+  if (gitRef === "refs/heads/main") return;
+  throw new Error(
+    `main CI gate requires GITHUB_REF refs/heads/main (got ${gitRef}). ` +
+      `${CI_WORKFLOW_PATH} must complete as a push on main for GITHUB_SHA. ` +
+      "Feature-branch workflow_dispatch cannot satisfy this gate; merge to main and dispatch there for full wall time, or use dry_run for stage-only overlap.",
+  );
 }
 
 function sameCommit(run, sha, repository) {
@@ -274,6 +287,7 @@ export async function waitForMainCi(config, fetcher, sleep) {
 
 async function main() {
   const config = readGateConfig(process.env);
+  requireMainBranchRef(config.gitRef);
   const admitted = await waitForMainCi(config, fetch, delay);
   console.log(
     `main CI passed for ${admitted.sha} on run ${admitted.runId} (${REQUIRED_CHECK_NAMES.join(", ")})`,

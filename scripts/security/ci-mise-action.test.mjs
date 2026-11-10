@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { test } from "node:test";
+import * as nodeTest from "node:test";
 import { fileURLToPath } from "node:url";
 import { readString } from "../lib/json-boundary.mjs";
 import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
+
+const { test } =
+  process.env.VITEST === "true" ? await import("vitest") : nodeTest;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const workflowDir = join(root, ".github/workflows");
@@ -24,6 +27,17 @@ const allowedArgs = new Set([
   "java",
   "cargo:cargo-ndk",
 ]);
+
+/**
+ * cd-npm-cli.yml does not use mise-action. GitHub 504s on the action's jdx/mise
+ * release metadata fetch. Those jobs install the pinned tarball instead.
+ */
+const lockedMiseWorkflows = new Set(["cd-npm-cli.yml"]);
+const lockedMiseBootstrap = "bash scripts/lib/install-mise-locked.sh node@24";
+
+function installsLockedMise(step) {
+  return runText(step).trim() === lockedMiseBootstrap;
+}
 
 function workflows() {
   return readdirSync(workflowDir)
@@ -64,20 +78,35 @@ test("npm jobs install Node with the pinned mise-action", () => {
   for (const { name, text } of workflows()) {
     const jobs = parse(text).jobs ?? {};
     const expectCacheDisabled = cacheDisabled.has(name);
+    const lockedBootstrap = lockedMiseWorkflows.has(name);
     let parsedMise = 0;
     for (const [id, job] of Object.entries(jobs)) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
       const label = `${name}:${id}`;
       const miseAt = [];
+      const bootstrapAt = [];
       let npmAt = -1;
       steps.forEach((step, index) => {
         if (step?.uses === miseUses) miseAt.push(index);
+        if (installsLockedMise(step)) bootstrapAt.push(index);
         if (npmAt < 0 && /\bnpm\s+(?:ci|run|exec)\b/u.test(runText(step))) {
           npmAt = index;
         }
       });
       parsedMise += miseAt.length;
-      if (npmAt >= 0) {
+      if (lockedBootstrap) {
+        assert.equal(miseAt.length, 0, `${label} uses mise-action`);
+        if (npmAt >= 0) {
+          assert.ok(
+            bootstrapAt.length > 0,
+            `${label} runs npm without locked mise`,
+          );
+          assert.ok(
+            bootstrapAt[0] < npmAt,
+            `${label} installs npm before locked mise`,
+          );
+        }
+      } else if (npmAt >= 0) {
         assert.ok(miseAt.length > 0, `${label} runs npm without mise`);
         assert.ok(miseAt[0] < npmAt, `${label} installs npm before mise`);
       }
@@ -144,9 +173,22 @@ test("npm jobs install Node with the pinned mise-action", () => {
     const rawMise = text
       .split("\n")
       .filter((line) => line.includes("jdx/mise-action@"));
+    if (lockedBootstrap) {
+      assert.equal(rawMise.length, 0, name);
+      assert.equal(parsedMise, 0, name);
+      assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/u);
+    }
     assert.equal(rawMise.length, parsedMise, name);
     for (const line of rawMise) assert.match(line, miseLine, name);
   }
+});
+
+test("cd-npm-cli installs Node with the locked mise bootstrap, not mise-action", () => {
+  const text = readFileSync(join(workflowDir, "cd-npm-cli.yml"), "utf8");
+  assert.equal(lockedMiseWorkflows.has("cd-npm-cli.yml"), true);
+  assert.doesNotMatch(text, /jdx\/mise-action/u);
+  assert.doesNotMatch(text, /install_args:/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/u);
 });
 
 function rustTokens(step) {
