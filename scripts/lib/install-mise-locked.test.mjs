@@ -87,9 +87,9 @@ function assertRestore(step, tool, id) {
 }
 
 describe("locked mise bootstrap", () => {
-  it("pins match the Cursor and devcontainer images", () => {
+  it("pins match the devcontainer image", () => {
     const pins = read(pinsRel);
-    const cloud = read(".cursor/Dockerfile");
+    // .cursor/Dockerfile left this repo with the AI-harness dotfiles (#2538).
     const devcontainer = read(".devcontainer/Dockerfile");
     for (const name of [
       "MISE_VERSION",
@@ -97,7 +97,6 @@ describe("locked mise bootstrap", () => {
       "MISE_SHA256_LINUX_ARM64",
     ]) {
       const value = pin(pins, name);
-      assert.equal(dockerfileArg(cloud, name), value, name);
       assert.equal(dockerfileArg(devcontainer, name), value, name);
     }
     assert.match(pin(pins, "MISE_VERSION"), /^\d+\.\d+\.\d+$/u);
