@@ -38,6 +38,8 @@ export const firstVisitSeams = {
    * redirect to settle and for a person passing through not to be stopped.
    */
   delayMs: 900,
+  /** How often a waiting offer looks again for the sheet to have closed. */
+  retryMs: 1000,
   /** A sheet or dialog owns the screen: an offer waits for it to close. */
   modalOpen: (): boolean =>
     document.querySelector('[aria-modal="true"], dialog[open]') !== null,
@@ -65,8 +67,14 @@ export function FirstVisitOffer(): null {
   useEffect(() => {
     if (mode === "off" || !idle) return;
     let shown: string | null = null;
-    const timer = setTimeout(() => {
-      if (firstVisitSeams.modalOpen()) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const speak = () => {
+      // A sheet owns the screen: wait for it and ask again, since closing it
+      // changes nothing this effect depends on.
+      if (firstVisitSeams.modalOpen()) {
+        timer = setTimeout(speak, firstVisitSeams.retryMs);
+        return;
+      }
       if (screenAnsweredThisSession(route)) return;
       const tour = firstVisitTour(route, answered, gate);
       if (tour === null) return;
@@ -93,7 +101,8 @@ export function FirstVisitOffer(): null {
         choice: { label: "Show me", run: start },
         onDismiss: answer,
       });
-    }, firstVisitSeams.delayMs);
+    };
+    timer = setTimeout(speak, firstVisitSeams.delayMs);
     return () => {
       clearTimeout(timer);
       // The screen it spoke about is gone, or a tour has begun.

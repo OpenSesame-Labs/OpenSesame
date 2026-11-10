@@ -7,6 +7,7 @@ import {
 import {
   appendStatusNotice,
   clearNotices,
+  dismissNotice,
 } from "@opensesame/app-core/lib/notices.js";
 import {
   act,
@@ -204,6 +205,22 @@ describe("a recommendation's echo", () => {
     ).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Set up backups" }));
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves with its notice, answered or dismissed from the tray", () => {
+    renderStack();
+    act(() => {
+      appendStatusNotice({
+        id: "recommend.backups",
+        tone: "info",
+        title: "Back this vault up automatically",
+        body: "Everything here lives in this browser.",
+        act: { label: "Set up backups", worded: true, run: () => {} },
+      });
+    });
+    expect(screen.getByText("Back this vault up automatically")).toBeTruthy();
+    act(() => dismissNotice("recommend.backups"));
+    expect(screen.queryByText("Back this vault up automatically")).toBeNull();
   });
 
   it("leaves an act that is not worded to the tray", () => {

@@ -22,7 +22,11 @@ import {
   subscribeToasts,
   toastOf,
 } from "@opensesame/app-core/lib/notice-toast.js";
-import { subscribeNoticeArrivals } from "@opensesame/app-core/lib/notices.js";
+import {
+  listNotices,
+  subscribeNoticeArrivals,
+  subscribeNotices,
+} from "@opensesame/app-core/lib/notices.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
@@ -71,6 +75,12 @@ export function ToastStack() {
     setShown((current) => current.filter((item) => item.id !== id));
   }, []);
 
+  // The cards that echo a tray notice, by the notice's id. An echo that
+  // waits to be answered must go when its notice does — answered or
+  // dismissed from the tray — or it would stand there offering a key for
+  // something already settled.
+  const echoes = useRef(new Set<string>());
+
   useEffect(() => subscribeToasts(add), [add]);
   useEffect(() => subscribeToastHides(dismiss), [dismiss]);
   useEffect(
@@ -80,10 +90,24 @@ export function ToastStack() {
           away: tabAway(),
           desktop: desktopRinging(),
         });
-        if (surface === "toast") add(toastOf(notice));
-        else if (surface === "desktop") ringDesktopNotice(notice, navigate);
+        if (surface === "toast") {
+          echoes.current.add(notice.id);
+          add(toastOf(notice));
+        } else if (surface === "desktop") ringDesktopNotice(notice, navigate);
       }),
     [add, navigate],
+  );
+  useEffect(
+    () =>
+      subscribeNotices(() => {
+        const held = new Set(listNotices().map((notice) => notice.id));
+        for (const id of [...echoes.current]) {
+          if (held.has(id)) continue;
+          echoes.current.delete(id);
+          dismiss(id);
+        }
+      }),
+    [dismiss],
   );
 
   return (

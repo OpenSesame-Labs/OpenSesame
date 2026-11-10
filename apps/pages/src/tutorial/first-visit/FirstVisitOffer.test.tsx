@@ -166,10 +166,30 @@ describe("the first-visit offer", () => {
     expect(shown).toHaveLength(0);
   });
 
-  it("waits for a sheet that owns the screen", () => {
-    firstVisitSeams.modalOpen = () => true;
+  it("waits for a sheet that owns the screen, then speaks", () => {
+    let sheet = true;
+    firstVisitSeams.modalOpen = () => sheet;
     mount(controller().support);
     settle();
+    expect(shown).toHaveLength(0);
+    // Closing the sheet changes nothing the offer depends on; it looks again.
+    sheet = false;
+    act(() => {
+      vi.advanceTimersByTime(firstVisitSeams.retryMs + 5);
+    });
+    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+  });
+
+  it("stops waiting when the person moves on", () => {
+    firstVisitSeams.modalOpen = () => true;
+    const { support, set } = controller();
+    mount(support);
+    settle();
+    act(() => set({ open: true }));
+    firstVisitSeams.modalOpen = () => false;
+    act(() => {
+      vi.advanceTimersByTime(firstVisitSeams.retryMs * 3);
+    });
     expect(shown).toHaveLength(0);
   });
 
