@@ -44,6 +44,20 @@ function GuidedImportOffer() {
   );
 }
 
+/** `/vault/new/<kind>`: the kind a narrowed list's New item makes. */
+const NAMED_KIND = /^\/vault\/new\/([^/?#]+)/;
+
+/**
+ * Both ways in are about passwords, so the offer stands only where New item
+ * makes an account: the unfiltered list, or one narrowed to accounts. On a
+ * list narrowed to another kind the walkthrough would describe website,
+ * username and password fields that its editor does not have.
+ */
+function makesAccount(createPath: string): boolean {
+  const kind = NAMED_KIND.exec(createPath)?.[1];
+  return kind === undefined || kind === "account";
+}
+
 export function FirstItemOffer({
   createPath,
   listedCount,
@@ -59,7 +73,7 @@ export function FirstItemOffer({
   const canImport = useContributions("vault-command").some(
     (command) => command.id === "import",
   );
-  if (listedCount > 0 || inTrash) return null;
+  if (listedCount > 0 || inTrash || !makesAccount(createPath)) return null;
   return (
     <div className="empty__first">
       {support && first ? (

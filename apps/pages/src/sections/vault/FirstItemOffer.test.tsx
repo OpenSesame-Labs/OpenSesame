@@ -72,6 +72,28 @@ describe("the empty vault's import offer", () => {
     expect(screen.queryByText(/Import passwords instead/)).toBeNull();
   });
 
+  it("stands only where New item makes an account", () => {
+    registerContributionForTest("vault-command", IMPORT_COMMAND);
+    const offer = (createPath: string) =>
+      render(
+        <MemoryRouter>
+          <FirstItemOffer
+            createPath={createPath}
+            listedCount={0}
+            inTrash={false}
+          />
+        </MemoryRouter>,
+      );
+    // A list narrowed to secrets opens a secret editor: no password
+    // walkthrough, and no password import, is offered over it.
+    const secrets = offer("/vault/new/secret");
+    expect(screen.queryByText(/Add your first password/)).toBeNull();
+    expect(screen.queryByText(/Import passwords instead/)).toBeNull();
+    secrets.unmount();
+    offer("/vault/new/account?folder=work");
+    expect(screen.getByText(/Add your first password/)).toBeTruthy();
+  });
+
   it("hands its file to the Import key, whose sheet outlives the offer", async () => {
     registerContributionForTest("vault-command", IMPORT_COMMAND);
     const user = userEvent.setup();

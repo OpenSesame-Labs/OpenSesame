@@ -7,6 +7,7 @@ import {
   openContextMenu,
 } from "../../components/context-menu/menu-model.js";
 import { IconPlus } from "../../components/Icons.js";
+import { useNarrow } from "../../lib/use-narrow.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { AddSlide } from "./AddSlide.js";
 import { type AddEntry, addEntries } from "./add-menu.js";
@@ -64,8 +65,26 @@ export function NewItemFab({
   /** Where the button is drawn: a phone's list only, never the tree, an item or the trash. */
   shown: boolean;
 }) {
-  if (!shown) return null;
-  return <AddButton to={to} fabRef={fabRef} />;
+  const narrow = useNarrow();
+  if (!narrow) return null;
+  return (
+    <>
+      {shown ? <AddButton to={to} fabRef={fabRef} /> : null}
+      <AddFlows />
+    </>
+  );
+}
+
+/**
+ * The flows the Add button starts, mounted for as long as a phone's vault is:
+ * they draw nothing but their sheets. A file chosen at the door is read by
+ * one of them (ADR 0188), and a new vault lands on the section tree, where
+ * the button is not drawn — so the flows cannot live inside the button, or
+ * the file would wait unread until the person happened to open a list.
+ */
+function AddFlows() {
+  const flows = useContributions("vault-command");
+  return flows.map(({ id, Entry }) => (Entry ? <Entry key={id} /> : null));
 }
 
 function AddButton({
@@ -75,7 +94,6 @@ function AddButton({
   to: string;
   fabRef?: (element: HTMLAnchorElement | null) => void;
 }) {
-  const flows = useContributions("vault-command");
   // The button is not clicked to reach Import or Export, so the guide is told
   // when one is chosen (`chooseEntry`) rather than when the `+` is tapped.
   const importGuide = useGuideTarget<HTMLAnchorElement>("vault.import", {
@@ -131,8 +149,6 @@ function AddButton({
         </Link>
       </div>
       {slide.state ? <AddSlide slide={slide.state} /> : null}
-      {/* The flows the slide starts: they draw nothing but their sheets. */}
-      {flows.map(({ id, Entry }) => (Entry ? <Entry key={id} /> : null))}
       <PasswordsOnboardingOffer placement="add-menu" />
       <ExportEntry />
     </>

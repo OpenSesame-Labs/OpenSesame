@@ -23,6 +23,8 @@ beforeEach(() => {
   Object.assign(storageRiskSeams, {
     hasWorkingBackupTarget: () => false,
     hasCatchingUpBackupTarget: () => false,
+    automaticBackupAllowed: () => true,
+    newestWorkingBackupSync: () => null,
     setStatusNotice: setNotice,
     dismissNotice: dismiss,
   });
@@ -129,6 +131,42 @@ describe("the browser-storage warning", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("says the backup is older than the vault when automatic backup is held and something was saved since", async () => {
+    // A plan that holds automatic backup never sends a save anywhere, so the
+    // target stays "caught up" by its own count however much is saved.
+    // SAFETY: fixture item — the checked hook reads only `deletedAt` and `updatedAt` on this seam.
+    const saved = {
+      id: "i3",
+      deletedAt: null,
+      updatedAt: "2026-03-02T00:00:00Z",
+    } as VaultItem;
+    let synced = "2026-03-01T00:00:00Z";
+    Object.assign(storageRiskSeams, {
+      hasWorkingBackupTarget: () => true,
+      automaticBackupAllowed: () => false,
+      newestWorkingBackupSync: () => synced,
+    });
+    const first = renderHook(() =>
+      useStorageRiskNotice("unlocked", "personal", [saved]),
+    );
+    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+    // SAFETY: the seam is this suite's own vi.fn; the recorded call matches the notice input contract.
+    const input = setNotice.mock.calls[0]?.[0] as {
+      title: string;
+      body: string;
+    };
+    expect(input.title).toBe("The backup is older than this vault");
+    // A copy exists: the words never claim there is none.
+    expect(input.body).not.toContain("no copy anywhere else");
+    first.unmount();
+    setNotice.mockClear();
+    // Synced by hand after the last save: the copy holds what the vault holds.
+    synced = "2026-03-03T00:00:00Z";
+    renderHook(() => useStorageRiskNotice("unlocked", "personal", [saved]));
+    await Promise.resolve();
+    expect(setNotice).not.toHaveBeenCalled();
   });
 
   it("opens the export sheet from the notice's own act", async () => {

@@ -305,7 +305,10 @@ export function StatusNoticeCard({
           <IconKey
             label={notice.act.label}
             small
-            onClick={() => notice.act?.run()}
+            onClick={() => {
+              if (notice.act?.opens) onOpen();
+              notice.act?.run();
+            }}
           >
             <ActIcon icon={notice.act.icon} />
           </IconKey>

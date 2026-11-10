@@ -210,6 +210,24 @@ export function hasWorkingBackupTarget(): boolean {
 }
 
 /**
+ * When a working target last took the vault: the newest `lastSyncedAt` among
+ * them, or null with none. Where a plan holds automatic backup no sync
+ * follows a save, so `pendingEvents` stays at zero however much is saved;
+ * only this time says whether what was saved since is kept.
+ */
+export function newestWorkingBackupSync(): string | null {
+  let newest: string | null = null;
+  for (const row of listLocalBackupTargets()) {
+    const synced = row.lastSyncedAt;
+    if (!row.enabled || row.lastError !== null || synced === null) continue;
+    if (row.pendingEvents !== 0) continue;
+    if (newest === null || Date.parse(synced) > Date.parse(newest))
+      newest = synced;
+  }
+  return newest;
+}
+
+/**
  * Whether a target that has kept the vault before is merely behind: enabled,
  * error-free, synced at least once, with events still to send. Every vault
  * change — an unlock included — queues events before its sync runs, so a

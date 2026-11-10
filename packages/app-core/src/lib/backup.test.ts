@@ -8,6 +8,7 @@ import {
   hasCatchingUpBackupTarget,
   hasWorkingBackupTarget,
   installationIdFromLocation,
+  newestWorkingBackupSync,
   ownerRepoFromRemote,
   putBackupTarget,
   resyncBackup,
@@ -106,6 +107,21 @@ describe("browser-local backup target", () => {
     writeLocalBackupTarget(row({}));
     expect(hasWorkingBackupTarget()).toBe(false);
     expect(hasCatchingUpBackupTarget()).toBe(true);
+    // Only a working target's sync says when the vault was last kept.
+    expect(newestWorkingBackupSync()).toBeNull();
+    writeLocalBackupTarget(row({ pendingEvents: 0 }));
+    expect(newestWorkingBackupSync()).toBe("2026-01-01T00:00:00Z");
+    writeLocalBackupTarget(
+      row({
+        kind: "git_remote",
+        providerId: "git_remote",
+        connectionId: "conn_2",
+        lastSyncedAt: "2026-02-01T00:00:00Z",
+        pendingEvents: 0,
+      }),
+    );
+    expect(newestWorkingBackupSync()).toBe("2026-02-01T00:00:00Z");
+    writeLocalBackupTarget(row({ pendingEvents: 1 }));
     // Never synced, failing, or switched off is not catching up.
     writeLocalBackupTarget(row({ lastSyncedAt: null }));
     expect(hasCatchingUpBackupTarget()).toBe(false);

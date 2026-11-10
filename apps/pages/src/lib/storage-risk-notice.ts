@@ -27,7 +27,9 @@
 import {
   hasCatchingUpBackupTarget,
   hasWorkingBackupTarget,
+  newestWorkingBackupSync,
 } from "@opensesame/app-core/lib/backup.js";
+import { backupEgressGate } from "@opensesame/app-core/lib/backup-egress-gate.js";
 import { subscribeLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import {
   dismissNotice,
@@ -48,6 +50,9 @@ export const CATCH_UP_GRACE_MS = 20_000;
 export const storageRiskSeams = {
   hasWorkingBackupTarget,
   hasCatchingUpBackupTarget,
+  newestWorkingBackupSync,
+  /** Whether a save is followed by a sync on its own (ADR 0142). */
+  automaticBackupAllowed: (): boolean => backupEgressGate.allowed(),
   subscribeLocalBackupTarget,
   setStatusNotice,
   dismissNotice,
@@ -58,10 +63,35 @@ function liveCount(items: readonly VaultItem[] | undefined): number {
   return items.filter((item) => item.deletedAt === null).length;
 }
 
+/** When the vault last changed: the newest `updatedAt` it holds, trash included. */
+function newestChange(items: readonly VaultItem[] | undefined): number {
+  let newest = 0;
+  for (const item of items ?? []) {
+    const at = Date.parse(item.updatedAt);
+    if (at > newest) newest = at;
+  }
+  return newest;
+}
+
+/**
+ * Whether a caught-up target holds what the vault holds now. With automatic
+ * backup running, caught up means exactly that. Where the plan holds it, no
+ * sync follows a save and the target never falls "behind" by its own count,
+ * so the last sync has to be at least as new as the last change.
+ */
+function keptSince(changedAt: number): boolean {
+  if (storageRiskSeams.automaticBackupAllowed()) return true;
+  const synced = Date.parse(storageRiskSeams.newestWorkingBackupSync() ?? "");
+  return Number.isFinite(synced) && synced >= changedAt;
+}
+
+type BackupState = "working" | "catching-up" | "stale" | "none";
+
 /** What the configured backup targets amount to right now, failing closed. */
-function readBackup(): "working" | "catching-up" | "none" {
+function readBackup(changedAt: number): BackupState {
   try {
-    if (storageRiskSeams.hasWorkingBackupTarget()) return "working";
+    if (storageRiskSeams.hasWorkingBackupTarget())
+      return keptSince(changedAt) ? "working" : "stale";
     return storageRiskSeams.hasCatchingUpBackupTarget()
       ? "catching-up"
       : "none";
@@ -69,6 +99,17 @@ function readBackup(): "working" | "catching-up" | "none" {
     return "none";
   }
 }
+
+const NO_COPY = {
+  title: "This vault lives only in this browser",
+  body: "Clearing this site's data in your browser settings deletes the vault and its device key — there is no recovery, and no copy anywhere else yet. Export an encrypted copy now, and set up a backup so new items are kept too.",
+};
+
+/** A backup exists, and automatic backup is held: it is older than the vault. */
+const STALE_COPY = {
+  title: "The backup is older than this vault",
+  body: "Automatic backup is not running here, so what was saved after the last sync is only in this browser. Clearing this site's data deletes it with no recovery. Sync the backup yourself, or export an encrypted copy now.",
+};
 
 export function useStorageRiskNotice(
   status: string,
@@ -78,7 +119,9 @@ export function useStorageRiskNotice(
   onExport?: (() => void) | undefined,
 ): void {
   const count = liveCount(items);
-  const shown = useRef(false);
+  const changedAt = newestChange(items);
+  // Which words stand in the tray now: the two states say different things.
+  const shown = useRef<"stale" | "none" | false>(false);
   const exportRef = useRef(onExport);
   exportRef.current = onExport;
   useEffect(() => {
@@ -98,7 +141,7 @@ export function useStorageRiskNotice(
       // copied), has not kept what the vault sealed — and the claim is
       // about the vault, so every configured target counts, not only the
       // first row. A read failure fails closed: unknown is not backed up.
-      const backup = readBackup();
+      const backup = readBackup(changedAt);
       if (backup === "working") {
         behindSince = null;
         if (shown.current) {
@@ -113,18 +156,19 @@ export function useStorageRiskNotice(
       } else {
         behindSince = null;
       }
-      if (shown.current) return;
-      shown.current = true;
+      const words = backup === "stale" ? "stale" : "none";
+      if (shown.current === words) return;
+      shown.current = words;
       storageRiskSeams.setStatusNotice({
         id: STORAGE_RISK_NOTICE_ID,
         tone: "warn",
-        title: "This vault lives only in this browser",
-        body: "Clearing this site's data in your browser settings deletes the vault and its device key — there is no recovery, and no copy anywhere else yet. Export an encrypted copy now, and set up a backup so new items are kept too.",
+        ...(words === "stale" ? STALE_COPY : NO_COPY),
         ...(exportRef.current
           ? {
               act: {
                 label: "Export a copy",
                 icon: "export",
+                opens: true,
                 run: () => exportRef.current?.(),
               },
             }
@@ -143,5 +187,5 @@ export function useStorageRiskNotice(
       stop();
       clearInterval(timer);
     };
-  }, [status, tomb, guest, count]);
+  }, [status, tomb, guest, count, changedAt]);
 }

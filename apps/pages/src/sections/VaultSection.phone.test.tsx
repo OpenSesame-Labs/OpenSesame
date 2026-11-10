@@ -1,4 +1,9 @@
 /** @vitest-environment jsdom */
+
+import {
+  discardPendingImport,
+  holdPendingImport,
+} from "@opensesame/app-core/lib/vault/pending-import.js";
 import {
   act,
   cleanup,
@@ -235,6 +240,22 @@ describe("the vault on a phone", () => {
     });
     const sheet = await screen.findByRole("dialog", { name: "Import items" });
     expect(offer.contains(sheet)).toBe(false);
+  });
+
+  it("a file chosen at the door opens its sheet on the tree a new vault lands on", async () => {
+    vault.items = [];
+    holdPendingImport(new File(["API_KEY=sk-123\n"], "app.env"));
+    try {
+      renderVault("/vault");
+      // The tree draws no Add button, and the flows it starts are mounted all the same.
+      expect(pane()).toBe("tree");
+      expect(document.querySelector(".fab")).toBeNull();
+      expect(
+        await screen.findByRole("dialog", { name: "Import items" }),
+      ).toBeTruthy();
+    } finally {
+      discardPendingImport();
+    }
   });
 
   it("a search left in the address narrows the list and rides back from an item", () => {

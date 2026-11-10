@@ -53,12 +53,15 @@ export type NoticeOpen = { to: string; label: string };
 /**
  * An icon key on a tray card. The closure is not sealed in tray history.
  * `icon` names what the key does, so its face matches its label; without one
- * the tray draws the switch-off mark the first acts were.
+ * the tray draws the switch-off mark the first acts were. `opens` says the
+ * act opens a sheet of its own: the tray closes first, so two sheets never
+ * both hold the Tab key.
  */
 export type NoticeAct = {
   label: string;
   run: () => void;
   icon?: "power" | "export" | "settings";
+  opens?: boolean;
 };
 
 export type StatusNoticeInput = {
