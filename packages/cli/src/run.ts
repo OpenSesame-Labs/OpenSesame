@@ -173,7 +173,7 @@ async function dispatch(
 
   switch (command.name) {
     case "version":
-      process.stdout.write(`${await publishedPackageVersion()}\n`);
+      emit({ json: false }, await publishedPackageVersion(), undefined);
       return 0;
     case "canary-serve": {
       const { runAgentCanaryService } = await import(
