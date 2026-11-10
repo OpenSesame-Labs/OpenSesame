@@ -60,6 +60,32 @@ describe("candidate-build untrusted checkout", () => {
     }
   });
 
+  it("includes pages-release paths and restores helpers beside src", () => {
+    const pagesRelease = [
+      "/scripts/release/pages-release.mjs",
+      "/scripts/lib/pages-release.mjs",
+    ];
+    for (const name of [...UNTRUSTED, "accept-bridge", "manifest"]) {
+      const control = checkouts(workflow.jobs[name]).find(
+        (step) => step.with.path === ".ci-control",
+      );
+      const lines = control.with["sparse-checkout"]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      expect(control.with["sparse-checkout-cone-mode"], name).toBe(false);
+      expect(lines, name).toEqual(expect.arrayContaining(pagesRelease));
+    }
+    const pages = workflow.jobs["pages-untrusted"];
+    const restore = pages.steps.find((step) =>
+      step.name?.startsWith("Restore trusted helpers"),
+    );
+    expect(pages.defaults.run["working-directory"]).toBe("src");
+    expect(restore.run).toBe(
+      'mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"',
+    );
+  });
+
   it("refuses an unsafe pull-request checkout on every actions/checkout step", () => {
     const blocks = yaml.split(/(?=^\s*-?\s*uses: actions\/checkout@)/m);
     const checkoutsText = blocks.filter((block) =>

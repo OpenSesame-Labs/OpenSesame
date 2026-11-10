@@ -163,6 +163,64 @@ describe("candidate producer workflow", () => {
       ),
     ).toBe(true);
   });
+
+  it("checks out pages-release in every trusted ci-control sparse list", () => {
+    const pagesRelease = [
+      "/scripts/release/pages-release.mjs",
+      "/scripts/lib/pages-release.mjs",
+    ];
+    for (const name of [
+      "bridge-untrusted",
+      "pages-untrusted",
+      "accept-bridge",
+      "native-untrusted",
+      "manifest",
+    ]) {
+      const control = producer.jobs[name].steps.find(
+        (step) => step.with?.path === ".ci-control",
+      );
+      const lines = control.with["sparse-checkout"]
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      expect(control.with["sparse-checkout-cone-mode"], name).toBe(false);
+      expect(lines, name).toEqual(
+        expect.arrayContaining([
+          ".github/workflows",
+          "scripts/release",
+          "scripts/lib",
+          ...pagesRelease,
+        ]),
+      );
+    }
+    const native = producer.jobs["native-untrusted"].steps.find(
+      (step) => step.with?.path === ".ci-control",
+    );
+    expect(native.with["sparse-checkout"].split("\n")).toContain("scripts/ci");
+  });
+
+  it("restores pages-untrusted helpers to the workspace ci-control directory", () => {
+    const pages = producer.jobs["pages-untrusted"];
+    expect(pages.defaults.run["working-directory"]).toBe("src");
+    const park = pages.steps.find((step) =>
+      step.name?.startsWith("Park trusted helpers"),
+    );
+    expect(park["working-directory"]).toBe("${{ github.workspace }}");
+    expect(park.run).toBe('mv .ci-control "$RUNNER_TEMP/ci-control"');
+    const restore = pages.steps.find((step) =>
+      step.name?.startsWith("Restore trusted helpers"),
+    );
+    expect(restore.run).toBe(
+      'mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"',
+    );
+    expect(jobScripts(pages)).toContain(
+      'node ../.ci-control/scripts/release/pages-release.mjs stamp apps/pages/dist "$SOURCE_SHA"',
+    );
+    const bridge = producer.jobs["bridge-untrusted"].steps.find((step) =>
+      step.name?.startsWith("Restore trusted helpers"),
+    );
+    expect(bridge.run).toBe(restore.run);
+  });
 });
 
 it("the candidate builder prepares Linux DBus through trusted rootless helpers before compiling the kit", () => {
