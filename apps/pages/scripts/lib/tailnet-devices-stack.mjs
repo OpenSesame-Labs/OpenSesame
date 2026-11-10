@@ -35,6 +35,24 @@ export async function until(check, what, ms = 20_000) {
   throw new Error(`timed out waiting for ${what}`);
 }
 
+/** Hand the API token to `daemon tailnet connect` in a private file, then remove it. */
+function connectTailnet(cli, apiToken) {
+  const secretFile = path.join(os.tmpdir(), `tailnet-token-${process.pid}`);
+  fs.writeFileSync(secretFile, `${apiToken}\n`, { mode: 0o600 });
+  try {
+    cli(
+      "connect",
+      "--tailnet",
+      TAILNET,
+      "--api-token",
+      "--secret-file",
+      secretFile,
+    );
+  } finally {
+    fs.rmSync(secretFile);
+  }
+}
+
 /**
  * Start the stub, connect the daemon to it with the CLI, run the daemon and a
  * browser. `dist` defaults to the dedicated build; `out` is where shots go.
@@ -67,20 +85,7 @@ export async function startStack({ out, dist = dedicatedSite().dist, port }) {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
     });
-  const secretFile = path.join(os.tmpdir(), `tailnet-token-${process.pid}`);
-  fs.writeFileSync(secretFile, `${apiToken}\n`, { mode: 0o600 });
-  try {
-    cli(
-      "connect",
-      "--tailnet",
-      TAILNET,
-      "--api-token",
-      "--secret-file",
-      secretFile,
-    );
-  } finally {
-    fs.rmSync(secretFile);
-  }
+  connectTailnet(cli, apiToken);
   const daemon = spawn(
     binary,
     ["daemon", "run", "--listen", `127.0.0.1:${port}`],

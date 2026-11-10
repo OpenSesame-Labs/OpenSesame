@@ -50,6 +50,19 @@ function regexFor(pattern) {
   return new RegExp(source, insensitive ? "i" : "");
 }
 
+/** Neither the path nor any directory above it may match the pattern. */
+function assertPathNotExcluded(regex, path, pattern, name) {
+  const parts = path.split("/");
+  for (let size = 1; size <= parts.length; size++) {
+    const candidate = parts.slice(0, size).join("/");
+    assert.equal(
+      regex.test(candidate),
+      false,
+      `${candidate} must not be excluded by ${pattern} in ${name}`,
+    );
+  }
+}
+
 test("global path exclusions do not hide secrets in production or vendor source", () => {
   const paths = ["scripts/test/live-turn/third_party/unreviewed/new_module.go"];
   for (const { name, text } of configs) {
@@ -59,15 +72,7 @@ test("global path exclusions do not hide secrets in production or vendor source"
       for (const pattern of pathPatterns(block)) {
         const regex = regexFor(pattern);
         for (const path of paths) {
-          const parts = path.split("/");
-          for (let size = 1; size <= parts.length; size++) {
-            const candidate = parts.slice(0, size).join("/");
-            assert.equal(
-              regex.test(candidate),
-              false,
-              `${candidate} must not be excluded by ${pattern} in ${name}`,
-            );
-          }
+          assertPathNotExcluded(regex, path, pattern, name);
         }
       }
     }

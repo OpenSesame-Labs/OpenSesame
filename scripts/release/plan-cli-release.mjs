@@ -42,6 +42,19 @@ export function normalizeSha(sha) {
   return text.slice(0, 7).toLowerCase();
 }
 
+/** `X.Y.Z-nightly.YYYYMMDD` from the stable part of the package version. */
+function nightlyVersion(match, input) {
+  const stable = `${match[1]}.${match[2]}.${match[3]}`;
+  const stamp =
+    input.stamp !== undefined && input.stamp !== ""
+      ? input.stamp
+      : utcStamp(input.now ?? new Date());
+  if (!/^[0-9]{8}$/u.test(stamp)) {
+    fail(`RELEASE_STAMP must be UTC YYYYMMDD, got ${stamp}`);
+  }
+  return `${stable}-nightly.${stamp}`;
+}
+
 /**
  * @param {{
  *   mode: string,
@@ -76,15 +89,7 @@ export function planCliRelease(input) {
       fail(`alpha mode requires a prerelease version, got ${packageVersion}`);
     }
   } else {
-    const stable = `${match[1]}.${match[2]}.${match[3]}`;
-    const stamp =
-      input.stamp !== undefined && input.stamp !== ""
-        ? input.stamp
-        : utcStamp(input.now ?? new Date());
-    if (!/^[0-9]{8}$/u.test(stamp)) {
-      fail(`RELEASE_STAMP must be UTC YYYYMMDD, got ${stamp}`);
-    }
-    version = `${stable}-nightly.${stamp}`;
+    version = nightlyVersion(match, input);
     npmDistTag = "nightly";
   }
   return {

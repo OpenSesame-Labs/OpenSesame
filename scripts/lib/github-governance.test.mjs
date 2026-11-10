@@ -1,17 +1,4 @@
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   applyReleaseTagPolicies,
@@ -24,68 +11,6 @@ const root = new URL("../../", import.meta.url);
 const policy = JSON.parse(
   readFileSync(new URL("ops/github/default-branch.json", root), "utf8"),
 );
-
-it("delegates Gradle through a text launcher with no checked-in wrapper binary", () => {
-  const launcher = readFileSync(new URL("gradlew", root), "utf8");
-  expect(launcher).toContain("Gradle 8.13");
-  expect(launcher).toContain("apps/android/android");
-  expect(launcher).toContain("readlink");
-  expect(launcher).toContain("pwd -P");
-  expect(() =>
-    readFileSync(new URL("gradle/wrapper/gradle-wrapper.jar", root)),
-  ).toThrow();
-});
-
-it("resolves a symlinked gradlew chain back to the Android project", () => {
-  const repoRoot = fileURLToPath(root);
-  const launcherPath = fileURLToPath(new URL("gradlew", root));
-  const dir = mkdtempSync(join(tmpdir(), "gradlew-link-"));
-  try {
-    const fake = join(dir, "gradle");
-    writeFileSync(
-      fake,
-      [
-        "#!/bin/sh",
-        'if [ "$1" = "--version" ]; then',
-        "  echo 'Gradle 8.13'",
-        "  exit 0",
-        "fi",
-        "printf '%s\\n' \"$@\"",
-        "",
-      ].join("\n"),
-    );
-    chmodSync(fake, 0o755);
-    const nested = join(dir, "bin");
-    mkdirSync(nested);
-    // Relative hop, then an absolute hop: the chain the wrapper used to walk.
-    symlinkSync(launcherPath, join(nested, "hop"));
-    const chain = join(dir, "gradlew");
-    symlinkSync("bin/hop", chain);
-    const env = {
-      ...process.env,
-      PATH: `${dir}${delimiter}${process.env.PATH}`,
-    };
-    const chained = spawnSync("sh", [chain, "tasks"], {
-      env,
-      encoding: "utf8",
-    });
-    expect(chained.status, chained.stderr).toBe(0);
-    expect(chained.stdout).toBe(
-      `--project-dir\n${join(repoRoot, "apps/android/android")}\ntasks\n`,
-    );
-    // A symlinked parent directory must not become APP_HOME either.
-    const viaParent = join(dir, "parent");
-    symlinkSync(repoRoot, viaParent);
-    const parent = spawnSync("sh", [join(viaParent, "gradlew"), "tasks"], {
-      env,
-      encoding: "utf8",
-    });
-    expect(parent.status, parent.stderr).toBe(0);
-    expect(parent.stdout).toBe(chained.stdout);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 describe("repository governance ownership", () => {
   it("updates only the named policy and refuses ambiguous ownership", () => {

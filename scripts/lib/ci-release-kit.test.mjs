@@ -1,19 +1,10 @@
-// The release kit (ADR 0212): the workflow's shape, where its edits send CI,
-// and the archive script's bytes.
-import { execFileSync, spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+// The release kit (ADR 0212): the workflow's shape and where its edits send CI.
+// The trusted control checkouts are pinned in ci-release-kit-control.test.mjs
+// and the archive script's bytes in ci-release-kit-archive.test.mjs.
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { areasForPaths, repoRootFromHere } from "./ci-changed-areas.mjs";
 import { driverReach, gatesForPath } from "./ci-gates.mjs";
 import { readString } from "./json-boundary.mjs";
@@ -33,7 +24,6 @@ const publisherText = readFileSync(
   "utf8",
 );
 const publisher = parse(publisherText);
-const script = join(root, "scripts/release/kit-archive.sh");
 const guide = readFileSync(join(root, "docs/operators/release-kit.md"), "utf8");
 const TEST_BUILD = "opensesame-surrogate-proxy-TEST-upstream-override";
 
@@ -69,38 +59,6 @@ describe("candidate producer workflow", () => {
         (step) => step.with?.["fetch-depth"] === 0,
       ),
     ).toBe(true);
-  });
-
-  it("separates trusted control code from selected application source", () => {
-    for (const name of [
-      "bridge-untrusted",
-      "pages-untrusted",
-      "native-untrusted",
-    ]) {
-      const job = producer.jobs[name];
-      expect(job.permissions).toEqual({ contents: "read", actions: "read" });
-      expect(JSON.stringify(job)).not.toContain("github.token");
-      expect(JSON.stringify(job)).not.toContain("secrets.");
-      expect(job.env.CANDIDATE_REVISION).toBe(
-        "${{ needs.resolve.outputs.source_sha }}",
-      );
-      const checkouts = job.steps.filter((step) =>
-        step.uses?.startsWith("actions/checkout@"),
-      );
-      expect(
-        checkouts.find((step) => step.with.path === ".ci-control").with.ref,
-      ).toBe("${{ github.workflow_sha }}");
-      expect(checkouts.find((step) => step.with.path === "src").with.ref).toBe(
-        "${{ env.CANDIDATE_REVISION }}",
-      );
-    }
-    const privileged = ["resolve", "accept-bridge", "manifest"];
-    for (const name of privileged) {
-      const refs = producer.jobs[name].steps
-        .filter((step) => step.uses?.startsWith("actions/checkout@"))
-        .map((step) => step.with.ref);
-      expect(refs).toEqual(["${{ github.workflow_sha }}"]);
-    }
   });
 
   it("copies shipped proxy bytes before building the separately named TEST variant", () => {
@@ -163,80 +121,6 @@ describe("candidate producer workflow", () => {
       ),
     ).toBe(true);
   });
-
-  it("checks out pages-release in every trusted ci-control sparse list", () => {
-    const pagesRelease = [
-      "/scripts/release/pages-release.mjs",
-      "/scripts/lib/pages-release.mjs",
-    ];
-    for (const name of [
-      "bridge-untrusted",
-      "pages-untrusted",
-      "accept-bridge",
-      "native-untrusted",
-      "manifest",
-    ]) {
-      const control = producer.jobs[name].steps.find(
-        (step) => step.with?.path === ".ci-control",
-      );
-      const lines = control.with["sparse-checkout"]
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      expect(control.with["sparse-checkout-cone-mode"], name).toBe(false);
-      expect(lines, name).toEqual(
-        expect.arrayContaining([
-          ".github/workflows",
-          "scripts/release",
-          "scripts/lib",
-          ...pagesRelease,
-        ]),
-      );
-    }
-    const native = producer.jobs["native-untrusted"].steps.find(
-      (step) => step.with?.path === ".ci-control",
-    );
-    expect(native.with["sparse-checkout"].split("\n")).toContain("scripts/ci");
-  });
-
-  it("restores pages-untrusted helpers to the workspace ci-control directory", () => {
-    const pages = producer.jobs["pages-untrusted"];
-    expect(pages.defaults.run["working-directory"]).toBe("src");
-    const park = pages.steps.find((step) =>
-      step.name?.startsWith("Park trusted helpers"),
-    );
-    expect(park["working-directory"]).toBe("${{ github.workspace }}");
-    expect(park.run).toBe('mv .ci-control "$RUNNER_TEMP/ci-control"');
-    const restore = pages.steps.find((step) =>
-      step.name?.startsWith("Restore trusted helpers"),
-    );
-    expect(restore.run).toBe(
-      'mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"',
-    );
-    expect(jobScripts(pages)).toContain(
-      'node ../.ci-control/scripts/release/pages-release.mjs stamp apps/pages/dist "$SOURCE_SHA"',
-    );
-    const bridge = producer.jobs["bridge-untrusted"].steps.find((step) =>
-      step.name?.startsWith("Restore trusted helpers"),
-    );
-    expect(bridge.run).toBe(restore.run);
-  });
-});
-
-it("the candidate builder prepares Linux DBus through trusted rootless helpers before compiling the kit", () => {
-  const native = producer.jobs["native-untrusted"];
-  const control = native.steps.find(
-    (step) => step.with?.path === ".ci-control",
-  );
-  expect(control.with["sparse-checkout"]).toContain("scripts/ci");
-  const body = jobScripts(native);
-  expect(body).toContain(
-    'bash ../.ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"',
-  );
-  expect(
-    body.indexOf('source "$RUNNER_TEMP/opensesame-dbus/env.sh"'),
-  ).toBeLessThan(body.indexOf("cargo build --locked --release"));
-  expect(body).not.toMatch(/sudo|apt-get install/);
 });
 
 describe("artifact publication workflow", () => {
@@ -349,103 +233,3 @@ describe("release workflow safety and routing", () => {
     }
   });
 });
-
-// The script uses GNU tar's --sort, --mtime and --owner; macOS ships bsdtar.
-const gnuTar = /GNU tar/.test(
-  spawnSync("tar", ["--version"], { encoding: "utf8" }).stdout ?? "",
-);
-
-describe.skipIf(!gnuTar)(
-  gnuTar
-    ? "kit-archive.sh"
-    : "kit-archive.sh (skipped: tar here is not GNU tar, which the script needs)",
-  () => {
-    let work;
-    let bins;
-    let bridge;
-    const put = (name, text) => {
-      writeFileSync(join(bins, name), text);
-      chmodSync(join(bins, name), 0o755);
-    };
-    beforeAll(() => {
-      work = mkdtempSync(join(tmpdir(), "kit-archive-"));
-      bins = join(work, "bins");
-      mkdirSync(bins);
-      put("opensesame", "stand-in for opensesame\n");
-      put("opensesame-surrogate-proxy", "plugin_not_active\n");
-      put(TEST_BUILD, "OPENSESAME_SURROGATE_TEST_UPSTREAM\n");
-      bridge = join(work, "opensesame-env-parse.mjs");
-      writeFileSync(bridge, "#!/usr/bin/env node\n");
-    });
-    afterAll(() => rmSync(work, { recursive: true, force: true }));
-    const env = { ...process.env, SOURCE_DATE_EPOCH: "1760000000" };
-    const target = "x86_64-unknown-linux-gnu";
-
-    const pack = (out, umask) =>
-      spawnSync(
-        "bash",
-        [
-          "-c",
-          `umask ${umask} && exec "$0" "$@"`,
-          script,
-          "pack",
-          "v0.1.0",
-          target,
-          bins,
-          bridge,
-          out,
-        ],
-        { env, encoding: "utf8" },
-      );
-
-    it("packs the same bytes twice, whatever the umask", () => {
-      const outs = ["022", "077"].map((umask) => {
-        const out = join(work, `out-${umask}`);
-        expect(pack(out, umask).status).toBe(0);
-        writeFileSync(
-          join(out, "opensesame-env-parse.mjs"),
-          readFileSync(bridge),
-        );
-        execFileSync("bash", [script, "sums", out], { env });
-        return out;
-      });
-      const files = readdirSync(outs[0]).sort();
-      expect(files).toEqual([
-        "SHA256SUMS",
-        "opensesame-env-parse.mjs",
-        `opensesame-kit_v0.1.0_${target}.tar.gz`,
-        `${TEST_BUILD}_v0.1.0_${target}.tar.gz`,
-      ]);
-      for (const file of files) {
-        expect(readFileSync(join(outs[1], file))).toEqual(
-          readFileSync(join(outs[0], file)),
-        );
-      }
-      const listing = execFileSync(
-        "tar",
-        ["-tvzf", join(outs[0], `opensesame-kit_v0.1.0_${target}.tar.gz`)],
-        { encoding: "utf8" },
-      );
-      expect(listing).toMatch(
-        /^-rw-r--r-- 0\/0 .* opensesame-kit_v0\.1\.0_[^/]+\/opensesame-env-parse\.mjs$/m,
-      );
-      expect(listing).toMatch(
-        /^-rwxr-xr-x 0\/0 .* opensesame-kit_v0\.1\.0_[^/]+\/opensesame$/m,
-      );
-      expect(listing).not.toContain(TEST_BUILD);
-    });
-
-    it("refuses a shipped plugin carrying the override, and a test build without it", () => {
-      put("opensesame-surrogate-proxy", "OPENSESAME_SURROGATE_TEST_UPSTREAM\n");
-      const shipped = pack(join(work, "refused-a"), "022");
-      expect(shipped.status).toBe(2);
-      expect(shipped.stderr).toContain("a test build is not shipped");
-      put("opensesame-surrogate-proxy", "plugin_not_active\n");
-      put(TEST_BUILD, "plugin_not_active\n");
-      const test = pack(join(work, "refused-b"), "022");
-      expect(test.status).toBe(2);
-      expect(test.stderr).toContain("it is not the upstream-override build");
-      put(TEST_BUILD, "OPENSESAME_SURROGATE_TEST_UPSTREAM\n");
-    });
-  },
-);

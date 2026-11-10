@@ -12,10 +12,13 @@ export function createOnePasswordAssetFetch(
   signal: AbortSignal,
   check: () => void,
   nativeFetch: SecretBackendFetch,
+  /** The loading worker's own address, which a relative asset URL resolves against. */
+  base?: string,
 ): SecretBackendFetch {
   return createGzipWasmAssetFetch(
     {
       url: assets.wasmUrl,
+      base,
       compressed: {
         bytes: artifacts.sdk.wasmGzipBytes,
         hash: artifacts.sdk.wasmGzipHash,

@@ -10,6 +10,7 @@ import {
   emitWorkerChunks,
   prunePlaceholderAssets,
 } from "./lib/worker-emission.mjs";
+import { hostModuleError } from "./lib/worker-host-modules.mjs";
 import { defaultWorkers, workerPlanOwners } from "./shared-worker-plans.mjs";
 
 const PREFIX = "\0opensesame-worker:";
@@ -195,20 +196,6 @@ function transformWorkerURLs(ctx, code, id, workers, refs, owners, minted) {
   return edits.length ? { code: transformed, map: null } : undefined;
 }
 
-function hostModules(chunk, minted, pure) {
-  return Object.keys(chunk.modules).filter(
-    (id) => !minted.has(id) && !pure.test(id.replaceAll("\\", "/")),
-  );
-}
-function hostModuleError(chunk, minted, label, pure) {
-  const modules = hostModules(chunk, minted, pure);
-  return new Error(
-    `${label}: ${chunk.fileName}; host modules (${modules.length}): ${modules
-      .slice(0, 8)
-      .map((id) => JSON.stringify(id))
-      .join(", ")}`,
-  );
-}
 function purePartitions(_ctx, roots, previous, pure) {
   if (previous && !(previous instanceof Function))
     throw new Error(

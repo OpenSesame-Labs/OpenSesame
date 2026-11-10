@@ -28,12 +28,8 @@ function sorted(values) {
   return [...values].sort();
 }
 
-test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
-  const mise = parseToml(readText("mise.toml"));
-  const toolchain = parseToml(readText("rust-toolchain.toml"));
-  const manifest = JSON.parse(readText("package.json"));
-  const ci = readText(".github/workflows/ci-prerelease-checks.yml");
-  const tools = asTable(mise.tools, "tools");
+/** Rust version, components, and targets agree with rust-toolchain.toml. */
+function assertRustPins(tools, toolchain) {
   const rust = asTable(tools.rust, "rust");
   const declared = asTable(toolchain.toolchain, "toolchain");
 
@@ -56,6 +52,47 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
     sorted(stringList(rust.targets, "rust.targets")),
     sorted(stringList(declared.targets, "targets")),
   );
+}
+
+/** Cargo target dir, Rust toolchain, and Android SDK pins live in mise env. */
+function assertCargoAndAndroidEnv(mise, ci) {
+  const env = asTable(mise.env, "env");
+  assert.equal(
+    asString(env.CARGO_TARGET_DIR, "CARGO_TARGET_DIR"),
+    "{{env.HOME}}/.cache/packages/cargo-target",
+  );
+  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.97.1");
+  assert.equal(
+    asString(env.ANDROID_SDK_PLATFORM, "ANDROID_SDK_PLATFORM"),
+    "android-36",
+  );
+  assert.equal(
+    asString(env.ANDROID_BUILD_TOOLS, "ANDROID_BUILD_TOOLS"),
+    "35.0.0",
+  );
+  assert.equal(
+    asString(env.ANDROID_BUILD_TOOLS_LATEST, "ANDROID_BUILD_TOOLS_LATEST"),
+    "36.0.0",
+  );
+  assert.equal(
+    asString(env.ANDROID_NDK_VERSION, "ANDROID_NDK_VERSION"),
+    "28.0.13004108",
+  );
+  assert.match(ci, /platforms;\$\{ANDROID_SDK_PLATFORM\}/u);
+  assert.match(ci, /build-tools;\$\{ANDROID_BUILD_TOOLS\}/u);
+  assert.match(ci, /build-tools;\$\{ANDROID_BUILD_TOOLS_LATEST\}/u);
+  assert.match(ci, /ndk;\$\{ANDROID_NDK_VERSION\}/u);
+  assert.doesNotMatch(ci, /28\.0\.13004108/u);
+}
+
+test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
+  const mise = parseToml(readText("mise.toml"));
+  const toolchain = parseToml(readText("rust-toolchain.toml"));
+  const manifest = JSON.parse(readText("package.json"));
+  const ci = readText(".github/workflows/ci-prerelease-checks.yml");
+  const tools = asTable(mise.tools, "tools");
+
+  assertRustPins(tools, toolchain);
 
   // mise.toml pins Node 24. package.json engines.node is ">=24" after the
   // npm workspaces migration. Turbo reads packageManager. The legacy
@@ -93,33 +130,7 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
   );
   assert.doesNotMatch(ci, /cargo install cargo-ndk/u);
 
-  const env = asTable(mise.env, "env");
-  assert.equal(
-    asString(env.CARGO_TARGET_DIR, "CARGO_TARGET_DIR"),
-    "{{env.HOME}}/.cache/packages/cargo-target",
-  );
-  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.97.1");
-  assert.equal(
-    asString(env.ANDROID_SDK_PLATFORM, "ANDROID_SDK_PLATFORM"),
-    "android-36",
-  );
-  assert.equal(
-    asString(env.ANDROID_BUILD_TOOLS, "ANDROID_BUILD_TOOLS"),
-    "35.0.0",
-  );
-  assert.equal(
-    asString(env.ANDROID_BUILD_TOOLS_LATEST, "ANDROID_BUILD_TOOLS_LATEST"),
-    "36.0.0",
-  );
-  assert.equal(
-    asString(env.ANDROID_NDK_VERSION, "ANDROID_NDK_VERSION"),
-    "28.0.13004108",
-  );
-  assert.match(ci, /platforms;\$\{ANDROID_SDK_PLATFORM\}/u);
-  assert.match(ci, /build-tools;\$\{ANDROID_BUILD_TOOLS\}/u);
-  assert.match(ci, /build-tools;\$\{ANDROID_BUILD_TOOLS_LATEST\}/u);
-  assert.match(ci, /ndk;\$\{ANDROID_NDK_VERSION\}/u);
-  assert.doesNotMatch(ci, /28\.0\.13004108/u);
+  assertCargoAndAndroidEnv(mise, ci);
   assert.equal(
     asBoolean(asTable(mise.settings, "settings").lockfile, "lockfile"),
     true,

@@ -14,39 +14,48 @@ import {
 
 const CHECKOUT_USES = /^\s*- uses: actions\/checkout@[^\s#]+(?: #.*)?$/;
 
+/**
+ * The `# checkout-history:` reason in the comment lines directly above a
+ * checkout step, looking back at most six lines.
+ * @returns {string | null}
+ */
+function historyReasonAbove(lines, index) {
+  for (let back = index - 1; back >= 0 && back >= index - 6; back -= 1) {
+    const reason = /#\s*checkout-history:\s*(.+)/.exec(lines[back]);
+    if (reason) return reason[1].trim();
+    if (lines[back].trim().length > 0 && !lines[back].trim().startsWith("#")) {
+      break;
+    }
+  }
+  return null;
+}
+
+/** The checkout step at `index` and its lines, up to the next step or job. */
+function checkoutBlockLines(lines, index) {
+  const blockLines = [lines[index]];
+  const baseIndent = lines[index].match(/^(\s*)/)?.[1].length ?? 0;
+  for (let next = index + 1; next < lines.length; next += 1) {
+    const line = lines[next];
+    if (line.trim().length === 0) {
+      blockLines.push(line);
+      continue;
+    }
+    const indent = line.match(/^(\s*)/)?.[1].length ?? 0;
+    if (indent <= baseIndent && line.trim().startsWith("- ")) break;
+    if (indent <= baseIndent && /^ {2}[a-z][a-z0-9_-]*:/.test(line)) break;
+    blockLines.push(line);
+  }
+  return blockLines;
+}
+
 /** @returns {{ line: number, block: string, historyReason: string | null }[]} */
 function checkoutBlocks(content) {
   const lines = content.split("\n");
   const blocks = [];
   for (let index = 0; index < lines.length; index += 1) {
     if (!CHECKOUT_USES.test(lines[index])) continue;
-    let historyReason = null;
-    for (let back = index - 1; back >= 0 && back >= index - 6; back -= 1) {
-      const reason = /#\s*checkout-history:\s*(.+)/.exec(lines[back]);
-      if (reason) {
-        historyReason = reason[1].trim();
-        break;
-      }
-      if (
-        lines[back].trim().length > 0 &&
-        !lines[back].trim().startsWith("#")
-      ) {
-        break;
-      }
-    }
-    const blockLines = [lines[index]];
-    const baseIndent = lines[index].match(/^(\s*)/)?.[1].length ?? 0;
-    for (let next = index + 1; next < lines.length; next += 1) {
-      const line = lines[next];
-      if (line.trim().length === 0) {
-        blockLines.push(line);
-        continue;
-      }
-      const indent = line.match(/^(\s*)/)?.[1].length ?? 0;
-      if (indent <= baseIndent && line.trim().startsWith("- ")) break;
-      if (indent <= baseIndent && /^ {2}[a-z][a-z0-9_-]*:/.test(line)) break;
-      blockLines.push(line);
-    }
+    const historyReason = historyReasonAbove(lines, index);
+    const blockLines = checkoutBlockLines(lines, index);
     blocks.push({
       line: index + 1,
       block: blockLines.join("\n"),

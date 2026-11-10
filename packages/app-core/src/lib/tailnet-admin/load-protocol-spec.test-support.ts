@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { JsonObject } from "@opensesame/os-domain";
+import {
+  type JsonObject,
+  type JsonValue,
+  isJsonObject,
+} from "@opensesame/os-domain";
 import Handlebars from "handlebars";
 import {
   syntheticTailscaleAuthKeyControlId,
@@ -34,10 +38,13 @@ export function loadTailnetAdminProtocolSpec(
     strict: true,
     noEscape: true,
   });
-  return JSON.parse(
+  const parsed: JsonValue = JSON.parse(
     render({
       mintAuthKeyId: fixture.mintAuthKeyId,
       mintAuthKey: fixture.mintAuthKey,
     }),
-  ) as JsonObject;
+  );
+  if (!isJsonObject(parsed))
+    throw new Error("the tailnet admin protocol spec is not a JSON object");
+  return parsed;
 }

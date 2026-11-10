@@ -19,7 +19,7 @@ import {
   tailnetAdminSeams,
 } from "./client.js";
 import { TailnetAdminError } from "./errors.js";
-import { loadTailnetAdminProtocolSpec } from "./load-protocol-spec.js";
+import { loadTailnetAdminProtocolSpec } from "./load-protocol-spec.test-support.js";
 import {
   formatTailnetPairingCode,
   parseTailnetPairingCode,

@@ -22,6 +22,11 @@ const CONNECTOR_FILES = [
   "secret-backends/",
   "ai-connections/",
   "tailscale/",
+  // Boat's claim ceremony, which Connections › Boat alone runs.
+  "boat-ceremony",
+  // Runtime-minted Tailscale-shaped test keys, checked against the native
+  // provider's own token pattern; never shipped and never committed.
+  "synthetic-tailscale-key",
 ];
 
 export const CONNECTOR_LIB_RULES = [

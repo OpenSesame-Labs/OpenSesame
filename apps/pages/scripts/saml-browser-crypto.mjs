@@ -59,6 +59,41 @@ function inventory(directory, base = directory) {
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
+/** The shared certificate parser's own reflect-metadata, pinned in its default and lite forms. */
+function readReflectionInputs(sharedCertificate) {
+  const reflectionOwner = createRequire(sharedCertificate);
+  const reflection = {
+    full: realpathSync(reflectionOwner.resolve("reflect-metadata")),
+    lite: realpathSync(reflectionOwner.resolve("reflect-metadata/lite")),
+  };
+  const reflectionPackage = readFileSync(
+    resolve(dirname(reflection.full), "package.json"),
+  );
+  match(
+    sha(reflectionPackage),
+    "e0f6d5cf809e02e338f501d3030e917fa57e3a10044387de890cbf142b4f4083",
+    "reflection package",
+  );
+  match(
+    sha(readFileSync(reflection.full)),
+    "515c16dcde7492755691e3fca9eeca4656f1819b6e3307ecd4b0deaa93ad21e2",
+    "reflection default implementation",
+  );
+  match(
+    sha(readFileSync(reflection.lite)),
+    "92d7537f2c9416514356dc386763a0284cf856a1771c2570bfd9d4e7eced3826",
+    "reflection lite implementation",
+  );
+  const reflectionExports = JSON.parse(reflectionPackage);
+  match(reflectionExports.version, "0.2.2", "reflection version");
+  match(
+    reflectionExports.exports["./lite"].default,
+    "./ReflectLite.js",
+    "official lite export",
+  );
+  return reflection;
+}
+
 /** Dependency resolution belongs to app-core, never an arbitrary peer package. */
 export function readSamlBrowserCryptoInputs(root) {
   const owner = createRequire(resolve(root, "packages/app-core/package.json"));
@@ -103,36 +138,7 @@ export function readSamlBrowserCryptoInputs(root) {
     "3c4b3557e06a494350243a9064d16a1b1aecda4863b81cba8b6ba4706cad613a",
     "shared certificate implementation",
   );
-  const reflectionOwner = createRequire(sharedCertificate);
-  const reflection = {
-    full: realpathSync(reflectionOwner.resolve("reflect-metadata")),
-    lite: realpathSync(reflectionOwner.resolve("reflect-metadata/lite")),
-  };
-  const reflectionPackage = readFileSync(
-    resolve(dirname(reflection.full), "package.json"),
-  );
-  match(
-    sha(reflectionPackage),
-    "e0f6d5cf809e02e338f501d3030e917fa57e3a10044387de890cbf142b4f4083",
-    "reflection package",
-  );
-  match(
-    sha(readFileSync(reflection.full)),
-    "515c16dcde7492755691e3fca9eeca4656f1819b6e3307ecd4b0deaa93ad21e2",
-    "reflection default implementation",
-  );
-  match(
-    sha(readFileSync(reflection.lite)),
-    "92d7537f2c9416514356dc386763a0284cf856a1771c2570bfd9d4e7eced3826",
-    "reflection lite implementation",
-  );
-  const reflectionExports = JSON.parse(reflectionPackage);
-  match(reflectionExports.version, "0.2.2", "reflection version");
-  match(
-    reflectionExports.exports["./lite"].default,
-    "./ReflectLite.js",
-    "official lite export",
-  );
+  const reflection = readReflectionInputs(sharedCertificate);
   const application = resolve(esm, "application.js").replaceAll("\\", "/");
   const certificate = resolve(esm, "pki/x509.js").replaceAll("\\", "/");
   const replacements = new Map([
@@ -188,14 +194,18 @@ function assertSdkConsumers(context, input, entry, ids) {
   const normalizedEntry = entry.replaceAll("\\", "/");
   for (const id of ids) {
     const clean = id.replaceAll("\\", "/");
-    if (clean.includes("/node_modules/xmldsigjs/") && !clean.startsWith(`${sdkRoot}/`))
+    if (
+      clean.includes("/node_modules/xmldsigjs/") &&
+      !clean.startsWith(`${sdkRoot}/`)
+    )
       throw new Error("Unexpected browser XMLDSIG package instance");
     if (clean.startsWith(`${input.esm}/`) && clean !== normalizedEntry) {
       const module = context.getModuleInfo(id);
       const consumers = [...module.importers, ...module.dynamicImporters];
       if (
         consumers.some(
-          (consumer) => !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
+          (consumer) =>
+            !consumer.replaceAll("\\", "/").startsWith(`${input.esm}/`),
         )
       )
         throw new Error("Unexpected browser XMLDSIG consumer");

@@ -155,6 +155,19 @@ const auxiliaries = [
   "codeql.yml",
   "sync-target-security.yml",
 ];
+
+/** Workflow files GitHub starts on a pull request, push, or merge group. */
+function automaticallyStartedWorkflows(directory) {
+  return readdirSync(directory)
+    .filter((name) => name.endsWith(".yml"))
+    .filter((name) =>
+      /^ {2}(?:pull_request|pull_request_target|push|merge_group):/m.test(
+        readFileSync(join(directory, name), "utf8"),
+      ),
+    )
+    .sort();
+}
+
 describe("heavy auxiliary suites are CD concerns", () => {
   it("keeps push-to-main CD workflows off pull requests", () => {
     expect(cdPushMainOnly).toEqual([
@@ -177,14 +190,8 @@ describe("heavy auxiliary suites are CD concerns", () => {
 
   it("inventories pull_request, push, and merge_group workflows", () => {
     const directory = join(root, ".github/workflows");
-    const workflowsWithAutomaticPrPushOrMergeGroup = readdirSync(directory)
-      .filter((name) => name.endsWith(".yml"))
-      .filter((name) =>
-        /^ {2}(?:pull_request|pull_request_target|push|merge_group):/m.test(
-          readFileSync(join(directory, name), "utf8"),
-        ),
-      )
-      .sort();
+    const workflowsWithAutomaticPrPushOrMergeGroup =
+      automaticallyStartedWorkflows(directory);
     // The benchmark workflow on main is dispatch-only, so it is omitted.
     // cd-ghcr-publish.yml pushes to main.
     expect(workflowsWithAutomaticPrPushOrMergeGroup).toEqual([

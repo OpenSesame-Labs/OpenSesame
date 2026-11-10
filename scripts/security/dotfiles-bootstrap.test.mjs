@@ -263,27 +263,8 @@ test("bootstrap refuses a HOME it cannot write", (t) => {
   assert.match(result.stderr, /HOME must be a writable directory/);
 });
 
-test("devcontainer and cloud install run dotfiles before npm ci via mise", () => {
-  const source = uncommented(read(script));
-  assert.match(source, new RegExp(defaultRepo.replaceAll(".", "\\.")));
-  assert.doesNotMatch(source, /staging\/tyler-dotfiles/);
-  assert.match(source, /GIT_TERMINAL_PROMPT=0/);
-  assert.match(source, /GIT_CONFIG_GLOBAL=\/dev\/null/);
-  assert.match(source, /GIT_CONFIG_SYSTEM=\/dev\/null/);
-  assert.match(source, /credential\.helper=/);
-  assert.match(source, /-u GITHUB_TOKEN/);
-  assert.match(source, /-u GH_TOKEN/);
-  assert.match(source, /no gh, GitHub token/);
-  assert.doesNotMatch(source, /(?:^|\n)\s*gh\s/);
-  assert.doesNotMatch(source, /\bgh (?:repo|auth|api)\b/);
-  assert.match(source, /bash "\$\{tree\}\/install\.sh"/);
-  assert.doesNotMatch(source, /\bsudo\b/);
-  assert.doesNotMatch(source, /curl[^\n]*\|\s*(?:ba)?sh/);
-  const syntax = spawnSync("bash", ["-n", join(root, script)], {
-    encoding: "utf8",
-  });
-  assert.equal(syntax.status, 0, syntax.stderr);
-
+/** Devcontainer: pinned image, locked mise, then dotfiles, then dependencies. */
+function assertDevcontainerBootstrapOrder() {
   const devcontainer = JSON.parse(read(".devcontainer/devcontainer.json"));
   const dockerfile = read(".devcontainer/Dockerfile");
   assert.equal(devcontainer.features, undefined);
@@ -316,6 +297,30 @@ test("devcontainer and cloud install run dotfiles before npm ci via mise", () =>
     devcontainer.postCreateCommand.indexOf("setup-hooks.sh") >
       devcontainer.postCreateCommand.indexOf("mise run deps"),
   );
+}
+
+test("devcontainer and cloud install run dotfiles before npm ci via mise", () => {
+  const source = uncommented(read(script));
+  assert.match(source, new RegExp(defaultRepo.replaceAll(".", "\\.")));
+  assert.doesNotMatch(source, /staging\/tyler-dotfiles/);
+  assert.match(source, /GIT_TERMINAL_PROMPT=0/);
+  assert.match(source, /GIT_CONFIG_GLOBAL=\/dev\/null/);
+  assert.match(source, /GIT_CONFIG_SYSTEM=\/dev\/null/);
+  assert.match(source, /credential\.helper=/);
+  assert.match(source, /-u GITHUB_TOKEN/);
+  assert.match(source, /-u GH_TOKEN/);
+  assert.match(source, /no gh, GitHub token/);
+  assert.doesNotMatch(source, /(?:^|\n)\s*gh\s/);
+  assert.doesNotMatch(source, /\bgh (?:repo|auth|api)\b/);
+  assert.match(source, /bash "\$\{tree\}\/install\.sh"/);
+  assert.doesNotMatch(source, /\bsudo\b/);
+  assert.doesNotMatch(source, /curl[^\n]*\|\s*(?:ba)?sh/);
+  const syntax = spawnSync("bash", ["-n", join(root, script)], {
+    encoding: "utf8",
+  });
+  assert.equal(syntax.status, 0, syntax.stderr);
+
+  assertDevcontainerBootstrapOrder();
 
   const cloudAgents = read("docs/contributing/cloud-agents.md");
   assert.match(cloudAgents, /anonymous HTTPS/);

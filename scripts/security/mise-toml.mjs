@@ -78,6 +78,13 @@ function logicalLines(text) {
   return lines;
 }
 
+/** Nesting change one unquoted character makes for an open/close pair. */
+function nestingStep(character, open, close) {
+  if (character === open) return 1;
+  if (character === close) return -1;
+  return 0;
+}
+
 function splitTop(text, separator) {
   const parts = [];
   let quoted = false;
@@ -90,17 +97,17 @@ function splitTop(text, separator) {
       index += 1;
       continue;
     }
-    if (character === '"') quoted = !quoted;
-    else if (!quoted && character === "{") braces += 1;
-    else if (!quoted && character === "}") braces -= 1;
-    else if (!quoted && character === "[") brackets += 1;
-    else if (!quoted && character === "]") brackets -= 1;
-    else if (
-      !quoted &&
-      braces === 0 &&
-      brackets === 0 &&
-      character === separator
-    ) {
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (quoted) continue;
+    const braceStep = nestingStep(character, "{", "}");
+    const bracketStep = nestingStep(character, "[", "]");
+    braces += braceStep;
+    brackets += bracketStep;
+    if (braceStep !== 0 || bracketStep !== 0) continue;
+    if (braces === 0 && brackets === 0 && character === separator) {
       parts.push(text.slice(start, index));
       start = index + 1;
     }
