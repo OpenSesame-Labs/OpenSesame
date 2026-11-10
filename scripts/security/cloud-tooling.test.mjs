@@ -80,6 +80,33 @@ test("scheduled security scanning has no unnecessary issue write permission", ()
   assert.match(text, /id-token: write/);
 });
 
+/** OSV scanning always runs, pins its actions, and uploads SARIF. */
+function assertOsvScannerJob(workflow) {
+  const osv = workflow.jobs["osv-scanner"];
+  assert.deepEqual(osv.permissions, {
+    contents: "read",
+    "security-events": "write",
+  });
+  assert.equal(osv.if, undefined);
+  const scan = osv.steps.find((step) =>
+    step.uses?.startsWith("google/osv-scanner-action/osv-scanner-action@"),
+  );
+  const reporter = osv.steps.find((step) =>
+    step.uses?.startsWith("google/osv-scanner-action/osv-reporter-action@"),
+  );
+  const upload = osv.steps.find((step) =>
+    step.uses?.startsWith("github/codeql-action/upload-sarif@"),
+  );
+  for (const step of [scan, reporter, upload]) {
+    assert.ok(step);
+    assert.equal(step.if, undefined);
+    assert.match(step.uses, /@[a-f0-9]{40}$/);
+  }
+  assert.match(scan.with["scan-args"], /--recursive/);
+  assert.match(reporter.with["scan-args"], /--new=osv-results\.json/);
+  assert.equal(upload.with.sarif_file, "osv-results.sarif");
+}
+
 test("scheduled native auditing fails closed on the real production graph after installing its locked runtime", () => {
   const workflow = parseYaml(
     readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
@@ -122,29 +149,7 @@ test("scheduled native auditing fails closed on the real production graph after 
   );
   assert.doesNotMatch(job.steps[audit].run ?? "", /upload-artifact/);
   assert.ok(workflow.jobs["turn-crypto"]);
-  const osv = workflow.jobs["osv-scanner"];
-  assert.deepEqual(osv.permissions, {
-    contents: "read",
-    "security-events": "write",
-  });
-  assert.equal(osv.if, undefined);
-  const scan = osv.steps.find((step) =>
-    step.uses?.startsWith("google/osv-scanner-action/osv-scanner-action@"),
-  );
-  const reporter = osv.steps.find((step) =>
-    step.uses?.startsWith("google/osv-scanner-action/osv-reporter-action@"),
-  );
-  const upload = osv.steps.find((step) =>
-    step.uses?.startsWith("github/codeql-action/upload-sarif@"),
-  );
-  for (const step of [scan, reporter, upload]) {
-    assert.ok(step);
-    assert.equal(step.if, undefined);
-    assert.match(step.uses, /@[a-f0-9]{40}$/);
-  }
-  assert.match(scan.with["scan-args"], /--recursive/);
-  assert.match(reporter.with["scan-args"], /--new=osv-results\.json/);
-  assert.equal(upload.with.sarif_file, "osv-results.sarif");
+  assertOsvScannerJob(workflow);
   // Candidate qualification independently blocks releases on lockfile findings.
   const deep = readFileSync(
     join(root, "scripts/release/deep-check.sh"),
