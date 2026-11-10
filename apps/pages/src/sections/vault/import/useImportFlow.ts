@@ -3,6 +3,7 @@ import {
   dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import type { SourceId } from "@opensesame/app-core/lib/vault/import/index.js";
 import type { MergePlan } from "@opensesame/app-core/lib/vault/import/merge.js";
 import {
@@ -95,7 +96,10 @@ export function useImportFlow(file: File, onDone?: () => void): ImportFlow {
     setStage(next);
     setError(outcome.error);
     // Whoever opened the sheet may need to know the items are in the vault.
-    if (next.step === "done" && before.step !== "done") onDone?.();
+    if (next.step === "done" && before.step !== "done") {
+      onDone?.();
+      signalRecommendation("vault.imported");
+    }
     announce(outcome.error);
   };
 

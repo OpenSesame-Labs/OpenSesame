@@ -1,3 +1,4 @@
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { concealedValue } from "@opensesame/app-core/sections/vault-section-model.js";
 import {
   type AccountItem,
@@ -27,4 +28,20 @@ export function canCopySecret(item: VaultItem): boolean {
  */
 export function accountSecretToCopy(item: AccountItem): string | null {
   return handoff(produceAccountPassword(item))?.now ?? credentialLine(item);
+}
+
+/**
+ * What to do once an account's copy lands. Where the copy put out the
+ * account's password, that is the moment autofill would have saved the trip,
+ * so it is said to the recommender (ADR 0221). A copy that failed says
+ * nothing, and neither does one that fell back to an API key or token, which
+ * autofill does not fill.
+ */
+export function accountCopied(item: AccountItem): (result: string) => void {
+  const password = handoff(produceAccountPassword(item)) !== null;
+  return (result) => {
+    if (password && result === "copied") {
+      signalRecommendation("password.copied");
+    }
+  };
 }

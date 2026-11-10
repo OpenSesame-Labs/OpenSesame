@@ -11,6 +11,10 @@
  * nothing remembers a tour was run, so the offer simply stands while the
  * vault is empty and is gone once anything is sealed).
  *
+ * A Minimal vault has no password type at all (ADR 0153), so there the first
+ * road is the switch that gives it one (`PasswordTypesRoad`, ADR 0221); the
+ * guided first password follows once the types are on.
+ *
  * Import is the `vault.interop-formats` capability's (ADR 0130), so this
  * offer neither loads it nor owns its sheet: it stands only while that
  * capability's Import command is registered, walks the export, and holds
@@ -19,10 +23,16 @@
  * gone the moment the import seals its first item.
  */
 
+import { capabilityPorts } from "@opensesame/app-core/lib/configuration/capabilities-ports.js";
+import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
-import { useContext } from "react";
+import type { CapabilityState } from "@opensesame/capability-composition";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { useComposition } from "../../bindings/capabilities.js";
 import { useContributions } from "../../bindings/contributions.js";
+import { FailureNotice } from "../../components/FailureNotice.js";
+import { landFocus } from "../../lib/focus.js";
 import { useGuidedImport } from "../../screens/unlock/ImportRoad.js";
 import { SupportContext } from "../../tutorial/support-context.js";
 
@@ -40,6 +50,97 @@ function GuidedImportOffer() {
         Import passwords instead
       </button>
       {guided.element}
+    </>
+  );
+}
+
+/** The capability that gives the vault its login, card and note types. */
+const PASSWORD_TYPES = "vault.derived-records";
+
+/** The three facts of a capability that decide whether its switch is offered. */
+export type PasswordTypesState = Pick<
+  CapabilityState,
+  "distributed" | "permitted" | "approved"
+>;
+
+/**
+ * Whether this vault has no password type yet and could have one: a Minimal
+ * installation, or one whose setup was skipped (ADR 0153), where the plan
+ * carries the item types and permits them but nobody has switched them on. A
+ * plan that does not ship them, or an operator who withheld them, is not
+ * offered a switch it could not honour; nor is a plan that has not resolved.
+ */
+export function passwordTypesMissing(
+  state: PasswordTypesState | undefined,
+): boolean {
+  return state?.distributed === true && state.permitted && !state.approved;
+}
+
+export const firstItemOfferSeams = {
+  /** What the plan says of the item types now, or undefined before it resolves. */
+  usePasswordTypes: (): PasswordTypesState | undefined =>
+    useComposition().plan?.capabilities[PASSWORD_TYPES],
+  /**
+   * Whether an account can already be made here. The item types as a whole
+   * may be off while the Account pack was switched on by itself in Settings
+   * › Item types; that vault has passwords and is not told it has none.
+   */
+  accountCreatable: (): boolean => isCreatableItemKind("account"),
+  /**
+   * The switch, loaded on the press: it is no part of a vault that already
+   * has types. It commits against the composition as it stands at the press.
+   */
+  turnOnPasswordTypes: async (): Promise<string | null> => {
+    const { commitPasswordsOnboarding } = await import(
+      "./passwords-onboarding.js"
+    );
+    return commitPasswordsOnboarding(
+      capabilityPorts.compositionStore.getSnapshot(),
+    );
+  },
+};
+
+/**
+ * A Minimal vault's first road (ADR 0221): it holds plain secrets only, and a
+ * person who came for a password manager finds no password in it. One press
+ * switches the item types on — the same commit, with the same consent
+ * receipt, as the switch in Settings › Features — and the guided first
+ * password takes this road's place.
+ */
+function PasswordTypesRoad({ createPath }: { createPath: string }) {
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const turnOn = useCallback(() => {
+    if (busy) return;
+    setBusy(true);
+    void firstItemOfferSeams
+      .turnOnPasswordTypes()
+      .then(setNotice, () => setNotice("Passwords could not be turned on."))
+      .finally(() => setBusy(false));
+  }, [busy]);
+  return (
+    <>
+      <p className="empty__first-note">
+        This vault holds plain secrets and files only. There are no website,
+        username and password fields until item types are on.
+      </p>
+      <button
+        type="button"
+        className="btn btn--primary choice empty__first-key"
+        disabled={busy}
+        aria-busy={busy}
+        onClick={turnOn}
+      >
+        Turn on passwords, cards and notes
+      </button>
+      <Link className="btn btn--ghost choice empty__first-key" to={createPath}>
+        Add a plain secret instead
+      </Link>
+      <FailureNotice
+        id="vault:first-run-password-types"
+        title="Passwords"
+        message={notice}
+      />
     </>
   );
 }
@@ -69,23 +170,52 @@ export function FirstItemOffer({
   inTrash: boolean;
 }) {
   const support = useContext(SupportContext);
+  const passwordTypes = firstItemOfferSeams.usePasswordTypes();
   const first = guideGoal("vault.item.first");
+  const roads = useRef<HTMLDivElement>(null);
+  const needsTypes =
+    passwordTypesMissing(passwordTypes) &&
+    !firstItemOfferSeams.accountCreatable();
+  // Turning the types on replaces the switch with the first-password road,
+  // and takes the pressed key with it. Where that left focus on nothing, it
+  // lands on the road that took its place, ready for the next press.
+  const hadSwitch = useRef(needsTypes);
+  useEffect(() => {
+    const replaced = hadSwitch.current && !needsTypes;
+    hadSwitch.current = needsTypes;
+    if (!replaced) return;
+    const lost =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (lost) landFocus(roads.current?.querySelector(".empty__first-key"));
+  }, [needsTypes]);
   const canImport = useContributions("vault-command").some(
     (command) => command.id === "import",
   );
   if (listedCount > 0 || inTrash || !makesAccount(createPath)) return null;
+  if (needsTypes) {
+    return (
+      <div className="empty__first" ref={roads}>
+        <PasswordTypesRoad createPath={createPath} />
+        {canImport ? <GuidedImportOffer /> : null}
+      </div>
+    );
+  }
   return (
-    <div className="empty__first">
+    <div className="empty__first" ref={roads}>
       {support && first ? (
         <button
           type="button"
-          className="btn choice empty__first-key"
+          className="btn btn--primary choice empty__first-key"
           onClick={() => void support.startGuide(first.guide, "authored")}
         >
           Add your first password — guided
         </button>
       ) : (
-        <Link className="btn choice empty__first-key" to={createPath}>
+        <Link
+          className="btn btn--primary choice empty__first-key"
+          to={createPath}
+        >
           Add your first password
         </Link>
       )}

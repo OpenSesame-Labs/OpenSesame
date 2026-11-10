@@ -1,7 +1,13 @@
 /**
- * The screen in front of the tabbed ceremony: Minimal, Default, Full,
- * Custom. Choice objects, the same road as the front door. No question
- * title.
+ * The screen in front of the tabbed ceremony: Default, Minimal, Full,
+ * Custom. Choice objects, the same road as the front door.
+ *
+ * Default comes first, says it is the recommended one and is where the
+ * keyboard lands (ADR 0221): first-run testers took the first road they
+ * saw, and while that was Minimal they sealed a vault with no password
+ * type in it. Each road says what the vault will hold in plain words, and
+ * one line above them says the choice is not final. It is a statement, not
+ * a question title.
  *
  * The choices are one keyboard group: Tab reaches them in document
  * order (the door's roads are the same), and the arrow keys walk
@@ -26,29 +32,32 @@ const CHOICES: ReadonlyArray<{
   name: string;
   kind: string;
   Icon: typeof IconCheck;
+  /** The one a person with no reason to choose otherwise should take. */
+  recommended?: true;
 }> = [
-  {
-    id: "minimal",
-    name: "Minimal",
-    kind: "vault, activity, settings",
-    Icon: IconCheck,
-  },
   {
     id: "default",
     name: "Default",
-    kind: "minimal, plus the default extensions",
+    kind: "Recommended. Passwords, passkeys, cards and notes, plus sign-in, connections and access.",
+    Icon: IconCheck,
+    recommended: true,
+  },
+  {
+    id: "minimal",
+    name: "Minimal",
+    kind: "Plain secrets and files only. No password, card or note types until you turn them on.",
     Icon: IconDownload,
   },
   {
     id: "full",
     name: "Full",
-    kind: "everything enabled",
+    kind: "Everything this build can run, switched on.",
     Icon: IconLayers,
   },
   {
     id: "custom",
     name: "Custom",
-    kind: "pick individual capabilities",
+    kind: "Pick each capability yourself, one tab at a time.",
     Icon: IconSettings,
   },
 ];
@@ -81,35 +90,41 @@ export function SetupConfiguration({
     refs.current[next]?.focus();
   };
   return (
-    <fieldset
-      ref={targetRef}
-      className="capset__roads"
-      aria-label="Setup configuration"
-    >
-      {CHOICES.map((choice, at) => (
-        <button
-          key={choice.id}
-          ref={(node) => {
-            refs.current[at] = node;
-          }}
-          type="button"
-          className="road"
-          aria-label={choice.name}
-          aria-describedby={`setup-config-${choice.id}`}
-          aria-busy={pending === choice.id}
-          disabled={busy}
-          onClick={() => onChoose(choice.id)}
-          onKeyDown={(event) => move(event, at)}
-        >
-          <span className="road__mark" aria-hidden="true">
-            <choice.Icon size={20} />
-          </span>
-          <span className="road__name">{choice.name}</span>
-          <span className="road__kind" id={`setup-config-${choice.id}`}>
-            {choice.kind}
-          </span>
-        </button>
-      ))}
-    </fieldset>
+    <>
+      <p className="door__lede capset__lede">
+        Choose what this vault holds. Any choice can be changed later in
+        Settings, under Features.
+      </p>
+      <fieldset
+        ref={targetRef}
+        className="capset__roads"
+        aria-label="Setup configuration"
+      >
+        {CHOICES.map((choice, at) => (
+          <button
+            key={choice.id}
+            ref={(node) => {
+              refs.current[at] = node;
+            }}
+            type="button"
+            className={choice.recommended ? "road road--lead" : "road"}
+            aria-label={choice.name}
+            aria-describedby={`setup-config-${choice.id}`}
+            aria-busy={pending === choice.id}
+            disabled={busy}
+            onClick={() => onChoose(choice.id)}
+            onKeyDown={(event) => move(event, at)}
+          >
+            <span className="road__mark" aria-hidden="true">
+              <choice.Icon size={20} />
+            </span>
+            <span className="road__name">{choice.name}</span>
+            <span className="road__kind" id={`setup-config-${choice.id}`}>
+              {choice.kind}
+            </span>
+          </button>
+        ))}
+      </fieldset>
+    </>
   );
 }

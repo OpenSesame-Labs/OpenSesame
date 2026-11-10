@@ -2,6 +2,7 @@ import {
   dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import {
   exportOpener,
   exportRefusal,
@@ -68,6 +69,7 @@ function useExportActions(vault: ReturnType<typeof useVault>) {
       setSaved(file.fileName);
       setError(null);
       dismissNotice(NOTICE);
+      signalRecommendation("vault.exported");
     } catch (caught) {
       const message = messageOf(caught);
       setError(message);
@@ -90,6 +92,7 @@ function useExportActions(vault: ReturnType<typeof useVault>) {
       setSaved(file.fileName);
       setError(null);
       dismissNotice(NOTICE);
+      signalRecommendation("vault.exported");
     } catch (caught) {
       const message = messageOf(caught);
       setError(message);
@@ -117,6 +120,7 @@ function useExportActions(vault: ReturnType<typeof useVault>) {
       );
       setFolderSaved(directory.name);
       setError(null);
+      signalRecommendation("vault.exported");
     } catch (caught) {
       setError(messageOf(caught));
     }

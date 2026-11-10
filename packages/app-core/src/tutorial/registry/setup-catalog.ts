@@ -111,7 +111,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "setup.configurations",
     description:
-      "The four ways to set this device up — Minimal, Default, Full and Custom — with Skip all beneath them. Custom opens the tabbed ceremony.",
+      "The four ways to set this device up — Default (recommended), Minimal, Full and Custom — with Skip all beneath them. Custom opens the tabbed ceremony.",
     role: "surface",
     routes: ["/setup/choose"],
     capabilityId: null,

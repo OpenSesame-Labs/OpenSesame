@@ -631,6 +631,15 @@ does not add, import, or export. Replacing a group with text-labelled buttons
 is a hard design violation, enforced by `npm run lint:design` and the vault
 render tests.
 
+An offer or a recommendation is a card that asks one thing, and its key is
+the answer in words: **Show me**, **Turn on breach checks**, **Set up
+backups** (`btn choice`, [ADR 0221](docs/adr/0221-first-run-guidance-and-recommendations.md)).
+It is the toast's own card with an ink rule on its leading edge, kept until
+it is answered; its dismiss stays an icon key. A group of roads may mark one
+as the lead (`road--lead`: ink on its edge and its mark) — the road a person
+with no reason to choose otherwise should take, said again in its second
+line. One lead per group, never two.
+
 ### Buttons
 Ink fill for the primary action (inverting to paper-on-ink in dark mode),
 surface fill with a hairline for secondary, ghost for tertiary. There is no
@@ -1039,7 +1048,11 @@ sealed at all is a first-run surface, not an empty list — its empty state
 carries the two first-item roads as acting keys (the guided first-password
 walkthrough, and guided import), because a person new to the app has no
 list to act on and nothing yet to lose; the keys vanish with the first
-sealed item, and no filtered or folder empty state ever draws them. The vault's unselected buffer is two mono
+sealed item, and no filtered or folder empty state ever draws them. Where
+that vault has no password type at all (Minimal, or a skipped setup), the
+first road is the switch that gives it one — *Turn on passwords, cards and
+notes* — under one sentence saying why there are none
+([ADR 0221](docs/adr/0221-first-run-guidance-and-recommendations.md)). The vault's unselected buffer is two mono
 lines: what is sealed, and the keys — because moving the cursor previews
 items, there is nothing else for it to say. Password-health warnings live in
 the global notifications panel so they remain visible from every section.

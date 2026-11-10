@@ -41,6 +41,8 @@ const CORE_INFRA = [
   "tray-boot",
   "use-online",
   "use-configured",
+  // The guidance record as a hook: the settings row and the offer read it.
+  "use-guidance",
   // A press that must count once, however fast it is pressed twice.
   "use-once",
   "use-settings",

@@ -1,6 +1,7 @@
 import { type ReactElement, Suspense, lazy } from "react";
 import { createPortal } from "react-dom";
 import { IconHelp } from "../../components/Icons.js";
+import { FirstVisitOffer } from "../first-visit/FirstVisitOffer.js";
 import { useGateSeat } from "../gate-seat.js";
 import { useGuideTarget } from "../registry/react.jsx";
 import { useSupport } from "../session.js";
@@ -55,7 +56,9 @@ function markClass(chrome: boolean, guiding: boolean, open: boolean): string {
  */
 export function SupportLauncher({
   gate = false,
-}: { gate?: boolean }): ReactElement {
+}: {
+  gate?: boolean;
+}): ReactElement {
   const { view, support } = useSupport();
   const statusline = useSupportMarkSlot();
   const seat = useGateSeat();
@@ -85,6 +88,7 @@ export function SupportLauncher({
   return (
     <>
       {slot ? createPortal(mark, slot) : gate ? null : mark}
+      <FirstVisitOffer />
       {touring ? (
         <Suspense fallback={null}>
           <CoachHud />

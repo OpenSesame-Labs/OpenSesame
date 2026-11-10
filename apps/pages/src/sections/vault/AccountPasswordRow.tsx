@@ -1,3 +1,4 @@
+import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { comparePrivatePassword } from "@opensesame/app-core/lib/vault/password-workflows.js";
 import {
   type AccountItem,
@@ -7,7 +8,7 @@ import {
   isAlgorithmic,
   producePassword,
 } from "@opensesame/vault-core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ConcealedValue,
   CopyButton,
@@ -53,6 +54,12 @@ export function AccountPasswordRow({
   const [revealed, setRevealed] = useState(false);
   const produced = producePassword(method);
   const key = `password:${method.id}`;
+  // A password reached the clipboard from this row: the moment autofill
+  // would have saved the trip (ADR 0221). A failed copy never sets `copied`.
+  const copiedHere = copying.copied === key;
+  useEffect(() => {
+    if (copiedHere) signalRecommendation("password.copied");
+  }, [copiedHere]);
 
   // A computed password is rotated in the editor, never typed over here.
   const update = isAlgorithmic(method) ? null : (

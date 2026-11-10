@@ -6,6 +6,9 @@
  * takes no layout space, so an arrival cannot resize a pane. The tray keeps
  * the notice.
  *
+ * An offer or a recommendation (ADR 0221) is the same card with a worded key
+ * and no clock: it stays until it is answered or taken back.
+ *
  * It is one polite live region, drawn whether or not anything is showing, so
  * an arrival is announced where it is added. A failure is a tone on a notice
  * card, not a box and not an alert (DESIGN.md § Status is a symbol).
@@ -15,12 +18,18 @@ import {
   type ToastMessage,
   arrivalSurface,
   desktopRinging,
+  subscribeToastHides,
   subscribeToasts,
   toastOf,
 } from "@opensesame/app-core/lib/notice-toast.js";
-import { subscribeNoticeArrivals } from "@opensesame/app-core/lib/notices.js";
+import {
+  listNotices,
+  subscribeNoticeArrivals,
+  subscribeNotices,
+} from "@opensesame/app-core/lib/notices.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
 import { IconKey } from "./IconKey.js";
 import { IconAlert, IconArrowRight, IconInfo, IconX } from "./Icons.js";
@@ -31,14 +40,35 @@ export const TOAST_MS = 6000;
 /** How many toasts are on screen at once; the rest are only in the tray. */
 export const TOAST_LIMIT = 2;
 
+/**
+ * The cards on screen once `arrival` joins them, at most `TOAST_LIMIT`.
+ *
+ * An echo makes room by leaving: the tray still holds its notice. An offer
+ * has no tray entry and waits to be answered, so an echo never evicts one —
+ * with the stack full of offers, the echo is the one that is only in the
+ * tray. A new offer over a full stack of offers replaces the oldest.
+ */
+export function withinLimit(
+  current: readonly ToastMessage[],
+  arrival: ToastMessage,
+): ToastMessage[] {
+  const next = [...current, arrival];
+  while (next.length > TOAST_LIMIT) {
+    const echo = next.findIndex((item) => !item.sticky);
+    next.splice(Math.max(echo, 0), 1);
+  }
+  return next;
+}
+
 export function ToastStack() {
   const navigate = useNavigate();
   const [shown, setShown] = useState<ToastMessage[]>([]);
 
   const add = useCallback((toast: ToastMessage) => {
     setShown((current) =>
-      [...current.filter((item) => item.id !== toast.id), toast].slice(
-        -TOAST_LIMIT,
+      withinLimit(
+        current.filter((item) => item.id !== toast.id),
+        toast,
       ),
     );
   }, []);
@@ -46,7 +76,49 @@ export function ToastStack() {
     setShown((current) => current.filter((item) => item.id !== id));
   }, []);
 
+  // A card's key goes with its card. Where the press was made from the
+  // keyboard, focus goes back to wherever it was before it entered the
+  // stack, instead of falling to the document (DESIGN.md § keyboard).
+  const region = useRef<HTMLOutputElement>(null);
+  const before = useRef<Element | null>(null);
+  const handBack = useRef(false);
+  useEffect(() => {
+    const note = (event: FocusEvent) => {
+      const { target } = event;
+      if (!(target instanceof Element)) return;
+      if (!region.current?.contains(target)) before.current = target;
+    };
+    document.addEventListener("focusin", note);
+    return () => document.removeEventListener("focusin", note);
+  }, []);
+  const answer = useCallback(
+    (id: string) => {
+      handBack.current =
+        region.current?.contains(document.activeElement) === true;
+      dismiss(id);
+    },
+    [dismiss],
+  );
+  // After the card is gone: only if nothing else took focus meanwhile — a
+  // tour's card, or the page a key navigated to, keeps it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the stack changes
+  useEffect(() => {
+    if (!handBack.current) return;
+    handBack.current = false;
+    const lost =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (lost) landFocus(before.current);
+  }, [shown]);
+
+  // The cards that echo a tray notice, by the notice's id. An echo that
+  // waits to be answered must go when its notice does — answered or
+  // dismissed from the tray — or it would stand there offering a key for
+  // something already settled.
+  const echoes = useRef(new Set<string>());
+
   useEffect(() => subscribeToasts(add), [add]);
+  useEffect(() => subscribeToastHides(dismiss), [dismiss]);
   useEffect(
     () =>
       subscribeNoticeArrivals((notice) => {
@@ -54,19 +126,33 @@ export function ToastStack() {
           away: tabAway(),
           desktop: desktopRinging(),
         });
-        if (surface === "toast") add(toastOf(notice));
-        else if (surface === "desktop") ringDesktopNotice(notice, navigate);
+        if (surface === "toast") {
+          echoes.current.add(notice.id);
+          add(toastOf(notice));
+        } else if (surface === "desktop") ringDesktopNotice(notice, navigate);
       }),
     [add, navigate],
   );
+  useEffect(
+    () =>
+      subscribeNotices(() => {
+        const held = new Set(listNotices().map((notice) => notice.id));
+        for (const id of [...echoes.current]) {
+          if (held.has(id)) continue;
+          echoes.current.delete(id);
+          dismiss(id);
+        }
+      }),
+    [dismiss],
+  );
 
   return (
-    <output className="toasts" aria-live="polite">
+    <output className="toasts" aria-live="polite" ref={region}>
       {shown.map((toast) => (
         <Toast
           key={toast.id}
           toast={toast}
-          onDone={dismiss}
+          onDone={answer}
           onOpen={(to) => navigate(to)}
         />
       ))}
@@ -88,20 +174,24 @@ function Toast({
   const [reading, setReading] = useState(false);
   const left = useRef(TOAST_MS);
   const since = useRef(0);
+  const { sticky } = toast;
   useEffect(() => {
-    if (reading) return;
+    // An offer waits to be answered; only an echo leaves on the clock.
+    if (reading || sticky) return;
     since.current = Date.now();
     const timer = setTimeout(() => onDone(toast.id), left.current);
     return () => {
       clearTimeout(timer);
       left.current -= Date.now() - since.current;
     };
-  }, [reading, onDone, toast.id]);
+  }, [reading, sticky, onDone, toast.id]);
 
   const { tone } = toast;
   return (
     <article
-      className={`notice-card notice-card--${tone} toast`}
+      className={`notice-card notice-card--${tone} toast${
+        sticky ? " toast--offer" : ""
+      }`}
       onPointerEnter={() => setReading(true)}
       onPointerLeave={() => setReading(false)}
       onFocus={() => setReading(true)}
@@ -113,6 +203,18 @@ function Toast({
       </h3>
       <p>{toast.body}</p>
       <div className="actions">
+        {toast.choice ? (
+          <button
+            type="button"
+            className="btn btn--primary btn--sm choice toast__choice"
+            onClick={() => {
+              onDone(toast.id);
+              toast.choice?.run();
+            }}
+          >
+            {toast.choice.label}
+          </button>
+        ) : null}
         {toast.open ? (
           <IconKey
             label={toast.open.label}
@@ -125,7 +227,14 @@ function Toast({
             <IconArrowRight size={16} />
           </IconKey>
         ) : null}
-        <IconKey label="Dismiss" small onClick={() => onDone(toast.id)}>
+        <IconKey
+          label="Dismiss"
+          small
+          onClick={() => {
+            onDone(toast.id);
+            toast.onDismiss?.();
+          }}
+        >
           <IconX size={16} />
         </IconKey>
       </div>

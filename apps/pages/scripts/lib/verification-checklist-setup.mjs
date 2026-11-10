@@ -16,12 +16,7 @@ import {
 
 const CHOICES = ["Minimal", "Default", "Full", "Custom"];
 
-export async function openDoor(
-  page,
-  shot,
-  record,
-  href = `${ORIGIN}${BASE}`,
-) {
+export async function openDoor(page, shot, record, href = `${ORIGIN}${BASE}`) {
   await page.goto(href, { waitUntil: "domcontentloaded" });
   await page
     .getByRole("button", { name: "Set up your own", exact: true })
@@ -61,13 +56,14 @@ export async function captureChoices(page, shot, record) {
   const reset = await page.getByRole("button", { name: /reset/i }).count();
   await shot("setup-no-reset");
   mark(record, "U2-no-setup-reset", reset === 0, `reset buttons: ${reset}`);
-  await page.getByRole("button", { name: "Minimal", exact: true }).focus();
+  // Default leads the row (ADR 0221); one arrow lands on Minimal.
+  await page.getByRole("button", { name: "Default", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   const focused = await page.evaluate(
     () => document.activeElement?.getAttribute("aria-label") ?? "",
   );
   await shot("setup-keyboard");
-  mark(record, "U1-setup-keyboard", focused === "Default", focused);
+  mark(record, "U1-setup-keyboard", focused === "Minimal", focused);
 }
 
 async function finishCustom(page, shot, record) {

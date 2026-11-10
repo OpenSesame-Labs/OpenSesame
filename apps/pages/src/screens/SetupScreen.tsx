@@ -8,7 +8,7 @@
  * from the sign-in screen's foot.
  *
  * With no step and no join, the first screen is a configuration choice
- * (ADR 0154): Minimal, Default or Custom. Custom opens this ceremony.
+ * (ADR 0154): Default, Minimal, Full or Custom. Custom opens this ceremony.
  * Its first tab is always `capabilities` — what this installation runs,
  * as a draft reviewed and applied (CONSENT-03). Every further tab is a
  * `setup-panel` contribution registered by a capability the person has
@@ -22,6 +22,11 @@
  * Designed in `docs/design/canvases/first-run-setup/`.
  */
 
+import {
+  loadSettings,
+  signInMethods,
+} from "@opensesame/app-core/lib/settings.js";
+import { completeSetup } from "@opensesame/app-core/lib/setup.js";
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -32,15 +37,13 @@ import {
   IconSkipAll,
   IconX,
 } from "../components/Icons.js";
-
-import {
-  loadSettings,
-  signInMethods,
-} from "@opensesame/app-core/lib/settings.js";
-import { completeSetup } from "@opensesame/app-core/lib/setup.js";
 import { landFocus } from "../lib/focus.js";
 import { GuideTarget, useGuideTarget } from "../tutorial/registry/react.jsx";
 import { CapabilitySetup } from "./capabilities/CapabilitySetup.js";
+import {
+  type AppliedConfiguration,
+  applySetupConfiguration,
+} from "./setup/apply-configuration.js";
 import { KeepIt } from "./setup/KeepIt.js";
 import { SetupBrand } from "./setup/SetupBrand.js";
 import {
@@ -48,10 +51,6 @@ import {
   SetupConfiguration,
 } from "./setup/SetupConfiguration.js";
 import { SetupTabList } from "./setup/SetupTabList.js";
-import {
-  type AppliedConfiguration,
-  applySetupConfiguration,
-} from "./setup/apply-configuration.js";
 import { useSetupRoute } from "./setup/use-setup-route.js";
 import { useRovingTabs } from "./use-roving-tabs.js";
 import "./setup.css";
@@ -141,7 +140,8 @@ export function SetupScreen({
     select: setIndex,
   });
 
-  // The choice screen lands on Minimal, so Tab reaches Skip all. The
+  // The choice screen lands on its first road — Default, the recommended
+  // one (ADR 0221) — so Enter takes it and Tab reaches Skip all. The
   // ceremony lands on Finish: a step body's first control can be a Remove.
   useEffect(() => {
     const frame = frameRef.current;
@@ -240,16 +240,23 @@ export function SetupScreen({
             />
           </main>
           <div className="setup__foot">
-            <button
-              type="button"
-              className="icon-btn"
-              disabled={busy}
-              aria-label="Skip all"
-              title="Skip all"
-              onClick={skipAll}
-            >
-              <IconSkipAll size={18} />
-            </button>
+            <div className="go-row setup__skip">
+              <button
+                type="button"
+                className="icon-btn"
+                disabled={busy}
+                aria-label="Skip all"
+                title="Skip all"
+                onClick={skipAll}
+              >
+                <IconSkipAll size={18} />
+              </button>
+              {/* The key's sentence, in sight: a bare chevron pair under four
+                  roads was the one control nobody could name (ADR 0221). */}
+              <span className="go-verb" aria-hidden="true">
+                Skip setup — decide later
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -288,9 +295,11 @@ export function SetupScreen({
             a step the body scrolled past would otherwise take its tab
             with it, stranding the later steps on a phone. */}
         <div className="setup__chrome">
-          <div className="steps" aria-label="Setup steps">
+          {/* An ordered list: the steps are a sequence, and a list takes the
+              name a bare div could not carry. */}
+          <ol className="steps" aria-label="Setup steps">
             {STEPS.map((entry, at) => (
-              <div
+              <li
                 key={entry.id}
                 className={`steps__seg${
                   at < index ? " is-done" : at === index ? " is-now" : ""
@@ -298,9 +307,9 @@ export function SetupScreen({
               >
                 <span className="steps__bar" />
                 <span className="steps__label">{`${at + 1} · ${entry.rail}`}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
 
           <SetupTabList
             tabs={STEPS}

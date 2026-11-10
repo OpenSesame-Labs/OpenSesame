@@ -228,6 +228,9 @@ export const TUTORIAL_RULES = [
       "ui/",
       "__tests__/",
       "session",
+      // The first-visit offer rides in the support capability (ADR 0221).
+      "first-visit/",
+      "support-controller.test-support",
       "use-support-route",
       "ask-guard",
       "choose-agent",

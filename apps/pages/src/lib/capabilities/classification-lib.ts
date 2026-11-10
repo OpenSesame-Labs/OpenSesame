@@ -169,6 +169,10 @@ export const LIB_RULES = [
       "capability-connector-scope",
       "password-reset-mail",
       "setup",
+      // What this device was already shown, and what an act recommends
+      // (ADR 0221): read at the front door, before any vault or capability.
+      "guidance",
+      "recommendations",
       "runtime-config",
       "deployment-profile",
       "configuration/",
