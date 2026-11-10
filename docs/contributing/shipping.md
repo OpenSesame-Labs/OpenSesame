@@ -88,8 +88,9 @@ When every pull request in the stack is open:
    does not auto-review while the repository has fewer than 10 stars. The
    self-review is the review that has to land.
 3. Squash-merge only after the required checks are green and the pull request
-   is up to date with `main`: Grok signed commits, TypeScript, Rust, and
-   Bundle budgets. The ruleset is squash-only. Do not pass `--admin`.
+   is up to date with `main`: Grok signed commits (live status name; the job
+   checks verified signatures and recognised agent attribution), TypeScript,
+   Rust, and Bundle budgets. The ruleset is squash-only. Do not pass `--admin`.
 4. Merge from the bottom of the stack. After each squash, restack the next
    branch onto the new `main` with another verified `createCommitOnBranch`
    (full file contents of that slice, `expectedHeadOid` the new main tip)

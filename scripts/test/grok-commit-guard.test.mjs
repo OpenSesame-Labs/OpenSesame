@@ -20,6 +20,17 @@ test("grok-commit-guard rejects an unsigned commit line", () => {
   );
 });
 
+test("grok-commit-guard accepts cursor[bot] with Grok co-author when signed", () => {
+  assert.doesNotThrow(() =>
+    assertCommitSignedByGrok({
+      signature: "G",
+      authorEmail: "206951365+cursor[bot]@users.noreply.github.com",
+      authorName: "cursor[bot]",
+      message: "fix\n\nCo-authored-by: Grok <noreply@x.ai>",
+    }),
+  );
+});
+
 test("grok-commit-guard CLI rejects unsigned range in a temp repo", (t) => {
   const dir = mkdtempSync(join(tmpdir(), "grok-guard-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

@@ -8,9 +8,9 @@
 // `gh` is logged in: it creates `<branch><suffix>` refs, each starting at the
 // previous branch's new head (the first at the remote head of --base), replays
 // every local commit through the mutation, threading expectedHeadOid, and
-// reports commit.verification.verified and Grok attribution for every commit
-// it made. Exit is non-zero if any is unverified, its tree differs from the
-// local commit, or it lacks Grok <noreply@x.ai> as author or co-author.
+// reports commit.verification.verified and recognised agent attribution for
+// every commit it made. Exit is non-zero if any is unverified, its tree
+// differs from the local commit, or it lacks recognised attribution.
 //
 // Default is a DRY RUN that prints the plan and touches nothing (no gh call).
 // It never force-pushes, never deletes a branch and never merges; open the
@@ -22,7 +22,7 @@
 
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { commitAttributesGrok } from "../lib/pr-grok-commits.mjs";
+import { commitHasRecognizedAttribution } from "../lib/pr-agent-attribution.mjs";
 import { buildMutation, planStack } from "../lib/signed-replay.mjs";
 
 const MAX_BUFFER = 256 * 1024 * 1024;
@@ -142,10 +142,10 @@ function verify(repo, created) {
     const verified = commit.verification?.verified === true;
     const sameTree =
       commit.tree?.sha === localGit(["rev-parse", `${local}^{tree}`]).trim();
-    const attributed = commitAttributesGrok({ sha: oid, commit });
+    const attributed = commitHasRecognizedAttribution({ sha: oid, commit });
     if (!verified || !sameTree || !attributed) failed += 1;
     console.log(
-      `${verified ? "verified  " : "UNVERIFIED"} ${sameTree ? "tree ok " : "TREE DIFFERS"} ${attributed ? "grok    " : "NOT GROK"} ${oid} ${branch} (${commit.verification?.reason ?? "no reason"}; ${commit.author?.name ?? "?"} <${commit.author?.email ?? "?"}>)`,
+      `${verified ? "verified  " : "UNVERIFIED"} ${sameTree ? "tree ok " : "TREE DIFFERS"} ${attributed ? "attributed" : "NO ATTRIB"} ${oid} ${branch} (${commit.verification?.reason ?? "no reason"}; ${commit.author?.name ?? "?"} <${commit.author?.email ?? "?"}>)`,
     );
   }
   return failed;

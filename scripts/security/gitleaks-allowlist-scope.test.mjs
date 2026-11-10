@@ -74,6 +74,37 @@ test("global path exclusions do not hide secrets in production or vendor source"
   }
 });
 
+test("an allowlist that pairs paths with regexes names its rules and ANDs them", () => {
+  // gitleaks 8.30.1 ignores `regexes` next to `paths` in a GLOBAL allowlist (no
+  // targetRules) and skips the whole file, whatever the condition. So narrowing
+  // a path by value is only real when the entry names its rules and uses AND.
+  // Not covered, by design: a value-only entry (anchored exact-secret regex, no
+  // paths) is narrow by construction, and a path-only entry never claimed to
+  // narrow by value.
+  for (const { name, text } of configs) {
+    const blocks = text.split(/^\[\[allowlists\]\]\s*$/m).slice(1);
+    for (const block of blocks) {
+      const body = block.split(/^\[(?!\[allowlists\]\])/m)[0];
+      const hasRegexes = /^\s*regexes\s*=\s*\[/m.test(body);
+      const hasPaths = /^\s*paths\s*=\s*\[/m.test(body);
+      if (!(hasRegexes && hasPaths)) continue;
+      const label =
+        /^\s*description\s*=\s*"([^"]*)"/m.exec(body)?.[1] ??
+        "(no description)";
+      assert.match(
+        body,
+        /^\s*targetRules\s*=\s*\[\s*"[^"]+"/m,
+        `${name}: "${label}" pairs paths with regexes but names no targetRules, so it would suppress the whole file`,
+      );
+      assert.match(
+        body,
+        /^\s*condition\s*=\s*"AND"/m,
+        `${name}: "${label}" pairs paths with regexes without condition = "AND"`,
+      );
+    }
+  }
+});
+
 test("historical exceptions are bound to an immutable commit and finding", () => {
   const lines = ignore
     .split("\n")

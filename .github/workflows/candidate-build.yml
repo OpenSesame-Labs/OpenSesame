@@ -112,7 +112,8 @@ jobs:
     steps:
     # Trusted helpers land first. actions/checkout wipes the workspace when
     # the candidate checkout is not yet a git directory, so park them until
-    # that checkout finishes, then hide the nested tree from the size gate.
+    # that checkout finishes, then restore them beside src at the workspace root.
+    # Commands in src reach that tree through ../.ci-control.
     - name: Check out trusted pipeline helpers
       uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
@@ -120,10 +121,13 @@ jobs:
         path: .ci-control
         persist-credentials: false
         allow-unsafe-pr-checkout: false
+        sparse-checkout-cone-mode: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
           scripts/lib
+          /scripts/release/pages-release.mjs
+          /scripts/lib/pages-release.mjs
     - name: Park trusted helpers outside the candidate checkout
       run: mv .ci-control "$RUNNER_TEMP/ci-control"
       working-directory: ${{ github.workspace }}
@@ -134,10 +138,7 @@ jobs:
         allow-unsafe-pr-checkout: false
         path: src
     - name: Restore trusted helpers beside the candidate tree
-      run: |
-        mv "$RUNNER_TEMP/ci-control" .ci-control
-        printf '%s\n' '.ci-control/' >> .git/info/exclude
-      working-directory: src
+      run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
     - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
@@ -172,6 +173,10 @@ jobs:
       PAGES_CANONICAL_ORIGIN: https://opensesame-labs.github.io
       PAGES_HEADER_SECURITY: '0'
     steps:
+    # Trusted helpers land first. actions/checkout wipes the workspace when
+    # the candidate checkout is not yet a git directory, so park them until
+    # that checkout finishes, then restore them beside src at the workspace root.
+    # Commands in src reach that tree through ../.ci-control.
     - name: Check out trusted pipeline helpers
       uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
@@ -179,10 +184,13 @@ jobs:
         path: .ci-control
         persist-credentials: false
         allow-unsafe-pr-checkout: false
+        sparse-checkout-cone-mode: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
           scripts/lib
+          /scripts/release/pages-release.mjs
+          /scripts/lib/pages-release.mjs
     - name: Park trusted helpers outside the candidate checkout
       run: mv .ci-control "$RUNNER_TEMP/ci-control"
       working-directory: ${{ github.workspace }}
@@ -193,10 +201,7 @@ jobs:
         allow-unsafe-pr-checkout: false
         path: src
     - name: Restore trusted helpers beside the candidate tree
-      run: |
-        mv "$RUNNER_TEMP/ci-control" .ci-control
-        printf '%s\n' '.ci-control/' >> .git/info/exclude
-      working-directory: src
+      run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
     - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
@@ -242,10 +247,13 @@ jobs:
         path: .ci-control
         persist-credentials: false
         allow-unsafe-pr-checkout: false
+        sparse-checkout-cone-mode: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
           scripts/lib
+          /scripts/release/pages-release.mjs
+          /scripts/lib/pages-release.mjs
     - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false
@@ -294,11 +302,14 @@ jobs:
         path: .ci-control
         persist-credentials: false
         allow-unsafe-pr-checkout: false
+        sparse-checkout-cone-mode: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
           scripts/lib
           scripts/ci
+          /scripts/release/pages-release.mjs
+          /scripts/lib/pages-release.mjs
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       with:
         ref: ${{ env.CANDIDATE_REVISION }}
@@ -377,10 +388,13 @@ jobs:
         path: .ci-control
         persist-credentials: false
         allow-unsafe-pr-checkout: false
+        sparse-checkout-cone-mode: false
         sparse-checkout: |-
           .github/workflows
           scripts/release
           scripts/lib
+          /scripts/release/pages-release.mjs
+          /scripts/lib/pages-release.mjs
     - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
       with:
         cache: false

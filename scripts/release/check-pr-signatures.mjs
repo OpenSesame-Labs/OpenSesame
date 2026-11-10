@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { loadPrIntroducedCommits } from "../lib/pr-introduced-commits.mjs";
 import { assertPrSignatures } from "../lib/pr-signatures.mjs";
 
 const [repository, number, head] = process.argv.slice(2);
@@ -12,7 +13,6 @@ if (
     "Usage: check-pr-signatures.mjs OWNER/REPO PR_NUMBER HEAD_SHA",
   );
 }
-const endpoint = `repos/${repository}/pulls/${number}`;
 function api(path, paginate = false) {
   return JSON.parse(
     execFileSync(
@@ -22,6 +22,13 @@ function api(path, paginate = false) {
     ),
   );
 }
-const commits = api(`${endpoint}/commits?per_page=100`, true).flat();
-assertPrSignatures(api(endpoint), commits, head);
-console.log(`Verified signatures: ${commits.length} commits at ${head}`);
+const { pr, commits, baseRef } = loadPrIntroducedCommits(
+  repository,
+  number,
+  head,
+  api,
+);
+assertPrSignatures(pr, commits, head);
+console.log(
+  `Verified signatures: ${commits.length} commit(s) on ${baseRef}...${head}`,
+);

@@ -382,6 +382,8 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
     pwaPreview,
     /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
   );
+  assert.match(pwaPreview, /SMOKE_REGISTRY_DEADLINE_MS: "900000"/);
+  assert.doesNotMatch(cli, /SMOKE_REGISTRY_DEADLINE_MS/);
   assert.match(
     pwaSmoke,
     /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,

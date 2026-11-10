@@ -5,8 +5,10 @@
  * actions/cache-poisoning/poisonable-step and jdx/mise-action release guidance.
  *
  * cd-pwa.yml runs only on push to main and workflow_dispatch. cd-pwa-profile-proof.yml
- * runs on pull_request for the install-profile proof. Neither uses mise-action.
- * Both may restore the trunk mise tool cache and must not save it.
+ * runs on pull_request for the install-profile proof. cd-ghcr-publish.yml runs on
+ * push to main, v* tags, and workflow_dispatch. None of the three uses mise-action.
+ * Each may restore the trunk mise tool cache (GHCR: node and rust keys; PWA: the
+ * node key) and must not save it.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

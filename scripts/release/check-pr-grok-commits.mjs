@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { assertPrGrokCommits } from "../lib/pr-grok-commits.mjs";
+import { assertPrAgentAttribution } from "../lib/pr-agent-attribution.mjs";
+import { loadPrIntroducedCommits } from "../lib/pr-introduced-commits.mjs";
 
 const usage = "Usage: check-pr-grok-commits.mjs OWNER/REPO PR_NUMBER HEAD_SHA";
 
@@ -17,7 +18,6 @@ if (
 ) {
   throw new Error(usage);
 }
-const endpoint = `repos/${repository}/pulls/${number}`;
 function api(path, paginate = false) {
   return JSON.parse(
     execFileSync(
@@ -27,8 +27,13 @@ function api(path, paginate = false) {
     ),
   );
 }
-const commits = api(`${endpoint}/commits?per_page=100`, true).flat();
-assertPrGrokCommits(api(endpoint), commits, head);
+const { pr, commits, baseRef } = loadPrIntroducedCommits(
+  repository,
+  number,
+  head,
+  api,
+);
+assertPrAgentAttribution(pr, commits, head);
 console.log(
-  `Grok signed commits: ${commits.length} verified commits at ${head}`,
+  `Agent attribution: ${commits.length} verified commit(s) on ${baseRef}...${head}`,
 );

@@ -48,12 +48,22 @@ function runText(step) {
 }
 
 /**
- * PWA CD does not use mise-action. GitHub 504s on the action's jdx/mise
- * release metadata fetch. Those jobs install the pinned tarball instead.
- * Preview smoke also installs the locked Hurl used by the Pages checks.
+ * These CD workflows do not use mise-action. GitHub 504s on the action's
+ * jdx/mise release metadata fetch. Their jobs install the pinned tarball
+ * instead. PWA preview smoke also installs the locked Hurl used by the Pages
+ * checks; GHCR installs Node and Rust in separate jobs.
  */
-const lockedMiseWorkflows = new Set(["cd-pwa.yml", "cd-pwa-profile-proof.yml"]);
+const pwaLockedMiseWorkflows = new Set([
+  "cd-pwa.yml",
+  "cd-pwa-profile-proof.yml",
+]);
+const lockedMiseWorkflows = new Set([
+  "cd-ghcr-publish.yml",
+  ...pwaLockedMiseWorkflows,
+]);
 const lockedMiseBootstraps = new Set([
+  "bash scripts/lib/install-mise-locked.sh node",
+  "bash scripts/lib/install-mise-locked.sh rust",
   "bash scripts/lib/install-mise-locked.sh node@24",
   "bash scripts/lib/install-mise-locked.sh node@24 hurl@8.1.0",
 ]);
@@ -108,7 +118,12 @@ test("npm jobs install Node with the pinned mise-action", () => {
       parsedMise += miseAt.length;
       if (lockedBootstrap) {
         assert.equal(miseAt.length, 0, `${label} uses mise-action`);
-        if (npmAt >= 0 || nodeAt >= 0) {
+        // PWA CD runs every node step on the locked toolchain. GHCR runs its
+        // helper scripts on the runner's Node and only needs it for npm.
+        const needsLockedNode = pwaLockedMiseWorkflows.has(name)
+          ? npmAt >= 0 || nodeAt >= 0
+          : npmAt >= 0;
+        if (needsLockedNode) {
           assert.ok(
             bootstrapAt.length > 0,
             `${label} runs node without locked mise`,
@@ -197,7 +212,24 @@ test("npm jobs install Node with the pinned mise-action", () => {
     if (lockedBootstrap) {
       assert.equal(rawMise.length, 0, name);
       assert.equal(parsedMise, 0, name);
-      assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/u);
+      if (pwaLockedMiseWorkflows.has(name)) {
+        assert.match(
+          text,
+          /bash scripts\/lib\/install-mise-locked\.sh node@24/u,
+          name,
+        );
+      } else {
+        assert.match(
+          text,
+          /bash scripts\/lib\/install-mise-locked\.sh node\n/u,
+          name,
+        );
+        assert.match(
+          text,
+          /bash scripts\/lib\/install-mise-locked\.sh rust\n/u,
+          name,
+        );
+      }
     }
     assert.equal(rawMise.length, parsedMise, name);
     for (const line of rawMise) assert.match(line, miseLine, name);
@@ -205,7 +237,7 @@ test("npm jobs install Node with the pinned mise-action", () => {
 });
 
 test("PWA CD installs tools with the locked mise bootstrap, not mise-action", () => {
-  for (const name of lockedMiseWorkflows) {
+  for (const name of pwaLockedMiseWorkflows) {
     const text = readFileSync(join(workflowDir, name), "utf8");
     assert.doesNotMatch(text, /jdx\/mise-action/u, name);
     assert.doesNotMatch(text, /install_args:/u, name);
@@ -229,6 +261,17 @@ test("PWA CD installs tools with the locked mise bootstrap, not mise-action", ()
   assert.doesNotMatch(proof, /hurl@/u);
 });
 
+test("GHCR CD installs tools with the locked mise bootstrap, not mise-action", () => {
+  const text = readFileSync(join(workflowDir, "cd-ghcr-publish.yml"), "utf8");
+  assert.equal(lockedMiseWorkflows.has("cd-ghcr-publish.yml"), true);
+  assert.doesNotMatch(text, /jdx\/mise-action/u);
+  assert.doesNotMatch(text, /install_args:/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node\n/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh rust\n/u);
+  assert.doesNotMatch(text, /actions\/cache\/save@/u);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u);
+});
+
 function rustTokens(step) {
   if (step?.uses !== miseUses) return [];
   const args = readString(step.with?.install_args);
@@ -237,6 +280,9 @@ function rustTokens(step) {
 }
 
 function installsRust(step) {
+  if (runText(step).trim() === "bash scripts/lib/install-mise-locked.sh rust") {
+    return true;
+  }
   return rustTokens(step).some(
     (token) =>
       token === "rust" ||

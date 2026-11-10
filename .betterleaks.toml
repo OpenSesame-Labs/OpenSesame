@@ -135,15 +135,8 @@ paths = ['''^scripts/test/customer-vault-browser-checks\.mjs$''']
 regexes = ['''^shared operator browser fixture password$''']
 
 # ---------------------------------------------------------------------------
-# 5. Content digests and version strings that look like keys.
+# 5. Version strings that look like keys.
 # ---------------------------------------------------------------------------
-[[allowlists]]
-description = "SHA-256 file fingerprints in the exposure matrix (a regenerated digest map, JSON cannot carry a comment)"
-targetRules = ["generic-api-key"]
-condition = "AND"
-paths = ['''^tools/security/exposure-matrix\.json$''']
-regexes = ['''^[0-9a-f]{64}$''']
-
 [[allowlists]]
 description = "Dependency version in a generated mise lock (`'@inquirer/password': 4.0.23`)"
 targetRules = ["generic-password"]

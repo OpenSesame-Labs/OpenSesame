@@ -5,64 +5,64 @@ import { assertPrGrokCommits } from "./pr-grok-commits.mjs";
 
 const head = "a".repeat(40);
 
-function commit(sha, verified, name, email) {
+function commit(sha, verified, name, email, message) {
   return {
     sha,
     commit: {
       author: { name, email },
+      message: message ?? `headline\n\n${grokCoAuthorTrailer()}`,
       verification: { verified },
     },
   };
 }
 
-describe("assertPrGrokCommits", () => {
-  it("accepts verified Grok-authored commits", () => {
-    const commits = [commit(head, true, "Grok", "noreply@x.ai")];
-    expect(() =>
-      assertPrGrokCommits({ head: { sha: head }, commits: 1 }, commits, head),
-    ).not.toThrow();
-  });
-
-  it("accepts verified replay with Grok co-author trailer", () => {
+describe("assertPrGrokCommits (compat)", () => {
+  it("accepts verified Grok replay with co-author trailer", () => {
     const commits = [
-      {
-        sha: head,
-        commit: {
-          author: { name: "cursor[bot]", email: "noreply@cursor.com" },
-          message: `headline\n\n${grokCoAuthorTrailer()}`,
-          verification: { verified: true },
-        },
-      },
+      commit(
+        head,
+        true,
+        "cursor[bot]",
+        "206951365+cursor[bot]@users.noreply.github.com",
+      ),
     ];
     expect(() =>
-      assertPrGrokCommits({ head: { sha: head }, commits: 1 }, commits, head),
+      assertPrGrokCommits({ head: { sha: head } }, commits, head),
     ).not.toThrow();
   });
 
-  it("rejects verified commits without Grok attribution", () => {
-    const commits = [commit(head, true, "cursor[bot]", "noreply@cursor.com")];
+  it("accepts Claude without Grok trailer", () => {
+    const commits = [
+      commit(
+        head,
+        true,
+        "Claude",
+        "noreply@anthropic.com",
+        "fix\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+      ),
+    ];
     expect(() =>
-      assertPrGrokCommits({ head: { sha: head }, commits: 1 }, commits, head),
-    ).toThrow(/Grok-attributed commits required/);
-  });
-
-  it("rejects unsigned Grok author", () => {
-    const commits = [commit(head, false, "Grok", "noreply@x.ai")];
-    expect(() =>
-      assertPrGrokCommits({ head: { sha: head }, commits: 1 }, commits, head),
-    ).toThrow(/Verified signatures required/);
+      assertPrGrokCommits({ head: { sha: head } }, commits, head),
+    ).not.toThrow();
   });
 });
 
 describe("ci-grok-commits workflow", () => {
+  const workflow = readFileSync(
+    new URL("../../.github/workflows/ci-grok-commits.yml", import.meta.url),
+    "utf8",
+  );
+
   it("pins setup-node to the published v5.0.0 commit", () => {
-    const workflow = readFileSync(
-      new URL("../../.github/workflows/ci-grok-commits.yml", import.meta.url),
-      "utf8",
-    );
     expect(workflow).toContain(
       "actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
     );
-    expect(workflow).not.toContain("49933ea5286caeca1862841ea589338350501966");
+  });
+
+  it("keeps the live ruleset status context and runs agent attribution", () => {
+    expect(workflow).toMatch(/^name: Grok signed commits$/m);
+    expect(workflow).toMatch(/^ {4}name: Grok signed commits$/m);
+    expect(workflow).toContain("scripts/release/check-pr-grok-commits.mjs");
+    expect(workflow).not.toContain("name: Agent attribution");
   });
 });
