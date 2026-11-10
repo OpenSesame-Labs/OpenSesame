@@ -17,8 +17,8 @@
   },
   "totals": {
     "files": 442,
-    "violations": 708,
-    "oversizedLines": 217265
+    "violations": 703,
+    "oversizedLines": 215282
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -111,7 +111,7 @@
       "max-lines-per-function": 1
     },
     "apps/pages/src/screens/UnlockScreen.test.tsx": {
-      "max-lines": 1291
+      "max-lines": 1282
     },
     "apps/pages/src/screens/UnlockScreen.tsx": {
       "complexity": 1,
@@ -233,7 +233,6 @@
       "complexity": 1
     },
     "apps/pages/src/sections/vault/VaultTree.tsx": {
-      "max-lines": 401,
       "max-lines-per-function": 1
     },
     "apps/pages/src/tutorial/__tests__/a11y/stylesheet-contract.test.ts": {
@@ -241,14 +240,14 @@
     },
     "apps/pages/src/tutorial/session.ts": {
       "complexity": 1,
-      "max-lines": 664,
+      "max-lines": 660,
       "max-lines-per-function": 1
     },
     "apps/pages/src/tutorial/ui/SupportPanel.tsx": {
       "max-lines-per-function": 1
     },
     "apps/pages/src/tutorial/ui/support.test.tsx": {
-      "max-lines": 519
+      "max-lines": 469
     },
     "crates/agent-events/src/lib.rs": {
       "max-lines": 493
@@ -365,10 +364,10 @@
       "max-lines": 754
     },
     "crates/gateway/src/cert_issuers/acme.rs": {
-      "max-lines": 739
+      "max-lines": 461
     },
     "crates/gateway/src/cert_issuers/model.rs": {
-      "max-lines": 721
+      "max-lines": 459
     },
     "crates/gateway/src/cert_issuers/registry.rs": {
       "max-lines": 493
@@ -467,13 +466,13 @@
       "max-lines": 510
     },
     "crates/pki-core/src/ca.rs": {
-      "max-lines": 477
+      "max-lines": 474
     },
     "crates/pki-core/src/policy.rs": {
       "max-lines": 1606
     },
     "crates/pki-core/src/revocation.rs": {
-      "max-lines": 1260
+      "max-lines": 1131
     },
     "crates/pki-core/src/types.rs": {
       "max-lines": 915
@@ -497,7 +496,7 @@
       "max-lines": 656
     },
     "crates/provider-bitwarden/src/crypto.rs": {
-      "max-lines": 795
+      "max-lines": 490
     },
     "crates/provider-bitwarden/src/vault.rs": {
       "max-lines": 520
@@ -790,7 +789,7 @@
       "max-lines-per-function": 1
     },
     "packages/cli/src/commands.test.ts": {
-      "max-lines": 778
+      "max-lines": 728
     },
     "packages/cli/src/parse.ts": {
       "complexity": 1,
@@ -798,7 +797,7 @@
     },
     "packages/cli/src/run.ts": {
       "complexity": 1,
-      "max-lines": 527,
+      "max-lines": 475,
       "max-lines-per-function": 1,
       "max-statements": 1
     },
@@ -837,7 +836,7 @@
       "max-lines": 535
     },
     "packages/control-plane/src/__tests__/identity-link.units.test.ts": {
-      "max-lines": 844
+      "max-lines": 765
     },
     "packages/control-plane/src/__tests__/interaction-handoff.test.ts": {
       "max-lines": 867
@@ -897,7 +896,7 @@
       "max-lines": 458
     },
     "packages/control-plane/src/__tests__/saml-sp.test.ts": {
-      "max-lines": 563
+      "max-lines": 466
     },
     "packages/control-plane/src/__tests__/scim.test.ts": {
       "max-lines": 615
@@ -920,7 +919,7 @@
       "max-lines": 455
     },
     "packages/control-plane/src/interactions/federated.ts": {
-      "max-lines": 809
+      "max-lines": 710
     },
     "packages/control-plane/src/interactions/handlers.ts": {
       "complexity": 3,
@@ -982,8 +981,7 @@
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/routes/federated-session.ts": {
-      "complexity": 1,
-      "max-lines-per-function": 2
+      "complexity": 1
     },
     "packages/control-plane/src/routes/interaction-activation-totp.ts": {
       "complexity": 1
@@ -1060,13 +1058,13 @@
     },
     "packages/control-plane/src/routes/organizations.ts": {
       "complexity": 1,
-      "max-lines": 990,
-      "max-lines-per-function": 2
+      "max-lines": 974,
+      "max-lines-per-function": 1
     },
     "packages/control-plane/src/routes/principals.ts": {
       "complexity": 2,
-      "max-lines": 795,
-      "max-lines-per-function": 4
+      "max-lines": 667,
+      "max-lines-per-function": 3
     },
     "packages/control-plane/src/routes/projects.ts": {
       "complexity": 1,
@@ -1091,7 +1089,7 @@
     },
     "packages/control-plane/src/services/agent-auth.ts": {
       "complexity": 1,
-      "max-lines": 655,
+      "max-lines": 636,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/app-claim.ts": {
@@ -1151,7 +1149,7 @@
     },
     "packages/database/src/repos/postgres.ts": {
       "complexity": 1,
-      "max-lines": 2656
+      "max-lines": 2654
     },
     "packages/database/src/repos/sealed-secrets-sweep.ts": {
       "complexity": 1
