@@ -320,6 +320,9 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
+      - name: CLI shrinkwrap matches publish manifest
+        if: matrix.name == 'cli'
+        run: node scripts/release/cli-shrinkwrap.mjs check
       - name: Check Dockerfile
         id: dockerfile
         run: |
