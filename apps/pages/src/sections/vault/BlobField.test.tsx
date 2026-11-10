@@ -1,10 +1,12 @@
 /** @vitest-environment jsdom */
+import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { BlobInput } from "./BlobField.js";
 
 afterEach(() => {
   cleanup();
+  clearNotices();
 });
 
 describe("BlobInput", () => {
@@ -17,9 +19,19 @@ describe("BlobInput", () => {
     fireEvent.change(picker, {
       target: { files: [new File(["x"], "x.txt")] },
     });
-    expect(screen.getByRole("alert").textContent).toContain(
-      "cannot store file attachments",
-    );
+    // The failure is a mark on the field and a notice in the tray, never
+    // an alert drawn in the page.
+    expect(
+      screen.getByRole("img", { name: /cannot store file attachments/ }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      listNotices().some(
+        (notice) =>
+          notice.id === "file-field:bytes" &&
+          notice.body.includes("cannot store file attachments"),
+      ),
+    ).toBe(true);
   });
 
   it("offers Choose file and keeps the picker out of tab order", () => {
