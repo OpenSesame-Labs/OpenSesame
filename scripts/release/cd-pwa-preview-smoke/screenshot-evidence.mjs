@@ -36,7 +36,8 @@ async function loadFindChromium(repoRoot) {
   return mod.findChromium;
 }
 
-export async function captureLiveSmokeEvidence(env, deps = {}) {
+/** Validated inputs: Pages base, release sha, output and repository roots. */
+function readCaptureInputs(env) {
   const pagesBase = normalizePagesBase(env.PAGES_URL);
   const sha = readString(env.GITHUB_SHA);
   if (sha === undefined || !/^[0-9a-f]{40}$/u.test(sha)) {
@@ -48,6 +49,69 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
   }
   const outRoot = resolve(outRaw);
   const repoRoot = resolve(readString(env.GITHUB_WORKSPACE) ?? process.cwd());
+  return { pagesBase, sha, outRoot, repoRoot };
+}
+
+/** Front door: "Set up your own" is visible and no guest road is offered. */
+async function captureFrontDoor(page, outRoot) {
+  const setupOwn = page.getByRole("button", {
+    name: "Set up your own",
+    exact: true,
+  });
+  await setupOwn.waitFor({ state: "visible", timeout: 20_000 });
+  const frontPath = join(outRoot, "live-front-door.png");
+  await page.screenshot({ path: frontPath, animations: "disabled" });
+
+  const guestOnDoor = await page
+    .getByRole("button", { name: "Continue as guest", exact: true })
+    .count();
+  if (guestOnDoor !== 0) {
+    throw new Error("live front door must not offer Continue as guest");
+  }
+  return { setupOwn, frontPath };
+}
+
+/** Setup choices: Minimal and Full are both offered after "Set up your own". */
+async function captureSetupChoices(page, setupOwn, outRoot) {
+  await setupOwn.click();
+  await page
+    .getByRole("button", { name: "Minimal", exact: true })
+    .waitFor({ state: "visible", timeout: 15_000 });
+  const fullChoice = page.getByRole("button", { name: "Full", exact: true });
+  await fullChoice.waitFor({ state: "visible", timeout: 15_000 });
+  const choicesPath = join(outRoot, "live-setup-choices-full.png");
+  await page.screenshot({ path: choicesPath, animations: "disabled" });
+
+  const fullCount = await fullChoice.count();
+  if (fullCount !== 1) {
+    throw new Error("Full install profile choice missing on live Pages");
+  }
+  return { fullChoice, choicesPath };
+}
+
+/** Full profile sign-in: no guest button, and the no-account road is there. */
+async function captureFullSignInRoad(page, fullChoice, outRoot) {
+  await fullChoice.click();
+  await page
+    .getByRole("heading", { level: 1, name: "Sign in" })
+    .waitFor({ state: "visible", timeout: 20_000 });
+  const guestContinue = await page
+    .getByRole("button", { name: "Continue as guest", exact: true })
+    .count();
+  if (guestContinue !== 0) {
+    throw new Error("Full profile sign-in must not offer Continue as guest");
+  }
+  const withoutAccount = await page.getByText("Use without an account").count();
+  if (withoutAccount === 0) {
+    throw new Error("Full profile sign-in road missing on live Pages");
+  }
+  const guestPath = join(outRoot, "live-full-sign-in-road.png");
+  await page.screenshot({ path: guestPath, animations: "disabled" });
+  return guestPath;
+}
+
+export async function captureLiveSmokeEvidence(env, deps = {}) {
+  const { pagesBase, sha, outRoot, repoRoot } = readCaptureInputs(env);
   const findChromium = deps.findChromium ?? (await loadFindChromium(repoRoot));
   if (deps.launchHeadlessPlaywright === undefined) {
     const discovery = findChromium();
@@ -78,53 +142,13 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
       waitUntil: "load",
       timeout: 45_000,
     });
-    const setupOwn = page.getByRole("button", {
-      name: "Set up your own",
-      exact: true,
-    });
-    await setupOwn.waitFor({ state: "visible", timeout: 20_000 });
-    const frontPath = join(outRoot, "live-front-door.png");
-    await page.screenshot({ path: frontPath, animations: "disabled" });
-
-    const guestOnDoor = await page
-      .getByRole("button", { name: "Continue as guest", exact: true })
-      .count();
-    if (guestOnDoor !== 0) {
-      throw new Error("live front door must not offer Continue as guest");
-    }
-
-    await setupOwn.click();
-    await page
-      .getByRole("button", { name: "Minimal", exact: true })
-      .waitFor({ state: "visible", timeout: 15_000 });
-    const fullChoice = page.getByRole("button", { name: "Full", exact: true });
-    await fullChoice.waitFor({ state: "visible", timeout: 15_000 });
-    const choicesPath = join(outRoot, "live-setup-choices-full.png");
-    await page.screenshot({ path: choicesPath, animations: "disabled" });
-
-    const fullCount = await fullChoice.count();
-    if (fullCount !== 1) {
-      throw new Error("Full install profile choice missing on live Pages");
-    }
-
-    await fullChoice.click();
-    await page
-      .getByRole("heading", { level: 1, name: "Sign in" })
-      .waitFor({ state: "visible", timeout: 20_000 });
-    const guestContinue = await page
-      .getByRole("button", { name: "Continue as guest", exact: true })
-      .count();
-    if (guestContinue !== 0) {
-      throw new Error("Full profile sign-in must not offer Continue as guest");
-    }
-    const withoutAccount = await page
-      .getByText("Use without an account")
-      .count();
-    if (withoutAccount === 0) {
-      throw new Error("Full profile sign-in road missing on live Pages");
-    }
-    const guestPath = join(outRoot, "live-full-sign-in-road.png");
-    await page.screenshot({ path: guestPath, animations: "disabled" });
+    const { setupOwn, frontPath } = await captureFrontDoor(page, outRoot);
+    const { fullChoice, choicesPath } = await captureSetupChoices(
+      page,
+      setupOwn,
+      outRoot,
+    );
+    const guestPath = await captureFullSignInRoad(page, fullChoice, outRoot);
 
     const manifest = {
       format: "cd-pwa-preview-smoke-evidence",

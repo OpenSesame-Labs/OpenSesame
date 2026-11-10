@@ -21,6 +21,7 @@ on:
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-resolve-main-ci-run.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
+      - "scripts/release/cd-preview-smoke-registry.mjs"
       - "scripts/release/cd-pwa-preview-smoke/**"
       - "scripts/release/cd-registry-wait.mjs"
       - "scripts/release/cd-production-npm-version.mjs"

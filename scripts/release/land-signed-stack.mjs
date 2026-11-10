@@ -135,6 +135,14 @@ function apply({ repo, base, suffix }, plan) {
   return created;
 }
 
+/** `(reason; Name <email>)` suffix of one verification readback line. */
+function verificationDetail(commit) {
+  const reason = commit.verification?.reason ?? "no reason";
+  const name = commit.author?.name ?? "?";
+  const email = commit.author?.email ?? "?";
+  return `(${reason}; ${name} <${email}>)`;
+}
+
 function verify(repo, created) {
   let failed = 0;
   for (const { branch, oid, local } of created) {
@@ -145,7 +153,7 @@ function verify(repo, created) {
     const attributed = commitHasRecognizedAttribution({ sha: oid, commit });
     if (!verified || !sameTree || !attributed) failed += 1;
     console.log(
-      `${verified ? "verified  " : "UNVERIFIED"} ${sameTree ? "tree ok " : "TREE DIFFERS"} ${attributed ? "attributed" : "NO ATTRIB"} ${oid} ${branch} (${commit.verification?.reason ?? "no reason"}; ${commit.author?.name ?? "?"} <${commit.author?.email ?? "?"}>)`,
+      `${verified ? "verified  " : "UNVERIFIED"} ${sameTree ? "tree ok " : "TREE DIFFERS"} ${attributed ? "attributed" : "NO ATTRIB"} ${oid} ${branch} ${verificationDetail(commit)}`,
     );
   }
   return failed;
