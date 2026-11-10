@@ -26,6 +26,7 @@ export function stubSupportController(
   const listeners = new Set<() => void>();
   const started: StartedGuide[] = [];
   const opened: (SupportTab | undefined)[] = [];
+  const stops = { count: 0 };
   const nothing = () => undefined;
   const support: SupportController = {
     subscribe(listener) {
@@ -48,13 +49,16 @@ export function stubSupportController(
     answerFromAuthoredHelp: nothing,
     startGuide: (source, origin) => {
       started.push({ source, origin });
-      return Promise.resolve();
+      // A tour runs until the person ends it; the suite ends first.
+      return new Promise<void>(() => undefined);
     },
     pauseGuide: nothing,
     nextStep: nothing,
     backStep: nothing,
     replayGuide: nothing,
-    stopGuide: nothing,
+    stopGuide: () => {
+      stops.count += 1;
+    },
     lock: nothing,
     destroy: nothing,
   };
@@ -64,6 +68,8 @@ export function stubSupportController(
     started,
     /** Every tab the component opened the sheet on, in order. */
     opened,
+    /** How many times the component left a tour. */
+    stops,
     /** Change the view and tell the component, as the controller would. */
     set(patch: Partial<SupportView>): void {
       view = { ...view, ...patch };

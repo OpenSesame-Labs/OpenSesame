@@ -27,7 +27,7 @@ import {
 } from "@opensesame/app-core/lib/guidance.js";
 import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
@@ -74,6 +74,26 @@ export function FirstVisitOffer(): null {
       ? "offer"
       : guidance.mode;
 
+  // A tour this component asked for that has not appeared yet. The engine is
+  // fetched on first use, so on a cold load the person can have moved on by
+  // the time it arrives; the answer is recorded, or the tour stopped, when
+  // it does (below), never at the moment it was asked for.
+  const asked = useRef<{ route: string; goal: string } | null>(null);
+  const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
+  useEffect(() => {
+    const pending = asked.current;
+    if (pending === null || running !== pending.goal) return;
+    asked.current = null;
+    if (pending.route !== route || mode !== "auto") {
+      // It was started for a screen the person has left, or tours were
+      // switched off meanwhile: it does not start over the wrong controls.
+      support.stopGuide();
+      return;
+    }
+    noteScreenAnswered(pending.route);
+    rememberTourAnswered(pending.goal);
+  }, [running, route, mode, support]);
+
   useEffect(() => {
     if (mode === "off" || !idle) return;
     let shown: string | null = null;
@@ -98,7 +118,13 @@ export function FirstVisitOffer(): null {
         void support.startGuide(goal.guide, "authored");
       };
       if (mode === "auto") {
-        start();
+        if (asked.current !== null) return;
+        const pending = { route, goal: goal.id };
+        asked.current = pending;
+        void support.startGuide(goal.guide, "authored").finally(() => {
+          // Ended, or never began: nothing is owed to it any more.
+          if (asked.current === pending) asked.current = null;
+        });
         return;
       }
       shown = offerId(goal.id);

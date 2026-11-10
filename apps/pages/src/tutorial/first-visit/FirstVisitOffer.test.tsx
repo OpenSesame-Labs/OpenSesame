@@ -11,6 +11,7 @@ import {
   subscribeToastHides,
   subscribeToasts,
 } from "@opensesame/app-core/lib/notice-toast.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupportController, SupportView } from "../session.js";
@@ -32,6 +33,30 @@ let stored: string | null = null;
 let shown: ToastMessage[] = [];
 let hidden: string[] = [];
 let stops: (() => void)[] = [];
+
+/** The runtime's snapshot while a tour for `goal` is on its first step. */
+function touring(goal: string): GuideRuntimeSnapshot {
+  return {
+    status: "running",
+    goal,
+    index: 0,
+    total: 1,
+    runId: 1,
+    message: null,
+    error: null,
+    tour: {
+      step: 1,
+      count: 1,
+      kind: "narrate",
+      message: "This is the first step.",
+      target: null,
+      side: null,
+      action: false,
+      degraded: false,
+      canBack: false,
+    },
+  };
+}
 
 const controller = (initial: Partial<SupportView> = {}) =>
   stubSupportController("/settings/danger", initial);
@@ -235,14 +260,42 @@ describe("the first-visit offer", () => {
     expect(started).toHaveLength(1);
   });
 
-  it("starts the tour itself in auto mode", () => {
+  it("records an automatic tour as answered once it is on screen", () => {
     setGuidanceMode("auto");
-    const { support, started } = controller();
+    const { support, started, set, stops } = controller();
     mount(support);
     settle();
     expect(shown).toHaveLength(0);
     expect(started).toHaveLength(1);
+    // Asked for, not yet shown: the engine is still on its way.
+    expect(loadGuidance().tours).toEqual([]);
+    act(() => set({ guide: touring("settings.danger.review") }));
     expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
+    expect(stops.count).toBe(0);
+  });
+
+  it("stops an automatic tour that arrives after the person moved on", () => {
+    setGuidanceMode("auto");
+    const { support, started, set, stops } = controller();
+    mount(support);
+    settle();
+    expect(started).toHaveLength(1);
+    // A cold load: the person leaves before the engine has the tour ready.
+    act(() => set({ route: "/nowhere" }));
+    act(() => set({ guide: touring("settings.danger.review") }));
+    expect(stops.count).toBe(1);
+    // It was never seen, so it is still owed to its own screen.
+    expect(loadGuidance().tours).toEqual([]);
+  });
+
+  it("leaves alone a tour the person started some other way", () => {
+    setGuidanceMode("auto");
+    const { support, set, stops } = controller();
+    mount(support);
+    settle();
+    act(() => set({ route: "/nowhere" }));
+    act(() => set({ guide: touring("vault.lock") }));
+    expect(stops.count).toBe(0);
   });
 
   it("counts steps in plain words", () => {

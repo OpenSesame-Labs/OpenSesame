@@ -31,10 +31,17 @@ export function accountSecretToCopy(item: AccountItem): string | null {
 }
 
 /**
- * A password reached the clipboard. That is the moment autofill would have
- * saved the trip, so it is said to the recommender (ADR 0221); a copy that
- * failed says nothing.
+ * What to do once an account's copy lands. Where the copy put out the
+ * account's password, that is the moment autofill would have saved the trip,
+ * so it is said to the recommender (ADR 0221). A copy that failed says
+ * nothing, and neither does one that fell back to an API key or token, which
+ * autofill does not fill.
  */
-export function passwordCopied(result: string): void {
-  if (result === "copied") signalRecommendation("password.copied");
+export function accountCopied(item: AccountItem): (result: string) => void {
+  const password = handoff(produceAccountPassword(item)) !== null;
+  return (result) => {
+    if (password && result === "copied") {
+      signalRecommendation("password.copied");
+    }
+  };
 }

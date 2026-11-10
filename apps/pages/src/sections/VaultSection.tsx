@@ -28,7 +28,7 @@ import { AscendProvider, usePaneTrail } from "../lib/pane-trail.js";
 import { useNarrow } from "../lib/use-narrow.js";
 import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
-import { accountSecretToCopy, passwordCopied } from "./vault/account-copy.js";
+import { accountCopied, accountSecretToCopy } from "./vault/account-copy.js";
 import { credentialChoices } from "./vault/account-credentials.js";
 import { FirstItemOffer } from "./vault/FirstItemOffer.js";
 import { LiveSessionBanner } from "./vault/LiveSessionBanner.js";
@@ -154,7 +154,7 @@ export function VaultSection() {
       copySecret: (item: VaultItem) => {
         if (item.kind === "account") {
           const value = accountSecretToCopy(item);
-          if (value) void copySecret(value).then(passwordCopied);
+          if (value) void copySecret(value).then(accountCopied(item));
           return;
         }
         const value = concealedValue(item);
