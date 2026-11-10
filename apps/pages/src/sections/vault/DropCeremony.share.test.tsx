@@ -25,6 +25,11 @@ describe("share ceremony on an item", () => {
     expect(screen.queryByRole("checkbox", { name: /Keep a copy/ })).toBeNull();
     expect(screen.getByText("Any browser with the link and code")).toBeTruthy();
     expect(screen.queryByText(/Only this browser can open/)).toBeNull();
+    // The limits are stated before the person seals, not only after.
+    expect(
+      screen.getByText("A saved link and code still open it"),
+    ).toBeTruthy();
+    expect(screen.getByText("Not possible")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: /Seal and share/i }));
     await screen.findByText("Drop ready");
@@ -42,7 +47,7 @@ describe("share ceremony on an item", () => {
     expect(expiryRow()).not.toMatch(/left/);
     // What a portable copy cannot do is stated as facts beside its expiry.
     expect(ready.textContent).toMatch(
-      /After expiry\s*A saved link still opens/,
+      /After expiry\s*A saved link and code still open it/,
     );
     expect(ready.textContent).toMatch(/Revoke\s*Not possible/);
     expect(ready.querySelector("p.hint")).toBeNull();

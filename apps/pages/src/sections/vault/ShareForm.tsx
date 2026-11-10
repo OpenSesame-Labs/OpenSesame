@@ -71,7 +71,9 @@ export function ShareForm({
       {portable ? (
         <>
           <FieldRow label="After expiry">
-            <span className="frow__value">A saved link still opens</span>
+            <span className="frow__value">
+              A saved link and code still open it
+            </span>
           </FieldRow>
           <FieldRow label="Revoke">
             <span className="frow__value">Not possible</span>

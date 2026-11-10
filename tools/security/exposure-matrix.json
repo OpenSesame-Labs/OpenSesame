@@ -715,7 +715,7 @@
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx",
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy."
     },
     {
       "id": "local-vault-activation",
@@ -2141,24 +2141,24 @@
       "861f7c81"
     ],
     "apps/pages/src/sections/access/SentDropsPanel.test.tsx": [
-      "a02d7062",
-      "071941ac",
-      "22ca173c",
-      "8fa5a3d4",
-      "0e4868a3",
-      "407c4cf1",
-      "98e4e42b",
-      "a9bee361"
+      "45bf07ac",
+      "97e60e17",
+      "d400af23",
+      "00a25fad",
+      "edf594dc",
+      "a8291386",
+      "0d7fab85",
+      "f08af2d5"
     ],
     "apps/pages/src/sections/access/SentDropsPanel.tsx": [
-      "5039ac2a",
-      "42dddd83",
-      "8e4cedaf",
-      "8a8db702",
-      "8575ebe3",
-      "37c35314",
-      "12c5ce64",
-      "d90d4b30"
+      "0f78efa6",
+      "fe898881",
+      "e530ccfa",
+      "26026734",
+      "4caa75ca",
+      "b2f6729e",
+      "1affd5de",
+      "99dbd308"
     ],
     "apps/pages/src/sections/vault/DropTtl.tsx": [
       "41c68515",
@@ -2171,24 +2171,24 @@
       "f09d1892"
     ],
     "apps/pages/src/sections/vault/ShareForm.tsx": [
-      "1638deff",
-      "adc57b7b",
-      "795db243",
-      "fccf243e",
-      "c160a4bb",
-      "e0fa13de",
-      "1b7fce93",
-      "ad1de81f"
+      "eb0dc4f0",
+      "8e7ec313",
+      "57677d50",
+      "4e0b6f72",
+      "85220648",
+      "c8e0b5f6",
+      "87362f5d",
+      "c1752a61"
     ],
     "apps/pages/src/sections/vault/drop-card-fields.tsx": [
-      "ae46cc5b",
-      "49e03548",
-      "842ae9fb",
-      "98011858",
-      "63a6bec5",
-      "7777a109",
-      "0126e4ff",
-      "9ca5e3f1"
+      "4771ed28",
+      "fa67439a",
+      "cf08cd7f",
+      "fa0060f6",
+      "0346681d",
+      "bb4a8834",
+      "c0cad989",
+      "4b7a42ef"
     ],
     "crates/bitwarden-server/src/auth.rs": [
       "7b6403f4",
