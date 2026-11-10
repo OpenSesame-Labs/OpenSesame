@@ -394,6 +394,9 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
   assert.match(wait, /registryBudget/);
   const prepare = read("scripts/release/prepare-cli-release.mjs");
   assert.match(prepare, /!dist\/\*\*\/\*\.map/);
+  assert.match(prepare, /cliPublishDependencies/);
+  const ghcr = read(".github/workflows/cd-ghcr-publish.yml");
+  assert.match(ghcr, /cli-shrinkwrap\.mjs check/);
   const build = read("packages/cli/scripts/build.mjs");
   assert.match(build, /CLI_RELEASE_PACK === "1"/);
   assert.match(build, /sourcemap: !releasePack/);

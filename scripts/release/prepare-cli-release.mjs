@@ -15,11 +15,44 @@ import {
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readString } from "../lib/json-boundary.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const cliRoot = join(root, "packages/cli");
 const releaseDir = join(cliRoot, "release");
+
+/** Dependencies copied into the npm publish manifest (and CLI image shrinkwrap). */
+export function cliPublishDependencies(manifest) {
+  const typesNode = readString(manifest.devDependencies?.["@types/node"]);
+  const agentBrowser = readString(manifest.dependencies?.["agent-browser"]);
+  if (typesNode === undefined || agentBrowser === undefined) {
+    throw new Error(
+      "packages/cli package.json must declare @types/node (dev) and agent-browser",
+    );
+  }
+  return {
+    "@types/node": typesNode,
+    "agent-browser": agentBrowser,
+  };
+}
+
+export function buildCliPublishManifest(manifest, version) {
+  return {
+    name: NPM_PUBLISH.cli.name,
+    version,
+    type: "module",
+    description: manifest.description,
+    bin: NPM_PUBLISH.cli.bin,
+    exports: manifest.exports,
+    files: ["dist", "!dist/**/*.map"],
+    engines: { node: ">=24" },
+    publishConfig: { access: "public", provenance: true },
+    repository: manifest.repository,
+    license: manifest.license,
+    dependencies: cliPublishDependencies(manifest),
+  };
+}
 
 /**
  * Unpacked release dist/ ceiling.
@@ -79,23 +112,7 @@ export async function stageCliRelease(version) {
   await assertCliReleaseDistBudget(
     await directoryBytes(join(releaseDir, "dist")),
   );
-  const publishManifest = {
-    name: NPM_PUBLISH.cli.name,
-    version,
-    type: "module",
-    description: manifest.description,
-    bin: NPM_PUBLISH.cli.bin,
-    exports: manifest.exports,
-    files: ["dist", "!dist/**/*.map"],
-    engines: { node: ">=24" },
-    publishConfig: { access: "public", provenance: true },
-    repository: manifest.repository,
-    license: manifest.license,
-    dependencies: {
-      "@types/node": manifest.devDependencies["@types/node"],
-      "agent-browser": manifest.dependencies["agent-browser"],
-    },
-  };
+  const publishManifest = buildCliPublishManifest(manifest, version);
   await writeFile(
     join(releaseDir, "package.json"),
     `${JSON.stringify(publishManifest, null, 2)}\n`,
