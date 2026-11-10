@@ -89,10 +89,14 @@ with truthful answers and evidence. Useful starting evidence is:
 | Security design and analysis | [Security index](README.md), threat models, audit history and scanner gates |
 | Build, testing and release integrity | [Contributor verification](../../AGENTS.md#8-verification-expectations), pinned workflows and [release guide](../operators/release-kit.md) |
 
-On 2026-10-26, the authenticated Scorecard reported a Best-Practices check
-score of 2 and an in-progress assessment. Check the current Best Practices
-assessment and complete its criteria before claiming a passing badge. No
-passing certification or unverified badge ID is asserted here.
+The existing assessment is
+[project 15954](https://www.bestpractices.dev/projects/15954) (93% of
+Passing on 2026-11-09), but it is registered against the pre-transfer
+repository URL, so the public Scorecard lookup for this repository finds
+nothing and scores 0. Updating the project's `repo_url`/`homepage_url`
+and finishing the remaining Passing criteria is tracked in
+[the badge answer preparation](../contributing/best-practices-badge.md).
+No passing certification is asserted until bestpractices.dev reports it.
 
 ## Other low checks
 
@@ -102,8 +106,8 @@ passing certification or unverified badge ID is asserted here.
 | Pinned-Dependencies | Pin public Rust, Debian, Node and OSS-Fuzz images by verified digest; replace mutable Grok/Cursor installers with versioned SHA-256 checked artifacts and lock Kimi's npm dependency inventory. OSS Verify's base is supplied by its external local-builder framework, not a public registry tag to which a fabricated digest can be attached. |
 | Security-Policy | Add the direct private-report URL. GitHub confirms private vulnerability reporting is enabled. |
 | Code-Review | GitHub accepted a real Copilot review request. It does not create a second human maintainer or guarantee an approving review. Do not manufacture review records to change the score. |
-| Branch-Protection | Reconcile the checked-in policy with GitHub's native merge queue on the organization default branch (`strict_required_status_checks_policy` off; `merge_group` checks match the three required Actions contexts). Existing signatures, checks, resolved threads and force-push/deletion protection remain. Applying release-tag protection returns HTTP 403 to this integration. The release environment proposal retains owner review and no admin bypass, and allows only main because immutable promotion runs from that controller branch. Tag protection remains separate. Activation remains blocked by HTTP 403 because this integration lacks Environment/Administration write access. |
-| Binary-Artifacts | Retain the required Gradle wrapper bootstrap. Its SHA-256 matches the official Gradle 8.13 wrapper checksum, and the downloaded distribution has a checked-in checksum. A regression test rejects changed bootstrap bytes. This verifies artifact identity, not absence of implementation vulnerabilities, and does not pretend the bootstrap is source text. |
+| Branch-Protection | The checked-in policy (`ops/github/default-branch.json`) requires two approving reviews, code-owner review, last-push approval, stale-review dismissal, resolved threads, and the squash merge queue, alongside signatures and force-push/deletion protection. Strict up-to-date status checks stay off: the merge queue rebuilds each entry against `main` (`docs/contributing/merge-queue.md`). The only bypass actor is the repository admin, and only in pull-request mode, so a stolen admin credential cannot push directly to the default branch. Dependabot has no ruleset bypass; its updates are ordinary pull requests. The release environment remains separate, with owner review and no admin bypass. |
+| Binary-Artifacts | No checked-in binaries. The Gradle wrapper jar was replaced by a text launcher (`gradlew`) that requires Gradle 8.13 on `PATH` and delegates to the Android project; CI already invokes `gradle` directly. A governance test asserts the wrapper jar stays absent. |
 | Maintained / Contributors | Project age and independent contributor diversity require real time and contributions; do not create artificial activity or identities for the score. |
 
 The separate native WASM compiler also required Go 1.27.3 for the new
@@ -128,3 +132,4 @@ native identity modes refuse the legacy OAuth path, and an image response
 rejected before text streaming takes custody remains untouched for its owner.
 Updated tests preserve those security properties and explicitly check that no
 body reader is acquired or cancelled before the owner performs cleanup.
+

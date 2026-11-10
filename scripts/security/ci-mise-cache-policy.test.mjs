@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import * as nodeTest from "node:test";
+import { test } from "node:test";
 import {
   miseCacheDisabledForWorkflow,
   workflowsWithMiseCacheDisabled,
 } from "./ci-mise-cache-policy.mjs";
-
-const { test } =
-  process.env.VITEST === "true" ? await import("vitest") : nodeTest;
 
 const workflowDir = join(import.meta.dirname, "../../.github/workflows");
 /** actions/cache v6.1.0. Restore and save use the same commit. */
@@ -37,33 +34,64 @@ test("privileged workflow list matches workflow_call and release filenames", () 
   assert.ok(disabled.includes("ci-prerelease-checks.yml"));
   assert.ok(disabled.includes("cd-pwa.yml"));
   assert.ok(disabled.includes("cd-npm-cli.yml"));
+  assert.ok(disabled.includes("cd-ghcr-publish.yml"));
   assert.ok(!disabled.includes("ci.yml"));
   assert.ok(!disabled.includes("cd-npm-publish-proof.yml"));
 });
 
-const miseRestoreKey =
+const nodeMiseRestoreKey =
   "key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+const rustMiseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-rust-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+
+// Workflows that restore the trunk mise tool cache read-only, and the tools
+// each restores. GHCR restores Node and Rust once each; PWA CD and the npm CLI
+// restore Node in every job that needs it.
+const readOnlyMiseRestore = new Map([
+  ["cd-ghcr-publish.yml", { tools: ["node", "rust"], once: true }],
+  ["cd-npm-cli.yml", { tools: ["node"], once: false }],
+  ["cd-pwa.yml", { tools: ["node"], once: false }],
+  ["cd-pwa-profile-proof.yml", { tools: ["node"], once: false }],
+]);
 
 function assertReadOnlyMiseRestore(name, text) {
+  const expected = readOnlyMiseRestore.get(name);
   const steps = text.split(/\n {6}- /u);
-  let restores = 0;
+  const tools = [];
   for (const step of steps) {
     if (!step.includes("actions/cache")) continue;
-    restores += 1;
+    const tool = step.includes(rustMiseRestoreKey)
+      ? "rust"
+      : step.includes(nodeMiseRestoreKey)
+        ? "node"
+        : "";
+    assert.ok(tool === "node" || tool === "rust", name);
+    assert.ok(expected.tools.includes(tool), `${name} restores ${tool}`);
+    tools.push(tool);
     assert.ok(
       step.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
       name,
     );
     assert.ok(step.includes("path: ~/.local/share/mise\n"), name);
-    assert.ok(step.includes(`${miseRestoreKey}\n`), name);
     assert.ok(
-      step.includes("mise-v2-${{ runner.os }}-seed-main-node-\n"),
+      step.includes(`mise-v2-\${{ runner.os }}-seed-main-${tool}-\n`),
       name,
     );
     assert.ok(step.includes("mise-v1-linux-"), name);
+    const other = tool === "node" ? "rust" : "node";
+    assert.equal(step.includes(`-seed-main-${other}-`), false, name);
     assert.equal(step.includes("actions/cache/save@"), false, name);
   }
-  assert.ok(restores > 0, name);
+  assert.ok(tools.length > 0, name);
+  if (expected.once) {
+    assert.deepEqual(tools.sort(), [...expected.tools].sort(), name);
+  } else {
+    assert.deepEqual(
+      [...new Set(tools)].sort(),
+      [...expected.tools].sort(),
+      name,
+    );
+  }
   assert.equal(text.includes("actions/cache/save@"), false, name);
   assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
 }
@@ -72,13 +100,14 @@ test("privileged workflows do not save Actions caches", () => {
   const disabled = workflowsWithMiseCacheDisabled();
   assert.ok(disabled.length > 0);
   const ci = readFileSync(join(workflowDir, "ci.yml"), "utf8");
-  assert.ok(ci.includes(miseRestoreKey));
+  assert.ok(ci.includes(nodeMiseRestoreKey));
+  assert.ok(ci.includes(rustMiseRestoreKey));
   for (const name of disabled) {
     const text = readFileSync(join(workflowDir, name), "utf8");
     assert.equal(text.includes("actions/cache/save@"), false, name);
     assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
     assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
-    if (name === "cd-npm-cli.yml") {
+    if (readOnlyMiseRestore.has(name)) {
       assertReadOnlyMiseRestore(name, text);
       continue;
     }

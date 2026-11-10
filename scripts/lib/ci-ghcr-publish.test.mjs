@@ -198,8 +198,22 @@ describe("GHCR publish workflow", () => {
       /bash scripts\/ci\/prepare-dbus\.sh "\$RUNNER_TEMP\/opensesame-dbus"/,
     );
     assert.match(rust, /source "\$RUNNER_TEMP\/opensesame-dbus\/env\.sh"/);
-    assert.match(rust, /install_args: rust\n/);
-    assert.match(rust, /cache: false\n/);
+    assert.match(rust, /bash scripts\/lib\/install-mise-locked\.sh rust\n/);
+    assert.match(
+      rust,
+      /uses: actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6\.1\.0\n/,
+    );
+    assert.match(rust, /path: ~\/\.local\/share\/mise\n/);
+    assert.match(
+      rust,
+      /key: mise-v2-\$\{\{ runner\.os \}\}-rust-lock-\$\{\{ hashFiles\('mise\.toml', 'mise\.lock'\) \}\}\n/,
+    );
+    assert.match(rust, /mise-v2-\$\{\{ runner\.os \}\}-seed-main-rust-\n/);
+    assert.match(rust, /mise-v1-linux-\n/);
+    assert.doesNotMatch(rust, /jdx\/mise-action/);
+    assert.doesNotMatch(rust, /actions\/cache\/save@/);
+    assert.doesNotMatch(rust, /install_args:/);
+    assert.doesNotMatch(rust, /\n\s+cache: false\n/);
     assert.match(
       rust,
       /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/,
