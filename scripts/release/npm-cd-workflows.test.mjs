@@ -435,4 +435,3 @@ test("CLI gate polls every 5s and stage overlaps it without a shorter deadline",
   assert.doesNotMatch(cli, /TRUSTED_CACHE_SAVE:/);
   assert.doesNotMatch(cli, /path: node_modules/);
 });
-
