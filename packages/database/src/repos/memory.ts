@@ -28,10 +28,6 @@ import { interactionMachine } from "@opensesame/os-domain";
 import { MemoryAgentAuthRepository } from "./agent-auth-repo.js";
 import { claimDueMemoryRows } from "./delivery-claims.js";
 import {
-  MAX_WEBHOOK_ENDPOINTS_PER_PRINCIPAL,
-  WebhookEndpointLimitError,
-} from "./interfaces.js";
-import {
   type ApprovalActivationRepository,
   type ApprovalReceiptRepository,
   type AuditEventRepository,
@@ -49,6 +45,7 @@ import {
   type EnsurePersonalProjectResult,
   type ExternalIdentityRepository,
   type InteractionRepository,
+  MAX_WEBHOOK_ENDPOINTS_PER_PRINCIPAL,
   type NewOutboxEvent,
   NotFoundError,
   type NotificationDeliveryRepository,
@@ -67,6 +64,7 @@ import {
   type TransactionFn,
   type UnitOfWork,
   type WebhookDeliveryRepository,
+  WebhookEndpointLimitError,
   type WebhookEndpointRepository,
   buildPersonalProject,
   normalizeIssuer,
@@ -253,6 +251,12 @@ class MemoryUnitOfWork implements UnitOfWork {
   readonly outboxBuffer: OutboxEvent[] = [];
   private readonly webhookAdmissions = new Map<string, number>();
   private readonly admissionChecks: PendingOp[] = [];
+  private readonly commitChecks: PendingOp[] = [];
+  private readonly identityClaims = new Map<string, string>();
+  private readonly identityIdClaims = new Set<string>();
+  private readonly identityReleases = new Set<string>();
+  private readonly principalClaims = new Set<string>();
+  private readonly principalReleases = new Set<string>();
 
   reserveWebhookEndpoint(
     principalId: string,
@@ -262,6 +266,71 @@ class MemoryUnitOfWork implements UnitOfWork {
     check(pending);
     this.webhookAdmissions.set(principalId, pending);
     this.admissionChecks.push(() => check(pending));
+  }
+
+  /**
+   * Claim an identity tuple (and row id) for a deferred insert. The
+   * call-time store check cannot see a concurrent transaction, so the
+   * claim registers a check that `commit()` runs BEFORE applying any
+   * write: a losing transaction rejects whole instead of stranding its
+   * earlier writes when the conflict surfaces mid-commit. This is the
+   * memory twin of the Postgres unique index.
+   */
+  claimIdentity(key: string, id: string): void {
+    if (this.identityClaims.has(key) || this.identityIdClaims.has(id)) {
+      throw new ConflictError(
+        "external identity collision for kind+issuer+tenant+subject",
+      );
+    }
+    this.identityClaims.set(key, id);
+    this.identityIdClaims.add(id);
+    this.commitChecks.push(() => {
+      const occupant = this.store.identityKeys.get(key);
+      if (
+        occupant !== undefined &&
+        occupant !== id &&
+        !this.identityReleases.has(occupant)
+      ) {
+        throw new ConflictError(
+          "external identity collision for kind+issuer+tenant+subject",
+        );
+      }
+      if (this.store.identities.has(id) && !this.identityReleases.has(id)) {
+        throw new ConflictError(
+          "external identity collision for kind+issuer+tenant+subject",
+        );
+      }
+    });
+  }
+
+  /** Note that this transaction deletes identity `id` when it commits. */
+  releaseIdentity(id: string): void {
+    this.identityReleases.add(id);
+  }
+
+  identityReleased(id: string): boolean {
+    return this.identityReleases.has(id);
+  }
+
+  /** The principal-id twin of `claimIdentity`. */
+  claimPrincipal(id: string): void {
+    if (this.principalClaims.has(id)) {
+      throw new ConflictError(`principal already exists: ${id}`);
+    }
+    this.principalClaims.add(id);
+    this.commitChecks.push(() => {
+      if (this.store.principals.has(id) && !this.principalReleases.has(id)) {
+        throw new ConflictError(`principal already exists: ${id}`);
+      }
+    });
+  }
+
+  releasePrincipal(id: string): void {
+    this.principalReleases.add(id);
+  }
+
+  principalReleased(id: string): boolean {
+    return this.principalReleases.has(id);
   }
 
   constructor(private readonly store: MemoryStore) {}
@@ -290,6 +359,7 @@ class MemoryUnitOfWork implements UnitOfWork {
 
   commit(): void {
     for (const check of this.admissionChecks) check();
+    for (const check of this.commitChecks) check();
     for (const op of this.ops) {
       op();
     }
@@ -342,10 +412,15 @@ export class MemoryRepositories implements Repositories {
 
   readonly principals: PrincipalRepository = {
     create: async (principal, uow) => {
-      if (this.#store.principals.has(principal.id)) {
+      const memoryUow = uow instanceof MemoryUnitOfWork ? uow : null;
+      if (
+        this.#store.principals.has(principal.id) &&
+        !memoryUow?.principalReleased(principal.id)
+      ) {
         throw new ConflictError(`principal already exists: ${principal.id}`);
       }
       const row: Principal = { ...principal };
+      memoryUow?.claimPrincipal(row.id);
       const apply = () => {
         this.#store.principals.set(row.id, { ...row });
       };
@@ -367,6 +442,7 @@ export class MemoryRepositories implements Repositories {
       ) {
         return false;
       }
+      if (uow instanceof MemoryUnitOfWork) uow.releasePrincipal(id);
       const apply = () => {
         this.#store.principals.delete(id);
         for (const [key, subject] of this.#store.betterAuth) {
@@ -437,12 +513,17 @@ export class MemoryRepositories implements Repositories {
   readonly externalIdentities: ExternalIdentityRepository = {
     create: async (identity, uow) => {
       const key = identityKey(identity);
-      if (this.#store.identityKeys.has(key)) {
+      const memoryUow = uow instanceof MemoryUnitOfWork ? uow : null;
+      const occupant = this.#store.identityKeys.get(key);
+      if (occupant !== undefined && !memoryUow?.identityReleased(occupant)) {
         throw new ConflictError(
           "external identity collision for kind+issuer+tenant+subject",
         );
       }
-      if (this.#store.identities.has(identity.id)) {
+      if (
+        this.#store.identities.has(identity.id) &&
+        !memoryUow?.identityReleased(identity.id)
+      ) {
         throw new ConflictError(
           `external identity already exists: ${identity.id}`,
         );
@@ -453,6 +534,9 @@ export class MemoryRepositories implements Repositories {
         metadata: { ...identity.metadata },
         ...(tenant ? { tenant } : undefined),
       };
+      // A deferred insert is validated again at commit, before any of
+      // the transaction's writes apply (see claimIdentity).
+      memoryUow?.claimIdentity(key, row.id);
       const apply = () => {
         this.#store.identities.set(row.id, {
           ...row,
@@ -505,6 +589,7 @@ export class MemoryRepositories implements Repositories {
     deleteById: async (id, uow) => {
       const row = this.#store.identities.get(id);
       if (!row) return false;
+      if (uow instanceof MemoryUnitOfWork) uow.releaseIdentity(id);
       const key = identityKey(row);
       const apply = () => {
         this.#store.identities.delete(id);
