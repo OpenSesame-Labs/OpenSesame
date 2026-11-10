@@ -163,9 +163,7 @@ function makeFakes(): Fakes {
       // The fake runs the work immediately against its in-memory rows;
       // its UnitOfWork only needs to reject the one operation attach
       // never performs through it.
-      transaction: async <T>(
-        fn: (uow: UnitOfWork) => Promise<T>,
-      ): Promise<T> =>
+      transaction: async <T>(fn: (uow: UnitOfWork) => Promise<T>): Promise<T> =>
         fn({
           appendOutbox: () =>
             Promise.reject(new Error("fake transaction has no outbox")),
