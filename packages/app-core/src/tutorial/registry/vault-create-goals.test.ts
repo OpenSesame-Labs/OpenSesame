@@ -1,7 +1,4 @@
-import {
-  AUTHORED_GUIDE_LIMITS,
-  compileGuide,
-} from "@opensesame/guide-lang";
+import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import { planGuideSteps } from "@opensesame/guide-runtime";
 import { beforeAll, describe, expect, it } from "vitest";
 import { guideGoalIds } from "./goals.js";

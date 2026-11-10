@@ -91,6 +91,7 @@ export function EditorTitle({
   return (
     <div className="editor__titlerow">
       {/* The wrapper only forwards arrow keys that the inputs inside it leave unhandled. */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: key forwarding only — focus and editing stay on the fields inside */}
       <div className="pathfield" ref={row} onKeyDown={cross}>
         <EditorFolder
           value={value.folderId}

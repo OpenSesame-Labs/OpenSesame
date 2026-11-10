@@ -41,10 +41,7 @@ import {
   questionsFromTopics,
 } from "./SupportQuestions.js";
 import { SupportTutorials } from "./SupportTutorials.js";
-import {
-  useAskOnQuestion,
-  useSupportScroll,
-} from "./use-support-scroll.js";
+import { useAskOnQuestion, useSupportScroll } from "./use-support-scroll.js";
 import { useTutorialGate } from "./use-tutorial-gate.js";
 
 const SPEAKER = {
@@ -298,6 +295,7 @@ export function SupportPanel({
                         <summary>Computer</summary>
                         <ol className="support__computer">
                           {entry.computer.map((step, index) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a recorded trace is append-only and step titles repeat; position is its identity
                             <li key={`${step.title}:${index}`}>
                               <span className="support__computer-title">
                                 {step.title}
@@ -390,7 +388,11 @@ export function SupportPanel({
           </button>
         ) : null}
         <div className="sheet__foot">
-          <SupportComposer query={query} onQueryChange={setQuery} inputRef={composerRef} />
+          <SupportComposer
+            query={query}
+            onQueryChange={setQuery}
+            inputRef={composerRef}
+          />
         </div>
       </section>
     </div>

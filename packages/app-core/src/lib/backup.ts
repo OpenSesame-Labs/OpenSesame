@@ -26,6 +26,7 @@ import {
   startVaultBackupObserver,
 } from "./vault-backup-observer.js";
 import { syncVaultBackup } from "./vault-backup-sync.js";
+
 export type { PutBackupTargetInput } from "./backup-target-build.js";
 
 export type BackupTargetView = {

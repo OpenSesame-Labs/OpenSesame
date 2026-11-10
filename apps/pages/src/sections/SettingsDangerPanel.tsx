@@ -136,7 +136,6 @@ function TrashList({
   );
 }
 
-
 /** The trash section: what is in it, and emptying it behind an armed key. */
 function TrashSection({
   trashed,
@@ -162,57 +161,50 @@ function TrashSection({
   onRestore: (id: string) => void;
 }) {
   return (
-      <section className="panel set__danger" id="settings-trash">
-        <div className="panel__head">
-          <div>
-            <h2>Trash</h2>
-          </div>
+    <section className="panel set__danger" id="settings-trash">
+      <div className="panel__head">
+        <div>
+          <h2>Trash</h2>
         </div>
-        <div className="panel__body">
-          {trashed.length === 0 ? (
-            <p className="set__danger-target">Trash is empty.</p>
-          ) : (
-            <>
-              <div className="keyed-row">
-                <p className="set__danger-target">
-                  {trashCount} in the trash
-                  {emptyArmed
-                    ? " · emptying is unrecoverable. Export first if you are not certain."
-                    : ""}
-                </p>
-                {emptyArmed ? (
-                  <>
-                    <IconKey
-                      label="Empty the trash"
-                      armed
-                      onClick={onEmpty}
-                    >
-                      <IconTrash size={16} />
-                    </IconKey>
-                    <IconKey
-                      label="Cancel"
-                      onClick={onCancelEmpty}
-                    >
-                      <IconX size={16} />
-                    </IconKey>
-                  </>
-                ) : (
-                  <IconKey label="Empty the trash" onClick={onArmEmpty}>
+      </div>
+      <div className="panel__body">
+        {trashed.length === 0 ? (
+          <p className="set__danger-target">Trash is empty.</p>
+        ) : (
+          <>
+            <div className="keyed-row">
+              <p className="set__danger-target">
+                {trashCount} in the trash
+                {emptyArmed
+                  ? " · emptying is unrecoverable. Export first if you are not certain."
+                  : ""}
+              </p>
+              {emptyArmed ? (
+                <>
+                  <IconKey label="Empty the trash" armed onClick={onEmpty}>
                     <IconTrash size={16} />
                   </IconKey>
-                )}
-              </div>
-              <TrashList
-                armPurge={onArmPurge}
-                purgeArmedId={purgeArmedId}
-                purge={onPurge}
-                restore={onRestore}
-                trashed={trashed}
-              />
-            </>
-          )}
-        </div>
-      </section>
+                  <IconKey label="Cancel" onClick={onCancelEmpty}>
+                    <IconX size={16} />
+                  </IconKey>
+                </>
+              ) : (
+                <IconKey label="Empty the trash" onClick={onArmEmpty}>
+                  <IconTrash size={16} />
+                </IconKey>
+              )}
+            </div>
+            <TrashList
+              armPurge={onArmPurge}
+              purgeArmedId={purgeArmedId}
+              purge={onPurge}
+              restore={onRestore}
+              trashed={trashed}
+            />
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -254,10 +246,7 @@ export function SettingsDangerPanel() {
       {/* One confirmation for every delete road (DeleteVaultSheet): the
           sheet, naming the count — an empty vault included. An in-place
           arm here was a second, weaker ceremony the gauntlet struck. */}
-      <DeleteVaultSection
-        count={count}
-        onArm={() => setDestroySheet(true)}
-      />
+      <DeleteVaultSection count={count} onArm={() => setDestroySheet(true)} />
       {destroySheet ? (
         <DestroyConfirm
           count={listed.length}

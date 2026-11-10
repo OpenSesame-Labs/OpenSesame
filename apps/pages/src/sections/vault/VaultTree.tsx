@@ -23,8 +23,8 @@ import { useClaimedDrags } from "../../lib/use-claimed-drags.js";
 import { useMenuFlip } from "./use-menu-flip.js";
 import type { SharedItemMarks } from "./use-shared-items.js";
 import { useVaultSearch } from "./use-vault-search.js";
-import { VaultPathbar } from "./VaultPathbar.js";
 import { Highlight } from "./VaultHighlight.js";
+import { VaultPathbar } from "./VaultPathbar.js";
 import { Decorations } from "./VaultRowDecorations.js";
 import { type VaultTreeActions, vaultRowMenu } from "./vault-menu.js";
 import { VaultRowMenu } from "./vault-row-menu.js";
@@ -354,6 +354,8 @@ export function VaultTree({
               );
             }
             return (
+              // biome-ignore lint/a11y/useFocusableInteractive: the tree owns the tab stop and keys via aria-activedescendant; rows are not tabbable
+              // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard operation lives on the tree element; this click only mirrors a cursor move
               <div
                 key={row.key}
                 role="treeitem"

@@ -15,10 +15,7 @@ import {
   resetSupport,
   showQuestions,
 } from "./support-test-harness.js";
-import {
-  useAskOnQuestion,
-  useSupportScroll,
-} from "./use-support-scroll.js";
+import { useAskOnQuestion, useSupportScroll } from "./use-support-scroll.js";
 
 afterEach(() => {
   resetSupport();
@@ -292,7 +289,10 @@ describe("the New answer key on the Tutorials tab (Grok round 4)", () => {
       expect(jumps).toHaveLength(1);
       expect(scrolled).toHaveLength(0);
       rerender(
-        <Thread entries={[...first, entry("late", "answer")]} onJump={onJump} />,
+        <Thread
+          entries={[...first, entry("late", "answer")]}
+          onJump={onJump}
+        />,
       );
       expect(scrolled).toHaveLength(1);
     } finally {

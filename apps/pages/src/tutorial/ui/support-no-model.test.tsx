@@ -1,8 +1,6 @@
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 /** @vitest-environment jsdom */
-import {
-  fakeAgentAlwaysUnavailable,
-} from "@opensesame/support-agent";
+import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
