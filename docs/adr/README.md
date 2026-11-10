@@ -285,3 +285,4 @@ looks arbitrary, the ADR it cites explains it.
 | [0219](0219-betterleaks-alongside-gitleaks.md) | Scan with Betterleaks alongside gitleaks, and resolve findings by reviewed, narrowly scoped exemption | Accepted |
 | [0220](0220-no-ai-harness-dotfiles-in-the-product-repo.md) | The product repository tracks no AI-harness dotfiles or dot folders | Accepted |
 | [0221](0221-first-run-guidance-and-recommendations.md) | First-run guidance: screens speak first, once, and an act earns one recommendation | Accepted |
+| [0222](0222-github-well-architected-and-ssdf.md) | The engineering system follows the NIST SSDF and the GitHub Well-Architected recommendations, and says where it does not | Accepted |
