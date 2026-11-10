@@ -2,6 +2,7 @@ import type {
   SaveRequest,
   SaveRequestField,
 } from "@opensesame/app-core/lib/save-request.js";
+import { producePassword } from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
 import { buildSaveItem } from "./save-request-item.js";
 
@@ -34,6 +35,13 @@ describe("save request items", () => {
     expect(password?.type).toBe("password");
     if (password?.type !== "password") throw new Error("no password");
     expect(password.secret).toBe("correct horse");
+    // The vault produces the password the site sent, whole: a derived
+    // method would read it as a derivation root and throw on save, and a
+    // peppered one would hand back two halves around a slot.
+    expect(producePassword(password)).toEqual({
+      status: "ok",
+      password: "correct horse",
+    });
   });
 
   it("builds a card with brand, expiry and address notes", async () => {

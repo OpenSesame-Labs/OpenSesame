@@ -6,6 +6,10 @@ import {
 } from "@opensesame/app-core/lib/save-request.js";
 import { type JsonValue, isString } from "@opensesame/os-domain";
 import { useEffect, useState } from "react";
+import { FailureNotice } from "../components/FailureNotice.js";
+import { FormCommit } from "../components/FormCommit.js";
+import { IconKey } from "../components/IconKey.js";
+import { IconEye, IconEyeOff, IconX } from "../components/Icons.js";
 import { useVaultStore } from "../lib/vault/hooks.js";
 import { buildSaveItem } from "./save-request-item.js";
 
@@ -149,18 +153,16 @@ export function SaveRequestScreen() {
       <header className="section__head">
         <h1>Save in OpenSesame</h1>
       </header>
-      {error ? (
-        <p className="hint" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {!request && !error ? (
-        <p className="hint">Waiting for the site to send the item…</p>
-      ) : null}
+      <FailureNotice
+        id="save-request"
+        title="Save in OpenSesame"
+        message={error}
+      />
+      {!request && !error ? <p className="hint">Waiting…</p> : null}
       {request && !savedId ? (
         <>
           <p className="hint">
-            From <strong>{source}</strong>. Review it before saving.
+            From <strong>{source}</strong>
           </p>
           <label className="label" htmlFor="save-title">
             Name
@@ -179,21 +181,31 @@ export function SaveRequestScreen() {
               const concealed = CONCEALED.has(field.autocomplete);
               return (
                 <div className="frow" key={key}>
-                  <span className="frow__label">
-                    {label(field.autocomplete)}
-                  </span>
-                  <span className="frow__value">
-                    {concealed && !revealed.has(key) ? "••••••••" : field.value}
-                  </span>
+                  <div className="frow__text">
+                    <span className="frow__label">
+                      {label(field.autocomplete)}
+                    </span>
+                    <span className="frow__value">
+                      {concealed && !revealed.has(key)
+                        ? "••••••••"
+                        : field.value}
+                    </span>
+                  </div>
                   {concealed ? (
-                    <button
-                      type="button"
-                      className="icon-btn icon-btn--sm"
-                      aria-label={`${revealed.has(key) ? "Hide" : "Show"} ${label(field.autocomplete)}`}
-                      onClick={() => toggle(key)}
-                    >
-                      {revealed.has(key) ? "Hide" : "Show"}
-                    </button>
+                    <div className="frow__actions">
+                      <IconKey
+                        small
+                        label={`${revealed.has(key) ? "Hide" : "Show"} ${label(field.autocomplete)}`}
+                        aria-pressed={revealed.has(key)}
+                        onClick={() => toggle(key)}
+                      >
+                        {revealed.has(key) ? (
+                          <IconEyeOff size={16} />
+                        ) : (
+                          <IconEye size={16} />
+                        )}
+                      </IconKey>
+                    </div>
                   ) : null}
                 </div>
               );
@@ -205,24 +217,16 @@ export function SaveRequestScreen() {
               <p className="frow__notes">{request.notes}</p>
             </section>
           ) : null}
-          <div className="actions">
-            <button
-              type="button"
-              className="btn btn--sm"
-              disabled={busy}
-              onClick={() => void save()}
-            >
-              {busy ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              disabled={busy}
-              onClick={close}
-            >
-              Cancel
-            </button>
-          </div>
+          <FormCommit
+            label="Save"
+            busy={busy}
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            <IconKey label="Cancel" disabled={busy} onClick={close}>
+              <IconX size={16} />
+            </IconKey>
+          </FormCommit>
         </>
       ) : null}
       {savedId ? (
@@ -234,13 +238,9 @@ export function SaveRequestScreen() {
           >
             Open item
           </a>
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={close}
-          >
-            Close
-          </button>
+          <IconKey label="Close" onClick={close}>
+            <IconX size={16} />
+          </IconKey>
         </div>
       ) : null}
     </div>
