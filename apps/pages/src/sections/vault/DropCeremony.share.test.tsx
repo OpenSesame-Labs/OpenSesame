@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-
+import { makeAccount } from "./account.test-support.js";
 import {
   Ceremony,
   createClaim,
@@ -11,7 +11,6 @@ import {
   makeSecret,
   store,
 } from "./DropCeremony.test-support.js";
-import { makeAccount } from "./account.test-support.js";
 
 installDropCeremonyHarness();
 
@@ -41,9 +40,12 @@ describe("share ceremony on an item", () => {
     expect(ready.textContent).toMatch(/Suggested window\s*1 hour/);
     expect(ready.textContent).toMatch(/Opens on\s*Any browser with the link/);
     expect(expiryRow()).not.toMatch(/left/);
-    expect(ready.querySelector("p.hint")?.textContent).toContain(
-      "It cannot be revoked.",
+    // What a portable copy cannot do is stated as facts beside its expiry.
+    expect(ready.textContent).toMatch(
+      /After expiry\s*A saved link still opens/,
     );
+    expect(ready.textContent).toMatch(/Revoke\s*Not possible/);
+    expect(ready.querySelector("p.hint")).toBeNull();
     expect(screen.queryByRole("link", { name: /drop record/i })).toBeNull();
     expect(store.saveItem).not.toHaveBeenCalled();
 

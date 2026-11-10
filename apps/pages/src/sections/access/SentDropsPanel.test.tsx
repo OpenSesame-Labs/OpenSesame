@@ -197,8 +197,9 @@ describe("SentDropsPanel revoke", () => {
     expect(
       await screen.findByRole("img", { name: "Copy shared" }),
     ).toBeTruthy();
+    // The disclosure is a fact on the row, not a caption under it.
     expect(
-      screen.getByText(/Saved copies can reopen after expiry/),
+      screen.getByText("Reopens after expiry · cannot be revoked"),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Revoke" })).toBeNull();
     expect(screen.queryByRole("img", { name: "Revoked" })).toBeNull();

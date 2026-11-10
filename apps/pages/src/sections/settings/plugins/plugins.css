@@ -97,10 +97,6 @@
 .plugin-tile__honey-new .field {
   flex: 1;
 }
-.plugin-tile__honey-error {
-  color: var(--err, #b42318);
-  font-size: 0.875rem;
-}
 .plugin-tile__honey-list {
   display: grid;
   gap: 8px;

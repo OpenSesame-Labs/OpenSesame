@@ -30,13 +30,6 @@ function EmailStage({ state }: { state: Ceremony }) {
       aria-label="Claim a Boat account"
       onSubmit={submit}
     >
-      <p className="hint">
-        Boat runs sandboxes only for a claimed account. Enter your email
-        and OpenSesame will register with Boat, show you a one-time code,
-        and wait while you claim the account on Boat's own page. The
-        identity Boat issues is sealed on this device; no API key is
-        ever pasted.
-      </p>
       <FieldShell
         label="Boat account email"
         type="email"
@@ -59,10 +52,7 @@ function ClaimingStage({ state }: { state: Ceremony }) {
   if (!state.claim) return null;
   return (
     <div className="cx-form panel__body">
-      <p className="hint">
-        Open Boat's claim page and enter this code. This panel is waiting
-        for Boat to confirm the claim.
-      </p>
+      <output className="hint">Waiting for Boat…</output>
       <dl className="cx-facts">
         <div className="cx-fact">
           <dt>Claim code</dt>
@@ -88,15 +78,12 @@ function ClaimingStage({ state }: { state: Ceremony }) {
 function BillingStage({ state }: { state: Ceremony }) {
   return (
     <div className="cx-form panel__body">
-      <p className="hint">
-        Boat creates sandboxes only once billing is active: the 7-day
-        trial needs a card on file at Boat's own checkout. OpenSesame
-        never sees the card.
-      </p>
       <dl className="cx-facts">
         <div className="cx-fact">
           <dt>Account</dt>
-          <dd>{state.account?.login || state.savedLogin || state.savedEmail}</dd>
+          <dd>
+            {state.account?.login || state.savedLogin || state.savedEmail}
+          </dd>
         </div>
         <div className="cx-fact">
           <dt>Billing</dt>
@@ -123,14 +110,12 @@ function BillingStage({ state }: { state: Ceremony }) {
 function ReadyStage({ state }: { state: Ceremony }) {
   return (
     <div className="cx-form panel__body">
-      <p className="hint">
-        Boat reports no billing block. Password resets can run in Boat
-        sandboxes from this device.
-      </p>
       <dl className="cx-facts">
         <div className="cx-fact">
           <dt>Account</dt>
-          <dd>{state.account?.login || state.savedLogin || state.savedEmail}</dd>
+          <dd>
+            {state.account?.login || state.savedLogin || state.savedEmail}
+          </dd>
         </div>
         <div className="cx-fact">
           <dt>Access tier</dt>

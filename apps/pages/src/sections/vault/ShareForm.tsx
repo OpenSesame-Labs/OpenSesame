@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 export function showPortableDropScope(): boolean {
   return deviceIdentitySeams.remoteIdentityApi() === "";
 }
+
 import { FieldRow } from "../../components/FieldRow.js";
 import { FormCommit } from "../../components/FormCommit.js";
 import { IconKey } from "../../components/IconKey.js";
@@ -68,10 +69,14 @@ export function ShareForm({
         <span className="frow__value">{expiry}</span>
       </FieldRow>
       {portable ? (
-        <p className="hint">
-          A saved link and code can reopen this copy after that time. It cannot
-          be revoked.
-        </p>
+        <>
+          <FieldRow label="After expiry">
+            <span className="frow__value">A saved link still opens</span>
+          </FieldRow>
+          <FieldRow label="Revoke">
+            <span className="frow__value">Not possible</span>
+          </FieldRow>
+        </>
       ) : null}
       <div className="actions">
         <FormCommit
