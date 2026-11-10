@@ -107,6 +107,7 @@ function AddButton({
   );
   return (
     <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the wrapper only replaces the context menu of the link it wraps; every action stays on that link */}
       <div
         className="fab"
         data-own-hold=""
