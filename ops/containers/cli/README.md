@@ -17,3 +17,13 @@ multi-arch builder is available.
 
 `npm install --ignore-scripts` does not download the `agent-browser`
 browser. Commands that need it belong in a derived image.
+
+Regenerate `ops/containers/cli/npm-shrinkwrap.json` after changing
+`packages/cli` publish dependencies:
+
+```bash
+node scripts/release/cli-shrinkwrap.mjs write
+```
+
+CI runs `node scripts/release/cli-shrinkwrap.mjs check` on GHCR `cli`
+image builds so lock drift cannot reach Docker `npm ci`.
