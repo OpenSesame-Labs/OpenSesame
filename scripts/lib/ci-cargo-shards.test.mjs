@@ -46,7 +46,7 @@ test("cargo shards cover today's package set and keep feature edges together", (
     if (!command) continue;
     assert.equal(command.args.includes("--workspace"), false);
     built.push(
-      ...command.args.filter((arg, at) => command.args[at - 1] === "-p"),
+      ...command.args.filter((_arg, at) => command.args[at - 1] === "-p"),
     );
   }
   assert.deepEqual(built.sort(), names);
