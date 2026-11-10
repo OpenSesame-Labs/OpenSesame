@@ -24,9 +24,9 @@ const releaseDir = join(cliRoot, "release");
 
 /** Dependencies copied into the npm publish manifest (and CLI image shrinkwrap). */
 export function cliPublishDependencies(manifest) {
-  const typesNode = manifest.devDependencies?.["@types/node"];
-  const agentBrowser = manifest.dependencies?.["agent-browser"];
-  if (typeof typesNode !== "string" || typeof agentBrowser !== "string") {
+  const typesNode = readString(manifest.devDependencies?.["@types/node"]);
+  const agentBrowser = readString(manifest.dependencies?.["agent-browser"]);
+  if (typesNode === undefined || agentBrowser === undefined) {
     throw new Error(
       "packages/cli package.json must declare @types/node (dev) and agent-browser",
     );
