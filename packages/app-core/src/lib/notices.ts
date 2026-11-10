@@ -50,8 +50,16 @@ export type Notice = {
 /** Where a notice leads: a route of this app and the key's accessible name. */
 export type NoticeOpen = { to: string; label: string };
 
-/** An icon key on a tray card. The closure is not sealed in tray history. */
-export type NoticeAct = { label: string; run: () => void };
+/**
+ * An icon key on a tray card. The closure is not sealed in tray history.
+ * `icon` names what the key does, so its face matches its label; without one
+ * the tray draws the switch-off mark the first acts were.
+ */
+export type NoticeAct = {
+  label: string;
+  run: () => void;
+  icon?: "power" | "export" | "settings";
+};
 
 export type StatusNoticeInput = {
   id: string;

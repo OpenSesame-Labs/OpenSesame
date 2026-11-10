@@ -124,6 +124,7 @@ export function useStorageRiskNotice(
           ? {
               act: {
                 label: "Export a copy",
+                icon: "export",
                 run: () => exportRef.current?.(),
               },
             }

@@ -19,6 +19,7 @@ export function promptConfigurePasswordReset(
     body,
     act: {
       label: "Settings",
+      icon: "settings",
       run: () => {
         if (reason === "runtime") {
           navigate("/settings/integrations#integration-password-reset");
