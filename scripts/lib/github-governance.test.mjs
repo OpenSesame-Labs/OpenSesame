@@ -68,6 +68,8 @@ describe("repository governance default-branch rules", () => {
       (rule) => rule.type === "required_status_checks",
     ).parameters;
     expect(checks.strict_required_status_checks_policy).toBe(false);
+    // Applied after merge. ci-grok-commits.yml still reports
+    // "Grok signed commits" until that governance apply.
     expect(checks.required_status_checks).toEqual([
       { context: "Agent attribution", integration_id: 15368 },
       { context: "TypeScript", integration_id: 15368 },

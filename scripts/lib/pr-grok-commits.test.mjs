@@ -48,14 +48,21 @@ describe("assertPrGrokCommits (compat)", () => {
 });
 
 describe("ci-grok-commits workflow", () => {
+  const workflow = readFileSync(
+    new URL("../../.github/workflows/ci-grok-commits.yml", import.meta.url),
+    "utf8",
+  );
+
   it("pins setup-node to the published v5.0.0 commit", () => {
-    const workflow = readFileSync(
-      new URL("../../.github/workflows/ci-grok-commits.yml", import.meta.url),
-      "utf8",
-    );
     expect(workflow).toContain(
       "actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
     );
-    expect(workflow).toContain("name: Agent attribution");
+  });
+
+  it("keeps the live ruleset status context and runs agent attribution", () => {
+    expect(workflow).toMatch(/^name: Grok signed commits$/m);
+    expect(workflow).toMatch(/^ {4}name: Grok signed commits$/m);
+    expect(workflow).toContain("scripts/release/check-pr-grok-commits.mjs");
+    expect(workflow).not.toContain("name: Agent attribution");
   });
 });

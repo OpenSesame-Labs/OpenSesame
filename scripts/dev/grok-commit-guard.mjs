@@ -58,20 +58,13 @@ export function assertCommitSignedByGrok(entry) {
   });
 }
 
-/** Validate every commit in a git revision range (empty range is OK). */
+/**
+ * Validate parsed commit records (empty range is OK).
+ * Git log text is parsed at the I/O boundary (`parseSignatureLogLine` or
+ * `gitLogRange`) before it reaches this function.
+ */
 export function assertGrokSignedRevisionRange(commits) {
   for (const commit of commits) {
-    if (commit === undefined || commit === "") {
-      continue;
-    }
-    if (typeof commit === "string") {
-      const parsed = parseSignatureLogLine(commit);
-      if (parsed === undefined) {
-        continue;
-      }
-      assertCommitSignedByGrok(parsed);
-      continue;
-    }
     assertCommitSignedByGrok(commit);
   }
 }
