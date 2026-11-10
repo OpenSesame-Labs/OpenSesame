@@ -6,6 +6,7 @@ import {
   readLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import { vaultStore } from "./vault/store.js";
 import {
   publishBackupSyncEvent,
   startVaultBackupObserver,
@@ -17,7 +18,6 @@ import {
   drainBackupWebhooks,
   vaultBackupSyncSeams,
 } from "./vault-backup-sync.js";
-import { vaultStore } from "./vault/store.js";
 
 const original = { ...vaultBackupSyncSeams };
 beforeEach(() => {

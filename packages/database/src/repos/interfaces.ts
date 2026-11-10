@@ -1,6 +1,9 @@
 export { ConflictError, NotFoundError } from "./errors.js";
+
 import { normalizeIssuer } from "./issuer-normalization.js";
+
 export { normalizeIssuer } from "./issuer-normalization.js";
+
 import { randomUUID } from "node:crypto";
 import {
   type AgentAccessTokenRecord,

@@ -25,12 +25,18 @@ describe("the empty-vault first-run offer", () => {
     );
     const { rerender } = render(offer(0));
 
-    fireEvent.click(screen.getByRole("button", { name: "Import passwords instead" }));
-    expect(screen.getByRole("dialog", { name: "Import passwords" })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Import passwords instead" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Import passwords" }),
+    ).toBeTruthy();
 
     rerender(offer(3));
 
-    expect(screen.getByRole("dialog", { name: "Import passwords" })).toBeTruthy();
+    expect(
+      screen.getByRole("dialog", { name: "Import passwords" }),
+    ).toBeTruthy();
     expect(screen.queryByText("Add your first password")).toBeNull();
     const trigger = screen.getByText("Import passwords instead");
     expect(trigger.hidden).toBe(true);
