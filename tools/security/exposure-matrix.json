@@ -928,7 +928,7 @@
         "packages/auth-upstream/src/__tests__/webauthn.test.ts",
         "packages/sdk-browser/src/webauthn.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them."
     },
     {
       "id": "native-provider-custody",
@@ -4811,14 +4811,14 @@
       "830d7806"
     ],
     "apps/pages/src/lib/capabilities/classification-cross.ts": [
-      "9db444f6",
-      "a9020e6d",
-      "de51726b",
-      "8786238c",
-      "e5ccfc8f",
-      "046f4ddd",
-      "ab4e680b",
-      "10a406e4"
+      "c17926ea",
+      "ae6c1a4c",
+      "f8910950",
+      "ea3c0145",
+      "b5813403",
+      "e8e63f34",
+      "3b76f13a",
+      "26c6b0d0"
     ],
     "apps/pages/src/lib/capabilities/classification.test.ts": [
       "339a8940",
