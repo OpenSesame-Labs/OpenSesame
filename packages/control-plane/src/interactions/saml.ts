@@ -40,10 +40,8 @@ import {
   assertPublicUpstreamUrl,
   guardedFetch,
 } from "../services/guarded-fetch.js";
-import {
-  attachVerifiedExternalIdentity,
-  ensureVerifiedIdentityPrincipalActive,
-} from "../services/identity-link.js";
+import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
 import { organizationAssertedEmailIsVerified } from "../services/org-email-trust.js";
 import {
   ProvisionalMintRefusedError,
@@ -1056,6 +1054,12 @@ export type SamlAdmission =
     }
   | { ok: false; status: 403 | 409 | 429; message: string };
 
+const OWNER_REFUSED: SamlAdmission = {
+  ok: false,
+  status: 403,
+  message: "This account is not able to sign in.",
+};
+
 /**
  * Find-or-mint the principal a verified assertion names, and JIT-join it.
  *
@@ -1122,19 +1126,10 @@ export async function admitSamlSubject(
   let principalId: string;
   let sessionToken: string | undefined;
   if (resolved) {
-    // The verified assertion is the proof the original attach promotes
-    // on, so a tuple left on a provisional owner is finished here rather
-    // than signed in as provisional (or stranded). Suspended, closed and
-    // missing owners do not sign in.
-    if (
-      !(await ensureVerifiedIdentityPrincipalActive(ctx, resolved.principalId))
-    ) {
-      return {
-        ok: false,
-        status: 403,
-        message: "This account is not able to sign in.",
-      };
-    }
+    // The verified assertion is the proof attach promotes on: a leftover
+    // provisional owner is finished here; a dead or missing one is refused.
+    if (!(await settleVerifiedOwner(ctx, resolved.principalId)))
+      return OWNER_REFUSED;
     principalId = resolved.principalId;
   } else {
     if (!consumeSamlMintBudget(tenant, ctx.clock().getTime())) {
@@ -1210,13 +1205,7 @@ export async function admitSamlSubject(
       return { ok: false, status: 409, message: attached.message };
     }
     principalId = attached.identity.principalId;
-    if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
-      return {
-        ok: false,
-        status: 403,
-        message: "This account is not able to sign in.",
-      };
-    }
+    if (!(await settleVerifiedOwner(ctx, principalId))) return OWNER_REFUSED;
     await ensurePersonalOnAuthenticatedSession(
       ctx,
       principalId,

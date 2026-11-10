@@ -12,7 +12,7 @@ import type {
 import type { AppContext } from "../context.js";
 import { consumeProviderReplay } from "./agent-auth-id-jag-trust.js";
 import { effectiveScopes, mintAssertion } from "./agent-auth-shared.js";
-import { ensureVerifiedIdentityPrincipalActive } from "./identity-link.js";
+import { settleVerifiedOwner } from "./identity-principal-fence.js";
 
 export type ProviderAssertionRegistrationResponse = {
   registration_id: string;
@@ -74,10 +74,7 @@ export async function commitProviderRegistration(
   // while the registration transaction was in flight must not collect a
   // claimed assertion. The row stays written but inert — no assertion
   // exists to exchange, and loadPrincipal refuses the owner regardless.
-  if (
-    existing &&
-    !(await ensureVerifiedIdentityPrincipalActive(ctx, principal.id))
-  ) {
+  if (existing && !(await settleVerifiedOwner(ctx, principal.id))) {
     throw agentAuthError("invalid_request", 400, "principal unavailable");
   }
   const scopes = effectiveScopes(ctx, registration, principal);

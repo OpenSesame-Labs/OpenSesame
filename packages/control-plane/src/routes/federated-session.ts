@@ -17,7 +17,7 @@ import {
   revokeSessionTokens,
 } from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
-import { ensureVerifiedIdentityPrincipalActive } from "../services/identity-link.js";
+import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
 import { MAX_PROVISIONAL } from "./principals.js";
 
 /**
@@ -210,7 +210,7 @@ export async function adoptSessionWithinCapacity(
       // every caller's earlier read is stale by the time the session is
       // written, and a half-promoted owner (active state, provisional
       // assurance) is finished here rather than bound as-is.
-      if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
+      if (!(await settleVerifiedOwner(ctx, principalId))) {
         throw new PrincipalNotActiveError();
       }
       return adoptSession(ctx, principalId, correlationId);
@@ -233,7 +233,7 @@ export async function settleAdoption(
   ctx: AppContext,
   adoption: FederatedSessionAdoption,
 ): Promise<boolean> {
-  if (await ensureVerifiedIdentityPrincipalActive(ctx, adoption.principalId)) {
+  if (await settleVerifiedOwner(ctx, adoption.principalId)) {
     return true;
   }
   const sessionId = await ctx.stores.provisionalTokens.get(

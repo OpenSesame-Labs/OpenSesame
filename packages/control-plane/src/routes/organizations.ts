@@ -25,11 +25,6 @@ import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
 import { serializeKeyed } from "../serialize.js";
-import { emailLinkFields } from "../services/email-authority.js";
-import {
-  attachVerifiedExternalIdentity,
-  ensureVerifiedIdentityPrincipalActive,
-} from "../services/identity-link.js";
 import {
   removeOrganizationMembership,
   writeOrganization,
@@ -53,6 +48,7 @@ import {
   issuerConfigurationError,
   samlConfigurationError,
 } from "./org-issuer-guard.js";
+import { bindOrgJoinIdentity } from "./org-join-identity.js";
 import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 // One direction of a deliberate cycle: SCIM is per-organization, so its router
 // reuses this module's membership helpers, and this module asks it what role a
@@ -637,52 +633,23 @@ organizationRoutes.post(
       throw error;
     }
 
-    // Bind the asserted subject to the caller before anything is granted. A
-    // collision means the identity belongs to a different principal; the
-    // message deliberately does not name it (federated-signin.md §7.6).
-    const attached = await attachVerifiedExternalIdentity(ctx, principalId, {
+    // Membership follows the principal the identity landed on, which the
+    // verified-email join can make somebody other than the caller. The
+    // caller is not made a member and their session stays as presented.
+    const bound = await bindOrgJoinIdentity(ctx, principalId, {
+      organizationId: org.id,
       issuer,
-      subject: assertion.sub,
+      method: parsed.data.method,
+      assertion,
       correlationId: c.get("correlationId"),
-      ...(assertion.name !== undefined
-        ? { displayHint: assertion.name }
-        : undefined),
-      // The tenant's own IdP asserted this address. It joins accounts only
-      // for a domain the organization proved it controls, the same rule the
-      // SAML and directory legs use — an owner may speak for their own
-      // namespace, not for `@gmail.com` (ADR 0057 §6).
-      ...(await emailLinkFields(
-        ctx,
-        {
-          source: "org",
-          organizationId: org.id,
-          issuer,
-          method: parsed.data.method === "saml" ? "saml" : "sso",
-        },
-        assertion.email,
-        assertion.emailVerified,
-      )),
     });
-    if (!attached.ok) {
-      return c.json({ error: attached.error, message: attached.message }, 409);
-    }
-
-    // Verified-email auto-link (ADR 0057 D15) can store the new identity on a
-    // different principal than the caller. Membership follows that owner, the
-    // same way hosted SSO, LDAP, and SAML do. The caller is not made a member
-    // and their session stays the provisional principal they presented.
-    const memberPrincipalId = attached.identity.principalId;
-    if (
-      !(await ensureVerifiedIdentityPrincipalActive(ctx, memberPrincipalId))
-    ) {
+    if (!bound.ok) {
       return c.json(
-        {
-          error: "principal_inactive",
-          message: "This account is not able to sign in.",
-        },
-        403,
+        { error: bound.error, message: bound.message },
+        bound.status,
       );
     }
+    const { memberPrincipalId } = bound;
     // A subject the directory provisioned into a role joins at that role, not
     // at `member` (C15) — the same answer this tenant's hosted sign-in gives.
     const role = await provisionedRoleForSubject(ctx, org.id, assertion.sub);

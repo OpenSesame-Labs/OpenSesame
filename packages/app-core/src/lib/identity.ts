@@ -1,10 +1,4 @@
-import {
-  type BoundaryValue,
-  type JsonObject,
-  isJsonObject,
-  isString,
-  overlapCast,
-} from "@opensesame/os-domain";
+import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
 /**
  * Identity plane session.
  *
@@ -29,22 +23,23 @@ import {
   resolveIdentityBase,
 } from "./device-identity.js";
 import {
+  type HealthState,
+  type ProbeResult,
+  probeIdentityPlane,
+} from "./identity-probe.js";
+import {
   HostSessionError,
   IdentityError,
   type IdentitySession,
   type Principal,
 } from "./identity-session-types.js";
-import {
-  type FailureClass,
-  classifyResponse,
-  classifyThrown,
-} from "./probe-failure.js";
+import { proveTokenOwner, readError } from "./identity-token-proof.js";
 import { loadSettings } from "./settings.js";
 import type { OriginalRemoteCodeHandle } from "./vault/captured-remote-code-data.js";
 import type { OriginalCommandDrainRecorder } from "./vault/original-command-retirement-data.js";
 import { captureOriginalIdentitySessionCodeData } from "./vault/original-identity-session-code-data.js";
 
-export type { IdentitySession, Principal };
+export type { HealthState, IdentitySession, Principal, ProbeResult };
 export {
   HostSessionError,
   IdentityError,
@@ -279,17 +274,6 @@ async function hostFetchDefault(
   }
 }
 
-async function readError(res: Response): Promise<string> {
-  try {
-    const body: JsonObject = overlapCast(await res.json());
-    if (isString(body.message)) return body.message;
-    if (isString(body.error)) return body.error;
-    return `Request failed (${res.status}).`;
-  } catch {
-    return `Request failed (${res.status}).`;
-  }
-}
-
 /** Fetch against the Identity API, attaching the session when we have one. */
 async function identityFetchDefault(
   path: string,
@@ -424,21 +408,6 @@ async function resumeCookieSession(): Promise<IdentitySession | null> {
   }
 }
 
-/** Prove a token with the cookie withheld; returns its principal. */
-async function proveTokenOwner(token: string): Promise<string> {
-  const res = await identityPlaneRequest("/v1/principals/me", {
-    headers: { authorization: `Bearer ${token}` },
-    credentials: "omit",
-    timeoutMs: IDENTITY_FETCH_MS,
-  });
-  if (!res.ok) throw new IdentityError(await readError(res), res.status);
-  const me: BoundaryValue = await res.json();
-  if (!isJsonObject(me) || !isString(me.id)) {
-    throw new IdentityError("Identity returned an invalid principal.", 502);
-  }
-  return me.id;
-}
-
 /**
  * Stand on a rebound session: end only the previous bearer, cookies
  * withheld, since the cookie already names this token and the revoke
@@ -473,7 +442,7 @@ async function adoptTokenDefault(
   if (session?.accessToken === token) return;
   const epoch = sessionEpoch;
   const issuerOrigin = identityOrigin();
-  const principalId = await proveTokenOwner(token);
+  const principalId = await proveTokenOwner(token, IDENTITY_FETCH_MS);
   if (sessionEpoch !== epoch) {
     throw new IdentityError(
       "The session was ended while adopting that token. Try again.",
@@ -538,46 +507,8 @@ function restoreSessionDefault(
   emit();
 }
 
-export type HealthState = "unknown" | "reachable" | "unreachable";
-
-/** A probe result that says *why*, for the connectivity monitor. */
-export type ProbeResult = {
-  health: HealthState;
-  failure: FailureClass | null;
-};
-
 export async function probeIdentityDetailed(): Promise<ProbeResult> {
-  // Device-native mode is always the local host — never probe the network.
-  if (isDeviceIdentityMode()) {
-    return { health: "reachable", failure: null };
-  }
-  const base = identityBase();
-  if (!base) return { health: "unreachable", failure: null };
-  try {
-    const res = await identityPlaneRequest("/v1/health/live", {
-      credentials: "omit",
-      timeoutMs: PROBE_MS,
-    });
-    if (!res.ok) {
-      return { health: "unreachable", failure: classifyResponse(res.status) };
-    }
-    // A foreign listener on :8788 can answer with 401 JSON and look "up".
-    // OpenSesame control-plane always returns `{ "status": "ok" }`.
-    try {
-      const body = overlapCast(await res.json());
-      return body.status === "ok"
-        ? { health: "reachable", failure: null }
-        : { health: "unreachable", failure: "not-opensesame" };
-    } catch {
-      return { health: "unreachable", failure: "not-opensesame" };
-    }
-  } catch (error) {
-    const thrown =
-      error instanceof DOMException || error instanceof Error
-        ? error
-        : String(error);
-    return { health: "unreachable", failure: classifyThrown(thrown) };
-  }
+  return probeIdentityPlane(identityBase, PROBE_MS);
 }
 
 async function probeIdentityDefault(): Promise<HealthState> {

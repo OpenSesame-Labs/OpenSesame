@@ -1,8 +1,3 @@
-import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
-import { normalizeEmail } from "./email-normalization.js";
-
-export { normalizeEmail } from "./email-normalization.js";
-
 import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,
@@ -20,12 +15,14 @@ import {
   ProvisionalMintRefusedError,
   mintProvisionalForInteraction,
 } from "../interactions/handlers.js";
+import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeIssuer } from "../interactions/registry.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
-import {
-  attachVerifiedExternalIdentity,
-  ensureVerifiedIdentityPrincipalActive,
-} from "./identity-link.js";
+import { normalizeEmail } from "./email-normalization.js";
+import { attachVerifiedExternalIdentity } from "./identity-link.js";
+import { settleVerifiedOwner } from "./identity-principal-fence.js";
+
+export { normalizeEmail } from "./email-normalization.js";
 
 /**
  * The bridge between Better Auth and canonical identity (C20 / D16 / T33).
@@ -333,7 +330,7 @@ export async function principalForBetterAuthSubject(
 
   const knownPrincipalId = mapped?.principalId ?? existing?.principalId;
   if (knownPrincipalId) {
-    if (!(await ensureVerifiedIdentityPrincipalActive(ctx, knownPrincipalId))) {
+    if (!(await settleVerifiedOwner(ctx, knownPrincipalId))) {
       throw new BetterAuthBridgeError(
         "principal_unavailable",
         "This account is not able to sign in.",
@@ -395,7 +392,7 @@ export async function principalForBetterAuthSubject(
   // address to a principal that already owned it through another leg, and the
   // principal minted a moment ago is then not the account signing in.
   const principalId = attached.identity.principalId;
-  if (!(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))) {
+  if (!(await settleVerifiedOwner(ctx, principalId))) {
     throw new BetterAuthBridgeError(
       "principal_unavailable",
       "This account is not able to sign in.",

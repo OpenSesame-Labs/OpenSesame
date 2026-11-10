@@ -71,6 +71,26 @@ export type LiftPoint = Readonly<{
   anchor: HTMLElement;
 }>;
 
+/** What a hold's lift does: run the zone it ended over, or leave the menu up. */
+function settleLift(
+  held: SlideState | null,
+  event: PointerEvent<HTMLElement>,
+  choose: (entry: AddEntry) => void,
+  openMenu: (lift: LiftPoint) => void,
+): void {
+  const entry = held?.over ? held.zones[held.over] : undefined;
+  if (entry) choose(entry);
+  else if (held) {
+    // Held but never slid onto a zone: keep the choices on screen as a
+    // menu the person can tap now the finger is off.
+    openMenu({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      anchor: event.currentTarget,
+    });
+  }
+}
+
 function createSlide(
   show: (state: SlideState | null) => void,
   choose: (entry: AddEntry) => void,
@@ -150,17 +170,7 @@ function createSlide(
       const held = live;
       if (held) liftedUntil = Date.now() + LIFT_CLICK_MS;
       stop();
-      const entry = held?.over ? held.zones[held.over] : undefined;
-      if (entry) choose(entry);
-      else if (held) {
-        // Held but never slid onto a zone: keep the choices on screen as a
-        // menu the person can tap now the finger is off.
-        openMenu({
-          clientX: event.clientX,
-          clientY: event.clientY,
-          anchor: event.currentTarget,
-        });
-      }
+      settleLift(held, event, choose, openMenu);
     },
     cancel() {
       touchUntil = Date.now() + 700;

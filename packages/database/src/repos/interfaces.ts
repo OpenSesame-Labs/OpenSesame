@@ -1,6 +1,3 @@
-export { ConflictError, NotFoundError } from "./errors.js";
-import { normalizeIssuer } from "./issuer-normalization.js";
-export { normalizeIssuer } from "./issuer-normalization.js";
 import { randomUUID } from "node:crypto";
 import {
   type AgentAccessTokenRecord,
@@ -38,7 +35,10 @@ import {
   type WebhookEndpoint,
 } from "@opensesame/os-domain";
 import type { AgentAuthReplayRepository } from "./agent-auth-replay-repo.js";
+import { normalizeIssuer } from "./issuer-normalization.js";
 
+export { ConflictError, NotFoundError } from "./errors.js";
+export { normalizeIssuer } from "./issuer-normalization.js";
 export {
   MAX_WEBHOOK_ENDPOINTS_PER_PRINCIPAL,
   WebhookEndpointLimitError,
@@ -84,7 +84,7 @@ export function outboxClaimToken(
 
 export interface PrincipalRepository {
   create(principal: Principal, uow?: UnitOfWork): Promise<Principal>;
-  getById(id: string): Promise<Principal | null>;
+  getById(id: string, uow?: UnitOfWork): Promise<Principal | null>;
   deleteUnlinkedProvisional(id: string, uow?: UnitOfWork): Promise<boolean>;
   update(
     id: string,

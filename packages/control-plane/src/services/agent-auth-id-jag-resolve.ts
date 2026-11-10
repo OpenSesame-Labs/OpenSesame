@@ -11,7 +11,7 @@ import {
   generateAgentRegistrationId,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { ensureVerifiedIdentityPrincipal } from "./identity-link.js";
+import { ensureVerifiedIdentityPrincipal } from "./identity-principal-fence.js";
 
 type BuiltProviderRegistration = {
   registration: AgentRegistration;

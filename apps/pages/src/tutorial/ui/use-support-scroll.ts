@@ -27,6 +27,14 @@ function scrollBodyTo(body: HTMLElement, top: number): void {
   else body.scrollTop = top;
 }
 
+/** Whether `article` ends at or above the fold of the sheet `body`. */
+function bottomInView(article: HTMLElement, body: HTMLElement): boolean {
+  return (
+    article.getBoundingClientRect().bottom <=
+    body.getBoundingClientRect().bottom
+  );
+}
+
 /** The newest question among the entries that landed since `from`, or -1. */
 function newestQuestionAt(
   transcript: readonly SupportEntry[],
@@ -108,10 +116,7 @@ export function useSupportScroll(
     // An async arrival: offer the jump only when it is actually out of sight.
     const body = bodyRef.current;
     if (!body) return;
-    const belowFold =
-      article.getBoundingClientRect().bottom >
-      body.getBoundingClientRect().bottom;
-    if (belowFold) setUnseenAnswer(true);
+    if (!bottomInView(article, body)) setUnseenAnswer(true);
   }, [transcript, articleAt, bringToTop]);
 
   /** The "New answer" key: jump to the newest entry, then stand down. */
@@ -134,12 +139,7 @@ export function useSupportScroll(
     const body = bodyRef.current;
     const article = articleAt(seen.current - 1);
     if (!body || !article) return;
-    if (
-      article.getBoundingClientRect().bottom <=
-      body.getBoundingClientRect().bottom
-    ) {
-      setUnseenAnswer(false);
-    }
+    if (bottomInView(article, body)) setUnseenAnswer(false);
   }, [unseenAnswer, articleAt]);
 
   return { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll };

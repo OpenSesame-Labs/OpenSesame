@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
-import { ConflictError, type UnitOfWork } from "@opensesame/database";
-import type { ExternalIdentity, Principal } from "@opensesame/os-domain";
+import { ConflictError } from "@opensesame/database";
+import type { ExternalIdentity } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { settleVerifiedOwner } from "./identity-principal-fence.js";
 
 /**
  * Canonical binding of a *verified* upstream identity to a principal.
@@ -100,74 +101,6 @@ const IDENTITY_COLLISION_MESSAGE =
   "External identity already bound to another principal; merge requires dual authentication";
 
 /**
- * Whether the principal a verified identity belongs to may be signed in as,
- * promoting a leftover provisional record first.
- *
- * A verified tuple can outlive the promotion that was supposed to follow
- * its creation (a crash or a lost update race between the two writes).
- * The assertion that just verified is the same proof the original attach
- * would have promoted on, so a returning sign-in finishes that promotion
- * instead of either signing in as a provisional principal or stranding a
- * verified owner forever. Suspended, closed and missing principals are
- * never promoted or admitted.
- */
-export async function ensureVerifiedIdentityPrincipal(
-  ctx: AppContext,
-  principalId: string,
-  uow?: UnitOfWork,
-): Promise<Principal | null> {
-  const principal = await ctx.repos.principals.getById(principalId);
-  if (
-    !principal ||
-    principal.state === "suspended" ||
-    principal.state === "closed"
-  ) {
-    return null;
-  }
-  if (
-    principal.state !== "provisional" &&
-    principal.assurance !== "provisional"
-  ) {
-    return principal.state === "active" ? principal : null;
-  }
-  const now = ctx.clock();
-  try {
-    const updated = await ctx.repos.principals.update(
-      principalId,
-      {
-        state: "active",
-        assurance: "verified",
-        verifiedAt: now,
-        updatedAt: now,
-      },
-      principal.version,
-      uow,
-    );
-    return updated.state === "active" && updated.assurance !== "provisional"
-      ? updated
-      : null;
-  } catch (err) {
-    if (err instanceof ConflictError) {
-      const current = await ctx.repos.principals.getById(principalId);
-      return current?.state === "active" && current.assurance !== "provisional"
-        ? current
-        : null;
-    }
-    throw err;
-  }
-}
-
-export async function ensureVerifiedIdentityPrincipalActive(
-  ctx: AppContext,
-  principalId: string,
-  uow?: UnitOfWork,
-): Promise<boolean> {
-  return (
-    (await ensureVerifiedIdentityPrincipal(ctx, principalId, uow)) !== null
-  );
-}
-
-/**
  * Bind a verified upstream identity to `principalId`.
  *
  * - idempotent when the same principal already owns the tuple
@@ -204,10 +137,7 @@ export async function attachVerifiedExternalIdentity(
       // principal row that is already gone keeps the tolerant answer the
       // fresh-write path gives — no other principal is involved.
       const owner = await ctx.repos.principals.getById(principalId);
-      if (
-        owner &&
-        !(await ensureVerifiedIdentityPrincipalActive(ctx, principalId))
-      ) {
+      if (owner && !(await settleVerifiedOwner(ctx, principalId))) {
         return {
           ok: false,
           error: "identity_collision",
@@ -316,18 +246,17 @@ export async function attachVerifiedExternalIdentity(
     // is in flight; refusing here rolls the new row back out with it.
     await ctx.repos.transaction(async (uow) => {
       await ctx.repos.externalIdentities.create(identity, uow);
-      const target = await ctx.repos.principals.getById(ownerPrincipalId);
+      // Every read in here goes through `uow`: a read on the root
+      // connection would wait on a second connection while this
+      // transaction holds the first, and hangs where there is only one.
+      const target = await ctx.repos.principals.getById(ownerPrincipalId, uow);
       // A self-attach whose principal row is already gone keeps the old
       // tolerant answer (the row is the caller's own; there is no owner
       // to protect and the FK has the last word in real repositories).
       // An email join onto SOMEONE ELSE never gets that tolerance.
       if (
         (target !== null || emailOwner !== undefined) &&
-        !(await ensureVerifiedIdentityPrincipalActive(
-          ctx,
-          ownerPrincipalId,
-          uow,
-        ))
+        !(await settleVerifiedOwner(ctx, ownerPrincipalId, uow))
       ) {
         throw new ConflictError(IDENTITY_COLLISION_MESSAGE);
       }

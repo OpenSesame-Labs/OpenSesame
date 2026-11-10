@@ -33,6 +33,12 @@ function issuerKey(issuer: string): string {
   return normalizeIssuer(issuer);
 }
 
+const COLLISION = {
+  error: "identity_collision",
+  message:
+    "External identity already bound to another principal; merge requires dual authentication",
+} as const;
+
 const UNTRUSTED_ISSUER = {
   error: "untrusted_issuer",
   message: "That identity issuer is not in the allowlist.",
@@ -225,6 +231,75 @@ async function adoptJoinedIdentity(
 }
 
 /**
+ * The attach refused. A throwaway caller presenting a subject somebody
+ * already owns is signing in as that owner; everyone else gets the 409.
+ */
+async function collisionAnswer(
+  c: LinkContext,
+  ctx: AppContext,
+  principalId: string,
+  issuer: string,
+  verified: VerifiedToken,
+  refused: { error: string; message: string },
+): Promise<Response> {
+  try {
+    const rebound = await collisionRebind(
+      c,
+      ctx,
+      principalId,
+      issuer,
+      verified,
+    );
+    if (rebound) return rebound;
+  } catch (error) {
+    if (error instanceof ProvisionalCapacityError)
+      return c.json({ error: "provisional_capacity" }, 429);
+    throw error;
+  }
+  return c.json({ error: refused.error, message: refused.message }, 409);
+}
+
+/**
+ * The identity landed on a different principal than the caller's session
+ * (verified-email join): bind the session to the principal it belongs to,
+ * as identity-link's contract requires of callers that just minted. Only
+ * an active principal is adopted into; anyone else keeps the session they
+ * arrived with.
+ */
+async function bindJoinedSession(
+  c: LinkContext,
+  ctx: AppContext,
+  principalId: string,
+  identity: ExternalIdentity,
+): Promise<{ adoption?: FederatedSessionAdoption } | { refusal: Response }> {
+  let adoption: FederatedSessionAdoption | undefined;
+  try {
+    adoption = await adoptJoinedIdentity(c, ctx, principalId, identity);
+  } catch (error) {
+    if (error instanceof PrincipalNotActiveError)
+      return { refusal: c.json(COLLISION, 409) };
+    if (error instanceof ProvisionalCapacityError)
+      return { refusal: c.json({ error: "provisional_capacity" }, 429) };
+    throw error;
+  }
+  if (adoption) {
+    if (!(await settleAdoption(ctx, adoption)))
+      return { refusal: c.json(COLLISION, 409) };
+    setSessionCookie(c, ctx, adoption.accessToken);
+    await revokePresentedSession(c, ctx);
+    return { adoption };
+  }
+  if (identity.principalId !== principalId) {
+    // The join landed elsewhere but no session was adopted. That is a
+    // plain link answer only while the owner is still active; a race
+    // into suspension must not be reported as a successful sign-in.
+    const owner = await ctx.repos.principals.getById(identity.principalId);
+    if (owner?.state !== "active") return { refusal: c.json(COLLISION, 409) };
+  }
+  return {};
+}
+
+/**
  * ADR 0033 production path: decode `iss`, allowlist it, verify the token, then
  * hand the verified subject to the shared identity-link service. Storage,
  * promotion and audit all live in that service so the hosted relying-party leg
@@ -277,78 +352,13 @@ export async function linkFromVerifiedIdToken(
   });
 
   if (!result.ok) {
-    if (result.error === "identity_collision") {
-      try {
-        const rebound = await collisionRebind(
-          c,
-          ctx,
-          principalId,
-          issuer,
-          verified,
-        );
-        if (rebound) return rebound;
-      } catch (error) {
-        if (error instanceof ProvisionalCapacityError)
-          return c.json({ error: "provisional_capacity" }, 429);
-        throw error;
-      }
-    }
-    return c.json({ error: result.error, message: result.message }, 409);
+    return collisionAnswer(c, ctx, principalId, issuer, verified, result);
   }
 
   const identity = result.identity;
-  // The identity landed on a different principal than the caller's session
-  // (verified-email join): bind the session to the principal it belongs to,
-  // as identity-link's contract requires of callers that just minted. Only
-  // an active principal is adopted into; anyone else keeps the session
-  // they arrived with.
-  let adoption: FederatedSessionAdoption | undefined;
-  try {
-    adoption = await adoptJoinedIdentity(c, ctx, principalId, identity);
-  } catch (error) {
-    if (error instanceof PrincipalNotActiveError) {
-      return c.json(
-        {
-          error: "identity_collision",
-          message:
-            "External identity already bound to another principal; merge requires dual authentication",
-        },
-        409,
-      );
-    }
-    if (error instanceof ProvisionalCapacityError)
-      return c.json({ error: "provisional_capacity" }, 429);
-    throw error;
-  }
-  if (adoption && !(await settleAdoption(ctx, adoption))) {
-    return c.json(
-      {
-        error: "identity_collision",
-        message:
-          "External identity already bound to another principal; merge requires dual authentication",
-      },
-      409,
-    );
-  }
-  if (adoption) {
-    setSessionCookie(c, ctx, adoption.accessToken);
-    await revokePresentedSession(c, ctx);
-  } else if (identity.principalId !== principalId) {
-    // The join landed elsewhere but no session was adopted. That is a
-    // plain link answer only while the owner is still active; a race
-    // into suspension must not be reported as a successful sign-in.
-    const owner = await ctx.repos.principals.getById(identity.principalId);
-    if (owner?.state !== "active") {
-      return c.json(
-        {
-          error: "identity_collision",
-          message:
-            "External identity already bound to another principal; merge requires dual authentication",
-        },
-        409,
-      );
-    }
-  }
+  const bound = await bindJoinedSession(c, ctx, principalId, identity);
+  if ("refusal" in bound) return bound.refusal;
+  const { adoption } = bound;
   const body = LinkIdentityResponseSchema.parse({
     principalId: identity.principalId,
     ...(adoption
