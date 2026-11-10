@@ -89,39 +89,105 @@ export function grokClaimSatisfied(entry) {
   return false;
 }
 
-/**
- * @returns {'grok'|'claude'|'kimi'|'muse'|'cursor'|'tyler'|undefined}
- */
-export function recognizedAgentId(entry) {
-  const email = authorEmail(entry);
-  const name = authorName(entry);
-  const body = message(entry);
-  const coAuthors = coAuthorLines(body).join("\n");
+/** @typedef {'grok'|'claude'|'kimi'|'muse'|'cursor'|'tyler'} AgentId */
+/** @typedef {{ email: string; name: string; body: string; coAuthors: string }} AttributionFacts */
 
-  if (
-    body.includes(grokCoAuthorTrailer()) ||
-    /Co-authored-by:.*Grok/i.test(body)
-  )
-    return "grok";
-  if (email === GROK_AUTHOR_EMAIL || name === GROK_AUTHOR_NAME) return "grok";
-  if (CLAUDE_EMAIL.test(email) || /claude/i.test(name)) return "claude";
-  if (
+/** @param {AttributionFacts} facts */
+function grokTrailerInMessage({ body }) {
+  return (
+    body.includes(grokCoAuthorTrailer()) || /Co-authored-by:.*Grok/i.test(body)
+  );
+}
+
+/** @param {AttributionFacts} facts */
+function grokAuthor({ email, name }) {
+  return email === GROK_AUTHOR_EMAIL || name === GROK_AUTHOR_NAME;
+}
+
+/** @param {AttributionFacts} facts */
+function claudeAuthor({ email, name }) {
+  return CLAUDE_EMAIL.test(email) || /claude/i.test(name);
+}
+
+/** @param {AttributionFacts} facts */
+function kimiAuthorOrCoAuthor({ email, name, coAuthors }) {
+  return (
     /kimi/i.test(name) ||
     /@moonshot\.ai$/i.test(email) ||
     /kimi/i.test(coAuthors)
-  )
-    return "kimi";
-  if (/\bmuse\b/i.test(name) || /\bmuse\b/i.test(coAuthors)) return "muse";
-  if (CURSOR_BOT_EMAIL.test(email) || /cursor\[bot\]/i.test(name))
-    return "cursor";
-  if (TYLER_EMAIL.test(email) || name === "Tyler Kendrick") return "tyler";
-  if (/Co-Authored-By:.*[Cc]laude/i.test(body) || CLAUDE_EMAIL.test(coAuthors))
-    return "claude";
-  if (/Claude-Session:/i.test(body)) return "claude";
-  if (/Co-authored-by:.*[Kk]imi/i.test(body)) return "kimi";
-  if (/Co-authored-by:.*[Mm]use/i.test(body)) return "muse";
+  );
+}
 
-  return undefined;
+/** @param {AttributionFacts} facts */
+function museAuthorOrCoAuthor({ name, coAuthors }) {
+  return /\bmuse\b/i.test(name) || /\bmuse\b/i.test(coAuthors);
+}
+
+/** @param {AttributionFacts} facts */
+function cursorBotAuthor({ email, name }) {
+  return CURSOR_BOT_EMAIL.test(email) || /cursor\[bot\]/i.test(name);
+}
+
+/** @param {AttributionFacts} facts */
+function tylerAuthor({ email, name }) {
+  return TYLER_EMAIL.test(email) || name === "Tyler Kendrick";
+}
+
+/** @param {AttributionFacts} facts */
+function claudeCoAuthor({ body, coAuthors }) {
+  return (
+    /Co-Authored-By:.*[Cc]laude/i.test(body) || CLAUDE_EMAIL.test(coAuthors)
+  );
+}
+
+/** @param {AttributionFacts} facts */
+function claudeSessionTrailer({ body }) {
+  return /Claude-Session:/i.test(body);
+}
+
+/** @param {AttributionFacts} facts */
+function kimiCoAuthorTrailer({ body }) {
+  return /Co-authored-by:.*[Kk]imi/i.test(body);
+}
+
+/** @param {AttributionFacts} facts */
+function museCoAuthorTrailer({ body }) {
+  return /Co-authored-by:.*[Mm]use/i.test(body);
+}
+
+/**
+ * Attribution rules in the order they are tried: the first rule whose
+ * predicate matches names the agent, so the order is part of the contract.
+ *
+ * @type {ReadonlyArray<readonly [AgentId, (facts: AttributionFacts) => boolean]>}
+ */
+const AGENT_RULES = [
+  ["grok", grokTrailerInMessage],
+  ["grok", grokAuthor],
+  ["claude", claudeAuthor],
+  ["kimi", kimiAuthorOrCoAuthor],
+  ["muse", museAuthorOrCoAuthor],
+  ["cursor", cursorBotAuthor],
+  ["tyler", tylerAuthor],
+  ["claude", claudeCoAuthor],
+  ["claude", claudeSessionTrailer],
+  ["kimi", kimiCoAuthorTrailer],
+  ["muse", museCoAuthorTrailer],
+];
+
+/**
+ * @returns {AgentId|undefined}
+ */
+export function recognizedAgentId(entry) {
+  const body = message(entry);
+  /** @type {AttributionFacts} */
+  const facts = {
+    email: authorEmail(entry),
+    name: authorName(entry),
+    body,
+    coAuthors: coAuthorLines(body).join("\n"),
+  };
+  return AGENT_RULES.find(([, matches]) => matches(facts))?.[0];
 }
 
 export function commitHasRecognizedAttribution(entry) {
