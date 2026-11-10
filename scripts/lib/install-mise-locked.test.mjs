@@ -96,7 +96,44 @@ function assertRestore(step, tool, id) {
   assert.equal(uses.includes("actions/cache/save@"), false, id);
 }
 
+// Every workflow that runs the installer, mapped to the test file that checks
+// its jobs in detail. A workflow that adopts the installer without an entry
+// here fails, so it cannot go uncovered.
+const coveredBy = new Map([
+  ["cd-ghcr-publish.yml", "install-mise-locked.test.mjs"],
+  ["cd-pwa.yml", "install-mise-locked.pwa.test.mjs"],
+  ["cd-pwa-profile-proof.yml", "install-mise-locked.pwa.test.mjs"],
+]);
+
+function installerWorkflows() {
+  return readdirSync(workflowDir).filter((name) =>
+    read(join(".github/workflows", name)).includes(
+      "bash scripts/lib/install-mise-locked.sh",
+    ),
+  );
+}
+
 describe("locked mise bootstrap", () => {
+  it("every workflow that runs the installer has a coverage test", () => {
+    const present = installerWorkflows();
+    assert.ok(present.length > 0);
+    for (const name of present) {
+      assert.ok(coveredBy.has(name), `${name} has no coverage test`);
+      const text = read(join(".github/workflows", name));
+      assert.doesNotMatch(text, /jdx\/mise-action/u, name);
+      assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
+      assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+      assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+    }
+    for (const [name, file] of coveredBy) {
+      assert.ok(present.includes(name), `${name} no longer runs the installer`);
+      assert.ok(
+        read(join("scripts/lib", file)).includes(name),
+        `${file}: ${name}`,
+      );
+    }
+  });
+
   it("pins match the devcontainer image", () => {
     const pins = read(pinsRel);
     // .cursor/Dockerfile left this repo with the AI-harness dotfiles (#2538).
@@ -244,13 +281,11 @@ describe("locked mise bootstrap", () => {
     assert.ok(ci.includes(seedKey("rust")));
     assert.ok(ci.includes(legacyKey));
     const required = ["cd-ghcr-publish.yml"];
-    const present = readdirSync(workflowDir).filter((name) =>
-      read(join(".github/workflows", name)).includes(
-        "bash scripts/lib/install-mise-locked.sh",
-      ),
-    );
+    const present = installerWorkflows();
     for (const name of required) assert.ok(present.includes(name), name);
-    for (const name of present) {
+    // Only this test's workflows: PWA CD has its own coverage test and its own
+    // invocation (install-mise-locked.pwa.test.mjs).
+    for (const name of required) {
       const text = read(join(".github/workflows", name));
       assert.doesNotMatch(text, /jdx\/mise-action/u, name);
       assert.doesNotMatch(text, /actions\/cache\/save@/u, name);

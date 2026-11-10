@@ -71,6 +71,7 @@ jobs:
           install_args: node@24
       - name: Require trunk CI for this commit
         env:
+          GITHUB_REF: ${{ github.ref }}
           GH_TOKEN: ${{ github.token }}
           # 5s polls. Attempts keep the default sleep budget:
           # (475 - 1) * 5000 ms = (80 - 1) * 30000 ms.

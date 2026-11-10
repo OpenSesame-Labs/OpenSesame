@@ -4,9 +4,11 @@
  * must not restore or save that cache after untrusted checkout — see CodeQL
  * actions/cache-poisoning/poisonable-step and jdx/mise-action release guidance.
  *
- * cd-ghcr-publish.yml runs on push to main, v* tags, and workflow_dispatch.
- * It does not use mise-action. It may restore the trunk mise tool cache
- * (node and rust keys) and must not save it.
+ * cd-pwa.yml runs only on push to main and workflow_dispatch. cd-pwa-profile-proof.yml
+ * runs on pull_request for the install-profile proof. cd-ghcr-publish.yml runs on
+ * push to main, v* tags, and workflow_dispatch. None of the three uses mise-action.
+ * Each may restore the trunk mise tool cache (GHCR: node and rust keys; PWA: the
+ * node key) and must not save it.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

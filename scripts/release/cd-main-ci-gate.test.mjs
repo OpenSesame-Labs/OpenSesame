@@ -6,6 +6,7 @@ import {
   classifyRuns,
   failedChecks,
   readGateConfig,
+  requireMainBranchRef,
   resolveAdmittedMainCiRun,
   waitForMainCi,
 } from "./cd-main-ci-gate.mjs";
@@ -56,6 +57,22 @@ test("required check names stay the merge-queue contexts", () => {
     "Rust",
     "Bundle budgets",
   ]);
+});
+
+test("requireMainBranchRef fails fast off main", () => {
+  assert.throws(
+    () =>
+      requireMainBranchRef(
+        "refs/heads/cursor/cd-npm-cli-mise-vendor-ee3b-signed",
+      ),
+    /requires GITHUB_REF refs\/heads\/main/,
+  );
+  assert.throws(
+    () => requireMainBranchRef("refs/pull/2541/merge"),
+    /requires GITHUB_REF refs\/heads\/main/,
+  );
+  assert.doesNotThrow(() => requireMainBranchRef("refs/heads/main"));
+  assert.doesNotThrow(() => requireMainBranchRef(undefined));
 });
 
 test("gate config reads GH_TOKEN and rejects a short sha", () => {

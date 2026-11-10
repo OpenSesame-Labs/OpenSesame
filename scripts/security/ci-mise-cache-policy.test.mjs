@@ -44,9 +44,17 @@ const nodeMiseRestoreKey =
 const rustMiseRestoreKey =
   "key: mise-v2-${{ runner.os }}-rust-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
 
-const readOnlyMiseRestore = new Set(["cd-ghcr-publish.yml"]);
+// Workflows that restore the trunk mise tool cache read-only, and the tools
+// each restores. GHCR restores Node and Rust once each; PWA CD restores Node
+// in every job that needs it.
+const readOnlyMiseRestore = new Map([
+  ["cd-ghcr-publish.yml", { tools: ["node", "rust"], once: true }],
+  ["cd-pwa.yml", { tools: ["node"], once: false }],
+  ["cd-pwa-profile-proof.yml", { tools: ["node"], once: false }],
+]);
 
 function assertReadOnlyMiseRestore(name, text) {
+  const expected = readOnlyMiseRestore.get(name);
   const steps = text.split(/\n {6}- /u);
   const tools = [];
   for (const step of steps) {
@@ -57,6 +65,7 @@ function assertReadOnlyMiseRestore(name, text) {
         ? "node"
         : "";
     assert.ok(tool === "node" || tool === "rust", name);
+    assert.ok(expected.tools.includes(tool), `${name} restores ${tool}`);
     tools.push(tool);
     assert.ok(
       step.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
@@ -72,7 +81,16 @@ function assertReadOnlyMiseRestore(name, text) {
     assert.equal(step.includes(`-seed-main-${other}-`), false, name);
     assert.equal(step.includes("actions/cache/save@"), false, name);
   }
-  assert.deepEqual(tools.sort(), ["node", "rust"], name);
+  assert.ok(tools.length > 0, name);
+  if (expected.once) {
+    assert.deepEqual(tools.sort(), [...expected.tools].sort(), name);
+  } else {
+    assert.deepEqual(
+      [...new Set(tools)].sort(),
+      [...expected.tools].sort(),
+      name,
+    );
+  }
   assert.equal(text.includes("actions/cache/save@"), false, name);
   assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
 }

@@ -262,5 +262,12 @@ test("pull-request profile proof uses the full profile only", () => {
   );
   assert.doesNotMatch(text, /proof-gate:/);
   assert.match(text, /timeout-minutes: 60/);
-  assert.match(text, /cache: false/);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/);
+  assert.match(
+    text,
+    /actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
+  assert.doesNotMatch(text, /jdx\/mise-action/);
+  assert.doesNotMatch(text, /actions\/cache\/save@/);
+  assert.doesNotMatch(text, /cache:\s*true/);
 });

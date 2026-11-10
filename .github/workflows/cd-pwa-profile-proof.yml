@@ -17,8 +17,10 @@ on:
       - ".github/workflows/cd-pwa.yml"
       - ".github/workflows/cd-pwa-profile-proof.yml"
 
+# Read-only mise tool cache restore needs actions: read. This workflow does not save.
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: cd-pwa-profile-proof-${{ github.ref }}
@@ -35,10 +37,16 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node@24
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Profile build and screenshot
