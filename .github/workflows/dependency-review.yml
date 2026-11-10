@@ -1,0 +1,55 @@
+# Reviews the dependency changes a pull request introduces, before they merge.
+#
+# The audit gates (`npm run audit:osv`, `audit:cargo-audit`, `audit:cve-lite`)
+# scan whole lockfiles from hooks and on a schedule. This job answers a
+# narrower question that only exists at review time: which packages does this
+# pull request add or move, and does any of them carry a known advisory?
+#
+# It reads the dependency graph diff through the API. It checks out and runs
+# nothing from the pull request, needs no secret, and finishes in seconds.
+# It is an exception to "trunk only builds" recorded in ADR 0222, and it is
+# not a required check: a path-filtered required check would leave unrelated
+# pull requests pending.
+
+name: Dependency review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "**/package.json"
+      - "**/package-lock.json"
+      - "**/npm-shrinkwrap.json"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "**/*.gradle"
+      - "**/*.gradle.kts"
+      - "**/gradle/libs.versions.toml"
+      - ".npmrc"
+      - ".github/workflows/**"
+      - ".github/actions/**"
+
+permissions: {}
+
+concurrency:
+  group: dependency-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Fail on any advisory in an added or changed dependency
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # The local gates accept no advisory at any severity; neither does this.
+          fail-on-severity: low
+          fail-on-scopes: runtime, development, unknown
+          # The result stays in the job summary. No pull-request write access.
+          comment-summary-in-pr: never

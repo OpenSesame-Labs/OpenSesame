@@ -17,6 +17,7 @@ repository root).
 | [`wallet/`](wallet) | Wallet spending-authority harness ([README](wallet/README.md)) | `npm run wallet:*` |
 | [`release/`](release) | Pages release, the release kit's archives, commit-signature check, signed-stack replay, connector and marketplace pins | CI, Deploy Pages, a terminal ([README](release/README.md)) |
 | [`dev/`](dev) | Local development launchers and git hook setup | `npm run dev:cli`, `dev:host`, `dev:daemon`, `dev:live-nats`, `npm run setup:hooks`, `npm run dev` -w @opensesame/pages |
+| [`metrics/`](metrics) | Engineering system metrics collector ([definitions](../docs/contributing/engineering-system-metrics.md)) | `npm run metrics:engineering`, the weekly Engineering system metrics workflow |
 | [`security/`](security) | Exposure policy, advisory gates and dependency regressions | `npm run audit:exposure`, `npm run audit:osv`, `npm run quality:test` |
 | [`lib/`](lib) | Pure logic shared by the entry points, with Vitest tests beside it | `npm run quality:test` |
 

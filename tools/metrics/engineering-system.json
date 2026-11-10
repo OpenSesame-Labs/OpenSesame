@@ -1,0 +1,15 @@
+{
+  "$comment": "Definitions behind scripts/metrics/engineering-system-metrics.mjs. Changing a value here changes what a metric means; say why in the pull request. See docs/contributing/engineering-system-metrics.md.",
+  "windowDays": 28,
+  "productionEnvironments": ["Production", "github-pages", "release"],
+  "ciWorkflow": "ci.yml",
+  "ciEvent": "pull_request",
+  "ciRunSample": 500,
+  "ciJobSample": 20,
+  "stalePullRequestDays": 3,
+  "pulseLabel": "engineering-pulse",
+  "business": {
+    "engineeringExpensesToRevenuePercent": null,
+    "featureEngineeringExpensesPercent": null
+  }
+}
