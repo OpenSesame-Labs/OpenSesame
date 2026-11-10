@@ -1,6 +1,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readString } from "./json-boundary.mjs";
 
 /**
  * Remote-cache environment for one CI run.
@@ -20,16 +21,8 @@ import { fileURLToPath } from "node:url";
  */
 export function turboCacheEnv(githubContext = {}) {
   const eventName = text(githubContext.eventName ?? githubContext.event_name);
-  const repository = text(
-    githubContext.repository ??
-      githubContext.payload?.repository?.full_name ??
-      githubContext.event?.repository?.full_name,
-  );
-  const headRepository = text(
-    githubContext.headRepository ??
-      githubContext.payload?.pull_request?.head?.repo?.full_name ??
-      githubContext.event?.pull_request?.head?.repo?.full_name,
-  );
+  const repository = repositoryName(githubContext);
+  const headRepository = headRepositoryName(githubContext);
   const token = text(githubContext.token ?? githubContext.secrets?.TURBO_TOKEN);
   const team = text(githubContext.team ?? githubContext.vars?.TURBO_TEAM);
   const forkPullRequest =
@@ -43,8 +36,26 @@ export function turboCacheEnv(githubContext = {}) {
   };
 }
 
+/** The repository the run belongs to: explicit, else from the event payload. */
+function repositoryName(githubContext) {
+  return text(
+    githubContext.repository ??
+      githubContext.payload?.repository?.full_name ??
+      githubContext.event?.repository?.full_name,
+  );
+}
+
+/** The pull request's head repository: explicit, else from the event payload. */
+function headRepositoryName(githubContext) {
+  return text(
+    githubContext.headRepository ??
+      githubContext.payload?.pull_request?.head?.repo?.full_name ??
+      githubContext.event?.pull_request?.head?.repo?.full_name,
+  );
+}
+
 function text(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return readString(value)?.trim() ?? "";
 }
 
 function writeCacheEnv(env) {
