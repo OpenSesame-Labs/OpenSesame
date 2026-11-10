@@ -30,6 +30,35 @@ async function filesUnder(directory) {
   return found;
 }
 
+/** A stray sourcemap in the staged dist is still left out of the packed files. */
+async function assertPackDropsSourcemaps(releaseDir) {
+  await writeFile(
+    join(releaseDir, "dist/cd-release-pack-probe/sneak.js.map"),
+    "{}\n",
+  );
+  const { stdout } = await execFileAsync(
+    "npm",
+    ["pack", "--dry-run", "--json", "--ignore-scripts"],
+    { cwd: releaseDir },
+  );
+  const packed = JSON.parse(stdout);
+  const entry = Array.isArray(packed)
+    ? packed.find((item) => item.name === "@opensesame-labs/cli")
+    : packed;
+  assert.ok(entry);
+  const paths = entry.files.map((file) => file.path);
+  assert.equal(
+    paths.some((path) => path.endsWith(".map")),
+    false,
+  );
+  assert.ok(paths.includes("dist/bin.js"));
+  assert.ok(paths.includes("dist/cd-release-pack-probe/leaf.js"));
+  assert.equal(
+    paths.includes("dist/cd-release-pack-probe/sneak.js.map"),
+    false,
+  );
+}
+
 test("stageCliRelease writes a public publish manifest at the planned version", async () => {
   const dist = join(process.cwd(), "packages/cli/dist");
   const bin = join(dist, "bin.js");
@@ -78,31 +107,7 @@ test("stageCliRelease writes a public publish manifest at the planned version", 
     );
     assert.throws(() => assertCliReleaseDistBudget(1.5), /not a byte count/);
 
-    await writeFile(
-      join(releaseDir, "dist/cd-release-pack-probe/sneak.js.map"),
-      "{}\n",
-    );
-    const { stdout } = await execFileAsync(
-      "npm",
-      ["pack", "--dry-run", "--json", "--ignore-scripts"],
-      { cwd: releaseDir },
-    );
-    const packed = JSON.parse(stdout);
-    const entry = Array.isArray(packed)
-      ? packed.find((item) => item.name === "@opensesame-labs/cli")
-      : packed;
-    assert.ok(entry);
-    const paths = entry.files.map((file) => file.path);
-    assert.equal(
-      paths.some((path) => path.endsWith(".map")),
-      false,
-    );
-    assert.ok(paths.includes("dist/bin.js"));
-    assert.ok(paths.includes("dist/cd-release-pack-probe/leaf.js"));
-    assert.equal(
-      paths.includes("dist/cd-release-pack-probe/sneak.js.map"),
-      false,
-    );
+    await assertPackDropsSourcemaps(releaseDir);
   } finally {
     await rm(probe, { recursive: true, force: true });
     if (previous === undefined) await rm(bin, { force: true });

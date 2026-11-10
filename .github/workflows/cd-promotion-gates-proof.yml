@@ -17,6 +17,7 @@ on:
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
       - "scripts/release/npm-cd-workflows.test.mjs"
+      - "scripts/release/npm-cd-workflows.promotion-gates.mjs"
       - "scripts/lib/workflow-script-paths.mjs"
       - "scripts/lib/workflow-script-paths.test.mjs"
       - "scripts/ci/ensure-chrome-headless-shell.mjs"
@@ -58,6 +59,8 @@ jobs:
             scripts/release/npm-cd-workflows.test.mjs \
             scripts/release/cd-main-ci-gate.test.mjs \
             scripts/release/cd-preview-smoke.test.mjs \
+            scripts/release/cd-preview-smoke.run.test.mjs \
+            scripts/release/cd-preview-smoke.pages.test.mjs \
             scripts/release/cd-pwa-preview-smoke/prepare-vars.test.mjs \
             scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
