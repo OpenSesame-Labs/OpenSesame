@@ -182,6 +182,25 @@ describe("the recommender", () => {
     expect(notice?.open?.to).toBe("/settings/features#feature-ai");
   });
 
+  it("stays silent when guidance is switched off during the readiness check", async () => {
+    on = ["password-reset"];
+    let ready: (blocker: "runtime") => void = () => undefined;
+    recommenderSeams.passwordResetBlocker = () =>
+      new Promise((resolve) => {
+        ready = resolve;
+      });
+    mount();
+    signalRecommendation("password.generated");
+    await settle();
+    setGuidanceMode("off");
+    await act(async () => {
+      ready("runtime");
+      await Promise.resolve();
+    });
+    expect(listNotices()).toHaveLength(0);
+    expect(loadGuidance().recommendations).toEqual([]);
+  });
+
   it("is silent when guidance is off", async () => {
     setGuidanceMode("off");
     mount();

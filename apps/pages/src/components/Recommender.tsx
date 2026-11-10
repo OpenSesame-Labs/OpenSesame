@@ -219,16 +219,24 @@ export function Recommender(): null {
 
   useEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>();
+    let mounted = true;
     const consider = async (trigger: RecommendationTrigger) => {
-      const guidance = loadGuidance();
-      if (guidance.mode === "off") return;
-      const now = live.current;
+      if (loadGuidance().mode === "off") return;
       // Readiness is asked only where a recommendation turns on it.
       const passwordResetBlocker =
         trigger === "password.generated" &&
-        now.device.featureOn("password-reset")
-          ? await recommenderSeams.passwordResetBlocker(now.device.approved)
+        live.current.device.featureOn("password-reset")
+          ? await recommenderSeams.passwordResetBlocker(
+              live.current.device.approved,
+            )
           : null;
+      // The check takes a moment. Everything else is read after it, so a
+      // person who switched guidance off meanwhile, or a shell that is
+      // gone, is not answered with a recommendation recorded as made.
+      if (!mounted) return;
+      const guidance = loadGuidance();
+      if (guidance.mode === "off") return;
+      const now = live.current;
       const facts: RecommendationFacts = {
         featureOn: now.device.featureOn,
         featureAvailable: now.device.featureAvailable,
@@ -254,6 +262,7 @@ export function Recommender(): null {
       timers.add(timer);
     });
     return () => {
+      mounted = false;
       stop();
       for (const timer of timers) clearTimeout(timer);
     };

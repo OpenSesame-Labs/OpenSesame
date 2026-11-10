@@ -75,5 +75,9 @@ describe("Settings › Guided tours", () => {
       }),
     );
     expect(loadGuidance().tours).toEqual([]);
+    // The row and its key are gone: the keyboard is on the setting that stays.
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("On a screen you have not seen"),
+    );
   });
 });

@@ -21,6 +21,10 @@
  */
 
 import {
+  anyDirtyEdit,
+  hasDraftSaver,
+} from "@opensesame/app-core/lib/dirty-edit.js";
+import {
   noteScreenAnswered,
   rememberTourAnswered,
   screenAnsweredThisSession,
@@ -43,6 +47,12 @@ export const firstVisitSeams = {
   /** A sheet or dialog owns the screen: an offer waits for it to close. */
   modalOpen: (): boolean =>
     document.querySelector('[aria-modal="true"], dialog[open]') !== null,
+  /**
+   * An editor is open, or something on the page is unsaved. A tour navigates
+   * as it goes, and navigating away from an editor discards the draft, so a
+   * screen does not speak until the edit is saved or closed.
+   */
+  editing: (): boolean => hasDraftSaver() || anyDirtyEdit(),
   /**
    * A script is driving this browser (WebDriver). Nobody is meeting the
    * screen for the first time, and a tour that starts itself dims the page
@@ -99,9 +109,9 @@ export function FirstVisitOffer(): null {
     let shown: string | null = null;
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
-      // A sheet owns the screen: wait for it and ask again, since closing it
-      // changes nothing this effect depends on.
-      if (firstVisitSeams.modalOpen()) {
+      // A sheet owns the screen, or an edit is under way: wait and ask again,
+      // since neither ending changes anything this effect depends on.
+      if (firstVisitSeams.modalOpen() || firstVisitSeams.editing()) {
         timer = setTimeout(speak, firstVisitSeams.retryMs);
         return;
       }

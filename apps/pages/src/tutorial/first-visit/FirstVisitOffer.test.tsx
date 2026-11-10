@@ -85,6 +85,7 @@ beforeEach(() => {
   };
   firstVisitSeams.modalOpen = () => false;
   firstVisitSeams.driven = () => false;
+  firstVisitSeams.editing = () => false;
   firstVisitSeams.useGate = () => GATE;
   // Most of this suite is about the card, which is what `offer` draws.
   setGuidanceMode("offer");
@@ -206,6 +207,25 @@ describe("the first-visit offer", () => {
       vi.advanceTimersByTime(firstVisitSeams.retryMs + 5);
     });
     expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+  });
+
+  it("never starts a tour over an open editor, and speaks once it closes", () => {
+    setGuidanceMode("auto");
+    let editing = true;
+    firstVisitSeams.editing = () => editing;
+    const { support, started } = controller();
+    mount(support);
+    settle();
+    act(() => {
+      vi.advanceTimersByTime(firstVisitSeams.retryMs * 3);
+    });
+    // A tour navigates as it goes; that would discard the unsaved draft.
+    expect(started).toHaveLength(0);
+    editing = false;
+    act(() => {
+      vi.advanceTimersByTime(firstVisitSeams.retryMs + 5);
+    });
+    expect(started).toHaveLength(1);
   });
 
   it("stops waiting when the person moves on", () => {

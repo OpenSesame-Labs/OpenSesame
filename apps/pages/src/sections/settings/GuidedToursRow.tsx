@@ -16,9 +16,10 @@ import {
   forgetGuidanceAnswers,
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import { IconPlay, IconRefresh } from "../../components/Icons.js";
+import { landFocus } from "../../lib/focus.js";
 import { useGuidance } from "../../lib/use-guidance.js";
 import { SupportContext } from "../../tutorial/support-context.js";
 
@@ -31,6 +32,7 @@ const MODES: readonly { value: GuidanceMode; label: string }[] = [
 export function GuidedToursRow() {
   const support = useContext(SupportContext);
   const guidance = useGuidance();
+  const modeRef = useRef<HTMLSelectElement>(null);
   if (!support) return null;
   const answered = guidance.tours.length + guidance.recommendations.length;
   return (
@@ -58,6 +60,7 @@ export function GuidedToursRow() {
           </label>
           <select
             id="settings-guidance-mode"
+            ref={modeRef}
             className="sw__select"
             aria-label="On a screen you have not seen"
             value={guidance.mode}
@@ -84,7 +87,12 @@ export function GuidedToursRow() {
             </p>
             <IconKey
               label="Offer tours and recommendations again"
-              onClick={forgetGuidanceAnswers}
+              onClick={() => {
+                forgetGuidanceAnswers();
+                // This row goes with its answers, and its key with it: the
+                // keyboard is handed to the setting that stays.
+                landFocus(modeRef.current);
+              }}
             >
               <IconRefresh size={16} />
             </IconKey>
