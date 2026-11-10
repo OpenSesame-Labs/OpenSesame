@@ -25,6 +25,20 @@ const allowedArgs = new Set([
   "cargo:cargo-ndk",
 ]);
 
+/**
+ * cd-ghcr-publish.yml does not use mise-action. GitHub 504s on the action's
+ * jdx/mise release metadata fetch. Those jobs install the pinned tarball instead.
+ */
+const lockedMiseWorkflows = new Set(["cd-ghcr-publish.yml"]);
+const lockedMiseBootstraps = new Set([
+  "bash scripts/lib/install-mise-locked.sh node",
+  "bash scripts/lib/install-mise-locked.sh rust",
+]);
+
+function installsLockedMise(step) {
+  return lockedMiseBootstraps.has(runText(step).trim());
+}
+
 function workflows() {
   return readdirSync(workflowDir)
     .filter((name) => name.endsWith(".yml"))
@@ -64,20 +78,35 @@ test("npm jobs install Node with the pinned mise-action", () => {
   for (const { name, text } of workflows()) {
     const jobs = parse(text).jobs ?? {};
     const expectCacheDisabled = cacheDisabled.has(name);
+    const lockedBootstrap = lockedMiseWorkflows.has(name);
     let parsedMise = 0;
     for (const [id, job] of Object.entries(jobs)) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
       const label = `${name}:${id}`;
       const miseAt = [];
+      const bootstrapAt = [];
       let npmAt = -1;
       steps.forEach((step, index) => {
         if (step?.uses === miseUses) miseAt.push(index);
+        if (installsLockedMise(step)) bootstrapAt.push(index);
         if (npmAt < 0 && /\bnpm\s+(?:ci|run|exec)\b/u.test(runText(step))) {
           npmAt = index;
         }
       });
       parsedMise += miseAt.length;
-      if (npmAt >= 0) {
+      if (lockedBootstrap) {
+        assert.equal(miseAt.length, 0, `${label} uses mise-action`);
+        if (npmAt >= 0) {
+          assert.ok(
+            bootstrapAt.length > 0,
+            `${label} runs npm without locked mise`,
+          );
+          assert.ok(
+            bootstrapAt[0] < npmAt,
+            `${label} installs npm before locked mise`,
+          );
+        }
+      } else if (npmAt >= 0) {
         assert.ok(miseAt.length > 0, `${label} runs npm without mise`);
         assert.ok(miseAt[0] < npmAt, `${label} installs npm before mise`);
       }
@@ -144,9 +173,26 @@ test("npm jobs install Node with the pinned mise-action", () => {
     const rawMise = text
       .split("\n")
       .filter((line) => line.includes("jdx/mise-action@"));
+    if (lockedBootstrap) {
+      assert.equal(rawMise.length, 0, name);
+      assert.equal(parsedMise, 0, name);
+      assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node\n/u);
+      assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh rust\n/u);
+    }
     assert.equal(rawMise.length, parsedMise, name);
     for (const line of rawMise) assert.match(line, miseLine, name);
   }
+});
+
+test("GHCR CD installs tools with the locked mise bootstrap, not mise-action", () => {
+  const text = readFileSync(join(workflowDir, "cd-ghcr-publish.yml"), "utf8");
+  assert.equal(lockedMiseWorkflows.has("cd-ghcr-publish.yml"), true);
+  assert.doesNotMatch(text, /jdx\/mise-action/u);
+  assert.doesNotMatch(text, /install_args:/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node\n/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh rust\n/u);
+  assert.doesNotMatch(text, /actions\/cache\/save@/u);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u);
 });
 
 function rustTokens(step) {
@@ -157,6 +203,9 @@ function rustTokens(step) {
 }
 
 function installsRust(step) {
+  if (runText(step).trim() === "bash scripts/lib/install-mise-locked.sh rust") {
+    return true;
+  }
   return rustTokens(step).some(
     (token) =>
       token === "rust" ||

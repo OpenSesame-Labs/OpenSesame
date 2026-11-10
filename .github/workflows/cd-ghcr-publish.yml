@@ -67,10 +67,16 @@ jobs:
             /package-lock.json
             /mise.toml
             /mise.lock
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: node
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node
+        run: bash scripts/lib/install-mise-locked.sh node
       - run: npm ci
       - name: Prepare pinned Tailscale native distributions
         run: node --input-type=module -e 'import { loadTailscaleAssets } from "./apps/pages/scripts/tailscale-wasm-assets.mjs"; await loadTailscaleAssets();'
@@ -87,6 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # rust-cache saves through the Actions cache API.
+    # The mise tool directory is restored read-only and is not saved.
     permissions:
       contents: read
       actions: write
@@ -125,10 +132,16 @@ jobs:
             /.dockerignore
       - name: Install Linux keychain build dependencies
         run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          cache: false
-          install_args: rust
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-rust-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-rust-
+            mise-v1-linux-
+      - name: Install pinned mise and Rust
+        run: bash scripts/lib/install-mise-locked.sh rust
       # Save on workflow_dispatch and on push to main. Tag pushes restore only.
       # cache-on-failure saves this shared key when the build fails.
       # mise.toml sets CARGO_TARGET_DIR=$HOME/.cache/packages/cargo-target.

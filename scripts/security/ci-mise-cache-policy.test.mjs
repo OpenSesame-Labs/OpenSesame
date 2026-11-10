@@ -34,18 +34,66 @@ test("privileged workflow list matches workflow_call and release filenames", () 
   assert.ok(disabled.includes("ci-prerelease-checks.yml"));
   assert.ok(disabled.includes("cd-pwa.yml"));
   assert.ok(disabled.includes("cd-npm-cli.yml"));
+  assert.ok(disabled.includes("cd-ghcr-publish.yml"));
   assert.ok(!disabled.includes("ci.yml"));
   assert.ok(!disabled.includes("cd-npm-publish-proof.yml"));
 });
 
-test("privileged workflows do not restore or save Actions caches", () => {
+const nodeMiseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+const rustMiseRestoreKey =
+  "key: mise-v2-${{ runner.os }}-rust-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
+
+const readOnlyMiseRestore = new Set(["cd-ghcr-publish.yml"]);
+
+function assertReadOnlyMiseRestore(name, text) {
+  const steps = text.split(/\n {6}- /u);
+  const tools = [];
+  for (const step of steps) {
+    if (!step.includes("actions/cache")) continue;
+    const tool = step.includes(rustMiseRestoreKey)
+      ? "rust"
+      : step.includes(nodeMiseRestoreKey)
+        ? "node"
+        : "";
+    assert.ok(tool === "node" || tool === "rust", name);
+    tools.push(tool);
+    assert.ok(
+      step.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
+      name,
+    );
+    assert.ok(step.includes("path: ~/.local/share/mise\n"), name);
+    assert.ok(
+      step.includes(`mise-v2-\${{ runner.os }}-seed-main-${tool}-\n`),
+      name,
+    );
+    assert.ok(step.includes("mise-v1-linux-"), name);
+    const other = tool === "node" ? "rust" : "node";
+    assert.equal(step.includes(`-seed-main-${other}-`), false, name);
+    assert.equal(step.includes("actions/cache/save@"), false, name);
+  }
+  assert.deepEqual(tools.sort(), ["node", "rust"], name);
+  assert.equal(text.includes("actions/cache/save@"), false, name);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+}
+
+test("privileged workflows do not save Actions caches", () => {
   const disabled = workflowsWithMiseCacheDisabled();
   assert.ok(disabled.length > 0);
+  const ci = readFileSync(join(workflowDir, "ci.yml"), "utf8");
+  assert.ok(ci.includes(nodeMiseRestoreKey));
+  assert.ok(ci.includes(rustMiseRestoreKey));
   for (const name of disabled) {
     const text = readFileSync(join(workflowDir, name), "utf8");
+    assert.equal(text.includes("actions/cache/save@"), false, name);
+    assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+    assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+    if (readOnlyMiseRestore.has(name)) {
+      assertReadOnlyMiseRestore(name, text);
+      continue;
+    }
     assert.equal(cacheUse.test(text), false, name);
     cacheUse.lastIndex = 0;
-    assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
   }
 });
 
