@@ -27,8 +27,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { findChromium } from "../../apps/pages/scripts/duress/find-chromium.mjs";
-import { awaitCapabilitySections } from "../../apps/pages/scripts/lib/always-on.mjs";
-import { openSettingsCategory } from "../../apps/pages/scripts/lib/pages-journey.mjs";
 import {
   createHarness,
   serveLoopbackDist,
@@ -41,22 +39,25 @@ import {
 } from "../../apps/pages/scripts/lib/verification-checklist-profiles.mjs";
 import {
   applySetupChoice,
-  enterVault,
   openDoor,
 } from "../../apps/pages/scripts/lib/verification-checklist-setup.mjs";
 import {
   BASE,
   emptyRecord,
-  visibleClick,
 } from "../../apps/pages/scripts/lib/verification-checklist-shot.mjs";
 import { isString, readString } from "../lib/json-boundary.mjs";
+import {
+  assertLocalPage,
+  captureChoice,
+  composeProfile,
+  failureShot,
+  finishProfile,
+  proofShot,
+} from "./pwa-profile-proof-capture.mjs";
 import {
   assertFullProfileProof,
   assertProfileProof,
   proofManifest,
-  readImageWidth,
-  stitchPanels,
-  widenTo,
 } from "./pwa-profile-proof-gate.mjs";
 import {
   FULL_INSTALL_PROFILE_PROOF_NAME,
@@ -66,11 +67,6 @@ import {
 const outRoot =
   process.env.PWA_PROFILE_PROOF_OUT ??
   join(process.cwd(), "artifacts/pwa-profile-proof");
-
-async function sha256File(path) {
-  const bytes = await readFile(path);
-  return createHash("sha256").update(bytes).digest("hex");
-}
 
 async function collectFiles(distDir, relativeDir, entries) {
   const absolute = join(distDir, relativeDir);
@@ -185,120 +181,6 @@ async function buildAll(walks, paths) {
     console.error(`[pwa-proof] dist ${walk.buildKey} ${digest}`);
   }
   return { dists, digests };
-}
-
-function proofShot(page, dir, texts, record) {
-  return async function shot(step) {
-    await page.evaluate(async () => {
-      await document.fonts.ready;
-    });
-    await page.waitForTimeout(300);
-    const file = join(dir, `${step}.png`);
-    await page.screenshot({ path: file, animations: "disabled" });
-    const text = await page.evaluate(() => document.body.innerText);
-    texts.set(step, text);
-    record.shots.push(step);
-    return text;
-  };
-}
-
-function textOf(texts, step) {
-  const value = texts.get(step);
-  return isString(value) ? value : "";
-}
-
-function requireCeremony(texts) {
-  const ceremony = textOf(texts, "setup-capabilities");
-  if (ceremony.includes("Use the minimal configuration")) return;
-  throw new Error(
-    `custom capabilities ceremony missing; saw: ${ceremony.slice(0, 500)}`,
-  );
-}
-
-async function captureChoice(page, walk, stepsDir) {
-  const opened = await visibleClick(page, "button", "Set up your own");
-  if (!opened) throw new Error(`${walk.name}: Set up your own did not appear`);
-  const choice = page.getByRole("button", {
-    name: walk.setupChoice,
-    exact: true,
-  });
-  await choice.waitFor({ state: "visible", timeout: 15_000 });
-  await choice.scrollIntoViewIfNeeded();
-  const path = join(stepsDir, "setup-choice.png");
-  await choice.screenshot({ path, animations: "disabled" });
-  return path;
-}
-
-async function captureFeatures(page, shot, where) {
-  await enterVault(page, where);
-  await openSettingsCategory(page, "Features");
-  const panel = page.locator("[data-testid=features-panel]");
-  await panel.waitFor({ state: "visible", timeout: 15_000 });
-  await awaitCapabilitySections(page);
-  const switchesOn = await panel
-    .locator('[role="switch"][aria-checked="true"]')
-    .count();
-  await page.setViewportSize({ width: 1280, height: 2200 });
-  await shot("features");
-  return switchesOn;
-}
-
-async function finishProfile(page, shot, walk, where, texts) {
-  if (walk.setupChoice === "Custom") {
-    requireCeremony(texts);
-    return { distinguish: "setup-capabilities", ceremonyReached: true };
-  }
-  const switchesOn = await captureFeatures(page, shot, where);
-  return { distinguish: "features", switchesOn, ceremonyReached: false };
-}
-
-const LIVE_PAGES = "https://opensesame-labs.github.io";
-
-function assertLocalPage(page, name) {
-  const url = page.url();
-  if (url.startsWith(LIVE_PAGES)) {
-    throw new Error(`${name} navigated to live Pages: ${url}`);
-  }
-}
-
-async function failureShot(page, root, name) {
-  console.error(`[pwa-proof] ${name} failed at ${page.url()}`);
-  const failed = join(root, `failure-${name}.png`);
-  await page
-    .screenshot({ path: failed, animations: "disabled" })
-    .catch(() => undefined);
-  console.error(`[pwa-proof] ${name} failed; wrote ${failed}`);
-}
-
-function requireShot(path) {
-  if (!existsSync(path)) throw new Error(`missing screenshot ${path}`);
-}
-
-async function composeProfile(walk, stepsDir, root, distinguish) {
-  const frontPath = join(stepsDir, "front-door.png");
-  const choicePath = join(stepsDir, "setup-choice.png");
-  const statePath = join(stepsDir, `${distinguish}.png`);
-  requireShot(frontPath);
-  requireShot(choicePath);
-  requireShot(statePath);
-  const choiceHash = await sha256File(choicePath);
-  const distinguishHash = await sha256File(statePath);
-  await widenTo(choicePath, await readImageWidth(frontPath));
-  const pngPath = join(root, `${walk.name}.png`);
-  const stateLabel = distinguish === "features" ? "Features" : "Capabilities";
-  await stitchPanels(
-    [
-      { path: frontPath, label: "Front door" },
-      { path: choicePath, label: "Setup choice" },
-      { path: statePath, label: stateLabel },
-    ],
-    pngPath,
-  );
-  return {
-    pngHash: await sha256File(pngPath),
-    distinguishHash,
-    choiceHash,
-  };
 }
 
 async function proveProfile({ browser, walk, dist, distDigest, root }) {

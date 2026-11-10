@@ -31,6 +31,7 @@ on:
       - "scripts/ci/cd-pwa-pages-workspace-install.mjs"
       - "scripts/ci/cd-pwa-proof-sharp-install.mjs"
       - "scripts/ci/pwa-profile-proof-assert.mjs"
+      - "scripts/ci/pwa-profile-proof-capture.mjs"
       - "scripts/ci/pwa-profile-proof-gate.mjs"
       - "scripts/ci/pwa-profile-proof-select.mjs"
       - ".github/actions/publish-npm-package/**"
