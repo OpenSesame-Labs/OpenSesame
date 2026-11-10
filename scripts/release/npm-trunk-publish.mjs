@@ -57,6 +57,59 @@ export function npmViewVersion(packageName, version) {
   return line.length > 0 ? line : undefined;
 }
 
+/** How often, and how far apart, the registry is asked again after a 403. */
+const CONFIRM_ATTEMPTS = 6;
+const CONFIRM_WAIT_MS = 5_000;
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} distTag
+ */
+function runNpmPublish(cwd, distTag) {
+  const result = spawnSync(
+    "npx",
+    [
+      "-y",
+      "npm@11.21.1",
+      "publish",
+      "--access",
+      "public",
+      "--tag",
+      distTag,
+      "--provenance",
+    ],
+    { cwd, encoding: "utf8", env: process.env },
+  );
+  // Captured to be classified, then shown: the provenance statement and the
+  // transparency-log entry npm prints are the record of what was published.
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  return result;
+}
+
+/**
+ * The registry's read side trails its write side: the view that missed
+ * before the publish can miss again right after the 403. Ask a few times
+ * before deciding the version is not there.
+ *
+ * @param {(packageName: string, version: string) => string | undefined} view
+ * @param {(ms: number) => void} wait
+ * @param {string} packageName
+ * @param {string} version
+ */
+export function confirmPublishedVersion(view, wait, packageName, version) {
+  for (let attempt = 1; attempt <= CONFIRM_ATTEMPTS; attempt += 1) {
+    const seen = view(packageName, version);
+    if (seen === version) return seen;
+    if (attempt < CONFIRM_ATTEMPTS) wait(CONFIRM_WAIT_MS);
+  }
+  return undefined;
+}
+
 /**
  * @param {{
  *   packageName: string;
@@ -64,30 +117,29 @@ export function npmViewVersion(packageName, version) {
  *   distTag: string;
  *   cwd: string;
  * }} input
+ * @param {{
+ *   view?: (packageName: string, version: string) => string | undefined;
+ *   publish?: (cwd: string, distTag: string) => { status: number | null, stdout: string, stderr: string };
+ *   wait?: (ms: number) => void;
+ * }} [seams]
  */
-export function npmTrunkPublish(input) {
-  const viewFirst = npmViewVersion(input.packageName, input.version);
+export function npmTrunkPublish(input, seams = {}) {
+  const view = seams.view ?? npmViewVersion;
+  const publish = seams.publish ?? runNpmPublish;
+  const wait = seams.wait ?? sleepSync;
+  const viewFirst = view(input.packageName, input.version);
   if (viewFirst === input.version) {
     return { outcome: "already_published", viewFirst };
   }
-  const publishArgs = [
-    "-y",
-    "npm@11.21.1",
-    "publish",
-    "--access",
-    "public",
-    "--tag",
-    input.distTag,
-    "--provenance",
-  ];
-  const result = spawnSync("npx", publishArgs, {
-    cwd: input.cwd,
-    encoding: "utf8",
-    env: process.env,
-  });
+  const result = publish(input.cwd, input.distTag);
   const outcome = classifyNpmPublishResult(result, input.version);
   if (outcome === "already_published") {
-    const confirmed = npmViewVersion(input.packageName, input.version);
+    const confirmed = confirmPublishedVersion(
+      view,
+      wait,
+      input.packageName,
+      input.version,
+    );
     if (confirmed !== input.version) {
       throw new Error(
         `npm reported ${input.version} already published but registry view got ${confirmed ?? "missing"}`,
