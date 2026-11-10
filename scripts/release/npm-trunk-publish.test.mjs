@@ -20,7 +20,10 @@ test("isForbiddenRepublishOfVersion matches trunk CD 403 body", () => {
 
 test("classifyNpmPublishResult maps E403 republish to already_published", () => {
   assert.equal(
-    classifyNpmPublishResult({ status: 1, stdout: "", stderr: forbidden }, version),
+    classifyNpmPublishResult(
+      { status: 1, stdout: "", stderr: forbidden },
+      version,
+    ),
     "already_published",
   );
   assert.equal(

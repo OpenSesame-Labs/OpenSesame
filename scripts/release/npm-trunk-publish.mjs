@@ -26,7 +26,9 @@ export function isForbiddenRepublishOfVersion(stderr, version) {
  */
 export function classifyNpmPublishResult(result, version) {
   if (result.status === 0) return "published";
-  if (isForbiddenRepublishOfVersion(`${result.stderr}\n${result.stdout}`, version)) {
+  if (
+    isForbiddenRepublishOfVersion(`${result.stderr}\n${result.stdout}`, version)
+  ) {
     return "already_published";
   }
   return "failed";
