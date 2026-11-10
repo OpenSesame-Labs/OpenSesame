@@ -31,6 +31,7 @@ import {
 } from "@opensesame/app-core/lib/guidance.js";
 import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
+import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { useEffect, useMemo, useRef } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
 import { useSupport } from "../session.js";
@@ -66,6 +67,23 @@ export const firstVisitSeams = {
 
 const offerId = (goal: string) => `first-visit:${goal}`;
 
+const NAVIGATE = /^\s*navigate\s+"([^"]+)"/gm;
+
+/**
+ * The screens a tour may be standing on by the time its first card is drawn:
+ * the one it was started from, and every one it navigates to itself. A tour
+ * found anywhere else was overtaken by the person, not by its own steps.
+ */
+export function tourScreens(start: string, guide: string): readonly string[] {
+  return [start, ...[...guide.matchAll(NAVIGATE)].flatMap((m) => m[1] ?? [])];
+}
+
+type Asked = Readonly<{
+  route: string;
+  goal: string;
+  screens: readonly string[];
+}>;
+
 /** The sentence under the tour's name. */
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
@@ -88,15 +106,19 @@ export function FirstVisitOffer(): null {
   // fetched on first use, so on a cold load the person can have moved on by
   // the time it arrives; the answer is recorded, or the tour stopped, when
   // it does (below), never at the moment it was asked for.
-  const asked = useRef<{ route: string; goal: string } | null>(null);
+  const asked = useRef<Asked | null>(null);
   const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
   useEffect(() => {
     const pending = asked.current;
     if (pending === null || running !== pending.goal) return;
     asked.current = null;
-    if (pending.route !== route || mode !== "auto") {
+    const onItsScreens = pending.screens.some((screen) =>
+      guideRouteWithin(route, screen),
+    );
+    if (!onItsScreens || mode !== "auto") {
       // It was started for a screen the person has left, or tours were
       // switched off meanwhile: it does not start over the wrong controls.
+      // A tour's own first move (many begin by navigating) is not leaving.
       support.stopGuide();
       return;
     }
@@ -129,7 +151,11 @@ export function FirstVisitOffer(): null {
       };
       if (mode === "auto") {
         if (asked.current !== null) return;
-        const pending = { route, goal: goal.id };
+        const pending: Asked = {
+          route,
+          goal: goal.id,
+          screens: tourScreens(route, goal.guide),
+        };
         asked.current = pending;
         void support.startGuide(goal.guide, "authored").finally(() => {
           // Ended, or never began: nothing is owed to it any more.

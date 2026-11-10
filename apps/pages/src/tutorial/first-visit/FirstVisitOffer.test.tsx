@@ -21,6 +21,7 @@ import {
   FirstVisitOffer,
   firstVisitSeams,
   offerBody,
+  tourScreens,
 } from "./FirstVisitOffer.js";
 
 // The gate reads the composition, the roads and the install state; none of
@@ -306,6 +307,32 @@ describe("the first-visit offer", () => {
     expect(stops.count).toBe(1);
     // It was never seen, so it is still owed to its own screen.
     expect(loadGuidance().tours).toEqual([]);
+  });
+
+  it("keeps a tour whose own first step navigates elsewhere", () => {
+    // `vault.item-types.install` is offered on Settings › Item types and
+    // begins by navigating to the Settings root.
+    setGuidanceMode("auto");
+    const stub = stubSupportController("/settings/item-types");
+    mount(stub.support);
+    settle();
+    const [asked] = stub.started;
+    expect(asked?.source).toContain('navigate "/settings"');
+    const goal = /goal "([^"]+)"/.exec(asked?.source ?? "")?.[1] ?? "";
+    expect(goal).toBe("vault.item-types.install");
+    act(() => stub.set({ route: "/settings" }));
+    act(() => stub.set({ guide: touring(goal) }));
+    expect(stub.stops.count).toBe(0);
+    expect(loadGuidance().tours).toEqual([goal]);
+  });
+
+  it("names the screens a tour stands on", () => {
+    expect(
+      tourScreens(
+        "/connections/git",
+        'guide/1\nnavigate "/settings/integrations"\nsay "x"\nnavigate "/vault"',
+      ),
+    ).toEqual(["/connections/git", "/settings/integrations", "/vault"]);
   });
 
   it("leaves alone a tour the person started some other way", () => {
