@@ -1,0 +1,49 @@
+{
+  "$comment": "Declared GitHub repository security settings. ops/github/security-settings.mjs reads, applies and verifies them. A checked-in declaration is not evidence that a setting is live. See ops/github/README.md.",
+  "security_and_analysis": {
+    "secret_scanning": "enabled",
+    "secret_scanning_push_protection": "enabled",
+    "dependabot_security_updates": "enabled"
+  },
+  "vulnerability_alerts": true,
+  "private_vulnerability_reporting": true,
+  "immutable_releases": true,
+  "actions": {
+    "permissions": {
+      "enabled": true,
+      "allowed_actions": "selected",
+      "sha_pinning_required": true
+    },
+    "selected_actions": {
+      "github_owned_allowed": false,
+      "verified_allowed": false,
+      "patterns_allowed": [
+        "Swatinem/rust-cache@*",
+        "actions/attest@*",
+        "actions/cache@*",
+        "actions/checkout@*",
+        "actions/dependency-review-action@*",
+        "actions/deploy-pages@*",
+        "actions/download-artifact@*",
+        "actions/setup-node@*",
+        "actions/upload-artifact@*",
+        "actions/upload-pages-artifact@*",
+        "docker/build-push-action@*",
+        "docker/login-action@*",
+        "docker/setup-buildx-action@*",
+        "github/codeql-action@*",
+        "gitleaks/gitleaks-action@*",
+        "google/osv-scanner-action@*",
+        "jdx/mise-action@*",
+        "ossf/scorecard-action@*"
+      ]
+    },
+    "workflow": {
+      "default_workflow_permissions": "read",
+      "can_approve_pull_request_reviews": false
+    },
+    "fork_pr_contributor_approval": {
+      "approval_policy": "all_external_contributors"
+    }
+  }
+}

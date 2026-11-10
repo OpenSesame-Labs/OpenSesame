@@ -65,6 +65,42 @@ node ops/github/governance.mjs --apply
 node ops/github/governance.mjs --verify
 ```
 
+## Repository security settings
+
+`repository-security.json` declares the security settings that are not rulesets:
+secret scanning with push protection, Dependabot alerts and security updates,
+private vulnerability reporting, immutable releases, and the GitHub Actions
+policy. That policy admits only the listed actions, requires each to be pinned
+to a full commit SHA, gives workflows a read-only default token that cannot
+approve pull requests, and requires approval before an outside contributor's
+workflow runs. It is the same kind of proposal as the files above: a checked-in
+declaration is not evidence that a setting is live.
+
+```sh
+node ops/github/security-settings.mjs --dry-run
+node ops/github/security-settings.mjs --apply
+node ops/github/security-settings.mjs --verify
+```
+
+Dry-run reads the live settings and prints each one that differs with the
+writes it would make; it changes nothing. Apply writes only the sections that
+drifted, then verifies. Verify fails on any difference. Reading the security
+settings and writing any of them needs repository administration; an
+integration that can read but not write must report the HTTP status, never a
+successful apply.
+
+The allowed-actions list equals the action repositories the workflows use.
+`scripts/lib/github-security-settings.test.mjs` fails when they differ, so a
+new action is added to the list in the pull request that introduces it and a
+removed one leaves no standing permission. Apply the Actions policy only after
+that test passes on `main`: an action missing from the live list stops every
+workflow that uses it.
+
+These commands were written against the documented REST endpoints and tested
+with recorded response shapes. They have not been run against the live
+repository from the change that introduced them. Run `--dry-run` first and
+read its output before the first `--apply`.
+
 Dry-run reads live state and prints the proposed changes; it writes nothing.
 Apply requires repository-administration and environment permissions. It only
 creates/updates the three named rulesets, preserves unrelated rulesets, enables
