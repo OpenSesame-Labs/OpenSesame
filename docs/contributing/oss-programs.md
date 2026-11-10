@@ -29,11 +29,12 @@ Settings › Code security › Secret scanning.
 
 - **OSS-Fuzz** (Google's hosted ClusterFuzz) — the submission pack is
   `tests/fuzz/clusterfuzzlite/` (project.yaml, Dockerfile, build.sh over the
-  48 cargo-fuzz targets). To file: set `primary_contact`, fork
-  google/oss-fuzz, copy the three files to `projects/opensesame/`, validate
-  locally with `infra/helper.py build_image && infra/helper.py build_fuzzers
-  opensesame`, open the PR. After acceptance: crashes arrive by email, and
-  the [OSS-Fuzz badge](https://google.github.io/oss-fuzz/getting-started/badges/)
+  48 cargo-fuzz targets). Filed 2026-11-09:
+  [google/oss-fuzz#16496](https://github.com/google/oss-fuzz/pull/16496)
+  (`primary_contact` set; the upstream Dockerfile clones the repo instead of
+  copying a checkout). Still "prepared", not enrolled, until that PR merges.
+  After acceptance: crashes arrive by email, and the
+  [OSS-Fuzz badge](https://google.github.io/oss-fuzz/getting-started/new-project-guide/#status-badge)
   can go on the README.
 - **OSS Verify** (Theorem Labs' formal proofs over compiled fuzz binaries) —
   the enrollment pack is `tests/fuzz/oss-verify/`. To file: set
