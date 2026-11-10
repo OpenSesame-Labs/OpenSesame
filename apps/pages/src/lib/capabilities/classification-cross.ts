@@ -277,6 +277,10 @@ export const CROSS_RULES = [
     shared(`${L}${name}`, "connector catalogue Access and setup also read"),
   ),
   shared(
+    `${L}tailscale-key-prefix`,
+    "provider key prefixes the native connector and tailnet devices both spell",
+  ),
+  shared(
     "src/screens/setup/steps/ConnectorCards",
     "setup's connector cards, drawn by the federation steps as well",
   ),

@@ -275,6 +275,7 @@ async function bootSdk(
     signal,
     check,
     nativeFetch,
+    globalThis.location?.href,
   );
   install(assetFetch);
   const module: { sdk: OnePasswordNativeSdk } = await import(

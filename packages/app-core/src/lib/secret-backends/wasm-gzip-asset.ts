@@ -4,6 +4,12 @@ import type { SecretBackendFetch } from "./types.js";
 export type WasmAssetPin = Readonly<{ bytes: number; hash: string }>;
 export type GzipWasmAsset = Readonly<{
   url: string;
+  /**
+   * What a relative `url` resolves against: the address of the worker that
+   * loads the asset. The worker entry supplies it, because this module is
+   * portable and reads no browser global.
+   */
+  base?: string | undefined;
   compressed: WasmAssetPin;
   raw: WasmAssetPin;
 }>;
@@ -108,7 +114,7 @@ export function createGzipWasmAssetFetch(
   nativeFetch: SecretBackendFetch,
   failure: AssetFailure,
 ): SecretBackendFetch {
-  const url = new URL(asset.url, globalThis.location?.href).href;
+  const url = new URL(asset.url, asset.base).href;
   const compressedPin = capturedPin(asset.compressed, failure);
   const rawPin = capturedPin(asset.raw, failure);
   return async (input, init) => {

@@ -3,8 +3,10 @@ import wasmURL from "@bitwarden/sdk-wasm/bitwarden_wasm_bg.wasm?url";
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { z } from "zod";
 import artifact from "./bitwarden-wasm-artifact.json" with { type: "json" };
-import type { BitwardenSdkSettings } from "./bitwarden-wasm-loader.js";
-import type { BitwardenSdkClient } from "./bitwarden-wasm-loader.js";
+import type {
+  BitwardenSdkClient,
+  BitwardenSdkSettings,
+} from "./bitwarden-wasm-loader.js";
 import { createBitwardenWorkerFetch } from "./bitwarden-worker-fetch.js";
 import {
   BitwardenCommandSchema,
@@ -25,7 +27,7 @@ async function initialize(): Promise<BitwardenBrowserBindings> {
       "The Bitwarden cryptography module could not be loaded.",
     );
   const fetchAsset = createGzipWasmAssetFetch(
-    { url: wasmURL, ...artifact },
+    { url: wasmURL, base: globalThis.location?.href, ...artifact },
     lifetime.signal,
     () => lifetime.signal.throwIfAborted(),
     fetch,
