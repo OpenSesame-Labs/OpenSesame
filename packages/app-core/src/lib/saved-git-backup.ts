@@ -36,11 +36,6 @@ export function bindSavedGitBackup(uses: readonly SavedGitBackup[]): void {
   }));
 }
 
-/** Whether a forge backup is saved on this device at all. A count, no names. */
-export function savedGitBackupCount(): number {
-  return savedGit.length;
-}
-
 export function savedGitBackupUse(providerId: string): SavedGitBackup | null {
   const row = savedGit.find((item) => item.providerId === providerId);
   if (!row) return null;

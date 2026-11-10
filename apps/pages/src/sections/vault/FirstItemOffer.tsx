@@ -27,11 +27,12 @@ import { capabilityPorts } from "@opensesame/app-core/lib/configuration/capabili
 import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
 import type { CapabilityState } from "@opensesame/capability-composition";
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useComposition } from "../../bindings/capabilities.js";
 import { useContributions } from "../../bindings/contributions.js";
 import { FailureNotice } from "../../components/FailureNotice.js";
+import { landFocus } from "../../lib/focus.js";
 import { useGuidedImport } from "../../screens/unlock/ImportRoad.js";
 import { SupportContext } from "../../tutorial/support-context.js";
 
@@ -171,23 +172,37 @@ export function FirstItemOffer({
   const support = useContext(SupportContext);
   const passwordTypes = firstItemOfferSeams.usePasswordTypes();
   const first = guideGoal("vault.item.first");
+  const roads = useRef<HTMLDivElement>(null);
+  const needsTypes =
+    passwordTypesMissing(passwordTypes) &&
+    !firstItemOfferSeams.accountCreatable();
+  // Turning the types on replaces the switch with the first-password road,
+  // and takes the pressed key with it. Where that left focus on nothing, it
+  // lands on the road that took its place, ready for the next press.
+  const hadSwitch = useRef(needsTypes);
+  useEffect(() => {
+    const replaced = hadSwitch.current && !needsTypes;
+    hadSwitch.current = needsTypes;
+    if (!replaced) return;
+    const lost =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (lost) landFocus(roads.current?.querySelector(".empty__first-key"));
+  }, [needsTypes]);
   const canImport = useContributions("vault-command").some(
     (command) => command.id === "import",
   );
   if (listedCount > 0 || inTrash || !makesAccount(createPath)) return null;
-  if (
-    passwordTypesMissing(passwordTypes) &&
-    !firstItemOfferSeams.accountCreatable()
-  ) {
+  if (needsTypes) {
     return (
-      <div className="empty__first">
+      <div className="empty__first" ref={roads}>
         <PasswordTypesRoad createPath={createPath} />
         {canImport ? <GuidedImportOffer /> : null}
       </div>
     );
   }
   return (
-    <div className="empty__first">
+    <div className="empty__first" ref={roads}>
       {support && first ? (
         <button
           type="button"

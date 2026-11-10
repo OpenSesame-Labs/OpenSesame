@@ -98,6 +98,28 @@ describe("an empty vault with no password type (ADR 0221)", () => {
     expect(screen.queryByText(/plain secrets and files only/)).toBeNull();
   });
 
+  it("lands focus on the road that replaces the switch", () => {
+    const view = offer();
+    const turnOn = screen.getByRole("button", {
+      name: "Turn on passwords, cards and notes",
+    });
+    turnOn.focus();
+    // The types come on: the switch, and the key that was pressed, are gone.
+    types = { ...OFF, approved: true };
+    view.rerender(
+      <MemoryRouter>
+        <FirstItemOffer
+          createPath="/vault/new"
+          listedCount={0}
+          inTrash={false}
+        />
+      </MemoryRouter>,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByText(/Add your first password/),
+    );
+  });
+
   it("is gone with the first sealed item", () => {
     const { container } = offer(1);
     expect(container.firstChild).toBeNull();

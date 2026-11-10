@@ -42,7 +42,7 @@ import {
   pickRecommendation,
   subscribeRecommendationSignals,
 } from "@opensesame/app-core/lib/recommendations.js";
-import { savedGitBackupCount } from "@opensesame/app-core/lib/saved-git-backup.js";
+import { persistenceProvided } from "@opensesame/app-core/lib/vault/password-history.js";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useComposition } from "../bindings/capabilities.js";
@@ -108,7 +108,11 @@ export const recommenderSeams = {
   useDevice,
   /** Resolves null when the switch landed, else why it did not. */
   turnOn,
-  backupSaved: (): boolean => savedGitBackupCount() > 0,
+  /**
+   * Whether a backup is already set up: the answer the backup sync itself
+   * goes by — an enabled backup target, or a history remote that is bound.
+   */
+  backupSaved: persistenceProvided,
   /** What password reset lacks now: a runtime, a model, or nothing. */
   passwordResetBlocker: async (
     approved: readonly string[] | undefined,
