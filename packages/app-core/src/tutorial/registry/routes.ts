@@ -205,6 +205,9 @@ export function guideRouteWithin(
 const ITEM_PANE =
   /^\/vault\/(?!new(?:\/|$)|health(?:\/|$)|list(?:\/|$))[^/]+\/?$/;
 
+/** `/vault/new[/kind]`: the editor for an item that does not exist yet. */
+const NEW_ITEM_EDITOR = /^\/vault\/new(?:\/|$)/;
+
 /**
  * Where the person stands, to the precision a tour needs. A path alone cannot
  * tell the list from an item's pane or from the trash (`/vault?f=trash`), and
@@ -224,6 +227,11 @@ export function guideRouteForLocation(
     // is the section tree, where the list and New item are not mounted.
     return params.has("f") || params.has("folder") ? "/vault/list" : "/vault";
   }
+  // The new-item editor opens from the list and reports as it, as it did
+  // while the list was the bare /vault. A create tour's steps stand on the
+  // list route; were the editor somewhere else, Back or Replay would
+  // navigate to the list and take the unsaved draft with it.
+  if (NEW_ITEM_EDITOR.test(pathname)) return "/vault/list";
   return ITEM_PANE.test(pathname) ? "/vault/item" : "/vault";
 }
 

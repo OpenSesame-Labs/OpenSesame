@@ -4,7 +4,7 @@ import {
   fakeAgentAlwaysUnavailable,
   fakeAgentAnswering,
 } from "@opensesame/support-agent";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SupportEntry } from "../session.js";
@@ -174,6 +174,16 @@ describe("support scroll, entry by entry", () => {
     Element.prototype.scrollTo = function (this: Element) {
       scrolled.push(this);
     } as typeof Element.prototype.scrollTo;
+    // jsdom has no layout: the body ends at 100, the late answer at 300 —
+    // out of sight when the thread mounts, so the chip has to wait for it.
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const bottom =
+        this.dataset.testid !== "body" && this.textContent === "late"
+          ? 300
+          : 100;
+      return DOMRect.fromRect({ x: 0, y: bottom - 40, width: 100, height: 40 });
+    };
     try {
       const first = [entry("q1", "question"), entry("a1", "answer")];
       const { rerender } = render(<Thread entries={first} />);
@@ -195,6 +205,7 @@ describe("support scroll, entry by entry", () => {
       expect(screen.queryByRole("button", { name: "New answer" })).toBeNull();
     } finally {
       Element.prototype.scrollTo = originalScroll;
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
     }
   });
 });
@@ -261,6 +272,20 @@ describe("tab follow and jump focus (Kimi a11y seat)", () => {
 });
 
 describe("the New answer key on the Tutorials tab (Grok round 4)", () => {
+  it("stands down when the person opens the conversation themselves and the answer is in sight", async () => {
+    const first = [entry("q1", "question")];
+    const entries = [...first, entry("late", "answer")];
+    const { rerender } = render(<Thread entries={first} mounted={false} />);
+    rerender(<Thread entries={entries} mounted={false} />);
+    await screen.findByRole("button", { name: "New answer" });
+    // Not the key: the Ask tab, which mounts the thread with the answer
+    // inside the body (jsdom lays everything out at the origin).
+    rerender(<Thread entries={entries} />);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "New answer" })).toBeNull(),
+    );
+  });
+
   it("is offered while the thread is unmounted, and choosing it moves the panel and pays the scroll on mount", async () => {
     const user = userEvent.setup();
     const scrolled: Element[] = [];

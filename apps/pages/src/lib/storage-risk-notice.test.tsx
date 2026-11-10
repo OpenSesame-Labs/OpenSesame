@@ -22,6 +22,7 @@ beforeEach(() => {
   dismiss = vi.fn();
   Object.assign(storageRiskSeams, {
     hasWorkingBackupTarget: () => false,
+    hasCatchingUpBackupTarget: () => false,
     setStatusNotice: setNotice,
     dismissNotice: dismiss,
   });
@@ -84,6 +85,47 @@ describe("the browser-storage warning", () => {
         await vi.advanceTimersByTimeAsync(30_000);
       });
       expect(dismiss).toHaveBeenCalledWith(STORAGE_RISK_NOTICE_ID);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("withdraws the moment a target reports working, ahead of the poll", async () => {
+    let working = false;
+    let changed: (() => void) | undefined;
+    Object.assign(storageRiskSeams, {
+      hasWorkingBackupTarget: () => working,
+      subscribeLocalBackupTarget: (listener: () => void) => {
+        changed = listener;
+        return () => {
+          changed = undefined;
+        };
+      },
+    });
+    renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
+    await waitFor(() => expect(setNotice).toHaveBeenCalledTimes(1));
+    working = true;
+    act(() => changed?.());
+    expect(dismiss).toHaveBeenCalledWith(STORAGE_RISK_NOTICE_ID);
+  });
+
+  it("lets a target that has synced before catch up, and warns only if it stays behind", async () => {
+    // Every vault change queues events before the sync that sends them, so
+    // a healthy target is behind at each unlock and each save.
+    vi.useFakeTimers();
+    try {
+      Object.assign(storageRiskSeams, {
+        hasCatchingUpBackupTarget: () => true,
+      });
+      renderHook(() => useStorageRiskNotice("unlocked", "personal", [item]));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(setNotice).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(setNotice).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }

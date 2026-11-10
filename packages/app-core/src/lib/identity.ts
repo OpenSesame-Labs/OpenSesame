@@ -434,21 +434,37 @@ function standOnRebound(
 }
 
 /** Adopt a token the operator already holds (CLI `opensesame-id`, tests). */
+/**
+ * A sign-out or lock landed while a token was on its way. A rebound token
+ * already has a server session and the cookie, so it is ended here too.
+ */
+function refuseEndedSession(serverBoundToken?: string): never {
+  if (serverBoundToken) {
+    pendingRevoke = (pendingRevoke ?? Promise.resolve())
+      .then(() => revokeRequest(serverBoundToken))
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+  throw new IdentityError(
+    "The session was ended while adopting that token. Try again.",
+    409,
+  );
+}
+
 async function adoptTokenDefault(
   accessToken: string,
   rebound = false,
+  expectedEpoch?: number,
 ): Promise<void> {
   const token = accessToken.trim();
   if (session?.accessToken === token) return;
-  const epoch = sessionEpoch;
+  // A rebind names the epoch its link request started in: the session can
+  // end while that request is in flight, before this function ever runs.
+  const epoch = expectedEpoch ?? sessionEpoch;
+  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
   const issuerOrigin = identityOrigin();
   const principalId = await proveTokenOwner(token, IDENTITY_FETCH_MS);
-  if (sessionEpoch !== epoch) {
-    throw new IdentityError(
-      "The session was ended while adopting that token. Try again.",
-      409,
-    );
-  }
+  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
   if (rebound) {
     standOnRebound(token, principalId, issuerOrigin);
     return;
@@ -530,7 +546,8 @@ export const identitySeams = {
   connectProvisional: connectProvisionalDefault,
   resumeSession: resumeCookieSession,
   adoptToken: adoptTokenDefault,
-  rebindSession: (accessToken: string) => adoptTokenDefault(accessToken, true),
+  rebindSession: (accessToken: string, expectedEpoch?: number) =>
+    adoptTokenDefault(accessToken, true, expectedEpoch),
   probeIdentity: probeIdentityDefault,
   fetchPrincipal: fetchPrincipalDefault,
   restoreSession: restoreSessionDefault,
@@ -592,8 +609,11 @@ export async function adoptToken(accessToken: string): Promise<void> {
   return identitySeams.adoptToken(accessToken);
 }
 /** Stand on a session the link route rebound to an existing principal. */
-export async function rebindSession(accessToken: string): Promise<void> {
-  return identitySeams.rebindSession(accessToken);
+export async function rebindSession(
+  accessToken: string,
+  expectedEpoch?: number,
+): Promise<void> {
+  return identitySeams.rebindSession(accessToken, expectedEpoch);
 }
 export async function probeIdentity(): Promise<HealthState> {
   return identitySeams.probeIdentity();

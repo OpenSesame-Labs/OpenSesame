@@ -119,8 +119,10 @@ describe("where the person stands, to the precision a tour needs", () => {
 
   it("keeps the screens that are not an item's pane where they were", () => {
     expect(guideRouteForLocation("/vault/health")).toBe("/vault/health");
-    expect(guideRouteForLocation("/vault/new/login")).toBe("/vault");
-    expect(guideRouteForLocation("/vault/new")).toBe("/vault");
+    // The new-item editor reports as the list it opens from, so a tour
+    // standing on the list never navigates an unsaved draft away.
+    expect(guideRouteForLocation("/vault/new/login")).toBe("/vault/list");
+    expect(guideRouteForLocation("/vault/new")).toBe("/vault/list");
     expect(guideRouteForLocation("/vault/itm_1/edit")).toBe("/vault");
     expect(guideRouteForLocation("/settings/security")).toBe(
       "/settings/security",

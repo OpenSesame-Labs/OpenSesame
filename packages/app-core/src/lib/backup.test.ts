@@ -5,6 +5,7 @@ import {
   branchForEnvironment,
   filterGithubBackupConnections,
   getBackupStatus,
+  hasCatchingUpBackupTarget,
   hasWorkingBackupTarget,
   installationIdFromLocation,
   ownerRepoFromRemote,
@@ -80,6 +81,42 @@ describe("browser-local backup target", () => {
       }),
     );
     expect(hasWorkingBackupTarget()).toBe(true);
+  });
+
+  it("tells a healthy target that is merely behind from one that never kept anything", () => {
+    const row = (over: Partial<LocalBackupTarget>): LocalBackupTarget => ({
+      kind: "github_app",
+      providerId: "github",
+      connectionId: null,
+      integrationId: "",
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+      branch: "main",
+      enabled: true,
+      status: "ready",
+      lastCommitSha: null,
+      lastSyncedAt: "2026-01-01T00:00:00Z",
+      lastError: null,
+      config: null,
+      pendingEvents: 1,
+      ...over,
+    });
+    // Synced before, error-free, events queued: behind, not broken.
+    writeLocalBackupTarget(row({}));
+    expect(hasWorkingBackupTarget()).toBe(false);
+    expect(hasCatchingUpBackupTarget()).toBe(true);
+    // Never synced, failing, or switched off is not catching up.
+    writeLocalBackupTarget(row({ lastSyncedAt: null }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    writeLocalBackupTarget(row({ lastError: "offline" }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    writeLocalBackupTarget(row({ enabled: false }));
+    expect(hasCatchingUpBackupTarget()).toBe(false);
+    // Caught up is working, and no longer catching up.
+    writeLocalBackupTarget(row({ pendingEvents: 0 }));
+    expect(hasWorkingBackupTarget()).toBe(true);
+    expect(hasCatchingUpBackupTarget()).toBe(false);
   });
 
   it("stores a target on this device and reports it", async () => {

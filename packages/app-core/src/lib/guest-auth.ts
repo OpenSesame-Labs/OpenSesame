@@ -31,6 +31,7 @@ import {
   currentSession,
   identityJson,
   identitySeams,
+  identitySessionEpoch,
   isRemoteIdentityConfigured,
   rebindSession,
 } from "./identity.js";
@@ -56,6 +57,7 @@ const COLLISION_MESSAGE =
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
   rebindSession,
+  sessionEpoch: identitySessionEpoch,
   connectProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
@@ -163,6 +165,9 @@ async function linkGuestAccountDefault(
       await guestAuthDependencies.connectProvisional();
     }
   }
+  // The session this link is for. A sign-out or lock while the request is
+  // in flight must not be undone by the token the answer carries.
+  const epoch = guestAuthDependencies.sessionEpoch();
   const linked = await guestAuthDependencies.identityJson<{
     principalId?: string;
     accessToken?: string;
@@ -178,7 +183,7 @@ async function linkGuestAccountDefault(
   // than as a provisional minted for the trip — nothing new was created.
   if (linked?.accessToken) {
     mintedPrincipal = false;
-    await guestAuthDependencies.rebindSession(linked.accessToken);
+    await guestAuthDependencies.rebindSession(linked.accessToken, epoch);
   }
   const principalId =
     linked?.principalId ?? guestAuthDependencies.currentSession()?.principalId;

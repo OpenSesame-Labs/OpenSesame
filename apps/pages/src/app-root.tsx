@@ -279,6 +279,13 @@ export function AppRoot({ slots }: { slots?: Partial<AppSlots> } = {}) {
   // The storage-risk notice's act opens this sheet in place.
   const exportFlow = useExportFlow();
   useStorageRiskNotice(status, tomb, items, guest, exportFlow.show);
+  // The sheet belongs to the unlocked vault. A lock closes it, so it neither
+  // stands in front of the first screen (ADR 0090) nor returns on unlock.
+  const unlocked = status === "unlocked";
+  const closeExport = exportFlow.close;
+  useEffect(() => {
+    if (!unlocked) closeExport();
+  }, [unlocked, closeExport]);
   const isAuthCallback = resolved.hasAuthResponse(location.search);
   const isDeadmanRelease = location.pathname === "/deadman";
   useEffect(() => activatePlan(compositionStore), []);
@@ -335,7 +342,7 @@ export function AppRoot({ slots }: { slots?: Partial<AppSlots> } = {}) {
   return (
     <AppSlotsContext.Provider value={resolved}>
       <Notices shellless={shellless}>{body}</Notices>
-      {exportFlow.element}
+      {unlocked ? exportFlow.element : null}
       <ContextMenuLayer />
     </AppSlotsContext.Provider>
   );

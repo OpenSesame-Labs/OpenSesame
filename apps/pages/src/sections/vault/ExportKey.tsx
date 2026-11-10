@@ -218,6 +218,7 @@ export function useExportFlow() {
   return {
     open,
     show,
+    close,
     element: open ? <ExportSheet onClose={close} /> : null,
   };
 }

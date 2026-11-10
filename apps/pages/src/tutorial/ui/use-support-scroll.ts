@@ -46,6 +46,18 @@ function newestQuestionAt(
   return -1;
 }
 
+/**
+ * Opening the conversation by hand can mount the thread with the new answer
+ * already in sight. The offer stands down then, as it does for a scroll —
+ * a short thread never makes one, and the key would stay up beside the
+ * answer it offers to jump to.
+ */
+function useStandDownInSight(unseen: boolean, recheck: () => void): void {
+  useEffect(() => {
+    if (unseen) recheck();
+  });
+}
+
 export function useSupportScroll(
   transcript: readonly SupportEntry[],
   afterJumpRef?: RefObject<HTMLElement | null>,
@@ -141,6 +153,8 @@ export function useSupportScroll(
     if (!body || !article) return;
     if (bottomInView(article, body)) setUnseenAnswer(false);
   }, [unseenAnswer, articleAt]);
+
+  useStandDownInSight(unseenAnswer, onBodyScroll);
 
   return { bodyRef, threadRef, unseenAnswer, jumpToAnswer, onBodyScroll };
 }

@@ -12,6 +12,8 @@ import {
   clearSession,
   connectProvisional,
   currentSession,
+  endSession,
+  identitySessionEpoch,
   rebindSession,
   settleRevokes,
 } from "./identity.js";
@@ -76,5 +78,29 @@ describe("rebound sessions", () => {
       "Bearer " + "identity_tok",
     );
     expect(revoke?.[1]?.credentials).toBe("omit");
+  });
+
+  it("ends the rebound token when the session was ended while its link was in flight", async () => {
+    const spy = stubBasic();
+    await connectProvisional();
+    const linkStartedIn = identitySessionEpoch();
+
+    // Sign-out lands while POST /link-identities is still out.
+    endSession();
+
+    await expect(
+      rebindSession("rebound_token", linkStartedIn),
+    ).rejects.toMatchObject({ status: 409 });
+    await settleRevokes();
+
+    expect(currentSession()).toBeNull();
+    // The server bound a session and the cookie to this token, so it is
+    // revoked rather than left live with nobody holding it.
+    const revoked = spy.mock.calls
+      .filter(([url]) =>
+        String(url).endsWith("/v1/principals/provisional/revoke"),
+      )
+      .map(([, init]) => new Headers(init?.headers).get("authorization"));
+    expect(revoked).toContain("Bearer " + "rebound_token");
   });
 });

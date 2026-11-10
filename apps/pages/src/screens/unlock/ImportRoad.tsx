@@ -43,17 +43,15 @@ function useImportPicker() {
   return { open: () => input.current?.click(), picker };
 }
 
-/**
- * `road` is the door's card, beside Set up your own and Join a session.
- * `foot` is the sign-in screen's link, beside Use without an account.
- */
 type SourceSheetProps = { onPick: () => void; onClose: () => void };
 
-export function ImportRoadButton({
-  variant = "road",
-}: {
-  variant?: "road" | "foot";
-}) {
+/**
+ * The guided way to a file, for a person who does not have one yet: the
+ * source sheet walks the export, then the OS picker takes the result. The
+ * file is only held — the vault's Import key reads it, in the sheet it
+ * owns, so nothing here loads the pipeline or outlives its own button.
+ */
+export function useGuidedImport() {
   const { open: pick, picker } = useImportPicker();
   const [Sheet, setSheet] = useState<ComponentType<SourceSheetProps> | null>(
     null,
@@ -73,6 +71,27 @@ export function ImportRoadButton({
       onClose={() => setSheet(null)}
     />
   ) : null;
+  return {
+    open,
+    element: (
+      <>
+        {picker}
+        {sheet}
+      </>
+    ),
+  };
+}
+
+/**
+ * `road` is the door's card, beside Set up your own and Join a session.
+ * `foot` is the sign-in screen's link, beside Use without an account.
+ */
+export function ImportRoadButton({
+  variant = "road",
+}: {
+  variant?: "road" | "foot";
+}) {
+  const { open, element } = useGuidedImport();
   if (variant === "foot") {
     return (
       <>
@@ -85,8 +104,7 @@ export function ImportRoadButton({
         >
           Import passwords
         </button>
-        {picker}
-        {sheet}
+        {element}
       </>
     );
   }
@@ -107,8 +125,7 @@ export function ImportRoadButton({
           from a browser export, another manager, a backup or a .env file
         </span>
       </button>
-      {picker}
-      {sheet}
+      {element}
     </>
   );
 }

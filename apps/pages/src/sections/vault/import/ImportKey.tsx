@@ -8,7 +8,6 @@ import { IconDownload } from "../../../components/Icons.js";
 import { useGuideTarget } from "../../../tutorial/registry/react.jsx";
 import { useAddEntry } from "../add-menu.js";
 import { ImportSheet } from "./ImportSheet.js";
-import { ImportSourceSheet } from "./ImportSourceSheet.js";
 
 /**
  * The import flow: the OS file picker, and the sheet the chosen file opens
@@ -109,44 +108,4 @@ export function ImportEntry() {
     run: flow.pick,
   });
   return flow.element;
-}
-
-/**
- * The guided road in, for a person setting up who does not have a file
- * yet: the source sheet walks the export from their browser or manager,
- * then hands over to the same picker and preview as every import. The
- * experienced roads (the path-strip key, the Add slide) still go straight
- * to the picker — guidance is for the first run that asks for it.
- */
-export function GuidedImportButton({
-  className,
-  children,
-}: {
-  className?: string;
-  children: string;
-}) {
-  const flow = useImportFlow();
-  const [guiding, setGuiding] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        className={className}
-        aria-haspopup="dialog"
-        onClick={() => setGuiding(true)}
-      >
-        {children}
-      </button>
-      {guiding ? (
-        <ImportSourceSheet
-          onPick={() => {
-            setGuiding(false);
-            flow.pick();
-          }}
-          onClose={() => setGuiding(false)}
-        />
-      ) : null}
-      {flow.element}
-    </>
-  );
 }

@@ -209,6 +209,22 @@ export function hasWorkingBackupTarget(): boolean {
   );
 }
 
+/**
+ * Whether a target that has kept the vault before is merely behind: enabled,
+ * error-free, synced at least once, with events still to send. Every vault
+ * change — an unlock included — queues events before its sync runs, so a
+ * healthy target is here for the moment each sync takes.
+ */
+export function hasCatchingUpBackupTarget(): boolean {
+  return listLocalBackupTargets().some(
+    (row) =>
+      row.enabled &&
+      row.lastError === null &&
+      row.lastSyncedAt !== null &&
+      row.pendingEvents > 0,
+  );
+}
+
 export async function listGithubInstallations(
   integrationId: string,
 ): Promise<GithubInstallation[]> {

@@ -218,6 +218,25 @@ describe("the vault on a phone", () => {
     expect(screen.queryByText(/Import passwords instead/)).toBeNull();
   });
 
+  it("the empty vault's import offer hands its file to the Import key the phone mounts", async () => {
+    vault.items = [];
+    renderVault("/vault?f=all");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Import passwords instead" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose the exported file" }),
+    );
+    // The offer's own picker: the sheet that opens is the Import key's, so
+    // it is not inside the empty state the import is about to end.
+    const offer = drawn(".empty__first");
+    fireEvent.change(within(offer).getByLabelText("Choose a file to import"), {
+      target: { files: [new File(["API_KEY=sk-123\n"], "app.env")] },
+    });
+    const sheet = await screen.findByRole("dialog", { name: "Import items" });
+    expect(offer.contains(sheet)).toBe(false);
+  });
+
   it("a search left in the address narrows the list and rides back from an item", () => {
     renderVault("/vault?f=all&q=git");
     expect(pane()).toBe("list");
