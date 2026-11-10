@@ -84,7 +84,7 @@ export function outboxClaimToken(
 
 export interface PrincipalRepository {
   create(principal: Principal, uow?: UnitOfWork): Promise<Principal>;
-  getById(id: string): Promise<Principal | null>;
+  getById(id: string, uow?: UnitOfWork): Promise<Principal | null>;
   deleteUnlinkedProvisional(id: string, uow?: UnitOfWork): Promise<boolean>;
   update(
     id: string,

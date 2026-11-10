@@ -263,15 +263,19 @@ export function VaultTree({
   return (
     <div className="vtree" ref={paneRef}>
       <VaultPathbar verbs={verbs} />
-      {items.length === 0 ? (
-        <div className="empty">
-          <h2>{emptyMessage}</h2>
+      {/* The wrapper stays mounted (collapsed) once items land: firstRun
+          hosts the guided import flow, and a successful import is what
+          ends the empty state — removing the subtree here would unmount
+          the import sheet before its completion screen. */}
+      <div className={items.length === 0 ? "empty" : "empty empty--spent"}>
+        {items.length === 0 ? <h2>{emptyMessage}</h2> : null}
+        {items.length === 0 ? (
           <EmptyTip
             tip={emptyMessage === "Trash is empty" ? "keymap" : "vaultEmpty"}
           />
-          {firstRun}
-        </div>
-      ) : null}
+        ) : null}
+        {firstRun}
+      </div>
 
       <div
         ref={treeRef}

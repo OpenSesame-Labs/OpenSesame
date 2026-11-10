@@ -1624,6 +1624,18 @@ body {
   margin-top: 1rem;
 }
 
+/* Spent shells of the empty state: the first-run import flow stays
+   mounted inside them after items land (its sheet outlives the empty
+   state), but the shells themselves take no room. */
+.empty--spent {
+  gap: 0;
+  padding: 0;
+}
+
+.empty__first--spent {
+  margin-top: 0;
+}
+
 .empty__first-key {
   min-height: 2.75rem;
 }

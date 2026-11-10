@@ -30,10 +30,17 @@ export function FirstItemOffer({
 }) {
   const support = useContext(SupportContext);
   const first = guideGoal("vault.item.first");
-  if (listedCount > 0 || inTrash) return null;
+  const finished = listedCount > 0 || inTrash;
+  // The import button stays mounted after the offer is spent: it owns the
+  // import sheet, and a successful import is exactly what makes the vault
+  // non-empty — unmounting with the offer would take the sheet's
+  // completion screen (and its Done action) with it. Only its trigger
+  // key goes away.
   return (
-    <div className="empty__first">
-      {support && first ? (
+    <div
+      className={finished ? "empty__first empty__first--spent" : "empty__first"}
+    >
+      {finished ? null : support && first ? (
         <button
           type="button"
           className="btn choice empty__first-key"
@@ -46,7 +53,10 @@ export function FirstItemOffer({
           Add your first password
         </Link>
       )}
-      <GuidedImportButton className="btn btn--ghost choice empty__first-key">
+      <GuidedImportButton
+        triggerHidden={finished}
+        className="btn btn--ghost choice empty__first-key"
+      >
         Import passwords instead
       </GuidedImportButton>
     </div>

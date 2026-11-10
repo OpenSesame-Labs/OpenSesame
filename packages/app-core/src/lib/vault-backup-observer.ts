@@ -84,18 +84,22 @@ async function syncOtherTargets(
 }
 
 async function runSync(reason: BackupSyncReason): Promise<void> {
-  // Withdrawn by the operator: nothing, not even a sync asked for by hand.
-  if (!backupEgressGate.running()) return;
-  if (AUTOMATIC.has(reason) && !backupEgressGate.allowed()) return;
   // Selecting a recovery repository authorizes reads, not replacing its backup.
   // Only a confirmed explicit first write admits subsequent automatic writes.
   const enabled = listLocalBackupTargets().filter((row) =>
     admitted(row, reason),
   );
-  if (enabled.length === 0) return;
+  // A mutation is pending work whether or not egress may run right now.
+  // Counting it only on the admitted path left `pendingEvents: 0` cached
+  // indefinitely while policy held every automatic sync, so status
+  // readers kept reporting a current backup of a vault that had moved on.
   if (reason === "webhook" || reason === "vault" || reason === "configured") {
     for (const row of enabled) bumpLocalBackupPending(row.providerId, 1);
   }
+  // Withdrawn by the operator: nothing, not even a sync asked for by hand.
+  if (!backupEgressGate.running()) return;
+  if (AUTOMATIC.has(reason) && !backupEgressGate.allowed()) return;
+  if (enabled.length === 0) return;
   // App writes already have a bounded per-destination FIFO. Submit each sealed
   // revision now so its original session, transport and ciphertext are captured
   // before any wait. Joining an older observer write would lose this revision.

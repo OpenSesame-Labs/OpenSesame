@@ -12,6 +12,7 @@ import {
   resyncBackup,
   setBackupTargetEnabled,
 } from "./backup.js";
+import { backupEgressGate } from "./backup-egress-gate.js";
 import {
   type LocalBackupTarget,
   clearLocalBackupTarget,
@@ -30,11 +31,17 @@ beforeEach(() => {
   clearLocalBackupTarget();
   Object.assign(vaultBackupSyncSeams, originalSync);
   Object.assign(backupSeams, originalBackup);
+  vi.spyOn(backupEgressGate, "running").mockReturnValue(true);
+  vi.spyOn(backupEgressGate, "network").mockReturnValue({
+    externalServices: "allow",
+    allowedServiceOrigins: [],
+  });
 });
 
 afterEach(() => {
   Object.assign(vaultBackupSyncSeams, originalSync);
   Object.assign(backupSeams, originalBackup);
+  vi.restoreAllMocks();
 });
 
 describe("browser-local backup target", () => {
@@ -80,6 +87,44 @@ describe("browser-local backup target", () => {
       }),
     );
     expect(hasWorkingBackupTarget()).toBe(true);
+  });
+
+  it("does not count a target whose automatic egress policy now holds it", () => {
+    // Codex review on PR #2551: after a clean sync, an operator denying
+    // automatic external-service calls (or withdrawing git backup) left
+    // the cached row at lastError:null / pendingEvents:0 forever, so the
+    // storage warning stayed suppressed while new contents had no copy.
+    writeLocalBackupTarget({
+      kind: "git_remote",
+      providerId: "git_remote",
+      connectionId: "conn_2",
+      integrationId: "",
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+      branch: "main",
+      enabled: true,
+      status: "ready",
+      lastCommitSha: null,
+      lastSyncedAt: "2026-01-01T00:00:00Z",
+      lastError: null,
+      config: null,
+      pendingEvents: 0,
+    });
+    expect(hasWorkingBackupTarget()).toBe(true);
+
+    vi.spyOn(backupEgressGate, "network").mockReturnValue({
+      externalServices: "deny",
+      allowedServiceOrigins: [],
+    });
+    expect(hasWorkingBackupTarget()).toBe(false);
+
+    vi.spyOn(backupEgressGate, "network").mockReturnValue({
+      externalServices: "allow",
+      allowedServiceOrigins: [],
+    });
+    vi.spyOn(backupEgressGate, "running").mockReturnValue(false);
+    expect(hasWorkingBackupTarget()).toBe(false);
   });
 
   it("stores a target on this device and reports it", async () => {

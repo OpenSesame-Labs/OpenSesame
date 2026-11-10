@@ -120,9 +120,17 @@ export function ImportEntry() {
  */
 export function GuidedImportButton({
   className,
+  triggerHidden = false,
   children,
 }: {
   className?: string;
+  /**
+   * Hide the trigger key but keep the flow mounted: a host whose own
+   * reason to show the key has passed (the empty-vault offer, once the
+   * import itself lands the first items) must not unmount the sheet
+   * mid-flow.
+   */
+  triggerHidden?: boolean;
   children: string;
 }) {
   const flow = useImportFlow();
@@ -131,6 +139,7 @@ export function GuidedImportButton({
     <>
       <button
         type="button"
+        hidden={triggerHidden}
         className={className}
         aria-haspopup="dialog"
         onClick={() => setGuiding(true)}

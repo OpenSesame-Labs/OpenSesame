@@ -7,6 +7,7 @@ import type { JsonObject } from "@opensesame/os-domain";
  * through the Connect relay.
  */
 import { pageOrigin } from "../ports.js";
+import { backupEgressGate } from "./backup-egress-gate.js";
 import {
   type PutBackupTargetInput,
   buildLocalBackupTarget,
@@ -198,8 +199,16 @@ export async function getBackupStatus(
  * (`getBackupStatus`) answer for one target; a claim about the vault as a
  * whole — "no copy anywhere else yet" — must look at every row, or a
  * healthy second target leaves it false.
+ *
+ * Automatic egress must also be permitted right now. When the operator's
+ * policy holds or withdraws it, the observer cannot run, so a row's
+ * `pendingEvents: 0` / `lastError: null` may be stale cache from before
+ * the hold while current contents have no copy anywhere. A target that
+ * cannot sync on its own is not keeping the vault, however clean its last
+ * recorded sync looks.
  */
 export function hasWorkingBackupTarget(): boolean {
+  if (!backupEgressGate.allowed()) return false;
   return listLocalBackupTargets().some(
     (row) =>
       row.enabled &&

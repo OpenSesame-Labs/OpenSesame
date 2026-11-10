@@ -601,8 +601,8 @@ export class PostgresRepositories implements Repositories {
       }
     },
 
-    getById: async (id) => {
-      const [row] = await this.db
+    getById: async (id, uow) => {
+      const [row] = await dbOf(uow, this.db)
         .select()
         .from(schema.principals)
         .where(eq(schema.principals.id, id))

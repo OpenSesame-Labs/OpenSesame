@@ -38,6 +38,8 @@ type Fakes = {
   auditEvents: AuditEvent[];
   created: ExternalIdentity[];
   updates: { id: string; patch: PrincipalPatch }[];
+  principalReads: { id: string; uow?: UnitOfWork }[];
+  txUows: UnitOfWork[];
   createImpl: (identity: ExternalIdentity) => Promise<ExternalIdentity>;
 };
 
@@ -110,6 +112,8 @@ function makeFakes(): Fakes {
     auditEvents: [],
     created: [],
     updates: [],
+    principalReads: [],
+    txUows: [],
     createImpl: async (record) => record,
     ctx: overlapCast({}),
   };
@@ -150,7 +154,10 @@ function makeFakes(): Fakes {
         },
       },
       principals: {
-        getById: async (id: string) => state.principals.get(id) ?? null,
+        getById: async (id: string, uow?: UnitOfWork) => {
+          state.principalReads.push({ id, uow });
+          return state.principals.get(id) ?? null;
+        },
         update: async (id: string, patch: PrincipalPatch, _version: number) => {
           state.updates.push({ id, patch });
           const current = state.principals.get(id);
@@ -163,11 +170,16 @@ function makeFakes(): Fakes {
       // The fake runs the work immediately against its in-memory rows;
       // its UnitOfWork only needs to reject the one operation attach
       // never performs through it.
-      transaction: async <T>(fn: (uow: UnitOfWork) => Promise<T>): Promise<T> =>
-        fn({
+      transaction: async <T>(
+        fn: (uow: UnitOfWork) => Promise<T>,
+      ): Promise<T> => {
+        const uow: UnitOfWork = {
           appendOutbox: () =>
             Promise.reject(new Error("fake transaction has no outbox")),
-        }),
+        };
+        state.txUows.push(uow);
+        return fn(uow);
+      },
       auditEvents: {
         append: async (event: AuditEvent) => {
           state.audits.push({
@@ -216,6 +228,24 @@ describe("attaching an identity nobody holds yet", () => {
       state: "active",
       assurance: "verified",
     });
+  });
+
+  it("reads the owner through the transaction while the write is in flight", async () => {
+    // On Postgres each transaction holds one pooled connection. A
+    // root-pool read inside the write transaction would wait for a second
+    // connection while holding the first, so a burst of concurrent links
+    // could deadlock the pool against itself. The owner re-read and the
+    // promotion fence's read must go through the unit of work; the
+    // settled re-read after commit must not.
+    const result = await attachVerifiedExternalIdentity(f.ctx, "prn_1", INPUT);
+    expect(result).toMatchObject({ ok: true });
+
+    expect(f.txUows).toHaveLength(1);
+    const inTx = f.principalReads.filter((r) => r.uow === f.txUows[0]);
+    expect(inTx.map((r) => r.id)).toEqual(["prn_1", "prn_1"]);
+    const settled = f.principalReads.at(-1);
+    expect(settled?.id).toBe("prn_1");
+    expect(settled?.uow).toBeUndefined();
   });
 
   it("leaves an already-active principal's state alone", async () => {

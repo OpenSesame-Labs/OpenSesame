@@ -353,7 +353,9 @@ export class MemoryRepositories implements Repositories {
       return { ...row };
     },
 
-    getById: async (id) => {
+    // The memory store has no connection to scope a read to; `uow` is
+    // accepted so transaction-aware callers read the same rows either way.
+    getById: async (id, _uow) => {
       const row = this.#store.principals.get(id);
       return row ? { ...row } : null;
     },

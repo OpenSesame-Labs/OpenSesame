@@ -116,7 +116,7 @@ export async function ensureVerifiedIdentityPrincipal(
   principalId: string,
   uow?: UnitOfWork,
 ): Promise<Principal | null> {
-  const principal = await ctx.repos.principals.getById(principalId);
+  const principal = await ctx.repos.principals.getById(principalId, uow);
   if (
     !principal ||
     principal.state === "suspended" ||
@@ -148,7 +148,7 @@ export async function ensureVerifiedIdentityPrincipal(
       : null;
   } catch (err) {
     if (err instanceof ConflictError) {
-      const current = await ctx.repos.principals.getById(principalId);
+      const current = await ctx.repos.principals.getById(principalId, uow);
       return current?.state === "active" && current.assurance !== "provisional"
         ? current
         : null;
@@ -316,7 +316,10 @@ export async function attachVerifiedExternalIdentity(
     // is in flight; refusing here rolls the new row back out with it.
     await ctx.repos.transaction(async (uow) => {
       await ctx.repos.externalIdentities.create(identity, uow);
-      const target = await ctx.repos.principals.getById(ownerPrincipalId);
+      // Read through the transaction's own connection: a root-pool read
+      // here would let concurrent links each hold their transaction
+      // connection while waiting for a second one from the same pool.
+      const target = await ctx.repos.principals.getById(ownerPrincipalId, uow);
       // A self-attach whose principal row is already gone keeps the old
       // tolerant answer (the row is the caller's own; there is no owner
       // to protect and the FK has the last word in real repositories).

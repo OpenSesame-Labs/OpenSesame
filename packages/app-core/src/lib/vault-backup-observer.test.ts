@@ -126,3 +126,16 @@ it("notifies manual listeners without duplicating the explicitly owned dispatch"
     unsubscribe();
   }
 });
+
+it("counts a vault mutation as pending even while automatic egress is held", async () => {
+  // Codex review on PR #2551: the pending bump sat behind the egress
+  // gate, so while policy held automatic calls the cached row kept
+  // pendingEvents at its old value and status readers reported a
+  // current backup of a vault that had since changed.
+  vi.spyOn(backupEgressGate, "network").mockReturnValue({
+    externalServices: "deny",
+    allowedServiceOrigins: [],
+  });
+  await vaultBackupObserverSeams.runSync("vault");
+  expect(readLocalBackupTarget("github")?.pendingEvents).toBe(4);
+});
