@@ -1,4 +1,4 @@
-import { ConflictError } from "@opensesame/database";
+import { ConflictError, type UnitOfWork } from "@opensesame/database";
 import type {
   AuditEvent,
   ExternalIdentity,
@@ -160,7 +160,16 @@ function makeFakes(): Fakes {
           return next;
         },
       },
-      transaction: async (fn: (uow: unknown) => Promise<unknown>) => fn({}),
+      // The fake runs the work immediately against its in-memory rows;
+      // its UnitOfWork only needs to reject the one operation attach
+      // never performs through it.
+      transaction: async <T>(
+        fn: (uow: UnitOfWork) => Promise<T>,
+      ): Promise<T> =>
+        fn({
+          appendOutbox: () =>
+            Promise.reject(new Error("fake transaction has no outbox")),
+        }),
       auditEvents: {
         append: async (event: AuditEvent) => {
           state.audits.push({

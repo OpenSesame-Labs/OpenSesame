@@ -221,6 +221,7 @@ describe("tab follow and jump focus (Kimi a11y seat)", () => {
 
   it("lands focus on the composer when the New answer key unmounts itself", async () => {
     const user = userEvent.setup();
+    // SAFETY: fixture rect — the checked hook reads only top/bottom on this seam.
     const rect = (bottom: number): DOMRect =>
       ({
         top: bottom - 40,
