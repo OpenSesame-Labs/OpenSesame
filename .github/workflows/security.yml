@@ -16,6 +16,8 @@
 #   - Betterleaks over the working tree and full history (`npm run
 #     audit:betterleaks`; .betterleaks.toml extends .gitleaks.toml and carries
 #     the exemptions for the generic-password and generic-credential-uri rules)
+#   - npm registry signatures and provenance attestations over the locked tree
+#     (`npm audit signatures`)
 #   - Tailscale key material (`node scripts/security/tailscale-key-material-gate.mjs`)
 #   - OpenSSF Scorecard (checks the repo against the OpenSSF supply-chain
 #     criteria and publishes the score to the code-scanning dashboard and
@@ -263,6 +265,28 @@ jobs:
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           sarif_file: scorecard-results.sarif
+
+  npm-signatures:
+    name: npm registry signatures and provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: true
+          install_args: node
+      - name: Install the locked tree without lifecycle scripts
+        run: npm ci --ignore-scripts
+      # Every installed package must carry a valid registry signature, and
+      # every provenance attestation a package publishes must verify. A
+      # tampered tarball or a forged attestation turns this run red.
+      - name: Verify registry signatures and provenance attestations
+        run: npm audit signatures
 
   tailscale-key-material:
     name: Tailscale key material gate

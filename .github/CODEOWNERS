@@ -18,3 +18,21 @@
 /package-lock.json @Tyler-R-Kendrick
 /package.json @Tyler-R-Kendrick
 /.env.schema @Tyler-R-Kendrick
+# Build, workspace and supply-chain inputs. A change here changes what runs
+# on a contributor's machine or in CI before any product code does.
+/.devcontainer/ @Tyler-R-Kendrick
+/.githooks/ @Tyler-R-Kendrick
+/.npmrc @Tyler-R-Kendrick
+/mise.toml @Tyler-R-Kendrick
+/rust-toolchain.toml @Tyler-R-Kendrick
+/deny.toml @Tyler-R-Kendrick
+/osv-scanner.toml @Tyler-R-Kendrick
+/.gitleaks.toml @Tyler-R-Kendrick
+/.gitleaksignore @Tyler-R-Kendrick
+/.betterleaks.toml @Tyler-R-Kendrick
+/ops/ @Tyler-R-Kendrick
+/apps/ @Tyler-R-Kendrick
+/scripts/audit/ @Tyler-R-Kendrick
+/scripts/release/ @Tyler-R-Kendrick
+/scripts/metrics/ @Tyler-R-Kendrick
+/tools/metrics/ @Tyler-R-Kendrick

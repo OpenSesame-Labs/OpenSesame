@@ -39,3 +39,35 @@ test("dependabot groups declare wildcard patterns", () => {
     assert.match(entry.text, /patterns:\n\s+- "\*"/, entry.ecosystem);
   }
 });
+
+test("dependabot delays every version update by a seven-day cooldown", () => {
+  const all = entries();
+  assert.ok(all.length >= 9);
+  for (const entry of all) {
+    assert.match(
+      entry.text,
+      /\n {4}cooldown:\n {6}default-days: 7\n/,
+      `${entry.ecosystem} ${entry.directory}`,
+    );
+  }
+});
+
+test("dependabot watches the base image of every tracked product Dockerfile", () => {
+  const docker = entries()
+    .filter((entry) => entry.ecosystem === "docker")
+    .map((entry) => entry.directory);
+  assert.deepEqual(docker, [
+    "/.devcontainer",
+    "/ops/compose",
+    "/ops/containers/cli",
+    "/ops/containers/control-plane",
+    "/ops/containers/web-pwa",
+  ]);
+  for (const directory of docker) {
+    const dockerfile = readFileSync(
+      join(root, directory, "Dockerfile"),
+      "utf8",
+    );
+    assert.match(dockerfile, /^FROM \S+@sha256:[a-f0-9]{64}/m, directory);
+  }
+});

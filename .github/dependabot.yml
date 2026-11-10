@@ -1,6 +1,12 @@
 # Dependency updates. The audit gates (npm run audit:osv, audit:cargo-audit,
 # audit:cve-lite) remain the security loop; Dependabot only proposes version
 # bumps so the routine dependency triage has a reviewed, ready-made PR.
+# Nothing here merges on its own: every update is a pull request a person
+# reviews (docs/security/dependency-supply-chain.md).
+#
+# Every entry carries a seven-day cooldown: a version published less than a
+# week ago is not proposed. A hijacked release is usually reported and
+# withdrawn inside that window. Security updates are not delayed.
 #
 # npm workspaces use ONE root entry at / with the root package-lock.json.
 # Do not add per-package directories: Dependabot resolves every workspace
@@ -14,6 +20,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
     labels:
       - dependencies
       - security
@@ -30,6 +38,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     labels:
       - dependencies
       - security
@@ -46,6 +56,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
     labels:
       - dependencies
       - security
@@ -75,6 +87,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
     labels:
       - dependencies
       - ci
@@ -85,3 +99,80 @@ updates:
         update-types:
           - minor
           - patch
+
+  # Base images are pinned by digest. One entry per directory that holds a
+  # Dockerfile, so a moved tag or a patched base arrives as a reviewed PR.
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - security
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /ops/compose
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - security
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /ops/containers/cli
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - security
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /ops/containers/control-plane
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - security
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: docker
+    directory: /ops/containers/web-pwa
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+      - security
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
