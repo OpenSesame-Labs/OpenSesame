@@ -101,6 +101,7 @@ function assertRestore(step, tool, id) {
 // here fails, so it cannot go uncovered.
 const coveredBy = new Map([
   ["cd-ghcr-publish.yml", "install-mise-locked.test.mjs"],
+  ["cd-npm-cli.yml", "install-mise-locked.npm-cli.test.mjs"],
   ["cd-pwa.yml", "install-mise-locked.pwa.test.mjs"],
   ["cd-pwa-profile-proof.yml", "install-mise-locked.pwa.test.mjs"],
 ]);

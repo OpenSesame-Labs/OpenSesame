@@ -51,15 +51,21 @@ function runText(step) {
  * These CD workflows do not use mise-action. GitHub 504s on the action's
  * jdx/mise release metadata fetch. Their jobs install the pinned tarball
  * instead. PWA preview smoke also installs the locked Hurl used by the Pages
- * checks; GHCR installs Node and Rust in separate jobs.
+ * checks; GHCR installs Node and Rust in separate jobs; the npm CLI installs
+ * Node 24.
  */
 const pwaLockedMiseWorkflows = new Set([
   "cd-pwa.yml",
   "cd-pwa-profile-proof.yml",
 ]);
+// Workflows whose installer invocation is `node@24` (optionally with more tools).
+const node24LockedMiseWorkflows = new Set([
+  "cd-npm-cli.yml",
+  ...pwaLockedMiseWorkflows,
+]);
 const lockedMiseWorkflows = new Set([
   "cd-ghcr-publish.yml",
-  ...pwaLockedMiseWorkflows,
+  ...node24LockedMiseWorkflows,
 ]);
 const lockedMiseBootstraps = new Set([
   "bash scripts/lib/install-mise-locked.sh node",
@@ -212,7 +218,7 @@ test("npm jobs install Node with the pinned mise-action", () => {
     if (lockedBootstrap) {
       assert.equal(rawMise.length, 0, name);
       assert.equal(parsedMise, 0, name);
-      if (pwaLockedMiseWorkflows.has(name)) {
+      if (node24LockedMiseWorkflows.has(name)) {
         assert.match(
           text,
           /bash scripts\/lib\/install-mise-locked\.sh node@24/u,
@@ -259,6 +265,14 @@ test("PWA CD installs tools with the locked mise bootstrap, not mise-action", ()
     /bash scripts\/lib\/install-mise-locked\.sh node@24 hurl@8\.1\.0/u,
   );
   assert.doesNotMatch(proof, /hurl@/u);
+});
+
+test("cd-npm-cli installs Node with the locked mise bootstrap, not mise-action", () => {
+  const text = readFileSync(join(workflowDir, "cd-npm-cli.yml"), "utf8");
+  assert.equal(lockedMiseWorkflows.has("cd-npm-cli.yml"), true);
+  assert.doesNotMatch(text, /jdx\/mise-action/u);
+  assert.doesNotMatch(text, /install_args:/u);
+  assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node@24/u);
 });
 
 test("GHCR CD installs tools with the locked mise bootstrap, not mise-action", () => {

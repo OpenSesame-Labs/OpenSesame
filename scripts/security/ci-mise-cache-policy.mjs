@@ -6,9 +6,10 @@
  *
  * cd-pwa.yml runs only on push to main and workflow_dispatch. cd-pwa-profile-proof.yml
  * runs on pull_request for the install-profile proof. cd-ghcr-publish.yml runs on
- * push to main, v* tags, and workflow_dispatch. None of the three uses mise-action.
- * Each may restore the trunk mise tool cache (GHCR: node and rust keys; PWA: the
- * node key) and must not save it.
+ * push to main, v* tags, and workflow_dispatch. cd-npm-cli.yml runs only on push to
+ * main and workflow_dispatch. None of the four uses mise-action. Each may restore
+ * the trunk mise tool cache (GHCR: node and rust keys; PWA and npm CLI: the node
+ * key) and must not save it.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";

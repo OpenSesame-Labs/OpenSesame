@@ -45,10 +45,11 @@ const rustMiseRestoreKey =
   "key: mise-v2-${{ runner.os }}-rust-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
 
 // Workflows that restore the trunk mise tool cache read-only, and the tools
-// each restores. GHCR restores Node and Rust once each; PWA CD restores Node
-// in every job that needs it.
+// each restores. GHCR restores Node and Rust once each; PWA CD and the npm CLI
+// restore Node in every job that needs it.
 const readOnlyMiseRestore = new Map([
   ["cd-ghcr-publish.yml", { tools: ["node", "rust"], once: true }],
+  ["cd-npm-cli.yml", { tools: ["node"], once: false }],
   ["cd-pwa.yml", { tools: ["node"], once: false }],
   ["cd-pwa-profile-proof.yml", { tools: ["node"], once: false }],
 ]);
