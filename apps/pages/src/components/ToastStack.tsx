@@ -35,14 +35,35 @@ export const TOAST_MS = 6000;
 /** How many toasts are on screen at once; the rest are only in the tray. */
 export const TOAST_LIMIT = 2;
 
+/**
+ * The cards on screen once `arrival` joins them, at most `TOAST_LIMIT`.
+ *
+ * An echo makes room by leaving: the tray still holds its notice. An offer
+ * has no tray entry and waits to be answered, so an echo never evicts one —
+ * with the stack full of offers, the echo is the one that is only in the
+ * tray. A new offer over a full stack of offers replaces the oldest.
+ */
+export function withinLimit(
+  current: readonly ToastMessage[],
+  arrival: ToastMessage,
+): ToastMessage[] {
+  const next = [...current, arrival];
+  while (next.length > TOAST_LIMIT) {
+    const echo = next.findIndex((item) => !item.sticky);
+    next.splice(Math.max(echo, 0), 1);
+  }
+  return next;
+}
+
 export function ToastStack() {
   const navigate = useNavigate();
   const [shown, setShown] = useState<ToastMessage[]>([]);
 
   const add = useCallback((toast: ToastMessage) => {
     setShown((current) =>
-      [...current.filter((item) => item.id !== toast.id), toast].slice(
-        -TOAST_LIMIT,
+      withinLimit(
+        current.filter((item) => item.id !== toast.id),
+        toast,
       ),
     );
   }, []);

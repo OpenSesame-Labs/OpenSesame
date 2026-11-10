@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
-import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
+import {
+  type ToastMessage,
+  hideToast,
+  showToast,
+} from "@opensesame/app-core/lib/notice-toast.js";
 import {
   appendStatusNotice,
   clearNotices,
@@ -13,7 +17,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TOAST_MS, ToastStack } from "./ToastStack.js";
+import { TOAST_MS, ToastStack, withinLimit } from "./ToastStack.js";
 
 function renderStack() {
   return render(
@@ -124,6 +128,52 @@ describe("an offer toast (ADR 0221)", () => {
       vi.advanceTimersByTime(TOAST_MS + 10);
     });
     expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+describe("the limit, with offers on screen", () => {
+  const echo = (id: string): ToastMessage => ({
+    id,
+    tone: "info",
+    title: id,
+    body: "Done.",
+  });
+  const offer = (id: string): ToastMessage => ({ ...echo(id), sticky: true });
+  const ids = (toasts: readonly ToastMessage[]) => toasts.map((t) => t.id);
+
+  it("an echo makes room by leaving, never an unanswered offer", () => {
+    expect(ids(withinLimit([offer("tour"), echo("a")], echo("b")))).toEqual([
+      "tour",
+      "b",
+    ]);
+    expect(ids(withinLimit([echo("a"), offer("tour")], echo("b")))).toEqual([
+      "tour",
+      "b",
+    ]);
+  });
+
+  it("with the stack full of offers, a new echo is the one left to the tray", () => {
+    expect(
+      ids(withinLimit([offer("tour"), offer("recommend")], echo("a"))),
+    ).toEqual(["tour", "recommend"]);
+  });
+
+  it("a new offer over a full stack of offers replaces the oldest", () => {
+    expect(
+      ids(withinLimit([offer("one"), offer("two")], offer("three"))),
+    ).toEqual(["two", "three"]);
+  });
+
+  it("keeps an offer on screen while echoes come and go", () => {
+    renderStack();
+    act(() => {
+      showToast({ ...offer("tour"), title: "Tour Settings: General" });
+      showToast(echo("first"));
+      showToast(echo("second"));
+    });
+    expect(screen.getByText("Tour Settings: General")).toBeTruthy();
+    expect(screen.queryByText("first")).toBeNull();
+    expect(screen.getByText("second")).toBeTruthy();
   });
 });
 

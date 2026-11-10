@@ -196,6 +196,9 @@ function make(entry: Recommendation, navigate: (to: string) => void): void {
     act: {
       label: entry.label,
       icon: action.kind === "feature" ? "power" : "settings",
+      // Going to a settings section leaves the tray: it closes first, so it
+      // is not left over the page the key just opened.
+      opens: action.kind === "open",
       worded: true,
       run,
     },

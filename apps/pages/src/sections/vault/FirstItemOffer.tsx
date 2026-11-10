@@ -24,6 +24,7 @@
  */
 
 import { capabilityPorts } from "@opensesame/app-core/lib/configuration/capabilities-ports.js";
+import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
 import type { CapabilityState } from "@opensesame/capability-composition";
 import { useCallback, useContext, useState } from "react";
@@ -78,6 +79,12 @@ export const firstItemOfferSeams = {
   /** What the plan says of the item types now, or undefined before it resolves. */
   usePasswordTypes: (): PasswordTypesState | undefined =>
     useComposition().plan?.capabilities[PASSWORD_TYPES],
+  /**
+   * Whether an account can already be made here. The item types as a whole
+   * may be off while the Account pack was switched on by itself in Settings
+   * › Item types; that vault has passwords and is not told it has none.
+   */
+  accountCreatable: (): boolean => isCreatableItemKind("account"),
   /**
    * The switch, loaded on the press: it is no part of a vault that already
    * has types. It commits against the composition as it stands at the press.
@@ -168,7 +175,10 @@ export function FirstItemOffer({
     (command) => command.id === "import",
   );
   if (listedCount > 0 || inTrash || !makesAccount(createPath)) return null;
-  if (passwordTypesMissing(passwordTypes)) {
+  if (
+    passwordTypesMissing(passwordTypes) &&
+    !firstItemOfferSeams.accountCreatable()
+  ) {
     return (
       <div className="empty__first">
         <PasswordTypesRoad createPath={createPath} />

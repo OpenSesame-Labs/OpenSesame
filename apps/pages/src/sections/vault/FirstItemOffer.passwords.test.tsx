@@ -35,6 +35,7 @@ function offer(listedCount = 0) {
 beforeEach(() => {
   types = OFF;
   firstItemOfferSeams.usePasswordTypes = () => types;
+  firstItemOfferSeams.accountCreatable = () => false;
 });
 afterEach(() => {
   cleanup();
@@ -87,6 +88,14 @@ describe("an empty vault with no password type (ADR 0221)", () => {
         name: "Turn on passwords, cards and notes",
       }),
     ).toBeNull();
+  });
+
+  it("does not claim there are no passwords when the Account pack is on", () => {
+    // Item types as a whole are off, but Account was switched on by itself.
+    firstItemOfferSeams.accountCreatable = () => true;
+    offer();
+    expect(screen.getByText(/Add your first password/)).toBeTruthy();
+    expect(screen.queryByText(/plain secrets and files only/)).toBeNull();
   });
 
   it("is gone with the first sealed item", () => {

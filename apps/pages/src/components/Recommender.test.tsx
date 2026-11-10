@@ -83,7 +83,8 @@ describe("the recommender", () => {
     expect(notice).toMatchObject({
       id: "recommend.backups",
       title: "Back this vault up automatically",
-      act: { label: "Set up backups", worded: true },
+      // A key that goes to a settings section closes the tray first.
+      act: { label: "Set up backups", worded: true, opens: true },
       // Kept across a reload, where the act's closure is not.
       open: {
         to: "/settings/integrations#integration-backups",
