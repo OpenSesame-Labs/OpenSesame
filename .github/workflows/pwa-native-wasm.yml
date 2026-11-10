@@ -9,8 +9,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: pwa-native-wasm-${{ github.run_id }}-${{ inputs.source_sha }}
@@ -22,6 +21,8 @@ jobs:
     timeout-minutes: 25
     env:
       EXPECTED_HEAD: ${{ inputs.source_sha }}
+    permissions:
+      contents: read
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until

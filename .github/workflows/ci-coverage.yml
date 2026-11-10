@@ -9,8 +9,7 @@ on:
       source_sha:
         required: true
         type: string
-permissions:
-  contents: read
+permissions: {}
 jobs:
   coverage:
     name: Coverage (${{ matrix.suite }})

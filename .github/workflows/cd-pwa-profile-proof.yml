@@ -18,9 +18,7 @@ on:
       - ".github/workflows/cd-pwa-profile-proof.yml"
 
 # Read-only mise tool cache restore needs actions: read. This workflow does not save.
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 
 concurrency:
   group: cd-pwa-profile-proof-${{ github.ref }}
@@ -33,6 +31,9 @@ jobs:
     timeout-minutes: 60
     env:
       PWA_PROFILE_PROOF_NAME: full
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

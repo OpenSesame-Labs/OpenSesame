@@ -31,8 +31,7 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 # Each run is its own group so a pass dispatch and a forced failure both finish.
 concurrency:
@@ -44,6 +43,8 @@ jobs:
     name: Promotion gate unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -81,6 +82,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.force_smoke_fail == true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - name: Preview smoke gate fails
         run: |
@@ -94,6 +97,8 @@ jobs:
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -118,6 +123,8 @@ jobs:
     needs: unit
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - name: Main CI gate
         run: echo "main_ci passed"
@@ -140,6 +147,8 @@ jobs:
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

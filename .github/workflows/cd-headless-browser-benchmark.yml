@@ -9,8 +9,7 @@ name: CD headless browser benchmark
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: cd-headless-browser-benchmark-${{ github.ref }}
@@ -21,6 +20,8 @@ jobs:
     name: Headless browser benchmark
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

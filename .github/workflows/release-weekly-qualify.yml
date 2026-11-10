@@ -6,9 +6,11 @@ on:
   workflow_run:
     workflows: ["Weekly release promotion"]
     types: [completed]
+    # The resume step only accepts a controller that ran from main. A run
+    # from any other branch never starts this privileged continuation.
+    branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: candidate-release-qualify-${{ github.event.workflow_run.id }}
@@ -160,6 +162,8 @@ jobs:
       MUTATION_RESULT: ${{ needs.mutation.result }}
       SECURITY_RESULT: ${{ needs.security.result }}
       PUBLISH_RESULT: ${{ needs.publish.result }}
+    permissions:
+      contents: read
     steps:
       - name: Accept only complete publication or the explicit identical-release no-op
         run: |

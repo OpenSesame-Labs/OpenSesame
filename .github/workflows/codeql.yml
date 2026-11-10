@@ -16,8 +16,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: codeql-${{ inputs.source_sha && format('candidate-{0}', github.run_id) || format('monitor-{0}', github.ref) }}

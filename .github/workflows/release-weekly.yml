@@ -7,10 +7,7 @@ on:
       timezone: America/Chicago
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-  attestations: read
+permissions: {}
 
 # Freeze and qualify one candidate through publication. A newer run must not
 # cancel expensive checks or replace a shared prerelease target underneath them.
@@ -33,6 +30,10 @@ jobs:
       payload_digest: ${{ steps.select.outputs.payload_digest }}
       dev_receipt: ${{ steps.select.outputs.dev_receipt }}
       promote: ${{ steps.select.outputs.promote }}
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -71,6 +72,10 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - name: Require successful selection
         run: test "${{ needs.select.result }}" = success

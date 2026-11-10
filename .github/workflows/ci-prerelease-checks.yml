@@ -38,10 +38,7 @@ on:
         description: Verified qualification artifact identity
         value: ${{ jobs.receipt.outputs.receipt }}
 
-permissions:
-  contents: read
-  actions: read
-  attestations: read
+permissions: {}
 
 env:
   SOURCE_SHA: ${{ inputs.source_sha }}
@@ -1577,6 +1574,10 @@ jobs:
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - name: Report the required check
         env:
@@ -1603,6 +1604,10 @@ jobs:
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - name: Report the required check
         env:
@@ -1664,6 +1669,10 @@ jobs:
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - name: Report the required check
         env:
@@ -1694,48 +1703,80 @@ jobs:
   complete-verify:
     needs: admission
     uses: ./.github/workflows/complete-verify.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   native-platform:
     needs: admission
     uses: ./.github/workflows/native-platform-validation.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   password-parity:
     needs: admission
     uses: ./.github/workflows/password-parity.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   container:
     needs: admission
     uses: ./.github/workflows/container-build-pr.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   native-wasm:
     needs: admission
     uses: ./.github/workflows/pwa-native-wasm.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   autofill-browser:
     needs: admission
     uses: ./.github/workflows/autofill-browser.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   sync-target-security:
     needs: admission
     uses: ./.github/workflows/sync-target-security.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
   coverage:
     needs: admission
     uses: ./.github/workflows/ci-coverage.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
@@ -1915,6 +1956,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - name: Check out trusted pipeline helpers
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0

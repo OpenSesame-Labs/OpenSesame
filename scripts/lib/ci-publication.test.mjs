@@ -19,13 +19,13 @@ describe("publication authority", () => {
     (name) => {
       const definition = workflow(name);
       expect(Object.keys(definition.on)).toEqual(["workflow_dispatch"]);
-      expect(definition.permissions).toEqual({ contents: "read" });
+      expect(definition.permissions).toEqual({});
       expect(definition.env).toBeUndefined();
       expect(Object.keys(definition.jobs)).toEqual(["retired"]);
       const job = definition.jobs.retired;
       expect(job.if).toBeUndefined();
       expect(job.environment).toBeUndefined();
-      expect(job.permissions).toBeUndefined();
+      expect(job.permissions).toEqual({});
       expect(job.env).toBeUndefined();
       expect(job.uses).toBeUndefined();
       expect(job.steps).toHaveLength(1);

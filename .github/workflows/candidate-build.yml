@@ -31,9 +31,7 @@ name: Candidate build
         value: ${{ jobs.manifest.outputs.artifact_digest }}
       payload_digest:
         value: ${{ jobs.manifest.outputs.payload_digest }}
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 concurrency:
   group: candidate-build-${{ inputs.source_sha }}
   cancel-in-progress: false
@@ -47,6 +45,9 @@ jobs:
       version: ${{ steps.identity.outputs.version }}
       tag: ${{ steps.identity.outputs.tag }}
       epoch: ${{ steps.identity.outputs.epoch }}
+    permissions:
+      contents: read
+      actions: read
     steps:
     - name: Refuse a caller or manual dispatch outside main
       run: '[ "$GITHUB_REF" = refs/heads/main ]'

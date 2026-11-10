@@ -10,8 +10,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: complete-verify-${{ github.run_id }}-${{ inputs.source_sha }}
@@ -29,6 +28,8 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+    permissions:
+      contents: read
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until

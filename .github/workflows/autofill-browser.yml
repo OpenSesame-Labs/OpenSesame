@@ -10,8 +10,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: autofill-browser-${{ inputs.source_sha && github.run_id || github.ref }}-${{ inputs.source_sha || 'direct' }}
@@ -21,6 +20,8 @@ jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

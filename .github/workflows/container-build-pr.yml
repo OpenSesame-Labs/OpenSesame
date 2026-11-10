@@ -8,8 +8,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: container-build-pr-${{ github.run_id }}-${{ inputs.source_sha }}
@@ -20,6 +19,8 @@ jobs:
     name: Build opensesame image
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

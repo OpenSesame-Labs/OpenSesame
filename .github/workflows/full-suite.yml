@@ -12,8 +12,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   typescript-full:
@@ -36,6 +35,8 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    permissions:
+      contents: read
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
