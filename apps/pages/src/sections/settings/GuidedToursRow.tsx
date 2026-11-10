@@ -3,8 +3,8 @@
  *
  * The first opens Support on its Tutorials tab, so the walkthroughs have one
  * named, findable home beside the `?` mark. The second chooses what happens
- * the first time a screen is met (ADR 0221): its tour is offered, starts by
- * itself, or neither — and the same choice governs the recommendations that
+ * the first time a screen is met (ADR 0221): its tour starts by itself (the
+ * default), is offered, or neither — and the same choice governs the recommendations that
  * follow an act. The third forgets which tours and recommendations this
  * device already answered, so they are offered again as on a new device.
  *
@@ -23,8 +23,8 @@ import { useGuidance } from "../../lib/use-guidance.js";
 import { SupportContext } from "../../tutorial/support-context.js";
 
 const MODES: readonly { value: GuidanceMode; label: string }[] = [
-  { value: "offer", label: "Offer the tour" },
   { value: "auto", label: "Start the tour" },
+  { value: "offer", label: "Offer the tour" },
   { value: "off", label: "Do nothing" },
 ];
 

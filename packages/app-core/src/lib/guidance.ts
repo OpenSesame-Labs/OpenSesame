@@ -29,18 +29,27 @@ import { kvGet, kvSet } from "./kv.js";
 export const GUIDANCE_KEY = "guidance.v1";
 
 /**
- * `offer` puts a one-press card on screen the first time a screen is met;
- * `auto` starts the walkthrough itself; `off` does neither. The library in
- * the Support sheet is unaffected by all three.
+ * `auto` starts a screen's walkthrough the first time the screen is met;
+ * `offer` puts a one-press card there instead; `off` does neither. The
+ * library in the Support sheet is unaffected by all three.
  */
 export type GuidanceMode = "offer" | "auto" | "off";
 
 export const GUIDANCE_MODES: readonly GuidanceMode[] = ["offer", "auto", "off"];
 
-export const DEFAULT_GUIDANCE_MODE: GuidanceMode = "offer";
+/**
+ * A newcomer is walked through, not asked whether they would like to be: the
+ * people this is for did not know a walkthrough existed to ask for.
+ */
+export const DEFAULT_GUIDANCE_MODE: GuidanceMode = "auto";
 
 export type GuidanceRecord = Readonly<{
   mode: GuidanceMode;
+  /**
+   * The person set the mode themselves. False while it is only the default,
+   * which a driven browser may read differently (`FirstVisitOffer`).
+   */
+  chosen: boolean;
   /** Walkthrough goal ids the person started or declined from an offer. */
   tours: readonly string[];
   /** Recommendation ids already made on this device; each is made once. */
@@ -53,6 +62,7 @@ const LIMIT = 400;
 
 const EMPTY: GuidanceRecord = Object.freeze({
   mode: DEFAULT_GUIDANCE_MODE,
+  chosen: false,
   tours: Object.freeze([]),
   recommendations: Object.freeze([]),
 });
@@ -78,8 +88,12 @@ export function parseGuidance(raw: string | null): GuidanceRecord {
   try {
     const parsed: BoundaryValue = JSON.parse(raw);
     if (!isJsonObject(parsed)) return EMPTY;
+    const chosen = parsed.chosen === true;
     return {
-      mode: readMode(parsed.mode),
+      // A mode nobody chose is whatever the default is now, not the default
+      // that happened to be written beside the first answer.
+      mode: chosen ? readMode(parsed.mode) : DEFAULT_GUIDANCE_MODE,
+      chosen,
       tours: readIds(parsed.tours),
       recommendations: readIds(parsed.recommendations),
     };
@@ -133,8 +147,8 @@ export function subscribeGuidance(listener: Listener): () => void {
 
 export function setGuidanceMode(mode: GuidanceMode): void {
   const current = loadGuidance();
-  if (current.mode === mode) return;
-  store({ ...current, mode });
+  if (current.mode === mode && current.chosen) return;
+  store({ ...current, mode, chosen: true });
 }
 
 function remember(field: "tours" | "recommendations", id: string): void {
@@ -184,5 +198,10 @@ export function forgetGuidanceAnswers(): void {
   if (current.tours.length === 0 && current.recommendations.length === 0) {
     return;
   }
-  store({ mode: current.mode, tours: [], recommendations: [] });
+  store({
+    mode: current.mode,
+    chosen: current.chosen,
+    tours: [],
+    recommendations: [],
+  });
 }

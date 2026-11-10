@@ -13,8 +13,8 @@
  * The card is a toast, not a modal: it takes no focus, dims nothing and
  * blocks no control, so a person who already knows the screen simply carries
  * on. It is taken back when they move on, open the Support sheet or start a
- * tour some other way. In `auto` mode the tour starts itself instead of
- * being offered; in `off` this component does nothing.
+ * tour some other way. That is `offer` mode. In `auto` mode, the default,
+ * the tour starts itself instead; in `off` this component does nothing.
  *
  * It draws nothing of its own and rides in the support capability, so a
  * build without guided help has no offers either.
@@ -43,6 +43,13 @@ export const firstVisitSeams = {
   /** A sheet or dialog owns the screen: an offer waits for it to close. */
   modalOpen: (): boolean =>
     document.querySelector('[aria-modal="true"], dialog[open]') !== null,
+  /**
+   * A script is driving this browser (WebDriver). Nobody is meeting the
+   * screen for the first time, and a tour that starts itself dims the page
+   * the script is about to press, so the default there is the offer, which
+   * blocks nothing. A mode somebody chose is honoured either way.
+   */
+  driven: (): boolean => navigator.webdriver === true,
   /** The library's own gate: what is drawn, what holds, what is installed. */
   useGate: useTutorialGate,
 };
@@ -62,7 +69,10 @@ export function FirstVisitOffer(): null {
   const { route } = view;
   const idle = !view.open && view.guide?.tour == null;
   const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
-  const { mode } = guidance;
+  const mode =
+    guidance.mode === "auto" && !guidance.chosen && firstVisitSeams.driven()
+      ? "offer"
+      : guidance.mode;
 
   useEffect(() => {
     if (mode === "off" || !idle) return;

@@ -47,14 +47,14 @@ describe("Settings › Guided tours", () => {
     expect(opened).toEqual(["tutorials"]);
   });
 
-  it("offers by default and stores the mode a person chooses", () => {
+  it("starts tours by default and stores the mode a person chooses", () => {
     row();
     const select = screen.getByLabelText<HTMLSelectElement>(
       "On a screen you have not seen",
     );
-    expect(select.value).toBe("offer");
-    fireEvent.change(select, { target: { value: "auto" } });
-    expect(loadGuidance().mode).toBe("auto");
+    expect(select.value).toBe("auto");
+    fireEvent.change(select, { target: { value: "offer" } });
+    expect(loadGuidance()).toMatchObject({ mode: "offer", chosen: true });
     fireEvent.change(select, { target: { value: "off" } });
     expect(loadGuidance().mode).toBe("off");
   });

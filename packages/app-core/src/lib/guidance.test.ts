@@ -26,13 +26,28 @@ afterEach(() => {
 });
 
 describe("guidance record", () => {
-  it("starts empty, offering", () => {
+  it("starts empty, starting tours itself, with nothing chosen", () => {
     expect(loadGuidance()).toEqual({
       mode: DEFAULT_GUIDANCE_MODE,
+      chosen: false,
       tours: [],
       recommendations: [],
     });
-    expect(DEFAULT_GUIDANCE_MODE).toBe("offer");
+    expect(DEFAULT_GUIDANCE_MODE).toBe("auto");
+  });
+
+  it("keeps a mode only when somebody chose it", () => {
+    // Written beside the first answer, before anyone touched the setting.
+    rememberTourAnswered("vault.lock");
+    expect(loadGuidance().chosen).toBe(false);
+    expect(
+      parseGuidance(JSON.stringify({ mode: "offer", tours: [] })).mode,
+    ).toBe(DEFAULT_GUIDANCE_MODE);
+    setGuidanceMode("offer");
+    expect(loadGuidance()).toMatchObject({ mode: "offer", chosen: true });
+    // Choosing the default is still a choice.
+    setGuidanceMode("auto");
+    expect(loadGuidance()).toMatchObject({ mode: "auto", chosen: true });
   });
 
   it("remembers an answered tour once", () => {
@@ -54,7 +69,12 @@ describe("guidance record", () => {
       parseGuidance(
         JSON.stringify({ mode: "loud", tours: ["ok.id", 4, "Not An Id"] }),
       ),
-    ).toEqual({ mode: "offer", tours: ["ok.id"], recommendations: [] });
+    ).toEqual({
+      mode: "auto",
+      chosen: false,
+      tours: ["ok.id"],
+      recommendations: [],
+    });
   });
 
   it("treats a corrupt record as empty", () => {
@@ -65,8 +85,8 @@ describe("guidance record", () => {
   it("changes mode and tells subscribers", () => {
     const heard = vi.fn();
     const stop = subscribeGuidance(heard);
-    setGuidanceMode("auto");
-    setGuidanceMode("auto");
+    setGuidanceMode("offer");
+    setGuidanceMode("offer");
     stop();
     setGuidanceMode("off");
     expect(heard).toHaveBeenCalledTimes(1);
@@ -80,6 +100,7 @@ describe("guidance record", () => {
     forgetGuidanceAnswers();
     expect(loadGuidance()).toEqual({
       mode: "auto",
+      chosen: true,
       tours: [],
       recommendations: [],
     });
@@ -93,6 +114,6 @@ describe("guidance record", () => {
       throw new Error("no storage");
     };
     expect(() => rememberTourAnswered("vault.lock")).not.toThrow();
-    expect(loadGuidance().mode).toBe("offer");
+    expect(loadGuidance().mode).toBe("auto");
   });
 });

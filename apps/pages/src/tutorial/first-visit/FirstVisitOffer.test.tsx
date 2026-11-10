@@ -59,7 +59,10 @@ beforeEach(() => {
     stored = value;
   };
   firstVisitSeams.modalOpen = () => false;
+  firstVisitSeams.driven = () => false;
   firstVisitSeams.useGate = () => GATE;
+  // Most of this suite is about the card, which is what `offer` draws.
+  setGuidanceMode("offer");
   forgetSessionAnswers();
   stops = [
     subscribeToasts((toast) => shown.push(toast)),
@@ -200,6 +203,36 @@ describe("the first-visit offer", () => {
     settle();
     expect(shown).toHaveLength(0);
     expect(started).toHaveLength(0);
+  });
+
+  it("starts the tour itself by default, with nothing chosen", () => {
+    stored = null;
+    const { support, started } = controller();
+    mount(support);
+    settle();
+    expect(shown).toHaveLength(0);
+    expect(started).toHaveLength(1);
+    expect(started[0]?.origin).toBe("authored");
+  });
+
+  it("offers instead while a script drives the browser", () => {
+    stored = null;
+    firstVisitSeams.driven = () => true;
+    const { support, started } = controller();
+    mount(support);
+    settle();
+    // A tour would dim the page the script is about to press.
+    expect(started).toHaveLength(0);
+    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+  });
+
+  it("honours a chosen auto mode even in a driven browser", () => {
+    setGuidanceMode("auto");
+    firstVisitSeams.driven = () => true;
+    const { support, started } = controller();
+    mount(support);
+    settle();
+    expect(started).toHaveLength(1);
   });
 
   it("starts the tour itself in auto mode", () => {

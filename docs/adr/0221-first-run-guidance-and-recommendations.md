@@ -101,16 +101,25 @@ answers are held and forgets them on one press.
 ### 3. The mode is the person's
 
 Settings › General › Guided tours chooses what happens on a screen that has
-not been seen: **Offer the tour** (the default), **Start the tour**, or **Do
-nothing**. `auto` starts the tour itself where `offer` would have drawn the
-card. `off` silences offers and recommendations both; the library is
+not been seen: **Start the tour** (the default), **Offer the tour**, or **Do
+nothing**. `auto` starts the tour itself; `offer` draws the card described in
+§1 instead. `off` silences tours and recommendations both; the library is
 unaffected by all three.
 
-Offer is the default, not auto, for two reasons. A tour that starts itself on
-every new screen interrupts the person who is there to do something. And an
-overlay that appears unasked sits over the controls the browser walks under
-`apps/pages/scripts/` press, where an offer does not. Making `auto` the default is
-one constant (`DEFAULT_GUIDANCE_MODE`) and a decision about those walks.
+**Auto is the default.** The people this is for did not know a walkthrough
+existed to ask for, and an offer in the corner of the screen is one more thing
+to notice. A tour is not a trap: its first card carries Exit, Escape leaves it
+and hands focus back, and either one counts as the answer, so the same tour
+does not start again.
+
+The record keeps whether the mode was **chosen**. While it is only the
+default, a browser that a script is driving (`navigator.webdriver`) is given
+the offer instead of the tour: nobody is meeting the screen for the first
+time, and a tour that starts itself dims the page the browser walks under
+`apps/pages/scripts/` are about to press. This is the default being read
+differently, not the product behaving differently for a person — a mode
+somebody chose, `auto` included, is honoured in a driven browser too, which is
+how a walk that wants the tours asks for them.
 
 ### 4. The first screens say which road is for a newcomer
 
@@ -187,7 +196,7 @@ worded choice. Dismiss stays an icon key.
   its echo draws no key.
 - The setup choice's order is now Default, Minimal, Full, Custom. The walks
   that arrow across it (`verification-checklist-setup.mjs`) follow.
-- The browser walks meet an offer card on fresh profiles. It blocks nothing,
+- The browser walks meet an offer card on fresh profiles, never a tour (§3). It blocks nothing,
   but a walk that asserts "no toast is showing" on arrival needs
   `guidance.v1` set to `off` first.
 - Recommendations are authored, six of them. Adding one is a registry entry
