@@ -14,7 +14,43 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { prepareNativeAudit } from "./prepare-distribution.mjs";
+
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+/** The pins a fixture repository carries: two archives, one builder, one patch. */
+function fixturePins(builder, sourceArchive, compilerArchive) {
+  return {
+    source: {
+      archiveURL: "https://example.invalid/source",
+      archiveSha256: hash(sourceArchive),
+    },
+    compiler: {
+      version: "go1.27.3",
+      archiveURL: "https://example.invalid/compiler",
+      archiveSha256: hash(compilerArchive),
+    },
+    nativeHttp: { files: [] },
+    nativeBridge: { files: [] },
+    nativeNode: {
+      files: [],
+      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
+    },
+    toolchainSelection: { files: [] },
+    privateLogging: { files: [] },
+    publicTrust: { files: [] },
+    nativeSSH: {
+      patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
+      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
+    },
+    codeqlWasmSecurity: {
+      patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
+      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
+      patchTargets: [],
+    },
+    composition: { files: [] },
+    patch: { sha256: hash("fixture patch") },
+  };
+}
 
 /** An owned child fixture exercises preparation lifetime, not a genuine compiler or vulnerability scan. */
 async function fixture(t, failure = false) {
@@ -74,37 +110,7 @@ ${failure ? `process.exitCode=${failure === "uncertain" ? 125 : 1};` : `await wr
   const compilerArchive = Buffer.from("fixture compiler archive");
   for (const bytes of [sourceArchive, compilerArchive])
     await writeFile(join(archives, `${hash(bytes)}.tar.gz`), bytes);
-  const pins = {
-    source: {
-      archiveURL: "https://example.invalid/source",
-      archiveSha256: hash(sourceArchive),
-    },
-    compiler: {
-      version: "go1.27.3",
-      archiveURL: "https://example.invalid/compiler",
-      archiveSha256: hash(compilerArchive),
-    },
-    nativeHttp: { files: [] },
-    nativeBridge: { files: [] },
-    nativeNode: {
-      files: [],
-      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
-    },
-    toolchainSelection: { files: [] },
-    privateLogging: { files: [] },
-    publicTrust: { files: [] },
-    nativeSSH: {
-      patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
-      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
-    },
-    codeqlWasmSecurity: {
-      patch: { path: "exit-route.patch", sha256: hash("fixture patch") },
-      stagingHelper: { path: "build.mjs", sha256: hash(builder) },
-      patchTargets: [],
-    },
-    composition: { files: [] },
-    patch: { sha256: hash("fixture patch") },
-  };
+  const pins = fixturePins(builder, sourceArchive, compilerArchive);
   const source = JSON.stringify(pins);
   await writeFile(join(here, "source.json"), source);
   const sibling = join(

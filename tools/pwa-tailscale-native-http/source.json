@@ -641,7 +641,7 @@
       },
       {
         "path": "prepare-native-audit.test.mjs",
-        "sha256": "b9dacba83cee43aedc891f69d274fa6fb2aff5d93082e6f80027d959ac035369"
+        "sha256": "f787af1713bc04893385234e338338359636906981b5e47548bb234901f70e9f"
       },
       {
         "path": "owned-process-group.mjs",
