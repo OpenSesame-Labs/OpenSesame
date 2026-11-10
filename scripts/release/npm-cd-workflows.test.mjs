@@ -88,7 +88,8 @@ test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () =>
     assert.doesNotMatch(production, /NODE_AUTH_TOKEN/);
   }
   assert.match(action, /0\.0\.0-next\.N/);
-  assert.match(action, /--provenance/);
+  assert.match(action, /npm-trunk-publish\.mjs/);
+  assert.match(read("scripts/release/npm-trunk-publish.mjs"), /--provenance/);
   assert.match(action, /export NODE_AUTH_TOKEN="\$NPM_TOKEN_INPUT"/);
   assert.match(action, /unset NODE_AUTH_TOKEN/);
   assert.match(spec.promotion_model.production, /0\.0\.0-next\.N/);
@@ -397,6 +398,8 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
   assert.match(prepare, /cliPublishDependencies/);
   const ghcr = read(".github/workflows/cd-ghcr-publish.yml");
   assert.match(ghcr, /cli-shrinkwrap\.mjs check/);
+  const publishAction = read(".github/actions/publish-npm-package/action.yml");
+  assert.match(publishAction, /npm-trunk-publish\.mjs/);
   const build = read("packages/cli/scripts/build.mjs");
   assert.match(build, /CLI_RELEASE_PACK === "1"/);
   assert.match(build, /sourcemap: !releasePack/);
