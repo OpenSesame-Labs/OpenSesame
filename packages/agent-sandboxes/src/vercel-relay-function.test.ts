@@ -1,20 +1,41 @@
 import { Readable } from "node:stream";
 import vm from "node:vm";
+import {
+  type JsonObject,
+  isFunction,
+  isJsonObject,
+} from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { VERCEL_RELAY_FETCH_SOURCE } from "./vercel-relay-function.js";
 
-type JarState = Record<string, Record<string, string>>;
+/** The jar the relay hands back: origin, then cookie name, then value. */
+const jarSchema = z.record(z.string(), z.record(z.string(), z.string()));
 
 interface MockRes {
   statusCode: number;
-  body: string | Record<string, unknown>;
-  json(): Record<string, unknown>;
+  body: string | JsonObject;
+  json(): JsonObject;
 }
 
-function loadFetchHandler(fetchImpl: typeof fetch): (
-  body: Record<string, unknown>,
-) => Promise<MockRes> {
-  const module = { exports: {} as (req: unknown, res: unknown) => Promise<void> };
+/** The response half of the Node pair Vercel hands a function. */
+interface RelayResponder {
+  status(code: number): RelayResponder;
+  send(text: string): RelayResponder;
+  json(data: JsonObject): RelayResponder;
+}
+
+type RelayHandler = (req: Readable, res: RelayResponder) => Promise<void>;
+
+/** CommonJS `module`: empty exports until the relay source assigns its handler. */
+interface RelayModule {
+  exports: RelayHandler | Record<string, never>;
+}
+
+function loadFetchHandler(
+  fetchImpl: typeof fetch,
+): (body: JsonObject) => Promise<MockRes> {
+  const module: RelayModule = { exports: {} };
   const sandbox: vm.Context = {
     module,
     exports: module.exports,
@@ -31,6 +52,7 @@ function loadFetchHandler(fetchImpl: typeof fetch): (
   vm.createContext(sandbox);
   vm.runInContext(VERCEL_RELAY_FETCH_SOURCE, sandbox);
   const handler = module.exports;
+  if (!isFunction(handler)) throw new Error("relay source exported no handler");
   return async (rpc) => {
     const body = Buffer.from(JSON.stringify(rpc));
     let sent = false;
@@ -47,17 +69,17 @@ function loadFetchHandler(fetchImpl: typeof fetch): (
       headers: { authorization: "Bearer relay-token" },
     });
     let statusCode = 200;
-    let payload: string | Record<string, unknown> = "";
-    const res = {
-      status(code: number) {
+    let payload: string | JsonObject = "";
+    const res: RelayResponder = {
+      status(code) {
         statusCode = code;
         return this;
       },
-      send(text: string) {
+      send(text) {
         payload = text;
         return this;
       },
-      json(data: Record<string, unknown>) {
+      json(data) {
         payload = data;
         return this;
       },
@@ -67,8 +89,7 @@ function loadFetchHandler(fetchImpl: typeof fetch): (
       statusCode,
       body: payload,
       json() {
-        if (typeof payload !== "object" || payload === null)
-          throw new Error("expected json body");
+        if (!isJsonObject(payload)) throw new Error("expected json body");
         return payload;
       },
     };
@@ -95,8 +116,7 @@ describe("vercel relay fetch handler source", () => {
       jar: {},
     });
     expect(result.statusCode).toBe(200);
-    const body = result.json();
-    const jar = body.jar as JarState;
+    const jar = jarSchema.parse(result.json().jar);
     expect(jar["https://accounts.example.test"]?.session).toBe("abc");
   });
 
@@ -148,12 +168,10 @@ describe("vercel relay fetch handler source", () => {
     });
     expect(result.statusCode).toBe(200);
     expect(sentCookies).toBe("good=yes");
-    const jar = result.json().jar as JarState;
+    const jar = jarSchema.parse(result.json().jar);
     expect(jar["https://rp.test"]).toEqual({ good: "yes" });
     expect(jar["https://other.test"]).toBeUndefined();
-    expect(
-      (Object.prototype as Record<string, unknown>).polluted,
-    ).toBeUndefined();
+    expect("polluted" in Object.prototype).toBe(false);
   });
 
   it("caps upstream bodies while streaming", async () => {
@@ -174,7 +192,7 @@ describe("vercel relay fetch handler source", () => {
       allowedOrigins: ["https://rp.test"],
       jar: {},
     });
-    const body = result.json();
-    expect((body.bodyText as string).length).toBe(1_048_576);
+    const bodyText = z.string().parse(result.json().bodyText);
+    expect(bodyText.length).toBe(1_048_576);
   });
 });

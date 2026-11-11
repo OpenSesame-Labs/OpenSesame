@@ -20,11 +20,7 @@ const packageJson = JSON.parse(
   await readFile(new URL("packages/static-auth/package.json", root)),
 );
 const version = packageJson.version;
-const paths = artifactPaths(version);
-const entries = [
-  "packages/static-auth/src/browser.ts",
-  "packages/static-auth/src/compatibility.ts",
-];
+const [hostedPath, frozenPath] = artifactPaths(version);
 
 async function bundle(entry) {
   const result = await build({
@@ -48,6 +44,8 @@ async function bundle(entry) {
         name: "OpenSesameStaticAuth",
         formats: ["iife"],
       },
+      // Rollup always emitted "use strict"; Rolldown only copies it from source.
+      rollupOptions: { output: { strict: true } },
     },
   });
   const output = Array.isArray(result) ? result[0] : result;
@@ -88,15 +86,18 @@ const publishedManifest = git([
   : undefined;
 if (publishedManifest && existingManifest)
   assertImmutableArtifacts(publishedManifest, existingManifest);
-const bundles = await Promise.all(entries.map(bundle));
-const artifacts = paths.map((path, index) => ({
-  path,
-  sri: integrity(bundles[index]),
-}));
-const outputs = artifacts.flatMap((entry, index) => [
-  [entry.path, bundles[index]],
-  [`${entry.path}.sha384`, `${entry.sri}\n`],
-]);
+const hosted = await bundle("packages/static-auth/src/browser.ts");
+// ADR 0096: the root alias is frozen and hash-ratcheted. A bundler update cannot
+// reproduce its bytes, so its published SRI is carried forward, never rebuilt.
+const frozen = await readFile(new URL(frozenPath, root), "utf8");
+const artifacts = [
+  { path: hostedPath, sri: integrity(hosted) },
+  { path: frozenPath, sri: integrity(frozen) },
+];
+const outputs = [
+  [hostedPath, hosted],
+  [`${hostedPath}.sha384`, `${artifacts[0].sri}\n`],
+];
 // Check every output before writing any; never partially replace a frozen release.
 for (const [path, bytes] of outputs) {
   const previous = await readOptional(path);

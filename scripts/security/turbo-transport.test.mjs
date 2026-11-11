@@ -55,9 +55,9 @@ else {
       name: "transport-fixture",
       private: true,
       packageManager: "npm@9.15.0",
+      workspaces: ["task"],
     }),
   );
-  writeFileSync(join(folder, "pnpm-workspace.yaml"), "packages:\n  - task\n");
   writeFileSync(
     join(folder, "task/package.json"),
     JSON.stringify({

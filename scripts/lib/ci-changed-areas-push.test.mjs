@@ -148,7 +148,8 @@ describe("the Bundle budgets aggregate", () => {
     expect(job).toContain(
       "if: needs.changes.outputs.device_identity == 'true'",
     );
-    expect(job).toContain("node scripts/lib/ci-pages-build.mjs");
+    // The trusted helper checkout builds Pages, never the candidate's copy.
+    expect(job).toContain("node .ci-control/scripts/lib/ci-pages-build.mjs");
     expect(job).toMatch(/timeout-minutes: 15\b/);
     // The aggregate accepts only success or skipped from it.
     const check =

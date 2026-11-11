@@ -42,14 +42,17 @@ function ownedBuiltFile(dist, file) {
     throw new Error("Built worker/controller must be a regular owned file");
   return target;
 }
-function workerURL(node) {
-  if (
-    !ts.isNewExpression(node) ||
-    !ts.isIdentifier(node.expression) ||
-    node.expression.text !== "Worker"
-  )
-    return null;
-  let value = node.arguments?.[0];
+const moduleWorkerOptions = (options, source) =>
+  options !== undefined &&
+  ts.isObjectLiteralExpression(options) &&
+  options.properties.some(
+    (property) =>
+      ts.isPropertyAssignment(property) &&
+      property.name.getText(source) === "type" &&
+      ts.isStringLiteralLike(property.initializer) &&
+      property.initializer.text === "module",
+  );
+function workerURL(value) {
   if (
     value &&
     ts.isPropertyAccessExpression(value) &&
@@ -65,10 +68,18 @@ function workerURL(node) {
     return null;
   return value;
 }
-function workerAssetReference(node, source, ownerURL, base) {
-  const value = workerURL(node);
-  if (!value) return null;
-  const [literal, origin] = value.arguments ?? [];
+/** Vite 8 emits the worker as a literal base URL; Rollup emitted `new URL(literal, import.meta.url)`. */
+function workerLiteral(node, source) {
+  if (
+    !ts.isNewExpression(node) ||
+    !ts.isIdentifier(node.expression) ||
+    node.expression.text !== "Worker"
+  )
+    return null;
+  const [first, options] = node.arguments ?? [];
+  if (first && ts.isStringLiteralLike(first))
+    return moduleWorkerOptions(options, source) ? first : null;
+  const [literal, origin] = workerURL(first)?.arguments ?? [];
   if (
     !literal ||
     !ts.isStringLiteralLike(literal) ||
@@ -76,6 +87,11 @@ function workerAssetReference(node, source, ownerURL, base) {
     origin.getText(source) !== "import.meta.url"
   )
     return null;
+  return literal;
+}
+function workerAssetReference(node, source, ownerURL, base) {
+  const literal = workerLiteral(node, source);
+  if (!literal) return null;
   const reference = literal.text;
   if (
     /[%\\?#]/.test(reference) ||

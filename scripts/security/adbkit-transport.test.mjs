@@ -1,18 +1,36 @@
-/** Exercise the actual WXT dependency against a loopback ADB protocol peer. */
+/** Exercise every installed copy of adbkit against a loopback ADB protocol peer. */
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { Readable } from "node:stream";
 import { test } from "node:test";
 
-const extension = createRequire(
-  new URL("../../apps/browser-extension/package.json", import.meta.url),
-);
-const wxt = createRequire(extension.resolve("wxt"));
-const webExt = createRequire(wxt.resolve("web-ext-run"));
-const adbRequire = createRequire(webExt.resolve("@devicefarmer/adbkit"));
-const { Adb } = webExt("@devicefarmer/adbkit");
+const ADBKIT = "@devicefarmer/adbkit";
+const root = new URL("../../", import.meta.url);
+const readJson = (file) =>
+  JSON.parse(readFileSync(new URL(file, root), "utf8"));
+const manifest = readJson("package.json");
+const lock = readJson("package-lock.json");
+const edges = ["dependencies", "optionalDependencies", "peerDependencies"];
+
+/** Every copy the lockfile installs, each required from its own directory. */
+const copies = Object.keys(lock.packages)
+  .filter((key) => key.endsWith(`node_modules/${ADBKIT}`))
+  .map((key) => ({
+    key,
+    adbRequire: createRequire(new URL(`${key}/package.json`, root)),
+  }));
+
+/** One test per installed copy: none while the lockfile installs none. */
+function eachCopy(title, options, run) {
+  for (const { key, adbRequire } of copies)
+    test(`${title} (${key})`, options, () =>
+      run({ adbRequire, Adb: adbRequire("./").Adb }),
+    );
+}
+
 const asciiLength = (text) =>
   Buffer.byteLength(text).toString(16).padStart(4, "0") + text;
 const uint = (value) => {
@@ -115,7 +133,7 @@ function acceptPeer(socket, commands, uploads) {
   });
 }
 
-async function peer(run) {
+async function peer(Adb, run) {
   const commands = [];
   const uploads = [];
   const sockets = new Set();
@@ -138,33 +156,61 @@ async function peer(run) {
   }
 }
 
-test("public WXT dependency loads without the excluded crypto dependency", () => {
-  assert.throws(() => adbRequire.resolve("node-forge"), {
-    code: "MODULE_NOT_FOUND",
-  });
-  assert.ok(Adb.createClient instanceof Function);
-  assert.equal(Adb.createClient().bin, "adb");
-  const client = Adb.createClient({
-    host: "127.0.0.2",
-    port: 12345,
-    bin: "/configured/adb",
-    timeout: 21,
-  });
-  assert.deepEqual(client.options, {
-    host: "127.0.0.2",
-    port: 12345,
-    bin: "/configured/adb",
-    timeout: 21,
-  });
-  assert.throws(() => Adb.util.parsePublicKey("unused"), /node-forge/);
-  assert.throws(() => client.createTcpUsbBridge("unused"), /node-forge/);
+// WXT 0.21 made web-ext an optional peer and no longer installs web-ext-run,
+// so no workspace installs adbkit today. The pin and the node-forge exclusion
+// stay: a runner that returns brings the pinned release, and every copy it
+// installs must pass the whole suite below without node-forge.
+test("adbkit is absent or the pinned release", () => {
+  assert.equal(manifest.overrides[ADBKIT]["."], "3.3.8");
+  assert.equal(manifest.overrides[ADBKIT]["node-forge"], "-");
+  for (const { key } of copies)
+    assert.equal(lock.packages[key].version, "3.3.8", key);
+  if (copies.length > 0) return;
+  const dependents = Object.entries(lock.packages)
+    .filter(([, entry]) =>
+      edges.some((field) => Object.hasOwn(entry[field] ?? {}, ADBKIT)),
+    )
+    .map(([key]) => key);
+  assert.deepEqual(dependents, []);
+  const extension = createRequire(
+    new URL("apps/browser-extension/package.json", root),
+  );
+  const wxt = createRequire(extension.resolve("wxt"));
+  for (const name of ["web-ext-run", ADBKIT])
+    assert.throws(() => wxt.resolve(name), { code: "MODULE_NOT_FOUND" }, name);
 });
 
-test(
+eachCopy(
+  "installed adbkit loads without the excluded crypto dependency",
+  {},
+  ({ adbRequire, Adb }) => {
+    assert.throws(() => adbRequire.resolve("node-forge"), {
+      code: "MODULE_NOT_FOUND",
+    });
+    assert.ok(Adb.createClient instanceof Function);
+    assert.equal(Adb.createClient().bin, "adb");
+    const client = Adb.createClient({
+      host: "127.0.0.2",
+      port: 12345,
+      bin: "/configured/adb",
+      timeout: 21,
+    });
+    assert.deepEqual(client.options, {
+      host: "127.0.0.2",
+      port: 12345,
+      bin: "/configured/adb",
+      timeout: 21,
+    });
+    assert.throws(() => Adb.util.parsePublicKey("unused"), /node-forge/);
+    assert.throws(() => client.createTcpUsbBridge("unused"), /node-forge/);
+  },
+);
+
+eachCopy(
   "fragmented host replies preserve all device states and shell readAll",
   { timeout: 5000 },
-  async () => {
-    await peer(async (client, commands) => {
+  async ({ Adb }) => {
+    await peer(Adb, async (client, commands) => {
       assert.deepEqual(await client.listDevices(), [
         { id: "online", type: "device" },
         { id: "offline", type: "offline" },
@@ -184,11 +230,11 @@ test(
   },
 );
 
-test(
+eachCopy(
   "file listing and push retain sync completion and permission errors",
   { timeout: 5000 },
-  async () => {
-    await peer(async (client, commands, uploads) => {
+  async ({ Adb }) => {
+    await peer(Adb, async (client, _commands, uploads) => {
       const device = client.getDevice("online");
       const entries = await device.readdir("/extensions");
       assert.equal(entries[0].name, "test.xpi");
@@ -209,11 +255,11 @@ test(
   },
 );
 
-test(
+eachCopy(
   "activity failures remain observable for fallback and forward requests roundtrip",
   { timeout: 5000 },
-  async () => {
-    await peer(async (client, commands) => {
+  async ({ Adb }) => {
+    await peer(Adb, async (client, commands) => {
       const device = client.getDevice("online");
       await assert.rejects(
         device.startActivity({ component: "org.mozilla.firefox/.App" }),
@@ -242,10 +288,10 @@ test(
   },
 );
 
-test(
+eachCopy(
   "connection refusal invokes the configured adb binary with its port",
   { timeout: 5000 },
-  async () => {
+  async ({ Adb }) => {
     const { mkdtemp, writeFile, readFile, rm } = await import(
       "node:fs/promises"
     );

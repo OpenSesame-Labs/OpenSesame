@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isString } from "./json-boundary.mjs";
 
 const SHA = /^[0-9a-f]{40}$/;
 
@@ -26,7 +27,7 @@ export function turboComparisonRef(env) {
 }
 
 function text(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return isString(value) ? value.trim() : "";
 }
 
 function ensureRef(root, ref, env) {

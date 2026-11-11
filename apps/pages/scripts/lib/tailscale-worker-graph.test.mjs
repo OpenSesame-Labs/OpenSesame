@@ -48,6 +48,7 @@ async function buildFixtureWorker(directory) {
   return build({
     configFile: false,
     root: directory,
+    base: "/OpenSesame/",
     cacheDir: join(directory, "cache"),
     publicDir: false,
     logLevel: "silent",
@@ -68,7 +69,7 @@ async function buildFixtureWorker(directory) {
       minify: false,
       rollupOptions: {
         input: controller,
-        preserveEntrySignatures: "strict",
+        preserveEntrySignatures: "allow-extension",
         output: {
           format: "es",
           entryFileNames: "assets/[name]-[hash].js",

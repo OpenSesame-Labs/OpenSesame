@@ -75,7 +75,7 @@ if (write) {
   spec.checked_date = new Date().toISOString().slice(0, 10);
   writeFileSync(specPath, `${JSON.stringify(spec, null, 2)}\n`);
   console.log(
-    "Recorded. Run `npm exec -- biome format --write spec/connectors/browser-dispositions.json` and `npm run generate:dispositions`.", -w @opensesame/app-core
+    "Recorded. Run `npm exec -- biome format --write spec/connectors/browser-dispositions.json` and `npm run generate:dispositions -w @opensesame/app-core`.",
   );
 }
 console.log(`${probed} probe(s), ${drifted.length} moved.`);

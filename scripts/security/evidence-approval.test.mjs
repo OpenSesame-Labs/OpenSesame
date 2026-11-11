@@ -150,7 +150,7 @@ test("approval reference links a pull request, review or comment of this reposit
     "https://github.com/OpenSesame-Labs/OpenSesame/pull/2045#discussion_r2462234567",
     "https://github.com/OpenSesame-Labs/OpenSesame/pull/2045/files#r2462234567",
     "https://github.com/OpenSesame-Labs/OpenSesame/issues/2001#issuecomment-4366962002",
-    "https://github.com/tyler-r-kendrick/opensesame/pull/7",
+    "https://github.com/opensesame-labs/opensesame/pull/7",
   ])
     assert.equal(
       validateSlot(slot, approvedBy(reviewer, reference)).approval.reference,
@@ -165,6 +165,7 @@ test("approval reference links a pull request, review or comment of this reposit
     "https://user@github.com/OpenSesame-Labs/OpenSesame/pull/2045",
     "https://github.com:8443/OpenSesame-Labs/OpenSesame/pull/2045",
     "https://github.com/someone-else/OpenSesame/pull/2045",
+    "https://github.com/tyler-r-kendrick/opensesame/pull/7",
     "https://github.com/OpenSesame-Labs/OpenSesame-fork/pull/2045",
     "https://github.com/OpenSesame-Labs/OpenSesame",
     "https://github.com/OpenSesame-Labs/OpenSesame/pull/",

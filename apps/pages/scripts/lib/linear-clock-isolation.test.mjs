@@ -8,7 +8,7 @@ import { describe, it } from "vitest";
 const require = createRequire(import.meta.url);
 const playwright = createRequire(require.resolve("@playwright/test"));
 const core = createRequire(playwright.resolve("playwright/package.json"));
-// Playwright 1.64 bundles its generated clock primitive in coreBundle.
+// Playwright 1.65 bundles its generated clock primitive in coreBundle.
 // Decode that exact shipped source; a packaging change must fail explicitly.
 const bundle = fs.readFileSync(
   core.resolve("playwright-core/lib/coreBundle"),
@@ -29,16 +29,24 @@ function clockFixture() {
   let ticks = 0;
   let id = 0;
   const tasks = new Map();
+  const enqueue = (callback, delay = 0) => {
+    tasks.set(++id, { callback, due: ticks + delay });
+    return id;
+  };
+  // Playwright 1.65 yields after each fired timer by posting a MessageChannel
+  // task where 1.64 used a zero-delay native timeout; both are one native task.
+  class MessageChannel {
+    port1 = { onmessage: () => assert.fail("Unowned clock task") };
+    port2 = { postMessage: () => enqueue(() => this.port1.onmessage()) };
+  }
   const { clock, api } = createClock({
     Date,
     performance: { now: () => ticks },
-    setTimeout(callback, delay = 0) {
-      tasks.set(++id, { callback, due: ticks + delay });
-      return id;
-    },
+    setTimeout: enqueue,
     clearTimeout: (timer) => tasks.delete(timer),
     setInterval: () => assert.fail("Unexpected native interval"),
     clearInterval() {},
+    MessageChannel,
   });
   clock.resume();
   return {
@@ -156,7 +164,7 @@ async function expiryBlock(fixture, failOperation = false) {
 }
 
 describe("Linear expiry clock isolation", () => {
-  it("keeps the Playwright 1.64 system-clock restore from rewinding time", async () => {
+  it("keeps the Playwright 1.65 system-clock restore from rewinding time", async () => {
     const fixture = clockFixture();
     fixture.clock.setSystemTime(BASE + 2 * 60 * 60 * 1000);
     fixture.clock.setSystemTime(BASE);

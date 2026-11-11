@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { isString } from "../lib/json-boundary.mjs";
+import { isJsonObject, isString } from "../lib/json-boundary.mjs";
 
 const removed = new Set(["braces", "node-forge", "jks-js"]);
 const lock = JSON.parse(
@@ -26,14 +26,17 @@ function assertAllowedReference(reference) {
 test("removed vulnerable devtools dependencies have no lockfile edges", () => {
   assert.ok(lock.lockfileVersion >= 3);
   const packages = lock.packages ?? {};
-  assert.equal(typeof packages, "object");
+  assert.ok(isJsonObject(packages), "lockfile packages is an object");
   for (const [key, entry] of Object.entries(packages)) {
     const name = packageName(key);
     if (name !== undefined) {
       assert.ok(!removed.has(name), `Removed dependency package: ${key}`);
     }
     if (isString(entry?.name)) {
-      assert.ok(!removed.has(entry.name), `Removed dependency name: ${entry.name}`);
+      assert.ok(
+        !removed.has(entry.name),
+        `Removed dependency name: ${entry.name}`,
+      );
     }
     for (const field of [
       "dependencies",

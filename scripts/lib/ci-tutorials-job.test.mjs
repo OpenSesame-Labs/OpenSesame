@@ -24,7 +24,8 @@ describe("the tutorial walk's CI job", () => {
     expect(job).toContain("TUTORIALS_SHARD: ${{ matrix.shard }}");
     expect(job).toContain("needs: changes");
     expect(job).toContain("if: needs.changes.outputs.tutorials == 'true'");
-    expect(job).toContain("node scripts/lib/ci-pages-build.mjs");
+    // The trusted helper checkout builds Pages, never the candidate's copy.
+    expect(job).toContain("node .ci-control/scripts/lib/ci-pages-build.mjs");
     const check =
       ci.split("  bundle-check:")[1]?.split("  rust-check:")[0] ?? "";
     expect(check).toContain('tutorials="${{ needs.tutorials-e2e.result }}"');

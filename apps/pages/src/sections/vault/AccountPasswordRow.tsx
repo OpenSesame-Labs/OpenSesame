@@ -27,6 +27,16 @@ type Copying = {
 };
 
 /**
+ * A password reached the clipboard from this row: the moment autofill
+ * would have saved the trip (ADR 0221). A failed copy never sets `copied`.
+ */
+function usePasswordCopiedSignal(copiedHere: boolean): void {
+  useEffect(() => {
+    if (copiedHere) signalRecommendation("password.copied");
+  }, [copiedHere]);
+}
+
+/**
  * One password method on the detail page, produced through the one facade
  * (ADR 0174). Reveal shows the stored password (`completePassword`, or the
  * parts around a pepper slot joined). A copy puts out what comes before the
@@ -54,12 +64,7 @@ export function AccountPasswordRow({
   const [revealed, setRevealed] = useState(false);
   const produced = producePassword(method);
   const key = `password:${method.id}`;
-  // A password reached the clipboard from this row: the moment autofill
-  // would have saved the trip (ADR 0221). A failed copy never sets `copied`.
-  const copiedHere = copying.copied === key;
-  useEffect(() => {
-    if (copiedHere) signalRecommendation("password.copied");
-  }, [copiedHere]);
+  usePasswordCopiedSignal(copying.copied === key);
 
   // A computed password is rotated in the editor, never typed over here.
   const update = isAlgorithmic(method) ? null : (

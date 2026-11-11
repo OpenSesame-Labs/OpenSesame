@@ -19,6 +19,7 @@
 import {
   type BoundaryValue,
   isJsonObject,
+  isNumber,
   isString,
 } from "@opensesame/os-domain";
 import type { Connection } from "./connections.js";
@@ -65,12 +66,13 @@ function stringField(value: BoundaryValue, key: string): string | null {
 
 function numberField(value: BoundaryValue, key: string): number | null {
   const found = field(value, key);
-  return typeof found === "number" && Number.isFinite(found) ? found : null;
+  return isNumber(found) && Number.isFinite(found) ? found : null;
 }
 
 async function readJson(response: Response): Promise<BoundaryValue> {
   try {
-    return (await response.json()) as BoundaryValue;
+    const parsed: BoundaryValue = await response.json();
+    return parsed;
   } catch {
     return undefined;
   }
@@ -111,10 +113,15 @@ function claimFrom(
   };
 }
 
+/** The JSON bodies Boat's identity endpoints take. */
+type BoatIdentityBody =
+  | { type: "service_auth"; login_hint: string }
+  | { claim_token: string; email: string };
+
 async function postJson(
   fetchImpl: FetchImpl,
   path: string,
-  body: Record<string, string>,
+  body: BoatIdentityBody,
 ): Promise<BoundaryValue> {
   const response = await fetchImpl(`${BOAT_ORIGIN}${path}`, {
     method: "POST",
@@ -148,11 +155,10 @@ export async function startBoatClaim(
   const immediate = field(registration, "claim");
   const start = immediate ? claimFrom(claimToken, immediate) : null;
   if (start) return start;
-  const claimed = await postJson(
-    fetchImpl,
-    "/api/boat/agent/identity/claim",
-    { claim_token: claimToken, email: address },
-  );
+  const claimed = await postJson(fetchImpl, "/api/boat/agent/identity/claim", {
+    claim_token: claimToken,
+    email: address,
+  });
   const token = stringField(claimed, "claim_token") ?? claimToken;
   const restarted = claimFrom(token, claimed);
   if (!restarted) throw new Error("Boat did not start the claim ceremony.");
@@ -278,13 +284,21 @@ export async function exchangeBoatAssertion(
   if (!response.ok || !accessToken)
     throw new Error("Boat refused the saved identity. Claim Boat again.");
   const rotated = stringField(parsed, "identity_assertion");
-  return rotated ? { accessToken, identityAssertion: rotated } : { accessToken };
+  return rotated
+    ? { accessToken, identityAssertion: rotated }
+    : { accessToken };
 }
 
 /** The sealed identity assertion for one saved Boat connection. */
 export function readBoatAssertion(connectionId: string): string | null {
   const assertion = readDeviceSecrets()[connectionId]?.identity_assertion;
   return assertion && assertion.length > 0 ? assertion : null;
+}
+
+/** A fresh access token and the account it reads. */
+interface BoatRefreshedAccount {
+  accessToken: string;
+  account: BoatAccount;
 }
 
 /**
@@ -295,7 +309,7 @@ export function readBoatAssertion(connectionId: string): string | null {
 export async function refreshBoatAccount(
   fetchImpl: FetchImpl,
   connectionId: string,
-): Promise<{ accessToken: string; account: BoatAccount }> {
+): Promise<BoatRefreshedAccount> {
   const assertion = readBoatAssertion(connectionId);
   if (!assertion) throw new Error("No Boat identity is sealed here.");
   const exchanged = await exchangeBoatAssertion(fetchImpl, assertion);
@@ -318,9 +332,7 @@ export async function refreshBoatAccount(
 }
 
 /** The saved Boat connection on this device, when the ceremony finished. */
-export function savedBoatConnection(
-  connectionId?: string,
-): Connection | null {
+export function savedBoatConnection(connectionId?: string): Connection | null {
   const rows = listDeviceConnections().filter(
     (row) => row.providerId === BOAT_PROVIDER_ID && row.status !== "revoked",
   );
@@ -329,13 +341,18 @@ export function savedBoatConnection(
   return rows.at(-1) ?? null;
 }
 
-/** Seal the claimed identity as this device's Boat connection. */
-export async function saveBoatConnection(input: {
+/** The claimed identity to seal, and the row it replaces when there is one. */
+interface BoatConnectionInput {
   email: string;
   login: string;
   identityAssertion: string;
   existingId?: string;
-}): Promise<Connection> {
+}
+
+/** Seal the claimed identity as this device's Boat connection. */
+export async function saveBoatConnection(
+  input: BoatConnectionInput,
+): Promise<Connection> {
   return saveDeviceConnectorConfigurationDurable(
     () => ({
       providerId: BOAT_PROVIDER_ID,

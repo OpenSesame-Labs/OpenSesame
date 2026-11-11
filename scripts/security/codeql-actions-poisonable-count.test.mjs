@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { isJsonObject } from "../lib/json-boundary.mjs";
@@ -94,12 +96,33 @@ test("summarizeSarif ignores non-object runs and non-string locations", () => {
   });
 });
 
-test("poisonable-step count script returns numeric counts", () => {
+/**
+ * The scan needs a CodeQL CLI, which most machines do not have. The only
+ * accepted failure is the counter refusing because the CODEQL_HOME it names
+ * holds no CLI: it exits 1 and prints no count. Any other failure, or any
+ * failure beside an installed CLI, fails the test.
+ */
+function assertRefusedWithoutCodeql(result) {
+  const refusal =
+    /^query actions\/cache-poisoning\/poisonable-step not found under .+ \(CODEQL_HOME=(.+)\)$/mu.exec(
+      result.stderr,
+    );
+  assert.ok(refusal, result.stderr);
+  assert.equal(existsSync(join(refusal[1], "codeql")), false, result.stderr);
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+}
+
+test("poisonable-step count script returns numeric counts", (t) => {
   const result = spawnSync(process.execPath, [script], {
     encoding: "utf8",
     timeout: 600000,
   });
-  assert.equal(result.status, 0, result.stderr);
+  if (result.status !== 0) {
+    assertRefusedWithoutCodeql(result);
+    t.diagnostic("no CodeQL CLI installed: the counter refused, as it must");
+    return;
+  }
   const summary = JSON.parse(result.stdout);
   assert.ok(isJsonObject(summary));
   assert.ok(Number.isInteger(summary.total));

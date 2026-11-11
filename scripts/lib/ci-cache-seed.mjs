@@ -23,6 +23,7 @@
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isString } from "./json-boundary.mjs";
 
 export const NPM_CACHE_VERSION = "npm-download-v2";
 export const MISE_CACHE_VERSION = "mise-v2";
@@ -88,7 +89,7 @@ function walk(dir, depth) {
 }
 
 function text(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return isString(value) ? value.trim() : "";
 }
 
 function prefixesFromEnv(value) {
