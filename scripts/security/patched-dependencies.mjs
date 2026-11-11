@@ -51,8 +51,32 @@ function run(command, args, cwd) {
   });
 }
 
+/**
+ * npm installs every entry of a tarball with its first path component
+ * removed, whatever that component is called. A tarball is accepted only if
+ * each entry is a regular file or directory below `package/`, so comparing
+ * `package/` compares everything npm would install.
+ */
+export function assertPackageEntries(tarball) {
+  const cwd = dirname(tarball);
+  const names = run("tar", ["-tzf", tarball], cwd).split("\n").filter(Boolean);
+  const types = run("tar", ["-tvzf", tarball], cwd)
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line[0]);
+  if (names.length === 0 || names.length !== types.length)
+    throw new Error(`${tarball}: unreadable tarball listing`);
+  for (const [index, name] of names.entries()) {
+    const inside =
+      name.startsWith("package/") && !name.split("/").includes("..");
+    if (!inside || !["-", "d"].includes(types[index]))
+      throw new Error(`${tarball}: refused entry ${JSON.stringify(name)}`);
+  }
+}
+
 /** Unpacks an npm tarball into `into` and returns its `package/` directory. */
 export function extract(tarball, into) {
+  assertPackageEntries(tarball);
   mkdirSync(into, { recursive: true });
   run("tar", ["-xzf", tarball, "-C", into], into);
   return join(into, "package");
