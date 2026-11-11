@@ -290,7 +290,11 @@ test("the candidate build signs the inventory for the artifacts it built", () =>
     generate.run,
     "node .ci-control/scripts/release/sbom.mjs sbom.cdx.json",
   );
-  assert.equal(attested[1].if, `steps.${generate.id}.outcome == 'success'`);
+  // Both steps are required: neither may fail quietly or be skipped.
+  for (const step of [generate, attested[1]]) {
+    assert.equal(step["continue-on-error"], undefined);
+    assert.equal(step.if, undefined);
+  }
   // The generator reads these from the job; it takes nothing from the candidate.
   for (const name of ["SOURCE_SHA", "VERSION", "GH_TOKEN"])
     assert.ok(job.env[name], name);
