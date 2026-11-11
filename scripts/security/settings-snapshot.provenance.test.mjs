@@ -23,6 +23,7 @@ import {
   previousArtifact,
   previousArtifacts,
   trustedRun,
+  unreadable,
 } from "./settings-snapshot.mjs";
 
 const REPO = 1001;
@@ -72,10 +73,12 @@ test("candidates are earlier records from this repository's own branch, newest f
   assert.deepEqual(ids("new-branch", 9), []);
 });
 
-test("only this workflow's scheduled or hand-started run on the branch is trusted", () => {
+test("only this workflow's scheduled run on the branch is trusted", () => {
   const at = { branch: "main" };
   assert.equal(trustedRun(run(), at), true);
-  assert.equal(trustedRun(run({ event: "workflow_dispatch" }), at), true);
+  // A hand-started run could make a changed setting the next baseline, and
+  // a tag named like the branch could supply a forged one.
+  assert.equal(trustedRun(run({ event: "workflow_dispatch" }), at), false);
   assert.equal(trustedRun(run({ event: "pull_request" }), at), false);
   assert.equal(trustedRun(run({ event: "push" }), at), false);
   assert.equal(
@@ -159,8 +162,42 @@ test("the workflow records first, then alarms, with a read-only token", () => {
     job.steps[compared].if,
     "steps.previous.outputs.found == 'true'",
   );
+  // An unreadable section fails the run whether or not a change was found.
+  const readable = at(/settings-snapshot\.mjs readable/);
+  assert.ok(readable > uploaded);
+  assert.equal(job.steps[readable].if, "${{ !cancelled() }}");
+  assert.equal(job.steps[readable]["continue-on-error"], undefined);
   assert.equal(workflow.on.workflow_dispatch !== undefined, true);
   assert.equal(WORKFLOW, ".github/workflows/security.yml");
+});
+
+test("every section the token could not read is named, and only those", () => {
+  const record = {
+    repository: { visibility: "public" },
+    default_branch_protected: true,
+    rulesets: { unavailable: "HTTP 403" },
+    environments: {
+      Production: {
+        reviewers: [],
+        branches: { unavailable: "HTTP 404" },
+      },
+      Preview: { reviewers: [], branches: ["main"] },
+    },
+  };
+  assert.deepEqual(unreadable(record), [
+    { setting: "rulesets", reason: "HTTP 403" },
+    {
+      setting: "environments › Production › branches",
+      reason: "HTTP 404",
+    },
+  ]);
+  assert.deepEqual(unreadable({ unavailable: "HTTP 401" }), [
+    { setting: "record", reason: "HTTP 401" },
+  ]);
+  assert.deepEqual(
+    unreadable({ repository: { visibility: "public" }, rulesets: {} }),
+    [],
+  );
 });
 
 const work = mkdtempSync(join(tmpdir(), "opensesame-settings-archive-"));
