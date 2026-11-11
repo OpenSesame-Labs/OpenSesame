@@ -4,6 +4,8 @@
  * uses a leading slash so it does not match every nested copy. A bare
  * `package.json` pattern is intentional: it matches every workspace manifest
  * so `npm ci` can resolve the lockfile without the rest of the source tree.
+ * A list that feeds `npm ci` also carries `/patches/vendor`: the lockfile
+ * installs the patched dependency tarballs from there.
  */
 
 /** Reporters that only execute scripts/lib/ci-required-result.mjs. */
@@ -23,6 +25,7 @@ export const SPARSE_CI_GATE = Object.freeze([
   "/mise.toml",
   "/mise.lock",
   "/pnpm-workspace.yaml",
+  "/patches/vendor",
 ]);
 
 /** npm/cargo/turbo/docker build context for one proof job. */
@@ -72,6 +75,7 @@ export const SPARSE_CD_PWA_SMOKE = Object.freeze([
   "/package-lock.json",
   "/mise.toml",
   "/mise.lock",
+  "/patches/vendor",
 ]);
 
 /** Composite npm publish action and the release scripts it sits beside. */
@@ -145,6 +149,7 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
         "/package-lock.json",
         "/mise.toml",
         "/mise.lock",
+        "/patches/vendor",
       ],
     }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),

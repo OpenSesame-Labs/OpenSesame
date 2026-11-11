@@ -1,19 +1,24 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "../..");
-const installed = path.join(root, "node_modules");
-const patched = readdirSync(installed).filter((name) =>
-  name.startsWith("js-yaml@3.15.2_patch_hash="),
+// npm installs the patched tarball at the lockfile's js-yaml 3.15.2 location.
+const lock = JSON.parse(
+  readFileSync(path.join(root, "package-lock.json"), "utf8"),
 );
+const patched = Object.entries(lock.packages)
+  .filter(([key]) => key.endsWith("node_modules/js-yaml"))
+  .filter(([, entry]) => entry.version === "3.15.2")
+  .filter(([, entry]) => entry.resolved?.startsWith("file:patches/vendor/"))
+  .map(([key]) => key);
 const cli =
   process.env.JS_YAML_COMPAT_CLI ??
   (patched.length === 1
-    ? path.join(installed, patched[0], "node_modules/js-yaml/bin/js-yaml.js")
+    ? path.join(root, patched[0], "bin/js-yaml.js")
     : undefined);
 assert.ok(cli, "Expected one installed patched js-yaml 3.15.2 CLI");
 const requireFromCli = createRequire(cli);

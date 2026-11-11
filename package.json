@@ -31,6 +31,8 @@
     "lint:artifacts": "node apps/pages/scripts/build-static-auth.mjs --check && vitest run scripts/lib/static-auth-artifacts.test.mjs && npm run test -w @opensesame/static-auth && npm exec -w @opensesame/pages -- vitest run src/lib/auth-client.test.ts",
     "lint:design": "node scripts/quality/design-lint.mjs",
     "docs:index": "node scripts/quality/docs-index.mjs",
+    "patches:build": "node scripts/security/patched-dependencies.mjs build",
+    "patches:verify": "node scripts/security/patched-dependencies.mjs verify",
     "lint:anti-slop": "node scripts/quality/anti-slop-gate.mjs",
     "lint:anti-slop:files": "oxlint --config oxlint.config.ts --disable-nested-config --report-unused-disable-directives-severity=error --deny-warnings --no-error-on-unmatched-pattern",
     "anti-slop:manifest": "node skills/install-anti-slop/scripts/manifest.mjs",
@@ -130,6 +132,9 @@
     "test:ci-promotion": "node --test scripts/release/*.test.mjs"
   },
   "devDependencies": {
+    "@levischuck/tiny-cbor": "file:patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
+    "@simple-git/argv-parser": "file:patches/vendor/simple-git-argv-parser-2.0.1.tgz",
+    "js-yaml": "file:patches/vendor/js-yaml-3.15.2.tgz",
     "@biomejs/biome": "2.6.5",
     "@env-spec/parser": "0.6.2",
     "@gdp-ts/core": "0.1.0",
@@ -236,12 +241,13 @@
     },
     "basic-ftp": "6.2.1",
     "flatted": "3.4.2",
-    "js-yaml@^3": "3.15.2",
+    "js-yaml@^3": "$js-yaml",
     "js-yaml@^5": "5.4.1",
+    "@levischuck/tiny-cbor@^0.2": "$@levischuck/tiny-cbor",
     "log4js": "6.4.0",
     "@modelcontextprotocol/sdk": "1.32.2",
     "simple-git": "4.0.1",
-    "@simple-git/argv-parser": "2.0.1",
+    "@simple-git/argv-parser": "$@simple-git/argv-parser",
     "source-map-js": "1.2.2",
     "js-yaml@3.15.2": {
       "argparse": "2.0.1"

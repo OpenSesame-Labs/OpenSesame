@@ -11,8 +11,7 @@ const patches = {
   "@simple-git/argv-parser@2.0.1":
     "patches/@simple-git__argv-parser@2.0.1.patch",
   "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
-  "@levischuck/tiny-cbor@0.2.11":
-    "patches/@levischuck__tiny-cbor@0.2.11.patch",
+  "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
 };
 
 function read(relativePath) {
@@ -53,13 +52,22 @@ test("npm workspaces replace the legacy lockfile", () => {
 test("patched dependencies are referenced from patchedDependencies", () => {
   const manifest = JSON.parse(read("package.json"));
   assert.deepEqual(manifest.patchedDependencies, patches);
-  // npm rejects the patch: URL protocol (EUNSUPPORTEDPROTOCOL). Version pins
-  // keep the patched releases installed; patchedDependencies names the files.
+  // npm rejects the patch: URL protocol (EUNSUPPORTEDPROTOCOL) and ignores
+  // patchedDependencies, which only names the files. Each patch is installed
+  // from a tarball under patches/vendor/ that the root depends on and an
+  // override points at (scripts/security/patched-dependencies.test.mjs).
   const overrides = manifest.overrides;
   assert.equal(JSON.stringify(overrides).includes("patch:"), false);
-  assert.equal(overrides["js-yaml@^3"], "3.15.2");
+  assert.equal(overrides["js-yaml@^3"], "$js-yaml");
   assert.equal(overrides["js-yaml@3.15.2"].argparse, "2.0.1");
-  assert.equal(overrides["@simple-git/argv-parser"], "2.0.1");
+  assert.equal(
+    overrides["@simple-git/argv-parser"],
+    "$@simple-git/argv-parser",
+  );
+  assert.equal(
+    overrides["@levischuck/tiny-cbor@^0.2"],
+    "$@levischuck/tiny-cbor",
+  );
   assert.equal(overrides["@devicefarmer/adbkit"]["."], "3.3.8");
   assert.equal(overrides["@devicefarmer/adbkit"]["node-forge"], "-");
   assert.equal(overrides.promptfoo["jks-js"], "-");
