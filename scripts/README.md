@@ -129,6 +129,7 @@ the others report on the terminal (`deepsec` keeps its state under
 |---|---|
 | `assert-no-advisories.mjs` | `audit:osv`: accepts only an empty findings array; every advisory and malformed report fails the gate. The removed `braces` and `node-forge` dependencies have no advisory exceptions. |
 | `exposure-matrix-gate.mjs` | `audit:exposure`: checks reviewed observer/artifact combinations and source fingerprints. Commit hooks use `--staged`; push hooks use `--push-refs`; CI uses `--ref HEAD`. See [the review workflow](../docs/security/exposure-matrix.md). |
+| `patched-dependencies.mjs` | `patches:build`, `patches:verify`: builds each tarball under [`patches/vendor/`](../patches/README.md) from the published package plus its patch, and proves a committed tarball is exactly that. `patched-dependencies.test.mjs` checks, without the network, that the lockfile installs the patched code. |
 | `*.test.mjs` | `quality:test` (`node --test scripts/security/*.test.mjs`): advisory gate, removed-dependency and ADB transport regressions, and the `js-yaml`, `shell-quote`/`source-map-js` and `simple-git` upgrades ([`patches/simple-git-parser-residual.md`](../patches/simple-git-parser-residual.md)). |
 
 ## Adding a script

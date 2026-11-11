@@ -166,3 +166,4 @@ here. The architecture-level documents they refine live one level up in
 | 2026-10-24 | [The Tailscale browser node trusts only the port its start transferred](2026-10-24-tailnet-worker-peer-get.md) |
 | 2026-10-24 | [The Tailscale browser node's port channel, re-landed with no sender left reachable](2026-10-24-tailnet-worker-port-reland.md) |
 | 2026-10-25 | [Codex Security Cloud finding remediation](2026-10-25-codex-cloud-remediation.md) |
+| 2026-11-11 | [Dependency patches were declared but not installed](2026-11-11-dependency-patches-not-installed.md) |
