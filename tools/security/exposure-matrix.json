@@ -4041,14 +4041,14 @@
       "2b4c1499"
     ],
     "packages/app-core/src/lib/vault/tomb-migration.ts": [
-      "2fd1c796",
-      "90d12780",
-      "85da875e",
-      "edf8b6da",
-      "50892eb5",
-      "4beb709d",
-      "a16d700d",
-      "33d7b1c2"
+      "7ce1a0c8",
+      "bb414272",
+      "38b5cc10",
+      "1acc886a",
+      "6283282c",
+      "e04e78ed",
+      "1d43ec35",
+      "98a59182"
     ],
     "packages/app-core/src/lib/vault/seal-rebind.ts": [
       "840d2692",
