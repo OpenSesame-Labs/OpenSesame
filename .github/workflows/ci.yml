@@ -62,6 +62,7 @@ jobs:
             /mise.toml
             /mise.lock
             /pnpm-workspace.yaml
+            /patches/vendor
       - name: Restore mise cache
         id: mise-cache
         if: env.TRUSTED_CACHE_SAVE == 'true'

@@ -18,7 +18,7 @@ tools/         development tooling: lint plugins, quality baselines, dev servers
 scripts/       the scripts behind `npm <task>`: quality/, audit/, fuzz/, test/, mtls/, security/, wallet/, release/, dev/, shared logic in lib/
 ops/           deployment references, repo governance, scheduled routines
 skills/        first-party agent skills
-patches/       npm run patches applied to third-party dependencies
+patches/       patches to third-party dependencies, installed as tarballs
 docs/          documentation
 ```
 

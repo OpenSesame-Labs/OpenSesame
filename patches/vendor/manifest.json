@@ -1,0 +1,23 @@
+{
+  "$comment": "Patched dependency tarballs. Each tarball is exactly the published package with its patch applied; scripts/security/patched-dependencies.mjs builds and verifies them. upstreamIntegrity is the registry tarball's integrity, as the lockfile recorded it before the patch was applied. See patches/README.md.",
+  "vendored": {
+    "js-yaml@3.15.2": {
+      "patch": "patches/js-yaml@3.15.2.patch",
+      "tarball": "patches/vendor/js-yaml-3.15.2.tgz",
+      "upstreamIntegrity": "sha512-6EuL879VkRA+1Cz578mKMiKvjPNEuk6+r1JaFzoSWejZmtf7xWbIyw1e3KkxlkzTIt9Taw6JBhEppG7utc1P+w=="
+    },
+    "@simple-git/argv-parser@2.0.1": {
+      "patch": "patches/@simple-git__argv-parser@2.0.1.patch",
+      "tarball": "patches/vendor/simple-git-argv-parser-2.0.1.tgz",
+      "upstreamIntegrity": "sha512-M++IaVWrN+vYalilOHfwvT2IL3wYZtVEBQpmX6DLSOJLtxbZ+SUeIDE3IiPogzhPACLajwtxfa5rp+ZX1FczzQ=="
+    },
+    "@levischuck/tiny-cbor@0.2.11": {
+      "patch": "patches/@levischuck__tiny-cbor@0.2.11.patch",
+      "tarball": "patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
+      "upstreamIntegrity": "sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow=="
+    }
+  },
+  "notInstalled": {
+    "@devicefarmer/adbkit@3.3.8": "No package in the lockfile depends on it. The override pins the version if one ever does; vendor the patch here in the same change."
+  }
+}

@@ -11,6 +11,8 @@
 #     graph, including their selected Go standard libraries
 #   - OSV-Scanner over every lockfile (same engine as `pnpm audit:osv`;
 #     unresolved advisories remain visible, with no configured exceptions)
+#   - Patched dependency tarballs, rebuilt from the registry and compared
+#     (`npm run patches:verify`; each must equal upstream plus its patch)
 #   - gitleaks over full history (same engine as `pnpm audit:gitleaks` and
 #     the pre-commit hook; .gitleaks.toml carries the allowlists)
 #   - Betterleaks over the working tree and full history (`npm run
@@ -136,6 +138,29 @@ jobs:
           install_args: go
       - name: Verify upstream source and scan all imported packages
         run: bash scripts/test/live-turn/audit-crypto.sh
+
+  patched-dependencies:
+    name: Patched dependency tarballs equal upstream plus patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: true
+          install_args: node
+      # The lockfile pins each tarball under patches/vendor/ by integrity, so
+      # an install cannot be handed different bytes. This proves the other
+      # half: the committed bytes are the published package plus the reviewed
+      # patch and nothing else. It downloads each published package, refuses
+      # it unless it matches the recorded upstream integrity, applies the
+      # patch and compares every file. Nothing from a package is executed.
+      - name: Rebuild each tarball from the registry and compare
+        run: node scripts/security/patched-dependencies.mjs verify
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)

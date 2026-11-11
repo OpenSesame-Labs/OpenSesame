@@ -17,8 +17,9 @@ scanner rules, the mock IdP), `scripts/` (what `npm` tasks run, one folder
 per purpose: `quality/`, `audit/`, `fuzz/`, `test/`, `mtls/`, `release/`,
 `dev/`, `wallet/`, `security/`, shared logic in `lib/`), `ops/`
 (compose, GitHub governance, ingress, NATS, routines), `skills/`, `patches/`
-(npm run patches for third-party dependencies), `docs/`. Each has a `README.md`
-(`patches/` has none); `docs/getting-started/repository-tour.md` says where things go.
+(reviewed patches to third-party dependencies and the tarballs `npm ci`
+installs them from), `docs/`. Each has a `README.md`;
+`docs/getting-started/repository-tour.md` says where things go.
 Do not add new top-level directories or loose root files — find the group.
 
 | Path | Role |
