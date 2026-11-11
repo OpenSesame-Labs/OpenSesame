@@ -412,6 +412,25 @@ jobs:
         subject-checksums: build-subjects.sha256
         predicate-type: https://opensesame.dev/attestations/candidate-build/v1
         predicate-path: build-predicate.json
+    # The dependency inventory of the snapshot these artifacts were built
+    # from, signed against the same artifact digests. Trusted controller code
+    # reads the two lockfiles as data, by exact commit; nothing from the
+    # candidate is checked out or run. Promotion verifies the build predicate
+    # by type, so this second attestation does not take part in it.
+    # Advisory until a nightly has produced it once: a failure here must not
+    # stop a candidate that built and verified. Then remove continue-on-error.
+    - name: Describe the dependencies of the selected snapshot
+      id: sbom
+      continue-on-error: true
+      run: node .ci-control/scripts/release/sbom.mjs sbom.cdx.json
+    - name: Sign the dependency inventory for the same artifacts
+      if: steps.sbom.outcome == 'success'
+      continue-on-error: true
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-checksums: build-subjects.sha256
+        predicate-type: https://cyclonedx.org/bom
+        predicate-path: sbom.cdx.json
     - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       id: upload
       with:
