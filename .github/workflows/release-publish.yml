@@ -130,10 +130,13 @@ jobs:
         subject-path: release-files/SHA256SUMS
         predicate-type: https://opensesame.dev/attestations/release-promotion/v1
         predicate-path: release-files/promotion.json
+    # Fails when the credential is absent, as before. Otherwise it reports
+    # when the credential expires and warns when it never does, expires soon,
+    # or outlives the rotation period. Those warnings never fail the release.
     - name: Require the protected publication credential
       env:
         GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
-      run: test -n "$GH_TOKEN"
+      run: node .ci-control/scripts/release/credential-expiry.mjs
     - name: Create or resume the owned draft with exactly the allowed assets
       env:
         GH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
