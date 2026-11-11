@@ -1,11 +1,11 @@
 # Fast PR gate: every introduced commit must be GitHub-verified and attributed
 # to a recognised agent or human. The script is check-pr-grok-commits.mjs.
 #
-# The names below are historical. The live default-branch ruleset requires the
-# status context "Grok signed commits" by name. ops/github/default-branch.json
-# records the future context "Agent attribution" for the governance apply that
-# runs after merge. Renaming this job before that apply leaves the required
-# check pending on every pull request.
+# The result is reported under two names. "Grok signed commits" is the
+# historical one. "Agent attribution" is the one ops/github/default-branch.json
+# requires once an administrator applies it. Reporting both means the apply
+# can happen at any time without leaving a required check pending on every
+# pull request, and neither name has to be renamed in step with a setting.
 name: Grok signed commits
 
 on:
@@ -46,3 +46,19 @@ jobs:
           "$GITHUB_REPOSITORY"
           "${{ github.event.pull_request.number }}"
           "${{ github.event.pull_request.head.sha }}"
+
+  agent-attribution:
+    # The same result under the declared name. It runs whenever the job above
+    # was due to run, and fails unless that job succeeded: a skipped or
+    # cancelled check must never read as attribution.
+    name: Agent attribution
+    needs: grok-commits
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions: {}
+    steps:
+      - name: Report the attribution result under its declared name
+        env:
+          RESULT: ${{ needs.grok-commits.result }}
+        run: '[ "$RESULT" = success ]'
