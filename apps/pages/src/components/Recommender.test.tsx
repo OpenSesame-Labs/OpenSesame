@@ -139,6 +139,59 @@ describe("the recommender", () => {
     expect(after?.open?.to).toBe("/settings/features#feature-autofill");
   });
 
+  it("lets two switches take turns, so the second sees the first", async () => {
+    // Two feature recommendations in the tray: autofill, then breach checks.
+    mount();
+    signalRecommendation("password.copied");
+    await settle();
+    signalRecommendation("item.saved");
+    await settle();
+    expect(listNotices().map((notice) => notice.id)).toEqual([
+      "recommend.autofill",
+      "recommend.backups",
+    ]);
+    signalRecommendation("vault.imported");
+    await settle();
+    const autofill = listNotices().find((n) => n.id === "recommend.autofill");
+    const breach = listNotices().find(
+      (n) => n.id === "recommend.breach-checks",
+    );
+    // The first switch is still committing when the second is pressed.
+    const order: string[] = [];
+    let land: () => void = () => undefined;
+    recommenderSeams.turnOn = vi.fn((feature) => {
+      order.push(`start:${feature}`);
+      if (feature !== "autofill") {
+        order.push(`end:${feature}`);
+        return Promise.resolve(null);
+      }
+      return new Promise<string | null>((resolve) => {
+        land = () => {
+          order.push(`end:${feature}`);
+          resolve(null);
+        };
+      });
+    });
+    await act(async () => {
+      autofill?.act?.run();
+      breach?.act?.run();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    // The second has not read the selection while the first is in flight.
+    expect(order).toEqual(["start:autofill"]);
+    await act(async () => {
+      land();
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+    expect(order).toEqual([
+      "start:autofill",
+      "end:autofill",
+      "start:security-checks",
+      "end:security-checks",
+    ]);
+  });
+
   it("says when a feature could not be turned on", async () => {
     recommenderSeams.turnOn = vi.fn(() => Promise.resolve("refused · policy"));
     mount();

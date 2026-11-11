@@ -134,8 +134,9 @@ EOF
 )"
    ```
    The default-branch ruleset requires signed commits
-   (`ops/github/default-branch.json`). The squash on `main` is the commit
-   GitHub signs, so commit on the pull request's own branch and use the
+   (`ops/github/default-branch.json`), and the attribution check requires
+   each pull request commit to be GitHub-verified. Sign with a key registered
+   to a GitHub account, commit on the pull request's own branch, and use the
    commands here for the branch and the pull request.
    Keep each PR to one advisory/package family unless multiple advisories
    share one fix commit naturally (e.g. one `npm install` moves several

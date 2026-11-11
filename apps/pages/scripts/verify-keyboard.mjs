@@ -128,7 +128,7 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${origin}${base}`, { waitUntil: "networkidle" });
     // The front door lands on Set up; Tab reaches Join a session and then
-    // Import a file (ADR 0188), and the corner Skip — the door's guest road —
+    // Import passwords from a file (ADR 0188), and the corner Skip — the door's guest road —
     // sits before all three (ADR 0150 §1).
     await expect(
       page.getByRole("button", { name: "Set up your own" }),
@@ -139,7 +139,10 @@ try {
     ).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(
-      page.getByRole("button", { name: "Import a file", exact: true }),
+      page.getByRole("button", {
+        name: "Import passwords from a file",
+        exact: true,
+      }),
     ).toBeFocused();
     // The help key sits in the card's corner row, after the roads in Tab order
     // (ADR 0166): Tab reaches it, Enter opens the Support sheet, and Escape

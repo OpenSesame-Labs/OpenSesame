@@ -109,7 +109,7 @@ async function openDoor(ctx) {
   const { page, context } = await h.newPage(browser);
   await page.goto(`${ORIGIN}${BASE}`, { waitUntil: "networkidle" });
   await page
-    .getByRole("button", { name: "Import a file", exact: true })
+    .getByRole("button", { name: "Import passwords from a file", exact: true })
     .waitFor({ timeout: 15000 });
   return { page, context };
 }
@@ -216,7 +216,9 @@ async function walkRemove(ctx) {
     .getByRole("heading", { level: 1, name: "open-sesame", exact: true })
     .waitFor({ timeout: 15000 });
   const roads = await page
-    .getByRole("button", { name: /^(Set up your own|Import a file)$/ })
+    .getByRole("button", {
+      name: /^(Set up your own|Import passwords from a file)$/,
+    })
     .count();
   check(roads === 2, "remove: the door is back, with every road on it");
   await context.close();
