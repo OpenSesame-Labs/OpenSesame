@@ -62,28 +62,6 @@ describe("the engineering system record", () => {
       expect(row.split("|")[2].trim(), row).toMatch(states);
   });
 
-  it("records nothing as an open gap", () => {
-    // A recommendation that is not followed is a deviation with its reason,
-    // an owner setting with its steps, or not applicable. "Not done" is not
-    // a state: it is either done here or assigned.
-    for (const path of [
-      "docs/security/ssdf-conformance.md",
-      "docs/security/github-repository-threat-model.md",
-      "docs/security/actions-security.md",
-      "docs/security/dependency-supply-chain.md",
-      "docs/security/developer-workspace.md",
-      "docs/security/alert-triage.md",
-      "docs/contributing/github-well-architected.md",
-      "docs/adr/0222-github-well-architected-and-ssdf.md",
-    ]) {
-      const text = read(path);
-      expect(text, path).not.toMatch(
-        /\|\s*Gap\b|\*\*Gap:?\*\*|\bGap:|with (a )?gaps?\b/,
-      );
-      expect(text, path).not.toMatch(/^## (Known gaps|Open items|Gaps\b)/m);
-    }
-  });
-
   it("records every threat and actor of the repository threat model", () => {
     const text = read("docs/security/github-repository-threat-model.md");
     for (let n = 1; n <= 8; n += 1) expect(text).toContain(`T-0${n}`);
@@ -137,5 +115,29 @@ describe("the engineering system record", () => {
     expect(
       rows.filter((row) => !row.startsWith("| Anti-pattern")),
     ).toHaveLength(14);
+  });
+});
+
+describe("open gaps", () => {
+  it("records nothing as an open gap", () => {
+    // A recommendation that is not followed is a deviation with its reason,
+    // an owner setting with its steps, or not applicable. "Not done" is not
+    // a state: it is either done here or assigned.
+    for (const path of [
+      "docs/security/ssdf-conformance.md",
+      "docs/security/github-repository-threat-model.md",
+      "docs/security/actions-security.md",
+      "docs/security/dependency-supply-chain.md",
+      "docs/security/developer-workspace.md",
+      "docs/security/alert-triage.md",
+      "docs/contributing/github-well-architected.md",
+      "docs/adr/0222-github-well-architected-and-ssdf.md",
+    ]) {
+      const text = read(path);
+      expect(text, path).not.toMatch(
+        /\|\s*Gap\b|\*\*Gap:?\*\*|\bGap:|with (a )?gaps?\b/,
+      );
+      expect(text, path).not.toMatch(/^## (Known gaps|Open items|Gaps\b)/m);
+    }
   });
 });
