@@ -15,8 +15,9 @@ releases contain the same qualified archives, original build proof, receipts
 and promotion evidence.
 
 Tag creation is owner-only. Configure `RELEASE_PUBLISH_TOKEN` as a protected
-`release` environment secret for a dedicated GitHub App or fine-grained token
-whose only repository permission is Contents read/write on this repository.
+`release` environment secret: the admin's fine-grained token whose only
+repository permission is Contents read/write on this repository
+([its rules](#keep-release_publish_token-short-lived)).
 The ordinary Actions token cannot create version tags; staging fails closed if
 the protected credential is absent.
 
@@ -39,8 +40,7 @@ An npm token or tag alone must not restore the old rebuild-and-publish path.
 
 ## Stored publication credentials
 
-Two credentials outlive a workflow run. Both stay in use until the owner
-replaces them, and each run now says so.
+Two credentials outlive a workflow run, and each run that uses one says so.
 
 | Secret | Environment | Used by | Shown as |
 |---|---|---|---|
@@ -81,22 +81,28 @@ GitHub-hosted runners, the action pins an npm newer than 11.5.1 on Node 24,
 the publish step is in the workflow file npm is told about (not a reusable
 workflow), and each published `package.json` names this repository.
 
-### Shorten `RELEASE_PUBLISH_TOKEN`
+### Keep `RELEASE_PUBLISH_TOKEN` short-lived
 
-The release stage needs to create a version tag, which the ordinary Actions
-token cannot do, so some credential has to exist. In order of preference:
+The release stage creates the version tag. Both tag rulesets
+(`ops/github/release-tags.json`, `release-tag-creation.json`) let one actor
+through: the repository admin role. So the credential is the admin's own
+fine-grained personal access token, and its rules are:
 
-1. A GitHub App installed on this repository only, with Contents read and
-   write. A token minted from it lasts an hour. This needs the App to exist
-   and a workflow change to mint the token in the stage job; until both are
-   in place the secret below remains.
-2. A fine-grained personal access token limited to this repository with
-   Contents read and write, expiring in 90 days or less. Rotate it when the
-   release run warns: create the new token, replace the `release` environment
-   secret, then revoke the old one.
+- limited to this repository, with Contents read and write and nothing else;
+- expiring in 90 days or less;
+- stored only as the `release` environment secret.
 
-A classic token, or any token without an expiry date, is reported as a warning
-on every release until it is replaced.
+Every release run reports the token's expiry date. It warns when the token
+has no expiry date, expires within 14 days, or expires more than 90 days out.
+Rotate it when the run warns: create the new token, replace the environment
+secret, then revoke the old one. A classic token, or any token without an
+expiry date, is reported as a warning on every release until it is replaced.
+
+A GitHub App token would last an hour, but it is not the admin role: the App
+would have to be added as a bypass actor to both tag rulesets, which widens
+who can create and move release tags from one person to an installed app.
+That trade is not made here. If it ever is, the expiry report already
+recognises an App token and says so.
 
 ## Other hosting providers
 
