@@ -65,6 +65,16 @@ node ops/github/governance.mjs --apply
 node ops/github/governance.mjs --verify
 ```
 
+Dry-run reads live state and prints the proposed changes; it writes nothing.
+Apply requires repository-administration and environment permissions. It only
+creates/updates the three named rulesets, preserves unrelated rulesets, enables
+auto-merge, and restricts the existing github-pages environment to the current
+default branch. Non-default branch/tag environment policies (including the
+legacy gh-pages branch) are removed: manual deployment from them no longer
+works. Existing environment reviewers/wait timers are preserved. A failed API
+call fails the command; neither a checked-in spec nor a dry-run proves active
+protection. Verification queries the resulting ruleset, branch and environment.
+
 ## Repository security settings
 
 `repository-security.json` declares the security settings that are not rulesets:
@@ -101,15 +111,7 @@ with recorded response shapes. They have not been run against the live
 repository from the change that introduced them. Run `--dry-run` first and
 read its output before the first `--apply`.
 
-Dry-run reads live state and prints the proposed changes; it writes nothing.
-Apply requires repository-administration and environment permissions. It only
-creates/updates the three named rulesets, preserves unrelated rulesets, enables
-auto-merge, and restricts the existing github-pages environment to the current
-default branch. Non-default branch/tag environment policies (including the
-legacy gh-pages branch) are removed: manual deployment from them no longer
-works. Existing environment reviewers/wait timers are preserved. A failed API
-call fails the command; neither a checked-in spec nor a dry-run proves active
-protection. Verification queries the resulting ruleset, branch and environment.
+## Break glass and limits
 
 Break glass requires the owner to deliberately change the named ruleset using
 GitHub administration, record the reason privately, and restore/verify it after
