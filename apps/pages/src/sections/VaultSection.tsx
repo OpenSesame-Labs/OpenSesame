@@ -30,7 +30,7 @@ import { useCopySecret, useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { vaultListPath, vaultPane } from "../lib/vault-list-path.js";
 import { accountCopied, accountSecretToCopy } from "./vault/account-copy.js";
 import { credentialChoices } from "./vault/account-credentials.js";
-import { FirstItemOffer } from "./vault/FirstItemOffer.js";
+import { firstRunPlacement } from "./vault/first-run-placement.js";
 import { LiveSessionBanner } from "./vault/LiveSessionBanner.js";
 import { NewItemFab } from "./vault/NewItemFab.js";
 import { TrashCommands, trashItemActions } from "./vault/TrashCommands.js";
@@ -115,9 +115,9 @@ export function VaultSection() {
       : undefined,
     folderId,
   );
-  const firstRun = { createPath, listedCount: listed.length, inTrash };
+  const offer = { createPath, listedCount: listed.length, inTrash };
   // Both panes stay mounted on a phone, so the roads are drawn in one only.
-  const onTree = narrow && showing === "tree";
+  const firstRun = firstRunPlacement(narrow, showing, offer);
   const treeFolders = useMemo(() => {
     if (folderId) return [];
     if (
@@ -303,7 +303,7 @@ export function VaultSection() {
               </Link>
               {/* A phone lands on this tree: the first-run roads stand here,
                   not one tap away behind a filter (ADR 0221). */}
-              {onTree ? <FirstItemOffer {...firstRun} /> : null}
+              {firstRun.tree}
             </>
           ) : null}
         </div>
@@ -326,7 +326,7 @@ export function VaultSection() {
             emptyMessage={
               filter === "trash" ? "Trash is empty" : "Nothing here"
             }
-            firstRun={onTree ? null : <FirstItemOffer {...firstRun} />}
+            firstRun={firstRun.list}
             verbs={
               <>
                 <UpLink

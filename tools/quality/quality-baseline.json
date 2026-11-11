@@ -17,8 +17,8 @@
   },
   "totals": {
     "files": 442,
-    "violations": 703,
-    "oversizedLines": 215282
+    "violations": 702,
+    "oversizedLines": 214793
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -745,8 +745,7 @@
       "max-lines": 676
     },
     "packages/app-core/src/tutorial/agents/ag-ui/ag-ui-agent.ts": {
-      "complexity": 1,
-      "max-lines": 412
+      "complexity": 1
     },
     "packages/app-core/src/tutorial/agents/prompt-api/prompt-api-agent.test.ts": {
       "max-lines": 451
@@ -1145,7 +1144,7 @@
       "max-lines": 841
     },
     "packages/database/src/repos/memory.ts": {
-      "max-lines": 1714
+      "max-lines": 1637
     },
     "packages/database/src/repos/postgres.ts": {
       "complexity": 1,
