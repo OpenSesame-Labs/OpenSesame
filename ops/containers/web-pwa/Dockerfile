@@ -12,7 +12,7 @@
 #     --build-arg PREBUILT_IMAGE=<published web-pwa image> \
 #     -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
 ARG PREBUILT_IMAGE=scratch
-FROM --platform=$BUILDPLATFORM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM --platform=$BUILDPLATFORM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git python3 make g++ zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
@@ -25,7 +25,7 @@ ENV VERSION=${VERSION} \
 RUN npm run build -w @opensesame/pages \
   && node scripts/release/prepare-pages-release.mjs
 FROM --platform=linux/amd64 ${PREBUILT_IMAGE} AS prebuilt
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime-from-prebuilt
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS runtime-from-prebuilt
 RUN useradd -u 10001 -m app
 WORKDIR /opt/opensesame-web-pwa
 COPY --from=prebuilt --chown=10001:10001 /opt/opensesame-web-pwa/ ./
@@ -42,7 +42,7 @@ EXPOSE 5180
 ENTRYPOINT ["node", "bin/serve.mjs"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:5180/').then((response)=>process.exit(response.status===200?0:1)).catch(()=>process.exit(1))"]
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS runtime
 RUN useradd -u 10001 -m app
 WORKDIR /opt/opensesame-web-pwa
 COPY --from=build --chown=10001:10001 /src/apps/pages/release/ ./
