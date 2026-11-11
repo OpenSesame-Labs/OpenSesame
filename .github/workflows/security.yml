@@ -305,3 +305,6 @@ jobs:
           EXPECTED_HEAD: ${{ github.sha }}
           REQUESTED_HEAD: ${{ github.sha }}
         run: timeout --signal=TERM --kill-after=10s 900s node scripts/ci-native-wasm.mjs
+      - name: Print the native receipt
+        if: always()
+        run: cat .cache/pwa-tailscale-native-http/ci-evidence/receipt.json; df -h .
