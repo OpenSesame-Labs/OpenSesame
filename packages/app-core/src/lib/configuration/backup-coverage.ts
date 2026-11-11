@@ -46,6 +46,11 @@ export const BACKUP_COVERAGE: readonly CoverageEntry[] = [
     note: "Local application registrations are a separate VFS document.",
   },
   {
+    path: "config/identity-pairwise-subjects",
+    kind: "sidecar_optional",
+    note: "The subject each local application knows a principal by is a separate sealed VFS document; without it a moved vault issues new subjects.",
+  },
+  {
     path: "settings/keybindings/config.yaml",
     kind: "not_in_vault_export",
     note: "Keybinding maps are presentation data, not vault ciphertext.",

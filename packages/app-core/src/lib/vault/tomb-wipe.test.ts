@@ -52,6 +52,7 @@ const PATHS = [
   "config/device-receipts-pending",
   "config/access-audit",
   "config/local-notifications",
+  "config/identity-pairwise-subjects",
 ];
 
 /** Everything this device writes for its person, in one tomb. */
@@ -69,6 +70,11 @@ async function leaveTheDevicesFiles() {
     tomb,
     "config/device-receipts-pending",
     new TextEncoder().encode('{"version":1,"receipts":[]}'),
+  );
+  await writeFile(
+    tomb,
+    "config/identity-pairwise-subjects",
+    new TextEncoder().encode('{"version":1,"subjects":[]}'),
   );
 }
 

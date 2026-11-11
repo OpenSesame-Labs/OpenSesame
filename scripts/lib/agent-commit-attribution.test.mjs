@@ -63,6 +63,24 @@ describe("recognizedAgentId", () => {
     expect(recognizedAgentId(replay)).toBe("grok");
     expect(grokVerifiedReplayAttribution(replay)).toBe(true);
   });
+
+  it("accepts Dependabot on its own identity, by email and not by name", () => {
+    const dependabot = "49699333+dependabot[bot]@users.noreply.github.com";
+    const bump = commit(
+      head,
+      true,
+      "dependabot[bot]",
+      dependabot,
+      "build(deps): bump zod from 4.6.6 to 4.6.7",
+    );
+    expect(recognizedAgentId(bump)).toBe("dependabot");
+    expect(() => assertCommitAgentAttribution(bump)).not.toThrow();
+    expect(
+      recognizedAgentId(
+        commit(head, true, "dependabot[bot]", "human@example.com"),
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe("assertCommitAgentAttribution", () => {
@@ -152,6 +170,25 @@ describe("assertPrAgentAttribution", () => {
       /Agent attribution required/,
     );
     expect(() => assertPrAgentAttribution(pr, introduced, head)).not.toThrow();
+  });
+
+  it("lets a Dependabot pull request pass from its own branch once verified", () => {
+    const dependabot = "49699333+dependabot[bot]@users.noreply.github.com";
+    const bump = (verified) => [
+      commit(
+        head,
+        verified,
+        "dependabot[bot]",
+        dependabot,
+        "build(deps): bump",
+      ),
+    ];
+    expect(() =>
+      assertPrAgentAttribution({ head: { sha: head } }, bump(true), head),
+    ).not.toThrow();
+    expect(() =>
+      assertPrAgentAttribution({ head: { sha: head } }, bump(false), head),
+    ).toThrow(/Verified signatures required/);
   });
 
   it("rejects unsigned introduced commits", () => {

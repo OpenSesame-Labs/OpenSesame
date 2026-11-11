@@ -5,7 +5,9 @@ the default branch. "Require branch up to date" is off — the queue rebuilds ea
 entry against the tip of `main`. CODEOWNERS routes review without requiring the
 sole owner to approve their own PR. Resolved review threads, signed commits,
 squash-only linear history, blocked force pushes/deletion and all three named
-Actions checks remain required, with no bypass actors. GitHub Actions (app ID
+Actions checks remain required. The one bypass actor is the repository admin
+role, and only through a pull request: that is how the sole maintainer merges
+a green pull request without a second reviewer. GitHub Actions (app ID
 15368) must report `TypeScript`, `Bundle budgets`, and `Rust` on both
 `pull_request` and `merge_group`; a third-party status with the same name cannot
 satisfy them. See [merge queue](../docs/contributing/merge-queue.md).
@@ -30,7 +32,8 @@ with repository contents-write permission could reserve a new version tag;
 keep that permission narrowly scoped. The publisher independently validates
 candidate/source identity and refuses occupied or moved tags. Tag restrictions
 remain separate from the `release` environment: scheduled promotion executes
-on `main`, not the tag. Main's ruleset receives no bypass actor.
+on `main`, not the tag. Main's ruleset keeps its single pull-request-only
+admin bypass and gains no other.
 
 `--apply` and `--verify` cover both named tag rulesets. On first activation,
 apply bootstraps combined owner-only tag protection, installs the creation-only
