@@ -69,8 +69,8 @@ RUN set -eu; \
   tar -xzf "/tmp/${archive}" -C /tmp mise/bin/mise; \
   install -m 0755 /tmp/mise/bin/mise /usr/local/bin/mise; \
   rm -rf "/tmp/${archive}" /tmp/mise; \
+  mise --version; \
   mkdir -p /opt/mise; \
-  chown vscode:vscode /opt/mise; \
-  mise --version
+  chown -R vscode:vscode /opt/mise
 
 USER vscode

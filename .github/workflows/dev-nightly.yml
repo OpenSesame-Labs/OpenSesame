@@ -7,10 +7,7 @@ on:
       timezone: America/Chicago
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-  attestations: read
+permissions: {}
 
 concurrency:
   group: candidate-dev
@@ -31,6 +28,10 @@ jobs:
       artifact_id: ${{ steps.select.outputs.artifact_id }}
       artifact_digest: ${{ steps.select.outputs.artifact_digest }}
       payload_digest: ${{ steps.select.outputs.payload_digest }}
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -69,6 +70,10 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - name: Require successful selection
         run: test "${{ needs.select.result }}" = success

@@ -33,10 +33,7 @@ on:
         description: Verified qualification artifact identity
         value: ${{ jobs.receipt.outputs.receipt }}
 
-permissions:
-  contents: read
-  actions: read
-  attestations: read
+permissions: {}
 
 env:
   SOURCE_SHA: ${{ inputs.source_sha }}
@@ -52,6 +49,10 @@ jobs:
     name: Candidate admission
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -76,6 +77,10 @@ jobs:
     name: Dev source tests
     needs: admission
     uses: ./.github/workflows/full-suite.yml
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     with:
       source_sha: ${{ inputs.source_sha }}
 
@@ -92,6 +97,10 @@ jobs:
             runner: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -123,7 +132,7 @@ jobs:
         run: bash .ci-control/scripts/release/smoke-kit.sh "$KIT_ARCHIVE"
       - name: Install the candidate source's browser test dependencies
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Extract the production Pages payload without rebuilding
         id: pages
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -162,6 +171,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -187,6 +200,10 @@ jobs:
     timeout-minutes: 15
     outputs:
       receipt: ${{ steps.envelope.outputs.receipt }}
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

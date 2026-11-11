@@ -13,8 +13,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: native-platform-${{ github.run_id }}-${{ inputs.source_sha }}
@@ -399,7 +398,7 @@ jobs:
         run: node scripts/audit/native-release-companion-artifact.mjs
       - name: Install the original frozen product dependency graph
         if: ${{ hashFiles('packages/app-core/src/node/native-companion-installation.ts') != '' }}
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Execute actual packed Node bridge and unchanged original gates
         run: |
           set -euo pipefail

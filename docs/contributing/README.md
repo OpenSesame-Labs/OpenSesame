@@ -98,6 +98,8 @@ change through.
 | [Skills index](skills.md) | Routing index for the canonical `skills/*/SKILL.md` sources, moved from `AGENTS.md` §7. |
 | [Verification and CI — detail](verification.md) | Detail behind `AGENTS.md` §8; the CI summary above and `.github/workflows/` remain canonical. |
 | [Shipping — full procedure](shipping.md) | Full worktree, stacked-PR and done-criteria procedure behind `AGENTS.md` §9. |
+| [GitHub Well-Architected, applied](github-well-architected.md) | Each adopted GitHub Well-Architected recommendation with its status here: design principles, effective CI, anti-patterns, the security and governance checklists ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)). |
+| [Engineering system metrics](engineering-system-metrics.md) | The twelve weekly metrics, their definitions, companions and how to read them. |
 | [Cloud agent environments](cloud-agents.md) | Generic cloud-agent environment notes; harness model/subscription routing is not repository policy. |
 | [Agent setup](agent-setup.md) | User-scope personal setup (dotfiles, user skills, permissions, tier routing) kept outside tracked product config; profiles, update/rollback, acceptance checklist. |
 | [Agent routines](agent-routines.md) | Scheduled sessions that run audits, fuzz batches and drift checks outside CI, each in a copy-on-write worktree with a workflow swarm and stacked pull requests. |

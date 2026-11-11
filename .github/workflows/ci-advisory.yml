@@ -6,8 +6,7 @@ on:
     branches: [main, "cursor/**"]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ci-advisory-${{ github.ref }}
@@ -18,6 +17,8 @@ jobs:
     name: Format and anti-slop (advisory)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -28,7 +29,7 @@ jobs:
         with:
           cache: true
           install_args: node@24
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npx biome check --changed --since=origin/main --no-errors-on-unmatched .
       - name: Anti-slop on changed source only
         run: |

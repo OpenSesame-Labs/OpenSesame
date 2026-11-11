@@ -1,0 +1,57 @@
+name: Security requirement
+description: Record a security requirement for the product or for the way it is built.
+title: "Requirement: "
+labels: ["security-requirement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One requirement per issue, written so a reviewer can tell whether a design or a change meets it. This is not a vulnerability report: report a vulnerability through [private vulnerability reporting](https://github.com/OpenSesame-Labs/OpenSesame/security/advisories/new). Leave out tokens, claim secrets, and exploit details.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Software security (the product)
+        - Infrastructure security (repository, CI, release, workspace)
+        - Process and policy
+        - Compliance and regulatory
+    validations:
+      required: true
+  - type: textarea
+    id: requirement
+    attributes:
+      label: Requirement
+      description: What must be true. State it so that it can be checked.
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: The threat, incident, standard or decision this comes from. Link the threat model entry, ADR, or SSDF practice.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: How it is verified
+      description: The test, gate, audit, or review that proves it, and where that check runs.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: textarea
+    id: traceability
+    attributes:
+      label: Traceability
+      description: Design review, ADR, and the pull requests that implement this. Add links as the work lands.

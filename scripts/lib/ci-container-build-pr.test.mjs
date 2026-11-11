@@ -194,6 +194,7 @@ describe("heavy auxiliary suites are CD concerns", () => {
       automaticallyStartedWorkflows(directory);
     // The benchmark workflow on main is dispatch-only, so it is omitted.
     // cd-ghcr-publish.yml pushes to main.
+    // ADR 0222 admits the three path-filtered, read-only, non-required ones.
     expect(workflowsWithAutomaticPrPushOrMergeGroup).toEqual([
       "cd-ghcr-publish.yml",
       "cd-npm-cli.yml",
@@ -204,6 +205,9 @@ describe("heavy auxiliary suites are CD concerns", () => {
       "ci-advisory.yml",
       "ci-grok-commits.yml",
       "ci.yml",
+      "dependency-review.yml",
+      "devcontainer.yml",
+      "engineering-metrics.yml",
     ]);
     const ci = readFileSync(join(directory, "ci.yml"), "utf8");
     expect(ci).toContain("name: CI");

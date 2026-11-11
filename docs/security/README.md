@@ -17,6 +17,7 @@ same method onto one subsystem each. To report a vulnerability, see
 | [Notification and approval threat model](notification-approval-threat-model.md) | Addendum for approvals delivered over external channels ([ADR 0084](../adr/0084-external-authorization-notifications.md)). |
 | [Web-login rotation threat model](web-login-rotation-threat-model.md) | Addendum for rotating website passwords through remote agent browsers. |
 | [Wallet threat model](wallet-threat-model.md) | Addendum for wallet spending authority (stub). |
+| [GitHub repository threat model](github-repository-threat-model.md) | Who could change what ships by attacking the source, its settings or its automation. |
 | [SOPS wire compatibility](sops-wire-compatibility.md) | What the in-browser SOPS implementation reproduces from upstream, and what it refuses. |
 
 ## Assurance
@@ -27,6 +28,11 @@ same method onto one subsystem each. To report a vulnerability, see
 | [Duress limitations](duress/limitations.md) | Normative limits for duress product copy and security claims. |
 | [Audit log](audits/README.md) | Every dated audit: what was reviewed, what was found, how each finding was fixed and proved. |
 | [Tooling evaluation](tooling-evaluation.md) | The scanners and harnesses behind `npm run audit:*`, why each was chosen, and the running log of fixes they drove. |
+| [NIST SSDF conformance](ssdf-conformance.md) | Each SSDF practice with its status and evidence: enforced, declared, deviation or gap ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)). |
+| [GitHub Actions security](actions-security.md) | The rules every workflow follows and the test that enforces them. |
+| [Dependency supply chain](dependency-supply-chain.md) | Install scripts off, update cooldown and review, signature verification, and the exception procedure. |
+| [Developer workspace](developer-workspace.md) | The hardened dev container, signed commits and AI-assisted development. |
+| [Alert triage and response](alert-triage.md) | Which alert comes first, response targets and runbooks. |
 | [OpenSSF Scorecard](openssf-scorecard.md) | Dependency remediation, remaining advisories, signed releases and Best Practices enrollment. |
 | [Scanner rules and negative controls](../../tools/security) | The ast-grep rule set, proof that the ast-grep and gitleaks gates can still fail, and the PR security-review checklist. |
 | [Security-review skill](../../skills/security-review/SKILL.md) | How to run the gates and a budgeted Codex Security scan. |

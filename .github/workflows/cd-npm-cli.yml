@@ -36,9 +36,7 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
-  actions: read
+permissions: {}
 
 # Pending runs otherwise stay queued with no jobs until the active run ends.
 env:
@@ -55,6 +53,9 @@ jobs:
     name: Main CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 50
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -96,6 +97,9 @@ jobs:
     outputs:
       version: ${{ steps.plan.outputs.version }}
       npm_dist_tag: ${{ steps.plan.outputs.npm_dist_tag }}
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -152,7 +156,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build the CLI for npm publish
         env:
           CLI_RELEASE_PACK: "1"
@@ -255,6 +259,9 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:

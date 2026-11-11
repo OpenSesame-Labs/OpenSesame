@@ -28,8 +28,7 @@ on:
       - "docs/ci/github-setup-spec.json"
       - "docs/ci/pipelines.md"
 
-permissions:
-  contents: read
+permissions: {}
 
 env:
   # Save primary install caches on main, merge_group, and workflow_dispatch of main.
@@ -48,6 +47,8 @@ jobs:
     name: actionlint and npm dry-run
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -111,7 +112,7 @@ jobs:
           restore-keys: |
             npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Save npm download cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
         continue-on-error: true

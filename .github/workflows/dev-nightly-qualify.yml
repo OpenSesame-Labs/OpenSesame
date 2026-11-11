@@ -5,11 +5,11 @@ on:
   workflow_run:
     workflows: ["Nightly dev qualification"]
     types: [completed]
+    # The resume step only accepts a controller that ran from main. A run
+    # from any other branch never starts this privileged continuation.
+    branches: [main]
 
-permissions:
-  actions: read
-  contents: read
-  attestations: read
+permissions: {}
 
 concurrency:
   group: candidate-dev-qualify-${{ github.event.workflow_run.id }}
@@ -32,6 +32,10 @@ jobs:
       artifact_id: ${{ steps.load.outputs.artifact_id }}
       artifact_digest: ${{ steps.load.outputs.artifact_digest }}
       payload_digest: ${{ steps.load.outputs.payload_digest }}
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -89,6 +93,10 @@ jobs:
           (needs.build.result == 'success' ||
            (needs.build.result == 'skipped' && needs.resume.outputs.reuse == 'true')) }}
     uses: ./.github/workflows/ci-dev-checks.yml
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     with:
       source_sha: ${{ needs.resume.outputs.source_sha }}
       candidate_id: ${{ needs.build.outputs.candidate_id || needs.resume.outputs.candidate_id }}
@@ -110,6 +118,10 @@ jobs:
       BUILD_RESULT: ${{ needs.build.result }}
       QUALIFY_RESULT: ${{ needs.qualify.result }}
       REUSE: ${{ needs.resume.outputs.reuse }}
+    permissions:
+      actions: read
+      contents: read
+      attestations: read
     steps:
       - name: Reject incomplete or unexpectedly skipped qualification
         run: |

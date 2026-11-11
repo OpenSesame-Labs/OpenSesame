@@ -18,7 +18,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
-RUN npm ci
+RUN npm ci --ignore-scripts
 ARG VERSION=0.0.0-local
 ENV VERSION=${VERSION} \
   NODE_OPTIONS=--max-old-space-size=4096

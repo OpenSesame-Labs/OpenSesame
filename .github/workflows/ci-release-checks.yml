@@ -37,8 +37,7 @@ on:
     outputs:
       receipt:
         value: ${{ jobs.record.outputs.receipt }}
-permissions:
-  contents: read
+permissions: {}
 env:
   CANDIDATE_ID: ${{ inputs.candidate_id }}
   SOURCE_SHA: ${{ inputs.source_sha }}
@@ -145,7 +144,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
           echo "OPENSESAME_NODE=$(readlink -f "$(command -v node)")" >> "$GITHUB_ENV"
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: Install pinned tools
         env:
           DEEP_CHECK: ${{ matrix.check }}
@@ -299,6 +298,8 @@ jobs:
     needs: [admit, mutation, security, codeql]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - name: Require the complete selected suite
         env:

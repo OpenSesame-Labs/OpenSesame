@@ -1,0 +1,59 @@
+name: Engineering pulse
+description: Two-minute check on what it is like to build OpenSesame. Feeds the developer-happiness metrics.
+title: "Pulse: "
+labels: ["engineering-pulse"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Answer for the last two weeks of work in this repository. The weekly metrics report takes the median of each scale across every pulse filed in its window ([engineering system metrics](https://github.com/OpenSesame-Labs/OpenSesame/blob/main/docs/contributing/engineering-system-metrics.md)). The headings below are read by a script: answer in the form rather than editing them.
+  - type: dropdown
+    id: flow
+    attributes:
+      label: Flow state
+      description: How often could you work without the engineering system interrupting you (waiting on CI, a red main, a flaky check, broken tooling)?
+      options:
+        - 1 - Almost never
+        - 2 - Rarely
+        - 3 - About half the time
+        - 4 - Usually
+        - 5 - Almost always
+    validations:
+      required: true
+  - type: dropdown
+    id: tooling
+    attributes:
+      label: Engineering tooling satisfaction
+      description: Local setup, hooks, CI, review, and release, taken together.
+      options:
+        - 1 - Very dissatisfied
+        - 2 - Dissatisfied
+        - 3 - Neutral
+        - 4 - Satisfied
+        - 5 - Very satisfied
+    validations:
+      required: true
+  - type: dropdown
+    id: assistant
+    attributes:
+      label: AI assistant satisfaction
+      description: Coding agents and assistants used on this repository, whichever harness.
+      options:
+        - 1 - Very dissatisfied
+        - 2 - Dissatisfied
+        - 3 - Neutral
+        - 4 - Satisfied
+        - 5 - Very satisfied
+        - Not used
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Biggest friction
+      description: The one thing that cost you the most time or attention.
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked
+      description: Something that should be kept or done more.

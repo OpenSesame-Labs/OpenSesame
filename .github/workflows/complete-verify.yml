@@ -10,8 +10,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: complete-verify-${{ github.run_id }}-${{ inputs.source_sha }}
@@ -29,6 +28,8 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+    permissions:
+      contents: read
     steps:
       # Trusted helpers land first. actions/checkout wipes the workspace when
       # the candidate checkout is not yet a git directory, so park them until
@@ -89,7 +90,7 @@ jobs:
           mkdir -m 700 "$OPENSESAME_AUDIT_DIR"
           printf '%s\n' "$EXPECTED_HEAD" > "$OPENSESAME_AUDIT_DIR/source-head.txt"
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Prepare and verify native PWA assets before the complete gate
         # Verify every cache hit; a cold four-phase build keeps its own deadlines.
         # Asset preparation must finish before individual 20-second Vitest cases.

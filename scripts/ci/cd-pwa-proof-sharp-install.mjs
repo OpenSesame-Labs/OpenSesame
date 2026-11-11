@@ -38,6 +38,7 @@ export function installPinnedSharpForProof() {
     "npm",
     [
       "install",
+      "--ignore-scripts",
       "--no-save",
       "--prefer-offline",
       "--no-audit",
