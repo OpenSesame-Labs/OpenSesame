@@ -50,6 +50,11 @@ export function installWorkerEgress(
     value: approvedSocketClass(NativeSocket, decide),
   });
 }
+type SocketPayload = string | ArrayBufferLike | Blob | ArrayBufferView;
+/** A text frame is the one payload that is a primitive, not a Blob or buffer. */
+function isTextFrame(value: SocketPayload): value is string {
+  return Object(value) !== value;
+}
 class ApprovedSocket extends EventTarget {
   static readonly CONNECTING = 0;
   static readonly OPEN = 1;
@@ -99,10 +104,10 @@ class ApprovedSocket extends EventTarget {
     this.binary = value;
     if (this.socket) this.socket.binaryType = value;
   }
-  send(value: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+  send(value: SocketPayload): void {
     if (!this.socket || this.closed)
       throw new Error("Tailscale socket is not open.");
-    if (typeof value === "string") {
+    if (isTextFrame(value)) {
       this.socket.send(value);
       return;
     }

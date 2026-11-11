@@ -272,7 +272,7 @@ export class MemoryRepositories implements Repositories {
     },
     deleteUnlinkedProvisional: async (id, uow) => {
       const row = this.#store.principals.get(id);
-      if (!row || row.state !== "provisional") return false;
+      if (row?.state !== "provisional") return false;
       if (
         [...this.#store.identities.values()].some(
           (item) => item.principalId === id,
@@ -1290,7 +1290,7 @@ export class MemoryRepositories implements Repositories {
       // in one synchronous run, so of two settlements racing on the same
       // activation exactly one sees `activated` — the same property the
       // `state = 'activated'` predicate gives the Postgres UPDATE.
-      if (!current || current.state !== "activated") return null;
+      if (current?.state !== "activated") return null;
       const next: ApprovalActivation = {
         ...current,
         state: "consumed",

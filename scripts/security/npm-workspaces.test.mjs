@@ -11,8 +11,7 @@ const patches = {
   "@simple-git/argv-parser@2.0.1":
     "patches/@simple-git__argv-parser@2.0.1.patch",
   "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
-  "@levischuck/tiny-cbor@0.2.11":
-    "patches/@levischuck__tiny-cbor@0.2.11.patch",
+  "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
 };
 
 function read(relativePath) {
@@ -33,7 +32,8 @@ test("npm workspaces replace the legacy lockfile", () => {
   assert.equal(manifest.packageManager, "npm@11.19.1");
   assert.equal(Object.hasOwn(manifest, legacy), false);
   assert.equal(manifest.engines.node, ">=24");
-  assert.equal(typeof manifest.devDependencies.turbo, "string");
+  // assert.match rejects anything that is not a string.
+  assert.match(manifest.devDependencies.turbo, /\S/);
   assert.ok(lock.lockfileVersion >= 3);
   assert.equal(lock.packages[""].name, "opensesame");
   const former = workspaceGlobs(read(`${legacy}-workspace.yaml`));

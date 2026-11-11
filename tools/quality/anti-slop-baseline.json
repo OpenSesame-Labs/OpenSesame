@@ -11,15 +11,15 @@
     "(npm run lint:anti-slop:files), so a file someone touches leaves this ledger."
   ],
   "totals": {
-    "files": 153,
-    "violations": 541,
+    "files": 152,
+    "violations": 540,
     "byRule": {
       "anti-slop/no-chained-type-assertions": 4,
       "anti-slop/no-conditional-empty-object-spread": 15,
       "anti-slop/no-known-value-widening": 198,
       "anti-slop/no-object-parameters": 10,
       "anti-slop/no-reflect-get": 6,
-      "anti-slop/no-runtime-typeof": 152,
+      "anti-slop/no-runtime-typeof": 151,
       "anti-slop/no-shape-in-symbol-names": 11,
       "anti-slop/no-unknown-parameters": 33,
       "anti-slop/no-unknown-returns": 2,
@@ -33,9 +33,6 @@
     },
     "apps/pages/scripts/build-profile.mjs": {
       "anti-slop/no-conditional-empty-object-spread": 1
-    },
-    "apps/pages/scripts/capability-compose-plugin.test.mjs": {
-      "anti-slop/no-runtime-typeof": 1
     },
     "apps/pages/scripts/duress/fixture-entry.ts": {
       "anti-slop/no-runtime-typeof": 2

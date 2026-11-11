@@ -3,6 +3,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { repoRootFromHere } from "./ci-affected-graph.mjs";
+import { isString } from "./json-boundary.mjs";
 
 /**
  * @param {Record<string, string | undefined>} env
@@ -23,14 +24,18 @@ export function turboLocalCacheKey(env, options = {}) {
 }
 
 function text(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return isString(value) ? value.trim() : "";
 }
 
 function main() {
   const { key, restorePrefix } = turboLocalCacheKey(process.env);
-  const lines = [`turbo_local_cache_key=${key}`, `turbo_local_restore_prefix=${restorePrefix}`];
+  const lines = [
+    `turbo_local_cache_key=${key}`,
+    `turbo_local_restore_prefix=${restorePrefix}`,
+  ];
   const body = `${lines.join("\n")}\n`;
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, body);
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, body);
   process.stdout.write(body);
 }
 

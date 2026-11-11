@@ -54,7 +54,7 @@ export async function passwordResetRuntimeConfigured(
   // A connection list that cannot be read (an unrelated Connect
   // transport outage) must not escape as a rejection or veto the
   // anonymous defaults below; it only forfeits saved-runtime credit.
-  const listed = await listConnections().catch(() => [] as Connection[]);
+  const listed = await listConnections().catch((): Connection[] => []);
   const saved = listed.filter(
     (row) =>
       row.status !== "revoked" &&

@@ -12,12 +12,15 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AnonymousRelayDeployment } from "./wasm-provider.js";
-import { WasmRelayProvider } from "./wasm-provider.js";
 import {
   VERCEL_RELAY_CLOSE_SOURCE,
   VERCEL_RELAY_FETCH_SOURCE,
 } from "./vercel-relay-function.js";
+import type {
+  AnonymousRelayDeployment,
+  WasmRelayProviderOptions,
+} from "./wasm-provider.js";
+import { WasmRelayProvider } from "./wasm-provider.js";
 
 export interface VercelAnonymousProject {
   token: string;
@@ -70,11 +73,17 @@ export async function bootstrapAnonymousVercelProject(
   return projectSchema.parse(await response.json());
 }
 
+/** What Vercel needs to reference one uploaded file in a deployment. */
+interface UploadedFile {
+  sha: string;
+  size: number;
+}
+
 async function uploadFile(
   fetchImpl: FetchImpl,
   token: string,
   content: string,
-): Promise<{ sha: string; size: number }> {
+): Promise<UploadedFile> {
   const bytes = new TextEncoder().encode(content);
   const sha = createHash("sha1").update(bytes).digest("hex");
   const response = await fetchImpl(`${API}/v2/files`, {
@@ -98,22 +107,22 @@ const FUNC_CONFIG = JSON.stringify({
   shouldAddHelpers: true,
 });
 
+/** One Build Output route: the filesystem handler, or a rewrite. */
+type OutputRoute = { handle: "filesystem" } | { src: string; dest: string };
+
 /**
  * Anonymous deployments must upload prebuilt Build Output. Translate
  * the small logical file set this lane uses (`api/<name>.js`
  * functions, `index.html`, `vercel.json` rewrites) into that layout.
  */
-function toPrebuiltOutput(
-  sources: Record<string, string>,
-): Record<string, string> {
-  const out: Record<string, string> = {
-    ".vercel/output/builds.json": JSON.stringify({
-      target: "production",
-      argv: [],
-      builds: [],
-    }),
-  };
-  const routes: unknown[] = [{ handle: "filesystem" }];
+function toPrebuiltOutput(sources: Record<string, string>) {
+  const out: Record<string, string> = {};
+  out[".vercel/output/builds.json"] = JSON.stringify({
+    target: "production",
+    argv: [],
+    builds: [],
+  });
+  const routes: OutputRoute[] = [{ handle: "filesystem" }];
   for (const [file, content] of Object.entries(sources)) {
     if (file === "vercel.json") {
       const parsed = z
@@ -151,6 +160,12 @@ async function deleteVercelDeployment(
   }).catch(() => {});
 }
 
+/** Where a deployment answers, and the id that deletes it. */
+interface AnonymousVercelDeployment {
+  baseUrl: string;
+  deploymentId: string;
+}
+
 /** Deploy one file set to an anonymous project; returns its base URL. */
 export async function deployAnonymousVercelApp(
   project: VercelAnonymousProject,
@@ -159,7 +174,7 @@ export async function deployAnonymousVercelApp(
   env: Record<string, string> = {},
   fetchImpl: FetchImpl = fetch,
   readyTimeoutMs = 180_000,
-): Promise<{ baseUrl: string; deploymentId: string }> {
+): Promise<AnonymousVercelDeployment> {
   const files = [];
   for (const [file, content] of Object.entries(toPrebuiltOutput(sources))) {
     const { sha, size } = await uploadFile(fetchImpl, project.token, content);
@@ -217,15 +232,19 @@ export async function deployAnonymousVercelRelay(
   const project =
     options.project ?? (await bootstrapAnonymousVercelProject(fetchImpl));
   const relayToken = randomUUID() + randomUUID();
-  const { baseUrl: relayBase, deploymentId } = await deployAnonymousVercelApp(
-    project,
-    "opensesame-relay",
-    {
+  const relay = {
+    sources: {
       "api/fetch.js": VERCEL_RELAY_FETCH_SOURCE,
       "api/close.js": VERCEL_RELAY_CLOSE_SOURCE,
       "index.html": "<html><body>opensesame relay</body></html>",
     },
-    { RELAY_TOKEN: relayToken },
+    env: { RELAY_TOKEN: relayToken },
+  };
+  const { baseUrl: relayBase, deploymentId } = await deployAnonymousVercelApp(
+    project,
+    "opensesame-relay",
+    relay.sources,
+    relay.env,
     fetchImpl,
     options.readyTimeoutMs ?? 180_000,
   );
@@ -257,22 +276,28 @@ export async function deployAnonymousVercelRelay(
   };
 }
 
+/** The seams a caller may set on the Vercel lane. */
+interface VercelAnonProviderOptions {
+  deployRelay?: () => Promise<AnonymousRelayDeployment>;
+  readyTimeoutMs?: number;
+}
+
+/** The base provider's options for the Vercel lane: only what was given. */
+function vercelRelayOptions(
+  options: VercelAnonProviderOptions,
+): WasmRelayProviderOptions {
+  const resolved: WasmRelayProviderOptions = { anonymousRelay: "vercel" };
+  if (options.deployRelay) resolved.deployRelay = options.deployRelay;
+  if (options.readyTimeoutMs !== undefined)
+    resolved.readyTimeoutMs = options.readyTimeoutMs;
+  return resolved;
+}
+
 /** WASM lane bound to a per-run anonymous Vercel relay deployment. */
 export class VercelAnonProvider extends WasmRelayProvider {
   override readonly id = "vercel" as const;
 
-  constructor(
-    options: {
-      deployRelay?: () => Promise<AnonymousRelayDeployment>;
-      readyTimeoutMs?: number;
-    } = {},
-  ) {
-    super({
-      anonymousRelay: "vercel",
-      ...(options.deployRelay ? { deployRelay: options.deployRelay } : {}),
-      ...(options.readyTimeoutMs !== undefined
-        ? { readyTimeoutMs: options.readyTimeoutMs }
-        : {}),
-    });
+  constructor(options: VercelAnonProviderOptions = {}) {
+    super(vercelRelayOptions(options));
   }
 }

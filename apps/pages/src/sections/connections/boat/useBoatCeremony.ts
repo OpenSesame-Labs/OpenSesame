@@ -49,10 +49,13 @@ export type BoatCeremonyStage =
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function accountFor(connectionId: string): Promise<{
+/** A fresh access token and the account it reads. */
+interface BoatAccountAccess {
   accessToken: string;
   current: BoatAccount;
-}> {
+}
+
+async function accountFor(connectionId: string): Promise<BoatAccountAccess> {
   const { fetch: fetchImpl } = boatCeremonyDependencies.transport();
   const refreshed = await refreshBoatAccount(fetchImpl, connectionId);
   return { accessToken: refreshed.accessToken, current: refreshed.account };
@@ -76,7 +79,8 @@ async function pollUntilClaimed(
 
 interface ClaimFlow {
   email: string;
-  existingId?: string;
+  /** The saved row this claim replaces, when there is one. */
+  saved: Connection | null;
   isCurrent: () => boolean;
   onStarted: (started: BoatClaimStart) => void;
 }
@@ -92,12 +96,15 @@ async function runClaimFlow(flow: ClaimFlow): Promise<BoatAccount | null> {
   if (!claimed || !flow.isCurrent()) return null;
   // Seal the identity before any other call: if the account read
   // fails, the claimed assertion must not be lost with the ceremony.
-  const sealed = await saveBoatConnection({
+  const identity = {
     email: flow.email.trim(),
     login: flow.email.trim(),
     identityAssertion: claimed.identityAssertion,
-    ...(flow.existingId ? { existingId: flow.existingId } : {}),
-  });
+  };
+  const existingId = flow.saved?.connectionId;
+  const sealed = await saveBoatConnection(
+    existingId ? { ...identity, existingId } : identity,
+  );
   const current = await readBoatAccount(
     boatCeremonyDependencies.transport().fetch,
     claimed.accessToken,
@@ -120,7 +127,7 @@ interface SavedActions {
   setStage: (stage: BoatCeremonyStage) => void;
   setClaim: (claim: BoatClaimStart | null) => void;
   stopPolling: () => void;
-  fail: (caught: unknown) => void;
+  fail: (cause: unknown) => void;
   onFlash: (flash: Flash) => void;
   onChanged: () => void;
 }
@@ -199,16 +206,18 @@ export function useBoatCeremony(
   const saved = connection ?? savedBoatConnection();
   const savedFields = saved ? publicConnectorFields(saved.connectionId) : {};
   const [email, setEmail] = useState(savedFields.account_email ?? "");
-  const [stage, setStage] = useState<BoatCeremonyStage>(saved ? "saved" : "email");
+  const [stage, setStage] = useState<BoatCeremonyStage>(
+    saved ? "saved" : "email",
+  );
   const [claim, setClaim] = useState<BoatClaimStart | null>(null);
   const [account, setAccount] = useState<BoatAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const generation = useRef(0);
-  const stopPolling = useCallback(() => void (generation.current += 1), []);
+  const stopPolling = useCallback(() => void generation.current++, []);
   useEffect(() => stopPolling, [stopPolling]);
-  const fail = useCallback((caught: unknown) => {
-    setFailure(caught instanceof Error ? caught.message : "That did not work.");
+  const fail = useCallback((cause: unknown) => {
+    setFailure(cause instanceof Error ? cause.message : "That did not work.");
     setBusy(false);
   }, []);
 
@@ -231,7 +240,7 @@ export function useBoatCeremony(
     const run = ++generation.current;
     void runClaimFlow({
       email,
-      ...(saved ? { existingId: saved.connectionId } : {}),
+      saved,
       isCurrent: () => generation.current === run,
       onStarted: (started) => {
         setClaim(started);
@@ -247,10 +256,10 @@ export function useBoatCeremony(
         onFlash({ tone: "ok", text: "Boat claimed and saved on this device." });
         onChanged();
       })
-      .catch((caught: unknown) => {
+      .catch((cause: unknown) => {
         if (generation.current !== run) return;
         setStage(savedBoatConnection() ? "saved" : "email");
-        fail(caught);
+        fail(cause);
       });
   }, [email, fail, onChanged, onFlash, saved]);
 
