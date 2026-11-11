@@ -134,7 +134,7 @@ jobs:
           RUSTUP_TOOLCHAIN: 1.97.1
         run: apps/android/scripts/build-core.sh android
       - name: Initialize analysis
-        uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.mode }}
@@ -179,7 +179,7 @@ jobs:
             :app:compileDebugKotlin :app:compileDebugUnitTestKotlin \
             -PopensesameWalletBackendUrl=https://identity.example
       - name: Analyze
-        uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           category: /language:${{ matrix.language }}
           # A release caller supplies a vetted main candidate. Monitoring
@@ -203,7 +203,7 @@ jobs:
           echo "All raw Go results, including any unmapped upstream findings, are retained in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Go monitoring results
         if: ${{ matrix.language == 'go' && !inputs.source_sha }}
-        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: ${{ runner.temp }}/codeql-live-mapped/go.sarif
           ref: ${{ github.ref }}
@@ -289,7 +289,7 @@ jobs:
           test -s .codeql-native/native-package-graph.json
           echo "$GITHUB_WORKSPACE/.codeql-native/compiler/bin" >> "$GITHUB_PATH"
       - name: Initialize native Go analysis
-        uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           languages: go
           build-mode: manual
@@ -328,7 +328,7 @@ jobs:
             *) echo 'Unknown native Go target'; exit 1 ;;
           esac
       - name: Analyze raw native Go source
-        uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           category: /language:go-native-${{ matrix.target }}
           ref: ${{ inputs.source_sha && 'refs/heads/main' || github.ref }}
@@ -348,7 +348,7 @@ jobs:
           echo "All raw native Go results, including unmapped upstream findings, are retained in this run's artifacts." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload native Go monitoring results
         if: ${{ !inputs.source_sha }}
-        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: ${{ runner.temp }}/codeql-native-mapped/go.sarif
           ref: ${{ github.ref }}
