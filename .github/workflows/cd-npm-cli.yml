@@ -156,7 +156,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build the CLI for npm publish
         env:
           CLI_RELEASE_PACK: "1"

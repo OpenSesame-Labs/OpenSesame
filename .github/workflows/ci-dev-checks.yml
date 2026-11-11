@@ -132,7 +132,7 @@ jobs:
         run: bash .ci-control/scripts/release/smoke-kit.sh "$KIT_ARCHIVE"
       - name: Install the candidate source's browser test dependencies
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Extract the production Pages payload without rebuilding
         id: pages
         if: matrix.target == 'x86_64-unknown-linux-gnu'

@@ -95,7 +95,7 @@ jobs:
           restore-keys: |
             npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Workflow inventory gate
         run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs
 
@@ -300,7 +300,7 @@ jobs:
           restore-keys: |
             npm-download-v2-${{ runner.os }}-seed-main-
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Save npm download cache
         if: env.TRUSTED_CACHE_SAVE == 'true'
         continue-on-error: true

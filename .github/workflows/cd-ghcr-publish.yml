@@ -78,7 +78,7 @@ jobs:
             mise-v1-linux-
       - name: Install pinned mise and Node
         run: bash scripts/lib/install-mise-locked.sh node
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: Prepare pinned Tailscale native distributions
         run: node --input-type=module -e 'import { loadTailscaleAssets } from "./apps/pages/scripts/tailscale-wasm-assets.mjs"; await loadTailscaleAssets();'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

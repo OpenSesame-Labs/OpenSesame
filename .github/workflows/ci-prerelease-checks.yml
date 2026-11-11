@@ -280,7 +280,7 @@ jobs:
       - name: Install
         # Not `npm run bootstrap`: that also runs db:migrate (needs a live
         # DATABASE_URL) and installs git hooks, neither of which belongs in CI.
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Prepare and verify native PWA assets before package tests
         if: steps.affected.outputs.scope == 'all' || contains(steps.affected.outputs.packages, '@opensesame/pages')
         # The canonical loader verifies cache hits and owns cold four-phase builds.
@@ -408,7 +408,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build Pages
         if: matrix.shard != 'budgets'
         env:
@@ -773,7 +773,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build the declared AI verification profile
         run: npm run build:ai-connections-verify -w @opensesame/pages
       - name: Configure and use real AI protocol connections in Chromium
@@ -830,7 +830,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build the declared Tailscale verification profile
         run: npm run build:tailnet-browser-verify -w @opensesame/pages
       - name: Official browser SDK through real Headscale and a native peer
@@ -893,7 +893,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build the static front end
         env:
           VITE_BASE: /OpenSesame/
@@ -954,7 +954,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build Pages for the loopback origin the walk serves
         env:
           VITE_BASE: /OpenSesame/
@@ -1022,7 +1022,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build Pages
         env:
           VITE_BASE: /OpenSesame/
@@ -1102,7 +1102,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build Pages
         env:
           VITE_BASE: /OpenSesame/
@@ -1191,7 +1191,7 @@ jobs:
           cache: false
           install_args: go
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Require the matching SDK and preinstalled browsers
         run: |
           test "$(id -u)" -ne 0
@@ -1545,7 +1545,7 @@ jobs:
         # The real gateway-process interop test compiles the default host CLI.
         run: bash .ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Fast mTLS suite (unit, contracts, static bundle boundary)
         env:
           VITE_BASE: /OpenSesame/
@@ -1917,7 +1917,7 @@ jobs:
         run: bash .ci-control/scripts/release/smoke-kit.sh "$KIT_ARCHIVE"
       - name: Install the candidate source's browser test dependencies
         if: matrix.target == 'x86_64-unknown-linux-gnu'
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Extract the production Pages payload without rebuilding
         id: pages
         if: matrix.target == 'x86_64-unknown-linux-gnu'

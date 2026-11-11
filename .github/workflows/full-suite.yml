@@ -66,7 +66,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Prepare and verify native PWA assets before package concurrency
         # Uses the normal Vite asset loader, including verification on cache hits.
         # Cold preparation keeps its original deadlines, pins and resource limits.

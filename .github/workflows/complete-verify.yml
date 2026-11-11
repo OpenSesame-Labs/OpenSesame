@@ -90,7 +90,7 @@ jobs:
           mkdir -m 700 "$OPENSESAME_AUDIT_DIR"
           printf '%s\n' "$EXPECTED_HEAD" > "$OPENSESAME_AUDIT_DIR/source-head.txt"
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Prepare and verify native PWA assets before the complete gate
         # Verify every cache hit; a cold four-phase build keeps its own deadlines.
         # Asset preparation must finish before individual 20-second Vitest cases.

@@ -208,7 +208,7 @@ jobs:
         cache: false
         install_args: node
         working_directory: src
-    - run: npm ci
+    - run: npm ci --ignore-scripts
     - name: Build all dependencies and production Pages, then freeze its bytes
       run: |
         set -euo pipefail

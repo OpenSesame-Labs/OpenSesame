@@ -152,6 +152,33 @@ describe("drift detection", () => {
 });
 
 describe("planned writes", () => {
+  it("sets the policy before the allow-list when Actions is unrestricted", () => {
+    // The allow-list endpoint refuses to answer unless the policy is already
+    // `selected`, so an unrestricted repository reports no list at all.
+    const drift = driftFor((live) => {
+      live.permissions.allowed_actions = "all";
+      live.selectedActions = undefined;
+    });
+    expect(drift.map((entry) => entry.setting)).toEqual([
+      "actions.permissions.allowed_actions",
+      "actions.selected_actions.github_owned_allowed",
+      "actions.selected_actions.verified_allowed",
+      "actions.selected_actions.patterns_allowed",
+    ]);
+    expect(settingsWrites(expected, drift)).toEqual([
+      {
+        method: "PUT",
+        path: "actions/permissions",
+        body: expected.actions.permissions,
+      },
+      {
+        method: "PUT",
+        path: "actions/permissions/selected-actions",
+        body: expected.actions.selected_actions,
+      },
+    ]);
+  });
+
   it("writes nothing when nothing drifted", () => {
     expect(settingsWrites(expected, [])).toEqual([]);
   });

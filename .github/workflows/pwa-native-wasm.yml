@@ -92,7 +92,7 @@ jobs:
           cache: false
           install_args: node
       - name: Install exact locked build dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Build and verify all four original native phases
         run: |
           set -euo pipefail

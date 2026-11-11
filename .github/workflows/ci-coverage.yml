@@ -90,7 +90,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
           echo "OPENSESAME_NODE=$(readlink -f "$(command -v node)")" >> "$GITHUB_ENV"
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - name: Prepare native PWA assets
         if: matrix.suite == 'typescript'
         run: >-

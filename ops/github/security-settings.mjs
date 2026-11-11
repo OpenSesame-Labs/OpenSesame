@@ -79,13 +79,20 @@ function enabled(path) {
 }
 
 function inspect() {
+  // The allow-list endpoint answers only while the policy is `selected`. Under
+  // any other policy the list is read as absent, which is drift, so --apply
+  // sets the policy first and then writes the list.
+  const permissions = api("actions/permissions");
   return normalizeLive(expected, {
     repo: api(""),
     vulnerabilityAlerts: enabled("vulnerability-alerts").enabled,
     privateReporting: enabled("private-vulnerability-reporting"),
     immutableReleases: enabled("immutable-releases"),
-    permissions: api("actions/permissions"),
-    selectedActions: api("actions/permissions/selected-actions"),
+    permissions,
+    selectedActions:
+      permissions?.allowed_actions === "selected"
+        ? api("actions/permissions/selected-actions")
+        : undefined,
     workflow: api("actions/permissions/workflow"),
     forkApproval: api("actions/permissions/fork-pr-contributor-approval"),
   });

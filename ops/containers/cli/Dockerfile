@@ -9,7 +9,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
-RUN npm ci
+RUN npm ci --ignore-scripts
 ARG VERSION=0.0.0-local
 ENV CLI_RELEASE_PACK=1 \
   VERSION=${VERSION}

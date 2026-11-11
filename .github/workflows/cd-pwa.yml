@@ -337,7 +337,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Production Pages build
         env:
           PAGES_CANONICAL_ORIGIN: ${{ env.PAGES_CANONICAL_ORIGIN }}
@@ -500,7 +500,7 @@ jobs:
       - name: Install pinned mise, Node 24, and Hurl
         run: bash scripts/lib/install-mise-locked.sh node@24 hurl@8.1.0
       - name: Install the frozen dependency graph
-        run: npm ci
+        run: npm ci --ignore-scripts
       - name: Resolve headless Chromium for preview smoke evidence
         env:
           CD_PWA_SMOKE_REQUIRE_HEADLESS_SHELL: "1"

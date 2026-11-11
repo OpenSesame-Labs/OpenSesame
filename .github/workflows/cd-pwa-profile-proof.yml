@@ -48,7 +48,7 @@ jobs:
             mise-v1-linux-
       - name: Install pinned mise and Node 24
         run: bash scripts/lib/install-mise-locked.sh node@24
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - name: Profile build and screenshot
         run: node scripts/ci/pwa-install-profile-proof.mjs
