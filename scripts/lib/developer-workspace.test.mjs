@@ -1,5 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
+import { plan, script } from "../dev/devcontainer-proof.mjs";
 
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
@@ -125,5 +127,75 @@ describe("dev container", () => {
     const names = Object.keys(config.containerEnv ?? {});
     for (const name of names)
       expect(name).not.toMatch(/TOKEN|SECRET|PASSWORD|KEY/i);
+  });
+});
+
+describe("dev container proof", () => {
+  const config = JSON.parse(read(".devcontainer/devcontainer.json"));
+  const steps = plan(config, { image: "proof:1", workspace: "/repo" });
+
+  it("starts the container exactly as declared and mounts the source read-only", () => {
+    expect(steps.build).toEqual([
+      "build",
+      "--file",
+      "/repo/.devcontainer/Dockerfile",
+      "--tag",
+      "proof:1",
+      "/repo/.devcontainer",
+    ]);
+    const run = steps.run;
+    for (const argument of config.runArgs) expect(run).toContain(argument);
+    expect(run[run.indexOf("--user") + 1]).toBe(config.containerUser);
+    for (const [name, value] of Object.entries(config.containerEnv))
+      expect(run).toContain(`${name}=${value}`);
+    expect(run[run.indexOf("--volume") + 1]).toBe("/repo:/mnt/source:ro");
+    // Nothing that would hand the container more than the declaration does.
+    expect(run.join(" ")).not.toMatch(
+      /--privileged|--cap-add|docker\.sock|--network[= ]host|--pid[= ]host/,
+    );
+    expect(run.slice(-3, -1)).toEqual(["bash", "-lc"]);
+  });
+
+  it("runs every lifecycle command in the editor's order, then checks the result", () => {
+    const lines = script(config).split("\n");
+    const at = (text) => lines.indexOf(text);
+    const order = [
+      config.onCreateCommand,
+      config.updateContentCommand,
+      config.postCreateCommand,
+      config.postStartCommand,
+    ].map(at);
+    expect(order.every((index) => index > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(lines[0]).toBe("set -euo pipefail");
+    const checks = lines.slice(order.at(-1) + 1).join("\n");
+    expect(checks).toContain('test "$(id -un)" = "$EXPECTED_USER"');
+    expect(checks).toContain("CapEff:[[:space:]]+0+$");
+    expect(checks).toContain("NoNewPrivs:[[:space:]]+1$");
+    expect(() => script({ postCreateCommand: ["a", "b"] })).toThrow(/strings/);
+    expect(() =>
+      plan({ runArgs: [] }, { image: "i", workspace: "/r" }),
+    ).toThrow(/containerUser/);
+  });
+
+  it("runs on a pull request that changes the container, with a read-only token", () => {
+    const workflow = parse(read(".github/workflows/devcontainer.yml"));
+    expect(workflow.permissions).toEqual({});
+    expect(workflow.jobs.proof.permissions).toEqual({ contents: "read" });
+    const paths = workflow.on.pull_request.paths;
+    for (const path of [
+      ".devcontainer/**",
+      "mise.toml",
+      "mise.lock",
+      "scripts/dev/devcontainer-proof.mjs",
+    ])
+      expect(paths).toContain(path);
+    // Every script a lifecycle command names starts the proof when it changes.
+    const named = script(config).match(/scripts\/dev\/[\w.-]+\.sh/g) ?? [];
+    expect(named.length).toBeGreaterThan(0);
+    for (const path of named) expect(paths).toContain(path);
+    expect(workflow.jobs.proof.steps.at(-1).run).toBe(
+      "node scripts/dev/devcontainer-proof.mjs",
+    );
   });
 });

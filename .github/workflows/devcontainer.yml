@@ -1,0 +1,54 @@
+# Proves the dev container before a change to it merges.
+#
+# .devcontainer/devcontainer.json starts the container with every Linux
+# capability dropped, no new privileges, and a non-root user. Those settings
+# only hold if the container's own setup still works under them. This builds
+# the image and runs the four lifecycle commands exactly as declared, then
+# checks the user, the capability set and the installed toolchain.
+#
+# It runs only when the container definition, the toolchain pins or a setup
+# script changes. It needs no secret, publishes nothing and is not a required
+# check: a path-filtered required check would leave unrelated pull requests
+# pending. It joins the trunk inventory beside the other read-only
+# pull-request checks recorded in ADR 0222.
+
+name: Dev container
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".devcontainer/**"
+      - "mise.toml"
+      - "mise.lock"
+      - "scripts/dev/devcontainer-proof.mjs"
+      - "scripts/dev/dotfiles-bootstrap.sh"
+      - "scripts/dev/install-agent-skills.sh"
+      - "scripts/dev/install-dependencies.sh"
+      - "scripts/dev/setup-hooks.sh"
+      - ".github/workflows/devcontainer.yml"
+
+permissions: {}
+
+concurrency:
+  group: devcontainer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proof:
+    name: Dev container builds and sets up
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: true
+          install_args: node
+      - name: Build the container and run its setup as declared
+        run: node scripts/dev/devcontainer-proof.mjs
