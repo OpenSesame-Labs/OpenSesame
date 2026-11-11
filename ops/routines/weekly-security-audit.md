@@ -190,9 +190,10 @@ gh pr create --title "fix(<scope>): <plain-language summary>" \
 ```
 
 The default-branch ruleset requires signed commits
-(`ops/github/default-branch.json`). The squash on `main` is the commit GitHub
-signs, so commit on the pull request's own branch and use the commands here
-for the branch and the pull request.
+(`ops/github/default-branch.json`), and the attribution check requires each
+pull request commit to be GitHub-verified. Sign with a key registered to a
+GitHub account, commit on the pull request's own branch, and use the commands
+here for the branch and the pull request.
 
 If the pass found nothing worth fixing (a clean surface), still commit and
 open a PR for the audit doc alone — a documented clean pass is a real

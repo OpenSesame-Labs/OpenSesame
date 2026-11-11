@@ -58,23 +58,26 @@ for review (`ready_for_review` starts CI) only once the one below has merged
 and you have restacked it. Push at checkpoints, not per file: each push to an
 open, non-draft pull request restarts CI.
 
-Commit on the pull request's own branch. The commit that lands on `main` is
-the squash GitHub creates and signs, so commits on a pull request branch do
-not need a GitHub-verified signature of their own. The attribution check
-(`scripts/lib/agent-commit-attribution.mjs`) accepts a commit on its author
-identity or co-author trailer. An ordinary pushed commit merges.
+Commit on the pull request's own branch. The required attribution check
+(`scripts/lib/pr-agent-attribution.mjs`) wants two things of every commit a
+pull request introduces: GitHub shows it as verified, and it carries a
+recognised author or co-author trailer. A commit signed with a key registered
+to a GitHub account is verified, so sign with that key and push; no replay is
+needed. `createCommitOnBranch` also produces a verified commit, directly on
+the pull request branch.
 
-Do not replay a branch onto a `-signed` twin or a staging branch to get
-verified commits. Each replay leaves the branch it copied behind, and nothing
-deletes it. The one case that still calls for a replay is a commit that claims
-Grok and carries no Grok Build proof in its message. `land-signed-stack.mjs`
-handles that case: it appends `Co-authored-by: Grok <noreply@x.ai>` because
-`createCommitOnBranch` cannot set author, with `expectedHeadOid` at
-`origin/main` for the first commit and the previous commit after that. It
-writes to `<branch>-signed` and never deletes anything, so whoever runs it
-deletes the source branch once the replayed tree is reported equal. The local
-git identity, when a tool needs one, is your own configured identity and
-signing key; it is never recorded in repository files.
+Do not replay a branch onto a `-signed` twin or a staging branch as a matter
+of course. Each replay leaves the branch it copied behind, and nothing deletes
+it. A replay is only for commits GitHub shows as unverified (a session with no
+registered signing key) or that claim Grok without Grok Build proof in the
+message. `land-signed-stack.mjs` handles those: it appends
+`Co-authored-by: Grok <noreply@x.ai>` because `createCommitOnBranch` cannot
+set author, with `expectedHeadOid` at `origin/main` for the first commit and
+the previous commit after that. It writes to `<branch>-signed` and never
+deletes anything, so whoever runs it deletes the source branch once the
+replayed tree is reported equal. The local git identity, when a tool needs
+one, is your own configured identity and signing key; it is never recorded in
+repository files.
 
 ### Branches
 
@@ -97,6 +100,11 @@ that merges. Everything else stays until someone deletes it.
 - A session that cannot delete a remote ref, such as a cloud session that
   pushes only to its own branch, pushes no branch except its pull request
   branch.
+- A Dependabot pull request merges from Dependabot's own branch. The
+  attribution check accepts Dependabot's commits. When a bump touches a file
+  the exposure matrix fingerprints, push the reviewed fingerprint update onto
+  that same branch. Do not copy the bump to another branch and close
+  Dependabot's pull request: that strands its branch.
 
 ### After each commit
 

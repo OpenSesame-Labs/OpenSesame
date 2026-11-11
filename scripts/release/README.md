@@ -23,12 +23,12 @@ nightly and weekly controllers, artifact inventory, evidence and recovery.
 
 ## land-signed-stack
 
-Most stacks do not need this tool: an ordinary pushed commit merges, because
-the squash on `main` is the commit GitHub signs
+Most stacks do not need this tool: a commit signed with a key registered to a
+GitHub account is already verified and merges from its own branch
 ([shipping](../../docs/contributing/shipping.md)). It is for a stack whose
-commits claim Grok without Grok Build proof in the message, which the
-attribution check accepts only as GitHub-verified replays. Anyone with a
-working `gh` login replays such a stack with one command:
+commits GitHub shows as unverified, or that claim Grok without Grok Build
+proof in the message. Anyone with a working `gh` login replays such a stack
+with one command:
 
 ```bash
 # Dry run (default): prints branches, commits, files and bytes; calls nothing.
