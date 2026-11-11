@@ -58,7 +58,8 @@ imported packages; the delivered subset contains no OpenPGP. There is no advisor
 ignore or VEX exception. See [source maintenance](../../scripts/test/live-turn/README.md).
 
 That expanded audit discovered an additional standard-library advisory,
-[GO-2026-6809](https://osv.dev/GO-2026-6809), fixed by requiring Go 1.26.10.
+[GO-2026-6809](https://osv.dev/GO-2026-6809), fixed by requiring Go 1.26.10, and later
+[GO-2026-6859](https://osv.dev/GO-2026-6859), fixed by requiring Go 1.26.11.
 The integrated OSV and companion package audit pass on the prepared stack.
 This does not claim that all original findings were newly fixed by this change;
 many dependency versions were already patched on the checked-out main commit.
