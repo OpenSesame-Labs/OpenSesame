@@ -261,6 +261,9 @@ jobs:
 
   scorecard:
     name: OpenSSF Scorecard
+    # Scorecard refuses every ref but the default branch, so a run started by
+    # hand on another branch skips it instead of failing.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
