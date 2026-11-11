@@ -11,7 +11,7 @@ A dependency is code written by someone else that runs with our access. This pag
 | 2. Isolation | A hardened [dev container](developer-workspace.md); cloud agents run in per-session sandboxes. | Enforced, not mandatory |
 | 3. Signed commits | Required by the default-branch ruleset; every pull-request commit must be GitHub-verified. Agent keys sign without a human gesture, which is a recorded deviation ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)). | Declared, with a deviation |
 | 4. Rulesets | Pull request, reviews and required checks before anything reaches `main` ([declaration](../../ops/github/default-branch.json)). | Declared |
-| 5. Publishing | npm packages publish with `--provenance`; candidates carry attested build provenance. Trusted publishing over OIDC is used when `NPM_TOKEN` is empty. | Enforced, with a gap |
+| 5. Publishing | npm packages publish with `--provenance`; candidates carry attested build provenance. Trusted publishing over OIDC is used whenever `NPM_TOKEN` is absent, and a publish that still reads the token raises a warning ([steps to remove it](../operators/publishing.md#stored-publication-credentials)). | Enforced; removing the token is an Owner setting |
 | 5. Consuming | `npm audit signatures` verifies the registry signature of every installed package, and every provenance attestation a package publishes, weekly ([workflow](../../.github/workflows/security.yml)). | Enforced |
 | 6. Detection | OSV-Scanner, cargo-audit and cve-lite gates over every lockfile; [dependency review](../../.github/workflows/dependency-review.yml) on the pull request that changes one; Dependabot alerts and security updates declared. | Enforced and Declared |
 
@@ -54,8 +54,7 @@ When reviewing: read the changelog; look for a change of maintainer or publishin
 
 Before adding a dependency, ask whether a mature library already in the tree does the job ([ADR 0008](../adr/0008-better-auth-oidc-provider.md)). A package name suggested by an AI assistant is checked against the registry by hand before it is installed: attackers register the names assistants tend to invent.
 
-## Known gaps
+## Decisions
 
-- `NPM_TOKEN` is still accepted by the publish action. Trusted publishing alone would remove a long-lived credential.
-- The `patchedDependencies` block in `package.json` is not applied by npm. On an npm 11.19.1 install, with or without lifecycle scripts, `js-yaml` and `@levischuck/tiny-cbor` were found unpatched, and the regression tests that expect the patched layout fail in `npm run quality:test`. This predates this page; it needs its own decision on how the four patches in [`patches/`](../../patches) are applied.
-- No allow-list of approved dependencies and no private registry mirror. Not planned at this size.
+- Patches to dependencies are installed from vendored tarballs pinned in the lockfile, because npm does not apply `patchedDependencies` ([`patches/README.md`](../../patches/README.md)). A weekly job rebuilds each tarball from the published package and its patch and compares the bytes.
+- No allow-list of approved dependencies and no private registry mirror: with one maintainer, the cooldown, dependency review, the advisory gates and scripts-off installs are the controls, and a mirror would add an account to protect without adding a reviewer.

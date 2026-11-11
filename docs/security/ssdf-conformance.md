@@ -10,7 +10,6 @@ How this repository meets each practice of the [NIST Secure Software Development
 | Declared | Written down under [`ops/github/`](../../ops/github/README.md). Live only after an administrator applies it and the verify command passes. |
 | Owner setting | A GitHub setting only the organization owner can read or change. |
 | Deviation | Deliberately different from the recommendation. The reason is given. |
-| Gap | Not done. |
 | Not applicable | Needs a product tier or team shape this repository does not have. |
 
 "Declared" is not "live". To check the live state, an administrator runs:
@@ -34,9 +33,9 @@ node ops/github/security-settings.mjs --verify
 
 | Practice | Status | How |
 |---|---|---|
-| PS.1 Protect code from tampering | Declared, with gaps | The [default-branch ruleset](../../ops/github/default-branch.json) requires a pull request, code-owner review, approval of the last push, dismissal of stale approvals, signed commits and linear history, and blocks force pushes and deletion. Every pull-request commit must be GitHub-verified and attributed ([check](../../.github/workflows/ci-grok-commits.yml)). **Owner setting:** two-factor authentication for the organization. **Not applicable:** SAML SSO, IP allow lists and enterprise-managed users (Enterprise only); push rulesets (not offered for public repositories). **Deviation:** agent commits are signed without a human gesture; the human decision is the merge. |
+| PS.1 Protect code from tampering | Declared | The [default-branch ruleset](../../ops/github/default-branch.json) requires a pull request, code-owner review, approval of the last push, dismissal of stale approvals, signed commits and linear history, and blocks force pushes and deletion. Every pull-request commit must be GitHub-verified and attributed ([check](../../.github/workflows/ci-grok-commits.yml)). **Owner setting:** two-factor authentication for the organization. **Not applicable:** SAML SSO, IP allow lists and enterprise-managed users (Enterprise only); push rulesets (not offered for public repositories). **Deviation:** agent commits are signed without a human gesture; the human decision is the merge. |
 | PS.2 Verify release integrity | Enforced | The candidate builder attests provenance binding source, controller and payload; promotion verifies it before publishing ([ci-promotion](../operators/ci-promotion.md)). npm packages publish with `--provenance` ([action](../../.github/actions/publish-npm-package/action.yml)). Immutable releases are declared. |
-| PS.3 Archive and protect releases | Declared, with a gap | Two [tag rulesets](../../ops/github/release-tags.json) restrict who may create, move or delete `v*` tags. **Gap:** no SBOM is generated in the release pipeline or attached to a release. `npm run generate:sbom` exists for local use, and the container builds set `sbom: false`. |
+| PS.3 Archive and protect releases | Enforced and Declared | Two [tag rulesets](../../ops/github/release-tags.json) restrict who may create, move or delete `v*` tags (Declared). Every candidate build signs a CycloneDX inventory of the dependencies it was built from against the same artifact digests as its build provenance, and a candidate that cannot produce one does not build ([release kit](../operators/release-kit.md#dependency-inventory), [`sbom.mjs`](../../scripts/release/sbom.mjs)). |
 
 ## Produce well-secured software (PW)
 
@@ -48,7 +47,7 @@ node ops/github/security-settings.mjs --verify
 | PW.5 Secure coding practices | Enforced | ast-grep, Semgrep, Clippy and the anti-slop lint as gates; the [exposure matrix](exposure-matrix.md); gitleaks and Betterleaks locally and over full history weekly. Push protection is declared. |
 | PW.6 Secure build configuration | Enforced, with a deviation | Actions pinned to commit SHAs, no credentials persisted by checkout, per-job token permissions ([Actions security](actions-security.md)). **Deviation:** one optional self-hosted runner on this public repository, off by default and reachable only by the owner's own same-repository branches; the guard is tested. |
 | PW.7 Review and analyze code | Deviation | Human review is declared in the ruleset. CodeQL runs weekly and against every release candidate ([workflow](../../.github/workflows/codeql.yml)), not on pull requests, and the ruleset does not require its results: scanning gates promotion, not merge ([ADR 0215](../adr/0215-trunk-builds-only.md), [ADR 0222 §6](../adr/0222-github-well-architected-and-ssdf.md)). |
-| PW.8 Test executable code | Enforced, with a gap | Release qualification runs mutation, fuzzing, undefined-behaviour and the security suite on the frozen candidate ([checks](../../.github/workflows/ci-release-checks.yml)); `npm run test:redteam` and `npm run test:security` exercise the running system. **Gap:** published container images are not scanned as images. |
+| PW.8 Test executable code | Enforced | Release qualification runs mutation, fuzzing, undefined-behaviour and the security suite on the frozen candidate ([checks](../../.github/workflows/ci-release-checks.yml)); `npm run test:redteam` and `npm run test:security` exercise the running system. Every published image, on every platform it publishes, and the dev container image are scanned weekly as images ([image scanning](../operators/ghcr-images.md#vulnerability-scanning)). |
 | PW.9 Secure defaults | Enforced | Experimental and risky features are off in [`.env.schema`](../../.env.schema); the hard rules are in [SECURITY.md](../../SECURITY.md). |
 
 PW.3 was folded into PO.1 and PW.4 in SSDF v1.1.
@@ -57,7 +56,7 @@ PW.3 was folded into PO.1 and PW.4 in SSDF v1.1.
 
 | Practice | Status | How |
 |---|---|---|
-| RV.1 Identify vulnerabilities continuously | Enforced, with a gap | [Weekly monitoring](../../.github/workflows/security.yml) uploads OSV and Scorecard results to code scanning, scans full history with gitleaks and Betterleaks, and verifies npm signatures. Reports arrive through private vulnerability reporting ([SECURITY.md](../../SECURITY.md)). **Gap:** no audit-log streaming to an external store. |
+| RV.1 Identify vulnerabilities continuously | Enforced | [Weekly monitoring](../../.github/workflows/security.yml) uploads OSV and Scorecard results to code scanning, scans full history with gitleaks and Betterleaks, and verifies npm signatures. Reports arrive through private vulnerability reporting ([SECURITY.md](../../SECURITY.md)). **Deviation:** the audit log is not streamed, which needs GitHub Enterprise; the weekly run records the repository's settings and fails when one changed. |
 | RV.2 Assess, prioritize, remediate | Enforced | [Alert triage](alert-triage.md) sets the order and the response targets. Dependabot proposes fixes; a person reviews each. |
 | RV.3 Root cause analysis | Enforced | Each fixed vulnerability gets a dated write-up under [`audits/`](audits/README.md). After disclosure, the [root cause](../../.github/ISSUE_TEMPLATE/vulnerability-root-cause.yml) form records why it existed and what prevents the next one. |
 
@@ -76,22 +75,35 @@ The scenario's twenty items, in its order.
 | Dynamic and runtime security testing | Enforced in release qualification |
 | Least-privilege CI build environments | Enforced |
 | Required status checks for security scans | Deviation: scans gate promotion |
-| OIDC between CI and cloud providers | Gap: there is no cloud provider. GHCR uses the job token. npm publishes by OIDC only when `NPM_TOKEN` is empty, and `RELEASE_PUBLISH_TOKEN` is long-lived |
+| OIDC between CI and cloud providers | Not applicable to a cloud provider: there is none. GHCR uses the job token. npm publishing is Enforced as far as the repository reaches and an Owner setting beyond it: the publish action uses OIDC whenever `NPM_TOKEN` is absent, and every publish that still reads the token raises a warning until the owner deletes it ([steps](../operators/publishing.md#stored-publication-credentials)). `RELEASE_PUBLISH_TOKEN` is limited to 90 days and every release reports its expiry |
 | Role-based access with teams and custom roles | Not applicable: one maintainer |
 | SAML SSO or OIDC for user authentication | Not applicable: Enterprise only |
-| Audit log streaming | Gap |
+| Audit log streaming | Deviation: streaming needs GitHub Enterprise. In its place the weekly security run records the repository's settings and fails when one changed ([change alarm](../../ops/github/README.md#change-alarm)) |
 | Vulnerability triage and remediation process | Enforced: [alert triage](alert-triage.md) |
-| SBOMs for releases | Gap |
+| SBOMs for releases | Enforced: a signed CycloneDX inventory per candidate build |
 | Artifact attestations for build provenance | Enforced |
 | Security requirements in Issues | Enforced: issue form |
 | Security policy and incident response | Enforced: [SECURITY.md](../../SECURITY.md), [alert triage](alert-triage.md) |
 | Security training | Not applicable: no staff; contributors and agents read [AGENTS.md](../../AGENTS.md) |
 | Threat modeling and design review | Enforced |
 
-## Gaps, in the order worth closing
+## What is left, and whose it is
 
-1. Remove `NPM_TOKEN` in favour of npm trusted publishing over OIDC, and replace `RELEASE_PUBLISH_TOKEN` with a short-lived credential.
-2. Generate an SBOM for each release candidate and attest it alongside provenance.
-3. Scan the published container images.
-4. Stream the organization audit log somewhere it outlives GitHub's retention.
-5. Apply and verify the declared settings, so "Declared" rows become live.
+No row above is an open gap. Each is enforced by something checked in,
+declared for an administrator to apply, a setting only the owner holds, a
+recorded deviation, or not applicable.
+
+Four things can only be done by the repository owner, because they need the
+owner's account rather than a change to the repository:
+
+1. Apply and verify the declared settings, so "Declared" rows become live:
+   `node ops/github/governance.mjs --dry-run`, then `--apply`, then `--verify`,
+   and the same three for `node ops/github/security-settings.mjs`. Until then
+   the weekly [change alarm](../../ops/github/README.md#change-alarm) lists
+   where the live rulesets differ from the declared ones.
+2. Configure the npm trusted publishers and delete `NPM_TOKEN`
+   ([steps](../operators/publishing.md#stored-publication-credentials)). Every publish warns until this is done.
+3. Keep `RELEASE_PUBLISH_TOKEN` within its 90 days. Every release reports the
+   date and warns 14 days ahead.
+4. Keep a copy of the weekly `repository-records` artifact somewhere outside
+   GitHub ([backup and recovery](../contributing/github-well-architected.md#backup-and-recovery)).

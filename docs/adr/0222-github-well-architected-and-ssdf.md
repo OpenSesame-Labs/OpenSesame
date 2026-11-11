@@ -29,10 +29,9 @@ Each SSDF practice and each Well-Architected checklist item is recorded once, wi
 | Declared | A setting written down under `ops/github/`. It is live only after an administrator applies it and the verify command passes. |
 | Owner setting | A GitHub setting that only the organization owner can read or change, and that no file here can express. |
 | Deviation | Deliberately different from the recommendation, with the reason. |
-| Gap | Not done. Named so it can be picked up. |
 | Not applicable | Depends on a product tier or a team shape this repository does not have. |
 
-A declaration is never reported as a live control. A recommendation that is not followed is recorded as a deviation or a gap, not left out.
+A declaration is never reported as a live control. A recommendation that is not followed is recorded as a deviation with its reason, not left out, and nothing is recorded as merely "not done".
 
 ### 2. GitHub settings are declared and verified, not clicked
 
@@ -48,14 +47,15 @@ Every workflow sets `permissions: {}` and every job declares its own. No workflo
 
 `.npmrc` sets `ignore-scripts=true`. Dependabot proposes a version only after it has been public for seven days, and nothing it proposes merges without review. The scheduled security workflow verifies registry signatures and provenance attestations for the whole locked tree.
 
-### 5. Two read-only pull-request workflows are admitted to trunk
+### 5. Three read-only pull-request workflows are admitted to trunk
 
-[ADR 0215](0215-trunk-builds-only.md) keeps tests and scans out of trunk admission. Two workflows are added to the pull-request inventory because their question only exists at review time or costs nothing to answer:
+[ADR 0215](0215-trunk-builds-only.md) keeps tests and scans out of trunk admission. Three workflows are added to the pull-request inventory because their question only exists at review time or costs nothing to answer:
 
 - `dependency-review.yml` reports advisories in the dependencies a pull request adds or changes. It runs only when a manifest, lockfile or workflow changes, checks out nothing, and takes seconds.
 - `engineering-metrics.yml` runs on a pull request only when the collector itself changes, as a live self-test.
+- `devcontainer.yml` runs only when the dev container, the toolchain pins or a setup script changes. It builds the container and runs its setup under the declared hardening, because a container that no longer sets up is found by the next person to open it, not by any other check.
 
-Neither is a required check. Neither builds, tests or deploys the change.
+None is a required check. None tests or deploys the product; the third builds only the developer container.
 
 ### 6. Security scanning gates promotion, not merge
 
@@ -84,6 +84,15 @@ The twelve engineering system metrics are collected from the GitHub API every we
 - Contributors install dependencies with lifecycle scripts off. A package that genuinely needs its install script needs a recorded exception.
 - The metrics report will show "no data" for developer happiness until someone files a pulse, and "not recorded" for the financial ratios until the owner supplies them.
 
-## Open items
+## What remains with the owner
 
-Recorded as gaps in [SSDF conformance](../security/ssdf-conformance.md): long-lived publish tokens that OIDC has not yet replaced, no SBOM attached to a release, no container image scan, and no audit-log streaming.
+The four items first recorded as open are closed as far as a repository can
+close them: a signed dependency inventory per candidate, a weekly scan of
+every published image, a weekly record of settings that fails when one
+changed, and publish credentials that announce themselves on every use.
+
+What is left needs the owner's account, not a change here, and is listed with
+its exact steps in [SSDF conformance](../security/ssdf-conformance.md#what-is-left-and-whose-it-is):
+applying the declared settings, deleting `NPM_TOKEN` once npm trusted
+publishing is configured, keeping the release token within 90 days, and
+keeping a copy of the exported records outside GitHub.

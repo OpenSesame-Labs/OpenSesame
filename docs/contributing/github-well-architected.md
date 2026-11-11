@@ -2,7 +2,7 @@
 
 How this repository applies the GitHub Well-Architected recommendations it has adopted ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)), item by item, with what is done, what is declared and what is not. The security practices are recorded against the NIST SSDF in [SSDF conformance](../security/ssdf-conformance.md); this page covers the rest and links the security pages.
 
-Status words: **Enforced** (a checked-in control with a failing test or gate), **Declared** (written under [`ops/github/`](../../ops/github/README.md), live once applied and verified), **Owner setting**, **Deviation**, **Gap**, **Not applicable**. Definitions are in [SSDF conformance](../security/ssdf-conformance.md#reading-the-status-column).
+Status words: **Enforced** (a checked-in control with a failing test or gate), **Declared** (written under [`ops/github/`](../../ops/github/README.md), live once applied and verified), **Owner setting**, **Deviation**, **Not applicable**. Nothing is recorded as an open gap: a recommendation that is not followed is a deviation with its reason. Definitions are in [SSDF conformance](../security/ssdf-conformance.md#reading-the-status-column).
 
 | Recommendation | Recorded in |
 |---|---|
@@ -36,18 +36,18 @@ The recommendation's checklist, in its order.
 
 | Item | Status | Here |
 |---|---|---|
-| Tests are isolated, deterministic and fast | Gap | No gate proves isolation or determinism. The Postgres suites create and drop their own database, and the flake rate in the weekly report is the signal. |
+| Tests are isolated, deterministic and fast | Deviation | Measured, not gated. The Postgres suites create and drop their own database, and the flake rate in the [weekly report](engineering-system-metrics.md) is the control: a suite that passes on re-run without a code change is counted there. A separate determinism gate would rerun suites that the nightly qualification already runs on a frozen candidate. |
 | Flaky tests are tracked and prioritized | Enforced | The weekly report shows the rerun-to-green rate. A flaky test is a bug with priority over new work. |
 | Test execution is organized in clear groups | Enforced | Trunk builds; nightly dev runs the TypeScript and Postgres suites; prerelease runs browser, native and budgets; release runs mutation and security ([ci-promotion](../operators/ci-promotion.md)). |
 | Error messages are clear and actionable | Enforced | Gates and hooks print the rule, the file and the fix; the workflow security test names the job, the step and the expression. |
 | Fast checks gate expensive jobs; independent jobs run in parallel | Enforced | Lint, typecheck and static quality run in hooks before push. In `ci.yml` a change-detection job selects the affected graph and the build jobs fan out from it. |
 | Dependencies are cached | Enforced | npm, Cargo and Turborepo caches, saved only from trusted refs ([CI cache](ci-cache.md)). |
-| Job summaries and annotations give rich feedback | Gap | Jobs report through logs and `::error::` annotations. Only the metrics workflow writes a job summary. |
+| Job summaries and annotations give rich feedback | Enforced | Jobs whose result is a finding rather than pass or fail write a job summary: the metrics report, each image scan, the settings record and its changes, the records export and the release credential's expiry. Publishes annotate which credential they used. Build jobs report through logs and `::error::` annotations. |
 | Path filters and concurrency controls | Enforced | Workflows that can overlap carry a concurrency group. Required checks are never path-filtered: they always run and report, and decide inside the job what to build. |
 | Least-privilege permissions | Enforced | [Actions security](../security/actions-security.md). |
 | Third-party actions pinned to commit SHAs | Enforced | Same. |
 | Dependabot keeps actions updated | Enforced | [`dependabot.yml`](../../.github/dependabot.yml). |
-| OIDC for cloud authentication where possible | Gap | No cloud provider. npm uses OIDC only when `NPM_TOKEN` is empty. |
+| OIDC for cloud authentication where possible | Not applicable, and Owner setting | No cloud provider. npm publishing uses OIDC whenever `NPM_TOKEN` is absent and warns on every publish that still reads it; deleting the token is the owner's step ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
 | Matrix builds across platforms and versions | Enforced | Native platform validation and CodeQL run as matrices. |
 | Runtime environment customized to avoid repeated setup | Enforced | A locked mise bootstrap and caches. No custom runner image. |
 | Reusable workflows standardize patterns | Enforced | Candidate build and each qualification tier are `workflow_call` workflows. |
@@ -82,16 +82,16 @@ The recommendation's checklist, in its order.
 |---|---|---|
 | Dependency scanning | Enforced | OSV-Scanner, cargo-audit, cve-lite, dependency review, Dependabot. [Dependency supply chain](../security/dependency-supply-chain.md). |
 | Code scanning | Enforced | CodeQL weekly and per release candidate; ast-grep and Semgrep gates. Not on pull requests: a recorded deviation. |
-| Secrets management | Enforced | No live secret in the tree; `.env.schema`; publish tokens in environments. Rotation of those tokens has no recorded cadence: **Gap**. |
+| Secrets management | Enforced | No live secret in the tree; `.env.schema`; publish tokens in environments. Rotation: the release token is limited to 90 days and every release reports its expiry; `NPM_TOKEN` warns on every publish until the owner deletes it ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
 | Security policies | Enforced | [SECURITY.md](../../SECURITY.md), [AGENTS.md](../../AGENTS.md) §5 and §6. |
 | Secure coding guidelines | Enforced | The design rules, checked by gates and by review. |
 | Access controls | Owner setting | One maintainer. Access and installed apps are reviewed with the [repository threat model](../security/github-repository-threat-model.md). |
 | Regulatory compliance | Not applicable | No regulatory regime is claimed for this repository. OpenSSF Scorecard and the [Best Practices badge](best-practices-badge.md) are the outside measures. |
-| Audit logging | Gap | GitHub's audit log is not streamed or reviewed on a schedule. |
+| Audit logging | Deviation | Streaming the audit log needs GitHub Enterprise. In its place the weekly security run records rulesets, environments and repository state and fails when one changed ([change alarm](../../ops/github/README.md#change-alarm)). |
 | Data protection | Enforced | The product stores nothing in the clear ([ADR 0149](../adr/0149-nothing-stored-in-the-clear.md)); logs carry no secrets ([ADR 0157](../adr/0157-logs-and-events-carry-no-secrets.md)). |
-| Incident response plan | Enforced | [Alert triage](../security/alert-triage.md) runbooks. Not rehearsed: **Gap**. |
+| Incident response plan | Enforced | [Alert triage](../security/alert-triage.md) runbooks. **Deviation:** there is no scheduled rehearsal; with one maintainer the runbooks are exercised by real alerts, and the weekly report counts them. |
 | Threat modeling | Enforced | [Threat model](../security/threat-model.md), its addenda, and the [repository threat model](../security/github-repository-threat-model.md). |
-| Penetration testing | Enforced internally | `npm run test:redteam` and the fuzz and proof gates. No external test: **Gap**. |
+| Penetration testing | Enforced internally | `npm run test:redteam` and the fuzz and proof gates. **Owner setting:** commissioning an external test is the owner's decision and budget; none is planned at this size. |
 | Security updates | Enforced | Dependabot weekly; base images and actions included. |
 | Vulnerability management | Enforced | [Alert triage](../security/alert-triage.md). |
 | Security monitoring | Enforced | [Weekly monitoring](../../.github/workflows/security.yml). |
@@ -106,17 +106,41 @@ The recommendation's checklist, in its order.
 |---|---|---|---|
 | Auditability | Branch rules, required checks, code review | Declared | [`default-branch.json`](../../ops/github/default-branch.json), verified with `governance.mjs --verify`. |
 | Auditability | Compliance checks for code and dependencies | Enforced | Gates in hooks, trunk inventory, promotion. |
-| Auditability | Audit logs retained and reviewed | Gap | Not streamed. |
+| Auditability | Audit logs retained and reviewed | Deviation | Not streamed (Enterprise only). The weekly settings record is kept for 90 days and compared run to run. |
 | Auditability | Everything under version control | Enforced | Including the GitHub settings themselves. |
 | Auditability | Custom properties | Not applicable | One repository. |
 | Accountability | Roles defined and documented | Enforced | [GOVERNANCE.md](../../GOVERNANCE.md), [MAINTAINERS.md](../../MAINTAINERS.md), [CODEOWNERS](../../.github/CODEOWNERS). |
 | Accountability | Process for requesting access | Enforced | By invitation after sustained contribution ([GOVERNANCE.md](../../GOVERNANCE.md)). |
-| Accountability | Activity monitoring and alerts | Gap | Needs audit-log streaming. |
+| Accountability | Activity monitoring and alerts | Enforced | A changed setting fails the weekly security run, which notifies its watchers. It names the setting and both values, not the actor. |
 | Accountability | Incident response procedures | Enforced | [Alert triage](../security/alert-triage.md). |
 | Adaptability | Policies reviewed and updated | Enforced | A policy change is an ADR and a pull request. |
 | Adaptability | Training material current | Enforced | `AGENTS.md` and the skills are the material. They change by pull request, and skill copies are checked for drift. |
 | Adaptability | Feedback mechanism | Enforced | The engineering pulse form and the weekly report. |
-| Control | Periodic access reviews | Owner setting | No recorded cadence: **Gap**. |
+| Control | Periodic access reviews | Owner setting | One account holds access. Collaborators and installed apps are reviewed whenever the [repository threat model](../security/github-repository-threat-model.md) is, and its review triggers include adding a maintainer and installing an app. |
 | Control | Configuration management | Declared | [`ops/github/`](../../ops/github/README.md) with dry-run, apply and verify. |
-| Control | Backup and recovery | Gap | Every clone holds full history and the settings can be re-applied from `ops/github/`, but recovery has not been rehearsed and issues and pull requests are not exported. |
+| Control | Backup and recovery | Enforced, and Owner setting | See [backup and recovery](#backup-and-recovery). The weekly run exports issues, pull requests and their comments and proves a fresh full clone. Keeping a copy outside GitHub is the owner's step. |
 | Control | Compliance audits | Enforced | This record, checked by [`engineering-system-docs.test.mjs`](../../scripts/lib/engineering-system-docs.test.mjs) so its evidence links cannot rot. |
+
+## Backup and recovery
+
+What a clone does not hold is what has to be kept.
+
+| What | Where it is recoverable from | How it is proven |
+|---|---|---|
+| Source and full history | Any clone | Every week a fresh full clone is made, its objects are checked with `git fsck`, and it must hold the commit the run was started for |
+| Repository settings | The declarations under [`ops/github/`](../../ops/github/README.md) | The weekly [change alarm](../../ops/github/README.md#change-alarm) lists where live settings differ from them; an administrator re-applies with `--apply` |
+| Issues, pull requests, comments and review discussion | The `repository-records` artifact of the weekly security run, kept 90 days | The export fails if it is empty, refused or cut short ([`repository-records.mjs`](../../scripts/security/repository-records.mjs)) |
+| Releases and their evidence | The release itself and its signed attestations | [Release kit](../operators/release-kit.md) |
+
+The artifact lives on GitHub, so it protects against a deleted issue or pull
+request, not against losing the account. A copy outside GitHub is the owner's
+to keep:
+
+```bash
+gh run download --repo OpenSesame-Labs/OpenSesame --name repository-records --dir opensesame-records
+```
+
+```bash
+git clone --mirror https://github.com/OpenSesame-Labs/OpenSesame.git
+```
+

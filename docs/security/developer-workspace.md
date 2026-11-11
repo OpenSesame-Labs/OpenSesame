@@ -23,9 +23,10 @@ The workspace is where code is written before anything reviews it. A compromised
 | Review dev container features | None are used; the comment in the Dockerfile says why | Enforced |
 | Pin extensions | Three extensions, each at an exact version | Enforced |
 | No secrets in the configuration | None; configuration follows [`.env.schema`](../../.env.schema) | Enforced |
-| Restrict network access | Not restricted | Gap |
-| Isolated volume instead of a bind mount | The default workspace bind mount is used | Gap |
-| Scan the image for vulnerabilities | Not scanned | Gap |
+| Restrict network access | Not restricted. Setup has to reach the package registries and tool releases, and an egress filter inside the container would need the network capability that is dropped. Cloud agents, which run unattended, have a network policy on their sandbox instead | Deviation |
+| Isolated volume instead of a bind mount | The workspace is bind-mounted so that edits land in the developer's own checkout. For an untrusted branch, the editor's "Clone Repository in Container Volume" gives the isolated volume with the same definition | Deviation |
+| Scan the image for vulnerabilities | The weekly security run builds the image from `.devcontainer/` and scans every layer ([image scanning](../operators/ghcr-images.md#vulnerability-scanning)) | Enforced |
+| Prove the container still sets up | A pull request that changes the container, the toolchain pins or a setup script builds it and runs every lifecycle command under the declared settings ([`devcontainer.yml`](../../.github/workflows/devcontainer.yml)) | Enforced |
 
 These are checked by [`scripts/lib/developer-workspace.test.mjs`](../../scripts/lib/developer-workspace.test.mjs).
 

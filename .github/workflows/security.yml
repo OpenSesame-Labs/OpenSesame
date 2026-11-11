@@ -527,3 +527,44 @@ jobs:
           node scripts/security/settings-snapshot.mjs compare \
             "$RUNNER_TEMP/settings-previous/repository-settings.json" \
             "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  repository-records:
+    name: Repository records export and clone check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/security
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: true
+          install_args: node
+      # A clone holds the source and its history. Issues, pull requests and
+      # review discussion live only on GitHub, so they are exported and kept.
+      - name: Export issues, pull requests and their comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/security/repository-records.mjs export "$RUNNER_TEMP/records" | tee -a "$GITHUB_STEP_SUMMARY"
+      # The recovery rehearsal for the source: a fresh, complete clone must
+      # pass an object check and hold the commit this run was started for.
+      - name: Prove the source can be recovered from a fresh full clone
+        run: |
+          git clone --mirror --quiet "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$RUNNER_TEMP/mirror.git"
+          git -C "$RUNNER_TEMP/mirror.git" fsck --no-dangling
+          git -C "$RUNNER_TEMP/mirror.git" merge-base --is-ancestor "$GITHUB_SHA" "refs/heads/$GITHUB_REF_NAME"
+          printf 'A fresh full clone passed its object check and holds `%s`.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the exported records
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: repository-records
+          path: ${{ runner.temp }}/records
+          retention-days: 90
+          if-no-files-found: error
+

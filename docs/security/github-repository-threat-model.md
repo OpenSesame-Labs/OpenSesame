@@ -53,7 +53,7 @@ Visibility, ownership transfer, archiving, deletion, and disabling branch rules.
 | Two-factor authentication on that account | Owner setting |
 | Rulesets and security settings are declared, so drift is detectable with the verify commands | Declared |
 | The release pipeline reads protection settings and never configures them | Enforced |
-| Alerting on a settings change | Gap: needs audit-log streaming |
+| Alerting on a settings change | Enforced: the weekly security run records rulesets, environments and repository state and fails when one changed ([change alarm](../../ops/github/README.md#change-alarm)). It sees a change within a week, not who made it; audit-log streaming, which would, needs GitHub Enterprise |
 
 ### T-04 History of an important branch is rewritten or deleted
 
@@ -108,9 +108,9 @@ Adding a second maintainer removes the bypass. Until then a compromised maintain
 
 Open against this model:
 
-- A settings change raises no alert (T-03).
+- A settings change is seen at the next weekly run, not when it happens, and without the actor (T-03). Accepted: closing that needs audit-log streaming, which this plan does not offer.
 - One account can merge (T-06). Accepted, with the publication approval as the compensating control.
-- The publish tokens are long-lived (TA-06). OIDC would remove them.
-- "Declared" controls are not confirmed live from inside the repository.
+- Two stored publish credentials remain (TA-06), and every run that uses one says so. `NPM_TOKEN` goes when the owner configures npm trusted publishing; the workflows already use OIDC without it. `RELEASE_PUBLISH_TOKEN` is the admin's own token because only the admin role may create release tags; it is limited to 90 days and its expiry is reported on every release ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)).
+- "Declared" controls are confirmed live only by an administrator's verify command. From inside the repository, the weekly run lists every live ruleset that differs from its declaration.
 
 Review this page when a maintainer is added, an app is installed, a secret is added, or a workflow gains a trigger.

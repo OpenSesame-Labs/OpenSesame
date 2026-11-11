@@ -53,13 +53,35 @@ describe("the engineering system record", () => {
 
   it("gives every SSDF practice row one of the defined states", () => {
     const states =
-      /^(Enforced|Declared|Owner setting|Deviation|Gap|Not applicable)\b/;
+      /^(Enforced|Declared|Owner setting|Deviation|Not applicable)\b/;
     const rows = read("docs/security/ssdf-conformance.md")
       .split("\n")
       .filter((line) => /^\| (PO|PS|PW|RV)\.\d /.test(line));
     expect(rows).toHaveLength(19);
     for (const row of rows)
       expect(row.split("|")[2].trim(), row).toMatch(states);
+  });
+
+  it("records nothing as an open gap", () => {
+    // A recommendation that is not followed is a deviation with its reason,
+    // an owner setting with its steps, or not applicable. "Not done" is not
+    // a state: it is either done here or assigned.
+    for (const path of [
+      "docs/security/ssdf-conformance.md",
+      "docs/security/github-repository-threat-model.md",
+      "docs/security/actions-security.md",
+      "docs/security/dependency-supply-chain.md",
+      "docs/security/developer-workspace.md",
+      "docs/security/alert-triage.md",
+      "docs/contributing/github-well-architected.md",
+      "docs/adr/0222-github-well-architected-and-ssdf.md",
+    ]) {
+      const text = read(path);
+      expect(text, path).not.toMatch(
+        /\|\s*Gap\b|\*\*Gap:?\*\*|\bGap:|with (a )?gaps?\b/,
+      );
+      expect(text, path).not.toMatch(/^## (Known gaps|Open items|Gaps\b)/m);
+    }
   });
 
   it("records every threat and actor of the repository threat model", () => {
