@@ -58,16 +58,45 @@ for review (`ready_for_review` starts CI) only once the one below has merged
 and you have restacked it. Push at checkpoints, not per file: each push to an
 open, non-draft pull request restarts CI.
 
-Commits are created with GitHub's GraphQL `createCommitOnBranch` so the
-committer is GitHub and the ruleset sees a verified signature. A local
-`git commit`, including an SSH signature from `<signing-key>`,
-is `unknown_key` and cannot merge. Replay through
-`land-signed-stack.mjs`, which appends `Co-authored-by: Grok <noreply@x.ai>`
-to each replayed commit because `createCommitOnBranch` cannot set author.
-`expectedHeadOid` is `origin/main` for the first commit and the previous
-commit on the stack after that. The local git identity, when a tool needs
-one, is your own configured identity and signing key; it is never recorded
-in repository files.
+Commit on the pull request's own branch. The commit that lands on `main` is
+the squash GitHub creates and signs, so commits on a pull request branch do
+not need a GitHub-verified signature of their own. The attribution check
+(`scripts/lib/agent-commit-attribution.mjs`) accepts a commit on its author
+identity or co-author trailer. An ordinary pushed commit merges.
+
+Do not replay a branch onto a `-signed` twin or a staging branch to get
+verified commits. Each replay leaves the branch it copied behind, and nothing
+deletes it. The one case that still calls for a replay is a commit that claims
+Grok and carries no Grok Build proof in its message. `land-signed-stack.mjs`
+handles that case: it appends `Co-authored-by: Grok <noreply@x.ai>` because
+`createCommitOnBranch` cannot set author, with `expectedHeadOid` at
+`origin/main` for the first commit and the previous commit after that. It
+writes to `<branch>-signed` and never deletes anything, so whoever runs it
+deletes the source branch once the replayed tree is reported equal. The local
+git identity, when a tool needs one, is your own configured identity and
+signing key; it is never recorded in repository files.
+
+### Branches
+
+A task owns every branch it pushes, and none of them outlives the task.
+Auto-delete removes exactly one kind of branch: the head of a pull request
+that merges. Everything else stays until someone deletes it.
+
+- One branch per pull request, and no second copy of it under another name.
+- Restack in place. Rewrite the pull request's own branch
+  (`--force-with-lease`, on a branch you created) and keep the same pull
+  request. A new branch per attempt (`-v2`, `-restack`, a dated suffix) closes
+  the old pull request and strands its branch.
+- Verify on the pull request branch, through its own CI. Do not push `review/`,
+  `work/` or other scratch branches to `origin` to run a check. Where a check
+  truly needs a scratch branch, delete it as soon as its result is read.
+- A tool that creates a signing, staging or replay ref deletes that ref before
+  it exits, whether it succeeded or failed.
+- Closing a pull request without merging deletes its branch. The commits stay
+  reachable at `refs/pull/<n>/head`, so nothing is lost.
+- A session that cannot delete a remote ref, such as a cloud session that
+  pushes only to its own branch, pushes no branch except its pull request
+  branch.
 
 ### After each commit
 
@@ -87,15 +116,19 @@ When every pull request in the stack is open:
 2. A Copilot review request on this repository returns HTTP 422. CodeRabbit
    does not auto-review while the repository has fewer than 10 stars. The
    self-review is the review that has to land.
-3. Squash-merge only after the required checks are green and the pull request
-   is up to date with `main`: Grok signed commits (live status name; the job
-   checks verified signatures and recognised agent attribution), TypeScript,
-   Rust, and Bundle budgets. The ruleset is squash-only. Do not pass `--admin`.
+3. Squash-merge only after every required check in
+   `ops/github/default-branch.json` is green on the current head and the pull
+   request is up to date with `main`. The ruleset is squash-only. This is a
+   single-maintainer repository, so no second reviewer exists to approve: a
+   green pull request merges through the owner's pull-request bypass, which
+   the ruleset grants for that purpose. An agent uses that bypass only when
+   the owner has told the session to merge, and never to pass a red or pending
+   check. A finished pull request left open is how its branch gets stranded.
 4. Merge from the bottom of the stack. After each squash, restack the next
-   branch onto the new `main` with another verified `createCommitOnBranch`
-   (full file contents of that slice, `expectedHeadOid` the new main tip)
-   and squash-merge it the same way.
-5. Remove the finished worktree and delete the local and remote branches.
+   branch in place onto the new `main` and squash-merge it the same way.
+5. Remove the finished worktree and delete the local branch and every remote
+   branch the task pushed (see Branches). The merged head is deleted for you;
+   check that nothing else is left.
 
 User-visible product changes still follow §5 visual evidence and §8 gates.
 This section is how the work is hosted. It does not waive those gates.
