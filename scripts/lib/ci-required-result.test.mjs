@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertCompleteResults,
   assertSelectedResult,
+  superseded,
 } from "./ci-required-result.mjs";
 
 const admitted = {
@@ -41,15 +42,41 @@ describe("required integration results", () => {
       ).toThrow();
     },
   );
-  it("accepts a superseded run when preflight was cancelled", () => {
+  it("accepts a cancelled preflight only when a newer push replaced the run", () => {
+    const cancelled = {
+      draft: "",
+      preflight: "cancelled",
+      selected: "",
+      result: "cancelled",
+    };
     expect(() =>
-      assertSelectedResult({
-        draft: "",
-        preflight: "cancelled",
-        selected: "",
-        result: "cancelled",
-      }),
+      assertSelectedResult({ ...cancelled, replaced: true }),
     ).not.toThrow();
+    // Cancelled by hand, or on main or in the merge queue: nothing was
+    // classified or built, so it must not read as a passing check.
+    expect(() => assertSelectedResult(cancelled)).toThrow(/no newer push/);
+    expect(() =>
+      assertSelectedResult({ ...cancelled, replaced: false }),
+    ).toThrow(/no newer push/);
+  });
+  it("calls a run superseded only for a pull request whose head moved", () => {
+    const a = "a".repeat(40);
+    const b = "b".repeat(40);
+    const run = { event: "pull_request", runHead: a, pull: "7" };
+    expect(superseded(run, () => b)).toBe(true);
+    expect(superseded(run, () => a)).toBe(false);
+    for (const event of ["push", "merge_group", "workflow_dispatch", undefined])
+      expect(superseded({ ...run, event }, () => b)).toBe(false);
+    expect(superseded({ ...run, runHead: "" }, () => b)).toBe(false);
+    expect(superseded({ ...run, pull: "7; rm" }, () => b)).toBe(false);
+    expect(superseded({ ...run, pull: undefined }, () => b)).toBe(false);
+    expect(superseded(run, () => "")).toBe(false);
+    expect(superseded(run, () => "not-a-sha")).toBe(false);
+    expect(
+      superseded(run, () => {
+        throw new Error("offline");
+      }),
+    ).toBe(false);
   });
   it.each(["true", "", undefined])(
     "rejects draft or absent admission %s even with green suites",

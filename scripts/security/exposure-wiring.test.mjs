@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -177,16 +178,99 @@ function report(overrides) {
   );
 }
 
+/** A local repository standing in for the remote, with one pull request head. */
+function remoteWithPull(number) {
+  const directory = mkdtempSync(join(tmpdir(), "opensesame-reporter-"));
+  const git = (...args) =>
+    spawnSync("git", ["-C", directory, ...args], { encoding: "utf8" });
+  git("init", "--quiet", "--bare");
+  const tree = git("hash-object", "-t", "tree", "-w", "--stdin").stdout.trim();
+  const commit = spawnSync(
+    "git",
+    ["-C", directory, "commit-tree", tree, "-m", "head"],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "t",
+        GIT_AUTHOR_EMAIL: "t@example.invalid",
+        GIT_COMMITTER_NAME: "t",
+        GIT_COMMITTER_EMAIL: "t@example.invalid",
+      },
+    },
+  ).stdout.trim();
+  git("update-ref", `refs/pull/${number}/head`, commit);
+  return { directory, head: commit };
+}
+
+test("a cancelled preflight passes only for a pull request run a newer push replaced", () => {
+  const { directory, head } = remoteWithPull(7);
+  try {
+    const run = (overrides) =>
+      report({
+        DRAFT: "",
+        PREFLIGHT_RESULT: "cancelled",
+        SELECTED: "",
+        SUITE_RESULT: "cancelled",
+        GITHUB_EVENT_NAME: "pull_request",
+        GITHUB_SERVER_URL: `file://${join(directory, "..")}`,
+        GITHUB_REPOSITORY: directory.split("/").at(-1),
+        PULL_NUMBER: "7",
+        ...overrides,
+      });
+    assert.match(head, /^[0-9a-f]{40}$/u);
+    // The pull request has moved on from the commit this run was started for.
+    const replaced = run({ RUN_HEAD_SHA: "0".repeat(40) });
+    assert.equal(replaced.status, 0, replaced.stderr);
+    assert.equal(replaced.stderr, "");
+    // Still the head: cancelled by hand, so it is not a pass.
+    assert.notEqual(run({ RUN_HEAD_SHA: head }).status, 0);
+    // The same moved head on any other event is not a pass either.
+    assert.notEqual(
+      run({ RUN_HEAD_SHA: "0".repeat(40), GITHUB_EVENT_NAME: "push" }).status,
+      0,
+    );
+    // A pull request that cannot be found is not known to be superseded.
+    assert.notEqual(
+      run({ RUN_HEAD_SHA: "0".repeat(40), PULL_NUMBER: "8" }).status,
+      0,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("actual CI reporter rejects failed or missing exposure admission despite skipped builds", () => {
   assert.equal(report({}).status, 0);
-  for (const preflight of ["failure", "cancelled", "skipped", undefined]) {
+  for (const preflight of [
+    "failure",
+    "skipped",
+    "canceled",
+    "Cancelled",
+    undefined,
+  ]) {
     const result = report({ PREFLIGHT_RESULT: preflight });
     assert.notEqual(result.status, 0, `preflight=${preflight}`);
     assert.match(result.stderr, /CI required result: preflight:/u);
   }
+  // A cancelled preflight classified nothing. Cancelled by hand, on main or
+  // in the merge queue, it must not read as a passing check.
+  const cancelled = {
+    DRAFT: "",
+    PREFLIGHT_RESULT: "cancelled",
+    SELECTED: "",
+    SUITE_RESULT: "cancelled",
+  };
+  for (const event of ["push", "merge_group", "workflow_dispatch", undefined]) {
+    const result = report({ ...cancelled, GITHUB_EVENT_NAME: event });
+    assert.notEqual(result.status, 0, `event=${event}`);
+    assert.match(result.stderr, /preflight: cancelled, and no newer push/u);
+  }
   for (const overrides of [
     { SELECTED: undefined },
     { SELECTED: "true", SUITE_RESULT: "skipped" },
+    { SELECTED: "true", SUITE_RESULT: "cancelled" },
+    { SELECTED: "false", SUITE_RESULT: "cancelled" },
     { DRAFT: "true" },
   ]) {
     assert.notEqual(report(overrides).status, 0);
