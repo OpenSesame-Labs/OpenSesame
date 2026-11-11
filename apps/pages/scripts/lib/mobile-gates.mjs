@@ -32,7 +32,7 @@ export async function doorRoads(page, stop, harness) {
   for (const name of [
     "Set up your own",
     "Join a session",
-    "Import a file",
+    "Import passwords from a file",
     "Skip sign-in and continue as guest",
   ]) {
     harness.check(
