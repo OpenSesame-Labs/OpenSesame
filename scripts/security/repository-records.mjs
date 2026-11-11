@@ -50,16 +50,20 @@ export function nextLink(header) {
 async function call(url, token, fetcher, body) {
   // The token goes to GitHub's API and nowhere else, whatever a link says.
   if (!url.startsWith(`${API}/`)) throw new Error("not a GitHub API address");
-  const response = await fetcher(url, {
-    method: body ? "POST" : "GET",
+  const init = {
+    method: "GET",
     headers: {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${token}`,
       "x-github-api-version": "2022-11-28",
       "user-agent": "opensesame-repository-records",
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  };
+  if (body) {
+    init.method = "POST";
+    init.body = JSON.stringify(body);
+  }
+  const response = await fetcher(url, init);
   // The status is the diagnosis. A response body is never echoed.
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response;
