@@ -90,3 +90,41 @@ using the GitHub commits API. The hermetic regression in
 rejects unpinned actions and retained checkout credentials. It does not assert
 that pinned third-party code is trustworthy or that branch policy fixes runtime
 authorization defects. Full audits and model reviews remain private/local.
+
+## Change alarm
+
+The audit log cannot be streamed or queried from this repository, so a ruleset
+that is disabled, an environment that loses its reviewer, a change of
+visibility or an archived repository raised no alert. The `repository-settings`
+job in `.github/workflows/security.yml` closes the part of that gap a
+read-only token can reach. On every scheduled run it:
+
+1. records the repository's visibility, archive and fork settings, whether the
+   default branch is protected, every ruleset and every deployment environment
+   with its reviewers and branch policy (`scripts/security/settings-snapshot.mjs
+   collect`);
+2. lists live rulesets that differ from the three declared here, in the run
+   summary (`declared`; informational, it never fails the run);
+3. keeps the record as the `repository-settings` artifact for 90 days;
+4. fails when the record differs from the previous one on the same branch,
+   naming each setting with its value before and now (`compare`).
+
+The new record is kept before the comparison, so one change fails one run and
+the next run starts from the new state. A failed run is the alert: GitHub
+notifies the people watching the workflow. Treat it as a question, "did the
+owner make this change?", and answer it before the next run clears it.
+
+Limits, stated so the alarm is not read as more than it is:
+
+- It sees a change at the next run, not when it happens, and not who made it.
+  A setting changed and restored between two runs is not seen.
+- The job's token is not shown ruleset bypass lists, secret names, the Actions
+  policy, collaborators or installed apps. The record says "not visible" for a
+  bypass list; the rest is absent. `governance.mjs --verify`, run by an
+  administrator, covers the bypass lists.
+- A section the token cannot read is recorded as unavailable, so losing access
+  is itself reported as a change.
+- The first run on a branch, and the first after 90 days without a run, has
+  nothing to compare with and only records.
+
+It reads; it never writes a setting.
