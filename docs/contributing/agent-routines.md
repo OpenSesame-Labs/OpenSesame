@@ -74,10 +74,10 @@ slice is its own commit on a stacked pull request, pushed to that pull
 request's own branch. After each commit the session runs `df -h /` and deletes
 only the scratch and build output that commit created. A routine pushes no
 branch besides its pull request branches and leaves none behind
-([shipping](shipping.md), Branches). Only a stack whose commits claim Grok
-without Grok Build proof needs a verified replay with
-`scripts/release/land-signed-stack.mjs` (see `scripts/release/README.md`), and
-whoever runs it deletes the source branches. Unrelated scratch, a running local
+([shipping](shipping.md), Branches). Only a stack whose commits GitHub shows
+as unverified, or that claim Grok without Grok Build proof, needs a verified
+replay with `scripts/release/land-signed-stack.mjs` (see
+`scripts/release/README.md`), and whoever runs it deletes the source branches. Unrelated scratch, a running local
 Host, and unrelated worktrees stay in place.
 
 When the stack is finished the session self-reviews, resolves review threads,

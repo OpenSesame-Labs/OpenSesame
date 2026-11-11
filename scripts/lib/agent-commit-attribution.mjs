@@ -1,7 +1,9 @@
 /**
  * Recognised agent/human attribution for PR commits (ADR: cloud agent provenance).
  * Grok Build is required only when a commit claims Grok; other agents and Tyler
- * are accepted on their own identity or co-author trailers.
+ * are accepted on their own identity or co-author trailers. Dependabot is
+ * accepted on its own identity, so its pull request can merge from its own
+ * branch instead of being replayed onto a second one.
  */
 import {
   GROK_AUTHOR_EMAIL,
@@ -17,6 +19,8 @@ const CURSOR_BOT_EMAIL =
   /^206951365\+cursor\[bot\]@users\.noreply\.github\.com$/i;
 const TYLER_EMAIL =
   /^(?:145080887\+)?Tyler-R-Kendrick@users\.noreply\.github\.com$/i;
+const DEPENDABOT_EMAIL =
+  /^49699333\+dependabot\[bot\]@users\.noreply\.github\.com$/i;
 
 /** Substrings that satisfy Grok Build proof when a commit claims Grok. */
 const GROK_BUILD_PROOF = [
@@ -89,7 +93,7 @@ export function grokClaimSatisfied(entry) {
   return false;
 }
 
-/** @typedef {'grok'|'claude'|'kimi'|'muse'|'cursor'|'tyler'} AgentId */
+/** @typedef {'grok'|'claude'|'kimi'|'muse'|'cursor'|'dependabot'|'tyler'} AgentId */
 /** @typedef {{ email: string; name: string; body: string; coAuthors: string }} AttributionFacts */
 
 /** @param {AttributionFacts} facts */
@@ -126,6 +130,11 @@ function museAuthorOrCoAuthor({ name, coAuthors }) {
 /** @param {AttributionFacts} facts */
 function cursorBotAuthor({ email, name }) {
   return CURSOR_BOT_EMAIL.test(email) || /cursor\[bot\]/i.test(name);
+}
+
+/** @param {AttributionFacts} facts */
+function dependabotAuthor({ email }) {
+  return DEPENDABOT_EMAIL.test(email);
 }
 
 /** @param {AttributionFacts} facts */
@@ -168,6 +177,7 @@ const AGENT_RULES = [
   ["kimi", kimiAuthorOrCoAuthor],
   ["muse", museAuthorOrCoAuthor],
   ["cursor", cursorBotAuthor],
+  ["dependabot", dependabotAuthor],
   ["tyler", tylerAuthor],
   ["claude", claudeCoAuthor],
   ["claude", claudeSessionTrailer],
@@ -199,7 +209,7 @@ export function assertCommitAgentAttribution(entry) {
   if (agent === undefined) {
     throw new Error(
       `Agent attribution required: ${entry.sha ?? "?"} (${authorName(entry)} <${authorEmail(entry)}>). ` +
-        "Use a recognised author or Co-authored-by trailer (Grok, Claude, Kimi, Muse, cursor[bot], or Tyler Kendrick).",
+        "Use a recognised author or Co-authored-by trailer (Grok, Claude, Kimi, Muse, cursor[bot], Dependabot, or Tyler Kendrick).",
     );
   }
   if (!grokClaimSatisfied(entry)) {
