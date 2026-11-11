@@ -286,6 +286,9 @@ test("the workflow records first, then alarms, with a read-only token", () => {
   );
   const job = workflow.jobs["repository-settings"];
   assert.deepEqual(job.permissions, { contents: "read", actions: "read" });
+  // The runner context does not exist where job-level env is evaluated; using
+  // it there makes the whole workflow file invalid.
+  assert.equal(JSON.stringify(job.env).includes("runner."), false);
   const runs = job.steps.map((step) => String(step.run ?? step.uses));
   const at = (pattern) => runs.findIndex((run) => pattern.test(run));
   const collected = at(/settings-snapshot\.mjs collect/);
