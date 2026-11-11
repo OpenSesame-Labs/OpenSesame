@@ -280,3 +280,25 @@ jobs:
           persist-credentials: false
       - name: Reject committed Tailscale key material
         run: node scripts/security/tailscale-key-material-gate.mjs
+
+  # TEMPORARY: runs the four original native phases of pwa-native-wasm.yml
+  # (which only the weekly controller on main may call) against this branch's
+  # go1.27.4 pins. Removed in the next commit.
+  native-wasm-phases:
+    name: Native WASM phases (temporary)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: false
+          install_args: node
+      - name: Install exact locked build dependencies
+        run: npm ci
+      - name: Build and verify all four original native phases
+        run: timeout --signal=TERM --kill-after=10s 900s node scripts/ci-native-wasm.mjs
