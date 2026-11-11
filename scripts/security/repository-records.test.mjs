@@ -7,22 +7,41 @@ import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import {
   LISTS,
+  MORE_REVIEWS,
+  PULL_REVIEWS,
   exportRecords,
   nextLink,
   records,
+  reviews,
 } from "./repository-records.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const work = mkdtempSync(join(tmpdir(), "opensesame-records-"));
 after(() => rmSync(work, { recursive: true, force: true }));
-const BASE = "https://api.github.com/repos/o/r";
+const API = "https://api.github.com";
+const BASE = `${API}/repos/o/r`;
+const NO_PULLS = {
+  data: {
+    repository: {
+      pullRequests: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [],
+      },
+    },
+  },
+};
 
-/** A fake API: each list is an array of pages, linked the way GitHub links. */
-function api(lists, { status } = {}) {
+/**
+ * A fake API: each list is an array of pages, linked the way GitHub links.
+ * `graphql` answers a parsed GraphQL request body.
+ */
+function api(lists, { status, graphql = () => NO_PULLS } = {}) {
   const seen = [];
   const fetcher = async (url, init) => {
     seen.push({ url, init });
     if (status) return { ok: false, status };
+    if (url === `${API}/graphql`)
+      return { ok: true, json: async () => graphql(JSON.parse(init.body)) };
     const [address, cursor = "0"] = url.split("&after=");
     const list = LISTS.find(({ path }) => address === `${BASE}${path}`);
     const pages = lists[list.name] ?? [[]];
@@ -73,12 +92,14 @@ test("every page of every list is written, one record per line", async () => {
     issues: 3,
     "issue-comments": 1,
     "review-comments": 0,
+    reviews: 0,
   });
   assert.deepEqual(readdirSync(directory).sort(), [
     "issue-comments.ndjson",
     "issues.ndjson",
     "manifest.json",
     "review-comments.ndjson",
+    "reviews.ndjson",
   ]);
   const lines = (name) =>
     readFileSync(join(directory, name), "utf8").trimEnd().split("\n");
@@ -96,7 +117,12 @@ test("every page of every list is written, one record per line", async () => {
     JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8")),
     {
       repository: "o/r",
-      counts: { issues: 3, "issue-comments": 1, "review-comments": 0 },
+      counts: {
+        issues: 3,
+        "issue-comments": 1,
+        "review-comments": 0,
+        reviews: 0,
+      },
     },
   );
   // All issues and pull requests, open and closed, oldest first.
@@ -105,9 +131,119 @@ test("every page of every list is written, one record per line", async () => {
     /\/issues\?state=all&per_page=100&sort=created&direction=asc$/,
   );
   for (const { url, init } of fetcher.seen) {
-    assert.equal(url.startsWith(`${BASE}/`), true);
+    assert.ok(url.startsWith(`${BASE}/`) || url === `${API}/graphql`);
     assert.equal(init.headers.authorization, "Bearer t");
   }
+});
+
+/** A GraphQL page of a connection. */
+const page = (nodes, endCursor) => ({
+  pageInfo: { hasNextPage: endCursor !== undefined, endCursor },
+  nodes,
+});
+const node = (id, state, extra = {}) => ({
+  databaseId: id,
+  author: { login: "reviewer" },
+  state,
+  body: `review ${id}`,
+  submittedAt: "2026-11-11T00:00:00Z",
+  commit: { oid: "c".repeat(40) },
+  url: `https://github.com/o/r/pull/1#pullrequestreview-${id}`,
+  ...extra,
+});
+
+test("every review of every pull request is exported with its decision", async () => {
+  const bodies = [];
+  const graphql = (body) => {
+    bodies.push(body);
+    const { after, number } = body.variables;
+    if (body.query === MORE_REVIEWS)
+      return {
+        data: {
+          repository: { pullRequest: { reviews: page([node(4, "APPROVED")]) } },
+        },
+      };
+    const pulls =
+      after === null
+        ? page(
+            [
+              {
+                number: 1,
+                reviews: page(
+                  [node(1, "CHANGES_REQUESTED"), node(2, "COMMENTED")],
+                  "r1",
+                ),
+              },
+            ],
+            "p1",
+          )
+        : page([
+            {
+              number: 7,
+              reviews: page([
+                node(3, "APPROVED", { author: null, commit: null }),
+              ]),
+            },
+          ]);
+    assert.equal(number, undefined);
+    return { data: { repository: { pullRequests: pulls } } };
+  };
+  const { directory, done } = run({ issues: [[{ number: 1 }]] }, { graphql });
+  assert.equal((await done).reviews, 4);
+  const written = readFileSync(join(directory, "reviews.ndjson"), "utf8")
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  assert.deepEqual(
+    written.map(({ pull_request, id, state }) => [pull_request, id, state]),
+    [
+      [1, 1, "CHANGES_REQUESTED"],
+      [1, 2, "COMMENTED"],
+      [1, 4, "APPROVED"],
+      [7, 3, "APPROVED"],
+    ],
+  );
+  assert.deepEqual(written[0], {
+    pull_request: 1,
+    id: 1,
+    user: "reviewer",
+    state: "CHANGES_REQUESTED",
+    body: "review 1",
+    submitted_at: "2026-11-11T00:00:00Z",
+    commit_id: "c".repeat(40),
+    html_url: "https://github.com/o/r/pull/1#pullrequestreview-1",
+  });
+  // A deleted account or a review without a commit is still kept.
+  assert.equal(written[3].user, null);
+  assert.equal(written[3].commit_id, null);
+  // Pull requests a hundred at a time, oldest first; a pull request with
+  // more reviews than one page is read on from its own cursor.
+  assert.deepEqual(
+    bodies.map(({ query, variables }) => [query === PULL_REVIEWS, variables]),
+    [
+      [true, { owner: "o", name: "r", after: null }],
+      [false, { owner: "o", name: "r", number: 1, after: "r1" }],
+      [true, { owner: "o", name: "r", after: "p1" }],
+    ],
+  );
+  assert.match(
+    PULL_REVIEWS,
+    /pullRequests\(first: 100, after: \$after, orderBy: \{field: CREATED_AT, direction: ASC\}\)/,
+  );
+});
+
+test("a refused GraphQL query fails the export without echoing it", async () => {
+  const graphql = () => ({
+    data: null,
+    errors: [{ message: "secret detail" }],
+  });
+  const list = async () => {
+    for await (const _ of reviews("o/r", "t", api({}, { graphql })));
+  };
+  await assert.rejects(list, /^Error: GraphQL refused$/);
+  const { directory, done } = run({ issues: [[{ number: 1 }]] }, { graphql });
+  await assert.rejects(done, /GraphQL refused/);
+  assert.equal(readdirSync(directory).includes("manifest.json"), false);
 });
 
 test("an empty, refused or misdirected export fails instead of being kept", async () => {

@@ -548,7 +548,7 @@ jobs:
           install_args: node
       # A clone holds the source and its history. Issues, pull requests and
       # review discussion live only on GitHub, so they are exported and kept.
-      - name: Export issues, pull requests and their comments
+      - name: Export issues, pull requests, their comments and reviews
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/security/repository-records.mjs export "$RUNNER_TEMP/records" | tee -a "$GITHUB_STEP_SUMMARY"

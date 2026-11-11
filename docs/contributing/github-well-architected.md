@@ -129,7 +129,7 @@ What a clone does not hold is what has to be kept.
 |---|---|---|
 | Source and full history | Any clone | Every week a fresh full clone is made, its objects are checked with `git fsck`, and it must hold the commit the run was started for |
 | Repository settings | The declarations under [`ops/github/`](../../ops/github/README.md) | The weekly [change alarm](../../ops/github/README.md#change-alarm) lists where live settings differ from them; an administrator re-applies with `--apply` |
-| Issues, pull requests, comments and review discussion | The `repository-records` artifact of the weekly security run, kept 90 days | The export fails if it is empty, refused or cut short ([`repository-records.mjs`](../../scripts/security/repository-records.mjs)) |
+| Issues, pull requests, comments, and reviews with their decisions | The `repository-records` artifact of the weekly security run, kept 90 days | The export fails if it is empty, refused or cut short ([`repository-records.mjs`](../../scripts/security/repository-records.mjs)) |
 | Releases and their evidence | The release itself and its signed attestations | [Release kit](../operators/release-kit.md) |
 
 The artifact lives on GitHub, so it protects against a deleted issue or pull
