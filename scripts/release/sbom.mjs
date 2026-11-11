@@ -24,11 +24,24 @@ const ALGORITHMS = { sha1: "SHA-1", sha256: "SHA-256", sha512: "SHA-512" };
 // A package needed at runtime anywhere outranks a development-only copy.
 const SCOPE_RANK = { required: 2, optional: 1, excluded: 0 };
 
+// The purl specification percent-encodes the version: `1.0.0+build` is
+// written `1.0.0%2Bbuild`.
 function npmPurl(name, version) {
   const path = name.startsWith("@")
     ? `${encodeURIComponent(name.slice(0, name.indexOf("/")))}${name.slice(name.indexOf("/"))}`
     : name;
-  return `pkg:npm/${path}@${version}`;
+  return `pkg:npm/${path}@${encodeURIComponent(version)}`;
+}
+
+/**
+ * A crate's purl. One taken from git says so with a `vcs_url` qualifier,
+ * so a scanner does not match it against crates.io advisories.
+ */
+function cargoPurl({ name, version, source }) {
+  const purl = `pkg:cargo/${name}@${encodeURIComponent(version)}`;
+  const git = /^git\+([^?#]+)(?:\?[^#]*)?#([0-9a-f]+)$/.exec(source);
+  if (!git) return purl;
+  return `${purl}?vcs_url=${encodeURIComponent(`git+${git[1]}@${git[2]}`)}`;
 }
 
 /** CycloneDX hash entries for an npm Subresource Integrity string. */
@@ -102,7 +115,7 @@ export function cargoComponents(text) {
   const components = new Map();
   for (const crate of cargoPackages(text)) {
     if (!crate.source || !crate.name || !crate.version) continue;
-    const purl = `pkg:cargo/${crate.name}@${crate.version}`;
+    const purl = cargoPurl(crate);
     const component = {
       type: "library",
       "bom-ref": purl,
