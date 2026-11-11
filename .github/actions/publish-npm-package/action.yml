@@ -72,10 +72,14 @@ runs:
         esac
         # Non-empty token: NODE_AUTH_TOKEN only. Do not try OIDC first.
         # Empty token: OIDC trusted publishing (id-token: write) only.
+        # Each publish says which it is, so a stored token is never in quiet
+        # use. Only the kind of credential is printed, never a value.
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
           export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
+          echo "::warning title=npm credential::This publish uses the stored NPM_TOKEN secret, which outlives the run. Configure the npm trusted publisher and delete the secret: docs/operators/publishing.md."
         else
           unset NODE_AUTH_TOKEN
+          echo "::notice title=npm credential::This publish uses OIDC trusted publishing. No stored npm token is read."
         fi
         unset NPM_TOKEN_INPUT
         node "${GITHUB_WORKSPACE}/scripts/release/npm-trunk-publish.mjs"
