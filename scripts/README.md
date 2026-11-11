@@ -127,6 +127,7 @@ the others report on the terminal (`deepsec` keeps its state under
 
 | File | Used by |
 |---|---|
+| `settings-snapshot.mjs`, `settings-diff.mjs`, `settings-archive.mjs` | `security.yml` job `repository-settings`: records the rulesets, environments and repository state a read-only token can see, and fails when one changed since the previous record. See [change alarm](../ops/github/README.md#change-alarm). |
 | `assert-no-advisories.mjs` | `audit:osv`: accepts only an empty findings array; every advisory and malformed report fails the gate. The removed `braces` and `node-forge` dependencies have no advisory exceptions. |
 | `exposure-matrix-gate.mjs` | `audit:exposure`: checks reviewed observer/artifact combinations and source fingerprints. Commit hooks use `--staged`; push hooks use `--push-refs`; CI uses `--ref HEAD`. See [the review workflow](../docs/security/exposure-matrix.md). |
 | `patched-dependencies.mjs` | `patches:build`, `patches:verify`: builds each tarball under [`patches/vendor/`](../patches/README.md) from the published package plus its patch, and proves a committed tarball is exactly that. `patched-dependencies.test.mjs` checks, without the network, that the lockfile installs the patched code. |

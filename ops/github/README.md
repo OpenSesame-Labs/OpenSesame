@@ -90,3 +90,54 @@ using the GitHub commits API. The hermetic regression in
 rejects unpinned actions and retained checkout credentials. It does not assert
 that pinned third-party code is trustworthy or that branch policy fixes runtime
 authorization defects. Full audits and model reviews remain private/local.
+
+## Change alarm
+
+The audit log cannot be streamed or queried from this repository, so a ruleset
+that is disabled, an environment that loses its reviewer, a change of
+visibility or an archived repository raised no alert. The `repository-settings`
+job in `.github/workflows/security.yml` closes the part of that gap a
+read-only token can reach. On every scheduled run it:
+
+1. records the repository's visibility, archive and fork settings, whether the
+   default branch is protected, every ruleset and every deployment environment
+   with its reviewers, administrator bypass and branch policy
+   (`scripts/security/settings-snapshot.mjs collect`);
+2. lists live rulesets that differ from the three declared here, in the run
+   summary (`declared`; informational, it never fails the run);
+3. keeps the record as the `repository-settings` artifact for 90 days;
+4. fails when the record differs from the previous one on the same branch,
+   naming each setting with its value before and now (`compare`);
+5. fails when any section could not be read (`readable`), because a section
+   that is unreadable on every run would otherwise compare equal to itself
+   and never raise the alarm.
+
+The previous record is used only when this workflow's own scheduled run on the
+same branch of this repository uploaded it. Any other workflow run, a fork's
+pull request included, can upload an artifact under the same name; such a
+record is passed over. A hand-started run records and compares, but its record
+is never a baseline: otherwise anyone who can start the workflow could make a
+changed setting the record the next scheduled run compares against.
+
+The new record is kept before the comparison, so one change fails one
+scheduled run and the next starts from the new state. A failed run is the
+alert. GitHub sends a scheduled run's failure notification to the person who
+last changed the workflow's schedule, so keep that person someone who acts on
+it, or watch the run history. Treat it as a question, "did the owner make this
+change?", and answer it before the next run clears it.
+
+Limits, stated so the alarm is not read as more than it is:
+
+- It sees a change at the next run, not when it happens, and not who made it.
+  A setting changed and restored between two runs is not seen.
+- The job's token is not shown ruleset bypass lists, secret names, the Actions
+  policy, collaborators or installed apps. The record says "not visible" for a
+  bypass list; the rest is absent. `governance.mjs --verify`, run by an
+  administrator, covers the bypass lists.
+- A section the token cannot read is recorded as unavailable, and the run
+  fails for as long as it stays unreadable.
+- The first scheduled run, and the first after 90 days without one, has
+  nothing to compare with and only records. A run started by hand on a branch
+  that has no scheduled runs only records too.
+
+It reads; it never writes a setting.
