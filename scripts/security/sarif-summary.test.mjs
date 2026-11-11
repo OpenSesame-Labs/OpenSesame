@@ -123,7 +123,7 @@ test("the image job cannot pass when the scanner did not run", () => {
     "image",
     "--archive",
     "--format=sarif",
-    "--output=image.sarif",
+    "--output-file=image.sarif",
     "image.tar",
   ]);
   const check = steps[scan + 1];

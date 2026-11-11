@@ -217,7 +217,7 @@ jobs:
             image
             --archive
             --format=sarif
-            --output=image.sarif
+            --output-file=image.sarif
             image.tar
         # Exit 1 means advisories were found. They are reported below, not
         # hidden: a base image always carries some, and a permanently red job
