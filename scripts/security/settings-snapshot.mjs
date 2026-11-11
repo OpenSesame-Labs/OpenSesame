@@ -15,6 +15,10 @@
 // It only reads. A section the token cannot read is recorded as unavailable,
 // so losing access shows up as a change too. Values here are setting names,
 // rule parameters and numeric ids: none is a secret.
+//
+// The previous record is trusted only when this repository's own run of this
+// workflow uploaded it. Any workflow run, including one for a pull request
+// from a fork, can upload an artifact under any name.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -24,7 +28,10 @@ import { isJsonObject } from "../lib/json-boundary.mjs";
 
 export const ARTIFACT = "repository-settings";
 export const FILE = "repository-settings.json";
+export const WORKFLOW = ".github/workflows/security.yml";
 const API = "https://api.github.com";
+const PAGE = 100;
+const MAX_PAGES = 50;
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const REPOSITORY_FIELDS = [
   "visibility",
@@ -75,6 +82,10 @@ export function rulesetView(ruleset) {
 }
 
 export function environmentView(environment, branches) {
+  // A branch-policy list that could not be read stays visibly unread.
+  const deployment = Array.isArray(branches)
+    ? branches.map((branch) => `${branch.type}:${branch.name}`).sort()
+    : branches;
   const rules = (environment.protection_rules ?? []).map((rule) => ({
     type: rule.type,
     wait_timer: rule.wait_timer ?? null,
@@ -84,11 +95,10 @@ export function environmentView(environment, branches) {
       .sort(),
   }));
   return {
+    can_admins_bypass: environment.can_admins_bypass ?? null,
     protection_rules: rules.sort((a, b) => (a.type < b.type ? -1 : 1)),
     deployment_branch_policy: environment.deployment_branch_policy ?? null,
-    deployment_branches: branches
-      .map((branch) => `${branch.type}:${branch.name}`)
-      .sort(),
+    deployment_branches: deployment,
   };
 }
 
@@ -105,9 +115,14 @@ export function changes(previous, current, path = []) {
   return [{ setting: path.join(" › "), previous, current }];
 }
 
+/** Text that cannot break out of a table cell, a code span or its line. */
+function plain(text) {
+  return text.replace(/[\p{Cc}`|]/gu, " ");
+}
+
 function show(value) {
   if (value === undefined) return "absent";
-  const text = JSON.stringify(value);
+  const text = plain(JSON.stringify(value));
   return text.length > 160 ? `${text.slice(0, 157)}…` : text;
 }
 
@@ -115,7 +130,7 @@ export function renderChanges(found, heading, columns = ["Before", "Now"]) {
   if (found.length === 0) return `${heading}: none.\n`;
   const rows = found.map(
     (entry) =>
-      `| ${entry.setting} | \`${show(entry.previous)}\` | \`${show(entry.current)}\` |`,
+      `| ${plain(entry.setting)} | \`${show(entry.previous)}\` | \`${show(entry.current)}\` |`,
   );
   return [
     `${heading}: ${found.length}.`,
@@ -129,38 +144,69 @@ export function renderChanges(found, heading, columns = ["Before", "Now"]) {
 
 /** Live rulesets against the declarations, leaving out what the token cannot see. */
 export function declaredDifferences(snapshot, declarations) {
-  const live = snapshot.rulesets ?? {};
+  const live = Object.entries(snapshot.rulesets ?? {}).filter(
+    ([, ruleset]) => isJsonObject(ruleset) && Array.isArray(ruleset.rules),
+  );
   return declarations.flatMap((declared) => {
-    const current = live[declared.name];
-    if (!isJsonObject(current) || !Array.isArray(current.rules))
-      return [{ setting: declared.name, previous: "declared", current }];
-    // The bypass list is compared only when this token was shown it.
-    const fields = Array.isArray(current.bypass_actors)
-      ? [...COMPARED, "bypass_actors"]
-      : COMPARED;
-    return changes(
-      pick(policyView(declared, declared), fields),
-      pick(policyView(current, declared), fields),
-      [declared.name],
+    const named = live.filter(([, ruleset]) => ruleset.name === declared.name);
+    if (named.length === 0)
+      return [
+        { setting: declared.name, previous: "declared", current: undefined },
+      ];
+    const shared =
+      named.length === 1
+        ? []
+        : [
+            {
+              setting: declared.name,
+              previous: "declared once",
+              current: `${named.length} live rulesets share this name`,
+            },
+          ];
+    return shared.concat(
+      named.flatMap(([key, current]) => {
+        // The bypass list is compared only when this token was shown it.
+        const fields = Array.isArray(current.bypass_actors)
+          ? [...COMPARED, "bypass_actors"]
+          : COMPARED;
+        return changes(
+          pick(policyView(declared, declared), fields),
+          pick(policyView(current, declared), fields),
+          [key],
+        );
+      }),
     );
   });
 }
 
-async function request(path, token, fetcher = fetch) {
-  const response = await fetcher(
-    path.startsWith("http") ? path : `${API}${path}`,
-    {
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${token}`,
-        "x-github-api-version": "2022-11-28",
-        "user-agent": "opensesame-settings-snapshot",
-      },
+async function request(url, token, fetcher = fetch) {
+  // The token goes to GitHub's API and nowhere else, whatever a response says.
+  if (!url.startsWith(`${API}/`)) throw new Error("not a GitHub API address");
+  const response = await fetcher(url, {
+    headers: {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${token}`,
+      "x-github-api-version": "2022-11-28",
+      "user-agent": "opensesame-settings-snapshot",
     },
-  );
+  });
   // The status is the diagnosis. A response body is never echoed.
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response;
+}
+
+/** Every item of a paged list. `key` names the array in a wrapped response. */
+async function pages(read, path, key) {
+  const items = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const body = await read(`${path}&page=${page}`);
+    const batch = key ? body[key] : body;
+    if (!Array.isArray(batch)) throw new Error("unexpected response shape");
+    items.push(...batch);
+    if (batch.length < PAGE) return items;
+  }
+  // A list too long to read in full is unread, never silently cut short.
+  throw new Error(`more than ${MAX_PAGES * PAGE} entries`);
 }
 
 async function section(read) {
@@ -174,7 +220,7 @@ async function section(read) {
 /** The settings this token can read, in a fixed shape and order. */
 export async function collect({ repository, token, fetcher }) {
   const get = async (path) =>
-    (await request(`/repos/${repository}${path}`, token, fetcher)).json();
+    (await request(`${API}/repos/${repository}${path}`, token, fetcher)).json();
   const repo = await section(() => get(""));
   const branch = repo.default_branch ?? "main";
   return stable({
@@ -184,19 +230,35 @@ export async function collect({ repository, token, fetcher }) {
         (await get(`/branches/${encodeURIComponent(branch)}`)).protected,
     ),
     rulesets: await section(async () => {
-      const listed = await get("/rulesets?per_page=100&includes_parents=true");
+      const listed = await pages(
+        get,
+        `/rulesets?per_page=${PAGE}&includes_parents=true`,
+      );
       const entries = [];
+      // Keyed by name and id: two rulesets may share a name, and one that is
+      // deleted and recreated is a different ruleset.
       for (const { id, name } of listed)
-        entries.push([name, rulesetView(await get(`/rulesets/${id}`))]);
+        entries.push([
+          `${name} [${id}]`,
+          rulesetView(await get(`/rulesets/${id}`)),
+        ]);
       return Object.fromEntries(entries);
     }),
     environments: await section(async () => {
-      const { environments } = await get("/environments?per_page=100");
+      const environments = await pages(
+        get,
+        `/environments?per_page=${PAGE}`,
+        "environments",
+      );
       const entries = [];
       for (const environment of environments) {
         const name = encodeURIComponent(environment.name);
-        const { branch_policies: branches = [] } = await section(() =>
-          get(`/environments/${name}/deployment-branch-policies?per_page=100`),
+        const branches = await section(() =>
+          pages(
+            get,
+            `/environments/${name}/deployment-branch-policies?per_page=${PAGE}`,
+            "branch_policies",
+          ),
         );
         entries.push([
           environment.name,
@@ -208,27 +270,67 @@ export async function collect({ repository, token, fetcher }) {
   });
 }
 
-/** The newest earlier snapshot recorded on the same branch, if any. */
-export function previousArtifact(artifacts, { branch, runId }) {
+/** Earlier records uploaded from this repository's own branch, newest first. */
+export function previousArtifacts(artifacts, { branch, runId }) {
   return artifacts
     .filter((artifact) => artifact.name === ARTIFACT && !artifact.expired)
-    .filter((artifact) => artifact.workflow_run?.head_branch === branch)
-    .filter((artifact) => String(artifact.workflow_run?.id) !== String(runId))
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+    .filter((artifact) => {
+      const run = artifact.workflow_run ?? {};
+      return (
+        run.head_branch === branch &&
+        String(run.id) !== String(runId) &&
+        // A pull request from a fork runs in this repository with the fork
+        // as its head, and may name its branch anything.
+        run.repository_id !== undefined &&
+        run.head_repository_id === run.repository_id
+      );
+    })
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+}
+
+/** Whether the run that uploaded a record was this workflow, not another. */
+export function trustedRun(run, { branch }) {
+  return (
+    run?.path === WORKFLOW &&
+    run.head_branch === branch &&
+    ["schedule", "workflow_dispatch"].includes(run.event)
+  );
+}
+
+/** The newest trusted earlier record, or undefined. */
+export async function previousArtifact({
+  repository,
+  token,
+  branch,
+  runId,
+  fetcher,
+}) {
+  const get = async (path) =>
+    (await request(`${API}/repos/${repository}${path}`, token, fetcher)).json();
+  const artifacts = await pages(
+    get,
+    `/actions/artifacts?name=${ARTIFACT}&per_page=${PAGE}`,
+    "artifacts",
+  );
+  for (const artifact of previousArtifacts(artifacts, { branch, runId })) {
+    const run = await get(`/actions/runs/${artifact.workflow_run.id}`);
+    if (trustedRun(run, { branch })) return artifact;
+  }
+  return undefined;
 }
 
 async function downloadPrevious(directory, env) {
-  const listed = await request(
-    `/repos/${env.GITHUB_REPOSITORY}/actions/artifacts?name=${ARTIFACT}&per_page=100`,
-    env.GH_TOKEN,
-  );
-  const { artifacts } = await listed.json();
-  const artifact = previousArtifact(artifacts, {
+  const artifact = await previousArtifact({
+    repository: env.GITHUB_REPOSITORY,
+    token: env.GH_TOKEN,
     branch: env.GITHUB_REF_NAME,
     runId: env.GITHUB_RUN_ID,
   });
   if (!artifact) return false;
-  const archive = await request(artifact.archive_download_url, env.GH_TOKEN);
+  const archive = await request(
+    `${API}/repos/${env.GITHUB_REPOSITORY}/actions/artifacts/${Number(artifact.id)}/zip`,
+    env.GH_TOKEN,
+  );
   mkdirSync(directory, { recursive: true });
   const zip = join(directory, "previous.zip");
   writeFileSync(zip, Buffer.from(await archive.arrayBuffer()));

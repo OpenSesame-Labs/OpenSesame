@@ -101,13 +101,18 @@ read-only token can reach. On every scheduled run it:
 
 1. records the repository's visibility, archive and fork settings, whether the
    default branch is protected, every ruleset and every deployment environment
-   with its reviewers and branch policy (`scripts/security/settings-snapshot.mjs
-   collect`);
+   with its reviewers, administrator bypass and branch policy
+   (`scripts/security/settings-snapshot.mjs collect`);
 2. lists live rulesets that differ from the three declared here, in the run
    summary (`declared`; informational, it never fails the run);
 3. keeps the record as the `repository-settings` artifact for 90 days;
 4. fails when the record differs from the previous one on the same branch,
    naming each setting with its value before and now (`compare`).
+
+The previous record is used only when this workflow's own scheduled or
+hand-started run on the same branch of this repository uploaded it. Any other
+workflow run, a fork's pull request included, can upload an artifact under the
+same name; such a record is passed over.
 
 The new record is kept before the comparison, so one change fails one run and
 the next run starts from the new state. A failed run is the alert: GitHub
