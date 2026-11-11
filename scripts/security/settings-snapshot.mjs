@@ -25,6 +25,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { policyView } from "../lib/github-governance.mjs";
 import { isJsonObject } from "../lib/json-boundary.mjs";
+import { changes, renderChanges, stable } from "./settings-diff.mjs";
+
+export { changes, renderChanges, stable };
 
 export const ARTIFACT = "repository-settings";
 export const FILE = "repository-settings.json";
@@ -62,17 +65,6 @@ function pick(source, keys) {
   return Object.fromEntries(keys.map((key) => [key, source?.[key] ?? null]));
 }
 
-/** Same value with every object's keys in a fixed order. */
-export function stable(value) {
-  if (Array.isArray(value)) return value.map(stable);
-  if (!isJsonObject(value)) return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, stable(value[key])]),
-  );
-}
-
 export function rulesetView(ruleset) {
   return {
     ...pick(ruleset, RULESET_FIELDS),
@@ -100,46 +92,6 @@ export function environmentView(environment, branches) {
     deployment_branch_policy: environment.deployment_branch_policy ?? null,
     deployment_branches: deployment,
   };
-}
-
-/** Every path whose value differs, with both values. */
-export function changes(previous, current, path = []) {
-  if (isJsonObject(previous) && isJsonObject(current)) {
-    const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
-    return [...keys]
-      .sort()
-      .flatMap((key) => changes(previous[key], current[key], [...path, key]));
-  }
-  if (JSON.stringify(stable(previous)) === JSON.stringify(stable(current)))
-    return [];
-  return [{ setting: path.join(" › "), previous, current }];
-}
-
-/** Text that cannot break out of a table cell, a code span or its line. */
-function plain(text) {
-  return text.replace(/[\p{Cc}`|]/gu, " ");
-}
-
-function show(value) {
-  if (value === undefined) return "absent";
-  const text = plain(JSON.stringify(value));
-  return text.length > 160 ? `${text.slice(0, 157)}…` : text;
-}
-
-export function renderChanges(found, heading, columns = ["Before", "Now"]) {
-  if (found.length === 0) return `${heading}: none.\n`;
-  const rows = found.map(
-    (entry) =>
-      `| ${plain(entry.setting)} | \`${show(entry.previous)}\` | \`${show(entry.current)}\` |`,
-  );
-  return [
-    `${heading}: ${found.length}.`,
-    "",
-    `| Setting | ${columns[0]} | ${columns[1]} |`,
-    "|---|---|---|",
-    ...rows,
-    "",
-  ].join("\n");
 }
 
 /** Live rulesets against the declarations, leaving out what the token cannot see. */
@@ -253,13 +205,18 @@ export async function collect({ repository, token, fetcher }) {
       const entries = [];
       for (const environment of environments) {
         const name = encodeURIComponent(environment.name);
-        const branches = await section(() =>
-          pages(
-            get,
-            `/environments/${name}/deployment-branch-policies?per_page=${PAGE}`,
-            "branch_policies",
-          ),
-        );
+        // Only an environment with a custom list has one to read.
+        const custom =
+          environment.deployment_branch_policy?.custom_branch_policies;
+        const branches = custom
+          ? await section(() =>
+              pages(
+                get,
+                `/environments/${name}/deployment-branch-policies?per_page=${PAGE}`,
+                "branch_policies",
+              ),
+            )
+          : [];
         entries.push([
           environment.name,
           environmentView(environment, branches),

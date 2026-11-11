@@ -182,6 +182,68 @@ test("a list longer than one page is read to its end", async () => {
   ]);
 });
 
+test("a changed rule is named down to the parameter", async () => {
+  const before = await snapshot();
+  const weaker = structuredClone(branchPolicy);
+  const review = weaker.rules.find((rule) => rule.type === "pull_request");
+  const declared = review.parameters.required_approving_review_count;
+  review.parameters.required_approving_review_count = 0;
+  weaker.rules = weaker.rules.filter((rule) => rule.type !== "deletion");
+  const after = await snapshot({ "/rulesets/1": weaker });
+  const rules = `rulesets › ${rulesetKey} › rules`;
+  assert.deepEqual(changes(before, after), [
+    {
+      setting: `${rules} › deletion`,
+      previous: { type: "deletion" },
+      current: undefined,
+    },
+    {
+      setting: `${rules} › pull_request › parameters › required_approving_review_count`,
+      previous: declared,
+      current: 0,
+    },
+  ]);
+  const noReviewer = await snapshot({
+    [ENVIRONMENTS]: {
+      environments: [
+        {
+          ...RELEASE,
+          protection_rules: [{ type: "required_reviewers", reviewers: [] }],
+        },
+      ],
+    },
+  });
+  assert.ok(
+    settings(changes(before, noReviewer)).includes(
+      "environments › release › protection_rules › required_reviewers › reviewers",
+    ),
+  );
+  // Two entries of one type stay distinct instead of one hiding the other.
+  const twice = [
+    { type: "t", n: 1 },
+    { type: "t", n: 2 },
+  ];
+  const edited = [
+    { type: "t", n: 1 },
+    { type: "t", n: 3 },
+  ];
+  assert.deepEqual(settings(changes({ r: twice }, { r: edited })), [
+    "r › t #1 › n",
+  ]);
+});
+
+test("an environment open to every branch has no branch list to read", async () => {
+  const open = { ...RELEASE, name: "open", deployment_branch_policy: null };
+  const fetcher = api({ [ENVIRONMENTS]: { environments: [open] } });
+  const record = await collect({ repository: "o/r", token: "t", fetcher });
+  assert.deepEqual(record.environments.open.deployment_branches, []);
+  assert.equal(record.environments.open.deployment_branch_policy, null);
+  assert.equal(
+    fetcher.seen.some(({ url }) => url.includes("deployment-branch-policies")),
+    false,
+  );
+});
+
 test("key order is not a change, a removed rule is", () => {
   const record = {
     rulesets: { a: { rules: [{ type: "deletion" }, { type: "update" }] } },
