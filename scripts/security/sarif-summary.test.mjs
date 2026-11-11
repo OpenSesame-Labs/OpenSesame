@@ -100,11 +100,17 @@ test("the image job cannot pass when the scanner did not run", () => {
     readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
   );
   const job = workflow.jobs["container-images"];
-  // Every published image, both platforms, both moving tags.
+  // Both moving tags of exactly what the publish workflow's manifest job
+  // publishes: the two lists cannot drift apart.
+  const published = parse(
+    readFileSync(join(root, ".github/workflows/cd-ghcr-publish.yml"), "utf8"),
+  ).jobs.manifests.strategy.matrix.include.flatMap((row) =>
+    row.platforms.split(" ").map((arch) => ({ image: row.name, arch })),
+  );
+  assert.equal(published.length, 6);
   assert.deepEqual(job.strategy.matrix, {
-    image: ["opensesame", "cli", "web-pwa", "control-plane"],
-    arch: ["amd64", "arm64"],
     tag: ["next", "latest"],
+    target: published,
   });
   assert.equal(job.strategy["fail-fast"], false);
   assert.deepEqual(job.permissions, {
@@ -140,7 +146,7 @@ test("the image job cannot pass when the scanner did not run", () => {
   assert.equal(upload.with.sarif_file, "image.sarif");
   assert.match(
     upload.with.category,
-    /matrix\.image.*matrix\.tag.*matrix\.arch/,
+    /matrix\.target\.image.*matrix\.tag.*matrix\.target\.arch/,
   );
   // The three steps after the pull run exactly when an image was pulled.
   for (const step of [steps[scan], check, upload])
@@ -153,15 +159,21 @@ test("only an unreleased latest tag may be absent, and the image is never run", 
   );
   const job = workflow.jobs["container-images"];
   const pull = job.steps.find((step) => step.id === "pull").run;
-  assert.match(pull, /docker pull --quiet --platform "\$PLATFORM" "\$IMAGE"/);
-  assert.match(pull, /docker save --output image\.tar "\$IMAGE"/);
+  // Pulled and saved by the platform image's own digest, never by tag.
+  assert.match(pull, /docker pull --quiet "\$IMAGE@\$digest"/);
+  assert.match(pull, /docker save --output image\.tar "\$IMAGE@\$digest"/);
+  assert.match(
+    pull,
+    /select\(\.platform\.os == "linux" and \.platform\.architecture == \$arch\)/,
+  );
+  assert.match(pull, /publishes no linux\/\$ARCH image"\n\s*exit 1/);
   assert.equal(/docker (run|exec|create|start)\b/.test(pull), false);
   assert.match(pull, /--password-stdin/);
   assert.match(pull, /trap 'docker logout ghcr\.io' EXIT/);
   // Absence is tolerated for `latest` alone and only for "no such tag".
   const tolerated = pull.slice(
     pull.indexOf("if ! listing="),
-    pull.indexOf("docker pull --quiet"),
+    pull.indexOf("# The tag names a list"),
   );
   assert.equal(
     tolerated.includes(
@@ -171,5 +183,42 @@ test("only an unreleased latest tag may be absent, and the image is never run", 
   );
   assert.match(tolerated, /published=false/);
   assert.match(tolerated, /exit 1\n\s*fi\n$/);
-  assert.equal(job.env.PLATFORM, "linux/${{ matrix.arch }}");
+  assert.equal(job.env.ARCH, "${{ matrix.target.arch }}");
+});
+
+test("the dev container image is built from its definition and scanned the same way", () => {
+  const workflow = parse(
+    readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
+  );
+  const job = workflow.jobs["devcontainer-image"];
+  assert.deepEqual(job.permissions, {
+    contents: "read",
+    "security-events": "write",
+  });
+  const steps = job.steps;
+  const build = steps[1].run;
+  assert.match(
+    build,
+    /docker build .*--file \.devcontainer\/Dockerfile .*\.devcontainer\n/,
+  );
+  assert.match(build, /docker save --output image\.tar /);
+  assert.equal(
+    /docker (run|exec|create|start|push|login)\b/.test(build),
+    false,
+  );
+  const images = workflow.jobs["container-images"].steps;
+  const scanOf = (list) =>
+    list.find((step) => String(step.uses ?? "").startsWith("google/"));
+  // Same scanner, same arguments, same tolerance as the published images.
+  assert.deepEqual(scanOf(steps).with, scanOf(images).with);
+  assert.equal(scanOf(steps).uses, scanOf(images).uses);
+  assert.equal(scanOf(steps)["continue-on-error"], true);
+  const check = steps[steps.indexOf(scanOf(steps)) + 1];
+  assert.match(
+    check.run,
+    /^node scripts\/security\/sarif-summary\.mjs image\.sarif /,
+  );
+  assert.equal(check["continue-on-error"], undefined);
+  assert.equal(check.if, undefined);
+  assert.equal(steps.at(-1).with.category, "container-image-devcontainer");
 });

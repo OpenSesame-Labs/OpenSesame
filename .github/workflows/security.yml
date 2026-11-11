@@ -174,7 +174,7 @@ jobs:
           sarif_file: osv-results.sarif
 
   container-images:
-    name: Published image (${{ matrix.image }}:${{ matrix.tag }}, ${{ matrix.arch }})
+    name: Published image (${{ matrix.target.image }}:${{ matrix.tag }}, ${{ matrix.target.arch }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -184,16 +184,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [opensesame, cli, web-pwa, control-plane]
-        # Both published platforms of both moving tags: `next` is replaced by
-        # every push to main and `latest` by every release tag
-        # (docs/operators/ghcr-images.md).
-        arch: [amd64, arm64]
+        # Both moving tags: `next` is replaced by every push to main and
+        # `latest` by every release tag (docs/operators/ghcr-images.md).
         tag: [next, latest]
+        # Every image and platform the manifest job of cd-ghcr-publish.yml
+        # publishes. A test keeps the two lists equal.
+        target:
+          - { image: opensesame, arch: amd64 }
+          - { image: cli, arch: amd64 }
+          - { image: cli, arch: arm64 }
+          - { image: web-pwa, arch: amd64 }
+          - { image: control-plane, arch: amd64 }
+          - { image: control-plane, arch: arm64 }
     env:
-      IMAGE: ghcr.io/opensesame-labs/${{ matrix.image }}:${{ matrix.tag }}
-      PLATFORM: linux/${{ matrix.arch }}
+      IMAGE: ghcr.io/opensesame-labs/${{ matrix.target.image }}
       TAG: ${{ matrix.tag }}
+      ARCH: ${{ matrix.target.arch }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -203,8 +209,7 @@ jobs:
       # The lockfile scan sees what the repository pins. It cannot see the
       # base image's operating-system packages or what a build copies in. This
       # scans the bytes that were actually published. The image is pulled and
-      # saved for the platform named, on this runner's own platform; nothing
-      # in it is run.
+      # saved by the digest of the platform named; nothing in it is run.
       - name: Pull the published image and save it for the scanner
         id: pull
         env:
@@ -216,20 +221,26 @@ jobs:
           # `latest` exists only once a release tag has been published. Its
           # absence is stated, not failed. A missing `next` fails: every push
           # to main publishes it.
-          if ! listing="$(docker manifest inspect "$IMAGE" 2>&1)"; then
+          if ! listing="$(docker manifest inspect "$IMAGE:$TAG" 2>&1)"; then
             if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest|not found' <<<"$listing"; then
               echo "published=false" >> "$GITHUB_OUTPUT"
-              printf 'No release has published `%s` yet: nothing to scan.\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+              printf 'No release has published `%s` yet: nothing to scan.\n' "$IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             printf '%s\n' "$listing" >&2
             exit 1
           fi
-          docker pull --quiet --platform "$PLATFORM" "$IMAGE"
-          docker save --output image.tar "$IMAGE"
-          digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE")"
+          # The tag names a list of platform images. Take this platform's own
+          # digest, so exactly that image is pulled, saved and reported.
+          digest="$(jq -r --arg arch "$ARCH" '[.manifests[]? | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest] | first // empty' <<<"$listing")"
+          if [ -z "$digest" ]; then
+            echo "::error::$IMAGE:$TAG publishes no linux/$ARCH image"
+            exit 1
+          fi
+          docker pull --quiet "$IMAGE@$digest"
+          docker save --output image.tar "$IMAGE@$digest"
           echo "published=true" >> "$GITHUB_OUTPUT"
-          printf 'Scanned image: `%s` (%s)\n\n' "$digest" "$PLATFORM" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Scanned image: `%s` (`%s`, linux/%s)\n\n' "$IMAGE@$digest" "$TAG" "$ARCH" >> "$GITHUB_STEP_SUMMARY"
       - name: Scan every layer against the OSV database
         if: steps.pull.outputs.published == 'true'
         uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
@@ -253,7 +264,49 @@ jobs:
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           sarif_file: image.sarif
-          category: container-image-${{ matrix.image }}-${{ matrix.tag }}-${{ matrix.arch }}
+          category: container-image-${{ matrix.target.image }}-${{ matrix.tag }}-${{ matrix.target.arch }}
+
+  devcontainer-image:
+    name: Dev container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .devcontainer
+            scripts/security
+      # The dev container image is built on a developer's machine, not
+      # published, so there is no registry copy to pull. This builds it from
+      # the definition a developer would use and scans that. Nothing in the
+      # image is run.
+      - name: Build the dev container image and save it for the scanner
+        run: |
+          docker build --quiet --file .devcontainer/Dockerfile --tag opensesame-devcontainer:scan .devcontainer
+          docker save --output image.tar opensesame-devcontainer:scan
+      - name: Scan every layer against the OSV database
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            scan
+            image
+            --archive
+            --format=sarif
+            --output-file=image.sarif
+            image.tar
+        # As above: findings are reported, a scanner that did not run fails.
+        continue-on-error: true
+      - name: Require a complete report and summarize it
+        run: node scripts/security/sarif-summary.mjs image.sarif >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload to the code-scanning dashboard
+        uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
+        with:
+          sarif_file: image.sarif
+          category: container-image-devcontainer
 
   gitleaks:
     name: gitleaks (full history)

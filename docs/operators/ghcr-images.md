@@ -2,12 +2,10 @@
 
 Hostable OpenSesame images. The registry is `ghcr.io/opensesame-labs`. Builds
 use the repository root as the Docker context. Each publish job builds one
-image and one platform, in parallel, with a 10 minute cap. `opensesame` is
-`linux/amd64` and `linux/arm64`. Node images (`cli`, `web-pwa`,
-`control-plane`) build both platforms too, on `ubuntu-latest` and
-`ubuntu-24.04-arm` (no QEMU). On a publish run, `web-pwa` arm64 builds the
-`runtime` target natively and does not wait for amd64. A non-publish proof
-still builds arm64 `runtime-from-prebuilt` from the amd64 image. A manifest
+image and one platform, in parallel, with a 10 minute cap. `cli` and
+`control-plane` build `linux/amd64` on `ubuntu-latest` and `linux/arm64` on
+`ubuntu-24.04-arm` (no QEMU). `opensesame` and `web-pwa` are `linux/amd64`
+only, so a cold build stays under the cap. A manifest
 job publishes the shared tag from those platform images. Layer cache is GitHub Actions
 (`type=gha`, `mode=max`), scoped by matrix id so rows do not clobber each
 other. A cold cache on the first publish can still miss the 10 minute cap.
@@ -45,18 +43,17 @@ pushes on `main` and on `v*` tags. It is not a job in `ci.yml`. There is no
 
 | Git ref | Shared tags (manifest job) | Platform tags (one build job each) |
 |---|---|---|
-| `main` | `:next` and `:sha-<GITHUB_SHA>` | `:sha-<GITHUB_SHA>-amd64` and `:sha-<GITHUB_SHA>-arm64` |
-| `v*` (for example `v1.2.3`) | `:<semver>` (`1.2.3`, the tag without `v`) and `:latest` | `:<semver>-amd64` and `:<semver>-arm64` |
+| `main` | `:next` and `:sha-<GITHUB_SHA>` | `:sha-<GITHUB_SHA>-amd64`, and `:sha-<GITHUB_SHA>-arm64` for `cli` and `control-plane` |
+| `v*` (for example `v1.2.3`) | `:<semver>` (`1.2.3`, the tag without `v`) and `:latest` | `:<semver>-amd64`, and `:<semver>-arm64` for `cli` and `control-plane` |
 
 Pull the shared tags. The platform tags exist so parallel jobs do not
-overwrite each other before the manifest job runs. `opensesame` publishes
-both amd64 and arm64 platform tags.
+overwrite each other before the manifest job runs. `opensesame` and
+`web-pwa` publish the amd64 platform tag only.
 
 Every matrix job, build and manifest, sets `timeout-minutes: 10`. Cache on
 each build is `cache-from: type=gha` and `cache-to: type=gha,mode=max`, with
-`scope` set to the row id (`opensesame-amd64`, `opensesame-arm64`,
-`cli-amd64`, `cli-arm64`, and the same pattern for `web-pwa` and
-`control-plane`).
+`scope` set to the row id (`opensesame-amd64`, `web-pwa-amd64`, `cli-amd64`,
+`cli-arm64`, `control-plane-amd64` and `control-plane-arm64`).
 
 A matrix row whose Dockerfile is not in that revision is skipped, so the
 workflow can land before the Node Dockerfiles. The manifest job skips that
@@ -89,9 +86,11 @@ run.
   be pulled or when the scanner did not produce a complete report, so "did not
   run" never reads as "nothing found".
 
-It scans both published platforms (`linux/amd64` and `linux/arm64`) of both
-moving tags: `:next`, which every push to `main` replaces, and `:latest`, which
-every release tag replaces. A release's `:<semver>` tag names the same image
+It scans every platform each image publishes (`linux/amd64` for all four,
+`linux/arm64` for `cli` and `control-plane`; a test keeps this list equal to
+the publish workflow's) under both moving tags: `:next`, which every push to
+`main` replaces, and `:latest`, which every release tag replaces. Each image is
+pulled by the digest of its own platform entry. A release's `:<semver>` tag names the same image
 `:latest` named when it was published, so the newest release is always
 covered; an older release is not rescanned once a newer one replaces
 `:latest`. Until the first release publishes `:latest`, its rows say so in the
@@ -99,6 +98,10 @@ summary and pass. A missing `:next` fails its row.
 
 Fix a finding by moving the base image digest in the Dockerfile or the
 dependency in the lockfile, then let the next publish replace the tag.
+
+The dev container image is not published, so the same workflow builds it from
+`.devcontainer/` and scans it the same way, under the category
+`container-image-devcontainer`.
 
 ## `opensesame` environment
 
@@ -132,10 +135,8 @@ belong in a derived image.
 `npm run build -w @opensesame/pages`, then `prepare-pages-release.mjs`. The
 server is `scripts/release/pages-pwa-serve.mjs` copied to `bin/serve.mjs`.
 `PORT` defaults to `5180`. `HOST` defaults to `localhost` in the script so a
-local `node` run stays on loopback; the image sets `HOST=0.0.0.0`. On a
-publish run, arm64 builds the `runtime` target natively on
-`ubuntu-24.04-arm` in parallel with amd64. A non-publish proof builds
-`runtime-from-prebuilt` from the amd64 image instead.
+local `node` run stays on loopback; the image sets `HOST=0.0.0.0`. The image
+is `linux/amd64` only.
 
 ## `control-plane`
 
@@ -194,9 +195,8 @@ tag, does not run `workflow_dispatch`, and does not open a GitHub release.
    the OpenSesame repository so the Actions token can keep publishing.
 3. **First manual run.** Actions → CD GHCR publish → Run workflow, on
    `main`. That is the first `workflow_dispatch`. Confirm one job per image
-   and platform (`opensesame-amd64`, `opensesame-arm64`, plus `cli`,
-   `web-pwa`, and `control-plane` each as amd64 and arm64) and a manifest
-   job per image.
+   and platform (`opensesame-amd64`, `web-pwa-amd64`, plus `cli` and
+   `control-plane` each as amd64 and arm64) and a manifest job per image.
    A row whose Dockerfile is not on that commit is skipped. The run pushes
    `:next` and `:sha-<commit>`. It does not push `:latest`. A cold cache
    can fail the 10 minute cap; run the workflow again.
@@ -214,13 +214,12 @@ tag, does not run `workflow_dispatch`, and does not open a GitHub release.
    grant it `packages: write`, and delete any leftover GHCR package that an
    older publish path created under a different name once the four packages
    above are the ones you keep.
-7. **Arm64.** Every image, including `opensesame`, builds `linux/arm64` on
+7. **Arm64.** `cli` and `control-plane` build `linux/arm64` on
    `ubuntu-24.04-arm` runners (native, no QEMU) with a separate GHA cache
-   scope. On publish, `web-pwa` arm64 builds `runtime` in parallel with
-   amd64. A non-publish proof still waits for the amd64 artifact and uses
-   `runtime-from-prebuilt`. The manifest job joins the platform tags into
-   the shared tags. Do not fold amd64 and arm64 back into one build to save
-   a job: that build does not fit the 10 minute cap.
+   scope. `opensesame` and `web-pwa` publish `linux/amd64` only. The manifest
+   job joins the platform tags into the shared tags. Do not fold amd64 and
+   arm64 back into one build to save a job: that build does not fit the 10
+   minute cap.
 
 Image size is not in this commit. The first successful CD run records it in
 the build log (`docker/build-push-action` output). Cloud agents without
