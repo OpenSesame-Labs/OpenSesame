@@ -122,10 +122,11 @@ test("cargo components skip workspace members and record git sources", () => {
     },
     {
       type: "library",
-      "bom-ref": "pkg:cargo/age@0.11.1",
+      "bom-ref":
+        "pkg:cargo/age@0.11.1?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fstr4d%2Frage%40b5b68c4",
       name: "age",
       version: "0.11.1",
-      purl: "pkg:cargo/age@0.11.1",
+      purl: "pkg:cargo/age@0.11.1?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fstr4d%2Frage%40b5b68c4",
       properties: [
         {
           name: "opensesame:resolved",
@@ -134,6 +135,18 @@ test("cargo components skip workspace members and record git sources", () => {
       ],
     },
   ]);
+});
+
+test("versions are percent-encoded in every purl", () => {
+  const [crate] = cargoComponents(
+    '[[package]]\nname = "toml"\nversion = "1.1.8+spec-1.1.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n',
+  );
+  assert.equal(crate.purl, "pkg:cargo/toml@1.1.8%2Bspec-1.1.0");
+  assert.equal(crate.version, "1.1.8+spec-1.1.0");
+  const [npm] = npmComponents({
+    packages: { "node_modules/x": { version: "1.0.0+build.5" } },
+  });
+  assert.equal(npm.purl, "pkg:npm/x@1.0.0%2Bbuild.5");
 });
 
 function build(overrides = {}) {
