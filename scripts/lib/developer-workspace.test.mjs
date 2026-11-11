@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -164,7 +165,7 @@ describe("dev container proof", () => {
       config.updateContentCommand,
       config.postCreateCommand,
       config.postStartCommand,
-    ].map(at);
+    ].map((command) => at(`( ${command} )`));
     expect(order.every((index) => index > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(lines[0]).toBe("set -euo pipefail");
@@ -173,6 +174,18 @@ describe("dev container proof", () => {
     expect(checks).toContain("CapEff:[[:space:]]+0+$");
     expect(checks).toContain("NoNewPrivs:[[:space:]]+1$");
     expect(() => script({ postCreateCommand: ["a", "b"] })).toThrow(/strings/);
+    // A failure anywhere in a command stops the run: bash ignores a failing
+    // non-final member of an `&&` list under `set -e` unless it is isolated.
+    const failing = script({ onCreateCommand: "false && true" }).replace(
+      /^cp .*\n^cd .*\n/m,
+      "",
+    );
+    const ran = spawnSync("bash", ["-c", `${failing}\necho reached`], {
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, EXPECTED_USER: "nobody" },
+    });
+    expect(ran.status).not.toBe(0);
+    expect(ran.stdout).not.toContain("reached");
     expect(() =>
       plan({ runArgs: [] }, { image: "i", workspace: "/r" }),
     ).toThrow(/containerUser/);

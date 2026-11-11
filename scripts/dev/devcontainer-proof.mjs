@@ -48,7 +48,9 @@ export function script(config) {
     "set -euo pipefail",
     `cp -R ${SOURCE} "$HOME/workspace"`,
     'cd "$HOME/workspace"',
-    ...commands,
+    // Each in its own subshell: with `set -e`, a failure inside an `a && b`
+    // list is otherwise ignored unless it is the last command of the list.
+    ...commands.map((command) => `( ${command} )`),
     ...CHECKS,
     "echo devcontainer-proof: setup completed under the declared settings",
   ].join("\n");
