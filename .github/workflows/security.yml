@@ -27,6 +27,9 @@
 #   - OpenSSF Scorecard (checks the repo against the OpenSSF supply-chain
 #     criteria and publishes the score to the code-scanning dashboard and
 #     the badge on the README)
+#   - Repository settings (rulesets, deployment environments, visibility and
+#     archive state): recorded each run, and the run fails when one changed
+#     since the previous record
 
 name: Repository security monitoring
 
@@ -466,3 +469,61 @@ jobs:
           persist-credentials: false
       - name: Reject committed Tailscale key material
         run: node scripts/security/tailscale-key-material-gate.mjs
+
+  repository-settings:
+    name: Repository settings changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/security
+            scripts/lib
+            ops/github
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: true
+          install_args: node
+      # The audit log cannot be streamed or queried from here, so nothing
+      # raised an alert when a ruleset was disabled, a deployment environment
+      # lost its reviewer, or the repository was archived. This records what
+      # a read-only token can see of those settings and fails when one
+      # changed. It reads; it never writes a setting.
+      - name: Record the settings this token can read
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/security/settings-snapshot.mjs collect "$RUNNER_TEMP/settings/repository-settings.json"
+      - name: Report live rulesets that differ from the declared policy
+        run: |
+          set -o pipefail
+          node scripts/security/settings-snapshot.mjs declared \
+            "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      # Only a record uploaded by this workflow's own run on this branch is
+      # used: any other run, a fork's pull request included, can upload an
+      # artifact under the same name.
+      - name: Fetch the previous record from this branch
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/security/settings-snapshot.mjs previous "$RUNNER_TEMP/settings-previous" >> "$GITHUB_OUTPUT"
+      # Kept before the comparison, so a change raises one alarm and the next
+      # run starts from the new state.
+      - name: Keep this record
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: repository-settings
+          path: ${{ runner.temp }}/settings/repository-settings.json
+          retention-days: 90
+          if-no-files-found: error
+      - name: Fail when a setting changed since the previous record
+        if: steps.previous.outputs.found == 'true'
+        run: |
+          set -o pipefail
+          node scripts/security/settings-snapshot.mjs compare \
+            "$RUNNER_TEMP/settings-previous/repository-settings.json" \
+            "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
