@@ -177,10 +177,12 @@ test("only an unreleased latest tag may be absent, and the image is never run", 
   );
   assert.equal(
     tolerated.includes(
-      `[ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest|not found'`,
+      `[ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest' `,
     ),
     true,
   );
+  // A bare "not found" would also excuse "command not found".
+  assert.equal(/not found'/.test(tolerated), false);
   assert.match(tolerated, /published=false/);
   assert.match(tolerated, /exit 1\n\s*fi\n$/);
   assert.equal(job.env.ARCH, "${{ matrix.target.arch }}");

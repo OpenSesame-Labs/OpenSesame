@@ -219,10 +219,11 @@ jobs:
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
           trap 'docker logout ghcr.io' EXIT
           # `latest` exists only once a release tag has been published. Its
-          # absence is stated, not failed. A missing `next` fails: every push
-          # to main publishes it.
+          # absence, which the registry reports as an unknown manifest, is
+          # stated, not failed; any other error fails. A missing `next` fails:
+          # every push to main publishes it.
           if ! listing="$(docker manifest inspect "$IMAGE:$TAG" 2>&1)"; then
-            if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest|not found' <<<"$listing"; then
+            if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest' <<<"$listing"; then
               echo "published=false" >> "$GITHUB_OUTPUT"
               printf 'No release has published `%s` yet: nothing to scan.\n' "$IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
               exit 0
