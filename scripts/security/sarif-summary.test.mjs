@@ -100,12 +100,12 @@ test("the image job cannot pass when the scanner did not run", () => {
     readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
   );
   const job = workflow.jobs["container-images"];
-  assert.deepEqual(job.strategy.matrix.image, [
-    "opensesame",
-    "cli",
-    "web-pwa",
-    "control-plane",
-  ]);
+  // Every published image, both platforms, both moving tags.
+  assert.deepEqual(job.strategy.matrix, {
+    image: ["opensesame", "cli", "web-pwa", "control-plane"],
+    arch: ["amd64", "arm64"],
+    tag: ["next", "latest"],
+  });
   assert.equal(job.strategy["fail-fast"], false);
   assert.deepEqual(job.permissions, {
     contents: "read",
@@ -132,18 +132,44 @@ test("the image job cannot pass when the scanner did not run", () => {
     /^node scripts\/security\/sarif-summary\.mjs image\.sarif /,
   );
   assert.equal(check["continue-on-error"], undefined);
-  assert.equal(check.if, undefined);
   const upload = steps[scan + 2];
   assert.match(
     upload.uses,
     /^github\/codeql-action\/upload-sarif@[a-f0-9]{40}$/,
   );
   assert.equal(upload.with.sarif_file, "image.sarif");
-  // The image is pulled and saved, never run.
-  const pull = steps[scan - 1].run;
-  assert.match(pull, /docker pull --quiet "\$IMAGE"/);
+  assert.match(
+    upload.with.category,
+    /matrix\.image.*matrix\.tag.*matrix\.arch/,
+  );
+  // The three steps after the pull run exactly when an image was pulled.
+  for (const step of [steps[scan], check, upload])
+    assert.equal(step.if, "steps.pull.outputs.published == 'true'");
+});
+
+test("only an unreleased latest tag may be absent, and the image is never run", () => {
+  const workflow = parse(
+    readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
+  );
+  const job = workflow.jobs["container-images"];
+  const pull = job.steps.find((step) => step.id === "pull").run;
+  assert.match(pull, /docker pull --quiet --platform "\$PLATFORM" "\$IMAGE"/);
   assert.match(pull, /docker save --output image\.tar "\$IMAGE"/);
   assert.equal(/docker (run|exec|create|start)\b/.test(pull), false);
   assert.match(pull, /--password-stdin/);
-  assert.match(pull, /docker logout ghcr\.io/);
+  assert.match(pull, /trap 'docker logout ghcr\.io' EXIT/);
+  // Absence is tolerated for `latest` alone and only for "no such tag".
+  const tolerated = pull.slice(
+    pull.indexOf("if ! listing="),
+    pull.indexOf("docker pull --quiet"),
+  );
+  assert.equal(
+    tolerated.includes(
+      `[ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest|not found'`,
+    ),
+    true,
+  );
+  assert.match(tolerated, /published=false/);
+  assert.match(tolerated, /exit 1\n\s*fi\n$/);
+  assert.equal(job.env.PLATFORM, "linux/${{ matrix.arch }}");
 });

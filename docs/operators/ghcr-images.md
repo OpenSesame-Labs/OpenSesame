@@ -74,14 +74,14 @@ budget even though a warm cache fits. That failure is honest: the cap stays
 
 The weekly security workflow
 ([`security.yml`](../../.github/workflows/security.yml), also runnable by hand)
-pulls each image's `:next` tag, saves it, and scans every layer with
+pulls each published image, saves it, and scans every layer with
 OSV-Scanner. This covers what the lockfile scans cannot see: the base image's
 operating-system packages and anything a build copies in. The image is never
 run.
 
 - Findings go to the code-scanning dashboard under the category
-  `container-image-<image>`, one category per image, so an advisory that is
-  fixed disappears from that image's list.
+  `container-image-<image>-<tag>-<platform>`, one category per scanned image,
+  so an advisory that is fixed disappears from that image's list.
 - The job summary names the exact digest that was scanned and counts findings
   per advisory.
 - Findings do not turn the job red. A base image always carries some, and a
@@ -89,10 +89,16 @@ run.
   be pulled or when the scanner did not produce a complete report, so "did not
   run" never reads as "nothing found".
 
-Limits: it scans the `linux/amd64` variant of `:next`, not the arm64 variant
-and not released `:<semver>` tags. Fix a finding by moving the base image
-digest in the Dockerfile or the dependency in the lockfile, then let the next
-publish replace `:next`.
+It scans both published platforms (`linux/amd64` and `linux/arm64`) of both
+moving tags: `:next`, which every push to `main` replaces, and `:latest`, which
+every release tag replaces. A release's `:<semver>` tag names the same image
+`:latest` named when it was published, so the newest release is always
+covered; an older release is not rescanned once a newer one replaces
+`:latest`. Until the first release publishes `:latest`, its rows say so in the
+summary and pass. A missing `:next` fails its row.
+
+Fix a finding by moving the base image digest in the Dockerfile or the
+dependency in the lockfile, then let the next publish replace the tag.
 
 ## `opensesame` environment
 

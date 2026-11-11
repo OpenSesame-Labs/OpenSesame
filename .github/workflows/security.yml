@@ -174,7 +174,7 @@ jobs:
           sarif_file: osv-results.sarif
 
   container-images:
-    name: Published container image (${{ matrix.image }})
+    name: Published image (${{ matrix.image }}:${{ matrix.tag }}, ${{ matrix.arch }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -185,9 +185,15 @@ jobs:
       fail-fast: false
       matrix:
         image: [opensesame, cli, web-pwa, control-plane]
+        # Both published platforms of both moving tags: `next` is replaced by
+        # every push to main and `latest` by every release tag
+        # (docs/operators/ghcr-images.md).
+        arch: [amd64, arm64]
+        tag: [next, latest]
     env:
-      # The tag every push to main publishes (docs/operators/ghcr-images.md).
-      IMAGE: ghcr.io/opensesame-labs/${{ matrix.image }}:next
+      IMAGE: ghcr.io/opensesame-labs/${{ matrix.image }}:${{ matrix.tag }}
+      PLATFORM: linux/${{ matrix.arch }}
+      TAG: ${{ matrix.tag }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -197,19 +203,35 @@ jobs:
       # The lockfile scan sees what the repository pins. It cannot see the
       # base image's operating-system packages or what a build copies in. This
       # scans the bytes that were actually published. The image is pulled and
-      # saved; nothing in it is run.
+      # saved for the platform named, on this runner's own platform; nothing
+      # in it is run.
       - name: Pull the published image and save it for the scanner
+        id: pull
         env:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
-          docker pull --quiet "$IMAGE"
+          trap 'docker logout ghcr.io' EXIT
+          # `latest` exists only once a release tag has been published. Its
+          # absence is stated, not failed. A missing `next` fails: every push
+          # to main publishes it.
+          if ! listing="$(docker manifest inspect "$IMAGE" 2>&1)"; then
+            if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest|not found' <<<"$listing"; then
+              echo "published=false" >> "$GITHUB_OUTPUT"
+              printf 'No release has published `%s` yet: nothing to scan.\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            printf '%s\n' "$listing" >&2
+            exit 1
+          fi
+          docker pull --quiet --platform "$PLATFORM" "$IMAGE"
           docker save --output image.tar "$IMAGE"
           digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE")"
-          docker logout ghcr.io
-          printf 'Scanned image: `%s`\n\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          printf 'Scanned image: `%s` (%s)\n\n' "$digest" "$PLATFORM" >> "$GITHUB_STEP_SUMMARY"
       - name: Scan every layer against the OSV database
+        if: steps.pull.outputs.published == 'true'
         uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
         with:
           scan-args: |-
@@ -224,12 +246,14 @@ jobs:
         # is one nobody reads. A scanner that did not run fails the next step.
         continue-on-error: true
       - name: Require a complete report and summarize it
+        if: steps.pull.outputs.published == 'true'
         run: node scripts/security/sarif-summary.mjs image.sarif >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to the code-scanning dashboard
+        if: steps.pull.outputs.published == 'true'
         uses: github/codeql-action/upload-sarif@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           sarif_file: image.sarif
-          category: container-image-${{ matrix.image }}
+          category: container-image-${{ matrix.image }}-${{ matrix.tag }}-${{ matrix.arch }}
 
   gitleaks:
     name: gitleaks (full history)
