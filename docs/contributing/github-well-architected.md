@@ -118,7 +118,7 @@ The recommendation's checklist, in its order.
 | Adaptability | Feedback mechanism | Enforced | The engineering pulse form and the weekly report. |
 | Control | Periodic access reviews | Owner setting | One account holds access. Collaborators and installed apps are reviewed whenever the [repository threat model](../security/github-repository-threat-model.md) is, and its review triggers include adding a maintainer and installing an app. |
 | Control | Configuration management | Declared | [`ops/github/`](../../ops/github/README.md) with dry-run, apply and verify. |
-| Control | Backup and recovery | Enforced, and Owner setting | See [backup and recovery](#backup-and-recovery). The weekly run exports issues, pull requests and their comments and proves a fresh full clone. Keeping a copy outside GitHub is the owner's step. |
+| Control | Backup and recovery | Enforced, and Owner setting | See [backup and recovery](#backup-and-recovery). The weekly run exports issues, pull requests, comments and reviews and proves a fresh full clone. Keeping a copy outside GitHub is the owner's step. |
 | Control | Compliance audits | Enforced | This record, checked by [`engineering-system-docs.test.mjs`](../../scripts/lib/engineering-system-docs.test.mjs) so its evidence links cannot rot. |
 
 ## Backup and recovery
