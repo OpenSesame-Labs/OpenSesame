@@ -149,8 +149,14 @@ describe("dev container toolchain install", () => {
     expect(installs.length).toBeGreaterThan(0);
     for (const install of installs)
       expect(install).toBe(
-        "MISE_GLOBAL_CONFIG_FILE=/dev/null mise install --locked",
+        'MISE_GLOBAL_CONFIG_FILE="$PWD/.devcontainer/mise-global.toml" mise install --locked',
       );
+    // The stand-in must exist and declare nothing: mise reads a config's type
+    // from its extension and refuses a path that is not a config file.
+    const standIn = read(".devcontainer/mise-global.toml");
+    expect(
+      standIn.split("\n").filter((line) => /^\s*[^#\s]/.test(line)),
+    ).toEqual([]);
   });
 });
 

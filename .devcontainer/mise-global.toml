@@ -1,0 +1,4 @@
+# Stands in for the personal global mise config during the dev container's
+# own locked installs (MISE_GLOBAL_CONFIG_FILE in devcontainer.json), so
+# those installs read the project's pins and nothing a dotfiles bootstrap
+# added. It declares nothing on purpose.
