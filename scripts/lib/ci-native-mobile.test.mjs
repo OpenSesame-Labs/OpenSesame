@@ -160,7 +160,8 @@ describe("native mobile required checks", () => {
     );
     expect(gate).toContain('[ "$android" != "success" ]');
     expect(gate).toContain('[ "$apple" != "success" ]');
-    expect(ci).toContain("bash scripts/test/mobile-android.sh");
-    expect(ci).toContain("bash scripts/test/mobile-apple.sh ios");
+    // The platform scripts run from the trusted helper checkout.
+    expect(ci).toContain("bash .ci-control/scripts/test/mobile-android.sh");
+    expect(ci).toContain("bash .ci-control/scripts/test/mobile-apple.sh ios");
   });
 });

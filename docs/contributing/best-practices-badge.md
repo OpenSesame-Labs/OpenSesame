@@ -53,7 +53,7 @@ below on purpose.
 
 | Criterion | Answer | Evidence |
 |---|---|---|
-| Working build system (standard tools) | Met | `package.json` (pnpm), `Cargo.toml` workspaces |
+| Working build system (standard tools) | Met | `package.json` (npm workspaces), `Cargo.toml` workspaces |
 | Automated test suite, run in CI | Met | `.github/workflows/ci.yml` and companion workflows; required status checks on `main` |
 | New functionality adds tests (should-level) | Met | Test trees beside `crates/`, `packages/`, `apps/`; CI gates |
 | Warning flags / linters, fixed or justified | Met | biome + oxlint configs, `clippy.toml`, quality gates in `scripts/quality/` |

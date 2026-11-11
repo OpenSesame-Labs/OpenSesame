@@ -238,13 +238,14 @@ describe("upstream CI execution contracts survive tier migration", () => {
   });
   it("prepares rootless DBus for prerelease Rust tests", () => {
     const rust = jobs(prerelease).rust;
+    // Both helpers run from the trusted helper checkout.
     expect(rust).toContain(
-      'bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"',
+      'bash .ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"',
     );
     expect(rust).not.toContain("sudo");
     const steps = rust.split(/\n {6}- /);
     for (const command of [
-      "node scripts/lib/ci-affected-tests.mjs run-cargo",
+      "node .ci-control/scripts/lib/ci-affected-tests.mjs run-cargo",
       "cargo test -p opensesame-gateway -p opensesame-cli --features bitwarden-compat bitwarden",
     ]) {
       const matches = steps.filter((step) => step.includes(command));

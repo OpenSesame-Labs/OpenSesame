@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import * as nodeTest from "node:test";
 import {
   SPARSE_SCRIPT_GUARD_WORKFLOWS,
   analyzeWorkflow,
@@ -10,6 +10,10 @@ import {
   repoRootFromHere,
   scriptPathsInText,
 } from "./workflow-script-paths.mjs";
+
+// quality:test loads this file with Vitest. The CD contract also runs under node --test.
+const { test } =
+  process.env.VITEST === "true" ? await import("vitest") : nodeTest;
 
 const root = repoRootFromHere();
 

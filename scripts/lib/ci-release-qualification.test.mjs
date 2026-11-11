@@ -201,7 +201,7 @@ describe("deep check shell enforces execution and source integrity", () => {
     const f = fixture();
     try {
       expect(f.run("shuttle").status).toBe(0);
-      expect(readFileSync(f.log, "utf8").trim()).toBe("audit:shuttle");
+      expect(readFileSync(f.log, "utf8").trim()).toBe("run audit:shuttle");
       expect(existsSync(f.passed)).toBe(true);
       expect(f.run("shuttle", { FAKE_STATUS: "9" }).status).not.toBe(0);
       expect(existsSync(f.passed)).toBe(false);

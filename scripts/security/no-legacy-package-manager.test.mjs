@@ -19,8 +19,12 @@ const patterns = [
   },
 ];
 
+// npm's two lockfile names. Both record a dependency's own `engines` field,
+// which may name any package manager.
+const lockfiles = ["package-lock.json", "npm-shrinkwrap.json"];
+
 function excluded(path) {
-  if (path === "package-lock.json" || path.endsWith("/package-lock.json")) {
+  if (lockfiles.some((name) => path === name || path.endsWith(`/${name}`))) {
     return true;
   }
   if (path.startsWith("staging/tyler-dotfiles/")) return true;
@@ -122,4 +126,7 @@ test("guard allowlist still reports a real invocation", () => {
   assert.deepEqual(scanText("docs/example.md", assertion), [
     `docs/example.md: ${legacy}`,
   ]);
+  assert.equal(excluded("ops/containers/cli/npm-shrinkwrap.json"), true);
+  assert.equal(excluded("docs/npm-shrinkwrap.json.md"), false);
+  assert.equal(excluded("ops/not-npm-shrinkwrap.json"), false);
 });

@@ -45,7 +45,8 @@ describe("the live join walk's CI job (ADR 0150)", () => {
     expect(job).not.toContain("actions/setup-go");
     expect(job).not.toContain("go-version-file:");
     expect(job).toContain("npm run test:live-fixtures");
-    expect(job).toContain("node scripts/lib/ci-pages-build.mjs");
+    // The trusted helper checkout builds Pages, never the candidate's copy.
+    expect(job).toContain("node .ci-control/scripts/lib/ci-pages-build.mjs");
     expect(job).toContain("npm run build:live-dedicated -w @opensesame/pages");
     expect(job).not.toContain("LIVE_SCENARIOS");
     expect(job).not.toContain("LIVE_CARRIERS");

@@ -59,6 +59,34 @@ test("installed-PWA discovery resolves the actual emitted relative worker URL an
     assert.equal(emittedTailnetWorker(directory, "/OpenSesame/"), worker);
   }));
 
+test("discovery accepts the literal module worker URL Vite 8 emits and nothing weaker", () =>
+  fixture(async ({ directory, save }) => {
+    const emitted = JSON.stringify(`/OpenSesame/${worker}`);
+    for (const code of [
+      `new Worker(${emitted},{type:"module",name:"opensesame-tailscale"});`,
+      `new Worker(\`/OpenSesame/${worker}\`,{type:\`module\`,name:\`opensesame-tailscale\`});`,
+    ]) {
+      await save(code);
+      assert.equal(emittedTailnetWorker(directory, "/OpenSesame/"), worker);
+    }
+    for (const code of [
+      `new Worker(${emitted});`,
+      `new Worker(${emitted},{type:"classic"});`,
+      `new Worker(${emitted},options);`,
+      `new SharedWorker(${emitted},{type:"module"});`,
+      `new Worker(name,{type:"module"});`,
+      `new Worker("/different/${worker}",{type:"module"});`,
+      `new Worker("https://foreign.test/OpenSesame/${worker}",{type:"module"});`,
+      `new Worker("/OpenSesame/${worker}?token=x",{type:"module"});`,
+    ]) {
+      await save(code);
+      assert.throws(
+        () => emittedTailnetWorker(directory, "/OpenSesame/"),
+        /exactly one/,
+      );
+    }
+  }));
+
 test("discovery keeps exact worker cardinality and requires both delivery and dedicated-worker inventories", () =>
   fixture(async ({ directory, graph, save }) => {
     const second = "assets/tailscale-node-second.js";
