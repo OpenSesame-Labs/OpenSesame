@@ -239,6 +239,9 @@ jobs:
 
   scorecard:
     name: OpenSSF Scorecard
+    # Scorecard refuses every ref but the default branch, so a run started by
+    # hand on another branch skips it instead of failing.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -310,7 +313,10 @@ jobs:
       - name: Record the settings this token can read
         run: node scripts/security/settings-snapshot.mjs collect "$RUNNER_TEMP/settings/repository-settings.json"
       - name: Report live rulesets that differ from the declared policy
-        run: node scripts/security/settings-snapshot.mjs declared "$RUNNER_TEMP/settings/repository-settings.json" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          set -o pipefail
+          node scripts/security/settings-snapshot.mjs declared \
+            "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Fetch the previous record from this branch
         id: previous
         run: node scripts/security/settings-snapshot.mjs previous "$RUNNER_TEMP/settings-previous" >> "$GITHUB_OUTPUT"
