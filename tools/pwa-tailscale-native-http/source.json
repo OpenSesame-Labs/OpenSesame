@@ -26,13 +26,13 @@
   },
   "compiler": {
     "repository": "https://github.com/tailscale/go",
-    "commit": "7ef7b403648ac3a9481a6e88e8b894eff50b0167",
-    "version": "go1.27.3",
+    "commit": "1635316a95598e9fe1bff7267604daa94aa1c8ec",
+    "version": "go1.27.4",
     "platform": "linux-amd64",
-    "archiveURL": "https://github.com/tailscale/go/releases/download/build-7ef7b403648ac3a9481a6e88e8b894eff50b0167/linux-amd64.tar.gz",
-    "archiveSha256": "d7add016a4fa533fbd44e5ec07375c8c50f2a0afcc2ea7cc6fee3421488bd40c",
+    "archiveURL": "https://github.com/tailscale/go/releases/download/build-1635316a95598e9fe1bff7267604daa94aa1c8ec/linux-amd64.tar.gz",
+    "archiveSha256": "366968d5a7a240585533149572b8becc9bac8d9e6ff2712a4865a21c16b9f814",
     "publishedReleaseDigestMatches": true,
-    "binarySha256": "beb4cba7c6ec6942542f2a4320f9954707997a09fe6c9530b8ef982161f4036d",
+    "binarySha256": "499d9cf7f1057ff315ec3e26dc871442f5a0314730b4605c4196c9d1e5c5dc59",
     "licenseSha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
     "criticalFiles": [
       {
@@ -41,11 +41,11 @@
       },
       {
         "path": "VERSION",
-        "sha256": "49b1651ee92b70282766993b556905e9464050a811572e047a74f95534ee9ce6"
+        "sha256": "28ff77ac2178f2faca8a4f535e60b1738e397c9086b3ecfc18c9955abe75634a"
       },
       {
         "path": "bin/go",
-        "sha256": "beb4cba7c6ec6942542f2a4320f9954707997a09fe6c9530b8ef982161f4036d"
+        "sha256": "499d9cf7f1057ff315ec3e26dc871442f5a0314730b4605c4196c9d1e5c5dc59"
       },
       {
         "path": "src/crypto/x509/verify.go",
@@ -272,10 +272,10 @@
   },
   "toolchainSelection": {
     "status": "UNACTIVATED owned compiler/module selection; public constrained root pool remains separate.",
-    "selectedCompilerCommit": "7ef7b403648ac3a9481a6e88e8b894eff50b0167",
-    "patchSha256": "29581592efb1148c43dfcb6ed6e3f80625ba7d67917ce524a36f9bcaf8ac0e05",
+    "selectedCompilerCommit": "1635316a95598e9fe1bff7267604daa94aa1c8ec",
+    "patchSha256": "4351e1f271c80c2cfa3df12f78b046970ccbe402ee80534823caaa813fbd178c",
     "beforeRevisionSha256": "ef84709d5ba3c76771e744088b60beee2874e3e147890867765264b651d44730",
-    "afterRevisionSha256": "d923499430a2a8028841b14ae4ca018ddac3870b0097dc006b7eb901af21a891",
+    "afterRevisionSha256": "fe331194b3a16f4f5ccfeeb702435de7be7ed13fae05ba892808fd8ffddc4bcd",
     "originalFiles": {
       "go.mod": "a83e830a7b4dffa80a6c2478b44758695d01c0a3e35e14b824a4e81824ca67d2",
       "go.sum": "b52dcc94289be95d6b2f1d3f5766b308bc1f9d99425c6f6dbb8df6bdee148816",
@@ -386,7 +386,7 @@
       },
       {
         "path": "native-toolchain.patch",
-        "sha256": "29581592efb1148c43dfcb6ed6e3f80625ba7d67917ce524a36f9bcaf8ac0e05"
+        "sha256": "4351e1f271c80c2cfa3df12f78b046970ccbe402ee80534823caaa813fbd178c"
       }
     ],
     "testInput": "Source-backed selector tests require explicit verified PWA_NATIVE_HTTP_SOURCE; owned fixtures use os.tmpdir and clean up. No hardcoded scratch paths, fixture fallback or missing-source skip.",
@@ -585,7 +585,7 @@
       },
       {
         "path": "apply-native-patch.test.mjs",
-        "sha256": "e7f119f9429367e77a9a8c8855ecdd33e08fb641240930edc217818cbd366c68"
+        "sha256": "bc076abedd0e35830e5fb30912420cf2565c145c916bb3eb2a3a8e035eeb9124"
       },
       {
         "path": "compressor-archive.mjs",
