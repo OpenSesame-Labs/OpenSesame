@@ -34,7 +34,7 @@ const npmLock = {
       integrity: sha512("ab12"),
     },
     "node_modules/@scope/tool": { version: "2.0.0", dev: true },
-    "apps/pages/node_modules/@scope/tool": { version: "2.0.0" },
+    "node_modules/host/node_modules/@scope/tool": { version: "2.0.0" },
     "node_modules/alias": {
       name: "@real/name",
       version: "3.1.4",
