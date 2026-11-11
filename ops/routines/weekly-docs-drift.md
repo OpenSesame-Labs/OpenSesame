@@ -24,8 +24,9 @@ npm cache (`npm config get cache`) and set
 
 Independent findings run together through `.grok/workflows/task-swarm.rhai`:
 one agent per disjoint file set, parent integrates. Land each logical slice
-as its own GitHub-verified commit (`createCommitOnBranch`) on a stacked pull
-request. After each commit, run `df -h /` and delete only the scratch and
+as its own commit on a stacked pull request, pushed to that pull request's
+own branch. Push no other branch
+([shipping](../../docs/contributing/shipping.md), Branches). After each commit, run `df -h /` and delete only the scratch and
 build output that commit created. Leave `/tmp/os-wallet-ship`, the Host on
 `127.0.0.1:8787`, and unrelated worktrees in place.
 
@@ -157,9 +158,9 @@ gh pr create --title "fix(docs): correct stale reference(s)" \
 ```
 
 The default-branch ruleset requires signed commits
-(`ops/github/default-branch.json`), and a local `git commit` is unsigned: land
-the commit with `createCommitOnBranch` as described above and use the commands
-here for the branch and the pull request.
+(`ops/github/default-branch.json`). The squash on `main` is the commit GitHub
+signs, so commit on the pull request's own branch and use the commands here
+for the branch and the pull request.
 
 If nothing is stale, end the session with a short note in your final message
 listing what you checked and that everything matched. Do not open an empty

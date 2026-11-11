@@ -92,8 +92,8 @@ that merges. Everything else stays until someone deletes it.
   truly needs a scratch branch, delete it as soon as its result is read.
 - A tool that creates a signing, staging or replay ref deletes that ref before
   it exits, whether it succeeded or failed.
-- Closing a pull request without merging deletes its branch. The commits stay
-  reachable at `refs/pull/<n>/head`, so nothing is lost.
+- When you close a pull request without merging, delete its branch. The
+  commits stay reachable at `refs/pull/<n>/head`, so nothing is lost.
 - A session that cannot delete a remote ref, such as a cloud session that
   pushes only to its own branch, pushes no branch except its pull request
   branch.
