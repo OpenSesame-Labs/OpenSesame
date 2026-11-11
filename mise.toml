@@ -13,7 +13,7 @@ node = "24"
 # llvm-tools-preview is for cargo-llvm-cov and native Windows stack dumps.
 # rust-toolchain.toml stays rustfmt and clippy.
 rust = { version = "1.97.1", components = ["rustfmt", "clippy", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] }
-go = "1.26.10"
+go = "1.26.11"
 java = "temurin-17.0.20+101"
 "cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.97.1" } }
 # Installer CLIs for scripts/dev/install-agent-skills.sh. Skill content stays unpinned.

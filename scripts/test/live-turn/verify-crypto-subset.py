@@ -74,7 +74,7 @@ def verify(upstream_metadata=None, imports=None, overlay_path=None):
     for name, expected_digest in files.items():
         if digest((SUBSET / name).read_bytes()) != expected_digest:
             raise ValueError(f"upstream source drift: {name}")
-    expected_mod = "module golang.org/x/crypto\n\ngo 1.26.10\n\nrequire golang.org/x/sys v0.49.0\n"
+    expected_mod = "module golang.org/x/crypto\n\ngo 1.26.11\n\nrequire golang.org/x/sys v0.49.0\n"
     if (SUBSET / "go.mod").read_text() != expected_mod:
         raise ValueError("subset module metadata changed")
     project = (ROOT / "go.mod").read_text()
