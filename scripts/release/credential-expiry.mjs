@@ -7,9 +7,11 @@
 // the ordinary Actions token cannot create version tags. A credential like
 // that is only safe while it is short-lived and rotated, and nothing showed
 // its age. This exits non-zero when the credential is absent, exactly as the
-// step it replaces did. Otherwise it asks GitHub when the credential expires
-// and raises a warning when it never does, expires soon, or lives longer than
-// the rotation period. Those warnings never fail the release.
+// step it replaces did, and when GitHub refuses it as expired or revoked,
+// which the release could not survive either. Otherwise it asks GitHub when
+// the credential expires and raises a warning when it never does, expires
+// soon, or is valid for longer than the rotation period. Those warnings never
+// fail the release.
 //
 // The credential's value is never printed. Only its kind, read from the
 // public prefix, and its expiry date are.
@@ -21,6 +23,7 @@ export const ROTATE_WITHIN_DAYS = 14;
 export const MAX_LIFETIME_DAYS = 90;
 const DAY = 24 * 60 * 60 * 1000;
 const EXPIRY_HEADER = "github-authentication-token-expiration";
+const TIMEOUT_MS = 15_000;
 const KINDS = [
   ["ghs_", "app"],
   ["github_pat_", "fine-grained"],
@@ -82,7 +85,10 @@ export function assess({ kind, header, now }) {
   };
 }
 
-/** Asks GitHub about the credential. Any failure is a warning, not an error. */
+/**
+ * Asks GitHub about the credential. A refused credential is an error; any
+ * other failure is a warning.
+ */
 export async function inspect({ token, repository, now, fetcher = fetch }) {
   const kind = tokenKind(token);
   try {
@@ -95,8 +101,16 @@ export async function inspect({ token, repository, now, fetcher = fetch }) {
           "x-github-api-version": "2022-11-28",
           "user-agent": "opensesame-release-credential",
         },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       },
     );
+    // 401 is GitHub refusing the credential itself: expired or revoked.
+    if (response.status === 401)
+      return {
+        level: "error",
+        message:
+          "GitHub refused the release credential (HTTP 401): it has expired or been revoked. Replace it before releasing.",
+      };
     // The status is the diagnosis. A response body is never echoed.
     if (!response.ok)
       return {
@@ -127,7 +141,7 @@ async function main(env) {
   console.log(`::${level} title=Release credential::${message}`);
   if (env.GITHUB_STEP_SUMMARY)
     appendFileSync(env.GITHUB_STEP_SUMMARY, `${message}\n`);
-  return 0;
+  return level === "error" ? 1 : 0;
 }
 
 if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))

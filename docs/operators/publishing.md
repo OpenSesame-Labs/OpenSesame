@@ -97,6 +97,8 @@ has no expiry date, expires within 14 days, or expires more than 90 days out.
 Rotate it when the run warns: create the new token, replace the environment
 secret, then revoke the old one. A classic token, or any token without an
 expiry date, is reported as a warning on every release until it is replaced.
+A token GitHub refuses as expired or revoked fails that step, with the reason,
+before anything is published.
 
 A GitHub App token would last an hour, but it is not the admin role: the App
 would have to be added as a bypass actor to both tag rulesets, which widens

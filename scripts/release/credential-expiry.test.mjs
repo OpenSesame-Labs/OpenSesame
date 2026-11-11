@@ -89,10 +89,25 @@ test("the check sends the credential only as a bearer header and never reports i
     now,
     fetcher: answer({ ok: false, status: 401, headers: new Headers() }),
   });
+  // An expired or revoked credential fails here, with the reason, rather
+  // than at the first step that uses it.
   assert.deepEqual(refused, {
-    level: "warning",
-    message: "The release credential could not be checked: HTTP 401.",
+    level: "error",
+    message:
+      "GitHub refused the release credential (HTTP 401): it has expired or been revoked. Replace it before releasing.",
   });
+  const unavailable = await inspect({
+    token,
+    repository: "owner/name",
+    now,
+    fetcher: answer({ ok: false, status: 503, headers: new Headers() }),
+  });
+  assert.deepEqual(unavailable, {
+    level: "warning",
+    message: "The release credential could not be checked: HTTP 503.",
+  });
+  // The request gives up rather than stalling the release step.
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
   const offline = await inspect({
     token,
     repository: "owner/name",
@@ -102,7 +117,7 @@ test("the check sends the credential only as a bearer header and never reports i
     },
   });
   assert.equal(offline.level, "warning");
-  for (const result of [found, refused, offline])
+  for (const result of [found, refused, unavailable, offline])
     assert.equal(JSON.stringify(result).includes("SECRETVALUE"), false);
 });
 
