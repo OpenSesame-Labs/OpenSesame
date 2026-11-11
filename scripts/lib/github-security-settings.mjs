@@ -90,6 +90,17 @@ export function settingsWrites(expected, drift) {
         entry.setting === prefix || entry.setting.startsWith(`${prefix}.`),
     );
   const writes = [];
+  // Dependabot security updates can only be turned on while vulnerability
+  // alerts are on, so the toggles go first and the analysis settings after.
+  const toggles = {
+    vulnerability_alerts: "vulnerability-alerts",
+    private_vulnerability_reporting: "private-vulnerability-reporting",
+    immutable_releases: "immutable-releases",
+  };
+  for (const [setting, path] of Object.entries(toggles)) {
+    if (drifted(setting))
+      writes.push({ method: expected[setting] ? "PUT" : "DELETE", path });
+  }
   if (drifted("security_and_analysis")) {
     const body = Object.fromEntries(
       Object.entries(expected.security_and_analysis).map(([key, status]) => [
@@ -103,15 +114,6 @@ export function settingsWrites(expected, drift) {
       body: { security_and_analysis: body },
     });
   }
-  const toggles = {
-    vulnerability_alerts: "vulnerability-alerts",
-    private_vulnerability_reporting: "private-vulnerability-reporting",
-    immutable_releases: "immutable-releases",
-  };
-  for (const [setting, path] of Object.entries(toggles)) {
-    if (drifted(setting))
-      writes.push({ method: expected[setting] ? "PUT" : "DELETE", path });
-  }
   for (const section of SECTIONS) {
     if (drifted(`actions.${section}`))
       writes.push({
@@ -123,9 +125,12 @@ export function settingsWrites(expected, drift) {
   return writes;
 }
 
-/** Allow-list patterns for exactly the action repositories the workflows use. */
-export function allowedActionPatterns(repositories) {
-  return [...new Set(repositories)]
-    .sort()
-    .map((repository) => `${repository}@*`);
+/**
+ * Allow-list patterns for exactly the actions the workflows use, one per
+ * action path. GitHub documents `owner/repo/path@*` as a pattern for an
+ * action in a subdirectory; whether `owner/repo@*` also covers it is not
+ * documented, so every path is listed as used.
+ */
+export function allowedActionPatterns(paths) {
+  return [...new Set(paths)].sort().map((path) => `${path}@*`);
 }

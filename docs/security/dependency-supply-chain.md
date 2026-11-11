@@ -6,7 +6,7 @@ A dependency is code written by someone else that runs with our access. This pag
 
 | Layer | Control | Status |
 |---|---|---|
-| 1. No code runs at install | [`.npmrc`](../../.npmrc) sets `ignore-scripts=true` for every contributor and agent. Most CI jobs use a sparse checkout that leaves `.npmrc` out, and an image build sees only its context, so every `npm ci` in a workflow or a product Dockerfile also passes `--ignore-scripts` explicitly; a [test](../../scripts/lib/developer-workspace.test.mjs) fails on one that does not. `save-exact=true` records a new dependency at the version that was reviewed. | Enforced |
+| 1. No code runs at install | [`.npmrc`](../../.npmrc) sets `ignore-scripts=true` for every contributor and agent. Most CI jobs use a sparse checkout that leaves `.npmrc` out, and an image build sees only its context, so every `npm ci` or `npm install` in a workflow, a product Dockerfile or a CI script under `scripts/ci/` also passes `--ignore-scripts` explicitly; a [test](../../scripts/lib/developer-workspace.test.mjs) fails on one that does not. `save-exact=true` records a new dependency at the version that was reviewed. | Enforced |
 | 1. Deterministic installs | `npm ci` against the committed lockfile everywhere; Cargo and Go lockfiles are committed. | Enforced |
 | 2. Isolation | A hardened [dev container](developer-workspace.md); cloud agents run in per-session sandboxes. | Enforced, not mandatory |
 | 3. Signed commits | Required by the default-branch ruleset; every pull-request commit must be GitHub-verified. Agent keys sign without a human gesture, which is a recorded deviation ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)). | Declared, with a deviation |

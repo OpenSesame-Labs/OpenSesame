@@ -69,6 +69,25 @@ describe("dependency install policy", () => {
     expect(installs).toBeGreaterThan(30);
   });
 
+  it("passes --ignore-scripts on every install a CI script starts", () => {
+    // A script that spawns npm runs in the same sparse checkouts, so it is
+    // held to the same rule as a workflow line.
+    const scripts = readdirSync(new URL("scripts/ci/", root))
+      .filter((name) => name.endsWith(".mjs") && !name.includes(".test."))
+      .map((name) => `scripts/ci/${name}`);
+    let installs = 0;
+    for (const path of scripts) {
+      for (const [, args] of read(path).matchAll(
+        /spawnSync\(\s*"npm",\s*\[([^\]]*)\]/g,
+      )) {
+        if (!/"(ci|install)"/.test(args)) continue;
+        installs += 1;
+        expect(args, path).toContain('"--ignore-scripts"');
+      }
+    }
+    expect(installs).toBeGreaterThanOrEqual(4);
+  });
+
   it("flags an install without the flag and skips comments", () => {
     const text = [
       "run: npm ci",

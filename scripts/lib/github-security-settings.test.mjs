@@ -6,10 +6,7 @@ import {
   settingsDrift,
   settingsWrites,
 } from "./github-security-settings.mjs";
-import {
-  externalActionRepositories,
-  loadActionsFiles,
-} from "./workflow-security.mjs";
+import { externalActionPaths, loadActionsFiles } from "./workflow-security.mjs";
 
 const root = new URL("../../", import.meta.url);
 const { $comment: _comment, ...expected } = JSON.parse(
@@ -86,15 +83,36 @@ describe("declared repository security settings", () => {
     expect(expected.actions.selected_actions.verified_allowed).toBe(false);
   });
 
-  it("allow exactly the action repositories the workflows use", () => {
+  it("allow exactly the actions the workflows use, each by its full path", () => {
     // A new action is a reviewed change to this list in the same pull
     // request; a removed one leaves no standing permission behind.
     const used = loadActionsFiles(root).flatMap((file) =>
-      externalActionRepositories(file.text),
+      externalActionPaths(file.text),
     );
     expect(expected.actions.selected_actions.patterns_allowed).toEqual(
       allowedActionPatterns(used),
     );
+  });
+});
+
+describe("action paths", () => {
+  it("keep an action's subdirectory, so the allow-list names what runs", () => {
+    const text = [
+      "      - uses: actions/cache/restore@0000000000000000000000000000000000000000",
+      "      - uses: actions/checkout@1111111111111111111111111111111111111111 # v5",
+      "    uses: octo/shared/.github/workflows/build.yml@2222222222222222222222222222222222222222",
+      "      - uses: ./.github/actions/local",
+    ].join("\n");
+    expect(externalActionPaths(text)).toEqual([
+      "actions/cache/restore",
+      "actions/checkout",
+      "octo/shared/.github/workflows/build.yml",
+    ]);
+    expect(allowedActionPatterns(externalActionPaths(text))).toEqual([
+      "actions/cache/restore@*",
+      "actions/checkout@*",
+      "octo/shared/.github/workflows/build.yml@*",
+    ]);
   });
 });
 
@@ -179,6 +197,21 @@ describe("planned writes", () => {
     ]);
   });
 
+  it("turns vulnerability alerts on before Dependabot security updates", () => {
+    // GitHub refuses security updates while alerts are off, so a repository
+    // with both drifted must get the alerts first.
+    const drift = driftFor((live) => {
+      live.vulnerabilityAlerts = false;
+      live.repo.security_and_analysis.dependabot_security_updates.status =
+        "disabled";
+    });
+    const paths = settingsWrites(expected, drift).map(({ path }) => path);
+    expect(paths.indexOf("vulnerability-alerts")).toBeGreaterThanOrEqual(0);
+    expect(paths.indexOf("vulnerability-alerts")).toBeLessThan(
+      paths.indexOf(""),
+    );
+  });
+
   it("writes nothing when nothing drifted", () => {
     expect(settingsWrites(expected, [])).toEqual([]);
   });
@@ -190,6 +223,7 @@ describe("planned writes", () => {
       live.selectedActions.verified_allowed = true;
     });
     expect(settingsWrites(expected, drift)).toEqual([
+      { method: "PUT", path: "immutable-releases" },
       {
         method: "PATCH",
         path: "",
@@ -201,7 +235,6 @@ describe("planned writes", () => {
           },
         },
       },
-      { method: "PUT", path: "immutable-releases" },
       {
         method: "PUT",
         path: "actions/permissions/selected-actions",

@@ -113,7 +113,7 @@ export async function benchAgentBrowser() {
 function installLightpanda(workDir) {
   const pkg = spawnSync(
     "npm",
-    ["install", "--no-save", "@lightpanda/browser@1.6.0"],
+    ["install", "--ignore-scripts", "--no-save", "@lightpanda/browser@1.6.0"],
     { cwd: workDir, stdio: "pipe", encoding: "utf8" },
   );
   if (pkg.status !== 0) {
@@ -231,6 +231,7 @@ export async function benchStagehand() {
         "npm",
         [
           "install",
+          "--ignore-scripts",
           "--no-save",
           "@browserbasehq/stagehand@4.3.0",
           "playwright-core@1.64.1",

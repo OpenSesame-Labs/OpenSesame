@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import {
   aiLeverage,
   ciMetrics,
@@ -289,5 +290,34 @@ describe("report", () => {
     expect(markdown).toContain("not recorded");
     expect(markdown).toContain("no data");
     expect(markdown).toContain("Waiting past 3 days: #7 (9 d).");
+  });
+});
+
+describe("workflow", () => {
+  it("never lets pull request code read code-scanning alerts", () => {
+    // The pull_request job runs the pull request's own collector. Alerts are
+    // visible only to maintainers, so no job that can run on that event may
+    // hold the scope that reads them.
+    const workflow = parse(
+      readFileSync(
+        new URL(
+          "../../.github/workflows/engineering-metrics.yml",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    expect(workflow.permissions).toEqual({});
+    const jobs = Object.values(workflow.jobs);
+    const onPullRequest = jobs.filter(
+      (job) => job.if !== "github.event_name != 'pull_request'",
+    );
+    expect(onPullRequest).toHaveLength(1);
+    expect(onPullRequest[0].if).toBe("github.event_name == 'pull_request'");
+    expect(onPullRequest[0].permissions["security-events"]).toBeUndefined();
+    const scheduled = jobs.filter((job) => job !== onPullRequest[0]);
+    expect(scheduled.map((job) => job.permissions["security-events"])).toEqual([
+      "read",
+    ]);
   });
 });

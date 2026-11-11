@@ -114,15 +114,17 @@ export function unpinnedUses(text) {
   return unpinned;
 }
 
-/** `owner/repo` of every external action or reusable workflow referenced. */
-export function externalActionRepositories(text) {
-  const repositories = new Set();
+/**
+ * The full path of every external action or reusable workflow referenced,
+ * without its ref: `owner/repo` or `owner/repo/subdirectory`.
+ */
+export function externalActionPaths(text) {
+  const paths = new Set();
   for (const match of String(text).matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
     if (match[1].startsWith("./")) continue;
-    const [owner, repository] = match[1].split("@")[0].split("/");
-    repositories.add(`${owner}/${repository}`);
+    paths.add(match[1].split("@")[0]);
   }
-  return [...repositories].sort();
+  return [...paths].sort();
 }
 
 function readIfPresent(url) {

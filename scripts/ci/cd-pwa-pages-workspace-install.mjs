@@ -12,7 +12,13 @@ const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 function main() {
   const ran = spawnSync(
     "npm",
-    ["ci", "--include-workspace-root", "-w", "@opensesame/pages"],
+    [
+      "ci",
+      "--ignore-scripts",
+      "--include-workspace-root",
+      "-w",
+      "@opensesame/pages",
+    ],
     {
       cwd: repoRoot,
       stdio: "inherit",

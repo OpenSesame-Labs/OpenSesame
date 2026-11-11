@@ -21,6 +21,8 @@
         "Swatinem/rust-cache@*",
         "actions/attest@*",
         "actions/cache@*",
+        "actions/cache/restore@*",
+        "actions/cache/save@*",
         "actions/checkout@*",
         "actions/dependency-review-action@*",
         "actions/deploy-pages@*",
@@ -31,9 +33,12 @@
         "docker/build-push-action@*",
         "docker/login-action@*",
         "docker/setup-buildx-action@*",
-        "github/codeql-action@*",
+        "github/codeql-action/analyze@*",
+        "github/codeql-action/init@*",
+        "github/codeql-action/upload-sarif@*",
         "gitleaks/gitleaks-action@*",
-        "google/osv-scanner-action@*",
+        "google/osv-scanner-action/osv-reporter-action@*",
+        "google/osv-scanner-action/osv-scanner-action@*",
         "jdx/mise-action@*",
         "ossf/scorecard-action@*"
       ]
