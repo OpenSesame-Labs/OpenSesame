@@ -70,6 +70,30 @@ budget even though a warm cache fits. That failure is honest: the cap stays
 10 minutes. Run the workflow again from Actions (`workflow_dispatch` on
 `main`). The retry reuses the layer cache the first attempt wrote.
 
+## Vulnerability scanning
+
+The weekly security workflow
+([`security.yml`](../../.github/workflows/security.yml), also runnable by hand)
+pulls each image's `:next` tag, saves it, and scans every layer with
+OSV-Scanner. This covers what the lockfile scans cannot see: the base image's
+operating-system packages and anything a build copies in. The image is never
+run.
+
+- Findings go to the code-scanning dashboard under the category
+  `container-image-<image>`, one category per image, so an advisory that is
+  fixed disappears from that image's list.
+- The job summary names the exact digest that was scanned and counts findings
+  per advisory.
+- Findings do not turn the job red. A base image always carries some, and a
+  permanently red job is one nobody reads. The job fails when an image cannot
+  be pulled or when the scanner did not produce a complete report, so "did not
+  run" never reads as "nothing found".
+
+Limits: it scans the `linux/amd64` variant of `:next`, not the arm64 variant
+and not released `:<semver>` tags. Fix a finding by moving the base image
+digest in the Dockerfile or the dependency in the lockfile, then let the next
+publish replace `:next`.
+
 ## `opensesame` environment
 
 | Variable | Image default | Role |
