@@ -131,6 +131,29 @@ describe("dev container", () => {
   });
 });
 
+describe("dev container toolchain install", () => {
+  it("installs only the project's locked tools, whatever a personal config adds", () => {
+    // The dotfiles bootstrap may write a personal ~/.config/mise/config.toml
+    // with unpinned tools. A locked install that reads it refuses them and
+    // the container comes up without a toolchain, so every locked install in
+    // the lifecycle reads the project's pins and nothing else.
+    const config = JSON.parse(read(".devcontainer/devcontainer.json"));
+    const commands = [
+      config.onCreateCommand,
+      config.updateContentCommand,
+      config.postCreateCommand,
+      config.postStartCommand,
+    ].join(" && ");
+    const installs =
+      commands.match(/(?:\S+=\S+ )*mise install --locked/g) ?? [];
+    expect(installs.length).toBeGreaterThan(0);
+    for (const install of installs)
+      expect(install).toBe(
+        "MISE_GLOBAL_CONFIG_FILE=/dev/null mise install --locked",
+      );
+  });
+});
+
 describe("dev container proof", () => {
   const config = JSON.parse(read(".devcontainer/devcontainer.json"));
   const steps = plan(config, { image: "proof:1", workspace: "/repo" });

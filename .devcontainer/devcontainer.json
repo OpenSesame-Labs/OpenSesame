@@ -12,8 +12,8 @@
   "runArgs": ["--cap-drop=ALL", "--security-opt=no-new-privileges"],
   "forwardPorts": [8787, 8788, 18790],
   "onCreateCommand": "mise --version",
-  "updateContentCommand": "mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps",
-  "postCreateCommand": "mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps && bash scripts/dev/setup-hooks.sh",
+  "updateContentCommand": "MISE_GLOBAL_CONFIG_FILE=/dev/null mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps",
+  "postCreateCommand": "MISE_GLOBAL_CONFIG_FILE=/dev/null mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps && bash scripts/dev/setup-hooks.sh",
   "postStartCommand": "bash scripts/dev/install-agent-skills.sh",
   "customizations": {
     "vscode": {
