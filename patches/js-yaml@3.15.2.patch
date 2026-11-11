@@ -18,3 +18,14 @@
  cli.addArgument([ '-c', '--compact' ], {
    help:   'Display errors in compact mode',
    action: 'storeTrue'
+--- a/package.json
++++ b/package.json
+@@ -32,7 +32,7 @@
+   "unpkg": "dist/js-yaml.min.js",
+   "jsdelivr": "dist/js-yaml.min.js",
+   "dependencies": {
+-    "argparse": "^1.0.7",
++    "argparse": "2.0.1",
+     "esprima": "^4.0.0"
+   },
+   "devDependencies": {
