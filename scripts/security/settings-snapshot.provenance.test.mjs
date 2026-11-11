@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { parse } from "yaml";
 import { ARTIFACTS, api, root } from "./settings-snapshot.fixtures.mjs";
 import {
   ARTIFACT,
+  FILE,
+  MAX_ARCHIVE_BYTES,
   WORKFLOW,
   collect,
+  extractRecord,
   previousArtifact,
   previousArtifacts,
   trustedRun,
@@ -149,4 +161,57 @@ test("the workflow records first, then alarms, with a read-only token", () => {
   );
   assert.equal(workflow.on.workflow_dispatch !== undefined, true);
   assert.equal(WORKFLOW, ".github/workflows/security.yml");
+});
+
+const work = mkdtempSync(join(tmpdir(), "opensesame-settings-archive-"));
+after(() => rmSync(work, { recursive: true, force: true }));
+
+/** A zip archive of `entries`, built the way upload-artifact stores one. */
+function archive(name, entries) {
+  const source = join(work, `${name}-source`);
+  mkdirSync(source);
+  for (const [entry, make] of Object.entries(entries))
+    make(join(source, entry));
+  const zip = join(work, `${name}.zip`);
+  // -y stores a link as a link instead of what it points at.
+  execFileSync("zip", ["-q", "-y", zip, ...Object.keys(entries)], {
+    cwd: source,
+  });
+  return readFileSync(zip);
+}
+
+test("only the record itself, as a regular file, is taken from the archive", () => {
+  const record = '{"repository":{}}\n';
+  const plain = join(work, "plain");
+  const bytes = archive("plain", {
+    [FILE]: (path) => writeFileSync(path, record),
+    "other.json": (path) => writeFileSync(path, "{}"),
+  });
+  assert.equal(extractRecord(plain, bytes), true);
+  assert.equal(readFileSync(join(plain, FILE), "utf8"), record);
+  assert.throws(() => readFileSync(join(plain, "other.json")), /ENOENT/);
+
+  const empty = archive("empty", {
+    "other.json": (path) => writeFileSync(path, "{}"),
+  });
+  assert.equal(extractRecord(join(work, "empty"), empty), false);
+
+  // A link in the record's place would be read through to wherever it points.
+  const linked = archive("linked", {
+    [FILE]: (path) => symlinkSync("/etc/hostname", path),
+  });
+  assert.throws(
+    () => extractRecord(join(work, "linked"), linked),
+    /not a regular file/,
+  );
+
+  assert.throws(
+    () => extractRecord(join(work, "junk"), Buffer.from("not a zip archive")),
+    /unreadable/,
+  );
+  assert.throws(
+    () =>
+      extractRecord(join(work, "large"), Buffer.alloc(MAX_ARCHIVE_BYTES + 1)),
+    /too large/,
+  );
 });
