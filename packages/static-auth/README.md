@@ -61,7 +61,9 @@ locked update changes the hosted bundle, bump this package's patch version,
 commit the build inputs, and run the canonical builder. Keep existing versioned
 files and the frozen root `auth.js` unchanged; add the new artifact to the exact
 Biome override and update the shipped-artifact test's current import. Run
-`npm run lint:artifacts` before publishing the release.
+`npm run lint:artifacts` before publishing the release. The builder rebuilds
+only the hosted bundle: the root `auth.js` is carried forward by its recorded
+SRI, because a different bundler cannot reproduce its frozen bytes.
 
 
 ## Related
