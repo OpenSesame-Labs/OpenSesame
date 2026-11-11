@@ -158,9 +158,10 @@ gh pr create --title "fix(docs): correct stale reference(s)" \
 ```
 
 The default-branch ruleset requires signed commits
-(`ops/github/default-branch.json`). The squash on `main` is the commit GitHub
-signs, so commit on the pull request's own branch and use the commands here
-for the branch and the pull request.
+(`ops/github/default-branch.json`), and the attribution check requires each
+pull request commit to be GitHub-verified. Sign with a key registered to a
+GitHub account, commit on the pull request's own branch, and use the commands
+here for the branch and the pull request.
 
 If nothing is stale, end the session with a short note in your final message
 listing what you checked and that everything matched. Do not open an empty

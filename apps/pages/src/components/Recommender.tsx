@@ -136,13 +136,26 @@ function ring(id: string, notice: Omit<AppendStatusNoticeInput, "id">): void {
   appendStatusNotice({ ...notice, id });
 }
 
+/**
+ * The switch in flight, if any. A switch reads the installation's selection
+ * and commits it with one feature added; two pressed close together would
+ * both read the same selection, and the second commit would drop the first
+ * feature while both confirmations said it was on. So they take turns: each
+ * reads the selection only after the one before it has landed.
+ */
+let switching: Promise<unknown> = Promise.resolve();
+
 /** Why a switch did not land, as a sentence; a throw is a refusal too. */
-async function refusal(feature: FeatureId): Promise<string | null> {
-  try {
-    return await recommenderSeams.turnOn(feature);
-  } catch {
-    return "";
-  }
+function refusal(feature: FeatureId): Promise<string | null> {
+  const turn = switching.then(async () => {
+    try {
+      return await recommenderSeams.turnOn(feature);
+    } catch {
+      return "";
+    }
+  });
+  switching = turn;
+  return turn;
 }
 
 function make(entry: Recommendation, navigate: (to: string) => void): void {
