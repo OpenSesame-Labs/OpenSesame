@@ -342,9 +342,10 @@ jobs:
           set -o pipefail
           node scripts/security/settings-snapshot.mjs declared \
             "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
-      # Only a record uploaded by this workflow's own run on this branch is
-      # used: any other run, a fork's pull request included, can upload an
-      # artifact under the same name.
+      # Only a record uploaded by this workflow's own scheduled run on this
+      # branch is used: any other run, a fork's pull request included, can
+      # upload an artifact under the same name, and a hand-started run could
+      # otherwise make a changed setting the new baseline.
       - name: Fetch the previous record from this branch
         id: previous
         env:
@@ -365,4 +366,12 @@ jobs:
           set -o pipefail
           node scripts/security/settings-snapshot.mjs compare \
             "$RUNNER_TEMP/settings-previous/repository-settings.json" \
+            "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      # A section that cannot be read compares equal to itself every week, so
+      # it is a failure on its own, whether or not a change was found.
+      - name: Fail when a section could not be read
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          node scripts/security/settings-snapshot.mjs readable \
             "$RUNNER_TEMP/settings/repository-settings.json" | tee -a "$GITHUB_STEP_SUMMARY"

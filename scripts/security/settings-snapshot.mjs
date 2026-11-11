@@ -247,12 +247,31 @@ export function previousArtifacts(artifacts, { branch, runId }) {
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 }
 
-/** Whether the run that uploaded a record was this workflow, not another. */
+/**
+ * Whether the run that uploaded a record was this workflow's scheduled run,
+ * not another. A hand-started run is not a baseline: anyone who can start it
+ * could otherwise make a changed setting the record the next scheduled run
+ * compares against, and only they would see the run fail. A scheduled run
+ * only ever runs on the default branch, so a tag that happens to share the
+ * branch's name cannot supply one either.
+ */
 export function trustedRun(run, { branch }) {
   return (
     run?.path === WORKFLOW &&
     run.head_branch === branch &&
-    ["schedule", "workflow_dispatch"].includes(run.event)
+    run.event === "schedule"
+  );
+}
+
+/** Every setting path the record holds as unavailable rather than read. */
+export function unreadable(record, path = []) {
+  if (!isJsonObject(record)) return [];
+  if ("unavailable" in record)
+    return [
+      { setting: path.join(" › ") || "record", reason: record.unavailable },
+    ];
+  return Object.entries(record).flatMap(([key, value]) =>
+    unreadable(value, [...path, key]),
   );
 }
 
@@ -348,6 +367,15 @@ async function main([command, first, second], env) {
     );
     return found.length === 0 ? 0 : 1;
   }
+  if (command === "readable" && first) {
+    // A section that cannot be read compares equal to itself on every run,
+    // so it would never raise the alarm. It fails the run instead.
+    const missing = unreadable(readJson(first));
+    for (const { setting, reason } of missing)
+      console.log(`Unreadable: ${setting} (${reason})`);
+    if (missing.length === 0) console.log("Every section was read.");
+    return missing.length === 0 ? 0 : 1;
+  }
   if (command === "declared" && first) {
     const declarations = DECLARED.map((path) => readJson(join(root, path)));
     const found = declaredDifferences(readJson(first), declarations);
@@ -360,7 +388,7 @@ async function main([command, first, second], env) {
     return 0;
   }
   console.error(
-    "usage: settings-snapshot.mjs collect OUT | previous DIR | compare PREVIOUS CURRENT | declared CURRENT",
+    "usage: settings-snapshot.mjs collect OUT | previous DIR | compare PREVIOUS CURRENT | readable CURRENT | declared CURRENT",
   );
   return 2;
 }
