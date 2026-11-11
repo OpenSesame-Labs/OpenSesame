@@ -2,6 +2,9 @@ import { normalizeDisplayPath } from "./aliases.js";
 
 const FORBIDDEN_SUFFIXES = [
   "identity-grants",
+  // Which subject each application sees for a principal: a ledger the local
+  // issuer writes, never a document a person edits.
+  "identity-pairwise-subjects",
   "key-wrap",
   "keywrap",
   "replay",

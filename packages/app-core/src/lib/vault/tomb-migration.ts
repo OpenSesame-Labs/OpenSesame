@@ -48,7 +48,6 @@ import {
   rehydrateProjects,
   scopedKey,
 } from "../projects.js";
-import { enqueueTombWrite } from "../vfs-shared-write.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -64,6 +63,7 @@ import {
   writeFile,
   writePlaintextFile,
 } from "../vfs.js";
+import { enqueueTombWrite } from "../vfs-shared-write.js";
 import { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 import { retireUnusedConnectionConfigs } from "./retired-config.js";
 
@@ -141,6 +141,9 @@ function tombSessionKeys(tomb: string): string[] {
     "config/identity-agent-keys",
     "config/identity-applications",
     "config/identity-requests",
+    // The subject each local application knows a principal by. Left behind,
+    // it would sit as ciphertext the next vault's key cannot open.
+    "config/identity-pairwise-subjects",
     // What this device decided and what it said it would do about it
     // (ADR 0162): the audit of connector grants, the receipts and the list of
     // receipts not yet written, and where the person wants to be told.

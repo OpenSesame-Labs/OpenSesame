@@ -30,6 +30,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Link, useNavigate } from "react-router";
+import { firstControl, landFocus } from "../lib/focus.js";
 import { useModalFocus } from "../lib/modal-focus.js";
 import { tabAway } from "../lib/notice-desktop.js";
 import { useVault } from "../lib/vault/hooks.js";
@@ -266,6 +267,14 @@ function ActIcon({ icon }: { icon: NonNullable<Notice["act"]>["icon"] }) {
   return <IconPower size={16} />;
 }
 
+/**
+ * The notice whose act was pressed from the keyboard and that has not been
+ * answered yet. An act that works in place — a recommendation turning a
+ * feature on — replaces its own card with the outcome, and the key it was
+ * pressed on goes with it; the card it leaves behind takes focus back.
+ */
+let handBack: string | null = null;
+
 export function StatusNoticeCard({
   notice,
   onOpen,
@@ -275,6 +284,17 @@ export function StatusNoticeCard({
 }) {
   const tone = notice.tone ?? "info";
   const navigate = useNavigate();
+  const actions = useRef<HTMLDivElement>(null);
+  // Once the act's key is gone, and only if nothing else took focus
+  // meanwhile, focus lands on the first key the card still has.
+  useEffect(() => {
+    if (handBack !== notice.id || notice.act) return;
+    handBack = null;
+    const lost =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (lost) landFocus(firstControl(actions.current));
+  }, [notice]);
   return (
     <article
       className={`notice-card notice-card--${tone}`}
@@ -286,7 +306,7 @@ export function StatusNoticeCard({
         {notice.title}
       </h3>
       <p>{notice.body}</p>
-      <div className="actions">
+      <div className="actions" ref={actions}>
         {notice.open ? (
           // A route of this app, opened in place: the sheet closes with it.
           <IconKey
@@ -307,6 +327,9 @@ export function StatusNoticeCard({
             small
             onClick={() => {
               if (notice.act?.opens) onOpen();
+              else if (actions.current?.contains(document.activeElement)) {
+                handBack = notice.id;
+              }
               notice.act?.run();
             }}
           >

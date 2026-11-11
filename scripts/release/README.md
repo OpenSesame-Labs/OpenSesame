@@ -23,9 +23,12 @@ nightly and weekly controllers, artifact inventory, evidence and recovery.
 
 ## land-signed-stack
 
-The ruleset accepts only commits GitHub itself created, which means
-`createCommitOnBranch`. A session that cannot reach GraphQL leaves an unsigned
-local stack. Anyone with a working `gh` login replays it with one command:
+Most stacks do not need this tool: a commit signed with a key registered to a
+GitHub account is already verified and merges from its own branch
+([shipping](../../docs/contributing/shipping.md)). It is for a stack whose
+commits GitHub shows as unverified, or that claim Grok without Grok Build
+proof in the message. Anyone with a working `gh` login replays such a stack
+with one command:
 
 ```bash
 # Dry run (default): prints branches, commits, files and bytes; calls nothing.
@@ -46,8 +49,10 @@ commit is printed. The exit status is non-zero if any is unverified, differs
 from the local tree, or lacks recognised attribution. Grok Build replays append
 `Co-authored-by: Grok <noreply@x.ai>` because `createCommitOnBranch` cannot
 set the author; other agents keep their real author identity.
-It never force-pushes, deletes a branch or merges; open the PRs from the
-`-signed` branches.
+It never force-pushes, deletes a branch or merges. Open the PRs from the
+`-signed` branches, then delete the source branches: nothing else removes
+them, and a stack left behind this way is a branch per slice that never goes
+away.
 
 The mutation cannot express symlinks, submodules, executable-bit changes or
 merge commits; the planner refuses them by name before anything is sent.
