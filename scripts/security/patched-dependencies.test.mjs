@@ -4,7 +4,15 @@
  * These checks are hermetic: the registry comparison is the `verify` command.
  */
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -136,6 +144,43 @@ test("the checks reject a published, unpatched package and name what differs", (
     ["b.js"],
   );
   assert.deepEqual(differingFiles({ "a.js": "1" }, {}), ["a.js"]);
+});
+
+test("a tarball with anything npm would install outside package/ is refused", () => {
+  // npm strips the first path component of every entry, so an extra
+  // top-level directory or a link would install files the comparison of
+  // package/ never sees.
+  const [, entry] = vendored[0];
+  const tamper = (name, change) => {
+    const source = join(work, `tamper-${name}`);
+    mkdirSync(source);
+    execFileSync("tar", ["-xzf", join(root, entry.tarball), "-C", source]);
+    const members = change(source);
+    const tarball = join(work, `${name}.tgz`);
+    execFileSync("tar", ["-czf", tarball, "-C", source, ...members]);
+    return tarball;
+  };
+  const extra = tamper("extra", (source) => {
+    mkdirSync(join(source, "x", "esm"), { recursive: true });
+    writeFileSync(join(source, "x", "esm", "index.js"), "export const x = 1;");
+    return ["package", "x"];
+  });
+  const linked = tamper("linked", (source) => {
+    symlinkSync("/etc/hostname", join(source, "package", "linked.js"));
+    return ["package"];
+  });
+  const climbing = tamper("climbing", (source) => {
+    writeFileSync(join(source, "outside.js"), "export const x = 1;");
+    return ["package", "package/../outside.js"];
+  });
+  for (const tarball of [extra, linked, climbing])
+    assert.throws(
+      () => extract(tarball, join(work, "refused")),
+      /refused entry/,
+      tarball,
+    );
+  // The committed tarballs themselves pass.
+  for (const [, each] of vendored) unpack(each);
 });
 
 test("the sprintf-js chain the js-yaml patch removes is gone from the lockfile", () => {
