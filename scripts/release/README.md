@@ -13,6 +13,7 @@ Release and merge-gate tooling run from a terminal or CI.
 | `sbom.mjs` | CycloneDX inventory of every package the selected snapshot's `package-lock.json` and `Cargo.lock` pin, read by exact commit and signed against the candidate's artifact digests ([release kit](../../docs/operators/release-kit.md#dependency-inventory)) |
 | `deep-tools.sh`, `deep-check.sh` | Pinned weekly mutation/security tooling and required suites; missing or incomplete evidence fails |
 | `stage-release.mjs`, `publish-release.mjs`, `publish-assets.mjs`, `verify-site.mjs` | Stage exact assets, publish the qualified release and verify every served Pages file |
+| `credential-expiry.mjs` | Requires the release credential and reports when it expires; warns, without failing the release, when it never expires, expires soon or outlives the rotation period ([stored publication credentials](../../docs/operators/publishing.md#stored-publication-credentials)) |
 | `deploy-pages.sh`, `pages-release.mjs` | Retired local publisher and the build-time Pages release marker; publication now belongs to `release-weekly.yml` |
 | `pin-connect-services.mjs`, `pin-marketplace.mjs` | Pin generated service and marketplace digests |
 | `kit-archive.sh` | The native kit's reproducible archives, built once by `candidate-build.yml` and promoted unchanged ([release kit](../../docs/operators/release-kit.md)) |
