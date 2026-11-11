@@ -179,6 +179,12 @@ describe("dev container proof", () => {
     for (const [name, value] of Object.entries(config.containerEnv))
       expect(run).toContain(`${name}=${value}`);
     expect(run[run.indexOf("--volume") + 1]).toBe("/repo:/mnt/source:ro");
+    // The copy lives where an editor mounts a checkout, outside $HOME.
+    expect(run[run.indexOf("--mount") + 1]).toBe(
+      "type=tmpfs,destination=/workspaces,tmpfs-mode=1777",
+    );
+    expect(script(config)).toContain("cd /workspaces/OpenSesame");
+    expect(script(config)).not.toContain("$HOME");
     // Nothing that would hand the container more than the declaration does.
     expect(run.join(" ")).not.toMatch(
       /--privileged|--cap-add|docker\.sock|--network[= ]host|--pid[= ]host/,

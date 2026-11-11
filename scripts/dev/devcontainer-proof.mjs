@@ -21,6 +21,9 @@ import { isString } from "../lib/json-boundary.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const SOURCE = "/mnt/source";
+// Where an editor puts the checkout: under /workspaces, outside $HOME, so mise
+// never takes a personal ~/.config/mise for a project config while walking up.
+const WORKSPACE = "/workspaces/OpenSesame";
 const LIFECYCLE = [
   "onCreateCommand",
   "updateContentCommand",
@@ -46,8 +49,8 @@ export function script(config) {
     throw new Error("lifecycle commands must be strings");
   return [
     "set -euo pipefail",
-    `cp -R ${SOURCE} "$HOME/workspace"`,
-    'cd "$HOME/workspace"',
+    `cp -R ${SOURCE} ${WORKSPACE}`,
+    `cd ${WORKSPACE}`,
     // Each in its own subshell: with `set -e`, a failure inside an `a && b`
     // list is otherwise ignored unless it is the last command of the list.
     ...commands.map((command) => `( ${command} )`),
@@ -87,6 +90,9 @@ export function plan(config, { image, workspace }) {
       `EXPECTED_USER=${containerUser}`,
       "--volume",
       `${workspace}:${SOURCE}:ro`,
+      // A scratch /workspaces the non-root user can write, gone with the run.
+      "--mount",
+      "type=tmpfs,destination=/workspaces,tmpfs-mode=1777",
       image,
       "bash",
       "-lc",
