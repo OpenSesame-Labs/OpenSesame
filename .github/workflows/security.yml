@@ -301,4 +301,7 @@ jobs:
       - name: Install exact locked build dependencies
         run: npm ci
       - name: Build and verify all four original native phases
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+          REQUESTED_HEAD: ${{ github.sha }}
         run: timeout --signal=TERM --kill-after=10s 900s node scripts/ci-native-wasm.mjs
