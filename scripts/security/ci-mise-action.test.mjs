@@ -13,7 +13,7 @@ import {
 import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
 
 const miseLine =
-  /uses:\s+jdx\/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5\.2\.6\s*$/u;
+  /uses:\s+jdx\/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5\.2\.7\s*$/u;
 const allowedArgs = new Set([
   "node",
   "node@24",
