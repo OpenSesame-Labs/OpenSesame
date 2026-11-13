@@ -1400,7 +1400,7 @@ jobs:
           cache: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
-        run: rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+        run: rustup target add --toolchain 1.99.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       - name: Install pinned Android build tools
         run: |
           set -euo pipefail
@@ -1478,7 +1478,7 @@ jobs:
           cache: false
           install_args: rust
       - name: Install iOS Rust targets
-        run: rustup target add --toolchain 1.97.1 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+        run: rustup target add --toolchain 1.99.0 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
       - name: Test Swift envelopes and compile all iOS package targets
         run: bash .ci-control/scripts/test/mobile-apple.sh ios
       - name: Preserve iOS simulator XCTest results

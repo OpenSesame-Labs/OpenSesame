@@ -59,7 +59,7 @@ function prepareStubInstall(work) {
     [
       "#!/usr/bin/env bash",
       'if [[ "$1" == env ]]; then',
-      "  printf '%s\\n' 'CARGO_TARGET_DIR=/cache/cargo-target' 'RUSTUP_TOOLCHAIN=1.97.1' 'PATH=/stub/shims:/usr/bin'",
+      "  printf '%s\\n' 'CARGO_TARGET_DIR=/cache/cargo-target' 'RUSTUP_TOOLCHAIN=1.99.0' 'PATH=/stub/shims:/usr/bin'",
       "fi",
       "exit 0",
       "",
@@ -148,7 +148,7 @@ describe("locked mise bootstrap", () => {
       assert.equal(run.status, 0, run.stderr);
       const exported = readFileSync(githubEnv, "utf8").trim().split("\n");
       assert.ok(exported.includes("CARGO_TARGET_DIR=/cache/cargo-target"));
-      assert.ok(exported.includes("RUSTUP_TOOLCHAIN=1.97.1"));
+      assert.ok(exported.includes("RUSTUP_TOOLCHAIN=1.99.0"));
       assert.ok(exported.includes("MISE_YES=1"));
       assert.equal(
         exported.some((line) => line.startsWith("PATH=")),
