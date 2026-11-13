@@ -139,7 +139,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "aedes": "1.2.0",
     "fast-check": "4.10.2",
-    "jsdom": "26.1.0",
+    "jsdom": "31.0.0",
     "node-turn": "0.0.6",
     "storybook": "10.6.6",
     "terser": "5.51.2",
