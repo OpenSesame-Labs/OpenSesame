@@ -140,7 +140,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: node
@@ -203,7 +203,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: node
@@ -255,7 +255,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: node@24
@@ -317,12 +317,12 @@ jobs:
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: node
         working_directory: src
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: rust
@@ -396,7 +396,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
         cache: false
         install_args: node@24
