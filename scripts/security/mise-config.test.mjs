@@ -94,11 +94,11 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
 
   assertRustPins(tools, toolchain);
 
-  // mise.toml pins Node 24. package.json engines.node is ">=24" after the
-  // npm workspaces migration. Turbo reads packageManager. The legacy
+  // mise.toml pins Node 24. package.json engines.node is ">=24.15.0" so the
+  // floor matches jsdom 31. Turbo reads packageManager. The legacy
   // package manager stays out of mise.
   assert.equal(asString(tools.node, "node"), "24");
-  assert.equal(manifest.engines.node, ">=24");
+  assert.equal(manifest.engines.node, ">=24.15.0");
   assert.equal(manifest.packageManager, "npm@11.19.1");
   assert.equal(Object.hasOwn(tools, "pn" + "pm"), false);
   assert.ok(
