@@ -7,7 +7,7 @@ cd "$ROOT"
 source "$ROOT/scripts/lib/audit-directory.sh"
 opensesame_audit_directory
 
-TOOLCHAIN="${OPENSESAME_RUST_TOOLCHAIN:-1.97.1}"
+TOOLCHAIN="${OPENSESAME_RUST_TOOLCHAIN:-1.99.0}"
 
 if ! cargo "+${TOOLCHAIN}" audit -V >/dev/null 2>&1; then
   echo "==> installing cargo-audit for toolchain ${TOOLCHAIN}"
