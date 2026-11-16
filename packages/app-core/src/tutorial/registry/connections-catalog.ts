@@ -16,6 +16,22 @@ import type { GuideTargetDescriptor } from "./targets.js";
 
 export const CONNECTIONS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
+    id: "connections.github.method",
+    description:
+      "Choose between registering a GitHub App and connecting with a personal access token on the GitHub configuration page.",
+    role: "ceremony",
+    routes: ["/connections/github", "/settings/connections/github"],
+    capabilityId: "connections.create",
+  },
+  {
+    id: "connections.github.backup",
+    description:
+      "The GitHub page heading and backup switch; a repository must be configured before the switch can enable automatic backups.",
+    role: "surface",
+    routes: ["/connections/github", "/settings/connections/github"],
+    capabilityId: "backup.target.set",
+  },
+  {
     id: "connections.reload",
     description:
       "Re-reads the connection list. Use it after finishing an authorization somewhere else.",
@@ -97,5 +113,10 @@ export const CONNECTIONS_ROUTES: readonly GuideRouteDescriptor[] = [
   {
     id: "/connections/git",
     title: "Connections — the generic git remote's own page",
+  },
+  { id: "/connections/github", title: "Connections — GitHub setup" },
+  {
+    id: "/settings/connections/github",
+    title: "Settings — GitHub setup",
   },
 ];

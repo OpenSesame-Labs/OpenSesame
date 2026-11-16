@@ -114,9 +114,12 @@ describe("connectors.external runtime", () => {
       [...CONNECTIONS_GOALS, ...NAV_CONNECTIONS_GOALS].map((d) => d.id),
     );
     expect(goalIds).toContain("connection.create");
+    expect(goalIds).toContain("connection.github.setup");
     expect(t.entries("tutorial-route").map((d) => d.id)).toEqual([
       "/connections",
       "/connections/git",
+      "/connections/github",
+      "/settings/connections/github",
     ]);
     expect(t.entries("unlock-effect").map((e) => e.id)).toEqual([
       "seal-connector-directory",

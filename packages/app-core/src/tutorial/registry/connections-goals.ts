@@ -7,6 +7,22 @@ import type { GuideGoalDescriptor, HelpTopic } from "./goals.js";
 
 export const CONNECTIONS_GOALS: readonly GuideGoalDescriptor[] = [
   {
+    id: "connection.github.setup",
+    title: "Set up GitHub",
+    routes: ["/connections/github", "/settings/connections/github"],
+    currentRouteOnly: true,
+    guide: [
+      "guide/1",
+      'goal "connection.github.setup"',
+      'focus "connections.github.method" "Choose GitHub App or a personal access token. The controls below follow the method you choose." side=bottom',
+      'say "For a GitHub App, create and install the app, then choose the repository for your encrypted vault backup. For a token, fill in the token and repository details, then verify the connection."',
+      'focus "connections.github.backup" "For GitHub App backups, configure a repository first, then turn on this switch. Choose whether to restore or make the first backup; automatic updates start after a successful first backup." side=bottom',
+      'say "A token connection has its own backup controls. You can continue configuring it on this page."',
+      'success "You can keep configuring GitHub here. Nothing was changed by this tour."',
+      "end",
+    ].join("\n"),
+  },
+  {
     id: "connection.create",
     title: "Connect a provider",
     routes: [],
@@ -95,8 +111,8 @@ export const CONNECTIONS_GOALS: readonly GuideGoalDescriptor[] = [
       'navigate "/settings/integrations"',
       'wait route "/settings/integrations" timeout=15000',
       'scroll "integration.backups"',
-      'focus "integration.backups" "The Backups section. Backing up is built in, so no feature has to be switched on first." side=bottom',
-      'focus "settings.backup" "Choose the git provider the vault backs up to under Backups, and switch it on." side=bottom',
+      'focus "integration.backups" "The Backups section lists available destinations. Open one to configure its connection and repository." side=bottom',
+      'focus "settings.backup" "Open a git provider and configure its repository first, then switch on its backup." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -142,6 +158,15 @@ export const CONNECTIONS_GOALS: readonly GuideGoalDescriptor[] = [
 ];
 
 export const CONNECTIONS_HELP: readonly HelpTopic[] = [
+  {
+    id: "help.connection.github.setup",
+    title: "How do I set up GitHub?",
+    answer:
+      "Choose GitHub App or personal access token on this page. For an app, create and install it, choose a repository and enable backup. Restore or make the first backup before automatic updates begin. For a token, enter the token and repository details, then verify the connection.",
+    routes: ["/connections/github", "/settings/connections/github"],
+    goal: "connection.github.setup",
+    keywords: ["github", "setup", "configure", "app", "token", "repository"],
+  },
   {
     id: "help.connection.create",
     title: "How do I connect a provider?",
@@ -208,7 +233,7 @@ export const CONNECTIONS_HELP: readonly HelpTopic[] = [
     id: "help.backup",
     title: "How do I back up the vault?",
     answer:
-      "Export, in the Vault's path strip, saves one encrypted backup file that the master password opens and Import restores. To keep a copy off this device, Settings → Integrations → Backups: choose the git provider — GitHub, GitLab, Bitbucket, Codeberg or any git remote — the encrypted vault backs up to, and switch that provider on.",
+      "Export, in the Vault's path strip, saves one encrypted backup file that the master password opens and Import restores. To keep a copy off this device, open a git provider under Settings → Integrations → Backups, configure its repository, then enable backup.",
     routes: [],
     goal: "settings.backup",
     keywords: [

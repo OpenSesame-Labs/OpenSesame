@@ -44,6 +44,12 @@ describe("guide route registry", () => {
       "/identity/authorize",
     );
     expect(isKnownGuideRoute("/nowhere")).toBe(false);
+    expect(guideRouteForPath("/settings/connections/github")).toBe(
+      "/settings/connections/github",
+    );
+    expect(guideRouteForPath("/connections/github")).toBe(
+      "/connections/github",
+    );
   });
 });
 

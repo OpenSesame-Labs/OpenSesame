@@ -29,8 +29,8 @@ import {
   stashPendingGithubAppSecret,
 } from "@opensesame/app-core/lib/github-app-secret.js";
 import { DEFAULT_PASSWORD_REPO_NAME } from "@opensesame/app-core/lib/github-history.js";
-import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { localAppConnection } from "@opensesame/app-core/sections/connections/github-app-config-summary-model.js";
 import { createTestHost } from "@opensesame/app-core/test-host.js";
 import {
@@ -128,8 +128,7 @@ beforeEach(async () => {
         response.flushHeaders();
         return;
       }
-      // Binding starts the real observer's branch poll, separately authorized
-      // for this one repository. Inventory credentials must never serve it.
+      // A later enabled backup uses a separate token for the branch poll.
       if (
         request.path === "/repos/fixture-owner/vault-backup/git/ref/heads/main"
       ) {
@@ -310,15 +309,7 @@ it("a successful existing-repository bind retires the old refresh target snapsho
     }),
   );
   await screen.findByTestId("github-backup-repo");
-  await waitFor(() =>
-    expect(
-      server.requests.filter(
-        (request) =>
-          request.path ===
-          "/repos/fixture-owner/vault-backup/git/ref/heads/main",
-      ),
-    ).toHaveLength(1),
-  );
+  expect(readLocalBackupTarget("github")?.enabled).toBe(false);
   const before = JSON.stringify(readLocalBackupTarget("github"));
   const marker = onReady.mock.calls.length;
   await finish(1, ["stale-only"]);
@@ -327,10 +318,13 @@ it("a successful existing-repository bind retires the old refresh target snapsho
   );
   expect(JSON.stringify(readLocalBackupTarget("github"))).toBe(before);
   expect(onReady.mock.calls.slice(marker)).not.toContainEqual([false]);
-  // Selecting an existing repository starts a read, never an initial write.
+  // Selecting an existing repository leaves backup off and does not sync.
   expect(server.requests.some((request) => request.method === "PUT")).toBe(
     false,
   );
+  expect(
+    server.requests.some((request) => request.path.includes("/git/ref/")),
+  ).toBe(false);
   expect(
     server.requests.some(
       (request) =>

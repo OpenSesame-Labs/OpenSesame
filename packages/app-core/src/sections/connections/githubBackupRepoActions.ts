@@ -17,7 +17,7 @@ import {
 import type { Flash } from "./shared.js";
 
 export async function createUnder(
-  connection: Connection,
+  _connection: Connection,
   account: AppInstallAccount,
   name: string,
 ): Promise<RepoChoice> {
@@ -44,11 +44,11 @@ function bindPayload(
   parsed: { owner: string; repo: string },
 ) {
   const base = {
+    kind: "github_app",
     installationId: choice.installationId,
     owner: parsed.owner,
     repo: parsed.repo,
     branch: "main",
-    enabled: true,
   };
   if (connection.connectionId === "local-github-app") return base;
   if (connection.integrationId) {

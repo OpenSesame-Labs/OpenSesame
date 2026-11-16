@@ -6,8 +6,7 @@
  * to, the compiler a program is checked by, the runtime that drives it, the
  * support session that holds the conversation, and the panel it is read in.
  * Only two things are substituted, because neither can be driven
- * deterministically — the model, which is a scripted fake agent, and the
- * deadline clock, which never fires unless a test advances it.
+ * deterministically: the scripted model and the manually advanced deadline clock.
  *
  * The renderer is the recording one rather than Driver.js: these stories are
  * about *what* a walkthrough was asked to point at and when, and the overlay
@@ -19,21 +18,22 @@
  * story below a test of them as well.
  */
 import { defaultPrefs } from "@opensesame/app-core/lib/vault/prefs.js";
-import { guideGoalIds } from "@opensesame/app-core/tutorial/registry/goals.js";
-import { GUIDE_ROUTES } from "@opensesame/app-core/tutorial/registry/routes.js";
-import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
-import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
-
 import { buildSupportPageContext } from "@opensesame/app-core/tutorial/registry/context.js";
+import { guideGoalIds } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { registerGuidePredicates } from "@opensesame/app-core/tutorial/registry/predicates.js";
-import { isKnownGuideRoute } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
+  GUIDE_ROUTES,
+  isKnownGuideRoute,
+} from "@opensesame/app-core/tutorial/registry/routes.js";
+import {
+  guidePredicateIds,
   isKnownGuidePredicate,
   observeGuidePredicate,
   readGuidePredicate,
 } from "@opensesame/app-core/tutorial/registry/state.js";
 import {
   clearMountedGuideTargets,
+  guideTargetIds,
   isKnownGuideTarget,
   isMountedGuideTarget,
   observeGuideTarget,
@@ -58,14 +58,15 @@ import type {
 import { createSupportSession } from "@opensesame/support-agent";
 import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeAll } from "vitest";
 import { accountSwitcherSeams } from "../../../components/AccountSwitcher.js";
 import { AppShell } from "../../../components/AppShell.js";
 import { crumbsSeams } from "../../../components/Crumbs.js";
+import { registerLegacyShell } from "../../../components/legacy-sections.test-support.js";
 import { notificationsBarSeams } from "../../../components/NotificationsBar.js";
 import { projectSwitcherSeams } from "../../../components/ProjectSwitcher.js";
-import { registerLegacyShell } from "../../../components/legacy-sections.test-support.js";
 import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
 import { CatalogPanel } from "../../../sections/connections/CatalogPanel.js";
 import { HealthPanel } from "../../../sections/vault/HealthPanel.js";
@@ -139,12 +140,15 @@ Object.assign(crumbsSeams, {
  * person has arrived; the vault list stands in, since no journey below
  * highlights anything inside it.
  */
-function Screens() {
+function Screens({ fallback }: { fallback?: ReactNode }) {
   return (
     <Routes>
       <Route path="/connections" element={<CatalogPanel providers={[]} />} />
       <Route path="/vault/health" element={<HealthPanel />} />
-      <Route path="*" element={<p>Everything this deployment holds.</p>} />
+      <Route
+        path="*"
+        element={fallback ?? <p>Everything this deployment holds.</p>}
+      />
     </Routes>
   );
 }
@@ -290,6 +294,7 @@ export type JourneyOptions = {
   /** Where the person is when the story starts. */
   readonly at?: string;
   readonly transport?: SupportTransport;
+  readonly screen?: ReactNode;
 };
 
 export type Journey = {
@@ -344,7 +349,7 @@ export function renderJourney(
       <SupportProvider>
         <SupportSlotProvider>
           <AppShell>
-            <Screens />
+            <Screens fallback={options.screen} />
           </AppShell>
           <SupportLauncher />
         </SupportSlotProvider>

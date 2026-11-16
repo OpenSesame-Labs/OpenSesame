@@ -64,6 +64,7 @@ describe("GithubAppPresence", () => {
       ]),
       getBackupStatus: vi.fn(async () => ({
         target: {
+          kind: "github_app",
           integrationId: "int-gh",
           installationId: "4242",
           owner: "acme-corp",

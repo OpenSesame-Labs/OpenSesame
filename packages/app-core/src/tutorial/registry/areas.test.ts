@@ -62,6 +62,15 @@ const KEYED_GATES = [
 ] as const;
 
 describe("where a tutorial can start", () => {
+  it("offers the GitHub setup tour only on the GitHub page", () => {
+    const goal = guideGoal("connection.github.setup");
+    expect(goal).not.toBeNull();
+    if (!goal) return;
+    expect(tutorialStartsFrom(goal, "/settings/connections/github")).toBe(true);
+    expect(tutorialStartsFrom(goal, "/connections/github")).toBe(true);
+    expect(tutorialStartsFrom(goal, "/settings/integrations")).toBe(false);
+    expect(tutorialStartsFrom(goal, "/connections/gitlab")).toBe(false);
+  });
   const gateOnly = {
     id: "x.gate-only",
     title: "Gate only",

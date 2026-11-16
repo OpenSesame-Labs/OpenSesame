@@ -5,8 +5,8 @@
  * tile draws the same way whichever capability owns the group.
  *
  * A tile links to its connector's page only while that page is routed
- * (`href`, ADR 0153). Without one it is the tile's own switch and nothing
- * else — never a link to a page that is not there (ADR 0158).
+ * (`href`, ADR 0153). The GitHub tile can turn on Connections and then open
+ * that same configuration page.
  */
 
 import {
@@ -14,6 +14,7 @@ import {
   backupTargetProviderId,
   getBackupStatus,
 } from "@opensesame/app-core/lib/backup.js";
+import { subscribeLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import { hasHistorySwitch } from "@opensesame/app-core/lib/connect-roads.js";
 import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import {
@@ -26,6 +27,7 @@ import { IconChevronRight } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { BackupEnableSwitch } from "../connections/BackupEnableSwitch.js";
 import { ConnectorMark } from "../connections/ConnectorMark.js";
+import { GithubSetupTileLink } from "./GithubSetupTileLink.js";
 
 function historyRemote(providerId: string): string | null {
   const remote = loadHistorySelections()
@@ -49,15 +51,22 @@ export function useBackupTarget(enabled = true): BackupTargetView | null {
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    void getBackupStatus("github")
-      .then((status) => {
-        if (live) setTarget(status.target);
-      })
-      .catch(() => {
-        if (live) setTarget(null);
-      });
+    let request = 0;
+    const reload = () => {
+      const current = ++request;
+      void getBackupStatus("github")
+        .then((status) => {
+          if (live && current === request) setTarget(status.target);
+        })
+        .catch(() => {
+          if (live && current === request) setTarget(null);
+        });
+    };
+    reload();
+    const unsubscribe = subscribeLocalBackupTarget(reload);
     return () => {
       live = false;
+      unsubscribe();
     };
   }, [enabled]);
   return target;
@@ -68,6 +77,60 @@ export function backupTargetProvider(
   target: BackupTargetView | null,
 ): string | null {
   return target ? backupTargetProviderId(target) : null;
+}
+
+function githubSetupHint(
+  needsConnections: boolean,
+  available: boolean | null,
+  bound: boolean,
+): string | null {
+  if (!needsConnections) return bound ? null : "Configure a repository first";
+  if (available === null) return "Checking Connections availability";
+  return available
+    ? "Turn on Connections and configure"
+    : "Connections is not available on this device";
+}
+
+function FeatureBindingFace({
+  provider,
+  target,
+  enabled,
+  remote,
+  setupHint,
+}: {
+  provider: Provider;
+  target: BackupTargetView | null;
+  enabled: boolean;
+  remote: string | null;
+  setupHint: string | null;
+}) {
+  return (
+    <>
+      <ConnectorMark
+        providerId={provider.id}
+        displayName={provider.displayName}
+        size={32}
+      />
+      <span className="conn-tile__copy">
+        <span className="conn-tile__name">{provider.displayName}</span>
+        {remote ? <span className="conn-tile__kind">{remote}</span> : null}
+        {target?.kind === "github_app" && enabled && !target.lastSyncedAt ? (
+          <span className="conn-tile__kind">
+            Automatic backups have not started
+          </span>
+        ) : null}
+        {setupHint ? (
+          <span className="conn-tile__kind">{setupHint}</span>
+        ) : null}
+      </span>
+      {enabled && !remote ? (
+        <StatusMark
+          tone="warn"
+          label="No repository yet — nothing is backed up"
+        />
+      ) : null}
+    </>
+  );
 }
 
 export function FeatureBindingTile({
@@ -82,7 +145,8 @@ export function FeatureBindingTile({
   target: BackupTargetView | null;
 }) {
   const bound = target !== null;
-  const historyBound = !bound && hasHistorySwitch(provider.id);
+  const historyBound =
+    !bound && provider.id !== "github" && hasHistorySwitch(provider.id);
   const enabled = bound
     ? target.enabled
     : historyBound && isHistorySelected(provider.id);
@@ -91,42 +155,33 @@ export function FeatureBindingTile({
     : historyBound
       ? historyRemote(provider.id)
       : null;
-  const showSwitch = bound || historyBound;
+  const showSwitch = bound || historyBound || provider.id === "github";
+  const needsConnections = provider.id === "github" && href === null;
 
-  const face = (
-    <>
-      <ConnectorMark
-        providerId={provider.id}
-        displayName={provider.displayName}
-        size={32}
-      />
-      <span className="conn-tile__copy">
-        <span className="conn-tile__name">{provider.displayName}</span>
-        {remote ? <span className="conn-tile__kind">{remote}</span> : null}
-      </span>
-      {/* On with nowhere to go: GitHub is the history default, so its
-          switch read "on" for a guest who had named no repository and
-          was backing nothing up. The mark is drawn whether or not the
-          tile's page is routed: a person can change it, by naming a
-          repository on that page, or by switching Connections on to reach
-          it (ADR 0158). */}
-      {enabled && !remote ? (
-        <StatusMark
-          tone="warn"
-          label="No repository yet — nothing is backed up"
-        />
-      ) : null}
-    </>
+  const face = (setupHint: string | null) => (
+    <FeatureBindingFace
+      provider={provider}
+      target={target}
+      enabled={enabled}
+      remote={remote}
+      setupHint={setupHint}
+    />
   );
 
   return (
     <li className={`conn-tile${enabled ? " is-on" : ""}`}>
       <div className="conn-tile__row">
-        {href === null ? (
-          <span className="conn-tile__face">{face}</span>
+        {provider.id === "github" ? (
+          <GithubSetupTileLink href={href}>
+            {(available) =>
+              face(githubSetupHint(needsConnections, available, bound))
+            }
+          </GithubSetupTileLink>
+        ) : href === null ? (
+          <span className="conn-tile__face">{face(null)}</span>
         ) : (
           <Link className="conn-tile__link" to={href}>
-            {face}
+            {face(null)}
             <IconChevronRight className="conn-tile__go" size={14} />
           </Link>
         )}

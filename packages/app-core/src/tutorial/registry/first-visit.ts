@@ -116,6 +116,8 @@ export const FIRST_VISIT_TOURS = {
     "connection.repair",
   ],
   "/connections/git": ["settings.backup"],
+  "/connections/github": ["connection.github.setup"],
+  "/settings/connections/github": ["connection.github.setup"],
   "/access": ["access.review", "access.grant", "access.sessions.review"],
   "/access/requests": ["access.relay", "access.requests.hosted"],
   "/identity": [
