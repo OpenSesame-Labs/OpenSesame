@@ -6,9 +6,9 @@ import {
 } from "@opensesame/app-core/tutorial/registry/connections-catalog.js";
 import { CONNECTIONS_GOALS } from "@opensesame/app-core/tutorial/registry/connections-goals.js";
 import { NAV_CONNECTIONS_GOALS } from "@opensesame/app-core/tutorial/registry/section-nav-goals.js";
-import type { PagesWebMcpTool } from "@opensesame/app-core/webmcp/tool-shared.js";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readOperationIds } from "../ports-b.js";
 import {
   NO_SIDE_EFFECTS,
   expectLifecycle,
@@ -138,15 +138,12 @@ describe("connectors.external runtime", () => {
     ]);
     // Every tool names its operation ids, so the core can drop the ones the
     // plan has not approved before the browser is told about any of them.
-    expect(
-      tools.map((tool) => (tool as PagesWebMcpTool).capabilityIds),
-    ).toEqual([
+    const operations = tools.map(readOperationIds);
+    expect(operations).toEqual([
       ["connections.list", "connections.inspect"],
       ["connections.create"],
     ]);
-    for (const id of tools.flatMap(
-      (tool) => (tool as PagesWebMcpTool).capabilityIds,
-    )) {
+    for (const id of operations.flatMap((ids) => ids ?? [])) {
       expect(CONNECTOR_OPERATIONS).toContain(id);
     }
     // Disabling connectors takes the tools with it: nothing survives the

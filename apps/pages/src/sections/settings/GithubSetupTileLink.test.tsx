@@ -127,13 +127,13 @@ it("does not navigate back when the person leaves while Connections starts", asy
 
 it("stays on Integrations when turning on Connections is refused", async () => {
   // The double deliberately refuses the same commit used by Features.
-  const refused = { status: "refused", reason: "policy" } as never;
-  vi.spyOn(capabilityPorts.compositionStore, "commit").mockResolvedValueOnce(
-    refused,
-  );
+  vi.spyOn(capabilityPorts.compositionStore, "commit").mockResolvedValueOnce({
+    status: "refused",
+    reason: "managed-invalid",
+  });
   renderBackups();
   fireEvent.click(screen.getByRole("button", { name: /GitHub.*Connections/ }));
-  await expectInTray("refused · policy");
+  await expectInTray("refused · managed-invalid");
   expect(screen.getByRole("list", { name: "Backups" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "GitHub setup" })).toBeNull();
   vi.restoreAllMocks();
