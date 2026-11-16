@@ -151,6 +151,9 @@ function walkerFor(env, page) {
     );
     const rows = await offered(page, check, `${width}px ${label}`, wanted);
     for (const row of rows) {
+      // This tutorial changes screens and creates a vault; its own browser
+      // walk exercises the actual actions on a fresh page.
+      if (row.id === "gate.front-door") continue;
       if (wants(row.id)) await walkGate(page, row, { phone, width });
     }
   };
@@ -258,14 +261,23 @@ export async function gatePass(env) {
   const { width, newPage, origin, base } = env;
   const { page, context } = await newPage(width);
   const walkHere = walkerFor(env, page);
-  await doorGate(env, page, walkHere);
-  await setupGate(env, page, walkHere);
-  await sealGate(page, walkHere);
-  // Unlock: the vault just sealed, on a fresh load, which locks it.
-  await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
-  await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
-  await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
-  await context.close();
+  try {
+    await doorGate(env, page, walkHere);
+    await setupGate(env, page, walkHere);
+    await sealGate(page, walkHere);
+    // Unlock: the vault just sealed, on a fresh load, which locks it.
+    await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
+    await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
+    await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
+  } catch (error) {
+    if (env.out)
+      await page
+        .screenshot({ path: `${env.out}/${width}-gate-error.png` })
+        .catch(() => {});
+    throw error;
+  } finally {
+    await context.close();
+  }
 }
 
 /**

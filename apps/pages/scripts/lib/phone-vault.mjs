@@ -37,7 +37,7 @@ export async function toTheList(page) {
     .or(all)
     .first()
     .waitFor({ state: "visible", timeout: 15000 });
-  // The pane, not the New item key: the + is drawn on the tree pane too.
+  // Check the pane after each navigation before trying the next route.
   const pane = () => page.locator(".vault").first().getAttribute("data-pane");
   if ((await pane()) === "list") return;
   if (await back.isVisible()) {
@@ -71,10 +71,9 @@ export async function backOutStops(page, stop, { harness, audit }) {
 
 /**
  * The phone's vault actions, measured. The tree is the sections and nothing
- * else: no strip of keys, no tool rows. Add is one button in the bottom corner
- * — the `+`, one tap, and a hold that slides to Import or Export — and the ellipsis and
- * a real long press on the `+` open the same menu of the alternatives (Import,
- * Export), without navigating. The list's header is back and the view it
+ * else: no strip of keys, no tool rows. Opening a tree entry shows the list,
+ * where the `+` adds an item or can be held and slid to Import or Export.
+ * The list's header is back and the view it
  * shows, named, as one choice the width of the rest. Search is the status-line
  * prompt's `/?` verb — the one text input on the screen, which keeps the words
  * and narrows the list as they are typed. Skipped where the walk is not on the
@@ -89,15 +88,18 @@ export async function treeActions(page, stop, { harness, audit }) {
       .count()) === 0,
     `${stop("tree-actions")}: the tree carries no strip of keys and no tool rows`,
   );
-  await fabIsPinned(page, stop("tree-actions"), harness);
-  await addSlide(page, stop("tree-actions"), harness, { stop, audit });
-  await audit(page, stop("tree-actions"));
-
+  harness.check(
+    (await page.locator(".fab__add").count()) === 0,
+    `${stop("tree-actions")}: the Add button appears on the list, not the tree`,
+  );
   await page
     .getByRole("treeitem", { name: /^all\b/i })
     .first()
     .tap();
-  await page.waitForTimeout(600);
+  await page.locator(".vault[data-pane='list']").waitFor({ timeout: 5000 });
+  await fabIsPinned(page, stop("tree-actions"), harness);
+  await addSlide(page, stop("tree-actions"), harness, { stop, audit });
+  await audit(page, stop("tree-actions"));
   const header = await page.evaluate(() => {
     const bar = document.querySelector(".vault__list .vtree__pathbar");
     const view = bar?.querySelector(".vfilter__open");

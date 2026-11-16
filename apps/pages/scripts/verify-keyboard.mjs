@@ -18,7 +18,9 @@ const out =
   privateTempDir("opensesame-keyboard-verification-");
 console.log(`Evidence: ${out}`);
 const harness = createHarness({
-  dist: fileURLToPath(new URL("../dist", import.meta.url)),
+  dist:
+    process.env.PAGES_VERIFY_DIST ??
+    fileURLToPath(new URL("../dist", import.meta.url)),
   origin,
   base,
   out,
@@ -324,14 +326,13 @@ try {
       .filter({ visible: true });
     await tabTo(page, lock);
     await page.keyboard.press("Enter");
-    // Guest lock keeps the guest tomb selected (guest resume); Unlock is the
-    // road back, not another "Continue as guest" affordance.
+    // A keyless guest lock ends the session; the next guest starts afresh.
     await expect(
-      page.getByRole("button", { name: /^Unlock$/ }).first(),
+      page.getByRole("button", { name: "Continue as guest" }).first(),
     ).toBeVisible();
     await page.reload({ waitUntil: "networkidle" });
     await expect(
-      page.getByRole("button", { name: /^Unlock$/ }).first(),
+      page.getByRole("button", { name: "Continue as guest" }).first(),
     ).toBeFocused();
     await expect(page.locator(":focus")).not.toHaveJSProperty(
       "tagName",

@@ -16,6 +16,8 @@
  * and uses a secret when account is not listed there.
  */
 
+import { listedTypes } from "./editor-type.mjs";
+
 /** Opens an in-app path the way the router hears the back button. */
 async function openPath(page, path) {
   await page.evaluate((next) => {
@@ -37,26 +39,31 @@ async function offersAccount(page, base) {
     .waitFor({ timeout: 15000 });
   const type = page.getByLabel("Type", { exact: true });
   if ((await type.count()) === 0) return false;
-  const values = await type
-    .first()
-    .locator("option")
-    .evaluateAll((options) => options.map((option) => option.value));
-  return values.includes("account");
+  return (await listedTypes(page)).includes("account");
 }
 
 /**
  * Account where the build can create one, secret where it cannot.
- * `TUTORIALS_ENABLE=installed` is the minimal profile: it does not turn
- * item-type packs on, so the picker is not consulted.
+ * The picker reflects the actual plan, including installed type packs.
  */
 async function seedKind(page, base) {
-  if (process.env.TUTORIALS_ENABLE === "installed") return "secret";
   return (await offersAccount(page, base)) ? "account" : "secret";
 }
 
 /** Adds one item through the editor and lands on its pane. */
 async function addItem(page, base, kind, fields) {
   await openPath(page, `${base}vault/new/${kind}`);
+  await page
+    .getByLabel("Name", { exact: true })
+    .first()
+    .waitFor({ timeout: 15000 });
+  // Let the editor finish applying its initial draft before entering data.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
   await page.getByLabel("Name", { exact: true }).first().fill(fields.name);
   if (kind === "account") {
     await page
@@ -92,6 +99,7 @@ export async function seedVault(page, base) {
     value: "another-long-password-1234",
   });
   await page.getByRole("button", { name: "Move to trash" }).click();
+  await page.getByRole("button", { name: "Really move to trash?" }).click();
   await page
     .waitForFunction(
       () => !document.querySelector('button[aria-label="Move to trash"]'),

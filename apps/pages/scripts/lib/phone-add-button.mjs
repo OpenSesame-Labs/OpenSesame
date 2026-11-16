@@ -127,15 +127,17 @@ export async function addSlide(page, label, harness, { stop, audit }) {
   harness.check(
     (await page.locator(".add-slide").count()) === 0 &&
       (await where()) === before &&
-      (await page.locator('[role="menu"]').count()) === 0,
-    `${label}: letting go in the middle chooses nothing, opens no menu and does not follow the + (${await where()})`,
+      (await page.locator('[role="menu"]').count()) === 1,
+    `${label}: letting go in the middle opens the Add actions menu without navigating (${await where()})`,
   );
+  await page.keyboard.press("Escape");
+  await page.locator('[role="menu"]').waitFor({ state: "detached" });
 
   // Slide up: Import is inked, and letting go there opens the OS file picker.
   const up = await holdAndSlide(page, -70);
   harness.check(
-    up.slid.find((zone) => zone.way === "up")?.active === true &&
-      up.slid.find((zone) => zone.way === "down")?.active === false,
+    up.slid?.find((zone) => zone.way === "up")?.active === true &&
+      up.slid?.find((zone) => zone.way === "down")?.active === false,
     `${label}: sliding up inks Import (${JSON.stringify(up.slid)})`,
   );
   const [chooser] = await Promise.all([
@@ -150,8 +152,8 @@ export async function addSlide(page, label, harness, { stop, audit }) {
   // Slide down: Export is inked, and letting go there opens its sheet.
   const down = await holdAndSlide(page, 70);
   harness.check(
-    down.slid.find((zone) => zone.way === "down")?.active === true &&
-      down.slid.find((zone) => zone.way === "up")?.active === false,
+    down.slid?.find((zone) => zone.way === "down")?.active === true &&
+      down.slid?.find((zone) => zone.way === "up")?.active === false,
     `${label}: sliding down inks Export (${JSON.stringify(down.slid)})`,
   );
   await down.lift();
