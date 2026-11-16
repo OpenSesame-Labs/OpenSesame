@@ -45,7 +45,7 @@ export function GuidedToursRow() {
       <div className="panel__body">
         <div className="keyed-row">
           <p className="set__danger-target">
-            Walkthroughs that show, step by step, on the real controls.
+            Step-by-step walkthroughs for using the app.
           </p>
           <IconKey
             label="Open guided tours"

@@ -28,8 +28,8 @@ export function isPasswordResetEligible(item: VaultItem): boolean {
 }
 
 /**
- * The one "generate a new password" handoff shared by the rotation panel and
- * the password control. Not configured (capability off or readiness not ok)
+ * Request a provider-side reset from the rotation panel. Not configured
+ * (capability off or readiness not ok)
  * prompts through the bell tray; configured queues a manual rotation and
  * offers it to the relay. Never touches a secret.
  */

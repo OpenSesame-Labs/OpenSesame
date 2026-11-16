@@ -31,50 +31,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
+import { useNarrow } from "../lib/use-narrow.js";
 import { IconKey } from "./IconKey.js";
 import { IconAlert, IconArrowRight, IconInfo, IconX } from "./Icons.js";
+import { useToastQueue, withinLimit } from "./use-toast-queue.js";
+import { useToastSuppression } from "./use-toast-suppression.js";
 
 /** How long a toast stays when the person is not reading it. */
 export const TOAST_MS = 6000;
 
 /** How many toasts are on screen at once; the rest are only in the tray. */
-export const TOAST_LIMIT = 2;
-
-/**
- * The cards on screen once `arrival` joins them, at most `TOAST_LIMIT`.
- *
- * An echo makes room by leaving: the tray still holds its notice. An offer
- * has no tray entry and waits to be answered, so an echo never evicts one —
- * with the stack full of offers, the echo is the one that is only in the
- * tray. A new offer over a full stack of offers replaces the oldest.
- */
-export function withinLimit(
-  current: readonly ToastMessage[],
-  arrival: ToastMessage,
-): ToastMessage[] {
-  const next = [...current, arrival];
-  while (next.length > TOAST_LIMIT) {
-    const echo = next.findIndex((item) => !item.sticky);
-    next.splice(Math.max(echo, 0), 1);
-  }
-  return next;
-}
+export { TOAST_LIMIT, withinLimit } from "./use-toast-queue.js";
 
 export function ToastStack() {
   const navigate = useNavigate();
-  const [shown, setShown] = useState<ToastMessage[]>([]);
-
-  const add = useCallback((toast: ToastMessage) => {
-    setShown((current) =>
-      withinLimit(
-        current.filter((item) => item.id !== toast.id),
-        toast,
-      ),
-    );
-  }, []);
-  const dismiss = useCallback((id: string) => {
-    setShown((current) => current.filter((item) => item.id !== id));
-  }, []);
+  const { deferOffers, shouldDefer } = useToastSuppression();
+  const narrow = useNarrow();
+  const { shown, add, dismiss } = useToastQueue(
+    deferOffers,
+    narrow,
+    shouldDefer,
+  );
 
   // A card's key goes with its card. Where the press was made from the
   // keyboard, focus goes back to wherever it was before it entered the
@@ -148,16 +125,38 @@ export function ToastStack() {
 
   return (
     <output className="toasts" aria-live="polite" ref={region}>
-      {shown.map((toast) => (
-        <Toast
-          key={toast.id}
-          toast={toast}
-          onDone={answer}
-          onOpen={(to) => navigate(to)}
-        />
-      ))}
+      <ToastCards
+        shown={shown}
+        deferOffers={deferOffers}
+        narrow={narrow}
+        onDone={answer}
+        onOpen={navigate}
+      />
     </output>
   );
+}
+
+function ToastCards({
+  shown,
+  deferOffers,
+  narrow,
+  onDone,
+  onOpen,
+}: {
+  shown: ToastMessage[];
+  deferOffers: boolean;
+  narrow: boolean;
+  onDone: (id: string) => void;
+  onOpen: (to: string) => void;
+}) {
+  const visible = shown
+    .filter(
+      (toast) => !toast.sticky || (!deferOffers && !(narrow && toast.inTray)),
+    )
+    .reduce<ToastMessage[]>((held, toast) => withinLimit(held, toast), []);
+  return visible.map((toast) => (
+    <Toast key={toast.id} toast={toast} onDone={onDone} onOpen={onOpen} />
+  ));
 }
 
 function Toast({

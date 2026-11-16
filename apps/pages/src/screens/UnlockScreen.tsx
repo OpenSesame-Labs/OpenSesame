@@ -38,12 +38,19 @@ import {
 import { checkForAppUpdate } from "../lib/pwa-update.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { GuideTarget } from "../tutorial/registry/react.jsx";
-import { FrontDoor } from "./FrontDoor.js";
-import { SetupScreen, type SetupStep } from "./SetupScreen.js";
-import { VaultsScreen } from "./VaultsScreen.js";
 import { RequirementsGate } from "./capabilities/RequirementsGate.js";
+import { FrontDoor } from "./FrontDoor.js";
 import { useJoinRoad } from "./join/JoinRoad.js";
+import { SetupScreen, type SetupStep } from "./SetupScreen.js";
 import { PendingImportNote } from "./unlock/ImportRoad.js";
+import {
+  METHOD_LABEL,
+  RESEND_COOLDOWN_MS,
+  isCeremonyMethod,
+  isTypedProtector,
+  unlockGoVerb,
+  unlockTitle,
+} from "./unlock/labels.js";
 import { MethodIcon } from "./unlock/MethodIcon.js";
 import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
 import { FormNotes, LockoutNote } from "./unlock/Notes.js";
@@ -56,14 +63,6 @@ import { TrustedUnlockGate } from "./unlock/TrustedUnlockGate.js";
 import { UnlockFoot } from "./unlock/UnlockFoot.js";
 import { UnlockStage } from "./unlock/UnlockStage.js";
 import { UnlockUserMenu } from "./unlock/UnlockUserMenu.js";
-import {
-  METHOD_LABEL,
-  RESEND_COOLDOWN_MS,
-  isCeremonyMethod,
-  isTypedProtector,
-  unlockGoVerb,
-  unlockTitle,
-} from "./unlock/labels.js";
 import { useUnlockFormFocus } from "./unlock/unlock-form-focus.js";
 import { submitUnlockForm } from "./unlock/unlock-form-submit.js";
 import {
@@ -73,9 +72,14 @@ import {
 import { useFederatedProviders } from "./unlock/use-federated-providers.js";
 import { usePasskeyCeremony } from "./unlock/use-passkey-ceremony.js";
 import { usePasskeyRoad } from "./unlock/use-passkey-road.js";
-import { useUnlockRoute, useUnlockTargets } from "./unlock/use-unlock-gate.js";
+import {
+  useSealGuideForm,
+  useUnlockRoute,
+  useUnlockTargets,
+} from "./unlock/use-unlock-gate.js";
 import { useUnlockLockV5 } from "./unlock/use-unlock-lock-v5.js";
 import { useCountdown } from "./unlock/useCountdown.js";
+import { VaultsScreen } from "./VaultsScreen.js";
 import "./unlock.css";
 
 export const unlockScreenDependencies = {
@@ -180,9 +184,7 @@ function UnlockForm({
   } = useVault();
   const store = useVaultStore();
   const activeTomb = tomb ?? PERSONAL_PROJECT_ID;
-  // The guest tomb is isolated, not keyless: a guest may enroll a gate (ADR
-  // 0091) and those wraps are the key to this tomb. What makes the road guest
-  // is the tomb, so nothing below is gated on it (AGENTS.md §5).
+  // A guest tomb is isolated but can still have an enrolled key (ADR 0091).
   const guestUnlock = activeTomb === GUEST_TOMB && status !== "unlocked";
   const firstRun = status === "empty" && !guestUnlock;
   // Which vault this key opens — shown whenever there is a choice to go back to, or this is not the personal vault.
@@ -195,10 +197,8 @@ function UnlockForm({
       : null;
   const passkeyHost = checkWebauthnHost();
   const passkeyOk = usePasskeyRoad(passkeyHost.ok);
-  // First run leads with identity (ADR 0033 §4): sign-in is the default stage, the local seal form the explicit road.
   const [localOnlyChosen, setLocalOnly] = useState(false);
-  // A vault that begins from a file is sealed on this device, whichever road
-  // the file was chosen from (ADR 0188); removing the file gives the road back.
+  // A file-backed vault is sealed on this device (ADR 0188).
   const startsFromFile = usePendingImport() !== null && firstRun;
   const localOnly = localOnlyChosen || startsFromFile;
   const signInStage = firstRun && !localOnly;
@@ -217,15 +217,10 @@ function UnlockForm({
   );
   // A guest tomb that enrolled no key at all: guest entry itself is the road
   // in, and the commit says so rather than pretending to unlock something.
-  const guestKeyless = guestUnlock && methods.length === 0;
-  // A vault with an authenticator code but no passkey, PIN or password: a
-  // code can only ever follow a key, so nothing here can open it. Said out
-  // loud rather than drawn as three tabs that all fail. A guest tomb with no
-  // key is not that case — it has the guest road, and `guestKeyless` is it.
-  const noPrimary = !firstRun && !guestUnlock && methods.length === 0;
-  // The second step, announced before the first is taken.
-  // Exactly the second steps this vault enrolled — authenticator, email,
-  // text — offered at step 2 in the same tab vocabulary step 1 uses for keys.
+  const guestKeyless = guestUnlock && !header && methods.length === 0;
+  // A code alone cannot open a vault.
+  // A filtered key must not be mistaken for a keyless guest.
+  const noPrimary = !firstRun && !guestKeyless && methods.length === 0;
   const secondSteps = firstRun ? [] : listSecondSteps(header);
   const hasTotpStep = !firstRun && !noPrimary && secondSteps.length > 0;
   const [method, setMethod] = useState<UnlockTabId | null>(null);
@@ -265,8 +260,7 @@ function UnlockForm({
     secondStep && secondSteps.includes(secondStep)
       ? secondStep
       : (secondSteps[0] ?? "totp");
-  // A code by email or text is sent the moment that tab is picked, once;
-  // "Send it again" clears the mark and a fresh one goes out.
+  // Selecting an email or text tab sends one code; resend clears the mark.
   const [sent, setSent] = useState<SentCode | null>(null);
   const [sentAt, setSentAt] = useState<number | null>(null);
   const requestedFor = useRef<SecondStepId | null>(null);
@@ -283,7 +277,7 @@ function UnlockForm({
   const protectorRef = useRef<HTMLInputElement>(null);
   const totpRef = useRef<HTMLInputElement>(null);
   const goRef = useRef<HTMLButtonElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const { formRef, bindForm } = useSealGuideForm(firstRun);
   const acceptRef = useRef<HTMLInputElement>(null);
   const { stage: lockStage, beginCeremonyIfUnlocked } = useUnlockLockV5(status);
 
@@ -390,6 +384,7 @@ function UnlockForm({
       passwordRef,
       protectorRef,
       totpRef,
+      goRef,
       pendingFocus,
     });
     beginCeremonyIfUnlocked(before, signInStage || showSignIn || firstRun);
@@ -399,7 +394,6 @@ function UnlockForm({
     firstRun && activeMethod === "pin" ? pinPolicyProblems(pin) : [];
   const pinProblem =
     activeMethod === "pin" && pin.length > 0 ? (pinProblems[0] ?? null) : null;
-  // A new vault is sealed with a passkey or a PIN, never a password (ADR 0180).
   const createBlocked =
     !accepted ||
     (isCeremonyMethod(activeMethod)
@@ -428,8 +422,10 @@ function UnlockForm({
     awaitingSecondStep,
     awaitingPasskeyDuressCode,
     guestUnlock,
+    guestKeyless,
     activeMethod,
   });
+  const fail = guestKeyless ? "Guest session" : "Unlock";
 
   if (trustedUnlock) {
     return (
@@ -453,6 +449,7 @@ function UnlockForm({
             signIn: signInStage || showSignIn,
             firstRun,
             awaitingSecondStep,
+            guestKeyless,
           })}
         </h1>
         {!firstRun ? (
@@ -526,11 +523,12 @@ function UnlockForm({
       ) : (
         <form
           className="unlock__form"
-          ref={formRef}
+          ref={bindForm}
           onSubmit={(e) => void onSubmit(e)}
         >
           {hasTotpStep ? (
-            <div className="steps" aria-label="Unlock steps">
+            // biome-ignore lint/a11y/useSemanticElements: This group labels progress, not form fields.
+            <div className="steps" role="group" aria-label="Unlock steps">
               <div
                 className={
                   awaitingSecondStep
@@ -556,7 +554,9 @@ function UnlockForm({
             </div>
           ) : null}
 
-          {noPrimary ? <NoPrimaryNote /> : null}
+          {noPrimary ? (
+            <NoPrimaryNote unavailable={guestUnlock && Boolean(header)} />
+          ) : null}
 
           {showMethodTabs ? (
             <div
@@ -760,7 +760,7 @@ function UnlockForm({
             durable={durable}
           />
 
-          <FailureNotice id="unlock:error" title="Unlock" message={error} />
+          <FailureNotice id="unlock:error" title={fail} message={error} />
 
           <LockoutNote lockedFor={lockedFor} failedAttempts={failedAttempts} />
 

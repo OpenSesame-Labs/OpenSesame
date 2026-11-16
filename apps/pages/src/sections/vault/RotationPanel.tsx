@@ -3,6 +3,7 @@ import type {
   rotationScheduleFor,
 } from "@opensesame/app-core/lib/vault/rotation-queue.js";
 import type { VaultItem } from "@opensesame/vault-core";
+import { Link } from "react-router";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh } from "../../components/Icons.js";
@@ -101,7 +102,19 @@ export function RotationPanel({
     rotate,
   } = useRotationPanel(item, scope);
 
-  if (mode === "none") return null;
+  if (mode === "none" || item.deletedAt !== null) return null;
+  if (!scope) {
+    const heading =
+      item.kind === "account" ? "Password generator" : "Generator";
+    return (
+      <section className="detail__group" aria-label={heading}>
+        <h2 className="detail__grouphead">{heading}</h2>
+        <Link className="btn btn--sm" to={`/vault/${item.id}/edit`}>
+          Edit to generate
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section className="detail__group" aria-label="Rotation">
@@ -117,7 +130,7 @@ export function RotationPanel({
       />
 
       <IconKey
-        label="Generate new password"
+        label="Request password rotation"
         disabled={busy}
         aria-busy={busy}
         onClick={() => void rotate()}

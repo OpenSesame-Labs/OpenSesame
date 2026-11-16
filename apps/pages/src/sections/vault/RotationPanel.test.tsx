@@ -27,10 +27,10 @@ function snapshotApproving(approved: readonly string[]): CompositionSnapshot {
   return { ...base, plan: { ...base.plan, approvedCapabilities: approved } };
 }
 
-function renderPanel(item: VaultItem) {
+function renderPanel(item: VaultItem, scope = "personal") {
   return render(
     <MemoryRouter>
-      <RotationPanel item={item} scope="personal" />
+      <RotationPanel item={item} scope={scope} />
     </MemoryRouter>,
   );
 }
@@ -74,7 +74,7 @@ describe("RotationPanel", () => {
   it("prompts to configure password reset when the capability is off", async () => {
     renderPanel(account());
     await userEvent.click(
-      screen.getByRole("button", { name: /Generate new password/i }),
+      screen.getByRole("button", { name: /Request password rotation/i }),
     );
     expect(loadRotationEvents()).toHaveLength(0);
     const notices = listNotices();
@@ -96,7 +96,7 @@ describe("RotationPanel", () => {
     try {
       renderPanel(account());
       await userEvent.click(
-        screen.getByRole("button", { name: /Generate new password/i }),
+        screen.getByRole("button", { name: /Request password rotation/i }),
       );
       expect(loadRotationEvents()).toHaveLength(1);
       expect(await screen.findByText(/Out of sync/u)).toBeTruthy();
@@ -125,5 +125,19 @@ describe("RotationPanel", () => {
   it("draws nothing for a type without a generator", () => {
     renderPanel(createItem("note", "Memo"));
     expect(screen.queryByRole("heading", { name: "Rotation" })).toBeNull();
+  });
+
+  it("offers the editor instead of a rotation that cannot run in a guest vault", () => {
+    const item = account();
+    renderPanel(item, "");
+    expect(
+      screen
+        .getByRole("link", { name: "Edit to generate" })
+        .getAttribute("href"),
+    ).toBe(`/vault/${item.id}/edit`);
+    expect(
+      screen.queryByRole("button", { name: "Request password rotation" }),
+    ).toBeNull();
+    expect(loadRotationEvents()).toHaveLength(0);
   });
 });
