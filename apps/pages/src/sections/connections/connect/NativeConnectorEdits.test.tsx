@@ -35,11 +35,11 @@ it("locks the method of a saved connection until its existing removal finishes",
   const alternate = screen.getByRole("radio", {
     name: "Operator OAuth",
   });
-  expect(selected).toHaveProperty("checked", true);
-  expect(selected).toHaveProperty("disabled", true);
-  expect(alternate).toHaveProperty("disabled", true);
+  expect(selected.getAttribute("aria-checked")).toBe("true");
+  expect(selected.getAttribute("aria-disabled")).toBe("true");
+  expect(alternate.getAttribute("aria-disabled")).toBe("true");
   await userEvent.click(alternate);
-  expect(selected).toHaveProperty("checked", true);
+  expect(selected.getAttribute("aria-checked")).toBe("true");
   await userEvent.type(
     screen.getByLabelText("Algolia API key", {
       selector: 'input[type="password"]',

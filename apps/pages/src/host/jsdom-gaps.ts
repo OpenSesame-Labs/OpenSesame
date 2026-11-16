@@ -1,5 +1,5 @@
 /**
- * Two things a real browser has and jsdom does not, closed once so that a
+ * Things a real browser has and jsdom does not, closed once so that a
  * test's stderr carries only what the test is about. Nothing here runs
  * outside a jsdom test.
  *
@@ -12,6 +12,8 @@
  * - `window.scrollBy` exists but only reports "not implemented". jsdom does
  *   no layout, so there is nothing to scroll; doing nothing is what a page
  *   with no overflow does. A test that cares still replaces it with a spy.
+ * - `Element.getAnimations` returns no animations: jsdom does not run CSS
+ *   animations, but controls may still ask when those animations finish.
  */
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -44,4 +46,5 @@ export function closeJsdomGaps(): void {
   if (globalThis.document === undefined) return;
   knowTheSearchElement();
   window.scrollBy = () => undefined;
+  Element.prototype.getAnimations ??= () => [];
 }

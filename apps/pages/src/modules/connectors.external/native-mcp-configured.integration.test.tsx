@@ -28,6 +28,7 @@ import {
   nativeCallbackUrl,
 } from "./native-oauth-runtime.js";
 import { bindNativeRuntime } from "./native-runtime.js";
+
 const closes: (() => Promise<void> | void)[] = [];
 afterEach(async () => {
   cleanup();
@@ -251,8 +252,9 @@ it("selects the actual public MCP permissions contract before consent without cl
   expect(
     screen.getByRole("radio", {
       name: "Bring Your Own OAuth App",
+      checked: true,
     }),
-  ).toHaveProperty("checked", true);
+  ).toBeTruthy();
   expect(
     screen.queryByLabelText("MCP permissions", { selector: "summary" }),
   ).toBeNull();
@@ -261,10 +263,9 @@ it("selects the actual public MCP permissions contract before consent without cl
     screen.getByLabelText("MCP authentication", { exact: true }),
     "oauth",
   );
-  expect(screen.getByRole("radio", { name: "MCP" })).toHaveProperty(
-    "checked",
-    true,
-  );
+  expect(
+    screen.getByRole("radio", { name: "MCP", checked: true }),
+  ).toBeTruthy();
   expect(
     screen.getByLabelText("MCP authentication", { exact: true }),
   ).toHaveProperty("value", "oauth");

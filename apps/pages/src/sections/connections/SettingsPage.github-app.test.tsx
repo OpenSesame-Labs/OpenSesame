@@ -16,11 +16,11 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ConnectorSettingsPage } from "./SettingsPage.js";
 import {
   connectorIntegration,
   installConnectorIntegration,
 } from "./connect/native-connector-integration.test-support.js";
+import { ConnectorSettingsPage } from "./SettingsPage.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 import { githubAppReturnSeams } from "./useGithubAppReturn.js";
 
@@ -85,13 +85,15 @@ it("offers App first in the actual native settings page and preserves the token 
   expect(screen.getByRole("link", { name: "Docs" }).getAttribute("href")).toBe(
     "https://docs.github.com/en/apps",
   );
-  expect(screen.getByRole("radio", { name: "GitHub App" })).toHaveProperty(
-    "checked",
-    true,
-  );
   expect(
-    screen.getByRole("radio", { name: "Personal access token" }),
-  ).toHaveProperty("checked", false);
+    screen.getByRole("radio", { name: "GitHub App", checked: true }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("radio", {
+      name: "Personal access token",
+      checked: false,
+    }),
+  ).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Create GitHub App" }),
   ).toBeTruthy();
@@ -300,8 +302,8 @@ it("starts with the existing active native personal token rather than App regist
   });
   draw({ connection: deviceConnection(saved.connectionId) });
   expect(
-    screen.getByRole("radio", { name: "Personal access token" }),
-  ).toHaveProperty("checked", true);
+    screen.getByRole("radio", { name: "Personal access token", checked: true }),
+  ).toBeTruthy();
   expect(
     screen.queryByRole("button", { name: "Create GitHub App" }),
   ).toBeNull();
@@ -327,10 +329,9 @@ it("shows the App return alongside an existing active token without trusting a f
     `${window.location.pathname}?github_app=installed`,
   );
   const { flash } = draw({ connection: deviceConnection(saved.connectionId) });
-  expect(screen.getByRole("radio", { name: "GitHub App" })).toHaveProperty(
-    "checked",
-    true,
-  );
+  expect(
+    screen.getByRole("radio", { name: "GitHub App", checked: true }),
+  ).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Create GitHub App" }),
   ).toBeTruthy();

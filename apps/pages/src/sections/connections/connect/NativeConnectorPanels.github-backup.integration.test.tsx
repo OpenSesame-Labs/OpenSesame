@@ -99,8 +99,8 @@ function mount() {
 async function configureTarget() {
   mount();
   expect(
-    screen.getByRole("radio", { name: "Personal access token" }),
-  ).toHaveProperty("checked", true);
+    screen.getByRole("radio", { name: "Personal access token", checked: true }),
+  ).toBeTruthy();
   expect(screen.queryByTestId("github-app-presence")).toBeNull();
   expect(screen.queryByTestId("forge-backup-sync")).toBeNull();
   for (const [label, value] of [

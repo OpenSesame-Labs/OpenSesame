@@ -77,4 +77,8 @@ export const DRIVER_GATES = {
   "verify-tailnet-devices.mjs": null,
   "verify-tailnet-sync.mjs": null,
   "verify-transport.mjs": null,
+  // The UI model and exploratory browser pilot are explicitly run locally;
+  // neither is part of a CI shard yet.
+  "verify-ui-model.mjs": null,
+  "verify-ui-properties.mjs": null,
 };
