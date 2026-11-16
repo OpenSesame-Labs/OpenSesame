@@ -29,7 +29,17 @@ import {
 import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
 import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  isMountedGuideTarget,
+  subscribeToGuideTargets,
+} from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
@@ -67,6 +77,8 @@ export const firstVisitSeams = {
 };
 
 const offerId = (goal: string) => `first-visit:${goal}`;
+const githubSetupReady = () =>
+  isMountedGuideTarget("connections.github.method");
 
 const NAVIGATE = /^\s*navigate\s+"([^"]+)"/gm;
 
@@ -127,6 +139,11 @@ export function FirstVisitOffer() {
   const gate = firstVisitSeams.useGate();
   const guidance = useGuidance();
   const { route } = view;
+  const githubReady = useSyncExternalStore(
+    subscribeToGuideTargets,
+    githubSetupReady,
+    () => false,
+  );
   const [inline, setInline] = useState<InlineOffer | null>(null);
   const idle = !view.open && view.guide?.tour == null;
   const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
@@ -152,6 +169,7 @@ export function FirstVisitOffer() {
       const tour = firstVisitTour(route, answered, gate);
       if (tour === null) return;
       const { goal, steps } = tour;
+      if (goal.id === "connection.github.setup" && !githubReady) return;
       const answer = () => {
         noteScreenAnswered(route);
         rememberTourAnswered(goal.id);
@@ -206,7 +224,7 @@ export function FirstVisitOffer() {
       if (shown !== null) hideToast(shown);
       setInline((current) => (current?.route === route ? null : current));
     };
-  }, [route, idle, mode, answered, gate, support, asked]);
+  }, [route, idle, mode, answered, gate, support, asked, githubReady]);
 
   return inline ? (
     <FirstVisitInlineOffer

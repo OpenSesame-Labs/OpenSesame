@@ -11,7 +11,7 @@ import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-s
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import { useState, useSyncExternalStore } from "react";
 import { StatusMark } from "../../components/StatusMark.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { useOptionalGuideTarget } from "../../tutorial/registry/react.jsx";
 import { ConnectorModes } from "./connect/ConnectorModes.js";
 import { OutLink } from "./connect/fields.js";
 import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
@@ -46,11 +46,14 @@ function installationUrl(value: string | null): string | null {
 export function GithubNativeAppPanels(props: {
   provider: Provider;
   connection: Connection | null;
+  guideReady?: boolean;
   online: boolean;
   onFlash: (flash: Flash) => void;
   onChanged: () => void;
 }) {
-  const methodRef = useGuideTarget<HTMLDivElement>("connections.github.method");
+  const methodRef = useOptionalGuideTarget<HTMLDivElement>(
+    props.guideReady === false ? undefined : "connections.github.method",
+  );
   const [method, setMethod] = useState<Method>(() =>
     !new URLSearchParams(window.location.search).has("github_app") &&
     props.connection?.status === "active" &&

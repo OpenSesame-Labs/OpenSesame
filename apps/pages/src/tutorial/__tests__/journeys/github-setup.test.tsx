@@ -10,6 +10,7 @@ import {
 } from "@opensesame/app-core/lib/guidance.js";
 import { fakeAgentReplanning } from "@opensesame/support-agent";
 import { screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { useLocation } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ConnectorSettingsPage } from "../../../sections/connections/SettingsPage.js";
@@ -43,7 +44,13 @@ afterEach(() => {
   firstVisitSeams.delayMs = originalDelay;
 });
 
-function GithubPage({ connection = null }: { connection?: Connection | null }) {
+function GithubPage({
+  connection = null,
+  loading = false,
+}: {
+  connection?: Connection | null;
+  loading?: boolean;
+}) {
   const provider = catalogProvider("github");
   const location = useLocation();
   if (!provider) throw new Error("Missing GitHub provider");
@@ -55,7 +62,7 @@ function GithubPage({ connection = null }: { connection?: Connection | null }) {
         providerId="github"
         connection={connection}
         connections={connection ? [connection] : []}
-        loading={false}
+        loading={loading}
         online
         canConfigure
         configureHint=""
@@ -65,6 +72,18 @@ function GithubPage({ connection = null }: { connection?: Connection | null }) {
         onRememberOffer={vi.fn()}
         onChanged={vi.fn()}
       />
+    </>
+  );
+}
+
+function LoadingGithubPage({ resolved }: { resolved: Connection | null }) {
+  const [loading, setLoading] = useState(true);
+  return (
+    <>
+      <button type="button" onClick={() => setLoading(false)}>
+        Finish loading
+      </button>
+      <GithubPage connection={loading ? null : resolved} loading={loading} />
     </>
   );
 }
@@ -168,6 +187,49 @@ it.each(["auto", "offer"] as const)(
     expect(loadGuidance().tours).not.toContain("connection.github.setup");
   },
 );
+
+it.each(["auto", "offer"] as const)(
+  "waits for a native GitHub page to finish loading before the %s guide",
+  async (mode) => {
+    setGuidanceMode(mode);
+    const journey = renderJourney(fakeAgentReplanning([]), {
+      at: "/settings/connections/github",
+      screen: <LoadingGithubPage resolved={null} />,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByRole("dialog", { name: /Tutorial:/ })).toBeNull();
+    expect(screen.queryByText("Set up GitHub.")).toBeNull();
+    await journey.user.click(
+      screen.getByRole("button", { name: "Finish loading" }),
+    );
+    if (mode === "auto") await tutorialCard();
+    else
+      await screen.findByRole("complementary", {
+        name: "Set up GitHub walkthrough",
+      });
+    expect(journey.navigations()).toEqual([]);
+  },
+);
+
+it("does not start a native tour while an imported connection is loading", async () => {
+  const resolved = makeConnection({
+    connectionId: "imported",
+    connectionRef: "connect://github/imported",
+  });
+  const journey = renderJourney(fakeAgentReplanning([]), {
+    at: "/settings/connections/github/imported",
+    screen: <LoadingGithubPage resolved={resolved} />,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByRole("dialog", { name: /Tutorial:/ })).toBeNull();
+  await journey.user.click(
+    screen.getByRole("button", { name: "Finish loading" }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByRole("dialog", { name: /Tutorial:/ })).toBeNull();
+  expect(journey.navigations()).toEqual([]);
+  expect(loadGuidance().tours).not.toContain("connection.github.setup");
+});
 
 it("starts the inline offer without leaving GitHub", async () => {
   setGuidanceMode("offer");

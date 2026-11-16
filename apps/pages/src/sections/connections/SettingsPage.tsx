@@ -241,7 +241,6 @@ export function ConnectorSettingsPage({
           !nativeExperience
         }
       />
-
       {flash ? (
         <StatusMark
           tone={
@@ -385,6 +384,7 @@ export function ConnectorSettingsPage({
         identityExperience={identityExperience}
         secretBackendExperience={secretBackendExperience}
         nativeExperience={nativeExperience}
+        guideReady={!loading}
         onConnect={onConnect}
         deviceSeal={deviceSeal}
       />
