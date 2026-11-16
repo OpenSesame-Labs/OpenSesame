@@ -22,7 +22,7 @@ import type { Box } from "./placement.js";
 /** How far the aperture stands off the control it lights. */
 export const APERTURE_PAD = 6;
 
-export const CLOSING_TEXT = "That is the whole tutorial.";
+export const CLOSING_TEXT = "Tutorial complete.";
 
 export function padded(box: Box): Box {
   return {
@@ -154,7 +154,10 @@ export function Head({
 function Cue({
   missing,
   action,
-}: { missing: boolean; action: boolean }): ReactElement | null {
+}: {
+  missing: boolean;
+  action: boolean;
+}): ReactElement | null {
   if (missing) {
     return (
       <>
@@ -167,7 +170,7 @@ function Cue({
   return (
     <>
       <span className="coach__pulse" aria-hidden="true" />
-      your move
+      Complete this step
     </>
   );
 }
@@ -177,11 +180,17 @@ export function Foot({
   missing,
   support,
   primary,
+  firstVault,
+  requiredAction,
+  ready,
 }: {
   tour: GuideTourView;
   missing: boolean;
   support: SupportController;
   primary: React.Ref<HTMLButtonElement>;
+  firstVault: boolean;
+  requiredAction: boolean;
+  ready: boolean;
 }): ReactElement {
   const closing = tour.kind === "close";
   return (
@@ -194,16 +203,17 @@ export function Foot({
           <button
             type="button"
             className="coach__btn"
+            disabled={!ready}
             onClick={() => support.replayGuide()}
           >
             <IconRefresh size={15} />
-            Replay
+            {firstVault ? "Replay password steps" : "Replay"}
           </button>
         ) : (
           <button
             type="button"
             className="coach__btn"
-            disabled={!tour.canBack}
+            disabled={!ready || !tour.canBack || firstVault}
             onClick={() => support.backStep()}
           >
             <IconChevronLeft size={15} />
@@ -214,7 +224,12 @@ export function Foot({
           ref={primary}
           type="button"
           className="coach__btn coach__btn--go"
-          onClick={() => support.nextStep()}
+          aria-disabled={
+            !ready || (requiredAction && tour.action) ? true : undefined
+          }
+          onClick={() => {
+            if (ready && (!requiredAction || !tour.action)) support.nextStep();
+          }}
         >
           {closing ? (
             <>

@@ -24,17 +24,18 @@
 .coach__dim {
   position: fixed;
   background: var(--scrim);
-  /* The dim catches stray clicks so a tour is not walked off by accident;
-     the aperture between the four panels is open, so the lit control works. */
-  pointer-events: auto;
+  /* Keep scrolling and related form controls usable throughout the step. */
+  pointer-events: none;
 }
 
 .coach__dim.is-gliding,
 .coach__ring.is-gliding {
   transition:
     top var(--coach-glide) var(--ease),
-    left var(--coach-glide) var(--ease), width var(--coach-glide) var(--ease),
-    height var(--coach-glide) var(--ease), right var(--coach-glide) var(--ease),
+    left var(--coach-glide) var(--ease),
+    width var(--coach-glide) var(--ease),
+    height var(--coach-glide) var(--ease),
+    right var(--coach-glide) var(--ease),
     bottom var(--coach-glide) var(--ease);
 }
 
@@ -78,6 +79,12 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  max-height: calc(
+    100dvh -
+    1rem -
+    env(safe-area-inset-top, 0px) -
+    env(safe-area-inset-bottom, 0px)
+  );
   width: min(23rem, calc(100vw - 1.5rem));
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -92,8 +99,11 @@
 .coach__card.is-placed {
   opacity: 1;
   transform: none;
-  transition: opacity 180ms var(--ease), transform 240ms var(--ease), left
-    var(--coach-glide) var(--ease), top var(--coach-glide) var(--ease);
+  transition:
+    opacity 180ms var(--ease),
+    transform 240ms var(--ease),
+    left var(--coach-glide) var(--ease),
+    top var(--coach-glide) var(--ease);
 }
 
 /* Narration and the close have no control to be near: a little more room. */
@@ -186,6 +196,7 @@
 
 .coach__head {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.5rem 0 0.9rem;
@@ -225,6 +236,7 @@
 }
 
 .coach__text {
+  min-height: 0;
   margin: 0;
   padding: 0.5rem 0.9rem 0.9rem;
   max-width: 46ch;
@@ -237,10 +249,12 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
+  overflow-y: auto;
 }
 
 .coach__foot {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -302,7 +316,9 @@
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .coach__btn > svg {
@@ -317,7 +333,8 @@
   }
 }
 
-.coach__btn:disabled {
+.coach__btn:disabled,
+.coach__btn[aria-disabled="true"] {
   opacity: 0.4;
   cursor: not-allowed;
 }

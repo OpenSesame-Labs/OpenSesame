@@ -1,3 +1,7 @@
+import {
+  type VisibleTargetRect,
+  visibleTargetRect,
+} from "@opensesame/app-core/tutorial/registry/visible-target.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type Box,
@@ -16,6 +20,28 @@ function sameBox(a: Box | null, b: Box | null): boolean {
   );
 }
 
+/** Ignore the coach itself when checking whether another surface covers a target. */
+function uncovered(element: HTMLElement, box: VisibleTargetRect): boolean {
+  const doc = element.ownerDocument;
+  if (!doc.elementsFromPoint) return true;
+  const points = [
+    [0.5, 0.5],
+    [0.1, 0.1],
+    [0.9, 0.1],
+    [0.1, 0.9],
+    [0.9, 0.9],
+  ];
+  return points.some(([x, y]) => {
+    const hit = doc
+      .elementsFromPoint(
+        box.left + box.width * (x ?? 0.5),
+        box.top + box.height * (y ?? 0.5),
+      )
+      .find((node) => !node.closest(".coach"));
+    return hit !== undefined && element.contains(hit);
+  });
+}
+
 /**
  * The live rectangle of whatever `resolve` returns, one frame behind at most.
  *
@@ -25,17 +51,41 @@ function sameBox(a: Box | null, b: Box | null): boolean {
  * it is at least half a pixel. A tour is on screen for seconds, and the read
  * is one `getBoundingClientRect`; polling is the honest design here.
  */
-export function useLiveRect(resolve: () => HTMLElement | null): Box | null {
-  const [rect, setRect] = useState<Box | null>(null);
-  const latest = useRef(resolve);
-  latest.current = resolve;
+export function useLiveRect(
+  resolve: () => HTMLElement | null,
+  key: string,
+): Box | null {
+  const [rect, setRect] = useState<{ key: string; box: Box | null }>({
+    key,
+    box: null,
+  });
+  const latest = useRef({ resolve, key });
+  latest.current = { resolve, key };
   useEffect(() => {
     let frame = 0;
+    let observedKey = "";
+    let absent = false;
     const tick = (): void => {
-      const element = latest.current();
-      const box = element?.getBoundingClientRect();
+      const { resolve: current, key: currentKey } = latest.current;
+      const element = current();
+      if (observedKey !== currentKey) {
+        observedKey = currentKey;
+        absent = false;
+      }
+      if (!element) absent = true;
+      else if (absent) {
+        // A panel can close after a step starts and reopen with its target
+        // below the viewport. Bring it back once; do not fight later scrolling.
+        element.scrollIntoView?.({
+          block: "center",
+          inline: "nearest",
+          behavior: "auto",
+        });
+        absent = false;
+      }
+      const box = element ? visibleTargetRect(element) : null;
       const next: Box | null =
-        box && (box.width > 0 || box.height > 0)
+        box && element && uncovered(element, box)
           ? {
               left: box.left,
               top: box.top,
@@ -43,37 +93,58 @@ export function useLiveRect(resolve: () => HTMLElement | null): Box | null {
               height: box.height,
             }
           : null;
-      setRect((held) => (sameBox(held, next) ? held : next));
+      setRect((held) =>
+        held.key === currentKey && sameBox(held.box, next)
+          ? held
+          : { key: currentKey, box: next },
+      );
       frame = requestAnimationFrame(tick);
     };
     tick();
     return () => cancelAnimationFrame(frame);
   }, []);
-  return rect;
+  return rect.key === key ? rect.box : null;
 }
 
-const readViewport = (): Size => ({
+type VisualSize = Size & {
+  readonly offsetTop: number;
+  readonly bottomOffset: number;
+};
+
+const readViewport = (): VisualSize => ({
   width: document.documentElement.clientWidth,
   height: window.visualViewport?.height ?? window.innerHeight,
+  offsetTop: window.visualViewport?.offsetTop ?? 0,
+  bottomOffset: Math.max(
+    0,
+    window.innerHeight -
+      (window.visualViewport?.offsetTop ?? 0) -
+      (window.visualViewport?.height ?? window.innerHeight),
+  ),
 });
 
 /** The visual viewport's size, following rotation and the on-screen keyboard. */
-export function useViewport(): Size {
-  const [size, setSize] = useState<Size>(readViewport);
+export function useViewport(): VisualSize {
+  const [size, setSize] = useState<VisualSize>(readViewport);
   useEffect(() => {
     const update = (): void => {
       setSize((held) => {
         const next = readViewport();
-        return held.width === next.width && held.height === next.height
+        return held.width === next.width &&
+          held.height === next.height &&
+          held.offsetTop === next.offsetTop &&
+          held.bottomOffset === next.bottomOffset
           ? held
           : next;
       });
     };
     window.addEventListener("resize", update);
     window.visualViewport?.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("scroll", update);
     return () => {
       window.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("scroll", update);
     };
   }, []);
   return size;

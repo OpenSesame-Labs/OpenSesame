@@ -10,11 +10,10 @@
  * the library still lists it. A screen with more tours offers the next one
  * on a later session, one per session, until each has been answered.
  *
- * In `offer` mode the card takes no focus and dims nothing. Screens may place
- * it in their own flow; otherwise it is a toast. The offer goes away when the
- * person moves on, opens Support or starts a tour. In `auto` mode, the default,
- * the tour starts itself instead; in `off` this component does nothing. It
- * rides in the support capability, so builds without guided help have no offer.
+ * Screens may place the offer in their own flow. Otherwise it is a notice on
+ * a narrow screen and a toast on a wide screen. It goes away when the person
+ * moves on, opens Support or starts a tour. In `auto` mode the tour starts
+ * itself; in `off` this component does nothing.
  */
 
 import {
@@ -28,7 +27,10 @@ import {
 } from "@opensesame/app-core/lib/guidance.js";
 import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
-import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
+import {
+  type GuideRouteId,
+  guideRouteWithin,
+} from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
   isMountedGuideTarget,
   subscribeToGuideTargets,
@@ -41,12 +43,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
+import { useNarrow } from "../../lib/use-narrow.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
 import {
   FirstVisitInlineOffer,
   type InlineOffer,
 } from "./FirstVisitInlineOffer.js";
+import { showFirstVisitNotice } from "./first-visit-notice.js";
 
 export const firstVisitSeams = {
   /**
@@ -100,7 +104,25 @@ type Asked = Readonly<{
 /** The sentence under the tour's name. */
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `New here? This walkthrough takes ${length}, on the real controls. It only points — nothing changes unless you do it.`;
+  return `New here? This walkthrough has ${length}.`;
+}
+
+function showFirstVisitToast(
+  id: string,
+  title: string,
+  body: string,
+  start: () => void,
+  answer: () => void,
+): void {
+  showToast({
+    id,
+    tone: "info",
+    title,
+    body,
+    sticky: true,
+    choice: { label: "Show me", run: start },
+    onDismiss: answer,
+  });
 }
 
 function usePendingFirstVisit(
@@ -134,29 +156,32 @@ function usePendingFirstVisit(
   return asked;
 }
 
-export function FirstVisitOffer() {
-  const { view, support } = useSupport();
-  const gate = firstVisitSeams.useGate();
-  const guidance = useGuidance();
-  const { route } = view;
-  const githubReady = useSyncExternalStore(
-    subscribeToGuideTargets,
-    githubSetupReady,
-    () => false,
-  );
+function useFirstVisitPresentation({
+  route,
+  mode,
+  idle,
+  answered,
+  gate,
+  support,
+  asked,
+  githubReady,
+  narrow,
+}: {
+  route: GuideRouteId;
+  mode: string;
+  idle: boolean;
+  answered: ReadonlySet<string>;
+  gate: ReturnType<typeof useTutorialGate>;
+  support: ReturnType<typeof useSupport>["support"];
+  asked: { current: Asked | null };
+  githubReady: boolean;
+  narrow: boolean;
+}) {
   const [inline, setInline] = useState<InlineOffer | null>(null);
-  const idle = !view.open && view.guide?.tour == null;
-  const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
-  const mode =
-    guidance.mode === "auto" && !guidance.chosen && firstVisitSeams.driven()
-      ? "offer"
-      : guidance.mode;
-  const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
-  const asked = usePendingFirstVisit(route, mode, running, support);
-
   useEffect(() => {
     if (mode === "off" || !idle) return;
     let shown: string | null = null;
+    let withdrawNotice = () => {};
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
@@ -207,24 +232,60 @@ export function FirstVisitOffer() {
         return;
       }
       shown = offerId(goal.id);
-      showToast({
-        id: shown,
-        tone: "info",
-        title: goal.title,
-        body: offerBody(steps),
-        sticky: true,
-        choice: { label: "Show me", run: start },
-        onDismiss: answer,
-      });
+      if (narrow) {
+        withdrawNotice = showFirstVisitNotice({
+          id: shown,
+          title: goal.title,
+          body: offerBody(steps),
+          start,
+          answer,
+        });
+        return;
+      }
+      showFirstVisitToast(shown, goal.title, offerBody(steps), start, answer);
     };
     timer = setTimeout(speak, firstVisitSeams.delayMs);
     return () => {
       clearTimeout(timer);
       // The screen it spoke about is gone, or a tour has begun.
-      if (shown !== null) hideToast(shown);
+      withdrawNotice();
+      if (shown !== null && !narrow) hideToast(shown);
       setInline((current) => (current?.route === route ? null : current));
     };
-  }, [route, idle, mode, answered, gate, support, asked, githubReady]);
+  }, [route, idle, mode, answered, gate, support, asked, githubReady, narrow]);
+  return [inline, setInline] as const;
+}
+
+export function FirstVisitOffer() {
+  const { view, support } = useSupport();
+  const gate = firstVisitSeams.useGate();
+  const guidance = useGuidance();
+  const narrow = useNarrow();
+  const { route } = view;
+  const githubReady = useSyncExternalStore(
+    subscribeToGuideTargets,
+    githubSetupReady,
+    () => false,
+  );
+  const idle = !view.open && view.guide?.tour == null;
+  const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
+  const mode =
+    guidance.mode === "auto" && !guidance.chosen && firstVisitSeams.driven()
+      ? "offer"
+      : guidance.mode;
+  const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
+  const asked = usePendingFirstVisit(route, mode, running, support);
+  const [inline, setInline] = useFirstVisitPresentation({
+    route,
+    mode,
+    idle,
+    answered,
+    gate,
+    support,
+    asked,
+    githubReady,
+    narrow,
+  });
 
   return inline ? (
     <FirstVisitInlineOffer

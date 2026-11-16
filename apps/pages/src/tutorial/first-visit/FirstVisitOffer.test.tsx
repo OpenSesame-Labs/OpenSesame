@@ -11,6 +11,11 @@ import {
   subscribeToastHides,
   subscribeToasts,
 } from "@opensesame/app-core/lib/notice-toast.js";
+import {
+  clearNotices,
+  dismissNoticeByUser,
+  listNotices,
+} from "@opensesame/app-core/lib/notices.js";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,13 +103,50 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  clearNotices();
   for (const stop of stops) stop();
   Object.assign(guidanceSeams, originalGuidance);
   Object.assign(firstVisitSeams, originalSeams);
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
 describe("the first-visit offer", () => {
+  it("puts a phone's offer in notifications and starts it from there", () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    const { support, started } = controller();
+    mount(support);
+    settle();
+    expect(shown).toHaveLength(0);
+    const notice = listNotices().find(
+      (entry) => entry.id === "first-visit:settings.danger.review",
+    );
+    expect(notice).toMatchObject({
+      transient: true,
+      act: { label: "Start tutorial", icon: "play", opens: true },
+    });
+    act(() => notice?.act?.run());
+    expect(started).toHaveLength(1);
+    expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
+    expect(listNotices()).toHaveLength(0);
+  });
+
+  it("remembers a phone offer dismissed from notifications", () => {
+    vi.stubGlobal("matchMedia", () => ({
+      matches: true,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    mount(controller().support);
+    settle();
+    act(() => dismissNoticeByUser("first-visit:settings.danger.review"));
+    expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
+  });
+
   it("offers the screen's tour once it has stood a moment", () => {
     const { support } = controller();
     mount(support);
@@ -346,7 +388,7 @@ describe("the first-visit offer", () => {
   });
 
   it("counts steps in plain words", () => {
-    expect(offerBody(1)).toContain("1 step,");
-    expect(offerBody(6)).toContain("6 steps,");
+    expect(offerBody(1)).toContain("1 step.");
+    expect(offerBody(6)).toContain("6 steps.");
   });
 });

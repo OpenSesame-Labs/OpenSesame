@@ -10,6 +10,10 @@
  * least of all the one that drops their keys.
  */
 
+import {
+  forgetSessionAnswers,
+  screenAnsweredThisSession,
+} from "@opensesame/app-core/lib/guidance.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { fakeAgentAnswering } from "@opensesame/support-agent";
@@ -37,7 +41,10 @@ function authored(id: string): string {
 }
 
 describe("asking whether OpenSesame is healthy", { timeout: 20_000 }, () => {
-  afterEach(resetJourney);
+  afterEach(() => {
+    resetJourney();
+    forgetSessionAnswers();
+  });
 
   it("walks to the report on the items", async () => {
     const journey = renderJourney(fakeAgentAnswering("Unused."));
@@ -96,6 +103,9 @@ describe("asking whether OpenSesame is healthy", { timeout: 20_000 }, () => {
       kind: "completed",
       goal: "host.health.check",
     });
+    await waitFor(() =>
+      expect(screenAnsweredThisSession("/vault/health")).toBe(true),
+    );
     // It ended, so it took its overlay with it: the last thing drawn is the clear.
     expect(journey.drawn().at(-1)?.kind).toBe("clear");
 
