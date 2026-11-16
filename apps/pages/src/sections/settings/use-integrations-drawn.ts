@@ -2,6 +2,7 @@ import {
   INTEGRATIONS,
   type Integration,
 } from "@opensesame/app-core/lib/capabilities/integrations.js";
+import { useMemo } from "react";
 import { useConnectorRoads } from "../../bindings/connector-roads.js";
 import { integrationDraws } from "./provider-tile-items.js";
 
@@ -16,10 +17,16 @@ export type DrawnIntegration = Readonly<{
  */
 export function useIntegrationsDrawn(): readonly DrawnIntegration[] {
   const roads = useConnectorRoads();
-  return INTEGRATIONS.map((integration) => ({
-    integration,
-  })).filter(
-    ({ integration }) =>
+  const visibleIds = INTEGRATIONS.filter(
+    (integration) =>
       integration.id === "ai" || integrationDraws(integration, roads.tile),
-  );
+  )
+    .map((integration) => integration.id)
+    .join("|");
+  return useMemo(() => {
+    const visible = new Set(visibleIds.split("|"));
+    return INTEGRATIONS.filter((integration) =>
+      visible.has(integration.id),
+    ).map((integration) => ({ integration }));
+  }, [visibleIds]);
 }

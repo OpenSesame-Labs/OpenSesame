@@ -56,6 +56,22 @@ describe("first-visit tours", () => {
     expect(firstVisitCandidates("/nowhere")).toEqual([]);
   });
 
+  it.each(["/connections/github", "/settings/connections/github"])(
+    "starts GitHub setup on %s without inheriting a different screen's tour",
+    (route) => {
+      expect(firstVisitTour(route, new Set())?.goal.id).toBe(
+        "connection.github.setup",
+      );
+      expect(firstVisitCandidates(route)).not.toContain("settings.backup");
+      expect(firstVisitCandidates(route)).not.toContain(
+        "settings.integrations.review",
+      );
+      expect(
+        firstVisitTour(route, new Set(["connection.github.setup"])),
+      ).toBeNull();
+    },
+  );
+
   it("offers every tutorial from some screen", () => {
     const offered = new Set(
       mergedGuideRoutes().flatMap((route) => firstVisitCandidates(route.id)),

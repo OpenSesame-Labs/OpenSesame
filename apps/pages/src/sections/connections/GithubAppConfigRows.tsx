@@ -23,7 +23,7 @@ export function GithubAppForgetButton({
         if (
           "confirm" in globalThis &&
           !globalThis.confirm(
-            "Remove the GitHub App from this device? Its private key and client secret will be deleted.",
+            "Remove the GitHub App from this device? Its private key, client secret and local backup configuration will be deleted.",
           )
         )
           return;

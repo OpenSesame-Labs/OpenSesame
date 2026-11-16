@@ -11,12 +11,13 @@ import { readNativeConnector } from "@opensesame/app-core/lib/native-connector-s
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
 import { useState, useSyncExternalStore } from "react";
 import { StatusMark } from "../../components/StatusMark.js";
+import { useOptionalGuideTarget } from "../../tutorial/registry/react.jsx";
+import { ConnectorModes } from "./connect/ConnectorModes.js";
+import { OutLink } from "./connect/fields.js";
+import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
 import { GithubAppForgetButton } from "./GithubAppConfigRows.js";
 import { GithubAppConfigSummary } from "./GithubAppConfigSummary.js";
 import { GithubAppRegistrationPanel } from "./GithubAppRegistrationPanel.js";
-import { ConnectorModes } from "./connect/ConnectorModes.js";
-import { NativeConnectorPanels } from "./connect/NativeConnectorPanels.js";
-import { OutLink } from "./connect/fields.js";
 
 type Method = "app" | "token";
 const METHODS: readonly { id: Method; label: string }[] = [
@@ -45,10 +46,14 @@ function installationUrl(value: string | null): string | null {
 export function GithubNativeAppPanels(props: {
   provider: Provider;
   connection: Connection | null;
+  guideReady?: boolean;
   online: boolean;
   onFlash: (flash: Flash) => void;
   onChanged: () => void;
 }) {
+  const methodRef = useOptionalGuideTarget<HTMLDivElement>(
+    props.guideReady === false ? undefined : "connections.github.method",
+  );
   const [method, setMethod] = useState<Method>(() =>
     !new URLSearchParams(window.location.search).has("github_app") &&
     props.connection?.status === "active" &&
@@ -69,12 +74,14 @@ export function GithubNativeAppPanels(props: {
       renderConfiguration={(form) => (
         <>
           <div className="panel__body cx-form">
-            <ConnectorModes
-              label="Connection method"
-              value={method}
-              options={METHODS}
-              onChange={setMethod}
-            />
+            <div ref={methodRef}>
+              <ConnectorModes
+                label="Connection method"
+                value={method}
+                options={METHODS}
+                onChange={setMethod}
+              />
+            </div>
             <div hidden={method !== "app"}>
               <GithubAppRegistrationPanel {...props} />
               {app ? (

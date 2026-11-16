@@ -19,6 +19,7 @@ import {
   clearLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import { forgetLocalGithubApp } from "./github-app-local.js";
 import {
   publishBackupSyncEvent,
   subscribeBackupSyncEvents,
@@ -135,6 +136,70 @@ describe("browser-local backup target", () => {
     expect(hasCatchingUpBackupTarget()).toBe(false);
   });
 
+  it("saves a GitHub repository disabled and preserves the switch when edited", async () => {
+    const events: string[] = [];
+    const stop = subscribeBackupSyncEvents((event) =>
+      events.push(event.reason),
+    );
+    const saved = await putBackupTarget({
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+    });
+    expect(saved.enabled).toBe(false);
+    expect(events).not.toContain("configured");
+    await setBackupTargetEnabled(true, "github");
+    expect((await putBackupTarget({ repo: "new-vault" })).enabled).toBe(true);
+    await setBackupTargetEnabled(false, "github");
+    expect((await putBackupTarget({ repo: "other-vault" })).enabled).toBe(
+      false,
+    );
+    stop();
+  });
+
+  it("removes the App's backup configuration when the App is removed", async () => {
+    await putBackupTarget({
+      installationId: "777",
+      owner: "acme",
+      repo: "vault",
+      enabled: true,
+    });
+    forgetLocalGithubApp();
+    expect((await getBackupStatus("github")).target).toBeNull();
+    await putBackupTarget({
+      kind: "git_remote",
+      providerId: "github",
+      connectionId: "conn_1",
+      owner: "acme",
+      repo: "vault",
+    });
+    forgetLocalGithubApp();
+    expect((await getBackupStatus("github")).target?.kind).toBe("git_remote");
+  });
+
+  it("does not inherit an enabled git remote when setting up a GitHub App", async () => {
+    await putBackupTarget({
+      kind: "git_remote",
+      providerId: "github",
+      connectionId: "old-remote",
+      owner: "acme",
+      repo: "old",
+      enabled: true,
+      config: { remoteUrl: "https://github.com/acme/old.git" },
+    });
+    const app = await putBackupTarget({
+      kind: "github_app",
+      installationId: "777",
+      owner: "acme",
+      repo: "new",
+    });
+    expect(app).toMatchObject({
+      kind: "github_app",
+      enabled: false,
+      connectionId: null,
+      config: null,
+    });
+  });
   it("stores a target on this device and reports it", async () => {
     const target = await putBackupTarget({
       connectionId: "conn_1",

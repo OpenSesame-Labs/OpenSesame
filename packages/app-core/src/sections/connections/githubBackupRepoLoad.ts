@@ -35,7 +35,7 @@ function mergeAccounts(
 }
 
 export async function loadRepoChoices(
-  connection: Connection,
+  _connection: Connection,
   seedAccounts: AppInstallAccount[],
   seedRepos: string[],
   previousTarget: BackupTargetView | null,
@@ -46,7 +46,10 @@ export async function loadRepoChoices(
     statusError = "Could not load the backup target.";
     return null;
   });
-  const target = status ? (status.target ?? null) : previousTarget;
+  // A Git remote for GitHub is a different connection: it does not mean the
+  // GitHub App has been bound to that repository, even if the names match.
+  const saved = status ? (status.target ?? null) : previousTarget;
+  const target = saved?.kind === "github_app" ? saved : null;
   const accounts = mergeAccounts(listLocalAppInstallAccounts(), seedAccounts);
   const listed = await listGithubAppInstallationRepos().catch(() => ({
     repositories: [],

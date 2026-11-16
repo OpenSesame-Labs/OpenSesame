@@ -65,6 +65,7 @@ describe("loadGithubAppPresenceState", () => {
       ]),
       getBackupStatus: vi.fn(async () => ({
         target: {
+          kind: "github_app",
           integrationId: "int-1",
           installationId: "55",
           owner: "ship-it-org",
@@ -103,5 +104,21 @@ describe("loadGithubAppPresenceState", () => {
     expect(state.requestedPermissions.map((row) => row.name)).toContain(
       "contents",
     );
+  });
+
+  it("does not report a Git remote as a GitHub App repository", async () => {
+    Object.assign(connectionSeams, { listIntegrations: vi.fn(async () => []) });
+    Object.assign(backupSeams, {
+      getBackupStatus: vi.fn(async () => ({
+        target: {
+          kind: "git_remote",
+          owner: "ship-it-org",
+          repo: "passwords",
+          enabled: true,
+        },
+        pendingEvents: 0,
+      })),
+    });
+    expect((await loadGithubAppPresenceState("")).backupRepo).toBeNull();
   });
 });

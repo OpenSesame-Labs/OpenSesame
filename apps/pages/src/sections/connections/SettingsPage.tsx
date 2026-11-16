@@ -25,48 +25,40 @@ import {
   CATEGORY_LABELS,
   type Flash,
   connectorCeremonyRoot,
+  connectorPath,
   statusSentence,
 } from "@opensesame/app-core/sections/connections/shared.js";
-import { connectorPath } from "@opensesame/app-core/sections/connections/shared.js";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useConnectorRoads } from "../../bindings/connector-roads.js";
-import {
-  IconChevronLeft,
-  IconConnection,
-  IconExternal,
-} from "../../components/Icons.js";
+import { IconChevronLeft, IconConnection } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
-import { BackupEnableSwitch, canBackupEnable } from "./BackupEnableSwitch.js";
 import { BackupSyncControls } from "./BackupSyncControls.js";
 import { authKindLabel } from "./CatalogPanel.js";
 import { ConnectForm } from "./ConnectForm.js";
-import { ConnectSection } from "./ConnectSection.js";
 import { ConnectionCard } from "./ConnectionCard.js";
-import { ConnectorMark } from "./ConnectorMark.js";
-import { GithubAppForgetButton } from "./GithubAppConfigRows.js";
+import { ConnectSection } from "./ConnectSection.js";
+import { apiFamilyFor, apiFamilyOptions } from "./catalog-families.js";
+import { isConnectConnection } from "./connect/ConnectPanels.js";
 import { GithubAppPresence } from "./GithubAppPresence.js";
+import { isIdentityConnectionProvider } from "./identity/IdentityConnectionPanels.js";
 import * as SettingsPanels from "./SettingsPageConnectPanels.js";
+import { SettingsPageHeader } from "./SettingsPageHeader.js";
 import {
   AuthorizedAccount,
   githubConnectorStatus,
 } from "./SettingsPageStatus.js";
-import { VaultReminderBanner } from "./VaultReminderBanner.js";
-import { apiFamilyFor, apiFamilyOptions } from "./catalog-families.js";
-import { isConnectConnection } from "./connect/ConnectPanels.js";
-import { isIdentityConnectionProvider } from "./identity/IdentityConnectionPanels.js";
 import { useTailscaleHeaderStatus } from "./tailscale/useTailscaleConnectionState.js";
+import { VaultReminderBanner } from "./VaultReminderBanner.js";
 
 /**
  * Registry services get the provider configuration experience. Existing
  * device key/configuration and forge flows keep their working local road;
- * imported hosted connections retain their management panels. GitHub keeps
- * its App flow. A refused service (ADR 0086 §6) gets no Connect road.
+ * imported hosted connections retain their panels. Refused services get no Connect road.
  */
 const bespokePanel = (id: string): boolean =>
   isAiConnectionProvider(id) || id === "tailscale" || id === "boat";
-
 function connectOwned(providerId: string): "only" | "beside" | null {
   if (!hasConnectRoute(providerId)) return null;
   if (!isVercelCatalogId(providerId) || isGitBackupProvider(providerId))
@@ -223,58 +215,32 @@ export function ConnectorSettingsPage({
           </select>
         </div>
       ) : null}
-      <header className="conn-settings__head">
-        <ConnectorMark
-          providerId={provider.id}
-          displayName={provider.displayName}
-          size={44}
-        />
-        <div className="conn-settings__title">
-          <div className="conn-settings__name">
-            <h1>{provider.displayName}</h1>
-            <StatusMark
-              {...(nativeHeader ??
-                githubConnectorStatus(
-                  provider,
-                  connection,
-                  connections,
-                  backupReady,
-                  localGithubApp !== null,
-                  roads.acts(provider),
-                ))}
-            />
-            {canBackupEnable(provider.id) ? (
-              <BackupEnableSwitch
-                providerId={provider.id}
-                displayName={provider.displayName}
-              />
-            ) : null}
-            {provider.id === "github" &&
-            localGithubApp !== null &&
-            !nativeExperience ? (
-              <GithubAppForgetButton />
-            ) : null}
-          </div>
-          <p>
-            {nativeHeader?.sentence ??
-              (connection
-                ? statusSentence(connection, provider)
-                : `${authKindLabel(provider)} · ${CATEGORY_LABELS[provider.category]}`)}
-          </p>
-        </div>
-        {headerDocs ? (
-          <a
-            className="btn btn--sm btn--ghost"
-            href={headerDocs.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            title={headerDocs.label}
-          >
-            {headerDocs.short} <IconExternal size={14} />
-          </a>
-        ) : null}
-      </header>
-
+      <SettingsPageHeader
+        provider={provider}
+        status={
+          nativeHeader ??
+          githubConnectorStatus(
+            provider,
+            connection,
+            connections,
+            backupReady,
+            localGithubApp !== null,
+            roads.acts(provider),
+          )
+        }
+        sentence={
+          nativeHeader?.sentence ??
+          (connection
+            ? statusSentence(connection, provider)
+            : `${authKindLabel(provider)} · ${CATEGORY_LABELS[provider.category]}`)
+        }
+        docs={headerDocs}
+        canForgetApp={
+          provider.id === "github" &&
+          localGithubApp !== null &&
+          !nativeExperience
+        }
+      />
       {flash ? (
         <StatusMark
           tone={
@@ -314,8 +280,11 @@ export function ConnectorSettingsPage({
         />
       ) : null}
 
-      {nativeExperience || identityExperience || secretBackendExperience ||
-      (bespokePanel(provider.id) && !isConnectConnection(connection)) ? null : automatic ? (
+      {nativeExperience ||
+      identityExperience ||
+      secretBackendExperience ||
+      (bespokePanel(provider.id) &&
+        !isConnectConnection(connection)) ? null : automatic ? (
         <section className="panel" id="authorization" ref={authorizeRef}>
           <div className="panel__head">
             <div>
@@ -415,9 +384,16 @@ export function ConnectorSettingsPage({
         identityExperience={identityExperience}
         secretBackendExperience={secretBackendExperience}
         nativeExperience={nativeExperience}
+        guideReady={!loading}
         onConnect={onConnect}
         deviceSeal={deviceSeal}
       />
+      {provider.id === "github" ? (
+        <div
+          data-first-visit-offer
+          data-first-visit-return="connections.github.method"
+        />
+      ) : null}
     </div>
   );
 }

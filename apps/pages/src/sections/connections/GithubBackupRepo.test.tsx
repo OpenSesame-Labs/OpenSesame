@@ -70,10 +70,7 @@ beforeEach(() => {
   });
   getBackupStatus.mockResolvedValue({ target: null, pendingEvents: 0 });
   putBackupTarget.mockImplementation(
-    async (body: {
-      owner: string;
-      repo: string;
-    }) => ({
+    async (body: { owner: string; repo: string }) => ({
       integrationId: "int_gh",
       installationId: "99",
       owner: body.owner,
@@ -170,7 +167,11 @@ it("binds a repository chosen from the list", async () => {
   );
   await waitFor(() =>
     expect(putBackupTarget).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: "octocat", repo: "secrets" }),
+      expect.objectContaining({
+        kind: "github_app",
+        owner: "octocat",
+        repo: "secrets",
+      }),
     ),
   );
   await waitFor(() =>
@@ -246,6 +247,7 @@ it("seeds install repositories when the App list is empty", async () => {
 it("opens the bound repository for editing", async () => {
   getBackupStatus.mockResolvedValue({
     target: {
+      kind: "github_app",
       integrationId: "int_gh",
       installationId: "99",
       owner: "octocat",
@@ -274,6 +276,43 @@ it("opens the bound repository for editing", async () => {
   );
   await userEvent.click(screen.getByTestId("github-repo-edit"));
   expect(await screen.findByTestId("github-repo-input")).toBeTruthy();
+});
+
+it("lets the App bind a repository already used by a Git remote", async () => {
+  getBackupStatus.mockResolvedValue({
+    target: {
+      kind: "git_remote",
+      connectionId: "remote_gh",
+      owner: "octocat",
+      repo: "secrets",
+      enabled: true,
+    },
+    pendingEvents: 0,
+  });
+  const onReady = vi.fn();
+  render(
+    <GithubBackupField
+      connection={connection}
+      online
+      onFlash={vi.fn()}
+      onReady={onReady}
+    />,
+  );
+  await waitFor(() => expect(onReady).toHaveBeenCalledWith(false));
+  expect(screen.queryByTestId("github-backup-repo")).toBeNull();
+  await userEvent.click(screen.getByTestId("github-repo-toggle"));
+  await userEvent.click(
+    await screen.findByRole("option", { name: "octocat/secrets" }),
+  );
+  await waitFor(() =>
+    expect(putBackupTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "github_app",
+        owner: "octocat",
+        repo: "secrets",
+      }),
+    ),
+  );
 });
 
 it("keeps only characters a repository name can hold", () => {

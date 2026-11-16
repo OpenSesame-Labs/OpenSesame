@@ -88,7 +88,7 @@ export function GithubAppConfigSummary({
           />
         </div>
       ) : null}
-      <BackupSyncControls />
+      <BackupSyncControls kind="github_app" />
       <GithubAppPermissionBlock
         label="Granted"
         testId="github-app-granted"

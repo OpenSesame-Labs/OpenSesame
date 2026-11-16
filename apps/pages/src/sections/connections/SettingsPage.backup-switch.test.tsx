@@ -1,12 +1,20 @@
-import { backupSeams } from "@opensesame/app-core/lib/backup.js";
+import {
+  backupSeams,
+  deleteBackupTarget,
+  putBackupTarget,
+  setBackupTargetEnabled,
+} from "@opensesame/app-core/lib/backup.js";
+import { clearLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import type { Provider } from "@opensesame/app-core/lib/connections.js";
 import { isHistorySelected } from "@opensesame/app-core/lib/history-backups.js";
 import {
   loadSettings,
   saveSettings,
 } from "@opensesame/app-core/lib/settings.js";
+import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 /** @vitest-environment jsdom */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -26,6 +34,8 @@ declareConnectionsTutorial();
 
 afterEach(() => {
   cleanup();
+  stopVaultBackupObserver();
+  clearLocalBackupTarget();
   Object.assign(backupSeams, originalBackup);
   const settings = loadSettings();
   saveSettings({
@@ -94,7 +104,7 @@ function githubProvider(): Provider {
 }
 
 describe("ConnectorSettingsPage backup switch", () => {
-  it("shows the enable switch beside the connector title", async () => {
+  it("keeps backup off and allows setup when a legacy selection has no repository", async () => {
     render(
       <MemoryRouter initialEntries={["/settings/connections/github"]}>
         <ConnectorSettingsPage
@@ -114,11 +124,63 @@ describe("ConnectorSettingsPage backup switch", () => {
         />
       </MemoryRouter>,
     );
-    const toggle = await waitFor(() =>
-      screen.getByRole("switch", { name: "GitHub vault history" }),
-    );
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    const toggle = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(toggle).toHaveProperty("disabled", true);
+    expect(screen.getByText("Configure a repository first")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Create GitHub App" }),
+    ).toBeTruthy();
     fireEvent.click(toggle);
-    await waitFor(() => expect(isHistorySelected("github")).toBe(false));
+    expect(isHistorySelected("github")).toBe(true);
+    expect(backupSeams.setBackupTargetEnabled).not.toHaveBeenCalled();
+  });
+
+  it("enables only after a repository is saved and tracks later changes", async () => {
+    Object.assign(backupSeams, originalBackup);
+    render(
+      <MemoryRouter initialEntries={["/settings/connections/github"]}>
+        <ConnectorSettingsPage
+          provider={githubProvider()}
+          providerId="github"
+          connection={null}
+          connections={[]}
+          loading={false}
+          online
+          canConfigure
+          configureHint=""
+          flash={null}
+          rememberOffer={null}
+          onFlash={vi.fn()}
+          onRememberOffer={vi.fn()}
+          onChanged={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    const toggle = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(toggle).toHaveProperty("disabled", true);
+    await act(async () => {
+      await putBackupTarget({
+        installationId: "99",
+        owner: "acme",
+        repo: "vault",
+      });
+    });
+    await waitFor(() => expect(toggle).toHaveProperty("disabled", false));
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-checked")).toBe("true"),
+    );
+    await act(async () => {
+      await setBackupTargetEnabled(false, "github");
+    });
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-checked")).toBe("false"),
+    );
+    await act(async () => {
+      await deleteBackupTarget("github");
+    });
+    await waitFor(() => expect(toggle).toHaveProperty("disabled", true));
   });
 });

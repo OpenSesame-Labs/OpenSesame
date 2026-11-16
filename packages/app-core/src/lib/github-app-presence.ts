@@ -138,7 +138,7 @@ export async function loadGithubAppPresenceState(
   const backup = await getBackupStatus("github").catch(() => null);
   const target = backup?.target;
   const backupRepo =
-    target && target.owner !== "" && target.repo !== ""
+    target?.kind === "github_app" && target.owner !== "" && target.repo !== ""
       ? `${target.owner}/${target.repo}`
       : null;
 

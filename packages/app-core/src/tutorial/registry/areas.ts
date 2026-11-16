@@ -131,6 +131,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
     title: "Backup, sync and storage",
     goals: [
       "settings.backup",
+      "connection.github.setup",
       "settings.tailnet-sync",
       "integration.networking",
       "feature.encrypted-search",
@@ -273,6 +274,9 @@ export function tutorialStartsFrom(
   goal: GuideGoalDescriptor,
   route: GuideRouteId,
 ): boolean {
+  if (goal.currentRouteOnly) {
+    return goal.routes.some((scope) => guideRouteWithin(route, scope));
+  }
   if (GUIDE_OVERLAY_ROUTES.has(route)) {
     return goal.routes.some((scope) => guideRouteWithin(route, scope));
   }

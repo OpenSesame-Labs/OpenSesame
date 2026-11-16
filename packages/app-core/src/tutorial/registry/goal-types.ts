@@ -18,6 +18,8 @@ export type GuideGoalDescriptor = {
    * only ever started from the library is not one it should be choosing.
    */
   readonly libraryOnly?: true;
+  /** A guide with no navigation can only be walked on its own screen. */
+  readonly currentRouteOnly?: true;
   /**
    * State predicates that must hold for the library to offer this goal: a
    * tutorial about a row that is only drawn for a signed-in account is not

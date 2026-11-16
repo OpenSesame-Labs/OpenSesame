@@ -106,7 +106,7 @@ export function existingRepo(slug: string, repos: string[]): string | null {
 }
 
 export function isBound(target: BackupTargetView | null): boolean {
-  return Boolean(target?.enabled && target.repo !== "");
+  return Boolean(target?.owner && target.repo);
 }
 
 function pushNamedRepos(

@@ -4,6 +4,7 @@ import {
   getBackupStatus,
   setBackupTargetEnabled,
 } from "@opensesame/app-core/lib/backup.js";
+import { subscribeLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import {
   HISTORY_BACKUP_GROUPS,
   isHistorySelected,
@@ -29,9 +30,11 @@ export function canBackupEnable(providerId: string): boolean {
 export function BackupEnableSwitch({
   providerId,
   displayName,
+  showSetupHint = false,
 }: {
   providerId: string;
   displayName: string;
+  showSetupHint?: boolean;
 }) {
   useSettingsEpoch();
   const [target, setTarget] = useState<BackupTargetView | null>(null);
@@ -39,36 +42,47 @@ export function BackupEnableSwitch({
 
   useEffect(() => {
     let live = true;
-    void getBackupStatus(providerId)
-      .then((status) => {
-        if (!live) return;
-        const bound = status.target;
-        if (bound && backupTargetProviderId(bound) === providerId) {
-          setTarget(bound);
-        } else {
-          setTarget(null);
-        }
-      })
-      .catch(() => {
-        if (live) setTarget(null);
-      });
+    let request = 0;
+    const reload = () => {
+      const current = ++request;
+      void getBackupStatus(providerId)
+        .then((status) => {
+          if (!live || current !== request) return;
+          const bound = status.target;
+          setTarget(
+            bound && backupTargetProviderId(bound) === providerId
+              ? bound
+              : null,
+          );
+        })
+        .catch(() => {
+          if (live && current === request) setTarget(null);
+        });
+    };
+    reload();
+    const unsubscribe = subscribeLocalBackupTarget(reload);
     return () => {
       live = false;
+      unsubscribe();
     };
   }, [providerId]);
 
   if (!historyToggleable(providerId)) return null;
 
   const bound = target !== null;
-  const enabled = bound ? target.enabled : isHistorySelected(providerId);
-  const label = bound
-    ? `${displayName} backup`
-    : `${displayName} vault history`;
+  const needsGithubTarget = providerId === "github" && !bound;
+  const enabled = bound
+    ? target.enabled
+    : !needsGithubTarget && isHistorySelected(providerId);
+  const label =
+    bound || providerId === "github"
+      ? `${displayName} backup`
+      : `${displayName} vault history`;
 
   async function onToggle(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (busy) return;
+    if (busy || needsGithubTarget) return;
     if (bound) {
       const next = !target.enabled;
       setBusy(true);
@@ -86,16 +100,21 @@ export function BackupEnableSwitch({
   }
 
   return (
-    <button
-      type="button"
-      className="toggle"
-      role="switch"
-      aria-checked={enabled}
-      aria-busy={busy || undefined}
-      disabled={busy}
-      aria-label={label}
-      title={label}
-      onClick={(event) => void onToggle(event)}
-    />
+    <>
+      <button
+        type="button"
+        className="toggle"
+        role="switch"
+        aria-checked={enabled}
+        aria-busy={busy || undefined}
+        disabled={busy || needsGithubTarget}
+        aria-label={label}
+        title={needsGithubTarget ? "Configure a repository first" : label}
+        onClick={(event) => void onToggle(event)}
+      />
+      {showSetupHint && needsGithubTarget ? (
+        <span className="conn-tile__kind">Configure a repository first</span>
+      ) : null}
+    </>
   );
 }

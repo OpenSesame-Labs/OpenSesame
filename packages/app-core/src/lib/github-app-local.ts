@@ -11,6 +11,10 @@ import {
  * `github-app-secret.ts`. Registration URLs live in `github-app-manifest.ts`.
  */
 import { maybeLocalStore, sessionStore } from "../ports.js";
+import {
+  clearLocalBackupTarget,
+  readLocalBackupTarget,
+} from "./backup-target-local.js";
 import { readGithubApp } from "./github-app-direct.js";
 import {
   adoptLegacyPendingPem,
@@ -50,6 +54,9 @@ function notifyLocalGithubApp(): void {
 export function forgetLocalGithubApp(): void {
   const app = readLocalGithubApp();
   invalidateGithubAppAuthority();
+  if (readLocalBackupTarget("github")?.kind === "github_app") {
+    clearLocalBackupTarget("github");
+  }
   maybeLocalStore()?.removeItem(PUBLIC_KEY);
   forgetGithubAppSecret(app ?? undefined);
   try {

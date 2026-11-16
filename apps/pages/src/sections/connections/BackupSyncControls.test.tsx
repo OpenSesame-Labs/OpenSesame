@@ -59,6 +59,23 @@ beforeEach(() => {
 });
 
 describe("BackupSyncControls", () => {
+  it("keeps a Git remote's controls out of the GitHub App summary", async () => {
+    const status = await backupSeams.getBackupStatus("github");
+    if (!status.target) throw new Error("Fixture target required");
+    status.target = {
+      ...status.target,
+      kind: "git_remote",
+      providerId: "github",
+    };
+    Object.assign(backupSeams, { getBackupStatus: vi.fn(async () => status) });
+    const view = render(<BackupSyncControls providerId="github" />);
+    await screen.findByTestId("backup-sync-controls");
+    view.rerender(<BackupSyncControls providerId="github" kind="github_app" />);
+    expect(screen.queryByTestId("backup-sync-controls")).toBeNull();
+    view.rerender(<BackupSyncControls providerId="github" kind="git_remote" />);
+    expect(screen.getByTestId("backup-sync-controls")).toBeTruthy();
+  });
+
   it("runs a manual sync when the backup target is enabled", async () => {
     render(<BackupSyncControls providerId="github" />);
     const sync = await waitFor(() =>

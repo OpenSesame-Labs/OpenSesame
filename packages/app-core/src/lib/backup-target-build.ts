@@ -73,10 +73,11 @@ function assertBackupFields(
 function pickEnabled(
   input: boolean | undefined,
   prior: boolean | undefined,
+  kind: string,
 ): boolean {
   if (input !== undefined) return input;
   if (prior !== undefined) return prior;
-  return true;
+  return kind !== "github_app";
 }
 
 function pickPriorString(prior: string | undefined, fallback: string): string {
@@ -131,36 +132,48 @@ function withGithubBindingConfirmation(
   return next;
 }
 
+function buildBackupBinding(
+  input: PutBackupTargetInput,
+  previous: LocalBackupTarget | null,
+  providerId: string,
+  kind: string,
+) {
+  const installationId = pickTrimmed(
+    input.installationId,
+    previous?.installationId,
+  );
+  const connectionId = pickNullable(input.connectionId, previous?.connectionId);
+  const owner = pickTrimmed(input.owner, previous?.owner);
+  const repo = pickTrimmed(input.repo, previous?.repo);
+  assertBackupFields(kind, owner, repo, installationId, connectionId);
+  return {
+    kind,
+    providerId,
+    connectionId,
+    integrationId: pickTrimmed(input.integrationId, previous?.integrationId),
+    installationId,
+    owner,
+    repo,
+    branch: pickTrimmed(input.branch, previous?.branch, "main"),
+  };
+}
+
 export function buildLocalBackupTarget(
   input: PutBackupTargetInput,
   prior: LocalBackupTarget | null,
   providerId: string,
   kind: string,
 ): LocalBackupTarget {
-  const installationId = pickTrimmed(
-    input.installationId,
-    prior?.installationId,
-  );
-  const connectionId = pickNullable(input.connectionId, prior?.connectionId);
-  const owner = pickTrimmed(input.owner, prior?.owner);
-  const repo = pickTrimmed(input.repo, prior?.repo);
-  assertBackupFields(kind, owner, repo, installationId, connectionId);
+  const previous = prior?.kind === kind ? prior : null;
   const next: LocalBackupTarget = {
-    kind,
-    providerId,
-    connectionId,
-    integrationId: pickTrimmed(input.integrationId, prior?.integrationId),
-    installationId,
-    owner,
-    repo,
-    branch: pickTrimmed(input.branch, prior?.branch, "main"),
-    enabled: pickEnabled(input.enabled, prior?.enabled),
-    status: pickPriorString(prior?.status, "pending"),
-    lastCommitSha: pickPriorNullable(prior?.lastCommitSha),
-    lastSyncedAt: pickPriorNullable(prior?.lastSyncedAt),
-    lastError: pickPriorNullable(prior?.lastError),
-    config: pickConfig(input.config, prior?.config),
-    pendingEvents: prior?.pendingEvents ?? 0,
+    ...buildBackupBinding(input, previous, providerId, kind),
+    enabled: pickEnabled(input.enabled, previous?.enabled, kind),
+    status: pickPriorString(previous?.status, "pending"),
+    lastCommitSha: pickPriorNullable(previous?.lastCommitSha),
+    lastSyncedAt: pickPriorNullable(previous?.lastSyncedAt),
+    lastError: pickPriorNullable(previous?.lastError),
+    config: pickConfig(input.config, previous?.config),
+    pendingEvents: previous?.pendingEvents ?? 0,
   };
   return withGithubBindingConfirmation(prior, next);
 }

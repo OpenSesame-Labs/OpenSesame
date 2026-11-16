@@ -1,4 +1,8 @@
-import { backupSeams } from "@opensesame/app-core/lib/backup.js";
+import {
+  backupSeams,
+  putBackupTarget,
+} from "@opensesame/app-core/lib/backup.js";
+import { clearLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
 import {
   connectRoadSeams,
   notifyConnectRoads,
@@ -12,8 +16,10 @@ import {
   loadSettings,
   saveSettings,
 } from "@opensesame/app-core/lib/settings.js";
+import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 /** @vitest-environment jsdom */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -28,6 +34,8 @@ const originalBackup = { ...backupSeams };
 
 afterEach(() => {
   cleanup();
+  stopVaultBackupObserver();
+  clearLocalBackupTarget();
   resetConnectRoadSeams();
   Object.assign(backupSeams, originalBackup);
   const settings = loadSettings();
@@ -144,7 +152,7 @@ describe("ProviderTiles backup toggles", () => {
     ).toBe(true);
   });
 
-  it("can turn GitHub vault history off (empty selection sticks)", async () => {
+  it("does not present a legacy GitHub selection as an enabled backup", async () => {
     const settings = loadSettings();
     saveSettings({
       ...settings,
@@ -161,20 +169,13 @@ describe("ProviderTiles backup toggles", () => {
         <ProviderTiles category="backup_recovery" label="Backups" />
       </MemoryRouter>,
     );
-    const github = await waitFor(() =>
-      screen.getByRole("switch", { name: "GitHub vault history" }),
-    );
-    expect(github.getAttribute("aria-checked")).toBe("true");
+    const github = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(github.getAttribute("aria-checked")).toBe("false");
+    expect(github).toHaveProperty("disabled", true);
+    expect(screen.getByText("Turn on Connections and configure")).toBeTruthy();
     fireEvent.click(github);
-    await waitFor(() =>
-      expect(
-        screen
-          .getByRole("switch", { name: "GitHub vault history" })
-          .getAttribute("aria-checked"),
-      ).toBe("false"),
-    );
-    expect(isHistorySelected("github")).toBe(false);
-    expect(loadHistorySelections()).toEqual([]);
+    expect(isHistorySelected("github")).toBe(true);
+    expect(backupSeams.setBackupTargetEnabled).not.toHaveBeenCalled();
   });
 
   it("drives the saved target's enable flag for a configured GitHub App", async () => {
@@ -209,6 +210,7 @@ describe("ProviderTiles backup toggles", () => {
     );
     expect(github.getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("acme/vault")).toBeTruthy();
+    expect(screen.getByText("Turn on Connections and configure")).toBeTruthy();
     fireEvent.click(github);
     await waitFor(() =>
       expect(backupSeams.setBackupTargetEnabled).toHaveBeenCalledWith(
@@ -223,6 +225,35 @@ describe("ProviderTiles backup toggles", () => {
           .getAttribute("aria-checked"),
       ).toBe("false"),
     );
+  });
+
+  it("updates the tile when a GitHub repository is configured and enabled", async () => {
+    Object.assign(backupSeams, originalBackup);
+    clearLocalBackupTarget();
+    connectRoadSeams.pagesOpen = () => true;
+    notifyConnectRoads();
+    render(
+      <MemoryRouter>
+        <ProviderTiles category="backup_recovery" label="Backups" />
+      </MemoryRouter>,
+    );
+    const toggle = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(toggle).toHaveProperty("disabled", true);
+    await act(async () => {
+      await putBackupTarget({
+        installationId: "99",
+        owner: "acme",
+        repo: "vault",
+      });
+    });
+    await waitFor(() => expect(screen.getByText("acme/vault")).toBeTruthy());
+    await waitFor(() => expect(toggle).toHaveProperty("disabled", false));
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-checked")).toBe("true"),
+    );
+    expect(screen.getByText("Automatic backups have not started")).toBeTruthy();
   });
 });
 
@@ -240,12 +271,15 @@ describe("ProviderTiles never link to a page nothing routes", () => {
     );
     expect(screen.getByText("GitLab")).toBeTruthy();
     expect(screen.queryAllByRole("link")).toEqual([]);
+    expect(
+      screen.getByRole("button", { name: /GitHub.*Connections/ }),
+    ).toBeTruthy();
     // Nothing interactive wears the link's hover: the linkless face is its own class.
     expect(document.querySelector("span.conn-tile__link")).toBeNull();
     expect(document.querySelector("span.conn-tile__face")).not.toBeNull();
   });
 
-  it("never says history is backed up when no repository is named, routed page or not", async () => {
+  it("keeps GitHub off without a repository, and links to setup when routed", async () => {
     const settings = loadSettings();
     saveSettings({
       ...settings,
@@ -257,21 +291,18 @@ describe("ProviderTiles never link to a page nothing routes", () => {
         },
       },
     });
-    const mark = "No repository yet — nothing is backed up";
     const view = render(
       <MemoryRouter>
         <ProviderTiles category="backup_recovery" label="Backups" />
       </MemoryRouter>,
     );
-    await waitFor(() =>
-      expect(
-        screen.getByRole("switch", { name: "GitHub vault history" }),
-      ).toBeTruthy(),
-    );
-    // On, no remote, and no page to name one: the mark is still there, and a
-    // person can act on it by switching Connections on.
-    expect(screen.getByRole("img", { name: mark })).toBeTruthy();
-    expect(screen.queryAllByRole("link")).toEqual([]);
+    expect(
+      screen.getByRole("switch", { name: "GitHub backup" }),
+    ).toHaveProperty("disabled", true);
+    expect(screen.getByText("Turn on Connections and configure")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /GitHub.*Connections/ }),
+    ).toBeTruthy();
     view.unmount();
     connectRoadSeams.pagesOpen = () => true;
     notifyConnectRoads();
@@ -280,9 +311,12 @@ describe("ProviderTiles never link to a page nothing routes", () => {
         <ProviderTiles category="backup_recovery" label="Backups" />
       </MemoryRouter>,
     );
-    await waitFor(() =>
-      expect(screen.getByRole("img", { name: mark })).toBeTruthy(),
-    );
+    expect(
+      screen.getByRole("link", { name: /GitHub/ }).getAttribute("href"),
+    ).toBe("/settings/connections/github");
+    expect(
+      screen.getByRole("switch", { name: "GitHub backup" }),
+    ).toHaveProperty("disabled", true);
   });
 
   it("draws no tile for a connector whose only road is its page", () => {

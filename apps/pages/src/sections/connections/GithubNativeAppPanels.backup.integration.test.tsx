@@ -20,8 +20,8 @@ import {
   createProject,
   setActiveProject,
 } from "@opensesame/app-core/lib/projects.js";
-import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { stopVaultBackupObserver } from "@opensesame/app-core/lib/vault-backup-observer.js";
 import { vercelCatalogSeams } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { vfsFlush } from "@opensesame/app-core/lib/vfs.js";
 import { createItem } from "@opensesame/vault-core";
@@ -42,6 +42,7 @@ import { ConnectionsSection } from "../ConnectionsSection.js";
 import { declareConnectionsTutorial } from "./tutorial.test-support.js";
 
 // App reads return GitHub's numeric ID; old backup-only fixture defaults remain unchanged.
+// biome-ignore lint/correctness/useHookAtTopLevel: this installs Vitest fixtures, not React hooks.
 const fixture = useGithubBackupProviderFixture({ appId: "42", branch: "main" });
 beforeEach(() => {
   // The provider fixture's fixed lease is for standalone protocol tests.
@@ -118,6 +119,10 @@ it("the full native parent composes the installed App summary once, selects a re
   expect(pemFromVault(fixture.app)).not.toBeNull();
   const source = mountParent();
   await chooseRepository();
+  expect(readLocalBackupTarget("github")?.enabled).toBe(false);
+  const backupSwitch = screen.getByRole("switch", { name: "GitHub backup" });
+  await waitFor(() => expect(backupSwitch).toHaveProperty("disabled", false));
+  expect(backupSwitch.getAttribute("aria-checked")).toBe("false");
   expect(screen.getAllByTestId("github-app-name")).toHaveLength(1);
   expect(screen.getAllByTestId("github-app-owner")).toHaveLength(1);
   expect(
@@ -151,6 +156,10 @@ it("the full native parent composes the installed App summary once, selects a re
   expect(
     fixture.requests.filter((request) => request.method === "PUT"),
   ).toEqual([]);
+  await userEvent.click(backupSwitch);
+  await waitFor(() =>
+    expect(readLocalBackupTarget("github")?.enabled).toBe(true),
+  );
   await userEvent.click(
     await screen.findByRole("button", {
       name: "Back up this vault and enable automatic backups",
@@ -187,6 +196,12 @@ it("the full native parent composes the installed App summary once, selects a re
   await vaultStore.flushPendingWrites();
   mountParent();
   await chooseRepository();
+  const restoreSwitch = screen.getByRole("switch", { name: "GitHub backup" });
+  await waitFor(() => expect(restoreSwitch).toHaveProperty("disabled", false));
+  await userEvent.click(restoreSwitch);
+  await waitFor(() =>
+    expect(readLocalBackupTarget("github")?.enabled).toBe(true),
+  );
   expect(screen.getAllByTestId("github-app-presence")).toHaveLength(1);
   const readsBefore = fixture.requests.filter(
     (request) =>
