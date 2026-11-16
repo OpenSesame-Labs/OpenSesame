@@ -2,6 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { keymapCommands } from "../../lib/keymap/commands.js";
 import { mergedGuideTargets } from "./catalog.js";
 import { COVERAGE_EXEMPT } from "./coverage-ledger.js";
+import {
+  FIRST_VAULT_PACK_GUIDE,
+  FIRST_VAULT_SHELL_GUIDE,
+} from "./first-vault-guide.js";
 import { guideGoal, mergedGuideGoals } from "./goals.js";
 import { KEYMAP_TUTORIALS } from "./keymap-tutorials.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
@@ -24,6 +28,11 @@ function pointedAt(): ReadonlySet<string> {
     )) {
       if (match[1]) pointed.add(match[1]);
     }
+  }
+  for (const match of `${FIRST_VAULT_SHELL_GUIDE}\n${FIRST_VAULT_PACK_GUIDE}`.matchAll(
+    /(?:focus|wait target) "([^"]+)"/g,
+  )) {
+    if (match[1]) pointed.add(match[1]);
   }
   return pointed;
 }

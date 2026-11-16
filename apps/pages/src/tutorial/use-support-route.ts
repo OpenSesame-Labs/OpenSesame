@@ -32,7 +32,11 @@ export function useSupportRouteSync(
   useEffect(() => {
     controller.setNavigator((route) => {
       if (GUIDE_OVERLAY_ROUTES.has(route)) return;
-      const path = guideNavigationPath(route, location);
+      const path = guideNavigationPath(
+        route,
+        location,
+        controller.view().guide?.goal,
+      );
       if (path !== null) navigate(path);
     });
   }, [controller, navigate, location]);

@@ -7,6 +7,7 @@ import {
   resetDirtyEdits,
   saveDirtyDrafts,
   subscribeDirtyEdit,
+  subscribeDraftSavers,
 } from "./dirty-edit.js";
 
 afterEach(resetDirtyEdits);
@@ -38,6 +39,17 @@ describe("dirty edits", () => {
     });
     const release = holdDirtyEdit("item");
     release();
+    stop();
+    expect(seen).toEqual([true, false]);
+  });
+
+  it("tells subscribers when the first editor opens and the last closes", () => {
+    const seen: boolean[] = [];
+    const stop = subscribeDraftSavers(() => seen.push(hasDraftSaver()));
+    const first = registerDraftSaver("first", () => true);
+    const second = registerDraftSaver("second", () => true);
+    first();
+    second();
     stop();
     expect(seen).toEqual([true, false]);
   });

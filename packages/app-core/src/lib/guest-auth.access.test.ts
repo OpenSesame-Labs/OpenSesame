@@ -11,6 +11,12 @@ import {
   guestAuthDependencies,
   resumeGuestSession,
 } from "./guest-auth.js";
+import { kvDelete, kvSet } from "./kv.js";
+import {
+  mintGuestSessionPerson,
+  readGuestSessionPerson,
+} from "./local-guest.js";
+import { GUEST_TOMB, HEADER_PATH, tombFileKey } from "./vfs.js";
 
 const createGuest = vi.fn();
 const original = { ...guestAuthDependencies };
@@ -25,6 +31,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  kvDelete(tombFileKey(GUEST_TOMB, HEADER_PATH));
   Object.assign(guestAuthDependencies, original);
   await setGuestsAllowed(true);
 });
@@ -39,6 +46,18 @@ describe("guest roads under Allow guests", () => {
     await setGuestsAllowed(false);
     await expect(continueAsGuest()).rejects.toThrow(GUESTS_OFF_MESSAGE);
     await expect(resumeGuestSession()).rejects.toThrow(GUESTS_OFF_MESSAGE);
+    expect(createGuest).not.toHaveBeenCalled();
+  });
+
+  it("does not replace the guest identity when its protected vault cannot be opened", async () => {
+    const person = mintGuestSessionPerson();
+    kvSet(
+      tombFileKey(GUEST_TOMB, HEADER_PATH),
+      JSON.stringify({ v: 1, createdAt: "2026-01-01", unlocks: { pin: {} } }),
+    );
+    await expect(continueAsGuest()).rejects.toThrow("protected guest vault");
+    await expect(resumeGuestSession()).rejects.toThrow("protected guest vault");
+    expect(readGuestSessionPerson()?.id).toBe(person.id);
     expect(createGuest).not.toHaveBeenCalled();
   });
 });

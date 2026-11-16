@@ -91,7 +91,7 @@ function parseEntry(value: BoundaryValue): PersistedTrayNotice | null {
 
 function persistable(notice: Notice): PersistedTrayNotice | null {
   if (notice.kind !== "status") return null;
-  if (notice.claimToken || notice.userCode) return null;
+  if (notice.claimToken || notice.userCode || notice.transient) return null;
   return {
     id: notice.id,
     kind: "status",

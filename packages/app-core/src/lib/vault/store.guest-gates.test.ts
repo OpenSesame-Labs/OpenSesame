@@ -1,4 +1,4 @@
-import { createVault } from "@opensesame/vault-core";
+import { createItem, createVault } from "@opensesame/vault-core";
 /**
  * The guest tomb's own gate (ADR 0091): a guest may enroll a PIN or a passkey
  * and an authenticator code, and that gate is what their unlock asks for —
@@ -17,6 +17,53 @@ beforeEach(() => {
 });
 
 describe("the guest tomb's enrolled gate", () => {
+  it("protects a guest whose only stored key is a manifest protector", async () => {
+    const header = {
+      v: 1,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      protection: {
+        schemaVersion: 1,
+        vaultId: "guest",
+        rootKeyId: "root",
+        rootEpoch: 0,
+        revision: 1,
+        purpose: "human-vault-root",
+        records: [
+          {
+            kind: "recovery-key",
+            protectorId: "recovery",
+            wrap: { ivB64: "aXY=", ctB64: "Y3Q=" },
+            fingerprintB64: "ZnA=",
+            proofStatus: "verified",
+          },
+        ],
+      },
+    };
+    const key = tombFileKey(GUEST_TOMB, HEADER_PATH);
+    kvSet(key, JSON.stringify(header));
+    await expect(new VaultStore().createGuest()).rejects.toThrow(
+      "Unlock the protected guest vault before continuing.",
+    );
+    expect(kvGet(key)).toBe(JSON.stringify(header));
+  });
+
+  it("refuses to replace a protected guest vault with another guest", async () => {
+    const store = new VaultStore();
+    await store.createGuest();
+    await store.enrollPin("48291037");
+    await store.saveItem(createItem("note", "Protected guest item"));
+    await store.flushPendingWrites();
+    store.lock();
+    await expect(store.createGuest()).rejects.toThrow(
+      "Unlock the protected guest vault before continuing.",
+    );
+    store.rehydrate();
+    await store.unlockWithPin("48291037");
+    expect(store.getSnapshot().items.map((item) => item.name)).toContain(
+      "Protected guest item",
+    );
+    store.lock();
+  });
   it("survives a reload and is what unlock asks for (ADR 0091)", async () => {
     const { header } = await createVault("correct horse battery staple");
     kvSet(HEADER_KEY, JSON.stringify(header));

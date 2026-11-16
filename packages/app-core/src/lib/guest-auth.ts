@@ -41,6 +41,7 @@ import {
 } from "./local-guest.js";
 import { clearNotices, listNotices, pushNotice } from "./notices.js";
 import { vaultStore } from "./vault/store.js";
+import { assertGuestVaultAvailable } from "./vault/store-guest-material.js";
 
 const FEDERATED_NOTICE_TITLE = "Finish attaching your sign-in";
 const FEDERATED_NOTICE_BODY =
@@ -130,6 +131,7 @@ async function seedGuestAccess(): Promise<void> {
 async function openGuestVault(mode: "fresh" | "resume"): Promise<void> {
   // Both guest roads end here, so the operator's switch is enforced here too.
   assertGuestsAllowed();
+  assertGuestVaultAvailable();
   // Fresh mints a new principal (`guest-N`); resume only when none survived.
   if (mode === "fresh" || !readGuestSessionPerson())
     await mintGuestSessionPersonLocked();

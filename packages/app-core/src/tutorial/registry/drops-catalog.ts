@@ -7,6 +7,7 @@
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import type { GuideTargetDescriptor } from "./targets.js";
+import { isTouchGuide } from "./touch-guide.js";
 
 export const DROPS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
@@ -25,16 +26,20 @@ export const DROPS_GOALS: readonly GuideGoalDescriptor[] = [
     title: "Share an item once",
     routes: [],
     libraryOnly: true,
-    requires: ["vault.has-items"],
-    guide: [
-      "guide/1",
-      'goal "vault.item.share"',
-      'say "Share opens the ways out. Temporary drop seals one value into a link and a code that open it a single time. The item itself is not touched."',
-      'navigate "/vault/item"',
-      'wait route "/vault/item" timeout=15000',
-      'focus "item.share" "Share opens the ways out. Temporary drop opens the ceremony: choose how long the link lasts, then seal. The s key in the list opens that drop for the row under the cursor." side=top',
-      'success "Share is a locked key: it cannot be remapped onto, and no macro can run it."',
-      "end",
-    ].join("\n"),
+    requires: ["vault.has-shareable-item"],
+    get guide() {
+      return [
+        "guide/1",
+        'goal "vault.item.share"',
+        'say "A temporary drop lets someone open one value once using a link and a code. It does not change the item."',
+        'navigate "/vault/item"',
+        'wait route "/vault/item" timeout=15000',
+        isTouchGuide()
+          ? 'focus "item.share" "Select Share, then Temporary drop. Choose how long the link lasts and seal the drop." side=top'
+          : 'focus "item.share" "Select Share, then Temporary drop. Choose how long the link lasts and seal the drop. Press s with a row selected to open a temporary drop." side=top',
+        'success "Send the link and code separately to the person receiving the drop."',
+        "end",
+      ].join("\n");
+    },
   },
 ];

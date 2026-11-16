@@ -11,5 +11,10 @@ import type { VaultHeader } from "@opensesame/vault-core";
 import { hasSecondStep, primaryUnlockCount } from "./unlock-methods.js";
 
 export function headerCarriesGate(header: VaultHeader | null): boolean {
-  return !!header && (primaryUnlockCount(header) > 0 || hasSecondStep(header));
+  return (
+    !!header &&
+    (primaryUnlockCount(header) > 0 ||
+      hasSecondStep(header) ||
+      (header.protection?.records?.length ?? 0) > 0)
+  );
 }
