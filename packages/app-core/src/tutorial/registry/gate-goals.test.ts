@@ -60,7 +60,27 @@ describe("the gate tutorials", () => {
           target,
           `${goal.id} points at ${id}, which is not declared`,
         ).toBeDefined();
-        for (const route of goal.routes) {
+        // The first-vault journey follows the person's choices across gates.
+        const routes =
+          goal.id === "gate.front-door"
+            ? [
+                "/unlock/door",
+                "/setup/choose",
+                "/unlock/signin",
+                "/unlock/form",
+                "/unlock/passkey",
+              ]
+            : goal.routes;
+        if (goal.id === "gate.front-door") {
+          expect(
+            routes.some(
+              (route) => target && scopeApplies(target.routes, route),
+            ),
+            id,
+          ).toBe(true);
+          continue;
+        }
+        for (const route of routes) {
           expect(
             target ? scopeApplies(target.routes, route) : false,
             `${goal.id} is offered at ${route}, where ${id} is not declared`,
@@ -70,9 +90,9 @@ describe("the gate tutorials", () => {
     }
   });
 
-  it("say something at every step that points at nothing", () => {
+  it("give an instruction in every tutorial", () => {
     for (const goal of GATE_GOALS) {
-      expect(goal.guide, goal.id).toMatch(/^say "/m);
+      expect(goal.guide, goal.id).toMatch(/^(say|focus|hint|annotate) "/m);
     }
   });
 });

@@ -34,6 +34,7 @@ import {
   readGuidePredicate,
   resetGuidePredicatesForTest,
 } from "./state.js";
+import { mountGuideTarget } from "./targets.js";
 
 // Connections, Identity and their routes are contributions; these facts
 // only exist on a deployment whose plan approved those capabilities.
@@ -127,6 +128,20 @@ describe("reading a predicate", () => {
     expect(readGuidePredicate("connections.any")).toBe(false);
   });
 
+  it("offers unfinished-connection guidance only while its panel can be shown", () => {
+    const panel = document.createElement("section");
+    document.body.append(panel);
+    const detach = mountGuideTarget("connections.attention", panel);
+    try {
+      expect(readGuidePredicate("connections.needs-attention")).toBe(true);
+      panel.hidden = true;
+      expect(readGuidePredicate("connections.needs-attention")).toBe(false);
+    } finally {
+      detach();
+      panel.remove();
+    }
+  });
+
   it("says whether an account is signed in, and nothing about who", () => {
     const real = accountSeams.describeAccount;
     try {
@@ -187,6 +202,24 @@ describe("reading a predicate", () => {
       provideGuideDeviceForm(() => ({ narrow: true, keys: false }));
       expect([read("shell.wide"), read("shell.narrow")]).toEqual([false, true]);
       expect(read("shell.keys")).toBe(false);
+      provideGuideDeviceForm(() => ({
+        narrow: true,
+        keys: true,
+        touch: false,
+      }));
+      expect([read("shell.touch"), read("shell.keyboard-primary")]).toEqual([
+        false,
+        true,
+      ]);
+      provideGuideDeviceForm(() => ({
+        narrow: false,
+        keys: true,
+        touch: true,
+      }));
+      expect([read("shell.touch"), read("shell.keyboard-primary")]).toEqual([
+        true,
+        false,
+      ]);
     } finally {
       provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
     }

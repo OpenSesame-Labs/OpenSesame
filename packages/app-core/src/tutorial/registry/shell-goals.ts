@@ -35,9 +35,9 @@ export const SHELL_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "client.command-bar"',
-      'say "The command bar is the one typed field in the frame. A command runs; a sentence it cannot parse goes to Support as a question."',
+      'say "Use the command bar to navigate, search or copy a field. If it cannot interpret what you type, it sends the text to Support as a question."',
       'wait state "vault.unlocked" is=true timeout=60000',
-      'focus "shell.command-bar" "Type a command: go to a section, search, or copy a field. Enter runs it." side=bottom',
+      'focus "shell.command-bar" "Type a command to go to a section, search or copy a field. Select the arrow to run it." side=bottom',
       "end",
     ].join("\n"),
   },

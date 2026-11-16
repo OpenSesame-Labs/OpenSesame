@@ -24,7 +24,7 @@ import {
   type Tutorial,
   goalOffered,
   tutorialStartsFrom,
-  tutorialStepCount,
+  tutorialSteps,
 } from "./areas.js";
 import {
   type GuideGoalDescriptor,
@@ -225,7 +225,7 @@ export function firstVisitTour(
     if (goal === null) continue;
     if (!tutorialStartsFrom(goal, route)) continue;
     if (!goalOffered(goal, options)) continue;
-    return { goal, steps: tutorialStepCount(goal.guide) };
+    return { goal, steps: tutorialSteps(goal) };
   }
   return null;
 }
