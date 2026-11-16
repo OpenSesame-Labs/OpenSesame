@@ -77,10 +77,9 @@ async function explore(args) {
 }
 
 async function run(width, mutant = false) {
-  const address = server.httpServer.address();
-  if (!address || typeof address === "string")
-    throw new Error("No fixture port");
-  const url = `http://127.0.0.1:${address.port}/${mutant ? "?mutant=1" : ""}`;
+  const origin = server.resolvedUrls?.local[0];
+  if (!origin) throw new Error("No fixture origin");
+  const url = new URL(mutant ? "?mutant=1" : "", origin).href;
   const { code, sawClick, sawViolation } = await explore(
     argumentsFor(width, mutant, url),
   );
