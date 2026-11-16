@@ -11,6 +11,7 @@ export const CONNECTIONS_GOALS: readonly GuideGoalDescriptor[] = [
     title: "Set up GitHub",
     routes: ["/connections/github", "/settings/connections/github"],
     currentRouteOnly: true,
+    requires: ["connections.github.native"],
     guide: [
       "guide/1",
       'goal "connection.github.setup"',

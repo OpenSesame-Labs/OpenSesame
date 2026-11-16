@@ -30,6 +30,7 @@ import {
   declareGuidePredicate,
   isKnownGuidePredicate,
 } from "./state.js";
+import { isMountedGuideTarget } from "./targets.js";
 
 /**
  * Whether the Connections area is currently showing at least one live
@@ -235,6 +236,12 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
     description:
       "The Connections section is showing at least one connection that has not been revoked.",
     read: () => connectionsPresent,
+  },
+  {
+    id: "connections.github.native",
+    description:
+      "The native GitHub App or token configuration controls are on this screen.",
+    read: () => isMountedGuideTarget("connections.github.method"),
   },
   {
     id: "network.online",

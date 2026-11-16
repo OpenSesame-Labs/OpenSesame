@@ -1,4 +1,6 @@
 /** @vitest-environment jsdom */
+
+import type { Connection } from "@opensesame/app-core/lib/connections.js";
 import { catalogProvider } from "@opensesame/app-core/lib/connector-catalog.js";
 import {
   forgetSessionAnswers,
@@ -11,6 +13,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ConnectorSettingsPage } from "../../../sections/connections/SettingsPage.js";
+import { makeConnection } from "../../../sections/connections/section-fixtures.test-support.js";
 import { firstVisitSeams } from "../../first-visit/FirstVisitOffer.js";
 import {
   finishTutorial,
@@ -40,7 +43,7 @@ afterEach(() => {
   firstVisitSeams.delayMs = originalDelay;
 });
 
-function GithubPage() {
+function GithubPage({ connection = null }: { connection?: Connection | null }) {
   const provider = catalogProvider("github");
   const location = useLocation();
   if (!provider) throw new Error("Missing GitHub provider");
@@ -50,8 +53,8 @@ function GithubPage() {
       <ConnectorSettingsPage
         provider={provider}
         providerId="github"
-        connection={null}
-        connections={[]}
+        connection={connection}
+        connections={connection ? [connection] : []}
         loading={false}
         online
         canConfigure
@@ -139,6 +142,32 @@ it("remembers when the person skips the offer and keeps setup available", async 
   );
   expect(screen.getByRole("radio", { name: "GitHub App" })).toBeTruthy();
 });
+
+it.each(["auto", "offer"] as const)(
+  "does not offer the native setup tour for an imported Connect connection in %s mode",
+  async (mode) => {
+    setGuidanceMode(mode);
+    const route = "/settings/connections/github/imported";
+    const connection = makeConnection({
+      connectionId: "imported",
+      connectionRef: "connect://github/imported",
+    });
+    const journey = renderJourney(fakeAgentReplanning([]), {
+      at: route,
+      screen: <GithubPage connection={connection} />,
+    });
+    expect(screen.queryByRole("radio", { name: "GitHub App" })).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByRole("dialog", { name: /Tutorial:/ })).toBeNull();
+    expect(
+      screen.queryByRole("complementary", {
+        name: "Set up GitHub walkthrough",
+      }),
+    ).toBeNull();
+    expect(journey.navigations()).toEqual([]);
+    expect(loadGuidance().tours).not.toContain("connection.github.setup");
+  },
+);
 
 it("starts the inline offer without leaving GitHub", async () => {
   setGuidanceMode("offer");
