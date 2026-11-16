@@ -128,10 +128,9 @@ it("locks configuration fields until the save completes and rejects edits during
   await userEvent.type(name, " Lost edit");
   await userEvent.click(screen.getByRole("radio", { name: "Bring Your Own" }));
   expect(name).toHaveProperty("value", "Initial connector");
-  expect(screen.getByRole("radio", { name: "Managed" })).toHaveProperty(
-    "checked",
-    true,
-  );
+  expect(
+    screen.getByRole("radio", { name: "Managed", checked: true }),
+  ).toBeTruthy();
   expect(screen.getByLabelText("Client secret")).toHaveProperty(
     "value",
     "test-secret",

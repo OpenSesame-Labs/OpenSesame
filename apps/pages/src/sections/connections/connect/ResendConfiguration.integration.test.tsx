@@ -33,7 +33,7 @@ it("starts from the Resend preset and requires a key before API verification", a
   ).toBeTruthy();
   expect(screen.queryByLabelText("Connector name")).toBeNull();
   const apiKey = screen.getByRole("radio", { name: "API Key" });
-  expect(apiKey).toHaveProperty("checked", false);
+  expect(apiKey.getAttribute("aria-checked")).toBe("false");
   expect(
     screen.getByText("Sign-in options", { selector: "summary" }),
   ).toBeTruthy();

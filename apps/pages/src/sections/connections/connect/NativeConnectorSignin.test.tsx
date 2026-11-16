@@ -44,10 +44,9 @@ it("uses the provider sign-in controller on the first action without requiring c
   );
   expect(screen.queryByLabelText("Icon")).toBeNull();
   expect(screen.queryByLabelText("Connector name")).toBeNull();
-  expect(screen.getByRole("radio", { name: "Sign in" })).toHaveProperty(
-    "checked",
-    true,
-  );
+  expect(
+    screen.getByRole("radio", { name: "Sign in", checked: true }),
+  ).toBeTruthy();
   expect(
     screen.queryByLabelText("Algolia API key", {
       selector: 'input[type="password"]',

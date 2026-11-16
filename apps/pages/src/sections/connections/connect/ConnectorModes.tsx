@@ -1,4 +1,4 @@
-/** The radio-group shape shared by every connector method/config choice. */
+import { Radio, RadioGroup, RadioIndicator } from "@ui-sdk/react/radio";
 import { useId } from "react";
 
 export function ConnectorModes<T extends string>({
@@ -22,20 +22,33 @@ export function ConnectorModes<T extends string>({
       <legend className={legendHidden ? "visually-hidden" : undefined}>
         {label}
       </legend>
-      <div className="cx-modes" role="radiogroup" aria-label={label}>
+      <RadioGroup
+        className="cx-modes"
+        aria-label={label}
+        name={name}
+        value={options.some((option) => option.id === value) ? value : null}
+        disabled={disabled}
+        onValueChange={(next) => {
+          const choice = options.find(
+            (option) => option.id === next && !option.disabled,
+          );
+          if (!disabled && choice) onChange(choice.id);
+        }}
+      >
         {options.map((option) => (
-          <label className="cx-mode" key={option.id}>
-            <input
-              type="radio"
-              name={name}
-              checked={value === option.id}
-              disabled={disabled || option.disabled}
-              onChange={() => onChange(option.id)}
-            />
+          <Radio
+            className="cx-mode"
+            key={option.id}
+            value={option.id}
+            disabled={option.disabled}
+          >
+            <span className="cx-mode__mark" aria-hidden="true">
+              <RadioIndicator className="cx-mode__indicator" />
+            </span>
             <span>{option.label}</span>
-          </label>
+          </Radio>
         ))}
-      </div>
+      </RadioGroup>
     </fieldset>
   );
 }
