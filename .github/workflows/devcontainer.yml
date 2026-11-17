@@ -22,7 +22,6 @@ on:
       - "mise.toml"
       - "mise.lock"
       - "scripts/dev/devcontainer-proof.mjs"
-      - "scripts/dev/dotfiles-bootstrap.sh"
       - "scripts/dev/install-agent-skills.sh"
       - "scripts/dev/install-dependencies.sh"
       - "scripts/dev/setup-hooks.sh"

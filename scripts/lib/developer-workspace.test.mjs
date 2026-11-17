@@ -148,14 +148,30 @@ describe("dev container", () => {
     for (const name of names)
       expect(name).not.toMatch(/TOKEN|SECRET|PASSWORD|KEY/i);
   });
+
+  it("keeps personal dotfiles out of project lifecycle commands", () => {
+    const locked =
+      'MISE_GLOBAL_CONFIG_FILE="$PWD/.devcontainer/mise-global.toml" mise install --locked';
+    expect([
+      config.onCreateCommand,
+      config.updateContentCommand,
+      config.postCreateCommand,
+      config.postStartCommand,
+    ]).toEqual([
+      "mise --version",
+      `${locked} && mise run deps`,
+      `${locked} && mise run deps && bash scripts/dev/setup-hooks.sh`,
+      "bash scripts/dev/install-agent-skills.sh",
+    ]);
+  });
 });
 
 describe("dev container toolchain install", () => {
   it("installs only the project's locked tools, whatever a personal config adds", () => {
-    // The dotfiles bootstrap may write a personal ~/.config/mise/config.toml
-    // with unpinned tools. A locked install that reads it refuses them and
-    // the container comes up without a toolchain, so every locked install in
-    // the lifecycle reads the project's pins and nothing else.
+    // A personal ~/.config/mise/config.toml may contain unpinned tools. A
+    // locked install that reads it refuses them and the container comes up
+    // without a toolchain, so every locked lifecycle install reads only the
+    // project's pins.
     const config = JSON.parse(read(".devcontainer/devcontainer.json"));
     const commands = [
       config.onCreateCommand,

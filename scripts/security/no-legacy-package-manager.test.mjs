@@ -39,7 +39,6 @@ function excluded(path) {
 const guardTests = new Set([
   "scripts/security/ci-mise-action.test.mjs",
   "scripts/security/cloud-tooling.test.mjs",
-  "scripts/security/dotfiles-bootstrap.test.mjs",
   "scripts/security/no-legacy-package-manager.test.mjs",
 ]);
 

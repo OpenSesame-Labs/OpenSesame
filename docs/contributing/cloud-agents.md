@@ -16,14 +16,11 @@ is gitignored.
 - **Never commit API keys** or other secrets; inject them through the
   harness's secret store.
 
-A hosted environment bootstraps this repository the same way a contributor
-does: `scripts/dev/dotfiles-bootstrap.sh` (personal mise and Grok, cloned with
-anonymous HTTPS from `DOTFILES_REPO`, default
-`https://github.com/Tyler-R-Kendrick/dotfiles.git`; no GitHub token and no credential helper; a failed clone
-stops the bootstrap), then `mise install --locked` and `mise run deps`
-(fingerprinted `npm ci` via `scripts/dev/install-dependencies.sh`), then
-`cargo fetch`. Prefer the shared cargo target dir documented in
-[shipping](shipping.md) when compiling Rust.
+A hosted environment applies personal dotfiles through its user-scoped
+configuration, outside repository lifecycle commands. Bootstrap the project
+with `mise install --locked` and `mise run deps` (fingerprinted `npm ci` via
+`scripts/dev/install-dependencies.sh`), then `cargo fetch`. Prefer the shared
+cargo target dir documented in [shipping](shipping.md) when compiling Rust.
 
 ## Devcontainer
 
@@ -31,7 +28,6 @@ stops the bootstrap), then `mise install --locked` and `mise run deps`
 image. The image installs a checksum-pinned mise release. It does not use
 a Node feature. `updateContentCommand` and
 `postCreateCommand` install the locked toolchain from `mise.toml` and
-`mise.lock` (`mise install --locked`), run
-`scripts/dev/dotfiles-bootstrap.sh`, then `mise run deps` (`npm ci`).
+`mise.lock` (`mise install --locked`), then run `mise run deps` (`npm ci`).
 `postCreateCommand` also runs `scripts/dev/setup-hooks.sh`.
 `postStartCommand` still runs `scripts/dev/install-agent-skills.sh`.
