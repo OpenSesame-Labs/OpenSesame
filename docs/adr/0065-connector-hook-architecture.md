@@ -211,9 +211,15 @@ Recorded so each item's status is a decision, not an oversight.
 - **OCI component pull by pinned digest** —
   `crates/gateway/src/oci_component.rs`. A connector entry without a local
   `component.wasm` fetches its component as a single digest-addressed blob
-  GET; the registry is untrusted transport and the local sha256 (plus the
-  operator pin re-verified in `WasmConnector::load`) is the integrity
-  boundary. Anonymous token flow only; SSRF-fenced; size-capped; fail
+  GET, only after the digest is found in the operator's pins; the registry is
+  untrusted transport and the local sha256 (plus the operator pin re-verified
+  in `WasmConnector::load`) is the integrity boundary. Anonymous token flow
+  only. Each registry and token destination is HTTPS, DNS-pinned to public
+  addresses, and refuses redirects and environment proxies. The token realm
+  must share the registry origin or appear as an exact HTTPS origin in the
+  operator's comma-separated `OPENSESAME_CONNECTOR_OCI_TOKEN_ORIGINS` list.
+  Separate token services therefore need explicit configuration. Blob and
+  token responses are bounded while streaming; fail
   closed. Gate: `oci_component` unit tests + `scripts/audit/clippy-gate.sh`.
 - **First cloud-secrets promotion** — `doppler` is off
   `AuthMethod::Configuration`: real API-key auth with egress path prefixes
