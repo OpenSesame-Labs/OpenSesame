@@ -80,6 +80,7 @@ export function useCoachFocus(
   stepKey: string,
   card: RefObject<HTMLElement | null>,
   primary: RefObject<HTMLButtonElement | null>,
+  actionOnly = false,
 ): void {
   useEffect(() => {
     const before = document.activeElement;
@@ -110,7 +111,7 @@ export function useCoachFocus(
       document.removeEventListener("keydown", note, true);
     };
   }, [card]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new step, or the first placing, is the trigger.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new step, placing, or a change in available actions is the trigger.
   useEffect(() => {
     if (!placed) return;
     const held = document.activeElement;
@@ -124,10 +125,15 @@ export function useCoachFocus(
       card.current?.contains(held) ||
       lastInputInCard.current
     ) {
-      primary.current?.focus({ preventScroll: true });
+      const focus = actionOnly
+        ? card.current?.querySelector<HTMLButtonElement>(
+            'button[aria-label="Exit tutorial"]',
+          )
+        : primary.current;
+      focus?.focus({ preventScroll: true });
     }
     arrived.current = true;
-  }, [stepKey, placed]);
+  }, [stepKey, placed, actionOnly]);
 }
 
 /**
@@ -157,12 +163,13 @@ export function useEscapeToExit(support: SupportController): void {
 export function cardKeys(
   support: SupportController,
   canBack: boolean,
+  canNext = true,
 ): (event: ReactKeyboardEvent<HTMLElement>) => void {
   return (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      support.nextStep();
+      if (canNext) support.nextStep();
     } else if (event.key === "ArrowLeft" && canBack) {
       event.preventDefault();
       support.backStep();

@@ -100,12 +100,11 @@ type Asked = Readonly<{
 /** The sentence under the tour's name. */
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `New here? This walkthrough takes ${length}, on the real controls. It only points — nothing changes unless you do it.`;
+  return `Follow ${length} to complete this task.`;
 }
 
 function compactOfferBody(steps: number): string {
-  const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `${length}. It only points; you make the changes.`;
+  return offerBody(steps);
 }
 
 function bodyForOffer(offer: InlineOffer): string {
