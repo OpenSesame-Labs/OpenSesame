@@ -10,7 +10,7 @@ impl SyncStore {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn save_path(
-        &mut self,
+        &self,
         key: &DeviceKey,
         path: &std::path::Path,
     ) -> Result<(), ClientCoreError> {
