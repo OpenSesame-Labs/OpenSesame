@@ -78,6 +78,15 @@ separate state. Tests may register a handler for a refusal or return a sequence
 of responses from a closure. The caller is responsible for keeping test data
 synthetic; the stub itself does not record requests.
 
+When a client talks to more than one service, `composeStubFetch(host, daemon)`
+combines explicitly supplied stubs into one `fetchImpl`. Each origin must be
+unique; an unregistered origin fails without a network fallback. A second
+`createHostApiStub("http://127.0.0.1:18790")` can provide scripted daemon
+responses, for example. Composition owns no services: reset and close each
+stub separately, and finish or cancel already returned response bodies before
+cleanup. The router does not prevent a handler itself from making network calls.
+Use only in-process transports and handlers when the test must remain offline.
+
 This is a programmable stub, not a simulated gateway. It does not implement
 authentication, authorization, DPoP, persistence, transport security, or
 the Host's other behavior, and a scripted success proves none of them. Use

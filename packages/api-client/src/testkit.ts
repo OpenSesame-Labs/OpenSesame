@@ -5,6 +5,11 @@
  */
 import { normalizeHttpBaseUrl } from "./index.js";
 
+export {
+  type StubFetchService,
+  composeStubFetch,
+} from "./compose-stub-fetch.js";
+
 export type HostStubHandler = (
   request: Request,
 ) => Response | Promise<Response>;
