@@ -18,7 +18,7 @@ For each vendored patch, three things point at the tarball:
 | `package.json` `overrides` | `"<name>@<range>": "$<name>"`, which sends every dependent to that root dependency |
 | `package-lock.json` | `resolved: file:patches/vendor/<tarball>` and the tarball's `integrity` |
 
-The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it.
+The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it. When two major versions of one package are installed, each can use a separate root alias; the manifest records the alias and exact override selector.
 
 [`vendor/manifest.json`](vendor/manifest.json) records, for each patch, the patch file, the tarball and the integrity of the published package it was built from. A patch with no installed target is listed under `notInstalled`; a test fails if the package ever appears in the lockfile.
 
@@ -65,6 +65,17 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `js-yaml@3.15.2` | Runs its command line on argparse 2, which removes `sprintf-js` (GHSA-hp3w-g68c-fv3c) from the tree | [audit](../docs/security/audits/2026-10-06-password-parity-cli-dependencies.md) |
 | `@simple-git/argv-parser@2.0.1` | Rejects abbreviated Git pack-executable options that the published guards miss | [note](simple-git-parser-residual.md) |
 | `@levischuck/tiny-cbor@0.2.11` | Encodes a text string by its byte length, not its UTF-16 length | [audit](../docs/security/audits/2026-11-11-dependency-patches-not-installed.md) |
+| `picomatch@2.3.2` and `4.0.7` | Bounds repeated-star extglob matching for GHSA-fc5q-39xc-vjpf, including malformed and composed forms | `scripts/security/picomatch-backport.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
+
+The picomatch backport preserves the generated expressions and ordinary match
+results. In Node, expressions with ambiguous nested repetition or repeated
+alternatives execute in a reusable worker and throw if the match exceeds its
+deadline. Browser runtimes reject those expressions rather than returning a
+false match, which could bypass an exclusion. Raw expressions obtained from
+`parse` or `compileRe(..., true)`, and direct calls to the native
+`RegExp.prototype.exec`, do not use that boundary. The package retains its
+published version so an advisory scanner may continue to report the backport;
+the recorded tarball integrity and regression tests identify the patched copy.
 
 A patch does not travel with a package published from this repository. A consumer who installs a published package resolves its dependencies from the registry.

@@ -12,6 +12,8 @@ const patches = {
     "patches/@simple-git__argv-parser@2.0.1.patch",
   "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
   "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
+  "picomatch@2.3.2": "patches/picomatch@2.3.2.patch",
+  "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
 };
 
 function read(relativePath) {
@@ -60,6 +62,8 @@ test("patched dependencies are referenced from patchedDependencies", () => {
   const overrides = manifest.overrides;
   assert.equal(JSON.stringify(overrides).includes("patch:"), false);
   assert.equal(overrides["js-yaml@^3"], "$js-yaml");
+  assert.equal(overrides["picomatch@^2"], "$picomatch-v2-patched");
+  assert.equal(overrides["picomatch@^4"], "$picomatch-v4-patched");
   assert.equal(overrides["js-yaml@3.15.2"].argparse, "2.0.1");
   assert.equal(
     overrides["@simple-git/argv-parser"],

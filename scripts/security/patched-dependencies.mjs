@@ -164,7 +164,10 @@ function pinLockfile(selector, tarball, value) {
   const path = join(root, "package-lock.json");
   const lock = JSON.parse(readFileSync(path, "utf8"));
   for (const [key, entry] of Object.entries(lock.packages)) {
-    if (!key.endsWith(`node_modules/${name}`) || entry.version !== version)
+    if (
+      (!key.endsWith(`node_modules/${name}`) && entry.name !== name) ||
+      entry.version !== version
+    )
       continue;
     entry.resolved = `file:${tarball}`;
     entry.integrity = value;

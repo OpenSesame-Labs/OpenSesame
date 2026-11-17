@@ -45,7 +45,10 @@ function split(selector) {
 /** Lockfile locations that install `name` at `version`. */
 function installed({ name, version }) {
   return Object.entries(lock.packages)
-    .filter(([key]) => key.endsWith(`node_modules/${name}`))
+    .filter(
+      ([key, entry]) =>
+        key.endsWith(`node_modules/${name}`) || entry.name === name,
+    )
     .filter(([, entry]) => entry.version === version)
     .map(([key, entry]) => ({ key, entry }));
 }
@@ -102,11 +105,17 @@ test("npm reaches each tarball through a root dependency and an override", () =>
   const overrides = Object.entries(packageJson.overrides);
   for (const [selector, entry] of vendored) {
     const { name } = split(selector);
-    assert.equal(packageJson.devDependencies[name], `file:${entry.tarball}`);
-    const rule = overrides.find(
-      ([key]) => key === name || key.startsWith(`${name}@`),
+    const rootDependency = entry.rootDependency ?? name;
+    assert.equal(
+      packageJson.devDependencies[rootDependency],
+      `file:${entry.tarball}`,
     );
-    assert.deepEqual(rule?.[1], `$${name}`, selector);
+    const rule = overrides.find(([key]) =>
+      entry.override
+        ? key === entry.override
+        : key === name || key.startsWith(`${name}@`),
+    );
+    assert.deepEqual(rule?.[1], `$${rootDependency}`, selector);
   }
 });
 

@@ -15,6 +15,20 @@
       "patch": "patches/@levischuck__tiny-cbor@0.2.11.patch",
       "tarball": "patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
       "upstreamIntegrity": "sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow=="
+    },
+    "picomatch@2.3.2": {
+      "patch": "patches/picomatch@2.3.2.patch",
+      "tarball": "patches/vendor/picomatch-2.3.2.tgz",
+      "upstreamIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+      "rootDependency": "picomatch-v2-patched",
+      "override": "picomatch@^2"
+    },
+    "picomatch@4.0.7": {
+      "patch": "patches/picomatch@4.0.7.patch",
+      "tarball": "patches/vendor/picomatch-4.0.7.tgz",
+      "upstreamIntegrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+      "rootDependency": "picomatch-v4-patched",
+      "override": "picomatch@^4"
     }
   },
   "notInstalled": {
