@@ -59,3 +59,28 @@ it("returns focus to the prior control when an offer has no specific target", as
   await userEvent.click(screen.getByRole("button", { name: "Not now" }));
   expect(document.activeElement).toBe(target);
 });
+
+it("returns focus to the prior control if the named target has gone away", async () => {
+  const prior = document.createElement("button");
+  const host = document.createElement("div");
+  host.dataset.firstVisitReturn = "setup.finish";
+  document.body.append(prior, host);
+  prior.focus();
+  vi.spyOn(targets, "resolveGuideTargetElement").mockReturnValue(null);
+  render(
+    <FirstVisitInlineOffer
+      offer={{
+        host,
+        route: "/setup",
+        title: "Setup",
+        steps: 2,
+        start: vi.fn(),
+        dismiss: vi.fn(),
+      }}
+      body="A short walkthrough."
+      onClose={vi.fn()}
+    />,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Not now" }));
+  expect(document.activeElement).toBe(prior);
+});

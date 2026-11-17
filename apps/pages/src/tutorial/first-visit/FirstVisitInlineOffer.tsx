@@ -26,6 +26,7 @@ export function FirstVisitInlineOffer({
   const finish = (action: () => void) => {
     if (offer.host.contains(document.activeElement)) {
       const target = offer.host.dataset.firstVisitReturn;
+      let restored = false;
       if (target) {
         const element = resolveGuideTargetElement(target);
         const selector = "input:not(:disabled), button:not(:disabled)";
@@ -33,7 +34,9 @@ export function FirstVisitInlineOffer({
           ? element
           : element?.querySelector<HTMLElement>(selector);
         focus?.focus();
-      } else if (priorFocus.current?.isConnected) {
+        restored = focus != null && document.activeElement === focus;
+      }
+      if (!restored && priorFocus.current?.isConnected) {
         priorFocus.current.focus();
       }
     }
