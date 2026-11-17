@@ -1,0 +1,139 @@
+import { createHash, randomBytes } from "node:crypto";
+import { createEventSealer } from "@opensesame/database";
+import * as schema from "@opensesame/database/schema";
+import { overlapCast } from "@opensesame/os-domain";
+import { drizzle } from "drizzle-orm/pglite";
+import { beforeAll, expect, it, vi } from "vitest";
+import type { AppContext } from "../context.js";
+import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
+import {
+  type MagicLinkExchange,
+  consumeMagicLinkExchange,
+  issueMagicLinkExchange,
+} from "../services/magic-link-exchange.js";
+import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
+
+vi.setConfig({ testTimeout: 60_000 });
+beforeAll(warmMigratedPGlite, 60_000);
+const subject = {
+  id: "upstream-subject-fixture",
+  email: "verified@example.test",
+  emailVerified: true,
+};
+const verifier = randomBytes(32).toString("base64url");
+const challenge = createHash("sha256").update(verifier).digest("base64url");
+const state = randomBytes(24).toString("base64url");
+const origin = "https://pages.example.test";
+const context = (
+  store: SecurityMap<MagicLinkExchange>,
+  clock = () => new Date(),
+) =>
+  overlapCast<unknown, AppContext>({
+    stores: { magicLinkExchanges: store },
+    clock,
+  });
+
+it("binds an exchange to its verifier and state and burns a wrong attempt", async () => {
+  const ctx = context(new Map());
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  const wrong = randomBytes(32).toString("base64url");
+  expect(
+    await consumeMagicLinkExchange(ctx, code, wrong, state, origin),
+  ).toBeUndefined();
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+  const next = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  expect(
+    await consumeMagicLinkExchange(ctx, next, verifier, state, origin),
+  ).toEqual(subject);
+  expect(
+    await consumeMagicLinkExchange(ctx, next, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("expires an unused exchange", async () => {
+  let now = Date.now();
+  const ctx = context(new Map(), () => new Date(now));
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  now += 5 * 60_000;
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("does not allow an exchange from a different origin", async () => {
+  const ctx = context(new Map());
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  expect(
+    await consumeMagicLinkExchange(
+      ctx,
+      code,
+      verifier,
+      state,
+      "https://other.example",
+    ),
+  ).toBeUndefined();
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("encrypts its record and admits one exchange across replicas", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = () =>
+      new DurableMap<MagicLinkExchange>(
+        overlapCast(db),
+        "OpenSesame:MagicLinkExchange",
+        true,
+        300_000,
+        10_000,
+        createEventSealer("magic-link-exchange-fixture"),
+      );
+    const first = context(store());
+    const second = context(store());
+    const code = await issueMagicLinkExchange(
+      first,
+      subject,
+      challenge,
+      state,
+      origin,
+    );
+    const rows = JSON.stringify(await db.select().from(schema.oidcPayloads));
+    expect(rows).not.toContain(code);
+    expect(rows).not.toContain(subject.email);
+    const results = await Promise.all([
+      consumeMagicLinkExchange(first, code, verifier, state, origin),
+      consumeMagicLinkExchange(second, code, verifier, state, origin),
+    ]);
+    expect(results.filter(Boolean)).toEqual([subject]);
+  } finally {
+    await client.close();
+  }
+});
