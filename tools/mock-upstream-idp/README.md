@@ -15,6 +15,45 @@ npm run dev -w @opensesame/mock-upstream-idp
 
 Default listen address: `http://127.0.0.1:9090`. A non-loopback `OPENSESAME_MOCK_IDP_HOST` is refused at startup unless `OPENSESAME_ALLOW_NONLOCAL=1` (or `OPENSESAME_DAEMON_ALLOW_NONLOCAL=1`) is set.
 
+### Exercise an ID-token consumer
+
+The embeddable `startReferenceIdp` fixture ignores process-environment IdP
+configuration and log destination and uses a synthetic test user and fresh
+per-instance client secrets. The fixture suppresses server logs; test subjects
+and email can be set explicitly through its options and methods. The standalone
+CLI still reads the environment variables listed below.
+
+The testkit also exports `obtainReferenceOidcGrant`. It drives the local IdP's
+origin-profile authorization code and PKCE S256 exchange over HTTP, then
+returns the signed ID token and its expected issuer, audience and nonce:
+
+```ts
+import { obtainReferenceOidcGrant, startReferenceIdp } from "@opensesame/mock-upstream-idp/testkit";
+import { verifyIdToken } from "@opensesame/sdk-server";
+
+const idp = await startReferenceIdp({ clientMode: "origin_profile" });
+try {
+  const grant = await obtainReferenceOidcGrant(idp);
+  const verified = await verifyIdToken(grant.idToken, {
+    issuer: grant.issuer,
+    audience: grant.clientId,
+    nonce: grant.nonce,
+  });
+} finally {
+  await idp.close();
+}
+```
+
+Pass a canonical origin as the helper's second argument to exercise another
+relying party. It supports the query-redirect origin-profile flow, not the
+form-post or confidential-client modes. The helper contacts only the loopback
+IdP and does not follow the callback to the relying party. Node supplies the
+Origin header explicitly; this is not a browser CORS test or proof of a real
+person's authentication.
+The IdP auto-approves a synthetic user. Its `/userinfo`, refresh and revocation
+endpoints model only the documented test behavior and are not production
+security evidence.
+
 ### Endpoints
 
 | Path | Description |

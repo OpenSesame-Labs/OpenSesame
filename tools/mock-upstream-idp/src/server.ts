@@ -4,7 +4,7 @@ import {
   type ServerResponse,
   createServer,
 } from "node:http";
-import { createLogger } from "@opensesame/observability";
+import { type Logger, createLogger } from "@opensesame/observability";
 import { type JsonObject, isString } from "@opensesame/os-domain";
 import { SignJWT } from "jose";
 import {
@@ -64,8 +64,6 @@ export type {
   MockUpstreamIdp,
 } from "./server-types.js";
 
-const log = createLogger({ name: "mock-upstream-idp" });
-
 type AuthCode = {
   clientId: string;
   redirectUri: string;
@@ -88,8 +86,10 @@ interface TokenIssueRequest {
  */
 export async function createMockUpstreamIdp(
   overrides?: Partial<MockIdpConfig>,
+  env: NodeJS.ProcessEnv = process.env,
+  log: Logger = createLogger({ name: "mock-upstream-idp" }),
 ): Promise<MockUpstreamIdp> {
-  const config: MockIdpConfig = { ...readMockIdpConfig(), ...overrides };
+  const config: MockIdpConfig = { ...readMockIdpConfig(env), ...overrides };
   const keys = await createMockIdpKeys();
   const codes = new Map<string, AuthCode>();
   const registrations: ClientRegistry = new Map();
