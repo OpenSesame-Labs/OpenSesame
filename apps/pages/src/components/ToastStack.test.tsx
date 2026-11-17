@@ -5,7 +5,12 @@ import {
   setDesktopRinging,
   showToast,
 } from "@opensesame/app-core/lib/notice-toast.js";
-import { clearNotices, pushNotice } from "@opensesame/app-core/lib/notices.js";
+import {
+  appendStatusNotice,
+  clearNotices,
+  listNotices,
+  pushNotice,
+} from "@opensesame/app-core/lib/notices.js";
 /** @vitest-environment jsdom */
 import {
   act,
@@ -14,8 +19,9 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { Link, MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FakeMediaQueryList } from "../lib/use-narrow.test-fake.js";
 import { TOAST_LIMIT, TOAST_MS, ToastStack } from "./ToastStack.js";
 
 const css = readFileSync(
@@ -101,6 +107,119 @@ describe("ToastStack", () => {
     expect(toasts).not.toMatch(/grid-area/);
     expect(rule(".toast")).toMatch(/pointer-events:\s*auto/);
     expect(rule(".app")).not.toContain("toasts");
+  });
+
+  it("moves clear of the phone Add button on the vault list and back for the editor", () => {
+    const dismissed = vi.fn();
+    const narrow = new FakeMediaQueryList("(max-width: 900px)", true);
+    vi.stubGlobal("matchMedia", () => narrow);
+    render(
+      <MemoryRouter initialEntries={["/vault?f=all"]}>
+        <Link to="/vault/new">Open editor</Link>
+        <Link to="/vault?f=all">Back to list</Link>
+        <ToastStack />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("status").className).toContain(
+      "toasts--vault-list",
+    );
+    act(() => {
+      showToast({
+        id: "offer",
+        tone: "info",
+        title: "Set up a backup",
+        body: "An offer remains available in the notice tray.",
+        sticky: true,
+        onDismiss: dismissed,
+      });
+    });
+    expect(screen.getByText("Set up a backup")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Open editor" }));
+    expect(screen.getByRole("status").className).not.toContain(
+      "toasts--vault-list",
+    );
+    expect(screen.getByRole("status").className).toContain(
+      "toasts--vault-editor",
+    );
+    expect(screen.queryByText("Set up a backup")).toBeNull();
+    expect(dismissed).not.toHaveBeenCalled();
+    act(() => {
+      appendStatusNotice({
+        id: "recommend.backup",
+        tone: "info",
+        title: "Back up the vault",
+        body: "A recommendation stays in the tray.",
+        act: { label: "Set up", worded: true, run: vi.fn() },
+      });
+    });
+    expect(screen.queryByText("Back up the vault")).toBeNull();
+    expect(
+      listNotices().some((notice) => notice.id === "recommend.backup"),
+    ).toBe(true);
+    act(() => {
+      showToast({
+        id: "save-failed",
+        tone: "err",
+        title: "Save failed",
+        body: "The form still needs a name.",
+      });
+    });
+    expect(screen.getByText("Save failed")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Back to list" }));
+    expect(screen.getByText("Set up a backup")).toBeTruthy();
+    expect(screen.getByText("Back up the vault")).toBeTruthy();
+    expect(dismissed).not.toHaveBeenCalled();
+  });
+
+  it("retains desktop offers in the editor and responds to a width change", () => {
+    const narrow = new FakeMediaQueryList("(max-width: 900px)", false);
+    vi.stubGlobal("matchMedia", () => narrow);
+    render(
+      <MemoryRouter initialEntries={["/vault/new"]}>
+        <ToastStack />
+      </MemoryRouter>,
+    );
+    act(() => {
+      showToast({
+        id: "offer",
+        tone: "info",
+        title: "Set up a backup",
+        body: "An offer.",
+        sticky: true,
+      });
+    });
+    expect(screen.getByText("Set up a backup")).toBeTruthy();
+    act(() => narrow.set(true));
+    expect(screen.queryByText("Set up a backup")).toBeNull();
+    act(() => narrow.set(false));
+    expect(screen.getByText("Set up a backup")).toBeTruthy();
+  });
+
+  it("does not bring expired transient notices back after the editor closes", () => {
+    const narrow = new FakeMediaQueryList("(max-width: 900px)", true);
+    vi.stubGlobal("matchMedia", () => narrow);
+    render(
+      <MemoryRouter initialEntries={["/vault/new"]}>
+        <Link to="/vault">Back to list</Link>
+        <ToastStack />
+      </MemoryRouter>,
+    );
+    act(() => {
+      for (const id of ["one", "two"]) {
+        showToast({ id, tone: "info", title: id, body: id, sticky: true });
+      }
+      showToast({
+        id: "transient",
+        tone: "err",
+        title: "Temporary error",
+        body: "Please retry.",
+      });
+    });
+    expect(screen.getByText("Temporary error")).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Back to list" }));
+    expect(screen.queryByText("Temporary error")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /dismiss/i })[0]);
+    expect(screen.queryByText("Temporary error")).toBeNull();
   });
 
   it("says an arrival in front of the person, in the notice's own words", () => {

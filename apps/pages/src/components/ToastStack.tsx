@@ -27,10 +27,12 @@ import {
   subscribeNoticeArrivals,
   subscribeNotices,
 } from "@opensesame/app-core/lib/notices.js";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { matchPath, useLocation, useNavigate } from "react-router";
 import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
+import { useNarrow } from "../lib/use-narrow.js";
+import { vaultPane } from "../lib/vault-list-path.js";
 import { IconKey } from "./IconKey.js";
 import { IconAlert, IconArrowRight, IconInfo, IconX } from "./Icons.js";
 
@@ -60,21 +62,64 @@ export function withinLimit(
   return next;
 }
 
-export function ToastStack() {
-  const navigate = useNavigate();
-  const [shown, setShown] = useState<ToastMessage[]>([]);
+/** Keep the phone's fixed toast away from the vault's fixed controls. */
+function useToastPlacement() {
+  const location = useLocation();
+  const narrow = useNarrow();
+  const besideAdd =
+    vaultPane(location.pathname, new URLSearchParams(location.search)) ===
+    "list";
+  const aboveEditor =
+    matchPath("/vault/new/:kind?", location.pathname) !== null ||
+    matchPath("/vault/:itemId/edit", location.pathname) !== null;
+  return {
+    className: `toasts${besideAdd ? " toasts--vault-list" : ""}${aboveEditor ? " toasts--vault-editor" : ""}`,
+    editing: narrow && aboveEditor,
+  };
+}
 
-  const add = useCallback((toast: ToastMessage) => {
-    setShown((current) =>
-      withinLimit(
-        current.filter((item) => item.id !== toast.id),
-        toast,
-      ),
-    );
-  }, []);
+/** Recommendations stay in the tray while the editor owns the screen. */
+function useShownToasts(editing: boolean) {
+  const [shown, setShown] = useState<ToastMessage[]>([]);
+  const add = useCallback(
+    (toast: ToastMessage) => {
+      setShown((current) => {
+        const unique = current.filter((item) => item.id !== toast.id);
+        if (!editing) return withinLimit(unique, toast);
+        const held = unique.filter((item) => item.sticky);
+        const visible = unique.filter((item) => !item.sticky);
+        return toast.sticky
+          ? [...withinLimit(held, toast), ...visible]
+          : [...held, ...withinLimit(visible, toast)];
+      });
+    },
+    [editing],
+  );
   const dismiss = useCallback((id: string) => {
     setShown((current) => current.filter((item) => item.id !== id));
   }, []);
+  useEffect(() => {
+    if (!editing) {
+      setShown((current) =>
+        current.length <= TOAST_LIMIT
+          ? current
+          : current.reduce<ToastMessage[]>(withinLimit, []),
+      );
+    }
+  }, [editing]);
+  const visible = useMemo(() => {
+    const eligible = editing ? shown.filter((toast) => !toast.sticky) : shown;
+    return eligible.length <= TOAST_LIMIT
+      ? eligible
+      : eligible.reduce<ToastMessage[]>(withinLimit, []);
+  }, [editing, shown]);
+  return { shown: visible, add, dismiss };
+}
+
+export function ToastStack() {
+  const navigate = useNavigate();
+  const { className, editing } = useToastPlacement();
+  const { shown, add, dismiss } = useShownToasts(editing);
 
   // A card's key goes with its card. Where the press was made from the
   // keyboard, focus goes back to wherever it was before it entered the
@@ -147,7 +192,7 @@ export function ToastStack() {
   );
 
   return (
-    <output className="toasts" aria-live="polite" ref={region}>
+    <output className={className} aria-live="polite" ref={region}>
       {shown.map((toast) => (
         <Toast
           key={toast.id}
