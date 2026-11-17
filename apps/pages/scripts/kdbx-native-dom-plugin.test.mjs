@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -8,7 +9,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { it as test } from "vitest";
 import { classify } from "../src/lib/capabilities/classification.js";
@@ -56,6 +57,48 @@ test("only replaces the reviewed SDK's exact XML fallback during builds", () => 
     assert.equal(plugin.resolveId(source, sdk), null);
 });
 
+test("only the KDBX importer receives the reviewed, tree-shakable SDK source", () => {
+  const plugin = kdbxNativeDOM(root);
+  const consumer = resolve(
+    root,
+    "packages/app-core/src/lib/vault/import/formats/kdbx.ts",
+  );
+  const source = resolve(dirname(dirname(sdk)), "lib");
+  const entry = plugin.resolveId("kdbxweb", consumer);
+  assert.equal(entry, "\0opensesame-kdbx-source");
+  assert.equal(
+    plugin.resolveId("kdbxweb", consumer.replaceAll("/", "\\")),
+    entry,
+  );
+  assert.equal(plugin.resolveId("kdbxweb", `${consumer}?other`), null);
+  assert.equal(plugin.resolveId("kdbxweb", undefined), null);
+  assert.match(plugin.load(entry), /KdbxCredentials as Credentials/);
+  assert.match(plugin.load(entry), /crypto-engine\.ts/);
+  assert.equal(plugin.load("other"), null);
+  assert.equal(
+    plugin.transform(
+      "global.crypto.subtle",
+      resolve(source, "crypto/crypto-engine.ts"),
+    ),
+    "globalThis.crypto.subtle",
+  );
+  assert.equal(
+    plugin.transform(
+      "global.crypto.subtle",
+      resolve(source, "crypto/crypto-engine.ts").replaceAll("/", "\\"),
+    ),
+    "globalThis.crypto.subtle",
+  );
+  assert.match(
+    plugin.transform(
+      "require('@xmldom/xmldom')",
+      resolve(source, "utils/xml-utils.ts"),
+    ),
+    /nativeKdbxDom/,
+  );
+  assert.equal(plugin.transform("global.crypto", "/unrelated.ts"), null);
+});
+
 test("ordinary Node SDK resolution and XML integrity remain unchanged", async () => {
   const xml = createRequire(sdk)("@xmldom/xmldom");
   assert.equal(
@@ -85,6 +128,35 @@ test("a replacement SDK cannot acquire the pinned fallback adapter", () => {
     assert.throws(
       () => plugin.resolveId("@xmldom/xmldom", changed),
       /reviewed SDK bytes/,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a source change is refused even when the SDK distribution is unchanged", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "kdbx-source-unreviewed-"));
+  try {
+    const packageRoot = resolve(
+      directory,
+      "packages/app-core/node_modules/kdbxweb",
+    );
+    mkdirSync(resolve(packageRoot, "dist"), { recursive: true });
+    writeFileSync(
+      resolve(packageRoot, "package.json"),
+      '{"main":"dist/kdbxweb.js"}',
+    );
+    cpSync(sdk, resolve(packageRoot, "dist/kdbxweb.js"));
+    cpSync(resolve(dirname(dirname(sdk)), "lib"), resolve(packageRoot, "lib"), {
+      recursive: true,
+    });
+    writeFileSync(
+      resolve(packageRoot, "lib/crypto/crypto-engine.ts"),
+      "changed",
+    );
+    assert.throws(
+      () => kdbxNativeDOM(directory).buildStart(),
+      /reviewed source bytes/,
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });
