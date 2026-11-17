@@ -1,8 +1,4 @@
-import { randomUUID } from "node:crypto";
-import type {
-  OrganizationMembershipWithdrawal,
-  PendingOrganizationMembershipWithdrawal,
-} from "@opensesame/database";
+import type { PendingOrganizationMembershipWithdrawal } from "@opensesame/database";
 import { MemoryOrganizationMembershipStore } from "@opensesame/database";
 import type {
   OrganizationMembership,
@@ -16,6 +12,13 @@ import {
 import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import { revokeOrganizationMembership } from "../routes/organization-revocation.js";
 import { hostApiEndpoint } from "./host-endpoint.js";
+import {
+  existingWithdrawal,
+  mustProtectOwner,
+  newWithdrawal,
+  roleOutcomeAfterRace,
+  withdrawalOutcome,
+} from "./organization-withdrawal-state.js";
 
 export type PreparedWithdrawal = PendingOrganizationMembershipWithdrawal;
 export type PrepareWithdrawalResult =
@@ -25,7 +28,7 @@ export type PrepareWithdrawalResult =
   | { status: "last_owner" }
   | { status: "busy" };
 
-type WithdrawalInput = {
+export type WithdrawalInput = {
   organizationId: string;
   principalId: string;
   expectedIncarnation?: string;
@@ -38,7 +41,7 @@ type WithdrawalInput = {
     | "ldap_directory_sync";
 };
 
-type Request =
+export type WithdrawalRequest =
   | { kind: "remove" }
   | { kind: "change_role"; role: OrganizationRole };
 
@@ -46,7 +49,7 @@ type Request =
 async function prepareWithdrawal(
   tx: AppContext,
   input: WithdrawalInput,
-  request: Request,
+  request: WithdrawalRequest,
   attempts = 0,
 ): Promise<PrepareWithdrawalResult> {
   const store = tx.stores.organizationMemberships;
@@ -61,59 +64,11 @@ async function prepareWithdrawal(
   )
     return { status: "missing" };
   if (current.withdrawal) {
-    if (
-      request.kind === "remove" &&
-      input.actorType === "system" &&
-      current.withdrawal.kind === "change_role" &&
-      current.withdrawalId
-    ) {
-      // A directory deactivation supersedes a pending role change without
-      // opening a gap in the fence or changing the Host tombstone tuple.
-      const withdrawal: OrganizationMembershipWithdrawal = {
-        id: current.withdrawalId,
-        kind: "remove",
-        actorType: "system",
-        actorPrincipalId: input.actorPrincipalId,
-        correlationId: input.correlationId,
-        ...(input.reason ? { reason: input.reason } : {}),
-      };
-      const upgraded = await store.upgradeRoleWithdrawalToRemoval(
-        input.organizationId,
-        input.principalId,
-        current.incarnation,
-        current.authorityRevision,
-        current.withdrawalId,
-        withdrawal,
-      );
-      if (upgraded) {
-        return {
-          status: "ready",
-          prepared: { ...current, withdrawalId: withdrawal.id, withdrawal },
-        };
-      }
-      // A role completion may have won the CAS; fence the resulting revision
-      // before allowing the directory's deactivation transaction to commit.
-      return attempts < 2
-        ? prepareWithdrawal(tx, input, request, attempts + 1)
-        : { status: "busy" };
-    }
-    const same =
-      current.withdrawal.kind === request.kind &&
-      current.withdrawal.actorType === input.actorType &&
-      (request.kind !== "remove" ||
-        current.withdrawal.reason === input.reason) &&
-      (request.kind !== "change_role" ||
-        (current.withdrawal.kind === "change_role" &&
-          current.withdrawal.role === request.role));
-    return same && current.withdrawalId
-      ? {
-          status: "ready",
-          prepared: {
-            ...current,
-            withdrawalId: current.withdrawalId,
-            withdrawal: current.withdrawal,
-          },
-        }
+    const result = await existingWithdrawal(store, input, request, current);
+    if (result.status !== "retry") return result;
+    // A role completion may have won the CAS; fence its new revision.
+    return attempts < 2
+      ? prepareWithdrawal(tx, input, request, attempts + 1)
       : { status: "busy" };
   }
   if (current.withdrawalId) return { status: "busy" };
@@ -122,10 +77,7 @@ async function prepareWithdrawal(
     current.membership.role === request.role
   )
     return { status: "unchanged", membership: current.membership };
-  if (
-    current.membership.role === "owner" &&
-    !(request.kind === "remove" && input.actorType === "system")
-  ) {
+  if (mustProtectOwner(current, input, request)) {
     // Withdrawing owners cannot authorize work and may soon disappear. Count
     // only owners that will remain after all already-prepared changes finish.
     // Legacy incarnations are scoped by principal and can be shared by owners.
@@ -140,20 +92,7 @@ async function prepareWithdrawal(
     if (remaining.length === 0) return { status: "last_owner" };
   }
 
-  const details = {
-    id: randomUUID(),
-    actorPrincipalId: input.actorPrincipalId,
-    actorType: input.actorType,
-    correlationId: input.correlationId,
-  };
-  const withdrawal: OrganizationMembershipWithdrawal =
-    request.kind === "remove"
-      ? {
-          ...details,
-          kind: "remove",
-          ...(input.reason ? { reason: input.reason } : {}),
-        }
-      : { ...details, kind: "change_role", role: request.role };
+  const withdrawal = newWithdrawal(input, request);
   if (
     !(await store.beginWithdrawal(
       input.organizationId,
@@ -309,30 +248,13 @@ export async function finishOrganizationWithdrawal(
   ctx: AppContext,
   prepared: PreparedWithdrawal,
 ): Promise<FinishWithdrawalResult> {
-  const { membership, withdrawal, incarnation, authorityRevision } = prepared;
+  const { membership, withdrawal, incarnation } = prepared;
   const current = await ctx.stores.organizationMemberships.findVersioned(
     membership.organizationId,
     membership.principalId,
   );
-  if (!current)
-    return { status: withdrawal.kind === "remove" ? "removed" : "stale" };
-  if (current.incarnation !== incarnation) return { status: "stale" };
-  if (
-    !current.withdrawal &&
-    withdrawal.kind === "change_role" &&
-    current.membership.role === withdrawal.role &&
-    current.authorityRevision !== authorityRevision
-  )
-    return { status: "changed", membership: current.membership };
-  if (
-    current.withdrawalId !== withdrawal.id ||
-    current.authorityRevision !== authorityRevision ||
-    current.withdrawal?.kind !== withdrawal.kind ||
-    (withdrawal.kind === "change_role" &&
-      (current.withdrawal.kind !== "change_role" ||
-        current.withdrawal.role !== withdrawal.role))
-  )
-    return { status: "stale" };
+  const outcome = withdrawalOutcome(current, prepared);
+  if (outcome) return outcome;
   // A timeout can mean Host committed but the response was lost. Keep the same
   // intent fenced and retry its idempotency key until Host confirms success.
   if (!(await revokeHost(ctx, prepared))) return { status: "pending" };
@@ -369,13 +291,7 @@ export async function finishOrganizationWithdrawal(
       membership.organizationId,
       membership.principalId,
     );
-    return after &&
-      after.incarnation === incarnation &&
-      !after.withdrawalId &&
-      after.authorityRevision !== authorityRevision &&
-      after.membership.role === withdrawal.role
-      ? { status: "changed", membership: after.membership }
-      : { status: "stale" };
+    return roleOutcomeAfterRace(after, prepared, withdrawal.role);
   }
   await finishOrganizationWithdrawalAudit(ctx, audit);
   return { status: "changed", membership: updated.membership };
