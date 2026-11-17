@@ -21,6 +21,7 @@ import {
   resolveXmldsigjsPeerDependencies,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
+import { verifyFreshSamlRuntime } from "./saml-fresh-runtime.test-support.mjs";
 
 const root = existsSync(resolve(process.cwd(), "pnpm-workspace.yaml"))
   ? process.cwd()
@@ -254,6 +255,14 @@ it("uses the same actual transformed certificate implementation for IdP metadata
   expect(result.signedRequests).toBe(true);
   expect(result.postUrl).toBe("https://idp.example/sso");
 });
+it("loads the split SAML bundle without preinstalled reflection metadata", async () => {
+  await verifyFreshSamlRuntime(
+    root,
+    directory,
+    metadata(),
+    Buffer.from(spki).toString("base64"),
+  );
+}, 30000);
 it("signs an SP request with the real transformed SDK and passes independent XMLDSIG verification", async () => {
   const request = pending();
   const parsed = await api.readSamlIdpMetadata(

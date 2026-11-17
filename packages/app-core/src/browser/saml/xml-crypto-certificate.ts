@@ -1,4 +1,5 @@
 /** Closed RSA/SHA-256 SAML certificate surface, backed by the existing official parser. */
+import "reflect-metadata";
 import { X509Certificate as ParsedCertificate } from "@peculiar/x509";
 import { z } from "zod";
 import { Application } from "./xml-crypto-application.js";

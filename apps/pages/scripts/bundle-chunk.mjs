@@ -54,7 +54,7 @@ export function bundleChunk(id) {
   ) {
     return "peer-trust";
   }
-  // @peculiar/x509 imports reflect-metadata, then tsyringe. The lite
+  // The SAML certificate adapter imports reflect-metadata before x509. The lite
   // polyfill is under codeSplitting.minSize, so Rollup folds it into a
   // parent and the shared x509 chunk runs tsyringe's check first. That throw
   // is a vite:preloadError, and the full profile reloads forever. One manual
