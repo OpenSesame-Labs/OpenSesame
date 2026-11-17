@@ -23,6 +23,7 @@ export const SHELL_RULES = [
       "dirty-edit.ts",
       "dirty-edit.test.ts",
       "stale-asset-reload.ts",
+      "stale-asset-reload.test.ts",
     ],
     (p) => core(p, SHELL, "shell boot, unsaved edits and safe release reload"),
   ),
