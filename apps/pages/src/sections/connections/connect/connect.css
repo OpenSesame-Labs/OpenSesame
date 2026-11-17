@@ -53,11 +53,13 @@
   width: 1rem;
   height: 1rem;
   border: 1px solid currentColor;
+  border-radius: 0;
 }
 
 .cx-mode__indicator {
   width: 0.55rem;
   height: 0.55rem;
+  border-radius: 0;
   background: currentColor;
 }
 
@@ -102,10 +104,6 @@
   min-height: 44px;
 }
 
-.cx-application > .cx-form {
-  padding-block: 0.75rem;
-}
-
 .cx-icon-field {
   display: grid;
   gap: 0.5rem;
@@ -140,6 +138,10 @@
 .cx-form {
   display: grid;
   gap: 1rem;
+}
+
+.cx-application > .cx-form {
+  padding-block: 0.75rem;
 }
 
 .cx-grid {

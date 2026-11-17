@@ -1,5 +1,9 @@
 import { openConsentPopup } from "@opensesame/app-core/lib/connections.js";
 import {
+  assertGuestVercelNavigationCanResume,
+  captureGuestProviderAttempt,
+} from "@opensesame/app-core/lib/guest-provider-return.js";
+import {
   type TokenCheck,
   authorizeConnectorAs,
   checkConnectorToken,
@@ -22,6 +26,17 @@ export const userTokenSeams = {
 };
 
 const WAIT_MS = 10 * 60_000;
+
+function navigateWithoutPopup(
+  popup: Window | null,
+  url: string,
+  token?: string,
+): boolean {
+  if (popup) return false;
+  assertGuestVercelNavigationCanResume(token);
+  window.location.assign(url);
+  return true;
+}
 
 /** Resolves true only when this popup reports the connection it was opened for. */
 function settled(
@@ -203,21 +218,20 @@ export function UserTokenPanel({
 
   async function authorize() {
     if (!subject) return;
-    const popup = userTokenSeams.open("about:blank");
+    let popup: Window | null = null;
     setBusy("authorize");
     try {
-      const { authorizationUrl } = await userTokenSeams.authorize(
-        connectorId,
-        subject,
-        scopes,
-      );
+      const checkGuest = captureGuestProviderAttempt();
+      popup = userTokenSeams.open("about:blank");
+      const { authorizationUrl, guestReturnToken } =
+        await userTokenSeams.authorize(connectorId, subject, scopes);
+      checkGuest();
       // `openConsentPopup` opens with `noopener`, so a browser does not hand
       // back a handle. Never wait on a window we cannot observe: a same-tab
       // navigation is the flow, and the callback page owns what follows.
-      if (!popup) {
-        window.location.assign(authorizationUrl);
+      if (navigateWithoutPopup(popup, authorizationUrl, guestReturnToken))
         return;
-      }
+      if (!popup) return;
       popup.location.href = authorizationUrl;
       const controller = new AbortController();
       consent.current = controller;

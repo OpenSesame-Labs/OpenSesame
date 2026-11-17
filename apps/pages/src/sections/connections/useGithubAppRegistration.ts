@@ -3,6 +3,7 @@ import {
   startGithubAppRegistration,
   submitGithubAppManifest,
 } from "@opensesame/app-core/lib/connections.js";
+import { captureGuestProviderAttempt } from "@opensesame/app-core/lib/guest-provider-return.js";
 import {
   type Flash,
   errorText,
@@ -38,10 +39,12 @@ export function useGithubAppRegistration(
     window.clearTimeout(timeout.current);
     setBusy("app");
     try {
+      const checkGuest = captureGuestProviderAttempt();
       const registration = await startGithubAppRegistration({
         returnTo: `${window.location.origin}${window.location.pathname}`,
         displayName: `OpenSesame ${provider.displayName}`,
       });
+      checkGuest();
       if (run !== generation.current) return;
       submitGithubAppManifest(registration);
       timeout.current = window.setTimeout(() => {

@@ -41,6 +41,7 @@ export function FormNotes({
   firstRun,
   activeMethod,
   acceptRef,
+  ackGuideRef,
   accepted,
   setAccepted,
   header,
@@ -50,6 +51,7 @@ export function FormNotes({
   firstRun: boolean;
   activeMethod: UnlockTabId;
   acceptRef: Ref<HTMLInputElement>;
+  ackGuideRef?: Ref<HTMLLabelElement>;
   accepted: boolean;
   setAccepted: (value: boolean) => void;
   header: VaultHeader | null;
@@ -65,7 +67,7 @@ export function FormNotes({
               ? "There is no recovery. Lose this device's authenticator and the encrypted items on this device are unreadable — by you and by us. An authenticator that cannot seal fails on Seal; the PIN tab works on any device."
               : "There is no recovery. Forget this PIN and the encrypted items on this device are unreadable — by you and by us."}
           </p>
-          <label className="check">
+          <label className="check" ref={ackGuideRef}>
             <input
               type="checkbox"
               ref={acceptRef}

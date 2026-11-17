@@ -52,5 +52,12 @@ export function useUnlockTargets() {
     passkeyRef: useGuideTarget<HTMLButtonElement>("unlock.passkey"),
     setupRef: useGuideTarget<HTMLButtonElement>("unlock.setup"),
     methodsRef: useGuideTarget<HTMLDivElement>("unlock.methods"),
+    sealRef: useGuideTarget<HTMLButtonElement>("unlock.seal"),
+    sealPinRef: useGuideTarget<HTMLButtonElement>("unlock.seal-pin"),
+    sealPinEntryRef: useGuideTarget<HTMLInputElement>("unlock.seal-pin-entry"),
+    sealPinConfirmRef: useGuideTarget<HTMLInputElement>(
+      "unlock.seal-pin-confirm",
+    ),
+    sealAckRef: useGuideTarget<HTMLLabelElement>("unlock.seal-ack"),
   };
 }

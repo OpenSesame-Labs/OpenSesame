@@ -9,6 +9,10 @@ import {
 } from "@opensesame/app-core/lib/connections.js";
 import { isNativeDeviceConnection } from "@opensesame/app-core/lib/device-connector-view.js";
 import {
+  assertGuestVercelNavigationCanResume,
+  captureGuestProviderAttempt,
+} from "@opensesame/app-core/lib/guest-provider-return.js";
+import {
   VERB_CHIP,
   VERB_LABEL,
   connectionVerb,
@@ -145,13 +149,19 @@ async function finishLegacyAuthorization(
   onFlash: (flash: Flash | null) => void,
   onChanged: () => void,
 ) {
-  const popup = openConsentPopup("about:blank");
+  let popup: Window | null = null;
   try {
-    const { authorizationUrl } = await authorizeConnection(
+    const checkGuest = captureGuestProviderAttempt();
+    popup = openConsentPopup("about:blank");
+    const { authorizationUrl, guestReturnToken } = await authorizeConnection(
       connection.connectionId,
     );
+    checkGuest();
     if (popup) popup.location.href = authorizationUrl;
-    else window.location.href = authorizationUrl;
+    else {
+      assertGuestVercelNavigationCanResume(guestReturnToken);
+      window.location.href = authorizationUrl;
+    }
     const outcome = await awaitConsent(connection.connectionId, popup);
     if (outcome.result === "active") {
       onFlash({

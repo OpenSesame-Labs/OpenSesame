@@ -189,7 +189,7 @@ it("keeps the verified callback mounted when saved App hides create and the toke
     () => {
       const controller = new AbortController();
       return {
-        tomb: null,
+        tomb: "guest",
         transport: {
           signal: controller.signal,
           assertCurrent: () => controller.signal.throwIfAborted(),

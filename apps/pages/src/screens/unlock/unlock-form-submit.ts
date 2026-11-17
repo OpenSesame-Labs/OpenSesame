@@ -10,6 +10,7 @@ import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlo
 import type { ProtectorUnlockInput } from "@opensesame/app-core/lib/vault/protection/unlock-protector-open.js";
 import type { SecondStepId } from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import type { FormEvent, MutableRefObject } from "react";
+import { markNewGuestLanding } from "../../lib/guest-landing.js";
 import {
   stepPastUnsupported,
   submitFirstRunUnlock,
@@ -18,7 +19,10 @@ import {
   submitPrimaryMethodUnlock,
   submitSecondStepUnlock,
 } from "./unlock-form-paths.js";
-import { applyUnlockSubmitFailure } from "./unlock-submit-errors.js";
+import {
+  applyGuestStartFailure,
+  applyUnlockSubmitFailure,
+} from "./unlock-submit-errors.js";
 import type { PendingFocus } from "./use-refocus-after-failure.js";
 
 type UnlockStore = Readonly<{
@@ -82,6 +86,7 @@ export async function submitUnlockForm(input: {
   passwordRef: MutableRefObject<HTMLInputElement | null>;
   protectorRef: MutableRefObject<HTMLInputElement | null>;
   totpRef: MutableRefObject<HTMLInputElement | null>;
+  goRef: MutableRefObject<HTMLButtonElement | null>;
   pendingFocus: PendingFocus;
 }): Promise<void> {
   input.event.preventDefault();
@@ -101,6 +106,7 @@ export async function submitUnlockForm(input: {
       const outcome = await submitSecondStepUnlock(input);
       if (outcome === "duress_stop") return;
     } else if (input.guestKeyless) {
+      markNewGuestLanding();
       await submitGuestUnlock();
     } else {
       const outcome = await submitPrimaryMethodUnlock(input);
@@ -112,6 +118,10 @@ export async function submitUnlockForm(input: {
     }
     input.setConfirm("");
   } catch (caught) {
+    if (input.guestKeyless) {
+      applyGuestStartFailure({ ...input, caught });
+      return;
+    }
     if (stepPastUnsupported(input, caught)) return;
     applyUnlockSubmitFailure({
       caught,

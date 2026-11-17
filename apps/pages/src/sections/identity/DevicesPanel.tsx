@@ -10,7 +10,12 @@ export function DirectoryDevices({ online, session }: DevicesProps) {
   const configured = useIdentityConfigured();
   return (
     <>
-      {configured && session ? <ApproveDeviceCard online={online} /> : null}
+      {configured && session ? (
+        <ApproveDeviceCard
+          key={`${session.issuerOrigin}:${session.principalId}`}
+          online={online}
+        />
+      ) : null}
       {configured && !session ? (
         <ConnectIdentityNote
           online={online}

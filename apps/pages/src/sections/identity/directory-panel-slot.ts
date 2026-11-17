@@ -4,7 +4,7 @@
  *
  * The section is `identity.local-iam`'s and always on (ADR 0142); People,
  * Agents, the directory's device approval and an organization's sign-in
- * settings (ADR 0140 plan step 12) are the directory's, and an
+ * settings (ADR 0140 plan step 12) are the hosted directory's, and an
  * installation without it must not carry their code. So the section never
  * imports them: the directory's runtime puts them here in `activate` and
  * takes them back in `dispose`, beside the tabs it contributes

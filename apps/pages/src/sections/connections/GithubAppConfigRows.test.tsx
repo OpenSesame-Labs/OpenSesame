@@ -40,4 +40,21 @@ describe("GitHub App remove control", () => {
     );
     expect(forget).toHaveBeenCalledTimes(1);
   });
+
+  it("marks a failed removal so the error can be read", async () => {
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    forget.mockRejectedValueOnce(new Error("Removal failed."));
+    render(<GithubAppForgetButton forget={forget} />);
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Remove GitHub App from this device",
+      }),
+    );
+    expect(
+      await screen.findByRole("img", { name: "Removal failed." }),
+    ).toBeTruthy();
+  });
 });
