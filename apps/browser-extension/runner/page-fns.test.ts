@@ -35,11 +35,12 @@ const FORM = `<body>
   <input id="h" type="hidden"/><input id="hid" style="display:none"/>
   <textarea id="ta"></textarea><button id="go" type="submit">Go</button></form>
   <div id="notfield"></div></body>`;
+const ORIGIN = "https://rp.example";
 
 describe("page functions are self-contained", () => {
   it("each one runs from its source text with nothing of this module in scope", async () => {
     const { call } = inPage(FORM);
-    expect(call(pfFill, "#a", "x")).toBe("ok");
+    expect(call(pfFill, "#a", "x", ORIGIN)).toBe("ok");
     expect(call(pfPresence, "#a", "x")).toBe("present");
     expect(call(pfLayout)).toEqual(expect.any(String));
     expect(call(pfMask, ["#a"])).toBe(1);
@@ -57,7 +58,7 @@ describe("pfFill", () => {
     for (const type of ["input", "change"]) {
       field?.addEventListener(type, () => heard.push(`${type}:${field.value}`));
     }
-    expect(call(pfFill, "#a", "s3cret")).toBe("ok");
+    expect(call(pfFill, "#a", "s3cret", ORIGIN)).toBe("ok");
     expect(field?.value).toBe("s3cret");
     expect(heard).toEqual(["input:s3cret", "change:s3cret"]);
     expect(dom.window.document.activeElement).toBe(field);
@@ -65,7 +66,7 @@ describe("pfFill", () => {
 
   it("fills a textarea", () => {
     const { call, doc } = inPage(FORM);
-    expect(call(pfFill, "#ta", "note")).toBe("ok");
+    expect(call(pfFill, "#ta", "note", ORIGIN)).toBe("ok");
     expect(doc.querySelector<HTMLTextAreaElement>("#ta")?.value).toBe("note");
   });
 
@@ -81,13 +82,15 @@ describe("pfFill", () => {
       "#hid",
       "#go",
     ]) {
-      expect(call(pfFill, selector, "x"), selector).toBe("no_such_field");
+      expect(call(pfFill, selector, "x", ORIGIN), selector).toBe(
+        "no_such_field",
+      );
     }
   });
 
   it("answers invalid for a selector that does not parse", () => {
     const { call } = inPage(FORM);
-    expect(call(pfFill, "###", "x")).toBe("invalid");
+    expect(call(pfFill, "###", "x", ORIGIN)).toBe("invalid");
   });
 });
 
@@ -95,7 +98,7 @@ describe("pfPresence", () => {
   it("says present, absent and mismatch without returning the value", () => {
     const { call } = inPage(FORM);
     expect(call(pfPresence, "#a", "x")).toBe("absent");
-    call(pfFill, "#a", "right");
+    call(pfFill, "#a", "right", ORIGIN);
     expect(call(pfPresence, "#a", "right")).toBe("present");
     expect(call(pfPresence, "#a", "wrong")).toBe("mismatch");
     expect(call(pfPresence, "#missing", "right")).toBe("absent");
@@ -134,8 +137,8 @@ describe("pfReadDom", () => {
       <!-- comment-secret -->
     </body>`;
     const { call, doc } = inPage(html);
-    call(pfFill, "#a", "live-secret");
-    call(pfFill, "#b", "live-typed");
+    call(pfFill, "#a", "live-secret", ORIGIN);
+    call(pfFill, "#b", "live-typed", ORIGIN);
     const text = call(pfReadDom, ["#strip"]);
     for (const gone of [
       "attr-secret",

@@ -47,7 +47,9 @@ it.each(["input", "textarea"])(
     field.addEventListener("change", () =>
       observed.push(`change:${field.value}`),
     );
-    expect(pfFill("#tracked", "public-framework-fixture")).toBe("ok");
+    expect(
+      pfFill("#tracked", "public-framework-fixture", window.location.origin),
+    ).toBe("ok");
     expect(instanceWrites).toEqual([]);
     expect(observed).toEqual([
       "input:public-framework-fixture",
