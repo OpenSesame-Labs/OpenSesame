@@ -1,6 +1,8 @@
 /** @vitest-environment jsdom */
 import {
+  appendStatusNotice,
   clearNotices,
+  dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
 import { act, cleanup, render, screen } from "@testing-library/react";
@@ -103,6 +105,147 @@ describe("a shellless screen's notice region", () => {
     ).toHaveLength(1);
     expect(screen.getByRole("textbox", { name: "PIN" })).toBe(input);
     expect(lifecycle).toEqual({ mounts: 1, unmounts: 0 });
+  });
+
+  it("keeps a focused notice and its action when a gate seat mounts late", () => {
+    function Screen({ seated }: { seated: boolean }) {
+      return (
+        <main>
+          {seated ? <GateNoticeSeat /> : null}
+          <input aria-label="PIN" defaultValue="2468" />
+        </main>
+      );
+    }
+    const tree = (seated: boolean) => (
+      <MemoryRouter>
+        <Notices shellless>
+          <Screen seated={seated} />
+        </Notices>
+      </MemoryRouter>
+    );
+    const view = render(tree(false));
+    act(() =>
+      appendStatusNotice({
+        id: "late",
+        tone: "err",
+        title: "Unlock",
+        body: "The first attempt failed.",
+      }),
+    );
+    const dismiss = screen.getByRole("button", {
+      name: "Dismiss notification: Unlock. The first attempt failed.",
+    });
+    act(() => dismiss.focus());
+    act(() =>
+      appendStatusNotice({
+        id: "newer",
+        tone: "err",
+        title: "Unlock",
+        body: "A second attempt failed.",
+      }),
+    );
+    expect(document.activeElement).toBe(dismiss);
+    view.rerender(tree(true));
+    const moved = screen.getByRole("button", {
+      name: "Dismiss notification: Unlock. The first attempt failed.",
+    });
+    expect(document.activeElement).toBe(moved);
+    expect(
+      moved.closest(".gate-notice-seat")?.firstElementChild?.className,
+    ).toBe("notice-corner");
+    expect(screen.getByRole("textbox", { name: "PIN" })).toHaveProperty(
+      "value",
+      "2468",
+    );
+    view.rerender(tree(false));
+    const returned = screen.getByRole("button", {
+      name: "Dismiss notification: Unlock. The first attempt failed.",
+    });
+    expect(document.activeElement).toBe(returned);
+    act(() => returned.click());
+    expect(screen.queryByText("The first attempt failed.")).toBeNull();
+    expect(screen.getByText("A second attempt failed.")).toBeTruthy();
+  });
+
+  it("does not restore an action onto a different notice with the same label", () => {
+    const tree = (seated: boolean) => (
+      <MemoryRouter>
+        <Notices shellless>
+          <main>
+            {seated ? <GateNoticeSeat /> : null}
+            <input aria-label="PIN" />
+          </main>
+        </Notices>
+      </MemoryRouter>
+    );
+    const view = render(tree(false));
+    act(() =>
+      appendStatusNotice({
+        id: "first",
+        tone: "err",
+        title: "First",
+        body: "First failure.",
+        open: { to: "/first", label: "Open settings" },
+      }),
+    );
+    const first = screen.getByRole("button", { name: "Open settings" });
+    act(() => first.focus());
+    act(() =>
+      appendStatusNotice({
+        id: "second",
+        tone: "err",
+        title: "Second",
+        body: "Second failure.",
+        open: { to: "/second", label: "Open settings" },
+      }),
+    );
+    act(() => {
+      dismissNotice("first");
+      view.rerender(tree(true));
+    });
+    const second = screen.getByRole("button", { name: "Open settings" });
+    expect(document.activeElement).not.toBe(second);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Notifications — 1 pending" }),
+    );
+  });
+
+  it("forgets a held gate card when the unlocked shell takes over", () => {
+    const tree = (shellless: boolean) => (
+      <MemoryRouter>
+        <Notices shellless={shellless}>
+          <main>
+            <input aria-label="PIN" />
+          </main>
+        </Notices>
+      </MemoryRouter>
+    );
+    const view = render(tree(true));
+    act(() =>
+      appendStatusNotice({
+        id: "first",
+        tone: "err",
+        title: "First",
+        body: "First failure.",
+      }),
+    );
+    act(() =>
+      screen
+        .getByRole("button", { name: /Dismiss notification: First/ })
+        .focus(),
+    );
+    act(() =>
+      appendStatusNotice({
+        id: "second",
+        tone: "err",
+        title: "Second",
+        body: "Second failure.",
+      }),
+    );
+    view.rerender(tree(false));
+    view.rerender(tree(true));
+    expect(screen.queryByText("First failure.")).toBeNull();
+    expect(screen.getByText("Second failure.")).toBeTruthy();
   });
 
   it("keeps the screen mounted without a second bell when its shell owns notices", () => {

@@ -1,13 +1,25 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 import { stagePagesRelease } from "./prepare-pages-release.mjs";
 
-test("stagePagesRelease bundles dist and a local serve bin", async () => {
-  const dist = join(process.cwd(), "apps/pages/dist");
+test("stagePagesRelease bundles dist and a local serve bin", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "pages-release-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const dist = join(root, "apps/pages/dist");
   await mkdir(dist, { recursive: true });
+  await mkdir(join(root, "scripts/release"), { recursive: true });
+  await writeFile(
+    join(root, "apps/pages/package.json"),
+    JSON.stringify({ description: "Test Pages release" }),
+  );
+  await writeFile(
+    join(root, "scripts/release/pages-pwa-serve.mjs"),
+    "// test server\n",
+  );
   await writeFile(
     join(dist, "index.html"),
     "<!doctype html><title>PWA</title>\n",
@@ -16,7 +28,7 @@ test("stagePagesRelease bundles dist and a local serve bin", async () => {
     join(dist, "manifest.webmanifest"),
     '{"name":"OpenSesame"}\n',
   );
-  const releaseDir = await stagePagesRelease("0.0.0-alpha.0");
+  const releaseDir = await stagePagesRelease("0.0.0-alpha.0", root);
   const manifest = JSON.parse(
     await readFile(join(releaseDir, "package.json"), "utf8"),
   );
@@ -24,6 +36,12 @@ test("stagePagesRelease bundles dist and a local serve bin", async () => {
   assert.equal(manifest.version, "0.0.0-alpha.0");
   assert.equal(manifest.bin["opensesame-pages"], "bin/serve.mjs");
   assert.equal(manifest.publishConfig.access, "public");
-  await readFile(join(releaseDir, "dist/index.html"), "utf8");
-  await readFile(join(releaseDir, "bin/serve.mjs"), "utf8");
+  assert.equal(
+    await readFile(join(releaseDir, "dist/index.html"), "utf8"),
+    "<!doctype html><title>PWA</title>\n",
+  );
+  assert.equal(
+    await readFile(join(releaseDir, "bin/serve.mjs"), "utf8"),
+    "// test server\n",
+  );
 });

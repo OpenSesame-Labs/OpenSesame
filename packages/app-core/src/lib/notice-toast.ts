@@ -35,6 +35,8 @@ export type ToastMessage = Readonly<{
   id: string;
   tone: NoticeTone;
   title: string;
+  /** An optional preview title; the full title remains the notice's title. */
+  compactTitle?: string;
   body: string;
   open?: NoticeOpen;
   /**
@@ -70,7 +72,7 @@ export function toastOf(notice: Notice): ToastMessage {
   // as a worded key and stays until it is answered (ADR 0221). The route the
   // notice keeps for a reload is the same answer, so the card draws one key,
   // not two. Any other act stays the tray's.
-  return {
+  const recommendation: ToastMessage = {
     id: echo.id,
     tone: echo.tone,
     title: echo.title,
@@ -78,6 +80,8 @@ export function toastOf(notice: Notice): ToastMessage {
     sticky: true,
     choice: { label: act.label, run: act.run },
   };
+  const compactTitle = act.compactTitle?.trim();
+  return compactTitle ? { ...recommendation, compactTitle } : recommendation;
 }
 
 type ToastListener = (toast: ToastMessage) => void;

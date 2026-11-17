@@ -32,6 +32,7 @@ describe("the route a model is told it is on", () => {
     for (const route of GUIDE_ROUTES) {
       const context = buildSupportPageContext({ ...BASE, route: route.id });
       expect(context.route).toBe(route.id);
+      expect(context.routes.map((entry) => entry.id)).toContain(route.id);
     }
   });
 

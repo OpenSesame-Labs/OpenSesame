@@ -5,6 +5,10 @@ executes is an icon key. A word on a button face is a design failure.
 `scripts/quality/design-lint.mjs` (`npm run lint:design`) and `impeccable detect` hold
 new code to that, and both run in `.githooks/pre-commit` (impeccable only
 when the optional skill is installed; the design lint always runs).
+ADR 0224 makes one narrow accessibility exception: a notification's
+`notice-dismiss` button visibly says **Dismiss** and has an accessible name
+that includes its notification title. The lint permits it only in the three
+notification surfaces; other executing actions keep the icon-key rule.
 
 ## Native dropdowns
 

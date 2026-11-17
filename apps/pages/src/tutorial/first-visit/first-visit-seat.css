@@ -1,0 +1,94 @@
+/* A guide offer has a row of its own; it cannot sit over the current task. */
+.first-visit-seat:empty {
+  display: none;
+}
+
+.first-visit-seat:not(:empty) {
+  flex: none;
+  max-block-size: min(42dvh, 15rem);
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.first-visit-seat .panel {
+  border: 0;
+  margin: 0;
+}
+
+.first-visit-seat .panel__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+}
+
+.first-visit-seat .panel__body p {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+/* Preserve the existing gate layout until a guide actually has a row. */
+.gate-offer-frame,
+.gate-offer-frame__body {
+  display: contents;
+}
+
+#root:has(> .gate-offer-frame > .first-visit-seat:not(:empty)):not(
+  :has(> .app)
+) {
+  display: flex;
+  flex-direction: column;
+}
+
+.gate-offer-frame:has(> .first-visit-seat:not(:empty)) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#root:has(> .app) > .gate-offer-frame:has(> .first-visit-seat:not(:empty)) {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+}
+
+.gate-offer-frame:has(> .first-visit-seat:not(:empty))
+  > .gate-offer-frame__body {
+  display: block;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+#root
+  .gate-offer-frame:has(> .first-visit-seat:not(:empty))
+  .unlock.unlock--lock-v5 {
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+}
+
+#root:has(.notice-corner[data-active])
+  .gate-offer-frame:has(> .first-visit-seat:not(:empty))
+  .unlock.unlock--lock-v5:not(.unlock--doors) {
+  position: relative;
+  inset: auto;
+}
+
+.gate-offer-frame:has(> .first-visit-seat:not(:empty)) .setup {
+  height: 100%;
+  min-height: 100%;
+}
+
+@media (min-width: 1100px) {
+  .gate-offer-frame:has(> .first-visit-seat:not(:empty)) .unlock__notes {
+    height: 100%;
+    min-height: 100%;
+  }
+}

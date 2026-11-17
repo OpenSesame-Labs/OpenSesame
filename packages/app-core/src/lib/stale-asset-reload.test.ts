@@ -77,6 +77,24 @@ describe("stale asset reload guard", () => {
     expect(guard.mark()).toBe(true);
   });
 
+  it("treats a mixed saved array as a legacy marker, not as trusted build names", async () => {
+    const raw = '["pages-AbCd1234.js",42]';
+    const values = new Map([["os-stale-asset-reload", raw]]);
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+    guard.beginBuild(ENTRY_A);
+    expect(guard.already()).toBe(false);
+    expect(guard.mark()).toBe(true);
+    expect(JSON.parse(values.get("os-stale-asset-reload") ?? "null")).toEqual([
+      raw,
+      "pages-AbCd1234.js",
+    ]);
+  });
+
   it("does not claim a reload can be guarded when tab storage is unavailable", async () => {
     vi.stubGlobal("sessionStorage", {
       getItem: () => null,

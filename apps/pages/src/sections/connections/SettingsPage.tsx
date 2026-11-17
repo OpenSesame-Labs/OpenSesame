@@ -42,6 +42,7 @@ import { ConnectSection } from "./ConnectSection.js";
 import { apiFamilyFor, apiFamilyOptions } from "./catalog-families.js";
 import { isConnectConnection } from "./connect/ConnectPanels.js";
 import { GithubAppPresence } from "./GithubAppPresence.js";
+import { GithubWalkthroughSeat } from "./GithubWalkthroughSeat.js";
 import { isIdentityConnectionProvider } from "./identity/IdentityConnectionPanels.js";
 import * as SettingsPanels from "./SettingsPageConnectPanels.js";
 import { SettingsPageHeader } from "./SettingsPageHeader.js";
@@ -388,12 +389,7 @@ export function ConnectorSettingsPage({
         onConnect={onConnect}
         deviceSeal={deviceSeal}
       />
-      {provider.id === "github" ? (
-        <div
-          data-first-visit-offer
-          data-first-visit-return="connections.github.method"
-        />
-      ) : null}
+      {provider.id === "github" ? <GithubWalkthroughSeat /> : null}
     </div>
   );
 }

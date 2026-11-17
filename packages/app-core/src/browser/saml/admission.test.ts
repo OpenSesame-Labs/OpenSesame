@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import "reflect-metadata";
 import { X509Certificate, generateKeyPairSync, webcrypto } from "node:crypto";
 import { X509CertificateGenerator } from "@peculiar/x509";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
@@ -20,8 +21,8 @@ import {
   createNativeSamlAdmissionRuntime,
 } from "./admission.js";
 import * as receiver from "./post-session.js";
-import { beginNativeSamlSignIn, consumeNativeSamlSignIn } from "./sign-in.js";
 import type { NativeSamlSignInProof } from "./sign-in.js";
+import { beginNativeSamlSignIn, consumeNativeSamlSignIn } from "./sign-in.js";
 
 const runtimes: NativeSamlAdmissionRuntime[] = [];
 afterEach(() => {

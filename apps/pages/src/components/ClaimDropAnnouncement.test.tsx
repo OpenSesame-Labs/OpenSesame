@@ -5,7 +5,7 @@ import {
   listNotices,
 } from "@opensesame/app-core/lib/notices.js";
 /** @vitest-environment jsdom */
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { act } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,9 +17,8 @@ afterEach(() => {
 });
 
 describe("ClaimDropAnnouncement", () => {
-  it("shows one bar caption and replaces it instead of stacking", () => {
-    // The corner renders the tray's own failure card now, which navigates.
-    const { container } = render(
+  it("shows the latest claim in an in-flow alert while retaining the earlier notice", () => {
+    render(
       <MemoryRouter>
         <NoticeCorner />
       </MemoryRouter>,
@@ -28,13 +27,14 @@ describe("ClaimDropAnnouncement", () => {
       reportClaim("First.");
       reportClaim("Second.");
     });
-    const bar = container.querySelector(".notice-corner[data-c]");
-    expect(bar?.getAttribute("data-c")).toContain("Second.");
-    expect(bar?.getAttribute("data-c")).not.toContain("First.");
+    const alert = screen.getByRole("alert", { name: "Urgent notifications" });
+    expect(alert.textContent).toContain("Second.");
+    expect(alert.textContent).not.toContain("First.");
+    expect(listNotices()).toHaveLength(2);
   });
 
   it("clears when the claim notice is dismissed from the tray", () => {
-    const { container } = render(
+    render(
       <MemoryRouter>
         <NoticeCorner />
       </MemoryRouter>,
@@ -42,10 +42,14 @@ describe("ClaimDropAnnouncement", () => {
     act(() => {
       reportClaim("Refused.");
     });
-    expect(container.querySelector(".notice-corner[data-c]")).toBeTruthy();
+    expect(
+      screen.getByRole("alert", { name: "Urgent notifications" }).textContent,
+    ).toContain("Refused.");
     const id = listNotices().find((n) => n.body === "Refused.")?.id;
     expect(id).toBeTruthy();
     act(() => dismissNotice(id ?? ""));
-    expect(container.querySelector(".notice-corner[data-c]")).toBeNull();
+    expect(
+      screen.getByRole("alert", { name: "Urgent notifications" }).textContent,
+    ).toBe("");
   });
 });

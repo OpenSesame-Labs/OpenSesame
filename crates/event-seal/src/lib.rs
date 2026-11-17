@@ -208,10 +208,11 @@ impl EventSealer {
             return Err(unreadable());
         }
         let (nonce, ciphertext) = packed.split_at(NONCE_LEN);
+        let nonce: &XNonce = nonce.try_into().map_err(|_| unreadable())?;
         let plain = Zeroizing::new(
             self.cipher()
                 .decrypt(
-                    XNonce::from_slice(nonce),
+                    nonce,
                     Payload {
                         msg: ciphertext,
                         aad: column.as_bytes(),
@@ -231,11 +232,17 @@ impl EventSealer {
         if packed.len() < header_len + 16 {
             return Err(unreadable());
         }
+        let wrap_nonce: &XNonce = (&packed[..NONCE_LEN])
+            .try_into()
+            .map_err(|_| unreadable())?;
+        let data_nonce: &XNonce = (&packed[NONCE_LEN + WRAPPED_KEY_LEN..header_len])
+            .try_into()
+            .map_err(|_| unreadable())?;
         let aad = self.aad(column);
         let data_key = Zeroizing::new(
             self.wrapping_cipher(column)
                 .decrypt(
-                    XNonce::from_slice(&packed[..NONCE_LEN]),
+                    wrap_nonce,
                     Payload {
                         msg: &packed[NONCE_LEN..NONCE_LEN + WRAPPED_KEY_LEN],
                         aad: &aad,
@@ -247,7 +254,7 @@ impl EventSealer {
             XChaCha20Poly1305::new_from_slice(&data_key)
                 .map_err(|_| unreadable())?
                 .decrypt(
-                    XNonce::from_slice(&packed[NONCE_LEN + WRAPPED_KEY_LEN..header_len]),
+                    data_nonce,
                     Payload {
                         msg: &packed[header_len..],
                         aad: &aad,

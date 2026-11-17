@@ -140,7 +140,9 @@ describe("ToastStack", () => {
   it("dismisses on its key; the tray keeps the notice", () => {
     renderStack();
     arrive("Gone");
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss notification: Gone" }),
+    );
     expect(screen.queryByText("Gone")).toBeNull();
   });
 

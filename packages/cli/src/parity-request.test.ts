@@ -7,6 +7,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, parse, resolve } from "node:path";
 import { createLease } from "@opensesame/app-core/lib/password-agent/lease.js";
@@ -21,6 +22,8 @@ import {
   invokeOp,
   resolveCredentialHelper,
 } from "./parity-node.js";
+
+const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 const directories: string[] = [];
 afterEach(async () => {
   Reflect.deleteProperty(process.env, "OPENSESAME_STATE_DIR");
@@ -222,7 +225,7 @@ it("real concurrent processes atomically consume the SQLite budget once", async 
         process.execPath,
         [
           "--import",
-          resolve("node_modules/tsx/dist/loader.mjs"),
+          tsxLoader,
           resolve("src/fixtures/password-agent/lease-claim.ts"),
         ],
         { env: process.env, stdio: ["ignore", "pipe", "ignore"] },

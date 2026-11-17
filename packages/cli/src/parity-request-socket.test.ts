@@ -1,9 +1,12 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:https";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+
+const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 interface SocketResult {
   stdout: string;
   code: number;
@@ -18,7 +21,7 @@ async function socketChild(
       process.execPath,
       [
         "--import",
-        resolve("node_modules/tsx/dist/loader.mjs"),
+        tsxLoader,
         resolve("src/fixtures/password-agent/request-socket.ts"),
         String(port),
         String(maxBytes),

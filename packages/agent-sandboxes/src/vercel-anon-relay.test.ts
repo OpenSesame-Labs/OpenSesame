@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
   VercelAnonProvider,
   deployAnonymousVercelRelay,
 } from "./vercel-anon-relay.js";
+
+afterEach(() => vi.unstubAllGlobals());
 
 function fakeVercelApi() {
   const calls: string[] = [];
@@ -116,14 +118,14 @@ describe("anonymous Vercel relay deployment", () => {
     expect(body.env.RELAY_TOKEN).toBe(deployed.relayToken);
     await deployed.close();
     expect(
-      fake.calls.some(
-        (c) => c.startsWith("DELETE ") && c.includes("dpl_test"),
-      ),
+      fake.calls.some((c) => c.startsWith("DELETE ") && c.includes("dpl_test")),
     ).toBe(true);
   });
 
   it("provider allocates with provider id vercel and tears down on close", async () => {
     let closed = false;
+    const relayFetch = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", relayFetch);
     const provider = new VercelAnonProvider({
       deployRelay: async () => ({
         relayUrl: "https://relay.example.test/api",
@@ -139,5 +141,12 @@ describe("anonymous Vercel relay deployment", () => {
     expect(sandbox.provider).toBe("vercel");
     await sandbox.close();
     expect(closed).toBe(true);
+    expect(relayFetch).toHaveBeenCalledWith(
+      "https://relay.example.test/api/close",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ sessionId: sandbox.session }),
+      }),
+    );
   });
 });

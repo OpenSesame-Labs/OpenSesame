@@ -288,3 +288,13 @@ it("wipes owned inputs and sanitizes primitive errors", async () => {
   expect(ownedSalt).toEqual(new Uint8Array(salt.length));
   expect(salt).toEqual(before);
 });
+
+it("wipes the password buffer if importing key material fails", async () => {
+  const imported = vi
+    .spyOn(crypto.subtle, "importKey")
+    .mockRejectedValue(new Error(`primitive included ${password}`));
+  await expect(derive()).rejects.toThrow(/^Bitwarden key derivation failed\.$/);
+  expect(imported.mock.calls[0][1]).toEqual(
+    new Uint8Array(Buffer.byteLength(password)),
+  );
+});

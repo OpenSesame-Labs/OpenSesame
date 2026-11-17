@@ -105,9 +105,6 @@
     "apps/pages/src/lib/strip.ts": {
       "anti-slop/no-runtime-typeof": 2
     },
-    "apps/pages/src/modules/connectors.external/runtime.test.tsx": {
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
     "apps/pages/src/modules/identity.ceremonies/ApproveScreen.test.tsx": {
       "anti-slop/no-known-value-widening": 1
     },

@@ -101,15 +101,12 @@ it("is build-only and does not rewrite unrelated modules or alternate peer versi
   const plugin = started();
   expect(plugin.apply).toBe("build");
   expect(plugin.transform("unrelated", input.appPath)).toBeNull();
-  expect(
-    plugin.transform(
-      "unrelated",
-      input.clientPath.replace(
-        /@modelcontextprotocol\+sdk@[^/]+/,
-        "@modelcontextprotocol+sdk@1.30.0",
-      ),
-    ),
-  ).toBeNull();
+  const alternate = input.clientPath.replace(
+    "/node_modules/@modelcontextprotocol/sdk/",
+    "/node_modules/@modelcontextprotocol/sdk-alternate/",
+  );
+  expect(alternate).not.toBe(input.clientPath);
+  expect(plugin.transform("unrelated", alternate)).toBeNull();
   expect(plugin.transform("unrelated", `${input.clientPath}?other`)).toBeNull();
 });
 it("requires lifecycle initialization and exactly one actual client transform", () => {

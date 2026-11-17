@@ -203,11 +203,10 @@ export const SUPPORT_LIMITS = {
   // development the next time it is outgrown.
   maxCapabilities: 64,
   maxGoals: 40,
-  // 40, not 32: the gates' routes (ADR 0166), the vault's item and trash
-  // places and the Access, Connections and Identity tours' places took the
-  // authored set to 34. A route id is a few characters; raised deliberately,
-  // and `withinBudget` throws in development the next time it is outgrown.
-  maxRoutes: 40,
+  // The fully activated tutorial registry has 42 public route descriptions.
+  // Keep every authored destination available, with six places to grow;
+  // egress still validates and bounds every id and title.
+  maxRoutes: 48,
   maxHelpEntries: 6,
   maxHelpAnswerChars: 800,
   maxTools: 40,

@@ -6,13 +6,14 @@ import {
   loadGuidance,
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
-import {
-  type ToastMessage,
-  subscribeToastHides,
-  subscribeToasts,
-} from "@opensesame/app-core/lib/notice-toast.js";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
-import { act, cleanup, render } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupportController, SupportView } from "../session.js";
 import { SupportContext } from "../support-context.js";
@@ -31,9 +32,10 @@ const GATE = { holds: () => true };
 const originalGuidance = { ...guidanceSeams };
 const originalSeams = { ...firstVisitSeams };
 let stored: string | null = null;
-let shown: ToastMessage[] = [];
-let hidden: string[] = [];
-let stops: (() => void)[] = [];
+let seat: HTMLElement;
+const offered = () => within(seat).queryByRole("complementary");
+const choose = (name: string) =>
+  fireEvent.click(within(seat).getByRole("button", { name }));
 
 /** The runtime's snapshot while a tour for `goal` is on its first step. */
 function touring(goal: string): GuideRuntimeSnapshot {
@@ -78,8 +80,9 @@ const settle = () =>
 beforeEach(() => {
   vi.useFakeTimers();
   stored = null;
-  shown = [];
-  hidden = [];
+  seat = document.createElement("div");
+  seat.dataset.firstVisitOffer = "shell";
+  document.body.append(seat);
   guidanceSeams.read = () => stored;
   guidanceSeams.write = (value) => {
     stored = value;
@@ -91,14 +94,10 @@ beforeEach(() => {
   // Most of this suite is about the card, which is what `offer` draws.
   setGuidanceMode("offer");
   forgetSessionAnswers();
-  stops = [
-    subscribeToasts((toast) => shown.push(toast)),
-    subscribeToastHides((id) => hidden.push(id)),
-  ];
 });
 afterEach(() => {
   cleanup();
-  for (const stop of stops) stop();
+  seat.remove();
   Object.assign(guidanceSeams, originalGuidance);
   Object.assign(firstVisitSeams, originalSeams);
   vi.useRealTimers();
@@ -108,23 +107,21 @@ describe("the first-visit offer", () => {
   it("offers the screen's tour once it has stood a moment", () => {
     const { support } = controller();
     mount(support);
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     settle();
-    expect(shown).toHaveLength(1);
-    expect(shown[0]).toMatchObject({
-      id: "first-visit:settings.danger.review",
-      title: "Tour Settings: Danger",
-      sticky: true,
-      choice: { label: "Show me" },
-    });
-    expect(shown[0]?.body).toContain("New here?");
+    expect(offered()).not.toBeNull();
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Tour Settings: Danger walkthrough",
+    );
+    expect(offered()?.textContent).toContain("It only points");
+    expect(within(seat).getByRole("button", { name: "Show me" })).toBeTruthy();
   });
 
   it("starts the tour and remembers the answer", () => {
     const { support, started } = controller();
     mount(support);
     settle();
-    shown[0]?.choice?.run();
+    choose("Show me");
     expect(started).toHaveLength(1);
     expect(started[0]?.origin).toBe("authored");
     expect(started[0]?.source).toContain('goal "settings.danger.review"');
@@ -135,14 +132,13 @@ describe("the first-visit offer", () => {
     const first = controller();
     const view = mount(first.support);
     settle();
-    shown[0]?.onDismiss?.();
+    choose("Not now");
     expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
     view.unmount();
-    shown = [];
     forgetSessionAnswers();
     mount(controller().support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
   });
 
   it("offers a screen's next tour on a later session, not on the next visit", () => {
@@ -150,33 +146,37 @@ describe("the first-visit offer", () => {
     const security = () => stubSupportController("/settings/security");
     const first = mount(security().support);
     settle();
-    expect(shown[0]?.id).toBe("first-visit:settings.security.review");
-    shown[0]?.onDismiss?.();
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Review the security settings walkthrough",
+    );
+    choose("Not now");
     first.unmount();
-    shown = [];
     // The same session: the screen has had its answer.
     const again = mount(security().support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     again.unmount();
     // A later session: the next tour in line.
     forgetSessionAnswers();
     mount(security().support);
     settle();
-    expect(shown[0]?.id).toBe("first-visit:vault.recovery-codes");
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Save the recovery codes walkthrough",
+    );
   });
 
   it("offers again in the same session once the answers are forgotten", () => {
     const first = mount(controller().support);
     settle();
-    shown[0]?.onDismiss?.();
+    choose("Not now");
     first.unmount();
-    shown = [];
     // Settings › Guided tours › Offer again: no reload should be needed.
     forgetGuidanceAnswers();
     mount(controller().support);
     settle();
-    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Tour Settings: Danger walkthrough",
+    );
   });
 
   it("takes the card back when the person moves on", () => {
@@ -184,7 +184,7 @@ describe("the first-visit offer", () => {
     mount(support);
     settle();
     act(() => set({ route: "/settings/vaults" }));
-    expect(hidden).toContain("first-visit:settings.danger.review");
+    expect(offered()).toBeNull();
     // Nothing was answered, so the tour is still owed to that screen.
     expect(loadGuidance().tours).toEqual([]);
   });
@@ -193,7 +193,7 @@ describe("the first-visit offer", () => {
     const { support } = controller({ open: true });
     mount(support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
   });
 
   it("waits for a sheet that owns the screen, then speaks", () => {
@@ -201,13 +201,15 @@ describe("the first-visit offer", () => {
     firstVisitSeams.modalOpen = () => sheet;
     mount(controller().support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     // Closing the sheet changes nothing the offer depends on; it looks again.
     sheet = false;
     act(() => {
       vi.advanceTimersByTime(firstVisitSeams.retryMs + 5);
     });
-    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Tour Settings: Danger walkthrough",
+    );
   });
 
   it("never starts a tour over an open editor, and speaks once it closes", () => {
@@ -239,7 +241,7 @@ describe("the first-visit offer", () => {
     act(() => {
       vi.advanceTimersByTime(firstVisitSeams.retryMs * 3);
     });
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
   });
 
   it("does nothing when guidance is off", () => {
@@ -247,7 +249,7 @@ describe("the first-visit offer", () => {
     const { support, started } = controller();
     mount(support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     expect(started).toHaveLength(0);
   });
 
@@ -256,7 +258,7 @@ describe("the first-visit offer", () => {
     const { support, started } = controller();
     mount(support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     expect(started).toHaveLength(1);
     expect(started[0]?.origin).toBe("authored");
   });
@@ -269,7 +271,9 @@ describe("the first-visit offer", () => {
     settle();
     // A tour would dim the page the script is about to press.
     expect(started).toHaveLength(0);
-    expect(shown[0]?.id).toBe("first-visit:settings.danger.review");
+    expect(offered()?.getAttribute("aria-label")).toBe(
+      "Tour Settings: Danger walkthrough",
+    );
   });
 
   it("honours a chosen auto mode even in a driven browser", () => {
@@ -286,7 +290,7 @@ describe("the first-visit offer", () => {
     const { support, started, set, stops } = controller();
     mount(support);
     settle();
-    expect(shown).toHaveLength(0);
+    expect(offered()).toBeNull();
     expect(started).toHaveLength(1);
     // Asked for, not yet shown: the engine is still on its way.
     expect(loadGuidance().tours).toEqual([]);

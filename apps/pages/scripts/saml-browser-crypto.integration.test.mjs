@@ -21,6 +21,11 @@ import {
   resolveXmldsigjsPeerDependencies,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
+import {
+  omitSamlReflection,
+  pendingSamlRequest,
+  verifyInCleanRuntime,
+} from "./saml-browser-crypto.test-support.mjs";
 
 const root = existsSync(resolve(process.cwd(), "pnpm-workspace.yaml"))
   ? process.cwd()
@@ -109,21 +114,6 @@ async function compile(plugins, name, unowned = false) {
   writeFileSync(path, chunks[0].code);
   return { path, code: chunks[0].code, ids: Object.keys(chunks[0].modules) };
 }
-function pending() {
-  const now = Date.now();
-  return {
-    requestId: "_request",
-    issuedAt: now,
-    expiresAt: now + 60000,
-    issuer: "urn:adapter:idp",
-    audience: "urn:adapter:sp",
-    acsUrl: "https://app.example/callback",
-    nameIdFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
-    forceAuthentication: true,
-    authnContext:
-      "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
-  };
-}
 function sign(xml) {
   const signer = new IndependentSigner({
     privateKey,
@@ -209,6 +199,20 @@ afterAll(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 
+it("verifies signed SAML in a fresh runtime and detects a missing Reflect initializer", async () => {
+  verifyInCleanRuntime(root, optimized.path, signed, spki);
+  const faulty = await compile(
+    [
+      omitSamlReflection(input.replacements.get(input.certificate)),
+      samlBrowserCrypto(root),
+    ],
+    "no-reflect",
+  );
+  expect(() => verifyInCleanRuntime(root, faulty.path, signed, spki)).toThrow(
+    "tsyringe requires a reflect polyfill",
+  );
+});
+
 it("retains the official XML verifier/canonicalizer with one existing certificate parser and no PKIjs", () => {
   expect(
     included.some((id) => id.endsWith("/xmldsigjs/build/signed_xml.js")),
@@ -255,7 +259,7 @@ it("uses the same actual transformed certificate implementation for IdP metadata
   expect(result.postUrl).toBe("https://idp.example/sso");
 });
 it("signs an SP request with the real transformed SDK and passes independent XMLDSIG verification", async () => {
-  const request = pending();
+  const request = pendingSamlRequest();
   const parsed = await api.readSamlIdpMetadata(
     metadata(),
     "urn:adapter:idp",
@@ -332,7 +336,7 @@ it("rejects malformed metadata certificates and a mismatched SP signing key", as
     owner(),
   );
   await expect(
-    api.createSamlAuthnPost(pending(), parsed, owner(), {
+    api.createSamlAuthnPost(pendingSamlRequest(), parsed, owner(), {
       privateKeyPkcs8: wrong,
       certificate,
     }),

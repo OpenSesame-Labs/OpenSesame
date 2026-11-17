@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "behaviors": [
+    {
+      "id": "connector-mode-choice",
+      "claim": "A locked or unavailable connector mode cannot change the selected method; an available unlocked selection takes effect.",
+      "implementation": [
+        "apps/pages/src/sections/connections/connect/ConnectorModes.tsx"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/ConnectorModes.tla",
+          "config": "spec/ui-behavior/ConnectorModes.cfg",
+          "invariants": [
+            "TypeOK",
+            "BlockedSelectionDoesNotChange",
+            "AllowedSelectionTakesEffect"
+          ],
+          "scope": "TLC checks the finite abstract selection and lock model."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/sections/connections/connect/ConnectorModes.test.tsx",
+          "scope": "Generated interactions exercise the React control."
+        },
+        {
+          "kind": "browser-test",
+          "path": "apps/pages/test/ui-properties/connector-modes.ts",
+          "scope": "Bombadil explores the real control in an isolated browser fixture."
+        }
+      ],
+      "limits": "The model does not prove the React implementation, provider credentials, remote configuration, focus, or layout."
+    },
+    {
+      "id": "github-local-backup-lifecycle",
+      "claim": "Default creation is off, missing bindings are off, and changing the saved binding clears its prior sync confirmation.",
+      "implementation": [
+        "packages/app-core/src/lib/backup.ts",
+        "packages/app-core/src/lib/backup-target-local.ts",
+        "apps/pages/src/sections/connections/BackupEnableSwitch.tsx"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/GitHubConnection.tla",
+          "config": "spec/ui-behavior/GitHubConnection.cfg",
+          "invariants": [
+            "TypeOK",
+            "MissingBindingIsOff",
+            "DefaultCreationIsOff",
+            "DefaultEditPreservesEnabled",
+            "ChangedBindingClearsConfirmation",
+            "SameBindingPreservesConfirmation"
+          ],
+          "scope": "TLC checks an abstraction of local target configuration and recorded confirmation."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/lib/github-connection-lifecycle.property.test.ts",
+          "scope": "Generated sequences exercise the local backup API with remote synchronization mocked."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/sections/connections/BackupEnableSwitch.lifecycle.property.test.tsx",
+          "scope": "Generated sequences exercise the rendered switch and the local backup API."
+        }
+      ],
+      "limits": "An explicit API caller can create an enabled target. Local confirmation is not proof of working GitHub credentials or a remote backup; the model and tests do not prove the production implementation."
+    },
+    {
+      "id": "capability-switch-request",
+      "claim": "A disabled controlled capability switch makes no request; a caller may accept or reject an enabled request.",
+      "implementation": [
+        "apps/pages/src/sections/settings/CapabilitySwitch.tsx"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/SharedControl.tla",
+          "config": "spec/ui-behavior/SharedControl.cfg",
+          "invariants": [
+            "TypeOK",
+            "DisabledDoesNotRequest",
+            "RejectedDoesNotChange",
+            "AcceptedRequestToggles"
+          ],
+          "scope": "TLC checks a controlled-switch abstraction."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/sections/settings/CapabilitySwitch.behavior.test.tsx",
+          "scope": "Generated interactions and keyboard tests exercise the React control."
+        },
+        {
+          "kind": "browser-test",
+          "path": "apps/pages/test/ui-properties/capability-switch.ts",
+          "scope": "Bombadil explores the real controlled switch in an isolated fixture, including accepted, rejected, and disabled pointer attempts."
+        }
+      ],
+      "limits": "The model does not prove the React implementation, authorization, asynchronous effects, or persistence. SDK agent discovery is tested only in isolation."
+    },
+    {
+      "id": "support-route-context",
+      "claim": "Recognizing the GitHub setup screen before its optional contribution loads does not navigate away or make it a guide destination.",
+      "implementation": ["apps/pages/src/tutorial/use-support-route.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/TutorialRoute.tla",
+          "config": "spec/ui-behavior/TutorialRoute.cfg",
+          "invariants": [
+            "TypeOK",
+            "ContextChangesDoNotNavigate",
+            "GitHubContextSurvivesLateLoading",
+            "UnrelatedSiblingDoesNotInheritGitHubContext",
+            "LateContributionIsReflected",
+            "GateOverrideWins"
+          ],
+          "scope": "TLC checks route context and navigation after React effects settle."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/tutorial/tutorial-route.property.test.tsx",
+          "scope": "Generated sequences exercise the React route-sync hook and route registry."
+        }
+      ],
+      "limits": "The model abstracts asynchronous effects and does not prove React, the guide compiler, or all application routes."
+    },
+    {
+      "id": "unlock-retired-attempt",
+      "claim": "An unlock attempt retired by lock, cancellation or a scope change must not publish a late lease into the current session.",
+      "implementation": [
+        "packages/app-core/src/lib/vault/store-unlock-session.ts",
+        "packages/app-core/src/lib/vault/protection/session-guard.ts",
+        "packages/app-core/src/lib/vault/store-operation-check.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/VaultInteraction.tla",
+          "config": "spec/ui-behavior/VaultInteraction.cfg",
+          "invariants": [
+            "TypeOK",
+            "OnlyCurrentCanPublish",
+            "RetiredResolvedLeasesRequestRelease",
+            "LateCompletionPreservesNewSession",
+            "CurrentNeverRetired"
+          ],
+          "scope": "TLC checks a bounded attempt, lease and scope model."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/lib/vault/vault-interaction.property.test.ts",
+          "scope": "Generated sequences exercise the session and generation guards with a controlled in-memory host."
+        }
+      ],
+      "limits": "The model is bounded, assumes release requests are modeled events, and the test uses a mocked host; neither proves external release success, the whole implementation, vault cryptography, or end-to-end platform behavior."
+    },
+    {
+      "id": "legacy-pkce-pending-correlation",
+      "claim": "Only a matching, unexpired legacy pending sign-in is returned and consumed; mismatches preserve a live record, conflicting storage lanes and corrupt or stale records fail closed, and logout clears both slots.",
+      "implementation": [
+        "packages/app-core/src/lib/federation-pending.ts",
+        "packages/app-core/src/lib/federation-pkce-pending-slot.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/LegacyPkcePending.tla",
+          "config": "spec/auth-verification/LegacyPkcePending.cfg",
+          "invariants": [
+            "TypeOK",
+            "AcceptedMatchesAndConsumes",
+            "UnmatchedDoesNotConsume",
+            "ConflictingStoresAreRejected",
+            "StaleOrCorruptCannotBeAccepted",
+            "LogoutClearsSlots"
+          ],
+          "scope": "TLC checks two abstract state values, two storage lanes and nondeterministic expiration under atomic slot operations."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/lib/federation-pending.property.test.ts",
+          "scope": "Generated sequences exercise the real pending-slot functions with in-memory storage and a controlled monotonic clock."
+        }
+      ],
+      "limits": "The model and tests do not prove TypeScript refinement, browser storage atomicity across contexts, entropy, PKCE, token verification, the full sign-in flow, or any authentication standard."
+    },
+    {
+      "id": "cookie-origin-admission",
+      "claim": "The modeled cookie-origin policy admits safe methods or a trusted origin and denies an unsafe request without one.",
+      "implementation": ["packages/control-plane/src/middleware/auth.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/AuthAdmission.lean",
+          "scope": "Lean checks the abstract cookie-origin decision against the stated policy."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/auth-admission.properties.test.ts",
+          "scope": "Finite Lean-generated decision vectors and generated origins exercise the real admission function."
+        }
+      ],
+      "limits": "This is not a proof of TypeScript, URL parsing, browser cookie enforcement, or a complete authentication protocol. The model abstracts request-method and origin parsing."
+    },
+    {
+      "id": "provisional-session-admission",
+      "claim": "The modeled provisional session requires a mapped, present, unexpired and unrevoked session and an eligible principal.",
+      "implementation": ["packages/control-plane/src/middleware/auth.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/AuthAdmission.lean",
+          "scope": "Lean checks an abstract session decision against the stated policy, including expiry and revocation."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/auth-admission.properties.test.ts",
+          "scope": "Finite Lean-generated decision vectors and generated clocks exercise the real resolver with controlled stores."
+        }
+      ],
+      "limits": "The proof is of the Lean model and assumes principal states from the domain enum. It does not prove the TypeScript resolver, runtime validation of stored records, persistent store consistency, concurrent revocation, clock integrity, or the whole authentication system."
+    },
+    {
+      "id": "configured-oidc-response-admission",
+      "claim": "The modeled OIDC transaction consumes the first completion attempt and permits exchange only for a live original request with matching state, no error and a bounded code.",
+      "implementation": ["packages/app-core/src/browser/oidc/transaction.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/AuthAdmission.lean",
+          "scope": "Lean checks the abstract response predicate and replay behavior."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/browser/oidc/transaction.auth-proof.properties.test.ts",
+          "scope": "Lean-generated finite response vectors and generated invalid cases exercise the real configured OIDC transaction with a controlled transport."
+        }
+      ],
+      "limits": "Neither the model nor finite conformance tests prove the TypeScript implementation, OAuth or OIDC conformance, token signatures, issuer, audience, nonce, PKCE, or an external identity provider."
+    },
+    {
+      "id": "authorization-request-lifecycle",
+      "claim": "A fresh authorization request can settle or be withdrawn only before its deadline; terminal decisions do not reopen, bound fields remain unchanged and each successful transition advances its version once.",
+      "implementation": [
+        "packages/os-domain/src/machines/authorization-request.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/AuthorizationRequest.tla",
+          "config": "spec/auth-verification/AuthorizationRequest.cfg",
+          "invariants": [
+            "TypeOK",
+            "TerminalNeverChanges",
+            "RejectedNeverChanges",
+            "BoundFieldsPreserved",
+            "VersionAdvancesOnce",
+            "NoLateDecision",
+            "DecisionMatchesInput",
+            "WithdrawalNamesNoDecider",
+            "ExpiryHasNoDecision",
+            "ApprovalComesFromDecision"
+          ],
+          "scope": "TLC checks a finite lifecycle model over three deadline positions, several bindings and supplied decision actors."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/os-domain/src/__tests__/authorization-request-finite.test.ts",
+          "scope": "Exhaustive finite input and transition cases exercise the real domain machine, including 5,040 operations."
+        }
+      ],
+      "limits": "The model assumes valid dates, clean initial decision metadata and no external mutation. It does not prove the TypeScript implementation, authorize the decider, establish executor digest comparison or model concurrent persistence."
+    },
+    {
+      "id": "first-visit-offer-placement",
+      "claim": "A first-visit offer uses the current screen or in-flow shell/gate seat, waits for a late seat, and does not interrupt a gate with a background shell offer.",
+      "implementation": [
+        "apps/pages/src/tutorial/first-visit/FirstVisitOffer.tsx",
+        "apps/pages/src/tutorial/first-visit/FirstVisitInlineOffer.tsx",
+        "apps/pages/src/tutorial/gate-seat.tsx",
+        "apps/pages/src/sections/connections/GithubWalkthroughSeat.tsx"
+      ],
+      "evidence": [
+        {
+          "kind": "example-test",
+          "path": "apps/pages/src/tutorial/first-visit/FirstVisitOffer.placement.test.tsx",
+          "scope": "Focused component cases exercise seat priority, late mounting, route changes, gate coexistence and focus."
+        }
+      ],
+      "limits": "These examples and browser observations do not prove all screen layouts, asynchronous interleavings, assistive technologies or the full guidance implementation."
+    },
+    {
+      "id": "transient-toast-reading",
+      "claim": "A transient notification stays visible and its remaining time is held while the pointer or keyboard focus is inside it; it may be dismissed explicitly.",
+      "implementation": [
+        "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/use-toast-reading.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/ToastReading.tla",
+          "config": "spec/ui-behavior/ToastReading.cfg",
+          "invariants": [
+            "TypeOK",
+            "ReadingHoldsTime",
+            "PointerLeaveKeepsFocused",
+            "FocusLeaveKeepsHovered",
+            "TimeDecreasesOnlyWhenIdle",
+            "DisappearanceHasCause",
+            "DismissCloses"
+          ],
+          "scope": "TLC checks a bounded notification lifetime with independent pointer and keyboard reading states."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/components/ToastStack.reading.test.tsx",
+          "scope": "Generated interaction sequences exercise the real component and its timer with controlled time."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/components/ToastStack.offer.test.tsx",
+          "scope": "Generated arrival sequences exercise the two-echo bound, reading protection and stable order; examples exercise the component."
+        },
+        {
+          "kind": "example-test",
+          "path": "spec/ui-behavior/toast-model-fault.test.mjs",
+          "scope": "TLC must find the deliberate fault that resumes the timer while only one input is reading."
+        }
+      ],
+      "limits": "The model abstracts a single toast, timer ticks and browser event delivery. It does not prove the React implementation, screen-reader announcements, layout, tray retention or liveness."
+    },
+    {
+      "id": "saml-xml-verifier-bootstrap",
+      "claim": "The browser SAML certificate adapter initializes its required Reflect support and can verify an independently signed response in a fresh runtime.",
+      "implementation": [
+        "packages/app-core/src/browser/saml/xml-crypto-certificate.ts",
+        "packages/app-core/src/browser/saml/xml-signature.ts",
+        "apps/pages/scripts/saml-browser-crypto.mjs"
+      ],
+      "evidence": [
+        {
+          "kind": "example-test",
+          "path": "apps/pages/scripts/saml-browser-crypto.integration.test.mjs",
+          "scope": "A compiled adapter verifies a real synthetic signature in a fresh Node/jsdom process; a build that removes the initializer must fail."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/browser/saml/assertion.test.ts",
+          "scope": "Signed positive and negative assertions exercise the SAML admission implementation."
+        }
+      ],
+      "limits": "These are implementation tests, not a formal model, a proof of SAML standards conformance or cryptographic security, or a real identity-provider and browser interoperability test."
+    },
+    {
+      "id": "gate-notification-attention",
+      "claim": "A gate presents pending errors and claim notices in flow without a duplicate echo, retains notice history, and preserves a card being read when a newer notice arrives.",
+      "implementation": [
+        "apps/pages/src/components/NoticeCorner.tsx",
+        "apps/pages/src/components/Notices.tsx",
+        "apps/pages/src/components/StatusNoticeCard.tsx",
+        "apps/pages/src/components/ToastStack.tsx"
+      ],
+      "evidence": [
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/components/NoticeCorner.behavior.test.tsx",
+          "scope": "Generated notice orders and focused component cases exercise gate presentation, focus and tray retention."
+        }
+      ],
+      "limits": "These tests do not prove the implementation, browser or assistive-technology behavior, all layouts or all notice delivery paths. Other transient toasts may still overlay content temporarily."
+    },
+    {
+      "id": "recommendation-in-flow",
+      "claim": "Persistent recommendation previews preserve unanswered notices, show their explanations before an action, and do not cover the current task or guidance.",
+      "implementation": [
+        "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/InlineRecommendations.tsx",
+        "apps/pages/src/components/Recommender.tsx",
+        "packages/app-core/src/lib/notice-toast.ts",
+        "packages/app-core/src/lib/recommendations.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/components/InlineRecommendations.behavior.test.tsx",
+          "scope": "Generated arrival sequences and focused component cases exercise notice retention, review, gate deferral and focus."
+        }
+      ],
+      "limits": "This is implementation testing and browser observation, not a formal proof of every notification, device layout or interleaving."
+    }
+  ]
+}

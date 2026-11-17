@@ -1,4 +1,5 @@
 /** Independent XML signer and verified TLS oracle; receiver/popup remain explicit unit ports. */
+import "reflect-metadata";
 import { execFileSync } from "node:child_process";
 import { X509Certificate, generateKeyPairSync } from "node:crypto";
 import { once } from "node:events";
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { kvSeams } from "../../lib/kv.js";
 import { tlsFetch } from "../../lib/native-s3-backup.test-support.js";
 import * as receiver from "./post-session.js";
+
 const A = "urn:oasis:names:tc:SAML:2.0:assertion";
 const P = "urn:oasis:names:tc:SAML:2.0:protocol";
 export const FORMAT = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent";

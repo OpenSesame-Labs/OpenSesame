@@ -9,8 +9,7 @@ use std::time::Duration as StdDuration;
 
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,
-    Issuer, KeyPair, KeyUsagePurpose, PublicKeyData, SanType, SerialNumber,
-    PKCS_ECDSA_P256_SHA256,
+    Issuer, KeyPair, KeyUsagePurpose, PublicKeyData, SanType, SerialNumber, PKCS_ECDSA_P256_SHA256,
 };
 use serde::{Deserialize, Serialize};
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
