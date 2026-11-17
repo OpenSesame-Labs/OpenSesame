@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type JsonObject, overlapCast } from "@opensesame/os-domain";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
@@ -47,7 +47,11 @@ export interface ScimUserStore {
    */
   findBySubject(orgId: string, subject: string): Promise<ScimUserRecord | null>;
   update(user: ScimUserRecord): Promise<ScimUserRecord>;
-  listByOrganization(orgId: string): Promise<ScimUserRecord[]>;
+  countByOrganization(orgId: string): Promise<number>;
+  listByOrganization(
+    orgId: string,
+    page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]>;
 }
 
 /**
@@ -162,10 +166,17 @@ export function createMemoryScimStores(): ScimStores {
         return cloneScimUser(row);
       },
 
-      async listByOrganization(orgId) {
-        return ofOrg(orgId)
+      async countByOrganization(orgId) {
+        return ofOrg(orgId).length;
+      },
+
+      async listByOrganization(orgId, page) {
+        const ordered = ofOrg(orgId)
           .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
           .map(cloneScimUser);
+        return page
+          ? ordered.slice(page.offset, page.offset + page.limit)
+          : ordered;
       },
     },
 
@@ -331,12 +342,23 @@ export function createPostgresScimStores(db: Database): ScimStores {
         }
       },
 
-      async listByOrganization(orgId) {
-        const rows = await db
+      async countByOrganization(orgId) {
+        const [row] = await db
+          .select({ value: count() })
+          .from(schema.scimUsers)
+          .where(eq(schema.scimUsers.organizationId, orgId));
+        return Number(row?.value ?? 0);
+      },
+
+      async listByOrganization(orgId, page) {
+        const base = db
           .select()
           .from(schema.scimUsers)
           .where(eq(schema.scimUsers.organizationId, orgId))
           .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id));
+        const rows = page
+          ? await base.limit(page.limit).offset(page.offset)
+          : await base;
         return rows.map(mapScimUser);
       },
     },

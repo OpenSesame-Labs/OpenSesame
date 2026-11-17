@@ -84,6 +84,15 @@ const NEVER_STORED = new Set(["password", "schemas", "meta", "id"]);
 
 const MAX_USER_NAME_LENGTH = 320;
 const MAX_DISPLAY_LENGTH = 512;
+const MAX_SCIM_USERS_PER_ORG = 10_000;
+const DEFAULT_SCIM_PAGE_SIZE = 100;
+const MAX_SCIM_PAGE_SIZE = 200;
+
+function scimPositiveInteger(value: string | undefined): number | undefined {
+  if (value === undefined || !/^[1-9][0-9]*$/u.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
 
 function scimTokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -347,42 +356,56 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if (!userName) {
       return scimError(c, 400, "userName is required.", "invalidValue");
     }
-    if (await ctx.stores.scim.users.findByUserName(organization.id, userName)) {
-      return scimError(
-        c,
-        409,
-        "A user with that userName already exists.",
-        "uniqueness",
-      );
-    }
-
     const now = ctx.clock();
     const externalId = boundedScimString(body.externalId, MAX_USER_NAME_LENGTH);
     const displayName = boundedScimString(body.displayName, MAX_DISPLAY_LENGTH);
-    let created: ScimUserRecord;
-    try {
-      created = await ctx.stores.scim.users.create({
-        id: randomUUID(),
-        organizationId: organization.id,
-        userName,
-        active: asActive(body.active) ?? true,
-        raw: sanitizeRaw(body),
-        createdAt: now,
-        updatedAt: now,
-        ...(externalId !== undefined ? { externalId } : undefined),
-        ...(displayName !== undefined ? { displayName } : undefined),
-      });
-    } catch (error) {
-      if (error instanceof ConflictError) {
-        return scimError(
-          c,
-          409,
-          "A user with that userName already exists.",
-          "uniqueness",
-        );
-      }
-      throw error;
+    const result = await serializeKeyed(
+      ctx.stores.principalMutations,
+      `scim-capacity:${organization.id}`,
+      async () => {
+        if (
+          await ctx.stores.scim.users.findByUserName(organization.id, userName)
+        ) {
+          return { error: "duplicate" as const };
+        }
+        if (
+          (await ctx.stores.scim.users.countByOrganization(organization.id)) >=
+          MAX_SCIM_USERS_PER_ORG
+        ) {
+          return { error: "capacity" as const };
+        }
+        try {
+          return {
+            created: await ctx.stores.scim.users.create({
+              id: randomUUID(),
+              organizationId: organization.id,
+              userName,
+              active: asActive(body.active) ?? true,
+              raw: sanitizeRaw(body),
+              createdAt: now,
+              updatedAt: now,
+              ...(externalId !== undefined ? { externalId } : undefined),
+              ...(displayName !== undefined ? { displayName } : undefined),
+            }),
+          };
+        } catch (error) {
+          if (error instanceof ConflictError)
+            return { error: "duplicate" as const };
+          throw error;
+        }
+      },
+    );
+    if ("error" in result) {
+      return result.error === "capacity"
+        ? scimError(c, 409, "Organization SCIM user capacity reached.")
+        : scimError(
+            c,
+            409,
+            "A user with that userName already exists.",
+            "uniqueness",
+          );
     }
+    const created = result.created;
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.scim_user_provisioned",
       outcome: "succeeded",
@@ -408,9 +431,35 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
 
     const filter = c.req.query("filter");
     let resources: ScimUserRecord[];
+    let totalResults: number;
+    let startIndex = 1;
     if (filter === undefined || filter.trim() === "") {
+      const rawStart = c.req.query("startIndex");
+      const rawCount = c.req.query("count");
+      const parsedStart = scimPositiveInteger(rawStart);
+      const parsedCount = scimPositiveInteger(rawCount);
+      if (
+        (rawStart !== undefined && parsedStart === undefined) ||
+        (rawCount !== undefined && parsedCount === undefined)
+      ) {
+        return scimError(
+          c,
+          400,
+          "startIndex and count must be positive integers.",
+          "invalidValue",
+        );
+      }
+      startIndex = parsedStart ?? 1;
+      const pageSize = Math.min(
+        parsedCount ?? DEFAULT_SCIM_PAGE_SIZE,
+        MAX_SCIM_PAGE_SIZE,
+      );
+      totalResults = await ctx.stores.scim.users.countByOrganization(
+        organization.id,
+      );
       resources = await ctx.stores.scim.users.listByOrganization(
         organization.id,
+        { offset: startIndex - 1, limit: pageSize },
       );
     } else {
       const userName = userNameFilter(filter);
@@ -427,12 +476,13 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         userName,
       );
       resources = found ? [found] : [];
+      totalResults = resources.length;
     }
 
     return scimBody(c, 200, {
       schemas: [LIST_SCHEMA],
-      totalResults: resources.length,
-      startIndex: 1,
+      totalResults,
+      startIndex,
       itemsPerPage: resources.length,
       Resources: resources.map((user) => userResource(ctx, user)),
     });

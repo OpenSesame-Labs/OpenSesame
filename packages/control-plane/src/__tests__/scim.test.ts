@@ -4,7 +4,7 @@ import {
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import {
   SCIM_TOKEN_PREFIX,
@@ -13,6 +13,7 @@ import {
 } from "../routes/scim.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import { seedTenantWithIssuer } from "./scim-test-helpers.js";
+
 /**
  * SCIM 2.0 provisioning, end to end (C15, D11).
  *
@@ -479,6 +480,54 @@ describe("SCIM Users surface", () => {
       headers: scimHeaders(token),
     });
     expect(unknown.status).toBe(404);
+  });
+
+  it("bounds directory pages and refuses durable growth at the tenant cap", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const { owner, org } = await seedTenant(app, ctx, "bounded-users-org");
+    const { token } = await mintScimToken(app, org.id, owner.accessToken);
+    for (const userName of [
+      "a@example.test",
+      "b@example.test",
+      "c@example.test",
+    ]) {
+      expect(
+        (await provisionUser(app, org.id, token, { userName })).status,
+      ).toBe(201);
+    }
+
+    const page = await app.request(
+      `${usersPath(org.id)}?startIndex=2&count=2`,
+      { headers: scimHeaders(token) },
+    );
+    expect(page.status).toBe(200);
+    expect(overlapCast(await page.json())).toMatchObject({
+      totalResults: 3,
+      startIndex: 2,
+      itemsPerPage: 2,
+      Resources: [
+        { userName: "b@example.test" },
+        { userName: "c@example.test" },
+      ],
+    });
+    expect(
+      (
+        await app.request(`${usersPath(org.id)}?count=0`, {
+          headers: scimHeaders(token),
+        })
+      ).status,
+    ).toBe(400);
+
+    vi.spyOn(ctx.stores.scim.users, "countByOrganization").mockResolvedValue(
+      10_000,
+    );
+    const create = vi.spyOn(ctx.stores.scim.users, "create");
+    const refused = await provisionUser(app, org.id, token, {
+      userName: "overflow@example.test",
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.body.detail).toContain("capacity");
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("reads Entra's stringly-typed active flag", async () => {
