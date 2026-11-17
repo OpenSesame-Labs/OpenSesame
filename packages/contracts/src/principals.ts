@@ -90,6 +90,7 @@ export const LinkIdentityResponseSchema = z.object({
    * the identity belongs to, and the client must adopt this token.
    */
   accessToken: z.string().optional(),
+  sessionId: z.string().optional(),
   expiresAt: z.string().optional(),
 });
 export type LinkIdentityResponse = z.infer<typeof LinkIdentityResponseSchema>;
