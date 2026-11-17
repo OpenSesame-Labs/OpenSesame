@@ -100,7 +100,8 @@ async function prepareWithdrawal(
     const same =
       current.withdrawal.kind === request.kind &&
       current.withdrawal.actorType === input.actorType &&
-      (request.kind !== "remove" || current.withdrawal.reason === input.reason) &&
+      (request.kind !== "remove" ||
+        current.withdrawal.reason === input.reason) &&
       (request.kind !== "change_role" ||
         (current.withdrawal.kind === "change_role" &&
           current.withdrawal.role === request.role));
@@ -127,13 +128,14 @@ async function prepareWithdrawal(
   ) {
     // Withdrawing owners cannot authorize work and may soon disappear. Count
     // only owners that will remain after all already-prepared changes finish.
+    // Legacy incarnations are scoped by principal and can be shared by owners.
     const remaining = (
       await store.listVersionedByOrganization(input.organizationId)
     ).filter(
       (candidate) =>
         candidate.membership.role === "owner" &&
         !candidate.withdrawalId &&
-        candidate.incarnation !== current.incarnation,
+        candidate.membership.principalId !== current.membership.principalId,
     );
     if (remaining.length === 0) return { status: "last_owner" };
   }
@@ -144,9 +146,14 @@ async function prepareWithdrawal(
     actorType: input.actorType,
     correlationId: input.correlationId,
   };
-  const withdrawal: OrganizationMembershipWithdrawal = request.kind === "remove"
-    ? { ...details, kind: "remove", ...(input.reason ? { reason: input.reason } : {}) }
-    : { ...details, kind: "change_role", role: request.role };
+  const withdrawal: OrganizationMembershipWithdrawal =
+    request.kind === "remove"
+      ? {
+          ...details,
+          kind: "remove",
+          ...(input.reason ? { reason: input.reason } : {}),
+        }
+      : { ...details, kind: "change_role", role: request.role };
   if (
     !(await store.beginWithdrawal(
       input.organizationId,
@@ -378,7 +385,8 @@ export async function finishOrganizationWithdrawal(
 export async function resumePendingOrganizationWithdrawals(
   ctx: AppContext,
 ): Promise<boolean> {
-  const pending = await ctx.stores.organizationMemberships.listPendingWithdrawals();
+  const pending =
+    await ctx.stores.organizationMemberships.listPendingWithdrawals();
   let next = 0;
   let retry = false;
   const worker = async () => {
@@ -386,13 +394,18 @@ export async function resumePendingOrganizationWithdrawals(
       const item = pending[next++];
       if (!item) return;
       try {
-        if ((await finishOrganizationWithdrawal(ctx, item)).status === "pending") retry = true;
+        if (
+          (await finishOrganizationWithdrawal(ctx, item)).status === "pending"
+        )
+          retry = true;
       } catch {
         retry = true;
         ctx.log.warn("Organization withdrawal recovery failed; will retry");
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(4, pending.length) }, worker));
+  await Promise.all(
+    Array.from({ length: Math.min(4, pending.length) }, worker),
+  );
   return retry;
 }

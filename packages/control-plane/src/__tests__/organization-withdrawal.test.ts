@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { MemoryOrganizationMembershipStore } from "@opensesame/database";
 import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
@@ -22,7 +23,7 @@ afterEach(() => vi.restoreAllMocks());
 
 async function fixture() {
   const plane = createControlPlane({ config: testConfig() });
-  const { app, ctx } = plane;
+  const { app } = plane;
   await plane.withdrawalRecovery.firstPass;
   const owner = await verified(app, "withdrawal-owner");
   const member = await provisional(app);
@@ -202,6 +203,53 @@ it("keeps local sessions fenced through ambiguous Host failures and retries the 
     ),
   ).toHaveLength(1);
   await f.withdrawalRecovery.stop();
+});
+
+it("counts another owner even when legacy membership incarnations match", async () => {
+  const f = await fixture();
+  try {
+    await f.ctx.stores.organizationMemberships.upsert({
+      organizationId: f.org.id,
+      principalId: f.member.principalId,
+      role: "owner",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const member = await f.ctx.stores.organizationMemberships.findVersioned(
+      f.org.id,
+      f.member.principalId,
+    );
+    if (!member) throw new Error("Expected owner membership");
+    const list =
+      MemoryOrganizationMembershipStore.prototype.listVersionedByOrganization;
+    vi.spyOn(
+      MemoryOrganizationMembershipStore.prototype,
+      "listVersionedByOrganization",
+    ).mockImplementation(function (organizationId) {
+      return list.call(this, organizationId).map((row) => ({
+        ...row,
+        incarnation: member.incarnation,
+      }));
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ ok: true }),
+    );
+    expect((await f.patch("member")).status).toBe(200);
+    const lastOwner = await f.app.request(
+      `/v1/organizations/${f.org.id}/members/${f.owner.principalId}`,
+      {
+        method: "PATCH",
+        headers: {
+          ...auth(f.owner.accessToken),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ role: "member" }),
+      },
+    );
+    expect(lastOwner.status).toBe(409);
+  } finally {
+    await f.withdrawalRecovery.stop();
+  }
 });
 
 it("does not count a withdrawing owner as the last available owner", async () => {
