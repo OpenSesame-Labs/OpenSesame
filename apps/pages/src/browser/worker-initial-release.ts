@@ -22,7 +22,7 @@ function entryScope(pageModuleUrl: string, scopeUrl: string): URL | null {
     entry.hash ||
     scope.search ||
     scope.hash ||
-    !/^assets\/main-[A-Za-z0-9_-]{8,64}\.js$/.test(
+    !/^assets\/(?:main|pages)-[A-Za-z0-9_-]{8,64}\.js$/.test(
       entry.href.slice(scope.href.length),
     )
   )

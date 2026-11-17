@@ -6,6 +6,7 @@ import { createInitialWorkerReleaseProof } from "./worker-initial-release.js";
 
 const SCOPE = "https://example.test/OpenSesame/";
 const ENTRY = `${SCOPE}assets/main-AbCd1234.js`;
+const SPLIT_ENTRY = `${SCOPE}assets/pages-EfGh5678.js`;
 const channels: MessageChannel[] = [];
 const peers: MessagePort[] = [];
 const requests: JsonObject[] = [];
@@ -59,13 +60,13 @@ function response(message: JsonObject): JsonObject {
     releaseId: "rel-1",
     variant: "core-only",
     scopePath: "/OpenSesame/",
-    pageModuleUrl: ENTRY,
+    pageModuleUrl: message.pageModuleUrl,
     proofNonce: message.proofNonce,
   };
 }
 
-function proof() {
-  const value = createInitialWorkerReleaseProof(ENTRY, SCOPE);
+function proof(entry = ENTRY) {
+  const value = createInitialWorkerReleaseProof(entry, SCOPE);
   if (!value) throw Error("Expected eligible initial entry");
   return value;
 }
@@ -97,6 +98,16 @@ describe("initial executing-entry private port proof", () => {
     }
     expect(requests[0]?.proofNonce).not.toBe(requests[1]?.proofNonce);
     expect(closed).toHaveBeenCalledTimes(4);
+  });
+
+  it("accepts the executing bootstrap chunk when the HTML entry is split", async () => {
+    const original = worker((message, port) =>
+      port.postMessage(response(message)),
+    );
+    expect(
+      await proof(SPLIT_ENTRY)(original, new AbortController().signal),
+    ).toBe("rel-1");
+    expect(requests[0]?.pageModuleUrl).toBe(SPLIT_ENTRY);
   });
 
   it.each([
@@ -187,12 +198,9 @@ describe("initial executing-entry private port proof", () => {
     `${SCOPE}assets/main-AbCd1234.js?latest=1`,
     "https://other.test/OpenSesame/assets/main-AbCd1234.js",
     "https://example.test/other/assets/main-AbCd1234.js",
-  ])(
-    "refuses an entry outside the actual immutable main contract %s",
-    (url) => {
-      expect(createInitialWorkerReleaseProof(url, SCOPE)).toBeNull();
-    },
-  );
+  ])("refuses an entry outside the immutable bootstrap contract %s", (url) => {
+    expect(createInitialWorkerReleaseProof(url, SCOPE)).toBeNull();
+  });
 
   it("refuses a foreign claiming worker without opening any port", async () => {
     expect(

@@ -197,8 +197,8 @@ PLAYWRIGHT_CHROMIUM=<chromium-binary> \
 # Run after changing the Pages boot path, opening state, or front-door copy.
 # Exercises the built dist/ with JavaScript disabled or delayed, dark mode,
 # a failed entry (and an eager-module download when present), a persistent
-# missing lazy chunk, and real first and returning visits on desktop and
-# phone. PAGES_VERIFY_DIST selects another built distribution;
+# missing lazy chunk, an isolated first worker claim, and real first and
+# returning visits on desktop and phone. PAGES_VERIFY_DIST selects another built distribution;
 # PAGES_VERIFY_OUT optionally writes screenshots to an ignored scratch folder.
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   npm run verify:static -w @opensesame/pages
