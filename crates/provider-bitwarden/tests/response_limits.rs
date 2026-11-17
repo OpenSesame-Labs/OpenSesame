@@ -203,7 +203,7 @@ async fn failed_download_transport_errors_never_print_signed_url_credentials() {
     let address = listener.local_addr().unwrap();
     drop(listener);
     let api = Client::new(
-        Endpoints::from_server_url("http://127.0.0.1").unwrap(),
+        Endpoints::from_server_url(&format!("http://{address}")).unwrap(),
         DeviceIdentity::default(),
     )
     .unwrap();

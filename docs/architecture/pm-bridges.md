@@ -202,7 +202,12 @@ table. They do
 not run in the daemon and give the agent plane no new outbound path. The
 invariant preserved is "an agent cannot cause a request to a host the user
 did not authorize"; a human typing their own vault's URL is that
-authorization. See ADR 0052 §7.
+authorization. For live Bitwarden imports, attachment downloads are limited to
+the API origin. When the server uses a separate storage origin, the person can
+authorize it with repeatable `--attachment-origin https://storage.example`
+arguments. Match the complete scheme, host and port against a trusted
+configuration; server-provided links are not authorization. Attachments on
+other origins are counted as left behind. See ADR 0052 §7.
 
 ## Singleton endpoints
 

@@ -19,8 +19,11 @@ it. It belongs to the human plane only.
   `apps/cli`, held in a `SecretString`, and never written to disk, argv or the
   environment. The unlocked `Session` is in memory and TTL-bound.
 - Egress mirrors [`opensesame-invoke-through`](../invoke-through) in-crate: the
-  configured host is pinned, https is required (loopback http only for tests),
-  and redirects are refused rather than followed.
+  configured origins are pinned, https is required (loopback http only for
+  tests), and redirects are refused rather than followed. Attachment links
+  may use the API origin or a separate storage origin explicitly authorized
+  by the person configuring `Endpoints::with_download_origin`; a server
+  response cannot grant itself another destination.
 - [`crates/daemon`](../../crates/daemon) does not and must not depend on it;
   `npm run audit:daemon-deps` is the alarm.
 - The protocol and crypto are implemented from the public format description,

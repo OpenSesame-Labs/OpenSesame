@@ -67,7 +67,10 @@ or a decrypted value on the way, exactly as it never does in service.
   account's own KDF, signs in to the old server as any Bitwarden client would
   (answering a two-factor challenge if one comes), reads the encrypted vault
   and writes it to the Host unchanged. The Host stores an Argon2id hash of the
-  same login hash, so the same master password opens the same vault.
+  same login hash, so the same master password opens the same vault. Attachment
+  links may use the API origin; a separate storage origin must be explicitly
+  authorized with repeatable `--attachment-origin` options. Other attachments
+  are counted as left behind.
 - **Nothing merges.** A vault is encrypted under its account's key, so an
   import never adds ciphers to an account that already exists on the Host;
   it skips that address and says so, or replaces the account when told to

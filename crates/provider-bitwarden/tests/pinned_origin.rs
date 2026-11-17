@@ -84,7 +84,14 @@ async fn ordinary_requests_keep_the_configured_base_prefix_for_get_and_post() {
 async fn cross_origin_downloads_never_inherit_account_bearers_or_cookies() {
     let pinned = stub::spawn(200, Framing::Length(2), b"{}".to_vec(), false).await;
     let storage = stub::spawn(200, Framing::Length(3), b"abc".to_vec(), false).await;
-    let api = client(&pinned.base);
+    let api = Client::new(
+        Endpoints::split(&pinned.base, &pinned.base)
+            .unwrap()
+            .with_download_origin(&storage.base)
+            .unwrap(),
+        DeviceIdentity::default(),
+    )
+    .unwrap();
     api.get_json("/safe", "fixture-bearer").await.unwrap();
     assert!(pinned.authorization.load(Ordering::SeqCst));
     // The authenticated response sets a sentinel cookie. Download storage is
@@ -97,6 +104,48 @@ async fn cross_origin_downloads_never_inherit_account_bearers_or_cookies() {
     assert_eq!(storage.connections.load(Ordering::SeqCst), 1);
     assert!(!storage.authorization.load(Ordering::SeqCst));
     assert!(!storage.cookie.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn downloads_require_the_exact_api_or_explicit_storage_origin() {
+    let api_peer = stub::spawn(200, Framing::Length(3), b"api".to_vec(), false).await;
+    let other = stub::spawn(200, Framing::Length(3), b"bad".to_vec(), false).await;
+    let api = client(&api_peer.base);
+    for url in [
+        format!("{}/file?signature=secret", other.base),
+        "https://untrusted.example/file?signature=secret".to_owned(),
+        format!(
+            "http://user@{}/file",
+            api_peer.base.trim_start_matches("http://")
+        ),
+        api_peer.base.replacen("http://", "https://", 1) + "/file",
+    ] {
+        let error = api.download(&url, 3).await.unwrap_err();
+        assert!(matches!(error, Error::InvalidServerUrl(_)));
+        assert!(!error.to_string().contains("signature=secret"));
+    }
+    assert_eq!(other.connections.load(Ordering::SeqCst), 0);
+    assert_eq!(api_peer.connections.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        api.download(&format!("{}/file", api_peer.base), 3)
+            .await
+            .unwrap(),
+        b"api"
+    );
+}
+
+#[test]
+fn additional_download_origins_must_be_plain_origins() {
+    for origin in [
+        "https://storage.example/path",
+        "https://storage.example/?signed=secret",
+        "https://storage.example/#fragment",
+        "https://user@storage.example/",
+        "http://storage.example/",
+    ] {
+        let endpoints = Endpoints::from_server_url("https://vault.example").unwrap();
+        assert!(endpoints.with_download_origin(origin).is_err());
+    }
 }
 
 #[tokio::test]
