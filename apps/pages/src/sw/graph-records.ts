@@ -190,6 +190,10 @@ function decodeSource(
     return null;
   const [id, classification, cap, reason, size, moduleId] = row;
   if (
+    !isString(id) ||
+    !isClassification(classification) ||
+    !isSourceSize(size) ||
+    !isOptionalString(moduleId) ||
     !validIndex(cap, capabilities.length) ||
     !validIndex(reason, rationales.length)
   )
