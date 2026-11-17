@@ -86,16 +86,45 @@ class LoggingSafetyTest(unittest.TestCase):
                             "print(json.dumps({'log': os.getenv('TF_LOG'), "
                             "'provider': os.getenv('TF_LOG_PROVIDER'), "
                             "'path': os.getenv('TF_LOG_PATH'), "
-                            "'debug': os.getenv('REST_API_DEBUG'), 'args': sys.argv[1:]}))\n")
+                            "'debug': os.getenv('REST_API_DEBUG'), "
+                            "'insecure': os.getenv('REST_API_INSECURE'), "
+                            "'method': os.getenv('REST_API_CREATE_METHOD'), "
+                            "'root_ca': os.getenv('REST_API_ROOT_CA_FILE'), "
+                            "'bearer': os.getenv('REST_API_BEARER'), 'args': sys.argv[1:]}))\n")
             fake.chmod(0o755)
             env = os.environ.copy()
             env.update({"AGENT37_TERRAFORM_BIN": str(fake), "TF_LOG": "TRACE",
                         "TF_LOG_PROVIDER": "TRACE", "TF_LOG_PATH": str(Path(tmp) / "terraform.log"),
-                        "REST_API_DEBUG": "true"})
+                        "REST_API_DEBUG": "true", "REST_API_INSECURE": "true",
+                        "REST_API_CREATE_METHOD": "GET", "REST_API_ROOT_CA_FILE": "/tmp/ca.pem",
+                        "REST_API_BEARER": TOKEN})
             result = subprocess.run(["bash", str(ROOT / "terraform.sh"), "plan", "-input=false"],
                                     env=env, text=True, capture_output=True, check=True, timeout=10)
             self.assertEqual(json.loads(result.stdout), {"log": "OFF", "provider": None,
-                             "path": None, "debug": None, "args": ["plan", "-input=false"]})
+                             "path": None, "debug": None, "insecure": None, "method": None,
+                             "root_ca": None, "bearer": TOKEN, "args": ["plan", "-input=false"]})
+
+    def test_wrapper_refuses_import_before_running_terraform(self):
+        with tempfile.TemporaryDirectory(prefix="agent37-import-test-") as tmp:
+            directory = Path(tmp)
+            called = directory / "called"
+            fake = directory / "terraform"
+            fake.write_text(f"#!/bin/sh\ntouch '{called}'\n")
+            fake.chmod(0o755)
+            env = {**os.environ, "AGENT37_TERRAFORM_BIN": str(fake)}
+            for args in [("import", "address", "/v1/instances/id"),
+                         ("-chdir=ops/agent37", "import", "address", "/v1/instances/id")]:
+                result = subprocess.run(["bash", str(ROOT / "terraform.sh"), *args],
+                                        env=env, text=True, capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("terraform import is disabled", result.stderr)
+                self.assertFalse(called.exists())
+
+            # A later argument named import is not the Terraform command.
+            result = subprocess.run(["bash", str(ROOT / "terraform.sh"), "plan", "import"],
+                                    env=env, text=True, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            self.assertTrue(called.exists())
 
 
 class TerraformLifecycleTest(unittest.TestCase):
@@ -138,6 +167,10 @@ class TerraformLifecycleTest(unittest.TestCase):
 
             write_values()
             command("init", "-backend=false", "-input=false", "-lockfile=readonly")
+            output = command("plan", "-detailed-exitcode", f"-var-file={varfile}", expected=1)
+            self.assertIn("allow_http_loopback = true", output)
+            self.assertEqual(Agent37Handler.requests, [])
+            env["TF_VAR_allow_http_loopback"] = "true"
             command("apply", "-auto-approve", f"-var-file={varfile}")
             created = next(body for method, _, body in Agent37Handler.requests if method == "POST")
             self.assertEqual(created["resources"], {"cpu": 2, "memory": 4, "disk": 20})
@@ -146,6 +179,12 @@ class TerraformLifecycleTest(unittest.TestCase):
             self.assertNotIn("public_ports", created)
             self.assertNotIn(TOKEN, (directory / "terraform.tfstate").read_text())
             command("plan", "-detailed-exitcode", f"-var-file={varfile}")
+
+            # An explicit provider setting must win even if the caller bypasses
+            # the wrapper and inherits an invalid or insecure REST_API value.
+            env["REST_API_INSECURE"] = "not-a-boolean"
+            command("plan", "-detailed-exitcode", f"-var-file={varfile}")
+            del env["REST_API_INSECURE"]
 
             values["instances"]["host"]["auto_sleep"] = True
             write_values()
