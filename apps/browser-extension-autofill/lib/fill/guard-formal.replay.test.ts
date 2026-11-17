@@ -4,11 +4,7 @@ import { decideFill } from "./guard.js";
 
 describe("autofill gesture formal replay", () => {
   it("refuses fill when the gesture did not come from extension-owned UI", () => {
-    const arm = {
-      trigger: "navigation",
-      origin: "https://example.com",
-      armedAt: 0,
-    };
+    const arm = { trigger: "navigation", origin: "https://example.com", armedAt: 0 };
     const facts = {
       isTopFrame: true,
       origin: "https://example.com",
