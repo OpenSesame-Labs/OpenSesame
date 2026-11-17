@@ -3,10 +3,10 @@
  * Render a statechart .mmd with Pele (pele@1.9.0) and OpenSesame theme.
  * Use after /statechart writes chart.mmd. Does not copy statechart paths into output.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 import {
   bakeOpenSesameTheme,
   stripMermaidMarks,
@@ -75,11 +75,9 @@ function renderOne(pele, mmd, { theme, mode }) {
 
 async function writePng(svgPath, pngPath) {
   const { execFileSync } = await import("node:child_process");
-  execFileSync(
-    "npx",
-    ["--yes", "@resvg/resvg-js-cli", svgPath, pngPath],
-    { stdio: "pipe" },
-  );
+  execFileSync("npx", ["--yes", "@resvg/resvg-js-cli", svgPath, pngPath], {
+    stdio: "pipe",
+  });
 }
 
 async function writePixelDiff(outDir, base) {
@@ -109,7 +107,10 @@ async function writePixelDiff(outDir, base) {
     defaultVsDark: diff(def, dark),
     lightVsDark: diff(light, dark),
   };
-  writeFileSync(join(dir, "pixel-diff.json"), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(
+    join(dir, "pixel-diff.json"),
+    `${JSON.stringify(report, null, 2)}\n`,
+  );
 }
 
 async function main() {
@@ -129,10 +130,15 @@ async function main() {
   if (args.stripLegend) mmd = stripChartLegend(mmd);
   if (args.theme) mmd = stripMermaidMarks(mmd);
 
-  const base = resolve(args.mmd).replace(/\.mmd$/i, "").split("/").pop();
+  const base = resolve(args.mmd)
+    .replace(/\.mmd$/i, "")
+    .split("/")
+    .pop();
 
   const modes =
-    args.mode === "both" ? ["light", "dark"] : [args.mode === "dark" ? "dark" : "light"];
+    args.mode === "both"
+      ? ["light", "dark"]
+      : [args.mode === "dark" ? "dark" : "light"];
 
   for (const mode of modes) {
     const svgPath = join(args.outDir, `${base}.${mode}.svg`);
