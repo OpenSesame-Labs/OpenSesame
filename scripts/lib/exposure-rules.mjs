@@ -1,12 +1,19 @@
 /** Forbidden combinations, independent of file layout and source loading. */
 import { contractFor } from "./exposure-contracts.mjs";
+import { HOST_TESTKIT_CONTROLS } from "./exposure-host-testkit.mjs";
 import { LOCAL_VAULT_CONTROLS } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTROLS } from "./exposure-native-provider.mjs";
+
 const has = (row, ...controls) =>
   controls.every((control) => row.controls.includes(control));
 const artifact = (row, value) => row.artifacts.includes(value);
 const untrusted = (row) =>
   !["device-owner", "authorized-recipient"].includes(row.observer);
+const testkitControls = [
+  "all-listeners-classified",
+  "explicit-network-bind",
+  ...HOST_TESTKIT_CONTROLS,
+];
 
 function safeBudget(value) {
   return (
@@ -141,6 +148,15 @@ const RULES = [
         "explicit-network-bind",
         "joined-listener-lifetime",
       ),
+  ],
+  [
+    "EM-HOST-TESTKIT-LISTENER",
+    "only the required synthetic Host fixture may use the successful-close listener contract",
+    (row) =>
+      row.kind === "testkit-listener" &&
+      (row.id !== "host-testkit-listener" ||
+        row.controls.length !== testkitControls.length ||
+        !has(row, ...testkitControls)),
   ],
   [
     "EM-POLICY-OMISSION",

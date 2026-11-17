@@ -15,6 +15,8 @@ pub mod changelog_hook;
 pub mod config;
 pub mod config_access;
 pub mod configuration;
+#[cfg(feature = "testkit")]
+mod constructor;
 pub mod crypto;
 pub mod custom_provider;
 pub mod delegation;
@@ -45,9 +47,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicUsize, Ordering};
-#[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicUsize, atomic::Ordering, Arc, Mutex};
 
 use base64::Engine as _;
 use chrono::Utc;

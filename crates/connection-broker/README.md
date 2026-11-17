@@ -54,6 +54,13 @@ key; without it credential storage is disabled), `OPENSESAME_PUBLIC_URL`
 (default `http://127.0.0.1:8787`), `OPENSESAME_CONNECTION_REDIRECT_ALLOWLIST`,
 and per-provider `OPENSESAME_PROVIDER_<ID>_CLIENT_ID` and related variables.
 
+The opt-in `testkit` feature provides
+`ConnectionBroker::new_without_system_proxy`, which constructs both credential
+HTTP clients without reading process proxy settings. It retains the normal
+timeouts and refusal to follow redirects. It does not block direct network
+requests; an offline fixture must also restrict the operations or transport it
+exposes. The standard constructor and its system-proxy behavior are unchanged.
+
 ## Develop
 
 ```bash

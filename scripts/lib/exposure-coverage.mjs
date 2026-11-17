@@ -7,6 +7,7 @@ import { sourceDigest } from "./exposure-policy.mjs";
 
 const TEST =
   /(?:\.(?:test|spec)\.[cm]?[jt]sx?$|_tests?(?:_[^/]+)?\.rs$|\/tests\.rs$|\/(?:__tests__|tests|fixtures|test_support|test-support)\/)/u;
+const HOST_TESTKIT_SOURCE = /^crates\/gateway\/src\/testkit(?:\.rs|\/.*\.rs)$/u;
 const SCOPES = Object.freeze({
   "local-vault-activation": [
     /^packages\/app-core\/src\/lib\/(?:vfs|kv|local-iam|local-directory|local-credentials|local-passkey|local-passkeys|local-sessions|trusted-unlock|projects|orgs|idp-registry)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
@@ -50,7 +51,10 @@ const SCOPES = Object.freeze({
     /^crates\/gateway\/src\/routes\/est[^/]*(?:\.rs|\/.*\.rs)$/u,
     /^crates\/storage\/src\/est[^/]*(?:\.rs|\/.*\.rs)$/u,
   ],
-  "host-admission": [/^crates\/gateway\/src\/transport\/.*\.rs$/u],
+  "host-admission": [
+    /^crates\/gateway\/src\/transport\/.*\.rs$/u,
+    HOST_TESTKIT_SOURCE,
+  ],
   bitwarden: [
     /^crates\/bitwarden-server\/src\/.*\.rs$/u,
     /^crates\/provider-bitwarden\/src\/api(?:\.rs|\/.*\.rs)$/u,
@@ -117,6 +121,8 @@ export const sha256 = (bytes) =>
   createHash("sha256").update(bytes).digest("hex");
 
 export function sourceArea(path) {
+  // Testkit fixtures and support code are feature-enabled implementation too.
+  if (HOST_TESTKIT_SOURCE.test(path)) return "host-admission";
   if (TEST.test(path)) return undefined;
   if (Object.hasOwn(WIRING, path)) return WIRING[path];
   return Object.entries(SCOPES).find(([, patterns]) =>
@@ -160,6 +166,24 @@ function fingerprintViolations(sources, snapshot) {
   return errors;
 }
 
+function unclassified(
+  path,
+  area,
+  sources,
+  assigned,
+  custodySources,
+  hostTestkitSources,
+) {
+  const assignedToBoundary = HOST_TESTKIT_SOURCE.test(path)
+    ? hostTestkitSources.has(path)
+    : assigned.get(path)?.has(area);
+  return (
+    !Object.hasOwn(sources, path) ||
+    !assignedToBoundary ||
+    (custodySources.has(area) && !custodySources.get(area).has(path))
+  );
+}
+
 /** Every discovered file needs an explicit surface binding, not just a saved hash. */
 export function coverageViolations(policy, snapshot) {
   const errors = requiredBindings(policy);
@@ -181,6 +205,13 @@ export function coverageViolations(policy, snapshot) {
       assigned.set(path, owners);
     }
   }
+  const hostTestkit = policy.surfaces.find(
+    (row) => row.id === "host-testkit-listener",
+  );
+  const hostTestkitSources = new Set([
+    ...(hostTestkit?.implementation ?? []),
+    ...(hostTestkit?.regressions ?? []),
+  ]);
   const paths = new Set(snapshot.paths());
   for (const path of Object.keys(WIRING)) {
     if (!paths.has(path))
@@ -190,9 +221,14 @@ export function coverageViolations(policy, snapshot) {
     const area = sourceArea(path);
     if (!area) continue;
     if (
-      !Object.hasOwn(policy.sources, path) ||
-      !assigned.get(path)?.has(area) ||
-      (custodySources.has(area) && !custodySources.get(area).has(path))
+      unclassified(
+        path,
+        area,
+        policy.sources,
+        assigned,
+        custodySources,
+        hostTestkitSources,
+      )
     )
       errors.push(
         `EM-COVERAGE: unclassified protected source ${path}; review its observer, artifacts and enforcement`,
