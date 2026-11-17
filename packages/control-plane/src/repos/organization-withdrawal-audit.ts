@@ -6,6 +6,7 @@ import {
 } from "@opensesame/audit";
 import { scrubText } from "@opensesame/log-scrub";
 import type { OrganizationRole } from "@opensesame/os-domain";
+import { z } from "zod";
 import type { AppContext } from "../context.js";
 
 /** Written in the transaction that completes the membership transition. */
@@ -19,29 +20,43 @@ export type OrganizationWithdrawalAuditIntent = {
   previousRole: OrganizationRole;
 } & ({ kind: "remove" } | { kind: "change_role"; role: OrganizationRole });
 
-function validRole(role: unknown): role is OrganizationRole {
-  return role === "owner" || role === "admin" || role === "member";
-}
+const roleSchema = z.enum(["owner", "admin", "member"]);
+const auditBase = z.object({
+  id: z.string().min(1),
+  actorPrincipalId: z.string().min(1),
+  actorType: z.enum(["human", "system"]),
+  organizationId: z.string().min(1),
+  principalId: z.string().min(1),
+  correlationId: z.string().min(1),
+  previousRole: roleSchema,
+});
+const auditIntentSchema = z.discriminatedUnion("kind", [
+  auditBase.extend({ kind: z.literal("remove") }),
+  auditBase.extend({ kind: z.literal("change_role"), role: roleSchema }),
+]);
 
 function validate(intent: OrganizationWithdrawalAuditIntent): void {
-  if (
-    !intent ||
-    ![
-      intent.id,
-      intent.actorPrincipalId,
-      intent.organizationId,
-      intent.principalId,
-      intent.correlationId,
-    ].every((value) => typeof value === "string" && value.length > 0) ||
-    (intent.actorType !== "human" && intent.actorType !== "system") ||
-    !validRole(intent.previousRole) ||
-    (intent.kind !== "remove" && intent.kind !== "change_role") ||
-    (intent.kind === "change_role" && !validRole(intent.role))
-  )
+  if (!auditIntentSchema.safeParse(intent).success)
     throw new Error("Invalid organization withdrawal audit intent");
 }
 
+type WithdrawalAuditMetadata = {
+  action: string;
+  targetId: string;
+  fromState: OrganizationRole;
+  toState?: OrganizationRole;
+};
+
 function eventInput(intent: OrganizationWithdrawalAuditIntent) {
+  const metadata: WithdrawalAuditMetadata = {
+    action:
+      intent.kind === "remove"
+        ? "organization.member.remove"
+        : "organization.member.role.change",
+    targetId: intent.principalId,
+    fromState: intent.previousRole,
+  };
+  if (intent.kind === "change_role") metadata.toState = intent.role;
   return {
     id: `organization-withdrawal:${intent.id}`,
     eventType:
@@ -53,15 +68,7 @@ function eventInput(intent: OrganizationWithdrawalAuditIntent) {
     principalId: intent.actorPrincipalId,
     organizationId: intent.organizationId,
     correlationId: intent.correlationId,
-    metadata: {
-      action:
-        intent.kind === "remove"
-          ? "organization.member.remove"
-          : "organization.member.role.change",
-      targetId: intent.principalId,
-      fromState: intent.previousRole,
-      ...(intent.kind === "change_role" ? { toState: intent.role } : {}),
-    },
+    metadata,
   };
 }
 

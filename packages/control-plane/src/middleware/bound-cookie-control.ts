@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { deleteCookie, getCookie } from "hono/cookie";
+import { z } from "zod";
 import { revokeProvisionalSession } from "../repos/provisional-revocation.js";
 import { cookieAuthAllowed, resolveProvisionalSession } from "./auth.js";
 import {
@@ -11,8 +12,13 @@ import {
 import type { Variables } from "./context.js";
 
 type C = Context<{ Variables: Variables }>;
+type LiveCookieSlots = { sessions: string[]; more: boolean };
+const proofSchema = z.object({
+  restoreProofHash: z.string().regex(/^[0-9a-f]{64}$/u),
+});
+const exitSchema = z.object({ sessionId: z.string() });
 
-async function liveSlots(c: C): Promise<{ sessions: string[]; more: boolean }> {
+async function liveSlots(c: C): Promise<LiveCookieSlots> {
   const ctx = c.get("ctx");
   const prefix = `${ctx.config.provisionalCookieName}_bound_`;
   const result: string[] = [];
@@ -38,7 +44,7 @@ async function liveSlots(c: C): Promise<{ sessions: string[]; more: boolean }> {
 export async function boundCookieStatus(c: C): Promise<Response> {
   c.header("Cache-Control", "no-store");
   const { sessions, more } = await liveSlots(c);
-  return c.json({ sessions, ...(more ? { more: true } : {}) });
+  return more ? c.json({ sessions, more: true }) : c.json({ sessions });
 }
 
 /** Mint only through a route that old replicas cannot mistake for a normal mint. */
@@ -57,14 +63,7 @@ export async function boundCookieMint(
     return c.json({ error: "session_exists" }, 409);
   const raw = await c.req.text();
   try {
-    const body: unknown = JSON.parse(raw);
-    if (
-      !body ||
-      typeof body !== "object" ||
-      !("restoreProofHash" in body) ||
-      typeof body.restoreProofHash !== "string" ||
-      !/^[0-9a-f]{64}$/u.test(body.restoreProofHash)
-    )
+    if (!proofSchema.safeParse(JSON.parse(raw)).success)
       return c.json({ error: "invalid_request" }, 400);
   } catch {
     return c.json({ error: "invalid_request" }, 400);
@@ -90,15 +89,15 @@ export async function boundCookieExit(c: C): Promise<Response> {
   const ctx = c.get("ctx");
   if (!cookieAuthAllowed(ctx, c.req.method, c.req.header("origin")))
     return c.json({ error: "forbidden" }, 403);
-  let id: unknown;
+  let id: string;
   try {
-    const body: unknown = await c.req.json();
-    if (body && typeof body === "object" && "sessionId" in body)
-      id = body.sessionId;
+    const parsed = exitSchema.safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
+    id = parsed.data.sessionId;
   } catch {
     return c.json({ error: "invalid_request" }, 400);
   }
-  if (typeof id !== "string" || !validBoundSessionId(id))
+  if (!validBoundSessionId(id))
     return c.json({ error: "invalid_request" }, 400);
   const name = boundCookieName(ctx.config.provisionalCookieName, id);
   const cookie = getCookie(c, name);
