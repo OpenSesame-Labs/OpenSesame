@@ -24,10 +24,10 @@ FinishUnlock ==
 BuggyPublish ==
   /\ pending
   /\ publishedUnlocked' = TRUE
-  /\ UNCHANGED open
+  /\ UNCHANGED <<pending, open>>
 
 NoUnlockedWhilePending == ~(pending /\ publishedUnlocked)
 
-Spec == Init /\ [][ParkSecondStep \/ FinishUnlock \/ BuggyPublish]_vars
+Spec == Init /\ [][ParkSecondStep \/ FinishUnlock]_vars
 
 ====

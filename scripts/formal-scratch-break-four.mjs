@@ -52,8 +52,15 @@ section("release-promotion", {
     const path = "scripts/release/lib/candidate-published-formal.mjs";
     const text = readFileSync(join(repo, path), "utf8");
     const broken = text.replace(
-      "promoted.candidate_id === published.candidate_id",
-      "promoted.candidate_id !== published.candidate_id",
+      `  demand(
+    promoted.candidate_id === published.candidate_id &&
+      promoted.source_sha === published.source_sha &&
+      promoted.run_id === String(published.producer.run_id) &&
+      promoted.run_attempt === String(published.producer.run_attempt) &&
+      promoted.payload_digest === hash(publishedBytes),
+    "Published promotion does not authorize this candidate",
+  );`,
+      `  // scratch: promotion binding removed`,
     );
     writeFileSync(join(repo, path), broken);
     try {
