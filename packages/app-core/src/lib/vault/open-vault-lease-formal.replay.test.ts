@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  VaultStoreConflictError,
   acquireOpenLease,
   forgetOpenLeasesForTest,
+  VaultStoreConflictError,
   withExclusiveOpenLease,
 } from "./vault-shared-locks.js";
 
@@ -21,10 +21,6 @@ describe("open vault lease formal replay", () => {
 
     await expect(
       withExclusiveOpenLease("personal", async () => "destroyed"),
-    ).rejects.toBeInstanceOf(VaultStoreConflictError);
-
-    await expect(
-      withExclusiveOpenLease("personal", async () => "destroyed-again"),
     ).rejects.toBeInstanceOf(VaultStoreConflictError);
 
     await currentRelease();

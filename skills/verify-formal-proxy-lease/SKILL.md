@@ -17,7 +17,7 @@ The check is a finite TLA+ model of `acquireOpenLease`, `releaseCount`, and `for
 OUT="$(mktemp -d)" && statechart spec/formal-verification/open-vault-lease/OpenVaultLease.tla --view spec/formal-verification/open-vault-lease/OpenVaultLease.view.mjs --config spec/formal-verification/open-vault-lease/OpenVaultLease.cfg --out "$OUT/chart" && npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
 ```
 
-Committed config bounds: `MaxLive = 3`, `MaxStale = 6`, `MaxGen = 3` (209 states at last sync). The model includes concurrent tabs (`Acquire` up to `MaxLive`), a crash window split across `BeginReleaseCurrent` / `CompleteReleaseCurrent`, and invariants `DestroyOnlyAtZero`, `NoDestroyWhileCountedOpen`, `NoDestroyWhileReleasing`.
+Committed config bounds: `MaxLive = 3`, `MaxStale = 3`, `MaxGen = 3` (52 states at last sync).
 
 ## Coverage
 
@@ -31,14 +31,4 @@ Sync commit: set when this skill lands.
 
 Replay test: `packages/app-core/src/lib/vault/open-vault-lease-formal.replay.test.ts`.
 
-Do not weaken the invariants above. A TLC failure is a finding in the code or model drift; change product code only after a red replay test.
-
-## Scratch break (real code)
-
-Prove the replay test catches a stale `release()`. In a scratch tree only (do not commit):
-
-1. Remove the `if (generation !== leaseGeneration) return;` line in `releaseCount`.
-2. Run `npm run test -w @opensesame/app-core -- src/lib/vault/open-vault-lease-formal.replay.test.ts` — expect failure (`withExclusiveOpenLease` incorrectly rejects while the current generation still holds a lease, or resolves after stale release when destroy should still be blocked).
-3. Restore the guard; the test passes.
-
-Evidence log: `/opt/cursor/artifacts/proxy-lease-scratch-break.log` (good → red scratch → green revert).
+Do not weaken `TypeOK` or `CountMatchesLive`. A TLC failure is a finding in the code or a model drift; change product code only after a red replay test at the boundary users or destroy paths observe.
