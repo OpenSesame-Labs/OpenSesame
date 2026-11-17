@@ -26,6 +26,7 @@ export const DRIVER_GATES = {
   "verify-capability-graph.mjs": ["budgets"],
   "verify-schema-csp.mjs": ["budgets"],
   "verify-self-hosted-connectors.mjs": ["budgets"],
+  "verify-mqtt-packet-debug.mjs": ["budgets"],
   "verify-native-connectors-journey.mjs": ["native-connectors"],
   "verify-native-public-protocol.mjs": ["native-public-protocol"],
   "verify-provider-auth.mjs": ["native-public-protocol"],

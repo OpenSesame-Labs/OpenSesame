@@ -16,6 +16,7 @@ import { kdbxNativeDOM } from "./scripts/kdbx-native-dom-plugin.mjs";
 import { dependencyRoot } from "./scripts/lib/dependency-root.mjs";
 import { writePrivateSnapshot } from "./scripts/lib/private-files.mjs";
 import { mcpBrowserValidator } from "./scripts/mcp-browser-validator.mjs";
+import { mqttPacketDebugGuard } from "./scripts/mqtt-packet-debug-plugin.mjs";
 import { configuredMsalDedupe } from "./scripts/msal-dedupe.mjs";
 import { nativeClientMetadataPlugin } from "./scripts/native-client-metadata-plugin.mjs";
 import { nativeSamlCallbackPlugin } from "./scripts/native-saml-callback-plugin.mjs";
@@ -276,6 +277,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    mqttPacketDebugGuard(fileURLToPath(new URL("../..", import.meta.url))),
     shellBuildMetadata(),
     zodCsp(),
     aiBrowserModels(fileURLToPath(new URL("../..", import.meta.url))),

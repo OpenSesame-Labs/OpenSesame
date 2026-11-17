@@ -42,6 +42,9 @@ export async function mqttCarrier(
       reconnectPeriod: 0,
       connectTimeout: 8000,
       timerVariant: "native",
+      // MQTT.js otherwise formats the CONNECT packet, including credentials,
+      // when its debug namespace is enabled in this browser.
+      log: () => {},
     },
     false,
   );
