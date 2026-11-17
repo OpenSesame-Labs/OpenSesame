@@ -7,6 +7,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { build } from "vite";
 import { test } from "vitest";
+
 function find(root, predicate) {
   if (predicate(root)) return root;
   return ts.forEachChild(root, (node) => find(node, predicate));
@@ -74,20 +75,32 @@ function actualPreload(output) {
     ts.ScriptTarget.Latest,
     true,
   );
-  const names = new Set(["scriptRel", "assetsURL", "seen", "__vitePreload"]);
-  const declarations = source.statements.filter(
-    (statement) =>
-      ts.isVariableStatement(statement) &&
-      statement.declarationList.declarations.some(
-        (node) => ts.isIdentifier(node.name) && names.has(node.name.text),
-      ),
+  const declares = (statement, name) =>
+    ts.isVariableStatement(statement) &&
+    statement.declarationList.declarations.some(
+      (node) => ts.isIdentifier(node.name) && node.name.text === name,
+    );
+  const first = source.statements.findIndex((node) =>
+    declares(node, "scriptRel"),
   );
-  assert.equal(declarations.length, 4);
+  const last = source.statements.findIndex((node) =>
+    declares(node, "__vitePreload"),
+  );
+  assert.ok(first >= 0 && last >= first);
+  const declarations = source.statements.slice(first, last + 1);
+  assert.ok(declarations.every(ts.isVariableStatement));
   const links = [];
   const events = [];
   const context = {
     Promise,
     Event,
+    URL,
+    __fixtureImportMeta: {
+      url: "https://app.example.test/OpenSesame/assets/main.js",
+      resolve: (specifier) =>
+        new URL(specifier, "https://app.example.test/OpenSesame/assets/main.js")
+          .href,
+    },
     document: {
       getElementsByTagName: () => links,
       querySelector: () => null,
@@ -96,6 +109,7 @@ function actualPreload(output) {
         return {
           listeners,
           addEventListener: (name, listener) => listeners.set(name, listener),
+          removeEventListener: (name) => listeners.delete(name),
         };
       },
       head: { appendChild: (link) => links.push(link) },
@@ -103,7 +117,13 @@ function actualPreload(output) {
     window: { dispatchEvent: (event) => events.push(event) },
   };
   runInNewContext(
-    `${declarations.map((node) => node.getText(source)).join("\n")}\nglobalThis.invoke = __vitePreload;`,
+    `${declarations
+      .map((node) => node.getText(source))
+      .join("\n")
+      .replaceAll(
+        "import.meta",
+        "__fixtureImportMeta",
+      )}\nglobalThis.invoke = __vitePreload;`,
     context,
   );
   return { invoke: context.invoke, links, events };
@@ -123,7 +143,11 @@ async function cssReadiness(output) {
   );
   assert.equal(links.length, 1);
   assert.equal(links[0].rel, "stylesheet");
-  links[0].listeners.get("load")();
+  assert.equal(
+    links[0].href,
+    "https://app.example.test/OpenSesame/assets/lazy.css",
+  );
+  links[0].listeners.get("load")({ type: "load" });
   assert.equal(await load, 8);
   assert.equal(imported, 1);
   assert.equal(await invoke(async () => 9, ["assets/lazy.css"]), 9);
@@ -131,7 +155,7 @@ async function cssReadiness(output) {
   const failed = invoke(async () => {
     imported++;
   }, ["assets/failed.css"]);
-  links[1].listeners.get("error")();
+  links[1].listeners.get("error")({ type: "error" });
   await assert.rejects(failed, /Unable to preload CSS/);
   assert.equal(imported, 1, "a failed stylesheet cannot import the component");
   assert.equal(events.at(-1).type, "vite:preloadError");
