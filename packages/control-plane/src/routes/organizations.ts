@@ -2,10 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { name } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
 import {
-  AddOrganizationMemberRequestSchema,
   CreateOrganizationRequestSchema,
   JoinOrganizationTenantRequestSchema,
-  OrganizationMembershipResponseSchema,
   OrganizationResponseSchema,
   OrganizationTenantResponseSchema,
   UpdateOrganizationRequestSchema,
@@ -21,14 +19,9 @@ import { organizationId } from "../lib/ids.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
-import { orgOwner } from "../proofs/org-owner.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
-import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { serializeKeyed } from "../serialize.js";
-import {
-  writeOrganization,
-  writeOrganizationMembership,
-} from "../services/org-admin.js";
+import { writeOrganization } from "../services/org-admin.js";
 import {
   OrganizationIssuerApprovalError,
   issuerClaimed,
@@ -49,12 +42,13 @@ import {
 } from "./org-issuer-guard.js";
 import { bindOrgJoinIdentity } from "./org-join-identity.js";
 import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { organizationMemberAddRoutes } from "./organization-member-add.js";
 import { organizationMemberWithdrawalRoutes } from "./organization-member-withdrawal.js";
 import {
   getMembership,
   jitJoinOrganization,
-  serializeMembershipMutation,
 } from "./organization-membership.js";
+import { membershipResponse } from "./organization-membership-response.js";
 import { asVerifiedPrincipal } from "./verified-principal-gate.js";
 
 export { hostApiEndpoint } from "../services/host-endpoint.js";
@@ -249,14 +243,6 @@ async function orgBySlug(
     return undefined;
   }
   return org;
-}
-
-function membershipResponse(membership: OrganizationMembership) {
-  return OrganizationMembershipResponseSchema.parse({
-    ...membership,
-    createdAt: membership.createdAt.toISOString(),
-    updatedAt: membership.updatedAt.toISOString(),
-  });
 }
 
 organizationRoutes.get("/", requirePrincipal(), async (c) => {
@@ -674,69 +660,7 @@ organizationRoutes.get("/:id/members", requirePrincipal(), async (c) =>
   }),
 );
 
-organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
-  const ctx = c.get("ctx");
-  const organizationId = c.req.param("id");
-  return asOrgOwner(c, MEMBER_ADMIN, async ({ org, actor }) =>
-    withScimOrganizationBoundary(ctx, organizationId, (tx) =>
-      serializeMembershipMutation(tx, organizationId, async () => {
-        const owner = await orgOwner(
-          tx.stores,
-          actor,
-          org,
-          MEMBER_ADMIN.liveness,
-        );
-        if (!owner.ok) return c.json({ error: owner.error }, owner.status);
-        const principalId = actor.value;
-        const parsed = AddOrganizationMemberRequestSchema.safeParse(
-          await c.req.json(),
-        );
-        if (!parsed.success) {
-          return c.json(
-            { error: "validation_error", details: parsed.error.flatten() },
-            400,
-          );
-        }
-        const principal = await ctx.repos.principals.getById(
-          parsed.data.principalId,
-        );
-        if (!principal) return c.json({ error: "principal_not_found" }, 404);
-        if (principal.state === "suspended" || principal.state === "closed") {
-          return c.json({ error: "principal_inactive" }, 409);
-        }
-        if (await getMembership(tx, organizationId, principal.id)) {
-          return c.json({ error: "membership_exists" }, 409);
-        }
-        const now = ctx.clock();
-        const membership = await writeOrganizationMembership(
-          tx,
-          org,
-          owner.proof,
-          {
-            organizationId,
-            principalId: principal.id,
-            role: parsed.data.role,
-            createdAt: now,
-            updatedAt: now,
-          },
-        );
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_added",
-          outcome: "succeeded",
-          principalId,
-          organizationId,
-          correlationId: c.get("correlationId"),
-          metadata: {
-            action: "organization.member.add",
-            memberPrincipalId: principal.id,
-            role: membership.role,
-          },
-        });
-        return c.json(membershipResponse(membership), 201);
-      }),
-    ),
-  );
-});
+organizationRoutes.route("/", organizationMemberAddRoutes);
 
 organizationRoutes.route("/", organizationMemberWithdrawalRoutes);
 

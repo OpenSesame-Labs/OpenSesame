@@ -587,7 +587,6 @@ describe("SCIM Groups role mapping", () => {
     expectHostWithdrawals(host.requests, org.id, guest.principalId);
     host.restore();
   }, 30_000);
-
   it("accepts and ignores a group that maps to nothing", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
     const { owner, org } = await seedTenant(app, ctx, "ignored-org");

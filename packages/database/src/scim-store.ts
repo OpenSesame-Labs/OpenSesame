@@ -61,6 +61,11 @@ export interface ScimUserStore {
     next: ScimUserRecord,
   ): Promise<VersionedScimUser | undefined>;
   listByOrganization(orgId: string): Promise<ScimUserRecord[]>;
+  /** Stable, bounded global scan used to fence legacy inactive users at startup. */
+  listInactiveForRecovery(
+    afterId: string | undefined,
+    limit: number,
+  ): Promise<Array<{ id: string; organizationId: string }>>;
 }
 
 /**

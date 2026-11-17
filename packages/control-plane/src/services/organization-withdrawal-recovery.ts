@@ -1,8 +1,10 @@
 import type { AppContext } from "../context.js";
+import { resumePendingUpstreamLogouts } from "../interactions/upstream-logout.js";
 import { resumePendingOrganizationRevocationAudits } from "../repos/organization-revocation-audit.js";
 import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
 import { resumePendingProvisionalRevocations } from "../repos/provisional-revocation.js";
 import { resumePendingOrganizationWithdrawals } from "./organization-withdrawal.js";
+import { resumePendingScimDeprovision } from "./scim-deprovision-recovery.js";
 
 /** A stoppable background recovery loop; pending memberships remain fenced. */
 export function startOrganizationWithdrawalRecovery(ctx: AppContext) {
@@ -14,6 +16,7 @@ export function startOrganizationWithdrawalRecovery(ctx: AppContext) {
   async function sweep(): Promise<void> {
     let retry = false;
     for (const resume of [
+      resumePendingUpstreamLogouts,
       resumePendingProvisionalRevocations,
       resumePendingOrganizationRevocationAudits,
       resumePendingOrganizationWithdrawalAudits,
@@ -32,6 +35,13 @@ export function startOrganizationWithdrawalRecovery(ctx: AppContext) {
     } catch {
       retry = true;
       ctx.log.warn("Organization withdrawal recovery failed; will retry");
+    }
+    if (stopped) return;
+    try {
+      retry = (await resumePendingScimDeprovision(ctx)) || retry;
+    } catch {
+      retry = true;
+      ctx.log.warn("SCIM recovery scan failed; will retry");
     }
     if (stopped) return;
     const delay = retry ? retryDelay : 30_000;

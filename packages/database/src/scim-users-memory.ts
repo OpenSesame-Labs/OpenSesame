@@ -135,6 +135,21 @@ export class MemoryScimUserStore implements ScimUserStore {
       .map(normalizeScimUser);
   }
 
+  async listInactiveForRecovery(afterId: string | undefined, limit: number) {
+    if (this.#scope !== undefined)
+      throw new Error(
+        "Cannot scan all organizations inside a SCIM transaction",
+      );
+    return [...this.#users.values()]
+      .map(({ user }) => user)
+      .filter(
+        (user) => !user.active && (afterId === undefined || user.id > afterId),
+      )
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .slice(0, limit)
+      .map(({ id, organizationId }) => ({ id, organizationId }));
+  }
+
   forkForTransaction(orgId: string): MemoryStoreFork<MemoryScimUserStore> {
     if (this.#scope !== undefined)
       throw new Error("SCIM transaction cannot be forked");
