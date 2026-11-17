@@ -188,7 +188,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       );
     }
     await ensureSystemOwnerPrincipal(repos, clock);
-  })().catch((error: unknown) => {
+  })().catch((error) => {
     log.error("security_state_initialization_failed");
     throw error;
   });
@@ -281,7 +281,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
   );
 
   let resolveSecurityRecovery = () => {};
-  let rejectSecurityRecovery = (_error: unknown) => {};
+  let rejectSecurityRecovery: (error: Error) => void = () => {};
   const securityRecoveryReady = new Promise<void>((resolve, reject) => {
     resolveSecurityRecovery = resolve;
     rejectSecurityRecovery = reject;
