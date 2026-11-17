@@ -11,6 +11,10 @@
     "./browser": {
       "types": "./src/browser.ts",
       "default": "./src/browser.ts"
+    },
+    "./asn1": {
+      "types": "./src/asn1.ts",
+      "default": "./src/asn1.ts"
     }
   },
   "files": [
@@ -24,6 +28,7 @@
   "dependencies": {
     "@opensesame/os-domain": "*",
     "@simplewebauthn/server": "13.3.2",
+    "asn1js": "3.1.0",
     "better-auth": "1.7.18"
   },
   "devDependencies": {

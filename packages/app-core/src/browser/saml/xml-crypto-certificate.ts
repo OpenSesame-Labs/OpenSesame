@@ -1,5 +1,6 @@
 /** Closed RSA/SHA-256 SAML certificate surface, backed by the existing official parser. */
 import "reflect-metadata";
+import { fromBER } from "@opensesame/auth-upstream/asn1";
 import { X509Certificate as ParsedCertificate } from "@peculiar/x509";
 import { z } from "zod";
 import { Application } from "./xml-crypto-application.js";
@@ -27,6 +28,12 @@ export class X509Certificate {
 
   constructor(rawData: BufferSource) {
     this.#raw = bytes(rawData);
+    // The shared parser predates its strict trailing-data check. Use its
+    // bounded ASN.1 reader first so a certificate cannot smuggle extra data
+    // after the encoded structure.
+    const parsed = fromBER(this.#raw);
+    if (parsed.result.error || parsed.offset !== this.#raw.byteLength)
+      throw new Error("Invalid SAML certificate encoding");
     this.#certificate = new ParsedCertificate(this.#raw);
   }
 

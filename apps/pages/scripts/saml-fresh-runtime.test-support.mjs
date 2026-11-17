@@ -70,6 +70,8 @@ export async function verifyFreshSamlRuntime(root, directory, xml, spki) {
         preserveEntrySignatures: "allow-extension",
         output: {
           format: "es",
+          // Match Pages' execution-order protection for cross-chunk cycles.
+          strictExecutionOrder: true,
           codeSplitting: {
             includeDependenciesRecursively: false,
             groups: [
