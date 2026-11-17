@@ -2,7 +2,12 @@
 /** Run scratch-break replay tests for #2608 formal subsystems; writes logs under SCRATCH_LOG_DIR. */
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 
 const repo = resolve(import.meta.dirname, "..");
@@ -52,8 +57,15 @@ section("release-promotion", {
     const path = "scripts/release/lib/candidate-published-formal.mjs";
     const text = readFileSync(join(repo, path), "utf8");
     const broken = text.replace(
-      "promoted.candidate_id === published.candidate_id",
-      "promoted.candidate_id !== published.candidate_id",
+      `  demand(
+    promoted.candidate_id === published.candidate_id &&
+      promoted.source_sha === published.source_sha &&
+      promoted.run_id === String(published.producer.run_id) &&
+      promoted.run_attempt === String(published.producer.run_attempt) &&
+      promoted.payload_digest === hash(publishedBytes),
+    "Published promotion does not authorize this candidate",
+  );`,
+      `  // scratch: promotion binding removed`,
     );
     writeFileSync(join(repo, path), broken);
     try {
@@ -114,8 +126,7 @@ section("onboarding-recovery", {
       "onboarding-recovery-formal",
     ]),
   scratch: () => {
-    const path =
-      "packages/app-core/src/lib/vault/store-presentation.ts";
+    const path = "packages/app-core/src/lib/vault/store-presentation.ts";
     const text = readFileSync(join(repo, path), "utf8");
     const broken = text.replace(
       "awaitingSecondStep: pending && !open",

@@ -1,9 +1,6 @@
 /** Reader labels for the vault unlock chart. No TLC names on the drawing. */
 
 export const state = (v) => {
-  // open && pending is the custody break. The screen formula can still
-  // report awaitingSecondStep false, so this must win before "Vault open".
-  if (v.open && v.pending) return "Vault open, second step still held";
   if (v.open && v.awaitingSecondStep) {
     return "Vault open, second step still showing";
   }
@@ -48,7 +45,7 @@ export const step = (action, from, to) => {
 };
 
 export const group = (v) => {
-  if (v.open && (v.pending || v.awaitingSecondStep)) return "Broken";
+  if (v.open && v.awaitingSecondStep) return "Broken";
   if (v.open) return "Open";
   if (v.pending || v.trusted) return "Waiting";
   if (v.header) return "Locked";

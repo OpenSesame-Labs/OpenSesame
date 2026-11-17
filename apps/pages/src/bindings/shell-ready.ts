@@ -66,7 +66,8 @@ export function computeShellReady(input: ShellReadyInput): boolean {
     input.openedVault === vault &&
     (plan === null ||
       input.timedOut === true ||
-      (plan.identity.vaultId === vault && input.awaitingPlanActivation !== true));
+      (plan.identity.vaultId === vault &&
+        input.awaitingPlanActivation !== true));
   return ready || waitedOpen;
 }
 

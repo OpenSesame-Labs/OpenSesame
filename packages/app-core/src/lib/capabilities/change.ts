@@ -72,8 +72,7 @@ export const changeSeams = {
   /** Verify builds may stall before `markActivated` (Playwright consent timing). */
   stallMarkActivated: async (_generation: number) => {
     const delay = Number(import.meta.env.VITE_VERIFY_ACTIVATION_DELAY_MS ?? 0);
-    if (delay > 0)
-      await new Promise((resolve) => setTimeout(resolve, delay));
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   },
 };
 

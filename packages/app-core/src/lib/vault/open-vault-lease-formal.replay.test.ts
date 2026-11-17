@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  VaultStoreConflictError,
   acquireOpenLease,
   forgetOpenLeasesForTest,
-  VaultStoreConflictError,
   withExclusiveOpenLease,
 } from "./vault-shared-locks.js";
 

@@ -1,10 +1,11 @@
 /** @vitest-environment node */
-import { overlapCast } from "@opensesame/os-domain";
+
 import type { EffectivePlan } from "@opensesame/capability-composition";
+import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import {
-  computeShellReadyBaseline,
   type ShellReadyBaselineInput,
+  computeShellReadyBaseline,
 } from "./shell-ready.baseline.js";
 import { computeShellReady } from "./shell-ready.js";
 
