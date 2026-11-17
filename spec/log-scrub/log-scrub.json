@@ -35,7 +35,8 @@
       "signingkey",
       "mnemonic",
       "recoverycode",
-      "recoverycodes"
+      "recoverycodes",
+      "proof"
     ],
     "keep": ["boolean", "null"]
   },
@@ -71,7 +72,7 @@
     {
       "id": "labelled-value",
       "description": "`label: value` or `label=value` (JSON, headers, query text) where the label ends in a secret word. The value may be quoted and may carry an auth scheme (`Authorization: Basic …`). The match starts at the secret word, so `x-api-key` and `myAccessToken` keep their prefix untouched and no scan runs backwards. The separator and a quoted value tolerate backslash-escaped quotes (a JSON document inside a string); an unquoted value runs to whitespace, so `a,b` is one secret; a quote that never closes redacts to the end of the line.",
-      "pattern": "((?:authorization|cookie|password|passwd|passphrase|secret|secret[_-]?key|access[_-]?key|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|bearer[_-]?token|csrf[_-]?token|xsrf[_-]?token|device[_-]?code|user[_-]?code|claim[_-]?token|code[_-]?verifier|private[_-]?key|authorization[_-]?code|assertion|token|client[_-]?secret|dpop|jwt|credentials?|connection[_-]?key|event[_-]?key|encryption[_-]?key|master[_-]?key|signing[_-]?key|mnemonic|recovery[_-]?codes?))(\\\\*[\"']?\\s*[=:]\\s*)(?:(?:bearer|basic|digest|dpop|negotiate|token)\\s+)?(?:\\[REDACTED\\]|\\\\+\"[^\"\\\\]*\\\\+\"|\"(?:[^\"\\\\]|\\\\.)*\"|'[^']*'|[\"'][^\\r\\n]*|[^\\s&\"']+)",
+      "pattern": "((?:authorization|cookie|password|passwd|passphrase|secret|secret[_-]?key|access[_-]?key|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|session[_-]?token|bearer[_-]?token|csrf[_-]?token|xsrf[_-]?token|device[_-]?code|user[_-]?code|claim[_-]?token|code[_-]?verifier|private[_-]?key|authorization[_-]?code|assertion|token|client[_-]?secret|dpop|jwt|credentials?|connection[_-]?key|event[_-]?key|encryption[_-]?key|master[_-]?key|signing[_-]?key|mnemonic|recovery[_-]?codes?|proof))(\\\\*[\"']?\\s*[=:]\\s*)(?:(?:bearer|basic|digest|dpop|negotiate|token)\\s+)?(?:\\[REDACTED\\]|\\\\+\"[^\"\\\\]*\\\\+\"|\"(?:[^\"\\\\]|\\\\.)*\"|'[^']*'|[\"'][^\\r\\n]*|[^\\s&\"']+)",
       "flags": "i",
       "replace": "$1$2[REDACTED]"
     },
@@ -151,6 +152,11 @@
       "rule": "labelled-value",
       "input": "Authorization: Bearer abc.def.ghi",
       "expect": "Authorization: [REDACTED]"
+    },
+    {
+      "rule": "labelled-value",
+      "input": "x-opensesame-session-proof: sensitive-proof",
+      "expect": "x-opensesame-session-proof: [REDACTED]"
     },
     {
       "rule": "labelled-value",
@@ -382,6 +388,10 @@
     },
     {
       "key": "set-cookie",
+      "sensitive": true
+    },
+    {
+      "key": "x-opensesame-session-proof",
       "sensitive": true
     },
     {
