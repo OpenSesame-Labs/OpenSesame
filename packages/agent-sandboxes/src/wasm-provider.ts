@@ -72,6 +72,7 @@ export class WasmRelayProvider implements SandboxProvider {
     const { url, allowedDomains } = allowedDomainsFor(request);
     const session = request.session ?? `wasm-${randomUUID()}`;
     let deployed: AnonymousRelayDeployment | undefined;
+    let deployedFetch: ReturnType<typeof virtualFetchOverHttp> | undefined;
     let virtualFetch = this.options.virtualFetch;
     if (!virtualFetch) {
       let relayUrl = this.options.relayUrl;
@@ -90,7 +91,14 @@ export class WasmRelayProvider implements SandboxProvider {
           "wasm-relay provider needs a relay URL and token (or an injected virtual fetch)",
         );
       }
-      virtualFetch = virtualFetchOverHttp(relayUrl, relayToken);
+      try {
+        const httpFetch = virtualFetchOverHttp(relayUrl, relayToken);
+        if (deployed) deployedFetch = httpFetch;
+        virtualFetch = httpFetch;
+      } catch (error) {
+        await deployed?.close().catch(() => {});
+        throw error;
+      }
     }
     const allowedOrigins = [
       ...new Set([
@@ -116,8 +124,9 @@ export class WasmRelayProvider implements SandboxProvider {
           await browser.close();
         } finally {
           try {
-            // Deleting the per-run deployment supersedes its session.
-            if (deployed) await boundFetch.closeSession?.(session).catch(() => {});
+            // The per-run deployment owns its session storage. Do not let an
+            // unreachable relay block deletion; also forget its local jar.
+            if (deployed) deployedFetch?.discardSession(session);
             else await boundFetch.closeSession?.(session);
           } finally {
             await deployed?.close().catch(() => {});

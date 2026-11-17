@@ -178,6 +178,27 @@ async function workersSubdomain(
   }
 }
 
+async function waitForRelay(
+  fetchImpl: FetchImpl,
+  relayUrl: string,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const probe = await fetchImpl(`${relayUrl}/fetch`, {
+        method: "POST",
+        body: "{}",
+      });
+      if (probe.status === 401) return;
+    } catch {
+      // Wait for the worker to propagate.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  throw new Error("anonymous cloudflare relay did not become ready");
+}
+
 export async function deployAnonymousCloudflareRelay(
   options: AnonymousCloudflareRelayOptions = {},
 ): Promise<AnonymousCloudflareRelay> {
@@ -214,47 +235,38 @@ export async function deployAnonymousCloudflareRelay(
     });
   }
   const scriptName = `os-relay-${randomUUID().slice(0, 8)}`;
-  await deployTemporaryWorker(
-    account,
-    scriptName,
-    CLOUDFLARE_RELAY_WORKER_SOURCE,
-    bindings,
-    fetchImpl,
-  );
+  const close = async () => {
+    await api(
+      fetchImpl,
+      account,
+      "DELETE",
+      `/accounts/${account.accountId}/workers/scripts/${scriptName}`,
+    ).catch(() => {});
+    await api(
+      fetchImpl,
+      account,
+      "DELETE",
+      `/accounts/${account.accountId}/storage/kv/namespaces/${kvId}`,
+    ).catch(() => {});
+  };
   const relayUrl = `https://${scriptName}.${subdomain}.workers.dev`;
-  const deadline = Date.now() + (options.readyTimeoutMs ?? 120_000);
-  let ready = false;
-  while (Date.now() < deadline && !ready) {
-    try {
-      const probe = await fetchImpl(`${relayUrl}/fetch`, {
-        method: "POST",
-        body: "{}",
-      });
-      ready = probe.status === 401;
-    } catch {
-      ready = false;
-    }
-    if (!ready) await new Promise((r) => setTimeout(r, 3000));
+  try {
+    await deployTemporaryWorker(
+      account,
+      scriptName,
+      CLOUDFLARE_RELAY_WORKER_SOURCE,
+      bindings,
+      fetchImpl,
+    );
+    await waitForRelay(fetchImpl, relayUrl, options.readyTimeoutMs ?? 120_000);
+  } catch (error) {
+    await close();
+    throw error;
   }
-  if (!ready)
-    throw new Error("anonymous cloudflare relay did not become ready");
   return {
     relayUrl,
     relayToken,
     account,
-    close: async () => {
-      await api(
-        fetchImpl,
-        account,
-        "DELETE",
-        `/accounts/${account.accountId}/workers/scripts/${scriptName}`,
-      ).catch(() => {});
-      await api(
-        fetchImpl,
-        account,
-        "DELETE",
-        `/accounts/${account.accountId}/storage/kv/namespaces/${kvId}`,
-      ).catch(() => {});
-    },
+    close,
   };
 }

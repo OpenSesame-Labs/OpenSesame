@@ -64,7 +64,7 @@ type RelayJar = z.infer<typeof relayJarSchema>;
 export function virtualFetchOverHttp(
   relayUrl: string,
   token: string,
-): VirtualFetch {
+): VirtualFetch & { discardSession(sessionId: string): void } {
   const base = new URL(relayUrl);
   const loopback = ["127.0.0.1", "[::1]"].includes(base.hostname);
   if (
@@ -100,7 +100,9 @@ export function virtualFetchOverHttp(
       throw new Error(`virtual network relay refused (${response.status})`);
     return response;
   };
-  const virtualFetch: VirtualFetch = async (request) => {
+  const virtualFetch: VirtualFetch & {
+    discardSession(sessionId: string): void;
+  } = async (request) => {
     const payload = {
       ...request,
       jar: sessionJars.get(request.sessionId) ?? {},
@@ -118,6 +120,11 @@ export function virtualFetchOverHttp(
   };
   virtualFetch.closeSession = async (sessionId) => {
     await send("/close", { sessionId });
+    sessionJars.delete(sessionId);
+  };
+  // For a per-run relay, its deployment is deleted instead of receiving a
+  // /close RPC. Forget the client-carried jar independently of the network.
+  virtualFetch.discardSession = (sessionId) => {
     sessionJars.delete(sessionId);
   };
   return virtualFetch;
