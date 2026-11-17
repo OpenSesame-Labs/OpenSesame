@@ -1,0 +1,92 @@
+name: Temporary UI review validation
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+
+jobs:
+  keyboard:
+    if: github.base_ref == 'codex/ui-behavior-signed-20261117'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 41c23bdb8295b16caa4912428b645f705bff94b2
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          cache: false
+          install_args: node@24
+      - run: npm ci --ignore-scripts
+      - name: Build the reviewed candidate
+        env:
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Verify the keyboard journey
+        env:
+          VITE_BASE: /OpenSesame/
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          PAGES_VERIFY_OUT: ${{ runner.temp }}/ui-keyboard
+        run: npm run verify:keyboard -w @opensesame/pages
+
+  visual:
+    if: github.base_ref == 'codex/ui-behavior-signed-20261117'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 41c23bdb8295b16caa4912428b645f705bff94b2
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 544a05d3d626b8f62fb2ba660a1203543d94ebe0
+          path: baseline
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install baseline dependencies
+        working-directory: baseline
+        run: npm ci --ignore-scripts
+      - name: Build the baseline
+        working-directory: baseline
+        env:
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Install candidate dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - name: Build the candidate
+        working-directory: candidate
+        env:
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Capture the same real journeys
+        working-directory: candidate
+        env:
+          TMPDIR: ${{ runner.temp }}
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          EVIDENCE_BASE_DIST: ${{ github.workspace }}/baseline/apps/pages/dist
+        run: |
+          mkdir -p work/evidence/ui-review/pages/web
+          echo '{"out":".","screens":[{"width":390,"height":844,"steps":[{"shot":"phone-entry"},{"guest":null},{"measure":".toast"},{"report":".toast"},{"shot":"phone-guest"},{"enable":"External connectors"},{"visit":"connections/github"},{"address":null},{"measure":"[data-first-visit-offer]"},{"measure":"[role=switch]"},{"report":"[data-first-visit-offer]"},{"shot":"phone-github"},{"press":"Show me"},{"address":null},{"tourMeasure":null},{"shot":"phone-github-tour"}]},{"width":1280,"height":900,"desktop":true,"steps":[{"shot":"desktop-entry"},{"guest":null},{"measure":".toast"},{"report":".toast"},{"shot":"desktop-guest"},{"enable":"External connectors"},{"visit":"connections/github"},{"address":null},{"measure":"[data-first-visit-offer]"},{"measure":"[role=switch]"},{"report":"[data-first-visit-offer]"},{"shot":"desktop-github"},{"press":"Show me"},{"address":null},{"tourMeasure":null},{"shot":"desktop-github-tour"}]},{"width":390,"height":844,"steps":[{"arrive":"#share-target=11111111-1111-4111-8111-111111111111.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.1794940000000"},{"measure":".notice-corner__card, .toast"},{"report":".notice-corner__card, .toast"},{"shot":"phone-notice"}]},{"width":1280,"height":900,"desktop":true,"steps":[{"arrive":"#share-target=11111111-1111-4111-8111-111111111111.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.1794940000000"},{"measure":".notice-corner__card, .toast"},{"report":".notice-corner__card, .toast"},{"shot":"desktop-notice"}]}],"sheets":[]}' > work/evidence/ui-review/pages/web/journey.json
+          echo '{"out":".","screens":[{"width":390,"height":844,"steps":[{"guest":null},{"enable":"External connectors"},{"visit":"connections/github"},{"scrollToOptional":"GitHub"},{"scrollToOptional":"GitHub"},{"report":"[data-first-visit-offer]"},{"measure":"[data-first-visit-offer]"},{"shot":"phone-github-offer"}]},{"width":1280,"height":900,"desktop":true,"steps":[{"guest":null},{"enable":"External connectors"},{"visit":"connections/github"},{"scrollToOptional":"GitHub"},{"scrollToOptional":"GitHub"},{"report":"[data-first-visit-offer]"},{"measure":"[data-first-visit-offer]"},{"shot":"desktop-github-offer"}]}],"sheets":[]}' > work/evidence/ui-review/pages/web/offer-journey.json
+          echo '{"out":".","screens":[{"width":390,"height":844,"steps":[{"arrive":"#share-target=11111111-1111-4111-8111-111111111111.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.1794940000000"},{"shot":"phone-notice-before-dismiss"},{"press":"Dismiss"},{"report":".notice-corner__card"},{"shot":"phone-notice-after-dismiss"}]},{"width":1280,"height":900,"desktop":true,"steps":[{"arrive":"#share-target=11111111-1111-4111-8111-111111111111.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.1794940000000"},{"shot":"desktop-notice-before-dismiss"},{"press":"Dismiss"},{"report":".notice-corner__card"},{"shot":"desktop-notice-after-dismiss"}]}],"sheets":[]}' > work/evidence/ui-review/pages/web/notice-journey.json
+          for journey in journey offer-journey; do
+            EVIDENCE_DIST="$EVIDENCE_BASE_DIST" node apps/pages/scripts/capture-evidence.mjs capture before "work/evidence/ui-review/pages/web/$journey.json"
+            node apps/pages/scripts/capture-evidence.mjs capture after "work/evidence/ui-review/pages/web/$journey.json"
+          done
+          node apps/pages/scripts/capture-evidence.mjs capture after work/evidence/ui-review/pages/web/notice-journey.json
+      - name: Retain unapproved review captures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ui-review-comparison
+          path: ${{ runner.temp }}/opensesame-evidence/
+          if-no-files-found: warn
+          retention-days: 14
