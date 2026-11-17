@@ -123,6 +123,7 @@ const mainFailLog = withShellSource(mainSource, () =>
 );
 writeFileSync(join(logDir, "regression-main-fail.log"), mainFailLog);
 
+writeFileSync(shellReadyPath, fixedSource);
 const afterLog = vitest(
   "src/app-root.shell-ready.test.tsx src/bindings/shell-ready-regression.baseline.test.ts src/bindings/shell-ready-formal.replay.test.ts",
   pagesRoot,
