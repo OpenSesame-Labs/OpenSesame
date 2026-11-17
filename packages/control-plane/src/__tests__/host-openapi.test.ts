@@ -18,13 +18,14 @@ type Schema = {
   items?: Schema;
   const?: unknown;
 };
+// SAFETY: The repository fixture's accessed schema properties are asserted below.
 const spec = safeLoad(hostOpenApi) as {
   components: { schemas: Record<string, Schema> };
   paths: Record<
     string,
     {
       post?: {
-        responses: Record<string, unknown>;
+        responses: Record<string, { description?: string; $ref?: string }>;
         requestBody?: { content: { "application/json": { schema: Schema } } };
       };
     }
@@ -104,7 +105,7 @@ describe("Host organization authority OpenAPI", () => {
     }
   });
 
-  it("documents bound agent launches and the separate join pairing ceiling", () => {
+  it("documents bound agent launches", () => {
     const launch =
       spec.paths["/agent-launches"]?.post?.requestBody?.content[
         "application/json"
@@ -116,6 +117,9 @@ describe("Host organization authority OpenAPI", () => {
       "membership_incarnation",
       "authority_revision",
     ]);
+  });
+
+  it("documents the separate join pairing ceiling", () => {
     const pairing =
       spec.paths["/browser-pairings"]?.post?.requestBody?.content[
         "application/json"
