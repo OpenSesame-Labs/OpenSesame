@@ -22,6 +22,7 @@ they begin; `scope.use(await startService())` is for sequential setup.
 | Boundary | Local counterpart | What still needs a real service |
 |---|---|---|
 | Host API | [`@opensesame/api-client/testkit`](../../packages/api-client/README.md#scripted-host-http-stub) scripts responses through the client's real `fetchImpl`. | The stub has no gateway, authentication, authorization, storage, DPoP or TLS. Use gateway and live-stack tests. |
+| Local daemon | [`DaemonTestkit`](../../crates/daemon/README.md#test-the-daemons-local-routes) runs selected production routes with isolated in-memory state and an operator token. | Real sign-in, discovery, proxying, credential fill, persistence and OS peer identity require their existing integration tests. |
 | Identity API | [`@opensesame/identity-testkit`](../../packages/identity-testkit/README.md) starts the real Identity HTTP dispatcher and issuer with memory-backed state. | Production Postgres, external providers, TLS and hardware; see its README for process-global limitations. |
 | Upstream identity | [`@opensesame/mock-upstream-idp/testkit`](../../tools/mock-upstream-idp/README.md) serves signed local OIDC/SAML and selected OAuth2 flows; an LDAP stand-in is also provided. | Individual real IdP policies, account recovery, passkey authenticators and deployment configuration. |
 | Identity storage | [`MemoryRepositories`](../../packages/database/README.md) implements repository ports; the [identity repository contract](../../packages/database/tests/identity-repository-contract.test.ts) also runs against migrated PGlite or a disposable Postgres database. | Real Postgres driver, migrations, locking and concurrency; run `test:postgres`. Memory and PGlite are not substitutes for these checks. |
@@ -35,11 +36,11 @@ they begin; `scope.use(await startService())` is for sequential setup.
 | OpenBao authority | [`MemoryAuthority`](../../crates/provider-openbao/src/lib.rs) is a simplified local stand-in. | Signing, decryption and revocation semantics: it echoes input for sign/decrypt and revocation is a no-op. It is not cryptographic evidence. |
 
 This is an inventory of service boundaries, not a claim that every endpoint
-is emulated. In particular, the native daemon does not yet have a general
-reusable whole-service emulator; use its existing component fixtures and
-real-process tests. Client libraries, pure domain,
-policy, format and cryptographic packages should normally run their actual
-implementation with dependency ports faked only when useful.
+is emulated. The daemon and worker fixtures expose selected real routes; use
+their existing component fixtures and real-process tests for the rest. Client
+libraries, pure domain, policy, format and cryptographic packages should
+normally run their actual implementation with dependency ports faked only when
+useful.
 
 ## Adding or maintaining a double
 

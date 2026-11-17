@@ -654,8 +654,8 @@ async fn revoke(
     Json(json!({"ok": true})).into_response()
 }
 
-#[cfg(test)]
-mod test_fixtures;
+#[cfg(any(test, feature = "testkit"))]
+pub mod test_fixtures;
 
 #[cfg(test)]
 pub(crate) use test_fixtures::test_operator_token;

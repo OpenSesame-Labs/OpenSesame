@@ -57,6 +57,8 @@ zeroize = { workspace = true }
 # D9 tailnet listener: whois-authorized, read-only, default OFF (ADR 0048 §8).
 [features]
 default = []
+## Explicitly opt in to the isolated daemon test fixture.
+testkit = []
 tailscale = ["dep:opensesame-tailscale-authn"]
 # End-to-end harness only: let `OPENSESAME_TAILSCALE_API_BASE` name a
 # loopback stub for api.tailscale.com. No release enables it.
