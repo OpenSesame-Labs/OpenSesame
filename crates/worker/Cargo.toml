@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 description = "Workload connector host: readiness and provider listing behind a token or mTLS, served by `opensesame worker run` (ADR 0132)"
 
+[features]
+default = []
+# Real, disposable loopback workers for integration tests only.
+testkit = ["opensesame-transport-security/testkit", "dep:reqwest"]
+
 [dependencies]
 opensesame-connector-host = { path = "../../crates/connector-host" }
 opensesame-domain = { path = "../../crates/domain" }
@@ -17,6 +22,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 sha2 = { workspace = true }
+reqwest = { workspace = true, optional = true }
 
 [dev-dependencies]
 opensesame-transport-security = { path = "../../crates/transport-security", features = ["testkit"] }
