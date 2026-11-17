@@ -206,10 +206,10 @@ async fn stale_projection_wins_before_an_unavailable_pdp_is_consulted() {
     let subject = resolved.grant.beneficiary_principal_id.to_string();
     let pdp = FakeRemotePdp::new();
     pdp.set_unavailable(true).unwrap();
-    let stale = check_with_pdp(&state, &pdp, &org, &resolved, &subject, "repo:acme/catalog")
+    let refusal = check_with_pdp(&state, &pdp, &org, &resolved, &subject, "repo:acme/catalog")
         .await
         .expect_err("a stale projection must fail before the PDP");
-    assert_refusal(stale, StatusCode::FORBIDDEN, "projection_stale").await;
+    assert_refusal(refusal, StatusCode::FORBIDDEN, "projection_stale").await;
     mark_fresh(&state, &org, &resolved).await;
     let outage = check_with_pdp(&state, &pdp, &org, &resolved, &subject, "repo:acme/catalog")
         .await
