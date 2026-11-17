@@ -2,6 +2,8 @@
 EXTENDS Naturals
 \* Promotion must authorize the same qualified candidate bytes, not a rewrite.
 
+CONSTANT MaxPublish
+
 VARIABLES publishedId, promotedId, payloadMatch, authorized
 
 vars == <<publishedId, promotedId, payloadMatch, authorized>>
@@ -13,18 +15,20 @@ Init ==
   /\ authorized = FALSE
 
 PublishCandidate ==
+  /\ publishedId < MaxPublish
   /\ publishedId' = publishedId + 1
-  /\ UNCHANGED <<promotedId, payloadMatch, authorized>>
+  /\ authorized' = FALSE
+  /\ UNCHANGED <<promotedId, payloadMatch>>
 
 Promote ==
   /\ promotedId' = publishedId
   /\ IF payloadMatch
      THEN authorized' = TRUE
      ELSE authorized' = FALSE
-  /\ UNCHANGED publishedId
+  /\ UNCHANGED <<publishedId, payloadMatch>>
 
 RewriteVersion ==
-  /\ promotedId' # publishedId
+  /\ promotedId' = publishedId + 1
   /\ authorized' = FALSE
   /\ UNCHANGED <<publishedId, payloadMatch>>
 
