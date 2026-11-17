@@ -27,7 +27,7 @@ pub enum Assurance {
     PhishingResistant,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct HostSessionClaims {
     pub credential_kind: CredentialKind,
     pub principal_id: PrincipalId,
@@ -52,7 +52,7 @@ pub struct HostSessionClaims {
 }
 
 /// Identity authority for one incarnation of a membership.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct MembershipRevision {
     pub incarnation: String,
     pub revision: String,
