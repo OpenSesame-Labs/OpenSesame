@@ -19,9 +19,9 @@ import type {
 import type { Variables } from "../middleware/context.js";
 import {
   BetterAuthBridgeError,
-  betterAuthBridgeStatus,
   type BridgedSession,
   MAGIC_LINK_INTERACTION_KEY,
+  betterAuthBridgeStatus,
   normalizeEmail,
   principalForBetterAuthSubject,
   requestMagicLink,

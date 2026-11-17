@@ -2,9 +2,9 @@ import { createHash } from "node:crypto";
 import type { Organization } from "@opensesame/os-domain";
 import { afterEach, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
-import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import { SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE } from "../routes/scim-effects.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 
 afterEach(() => vi.restoreAllMocks());
 

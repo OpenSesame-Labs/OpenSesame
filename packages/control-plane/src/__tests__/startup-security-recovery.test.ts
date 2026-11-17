@@ -121,7 +121,9 @@ it("recovers upstream logouts before pending session cleanup on restart", async 
       metadata: { action: "organization.member.revoke", count: 1 },
     });
     expect(
-      await restarted.ctx.stores.organizationRevocationAudits.get(auditIntent.id),
+      await restarted.ctx.stores.organizationRevocationAudits.get(
+        auditIntent.id,
+      ),
     ).toBeUndefined();
 
     const again = createControlPlane(options);

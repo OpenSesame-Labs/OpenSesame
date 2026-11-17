@@ -10,8 +10,8 @@ import {
 } from "@opensesame/os-domain";
 import { type Client, type Entry, escapeFilter } from "ldapts";
 import type { AppContext } from "../context.js";
-import { jitJoinOrganization } from "../routes/organization-membership.js";
 import { removeDirectoryMembership } from "../routes/directory-removal.js";
+import { jitJoinOrganization } from "../routes/organization-membership.js";
 import {
   type LdapTarget,
   createClient,

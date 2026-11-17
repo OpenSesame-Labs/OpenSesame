@@ -5,13 +5,13 @@ import { isJsonObject, isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
-  prepareDirectoryRemoval,
-  removeDirectoryMembership,
-} from "./directory-removal.js";
-import {
   type PreparedWithdrawal,
   prepareRoleWithdrawal,
 } from "../services/organization-withdrawal.js";
+import {
+  prepareDirectoryRemoval,
+  removeDirectoryMembership,
+} from "./directory-removal.js";
 
 /**
  * Where a Groups PATCH records the derived role, on the SCIM row itself.
