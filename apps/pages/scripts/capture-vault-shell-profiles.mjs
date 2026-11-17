@@ -19,9 +19,14 @@ import {
   BASE,
   emptyRecord,
 } from "./lib/verification-checklist-shot.mjs";
-import { proofShot } from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
-import { captureChoice, finishProfile } from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
-import { assertLocalPage } from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
+import {
+  assertLocalPage,
+  captureChoice,
+  proofShot,
+} from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
+import { openSettingsCategory } from "./lib/pages-journey.mjs";
+import { awaitCapabilitySections } from "./lib/always-on.mjs";
+import { enterVault } from "./lib/verification-checklist-setup.mjs";
 import { buildDist } from "./lib/verification-checklist-profiles.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 
@@ -73,17 +78,13 @@ export async function captureVaultShellProfiles({ outDir }) {
     assertLocalPage(page, walk.name);
     await captureChoice(page, walk, stepsDir);
     const where = await applySetupChoice(page, shot, record, walk.setupChoice);
-    await finishProfile(page, shot, walk, where, texts);
-    const vaultPng = join(outDir, `${walk.name}.png`);
+    await enterVault(page, where);
+    await openSettingsCategory(page, "Features");
     const panel = page.locator("[data-testid=features-panel]");
-  if (await panel.count()) {
-      await panel.screenshot({ path: vaultPng, animations: "disabled" });
-    } else {
-      await page.locator("[data-testid=app-shell]").screenshot({
-        path: vaultPng,
-        animations: "disabled",
-      });
-    }
+    await panel.waitFor({ state: "visible", timeout: 30_000 });
+    await awaitCapabilitySections(page);
+    const vaultPng = join(outDir, `${walk.name}.png`);
+    await panel.screenshot({ path: vaultPng, animations: "disabled" });
     pngPaths.push(vaultPng);
     manifests.push({
       profile: walk.name,
