@@ -10,6 +10,8 @@ name = "opensesame_connection_broker"
 path = "src/lib.rs"
 
 [features]
+# Explicit test support for constructing clients without ambient proxy settings.
+testkit = []
 # A loopback STS stand-in that verifies SigV4 (ADR 0217), for the gateway's
 # tests. Never enabled by a shipped build.
 sts-stand-in = []

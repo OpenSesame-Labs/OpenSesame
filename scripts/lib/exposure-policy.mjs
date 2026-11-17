@@ -4,6 +4,7 @@ export const POLICY_PATH = "tools/security/exposure-matrix.json";
 export const digestPattern = /^[a-f0-9]{64}$/u;
 
 import { CORE_CONTRACTS } from "./exposure-contracts.mjs";
+import { HOST_TESTKIT_CONTROLS } from "./exposure-host-testkit.mjs";
 import { LOCAL_VAULT_CONTROLS } from "./exposure-local-vault.mjs";
 import { NATIVE_PROVIDER_CONTROLS } from "./exposure-native-provider.mjs";
 export const REQUIRED_SURFACES = Object.freeze(
@@ -34,6 +35,7 @@ const ARTIFACTS = [
   "certificate-binding",
 ];
 const CONTROLS = [
+  ...HOST_TESTKIT_CONTROLS,
   ...LOCAL_VAULT_CONTROLS,
   ...NATIVE_PROVIDER_CONTROLS,
   "mandatory-proof",

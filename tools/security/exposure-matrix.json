@@ -319,6 +319,83 @@
       "review": "EST certificate enrollment and replacement require usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it."
     },
     {
+      "id": "host-testkit-listener",
+      "kind": "testkit-listener",
+      "area": "host-admission",
+      "flow": "host-testkit-listener",
+      "observer": "network-peer",
+      "artifacts": [
+        "authority-api"
+      ],
+      "verification": "none",
+      "controls": [
+        "all-listeners-classified",
+        "explicit-network-bind",
+        "testkit-synthetic-state",
+        "testkit-four-route-fence",
+        "testkit-successful-close"
+      ],
+      "guarantees": [],
+      "enforcement": "none",
+      "entropyBits": 0,
+      "minSecretBytes": 0,
+      "budget": null,
+      "implementation": [
+        "crates/gateway/Cargo.toml",
+        "crates/gateway/src/lib.rs",
+        "crates/gateway/src/app_state.rs",
+        "crates/gateway/src/config.rs",
+        "crates/gateway/src/testkit/mod.rs",
+        "crates/gateway/src/testkit/state.rs",
+        "crates/gateway/src/testkit/server.rs",
+        "crates/gateway/src/routes/mod.rs",
+        "crates/gateway/src/routes/local_authority_routes.rs",
+        "crates/gateway/src/routes/wire_connections.rs",
+        "crates/gateway/src/routes/health.rs",
+        "crates/gateway/src/routes/session.rs",
+        "crates/gateway/src/routes/connections.rs",
+        "crates/gateway/src/routes/agent_capabilities.rs",
+        "crates/gateway/src/routes/browser_pairings.rs",
+        "crates/gateway/src/browser_pairing_proof.rs",
+        "crates/gateway/src/middleware/mod.rs",
+        "crates/gateway/src/middleware/auth.rs",
+        "crates/gateway/src/middleware/agent_grants.rs",
+        "crates/gateway/src/middleware/browser_grants.rs",
+        "crates/gateway/src/middleware/browser_user_routes.rs",
+        "crates/gateway/src/middleware/public_enrollment.rs",
+        "crates/host-core/src/operator.rs",
+        "crates/host-core/src/http_security.rs",
+        "crates/host-core/src/deployment_mode.rs",
+        "crates/connection-broker/Cargo.toml",
+        "crates/connection-broker/src/lib.rs",
+        "crates/connection-broker/src/config.rs",
+        "crates/connection-broker/src/constructor.rs",
+        "crates/connection-broker/src/store.rs",
+        "crates/storage/src/lib.rs",
+        "crates/storage/src/tenancy.rs",
+        "crates/audit/src/lib.rs",
+        "crates/authz/src/engine.rs",
+        "crates/connector-host/src/lib.rs",
+        "crates/connector-host/src/constrained_http.rs",
+        "crates/invoke-through/src/surrogate.rs",
+        "crates/invoke-through/src/fence.rs",
+        "crates/task-bus/src/memory.rs",
+        "crates/task-access/src/engine.rs",
+        "crates/gateway/src/task_engine.rs",
+        "crates/gateway/src/web_login/registry.rs",
+        "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/trust.rs",
+        "crates/connection-broker/src/catalog.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/testkit/server_tests.rs",
+        "crates/gateway/tests/testkit.rs",
+        "crates/gateway/tests/host-consumer.test.ts",
+        "crates/connection-broker/src/constructor_tests.rs"
+      ],
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed."
+    },
+    {
       "id": "host-listeners",
       "kind": "listener",
       "area": "host-admission",
@@ -2671,14 +2748,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "db46775b",
-      "3d922ee1",
-      "58e668db",
-      "e6de35c8",
-      "26504931",
-      "28fbad5d",
-      "6eca9120",
-      "978f77e9"
+      "aad5d529",
+      "8f6ab859",
+      "540bb2bf",
+      "a1bd71c2",
+      "ef3207cb",
+      "543250d0",
+      "2aebeb8a",
+      "1b4e22d9"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -6459,6 +6536,466 @@
       "ff04d635",
       "e95be326",
       "1c05799e"
+    ],
+    "crates/gateway/Cargo.toml": [
+      "8878317c",
+      "aaa15442",
+      "d8e5b4e2",
+      "a2037a8f",
+      "6cc37404",
+      "825b99a1",
+      "65facdab",
+      "df73edff"
+    ],
+    "crates/gateway/src/app_state.rs": [
+      "5e65277c",
+      "6b294ad0",
+      "cfbbf16b",
+      "4587091d",
+      "7bbf9246",
+      "6b435393",
+      "ec4b297c",
+      "893b4dc9"
+    ],
+    "crates/gateway/src/testkit/mod.rs": [
+      "dd98ef36",
+      "395e30a7",
+      "d4f53cd8",
+      "9f010e0f",
+      "6af72a84",
+      "ec0ba531",
+      "af8551f8",
+      "00166434"
+    ],
+    "crates/gateway/src/testkit/state.rs": [
+      "2a9df6e9",
+      "f30e3855",
+      "fea89b3a",
+      "49e7b4bc",
+      "2eefd248",
+      "9c51da61",
+      "248cc723",
+      "63f3a9e2"
+    ],
+    "crates/gateway/src/testkit/server.rs": [
+      "1de97a97",
+      "901e8c8d",
+      "ef3af108",
+      "5fdf7276",
+      "7d857566",
+      "817d8962",
+      "ad8e6bc0",
+      "6765730d"
+    ],
+    "crates/gateway/src/routes/local_authority_routes.rs": [
+      "628c7122",
+      "b21349a7",
+      "f47e96fd",
+      "acd14676",
+      "d45c39fe",
+      "d186bbe9",
+      "530bc417",
+      "fed62d2e"
+    ],
+    "crates/gateway/src/routes/wire_connections.rs": [
+      "e7df9f88",
+      "0cff4ab3",
+      "38397871",
+      "106b6148",
+      "62edf615",
+      "bac39632",
+      "11c7b091",
+      "facdff97"
+    ],
+    "crates/gateway/src/routes/health.rs": [
+      "77af0bd7",
+      "43ddb628",
+      "6e72bcba",
+      "f470e25b",
+      "e9fcdd49",
+      "282806f1",
+      "d56b81bc",
+      "a47984b2"
+    ],
+    "crates/gateway/src/routes/session.rs": [
+      "fb21fcf9",
+      "25f9325b",
+      "20ebf11b",
+      "3140d228",
+      "4c7743eb",
+      "6f1af4be",
+      "f95ff7cd",
+      "b0379573"
+    ],
+    "crates/gateway/src/routes/connections.rs": [
+      "4ab1439a",
+      "501e26cf",
+      "fc5e0c9e",
+      "d89051b0",
+      "38be29c3",
+      "b35edb21",
+      "841fb4bb",
+      "3bec49e5"
+    ],
+    "crates/gateway/src/routes/agent_capabilities.rs": [
+      "909707b3",
+      "5db19178",
+      "b21aea0a",
+      "d2656d68",
+      "7004f0c5",
+      "70af4940",
+      "2994b76b",
+      "d1c5582d"
+    ],
+    "crates/gateway/src/routes/browser_pairings.rs": [
+      "5af0623e",
+      "d9000778",
+      "fb4cde7c",
+      "b5d6ff97",
+      "d4354481",
+      "872e988a",
+      "919edaaf",
+      "d7a8c9d7"
+    ],
+    "crates/gateway/src/browser_pairing_proof.rs": [
+      "a65e9ba0",
+      "97943595",
+      "51812ff0",
+      "71b6aaf1",
+      "53448ff8",
+      "491b832e",
+      "bdf3b03b",
+      "15c1d8f1"
+    ],
+    "crates/gateway/src/middleware/mod.rs": [
+      "2389fc92",
+      "7348d2cb",
+      "472c54f4",
+      "ef02c862",
+      "e09c3705",
+      "8614481e",
+      "e696f27d",
+      "d40676bf"
+    ],
+    "crates/gateway/src/middleware/auth.rs": [
+      "e724e41e",
+      "469fa329",
+      "b25fe8f1",
+      "a18bc972",
+      "1bbf0c61",
+      "08ceee91",
+      "5dfe37a4",
+      "790fbdf1"
+    ],
+    "crates/gateway/src/middleware/agent_grants.rs": [
+      "8044a6db",
+      "5a35e569",
+      "72232a4d",
+      "5a941de2",
+      "6dc62193",
+      "78a3281b",
+      "8941edc7",
+      "3a039eed"
+    ],
+    "crates/gateway/src/middleware/browser_grants.rs": [
+      "86f969f0",
+      "b674fdbd",
+      "1dbe96bb",
+      "ad343f40",
+      "a4a82595",
+      "84b29ed0",
+      "27e70069",
+      "1be1bd41"
+    ],
+    "crates/gateway/src/middleware/browser_user_routes.rs": [
+      "634a2058",
+      "8f1dc48c",
+      "a6ef2455",
+      "e5f765cf",
+      "650b8c24",
+      "a3679d41",
+      "7ba5dab1",
+      "5e1e864a"
+    ],
+    "crates/gateway/src/middleware/public_enrollment.rs": [
+      "7d114ad7",
+      "ed1b58f8",
+      "920a21e6",
+      "e502d85b",
+      "c17cddfc",
+      "2d2218c3",
+      "b4c8b494",
+      "a7b0ff44"
+    ],
+    "crates/host-core/src/operator.rs": [
+      "6ff3fa9f",
+      "d142f44b",
+      "fb13e3ce",
+      "42e6a531",
+      "1d74911c",
+      "b0759f20",
+      "6459522e",
+      "0892cca1"
+    ],
+    "crates/host-core/src/http_security.rs": [
+      "3441643e",
+      "96e62003",
+      "8edaafd9",
+      "2d88e23d",
+      "41f0efa1",
+      "60ec2b70",
+      "c79b3a44",
+      "2f2ca4b3"
+    ],
+    "crates/host-core/src/deployment_mode.rs": [
+      "92a5648d",
+      "69968e93",
+      "675a84b5",
+      "42ece25e",
+      "c0fcce6d",
+      "29860442",
+      "fbcacfe8",
+      "a12f8558"
+    ],
+    "crates/connection-broker/Cargo.toml": [
+      "33e718d8",
+      "5e217361",
+      "f42b9e85",
+      "e6eba563",
+      "1aa64169",
+      "72991a5f",
+      "da3e2bca",
+      "4d04dd2f"
+    ],
+    "crates/connection-broker/src/lib.rs": [
+      "2639f1a7",
+      "24c7e8bb",
+      "134d999e",
+      "c7a64797",
+      "a12c0263",
+      "2057dcab",
+      "11e1b55b",
+      "8b3cf260"
+    ],
+    "crates/connection-broker/src/config.rs": [
+      "4a23b693",
+      "85e8c2f6",
+      "6109ca98",
+      "3cda9b79",
+      "da1389df",
+      "420da1fa",
+      "443d975a",
+      "aecf1fac"
+    ],
+    "crates/connection-broker/src/constructor.rs": [
+      "3b76416e",
+      "82900de7",
+      "12f70dff",
+      "60c72aa9",
+      "e1d2b903",
+      "4cb855a3",
+      "b8a486c1",
+      "6abe5a78"
+    ],
+    "crates/connection-broker/src/store.rs": [
+      "5ab48843",
+      "98cda7d2",
+      "b0051b99",
+      "266f9539",
+      "fe16e8ce",
+      "5baba841",
+      "fe6020ae",
+      "ad9510bf"
+    ],
+    "crates/storage/src/lib.rs": [
+      "15e65cfa",
+      "77469c13",
+      "fc9ea0d9",
+      "26602828",
+      "67e519f0",
+      "03b45881",
+      "1e561c8d",
+      "a0589379"
+    ],
+    "crates/storage/src/tenancy.rs": [
+      "10cd6d36",
+      "eb5732a5",
+      "34555751",
+      "08f787c3",
+      "d9069ea3",
+      "394a37da",
+      "0e6b11cb",
+      "40d7a379"
+    ],
+    "crates/gateway/src/testkit/server_tests.rs": [
+      "c91c98fe",
+      "81d93e4b",
+      "1a6f155f",
+      "e01d05b7",
+      "fe754d08",
+      "ed724bf9",
+      "d4da4104",
+      "643cf881"
+    ],
+    "crates/gateway/tests/testkit.rs": [
+      "09035427",
+      "7eb651ca",
+      "65544b45",
+      "1d11df92",
+      "e880b4a3",
+      "87a66180",
+      "9efe592e",
+      "15f00296"
+    ],
+    "crates/gateway/tests/host-consumer.test.ts": [
+      "0731c186",
+      "180eea5d",
+      "1bc2f7ea",
+      "769b5443",
+      "7388e1e6",
+      "a52cc865",
+      "0c3483a9",
+      "99c1cc3f"
+    ],
+    "crates/connection-broker/src/constructor_tests.rs": [
+      "042e314f",
+      "d55b06df",
+      "8ec3f03d",
+      "17bb5706",
+      "2e39a6b2",
+      "632d7c38",
+      "8f4f4c91",
+      "f0cd7556"
+    ],
+    "crates/audit/src/lib.rs": [
+      "623075cb",
+      "94127726",
+      "1832b652",
+      "66834a35",
+      "782369d3",
+      "74837797",
+      "42095611",
+      "c91ac387"
+    ],
+    "crates/authz/src/engine.rs": [
+      "0d310e97",
+      "1f2070dd",
+      "5e70d219",
+      "2236d5fb",
+      "2fe9294b",
+      "99d677a0",
+      "dbfbda08",
+      "2497f909"
+    ],
+    "crates/connector-host/src/lib.rs": [
+      "cc69443c",
+      "e103d539",
+      "bb3bcc35",
+      "06b5112f",
+      "b2e90346",
+      "c53fa38b",
+      "8ffcbcfa",
+      "30e470c9"
+    ],
+    "crates/connector-host/src/constrained_http.rs": [
+      "1077414d",
+      "785a2430",
+      "3d1e815f",
+      "1c08cb67",
+      "a1718783",
+      "02a137e7",
+      "7c30f95f",
+      "9090dd85"
+    ],
+    "crates/invoke-through/src/surrogate.rs": [
+      "9e6f0519",
+      "5c8afe0f",
+      "72170316",
+      "1b9a27f5",
+      "3711b3a5",
+      "060ea761",
+      "90405c4a",
+      "fda1109a"
+    ],
+    "crates/invoke-through/src/fence.rs": [
+      "2ca8e6f1",
+      "72ce38d7",
+      "b3856c13",
+      "40423348",
+      "2bf1c659",
+      "a490ab9e",
+      "e25bc444",
+      "708efcd2"
+    ],
+    "crates/task-bus/src/memory.rs": [
+      "b7f0af77",
+      "1ca64ce3",
+      "dedf0e68",
+      "ba33111a",
+      "b075959d",
+      "82087132",
+      "80584338",
+      "54a5d375"
+    ],
+    "crates/task-access/src/engine.rs": [
+      "4d19f346",
+      "7cf303c5",
+      "219f4faf",
+      "78b4d179",
+      "cbfd5978",
+      "9982a8e6",
+      "1e5c3169",
+      "b5ae9e77"
+    ],
+    "crates/gateway/src/task_engine.rs": [
+      "1b395d0d",
+      "31e1f249",
+      "7650dc70",
+      "d7a48e1d",
+      "dc9429fd",
+      "67a5fdbf",
+      "875f0601",
+      "06946655"
+    ],
+    "crates/gateway/src/web_login/registry.rs": [
+      "d060bff9",
+      "84e6ad1e",
+      "e86cfa62",
+      "1f9a8a7a",
+      "fb976e70",
+      "0aefaa6f",
+      "05c5b772",
+      "e2cccc6d"
+    ],
+    "crates/gateway/src/transport_lifecycle/mod.rs": [
+      "8e439b18",
+      "aa670a0d",
+      "75f99740",
+      "55d8ca2f",
+      "0e61601b",
+      "f5963b13",
+      "79789ff7",
+      "6d89dcf5"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust.rs": [
+      "d24c39e9",
+      "bbaf1629",
+      "01bfbafe",
+      "5ed381ae",
+      "f37244ab",
+      "c3b85587",
+      "7cf4e2e3",
+      "b90d6fe0"
+    ],
+    "crates/connection-broker/src/catalog.rs": [
+      "34fbc4b1",
+      "b7dae35e",
+      "475e1ace",
+      "818265ab",
+      "4b0507e2",
+      "aa16d365",
+      "41a1a39f",
+      "85ce9bc4"
     ]
   }
 }
