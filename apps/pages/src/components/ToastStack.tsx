@@ -28,80 +28,21 @@ import {
   subscribeNoticeArrivals,
   subscribeNotices,
 } from "@opensesame/app-core/lib/notices.js";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { matchPath, useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
-import { useNarrow } from "../lib/use-narrow.js";
-import { vaultPane } from "../lib/vault-list-path.js";
 import { IconAlert, IconInfo } from "./Icons.js";
 import { InlineRecommendations } from "./InlineRecommendations.js";
 import { dismissContext } from "./notice-dismiss-context.js";
+import { useToastPlacement, useToastQueue } from "./use-toast-queue.js";
 import { useToastReading } from "./use-toast-reading.js";
 
 /** How long a toast stays when the person is not reading it. */
 export const TOAST_MS = 6000;
 
-/** How many transient echoes fit; unanswered offers are never evicted. */
-export const TOAST_LIMIT = 2;
-
-/**
- * The cards on screen once `arrival` joins them.
- *
- * An unread echo makes room by leaving; the tray still holds its notice.
- * Focused or hovered echoes stay while read, so a new echo can be tray-only.
- * Unanswered offers are never evicted. When offers have a separate in-flow
- * seat, they do not consume the transient stack's two places.
- */
-export function withinLimit(
-  current: readonly ToastMessage[],
-  arrival: ToastMessage,
-  {
-    reading = new Set<string>(),
-    inlineOffers = false,
-  }: {
-    reading?: ReadonlySet<string>;
-    inlineOffers?: boolean;
-  } = {},
-): ToastMessage[] {
-  const previous = current.findIndex((item) => item.id === arrival.id);
-  const next = [...current];
-  if (previous < 0) next.push(arrival);
-  else next[previous] = arrival;
-  const occupied = () =>
-    inlineOffers ? next.filter((item) => !item.sticky).length : next.length;
-  while (occupied() > TOAST_LIMIT) {
-    const echo = next.findIndex(
-      (item) => !item.sticky && !reading.has(item.id),
-    );
-    if (echo < 0) break;
-    next.splice(echo, 1);
-  }
-  return next;
-}
-
-/** Keep the phone's fixed toast away from the vault's fixed controls. */
-function useToastPlacement() {
-  const location = useLocation();
-  const narrow = useNarrow();
-  const besideAdd =
-    vaultPane(location.pathname, new URLSearchParams(location.search)) ===
-    "list";
-  const aboveEditor =
-    matchPath("/vault/new/:kind?", location.pathname) !== null ||
-    matchPath("/vault/:itemId/edit", location.pathname) !== null;
-  return {
-    className: `toasts${besideAdd ? " toasts--vault-list" : ""}${aboveEditor ? " toasts--vault-editor" : ""}`,
-    editing: narrow && aboveEditor,
-  };
-}
+export { TOAST_LIMIT, withinLimit } from "./use-toast-queue.js";
 
 export function ToastStack({
   inlineSeat,
@@ -114,59 +55,11 @@ export function ToastStack({
 } = {}) {
   const navigate = useNavigate();
   const { className, editing } = useToastPlacement();
-  const [shown, setShown] = useState<ToastMessage[]>([]);
-  const reading = useRef(
-    new Map<string, { pointer: boolean; focus: boolean }>(),
+  const { shown, markReading, add, dismiss, handBack } = useToastQueue(
+    active,
+    inlineSeat !== undefined,
+    editing,
   );
-  const handBack = useRef(false);
-  const inlineOffers = inlineSeat !== undefined;
-
-  const markReading = useCallback(
-    (id: string, channel: "pointer" | "focus", value: boolean) => {
-      const current = reading.current.get(id) ?? {
-        pointer: false,
-        focus: false,
-      };
-      const next = { ...current, [channel]: value };
-      if (next.pointer || next.focus) reading.current.set(id, next);
-      else reading.current.delete(id);
-    },
-    [],
-  );
-  useLayoutEffect(() => {
-    if (!active) reading.current.clear();
-  }, [active]);
-
-  const add = useCallback(
-    (toast: ToastMessage) => {
-      const protectedIds = new Set(reading.current.keys());
-      setShown((current) =>
-        withinLimit(current, toast, {
-          reading: protectedIds,
-          inlineOffers: inlineOffers || editing,
-        }),
-      );
-    },
-    [editing, inlineOffers],
-  );
-  const dismiss = useCallback((id: string) => {
-    if (reading.current.get(id)?.focus) handBack.current = true;
-    reading.current.delete(id);
-    setShown((current) => current.filter((item) => item.id !== id));
-  }, []);
-  useEffect(() => {
-    if (editing || inlineOffers) return;
-    const protectedIds = new Set(reading.current.keys());
-    setShown((current) =>
-      current.length <= TOAST_LIMIT
-        ? current
-        : current.reduce<ToastMessage[]>(
-            (kept, toast) =>
-              withinLimit(kept, toast, { reading: protectedIds }),
-            [],
-          ),
-    );
-  }, [editing, inlineOffers]);
 
   // A card's key goes with its card. Where the press was made from the
   // keyboard, focus goes back to wherever it was before it entered the
@@ -188,7 +81,7 @@ export function ToastStack({
         region.current?.contains(document.activeElement) === true;
       dismiss(id);
     },
-    [dismiss],
+    [dismiss, handBack],
   );
   // After the card is gone: only if nothing else took focus meanwhile — a
   // tour's card, or the page a key navigated to, keeps it.
