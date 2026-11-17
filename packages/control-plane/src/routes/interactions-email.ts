@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { HttpBindings } from "@hono/node-server";
 import type { OpenSesameProviderBundle } from "@opensesame/oauth-provider";
@@ -27,7 +27,10 @@ import {
   requestMagicLink,
   verifyMagicLinkToken,
 } from "../services/better-auth-bridge.js";
+import { chargeMagicLinkBudget } from "../services/magic-link-budget.js";
 import { renderLoginPage } from "../ui/interaction-pages.js";
+
+export { resetMagicLinkBudgetForTest as resetEmailLinkBudget } from "../services/magic-link-budget.js";
 
 type NodeEnv = { Bindings: HttpBindings };
 
@@ -79,63 +82,6 @@ const EXPIRED_LINK_MESSAGE =
   "That sign-in link has expired or was already used. Request a new one.";
 const THROTTLED_MESSAGE =
   "Too many sign-in links were requested for that address. Wait a few minutes and try again.";
-
-/**
- * Per-address budget for outbound links.
- *
- * The login page is unauthenticated and this route makes it send mail, which
- * makes it an amplifier pointed at whatever address the poster types. Counted
- * per address rather than per client so the fence protects the person being
- * mailed rather than the person doing the mailing: five links to one inbox in
- * ten minutes is already generous, and no number of distinct submitters raises
- * it. The key is a hash — the address itself is never a map key, a log line, or
- * an audit field.
- */
-const EMAIL_BUDGET_WINDOW_MS = 10 * 60 * 1000;
-const EMAIL_BUDGET_MAX = 5;
-const EMAIL_GLOBAL_MAX = 200;
-/** A caller rotating recipient addresses still gets a source-address ceiling. */
-const EMAIL_PEER_MAX = 20;
-const EMAIL_BUDGET_MAX_KEYS = 2_048;
-const EMAIL_GLOBAL_KEY = "__global__";
-const emailBudget = new Map<string, number[]>();
-
-/** Test hook: drop every recorded send window. */
-export function resetEmailLinkBudget(): void {
-  emailBudget.clear();
-}
-
-function peerKey(c: { env: HttpBindings }): string {
-  const address = c.env?.incoming?.socket?.remoteAddress;
-  return address ? `peer:${address}` : "peer:unknown";
-}
-
-function consumeEmailBudget(
-  key: string,
-  now: number,
-  limit = EMAIL_BUDGET_MAX,
-): boolean {
-  for (const [candidate, times] of emailBudget) {
-    const live = times.filter((at) => now - at < EMAIL_BUDGET_WINDOW_MS);
-    if (live.length === 0) emailBudget.delete(candidate);
-    else if (live.length !== times.length) emailBudget.set(candidate, live);
-  }
-  const recent = emailBudget.get(key) ?? [];
-  if (recent.length >= limit) {
-    emailBudget.set(key, recent);
-    return false;
-  }
-  recent.push(now);
-  emailBudget.set(key, recent);
-  while (emailBudget.size > EMAIL_BUDGET_MAX_KEYS) {
-    const victim = [...emailBudget.keys()].find(
-      (candidate) => candidate !== EMAIL_GLOBAL_KEY,
-    );
-    if (victim === undefined) break;
-    emailBudget.delete(victim);
-  }
-  return true;
-}
 
 function providerInteractions(
   provider: OpenSesameProviderBundle["provider"],
@@ -222,22 +168,17 @@ export function createEmailInteractionRoutes(
       return rerender({ emailError: INVALID_EMAIL_MESSAGE });
     }
 
-    // Charge the deployment-wide and source-address fences first, so a loop
-    // through arbitrary addresses cannot grow the per-address map. The
-    // per-address fence remains: one inbox must not be floodable at will.
-    const now = ctx.clock().getTime();
-    const budgetKey = createHash("sha256").update(email).digest("hex");
-    if (
-      !consumeEmailBudget(EMAIL_GLOBAL_KEY, now, EMAIL_GLOBAL_MAX) ||
-      !consumeEmailBudget(peerKey(c), now, EMAIL_PEER_MAX)
-    ) {
+    // The shared global fence bounds address rotation; the recipient fence
+    // prevents flooding one inbox across replicas and entry points.
+    const budget = await chargeMagicLinkBudget(ctx, email);
+    if (budget === "global") {
       return rerender({ emailSent: true });
     }
     // Over the per-address fence, say so rather than pretending a mail went
     // out. The answer is the same for every address, so it is a throttling
     // signal, not an account-existence oracle — and a victim is told why the
     // link never arrives instead of being silently locked out.
-    if (!consumeEmailBudget(budgetKey, now)) {
+    if (budget === "recipient") {
       return rerender({ emailError: THROTTLED_MESSAGE });
     }
 
