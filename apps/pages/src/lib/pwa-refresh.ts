@@ -1,39 +1,24 @@
-/** Reload once when a newer service worker takes control of this window. */
-type ReloadHost = {
-  serviceWorker?: Pick<
-    ServiceWorkerContainer,
-    "controller" | "addEventListener" | "removeEventListener"
+/** Check for updates when the app returns to the foreground. */
+type RefreshHost = {
+  document?: Pick<
+    Document,
+    "visibilityState" | "addEventListener" | "removeEventListener"
   >;
-  visibilityState?: DocumentVisibilityState;
-  addEventListener?: Window["addEventListener"];
-  removeEventListener?: Window["removeEventListener"];
-  reload?: () => void;
+  navigator?: { serviceWorker?: ServiceWorkerContainer };
 };
 
 export const pwaRefreshSeams = {
-  // SAFETY: every ReloadHost member is optional, so the global matches it wherever it runs; installPwaRefresh checks each member before using it.
-  host: (): ReloadHost => globalThis as ReloadHost,
+  host: (): RefreshHost => globalThis,
 };
 
+/** The worker controller alone decides whether a changed worker needs a reload. */
 export function installPwaRefresh(check: () => Promise<boolean>): () => void {
-  const host = pwaRefreshSeams.host();
-  const worker = host.serviceWorker;
-  if (!worker || !host.addEventListener) return () => undefined;
-  const controlled = Boolean(worker.controller);
-  let reloading = false;
-  const onController = () => {
-    if (!controlled || reloading) return;
-    reloading = true;
-    (host.reload ?? (() => globalThis.location.reload()))();
-  };
+  const { document, navigator } = pwaRefreshSeams.host();
+  if (!document || !navigator?.serviceWorker) return () => undefined;
   const onVisible = () => {
-    if (host.visibilityState === "visible") void check();
+    if (document.visibilityState === "visible") void check();
   };
-  worker.addEventListener("controllerchange", onController);
-  host.addEventListener("visibilitychange", onVisible);
+  document.addEventListener("visibilitychange", onVisible);
   void check();
-  return () => {
-    worker.removeEventListener?.("controllerchange", onController);
-    host.removeEventListener?.("visibilitychange", onVisible);
-  };
+  return () => document.removeEventListener("visibilitychange", onVisible);
 }
