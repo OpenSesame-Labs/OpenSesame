@@ -29,6 +29,13 @@
       "upstreamIntegrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
       "rootDependency": "picomatch-v4-patched",
       "override": "picomatch@^4"
+    },
+    "@levischuck/tiny-cbor@0.3.6": {
+      "patch": "patches/@levischuck__tiny-cbor@0.3.6.patch",
+      "tarball": "patches/vendor/levischuck-tiny-cbor-0.3.6.tgz",
+      "upstreamIntegrity": "sha512-uh1K62xhRZbEbnXEPUJ1WHd7uJTAKg65EX/7S/DDX3u2lexCvSjqrOOR3rb+5TDhCyGVHflu/HEtFjuEQ6y+qw==",
+      "rootDependency": "tiny-cbor-v3-patched",
+      "override": "@levischuck/tiny-cbor@^0.3"
     }
   },
   "notInstalled": {

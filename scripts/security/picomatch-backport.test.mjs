@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -38,10 +44,15 @@ const attacks = `
     ['+(*a|b)z', 'a'.repeat(35) + 'x'],
     ['+(a*(a))b', 'a'.repeat(40) + 'x'],
     ['+(ab|abab)c', 'ab'.repeat(40) + 'x'],
+    ['+(a)*b', 'a'.repeat(60000) + 'c'],
+    ['+(a)*(a)b', 'a'.repeat(60000) + 'c'],
   ];
   for (const [pattern, input] of cases) {
     assert.throws(() => p.isMatch(input, pattern), /exceeded/);
   }
+  const direct = p.toRegex('^(a+)(a*)b$');
+  assert.throws(() => direct.test('a'.repeat(60000) + 'c'), /exceeded/);
+  assert.equal(p.toRegex('^abc$').test('abc'), true);
   // A timed-out worker is replaced and normal matching still works.
   assert.equal(p.isMatch('db.key', '+(*.key|*.pem)'), true);
   assert.equal(p.isMatch('db.key', '!+(*.key|*.pem)'), false);
@@ -62,6 +73,75 @@ for (const entry of versions) {
     const result = child(packageDirectory, attacks);
     assert.ifError(result.error);
     assert.equal(result.status, 0, result.stderr);
+  });
+
+  test(`picomatch ${entry.version}: the regex worker inherits Node's permission model`, () => {
+    const directory = mkdtempSync(
+      join(tmpdir(), "opensesame-picomatch-permission-"),
+    );
+    try {
+      const allowed = join(directory, "allowed");
+      mkdirSync(allowed);
+      const packageDirectory = extract(join(root, entry.tarball), allowed);
+      const denied = join(directory, "denied.txt");
+      writeFileSync(denied, "private test fixture");
+      const worker = join(packageDirectory, "lib/bounded-worker.js");
+      const guard = `
+        if (!process.permission || process.permission.has('fs.read', process.env.OPENSESAME_PICOMATCH_DENIED_PATH)) {
+          const ready = new Int32Array(require('node:worker_threads').workerData.ready);
+          Atomics.store(ready, 0, 1);
+          Atomics.notify(ready, 0);
+          throw new Error('worker did not inherit filesystem restrictions');
+        }
+      `;
+      writeFileSync(worker, guard + readFileSync(worker, "utf8"));
+      const script = `
+        const assert = require('node:assert/strict');
+        const p = require(process.argv[1]);
+        assert.equal(process.permission.has('fs.read', process.env.OPENSESAME_PICOMATCH_DENIED_PATH), false);
+        assert.equal(p.isMatch('aa', '+(*a)'), true);
+        assert.throws(() => p.isMatch('a'.repeat(35) + 'b', '+(*a)'), /exceeded/);
+      `;
+      const run = () =>
+        spawnSync(
+          process.execPath,
+          [
+            "--permission",
+            `--allow-fs-read=${allowed}`,
+            "--allow-worker",
+            "-e",
+            script,
+            packageDirectory,
+          ],
+          {
+            encoding: "utf8",
+            timeout: 10000,
+            env: { ...process.env, OPENSESAME_PICOMATCH_DENIED_PATH: denied },
+          },
+        );
+      const restricted = run();
+      assert.ifError(restricted.error);
+      assert.equal(restricted.status, 0, restricted.stderr);
+
+      // Prove this assertion catches the previously shipped worker options.
+      const implementation = join(packageDirectory, "lib/bounded-regex.js");
+      const original = readFileSync(implementation, "utf8");
+      const broken = original.replace(
+        "{ workerData: { ready } }",
+        "{ workerData: { ready }, execArgv: [] }",
+      );
+      assert.notEqual(broken, original);
+      writeFileSync(implementation, broken);
+      const unrestricted = run();
+      assert.ifError(unrestricted.error);
+      assert.notEqual(
+        unrestricted.status,
+        0,
+        "a worker with no restrictions must fail the guard",
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   test(`picomatch ${entry.version}: ordinary matching and captures match the published package`, () => {
@@ -107,6 +187,10 @@ for (const entry of versions) {
       }
       for (const glob of ["*.js", "**/*.js", "**/*.{js,ts}"])
         assert.equal(patched.makeRe(glob).constructor, RegExp);
+      // A non-global RegExp ignores lastIndex, even when it is not coercible.
+      const nonGlobal = patched.makeRe("+(*a)");
+      nonGlobal.lastIndex = Symbol("ignored");
+      assert.equal(nonGlobal.exec("aaa")?.[0], "aaa");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

@@ -12,6 +12,7 @@ const patches = {
     "patches/@simple-git__argv-parser@2.0.1.patch",
   "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
   "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
+  "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch",
   "picomatch@2.3.2": "patches/picomatch@2.3.2.patch",
   "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
 };
@@ -72,6 +73,10 @@ test("patched dependencies are referenced from patchedDependencies", () => {
   assert.equal(
     overrides["@levischuck/tiny-cbor@^0.2"],
     "$@levischuck/tiny-cbor",
+  );
+  assert.equal(
+    overrides["@levischuck/tiny-cbor@^0.3"],
+    "$tiny-cbor-v3-patched",
   );
   assert.equal(overrides["@devicefarmer/adbkit"]["."], "3.3.8");
   assert.equal(overrides["@devicefarmer/adbkit"]["node-forge"], "-");

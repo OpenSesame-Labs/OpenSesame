@@ -18,7 +18,7 @@ For each vendored patch, three things point at the tarball:
 | `package.json` `overrides` | `"<name>@<range>": "$<name>"`, which sends every dependent to that root dependency |
 | `package-lock.json` | `resolved: file:patches/vendor/<tarball>` and the tarball's `integrity` |
 
-The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it. When two major versions of one package are installed, each can use a separate root alias; the manifest records the alias and exact override selector.
+The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it. When different versions of one package need separate patches, each can use a root alias; the manifest records the alias and exact override selector.
 
 [`vendor/manifest.json`](vendor/manifest.json) records, for each patch, the patch file, the tarball and the integrity of the published package it was built from. A patch with no installed target is listed under `notInstalled`; a test fails if the package ever appears in the lockfile.
 
@@ -28,7 +28,7 @@ A CI job with a sparse checkout that runs `npm ci` must include `/patches/vendor
 
 - `scripts/security/patched-dependencies.test.mjs`, in `npm run quality:test`, without the network: every declared patch is vendored or has no target; the lockfile installs every copy from the tarball at the tarball's integrity; each tarball contains its patch; the installed copy equals the tarball; and the published, unpatched package is rejected.
 - `npm run patches:verify`, weekly in the security workflow, with the network: downloads each published package, refuses it unless it matches the recorded upstream integrity, applies the patch, and compares every file with the committed tarball. This is what shows a tarball is the published package plus the patch and nothing else.
-- The behaviour each patch exists for has its own regression: `js-yaml-argparse-upgrade.test.mjs`, `simple-git-upgrade.test.mjs`, and the tiny-cbor case in `patched-dependencies.test.mjs`.
+- The behaviour each patch exists for has its own regression: `js-yaml-argparse-upgrade.test.mjs`, `simple-git-upgrade.test.mjs`, and `tiny-cbor-views.test.mjs`.
 
 ## Adding or changing a patch
 
@@ -64,14 +64,16 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 |---|---|---|
 | `js-yaml@3.15.2` | Runs its command line on argparse 2, which removes `sprintf-js` (GHSA-hp3w-g68c-fv3c) from the tree | [audit](../docs/security/audits/2026-10-06-password-parity-cli-dependencies.md) |
 | `@simple-git/argv-parser@2.0.1` | Rejects abbreviated Git pack-executable options that the published guards miss | [note](simple-git-parser-residual.md) |
-| `@levischuck/tiny-cbor@0.2.11` | Encodes a text string by its byte length, not its UTF-16 length | [audit](../docs/security/audits/2026-11-11-dependency-patches-not-installed.md) |
+| `@levischuck/tiny-cbor@0.2.11` | Encodes text by its UTF-8 byte length, respects input view offsets and rejects truncated byte and text strings | [audit](../docs/security/audits/2026-11-11-dependency-patches-not-installed.md) |
+| `@levischuck/tiny-cbor@0.3.6` | Rejects truncated byte and text strings and accepts `Uint8Array` subclasses including Node `Buffer` | `scripts/security/tiny-cbor-views.test.mjs` |
 | `picomatch@2.3.2` and `4.0.7` | Bounds repeated-star extglob matching for GHSA-fc5q-39xc-vjpf, including malformed and composed forms | `scripts/security/picomatch-backport.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
 
 The picomatch backport preserves the generated expressions and ordinary match
-results. In Node, expressions with ambiguous nested repetition or repeated
-alternatives execute in a reusable worker and throw if the match exceeds its
-deadline. Browser runtimes reject those expressions rather than returning a
+results. In Node, expressions with ambiguous nested repetition, repeated
+alternatives, multiple extglob repetitions, or direct quantified regex input
+execute in a reusable worker and throw if the match exceeds its deadline.
+Browser runtimes reject those expressions rather than returning a
 false match, which could bypass an exclusion. Raw expressions obtained from
 `parse` or `compileRe(..., true)`, and direct calls to the native
 `RegExp.prototype.exec`, do not use that boundary. The package retains its
