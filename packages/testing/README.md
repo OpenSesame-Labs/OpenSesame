@@ -69,6 +69,16 @@ When a suite needs real Postgres (not PGlite), prefer
 `postgres:16-alpine` image. Skip the suite when Docker is unavailable rather
 than falling back to ad-hoc compose scripts.
 
+The current digest pins the official image's multi-platform index for
+Postgres `16.16-alpine3.24`, built from
+[`docker-library/postgres` revision `168a848e5905af32aaa5fd6fad4f30906c80af95`](https://github.com/docker-library/postgres/tree/168a848e5905af32aaa5fd6fad4f30906c80af95/16/alpine3.24).
+To review a future refresh, use `docker buildx imagetools inspect postgres:16-alpine`
+and inspect its `--raw` index. Verify the index digest, supported platforms,
+version and source-revision annotations against the
+[official image metadata](https://github.com/docker-library/official-images/blob/master/library/postgres).
+Pin the multi-platform index rather than one architecture's image, then run the
+package tests and a disposable real-Postgres integration suite using that digest.
+
 ```typescript
 import { startEphemeralPostgres } from "@opensesame/testing";
 

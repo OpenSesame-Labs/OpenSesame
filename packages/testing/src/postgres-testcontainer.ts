@@ -5,7 +5,7 @@ import {
 
 /** Pin matches ADR 0010 integration posture; refresh only with an explicit review. */
 export const PINNED_POSTGRES_IMAGE =
-  "postgres:16-alpine@sha256:1072410c3c262da7555399249b269271667d24a9089573a917b3497dd251373f";
+  "postgres:16-alpine@sha256:81e77a4833487b8132fe4b00bedd39dc3f74b8641e387f19312a48f7de218c2e";
 
 export type EphemeralPostgres = {
   databaseUrl: string;
@@ -16,8 +16,8 @@ export type EphemeralPostgres = {
 
 /**
  * Starts a disposable Postgres for integration tests when Docker is available.
- * Callers should skip the suite when this throws (for example in sandboxes
- * without a Docker socket).
+ * Skip a suite only after establishing that Docker is unavailable. Propagate
+ * image-pull, container startup, and other errors.
  */
 export async function startEphemeralPostgres(): Promise<EphemeralPostgres> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
