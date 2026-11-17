@@ -291,12 +291,13 @@ mod authorized_bytes_tests {
     }
 
     #[tokio::test]
-    async fn an_upstream_error_is_capped_and_carries_no_credential() {
+    async fn an_upstream_error_body_is_never_returned() {
         let (broker, org, connection) = active_mock_connection().await;
-        // A hostile upstream echoing a huge body, including something that
-        // looks like the caller's own Authorization header.
+        // A hostile upstream echoes the exact credential it received, along
+        // with a large body. The broker must expose neither the reflection nor
+        // any other provider-controlled error text.
         let (base, _seen) = recording_server(|| {
-            let mut body = "Bearer leaked-token-should-not-propagate ".to_string();
+            let mut body = "Bearer race-access-1 provider-controlled-detail ".to_string();
             body.push_str(&"A".repeat(50_000));
             (StatusCode::BAD_REQUEST, body).into_response()
         })
@@ -313,14 +314,19 @@ mod authorized_bytes_tests {
             .await
             .expect_err("a 400 must surface as an error");
         let text = error.to_string();
+        assert!(text.contains("400 Bad Request"), "status is useful: {text}");
         assert!(
-            text.len() < 1_000,
-            "the snippet must be capped, got {} chars",
-            text.len()
+            !text.contains("race-access-1"),
+            "credential escaped: {text}"
         );
-        // The real credential never appears; only whatever the upstream chose
-        // to echo, which is its own content and not ours.
-        assert!(!text.contains("race-access"));
+        assert!(
+            !text.contains("provider-controlled-detail"),
+            "provider error text escaped: {text}"
+        );
+        assert!(
+            text.len() < 128,
+            "status-only error should stay bounded: {text}"
+        );
     }
 
     #[tokio::test]
