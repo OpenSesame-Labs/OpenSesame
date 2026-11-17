@@ -485,12 +485,6 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if ("error" in outcome) {
       if (outcome.error === "not_found")
         return scimError(c, 404, "User not found.");
-      if (outcome.error === "legacy")
-        return scimError(
-          c,
-          409,
-          "This legacy inactive user needs a new deactivation cycle. Reactivate it, then deactivate it again.",
-        );
       return scimError(
         c,
         409,
@@ -532,11 +526,7 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if ("error" in outcome) {
       if (outcome.error === "not_found")
         return scimError(c, 404, "User not found.");
-      return scimError(
-        c,
-        409,
-        "This legacy inactive user needs a new deactivation cycle. Reactivate it, then deactivate it again.",
-      );
+      return scimError(c, 409, "The user could not be deactivated.");
     }
     const { user, updated } = outcome;
     if (user.active) {

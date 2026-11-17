@@ -5,9 +5,10 @@ import {
   redactAuditMetadata,
 } from "@opensesame/audit";
 import { scrubText } from "@opensesame/log-scrub";
-import type { OrganizationRole } from "@opensesame/os-domain";
+import type { JsonObject, OrganizationRole } from "@opensesame/os-domain";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
+import { DurableMap } from "./durable-map.js";
 
 /** Written in the transaction that completes the membership transition. */
 export type OrganizationWithdrawalAuditIntent = {
@@ -17,52 +18,82 @@ export type OrganizationWithdrawalAuditIntent = {
   organizationId: string;
   principalId: string;
   correlationId: string;
-  previousRole: OrganizationRole;
-} & ({ kind: "remove" } | { kind: "change_role"; role: OrganizationRole });
+} & (
+  | { kind: "remove"; previousRole: OrganizationRole }
+  | {
+      kind: "change_role";
+      previousRole: OrganizationRole;
+      role: OrganizationRole;
+    }
+  | { kind: "add"; role: OrganizationRole }
+);
 
 const roleSchema = z.enum(["owner", "admin", "member"]);
-const auditBase = z.object({
+const baseIntent = z.object({
   id: z.string().min(1),
   actorPrincipalId: z.string().min(1),
   actorType: z.enum(["human", "system"]),
   organizationId: z.string().min(1),
   principalId: z.string().min(1),
   correlationId: z.string().min(1),
-  previousRole: roleSchema,
 });
-const auditIntentSchema = z.discriminatedUnion("kind", [
-  auditBase.extend({ kind: z.literal("remove") }),
-  auditBase.extend({ kind: z.literal("change_role"), role: roleSchema }),
+const intentSchema = z.discriminatedUnion("kind", [
+  baseIntent.extend({ kind: z.literal("remove"), previousRole: roleSchema }),
+  baseIntent.extend({
+    kind: z.literal("change_role"),
+    previousRole: roleSchema,
+    role: roleSchema,
+  }),
+  baseIntent.extend({ kind: z.literal("add"), role: roleSchema }),
 ]);
 
 function validate(intent: OrganizationWithdrawalAuditIntent): void {
-  if (!auditIntentSchema.safeParse(intent).success)
+  if (!intentSchema.safeParse(intent).success)
     throw new Error("Invalid organization withdrawal audit intent");
 }
 
-type WithdrawalAuditMetadata = {
-  action: string;
-  targetId: string;
-  fromState: OrganizationRole;
-  toState?: OrganizationRole;
-};
+/** Record inside the membership transaction before its change becomes visible. */
+export async function recordOrganizationWithdrawalAudit(
+  ctx: AppContext,
+  intent: OrganizationWithdrawalAuditIntent,
+): Promise<void> {
+  validate(intent);
+  const store = ctx.stores.organizationWithdrawalAudits;
+  if (store instanceof DurableMap) {
+    if (!(await store.claim(intent.id, intent)))
+      throw new Error("Membership audit intent already exists");
+  } else {
+    if (store.has(intent.id))
+      throw new Error("Membership audit intent already exists");
+    store.set(intent.id, intent);
+  }
+}
 
 function eventInput(intent: OrganizationWithdrawalAuditIntent) {
-  const metadata: WithdrawalAuditMetadata = {
-    action:
-      intent.kind === "remove"
-        ? "organization.member.remove"
-        : "organization.member.role.change",
-    targetId: intent.principalId,
-    fromState: intent.previousRole,
-  };
+  const metadata: JsonObject =
+    intent.kind === "add"
+      ? {
+          action: "organization.member.add",
+          memberPrincipalId: intent.principalId,
+          role: intent.role,
+        }
+      : {
+          action:
+            intent.kind === "remove"
+              ? "organization.member.remove"
+              : "organization.member.role.change",
+          targetId: intent.principalId,
+          fromState: intent.previousRole,
+        };
   if (intent.kind === "change_role") metadata.toState = intent.role;
   return {
     id: `organization-withdrawal:${intent.id}`,
     eventType:
-      intent.kind === "remove"
-        ? "organization.member_removed"
-        : "organization.member_role_changed",
+      intent.kind === "add"
+        ? "organization.member_added"
+        : intent.kind === "remove"
+          ? "organization.member_removed"
+          : "organization.member_role_changed",
     outcome: "succeeded" as const,
     actorType: intent.actorType,
     principalId: intent.actorPrincipalId,

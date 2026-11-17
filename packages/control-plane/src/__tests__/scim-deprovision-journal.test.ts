@@ -291,7 +291,7 @@ it("deprovisions an existing membership when an inactive user is created", async
   ).toBeUndefined();
 });
 
-it("does not guess membership identity for a legacy inactive row", async () => {
+it("reconciles a legacy inactive row without reactivating it", async () => {
   const f = await fixture();
   const user = await f.ctx.stores.scim.users.getById(
     f.organization.id,
@@ -299,21 +299,24 @@ it("does not guess membership identity for a legacy inactive row", async () => {
   );
   if (!user) throw new Error("Expected user");
   await f.ctx.stores.scim.users.update({ ...user, active: false });
-  expect((await f.del()).status).toBe(409);
-  expect(
-    await f.ctx.stores.organizationMemberships.find(
-      f.organization.id,
-      f.session.principalId,
-    ),
-  ).toBeDefined();
-  expect((await f.patch(true)).status).toBe(200);
-  expect((await f.patch(false)).status).toBe(200);
+  expect((await f.del()).status).toBe(204);
   expect(
     await f.ctx.stores.organizationMemberships.find(
       f.organization.id,
       f.session.principalId,
     ),
   ).toBeUndefined();
+  expect(
+    (await f.ctx.stores.scim.users.getById(f.organization.id, "journal-user"))
+      ?.active,
+  ).toBe(false);
+  expect(
+    (
+      await f.app.request("/v1/principals/me", {
+        headers: { authorization: `Bearer ${f.session.accessToken}` },
+      })
+    ).status,
+  ).toBe(401);
 });
 
 it("keeps the journal pending and refuses JIT admission during owner withdrawal", async () => {

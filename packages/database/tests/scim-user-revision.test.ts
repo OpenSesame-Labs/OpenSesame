@@ -11,7 +11,6 @@ import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import { scimUsers } from "../src/schema/index.js";
 import {
   type ScimUserRecord,
-  type ScimUserStore,
   createMemoryScimStores,
   createPostgresScimStores,
 } from "../src/scim-store.js";
@@ -27,10 +26,7 @@ afterAll(async () => {
   await pgOwner.close();
 });
 
-async function memoryFixture(): Promise<{
-  store: ScimUserStore;
-  row: ScimUserRecord;
-}> {
+async function memoryFixture() {
   const repos = new MemoryRepositories();
   const principal = await repos.principals.create(makePrincipal());
   const stores = createMemoryOrganizationStores();
@@ -39,10 +35,7 @@ async function memoryFixture(): Promise<{
   return { store: createMemoryScimStores().users, row: user(org.id) };
 }
 
-async function postgresFixture(): Promise<{
-  store: ScimUserStore;
-  row: ScimUserRecord;
-}> {
+async function postgresFixture() {
   const principal = await pg.repos.principals.create(makePrincipal());
   const org = organization(principal.id);
   await createPostgresOrganizationStores(pg.db).organizations.set(org.id, org);
@@ -79,6 +72,28 @@ describe.each([
   { name: "memory", fixture: memoryFixture },
   { name: "SQL", fixture: postgresFixture },
 ])("$name SCIM revisions", ({ fixture }) => {
+  it("paginates inactive users across organizations without skipping rows", async () => {
+    const { store, row } = await fixture();
+    for (const suffix of ["c", "a", "b", "active"]) {
+      await store.create({
+        ...row,
+        id: `${row.id}-${suffix}`,
+        userName: `${suffix}@example.com`,
+        active: suffix === "active",
+      });
+    }
+    const found: string[] = [];
+    let cursor: string | undefined;
+    while (true) {
+      const page = await store.listInactiveForRecovery(cursor, 2);
+      for (const entry of page)
+        if (entry.organizationId === row.organizationId) found.push(entry.id);
+      if (page.length < 2) break;
+      cursor = page[page.length - 1]?.id;
+    }
+    expect(found).toEqual([`${row.id}-a`, `${row.id}-b`, `${row.id}-c`]);
+  });
+
   it("compares the whole row by revision even when timestamps do not advance", async () => {
     const { store, row } = await fixture();
     expect(await store.getVersioned(row.organizationId, row.id)).toBeNull();

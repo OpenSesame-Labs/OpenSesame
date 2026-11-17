@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, gt } from "drizzle-orm";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
@@ -242,5 +242,22 @@ export class PostgresScimUserStore implements ScimUserStore {
       ? await base.limit(page.limit).offset(page.offset)
       : await base;
     return rows.map(mapScimUser);
+  }
+
+  async listInactiveForRecovery(afterId: string | undefined, limit: number) {
+    return this.db
+      .select({
+        id: schema.scimUsers.id,
+        organizationId: schema.scimUsers.organizationId,
+      })
+      .from(schema.scimUsers)
+      .where(
+        and(
+          eq(schema.scimUsers.active, false),
+          afterId === undefined ? undefined : gt(schema.scimUsers.id, afterId),
+        ),
+      )
+      .orderBy(asc(schema.scimUsers.id))
+      .limit(limit);
   }
 }

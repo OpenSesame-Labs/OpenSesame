@@ -8,6 +8,7 @@ import {
   prepareDeprovision,
   withRememberedSubjects,
 } from "./scim-effects.js";
+import { prepareLegacyDeprovision } from "./scim-legacy-recovery.js";
 
 export type UserPatch = {
   active?: boolean;
@@ -17,7 +18,7 @@ export type UserPatch = {
 };
 
 type MutationResult =
-  | { error: "not_found" | "legacy" | "conflict" }
+  | { error: "not_found" | "conflict" }
   | { user: ScimUserRecord; updated: ScimUserRecord };
 
 export async function patchScimUser(
@@ -61,9 +62,18 @@ async function prepareUserPatch(
   );
   if (!current) return { error: "not_found" as const };
   const user = current.user;
+  if (!user.active && !deprovisionJournal(user)) {
+    const recovered = await prepareLegacyDeprovision(
+      tx,
+      organization,
+      user,
+      current.revision,
+      correlationId,
+    );
+    return { resume: recovered };
+  }
   const inactive = inactivePatchDisposition(user, patch);
   if (inactive === "resume") return { resume: user };
-  if (inactive === "legacy") return { error: "legacy" };
   if (patch.userName && patch.userName !== user.userName) {
     const clash = await tx.stores.scim.users.findByUserName(
       organization.id,
@@ -87,14 +97,14 @@ async function prepareUserPatch(
 function inactivePatchDisposition(
   user: ScimUserRecord,
   patch: UserPatch,
-): "resume" | "legacy" | undefined {
+): "resume" | undefined {
   if (user.active) return undefined;
   const journal = deprovisionJournal(user);
   if (patch.active === true)
     return journal?.targets.some((target) => !target.completed)
       ? "resume"
       : undefined;
-  return journal ? undefined : "legacy";
+  return undefined;
 }
 
 function nextUser(
@@ -130,8 +140,16 @@ export async function deleteScimUser(
       if (!current) return { error: "not_found" as const };
       const user = current.user;
       if (!user.active) {
-        if (!deprovisionJournal(user)) return { error: "legacy" as const };
-        return { user, updated: user };
+        const updated = deprovisionJournal(user)
+          ? user
+          : await prepareLegacyDeprovision(
+              tx,
+              organization,
+              user,
+              current.revision,
+              correlationId,
+            );
+        return { user, updated };
       }
       const next = await prepareDeprovision(
         tx,
