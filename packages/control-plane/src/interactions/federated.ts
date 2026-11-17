@@ -8,6 +8,7 @@ import {
 import { mintAppleClientSecret } from "./apple-secret.js";
 import { siteOrigin, upstreamFetch } from "./federated-fetch.js";
 import type { PendingFederatedAuth } from "./federated-pending.js";
+import { pendingMatchesTrust } from "./federated-provenance.js";
 import type { OidcProviderDescriptor } from "./registry.js";
 import { type TrustResolution, resolveTrustedIssuer } from "./trust.js";
 
@@ -528,6 +529,12 @@ export async function completeFederatedAuth(
   currentUrl: URL,
 ): Promise<FederatedIdentity> {
   const trust = await resolveOrRefuse(ctx, pending.issuer);
+  if (!pendingMatchesTrust(pending, trust)) {
+    throw new FederatedAuthError(
+      "untrusted_issuer",
+      "That sign-in provider is not trusted by this server",
+    );
+  }
   const mode = await clientModeFor(ctx.config, trust);
   const config = await upstreamConfiguration(ctx, pending.issuer, mode);
 

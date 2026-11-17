@@ -41,16 +41,33 @@ export type PendingFederatedAuth = {
   orgId?: string;
 };
 
-const pendingFederatedAuthSchema = z.object({
-  issuer: z.string(),
-  state: z.string(),
-  nonce: z.string(),
-  verifier: z.string(),
-  kind: z.enum(["oidc", "oauth2"]).optional(),
-  providerId: z.string().optional(),
-  byoId: z.string().optional(),
-  orgId: z.string().optional(),
-});
+const pendingFederatedAuthSchema = z
+  .object({
+    issuer: z.string(),
+    state: z.string(),
+    nonce: z.string(),
+    verifier: z.string(),
+    kind: z.enum(["oidc", "oauth2"]).optional(),
+    providerId: z.string().min(1).optional(),
+    byoId: z.string().min(1).optional(),
+    orgId: z.string().min(1).optional(),
+  })
+  .strict()
+  .refine(
+    (pending) => {
+      const sources = [
+        pending.providerId,
+        pending.byoId,
+        pending.orgId,
+      ].filter((value) => value !== undefined).length;
+      if (pending.kind === undefined) return sources === 0;
+      if (pending.kind === "oauth2") {
+        return pending.providerId !== undefined && sources === 1;
+      }
+      return sources <= 1;
+    },
+    { message: "pending state has conflicting provenance" },
+  );
 
 /** Cookie carrying `PendingFederatedAuth`, scoped to this interaction only. */
 export function pendingCookieName(uid: string): string {
@@ -79,29 +96,38 @@ function pendingVerifierBinding(
   }).toString("base64url");
 }
 
-/** Canonical HMAC input: OAuth leg fields with scrypt-bound PKCE verifier. */
+/** Canonical HMAC input: the complete record with scrypt-bound PKCE verifier. */
 function pendingIntegrityPayload(
-  pending: Pick<
-    PendingFederatedAuth,
-    "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
-  >,
-  secret: string,
+  pending: PendingFederatedAuth,
+  verifierBound: string,
 ): string {
-  const kind = pending.kind ?? "oidc";
-  const providerId = pending.providerId ?? "";
-  const verifierBound = pendingVerifierBinding(
-    pending.verifier,
+  return JSON.stringify([
+    pending.issuer,
     pending.state,
     pending.nonce,
-    secret,
-  );
+    verifierBound,
+    pending.kind ?? null,
+    pending.providerId ?? null,
+    pending.byoId ?? null,
+    pending.orgId ?? null,
+  ]);
+}
+
+/**
+ * Previous-release MAC input, accepted only when no tenant authority rides in
+ * it.
+ */
+function legacyPendingIntegrityPayload(
+  pending: PendingFederatedAuth,
+  verifierBound: string,
+): string {
   return [
     pending.issuer,
     pending.state,
     pending.nonce,
     verifierBound,
-    kind,
-    providerId,
+    pending.kind ?? "oidc",
+    pending.providerId ?? "",
   ].join("\x1f");
 }
 
@@ -117,9 +143,18 @@ export function encodePending(
   const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
     "base64url",
   );
-  return secret
-    ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending, secret), secret)}`
-    : payload;
+  if (!secret) return payload;
+  const verifierBound = pendingVerifierBinding(
+    pending.verifier,
+    pending.state,
+    pending.nonce,
+    secret,
+  );
+  const signature = pendingSignature(
+    pendingIntegrityPayload(pending, verifierBound),
+    secret,
+  );
+  return `${payload}.${signature}`;
 }
 
 /**
@@ -135,40 +170,47 @@ function verifiedPendingPayload(
   if (split <= 0) return undefined;
   const payload = raw.slice(0, split);
   const supplied = Buffer.from(raw.slice(split + 1), "base64url");
-  let macPending: Pick<
-    PendingFederatedAuth,
-    "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
-  >;
+  let macPending: PendingFederatedAuth;
   try {
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
     const macResult = pendingFederatedAuthSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
-    const data = macResult.data;
-    macPending = {
-      issuer: data.issuer,
-      state: data.state,
-      nonce: data.nonce,
-      verifier: data.verifier,
-      ...(data.kind !== undefined ? { kind: data.kind } : undefined),
-      ...(data.providerId !== undefined
-        ? { providerId: data.providerId }
-        : undefined),
-    };
+    macPending = macResult.data;
   } catch {
     return undefined;
   }
-  const expected = Buffer.from(
-    pendingSignature(pendingIntegrityPayload(macPending, secret), secret),
-    "base64url",
+  const verifierBound = pendingVerifierBinding(
+    macPending.verifier,
+    macPending.state,
+    macPending.nonce,
+    secret,
   );
+  const matches = (integrityPayload: string): boolean => {
+    const expected = Buffer.from(
+      pendingSignature(integrityPayload, secret),
+      "base64url",
+    );
+    return (
+      supplied.length === expected.length && timingSafeEqual(supplied, expected)
+    );
+  };
+  if (matches(pendingIntegrityPayload(macPending, verifierBound))) {
+    return payload;
+  }
+  // Rolling deploy compatibility is safe for v1/static cookies because their
+  // old MAC covered every authority-bearing field they carry. Old BYO and org
+  // cookies must restart: accepting their legacy MAC would preserve the
+  // tenant-substitution vulnerability this verifier is the boundary for.
   if (
-    supplied.length !== expected.length ||
-    !timingSafeEqual(supplied, expected)
-  )
-    return undefined;
-  return payload;
+    macPending.byoId === undefined &&
+    macPending.orgId === undefined &&
+    matches(legacyPendingIntegrityPayload(macPending, verifierBound))
+  ) {
+    return payload;
+  }
+  return undefined;
 }
 
 export function decodePending(

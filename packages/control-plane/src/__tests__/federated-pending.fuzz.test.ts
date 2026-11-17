@@ -1,3 +1,5 @@
+import { createHash, createHmac, scryptSync } from "node:crypto";
+import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -41,16 +43,30 @@ function makeRng(seed: number): () => number {
 const FIELDS = ["issuer", "state", "nonce", "verifier"] as const;
 /** v2 provenance (C3). Optional by contract — a v1 cookie must still decode. */
 const OPTIONAL_FIELDS = ["providerId", "byoId", "orgId"] as const;
-const pendingSchema = z.object({
-  issuer: z.string(),
-  state: z.string(),
-  nonce: z.string(),
-  verifier: z.string(),
-  kind: z.enum(["oidc", "oauth2"]).optional(),
-  providerId: z.string().optional(),
-  byoId: z.string().optional(),
-  orgId: z.string().optional(),
-});
+const pendingSchema = z
+  .object({
+    issuer: z.string(),
+    state: z.string(),
+    nonce: z.string(),
+    verifier: z.string(),
+    kind: z.enum(["oidc", "oauth2"]).optional(),
+    providerId: z.string().min(1).optional(),
+    byoId: z.string().min(1).optional(),
+    orgId: z.string().min(1).optional(),
+  })
+  .strict()
+  .refine((pending) => {
+    const sources = [
+      pending.providerId,
+      pending.byoId,
+      pending.orgId,
+    ].filter((value) => value !== undefined).length;
+    if (pending.kind === undefined) return sources === 0;
+    if (pending.kind === "oauth2") {
+      return pending.providerId !== undefined && sources === 1;
+    }
+    return sources <= 1;
+  });
 
 type FuzzValue = string | number | null | { nested: boolean } | string[];
 type FuzzCandidate = Record<string, FuzzValue>;
@@ -66,6 +82,44 @@ function randomString(rng: () => number, maxLen: number): string {
     out += alphabet[Math.floor(rng() * alphabet.length)] ?? "a";
   }
   return out;
+}
+
+function randomId(rng: () => number): string {
+  return randomString(rng, 12) || "id";
+}
+
+function encodeLegacySigned(
+  pending: PendingFederatedAuth,
+  secret: string,
+): string {
+  const salt = createHash("sha256")
+    .update(secret)
+    .update("\0opensesame:fed-pending-verifier\0")
+    .update(pending.state)
+    .update(pending.nonce)
+    .digest()
+    .subarray(0, 16);
+  const verifierBound = scryptSync(pending.verifier, salt, 32, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  }).toString("base64url");
+  const integrity = [
+    pending.issuer,
+    pending.state,
+    pending.nonce,
+    verifierBound,
+    pending.kind ?? "oidc",
+    pending.providerId ?? "",
+  ].join("\x1f");
+  const signature = createHmac("sha256", secret)
+    .update(integrity)
+    .digest("base64url");
+  const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
+    "base64url",
+  );
+  return `${payload}.${signature}`;
 }
 
 function isWellFormed(
@@ -175,20 +229,26 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
   it("round-trips any well-formed record it accepts", () => {
     const rng = makeRng(0xfeed_face);
     for (let i = 0; i < 5_000; i++) {
+      const provenance = Math.floor(rng() * 4);
       const pending: PendingFederatedAuth = {
         issuer: randomString(rng, 40),
         state: randomString(rng, 40),
         nonce: randomString(rng, 40),
         verifier: randomString(rng, 60),
-        // Each v2 field is present or absent independently: a cookie from
-        // before the field existed, and one from the leg that added it, are
-        // both live at once during a deploy.
-        ...(rng() < 0.5
-          ? { kind: rng() < 0.5 ? "oidc" : "oauth2" }
+        // A cookie has one provenance source, or none for a v1 leg that was
+        // already in flight during a deploy. Sources never compose.
+        ...(provenance === 1
+          ? {
+              kind: rng() < 0.5 ? ("oidc" as const) : ("oauth2" as const),
+              providerId: randomId(rng),
+            }
           : undefined),
-        ...(rng() < 0.4 ? { providerId: randomString(rng, 12) } : undefined),
-        ...(rng() < 0.3 ? { byoId: randomString(rng, 12) } : undefined),
-        ...(rng() < 0.3 ? { orgId: randomString(rng, 12) } : undefined),
+        ...(provenance === 2
+          ? { kind: "oidc" as const, byoId: randomId(rng) }
+          : undefined),
+        ...(provenance === 3
+          ? { kind: "oidc" as const, orgId: randomId(rng) }
+          : undefined),
       };
       const decoded = decodePending(encodePending(pending));
       expect(decoded).toEqual(pending);
@@ -197,5 +257,77 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
       // no absent field resurrected as a present `undefined`.
       expect(decodePending(encodePending(decoded))).toEqual(pending);
     }
+  });
+
+  it("rejects records that combine provenance sources", () => {
+    const conflicting = {
+      issuer: "https://issuer.example",
+      state: "state",
+      nonce: "nonce",
+      verifier: "verifier",
+      kind: "oidc" as const,
+      providerId: "static-provider",
+      orgId: "org_target",
+    };
+    expect(decodePending(encodePending(conflicting))).toBeUndefined();
+  });
+
+  it("binds tenant provenance into signed cookies", () => {
+    const secret = "pending-cookie-test-secret";
+    const signed = encodePending(
+      {
+        issuer: "https://issuer.example",
+        state: "state",
+        nonce: "nonce",
+        verifier: "verifier",
+        kind: "oidc",
+        orgId: "org_original",
+      },
+      secret,
+    );
+    expect(decodePending(signed, secret)?.orgId).toBe("org_original");
+    const split = signed.lastIndexOf(".");
+    const payload: PendingFederatedAuth = overlapCast(
+      JSON.parse(
+        Buffer.from(signed.slice(0, split), "base64url").toString("utf8"),
+      ),
+    );
+    const rewritten = Buffer.from(
+      JSON.stringify({ ...payload, orgId: "org_target" }),
+      "utf8",
+    ).toString("base64url");
+    expect(
+      decodePending(`${rewritten}${signed.slice(split)}`, secret),
+    ).toBeUndefined();
+  });
+
+  it("accepts only safe previous-release signatures", () => {
+    const secret = "pending-cookie-test-secret";
+    const legacy = {
+      issuer: "https://issuer.example",
+      state: "state",
+      nonce: "nonce",
+      verifier: "verifier",
+    };
+    const staticPending = {
+      ...legacy,
+      kind: "oidc" as const,
+      providerId: "static-provider",
+    };
+    expect(decodePending(encodeLegacySigned(legacy, secret), secret)).toEqual(
+      legacy,
+    );
+    expect(
+      decodePending(encodeLegacySigned(staticPending, secret), secret),
+    ).toEqual(staticPending);
+    expect(
+      decodePending(
+        encodeLegacySigned(
+          { ...legacy, kind: "oidc", orgId: "org_original" },
+          secret,
+        ),
+        secret,
+      ),
+    ).toBeUndefined();
   });
 });
