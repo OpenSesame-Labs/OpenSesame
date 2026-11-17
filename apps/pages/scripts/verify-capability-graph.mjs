@@ -25,6 +25,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, posix, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { decodeGraph } from "../src/sw/graph-records.ts";
 import { canonicalJson } from "./lib/capability-graph.mjs";
 import { formatViolations, violations } from "./lib/capability-invariants.mjs";
 import {
@@ -77,8 +78,10 @@ function readRecords(dist) {
     if (!existsSync(path))
       throw new Error(`missing ${relative(dist, path)} in ${dist}`);
   }
+  const graph = decodeGraph(readJson(graphPath));
+  if (!graph) throw new Error("invalid capability-graph.json encoding");
   return {
-    graph: readJson(graphPath),
+    graph,
     distribution: readJson(distributionPath),
   };
 }

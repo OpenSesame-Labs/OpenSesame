@@ -24,6 +24,7 @@ import {
   isJsonObject,
   isString,
 } from "@opensesame/os-domain";
+import { decodeGraph } from "./graph-records.js";
 
 export type GraphModule = Readonly<{
   /** `connectors.external/runtime` when the build knows it; else null. */
@@ -122,14 +123,15 @@ function chunkOf(record: JsonObject): GraphChunk | null {
 export function parseCapabilityGraph(
   value: BoundaryValue,
 ): CapabilityGraph | null {
-  if (!isJsonObject(value) || !Array.isArray(value.chunks)) return null;
+  const decoded = decodeGraph(value);
+  if (!decoded || !Array.isArray(decoded.chunks)) return null;
   const chunks: GraphChunk[] = [];
-  for (const entry of value.chunks) {
+  for (const entry of decoded.chunks) {
     if (!isJsonObject(entry)) continue;
     const chunk = chunkOf(entry);
     if (chunk) chunks.push(chunk);
   }
-  return { chunks, shellAssets: shellAssets(value.entries) };
+  return { chunks, shellAssets: shellAssets(decoded.entries) };
 }
 
 /** Only the core shell's resource links, never another entry's public assets. */

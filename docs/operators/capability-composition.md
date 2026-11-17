@@ -548,6 +548,21 @@ Five different facts, five different places. None of them implies another.
 | What is **cached** and what is the worker doing? | the offline status in Settings (`online-only`, `saving`, `saved`, `partial`, `storage-unavailable`), and `saved offline` on an approved capability not running here whose page modules the worker saved |
 | What is **loaded and running** right now? | the switch says on or off; beside it a status glyph says what a switch cannot — `starting`, `consent required`, `restart required`, `reload to start`, `saved offline`, `conflict`, `acceptance required`, `selected · not yet applied`, `needed by …` |
 
+The graph's `graphFormat` value `opensesame-capability-graph/2` identifies a
+lossless source-record encoding. Each chunk's `modules` is an ownership
+projection retained for already-installed service workers; it is not the
+source inventory. Complete source records are in `sourceModules`: each row is
+`[id, classification, capabilityIndex, rationaleIndex, size, moduleId?]`.
+An `id` is either a complete string or `[pathIndex, suffix]`, where the index
+selects a prefix from `sourcePaths`. The other indices select entries in the
+top-level `sourceCapabilities` and `sourceRationales` arrays. Use
+`decodeGraph` from `apps/pages/src/sw/graph-records.ts` to obtain
+the former full `chunks[].modules` records. The decoder rejects unknown
+formats, invalid indices and projections that disagree with the source rows.
+Readers that previously used `chunks[].modules[].id`, `rationale` or `size`
+must decode version 2; version 1 graphs still decode unchanged. Chunk edges,
+entry records and the graph URL retain their existing shape and location.
+
 The status vocabulary is deliberately not collapsible. `approved` means the
 plan would load it; `active` means it is running; `restart required` means its
 module already ran in this document and cannot be unloaded — deselecting it
