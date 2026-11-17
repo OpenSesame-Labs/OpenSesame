@@ -58,7 +58,6 @@ import { createRealmInteractionRoutes } from "./interactions-realm.js";
 import { createSamlInteractionRoutes } from "./interactions-saml.js";
 import { jitJoinOrganization } from "./organizations.js";
 import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
-import { provisionedRoleForSubject } from "./scim.js";
 
 type NodeEnv = { Bindings: HttpBindings };
 
@@ -662,24 +661,18 @@ export function createInteractionRoutes(): Hono<
     if (pending.orgId) {
       const organization = await ctx.stores.organizations.get(pending.orgId);
       if (organization) {
-        // A directory that pushed this subject into an owners group said so
-        // before the sign-in happened, and that is the tenant's answer about
-        // its own people — so it decides the role rather than `member` (C15).
-        const role = await provisionedRoleForSubject(
-          ctx,
-          organization.id,
-          identity.subject,
-        );
         const joined = await jitJoinOrganization(ctx, {
           organization,
           principalId: accountId,
           subject: identity.subject,
           method: "sso",
           correlationId,
-          ...(role !== undefined ? { role } : undefined),
         });
         if (!joined.ok) {
-          return c.text(joined.message, 403);
+          return c.text(
+            joined.message,
+            joined.error === "membership_withdrawing" ? 503 : 403,
+          );
         }
       }
     }

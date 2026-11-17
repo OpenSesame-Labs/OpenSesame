@@ -1,6 +1,9 @@
+import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AppContext } from "../context.js";
+import { boundCookieMatches } from "./bound-cookie.js";
+import { boundCookieName, validBoundSessionId } from "./bound-cookie-name.js";
 import type { Variables } from "./context.js";
 
 /**
@@ -20,7 +23,10 @@ async function principalStillAuthenticates(
     principal !== null &&
     principal !== undefined &&
     principal.state !== "suspended" &&
-    principal.state !== "closed"
+    principal.state !== "closed" &&
+    !(await ctx.stores.organizationMemberships.hasPendingWithdrawalForPrincipal(
+      principalId,
+    ))
   );
 }
 
@@ -32,7 +38,12 @@ export async function resolveProvisionalSession(
   const sessionId = await ctx.stores.provisionalTokens.get(token);
   if (!sessionId) return undefined;
   const session = await ctx.stores.provisionalSessions.get(sessionId);
-  if (!session || session.expiresAt <= ctx.clock() || session.revokedAt) {
+  if (
+    !session ||
+    session.expiresAt <= ctx.clock() ||
+    session.revokedAt ||
+    session.revocationCleanupPending
+  ) {
     return undefined;
   }
   if (!(await principalStillAuthenticates(ctx, session.principalId))) {
@@ -71,10 +82,56 @@ export function cookieAuthAllowed(
   }
 }
 
+function validExpectedPrincipal(value: string | undefined): value is string {
+  return Boolean(value && value.length <= 200);
+}
+
+async function resolveBoundRequest(c: Context<{ Variables: Variables }>) {
+  const ctx = c.get("ctx");
+  const boundId = c.req.header("x-opensesame-session-id");
+  const proof = c.req.header("x-opensesame-session-proof");
+  const expected = c.req.header("x-opensesame-principal-id");
+  if (boundId === undefined && proof === undefined && expected === undefined)
+    return "none" as const;
+  const cookie =
+    boundId && validBoundSessionId(boundId)
+      ? getCookie(c, boundCookieName(ctx.config.provisionalCookieName, boundId))
+      : undefined;
+  if (
+    !boundId ||
+    !proof ||
+    !validExpectedPrincipal(expected) ||
+    !cookie ||
+    !cookieAuthAllowed(ctx, c.req.method, c.req.header("origin"))
+  )
+    return "invalid" as const;
+  const resolved = await resolveProvisionalSession(ctx, cookie);
+  if (
+    !resolved ||
+    resolved.sessionId !== boundId ||
+    resolved.principalId !== expected ||
+    !(await boundCookieMatches(ctx, boundId, proof))
+  )
+    return "invalid" as const;
+  return resolved;
+}
+
 export function authMiddleware() {
   return createMiddleware<{ Variables: Variables }>(async (c, next) => {
     const ctx = c.get("ctx");
     const cookieName = ctx.config.provisionalCookieName;
+
+    // Bound-cookie callers require this exact session on every request. Never
+    // fall back to another tab's cookie when the supplied proof does not fit.
+    const bound = await resolveBoundRequest(c);
+    if (bound !== "none") {
+      if (bound === "invalid") return c.json({ error: "unauthorized" }, 401);
+      c.set("principalId", bound.principalId);
+      c.set("provisionalSessionId", bound.sessionId);
+      c.header("X-OpenSesame-Cookie-Bound", "1");
+      await next();
+      return;
+    }
 
     const auth = c.req.header("authorization");
     if (auth?.toLowerCase().startsWith("bearer ")) {
@@ -87,17 +144,15 @@ export function authMiddleware() {
         return;
       }
       if (ctx.config.allowPrincipalBearer && token.startsWith("prn_")) {
-        const principal = await ctx.repos.principals.getById(token);
-        if (
-          principal &&
-          principal.state !== "suspended" &&
-          principal.state !== "closed"
-        ) {
-          c.set("principalId", principal.id);
+        if (await principalStillAuthenticates(ctx, token)) {
+          c.set("principalId", token);
           await next();
           return;
         }
       }
+      // A client requiring a principal bearer cannot fall back to a cookie.
+      if (c.req.header("x-opensesame-require-bearer") === "1")
+        return c.json({ error: "unauthorized" }, 401);
     }
 
     const cookieVal = getCookie(c, cookieName);

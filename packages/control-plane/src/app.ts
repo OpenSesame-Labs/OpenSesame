@@ -5,6 +5,13 @@ import { HTTPException } from "hono/http-exception";
 import type { AppContext } from "./context.js";
 import { INTERACTION_ROUTE } from "./interactions/rendezvous.js";
 import { authMiddleware } from "./middleware/auth.js";
+import {
+  boundCookieExit,
+  boundCookieMint,
+  boundCookieStatus,
+} from "./middleware/bound-cookie-control.js";
+import { boundCookieProofExit } from "./middleware/bound-cookie-proof-exit.js";
+import { boundCookieProxy } from "./middleware/bound-cookie-proxy.js";
 import { type Variables, withContext } from "./middleware/context.js";
 import { malformedJsonResponse } from "./middleware/json-body.js";
 import { publicAuthenticationCors } from "./middleware/public-auth-cors.js";
@@ -35,8 +42,8 @@ import {
   createInteractionLinkRoutes,
 } from "./routes/interaction-handoff.js";
 import { createInteractionRoutes } from "./routes/interactions.js";
-import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { mfaRoutes } from "./routes/mfa.js";
+import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { notificationCallbackRoutes } from "./routes/notification-callbacks.js";
 import {
   notificationChannelRoutes,
@@ -49,6 +56,7 @@ import { createOrgDomainRoutes } from "./routes/org-domains.js";
 import { createOrgLdapRoutes } from "./routes/org-ldap.js";
 import { organizationRoutes } from "./routes/organizations.js";
 import { originClientAdminRoutes } from "./routes/origin-clients-admin.js";
+import { principalCookieExitRoutes } from "./routes/principal-cookie-exit.js";
 import { principalRoutes } from "./routes/principals.js";
 import { projectRoutes } from "./routes/projects.js";
 import { scimMappingAdminRoutes } from "./routes/scim-mapping-admin.js";
@@ -73,7 +81,10 @@ export function createHonoApp(
   app.use("*", async (c, next) => {
     if (c.req.path !== "/v1/health/live") {
       try {
-        await ctx.systemPrincipalReady;
+        await Promise.all([
+          ctx.systemPrincipalReady,
+          ctx.securityRecoveryReady,
+        ]);
       } catch {
         return c.json({ error: "security_state_unavailable" }, 503);
       }
@@ -90,7 +101,7 @@ export function createHonoApp(
   );
   app.use("*", publicAuthenticationCors(ctx));
   const ordinaryCors = cors({
-    origin: (origin, c) => {
+    origin: (origin) => {
       if (!origin || origin === "null" || origin === "*") return "";
       return ctx.config.corsOrigins.includes(origin) ? origin : "";
     },
@@ -104,8 +115,17 @@ export function createHonoApp(
       // Authorization, which names the principal. Omitting it fails the
       // preflight and takes the whole ceremony with it.
       "X-Claim-Token",
+      "X-OpenSesame-Session-Id",
+      "X-OpenSesame-Session-Proof",
+      "X-OpenSesame-Principal-Id",
+      "X-OpenSesame-Require-Bearer",
+      "X-OpenSesame-Next-Proof",
+      "X-OpenSesame-Revoke-Session",
+      "X-OpenSesame-Revoke-Secret",
+      "X-OpenSesame-Revoke-Principal",
     ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    exposeHeaders: ["X-OpenSesame-Cookie-Bound"],
   });
   app.use("*", (c, next) =>
     c.req.path.startsWith("/v1/authentication/public/")
@@ -116,8 +136,21 @@ export function createHonoApp(
   app.use("*", apiSecurityHeaders());
   app.use("*", authMiddleware());
 
+  // The separate namespace cannot exist on a legacy replica, so a failed
+  // downgrade cannot execute a write under an unrelated ambient cookie.
+  app.get("/v1/bound/status", boundCookieStatus);
+  app.post("/v1/bound/session-mint", (c) =>
+    boundCookieMint(c, (request) => app.fetch(request)),
+  );
+  app.post("/v1/bound/sign-out", boundCookieExit);
+  app.post("/v1/bound/proof-sign-out", boundCookieProofExit);
+  app.all("/v1/bound/*", (c) =>
+    boundCookieProxy(c, (request) => app.fetch(request)),
+  );
+
   app.route("/v1/health", healthRoutes);
   app.route("/v1/principals", principalRoutes);
+  app.route("/v1/principals", principalCookieExitRoutes);
   app.route("/v1/projects", projectRoutes);
   app.route("/v1/claims", claimRoutes);
   app.route("/v1/authorization-requests", authorizationRequestRoutes);

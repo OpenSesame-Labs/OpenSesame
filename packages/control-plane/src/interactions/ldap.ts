@@ -10,7 +10,8 @@ import {
 } from "@opensesame/os-domain";
 import { type Client, type Entry, escapeFilter } from "ldapts";
 import type { AppContext } from "../context.js";
-import { revokeOrganizationMembership } from "../routes/organizations.js";
+import { jitJoinOrganization } from "../routes/organization-membership.js";
+import { removeDirectoryMembership } from "../routes/directory-removal.js";
 import {
   type LdapTarget,
   createClient,
@@ -546,6 +547,12 @@ export async function syncLdapDirectory(
     );
   }
 
+  // Freeze the exact rows that existed before the directory observation. A
+  // slow scan must not remove a membership deleted and re-created meanwhile.
+  const members =
+    await ctx.stores.organizationMemberships.listVersionedByOrganization(
+      config.organizationId,
+    );
   const entries = await scanDirectory(ctx.config.allowDevDefaults, config);
   const present = new Set<string>();
   let scanned = 0;
@@ -565,32 +572,21 @@ export async function syncLdapDirectory(
     // Nobody has bound as this entry yet — there is no principal to join.
     if (!linked) continue;
 
-    const role = roleForGroups(config, identity.groups) ?? "member";
-    const existing = await ctx.stores.organizationMemberships.find(
-      config.organizationId,
-      linked.principalId,
-    );
-    if (existing && existing.role === role) continue;
-
-    const now = ctx.clock();
-    await ctx.stores.organizationMemberships.upsert({
-      organizationId: config.organizationId,
+    const result = await jitJoinOrganization(ctx, {
+      organization,
       principalId: linked.principalId,
-      role,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
+      subject: identity.subject,
+      method: "ldap",
+      correlationId: `ldap-sync-${config.organizationId}`,
+      role: roleForGroups(config, identity.groups) ?? "member",
+      roleSource: "ldap",
     });
-    if (!existing) {
-      joined += 1;
-      await appendAuditEvent(ctx.repos.auditEvents, {
-        eventType: "organization.member_joined",
-        outcome: "succeeded",
-        principalId: linked.principalId,
-        organizationId: config.organizationId,
-        correlationId: `ldap-sync-${config.organizationId}`,
-        metadata: { action: "organization.ldap.sync", method: "ldap" },
-      });
+    if (!result.ok && result.error !== "not_provisioned") {
+      throw new Error(
+        `LDAP directory membership update failed: ${result.message}`,
+      );
     }
+    if (result.ok && result.created) joined += 1;
   }
 
   /*
@@ -612,29 +608,28 @@ export async function syncLdapDirectory(
   }
 
   let deactivated = 0;
-  const members = await ctx.stores.organizationMemberships.listByOrganization(
-    config.organizationId,
-  );
-  for (const membership of members) {
+  for (const { membership, incarnation } of members) {
     const identities = await ctx.repos.externalIdentities.listByPrincipal(
       membership.principalId,
     );
     // Only members this directory vouched for are in scope. Somebody who
     // joined through the tenant's OIDC IdP is not a leaver just because the
     // LDAP tree never mentioned them.
-    const fromThisDirectory = identities.find(
+    const fromThisDirectory = identities.filter(
       (identity) => identity.kind === "ldap" && identity.issuer === issuer,
     );
-    if (!fromThisDirectory) continue;
-    if (present.has(fromThisDirectory.subject)) continue;
+    if (fromThisDirectory.length === 0) continue;
+    if (fromThisDirectory.some((identity) => present.has(identity.subject)))
+      continue;
 
-    await revokeOrganizationMembership(ctx, {
+    const removed = await removeDirectoryMembership(ctx, {
       organizationId: config.organizationId,
       principalId: membership.principalId,
       correlationId: `ldap-sync-${config.organizationId}`,
       reason: "ldap_directory_sync",
+      incarnation,
     });
-    deactivated += 1;
+    if (removed) deactivated += 1;
   }
 
   await appendAuditEvent(ctx.repos.auditEvents, {

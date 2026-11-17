@@ -34,7 +34,6 @@ import {
   usesNativeSaml,
 } from "../routes/organizations.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
-import { provisionedRoleForSubject } from "../routes/scim.js";
 import {
   UnsafeUpstreamError,
   assertPublicUpstreamUrl,
@@ -1052,7 +1051,7 @@ export type SamlAdmission =
       issuer: string;
       sessionToken?: string;
     }
-  | { ok: false; status: 403 | 409 | 429; message: string };
+  | { ok: false; status: 403 | 409 | 429 | 503; message: string };
 
 const OWNER_REFUSED: SamlAdmission = {
   ok: false,
@@ -1220,24 +1219,19 @@ export async function admitSamlSubject(
     input.result.organizationId,
   );
   if (organization) {
-    // The directory's Groups push, where there is one, names the role this
-    // subject joins at; without one `jitJoinOrganization` falls back to
-    // `member` as it always has (C15).
-    const role = await provisionedRoleForSubject(
-      ctx,
-      organization.id,
-      input.result.subject,
-    );
     const joined = await jitJoinOrganization(ctx, {
       organization,
       principalId,
       subject: input.result.subject,
       method: "saml",
       correlationId: input.correlationId,
-      ...(role !== undefined ? { role } : undefined),
     });
     if (!joined.ok) {
-      return { ok: false, status: 403, message: joined.message };
+      return {
+        ok: false,
+        status: joined.error === "membership_withdrawing" ? 503 : 403,
+        message: joined.message,
+      };
     }
   }
 
