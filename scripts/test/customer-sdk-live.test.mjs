@@ -40,7 +40,10 @@ test("the SDK live check withdraws every possibly accepted approval after setup 
   await once(server, "listening");
   t.after(() => server.close());
   const address = server.address();
-  assert(address && typeof address !== "string");
+  assert(
+    Number.isInteger(address?.port),
+    "loopback listener must have a TCP port",
+  );
   const child = spawn(
     process.execPath,
     ["--import", "tsx", "scripts/test/customer-sdk-live.mts"],

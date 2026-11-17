@@ -1,15 +1,25 @@
 import { expect, vi } from "vitest";
+import { z } from "zod";
 import type { AppContext } from "../context.js";
+
+const withdrawalRequest = z.object({
+  organization_id: z.string(),
+  principal_id: z.string(),
+  membership_incarnation: z.string().uuid(),
+  authority_revision: z.string().uuid(),
+  withdrawal_id: z.string().uuid(),
+});
+type WithdrawalRequest = z.infer<typeof withdrawalRequest>;
 
 /** Stub only the Host withdrawal endpoint; other network traffic stays real. */
 export function mockHostWithdrawal(ctx: AppContext) {
   const realFetch = globalThis.fetch.bind(globalThis);
-  const requests: unknown[] = [];
+  const requests: WithdrawalRequest[] = [];
   const spy = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async (url, init) => {
       if (String(url).startsWith(ctx.config.hostApiUrl)) {
-        requests.push(JSON.parse(String(init?.body)));
+        requests.push(withdrawalRequest.parse(JSON.parse(String(init?.body))));
         return new Response(null, { status: 204 });
       }
       return realFetch(url, init);
@@ -18,7 +28,7 @@ export function mockHostWithdrawal(ctx: AppContext) {
 }
 
 export function expectHostWithdrawals(
-  requests: unknown[],
+  requests: readonly WithdrawalRequest[],
   organizationId: string,
   principalId: string,
 ): void {
