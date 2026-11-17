@@ -334,7 +334,7 @@ test("bootstrap refuses a HOME it cannot write", (t) => {
   assert.match(result.stderr, /HOME must be a writable directory/);
 });
 
-/** Devcontainer: pinned image, locked mise, then dotfiles, then dependencies. */
+/** Devcontainer: pinned image and locked project setup, without personal code. */
 function assertDevcontainerBootstrapOrder() {
   const devcontainer = JSON.parse(read(".devcontainer/devcontainer.json"));
   const dockerfile = read(".devcontainer/Dockerfile");
@@ -354,9 +354,9 @@ function assertDevcontainerBootstrapOrder() {
   for (const key of ["updateContentCommand", "postCreateCommand"]) {
     const text = devcontainer[key];
     const locked = text.indexOf("mise install --locked");
-    const boot = text.indexOf("bash scripts/dev/dotfiles-bootstrap.sh");
     const deps = text.indexOf("mise run deps");
-    assert.ok(locked >= 0 && locked < boot && boot < deps, key);
+    assert.ok(locked >= 0 && locked < deps, key);
+    assert.equal(text.includes("dotfiles-bootstrap.sh"), false, key);
     assert.equal(text.includes("corepack"), false, key);
     assert.equal(
       text.includes("npm ci") || text.includes("mise run deps"),
@@ -370,7 +370,7 @@ function assertDevcontainerBootstrapOrder() {
   );
 }
 
-test("devcontainer and cloud install run dotfiles before npm ci via mise", () => {
+test("personal bootstrap is pinned and absent from devcontainer lifecycle", () => {
   const source = uncommented(read(script));
   assert.match(source, new RegExp(defaultRepo.replaceAll(".", "\\.")));
   assert.match(source, new RegExp(defaultRef));
@@ -404,5 +404,6 @@ test("devcontainer and cloud install run dotfiles before npm ci via mise", () =>
   const cloudAgents = read("docs/contributing/cloud-agents.md");
   assert.match(cloudAgents, /anonymous HTTPS/);
   assert.match(cloudAgents, new RegExp(defaultRepo.replaceAll(".", "\\.")));
+  assert.match(cloudAgents, /does not execute personal repositories/);
   assert.doesNotMatch(cloudAgents, /staging\/tyler-dotfiles/);
 });
