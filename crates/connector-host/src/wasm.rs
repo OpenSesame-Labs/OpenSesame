@@ -22,7 +22,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::{json, Value};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
@@ -142,6 +142,17 @@ impl Default for GuestLimits {
 }
 
 const EPOCH_TICK: Duration = Duration::from_millis(50);
+
+fn opaque_guest_summary(bytes: &[u8]) -> (serde_json::Value, String) {
+    let digest = format!("sha256:{}", hex::encode(Sha256::digest(bytes)));
+    (
+        json!({
+            "bytes": bytes.len(),
+            "digest": digest.clone(),
+        }),
+        digest,
+    )
+}
 
 struct EpochTicker {
     stop: Arc<AtomicBool>,
@@ -580,16 +591,34 @@ impl Connector for WasmConnector {
         if bytes.len() > self.limits.max_result_bytes {
             return Err(HostError::Connector("result exceeds size cap".into()));
         }
-        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
-        // Guest output is data, never trusted structure: parse as JSON when
-        // it is JSON, otherwise report only its size and digest.
-        let safe_summary = serde_json::from_slice::<Value>(&bytes)
-            .unwrap_or_else(|_| json!({ "bytes": bytes.len() }));
+        // Guest output is untrusted data. It can contain an upstream's
+        // reversible encoding of a host-injected credential even though the
+        // credential bytes never entered guest memory directly. Never parse
+        // guest bytes into a model-visible receipt; expose only host-derived
+        // metadata and bind that metadata to the bytes with a digest.
+        let (safe_summary, digest) = opaque_guest_summary(&bytes);
         Ok(InvokeResult {
             ok: true,
             safe_summary,
             external_request_digest: Some(digest),
         })
+    }
+}
+
+#[cfg(test)]
+mod result_tests {
+    use super::opaque_guest_summary;
+
+    #[test]
+    fn transformed_credentials_remain_opaque() {
+        let hostile = br#"{"opaque":"UkVWRVJTSUJMRV9DUkVERU5USUFM"}"#;
+        let (summary, digest) = opaque_guest_summary(hostile);
+        let rendered = summary.to_string();
+
+        assert_eq!(summary["bytes"], hostile.len());
+        assert_eq!(summary["digest"], digest);
+        assert!(!rendered.contains("opaque"));
+        assert!(!rendered.contains("UkVWRVJTSUJMRV9DUkVERU5USUFM"));
     }
 }
 
