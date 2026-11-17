@@ -262,7 +262,8 @@ impl ConnectionBroker {
     /// would replay the bearer token at an unapproved origin. The response body
     /// is read only up to a cap, since a provider error page is not something
     /// we need in full. And no part of the credential is ever returned or
-    /// logged: on failure the caller learns the status and a short snippet.
+    /// logged: on failure the caller learns the status, not the provider's
+    /// untrusted response body, which may contain the injected credential.
     ///
     /// # Errors
     ///
@@ -328,7 +329,7 @@ impl ConnectionBroker {
             .body(body)
             .send()
             .await
-            .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
+            .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
         let status = response.status();
         if status.is_redirection() {
             // Following this would hand the bearer token to wherever the
@@ -338,11 +339,10 @@ impl ConnectionBroker {
             )));
         }
         if !status.is_success() {
-            let text = response.text().await.unwrap_or_default();
-            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
-            return Err(BrokerError::ExchangeFailed(format!(
-                "upstream {status}: {snippet}"
-            )));
+            // An upstream can reflect the injected credential in any encoding
+            // and can stream an unbounded error. Neither is safe to retain or
+            // return, so do not read the body at all.
+            return Err(BrokerError::ExchangeFailed(format!("upstream {status}")));
         }
         Ok(())
     }
