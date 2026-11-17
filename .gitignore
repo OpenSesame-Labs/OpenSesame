@@ -91,6 +91,9 @@ skills/*
 !skills/formal-verification/
 !skills/verify-formal-vault/
 !skills/verify-formal-proxy-lease/
+!skills/verify-formal-pwa-shell/
+!skills/verify-formal-sync-manifest/
+!skills/verify-formal-autofill-gesture/
 
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
