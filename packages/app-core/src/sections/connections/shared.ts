@@ -3,12 +3,12 @@
  * No React, no fetching — everything here is unit-testable in isolation.
  */
 
-import { ConnectionsError } from "../../lib/connections-error.js";
 import type {
   Connection,
   Provider,
   ProviderCategory,
 } from "../../lib/connections.js";
+import { ConnectionsError } from "../../lib/connections-error.js";
 import { isNativeDeviceConnection } from "../../lib/device-connector-view.js";
 import { VERB_CHIP, VERB_LABEL } from "../../lib/identity-graph.js";
 import { nativeLocalCatalogConfiguration } from "../../lib/native-catalog-status.js";
@@ -68,24 +68,11 @@ export function isFeatureBindingCategory(category: ProviderCategory): boolean {
   return FEATURE_BINDING_SET.has(category);
 }
 
-/** SPA root for a connector ceremony — catalog vs Settings → Connections. */
-export type ConnectorCeremonyRoot = "/connections" | "/settings/connections";
-
-export function connectorCeremonyRoot(pathname: string): ConnectorCeremonyRoot {
-  return pathname.startsWith("/settings/connections")
-    ? "/settings/connections"
-    : "/connections";
-}
-
-export function connectorPath(
-  providerId: string,
-  connectionId?: string,
-  root: ConnectorCeremonyRoot = "/connections",
-): string {
-  const provider = encodeURIComponent(providerId);
-  const base = `${root}/${provider}`;
-  return connectionId ? `${base}/${encodeURIComponent(connectionId)}` : base;
-}
+export {
+  type ConnectorCeremonyRoot,
+  connectorCeremonyRoot,
+  connectorPath,
+} from "./path.js";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",

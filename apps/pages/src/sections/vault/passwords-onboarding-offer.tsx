@@ -1,5 +1,4 @@
 import { Suspense, lazy } from "react";
-import { pwaOfferPasswordsOnboarding } from "../../lib/pwa-offer-passwords-onboarding.js";
 
 /**
  * Where the fresh-vault Passwords offer is drawn: the path strip, beside
@@ -30,7 +29,7 @@ export function PasswordsOnboardingOffer({
 }: {
   placement: PasswordsOnboardingPlacement;
 }) {
-  if (!pwaOfferPasswordsOnboarding() || PasswordsOnboarding === null) {
+  if (PasswordsOnboarding === null) {
     return null;
   }
   const Offer = PasswordsOnboarding;
