@@ -20,6 +20,8 @@ pub mod testkit;
 #[path = "tests.rs"]
 mod tests;
 
+use std::net::SocketAddr;
+
 use clap::Parser;
 use opensesame_connector_host::providers;
 use opensesame_domain::{ExecutionTarget, ProviderDefinition};
@@ -74,14 +76,27 @@ pub async fn run(args: Args) -> anyhow::Result<()> {
 
 /// The deliberate local compatibility profile.
 async fn serve_local(args: &Args, configured: Vec<ProviderDefinition>) -> anyhow::Result<()> {
+    let listen = existing_local_listen(&args.listen)?;
     let operator_token = std::env::var("OPENSESAME_WORKER_TOKEN")
         .or_else(|_| std::env::var("OPENSESAME_OPERATOR_TOKEN"))
         .unwrap_or_default();
     let app = local_router(configured, operator_token);
-    let listener = tokio::net::TcpListener::bind(&args.listen).await?;
-    tracing::info!(worker_id=%args.id, listen=%args.listen, profile="existing_local", "workload connector host ready");
+    let listener = tokio::net::TcpListener::bind(listen).await?;
+    tracing::info!(worker_id=%args.id, listen=%listen, profile="existing_local", "workload connector host ready");
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+fn existing_local_listen(raw: &str) -> anyhow::Result<SocketAddr> {
+    let listen: SocketAddr = raw
+        .parse()
+        .map_err(|error| anyhow::anyhow!("worker existing_local listen address: {error}"))?;
+    if !listen.ip().is_loopback() {
+        anyhow::bail!(
+            "worker existing_local refuses non-loopback listen address {listen}; use mtls_required for network listeners"
+        );
+    }
+    Ok(listen)
 }
 
 fn local_router(configured: Vec<ProviderDefinition>, token: String) -> axum::Router {
