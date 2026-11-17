@@ -49,6 +49,24 @@ const examples = [
 ];
 
 describe("secret file envelope compatibility", () => {
+  it("snapshots input bytes before the returned Effect runs", () => {
+    function check<A>(
+      decode: (
+        bytes: Uint8Array,
+        path: string,
+      ) => Effect.Effect<A, SecretFsRejected>,
+      value: unknown,
+    ) {
+      const bytes = encoder.encode(JSON.stringify(value));
+      const effect = decode(bytes, "x");
+      bytes.fill(0);
+      expect(decodeCurrent(effect)).toEqual(value);
+    }
+    check(decodeSecretDoc, examples[0]);
+    check(decodeFolderDoc, examples[1]);
+    check(decodeManifestDoc, examples[2]);
+  });
+
   it("accepts and rejects the same legacy files and strips the same unknown keys", () => {
     const candidate = fc.oneof(
       fc.jsonValue(),

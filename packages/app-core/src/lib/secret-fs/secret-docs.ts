@@ -177,11 +177,12 @@ const notOfThisFormat = (path: string) => () =>
   corrupt(path, "is not a file of this format");
 
 function decodeDoc<T>(bytes: Uint8Array, path: string, schema: z.ZodType<T>) {
+  // Snapshot at construction, as the original schema reader did: callers may
+  // clear or reuse the input buffer before they run the returned Effect.
+  const text = new TextDecoder().decode(bytes);
   return Effect.try({
     try: () => {
-      const result = schema.safeParse(
-        JSON.parse(new TextDecoder().decode(bytes)),
-      );
+      const result = schema.safeParse(JSON.parse(text));
       if (!result.success) throw new Error("Invalid secret file");
       return result.data;
     },
