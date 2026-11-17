@@ -1,3 +1,4 @@
+import { getEventListeners } from "node:events";
 import { createHostApiStub } from "@opensesame/api-client/testkit";
 import { withTestResources } from "@opensesame/testing";
 import { describe, expect, it } from "vitest";
@@ -248,6 +249,130 @@ describe("Host API stub", () => {
         }),
       ).rejects.toMatchObject({ name: "AbortError" });
       expect(called).toBe(false);
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("chaos: abort rejects a stalled handler and handles its late rejection", async () => {
+    const host = createHostApiStub();
+    const controller = new AbortController();
+    let failLate = (_error: Error) => {};
+    let announce = () => {};
+    const started = new Promise<void>((resolve) => {
+      announce = resolve;
+    });
+    host.route("GET", "/health/live", () => {
+      const result = new Promise<Response>((_resolve, reject) => {
+        failLate = reject;
+      });
+      announce();
+      return result;
+    });
+    const pending = host.fetchImpl(`${host.baseUrl}/health/live`, {
+      signal: controller.signal,
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await started;
+      const reason = new Error("request canceled");
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("abort timed out")), 1000);
+      });
+      controller.abort(reason);
+      await expect(Promise.race([pending, timeout])).rejects.toBe(reason);
+      // The stub must still observe this rejected promise after abort wins.
+      failLate(new Error("late handler failure"));
+      await Promise.resolve();
+    } finally {
+      clearTimeout(timer);
+      failLate(new Error("fixture cleanup"));
+      await pending.catch(() => {});
+      await host.close();
+    }
+  });
+
+  it.each(["reset", "close"] as const)(
+    "chaos: %s immediately invalidates a stalled handler",
+    async (action) => {
+      const host = createHostApiStub();
+      let failLate = (_error: Error) => {};
+      let announce = () => {};
+      let signal: AbortSignal | undefined;
+      let listeners = 0;
+      const started = new Promise<void>((resolve) => {
+        announce = resolve;
+      });
+      host.route("GET", "/health/live", (request) => {
+        signal = request.signal;
+        listeners = getEventListeners(request.signal, "abort").length;
+        const result = new Promise<Response>((_resolve, reject) => {
+          failLate = reject;
+        });
+        announce();
+        return result;
+      });
+      const pending = host.fetchImpl(`${host.baseUrl}/health/live`);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await started;
+        const timeout = new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("invalidation timed out")),
+            1000,
+          );
+        });
+        const checked = expect(
+          Promise.race([pending, timeout]),
+        ).rejects.toThrow("host_stub_request_invalidated");
+        if (action === "reset") host.reset();
+        else await host.close();
+        await checked;
+        expect(signal).toBeDefined();
+        if (!signal) throw new Error("handler did not capture its signal");
+        expect(listeners).toBeGreaterThan(0);
+        expect(getEventListeners(signal, "abort")).toHaveLength(listeners - 1);
+        failLate(new Error("late handler failure"));
+        await Promise.resolve();
+      } finally {
+        clearTimeout(timer);
+        failLate(new Error("fixture cleanup"));
+        await pending.catch(() => {});
+        await host.close();
+      }
+    },
+  );
+
+  it("contract: removes abort listeners when a handler succeeds or fails", async () => {
+    const host = createHostApiStub();
+    const seen: { signal: AbortSignal; listeners: number }[] = [];
+    const failure = new Error("handler failed");
+    const recordSignal = (request: Request) => {
+      seen.push({
+        signal: request.signal,
+        listeners: getEventListeners(request.signal, "abort").length,
+      });
+    };
+    host.route("GET", "/ok", (request) => {
+      recordSignal(request);
+      return new Response("ok");
+    });
+    host.route("GET", "/error", (request) => {
+      recordSignal(request);
+      throw failure;
+    });
+    try {
+      await host.fetchImpl(`${host.baseUrl}/ok`);
+      await expect(host.fetchImpl(`${host.baseUrl}/error`)).rejects.toBe(
+        failure,
+      );
+      expect(seen).toHaveLength(2);
+      for (const entry of seen) {
+        expect(entry.listeners).toBeGreaterThan(0);
+        expect(getEventListeners(entry.signal, "abort")).toHaveLength(
+          entry.listeners - 1,
+        );
+      }
     } finally {
       await host.close();
     }
