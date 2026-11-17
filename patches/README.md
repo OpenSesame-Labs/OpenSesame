@@ -70,6 +70,7 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `typed-rest-client@2.3.1` | Allows the existing security-fixed `qs` release | `scripts/lib/dependency-compatibility.test.mjs` |
 | `@esbuild-kit/core-utils@3.3.2` | Allows the security-fixed esbuild used by its loader | `scripts/security/npm-workspaces.test.mjs` |
 | `nunjucks@3.2.4` | Supports chokidar 5 and starts its resolver watcher with an empty path list | `scripts/security/npm-workspaces.test.mjs` |
+| `@aws-sdk/xml-builder@3.972.42` | Preserves XML Unicode and entities and bounds custom entity expansion | `scripts/security/aws-xml-compat.test.mjs` and `.deepsec/aws-xml-compat.test.mjs` |
 | `kdbxweb@2.1.1` | Preserves tabs and carriage returns in XML text and CDATA and uses the reviewed fixed XML parser | `scripts/security/kdbxweb-compat.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
 
@@ -128,3 +129,15 @@ Node/browser UMD and minified distribution. It changes the SDK's XML parser
 requirement to the exact reviewed `0.8.15` version. The app-core workspace
 installs that tarball directly; verification checks the installed copies and
 compares them with the published SDK plus this patch.
+
+## AWS XML compatibility and security backport
+
+The root and DeepSec workspaces share the patched `@aws-sdk/xml-builder`
+3.972.42 tarball. It preserves supplementary Unicode and known and unknown
+named entity references, validates document structure, and bounds nesting
+and custom entity expansion. XML documents with custom declarations use the
+SDK's former parser with bounded expansion; external entities are rejected.
+The patch includes the MIT license and attribution for entity tables derived
+from `@nodable/entities` 2.1.0. Root and DeepSec regressions exercise the
+actual AWS SDK consumers, and patch verification compares the vendor tarball
+with the published package plus this patch.

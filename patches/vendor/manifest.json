@@ -58,6 +58,12 @@
       "upstreamIntegrity": "sha512-z+a2+BEzyK2kUh0xDekY7gwc9CkbzSetUyvc78NKVawxV06UG1KYbg9W9hZCJdQPYizIVePTvQsYUXIO1qtAhQ==",
       "workspaceDependency": "packages/app-core/package.json",
       "upstreamTarball": "https://registry.npmjs.org/kdbxweb/-/kdbxweb-2.1.1.tgz"
+    },
+    "@aws-sdk/xml-builder@3.972.42": {
+      "patch": "patches/@aws-sdk__xml-builder@3.972.42.patch",
+      "tarball": "patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
+      "upstreamIntegrity": "sha512-smX8/gNP8Kjq+CWTBMZQLQ912vOQjiWExzwzvMO+eujPB5RY8IbtF0AGdUUXHKN7KoDWK9dIcuW0WG269kiP6w==",
+      "upstreamTarball": "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz"
     }
   },
   "notInstalled": {
