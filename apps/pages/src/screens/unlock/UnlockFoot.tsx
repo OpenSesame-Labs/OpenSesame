@@ -43,10 +43,10 @@ export function UnlockFoot({
   return (
     <div className="unlock__foot">
       {guestKeyless && !showSignIn ? (
-        <output className="note note--warn">
+        <output className="note note--warn" id="guest-resume-note">
           <span>
-            Items in the guest vault were lost when it locked. Your guest
-            connections may still be available.
+            Items in the guest vault were lost when it locked. The previous
+            guest’s connections may still be available.
           </span>
         </output>
       ) : null}

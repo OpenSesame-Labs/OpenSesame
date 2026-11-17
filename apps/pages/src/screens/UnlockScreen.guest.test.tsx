@@ -45,7 +45,7 @@ describe("UnlockScreen — guest unlock", () => {
     ).toBeTruthy();
     expect(screen.getByText(/guest vault were lost/)).toBeTruthy();
     expect(
-      screen.getByText(/guest connections may still be available/),
+      screen.getByText(/guest’s connections may still be available/),
     ).toBeTruthy();
     expect(
       screen.queryByRole("tab", { name: /Passkey|Password|PIN/i }),
@@ -61,6 +61,7 @@ describe("UnlockScreen — guest unlock", () => {
     const unlock = screen.getByRole("button", {
       name: "Continue as guest",
     });
+    expect(unlock.getAttribute("aria-describedby")).toBe("guest-resume-note");
     fireEvent.click(unlock);
     await waitFor(() => expect(resumeGuestSession).toHaveBeenCalledTimes(1));
     expect(continueAsGuest).not.toHaveBeenCalled();

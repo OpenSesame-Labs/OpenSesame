@@ -215,11 +215,8 @@ function UnlockForm({
     () => unlockMethodTabs({ firstRun, header, passkeyOk }),
     [firstRun, header, passkeyOk],
   );
-  // A guest tomb that enrolled no key at all: guest entry itself is the road
-  // in, and the commit says so rather than pretending to unlock something.
+  // Guest entry is the road in only when the tomb enrolled no key.
   const guestKeyless = guestUnlock && !header && methods.length === 0;
-  // A code alone cannot open a vault.
-  // A filtered key must not be mistaken for a keyless guest.
   const noPrimary = !firstRun && !guestKeyless && methods.length === 0;
   const secondSteps = firstRun ? [] : listSecondSteps(header);
   const hasTotpStep = !firstRun && !noPrimary && secondSteps.length > 0;
@@ -776,6 +773,9 @@ function UnlockForm({
                 disabled={disabled}
                 aria-busy={busy}
                 aria-label={goVerb}
+                aria-describedby={
+                  guestKeyless ? "guest-resume-note" : undefined
+                }
                 title={goVerb}
               >
                 {isCeremonyMethod(activeMethod) &&
