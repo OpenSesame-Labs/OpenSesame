@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -58,7 +59,7 @@ describe("main", () => {
 });
 
 describe("runner entrypoint", () => {
-  const tsxCli = join(here, "..", "node_modules", "tsx", "dist", "cli.mjs");
+  const tsxCli = createRequire(import.meta.url).resolve("tsx/cli");
   const runScript = join(here, "run.ts");
 
   it("runs every discovered target when no filter is given", async () => {

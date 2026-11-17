@@ -10,7 +10,7 @@ describe("createSingleFileProgram", () => {
 	it("parses files outside the linted one once per process", () => {
 		const first = createSingleFileProgram(testFilename, "export const first = 1;");
 		const second = createSingleFileProgram(moduleFilename, "export const second = 2;");
-		const firstLib = first.program.getSourceFiles().find((file) => file.hasNoDefaultLib);
+		const firstLib = first.program.getSourceFiles().find((file) => first.program.isSourceFileDefaultLibrary(file));
 		expect(firstLib).toBeDefined();
 		expect(second.program.getSourceFile(firstLib?.fileName ?? "")).toBe(firstLib);
 	});

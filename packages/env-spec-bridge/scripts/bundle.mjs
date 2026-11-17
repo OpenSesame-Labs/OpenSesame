@@ -8,12 +8,10 @@
  *   node scripts/bundle.mjs [out]   # default dist/opensesame-env-parse.mjs
  *
  * The same esbuild and parser give the same bytes: no minification, no source
- * map, no clock, and module paths in the output's comments are written as they
- * sit under this package's node_modules (symlinks kept, not resolved into the
- * package manager's store). Which esbuild and parser those are is decided by
- * package-lock.json; the root npm.overrides rewrite esbuild's specifier, so this
- * package's package.json does not pin it. `keepNames` matters: the bridge tells
- * the parser's classes apart by `constructor.name`.
+ * map, no clock, and module paths in the output's comments are relative to the
+ * workspace root (symlinks kept, not resolved into a package manager's
+ * store). The lockfile selects esbuild and the parser. `keepNames` matters:
+ * the bridge tells the parser's classes apart by `constructor.name`.
  */
 import { mkdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -22,6 +20,7 @@ import { build } from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const packageDir = join(here, "..");
+const workspaceDir = resolve(packageDir, "../..");
 export const entry = join(packageDir, "bin", "opensesame-env-parse.mjs");
 export const defaultOut = join(packageDir, "dist", "opensesame-env-parse.mjs");
 
@@ -30,7 +29,7 @@ export async function bundle(out = defaultOut) {
   const outfile = resolve(out);
   mkdirSync(dirname(outfile), { recursive: true });
   await build({
-    absWorkingDir: packageDir,
+    absWorkingDir: workspaceDir,
     entryPoints: [entry],
     outfile,
     bundle: true,

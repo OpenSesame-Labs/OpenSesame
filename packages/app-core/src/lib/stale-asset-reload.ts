@@ -30,8 +30,10 @@ function attempted(store: Storage): string[] {
   if (!raw) return [];
   try {
     const parsed: BoundaryValue = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every(isString))
-      return [...new Set(parsed)];
+    if (Array.isArray(parsed)) {
+      const values: BoundaryValue[] = parsed;
+      if (values.every(isString)) return [...new Set(values)];
+    }
   } catch {
     // A marker from the previous version is a plain string.
   }

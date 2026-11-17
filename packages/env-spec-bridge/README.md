@@ -35,16 +35,14 @@ npm run bundle -w @opensesame/env-spec-bridge   # dist/opensesame-env-parse.mjs
 node packages/env-spec-bridge/scripts/bundle.mjs <out>
 ```
 
-`scripts/bundle.mjs` bundles the bridge and `@env-spec/parser` with esbuild
-(the version `package-lock.json` records: the root `npm.overrides` rewrite
-esbuild's specifier, so `package.json` does not pin it) into one ES module that
+`scripts/bundle.mjs` bundles the bridge and `@env-spec/parser` with the esbuild
+version recorded in `package-lock.json` into one ES module that
 imports only `node:` builtins: the `opensesame-env-parse.mjs` a
 [release kit](../../docs/operators/release-kit.md) ships beside the
 `opensesame` binary, which runs it from there with no `node_modules`. No
 minification and no source map; `keepNames` keeps the parser's class names,
-which the bridge reads; module paths in the output's comments are written as
-they sit under this package's `node_modules`, so the same lockfile gives the
-same bytes on any machine.
+which the bridge reads; module paths in the output's comments are relative to
+the workspace root, so the same lockfile gives the same bytes on any machine.
 
 ## Develop
 
