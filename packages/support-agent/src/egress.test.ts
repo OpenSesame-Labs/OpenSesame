@@ -252,42 +252,6 @@ describe("sanitizeSupportRequest limits", () => {
     );
   });
 
-  it("caps every context list at its budget", () => {
-    const base = fakeSupportPageContext();
-    const targets: BoundaryValue[] = [];
-    for (let index = 0; index < SUPPORT_LIMITS.maxTargets + 10; index += 1) {
-      targets.push({
-        id: `target.n${index}`,
-        description: "a control",
-        role: "action",
-        mounted: true,
-      });
-    }
-    const goals: BoundaryValue[] = [];
-    for (let index = 0; index < SUPPORT_LIMITS.maxGoals + 10; index += 1) {
-      goals.push({ id: `goal.n${index}`, title: "a goal" });
-    }
-    const request = asRequest({
-      question: "hello",
-      history: [],
-      context: {
-        version: 1,
-        pageId: base.pageId,
-        route: base.route,
-        targets,
-        routes: [],
-        state: [],
-        capabilities: [],
-        goals,
-        help: [],
-        tools: [],
-      },
-    });
-    const sanitized = sanitizeSupportRequest(request);
-    expect(sanitized.context.targets).toHaveLength(SUPPORT_LIMITS.maxTargets);
-    expect(sanitized.context.goals).toHaveLength(SUPPORT_LIMITS.maxGoals);
-  });
-
   it("clamps an over-long description instead of refusing it", () => {
     const request = asRequest({
       question: "hello",

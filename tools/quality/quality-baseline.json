@@ -18,7 +18,7 @@
   "totals": {
     "files": 442,
     "violations": 701,
-    "oversizedLines": 214370
+    "oversizedLines": 214334
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -1364,7 +1364,7 @@
       "complexity": 1
     },
     "packages/support-agent/src/egress.test.ts": {
-      "max-lines": 494
+      "max-lines": 458
     },
     "packages/support-agent/src/egress.ts": {
       "complexity": 1,

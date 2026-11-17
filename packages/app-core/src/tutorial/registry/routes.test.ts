@@ -161,9 +161,14 @@ describe("the gates are routes (ADR 0166)", () => {
   });
 
   it("keeps the authored routes inside the budget a model is told, with room to spare", () => {
-    expect(mergedGuideRoutes().length).toBeLessThanOrEqual(
-      SUPPORT_LIMITS.maxRoutes - 4,
-    );
+    const revoke = registerTutorialRealm();
+    try {
+      expect(mergedGuideRoutes().length).toBeLessThanOrEqual(
+        SUPPORT_LIMITS.maxRoutes - 4,
+      );
+    } finally {
+      revoke();
+    }
   });
 });
 
