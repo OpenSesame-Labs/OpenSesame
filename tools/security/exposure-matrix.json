@@ -395,7 +395,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed."
     },
     {
       "id": "host-listeners",
@@ -6602,14 +6602,14 @@
       "35655696"
     ],
     "crates/gateway/src/app_state.rs": [
-      "fdf37f08",
-      "fcd0e673",
-      "1eb2ae82",
-      "c06c8180",
-      "77fc7835",
-      "5893b863",
-      "c2b0ccea",
-      "74356e3a"
+      "982e3b26",
+      "8509ce92",
+      "b0bb5479",
+      "e7cc6ba7",
+      "e7a3d110",
+      "25fbd47e",
+      "0f54ae85",
+      "d23902e2"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
