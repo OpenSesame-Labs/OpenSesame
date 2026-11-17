@@ -63,7 +63,7 @@ export function withinLimit(
 }
 
 /** Keep the phone's fixed toast away from the vault's fixed controls. */
-function useToastPlacement(): { className: string; editing: boolean } {
+function useToastPlacement() {
   const location = useLocation();
   const narrow = useNarrow();
   const besideAdd =
