@@ -41,6 +41,7 @@
  * be combined with `--accept-new-debt`: a move changes where debt is written
  * down, never how much of it there is.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -151,6 +152,15 @@ function relocated(recorded) {
   return files;
 }
 
+// The vendor-size exemption applies only to the reviewed upstream bytes.
+execFileSync(
+  "python3",
+  [join(root, "scripts/security/verify-vendored-sqlx.py")],
+  {
+    cwd: root,
+    stdio: "inherit",
+  },
+);
 const measured = measureStructure(root, oxlintConfig);
 const baseline = relocatePath ? relocated(readBaseline()) : readBaseline();
 

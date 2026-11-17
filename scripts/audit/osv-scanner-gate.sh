@@ -80,6 +80,9 @@ ensure_osv_scanner() {
 
 ensure_osv_scanner
 
+# Fail closed if the scanner stops reporting the verified SQLx path dependency.
+python3 scripts/security/check-sqlx-scanner-coverage.py "$BIN"
+
 # Enumerate tracked inputs so hidden tooling workspaces and independent Rust/Go
 # modules are scanned too, without walking node_modules or private audit output.
 # go.mod is the scanner's dependency input; go.sum also contains stale downloads.

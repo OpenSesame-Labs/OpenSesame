@@ -11,3 +11,7 @@ rust-version.workspace = true
 sqlx-core = { version = "0.9.0", default-features = false, features = ["_rt-tokio", "chrono", "json", "uuid", "migrate"] }
 sqlx-sqlite = { version = "0.9.0", default-features = false, features = ["bundled", "chrono", "json", "uuid", "migrate"] }
 sqlx-postgres = { version = "0.9.0", default-features = false, features = ["chrono", "json", "uuid", "migrate"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }

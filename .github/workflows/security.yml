@@ -166,7 +166,10 @@ jobs:
       # it unless it matches the recorded upstream integrity, applies the
       # patch and compares every file. Nothing from a package is executed.
       - name: Rebuild each tarball from the registry and compare
-        run: node scripts/security/patched-dependencies.mjs verify
+        run: |
+          node scripts/security/patched-dependencies.mjs verify
+          python3 scripts/security/verify-vendored-sqlx.py
+          python3 scripts/security/test_vendored_sqlx.py
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)

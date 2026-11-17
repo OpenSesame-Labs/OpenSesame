@@ -79,3 +79,20 @@ published version so an advisory scanner may continue to report the backport;
 the recorded tarball integrity and regression tests identify the patched copy.
 
 A patch does not travel with a package published from this repository. A consumer who installs a published package resolves its dependencies from the registry.
+
+## SQLx SQLite compatibility backport
+
+`patches/vendor/sqlx-sqlite-0.9.0/` is the published `sqlx-sqlite` 0.9.0
+crate (SHA-256 `488e99c397a62007e4229aec669a179816339afc6d2620ca6fa420dbee2e982c`).
+Its only code-distribution change is the dependency constraint for
+`libsqlite3-sys`: require 0.39.1 and accept versions below 0.40. This follows
+upstream's [0.39 compatibility change](https://github.com/launchbadge/sqlx/commit/10462fa4414c6c7f1ed1d39bb31678e3b726878c)
+and keeps the bundled SQLite at a version fixed for RUSTSEC-2026-0459. The
+crate's own ignored `Cargo.lock` is omitted so it cannot be mistaken for the
+workspace lockfile. The MIT and Apache licenses and all source bytes are kept.
+
+`python3 scripts/security/verify-vendored-sqlx.py` checks the upstream archive's
+digest, the complete source inventory, and every file against the archive with
+only the reviewed manifest substitution. The structural quality gate runs this
+verification before excluding the immutable third-party source from the
+repository's source-size ratchet; CI runs it alongside the other patch checks.
