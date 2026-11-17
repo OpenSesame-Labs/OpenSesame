@@ -24,6 +24,7 @@ import {
   differingFiles,
   extract,
   fileMap,
+  installedPackageDifferences,
   integrity,
   patchApplies,
   readJson,
@@ -133,9 +134,55 @@ test("the installed copy of each patched package equals its tarball", () => {
     for (const copy of installed(split(selector))) {
       const directory = join(root, copy.key);
       assert.equal(existsSync(directory), true, `${copy.key} is not installed`);
-      assert.deepEqual(differingFiles(expected, fileMap(directory)), []);
+      assert.deepEqual(
+        installedPackageDifferences(
+          expected,
+          fileMap(directory),
+          copy.key,
+          lock.packages,
+        ),
+        [],
+      );
     }
   }
+});
+
+test("installed comparisons ignore only separately locked child packages", () => {
+  const expected = {
+    "index.js": "good",
+    "node_modules/bundled/a.js": "original",
+  };
+  const actual = {
+    ...expected,
+    "node_modules/commander/index.js": "child",
+  };
+  const packages = { "node_modules/nunjucks/node_modules/commander": {} };
+  const compare = (files) =>
+    installedPackageDifferences(
+      expected,
+      files,
+      "node_modules/nunjucks",
+      packages,
+    );
+  assert.deepEqual(compare(actual), []);
+  assert.deepEqual(compare({ ...actual, "index.js": "changed" }), ["index.js"]);
+  assert.deepEqual(
+    compare({ ...actual, "node_modules/rogue/index.js": "bad" }),
+    ["node_modules/rogue/index.js"],
+  );
+  assert.deepEqual(
+    compare({ ...actual, "node_modules/bundled/a.js": "changed" }),
+    ["node_modules/bundled/a.js"],
+  );
+});
+
+test("file maps include prototype-named files", () => {
+  const directory = join(work, "prototype-named-file");
+  mkdirSync(directory);
+  writeFileSync(join(directory, "__proto__"), "unexpected");
+  const files = fileMap(directory);
+  assert.equal(Object.hasOwn(files, "__proto__"), true);
+  assert.deepEqual(differingFiles(files, {}), ["__proto__"]);
 });
 
 test("the checks reject a published, unpatched package and name what differs", () => {

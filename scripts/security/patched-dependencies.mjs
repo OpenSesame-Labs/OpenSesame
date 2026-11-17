@@ -84,7 +84,7 @@ export function extract(tarball, into) {
 
 /** Relative path to SHA-256 for every file below `directory`. */
 export function fileMap(directory) {
-  const files = {};
+  const files = Object.create(null);
   const walk = (current) => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name);
@@ -153,7 +153,38 @@ export function buildPatched(selector, entry, work) {
 /** Files that differ between two file maps, in either direction. */
 export function differingFiles(expected, actual) {
   const paths = new Set([...Object.keys(expected), ...Object.keys(actual)]);
-  return [...paths].filter((path) => expected[path] !== actual[path]).sort();
+  return [...paths]
+    .filter(
+      (path) =>
+        !Object.hasOwn(expected, path) ||
+        !Object.hasOwn(actual, path) ||
+        expected[path] !== actual[path],
+    )
+    .sort();
+}
+
+/** Compare the package's files while leaving separately locked child packages to npm. */
+export function installedPackageDifferences(
+  expected,
+  actual,
+  packagePath,
+  packages,
+) {
+  const prefix = `${packagePath}/node_modules/`;
+  const children = Object.keys(packages)
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => `${key.slice(packagePath.length + 1)}/`);
+  const owned = Object.create(null);
+  for (const [path, value] of Object.entries(actual)) {
+    const normalized = path.replaceAll("\\", "/");
+    if (
+      !Object.hasOwn(expected, path) &&
+      children.some((child) => normalized.startsWith(child))
+    )
+      continue;
+    owned[path] = value;
+  }
+  return differingFiles(expected, owned);
 }
 
 /** Points every lockfile copy of `selector` at the tarball and its integrity. */
