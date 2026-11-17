@@ -9,11 +9,14 @@ import {
   assertNoSecretFields,
   assertSourceOrder,
 } from "@opensesame/testing";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { MemoryRepositories } from "../src/index.js";
 import { withPostgresRepos } from "./pg-harness.js";
+import { createPgOwner } from "./pg-harness-full.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const pgOwner = createPgOwner();
+afterAll(async () => pgOwner.close());
 
 describe("PACT — outbox claim", () => {
   it("memory claim hides the row from a second claimant", async () => {
@@ -86,7 +89,7 @@ describe("PACT — outbox claim", () => {
   });
 
   it("postgres SKIP LOCKED exclusive claim under concurrent drainers", async () => {
-    await withPostgresRepos(async (repos) => {
+    await withPostgresRepos(pgOwner, async (repos) => {
       const id = `outbox_pact_pg_${randomUUID()}`;
       await repos.outbox.append({
         id,

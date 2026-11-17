@@ -6,7 +6,7 @@ import {
   type Repositories,
 } from "../src/index.js";
 import { makePrincipal, makePushSubscription } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * A push endpoint is a capability URL, so the row's owner is part of what it
@@ -15,14 +15,15 @@ import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
  * registration for an endpoint a live row already holds must never move it.
  */
 
+const pgOwner = createPgOwner();
 let pg: PgTestContext;
 
 beforeAll(async () => {
-  pg = await createPgTestContext();
+  pg = await pgOwner.acquire();
 }, 60_000);
 
 afterAll(async () => {
-  await pg.client.close();
+  await pgOwner.close();
 });
 
 type Engine = {

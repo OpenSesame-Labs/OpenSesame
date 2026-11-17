@@ -32,7 +32,7 @@ import {
   createPostgresScimStores,
 } from "../src/scim-store.js";
 import { makeIdentity, makePrincipal } from "./factories.js";
-import { createPgTestContext } from "./pg-harness-full.js";
+import { createPgOwner } from "./pg-harness-full.js";
 
 /**
  * One spec, both implementations (T8).
@@ -49,7 +49,6 @@ interface FederationBackend {
   saml: SamlStores;
   scim: ScimStores;
   federation: OrgFederationStores;
-  close(): Promise<void>;
 }
 
 async function memoryBackend(): Promise<FederationBackend> {
@@ -59,39 +58,40 @@ async function memoryBackend(): Promise<FederationBackend> {
     saml: createMemorySamlStores(),
     scim: createMemoryScimStores(),
     federation: createMemoryOrgFederationStores(),
-    close: async () => {},
   };
 }
 
-async function postgresBackend(): Promise<FederationBackend> {
-  const ctx = await createPgTestContext();
+async function postgresBackend(
+  owner: ReturnType<typeof createPgOwner>,
+): Promise<FederationBackend> {
+  const ctx = await owner.acquire();
   return {
     repos: ctx.repos,
     organizations: createPostgresOrganizationStores(ctx.db),
     saml: createPostgresSamlStores(ctx.db),
     scim: createPostgresScimStores(ctx.db),
     federation: createPostgresOrgFederationStores(ctx.db),
-    close: async () => {
-      await ctx.client.close();
-    },
   };
 }
 
 const backends = [
-  { name: "memory", create: memoryBackend },
+  {
+    name: "memory",
+    create: (_owner: ReturnType<typeof createPgOwner>) => memoryBackend(),
+  },
   { name: "postgres", create: postgresBackend },
 ] as const;
 
 describe.each(backends)("$name federation storage", ({ create }) => {
+  const pgOwner = createPgOwner();
   let backend: FederationBackend;
 
   beforeAll(async () => {
-    backend = await create();
+    backend = await create(pgOwner);
   }, 60_000);
 
-  afterAll(async () => {
-    await backend.close();
-  });
+  // The owner closes late setup and rejects contexts after closure begins.
+  afterAll(() => pgOwner.close());
 
   async function principal(overrides = {}): Promise<string> {
     const row = await backend.repos.principals.create(makePrincipal(overrides));

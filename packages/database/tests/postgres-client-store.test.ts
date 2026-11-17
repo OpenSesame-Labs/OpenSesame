@@ -11,20 +11,21 @@ import {
 } from "../src/index.js";
 import { oauthClients } from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let clients: ClientRecordStore;
 let challenges: ClientClaimChallengeStore;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   clients = createPostgresClientRecordStore(ctx.db);
   challenges = createPostgresClientClaimChallengeStore(ctx.db);
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 function makeClient(

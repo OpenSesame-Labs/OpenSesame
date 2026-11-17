@@ -1,6 +1,6 @@
 /**
  * The Postgres `authority_projection_state` store, on whichever engine
- * `createPgTestContext` picks (PGlite, or the real server named by
+ * `createPgOwner` picks (PGlite, or the real server named by
  * DATABASE_URL).
  *
  * The memory store has its own suite. This one exists because the Postgres
@@ -15,14 +15,15 @@ import {
 } from "../src/repos/authority-projection-state.js";
 import * as schema from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let store: PostgresAuthorityProjectionStateStore;
 let mark: (revision: number) => AuthorityProjectionMark;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   const principal = await ctx.repos.principals.create(makePrincipal());
   const now = new Date();
   await ctx.db.insert(schema.organizations).values({
@@ -44,7 +45,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 describe("PostgresAuthorityProjectionStateStore", () => {

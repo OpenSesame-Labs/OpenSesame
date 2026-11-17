@@ -7,7 +7,7 @@ import {
   type WalletRegistrationRepository,
 } from "../src/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 import {
   type Fixture,
   makeInteraction,
@@ -145,14 +145,15 @@ async function memoryFixture(): Promise<Fixture> {
 
 walletRegistrationContract("MemoryRepositories", memoryFixture);
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 async function postgresFixture(): Promise<Fixture> {

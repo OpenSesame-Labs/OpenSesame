@@ -6,14 +6,15 @@ import {
   WebhookEndpointLimitError,
 } from "../src/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let pg: PgTestContext;
 beforeAll(async () => {
-  pg = await createPgTestContext();
+  pg = await pgOwner.acquire();
 }, 60_000);
 afterAll(async () => {
-  await pg.client.close();
+  await pgOwner.close();
 });
 const engines = [
   { name: "memory", repos: (): Repositories => new MemoryRepositories() },

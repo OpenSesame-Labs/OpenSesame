@@ -5,15 +5,16 @@ import { sealOidcRow } from "../src/oidc-seal.js";
 import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import { sealLegacySessions } from "../src/repos/sealed-sessions-sweep.js";
 import * as schema from "../src/schema/index.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 const sealer = createEventSealer("restart gate fixture root");
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 it("refuses session marker removal on restart without resetting its bearer index", async () => {
   await ctx.db.insert(schema.betterAuthUsers).values({

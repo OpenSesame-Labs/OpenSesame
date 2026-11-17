@@ -8,20 +8,21 @@ import {
   createPostgresClientOriginStore,
   createPostgresClientRecordStore,
 } from "../src/index.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let clients: ClientRecordStore;
 let origins: ClientOriginStore;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   clients = createPostgresClientRecordStore(ctx.db);
   origins = createPostgresClientOriginStore(ctx.db);
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 async function makeApplication(): Promise<OAuthClientRecord> {

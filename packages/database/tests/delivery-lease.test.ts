@@ -6,7 +6,7 @@ import {
   type Repositories,
 } from "../src/index.js";
 import { makeNotificationDelivery, makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * A claim is a lease. `claimDue` used to count the attempt and nothing else, so
@@ -16,12 +16,13 @@ import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
  * or the real server named by DATABASE_URL).
  */
 
+const pgOwner = createPgOwner();
 let pg: PgTestContext;
 beforeAll(async () => {
-  pg = await createPgTestContext();
+  pg = await pgOwner.acquire();
 }, 60_000);
 afterAll(async () => {
-  await pg.client.close();
+  await pgOwner.close();
 });
 
 interface Engine {

@@ -5,7 +5,7 @@ import { createEventSealer, withSealedEvents } from "../src/index.js";
 import { UNREADABLE_REASON } from "../src/repos/sealed-events.js";
 import * as schema from "../src/schema/index.js";
 import { makeNotificationDelivery, makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * A queued row whose sealed value will not open is quarantined by itself, and
@@ -17,12 +17,13 @@ const oldSealer = createEventSealer(
 );
 const PLAINTEXT = "hunter2-do-not-store";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 const outboxEvent = (aggregateId: string) => ({

@@ -1,15 +1,20 @@
+import { withTestResources } from "@opensesame/testing";
 import { eq } from "drizzle-orm";
-import { expect, it } from "vitest";
+import { afterAll, expect, it } from "vitest";
 import { createEventSealer } from "../src/event-seal.js";
 import { createPostgresOrgFederationStores } from "../src/org-federation-store.js";
 import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import { orgLdapConfig } from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { createPgTestContext } from "./pg-harness-full.js";
+import { createPgOwner } from "./pg-harness-full.js";
+
+const pgOwner = createPgOwner();
+afterAll(async () => pgOwner.close());
 
 it("seals LDAP credentials and rejects transplantation between organizations", async () => {
-  const ctx = await createPgTestContext();
-  try {
+  await withTestResources(async (scope) => {
+    scope.use(pgOwner);
+    const ctx = await pgOwner.acquire();
     const principal = await ctx.repos.principals.create(makePrincipal());
     const organizations = createPostgresOrganizationStores(ctx.db);
     const stores = createPostgresOrgFederationStores(
@@ -55,7 +60,5 @@ it("seals LDAP credentials and rejects transplantation between organizations", a
     await expect(stores.ldapConfigs.get("tenant-b")).rejects.toThrow(
       "could not be opened",
     );
-  } finally {
-    await ctx.client.close();
-  }
+  });
 }, 60_000);

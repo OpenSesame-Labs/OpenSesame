@@ -19,17 +19,17 @@ import {
   makePrincipal,
   makePushSubscription,
 } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
-afterAll(async () => {
-  await ctx.client.close();
-});
+// The owner closes late startup without returning a closing client.
+afterAll(() => pgOwner.close());
 
 describe("PostgresRepositories.principals", () => {
   it("creates and reads back a principal with optional timestamps", async () => {
