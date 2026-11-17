@@ -87,6 +87,16 @@ export function useShellReady(
   const [timedOut, setTimedOut] = useState(false);
   const [awaitingPlanActivation, setAwaitingPlanActivation] = useState(false);
   const previousPlanWasNull = useRef(false);
+  // The effect below records the null-plan latch after paint. The render that
+  // first sees the vault plan must already close the gate, or contributed
+  // screens mount for that commit and are torn down when the effect runs.
+  const planArrivedBeforeActivation =
+    previousPlanWasNull.current &&
+    plan !== null &&
+    vault !== undefined &&
+    plan.identity.vaultId === vault &&
+    !timedOut &&
+    activated !== snapshot.generation;
   useEffect(() => {
     if (vault === undefined) {
       setOpened(undefined);
@@ -123,6 +133,7 @@ export function useShellReady(
     activatedGeneration: activated,
     openedVault: opened,
     timedOut,
-    awaitingPlanActivation,
+    awaitingPlanActivation:
+      awaitingPlanActivation || planArrivedBeforeActivation,
   });
 }
