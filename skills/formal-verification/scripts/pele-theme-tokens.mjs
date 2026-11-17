@@ -5,7 +5,15 @@ const FONT =
 const MONO =
   "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 
-const GROUP_NAMES = ["blue", "orange", "purple", "yellow", "teal", "tan", "pink"];
+const GROUP_NAMES = [
+  "blue",
+  "orange",
+  "purple",
+  "yellow",
+  "teal",
+  "tan",
+  "pink",
+];
 
 export const PELE_THEME_TOKENS = {
   light: {
