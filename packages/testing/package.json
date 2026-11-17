@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./ports": {
+      "types": "./src/free-port.ts",
+      "default": "./src/free-port.ts"
     }
   },
   "scripts": {

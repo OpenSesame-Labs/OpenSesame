@@ -76,6 +76,12 @@ npm run generate:openapi -w @opensesame/control-plane              # writes open
 the root) after changing a route. Browser verifiers in `scripts/` run with
 `npm exec -w @opensesame/control-plane -- tsx scripts/<name>.mjs`.
 
+## Testing against Identity
+
+[`@opensesame/identity-testkit`](../identity-testkit) starts the real HTTP
+dispatcher and OIDC issuer with isolated in-memory state on a loopback port.
+Its README describes setup, cleanup, and the limits of this test environment.
+
 ## Related
 
 - [ADR 0007](../../docs/adr/0007-dual-plane-identity-authority.md), [ADR 0008](../../docs/adr/0008-better-auth-oidc-provider.md), [ADR 0017](../../docs/adr/0017-host-client-product-topology.md), [ADR 0033](../../docs/adr/0033-federated-identity-admission.md) (federated admission), [ADR 0117](../../docs/adr/0117-hosted-siop-oidc-bridge.md) and [ADR 0119](../../docs/adr/0119-wallet-native-control-plane-composition.md) (SIOP, wallet-native), [ADR 0132](../../docs/adr/0132-optional-mtls-and-workload-identity.md) (mTLS)

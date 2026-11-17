@@ -23,6 +23,44 @@ are written with. It is a dev dependency only; no production code imports it.
 | `assertFailClosedStatuses(responses, required)` | Contract: an OpenAPI responses object documents the fail-closed statuses (default `401`) |
 | `assertDurableSurvivesPartition(count, publish)` | Chaos: durable work is still present after a failed publish |
 | `startEphemeralPostgres()`, `PINNED_POSTGRES_IMAGE` | Integration: disposable Postgres via Testcontainers when Docker is available |
+| `TestResource`, `TestResourceScope`, `withTestResources` | Manage test-service lifecycles; close acquired resources in reverse order, including on failure |
+| `freePort`, `onFreePort`, `listenOnLoopback` | Start loopback test services and retry when an ephemeral port is taken before binding |
+
+The loopback helpers are also available from `@opensesame/testing/ports`,
+which does not load the optional Postgres test-container dependencies.
+
+## Service lifecycles
+
+Test services may implement `TestResource` structurally by exposing `close()`;
+they need not depend on this package. `withTestResources` closes everything
+registered before setup or the test fails, and preserves both the test and
+cleanup errors if both fail. Create a scope per test, and register each
+resource immediately after it starts:
+
+```typescript
+import { withTestResources } from "@opensesame/testing";
+import { startReferenceIdp } from "@opensesame/mock-upstream-idp/testkit";
+
+await withTestResources(async (scope) => {
+  const idp = scope.use(await startReferenceIdp());
+  // Exercise the consumer using idp.issuer.
+});
+```
+
+For concurrent startup, register each operation before awaiting it with
+`scope.acquire(() => startService())`. The scope then waits for outstanding
+starts and closes any that finish after another start or the test fails.
+Use `scope.use(await startService())` for sequential startup only; the scope
+cannot track a promise it has not been given.
+
+The lifecycle interface does not replace a service's own API or imply
+behavioral parity. See [service test doubles](../../docs/validation/service-test-doubles.md)
+for available implementations and their limits.
+
+When an issuer must know its port before starting, `onFreePort(bind)` obtains
+a loopback port and retries `bind(port)` only if another process took it before
+the bind. `freePort()` alone does not reserve the returned port; use the retrying
+helper when starting a listener. Socket permission and other errors propagate.
 
 ## Postgres integration tests
 
@@ -39,7 +77,7 @@ process.env.DATABASE_URL = postgres.databaseUrl;
 try {
   // run migrations and assertions
 } finally {
-  await postgres.stop();
+  await postgres.close(); // stop() remains an alias
 }
 ```
 

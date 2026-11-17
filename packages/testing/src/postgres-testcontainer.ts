@@ -9,6 +9,8 @@ export const PINNED_POSTGRES_IMAGE =
 
 export type EphemeralPostgres = {
   databaseUrl: string;
+  close: () => Promise<void>;
+  /** Alias kept for existing callers. */
   stop: () => Promise<void>;
 };
 
@@ -21,10 +23,14 @@ export async function startEphemeralPostgres(): Promise<EphemeralPostgres> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
     PINNED_POSTGRES_IMAGE,
   ).start();
+  let stopping: Promise<void> | undefined;
+  const close = () => {
+    stopping ??= container.stop().then(() => undefined);
+    return stopping;
+  };
   return {
     databaseUrl: container.getConnectionUri(),
-    stop: async () => {
-      await container.stop();
-    },
+    close,
+    stop: close,
   };
 }

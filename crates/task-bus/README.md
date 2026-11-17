@@ -35,6 +35,36 @@ times. Provisioning creates what is missing and fills in only the limits an
 older release left unbounded; what an operator tuned (replicas, storage,
 larger limits) is never overwritten.
 
+## Testing consumers
+
+Use `InMemoryTaskBus::default()` for the existing in-process FIFO adapter. For
+tests that need a transient fault, opt in to the `testkit` feature and inject
+`testkit::ScriptedTaskBus` as `Arc<dyn TaskBus>`:
+
+```rust
+use opensesame_task_bus::testkit::{ScriptedOutcome, ScriptedTaskBus};
+use std::sync::Arc;
+use opensesame_task_bus::TaskBus;
+
+let bus = Arc::new(ScriptedTaskBus::default());
+bus.script_publish([ScriptedOutcome::Fail, ScriptedOutcome::Pass]);
+let service_bus: Arc<dyn TaskBus> = bus.clone();
+```
+
+Publish and drain have independent FIFO scripts. Each call consumes one
+outcome; an exhausted script passes calls through to the in-memory bus. A
+failed call does not mutate its queue. `process` uses the same scripts for
+drain and for re-publishing a failed delivery. A fresh instance starts empty;
+`reset().await` clears events and scripts when no calls are in flight, and
+dropping it needs no cleanup. There is no runtime environment selection for
+the scripted bus. Concurrent calls consume outcomes in lock-acquisition order;
+sequence the calls when a particular caller must receive a particular outcome.
+
+This double models the in-memory bus, including immediate, unbounded retries;
+it does not claim NATS persistence, duplicate suppression, server TLS, durable
+consumers, retry delay or delivery limits. Use the live-server suites below to
+verify those properties.
+
 ## Transport profiles (ADR 0132)
 
 The client transport is resolved from the deployment plane

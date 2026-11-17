@@ -8,6 +8,7 @@ with. The test suites themselves are described in [`tests/`](../../tests/README.
 | Page | Covers |
 |---|---|
 | [Test strategy](test-strategy.md) | Which kinds of tests run, where each lives, and why the absent kinds are absent. |
+| [Service test doubles](service-test-doubles.md) | Local counterparts, their fidelity limits, and how to maintain them. |
 | [Test coverage](test-coverage.md) | Coverage floors for both languages and the test-type matrix. |
 | [PACT](pact.md) | The shared failure-scenario pattern: property, adversarial, chaos, contract. |
 | [Structural quality gates](code-quality-gates.md) | File size, complexity and component-coupling ratchets — the working guide to `npm run quality`. |

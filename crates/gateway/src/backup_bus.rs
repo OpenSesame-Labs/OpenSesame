@@ -124,23 +124,10 @@ async fn drain_system_wakes(state: &AppState, bus: &NatsJetStreamTaskBus) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
+    use opensesame_task_bus::testkit::{ScriptedOutcome, ScriptedTaskBus};
     use opensesame_task_bus::{BusEvent, TaskBus};
     use std::sync::Arc;
     use tokio::sync::{Notify, RwLock};
-
-    struct DownBus;
-
-    #[async_trait]
-    impl TaskBus for DownBus {
-        async fn publish(&self, _event: BusEvent) -> anyhow::Result<()> {
-            anyhow::bail!("nats down");
-        }
-
-        async fn drain(&self, _max: usize) -> anyhow::Result<Vec<BusEvent>> {
-            Ok(vec![])
-        }
-    }
 
     async fn expect_notification(notify: Arc<Notify>) {
         tokio::time::timeout(std::time::Duration::from_secs(2), notify.notified())
@@ -230,12 +217,23 @@ mod tests {
         })
         .await
         .unwrap();
-        state.task_bus = Arc::new(RwLock::new(Arc::new(DownBus) as Arc<dyn TaskBus>));
+        let bus = Arc::new(ScriptedTaskBus::default());
+        bus.script_publish([ScriptedOutcome::Fail]);
+        let as_dyn: Arc<dyn TaskBus> = bus.clone();
+        state.task_bus = Arc::new(RwLock::new(as_dyn));
 
         let notified = tokio::spawn(expect_notification(state.backup_notify.clone()));
         // Yield so the waiter is armed.
         tokio::task::yield_now().await;
         publish_backup_wake(&state, "outbox_down").await;
         notified.await.unwrap();
+        assert!(bus.drain(1).await.unwrap().is_empty());
+
+        // Once the one scripted failure has passed, the same adapter accepts
+        // the next wake without replacing the Host's bus.
+        publish_backup_wake(&state, "outbox_recovered").await;
+        let events = bus.drain(1).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].data["outbox_id"], "outbox_recovered");
     }
 }

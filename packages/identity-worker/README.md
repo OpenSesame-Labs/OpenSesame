@@ -36,6 +36,69 @@ alias of the JetStream publisher, `NatsJetStreamTaskBus`). Environment:
 unusable one; see
 [operators: notification channels](../../docs/operators/notification-channels.md#web-push)).
 
+## Notification test double
+
+`@opensesame/identity-worker/testkit` exports `createTestChannelAdapter`, an
+in-process implementation of the worker's `ChannelAdapter` port. Each
+instance has independent `rendered`, `sent` and `updated` recordings, returns
+the domain catalogue's capabilities, and can be passed directly to
+`registryFromAdapters`. By default a send succeeds. Provide a delivery script
+to exercise retries or permanent failures:
+
+```typescript
+import { registryFromAdapters } from "@opensesame/identity-worker";
+import { createTestChannelAdapter } from "@opensesame/identity-worker/testkit";
+
+const channel = createTestChannelAdapter("slack", {
+  deliveryScript: [
+    { ok: false, retryable: true, error: "status 503" },
+    { ok: true, providerMessageRef: "accepted-after-retry" },
+  ],
+});
+const adapters = registryFromAdapters([channel]);
+// Pass adapters to the worker's notification dispatcher; inspect channel.sent.
+channel.reset(); // clears recordings and rewinds the script
+await channel.close(); // clears recordings and prevents further use
+```
+
+A script consumes one result or thrown `Error` per send and throws if
+exhausted. Each instance may also be configured to refuse configuration,
+throw on rendering or updating, or omit update support. Rendering is a
+conservative placeholder at every confidentiality level: it returns the event
+type and requested level, never fields from the input payload. Recordings do
+retain inputs for assertions, so supply test data only. This double is not a
+provider emulator, does not send messages or verify callback provenance, and
+cannot establish that a real provider's rendering or privacy controls work. For Web Push's
+cryptographic and transport checks, use the independent stand-in from
+`@opensesame/notification-adapters/test-support` instead.
+
+## TaskBus test double
+
+The same testkit exports `createTestTaskBus`, which implements the worker's
+`TaskBus` port and delegates successful publishes to `MemoryTaskBus`. Each
+instance records every `attempts` event and every accepted `published` event.
+Pass it to `runCleanupTick` to exercise outbox failure and retry:
+
+```typescript
+import { createTestTaskBus } from "@opensesame/identity-worker/testkit";
+
+const taskBus = createTestTaskBus({
+  publishScript: [new Error("unavailable"), "success"],
+});
+// Inject taskBus into runCleanupTick alongside the test's repositories and clock.
+// The first tick leaves its outbox entry unpublished; the next can publish it.
+taskBus.reset(); // clears recordings and rewinds the script
+await taskBus.close(); // clears recordings and prevents further use
+```
+
+Without a script, publishes succeed. A script consumes one `Error` or
+`"success"` per attempt and throws when exhausted; failures do not reach the
+memory bus. The double opens no network connection and does not model
+JetStream acknowledgements, persistence, deduplication, permissions or
+distributed delivery. In-memory outbox tests also do not prove Postgres
+durability. Use `npm run test:nats-dogfood` and Postgres integration tests for
+those boundaries.
+
 ## Develop
 
 ```bash
