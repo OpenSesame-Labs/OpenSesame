@@ -47,6 +47,7 @@ pub(super) async fn build() -> anyhow::Result<AppState> {
         },
         identity_mapping: None,
         host_authorization: None,
+        client_app_url: Some(url::Url::parse("https://pages.test/OpenSesame/").unwrap()),
         resource: "https://host.test".into(),
         issuer: "https://identity.test".into(),
         db,
