@@ -157,12 +157,13 @@ export function useEscapeToExit(support: SupportController): void {
 export function cardKeys(
   support: SupportController,
   canBack: boolean,
+  canNext = true,
 ): (event: ReactKeyboardEvent<HTMLElement>) => void {
   return (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      support.nextStep();
+      if (canNext) support.nextStep();
     } else if (event.key === "ArrowLeft" && canBack) {
       event.preventDefault();
       support.backStep();

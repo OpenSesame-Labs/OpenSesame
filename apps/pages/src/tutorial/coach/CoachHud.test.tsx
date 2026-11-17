@@ -119,7 +119,7 @@ describe("the tutorial card", () => {
     await user.click(within(card).getByRole("button", { name: /^Next/ }));
     await waitFor(() =>
       expect(card.querySelector(".coach__cue")?.textContent).toContain(
-        "your move",
+        "Complete this step",
       ),
     );
   });

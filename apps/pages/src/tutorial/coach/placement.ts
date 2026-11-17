@@ -48,6 +48,7 @@ export type PlacementInput = {
   readonly target: Box | null;
   readonly prefer: CoachSide | null;
   readonly phone: boolean;
+  readonly insets?: SafeInsets;
 };
 
 /** The device's safe-area insets at the two edges a card docks to, in px. */
@@ -61,6 +62,30 @@ export const COACH_MARGIN = 12;
 export const COACH_GAP = 14;
 /** Keep the notch off the card's corners. */
 const NOTCH_INSET = 14;
+/** Room for the heading and 44px controls even in a short viewport. */
+const MIN_CARD_HEIGHT = 120;
+
+/** Limit a phone card to the space beside a control; long text can scroll. */
+export function phoneCardHeightLimit(
+  viewport: Size,
+  target: Box | null,
+  insets: SafeInsets,
+): number {
+  const screen = Math.max(
+    0,
+    viewport.height - COACH_MARGIN * 2 - insets.top - insets.bottom,
+  );
+  if (target === null) return screen;
+  const above = target.top - insets.top - COACH_MARGIN - COACH_GAP;
+  const below =
+    viewport.height -
+    target.top -
+    target.height -
+    insets.bottom -
+    COACH_MARGIN -
+    COACH_GAP;
+  return Math.min(screen, Math.max(MIN_CARD_HEIGHT, above, below));
+}
 
 const OPPOSITE = {
   top: "bottom",
@@ -173,13 +198,22 @@ export function clearOfDock(
 }
 
 export function placeCoach(input: PlacementInput): CoachPlacement {
-  const { viewport, card, target, prefer, phone } = input;
+  const { viewport, card, target, prefer, phone, insets = NO_INSETS } = input;
   if (phone) {
     if (target === null) return { kind: "dock", edge: "bottom" };
-    const centre = target.top + target.height / 2;
+    const topCovered = Math.max(
+      0,
+      card.height + COACH_MARGIN + insets.top - target.top,
+    );
+    const bottomCovered = Math.max(
+      0,
+      target.top +
+        target.height -
+        (viewport.height - card.height - COACH_MARGIN - insets.bottom),
+    );
     return {
       kind: "dock",
-      edge: centre > viewport.height / 2 ? "top" : "bottom",
+      edge: topCovered < bottomCovered ? "top" : "bottom",
     };
   }
   if (target === null) {

@@ -5,6 +5,7 @@ import {
   COACH_MARGIN,
   type PlacementInput,
   clearOfDock,
+  phoneCardHeightLimit,
   placeCoach,
 } from "./placement.js";
 
@@ -145,6 +146,39 @@ describe("placeCoach", () => {
       kind: "dock",
       edge: "bottom",
     });
+  });
+
+  it("chooses the edge that covers less of a tall control, including safe areas", () => {
+    const phone = {
+      viewport: { width: 390, height: 700 },
+      card: { width: 366, height: 220 },
+      phone: true,
+    };
+    const target = { left: 0, top: 80, width: 390, height: 370 };
+    expect(placeCoach(input({ ...phone, target }))).toEqual({
+      kind: "dock",
+      edge: "bottom",
+    });
+    expect(
+      placeCoach(input({ ...phone, target, insets: { top: 0, bottom: 200 } })),
+    ).toEqual({ kind: "dock", edge: "top" });
+  });
+
+  it("limits a long card to the space clear of a phone control", () => {
+    const viewport = { width: 320, height: 568 };
+    const target = { left: 20, top: 230, width: 44, height: 44 };
+    const limit = phoneCardHeightLimit(viewport, target, { top: 0, bottom: 0 });
+    expect(limit).toBe(568 - 274 - COACH_MARGIN - COACH_GAP);
+    expect(
+      placeCoach(
+        input({
+          viewport,
+          target,
+          card: { width: 296, height: limit },
+          phone: true,
+        }),
+      ),
+    ).toEqual({ kind: "dock", edge: "bottom" });
   });
 });
 

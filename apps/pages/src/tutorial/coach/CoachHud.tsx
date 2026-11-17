@@ -60,12 +60,40 @@ function titleOf(guide: GuideRuntimeSnapshot): string {
   return (guide.goal ? guideGoal(guide.goal)?.title : undefined) ?? "Tutorial";
 }
 
+function displayedTour(
+  tour: GuideTourView,
+  firstVault: boolean,
+): GuideTourView {
+  if (!firstVault) return tour;
+  const offset = tour.count === 8 ? 4 : tour.count === 2 ? 2 : 0;
+  return { ...tour, step: tour.step + offset, count: 12 };
+}
+
+function viewportDockStyle(
+  placement: ReturnType<typeof placeCoach> | null,
+  viewport: { offsetTop: number; bottomOffset: number },
+): CSSProperties {
+  if (placement?.kind !== "dock") return {};
+  if (placement.edge === "top") {
+    return {
+      top: `calc(0.5rem + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
+    };
+  }
+  return {
+    bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
+  };
+}
+
 /** The sentence, announced with its position for a listener who never sees the meter. */
 function Narration({
   id,
   tour,
   counter,
-}: { id: string; tour: GuideTourView; counter: string }): ReactElement {
+}: {
+  id: string;
+  tour: GuideTourView;
+  counter: string;
+}): ReactElement {
   const closing = tour.kind === "close";
   return (
     <p className="coach__text" id={id} aria-live="polite">
@@ -92,22 +120,29 @@ function Coach({
   const primaryRef = useRef<HTMLButtonElement>(null);
   const closing = tour.kind === "close";
   const title = titleOf(guide);
+  const firstVault = guide.goal === "gate.front-door";
+  const requiredAction = firstVault || guide.goal === "vault.item.first";
+  const ready = guide.status === "waiting";
+  const displayTour = displayedTour(tour, firstVault);
 
   const layout = useCoachLayout(guide.runId, tour, cardRef);
-  const { stepKey, viewport, hole, placement, gliding, missing } = layout;
+  const { stepKey, viewport, hole, placement, gliding, missing, maxHeight } =
+    layout;
   useCoachFocus(placement !== null, stepKey, cardRef, primaryRef);
   useEscapeToExit(support);
 
   const { style, dock } = cardStyle(placement);
+  const viewportDock = viewportDockStyle(placement, viewport);
   const facing = placement?.kind === "anchored" ? placement.facing : undefined;
   const notch = placement?.kind === "anchored" ? placement.notch : 0;
-  const counter = counterOf(tour);
+  const counter = counterOf(displayTour);
 
   return (
     <div
       className="coach"
       data-coach-step={tour.step}
       data-coach-kind={tour.kind}
+      data-coach-status={guide.status}
       data-coach-target={tour.target ?? ""}
       data-coach-degraded={missing ? "true" : "false"}
     >
@@ -118,14 +153,17 @@ function Coach({
       <section
         ref={cardRef}
         className={`coach__card ${dock} coach__card--${tour.kind}${placement ? " is-placed" : ""}`}
-        style={style}
-        // biome-ignore lint/a11y/useSemanticElements: a native <dialog open> would inert the page, and a tour must leave it live.
+        style={{ ...style, ...viewportDock, maxHeight }}
         role="dialog"
         aria-modal="false"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
         data-facing={facing}
-        onKeyDown={cardKeys(support, tour.canBack)}
+        onKeyDown={cardKeys(
+          support,
+          ready && tour.canBack && !firstVault,
+          ready && (!requiredAction || !tour.action),
+        )}
       >
         {facing !== undefined ? (
           <span
@@ -134,7 +172,7 @@ function Coach({
             aria-hidden="true"
           />
         ) : null}
-        <Meter tour={tour} />
+        <Meter tour={displayTour} />
         <Head
           titleId={titleId}
           title={title}
@@ -142,12 +180,15 @@ function Coach({
           closing={closing}
           support={support}
         />
-        <Narration id={bodyId} tour={tour} counter={counter} />
+        <Narration id={bodyId} tour={displayTour} counter={counter} />
         <Foot
           tour={tour}
           missing={missing}
           support={support}
           primary={primaryRef}
+          firstVault={firstVault}
+          requiredAction={requiredAction}
+          ready={ready}
         />
       </section>
     </div>

@@ -96,6 +96,8 @@ export type SupportHarness = {
   navigations(): readonly string[];
   /** How many times teardown asked the registry to drop its bindings. */
   clearedTargets(): number;
+  advanceGuideClock(ms: number): Promise<void>;
+  pendingGuideTimers(): number;
 };
 
 export type SupportHarnessOptions = {
@@ -218,6 +220,8 @@ export function mountSupport(options: SupportHarnessOptions): SupportHarness {
     fixtures,
     navigations: () => routes.navigations(),
     clearedTargets: () => cleared,
+    advanceGuideClock: (ms) => clock.advance(ms),
+    pendingGuideTimers: () => clock.pending(),
   };
 }
 
