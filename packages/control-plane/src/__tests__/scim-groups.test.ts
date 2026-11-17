@@ -3,14 +3,26 @@ import {
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { provisionedRoleForSubject } from "../routes/scim.js";
 import {
   memberIds,
   parseMemberSelector,
   resolveMemberIds,
 } from "../routes/scim-member-selector.js";
-import { provisionedRoleForSubject } from "../routes/scim.js";
+import {
+  expectHostWithdrawals,
+  mockHostWithdrawal,
+} from "./host-withdrawal-test-helper.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
@@ -36,6 +48,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await idp.close();
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("SCIM member selector", () => {
   it("parses collection, value-eq, and unsupported filters", () => {
@@ -78,6 +92,7 @@ describe("SCIM member selector", () => {
 describe("SCIM Groups persistence", () => {
   it("ADV-20: selector-only members[value eq id] remove drops membership and privilege", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const host = mockHostWithdrawal(ctx);
     const { owner, org } = await seedTenant(app, ctx, "adv20-org", idp);
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
     const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
@@ -129,10 +144,12 @@ describe("SCIM Groups persistence", () => {
     );
     expect(badFilter.status).toBe(400);
     expect(overlapCast(await badFilter.json()).scimType).toBe("invalidPath");
+    expectHostWithdrawals(host.requests, org.id, guest.principalId);
   }, 30_000);
 
   it("ADV-21: remaining mapped group keeps its role; unmapped owners grants nothing", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const host = mockHostWithdrawal(ctx);
     const { owner, org } = await seedTenant(app, ctx, "adv21-org", idp);
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
     const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
@@ -183,10 +200,12 @@ describe("SCIM Groups persistence", () => {
     expect(
       await provisionedRoleForSubject(ctx, org.id, "nobody@adv21.example"),
     ).toBeUndefined();
+    expectHostWithdrawals(host.requests, org.id, guest.principalId);
   }, 30_000);
 
   it("ADV-22: changing externalId/username then deactivating still offboards", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const host = mockHostWithdrawal(ctx);
     const { owner, org } = await seedTenant(app, ctx, "adv22-org", idp);
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
     idp.setSubject("adv22-user");
@@ -235,5 +254,14 @@ describe("SCIM Groups persistence", () => {
       headers: { authorization: `Bearer ${guest.accessToken}` },
     });
     expect(stillSignedIn.status).toBe(401);
+    expect(host.requests).toEqual([
+      expect.objectContaining({
+        organization_id: org.id,
+        principal_id: guest.principalId,
+        membership_incarnation: expect.any(String),
+        authority_revision: expect.any(String),
+        withdrawal_id: expect.any(String),
+      }),
+    ]);
   }, 30_000);
 });
