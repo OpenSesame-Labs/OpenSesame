@@ -370,3 +370,6 @@ async fn queued_requests_recheck_revocation_expiry_and_narrowing_before_executio
 
 #[path = "relay_authority_tests.rs"]
 mod authority;
+
+#[path = "relay_tenant_tests.rs"]
+mod tenant;

@@ -391,7 +391,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed."
     },
     {
       "id": "host-listeners",
@@ -6546,14 +6546,14 @@
       "df73edff"
     ],
     "crates/gateway/src/app_state.rs": [
-      "5e65277c",
-      "6b294ad0",
-      "cfbbf16b",
-      "4587091d",
-      "7bbf9246",
-      "6b435393",
-      "ec4b297c",
-      "893b4dc9"
+      "982e3b26",
+      "8509ce92",
+      "b0bb5479",
+      "e7cc6ba7",
+      "e7a3d110",
+      "25fbd47e",
+      "0f54ae85",
+      "d23902e2"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "dd98ef36",

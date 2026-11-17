@@ -92,10 +92,11 @@ pub struct AppState {
     pub connection_ref: Option<ConnectionRef>,
     /// Third-party service authorizations (ADR 0032).
     pub connection_broker: Arc<ConnectionBroker>,
-    /// Relay holder liveness: subject -> last heartbeat. Process-local on
+    /// Relay holder liveness: (organization, subject) -> last heartbeat. Process-local on
     /// purpose — a restart forgets everyone, and an unknown holder is
     /// *offline*, which is the fail-closed direction (ADR 0046 decision 5).
-    pub relay_presence: Arc<Mutex<std::collections::HashMap<String, std::time::Instant>>>,
+    pub relay_presence:
+        Arc<Mutex<std::collections::HashMap<(OrganizationId, String), std::time::Instant>>>,
     /// Development-only process-local CA when no sealing key is configured.
     /// Production and persisted CAs never use this fallback.
     pub ephemeral_certificate_ca: Arc<Mutex<Option<crate::dev_pki::DevCa>>>,
