@@ -271,7 +271,7 @@
       "max-lines": 1493
     },
     "crates/connection-broker/src/egress.rs": {
-      "max-lines": 518
+      "max-lines": 516
     },
     "crates/connection-broker/src/flow.rs": {
       "max-lines": 604

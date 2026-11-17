@@ -259,10 +259,10 @@ impl ConnectionBroker {
     /// an origin the connection never authorized.
     ///
     /// Three things are deliberate. Redirects are not followed — a redirect
-    /// would replay the bearer token at an unapproved origin. The response body
-    /// is read only up to a cap, since a provider error page is not something
-    /// we need in full. And no part of the credential is ever returned or
-    /// logged: on failure the caller learns the status and a short snippet.
+    /// would replay the bearer token at an unapproved origin. Upstream response
+    /// bodies are never returned because the credentialed provider can reflect
+    /// the bearer in any raw or encoded form. On failure the caller learns only
+    /// the status and a fixed error class.
     ///
     /// # Errors
     ///
@@ -338,10 +338,8 @@ impl ConnectionBroker {
             )));
         }
         if !status.is_success() {
-            let text = response.text().await.unwrap_or_default();
-            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
             return Err(BrokerError::ExchangeFailed(format!(
-                "upstream {status}: {snippet}"
+                "upstream {status}: credentialed upload failed"
             )));
         }
         Ok(())

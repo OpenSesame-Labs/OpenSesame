@@ -92,10 +92,11 @@ mod authorized_bytes_tests {
         response::{IntoResponse, Response},
         routing::post as axum_post,
     };
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
     use std::sync::Mutex as StdMutex;
 
     /// How the mock server answers, shared with the handler.
-    type Answer = Arc<dyn Fn() -> Response + Send + Sync>;
+    type Answer = Arc<dyn Fn(&HeaderMap) -> Response + Send + Sync>;
     /// Handler state: what has been seen, and how to reply.
     type MockState = State<(Arc<StdMutex<Seen>>, Answer)>;
 
@@ -130,7 +131,7 @@ mod authorized_bytes_tests {
                 .to_string(),
         );
         drop(seen);
-        answer()
+        answer(&headers)
     }
 
     /// An activated `mock` connection: Active, with a real sealed credential.
@@ -160,7 +161,7 @@ mod authorized_bytes_tests {
 
     /// A server that records what it received and answers however the test asks.
     async fn recording_server(
-        answer: impl Fn() -> Response + Clone + Send + Sync + 'static,
+        answer: impl Fn(&HeaderMap) -> Response + Clone + Send + Sync + 'static,
     ) -> (String, Arc<StdMutex<Seen>>) {
         let seen = Arc::new(StdMutex::new(Seen::default()));
         let sink = seen.clone();
@@ -183,7 +184,7 @@ mod authorized_bytes_tests {
     #[tokio::test]
     async fn uploads_bytes_with_the_credential_injected() {
         let (broker, org, connection) = active_mock_connection().await;
-        let (base, seen) = recording_server(|| (StatusCode::OK, "{}").into_response()).await;
+        let (base, seen) = recording_server(|_| (StatusCode::OK, "{}").into_response()).await;
 
         broker
             .authorized_bytes(
@@ -234,7 +235,7 @@ mod authorized_bytes_tests {
         // redirect target — so the assertion that matters is not just that the
         // call failed, but that the second endpoint was never contacted.
         let (broker, org, connection) = active_mock_connection().await;
-        let (base, seen) = recording_server(|| {
+        let (base, seen) = recording_server(|_| {
             Response::builder()
                 .status(StatusCode::FOUND)
                 .header("location", "/elsewhere")
@@ -269,7 +270,7 @@ mod authorized_bytes_tests {
     #[tokio::test]
     async fn refuses_caller_headers_the_broker_owns() {
         let (broker, org, connection) = active_mock_connection().await;
-        let (base, seen) = recording_server(|| (StatusCode::OK, "{}").into_response()).await;
+        let (base, seen) = recording_server(|_| (StatusCode::OK, "{}").into_response()).await;
 
         for reserved in ["Authorization", "authorization", "Content-Type"] {
             let error = broker
@@ -291,13 +292,16 @@ mod authorized_bytes_tests {
     }
 
     #[tokio::test]
-    async fn an_upstream_error_is_capped_and_carries_no_credential() {
+    async fn an_upstream_error_never_returns_reflected_credentials() {
         let (broker, org, connection) = active_mock_connection().await;
-        // A hostile upstream echoing a huge body, including something that
-        // looks like the caller's own Authorization header.
-        let (base, _seen) = recording_server(|| {
-            let mut body = "Bearer leaked-token-should-not-propagate ".to_string();
-            body.push_str(&"A".repeat(50_000));
+        let (base, _seen) = recording_server(|headers| {
+            let authorization = headers["authorization"].to_str().unwrap();
+            let percent = url::form_urlencoded::byte_serialize(authorization.as_bytes())
+                .collect::<String>();
+            let json = serde_json::to_string(authorization).unwrap();
+            let html = authorization.replace(' ', "&#32;").replace('-', "&#45;");
+            let encoded = STANDARD.encode(authorization);
+            let body = [authorization, &percent, &json, &html, &encoded].join("\n");
             (StatusCode::BAD_REQUEST, body).into_response()
         })
         .await;
@@ -312,15 +316,11 @@ mod authorized_bytes_tests {
             )
             .await
             .expect_err("a 400 must surface as an error");
-        let text = error.to_string();
-        assert!(
-            text.len() < 1_000,
-            "the snippet must be capped, got {} chars",
-            text.len()
+        assert_eq!(error.code(), "exchange_failed");
+        assert_eq!(
+            error.to_string(),
+            "token exchange failed: upstream 400 Bad Request: credentialed upload failed"
         );
-        // The real credential never appears; only whatever the upstream chose
-        // to echo, which is its own content and not ours.
-        assert!(!text.contains("race-access"));
     }
 
     #[tokio::test]
@@ -337,7 +337,7 @@ mod authorized_bytes_tests {
             )
             .await
             .unwrap();
-        let (base, seen) = recording_server(|| (StatusCode::OK, "{}").into_response()).await;
+        let (base, seen) = recording_server(|_| (StatusCode::OK, "{}").into_response()).await;
 
         let error = broker
             .authorized_bytes(
@@ -359,7 +359,7 @@ mod authorized_bytes_tests {
     #[tokio::test]
     async fn another_organization_cannot_use_this_connection() {
         let (broker, _org, connection) = active_mock_connection().await;
-        let (base, seen) = recording_server(|| (StatusCode::OK, "{}").into_response()).await;
+        let (base, seen) = recording_server(|_| (StatusCode::OK, "{}").into_response()).await;
 
         let error = broker
             .authorized_bytes(
