@@ -31,25 +31,29 @@ import {
 import { getLocalGitRemote } from "./git-remote-local.js";
 import { pemFromVault, readLocalGithubApp } from "./github-app-local.js";
 import { githubAppRelayBase } from "./github-app-relay.js";
+import { isGuestVaultId } from "./guest-vault-id.js";
 import { savedForgeCredentials } from "./saved-git-backup.js";
+import { utf8ToBase64 } from "./vault-backup-encoding.js";
 import {
   pollSavedGithubBackups,
   putSavedGithubBackup,
 } from "./vault-backup-github.js";
+
 export {
   readSavedGithubBackup,
   restoreSavedGithubBackup,
 } from "./vault-backup-github.js";
+
+import {
+  buildOfflineBackup,
+  serializeOfflineBackup,
+} from "./vault/offline-backup.js";
+import { vaultStore } from "./vault/store.js";
 import { backupTargetReceipt } from "./vault-backup-github-owner.js";
 import {
   confirmedBackupCommit,
   readBackupWriteConfirmation,
 } from "./vault-backup-sync-confirmation.js";
-import {
-  buildOfflineBackup,
-  serializeOfflineBackup,
-} from "./vault/offline-backup.js";
-import { GUEST_TOMB, vaultStore } from "./vault/store.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -57,16 +61,9 @@ import {
   readSealedFile,
 } from "./vfs.js";
 
-function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
 function sealedEnvelopeJson(): string {
   const { status, tomb } = vaultStore.getSnapshot();
-  if (tomb === GUEST_TOMB) {
+  if (isGuestVaultId(tomb)) {
     throw new Error("Guest vaults cannot sync to a backup remote.");
   }
   if (status !== "unlocked" && status !== "locked") {

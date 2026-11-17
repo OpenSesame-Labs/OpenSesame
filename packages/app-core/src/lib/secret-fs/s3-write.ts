@@ -1,14 +1,16 @@
 /** Conditional S3 writes retain the original owner through preflight and actual request dispatch. */
 import { Effect } from "effect";
-import { SecretFsConflict, SecretFsRejected } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
-import { checkPath, revisionOf } from "./files.js";
+import { SecretFsConflict, SecretFsRejected } from "./errors.js";
 import type { SecretFiles } from "./files.js";
+import { checkPath, revisionOf } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 import type { Wire } from "./s3.js";
 
-const unquote = (etag: string | null): string | null =>
-  etag === null ? null : etag.replace(/^W\//, "");
+// If-Match must carry one strong entity tag. A missing, weak, or wildcard tag
+// cannot protect the read/put interval from another writer.
+const strongEtag = (etag: string | null): etag is string =>
+  etag !== null && /^"[\x21\x23-\x7e\x80-\xff]*"$/.test(etag);
 
 /** What the object is now, for a conflict to name and a conditional put to hold. */
 const currentOf = (
@@ -28,7 +30,7 @@ const currentOf = (
     const bytes = response.bytes;
     yield* wire.current(path);
     return {
-      etag: unquote(response.etag),
+      etag: response.etag,
       revision: revisionOf(bytes),
     };
   });
@@ -66,7 +68,15 @@ export const s3Write =
         if (current === null || current.revision !== expected) {
           return yield* conflict(current?.revision ?? null);
         }
-        if (current.etag !== null) headers.set("if-match", current.etag);
+        if (!strongEtag(current.etag)) {
+          return yield* new SecretFsRejected({
+            path,
+            kind: "unsupported",
+            reason:
+              "the bucket must expose a strong ETag for conditional writes",
+          });
+        }
+        headers.set("if-match", current.etag);
       }
       const response = yield* wire.call({
         method: "PUT",

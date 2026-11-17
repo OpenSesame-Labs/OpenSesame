@@ -18,15 +18,33 @@
  * the stored outcome and says what just happened (`PendingLinkBanner`).
  */
 
+import { host } from "../host.js";
+import { originFiles } from "../ports.js";
 import { ambientAuthSeams } from "./ambient-auth-seam.js";
-import { storeAuthOutcome } from "./auth-outcome.js";
+import { clearAuthOutcome, storeAuthOutcome } from "./auth-outcome.js";
 import { forgetClaim } from "./claims/arrival.js";
-import { clearPendingSignIn } from "./federation-pending.js";
 import { clearSession as clearFederationSession } from "./federation.js";
+import { clearPendingSignIn } from "./federation-pending.js";
 import { forgetPendingLink } from "./guest-auth.js";
-import { endSession } from "./identity.js";
+import { inspectStoredGuestContinuation } from "./guest-continuation.js";
+import { markGuestSignOutBarrier } from "./guest-return-barrier.js";
+import { advanceGuestReturnEpoch } from "./guest-return-epoch.js";
+import {
+  guestReturnSignOutPending,
+  guestReturnSignOutSnapshot,
+  restoreGuestReturnSignOut,
+  retryGuestReturnSignOut,
+  stageGuestReturnSignOut,
+} from "./guest-return-signout.js";
+import { endSession, isRemoteIdentityConfigured } from "./identity.js";
 import { endJoinAuthority } from "./join/client.js";
 import { clearPendingJoin } from "./join/stash.js";
+import { dismissNotice, setStatusNotice } from "./notices.js";
+import {
+  deferRemoteSignOut,
+  finishLocalGuestCleanup,
+} from "./session-exit-remote.js";
+import { emitVaultLock } from "./vault/lock-events.js";
 import { vaultStore } from "./vault/store.js";
 
 /**
@@ -41,27 +59,89 @@ import { vaultStore } from "./vault/store.js";
  */
 /** Whether this sign-out is the first half of "switch account". */
 type SignOutIntent = "leave" | "switch";
+let signOutGeneration = 0;
 
 function signOutDefault(intent: SignOutIntent = "leave"): void {
-  ambientAuthSeams.fenceLocalSignOut();
-  ambientAuthSeams.cancelAllTransactions();
-  clearFederationSession();
-  clearPendingSignIn();
-  forgetPendingLink();
-  // A join half-done under this account is not the next person's to finish.
-  clearPendingJoin();
-  endJoinAuthority();
-  // Nor is a claim or drop a link brought: the arrival and the stashed bearer.
-  forgetClaim();
-  storeAuthOutcome(
-    intent === "switch"
-      ? { kind: "signed_out", switching: true }
-      : { kind: "signed_out" },
-  );
-  endSession();
-  if (vaultStore.isUnlocked() || vaultStore.getSnapshot().awaitingSecondStep) {
-    vaultStore.lock();
+  const generation = ++signOutGeneration;
+  restoreGuestReturnSignOut();
+  const inspected = inspectStoredGuestContinuation();
+  const guestReturn = inspected.kind === "present" ? inspected.value : null;
+  if (guestReturn) stageGuestReturnSignOut(guestReturn, intent === "switch");
+  let incomplete = inspected.kind === "unavailable";
+  if (incomplete) markGuestSignOutBarrier(true);
+  const attempt = (action: () => void) => {
+    try {
+      action();
+    } catch {
+      incomplete = true;
+      markGuestSignOutBarrier(true);
+    }
+  };
+  // Returns issued in any document must be invalidated even when this tab
+  // cannot see their session-storage continuations.
+  attempt(() => {
+    if (originFiles() || host().storage?.local) advanceGuestReturnEpoch();
+  });
+  attempt(ambientAuthSeams.fenceLocalSignOut);
+  attempt(ambientAuthSeams.cancelAllTransactions);
+  attempt(clearFederationSession);
+  attempt(clearPendingSignIn);
+  attempt(forgetPendingLink);
+  attempt(clearPendingJoin);
+  attempt(endJoinAuthority);
+  attempt(forgetClaim);
+  clearAuthOutcome();
+  attempt(() => endSession({ orphan: isRemoteIdentityConfigured() }));
+  attempt(() => {
+    if (
+      vaultStore.isUnlocked() ||
+      vaultStore.getSnapshot().awaitingSecondStep
+    ) {
+      vaultStore.lock();
+    } else emitVaultLock();
+  });
+  finishSignOut(incomplete, Boolean(guestReturn), intent, generation);
+}
+
+function finishSignOut(
+  incomplete: boolean,
+  hasGuestReturn: boolean,
+  intent: SignOutIntent,
+  generation: number,
+): void {
+  if (
+    !incomplete &&
+    deferRemoteSignOut(
+      () => generation === signOutGeneration,
+      (failed) => {
+        if (failed) markGuestSignOutBarrier(true);
+        finishSignOut(failed, hasGuestReturn, intent, generation);
+      },
+    )
+  ) {
+    return;
   }
+  if (!incomplete) incomplete = !finishLocalGuestCleanup(hasGuestReturn);
+  if (incomplete) {
+    clearAuthOutcome();
+    setStatusNotice({
+      id: "session.signout-incomplete",
+      tone: "err",
+      title: "Sign-out incomplete",
+      body: "Check your connection and browser storage, then try signing out again.",
+      retry: () => signOutDefault(intent),
+      transient: true,
+    });
+  } else {
+    dismissNotice("session.signout-incomplete");
+    if (!hasGuestReturn && !guestReturnSignOutSnapshot())
+      storeAuthOutcome(
+        intent === "switch"
+          ? { kind: "signed_out", switching: true }
+          : { kind: "signed_out" },
+      );
+  }
+  if (hasGuestReturn || guestReturnSignOutPending()) retryGuestReturnSignOut();
 }
 
 /**
@@ -81,6 +161,7 @@ function switchAccountDefault(): void {
  * in (`adoptFederatedIdentity`).
  */
 function attachAccountDefault(): void {
+  signOutGeneration += 1;
   storeAuthOutcome({ kind: "attach" });
   if (vaultStore.isUnlocked()) vaultStore.lock();
 }

@@ -3,22 +3,22 @@
  * changed, write those, commit the manifest, then clear what no longer
  * belongs. The format and the order are `secret-docs.ts`'s to state.
  */
-import type { Folder, VaultBody, VaultItem } from "@opensesame/vault-core";
+import type { VaultBody } from "@opensesame/vault-core";
 import { Effect } from "effect";
-import { SecretFsConflict } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsConflict } from "./errors.js";
 import type { Revision, SecretFiles } from "./files.js";
-import type { SecretFileName } from "./layout.js";
+import { revisionOf } from "./files.js";
+import { type Changed, plan } from "./projection-plan.js";
+import { beginStaging, removeLeftovers } from "./projection-staging.js";
 import {
   CONCURRENCY,
   FOLDER_FORMAT,
-  LEGACY_BODY_FILE,
   MANIFEST_FILE,
   MANIFEST_FORMAT,
   type Projected,
   SECRET_FORMAT,
   type TombProjection,
-  chooseFile,
   encode,
   folderBinding,
   kindOf,
@@ -26,95 +26,6 @@ import {
   sealed,
   secretBinding,
 } from "./secret-docs.js";
-
-/** What becomes a document: a folder (its directory's marker) or a secret. */
-type Subject =
-  | Readonly<{
-      kind: "folder";
-      id: string;
-      label: SecretFileName;
-      folder: Folder;
-    }>
-  | Readonly<{
-      kind: "item";
-      id: string;
-      label: SecretFileName;
-      item: VaultItem;
-    }>;
-
-type Changed = Readonly<{
-  subject: Subject;
-  entry: Projected;
-  expect: Revision | undefined;
-}>;
-
-/** Folders first, so a secret never takes the name a folder's marker needs. */
-function subjects(body: VaultBody): Subject[] {
-  const names = new Map(body.folders.map((folder) => [folder.id, folder.name]));
-  return [
-    ...body.folders.map(
-      (folder): Subject => ({
-        kind: "folder",
-        id: folder.id,
-        folder,
-        label: {
-          folder: folder.name,
-          name: "folder",
-          kind: "dir",
-          id: folder.id,
-        },
-      }),
-    ),
-    ...body.items.map(
-      (item): Subject => ({
-        kind: "item",
-        id: item.id,
-        item,
-        label: {
-          folder: item.folderId ? (names.get(item.folderId) ?? null) : null,
-          name: item.name,
-          kind: kindOf(item),
-          id: item.id,
-        },
-      }),
-    ),
-  ];
-}
-
-type Plan = Readonly<{
-  next: Map<string, Projected>;
-  changed: Changed[];
-}>;
-
-/** Decide every document's file, and which of them differ from what is on disk. */
-function plan(body: VaultBody, prev: TombProjection): Plan {
-  const rev = body.rev ?? 0;
-  const claimed = new Set<string>();
-  const reserved = new Set([...prev.items.values()].map((entry) => entry.file));
-  const next = new Map<string, Projected>();
-  const changed: Changed[] = [];
-  for (const subject of subjects(body)) {
-    const prior = prev.items.get(subject.id);
-    const file = chooseFile(subject.label, prior, claimed, reserved);
-    claimed.add(file);
-    const json = JSON.stringify(
-      subject.kind === "item" ? subject.item : subject.folder,
-    );
-    if (prior && prior.file === file && prior.json === json) {
-      next.set(subject.id, prior);
-      continue;
-    }
-    const entry = { file, rev, json };
-    next.set(subject.id, entry);
-    changed.push({
-      subject,
-      entry,
-      // The file this document replaces, if it is the one we last wrote.
-      expect: prior?.file === file ? prior.revision : undefined,
-    });
-  }
-  return { next, changed };
-}
 
 /** Look before writing anything: a writer that lost the race finds out before its documents replace the winner's. */
 function assertStanding(
@@ -136,6 +47,44 @@ function assertStanding(
       });
     }
   });
+}
+
+/** Hold every document named by the manifest to the bytes originally read. */
+function assertDocumentsStanding(
+  files: SecretFiles,
+  tomb: string,
+  prev: TombProjection,
+): Effect.Effect<void, SecretFsError> {
+  return Effect.forEach(
+    [...prev.items.values()].filter(
+      (entry): entry is Projected & { revision: Revision } =>
+        entry.revision !== undefined,
+    ),
+    (entry) =>
+      files.read(`${tomb}/${entry.file}`).pipe(
+        Effect.flatMap((current) =>
+          current.revision === entry.revision
+            ? Effect.void
+            : Effect.fail(
+                new SecretFsConflict({
+                  path: `${tomb}/${entry.file}`,
+                  expected: entry.revision,
+                  actual: current.revision,
+                }),
+              ),
+        ),
+        Effect.catchTag("SecretFsNotFound", () =>
+          Effect.fail(
+            new SecretFsConflict({
+              path: `${tomb}/${entry.file}`,
+              expected: entry.revision,
+              actual: null,
+            }),
+          ),
+        ),
+      ),
+    { concurrency: CONCURRENCY, discard: true },
+  );
 }
 
 function writeDocument(
@@ -174,7 +123,7 @@ function writeDocument(
       path,
       doc,
       // Another writer's change to this document since we read it is theirs to keep.
-      expect === undefined ? {} : { ifRevision: expect },
+      { ifRevision: expect },
     );
   });
 }
@@ -187,13 +136,17 @@ function commitManifest(
   body: VaultBody,
   next: ReadonlyMap<string, Projected>,
   prev: TombProjection,
-): Effect.Effect<Revision, SecretFsError> {
+): Effect.Effect<
+  Readonly<{ revision: Revision; bytes: Uint8Array }>,
+  SecretFsError
+> {
   const path = `${tomb}/${MANIFEST_FILE}`;
   return Effect.gen(function* () {
     const { items, folders, ...rest } = body;
     const listing = (id: string) => ({
       id,
       file: next.get(id)?.file ?? "",
+      logical: next.get(id)?.logical,
       rev: next.get(id)?.rev ?? body.rev ?? 0,
     });
     const blob = yield* sealed(
@@ -206,31 +159,47 @@ function commitManifest(
       manifestBinding(tomb),
       path,
     );
-    return yield* files.write(
-      path,
-      encode({ format: MANIFEST_FORMAT, version: 1, sealed: blob }),
-      { ifRevision: prev.manifestRevision },
-    );
+    const bytes = encode({ format: MANIFEST_FORMAT, version: 1, sealed: blob });
+    const intended = revisionOf(bytes);
+    const revision = yield* files
+      .write(path, bytes, { ifRevision: prev.manifestRevision })
+      .pipe(
+        Effect.catch((writeError) =>
+          files.read(path).pipe(
+            Effect.flatMap((stored) =>
+              stored.revision === intended
+                ? Effect.succeed(intended)
+                : Effect.fail(writeError),
+            ),
+            Effect.catch(() => Effect.fail(writeError)),
+          ),
+        ),
+      );
+    return { revision, bytes };
   });
 }
 
-/** Committed: what is left behind past here is clutter, never loss. */
-function removeLeftovers(
+/** Restore the prior commit if a direct document edit crossed our commit. */
+function restoreManifest(
   files: SecretFiles,
   tomb: string,
-  next: ReadonlyMap<string, Projected>,
   prev: TombProjection,
-): Effect.Effect<void> {
-  const kept = new Set([...next.values()].map((entry) => entry.file));
-  const gone = [...prev.items.values()]
-    .map((entry) => entry.file)
-    .filter((file) => !kept.has(file));
-  if (prev.legacyBody) gone.push(LEGACY_BODY_FILE);
-  return Effect.forEach(
-    gone,
-    (file) => files.remove(`${tomb}/${file}`).pipe(Effect.ignore),
-    { concurrency: CONCURRENCY, discard: true },
-  );
+  committed: Revision,
+): Effect.Effect<void, SecretFsError> {
+  const path = `${tomb}/${MANIFEST_FILE}`;
+  if (prev.manifestRevision === null)
+    return files.remove(path, { ifRevision: committed });
+  if (!prev.manifestBytes)
+    return Effect.fail(
+      new SecretFsConflict({
+        path,
+        expected: prev.manifestRevision,
+        actual: committed,
+      }),
+    );
+  return files
+    .write(path, prev.manifestBytes, { ifRevision: committed })
+    .pipe(Effect.asVoid);
 }
 
 /**
@@ -244,10 +213,18 @@ export function writeProjection(
   key: CryptoKey,
   body: VaultBody,
   prev: TombProjection,
+  freshFiles = false,
 ): Effect.Effect<TombProjection, SecretFsError> {
   return Effect.gen(function* () {
     yield* assertStanding(files, tomb, prev);
-    const { next, changed } = plan(body, prev);
+    yield* assertDocumentsStanding(files, tomb, prev);
+    // Only attempts already present before this commit are eligible for its
+    // cleanup. A writer that starts after our manifest cannot be collected.
+    const stagingJournals = yield* files
+      .list(`${tomb}/staging`)
+      .pipe(Effect.orElseSucceed(() => []));
+    const { next, changed } = plan(tomb, body, prev, freshFiles);
+    const staging = yield* beginStaging(files, tomb, key, changed);
     const written = yield* Effect.forEach(
       changed,
       (one) => writeDocument(files, tomb, key, body.rev ?? 0, one),
@@ -256,15 +233,30 @@ export function writeProjection(
     changed.forEach(({ subject, entry }, at) => {
       next.set(subject.id, { ...entry, revision: written[at] });
     });
-    const manifestRevision = yield* commitManifest(
-      files,
-      tomb,
-      key,
-      body,
-      next,
-      prev,
+    // A direct editor that does not update the manifest must not be silently
+    // discarded while this writer stages its immutable replacement.
+    yield* assertDocumentsStanding(files, tomb, prev);
+    const committed = yield* commitManifest(files, tomb, key, body, next, prev);
+    const crossed = yield* assertDocumentsStanding(files, tomb, prev).pipe(
+      Effect.match({
+        onFailure: (error) => error,
+        onSuccess: () => null,
+      }),
     );
-    yield* removeLeftovers(files, tomb, next, prev);
-    return { manifestRevision, items: next, legacyBody: false };
+    if (crossed) {
+      yield* restoreManifest(files, tomb, prev, committed.revision);
+      return yield* Effect.fail(crossed);
+    }
+    if (staging)
+      yield* files
+        .remove(staging.path, { ifRevision: staging.revision })
+        .pipe(Effect.ignore);
+    yield* removeLeftovers(files, tomb, key, next, prev, stagingJournals);
+    return {
+      manifestRevision: committed.revision,
+      manifestBytes: committed.bytes,
+      items: next,
+      legacyBody: false,
+    };
   });
 }

@@ -7,16 +7,18 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { configureHost, host } from "../host.js";
 import { localStore, sessionStore } from "../ports.js";
-import {
-  ambientAuthSeams,
-  resetAmbientAuthSeams,
-} from "./ambient-auth-seam.js";
+import { createTestHost } from "../test-host.js";
 import {
   fenceLocalSignOut,
   isAutoAuthSuppressed,
 } from "./ambient-auth/generation.js";
 import { cancelAllTransactions } from "./ambient-auth/transactions.js";
+import {
+  ambientAuthSeams,
+  resetAmbientAuthSeams,
+} from "./ambient-auth-seam.js";
 import { readAuthOutcome } from "./auth-outcome.js";
 import {
   captureClaimArrivalFromPage,
@@ -24,7 +26,12 @@ import {
 } from "./claims/arrival.js";
 import { claimStash } from "./claims/stash.js";
 import { federationSeams } from "./federation.js";
+import {
+  readGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "./guest-return-epoch.js";
 import { identitySeams } from "./identity.js";
+import { listNotices } from "./notices.js";
 import { attachAccount, signOut, switchAccount } from "./session-exit.js";
 import { vaultStore } from "./vault/store.js";
 
@@ -89,6 +96,12 @@ afterEach(() => {
 });
 
 describe("signOut", () => {
+  it("invalidates other guest sessions even when origin-private files are unavailable", () => {
+    const previous = requireGuestReturnEpoch();
+    signOut();
+    expect(readGuestReturnEpoch()).not.toBe(previous);
+  });
+
   it("forgets the assertion, revokes the session, drops a pending link, and leaves a note", () => {
     sessionStorage.setItem(PENDING_LINK_KEY, "1");
 
@@ -126,6 +139,37 @@ describe("signOut", () => {
 
     expect(vaultStore.isUnlocked()).toBe(false);
     expect(endSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the guest and reports incomplete cleanup when session storage is blocked", async () => {
+    await vaultStore.createGuest();
+    const original = host();
+    configureHost(
+      createTestHost({
+        storage: {
+          get session(): never {
+            throw new DOMException("blocked", "SecurityError");
+          },
+        },
+      }),
+    );
+    try {
+      expect(() => signOut()).not.toThrow();
+      expect(vaultStore.isUnlocked()).toBe(false);
+      expect(
+        listNotices().find(
+          (notice) => notice.id === "session.signout-incomplete",
+        )?.title,
+      ).toBe("Sign-out incomplete");
+    } finally {
+      configureHost(original);
+    }
+    signOut();
+    expect(
+      listNotices().some(
+        (notice) => notice.id === "session.signout-incomplete",
+      ),
+    ).toBe(false);
   });
 });
 

@@ -13,9 +13,10 @@
  * markers entering it writes (`migrated.v1`, `seal-bound.v1`).
  */
 
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { kvFileName } from "../kv.js";
-import { LEGACY_VAULT_KEYS } from "../projects-state.js";
 import { scopedKey } from "../projects.js";
+import { LEGACY_VAULT_KEYS } from "../projects-state.js";
 import { MIGRATION_MARKER_PATH, SEAL_BOUND_MARKER_PATH } from "../vfs.js";
 import {
   type TravelDeps,
@@ -50,6 +51,7 @@ export async function findRemnants(deps: TravelDeps): Promise<TravelRemnant[]> {
     .filter(
       (id) =>
         !SESSIONS.has(id) &&
+        !isGuestVaultId(id) &&
         !have.has(headerOf(id)) &&
         !have.has(kvFileName(scopedKey(LEGACY_VAULT_KEYS[0], id))),
     )
