@@ -401,7 +401,13 @@ export function interactionScopedState(uid: string): string {
  * authentication method, not just the server metadata. Keying on the issuer
  * alone would hand the second caller the first caller's credentials.
  */
-const discoveryCache = new Map<string, Promise<client.Configuration>>();
+const DISCOVERY_CACHE_MAX_ENTRIES = 256;
+const DISCOVERY_CACHE_TTL_MS = 10 * 60_000;
+type DiscoveryCacheEntry = {
+  pending: Promise<client.Configuration>;
+  expiresAt: number;
+};
+const discoveryCache = new Map<string, DiscoveryCacheEntry>();
 
 /** Exposed for tests; discovery results are cached per issuer per process. */
 export function resetFederatedDiscoveryCache(): void {
@@ -418,8 +424,16 @@ async function upstreamConfiguration(
   mode: FederatedClientMode,
 ): Promise<client.Configuration> {
   const key = discoveryCacheKey(issuer, mode.clientId);
+  const now = Date.now();
+  for (const [cachedKey, entry] of discoveryCache) {
+    if (entry.expiresAt <= now) discoveryCache.delete(cachedKey);
+  }
   const cached = discoveryCache.get(key);
-  if (cached) return cached;
+  if (cached) {
+    discoveryCache.delete(key);
+    discoveryCache.set(key, cached);
+    return cached.pending;
+  }
 
   const options: client.DiscoveryRequestOptions = {
     // The Origin header is what binds an origin-profile client; every other
@@ -445,7 +459,15 @@ async function upstreamConfiguration(
         { cause },
       );
     });
-  discoveryCache.set(key, pending);
+  discoveryCache.set(key, {
+    pending,
+    expiresAt: now + DISCOVERY_CACHE_TTL_MS,
+  });
+  while (discoveryCache.size > DISCOVERY_CACHE_MAX_ENTRIES) {
+    const oldest = discoveryCache.keys().next().value;
+    if (oldest === undefined) break;
+    discoveryCache.delete(oldest);
+  }
   return pending;
 }
 

@@ -136,6 +136,8 @@ export interface ByoUpstreamRepository {
   /** Matches on the normalized issuer, whatever spelling the caller passes. */
   findByIssuer(issuer: string): Promise<ByoUpstream | null>;
   touchLastUsed(id: string, at: Date): Promise<void>;
+  /** Bounded-registration admission without materializing stored credentials. */
+  count(): Promise<number>;
   /** Operator surface: every record, newest registration first. */
   list(): Promise<ByoUpstream[]>;
   /** Operator surface: disable or re-enable one record. */

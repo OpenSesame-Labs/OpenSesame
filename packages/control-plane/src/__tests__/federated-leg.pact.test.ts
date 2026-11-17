@@ -122,6 +122,16 @@ describeSourceOracle("PACT — federated leg fail-closed ordering", () => {
     ]);
   });
 
+  it("expires and evicts credential-bound discovery entries", () => {
+    assertSourceOrder(federatedSource, [
+      "DISCOVERY_CACHE_MAX_ENTRIES",
+      "DISCOVERY_CACHE_TTL_MS",
+      "entry.expiresAt <= now",
+      "while (discoveryCache.size > DISCOVERY_CACHE_MAX_ENTRIES)",
+      "discoveryCache.delete(oldest)",
+    ]);
+  });
+
   it("disposes of an upstream refresh token instead of storing one", () => {
     // D13: the identity plane takes no custody of somebody else's long-lived
     // credential. Revocation is best effort; dropping it is the guarantee.

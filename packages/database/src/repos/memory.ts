@@ -475,6 +475,8 @@ export class MemoryRepositories implements Repositories {
       this.#store.byoUpstreams.set(id, { ...row, lastUsedAt: at });
     },
 
+    count: async () => this.#store.byoUpstreams.size,
+
     list: async () => {
       return [...this.#store.byoUpstreams.values()]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

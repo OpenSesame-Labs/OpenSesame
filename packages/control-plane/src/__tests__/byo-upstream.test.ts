@@ -4,7 +4,15 @@ import {
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { AppContext } from "../context.js";
 import {
   type ByoRegistrationResult,
@@ -527,6 +535,29 @@ describe("bring-your-own upstream", () => {
           ),
         ).issuer,
       ).toBe(manualIdp.issuer);
+    });
+
+    it("refuses a new durable issuer when the deployment capacity is full", async () => {
+      const count = vi
+        .spyOn(started.ctx.repos.byoUpstreams, "count")
+        .mockResolvedValue(1_000);
+      try {
+        expect(
+          await registerByoUpstream(
+            started.ctx,
+            {
+              issuer: `${manualIdp.issuer}/capacity-test`,
+              clientId: "capacity-client",
+            },
+            "fp-capacity",
+          ),
+        ).toEqual({
+          error: "rate_limited",
+          message: expect.stringContaining("at capacity"),
+        });
+      } finally {
+        count.mockRestore();
+      }
     });
   });
 

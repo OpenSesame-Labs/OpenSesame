@@ -840,6 +840,13 @@ export class PostgresRepositories implements Repositories {
         .where(eq(schema.byoUpstreams.id, id));
     },
 
+    count: async () => {
+      const [row] = await this.db
+        .select({ value: sql<number>`count(*)` })
+        .from(schema.byoUpstreams);
+      return Number(row?.value ?? 0);
+    },
+
     list: async () => {
       const rows = await this.db
         .select()

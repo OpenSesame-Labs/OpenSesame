@@ -93,6 +93,8 @@ const REGISTRATION_UNSUPPORTED_MESSAGE =
   "That issuer does not register clients automatically. Enter a client ID you created there.";
 const RATE_LIMITED_MESSAGE =
   "Too many provider registrations from here. Try again in a few minutes.";
+const CAPACITY_REACHED_MESSAGE =
+  "Provider registration is at capacity. Ask the operator to remove an unused provider.";
 
 /** Client identifiers and secrets an IdP hands a human to paste back. */
 const MAX_CLIENT_FIELD_LENGTH = 512;
@@ -105,6 +107,7 @@ const BUDGET_TOTAL = 200;
 const BUDGET_MAX_KEYS = 2048;
 const BUDGET_GLOBAL_KEY = "__total__";
 const BUDGET_CLIENT_PREFIX = "client:";
+const MAX_BYO_UPSTREAMS = 1_000;
 
 /**
  * The discovery budget, module-local by contract (D5).
@@ -394,6 +397,10 @@ async function register(
       );
     }
     return existing;
+  }
+
+  if ((await ctx.repos.byoUpstreams.count()) >= MAX_BYO_UPSTREAMS) {
+    throw new ByoRegistrationError("rate_limited", CAPACITY_REACHED_MESSAGE);
   }
 
   // Discovery runs even when the visitor brought their own client id: it is
