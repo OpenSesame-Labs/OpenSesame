@@ -7,10 +7,14 @@ Git history and PR discussions hold prior implementations and reviews.
 ## Enforced limits
 
 `tools/quality/repository-size-policy.json` limits tracked content to **100 MiB**,
-each file to **2 MiB**, and the checkout to **15,000 files**. This includes new
+each file to **2 MiB**, and the checkout to **15,200 files**. This includes new
 nonignored files and evidence. Compress or shorten media and remove superseded
 content before adding more. Changes to these limits are explicit policy changes;
 do not add a blanket allowlist to get a task through the gate.
+
+The file limit reserves space for the maintained behavior models, model
+configurations and regression suites used by the formal-verification workflow.
+It remains a bound on the whole checkout, including those sources.
 
 ```bash
 node scripts/quality/repository-size-gate.mjs

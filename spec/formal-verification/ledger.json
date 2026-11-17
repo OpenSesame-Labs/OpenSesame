@@ -751,9 +751,10 @@
     },
     {
       "id": "transient-toast-reading",
-      "claim": "A transient notification stays visible and its remaining time is held while the pointer or keyboard focus is inside it; it may be dismissed explicitly.",
+      "claim": "A transient notification stays visible and its remaining time is held while the pointer or keyboard focus is inside it; updated text gets a fresh interval and it may be dismissed explicitly.",
       "implementation": [
         "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/use-toast-queue.ts",
         "apps/pages/src/components/use-toast-reading.ts"
       ],
       "evidence": [
@@ -764,13 +765,14 @@
           "invariants": [
             "TypeOK",
             "ReadingHoldsTime",
+            "UpdateRestartsTime",
             "PointerLeaveKeepsFocused",
             "FocusLeaveKeepsHovered",
             "TimeDecreasesOnlyWhenIdle",
             "DisappearanceHasCause",
             "DismissCloses"
           ],
-          "scope": "TLC checks a bounded notification lifetime with independent pointer and keyboard reading states."
+          "scope": "TLC checks a bounded notification lifetime, same-card updates and independent pointer and keyboard reading states."
         },
         {
           "kind": "property-test",
@@ -785,14 +787,14 @@
         {
           "kind": "example-test",
           "path": "spec/ui-behavior/toast-model-fault.test.mjs",
-          "scope": "TLC must find the deliberate fault that resumes the timer while only one input is reading."
+          "scope": "TLC must find deliberate faults that resume the timer while only one input is reading or fail to restart time on update."
         }
       ],
       "limits": "The model abstracts a single toast, timer ticks and browser event delivery. It does not prove the React implementation, screen-reader announcements, layout, tray retention or liveness."
     },
     {
       "id": "saml-xml-verifier-bootstrap",
-      "claim": "The browser SAML certificate adapter initializes its required Reflect support and can verify an independently signed response in a fresh runtime.",
+      "claim": "The browser SAML adapter initializes its required Reflect support in a fresh runtime and separately verifies an independently signed response in the test runtime.",
       "implementation": [
         "packages/app-core/src/browser/saml/xml-crypto-certificate.ts",
         "packages/app-core/src/browser/saml/xml-signature.ts",
@@ -802,7 +804,7 @@
         {
           "kind": "example-test",
           "path": "apps/pages/scripts/saml-browser-crypto.integration.test.mjs",
-          "scope": "A compiled adapter verifies a real synthetic signature in a fresh Node/jsdom process; a build that removes the initializer must fail."
+          "scope": "A compiled split adapter parses metadata and extracts its key in a fresh Node/jsdom process; a separate test verifies an independently signed synthetic response."
         },
         {
           "kind": "example-test",
@@ -835,6 +837,7 @@
       "claim": "Persistent recommendation previews preserve unanswered notices, show their explanations before an action, and do not cover the current task or guidance.",
       "implementation": [
         "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/use-toast-queue.ts",
         "apps/pages/src/components/InlineRecommendations.tsx",
         "apps/pages/src/components/Recommender.tsx",
         "packages/app-core/src/lib/notice-toast.ts",

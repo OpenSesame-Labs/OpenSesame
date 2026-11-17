@@ -1287,6 +1287,12 @@ body {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
 }
 
+.toast__kind {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 /* An offer or a recommendation (ADR 0221): the same card, kept until it is
    answered, with one worded key. The ink rule on its leading edge is what
    tells it from an echo — no hue, no wash. */
@@ -1300,8 +1306,9 @@ body {
 }
 
 @media (pointer: coarse) {
-  .toast__choice {
+  .toast .actions button {
     min-block-size: 44px;
+    min-inline-size: 44px;
   }
 }
 
@@ -3777,21 +3784,37 @@ details[open] > summary::before {
   --rail-fg: var(--ink);
   --rail-2: var(--surface-2);
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.notice-corner[data-active] {
   padding: max(0.5rem, env(safe-area-inset-top))
     max(0.5rem, env(safe-area-inset-right)) 0
     max(0.5rem, env(safe-area-inset-left));
 }
 
-.notice-corner[data-c]::before {
-  content: attr(data-c);
-  position: fixed;
-  inset: 0 auto auto 0;
-  z-index: 40;
-  right: 0;
-  padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
+.notice-corner__cards:not(:empty) {
+  display: grid;
+  flex: 1 1 12rem;
+  min-width: 0;
+  gap: 0.5rem;
+  margin-inline-end: 0.5rem;
+}
+
+.notice-corner .icon-btn:has(.notice-action-label) {
+  display: flex;
+  width: auto;
+  min-width: 44px;
+  gap: 0.5rem;
+  padding-inline: 0.5rem;
+}
+
+@media (pointer: coarse) {
+  .notice-corner .actions button {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 @media (pointer: coarse) {

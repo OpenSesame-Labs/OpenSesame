@@ -76,9 +76,29 @@ describe("NoticeCorner", () => {
     }
   });
 
-  it("is absent while the tray is empty", () => {
+  it("keeps empty named live regions without an active notice layout", () => {
     const { container } = render(<NoticeCorner />);
-    expect(container.firstChild).toBeNull();
+    expect(
+      container.querySelector(".notice-corner")?.hasAttribute("data-active"),
+    ).toBe(false);
+    expect(
+      screen.getByRole("alert", { name: "Urgent notifications" }).textContent,
+    ).toBe("");
+    expect(
+      screen.getByRole("status", { name: "Notifications" }).textContent,
+    ).toBe("");
+  });
+
+  it("does not let empty live regions select the active unlock layout", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    for (const file of [
+      "screens/unlock.css",
+      "tutorial/first-visit/first-visit-seat.css",
+    ]) {
+      const source = readFileSync(join(root, file), "utf8");
+      expect(source).not.toContain(":has(.notice-corner)");
+      expect(source).toContain(":has(.notice-corner[data-active])");
+    }
   });
 
   it("appears with a bell when a failure is raised, and goes when it clears", () => {
@@ -104,7 +124,9 @@ describe("NoticeCorner", () => {
         screen.getByRole("button", { name: "Notifications" }),
       ).toBeTruthy();
       act(() => clearNotices());
-      expect(container.firstChild).toBeNull();
+      expect(
+        container.querySelector(".notice-corner")?.hasAttribute("data-active"),
+      ).toBe(false);
     } finally {
       notificationsBarSeams.NotificationsBar = original;
     }
@@ -116,7 +138,9 @@ describe("NoticeCorner", () => {
         <NoticeCorner />
       </MemoryRouter>,
     );
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen.getByRole("alert", { name: "Urgent notifications" }).textContent,
+    ).toBe("");
     act(() => {
       setStatusNotice({
         id: "unlock:error",
@@ -156,7 +180,9 @@ describe("NoticeCorner", () => {
         body: "Authorization needs a connection.",
       });
     });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen.getByRole("alert", { name: "Urgent notifications" }).textContent,
+    ).toBe("");
     expect(screen.queryByText("Authorization needs a connection.")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Notifications — 1 pending" }),

@@ -106,16 +106,28 @@ async function holdAndSlide(page, by) {
   };
 }
 
-async function hasAddActions(menu) {
-  return (
-    (await menu.count()) === 1 &&
-    (await menu.getByRole("menuitem", { name: "Import items" }).count()) ===
-      1 &&
-    (await menu.getByRole("menuitem", { name: "Export items" }).count()) === 1
+/** Holding the Add button: the drag area, what each slide chooses, and that a lift elsewhere chooses nothing. */
+async function verifyRestMenu(page, label, harness, before) {
+  const where = await page.evaluate(() => location.pathname);
+  const menu = page.getByRole("menu", { name: "Add actions" });
+  harness.check(
+    (await page.locator(".add-slide").count()) === 0 &&
+      where === before &&
+      (await menu.count()) === 1 &&
+      (await menu.getByRole("menuitem", { name: "Import items" }).count()) ===
+        1 &&
+      (await menu.getByRole("menuitem", { name: "Export items" }).count()) ===
+        1,
+    `${label}: letting go in the middle opens the named Import and Export menu without navigating (${where})`,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  harness.check(
+    (await menu.count()) === 0,
+    `${label}: Escape closes Add actions`,
   );
 }
 
-/** Holding the Add button: the drag area, what each slide chooses, and that a lift elsewhere chooses nothing. */
 export async function addSlide(page, label, harness, { stop, audit }) {
   const where = () => page.evaluate(() => location.pathname);
   const before = await where();
@@ -133,27 +145,23 @@ export async function addSlide(page, label, harness, { stop, audit }) {
   );
   await audit(page, stop("add-slide"));
   await rest.lift();
-  const menu = page.getByRole("menu", { name: "Add actions" });
-  harness.check(
-    (await page.locator(".add-slide").count()) === 0 &&
-      (await where()) === before &&
-      (await hasAddActions(menu)),
-    `${label}: letting go in the middle offers Import and Export without navigating (${await where()})`,
-  );
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
+  await verifyRestMenu(page, label, harness, before);
 
   // Slide up: Import is inked, and letting go there opens the OS file picker.
+  // Playwright installs its file-chooser subscription asynchronously. Start
+  // it before raw touch events go through a separate CDP session.
+  const chooserReady = page
+    .waitForEvent("filechooser", { timeout: 8000 })
+    .catch(() => null);
+  await page.evaluate(() => undefined);
   const up = await holdAndSlide(page, -70);
   harness.check(
     up.slid?.find((zone) => zone.way === "up")?.active === true &&
       up.slid?.find((zone) => zone.way === "down")?.active === false,
     `${label}: sliding up inks Import (${JSON.stringify(up.slid)})`,
   );
-  const [chooser] = await Promise.all([
-    page.waitForEvent("filechooser", { timeout: 4000 }).catch(() => null),
-    up.lift(),
-  ]);
+  await up.lift();
+  const chooser = await chooserReady;
   harness.check(
     chooser !== null,
     `${label}: letting go on Import starts the OS file picker`,

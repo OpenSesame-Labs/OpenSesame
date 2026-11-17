@@ -215,10 +215,10 @@ describe("connector tiles once Connections routes its pages", () => {
     expect(screen.queryByRole("heading", { name: "Local storage" })).toBeNull();
     for (const name of ["OS Keychain", "KeePass", "S3-compatible bucket"])
       expect(screen.queryByRole("link", { name: new RegExp(name) })).toBeNull();
-    // Only the backup controls carry switches, not the integration sections.
-    expect(
-      screen.getByRole("switch", { name: "GitHub backup" }),
-    ).toHaveProperty("disabled", true);
+    // Backup connectors have their own switches; feature switches stay in Features.
+    const github = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(github).toHaveProperty("disabled", true);
+    expect(github.getAttribute("aria-checked")).toBe("false");
     expect(screen.queryAllByRole("switch")).toHaveLength(
       screen.queryAllByRole("switch", { name: /vault history/ }).length + 1,
     );

@@ -2,6 +2,7 @@
  * Two-layer PRF-and-code envelope (KEYS-E, AT-020/021/022).
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   DURESS_PIN_PBKDF2_ITERATIONS,
   DuressKdfError,
@@ -17,11 +18,11 @@ import {
   assertTriggerCodeLength,
   b64,
   fromB64,
-  importAes,
+  importOwnedAes,
   pbkdf2,
   te,
+  withSecretCopy,
 } from "./slot-bytes.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type PrfAndCodeEnvelope = Readonly<{
   version: 1;
@@ -72,30 +73,27 @@ export async function sealPrfAndCodeWithDisclosure(input: {
   const iterations = DURESS_PIN_PBKDF2_ITERATIONS;
   const codeKey = await pbkdf2(input.code, salt, iterations);
   const innerIv = crypto.getRandomValues(new Uint8Array(12));
-  const innerKey = await importAes(codeKey);
-  codeKey.fill(0);
+  const innerKey = await importOwnedAes(codeKey);
   const aadInner = new Uint8Array(
     PRF_CODE_PURPOSE.length + SLOT_PURPOSE.length,
   );
   aadInner.set(PRF_CODE_PURPOSE, 0);
   aadInner.set(SLOT_PURPOSE, PRF_CODE_PURPOSE.length);
   const innerCt = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: innerIv, additionalData: aadInner },
-      innerKey,
-      asBufferSource(input.compartmentKey),
+    await withSecretCopy(input.compartmentKey, (copy) =>
+      crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: innerIv, additionalData: aadInner },
+        innerKey,
+        copy,
+      ),
     ),
   );
   const innerBlob = new Uint8Array(12 + innerCt.length);
   innerBlob.set(innerIv, 0);
   innerBlob.set(innerCt, 12);
 
-  const prfKeyMat = await crypto.subtle.importKey(
-    "raw",
-    asBufferSource(input.prfOutput),
-    "HKDF",
-    false,
-    ["deriveBits"],
+  const prfKeyMat = await withSecretCopy(input.prfOutput, (copy) =>
+    crypto.subtle.importKey("raw", copy, "HKDF", false, ["deriveBits"]),
   );
   const outerRaw = new Uint8Array(
     await crypto.subtle.deriveBits(
@@ -109,8 +107,7 @@ export async function sealPrfAndCodeWithDisclosure(input: {
       256,
     ),
   );
-  const outerKey = await importAes(outerRaw);
-  outerRaw.fill(0);
+  const outerKey = await importOwnedAes(outerRaw);
   const outerIv = crypto.getRandomValues(new Uint8Array(12));
   const aadOuter = te.encode(
     JSON.stringify({
@@ -163,12 +160,8 @@ export async function openPrfAndCode(input: {
   try {
     assertTriggerCodeLength(input.code);
     const salt = fromB64(input.envelope.saltB64);
-    const prfKeyMat = await crypto.subtle.importKey(
-      "raw",
-      asBufferSource(input.prfOutput),
-      "HKDF",
-      false,
-      ["deriveBits"],
+    const prfKeyMat = await withSecretCopy(input.prfOutput, (copy) =>
+      crypto.subtle.importKey("raw", copy, "HKDF", false, ["deriveBits"]),
     );
     const outerRaw = new Uint8Array(
       await crypto.subtle.deriveBits(
@@ -182,8 +175,7 @@ export async function openPrfAndCode(input: {
         256,
       ),
     );
-    const outerKey = await importAes(outerRaw);
-    outerRaw.fill(0);
+    const outerKey = await importOwnedAes(outerRaw);
     const aadOuter = te.encode(
       JSON.stringify({
         purpose: "prf_and_code",
@@ -205,8 +197,7 @@ export async function openPrfAndCode(input: {
       ),
     );
     const codeKey = await pbkdf2(input.code, salt, input.envelope.iterations);
-    const innerKey = await importAes(codeKey);
-    codeKey.fill(0);
+    const innerKey = await importOwnedAes(codeKey);
     const aadInner = new Uint8Array(
       PRF_CODE_PURPOSE.length + SLOT_PURPOSE.length,
     );

@@ -29,28 +29,17 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Link, useNavigate } from "react-router";
-import { firstControl, landFocus } from "../lib/focus.js";
+import { Link } from "react-router";
 import { useModalFocus } from "../lib/modal-focus.js";
 import { tabAway } from "../lib/notice-desktop.js";
 import { useVault } from "../lib/vault/hooks.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
-import { CeremonyLink } from "./CeremonyLauncher.js";
 import { CeremonyShell } from "./CeremonyShell.js";
-import { IconKey } from "./IconKey.js";
-import {
-  IconAlert,
-  IconArrowRight,
-  IconBell,
-  IconInfo,
-  IconLogin,
-  IconPower,
-  IconRefresh,
-  IconSettings,
-  IconShield,
-  IconUpload,
-  IconX,
-} from "./Icons.js";
+import { StatusNoticeCard } from "./StatusNoticeCard.js";
+
+export { StatusNoticeCard } from "./StatusNoticeCard.js";
+
+import { IconBell, IconLogin, IconShield, IconX } from "./Icons.js";
 
 export const notificationsBarDependencies = {
   beginSignIn,
@@ -159,7 +148,6 @@ function NotificationsBarDefault({
           <div
             ref={sheetRef}
             className="sheet"
-            // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
             role="dialog"
             aria-label="Notifications"
             aria-modal="true"
@@ -257,105 +245,6 @@ function NotificationsBarDefault({
         </div>
       ) : null}
     </>
-  );
-}
-
-/** The face of a notice's act: what the key does, not one mark for all. */
-function ActIcon({ icon }: { icon: NonNullable<Notice["act"]>["icon"] }) {
-  if (icon === "export") return <IconUpload size={16} />;
-  if (icon === "settings") return <IconSettings size={16} />;
-  return <IconPower size={16} />;
-}
-
-/**
- * The notice whose act was pressed from the keyboard and that has not been
- * answered yet. An act that works in place — a recommendation turning a
- * feature on — replaces its own card with the outcome, and the key it was
- * pressed on goes with it; the card it leaves behind takes focus back.
- */
-let handBack: string | null = null;
-
-export function StatusNoticeCard({
-  notice,
-  onOpen,
-}: {
-  notice: Notice;
-  onOpen: () => void;
-}) {
-  const tone = notice.tone ?? "info";
-  const navigate = useNavigate();
-  const actions = useRef<HTMLDivElement>(null);
-  // Once the act's key is gone, and only if nothing else took focus
-  // meanwhile, focus lands on the first key the card still has.
-  useEffect(() => {
-    if (handBack !== notice.id || notice.act) return;
-    handBack = null;
-    const lost =
-      document.activeElement === null ||
-      document.activeElement === document.body;
-    if (lost) landFocus(firstControl(actions.current));
-  }, [notice]);
-  return (
-    <article
-      className={`notice-card notice-card--${tone}`}
-      // Standing trouble should be announced when it lands in the open sheet.
-      role={tone === "err" ? "alert" : undefined}
-    >
-      <h3>
-        {tone === "info" ? <IconInfo size={16} /> : <IconAlert size={16} />}
-        {notice.title}
-      </h3>
-      <p>{notice.body}</p>
-      <div className="actions" ref={actions}>
-        {notice.open ? (
-          // A route of this app, opened in place: the sheet closes with it.
-          <IconKey
-            label={notice.open.label}
-            small
-            onClick={() => {
-              const to = notice.open?.to;
-              onOpen();
-              if (to) navigate(to);
-            }}
-          >
-            <IconArrowRight size={16} />
-          </IconKey>
-        ) : null}
-        {notice.act ? (
-          <IconKey
-            label={notice.act.label}
-            small
-            onClick={() => {
-              if (notice.act?.opens) onOpen();
-              else if (actions.current?.contains(document.activeElement)) {
-                handBack = notice.id;
-              }
-              notice.act?.run();
-            }}
-          >
-            <ActIcon icon={notice.act.icon} />
-          </IconKey>
-        ) : null}
-        {notice.retry ? (
-          <IconKey
-            label={notice.retryLabel ?? "Try again"}
-            small
-            onClick={() => notice.retry?.()}
-          >
-            <IconRefresh size={16} />
-          </IconKey>
-        ) : null}
-        {notice.ceremony ? (
-          // Repair opens as a ceremony sheet in place — never a route change.
-          <CeremonyLink id={notice.ceremony}>
-            {notice.ceremonyLabel ?? "Repair the connection"}
-          </CeremonyLink>
-        ) : null}
-        <IconKey label="Dismiss" small onClick={() => dismissNotice(notice.id)}>
-          <IconX size={16} />
-        </IconKey>
-      </div>
-    </article>
   );
 }
 

@@ -35,6 +35,7 @@
     "test:browser-sessions": "VITE_BASE=/OpenSesame/ npm run build && npm run verify:browser-sessions",
     "verify:keyboard": "node scripts/verify-keyboard.mjs",
     "verify:ui-model": "node scripts/verify-ui-model.mjs",
+    "verify:behavior-models": "node scripts/verify-ui-model.mjs",
     "verify:ui-properties": "node scripts/verify-ui-properties.mjs",
     "verify:tutorials": "node scripts/verify-tutorials.mjs",
     "verify:tutorials-profiles": "node scripts/verify-tutorials-profiles.mjs",

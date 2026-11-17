@@ -2,11 +2,11 @@
  * Shared byte encoding and KDF helpers for profile slots and PRF-and-code envelopes.
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   assertDuressCodeLength,
   assertDuressKdfParams,
 } from "../keys/pin-floors.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export const te = new TextEncoder();
 export const SLOT_PURPOSE = te.encode("opensesame/duress/slot/v1");
@@ -27,11 +27,31 @@ export function fromB64(s: string): Uint8Array {
   return out;
 }
 
-export async function importAes(raw: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", asBufferSource(raw), "AES-GCM", false, [
-    "encrypt",
-    "decrypt",
-  ]);
+/** Borrow caller bytes through an owned snapshot that is wiped on settlement. */
+export async function withSecretCopy<T>(
+  source: Uint8Array,
+  use: (copy: Uint8Array<ArrayBuffer>) => Promise<T>,
+): Promise<T> {
+  const copy = new Uint8Array(source);
+  try {
+    return await use(copy);
+  } finally {
+    copy.fill(0);
+  }
+}
+
+/** Consume a derived key's bytes, including when WebCrypto rejects the import. */
+export async function importOwnedAes(raw: Uint8Array): Promise<CryptoKey> {
+  try {
+    return await withSecretCopy(raw, (copy) =>
+      crypto.subtle.importKey("raw", copy, "AES-GCM", false, [
+        "encrypt",
+        "decrypt",
+      ]),
+    );
+  } finally {
+    raw.fill(0);
+  }
 }
 
 export async function pbkdf2(
@@ -40,19 +60,29 @@ export async function pbkdf2(
   iterations: number,
 ): Promise<Uint8Array> {
   assertDuressKdfParams({ iterations, saltB64: b64(salt) });
-  const base = await crypto.subtle.importKey(
-    "raw",
-    te.encode(code),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: asBufferSource(salt), iterations },
-    base,
-    256,
-  );
-  return new Uint8Array(bits);
+  const password = te.encode(code);
+  try {
+    const base = await crypto.subtle.importKey(
+      "raw",
+      password,
+      "PBKDF2",
+      false,
+      ["deriveBits"],
+    );
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        salt: asBufferSource(salt),
+        iterations,
+      },
+      base,
+      256,
+    );
+    return new Uint8Array(bits);
+  } finally {
+    password.fill(0);
+  }
 }
 
 export function assertTriggerCodeLength(code: string): void {
