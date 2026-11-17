@@ -14,6 +14,7 @@ import { describeRequest } from "@opensesame/app-core/lib/password-agent/request
 import { afterEach, describe, expect, it } from "vitest";
 import { approvalTerminal } from "./fixtures/password-agent/approval-terminal.js";
 import { processFixture } from "./fixtures/password-agent/process.js";
+import { tsxLoader } from "./fixtures/password-agent/tsx-loader.js";
 import { openLeaseStore } from "./parity-lease-node.js";
 import {
   clipboardEnvironment,
@@ -21,6 +22,7 @@ import {
   invokeOp,
   resolveCredentialHelper,
 } from "./parity-node.js";
+
 const directories: string[] = [];
 afterEach(async () => {
   Reflect.deleteProperty(process.env, "OPENSESAME_STATE_DIR");
@@ -222,7 +224,7 @@ it("real concurrent processes atomically consume the SQLite budget once", async 
         process.execPath,
         [
           "--import",
-          resolve("node_modules/tsx/dist/loader.mjs"),
+          tsxLoader,
           resolve("src/fixtures/password-agent/lease-claim.ts"),
         ],
         { env: process.env, stdio: ["ignore", "pipe", "ignore"] },
