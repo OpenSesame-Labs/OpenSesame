@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-/** Cold-load emitted schema dependencies with no document boot or inherited Zod config. */
+/** Cold-load emitted schema dependencies in the browser's startup order. */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { SourceTextModule, createContext } from "node:vm";
+import { Script, SourceTextModule, createContext } from "node:vm";
 
 const dist = resolve(process.argv[2] ?? "dist");
 const graph = JSON.parse(
@@ -11,6 +11,39 @@ const graph = JSON.parse(
 );
 const main = graph.entries.find((entry) => entry.html === "index.html");
 assert.ok(main?.scripts.length, "Built index must name its module entry");
+const html = await readFile(resolve(dist, "index.html"), "utf8");
+const bootstrapTags = [
+  ...html.matchAll(
+    /<script src="([^"\s]+\/browser-schema-config\.js)"><\/script>/g,
+  ),
+];
+assert.equal(
+  bootstrapTags.length,
+  1,
+  "Built index must load one blocking schema bootstrap",
+);
+const origin = "https://app.example.test";
+const moduleTag = html.match(
+  /<script\b(?=[^>]*\btype=["']module["'])(?=[^>]*\bsrc=["']([^"']+)["'])[^>]*>/i,
+);
+assert.ok(
+  moduleTag && bootstrapTags[0].index < moduleTag.index,
+  "Schema bootstrap must precede the module entry",
+);
+const entryUrl = new URL(moduleTag[1], `${origin}/`);
+const entryFile = main.scripts.find((file) =>
+  entryUrl.pathname.endsWith(`/${file}`),
+);
+assert.ok(
+  entryUrl.origin === origin && entryFile,
+  "HTML must load the graph entry",
+);
+const basePath = entryUrl.pathname.slice(0, -entryFile.length);
+assert.equal(
+  new URL(bootstrapTags[0][1], `${origin}/`).href,
+  new URL(`${basePath}browser-schema-config.js`, `${origin}/`).href,
+  "HTML must load the shipped same-origin schema bootstrap",
+);
 
 function coldRealm(file) {
   const messages = [];
@@ -118,6 +151,22 @@ async function assertWorkerInput(file, context, messages, listeners) {
 async function coldLoad(file, dependenciesOnly) {
   const { context, messages, listeners, assertNoNetwork } = coldRealm(file);
   await installMonitor(context);
+  if (dependenciesOnly) {
+    // The actual HTML runs this classic script before the module entry. Do
+    // not inherit a test-process config or skip the shipped bootstrap.
+    const bootstrap = await readFile(
+      resolve(dist, "browser-schema-config.js"),
+      "utf8",
+    );
+    new Script(bootstrap, {
+      filename: "browser-schema-config.js",
+    }).runInContext(context, { timeout: 5000 });
+    assert.equal(
+      context.__zod_globalConfig?.jitless,
+      true,
+      `${file}: classic schema bootstrap`,
+    );
+  }
   const load = moduleLoader(context);
   const actual = await load(file);
   // Preserve the shipped main's exact dependency order, without starting its UI body.

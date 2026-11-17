@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { build } from "vite";
 import { afterEach, beforeEach, test } from "vitest";
@@ -106,6 +106,7 @@ test("selected pure model retains its lazy owner in an actual Rollup bundle", as
   assert.ok(chunk);
   assert.equal(chunk.name, "directory-signin-model");
   assert.match(chunk.code, /directoryValue/);
+  assert.equal(existsSync(join(tree.tmpRoot, "dist")), false);
 });
 
 test.each(["model", "runtime"])(
@@ -132,6 +133,7 @@ test.each(["model", "runtime"])(
       ),
       /EXCLUDED_MODULE_EMITTED/,
     );
+    assert.equal(existsSync(join(tree.tmpRoot, "dist")), false);
   },
 );
 

@@ -10,7 +10,7 @@
 
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { INTEGRATION_AI_LABS } from "@opensesame/app-core/lib/integration-ai-labs.js";
-import { connectorPath } from "@opensesame/app-core/sections/connections/shared.js";
+import { connectorPath } from "@opensesame/app-core/sections/connections/path.js";
 import { useConnectorRoads } from "../../bindings/connector-roads.js";
 import { ConnectorMark } from "../connections/ConnectorMark.js";
 import { FeatureBindingTile } from "./FeatureBindingTile.js";

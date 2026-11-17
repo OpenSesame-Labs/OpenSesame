@@ -30,6 +30,7 @@ import { join, relative, resolve } from "node:path";
 import { buildGraph } from "./lib/capability-build-graph.mjs";
 import { composeState } from "./lib/capability-compose-state.mjs";
 import { publicPathTarget } from "./lib/capability-distribution.mjs";
+import { recordElidedDynamicImports } from "./lib/capability-elided-imports.mjs";
 import { VIRTUAL_MODULES, canonicalJson } from "./lib/capability-graph.mjs";
 import { formatViolations, violations } from "./lib/capability-invariants.mjs";
 import {
@@ -321,7 +322,12 @@ function mainPlugin(options, ctx) {
       sequential: true,
       handler() {
         const { state, resolved } = ctx;
-        if (state?.mode !== "hardened" || resolved.command !== "build") return;
+        if (
+          state?.mode !== "hardened" ||
+          resolved.command !== "build" ||
+          resolved.build.write === false
+        )
+          return;
         for (const file of state.publicFiles) {
           if (state.isExcluded(file.capability))
             rmSync(join(ctx.outDir(), publicPathTarget(file.path)), {
@@ -347,7 +353,8 @@ function graphPlugin(ctx) {
       try {
         gateOrReport(state, ctx.graph, ctx.logger(), "generateBundle");
       } catch (error) {
-        writeGraph(ctx.outDir(), ctx.graph);
+        if (ctx.resolved.build.write !== false)
+          writeGraph(ctx.outDir(), ctx.graph);
         throw error;
       }
       this.emitFile({
@@ -363,11 +370,14 @@ function graphPlugin(ctx) {
     },
     closeBundle: {
       sequential: true,
-      handler() {
+      async handler() {
         const { state, graph } = ctx;
-        if (!graph) return;
+        // With write:false the generated bundle exists only in memory. The
+        // generateBundle gate still runs, but there is no disk graph to amend.
+        if (!graph || ctx.resolved.build.write === false) return;
         const dist = ctx.outDir();
         pruneRemovedChunks(graph, dist);
+        await recordElidedDynamicImports(graph, dist, state.repoRoot);
         measureEmittedFiles(state, graph, dist);
         writeGraph(dist, graph);
         gateOrReport(state, graph, ctx.logger(), "closeBundle");
