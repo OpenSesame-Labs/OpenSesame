@@ -342,6 +342,8 @@ describe("advertised authority", () => {
       "connector.invoke",
       "vault.relay.snapshot.read",
       "vault.relay.snapshot.write",
+      "vault.relay.directory.list",
+      "vault.relay.directory.create",
     ]);
   });
 });

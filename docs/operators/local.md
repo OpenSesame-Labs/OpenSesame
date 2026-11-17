@@ -64,8 +64,12 @@ OPENSESAME_GATEWAY_PROFILE=relay \
 
 With `OPENSESAME_SERVICE_BINDINGS_FILE` unset, startup installs an empty
 `vault_relay` binding set. A file that names another purpose, or an
-operation other than `vault.relay.snapshot.read` and
-`vault.relay.snapshot.write`, refuses to start.
+operation other than `vault.relay.snapshot.read`, `vault.relay.snapshot.write`,
+`vault.relay.directory.list`, or `vault.relay.directory.create`, refuses to
+start. With mTLS enabled, directory calls need their own corresponding
+operations on the calling service's binding. Existing snapshot permissions
+do not grant directory access; operators must add the directory operations
+to authorized bindings before those clients can list or create vaults.
 
 Routes on this profile:
 
