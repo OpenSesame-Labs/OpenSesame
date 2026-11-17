@@ -167,7 +167,10 @@ describe("ToastStack", () => {
     expect(screen.getByText("Save failed")).toBeTruthy();
     fireEvent.click(screen.getByRole("link", { name: "Back to list" }));
     expect(screen.getByText("Set up a backup")).toBeTruthy();
-    expect(screen.getByText("Back up the vault")).toBeTruthy();
+    expect(screen.queryByText("Back up the vault")).toBeNull();
+    expect(
+      listNotices().some((notice) => notice.id === "recommend.backup"),
+    ).toBe(true);
     expect(dismissed).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,6 @@
 import {
   type Notice,
-  dismissNotice,
+  dismissNoticeByUser,
 } from "@opensesame/app-core/lib/notices.js";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
@@ -11,6 +11,7 @@ import {
   IconAlert,
   IconArrowRight,
   IconInfo,
+  IconPlay,
   IconPower,
   IconRefresh,
   IconSettings,
@@ -22,6 +23,7 @@ import {
 function ActIcon({ icon }: { icon: NonNullable<Notice["act"]>["icon"] }) {
   if (icon === "export") return <IconUpload size={16} />;
   if (icon === "settings") return <IconSettings size={16} />;
+  if (icon === "play") return <IconPlay size={16} />;
   return <IconPower size={16} />;
 }
 
@@ -86,13 +88,17 @@ function NoticeDismiss({
         type="button"
         className="btn btn--sm btn--ghost notice-dismiss"
         aria-label={`Dismiss notification: ${title}`}
-        onClick={() => dismissNotice(notice.id)}
+        onClick={() => dismissNoticeByUser(notice.id)}
       >
         Dismiss
       </button>
     );
   return (
-    <IconKey label="Dismiss" small onClick={() => dismissNotice(notice.id)}>
+    <IconKey
+      label="Dismiss"
+      small
+      onClick={() => dismissNoticeByUser(notice.id)}
+    >
       <IconX size={16} />
     </IconKey>
   );

@@ -17,6 +17,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { UnlockScreen } from "./UnlockScreen.js";
 import {
+  continueAsGuest,
   resetUnlockHarness,
   resumeGuestSession,
   submitButton,
@@ -66,6 +67,7 @@ describe("UnlockScreen — the guest tomb's own gate", () => {
       expect(v.store.unlockWithPin).toHaveBeenCalledWith("246810"),
     );
     expect(resumeGuestSession).not.toHaveBeenCalled();
+    expect(continueAsGuest).not.toHaveBeenCalled();
   });
 
   it("still takes the guest road when there is no key at all", async () => {
@@ -80,6 +82,20 @@ describe("UnlockScreen — the guest tomb's own gate", () => {
     expect(screen.queryByLabelText("Password")).toBeNull();
     fireEvent.click(submitButton());
     await waitFor(() => expect(resumeGuestSession).toHaveBeenCalledTimes(1));
+    expect(continueAsGuest).not.toHaveBeenCalled();
     expect(v.store.unlockWithPin).not.toHaveBeenCalled();
+  });
+
+  it("does not describe a protected guest as cleared when its key is unavailable", () => {
+    v.state = { ...v.state, header: { unlocks: { passkey: {} } } };
+    // A duress trigger can filter an enrolled passkey out of the visible tabs.
+    v.methods = [];
+    render(<UnlockScreen />);
+    expect(screen.queryByText(/guest vault were lost/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Continue as guest" }),
+    ).toBeNull();
+    expect(screen.getByText("No usable key here.")).toBeTruthy();
+    expect(resumeGuestSession).not.toHaveBeenCalled();
   });
 });

@@ -15,18 +15,18 @@
  * the guest vault" — the same tomb, not a second sign-in phrase. The sign-in
  * panel carries neither: its only no-account road is the local seal ("Use
  * without an account"). A keyless guest tomb does not draw the footer link
- * either; Unlock on that screen already resumes the tomb.
+ * either; the form on that screen continues the existing guest.
  */
 
 import {
   peekGuestArrival,
   takeGuestArrival,
 } from "@opensesame/app-core/lib/ceremony-aliases.js";
-import { continueAsGuest } from "@opensesame/app-core/lib/guest-auth.js";
 import { useCallback, useEffect, useRef } from "react";
 import { useGuestsAllowed } from "../../bindings/guest-access.js";
 import { landFocus } from "../../lib/focus.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { startGuestSession } from "./guest-entry.js";
 
 /** Beside a sealed vault: the guest tomb, in the unlock form's footer. */
 export const GUEST_VAULT_LINK = "Skip to the guest vault";
@@ -83,6 +83,7 @@ export function GuestSkip({
       type="button"
       className="unlock__switch signin__skip"
       aria-label="Skip sign-in and continue as guest"
+      aria-describedby="door-guest-note"
       disabled={busy}
       onClick={onGuest}
     >
@@ -95,7 +96,7 @@ export function GuestSkip({
  * The unlock form's footer link: whoever holds this device without its key
  * still gets in, as a guest in an isolated tomb, and the sealed vault stays
  * exactly as it is. A guest tomb that enrolled a key keeps the link; a
- * keyless one does not, because Unlock on that screen resumes the tomb.
+ * keyless one does not, because the form continues the existing guest.
  */
 export function GuestUnlockSwitch({
   busy,
@@ -107,7 +108,7 @@ export function GuestUnlockSwitch({
   setBusy: (busy: boolean) => void;
   setError: (message: string | null) => void;
   /**
-   * Keyless guest tomb: Unlock resumes that tomb, so drawing this link
+   * Keyless guest tomb: the form continues the guest, so drawing this link
    * beside it would be a second guest road. The arrival is still taken, so
    * a `/guest` link cannot surface later on another screen.
    */
@@ -116,24 +117,35 @@ export function GuestUnlockSwitch({
   const ref = useGuestArrivalFocus();
   if (!useGuestsAllowed() || hidden) return null;
   return (
-    <button
-      ref={ref}
-      type="button"
-      className="unlock__switch"
-      disabled={busy}
-      onClick={() => {
-        setError(null);
-        setBusy(true);
-        void continueAsGuest()
-          .catch((caught) => {
-            setError(
-              caught instanceof Error ? caught.message : "Guest login failed.",
-            );
-          })
-          .finally(() => setBusy(false));
-      }}
-    >
-      {GUEST_VAULT_LINK}
-    </button>
+    <>
+      <button
+        ref={ref}
+        type="button"
+        className="unlock__switch"
+        aria-describedby="unlock-guest-note"
+        disabled={busy}
+        onClick={() => {
+          setError(null);
+          setBusy(true);
+          void startGuestSession()
+            .catch((caught) => {
+              setError(
+                caught instanceof Error
+                  ? caught.message
+                  : "Guest login failed.",
+              );
+            })
+            .finally(() => setBusy(false));
+        }}
+      >
+        {GUEST_VAULT_LINK}
+      </button>
+      <output className="note note--warn" id="unlock-guest-note">
+        <span>
+          Guest items are temporary and are lost when you lock the vault or
+          close the tab unless you add a vault key.
+        </span>
+      </output>
+    </>
   );
 }

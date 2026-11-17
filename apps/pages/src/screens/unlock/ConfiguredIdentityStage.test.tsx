@@ -294,3 +294,19 @@ it("preserves the original OIDC refusal without falling back to another route", 
   expect(dependencies.hydrateIdentityConnections).not.toHaveBeenCalled();
   expect(dependencies.beginIdentityConnectionSignIn).not.toHaveBeenCalled();
 });
+
+it("requires prior guest sign-out before opening configured credentials", () => {
+  vi.spyOn(dependencies, "checkGuestSignOut").mockImplementation(() => {
+    throw new Error("Sign out before continuing.");
+  });
+  const handlers = {
+    open: vi.fn(),
+    start: vi.fn(),
+    legacy: vi.fn(),
+    fail: vi.fn(),
+  };
+  startConfiguredIdentity(operator(), handlers);
+  expect(handlers.fail).toHaveBeenCalledWith("Sign out before continuing.");
+  expect(handlers.open).not.toHaveBeenCalled();
+  expect(dependencies.hydrateIdentityConnections).not.toHaveBeenCalled();
+});

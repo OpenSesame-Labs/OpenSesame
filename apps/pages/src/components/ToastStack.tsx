@@ -38,6 +38,7 @@ import { InlineRecommendations } from "./InlineRecommendations.js";
 import { dismissContext } from "./notice-dismiss-context.js";
 import { useToastPlacement, useToastQueue } from "./use-toast-queue.js";
 import { useToastReading } from "./use-toast-reading.js";
+import { useToastSuppression } from "./use-toast-suppression.js";
 
 /** How long a toast stays when the person is not reading it. */
 export const TOAST_MS = 6000;
@@ -54,11 +55,16 @@ export function ToastStack({
   inFlowGateNotices?: boolean;
 } = {}) {
   const navigate = useNavigate();
-  const { className, editing } = useToastPlacement();
+  const { className, editing, narrow } = useToastPlacement();
+  const { deferOffers, shouldDefer } = useToastSuppression();
+  const suppressOffers = editing || deferOffers;
+  const hideTrayOffers = narrow && inlineSeat === undefined;
   const { shown, markReading, add, dismiss, handBack } = useToastQueue(
     active,
     inlineSeat !== undefined,
-    editing,
+    suppressOffers,
+    hideTrayOffers,
+    shouldDefer,
   );
 
   // A card's key goes with its card. Where the press was made from the
@@ -101,7 +107,8 @@ export function ToastStack({
       shown={shown}
       inlineSeat={inlineSeat}
       active={active}
-      editing={editing}
+      editing={suppressOffers}
+      hideTrayOffers={hideTrayOffers}
       className={className}
       region={region}
       answer={answer}
@@ -162,6 +169,7 @@ function ToastSurfaces({
   inlineSeat,
   active,
   editing,
+  hideTrayOffers,
   className,
   region,
   answer,
@@ -173,6 +181,7 @@ function ToastSurfaces({
   inlineSeat: HTMLElement | null | undefined;
   active: boolean;
   editing: boolean;
+  hideTrayOffers: boolean;
   className: string;
   region: React.RefObject<HTMLOutputElement | null>;
   answer: (id: string) => void;
@@ -191,7 +200,11 @@ function ToastSurfaces({
       >
         {active
           ? shown
-              .filter((toast) => !(inFlow || editing) || !toast.sticky)
+              .filter(
+                (toast) =>
+                  !toast.sticky ||
+                  (!(inFlow || editing) && !(hideTrayOffers && toast.inTray)),
+              )
               .map((toast) => (
                 <Toast
                   key={toast.id}

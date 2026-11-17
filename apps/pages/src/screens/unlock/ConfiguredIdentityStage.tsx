@@ -3,6 +3,11 @@ import { beginSavedNativeSaml } from "@opensesame/app-core/browser/identity-saml
 import { clearAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
 import type { TrustedUpstream } from "@opensesame/app-core/lib/federation.js";
 import { operatorUpstream } from "@opensesame/app-core/lib/federation.js";
+import { requireGuestReturnCleared } from "@opensesame/app-core/lib/guest-continuation.js";
+import {
+  captureGuestReturnSignOutCheck,
+  restoreGuestReturnSignOut,
+} from "@opensesame/app-core/lib/guest-return-signout.js";
 import {
   type IdentityConnectionDraft,
   beginIdentityConnectionSignIn,
@@ -11,11 +16,16 @@ import {
 } from "@opensesame/app-core/lib/identity-connections.js";
 import type { OperatorIdp } from "@opensesame/app-core/lib/settings.js";
 import { type ReactNode, useState } from "react";
-import { FailureNotice } from "../../components/FailureNotice.js";
 import { IdentityConnectionSignIn } from "../../components/IdentityConnectionSignIn.js";
+import { SignInFailure } from "./SignInFailure.js";
 
 export type ConfiguredIdentity = { id: string; draft: IdentityConnectionDraft };
 export const configuredIdentityDependencies = {
+  checkGuestSignOut: () => {
+    restoreGuestReturnSignOut();
+    captureGuestReturnSignOutCheck()();
+    requireGuestReturnCleared();
+  },
   beginSavedNativeOidc,
   beginSavedNativeSaml,
   beginIdentityConnectionSignIn,
@@ -34,6 +44,14 @@ export function startConfiguredIdentity(
   idp: OperatorIdp,
   handlers: ConfiguredIdentityHandlers,
 ) {
+  try {
+    configuredIdentityDependencies.checkGuestSignOut();
+  } catch (caught) {
+    handlers.fail(
+      caught instanceof Error ? caught.message : "Sign-out is not finished.",
+    );
+    return;
+  }
   const id = idp.connectionId;
   if (!id) {
     handlers.start(() => handlers.legacy(operatorUpstream(idp)));
@@ -106,11 +124,7 @@ export function ConfiguredIdentityStage({
           }
         }}
       />
-      <FailureNotice
-        id="unlock:configured-identity"
-        title="Sign-in"
-        message={error}
-      />
+      <SignInFailure message={error} clear={() => setError(null)} />
     </div>
   );
 }

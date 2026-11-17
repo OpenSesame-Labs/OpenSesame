@@ -1,4 +1,5 @@
 import { DEVICE_APPROVAL_NOTICE } from "@opensesame/app-core/lib/device-approval.js";
+import { deviceApprovalOrganizationSeams } from "@opensesame/app-core/lib/device-approval-organizations.js";
 /** @vitest-environment jsdom */
 /**
  * `/device`: the code a link carried is shown for the person to confirm,
@@ -15,6 +16,7 @@ import {
   directorySeams,
 } from "@opensesame/app-core/lib/directory.js";
 import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
+import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { overlapCast } from "@opensesame/os-domain";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -29,6 +31,8 @@ const session: { current: IdentitySession | null } = { current: null };
 const approveDevice = vi.fn();
 const originalApprove = directorySeams.approveDevice;
 const originalRemote = deviceIdentitySeams.remoteIdentityApi;
+const originalOrganizations = deviceApprovalOrganizationSeams.listOrganizations;
+const originalFetch = identitySeams.identityFetch;
 
 Object.assign(identityHookSeams, {
   useConnect: () => ({ connect: vi.fn(), connecting: false, error: null }),
@@ -52,6 +56,9 @@ beforeEach(() => {
   session.current = overlapCast({ accessToken: "t", issuerOrigin: "x" });
   deviceIdentitySeams.remoteIdentityApi = () => "http://127.0.0.1:8788";
   directorySeams.approveDevice = approveDevice;
+  deviceApprovalOrganizationSeams.listOrganizations = vi
+    .fn()
+    .mockResolvedValue([]);
   approveDevice.mockResolvedValue({ ok: true, status: 200 });
   clearNotices();
 });
@@ -60,6 +67,8 @@ afterEach(() => {
   cleanup();
   approveDevice.mockReset();
   directorySeams.approveDevice = originalApprove;
+  deviceApprovalOrganizationSeams.listOrganizations = originalOrganizations;
+  identitySeams.identityFetch = originalFetch;
   deviceIdentitySeams.remoteIdentityApi = originalRemote;
   resetDeviceArrivalForTests();
   history.replaceState(null, "", "/");
@@ -151,14 +160,15 @@ describe("the /device route", () => {
     expect(approveDevice).not.toHaveBeenCalled();
   });
 
-  it("asks for a session, and approves nothing, when none is held", () => {
+  it("offers account sign-in instead of creating a provisional session", () => {
     session.current = null;
     show();
-    expect(screen.getByText("Connect to manage identities")).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: "Sign in to approve a device" }),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("User code")).toBeNull();
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Connect" }),
-    );
+    expect(screen.queryByRole("button", { name: "Connect" })).toBeNull();
+    expect(approveDevice).not.toHaveBeenCalled();
   });
 
   it("says a sign-in service is needed when none is configured", () => {
@@ -174,6 +184,65 @@ describe("the /device route", () => {
       )?.body,
     ).toMatch(
       /Set your organisation’s sign-in service in Settings after you unlock/,
+    );
+  });
+
+  it("requires an organization choice and sends it through the real approval client", async () => {
+    deviceApprovalOrganizationSeams.listOrganizations = originalOrganizations;
+    directorySeams.approveDevice = originalApprove;
+    const fetch = vi.fn(async (path: string, init?: RequestInit) => {
+      if (path === "/v1/organizations") {
+        return Response.json({
+          organizations: [
+            { id: "org:one", displayName: "First", state: "active" },
+            { id: "org:two", displayName: "Second", state: "active" },
+            {
+              id: "org:suspended",
+              displayName: "Suspended",
+              state: "suspended",
+            },
+          ],
+        });
+      }
+      expect(path).toBe("/v1/device/approve");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        user_code: "ABCD-EFGH",
+        organization_id: "org:two",
+      });
+      return Response.json({ ok: true, status: 200 });
+    });
+    identitySeams.identityFetch = fetch;
+    history.replaceState(null, "", "/device?user_code=ABCD-EFGH");
+    captureDeviceLinkFromPage();
+    show();
+    const chooser = await screen.findByLabelText("Organization");
+    const go = screen.getByRole("button", { name: "Approve device" });
+    expect(go).toHaveProperty("disabled", true);
+    expect(screen.queryByRole("option", { name: "Suspended" })).toBeNull();
+    await userEvent.selectOptions(chooser, "org:two");
+    await userEvent.click(go);
+    expect(
+      await screen.findByRole("img", { name: "Device approved" }),
+    ).toBeTruthy();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the user retry when organizations cannot be loaded", async () => {
+    deviceApprovalOrganizationSeams.listOrganizations = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce([{ id: "org:one", name: "First" }]);
+    show();
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Could not load organizations",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await userEvent.type(screen.getByLabelText("User code"), "ABCD-EFGH");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Approve device" }),
+    );
+    await waitFor(() =>
+      expect(approveDevice).toHaveBeenCalledWith("ABCD-EFGH", "org:one"),
     );
   });
 });

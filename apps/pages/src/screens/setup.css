@@ -157,7 +157,9 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+  transition:
+    border-color 140ms var(--ease),
+    background 140ms var(--ease);
 }
 
 .preset__opt:hover:not(:disabled) {
@@ -225,7 +227,7 @@
 /* Above the phone the ceremony is the same column, centred. Only the thumb bar
    unpins: on a wide viewport the action belongs with the content it commits,
    because there is no thumb to reach with. */
-@media (min-width: 40rem) {
+@media (min-width: 40rem) and (min-height: 30rem) {
   .setup {
     display: grid;
     place-items: center;

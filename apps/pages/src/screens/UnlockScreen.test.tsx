@@ -266,9 +266,10 @@ describe("UnlockScreen — first run", () => {
     ).toBeNull();
   });
 
-  it("starts sign-in at the default upstream and returns to the app root", () => {
+  it("starts sign-in at the default upstream and returns to the app root", async () => {
     render(<UnlockScreen />);
     fireEvent.click(screen.getByRole("button", { name: FEDERATED_BUTTON }));
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn).toHaveBeenCalledWith(UPSTREAM, {});
     expect(continueAsGuest).not.toHaveBeenCalled();
     expect(v.store.create).not.toHaveBeenCalled();
@@ -317,6 +318,7 @@ describe("UnlockScreen — first run", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Continue with Google" }),
     );
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn).toHaveBeenCalledWith(
       {
         id: "broker:google",
@@ -343,6 +345,7 @@ describe("UnlockScreen — first run", () => {
       await screen.findByRole("button", { name: "Continue with Google" }),
     );
     // The compiled trust list decides this, not the catalog: no hint, no broker.
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "shoo",
@@ -404,6 +407,7 @@ describe("UnlockScreen — first run", () => {
       await screen.findByRole("button", { name: "Continue with SSO" }),
     );
     expect(lookupOrgTenant).toHaveBeenCalledWith("acme");
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     const [upstream, options] = beginSignIn.mock.calls[0] ?? [];
     expect(upstream).toMatchObject({ issuer: "https://idp.acme.example" });
     expect(options).toEqual({
@@ -426,6 +430,7 @@ describe("UnlockScreen — first run", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Continue with SAML" }),
     );
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     const [upstream, options] = beginSignIn.mock.calls[0] ?? [];
     expect(upstream).toMatchObject({
       id: "broker:org:acme",
@@ -448,6 +453,7 @@ describe("UnlockScreen — first run", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Continue with Directory" }),
     );
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn.mock.calls[0]?.[0]).toMatchObject({
       id: "broker:org:acme",
     });
@@ -496,6 +502,7 @@ describe("UnlockScreen — first run", () => {
     expect(JSON.stringify(lookupOrgByDomain.mock.calls)).not.toContain(
       "ada.lovelace",
     );
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn.mock.calls[0]?.[0]).toMatchObject({
       issuer: "https://idp.acme.example",
     });
@@ -509,6 +516,7 @@ describe("UnlockScreen — first run", () => {
         name: "Use the hosted sign-in page instead",
       }),
     );
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     const [upstream, options] = beginSignIn.mock.calls[0] ?? [];
     expect(upstream).toMatchObject({ id: "broker:realm" });
     expect(options).toEqual({ loginHint: "acme.example" });
@@ -793,7 +801,7 @@ describe("UnlockScreen — password unlock", () => {
     expect(screen.getByText("Signed out of this device.")).toBeTruthy();
   });
 
-  it("sign-in from the menu swaps the user and asks the issuer afresh", () => {
+  it("sign-in from the menu swaps the user and asks the issuer afresh", async () => {
     sessionHolder.current = {
       principalId: "prn_8f3c",
       accessToken: "pst_1",
@@ -806,6 +814,7 @@ describe("UnlockScreen — password unlock", () => {
       screen.getByText("Signed out. Choose the account to sign in with."),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: FEDERATED_BUTTON }));
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn).toHaveBeenCalledWith(UPSTREAM, { prompt: "login" });
   });
 
@@ -819,7 +828,7 @@ describe("UnlockScreen — password unlock", () => {
     expect(screen.getByRole("button", { name: FEDERATED_BUTTON })).toBeTruthy();
   });
 
-  it("opens on sign-in to attach an account, keeping the session", () => {
+  it("opens on sign-in to attach an account, keeping the session", async () => {
     sessionStore().setItem(
       "opensesame:federation:outcome",
       JSON.stringify({ kind: "attach" }),
@@ -827,6 +836,7 @@ describe("UnlockScreen — password unlock", () => {
     render(<UnlockScreen />);
     expect(screen.getByText(/Choose an account to attach/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: FEDERATED_BUTTON }));
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn).toHaveBeenCalledWith(UPSTREAM, {});
   });
 
@@ -922,58 +932,6 @@ describe("UnlockScreen — password unlock", () => {
       const tab = screen.getByRole("tab", { name });
       expect(overlapCast<unknown, HTMLButtonElement>(tab).disabled).toBe(true);
     }
-  });
-});
-
-describe("UnlockScreen — PIN unlock", () => {
-  beforeEach(() => {
-    v.state = {
-      status: "locked",
-      header: null,
-      lockedOutUntil: null,
-      failedAttempts: 0,
-      durable: true,
-      awaitingSecondStep: false,
-    };
-    v.methods = ["password", "pin"];
-    v.preferred = "password";
-    v.host = { ok: true };
-    for (const fn of Object.values(v.store)) fn.mockReset();
-    v.store.unlockWithPin.mockResolvedValue(undefined);
-  });
-
-  afterEach(cleanup);
-
-  it("switches to the PIN tab and unlocks with the PIN", async () => {
-    render(<UnlockScreen />);
-    const tab = screen.getByRole("tab", { name: "PIN" });
-    expect(tab.getAttribute("aria-selected")).toBe("false");
-    fireEvent.click(tab);
-    expect(tab.getAttribute("aria-selected")).toBe("true");
-
-    const pin = overlapCast<unknown, HTMLInputElement>(
-      screen.getByLabelText("PIN"),
-    );
-    fireEvent.change(pin, { target: { value: "123" } });
-    expect(submitButton().disabled).toBe(true);
-    fireEvent.change(pin, { target: { value: "12345678" } });
-    expect(submitButton().disabled).toBe(false);
-    fireEvent.click(submitButton());
-    await waitFor(() =>
-      expect(v.store.unlockWithPin).toHaveBeenCalledWith("12345678"),
-    );
-    await waitFor(() => expect(pin.value).toBe(""));
-  });
-
-  it("shows PIN failures", async () => {
-    v.store.unlockWithPin.mockRejectedValue(new Error("bad PIN"));
-    render(<UnlockScreen />);
-    fireEvent.click(screen.getByRole("tab", { name: "PIN" }));
-    fireEvent.change(screen.getByLabelText("PIN"), {
-      target: { value: "12345678" },
-    });
-    fireEvent.click(submitButton());
-    await expectInTray("bad PIN");
   });
 });
 

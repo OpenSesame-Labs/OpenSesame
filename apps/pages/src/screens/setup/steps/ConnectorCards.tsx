@@ -23,6 +23,10 @@ import {
   listConnections,
   openConsentPopup,
 } from "@opensesame/app-core/lib/connections.js";
+import {
+  assertGuestVercelNavigationCanResume,
+  captureGuestProviderAttempt,
+} from "@opensesame/app-core/lib/guest-provider-return.js";
 import { useEffect, useState } from "react";
 import { FailureNotice } from "../../../components/FailureNotice.js";
 import { IconConnection } from "../../../components/Icons.js";
@@ -46,8 +50,10 @@ function useConnectFlow(
   const [state, setState] = useState<CardState>({ phase: "idle" });
   const connect = async () => {
     setState({ phase: "busy" });
-    const tab = openConsentPopup("about:blank");
+    let tab: Window | null = null;
     try {
+      const checkGuest = captureGuestProviderAttempt();
+      tab = openConsentPopup("about:blank");
       const scopes = def.authScopes?.(providerId);
       const live =
         connection && connection.status !== "revoked"
@@ -57,12 +63,16 @@ function useConnectFlow(
               displayName: `${connectorLabel(providerId)} (${def.title.toLowerCase()})`,
               scopes,
             });
-      const { authorizationUrl } = await authorizeConnection(
+      const { authorizationUrl, guestReturnToken } = await authorizeConnection(
         live.connectionId,
         scopes,
       );
+      checkGuest();
       if (tab) tab.location.href = authorizationUrl;
-      else window.location.href = authorizationUrl;
+      else {
+        assertGuestVercelNavigationCanResume(guestReturnToken);
+        window.location.href = authorizationUrl;
+      }
       const outcome = await awaitConsent(live.connectionId, tab);
       if (outcome.result === "active") {
         choose(providerId, outcome.connection.connectionId);
