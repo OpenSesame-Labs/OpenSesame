@@ -173,7 +173,7 @@ impl Db {
         let Some(row) = sqlx::query(
             "UPDATE browser_pairings SET state='consumed'
             WHERE device_digest=? AND origin=? AND dpop_jkt=? AND state='approved' AND expires_at>?
-            RETURNING *,NULL AS authentication_json,NULL AS membership_incarnation,NULL AS authority_revision",
+            RETURNING *,NULL AS authentication_json",
         )
         .bind(device)
         .bind(origin)
@@ -189,12 +189,13 @@ impl Db {
         grant.expires_at = now
             .checked_add(300)
             .ok_or_else(|| anyhow::anyhow!("clock overflow"))?;
-        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at,identity_required)
-            SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
+        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at,identity_required,membership_incarnation,authority_revision)
+            SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
             AND (SELECT COUNT(*) FROM browser_clients WHERE principal_id=? AND organization_id=? AND revoked_at IS NULL)<64")
             .bind(&grant.client_id).bind(&grant.origin).bind(&grant.dpop_jkt).bind(&grant.audience)
             .bind(&grant.capabilities_json).bind(&grant.principal_id).bind(&grant.organization_id).bind(grant.approved_at)
             .bind(i64::from(grant.identity_required))
+            .bind(&grant.membership_incarnation).bind(&grant.authority_revision)
             .bind(&grant.principal_id).bind(&grant.organization_id)
             .execute(&mut *tx).await?;
         anyhow::ensure!(inserted.rows_affected() == 1, "browser client capacity");
