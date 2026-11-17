@@ -22,6 +22,37 @@ import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 vi.setConfig({ testTimeout: 60_000 });
 beforeAll(warmMigratedPGlite, 60_000);
 
+it("retains an unfinished session revocation past session expiry", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = new DurableMap<{
+      expiresAt: Date;
+      revokedAt: Date;
+      revocationCleanupPending?: boolean;
+    }>(
+      overlapCast(db),
+      "OpenSesame:ProvisionalSession",
+      false,
+      undefined,
+      undefined,
+      createEventSealer("durable-security-fixture-key"),
+    );
+    const expired = {
+      expiresAt: new Date(Date.now() - 1_000),
+      revokedAt: new Date(),
+      revocationCleanupPending: true,
+    };
+    await store.set("pending", expired);
+    expect(await store.get("pending")).toEqual(expired);
+    expect(await store.entries()).toHaveLength(1);
+    await store.set("pending", { ...expired, revocationCleanupPending: false });
+    expect(await store.get("pending")).toBeUndefined();
+  } finally {
+    await client.close();
+  }
+});
+
 it("shares exact typed state, hashes bearer keys, and consumes once across replicas", async () => {
   const client = await migratedPGlite();
   try {
