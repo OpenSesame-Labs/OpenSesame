@@ -12,6 +12,8 @@ export const DRIVER_GATES = {
   "verify-local-iam.mjs": ["sign-in"],
   "verify-quorum-browser.mjs": ["sign-in"],
   "verify-static-origin.mjs": ["static"],
+  // `npm run verify:startup -w @opensesame/pages` is local, not a CI job.
+  "verify-startup.mjs": null,
   "verify-encrypted-search.mjs": ["static"],
   "verify-portable-drop.mjs": ["static"],
   "verify-auth-flow.mjs": ["auth"],

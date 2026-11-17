@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
@@ -26,6 +26,33 @@ describe("ci gates", () => {
     for (const name of scripts) {
       expect(name in DRIVER_GATES, `${name} has no DRIVER_GATES row`).toBe(
         true,
+      );
+    }
+  });
+
+  it("keeps the locally invoked startup verifier outside CI's shard map", () => {
+    const manifest = JSON.parse(
+      readFileSync(join(root, "apps/pages/package.json"), "utf8"),
+    );
+    expect(manifest.scripts["verify:startup"]).toBe(
+      "node scripts/verify-startup.mjs",
+    );
+    expect(DRIVER_GATES["verify-startup.mjs"]).toBeNull();
+    expect(gatesOf("apps/pages/scripts/verify-startup.mjs")).toEqual([]);
+    expect(
+      gatesOf("apps/pages/scripts/lib/static-origin-harness.mjs"),
+    ).toContain("static");
+
+    const workflows = join(root, ".github/workflows");
+    for (const name of readdirSync(workflows).filter((file) =>
+      /\.ya?ml$/.test(file),
+    )) {
+      const commands = readFileSync(join(workflows, name), "utf8")
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("#"))
+        .join("\n");
+      expect(commands, `${name} invokes the startup verifier`).not.toMatch(
+        /verify:startup\b|verify-startup\.mjs\b/,
       );
     }
   });
@@ -71,21 +98,6 @@ describe("ci gates", () => {
 });
 
 describe("ci gates, shards and drivers", () => {
-  it("runs the relay join walk when the gateway relay or its driver changes", () => {
-    expect(gatesOf("apps/pages/scripts/verify-relay-join.mjs")).toEqual([
-      "journeys",
-    ]);
-    expect(gatesOf("apps/pages/scripts/lib/vault-relay-http.mjs")).toEqual([
-      "journeys",
-    ]);
-    expect(gatesOf("crates/gateway/src/vault_relay.rs")).toEqual(["journeys"]);
-    expect(
-      gatesOf(
-        "apps/pages/src/modules/sharing.relay/OrgVaultDirectoryPanel.tsx",
-      ),
-    ).toContain("journeys");
-  });
-
   it("runs the relay join walk when the gateway relay or its driver changes", () => {
     expect(gatesOf("apps/pages/scripts/verify-relay-join.mjs")).toEqual([
       "journeys",
