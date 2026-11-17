@@ -6,6 +6,16 @@ Agent context for OpenSesame. This file is the canonical entry point for any cod
 
 Start every goal in an isolated worktree branched from `origin/main`, fan independent slices out separately, and ship them as stacked pull requests that squash-merge into `origin/main` once the required checks are green. Summary in §9; full procedure in [shipping](docs/contributing/shipping.md).
 
+## Finish authorized work
+
+Carry the user's authorized objective through implementation, review, fixes, verification, and any requested delivery. Treat confirmed bugs, review findings, regressions, and failed required checks discovered during the work as part of the job: investigate and resolve them, then rerun the affected checks. Repeat this cycle until the requested work is complete. Before ending, check every requested outcome and confirmed finding against the results; if an authorized next step can be done, do it. A handoff, a phase change, or a list of next steps is not completion, and the user does not need to repeat authorization for work already requested.
+
+Continue independent work when a step is blocked. Stop only when the user asks you to stop, a required permission or essential information is unavailable, a higher-priority restriction applies, or practical attempts cannot resolve a genuine external or technical blocker. Explain the blocker, what you tried, and what remains; do not claim completion or merge with known release-blocking failures. Do not invent approval requirements or promise that verification proves the absence of every possible defect.
+
+Maintain a working list of the requested outcomes and confirmed findings until each is resolved and verified. A known next action is work to perform, not a reason to stop and describe a plan. After an interruption, failed check, or unavailable service, exhaust safe recovery options and continue every independent authorized action; when the dependency returns, resume without waiting for another instruction. Commit coherent checkpoints as work progresses and preserve unfinished changes before risky or resource-intensive verification. Treat a checkpoint as evidence of progress, not as a completed review or release.
+
+Identifying a blocker starts the work of finding and applying a safe solution or alternative; it is not, by itself, a stopping point. Fix confirmed pre-existing defects and close known gaps found while carrying out the authorized objective, then verify the fixes. Do not defer them merely because they existed before the current change or were discovered during review.
+
 ## 1. What this is
 
 OpenSesame is a private **authorization fabric for the agentic era**: a dual-plane system with a **host/client** product topology (see [ADR 0017](docs/adr/0017-host-client-product-topology.md)).
