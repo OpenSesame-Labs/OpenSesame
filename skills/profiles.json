@@ -17,7 +17,8 @@
         "opensesame-clis",
         "opensesame-mcps",
         "security-review",
-        "visual-evidence"
+        "visual-evidence",
+        "formal-verification"
       ]
     },
     "reusable-optional": {

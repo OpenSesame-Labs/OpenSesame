@@ -88,6 +88,7 @@ skills/*
 !skills/opensesame-mcps/
 !skills/security-review/
 !skills/visual-evidence/
+!skills/formal-verification/
 
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
