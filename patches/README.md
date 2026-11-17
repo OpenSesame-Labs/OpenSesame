@@ -10,7 +10,7 @@ Applying patches after install would need either a lifecycle script, which this 
 
 ## How it is wired
 
-For each vendored patch, three things point at the tarball:
+For each transitive vendored patch, three things point at the tarball:
 
 | Where | What |
 |---|---|
@@ -18,7 +18,7 @@ For each vendored patch, three things point at the tarball:
 | `package.json` `overrides` | `"<name>@<range>": "$<name>"`, which sends every dependent to that root dependency |
 | `package-lock.json` | `resolved: file:patches/vendor/<tarball>` and the tarball's `integrity` |
 
-The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it. When different versions of one package need separate patches, each can use a root alias; the manifest records the alias and exact override selector.
+The root dependency is there because npm resolves a relative `file:` override against the package that depends on it, not against the project, and fails. A root dependency resolves correctly, and `$<name>` reuses it. When different versions of one package need separate patches, each can use a root alias; the manifest records the alias and exact override selector. A patched direct workspace dependency can instead pin the tarball with a path relative to its own `package.json`; the manifest records that workspace and the lockfile still pins every installed copy.
 
 [`vendor/manifest.json`](vendor/manifest.json) records, for each patch, the patch file, the tarball and the integrity of the published package it was built from. A patch with no installed target is listed under `notInstalled`; a test fails if the package ever appears in the lockfile.
 
@@ -41,7 +41,7 @@ A CI job with a sparse checkout that runs `npm ci` must include `/patches/vendor
    npm run patches:build
    ```
 
-   This writes the tarball and sets `resolved` and `integrity` on every lockfile copy of that package version. The first time a package is vendored, also add the root dependency line to the lockfile's root `devDependencies`, as `package.json` has it.
+   This writes the tarball and sets `resolved` and `integrity` on every lockfile copy of that package version. The first time a package is vendored, also add its root or workspace dependency line to the matching lockfile entry. If the patch changes dependency metadata, update the package's lockfile dependency entry as well.
 5. Install and run the checks:
 
    ```bash
@@ -56,7 +56,7 @@ Do not edit a tarball by hand, and do not regenerate the whole lockfile to pick 
 
 ## Removing a patch
 
-When upstream ships the fix: bump the dependency, delete the `.patch` file, the tarball, the manifest entry, the root dependency and the override, and remove it from `patchedDependencies`.
+When upstream ships the fix: bump the dependency, delete the `.patch` file, the tarball and the manifest entry; replace the workspace or root dependency and remove any override, then remove it from `patchedDependencies`.
 
 ## Current patches
 
@@ -70,6 +70,7 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `typed-rest-client@2.3.1` | Allows the existing security-fixed `qs` release | `scripts/lib/dependency-compatibility.test.mjs` |
 | `@esbuild-kit/core-utils@3.3.2` | Allows the security-fixed esbuild used by its loader | `scripts/security/npm-workspaces.test.mjs` |
 | `nunjucks@3.2.4` | Supports chokidar 5 and starts its resolver watcher with an empty path list | `scripts/security/npm-workspaces.test.mjs` |
+| `kdbxweb@2.1.1` | Preserves tabs and carriage returns in XML text and CDATA and uses the reviewed fixed XML parser | `scripts/security/kdbxweb-compat.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
 
 The picomatch backport preserves the generated expressions and ordinary match
@@ -118,3 +119,12 @@ bindings, and both lockfile identities. The structural quality gate verifies
 those conditions before excluding immutable upstream source from its ratchet.
 `check-keepass-scanner-coverage.py` additionally proves that the offline OSV
 gate continues to inspect the path dependency in both Cargo lockfiles.
+
+## KDBX XML compatibility backport
+
+The vendored `kdbxweb` patch preserves legal tab characters when reading XML
+and carriage returns in text and CDATA written to XML, in its source,
+Node/browser UMD and minified distribution. It changes the SDK's XML parser
+requirement to the exact reviewed `0.8.15` version. The app-core workspace
+installs that tarball directly; verification checks the installed copies and
+compares them with the published SDK plus this patch.

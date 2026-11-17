@@ -5,9 +5,9 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sdkHash =
-  "d3b59272b72c8fc0dc340e2ab68940a54669bdbcc5a92e65ace9cb001d9eb169";
+  "322db6aaf84a1f8f1928323d41561196961b097445cea54cadd10a1f02bea135";
 const sourceHash =
-  "17cd7f289346a90a3610a01bb29b999dc6f59dd4b6241a0c95673333867e39cc";
+  "9903bd94870d1b4b51760f95b1ccc2ffe60d5a42bce50a9d7758c24d9dc89ae7";
 const importerHash =
   "39a63278198a030bea935c32599c1b79250f5dbdd21296da82cc397adcd0d047";
 const moduleId = (path) => path?.replaceAll("\\", "/");

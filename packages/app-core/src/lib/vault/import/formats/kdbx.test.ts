@@ -193,34 +193,11 @@ function toStoreEntries(result: ParseResult) {
   return out;
 }
 
-/**
- * The one place this reader provably cannot reproduce the Rust mapping, and
- * why.
- *
- * `crates/kdbx-bridge` writes a title containing a raw TAB, and sanitises it
- * to `Tab_here`. kdbxweb parses the inner XML with `@xmldom/xmldom`, which
- * drops a raw TAB inside a text node — a kdbxweb-side limitation, not a fault
- * in the file: a database written by kdbxweb and read straight back by
- * kdbxweb loses the same character, which the test below pins.
- *
- * The entry is therefore reconciled by name only. Its secret, trailer, and
- * TOTP are still compared strictly, as is every other entry in the fixture.
- * If kdbxweb ever preserves the tab, the pinning test fails and this entry
- * comes out of the map.
- */
-const READER_LIMITATIONS = new Map([
-  ["Weird_Name/Tab_here", "Weird_Name/Tabhere"],
-]);
-
-describe("kdbxweb's own handling of a tab inside a field value", () => {
-  it("drops it while parsing, which is why the fixture is reconciled", async () => {
+describe("kdbxweb XML text handling", () => {
+  it("preserves legal tabs in field values", async () => {
     const kdbxweb = await import("kdbxweb");
-    // `\u0009` is a legal XML character that a conforming parser preserves in
-    // character data. `@xmldom/xmldom`, which kdbxweb parses the inner XML
-    // with, does not — so no KDBX field value read through kdbxweb can hold
-    // one, whoever wrote the database.
     const parsed = kdbxweb.XmlUtils.parse("<Root><V>Tab\u0009here</V></Root>");
-    expect(parsed.documentElement?.textContent).toBe("Tabhere");
+    expect(parsed.documentElement?.textContent).toBe("Tab\u0009here");
   });
 });
 
@@ -252,13 +229,9 @@ describe("keepassKdbx against the shared conformance fixture", () => {
     const expected: { items: Record<string, StoreEntry> } = JSON.parse(
       readFileSync(FIXTURE_EXPECTED, "utf8"),
     );
-    const reconciled = Object.fromEntries(
-      Object.entries(expected.items).map(([path, entry]) => [
-        READER_LIMITATIONS.get(path) ?? path,
-        entry,
-      ]),
+    expect(toStoreEntries(result)).toEqual(
+      new Map(Object.entries(expected.items)),
     );
-    expect(toStoreEntries(result)).toEqual(new Map(Object.entries(reconciled)));
   });
 
   it("puts an entry from a nested group under the joined group path", () => {
@@ -315,9 +288,8 @@ describe("keepassKdbx against the shared conformance fixture", () => {
   it("sanitises a group name that carries a path separator", () => {
     const item = result.items.find((row) => row.folder === "Weird_Name");
     expect(item).toBeDefined();
-    // The Rust side sanitises the tab in this title to `_`; see
-    // READER_LIMITATIONS for why this reader never sees the tab at all.
-    expect(item?.name).toBe("Tabhere");
+    // Both implementations sanitize the preserved tab to `_` in a path.
+    expect(item?.name).toBe("Tab_here");
   });
 
   it("rejects the wrong password with a message that names the cause", async () => {

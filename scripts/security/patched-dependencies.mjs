@@ -132,7 +132,12 @@ export function buildPatched(selector, entry, work) {
   const output = join(work, "out");
   mkdirSync(upstreamDirectory, { recursive: true });
   mkdirSync(output, { recursive: true });
-  const download = ["pack", selector, "--ignore-scripts", "--silent"];
+  const download = [
+    "pack",
+    entry.upstreamTarball ?? selector,
+    "--ignore-scripts",
+    "--silent",
+  ];
   const upstream = join(
     upstreamDirectory,
     lastLine(

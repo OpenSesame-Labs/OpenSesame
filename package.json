@@ -217,9 +217,6 @@
     "@node-saml/node-saml": {
       "@xmldom/xmldom": "0.8.15"
     },
-    "kdbxweb": {
-      "@xmldom/xmldom": "0.8.15"
-    },
     "xml-crypto": {
       "@xmldom/xmldom": "0.8.15"
     },
@@ -303,6 +300,7 @@
     "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch",
     "typed-rest-client@2.3.1": "patches/typed-rest-client@2.3.1.patch",
     "@esbuild-kit/core-utils@3.3.2": "patches/@esbuild-kit__core-utils@3.3.2.patch",
-    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch"
+    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
+    "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch"
   }
 }
