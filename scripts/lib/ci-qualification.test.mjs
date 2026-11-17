@@ -189,6 +189,15 @@ describe("candidate qualification records successful immutable-artifact checks",
       "source_sha: ${{ inputs.source_sha }}",
     );
   });
+  it("checks Agent37 allocation against the candidate source before dev qualification", () => {
+    const agent37 = jobs(dev)["agent37-iac"];
+    expect(agent37).toContain("needs: admission");
+    expect(agent37).toContain("ref: ${{ inputs.source_sha }}");
+    expect(agent37).toContain("if [ ! -e ops/agent37 ]; then");
+    expect(agent37).toContain("-lockfile=readonly");
+    expect(agent37).toContain("python3 ops/agent37/tests/test_terraform.py");
+    expect(dependencies(jobs(dev).gate)).toContain("agent37-iac");
+  });
   it.each([dev, prerelease])(
     "executes stored native and Pages artifacts without replacing them with source builds",
     (workflow) => {

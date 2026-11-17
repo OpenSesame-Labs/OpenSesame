@@ -156,4 +156,5 @@ The test runs real Terraform and the pinned provider against a local HTTP API
 double; it allocates no Agent37 resources. It checks create, refresh, mutable
 updates and drift, protected replacements/removal, multiple instances, missing
 instance recovery, ambiguous create failure, and input validation. It is not a
-live-provider or application deployment test.
+live-provider or application deployment test. The candidate's nightly dev
+qualification runs the same checks before recording its receipt.

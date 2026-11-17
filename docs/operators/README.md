@@ -22,6 +22,7 @@ introduces its own (mTLS, plugins) names them where they are used.
 | [CI and artifact promotion](ci-promotion.md) | Fast trunk integration, nightly candidates, weekly qualification/publication and recovery. |
 | [Release kit](release-kit.md) | The qualified prebuilt Linux binaries the weekly pipeline publishes: what is in a kit, verifying it with `sha256sum` and `gh attestation verify`, and running it in a lane with the bridge beside the binary. |
 | [GHCR images](ghcr-images.md) | Container images for the host, client CLI, Pages PWA, and Identity API: ports, build context, tags, and the operator checklist. |
+| [Agent37 hosting](../../ops/agent37/README.md) | Allocate Agent37 sandboxes or VMs with Terraform and prepare them for OpenSesame workloads. |
 
 ## Identity
 
