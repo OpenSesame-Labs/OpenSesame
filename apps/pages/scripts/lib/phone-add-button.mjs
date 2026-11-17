@@ -106,6 +106,15 @@ async function holdAndSlide(page, by) {
   };
 }
 
+async function hasAddActions(menu) {
+  return (
+    (await menu.count()) === 1 &&
+    (await menu.getByRole("menuitem", { name: "Import items" }).count()) ===
+      1 &&
+    (await menu.getByRole("menuitem", { name: "Export items" }).count()) === 1
+  );
+}
+
 /** Holding the Add button: the drag area, what each slide chooses, and that a lift elsewhere chooses nothing. */
 export async function addSlide(page, label, harness, { stop, audit }) {
   const where = () => page.evaluate(() => location.pathname);
@@ -128,11 +137,7 @@ export async function addSlide(page, label, harness, { stop, audit }) {
   harness.check(
     (await page.locator(".add-slide").count()) === 0 &&
       (await where()) === before &&
-      (await menu.count()) === 1 &&
-      (await menu.getByRole("menuitem", { name: "Import items" }).count()) ===
-        1 &&
-      (await menu.getByRole("menuitem", { name: "Export items" }).count()) ===
-        1,
+      (await hasAddActions(menu)),
     `${label}: letting go in the middle offers Import and Export without navigating (${await where()})`,
   );
   await page.keyboard.press("Escape");
