@@ -103,8 +103,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "../../..");
 const ORIGIN = "https://opensesame-labs.github.io";
 const BASE = process.env.VITE_BASE ?? "/OpenSesame/";
-const DIST = path.resolve(here, "../dist");
-const OUT = path.resolve(ROOT, "artifacts/live-join");
+const DIST = path.resolve(
+  process.env.PAGES_VERIFY_DIST ?? path.join(here, "../dist"),
+);
+const OUT = path.resolve(
+  process.env.PAGES_VERIFY_OUT ?? path.join(ROOT, "artifacts/live-join"),
+);
 const SECRET = "correct-horse-battery-staple-2026";
 const KINDS = (
   process.env.LIVE_CARRIERS ?? "nostr,mqtt,nats,ntfy,broadcast"

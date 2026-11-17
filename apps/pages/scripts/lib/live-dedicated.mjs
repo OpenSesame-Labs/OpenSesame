@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export const DEDICATED_ORIGIN = "https://opensesame.example.test";
-export const DEDICATED_DIST = path.resolve(here, "../../dist-live-dedicated");
+export const DEDICATED_DIST = path.resolve(
+  process.env.PAGES_LIVE_DEDICATED_DIST ??
+    path.join(here, "../../dist-live-dedicated"),
+);
 
 /** `{ origin, dist }` of the dedicated build, or a refusal naming how to make it. */
 export function dedicatedSite() {
