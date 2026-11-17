@@ -42,6 +42,8 @@ fn both_import_sources_parse_with_their_options() {
                 server,
                 email,
                 attachment_origins,
+                max_attachments,
+                max_attachment_bytes,
                 target,
             },
     } = parse(&[
@@ -58,6 +60,10 @@ fn both_import_sources_parse_with_their_options() {
         "https://storage.example.com",
         "--attachment-origin",
         "https://storage2.example.com:8443",
+        "--max-attachments",
+        "40",
+        "--max-attachment-bytes",
+        "900000000",
         "--replace",
     ])
     else {
@@ -65,6 +71,8 @@ fn both_import_sources_parse_with_their_options() {
     };
     assert_eq!(server, "https://vault.bitwarden.com");
     assert_eq!(email, "me@example.com");
+    assert_eq!(max_attachments, Some(40));
+    assert_eq!(max_attachment_bytes, Some(900_000_000));
     assert_eq!(
         attachment_origins,
         [

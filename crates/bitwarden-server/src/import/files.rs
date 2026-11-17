@@ -13,9 +13,11 @@ use super::{leave, Arrival, LeftBehind};
 /// Where a file's ciphertext is to be read from at write time.
 #[derive(Clone, Debug)]
 pub enum FileSource {
-    /// A file on disk: vaultwarden's data folder, or a download waiting in
-    /// the import's scratch folder.
+    /// A file on disk, subject to the per-file import limit.
     Disk(PathBuf),
+    /// A live download retained in scratch, whose size must still match the
+    /// bytes charged to the import's aggregate budget.
+    Downloaded { path: PathBuf, bytes: usize },
     /// A source archive file, resolved beneath a retained operator-selected
     /// directory without following source-controlled symlinks. Unsupported
     /// platforms refuse the file rather than weakening this boundary.
@@ -51,11 +53,19 @@ impl FileSource {
         })
     }
 
-    fn read(&self) -> Option<Vec<u8>> {
+    pub(super) fn read(&self) -> Option<Vec<u8>> {
         match self {
             Self::Disk(path) => {
                 let file = std::fs::File::open(path).ok()?;
                 super::file_paths::read_file(file, super::file_paths::MAX_FILE_BYTES)
+            }
+            Self::Downloaded { path, bytes } => {
+                if *bytes > super::file_paths::MAX_FILE_BYTES {
+                    return None;
+                }
+                let file = std::fs::File::open(path).ok()?;
+                let data = super::file_paths::read_file(file, *bytes)?;
+                (data.len() == *bytes).then_some(data)
             }
             Self::Confined {
                 directory,

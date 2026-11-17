@@ -14,6 +14,7 @@ use opensesame_provider_bitwarden::Client;
 use opensesame_storage::bitwarden::{BitwardenAttachment, BitwardenSend, BitwardenUser};
 use serde_json::{json, Value};
 
+use super::account::AttachmentLimits;
 use super::file_paths::MAX_FILE_BYTES;
 use super::{leave, ArrivingAttachment, ArrivingSend, FileSource, LeftBehind};
 use crate::wire::cipher::is_enc_string;
@@ -43,6 +44,20 @@ fn date(value: &Value, key: &str) -> Option<DateTime<Utc>> {
         .map(|at| at.with_timezone(&Utc))
 }
 
+struct AttachmentBudget {
+    count_left: usize,
+    bytes_left: usize,
+}
+
+impl AttachmentBudget {
+    fn new(limits: AttachmentLimits) -> Self {
+        Self {
+            count_left: limits.max_count,
+            bytes_left: limits.max_total_bytes,
+        }
+    }
+}
+
 /// Every attachment on the account's own ciphers, downloaded into `scratch`.
 pub(super) async fn attachments(
     api: &Client,
@@ -51,25 +66,41 @@ pub(super) async fn attachments(
     user: &BitwardenUser,
     scratch: &Path,
     left: &mut LeftBehind,
+    limits: AttachmentLimits,
 ) -> Vec<ArrivingAttachment> {
     let ciphers = member(sync, "ciphers")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+        .map_or(&[][..], Vec::as_slice);
     let mut arriving = Vec::new();
+    let mut budget = AttachmentBudget::new(limits);
     for cipher in ciphers
         .iter()
         .filter(|c| text(c, "organizationId").is_none())
     {
-        let Some(cipher_id) = text(cipher, "id") else {
-            continue;
-        };
         let listed = member(cipher, "attachments")
             .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default();
+            .map_or(&[][..], Vec::as_slice);
+        let Some(cipher_id) = text(cipher, "id") else {
+            leave(left, "attachments whose item is unreadable", listed.len());
+            continue;
+        };
         for attachment in listed {
-            match fetch(api, token, &cipher_id, &attachment, user, scratch).await {
+            if budget.count_left == 0 || budget.bytes_left == 0 {
+                leave(left, "attachments skipped due to import limits", 1);
+                continue;
+            }
+            budget.count_left -= 1;
+            match fetch(
+                api,
+                token,
+                &cipher_id,
+                attachment,
+                user,
+                scratch,
+                &mut budget,
+            )
+            .await
+            {
                 Some(one) => arriving.push(one),
                 None => leave(left, "attachments that could not be downloaded", 1),
             }
@@ -85,6 +116,7 @@ async fn fetch(
     attachment: &Value,
     user: &BitwardenUser,
     scratch: &Path,
+    budget: &mut AttachmentBudget,
 ) -> Option<ArrivingAttachment> {
     let id = text(attachment, "id")?;
     if !super::file_paths::safe_component(&id) || !super::file_paths::safe_component(cipher_id) {
@@ -97,7 +129,13 @@ async fn fetch(
         .await
         .ok()?;
     let url = text(&fresh, "url").or_else(|| text(attachment, "url"))?;
-    let bytes = api.download(&url, MAX_FILE_BYTES).await.ok()?;
+    // Reserve the maximum this attempt may receive before starting it. On a
+    // failed body we cannot know how many bytes arrived, so keep the entire
+    // reservation charged. Successful downloads refund their unused portion.
+    let allowance = budget.bytes_left.min(MAX_FILE_BYTES);
+    budget.bytes_left -= allowance;
+    let bytes = api.download(&url, allowance).await.ok()?;
+    budget.bytes_left += allowance - bytes.len();
     // The source chooses an ID, never a local filename. Exclusive random
     // creation also prevents repeated IDs from overwriting an earlier file.
     let mut file = tempfile::NamedTempFile::new_in(scratch).ok()?;
@@ -114,7 +152,10 @@ async fn fetch(
             uploaded: true,
             created_at: Utc::now(),
         },
-        source: FileSource::Disk(path),
+        source: FileSource::Downloaded {
+            path,
+            bytes: bytes.len(),
+        },
     })
 }
 

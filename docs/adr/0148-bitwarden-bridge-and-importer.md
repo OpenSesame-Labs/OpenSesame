@@ -70,7 +70,10 @@ or a decrypted value on the way, exactly as it never does in service.
   same login hash, so the same master password opens the same vault. Attachment
   links may use the API origin; a separate storage origin must be explicitly
   authorized with repeatable `--attachment-origin` options. Other attachments
-  are counted as left behind.
+  are counted as left behind. Live attachment imports have a 500 MiB per-file
+  cap and default limits of 512 attempts and 2 GiB total; the person can set
+  `--max-attachments` and `--max-attachment-bytes`. Failed downloads consume
+  their reserved allowance and omissions are reported.
 - **Nothing merges.** A vault is encrypted under its account's key, so an
   import never adds ciphers to an account that already exists on the Host;
   it skips that address and says so, or replaces the account when told to
