@@ -17,6 +17,8 @@ mod transport;
 pub mod testkit;
 
 #[cfg(test)]
+mod local_bind_tests;
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
 
@@ -78,9 +80,30 @@ async fn serve_local(args: &Args, configured: Vec<ProviderDefinition>) -> anyhow
         .or_else(|_| std::env::var("OPENSESAME_OPERATOR_TOKEN"))
         .unwrap_or_default();
     let app = local_router(configured, operator_token);
-    let listener = tokio::net::TcpListener::bind(&args.listen).await?;
-    tracing::info!(worker_id=%args.id, listen=%args.listen, profile="existing_local", "workload connector host ready");
+    let listener = bind_local(&args.listen).await?;
+    tracing::info!(worker_id=%args.id, listen=%listener.local_addr()?, profile="existing_local", "workload connector host ready");
     axum::serve(listener, app).await?;
+    Ok(())
+}
+
+/// Resolve once, reject any non-loopback result, and bind the checked addresses.
+/// The plaintext worker token must never be exposed by a DNS change between
+/// validation and bind, including when a hostname resolves to mixed addresses.
+async fn bind_local(listen: &str) -> anyhow::Result<tokio::net::TcpListener> {
+    let addresses: Vec<_> = tokio::net::lookup_host(listen).await?.collect();
+    validate_local_addresses(&addresses)?;
+    Ok(tokio::net::TcpListener::bind(addresses.as_slice()).await?)
+}
+
+fn validate_local_addresses(addresses: &[std::net::SocketAddr]) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !addresses.is_empty(),
+        "worker listen address resolved to no addresses"
+    );
+    anyhow::ensure!(
+        addresses.iter().all(|address| address.ip().is_loopback()),
+        "worker existing_local requires loopback listen addresses"
+    );
     Ok(())
 }
 
