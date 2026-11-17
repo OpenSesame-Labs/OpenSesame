@@ -2,9 +2,13 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DROPS_GOALS } from "./drops-catalog.js";
+import { CORE_GUIDE_GOALS } from "./goals.js";
 import { KEYBOARD_GOALS } from "./keyboard-goals.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
-import { registerGuidePredicates } from "./predicates.js";
+import {
+  provideGuideDeviceForm,
+  registerGuidePredicates,
+} from "./predicates.js";
 import { isKnownGuidePredicate } from "./state.js";
 import { VAULT_ITEM_GOALS } from "./vault-item-goals.js";
 
@@ -15,7 +19,10 @@ beforeAll(() => {
   registerGuidePredicates();
   revokeRealm = registerTutorialRealm();
 });
-afterAll(() => revokeRealm());
+afterAll(() => {
+  provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
+  revokeRealm();
+});
 
 const lines = (guide: string) => guide.split("\n");
 
@@ -68,5 +75,26 @@ describe("the tutorials for what a person does with an item", () => {
     for (const goal of GOALS) {
       expect(goal.guide, goal.id).not.toContain("event=activate");
     }
+  });
+
+  it("chooses touch instructions by pointer, including on wide touchscreens", () => {
+    const goals = [...GOALS, ...CORE_GUIDE_GOALS];
+    const guide = (id: string) =>
+      goals.find((goal) => goal.id === id)?.guide ?? "";
+    provideGuideDeviceForm(() => ({ narrow: false, keys: true, touch: true }));
+    for (const id of [
+      "vault.item.create",
+      "vault.item.copy",
+      "vault.item.edit",
+      "vault.item.favorite",
+      "vault.item.trash",
+      "vault.item.share",
+    ]) {
+      expect(guide(id), id).not.toMatch(
+        /\bpress [ensrxuy] (?:on|in|with|twice)/i,
+      );
+    }
+    provideGuideDeviceForm(() => ({ narrow: true, keys: true, touch: false }));
+    expect(guide("vault.item.copy")).toContain("press y on a row");
   });
 });

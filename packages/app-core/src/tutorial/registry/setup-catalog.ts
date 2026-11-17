@@ -14,6 +14,20 @@ const CEREMONY = [
 
 export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
+    id: "setup.default",
+    description: "Selects the default setup and its optional extensions.",
+    role: "action",
+    routes: ["/setup/choose"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal",
+    description: "The form for sealing a new vault with a passkey or PIN.",
+    role: "ceremony",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
     id: "unlock.submit",
     description:
       "The ink square that opens the vault — passkey or PIN, or a master password an older vault still holds, whichever method is selected.",

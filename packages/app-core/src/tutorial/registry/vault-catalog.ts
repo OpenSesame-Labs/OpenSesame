@@ -13,6 +13,41 @@ import type { GuideTargetDescriptor } from "./targets.js";
 
 export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
+    id: "settings.account-pack",
+    description: "The switch that installs the Account item type.",
+    role: "action",
+    routes: ["/settings/item-types"],
+    capabilityId: null,
+  },
+  {
+    id: "settings.account-ready",
+    description: "The Account item type after it has finished installing.",
+    role: "status",
+    routes: ["/settings/item-types"],
+    capabilityId: null,
+  },
+  {
+    id: "editor.password-options",
+    description: "Opens the password generator options.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "editor.pepper",
+    description: "Chooses whether the password includes a personal pepper.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "editor.generate-password",
+    description: "Generates another password in the editor.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
     id: "vault.list",
     description:
       "The item list pane. Everything the vault holds is listed here, grouped by folder and narrowed by whichever filter is active.",
@@ -81,7 +116,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     description:
       "The name field at the head of the item editor: what the item is called in the list, between its folder and its type. A tour may point at it; it never types into it.",
     role: "surface",
-    routes: ["/vault/item"],
+    routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
   },
   {
@@ -89,7 +124,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     description:
       "The editor's save key: seals the item into the vault with everything entered. Nothing is stored until this is pressed, by the person — a tour never presses it.",
     role: "action",
-    routes: ["/vault/item"],
+    routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
   },
   {

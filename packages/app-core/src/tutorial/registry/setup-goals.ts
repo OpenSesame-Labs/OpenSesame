@@ -34,11 +34,11 @@ export const SETUP_GOALS: readonly GuideGoalDescriptor[] = [
       return sessionGuide([
         "guide/1",
         'goal "identity.sign-in"',
-        'say "Sign-in is a ceremony against a provider this deployment already registered. Nothing here mints a vault key."',
+        'say "Sign in with a provider configured for this installation. Your account sign-in does not create or unlock your vault key."',
         'wait state "vault.unlocked" is=true timeout=60000',
         'focus "shell.account" "Open the account menu. Sign in, or Add an account when one is already signed in, leads to the sign-in screen." side=bottom',
         'wait target "shell.account" event=activate timeout=30000',
-        'success "Choose a provider on the Sign in tab. The vault still opens with the local unlock on this device."',
+        'success "Choose a provider on the Sign in tab. Use your device key separately to unlock the vault."',
         "end",
       ]);
     },
@@ -52,7 +52,7 @@ export const SETUP_GOALS: readonly GuideGoalDescriptor[] = [
       return sessionGuide([
         "guide/1",
         'goal "identity.sign-out"',
-        'say "Signing out ends the account on this device: the Identity session is revoked, the upstream sign-in is forgotten, and the vault locks. The vault key is a separate thing — locking alone keeps you signed in."',
+        'say "Signing out ends the account session on this device and locks the vault. Locking the vault alone keeps you signed in."',
         'wait state "vault.unlocked" is=true timeout=60000',
         'focus "shell.account" "The account control names who is signed in. Open it; Sign out is the last entry." side=bottom',
         'wait target "shell.account" event=activate timeout=30000',
@@ -124,7 +124,7 @@ export const SETUP_HELP: readonly HelpTopic[] = [
     id: "help.setup",
     title: "How do I choose who can sign in?",
     answer:
-      "An empty device offers two roads: set it up as the operator, or join a session you were invited to. The operator road is the allowlist of sign-in providers; finish records it and returns to sign-in. An empty list is a local-only vault.",
+      "On a new device, you can set up your own vault, join a session, or import a file. Setup lets you choose features and sign-in providers. You can also use a local vault without an account.",
     routes: ["/setup"],
     goal: "gate.setup.choose",
     keywords: [

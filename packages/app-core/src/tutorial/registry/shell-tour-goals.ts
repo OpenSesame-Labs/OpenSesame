@@ -13,6 +13,7 @@
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
+import { isTouchGuide } from "./touch-guide.js";
 
 export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
   {
@@ -21,21 +22,30 @@ export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
     routes: [],
     libraryOnly: true,
     requires: ["shell.wide"],
-    guide: [
-      "guide/1",
-      'goal "shell.sections"',
-      'say "OpenSesame is a few sections. Each is a row in the rail on the left, and a key that begins with g jumps to it from anywhere."',
-      'navigate "/vault"',
-      'wait route "/vault" timeout=15000',
-      'focus "nav.vault" "Vault holds every account, passkey, card, secret and note. Press g then v from anywhere to come back to it." side=right',
-      'navigate "/settings"',
-      'wait route "/settings" timeout=15000',
-      'focus "nav.settings" "Settings is a row too, opened with g then s. While you are in it the rail shows Settings alone, with a row at the top that goes back to the vault." side=right',
-      'say "Access, Connections, Identity, Wallet and Activity join the rail when they are switched on in Settings › Features, and each has its own tour from the moment it does."',
-      'say "Press g then j to join a session somebody shared. That road stays available when this device already holds a vault."',
-      'success "That is the rail. Press g and then a letter to move between sections without the pointer."',
-      "end",
-    ].join("\n"),
+    get guide() {
+      const touch = isTouchGuide();
+      return [
+        "guide/1",
+        'goal "shell.sections"',
+        'say "Use the list on the left to move between sections."',
+        'navigate "/vault"',
+        'wait route "/vault" timeout=15000',
+        touch
+          ? 'focus "nav.vault" "Select Vault to see your accounts, passkeys, cards, secrets and notes." side=right'
+          : 'focus "nav.vault" "Vault contains your accounts, passkeys, cards, secrets and notes. Press g then v from anywhere to return to it." side=right',
+        'navigate "/settings"',
+        'wait route "/settings" timeout=15000',
+        touch
+          ? 'focus "nav.settings" "Select Settings to change how the app works. Use the row at the top to return to the vault." side=right'
+          : 'focus "nav.settings" "Press g then s to open Settings. Use the row at the top to return to the vault." side=right',
+        'say "Access, Connections, Identity, Wallet and Activity appear when you turn them on in Settings › Features."',
+        touch
+          ? 'say "You can also join a session that someone shares with you."'
+          : 'say "Press g then j to join a session somebody shared. You can join even if this device already has a vault."',
+        'success "Choose a section from the list whenever you need it."',
+        "end",
+      ].join("\n");
+    },
   },
   {
     id: "shell.sections.phone",
@@ -46,12 +56,12 @@ export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "shell.sections.phone"',
-      'say "A narrow screen draws one section at a time and has no rail. The sections are in a drawer, behind one key at the left of the top bar."',
+      'say "Use Sections in the top bar to move around the app."',
       'navigate "/vault"',
       'wait route "/vault" timeout=15000',
-      'focus "nav.menu" "Sections opens the drawer: Vault, Settings and every other section this device has switched on. Choosing one closes the drawer and opens that section." side=bottom',
-      'say "Settings is in the drawer too, and so is Activity when it is on. The drawer is the same list the rail shows on a wide screen."',
-      'success "That is the drawer. The More key at the right of the bar holds what a wide screen puts in its statusline."',
+      'focus "nav.menu" "Select Sections to open Vault, Settings and any other sections you have turned on." side=bottom',
+      'say "Choose a section from the menu to open it."',
+      'success "Select More in the top bar to see connection status, notifications and help."',
       "end",
     ].join("\n"),
   },
@@ -67,7 +77,7 @@ export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
       'say "The strip along the bottom of the screen is the statusline: the Support mark, the command bar, and the bell."',
       'navigate "/vault"',
       'wait route "/vault" timeout=15000',
-      'focus "shell.notifications" "The bell collects what needs a person: pending links, failed syncs, expiring items. Its dot says something is waiting. Press it to read the notices." side=top',
+      'focus "shell.notifications" "Select the bell to read notices such as pending links, failed syncs and expiring items. A dot means a notice is waiting." side=top',
       'wait target "notifications.health" event=appear timeout=60000',
       'say "When the password health report has findings, the notices carry a Review passwords link that opens it. It appears only while there is something to review."',
       'success "That is the statusline. Support and the command bar have tours of their own."',
@@ -83,11 +93,11 @@ export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "shell.more"',
-      'say "A narrow screen has no statusline. What it carries is behind one key at the right of the top bar."',
+      'say "More brings together connection status, notifications and help."',
       'navigate "/vault"',
       'wait route "/vault" timeout=15000',
-      'focus "shell.connectivity" "The More key. Its dot says something needs you: a connection to set up, no network, or a notice waiting. Press it to read the notices, open Help and the keymap, and see a row for each connection and what it is doing." side=bottom',
-      'success "That is the More key."',
+      'focus "shell.connectivity" "Select More to see connections, notifications and help. A dot means something needs your attention." side=bottom',
+      'success "Return to More whenever you want to check these details."',
       "end",
     ].join("\n"),
   },

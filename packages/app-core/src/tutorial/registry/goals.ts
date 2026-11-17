@@ -77,10 +77,10 @@ export const CORE_GUIDE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "host.health.check"',
-      'say "Vault health lists weak, reused and aging items. Whether this device is connected lives in Settings → Connections."',
+      'say "Vault health lists weak, reused and aging passwords. Check connection status in Settings → Connections."',
       'navigate "/vault/health"',
       'wait route "/vault/health" timeout=15000',
-      'focus "vault.health.summary" "The verdict: how many passwords were reviewed, and how many are weak, reused or aging." side=bottom',
+      'focus "vault.health.summary" "See how many passwords were reviewed and how many are weak, reused or aging." side=bottom',
       'success "This is Vault health."',
       "end",
     ].join("\n"),
@@ -96,7 +96,7 @@ export const CORE_GUIDE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "settings.security.review"',
-      'say "Security holds the keys that open this vault, and the second steps asked after one."',
+      'say "Use Security to manage the keys that open this vault and any required second steps."',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
       'focus "settings.vault-key-protection" "The keys enrolled on this vault. Add opens one sheet for a recovery key, a passkey, an age recipient or a cloud key; each row can be tested, and most removed." side=top',
@@ -114,7 +114,7 @@ export const CORE_GUIDE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "vault.recovery-codes"',
-      'say "Recovery codes stand in for the second step once each. They are made when the first second step turns on and shown once; save them somewhere the phone is not."',
+      'say "Each recovery code can replace your second step once. The codes are shown when you first enable a second step; save them somewhere separate from your phone."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',

@@ -29,6 +29,25 @@ async function activated(id: "vault.import", act: () => void) {
 
 afterEach(() => {
   document.body.replaceChildren();
+  vi.useRealTimers();
+});
+
+it("waits until an already mounted control becomes visible", async () => {
+  vi.useFakeTimers();
+  const element = attached();
+  element.style.display = "none";
+  const detach = mountGuideTarget("vault.import", element);
+  const controller = new AbortController();
+  const settled = vi.fn();
+  void observeGuideTarget("vault.import", "appear", controller.signal).then(
+    settled,
+  );
+  await vi.advanceTimersByTimeAsync(100);
+  expect(settled).not.toHaveBeenCalled();
+  element.style.display = "block";
+  await vi.advanceTimersByTimeAsync(100);
+  expect(settled).toHaveBeenCalledOnce();
+  detach();
 });
 
 describe("how a guide target is activated", () => {

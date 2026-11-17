@@ -24,7 +24,7 @@ const item = (goal: string, says: string): KeymapTutorial => ({ goal, says });
 
 export const KEYMAP_TUTORIALS = {
   "section.vault": { goal: "shell.sections", says: "Press g then v" },
-  "section.settings": { goal: "shell.sections", says: "opened with g then s" },
+  "section.settings": { goal: "shell.sections", says: "Press g then s" },
   "session.join": {
     goal: "shell.sections",
     says: "Press g then j to join a session",
@@ -44,15 +44,12 @@ export const KEYMAP_TUTORIALS = {
   "listing.page-up": move(
     "Ctrl-f and Ctrl-b, or Page Down and Page Up, move a whole page",
   ),
-  "listing.dive": move("l or the right arrow dives in"),
-  "listing.climb": move("h, the left arrow or Backspace climbs out"),
-  "listing.search": item(
-    "vault.item.find",
-    "Press / and the bar holds /? ready for words",
-  ),
+  "listing.dive": move("l or the right arrow opens"),
+  "listing.climb": move("h, the left arrow or Backspace moves back"),
+  "listing.search": item("vault.item.find", "Press / to start a search"),
   "command.palette": bar("Press : or Ctrl-l and the cursor jumps here"),
-  "help.keymap": bar("Press ? and the keyboard help opens"),
-  "voice.toggle": bar("Press m to speak"),
+  "help.keymap": bar("Press ? to see the current keyboard shortcuts"),
+  "voice.toggle": bar("Press m to start voice input"),
   "item.copy-secret": item(
     "vault.item.copy",
     "press y on a row to copy its password or secret value",
@@ -62,20 +59,17 @@ export const KEYMAP_TUTORIALS = {
     "press u on a row to copy the username",
   ),
   "item.edit": item("vault.item.edit", "press e on a row to open its editor"),
-  "item.new": item(
-    "vault.item.create",
-    "The n key does the same from the list",
-  ),
-  "item.favorite": item("vault.item.favorite", "Press . on a row of the list"),
+  "item.new": item("vault.item.create", "Press n in the list to open New item"),
+  "item.favorite": item("vault.item.favorite", "Press . with a row selected"),
   "item.trash": item(
     "vault.item.trash",
     "Press x in the list to trash the row under the cursor",
   ),
-  "item.share": item("vault.item.share", "The s key in the list"),
-  "item.restore": item("vault.item.trash", "r does the same"),
-  "item.purge": item("vault.item.trash", "X does the same"),
+  "item.share": item("vault.item.share", "Press s with a row selected"),
+  "item.restore": item("vault.item.trash", "press r on a selected row"),
+  "item.purge": item("vault.item.trash", "press X twice on a selected row"),
   "register.record": macro(
-    "Press q and then a letter, a through z, to start recording",
+    "Press q and then a letter from a through z to start recording",
   ),
   "register.replay": macro("@ and the letter replays it"),
 } satisfies Readonly<Record<string, KeymapTutorial>>;
