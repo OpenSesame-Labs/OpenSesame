@@ -125,6 +125,11 @@ export function SetupConfiguration({
           </button>
         ))}
       </fieldset>
+      <div
+        className="first-visit-host"
+        data-first-visit-offer
+        data-first-visit-return="setup.configurations"
+      />
     </>
   );
 }

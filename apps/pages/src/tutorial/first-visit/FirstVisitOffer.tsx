@@ -192,9 +192,10 @@ export function FirstVisitOffer() {
         });
         return;
       }
-      const host = document.querySelector<HTMLElement>(
-        "[data-first-visit-offer]",
-      );
+      const host =
+        document.querySelector<HTMLElement>(
+          "[data-first-visit-offer]:not([data-first-visit-fallback])",
+        ) ?? document.querySelector<HTMLElement>("[data-first-visit-fallback]");
       if (host) {
         setInline({
           host,

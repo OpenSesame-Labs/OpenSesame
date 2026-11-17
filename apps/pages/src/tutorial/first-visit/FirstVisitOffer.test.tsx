@@ -105,6 +105,25 @@ afterEach(() => {
 });
 
 describe("the first-visit offer", () => {
+  it("uses a screen's offer host before the shell fallback", () => {
+    const fallback = document.createElement("div");
+    fallback.dataset.firstVisitOffer = "";
+    fallback.dataset.firstVisitFallback = "";
+    const specific = document.createElement("div");
+    specific.dataset.firstVisitOffer = "";
+    document.body.append(fallback, specific);
+    try {
+      mount(controller().support);
+      settle();
+      expect(specific.querySelector("aside")).not.toBeNull();
+      expect(fallback.querySelector("aside")).toBeNull();
+      expect(shown).toHaveLength(0);
+    } finally {
+      fallback.remove();
+      specific.remove();
+    }
+  });
+
   it("offers the screen's tour once it has stood a moment", () => {
     const { support } = controller();
     mount(support);

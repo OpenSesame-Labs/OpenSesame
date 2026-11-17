@@ -126,10 +126,14 @@ export function FrontDoor({
               is sealed (ADR 0188). */}
           <ImportRoadButton />
         </fieldset>
-
         <div className="door__theme">
           <GateTools tabIndex={-1} />
         </div>
+        <div
+          className="first-visit-host"
+          data-first-visit-offer
+          data-first-visit-return="unlock.setup"
+        />
 
         {guestFailed ? <StatusMark tone="err" label={guestFailed} /> : null}
         <FailureNotice
