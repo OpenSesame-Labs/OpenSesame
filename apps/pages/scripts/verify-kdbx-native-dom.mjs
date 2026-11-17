@@ -68,7 +68,7 @@ globalThis.runKdbxProof = async (fixture) => {
     const wrong4=await rejected(()=>keepassKdbx.parse(input(saved4,"wrong")));
     const corrupt4=new Uint8Array(saved4.slice(0)); corrupt4[corrupt4.length-1]^=1;
     const bad4=await rejected(()=>keepassKdbx.parse(input(corrupt4.buffer,pass)));
-    v4.push({items:parsed4.items,wrong4,bad4});
+    v4.push({items:parsed4.items,warnings:parsed4.warnings,wrong4,bad4});
   }
   return {
     v4,
@@ -208,6 +208,10 @@ test("real Chromium native XML preserves encrypted KDBX import and integrity", {
     for (const item of result.v4) {
       assert.equal(item.items[0].name, "v4 secret");
       assert.equal(item.items[0].password, "v4 password");
+      assert.equal(item.items[0].folder, "Nested");
+      assert.deepEqual(item.warnings, [
+        "1 attachment was left behind. This vault stores fields, not files.",
+      ]);
       assert.equal(item.wrong4, true);
       assert.equal(item.bad4, true);
     }
