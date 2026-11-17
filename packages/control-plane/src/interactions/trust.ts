@@ -21,9 +21,9 @@ import {
  *
  * 1. the static registry — providers the operator configured, plus issuers
  *    allowlisted without a registry entry (still first-class);
- * 2. a durable bring-your-own upstream record the visitor registered, and only
- *    while it is `active`;
- * 3. an organization's configured SSO or SAML issuer.
+ * 2. an active organization's approved SSO or SAML issuer;
+ * 3. a durable bring-your-own upstream record the visitor registered, and only
+ *    while it is `active`.
  *
  * Anything else is `undefined`, which callers map to `untrusted_issuer`. The
  * order matters: an operator-configured provider must never be shadowed by a
@@ -64,8 +64,8 @@ async function resolveByoUpstream(
   issuer: string,
 ): Promise<ByoUpstream | undefined> {
   const record = await ctx.repos.byoUpstreams.findByIssuer(issuer);
-  // A disabled record is a decision an operator made (D14); it must not
-  // resolve, and it must not fall through to some other source either.
+  // A disabled record is a decision an operator made (D14); it must not resolve.
+  // Static and organization sources have already been considered by the caller.
   return record && record.state === "active" ? record : undefined;
 }
 

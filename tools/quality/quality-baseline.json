@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 442,
-    "violations": 701,
-    "oversizedLines": 214365
+    "files": 441,
+    "violations": 700,
+    "oversizedLines": 213942
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -766,9 +766,6 @@
       "max-lines": 664,
       "max-lines-per-function": 1
     },
-    "packages/auth-upstream/src/webauthn.ts": {
-      "max-lines": 422
-    },
     "packages/capability-registry/src/index.ts": {
       "max-lines": 1617
     },
@@ -917,7 +914,7 @@
       "max-lines": 455
     },
     "packages/control-plane/src/interactions/federated.ts": {
-      "max-lines": 710
+      "max-lines": 709
     },
     "packages/control-plane/src/interactions/handlers.ts": {
       "complexity": 3,

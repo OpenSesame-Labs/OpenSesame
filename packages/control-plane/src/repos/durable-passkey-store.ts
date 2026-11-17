@@ -22,10 +22,15 @@ export function durablePasskeyCredentials(
   return {
     get: (id) => store.get(id),
     create: (record) => store.claim(record.credentialId, record),
-    advance: async (id, counter) => {
+    advance: async (id, generation, counter) => {
       let advanced = false;
       await store.update(id, (current) => {
         if (!current) return undefined;
+        if (current.generation !== generation) return current;
+        if (counter === undefined) {
+          advanced = true;
+          return current;
+        }
         if (counter === 0) {
           advanced = current.counter === 0;
           return current;
@@ -41,7 +46,15 @@ export function durablePasskeyCredentials(
       (await store.values()).filter(
         (record) => record.principalId === principalId,
       ),
-    remove: (id) => store.delete(id),
+    remove: async (id, principalId) => {
+      let removed = false;
+      await store.update(id, (current) => {
+        if (!current || current.principalId !== principalId) return current;
+        removed = true;
+        return undefined;
+      });
+      return removed;
+    },
   };
 }
 

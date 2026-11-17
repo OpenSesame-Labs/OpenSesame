@@ -261,6 +261,18 @@ jobs:
         run: |
           npm run verify:behavior-models -w @opensesame/pages
           node --test spec/ui-behavior/toast-model-fault.test.mjs
+          node --test spec/ui-behavior/roving-tabs-model-fault.test.mjs
+          node --test spec/auth-verification/provisional-session-counterexample.test.mjs
+          node --test spec/auth-verification/native-oidc-evidence-counterexample.test.mjs
+          node --test spec/auth-verification/webauthn-model-fault.test.mjs
+          node --test spec/auth-verification/device-model-fault.test.mjs
+          node --test spec/auth-verification/agent-registration-model-fault.test.mjs
+          node --test spec/auth-verification/claim-lifecycle-model-fault.test.mjs
+          node --test spec/auth-verification/saml-replay-model-fault.test.mjs
+          node --test spec/auth-verification/passkey-race-model-fault.test.mjs
+          node --test spec/auth-verification/issuer-trust-model-fault.test.mjs
+          node --test spec/auth-verification/federated-pending-model-fault.test.mjs
+          node --test spec/auth-verification/federated-trust-model-fault.test.mjs
       - name: Exercise production behavior against generated cases
         run: |
           npm exec -w @opensesame/pages -- vitest run \
@@ -283,10 +295,13 @@ jobs:
             src/lib/capabilities/classification.test.ts \
             src/lib/capabilities/classification-notification-ownership.test.ts \
             src/tutorial/first-visit/FirstVisitOffer.placement.test.tsx \
-            src/tutorial/tutorial-route.property.test.tsx
+            src/tutorial/tutorial-route.property.test.tsx \
+            src/screens/use-roving-tabs.property.test.tsx
           npm exec -w @opensesame/app-core -- vitest run \
             src/browser/oidc/transaction.auth-proof.properties.test.ts \
+            src/browser/oidc/evidence-custody.property.test.ts \
             src/browser/saml/assertion.test.ts \
+            src/browser/saml/replay-custody.property.test.ts \
             src/browser/saml/admission.test.ts \
             src/browser/saml/metadata.test.ts \
             src/browser/saml/configured-runtime.test.ts \
@@ -305,9 +320,27 @@ jobs:
             src/lib/recommendations.test.ts \
             src/lib/vault/vault-interaction.property.test.ts
           npm exec -w @opensesame/control-plane -- vitest run \
-            src/__tests__/auth-admission.properties.test.ts
+            src/__tests__/auth-admission.properties.test.ts \
+            src/__tests__/auth-session-interleaving.property.test.ts \
+            src/__tests__/webauthn-challenge.property.test.ts \
+            src/__tests__/device-authorization.property.test.ts \
+            src/__tests__/agent-registration.property.test.ts \
+            src/__tests__/claim-lifecycle.property.test.ts \
+            src/__tests__/passkey-store.property.test.ts \
+            src/__tests__/passkey-durable-race.test.ts \
+            src/__tests__/issuer-trust.property.test.ts \
+            src/__tests__/federated-pending-integrity.test.ts \
+            src/__tests__/federated-pending-integrity.property.test.ts \
+            src/__tests__/federated-trust-binding.property.test.ts \
+            src/__tests__/federated.units.test.ts
+          npm exec -w @opensesame/auth-upstream -- vitest run \
+            src/__tests__/assertion-purpose-boundary.test.ts \
+            src/__tests__/passkey-verification-race.test.ts \
+            src/__tests__/webauthn-adapter.test.ts \
+            src/__tests__/webauthn.test.ts
           npm exec -w @opensesame/os-domain -- vitest run \
-            src/__tests__/authorization-request-finite.test.ts
+            src/__tests__/authorization-request-finite.test.ts \
+            src/__tests__/claim-completion-identity.test.ts
           npm exec -w @opensesame/support-agent -- vitest run \
             src/egress-routes.test.ts
       - name: Obtain the reviewed Lean release
@@ -327,6 +360,7 @@ jobs:
         run: |
           node spec/auth-verification/verify.mjs
           node --test spec/auth-verification/verify.test.mjs
+          npm run verify:auth-source
       - name: Explore the real UI component with Bombadil
         env:
           TMPDIR: ${{ runner.temp }}/ui-behavior

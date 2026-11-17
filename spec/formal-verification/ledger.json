@@ -33,6 +33,39 @@
       "limits": "The model does not prove the React implementation, provider credentials, remote configuration, focus, or layout."
     },
     {
+      "id": "roving-tabs-keyboard",
+      "claim": "In a stable enabled tablist whose parent accepts selection requests, Left and Right wrap, Home and End select the edges, focus follows the selection, and unrelated keys leave it unchanged.",
+      "implementation": ["apps/pages/src/screens/use-roving-tabs.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/ui-behavior/RovingTabs.tla",
+          "config": "spec/ui-behavior/RovingTabs.cfg",
+          "invariants": [
+            "TypeOK",
+            "RecognizedKeyMovesFocus",
+            "OtherKeyDoesNothing",
+            "LeftMovesBack",
+            "RightMovesForward",
+            "HomeMovesFirst",
+            "EndMovesLast"
+          ],
+          "scope": "TLC checks stable tablists of one to four tabs and externally moved focus; a negative control detects reversed Left movement and checks wraparound reachability."
+        },
+        {
+          "kind": "property-test",
+          "path": "apps/pages/src/screens/use-roving-tabs.property.test.tsx",
+          "scope": "Generated focus and keyboard sequences exercise the real hook with one to six mounted tabs."
+        },
+        {
+          "kind": "browser-test",
+          "path": "apps/pages/test/ui-properties/roving-tabs.ts",
+          "scope": "Bombadil explores the actual hook in a browser fixture at phone and desktop widths, compares independent input intent and requires all four navigation keys."
+        }
+      ],
+      "limits": "The model and tests assume a stable nonempty set of enabled, mounted tabs and a parent that accepts selections. They do not prove React or browser refinement, dynamic removal, disabled tabs, production page layout, screen-reader announcements or assistive-technology behavior."
+    },
+    {
       "id": "github-local-backup-lifecycle",
       "claim": "Default creation is off, missing bindings are off, and changing the saved binding clears its prior sync confirmation.",
       "implementation": [
@@ -198,12 +231,17 @@
           "scope": "Lean checks the abstract cookie-origin decision against the stated policy."
         },
         {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a decision translated from the actual cookie function, conditional on the restricted translator and its documented runtime assumptions."
+        },
+        {
           "kind": "property-test",
           "path": "packages/control-plane/src/__tests__/auth-admission.properties.test.ts",
           "scope": "Finite Lean-generated decision vectors and generated origins exercise the real admission function."
         }
       ],
-      "limits": "This is not a proof of TypeScript, URL parsing, browser cookie enforcement, or a complete authentication protocol. The model abstracts request-method and origin parsing."
+      "limits": "The source-derived result trusts the TypeScript parser, restricted translator, ordinary JavaScript built-ins and documented input assumptions. It does not prove URL parsing, browser cookie enforcement, middleware composition or a complete authentication protocol."
     },
     {
       "id": "provisional-session-admission",
@@ -216,12 +254,34 @@
           "scope": "Lean checks an abstract session decision against the stated policy, including expiry and revocation."
         },
         {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks the source-derived completed principal eligibility decision, conditional on the restricted translator and documented runtime assumptions."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/ProvisionalSessionReads.tla",
+          "config": "spec/auth-verification/ProvisionalSessionReads.cfg",
+          "invariants": [
+            "TypeOK",
+            "AcceptedUsesEligibleReads",
+            "InvalidAtStartCannotAuthenticate",
+            "BadPrefixNeverReads"
+          ],
+          "scope": "TLC checks one resolver attempt with atomic snapshot reads and monotonic invalidation; a separate negative check demonstrates a revocation after the session read."
+        },
+        {
           "kind": "property-test",
           "path": "packages/control-plane/src/__tests__/auth-admission.properties.test.ts",
           "scope": "Finite Lean-generated decision vectors and generated clocks exercise the real resolver with controlled stores."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/auth-session-interleaving.property.test.ts",
+          "scope": "Generated token removal, session removal, expiry, revocation and suspension schedules exercise the real resolver with controlled asynchronous snapshot stores."
         }
       ],
-      "limits": "The proof is of the Lean model and assumes principal states from the domain enum. It does not prove the TypeScript resolver, runtime validation of stored records, persistent store consistency, concurrent revocation, clock integrity, or the whole authentication system."
+      "limits": "The source-derived proof covers only the completed principal lookup and trusts its translator and runtime assumptions; an unexpected state outside the domain enum is not rejected by the current check. The TLA+ model assumes atomic snapshot reads and monotonic invalidation. An in-flight request can complete after revocation following its session read; neither model proves the full resolver, store linearizability, runtime record validation, clock integrity, or the whole authentication system."
     },
     {
       "id": "configured-oidc-response-admission",
@@ -234,12 +294,404 @@
           "scope": "Lean checks the abstract response predicate and replay behavior."
         },
         {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a source-derived completion predicate and replay behavior after a restricted structural check of the callback, conditional on the translator and documented runtime assumptions."
+        },
+        {
           "kind": "property-test",
           "path": "packages/app-core/src/browser/oidc/transaction.auth-proof.properties.test.ts",
           "scope": "Lean-generated finite response vectors and generated invalid cases exercise the real configured OIDC transaction with a controlled transport."
         }
       ],
-      "limits": "Neither the model nor finite conformance tests prove the TypeScript implementation, OAuth or OIDC conformance, token signatures, issuer, audience, nonce, PKCE, or an external identity provider."
+      "limits": "The source-derived proof trusts its translator and JavaScript runtime, and does not check preparation of the callback bindings, their immutability, the token exchange or verifier. Neither proof nor finite conformance tests establish OAuth or OIDC conformance, token signatures, issuer, audience, nonce, PKCE, or an external identity provider."
+    },
+    {
+      "id": "native-oidc-evidence-custody",
+      "claim": "An issued native OIDC evidence object can be consumed successfully at most once, only while its owner is current and its claims are unexpired; an unknown object does not consume it, and an unsuccessful genuine attempt still consumes it.",
+      "implementation": ["packages/app-core/src/browser/oidc/claims.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks the custody decision after a restricted structural check of the real evidence functions, conditional on the checker and documented JavaScript assumptions."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/NativeOidcEvidence.tla",
+          "config": "spec/auth-verification/NativeOidcEvidence.cfg",
+          "invariants": [
+            "TypeOK",
+            "AtMostOneSuccess",
+            "SpentNeverReappears",
+            "AcceptanceRequiresLiveEvidence",
+            "ForgedDoesNotConsumeGenuine",
+            "GenuineAttemptConsumes"
+          ],
+          "scope": "TLC checks a finite one-object custody model and eventual consumption under weak fairness of genuine consume attempts; negative controls exercise reachability, a missing deletion, and the absence of fairness."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/browser/oidc/evidence-custody.property.test.ts",
+          "scope": "Generated operations exercise genuine signed test evidence, unknown handles, owner changes, expiry, clock rollback and replay against the real custody functions; a separate check reenters during the owner callback."
+        }
+      ],
+      "limits": "The source-derived proof trusts its structural checker and JavaScript runtime. The hand-written model assumes atomic consumption within one JavaScript agent and monotonic expiry and owner retirement; the generated tests are finite and do not prove implementation refinement. Liveness assumes a consume attempt will eventually occur. The evidence does not prove token signature or claim verification, protocol conformance, browser or runtime behavior, multiple agents, persistence, or local admission."
+    },
+    {
+      "id": "webauthn-assertion-challenge",
+      "claim": "An assertion can reach signature verification only after consuming a live challenge for the expected authentication or transaction purpose and a matching bound principal; one challenge is returned to at most one concurrent caller of the in-memory store.",
+      "implementation": [
+        "packages/auth-upstream/src/webauthn.ts",
+        "packages/auth-upstream/src/passkey.ts",
+        "packages/auth-upstream/src/passkey-challenge-memory.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks the assertion gate derived after token-level structural validation of the current TypeScript prefix, conditional on the checker and runtime assumptions."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/WebAuthnChallenge.tla",
+          "config": "spec/auth-verification/WebAuthnChallenge.cfg",
+          "invariants": [
+            "TypeOK",
+            "SpentCannotReappear",
+            "AtMostOneAcceptance",
+            "AcceptedWasLiveAtRead",
+            "AcceptedPurposeMatches",
+            "AcceptedPrincipalMatches",
+            "AcceptedSignatureValid"
+          ],
+          "scope": "TLC checks one issuance and two competing callers with a controlled deadline and abstract signature result; negative controls detect missing consumption and registration-purpose acceptance."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/webauthn-challenge.property.test.ts",
+          "scope": "Generated concurrent attempts exercise the production memory store and assertion gate with controlled time and a mocked signature verifier."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/auth-upstream/src/__tests__/assertion-purpose-boundary.test.ts",
+          "scope": "A registration challenge with an unsupported runtime assertion purpose is consumed and refused before signature verification."
+        }
+      ],
+      "limits": "The proof trusts its TypeScript checker and runtime and abstracts the store result and principal comparison. The finite model assumes one issuance, immutable metadata and synchronous atomic consumption in one process; it does not model reuse of a challenge value. The generated tests mock cryptographic verification. None proves RP ID, origin, user verification, transaction digest binding, authenticators, distributed stores or the WebAuthn specification."
+    },
+    {
+      "id": "device-authorization-transition-graph",
+      "claim": "The device authorization transition graph admits only the independently specified edges among pending, approved and terminal states.",
+      "implementation": ["packages/os-domain/src/machines/device-auth.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks all pairs in the source-derived transition graph against an independent policy and audited theorem type."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/DeviceAuthorization.tla",
+          "config": "spec/auth-verification/DeviceAuthorization.cfg",
+          "invariants": [
+            "TypeOK",
+            "BindingsPreserved",
+            "TerminalStateStable",
+            "NoLateDecision",
+            "ConsumptionRequiresApproval",
+            "ApprovedHasActor",
+            "RejectedDoesNotChange",
+            "PollingPreservesState",
+            "AutomaticExpiryNotEarly"
+          ],
+          "scope": "TLC checks a fresh domain session with a monotonic clock and bounded polls, including expiry, actor attribution and immutable digests; negative controls detect late approval and consumption without approval."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/device-authorization.property.test.ts",
+          "scope": "Generated operation sequences exercise the actual domain functions before, at and after the deadline, including explicit and automatic expiry and polling."
+        }
+      ],
+      "limits": "The source proof covers the graph and trusts the restricted translator and JavaScript runtime. The hand-written model is bounded and the generated tests do not prove implementation refinement. Explicit expiry is allowed before the deadline. The evidence does not prove caller authorization, RFC 8628 conformance, token issuance, polling-rate rules or concurrent persistence."
+    },
+    {
+      "id": "claim-transition-graph",
+      "claim": "The claim-session transition graph admits only the independently specified progression and terminal edges.",
+      "implementation": ["packages/os-domain/src/machines/claim.ts"],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks all pairs in the source-derived claim graph and the structurally checked completion guard against independent policies and audited theorem types."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/ClaimLifecycle.tla",
+          "config": "spec/auth-verification/ClaimLifecycle.cfg",
+          "invariants": [
+            "TypeOK",
+            "BindingsPreserved",
+            "TerminalNeverChanges",
+            "VersionTracksChange",
+            "RejectedDoesNotChange",
+            "NoLateProgress",
+            "CompletionRequiresReview",
+            "DenialRequiresReview",
+            "AutomaticExpiryNotEarly"
+          ],
+          "scope": "TLC checks one claim with a monotonic clock and at most four version advances, including immutable digests, review before settlement, expiry and revocation."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/claim-lifecycle.property.test.ts",
+          "scope": "Generated sequences exercise the real domain operations and immutable bindings at and around the deadline."
+        }
+      ],
+      "limits": "The source-derived graph proof trusts its translator and JavaScript runtime; the bounded model and generated tests do not prove implementation refinement. A nonempty completion identifier does not establish authentication. The evidence does not prove caller authority, token verification, manifest contents, external effects or concurrent persistence."
+    },
+    {
+      "id": "agent-registration-transition-graph",
+      "claim": "The agent-registration transition graph admits only the independently specified claim, expiry and revocation edges.",
+      "implementation": [
+        "packages/os-domain/src/machines/agent-registration.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks all pairs in the source-derived registration graph against an independent policy and audited theorem type."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/AgentRegistration.tla",
+          "config": "spec/auth-verification/AgentRegistration.cfg",
+          "invariants": [
+            "TypeOK",
+            "ImmutableIdentity",
+            "TerminalStateStable",
+            "VersionTracksChange",
+            "RejectedDoesNotChange",
+            "ClaimRequiresPendingAndPerson",
+            "NoLateClaim",
+            "ClaimedKeepsOwner",
+            "NoEarlyExpiry"
+          ],
+          "scope": "TLC checks one registration with a monotonic clock and at most three version advances, including claim, expiry and revocation; negative controls detect late and empty claims."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/agent-registration.property.test.ts",
+          "scope": "Generated sequences exercise the real domain functions across claim retries, principal changes, TTL boundaries, idempotent actions and revocation."
+        }
+      ],
+      "limits": "The restricted translator and JavaScript runtime are trusted; the bounded model and generated tests do not prove implementation refinement. A nonempty claimant identifier is not proof of an authenticated principal. The evidence does not prove claim possession, principal authority, token issuance, external effects or concurrent persistence."
+    },
+    {
+      "id": "resource-transition-graph",
+      "claim": "The resource lifecycle graph admits only the independently specified activation, expiry, quarantine and deletion edges.",
+      "implementation": [
+        "packages/os-domain/src/machines/provisional-resource.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks all pairs in the source-derived resource graph against an independent policy and audited theorem type."
+        }
+      ],
+      "limits": "The restricted translator and JavaScript runtime are trusted. The graph alone does not prove authorization, expiry, external effects or concurrent persistence."
+    },
+    {
+      "id": "native-saml-replay-custody",
+      "claim": "Within one live process, a still-retained issuer and assertion identifier is denied, expired assertions and a full store are denied, and accepting a different issuer does not consume another issuer's entry.",
+      "implementation": [
+        "packages/app-core/src/browser/saml/assertion-replay.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks the replay-admission predicate and insertion after a token-level structural check of the actual custody function, conditional on the checker and runtime assumptions."
+        },
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/SamlReplayCustody.tla",
+          "config": "spec/auth-verification/SamlReplayCustody.cfg",
+          "invariants": [
+            "TypeOK",
+            "CapacityRespected",
+            "RetainedReplayDenied",
+            "ExpiredAssertionDenied",
+            "FullCustodyDenies",
+            "OtherIssuerPreserved",
+            "AcceptedWasFresh"
+          ],
+          "scope": "TLC checks two issuers, two assertion IDs, a capacity of two, expiry and restart; a negative control demonstrates replay after restart."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/app-core/src/browser/saml/replay-custody.property.test.ts",
+          "scope": "Generated sequences exercise the actual replay store, with a separate test at its 1,024-entry capacity and exact expiry boundary."
+        }
+      ],
+      "limits": "The source proof trusts its token-level checker and ordinary JavaScript built-ins and assumes finite clock and expiry numbers and valid string keys. The hand-written finite model and generated tests do not prove implementation refinement. Custody is process-local and is lost on restart; it does not prove distributed replay protection, signature or assertion validation, source authenticity, or SAML conformance."
+    },
+    {
+      "id": "federation-pending-integrity",
+      "claim": "A modern pending federation cookie authenticates its complete encoded payload; a legacy signature is accepted only when no organization or visitor-registration authority is carried.",
+      "implementation": [
+        "packages/control-plane/src/interactions/federated-pending.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/FederatedPendingIntegrity.tla",
+          "config": "spec/auth-verification/FederatedPendingIntegrity.cfg",
+          "invariants": [
+            "TypeOK",
+            "ModernAcceptBindsPayload",
+            "LegacyCannotGrantUnboundContext",
+            "AcceptedCoreMatches"
+          ],
+          "scope": "TLC checks modern and legacy formats over bounded core and provenance values, with attacker-controlled payload changes."
+        },
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a source-snapshot-derived abstraction of modern and legacy admission and audits the theorem axioms."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/federated-pending-integrity.property.test.ts",
+          "scope": "Generated changes to every authenticated field exercise the real signed codec."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/control-plane/src/__tests__/federated-pending-integrity.test.ts",
+          "scope": "Focused cases cover organization and visitor provenance insertion, replacement and deletion, legacy compatibility and cross-format downgrade."
+        }
+      ],
+      "limits": "The source proof trusts its checker and manual abstraction. The model assumes ideal HMACs with separate keys and an injective core encoding; it does not prove scrypt, HMAC, JSON, base64url, replay, expiry, cookie transport, issuer trust, federation exchange or callback single use."
+    },
+    {
+      "id": "federated-trust-binding",
+      "claim": "A hosted OIDC callback can use only the same authority source and stable authority record that began the flow; ambiguous, non-OIDC and legacy-to-dynamic reinterpretations are denied before client selection or networking.",
+      "implementation": [
+        "packages/control-plane/src/interactions/federated-trust-binding.ts",
+        "packages/control-plane/src/interactions/federated.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/FederatedTrustBinding.tla",
+          "config": "spec/auth-verification/FederatedTrustBinding.cfg",
+          "invariants": [
+            "TypeOK",
+            "AcceptedPendingIsOidc",
+            "AcceptedAuthorityIsOidc",
+            "AcceptedHasSingleProvenance",
+            "AcceptedSourceBound",
+            "AcceptedIdBound",
+            "LegacyCannotGainDynamicTrust"
+          ],
+          "scope": "TLC checks bounded source, record, kind and provenance changes between start and callback; fault controls require matching acceptance and rebound rejection to be reachable."
+        },
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a source-snapshot-derived callback guard and the source checker binds it to provenance creation and pre-network callback ordering."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/federated-trust-binding.property.test.ts",
+          "scope": "Generated source, identifier, kind and ambiguous-provenance combinations exercise the real matching primitive against an independent oracle."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/control-plane/src/__tests__/federated.units.test.ts",
+          "scope": "Controlled callback cases require organization-to-visitor, visitor-record replacement and legacy-to-visitor rebinding to fail before discovery."
+        }
+      ],
+      "limits": "The source proof trusts its checker and manual Boolean abstraction. The model assumes an authentic pending cookie and atomic trust snapshots; the separately modeled cookie codec supplies the first assumption. These artifacts do not prove repository atomicity, issuer ownership, credentials, discovery, exchange, token validation, OIDC conformance or revocation after the callback trust decision."
+    },
+    {
+      "id": "issuer-trust-selection",
+      "claim": "A nonempty issuer resolves in static, admitted organization, then active visitor registration order; an unmatched issuer is refused.",
+      "implementation": [
+        "packages/control-plane/src/interactions/trust.ts",
+        "packages/control-plane/src/interactions/issuer-normalization.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/IssuerTrustResolution.tla",
+          "config": "spec/auth-verification/IssuerTrustResolution.cfg",
+          "invariants": [
+            "TypeOK",
+            "StaticPrecedes",
+            "OrgPrecedesByo",
+            "OrgWasAdmitted",
+            "ByoWasActive",
+            "NoUnwitnessedTrust"
+          ],
+          "scope": "TLC checks static selection and asynchronously changing organization, approval and visitor records; separate reachability checks expose fallthrough and stale results."
+        },
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a source-snapshot-derived abstraction of the trust selector's precedence and refusal conditions."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/issuer-trust.property.test.ts",
+          "scope": "Generated configurations exercise the real resolver's order, normalized lookup, organization approval and visitor states."
+        }
+      ],
+      "limits": "The source proof trusts its checker and manual abstraction; the model assumes immutable read snapshots, fixed static configuration and atomic steps. An inactive or unapproved organization may fall through to an active visitor record, and a trust decision can outlive a later revocation. Neither proves issuer ownership, approval policy, client credential binding, database behavior, the remainder of federation or OIDC conformance."
+    },
+    {
+      "id": "passkey-credential-replacement",
+      "claim": "An assertion can complete only if the same credential registration still exists at the store's atomic confirmation; a supplied positive counter advances once, and removal checks the current owner atomically.",
+      "implementation": [
+        "packages/auth-upstream/src/passkey.ts",
+        "packages/control-plane/src/repos/durable-passkey-store.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/auth-verification/PasskeyCredentialRace.tla",
+          "config": "spec/auth-verification/PasskeyCredentialRace.cfg",
+          "invariants": [
+            "TypeOK",
+            "AcceptedLiveAtConfirmation",
+            "RemovalWasAuthorized",
+            "PositiveCounterSpentOncePerGeneration"
+          ],
+          "scope": "TLC explores two verifiers, one credential ID, two owners and one replacement, including verification without a counter and zero-counter authenticators."
+        },
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks a source-snapshot-derived abstraction of verification and the in-memory store's registration and counter guards, conditional on the trusted checker and runtime."
+        },
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/passkey-store.property.test.ts",
+          "scope": "Generated operation interleavings exercise the memory store against an independent owner, registration and counter oracle."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/auth-upstream/src/__tests__/passkey-verification-race.test.ts",
+          "scope": "Controlled interleavings reproduce stale verification after replacement and cover legacy credentials and mutable record isolation."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/control-plane/src/__tests__/passkey-durable-race.test.ts",
+          "scope": "Two durable store instances backed by PGlite exercise a replacement during verification and unauthorized removal."
+        }
+      ],
+      "limits": "The source proof trusts its token checker and manually stated abstraction; the finite model and tests do not prove implementation refinement, WebAuthn conformance, signature validity or the deployed database's behavior. They assume atomic store updates and unique registration generations; pre-existing credentials may lack a generation, while new registrations receive one. A removal after atomic confirmation does not retroactively cancel that confirmation."
     },
     {
       "id": "authorization-request-lifecycle",
@@ -270,9 +722,14 @@
           "kind": "property-test",
           "path": "packages/os-domain/src/__tests__/authorization-request-finite.test.ts",
           "scope": "Exhaustive finite input and transition cases exercise the real domain machine, including 5,040 operations."
+        },
+        {
+          "kind": "proof",
+          "path": "spec/auth-verification/source/Contracts.lean",
+          "scope": "Lean checks the source-derived canTransition graph over the declared status domain, conditional on the restricted translator and documented runtime assumptions."
         }
       ],
-      "limits": "The model assumes valid dates, clean initial decision metadata and no external mutation. It does not prove the TypeScript implementation, authorize the decider, establish executor digest comparison or model concurrent persistence."
+      "limits": "The source-derived proof covers only canTransition and trusts its translator and JavaScript runtime. The lifecycle model assumes valid dates, clean initial decision metadata and no external mutation. Neither proves the full implementation, authorizes the decider, establishes executor digest comparison or models concurrent persistence."
     },
     {
       "id": "first-visit-offer-placement",

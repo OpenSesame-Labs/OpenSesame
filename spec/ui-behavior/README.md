@@ -2,12 +2,13 @@
 
 These finite models cover the connector chooser and local GitHub backup
 lifecycle, a shared capability switch, support-route context, and retired
-vault-unlock attempts, and the time a transient notice remains visible while
-it is read. Each model states its own bounds and assumptions. The
+vault-unlock attempts, the time a transient notice remains visible while
+it is read, and roving keyboard navigation among tabs. Each model states its own bounds and assumptions. The
 [evidence ledger](../formal-verification/README.md) ties individual claims to
 the implementation and tests while recording the remaining proof gaps.
-The current configurations check state invariants; they do not establish
-liveness or fairness properties.
+The UI configurations check state invariants; they do not establish liveness
+or fairness properties. The separate native OIDC evidence model checks one
+liveness property under an explicit weak-fairness assumption.
 
 `ConnectorModes.tla` models two available methods, one unavailable choice and
 a group lock. TLC explores all reachable states of that finite model and checks
@@ -28,6 +29,15 @@ does not prove React refinement or liveness.
 The prerelease job also runs `toast-model-fault.test.mjs`: it changes the
 model so both pointer and focus are required to hold time and checks that TLC
 rejects that deliberate fault with `ReadingHoldsTime`.
+
+`RovingTabs.tla` models a stable nonempty set of enabled, mounted tabs, a
+controlled selected index and focus moved either externally or by Left, Right,
+Home and End. TLC checks key movement, wraparound, focus, and prevention of the
+browser default; a fault check catches reversed Left behavior and checks that
+wraparound is reachable. Generated React interactions exercise the actual hook
+with one to six tabs and external focus changes. The model assumes the parent
+accepts selections and does not cover tab removal, disabled tabs, browser event
+delivery or assistive technologies.
 
 To check the model, install Java and download the official
 [TLA+ tools 1.7.4 release](https://github.com/tlaplus/tlaplus/releases/tag/v1.7.4).
@@ -55,18 +65,20 @@ npm run verify:ui-properties -w @opensesame/pages -- --self-check
 ```
 
 Bombadil starts isolated local Vite fixtures that import the real shared
-connector chooser and capability switch, then generates clicks only on their
-controls at phone and desktop widths. The chooser checks naming, one matching
+connector chooser, capability switch and roving-tabs hook, then generates
+pointer and, for tabs, keyboard actions at phone and desktop widths. The chooser checks naming, one matching
 selection, and that locked or unavailable choices cannot trigger changes. The
 switch compares requests and visible state to a separate pointer-intent oracle;
 an ordinary run must exercise accepted, rejected, and disabled attempts. No
-live vault or provider is used. The self-check deliberately introduces a
-different mismatch for each fixture and must find the named violation at both
+live vault or provider is used. The tab fixture records keyboard intent before
+the hook's handler and requires Left, Right, Home and End in every normal run.
+The self-check deliberately introduces a different mismatch for each fixture and must find the named violation at both
 widths. Traces are kept in a newly created temporary directory, whose path is
 printed. Replay a trace with `BOMBADIL_REPRODUCE=/path/to/trace-directory`, set
 `BOMBADIL_WIDTH` to the original width, and use
 `BOMBADIL_TARGET=capability-switch` for switch traces (the default replay target
-is `connector-modes`). `BOMBADIL_TIME_LIMIT` changes each exploration duration.
+is `connector-modes`), or `BOMBADIL_TARGET=roving-tabs` for tab traces.
+`BOMBADIL_TIME_LIMIT` changes each exploration duration.
 Restricted environments that cannot run Chromium's sandbox may set
 `BOMBADIL_NO_SANDBOX=1`; the default leaves the sandbox enabled.
 The prerelease qualification workflow runs these commands against the candidate
