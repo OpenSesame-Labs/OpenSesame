@@ -6,6 +6,7 @@
  */
 
 import { awaitCapabilitySections, capabilityOnSwitch } from "./always-on.mjs";
+import { dismissFirstVisitOffer } from "./dismiss-first-visit.mjs";
 import { unlockIfLocked } from "./tutorial-walk.mjs";
 
 /** Support models (ADR 0088). Tutorial profile walks leave both unapproved. */
@@ -37,6 +38,7 @@ const OFF_SWITCH =
 async function switchNextOn(page, round, verbose) {
   const off = page.locator(OFF_SWITCH);
   try {
+    await dismissFirstVisitOffer(page);
     const label = await off
       .first()
       .getAttribute("aria-label", { timeout: 2500 });
@@ -48,7 +50,12 @@ async function switchNextOn(page, round, verbose) {
       .catch(() => {});
     await page.waitForTimeout(500);
     return true;
-  } catch {
+  } catch (error) {
+    if (verbose)
+      console.log(`  switch retry: ${String(error.message).split("\n")[0]}`);
+    // An offer can arrive while the switch is being located. Decline it and
+    // retry on the next round instead of repeatedly clicking through the card.
+    await dismissFirstVisitOffer(page);
     await page.waitForTimeout(700);
     return false;
   }
@@ -128,4 +135,5 @@ export async function enableEverything(
       .catch(() => false);
     if ((await page.locator(OFF_SWITCH).count()) === 0 && !locked) return;
   }
+  throw new Error("Could not enable every capability after 80 attempts");
 }
