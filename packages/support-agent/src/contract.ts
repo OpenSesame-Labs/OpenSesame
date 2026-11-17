@@ -203,11 +203,9 @@ export const SUPPORT_LIMITS = {
   // development the next time it is outgrown.
   maxCapabilities: 64,
   maxGoals: 40,
-  // 40, not 32: the gates' routes (ADR 0166), the vault's item and trash
-  // places and the Access, Connections and Identity tours' places took the
-  // authored set to 34. A route id is a few characters; raised deliberately,
-  // and `withinBudget` throws in development the next time it is outgrown.
-  maxRoutes: 40,
+  // The complete authored realm now has 42 routes. Preserve every declared
+  // destination and gate with a bounded vocabulary; see ADR 0224.
+  maxRoutes: 48,
   maxHelpEntries: 6,
   maxHelpAnswerChars: 800,
   maxTools: 40,

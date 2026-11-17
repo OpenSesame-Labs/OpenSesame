@@ -287,3 +287,4 @@ looks arbitrary, the ADR it cites explains it.
 | [0221](0221-first-run-guidance-and-recommendations.md) | First-run guidance: screens speak first, once, and an act earns one recommendation | Accepted |
 | [0222](0222-github-well-architected-and-ssdf.md) | The engineering system follows the NIST SSDF and the GitHub Well-Architected recommendations, and says where it does not | Accepted |
 | [0223](0223-service-test-doubles.md) | Test services at their real boundaries | Accepted |
+| [0224](0224-bounded-support-route-vocabulary.md) | Preserve the bounded support route vocabulary | Accepted |
