@@ -1,8 +1,8 @@
 // Exercise the built entry before and after JavaScript, including a return
 // visit whose correct screen is different from a fresh device's front door.
 import assert from "node:assert/strict";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { serveLoopbackDist } from "./lib/static-origin-harness.mjs";
@@ -57,6 +57,39 @@ try {
   await failure.waitFor({ state: "visible", timeout: 15_000 });
   assert.match(await failure.innerText(), /could not start/);
   await failedEntry.close();
+
+  // A dependency of the entry can fail before the entry module evaluates too.
+  // Abort a real static import from the built module rather than simulating a
+  // bootstrap exception after the application has already begun to run.
+  const builtHtml = readFileSync(join(dist, "index.html"), "utf8");
+  const entryPath = builtHtml.match(
+    /src="([^"]*\/assets\/main-[\w-]+\.js)"/u,
+  )?.[1];
+  assert.ok(entryPath, "built HTML must identify the app entry module");
+  const entrySource = readFileSync(
+    join(dist, "assets", basename(entryPath)),
+    "utf8",
+  );
+  const eagerImport = entrySource.match(
+    /\b(?:from|import)\s*["'](\.[^"']+\.js)["']/u,
+  )?.[1];
+  if (eagerImport) {
+    const dependencyPath = new URL(eagerImport, new URL(entryPath, server.href))
+      .pathname;
+    const failedDependency = await browser.newContext({
+      serviceWorkers: "block",
+    });
+    const dependencyPage = await failedDependency.newPage();
+    await dependencyPage.route(`**${dependencyPath}`, (route) => route.abort());
+    await dependencyPage.goto(server.href, { waitUntil: "domcontentloaded" });
+    const dependencyFailure = dependencyPage.getByRole("alert");
+    await dependencyFailure.waitFor({ state: "visible", timeout: 15_000 });
+    assert.match(await dependencyFailure.innerText(), /could not start/);
+    await failedDependency.close();
+    console.log("PASS: failed eager module shows a startup error");
+  } else {
+    console.log("SKIP: the built entry has no static module dependency");
+  }
 
   for (const device of [
     { name: "desktop", viewport: { width: 1365, height: 900 } },
