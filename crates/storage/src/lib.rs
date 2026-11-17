@@ -969,12 +969,21 @@ impl Db {
         .context("creating schema_migrations")?;
 
         for (version, sql) in MIGRATIONS {
-            if self.migration_applied(version).await? {
+            // Separate Host replicas may start against a new or upgraded store
+            // simultaneously. Serialize the version check with the migration,
+            // so a second replica observes the first one's completed work.
+            let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+            let applied = sqlx::query("SELECT 1 FROM schema_migrations WHERE version = ?")
+                .bind(version)
+                .fetch_optional(&mut *tx)
+                .await?
+                .is_some();
+            if applied {
+                tx.commit().await?;
                 continue;
             }
             // A version lands whole or not at all, so a failure mid-file cannot
             // leave a database that reports itself migrated.
-            let mut tx = self.pool.begin().await?;
             for stmt in split_statements(sql) {
                 sqlx::query(&stmt)
                     .execute(&mut *tx)
@@ -1005,14 +1014,6 @@ impl Db {
             .into_iter()
             .map(|r| r.get::<String, _>("version"))
             .collect())
-    }
-
-    async fn migration_applied(&self, version: &str) -> anyhow::Result<bool> {
-        let row = sqlx::query("SELECT 1 AS present FROM schema_migrations WHERE version = ?")
-            .bind(version)
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row.is_some())
     }
 
     #[must_use]
