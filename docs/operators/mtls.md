@@ -449,6 +449,14 @@ chains is a refusal.
 - **SPIFFE:** the Workload API stream drives generations; no other renewal
   logic runs on those identities.
 
+The Identity listener's `restartTransport()` API preserves open connections
+when only its server certificate changes. When the client CA, originating
+client trust, or service bindings change, it invalidates evidence from the
+old trust generation and closes existing connections, including handshakes
+in progress. Clients must reconnect and retry interrupted requests. Identity
+does not watch these files or invoke this API automatically; operators should
+restart the Identity process to apply file changes.
+
 A new generation invalidates pooled client connections authenticated under the
 old one. Status shows `runtime.loaded.generation` so you can see which one is
 live. A rotated certificate keeps the service's principal, bindings, quotas
