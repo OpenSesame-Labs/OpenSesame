@@ -228,8 +228,8 @@ for (const [name, row] of Object.entries(timingByProfile)) {
   }
 }
 if (!playwrightRepro) {
-  console.warn(
-    "WARNING: Playwright did not show a clear main-vs-fix consent timing delta; vitest App-root behavior test remains authoritative.",
+  throw new Error(
+    "Playwright did not show a clear main-vs-fix consent timing delta; rebuild or adjust SHELL_READY_CONSENT_ACTIVATION_DELAY_MS",
   );
 }
 

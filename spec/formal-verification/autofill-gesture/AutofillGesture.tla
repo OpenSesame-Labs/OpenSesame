@@ -24,6 +24,18 @@ PageGesture ==
   /\ writeValue' = FALSE
   /\ UNCHANGED <<topFrame, originOn, entryMatch>>
 
+NotTopFrame ==
+  /\ topFrame' = FALSE
+  /\ UNCHANGED <<gesture, originOn, entryMatch, askValue, writeValue>>
+
+OriginOff ==
+  /\ originOn' = FALSE
+  /\ UNCHANGED <<gesture, topFrame, entryMatch, askValue, writeValue>>
+
+EntryMismatch ==
+  /\ entryMatch' = FALSE
+  /\ UNCHANGED <<gesture, topFrame, originOn, askValue, writeValue>>
+
 DecideFill ==
   /\ IF /\ gesture /\ topFrame /\ originOn /\ entryMatch
      THEN /\ askValue' = TRUE
@@ -34,6 +46,6 @@ DecideFill ==
 
 NoFillWithoutGesture == ~gesture => ~askValue /\ ~writeValue
 
-Spec == Init /\ [][ExtensionGesture \/ PageGesture \/ DecideFill]_vars
+Spec == Init /\ [][ExtensionGesture \/ PageGesture \/ NotTopFrame \/ OriginOff \/ EntryMismatch \/ DecideFill]_vars
 
 ====

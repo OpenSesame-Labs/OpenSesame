@@ -34,7 +34,8 @@ RewriteVersion ==
 
 TamperPayload ==
   /\ payloadMatch' = FALSE
-  /\ UNCHANGED <<publishedId, promotedId, authorized>>
+  /\ authorized' = FALSE
+  /\ UNCHANGED <<publishedId, promotedId>>
 
 NoPromotionRewrite == ~authorized \/ (promotedId = publishedId /\ payloadMatch)
 

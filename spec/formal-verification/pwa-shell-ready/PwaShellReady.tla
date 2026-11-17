@@ -77,7 +77,7 @@ PlanForPersonal ==
   /\ planVault' = "personal"
   /\ compGen' = compGen + 1
   /\ actGen' = actGen
-  /\ fromNull' = (planVault = "none")
+  /\ fromNull' = (planVault = "none") \/ fromNull
   /\ opened' = opened
   /\ UNCHANGED <<status, vault, timedOut>>
 
