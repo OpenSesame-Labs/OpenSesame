@@ -64,7 +64,24 @@ async function createPgliteContext(): Promise<PgTestContext> {
 
 /** The same server and credentials, another database name. */
 function withDatabase(url: string, name: string): string {
+  // postgres.js and WHATWG URLs disagree about a raw fragment in the
+  // authority. Reject it before either parser can select a different target.
+  if (url.includes("#")) {
+    throw new Error("DATABASE_URL must not contain a fragment");
+  }
   const next = new URL(url);
+  if (!["postgres:", "postgresql:"].includes(next.protocol)) {
+    throw new Error("DATABASE_URL must use the Postgres URL scheme");
+  }
+  // postgres.js forwards unknown query keys as startup parameters, which can
+  // override the path-derived database (including with an empty value).
+  for (const key of next.searchParams.keys()) {
+    if (["database", "dbname", "db"].includes(key.toLowerCase())) {
+      throw new Error(
+        "DATABASE_URL must not override the database in its query",
+      );
+    }
+  }
   next.pathname = `/${name}`;
   return next.toString();
 }
@@ -74,10 +91,12 @@ async function createRealPostgresContext(url: string): Promise<PgTestContext> {
   // `"public"."principals"` in their foreign keys, so a second schema would
   // point back at the first context's tables.
   const databaseName = `t_${randomUUID().replaceAll("-", "")}`;
+  // Validate before creating a client or issuing CREATE DATABASE.
+  const databaseUrl = withDatabase(url, databaseName);
   const quiet = { onnotice: () => undefined };
   const admin = postgres(url, { max: 1, ...quiet });
   await admin.unsafe(`create database "${databaseName}"`);
-  const sql = postgres(withDatabase(url, databaseName), {
+  const sql = postgres(databaseUrl, {
     max: 4,
     prepare: false,
     ...quiet,
