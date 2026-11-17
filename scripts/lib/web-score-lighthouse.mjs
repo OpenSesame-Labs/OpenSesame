@@ -72,15 +72,22 @@ function readReport(reportPath) {
 
 function hasFreshFetchTime(report, startedAt) {
   const fetchedAt = Date.parse(report.fetchTime ?? "");
-  return Number.isFinite(fetchedAt) && fetchedAt >= startedAt - 5_000;
+  return (
+    Number.isFinite(fetchedAt) &&
+    fetchedAt >= startedAt - 5_000 &&
+    fetchedAt <= Date.now() + 5_000
+  );
 }
 
-function inspectReport(report, { exitCode, targetUrl, startedAt }) {
+export function inspectReport(
+  report,
+  { exitCode, targetUrl, startedAt, formFactor, expectApp = false },
+) {
   const problems = [];
   if (exitCode !== 0) problems.push(`Lighthouse exited ${exitCode}`);
-  if (report.configSettings?.formFactor !== "desktop") {
+  if (report.configSettings?.formFactor !== formFactor) {
     problems.push(
-      `form factor is ${report.configSettings?.formFactor ?? "unknown"}, not desktop`,
+      `form factor is ${report.configSettings?.formFactor ?? "unknown"}, not ${formFactor}`,
     );
   }
   if (!samePage(report.finalUrl, targetUrl.href)) {
@@ -95,6 +102,47 @@ function inspectReport(report, { exitCode, targetUrl, startedAt }) {
   }
   if (!hasFreshFetchTime(report, startedAt)) {
     problems.push(`stale or missing fetchTime (${report.fetchTime ?? "none"})`);
+  }
+  if (report.runWarnings?.length) {
+    problems.push(
+      `Lighthouse reported warnings: ${report.runWarnings.join("; ")}`,
+    );
+  }
+  for (const id of requiredCategories) {
+    const refs = report.categories?.[id]?.auditRefs;
+    if (!Array.isArray(refs) || !refs.some((ref) => ref.weight > 0)) {
+      problems.push(`scored audits missing for category: ${id}`);
+    }
+  }
+  for (const category of Object.values(report.categories ?? {})) {
+    for (const ref of category.auditRefs ?? []) {
+      if (ref.weight > 0 && !report.audits?.[ref.id]) {
+        problems.push(`scored audit missing: ${ref.id}`);
+      } else if (
+        ref.weight > 0 &&
+        report.audits[ref.id].scoreDisplayMode === "error"
+      ) {
+        problems.push(`scored audit failed: ${ref.id}`);
+      }
+    }
+  }
+  if (expectApp) {
+    const lcp = report.audits?.[
+      "largest-contentful-paint-element"
+    ]?.details?.items
+      ?.flatMap((group) => group.items ?? [])
+      .find((item) => item.node)?.node;
+    if (!lcp) {
+      problems.push("could not identify the largest painted element");
+    } else if (
+      /\b(?:boot(?:__[\w-]+)?|static-door(?:__[\w-]+)?)(?![\w-])/u.test(
+        `${lcp.selector} ${lcp.snippet}`,
+      )
+    ) {
+      problems.push(
+        "the largest paint was the startup placeholder, not the app",
+      );
+    }
   }
   const categories = Object.fromEntries(
     Object.entries(report.categories ?? {}).map(([id, category]) => [
@@ -116,6 +164,8 @@ async function auditLighthouse({
   reportPath,
   timeout,
   children,
+  formFactor,
+  expectApp,
 }) {
   const startedAt = Date.now();
   rmSync(reportPath, { force: true });
@@ -123,11 +173,14 @@ async function auditLighthouse({
   try {
     exitCode = await runChild(
       [
-        "dlx",
-        "lighthouse@12.8.2",
+        "exec",
+        "--yes",
+        "--package=lighthouse@12.8.2",
+        "--",
+        "lighthouse",
         targetUrl.href,
         `--port=${port}`,
-        "--preset=desktop",
+        ...(formFactor === "desktop" ? ["--preset=desktop"] : []),
         "--quiet",
         "--no-enable-error-reporting",
         "--output=json",
@@ -148,41 +201,72 @@ async function auditLighthouse({
       problems: [`Lighthouse exited ${exitCode} without a report`],
     };
   }
-  const result = inspectReport(report, { exitCode, targetUrl, startedAt });
+  const result = inspectReport(report, {
+    exitCode,
+    targetUrl,
+    startedAt,
+    formFactor,
+    expectApp,
+  });
   console.log(
-    `Lighthouse desktop attempt ${attempt}: ${JSON.stringify(result.categories)}`,
+    `Lighthouse ${formFactor} attempt ${attempt}: ${JSON.stringify(result.categories)}`,
   );
   return result;
 }
 
 export async function runLighthouse({
   targetUrl,
-  port,
+  withBrowser,
   reportPath,
   timeout,
   attempts,
   children,
+  formFactor = "desktop",
+  expectApp = false,
 }) {
-  let categories = {};
+  if (formFactor !== "desktop" && formFactor !== "mobile") {
+    throw new Error(`unsupported Lighthouse form factor: ${formFactor}`);
+  }
+  if (!Number.isInteger(attempts) || attempts < 1) {
+    throw new Error("Lighthouse attempts must be a positive integer");
+  }
+  const samples = [];
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const result = await auditLighthouse({
-      attempt,
-      targetUrl,
-      port,
-      reportPath,
-      timeout,
-      children,
-    });
-    categories = result.categories;
-    if (result.problems.length === 0) {
-      return { passed: true, categories };
+    // Keep every sample. Selecting the best score hides variability and can
+    // make a slower experience appear to pass.
+    const samplePath =
+      attempts === 1
+        ? reportPath
+        : `${reportPath.replace(/\.json$/u, "")}.attempt-${attempt}.json`;
+    let result;
+    try {
+      result = await withBrowser((port) =>
+        auditLighthouse({
+          attempt,
+          targetUrl,
+          port,
+          reportPath: samplePath,
+          timeout,
+          children,
+          formFactor,
+          expectApp,
+        }),
+      );
+    } catch (error) {
+      result = {
+        categories: {},
+        problems: [`isolated Lighthouse run failed: ${error.message}`],
+      };
     }
+    samples.push({ ...result, reportPath: samplePath });
     for (const problem of result.problems) {
-      console.error(`FAIL: Lighthouse: ${problem}`);
+      console.error(
+        `FAIL: Lighthouse ${formFactor} attempt ${attempt}: ${problem}`,
+      );
     }
   }
-  console.error(
-    `FAIL: Lighthouse desktop did not reach 1.0 in ${attempts} attempt(s)`,
-  );
-  return { passed: false, categories };
+  return {
+    passed: samples.every((sample) => sample.problems.length === 0),
+    samples,
+  };
 }

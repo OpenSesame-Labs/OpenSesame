@@ -10,22 +10,18 @@
  * Usage:
  *   CHROME_PATH=/path/to/chrome node scripts/quality/web-score.mjs [url]
  *
- * Defaults to the canonical public score page,
- * https://is-agentic.com/scan/is-agentic.com, and asserts:
- *   - Lighthouse desktop: performance/accessibility/best-practices/SEO = 1.0
- *   - Is Agentic: score = 100
- *
- * The bare homepage is intentionally not the default: its rotating
- * recent-scans strip embeds third-party favicons, so cookies and 404s from
- * unrelated scanned sites make its best-practices score non-deterministic.
+ * Defaults to the OpenSesame app and asserts:
+ *   - Lighthouse desktop and mobile: all four categories = 1.0
+ *   - Is Agentic for origin-root targets only: score = 100
  *
  * Reports are written to work/web-score/ (git-ignored).
  */
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkAgentic } from "../lib/web-score-agentic.mjs";
+import { checkAppReady } from "../lib/web-score-app.mjs";
 import {
   cleanup,
   cleanupSync,
@@ -33,19 +29,18 @@ import {
   sweepProfiles,
   waitForChrome,
 } from "../lib/web-score-browser.mjs";
-import { discoverChrome, parseTarget } from "../lib/web-score-common.mjs";
+import {
+  discoverChrome,
+  originScoreTarget,
+  parseTarget,
+} from "../lib/web-score-common.mjs";
 import { runLighthouse } from "../lib/web-score-lighthouse.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const reportDir = join(repo, "work", "web-score");
-const lighthouseReport = join(reportDir, "lighthouse-desktop.json");
+const runId = `${process.pid}-${Date.now()}`;
+const reportDir = join(repo, "work", "web-score", runId);
 const agenticReport = join(reportDir, "is-agentic.json");
-const failedLighthouseReport = join(
-  reportDir,
-  "lighthouse-desktop.failed.json",
-);
-const failedAgenticReport = join(reportDir, "is-agentic.failed.json");
-const defaultTarget = "https://is-agentic.com/scan/is-agentic.com";
+const defaultTarget = "https://opensesame-labs.github.io/OpenSesame/";
 const agenticOrigin = "https://is-agentic.com";
 const lighthouseTimeoutMs = 240_000;
 
@@ -60,7 +55,8 @@ function positiveEnv(name, fallback) {
   return value;
 }
 
-const attempts = positiveEnv("WEB_SCORE_LIGHTHOUSE_ATTEMPTS", 2);
+const attempts = positiveEnv("WEB_SCORE_LIGHTHOUSE_ATTEMPTS", 1);
+const expectApp = process.env.WEB_SCORE_EXPECT_APP !== "0";
 const agenticMaxAgeMs = positiveEnv(
   "WEB_SCORE_MAX_AGENTIC_AGE_MS",
   6 * 60 * 60 * 1000,
@@ -85,15 +81,13 @@ try {
 }
 
 mkdirSync(reportDir, { recursive: true });
-rmSync(lighthouseReport, { force: true });
-rmSync(agenticReport, { force: true });
-rmSync(failedLighthouseReport, { force: true });
-rmSync(failedAgenticReport, { force: true });
+console.log(`Reports: ${reportDir}`);
 sweepProfiles();
 const profileDir = mkdtempSync(join(tmpdir(), "web-score-"));
-const runId = `${process.pid}-${Date.now()}`;
-const lighthouseRunReport = join(reportDir, `lighthouse-${runId}.json`);
-const agenticRunReport = join(reportDir, `is-agentic-${runId}.json`);
+const lighthouseReports = ["desktop", "mobile"].map((formFactor) => ({
+  formFactor,
+  report: join(reportDir, `lighthouse-${formFactor}.json`),
+}));
 const children = new Set();
 let cleanedUp = false;
 
@@ -110,75 +104,95 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
 
 async function main() {
   let failed = false;
-  const agenticTarget = `${targetUrl.origin}/`;
-  const { child, getError } = startChrome({
-    chrome,
-    profileDir,
-    noSandbox: process.env.WEB_SCORE_NO_SANDBOX === "1",
-    children,
-  });
+  const agenticTarget = originScoreTarget(targetUrl);
   try {
-    const port = await waitForChrome(profileDir, child, getError);
-    const lighthouse = await runLighthouse({
-      targetUrl,
-      port,
-      reportPath: lighthouseRunReport,
-      timeout: lighthouseTimeoutMs,
-      attempts,
-      children,
-    });
-    if (!lighthouse.passed) {
-      failed = true;
-    } else {
-      copyFileSync(lighthouseRunReport, lighthouseReport);
-      console.log(
-        `Lighthouse desktop: ${JSON.stringify(lighthouse.categories)}`,
-      );
+    if (expectApp) {
+      try {
+        await checkAppReady({
+          chrome,
+          targetUrl,
+          noSandbox: process.env.WEB_SCORE_NO_SANDBOX === "1",
+        });
+        console.log("OpenSesame front door: controls respond");
+      } catch (error) {
+        console.error(`FAIL: OpenSesame front door: ${error.message}`);
+        failed = true;
+      }
+    }
+    for (const { formFactor, report } of lighthouseReports) {
+      const lighthouse = await runLighthouse({
+        targetUrl,
+        withBrowser: async (audit) => {
+          // Each run models a fresh visitor. A previous audit can leave
+          // IndexedDB or a service worker behind even after Lighthouse resets
+          // storage, so do not share a Chrome profile between samples.
+          const sampleProfile = mkdtempSync(join(profileDir, "sample-"));
+          const { child, getError } = startChrome({
+            chrome,
+            profileDir: sampleProfile,
+            noSandbox: process.env.WEB_SCORE_NO_SANDBOX === "1",
+            children,
+            expectApp,
+          });
+          try {
+            const port = await waitForChrome(sampleProfile, child, getError);
+            return await audit(port);
+          } finally {
+            await cleanup(new Set([child]), sampleProfile);
+            children.delete(child);
+          }
+        },
+        reportPath: report,
+        timeout: lighthouseTimeoutMs,
+        attempts,
+        children,
+        formFactor,
+        expectApp,
+      });
+      if (!lighthouse.passed) {
+        failed = true;
+      }
     }
 
-    const agentic = await checkAgentic({
-      origin: agenticOrigin,
-      target: agenticTarget,
-      maxAgeMs: agenticMaxAgeMs,
-      reportPath: agenticRunReport,
-    });
-    copyFileSync(agenticRunReport, agenticReport);
-    console.log(
-      `Is Agentic: ${JSON.stringify({
-        target: agentic.target,
-        score: agentic.score,
-        score_label: agentic.score_label,
-        scanned_at: agentic.scanned_at,
-      })}`,
-    );
-    if (agentic.score !== 100) {
-      console.error(`FAIL: Is Agentic score is ${agentic.score}, expected 100`);
-      failed = true;
-    }
-    if (!failed) {
+    // Is Agentic scores an origin, not a path. An origin score cannot stand
+    // in for this app when it is hosted below someone else's landing page.
+    if (agenticTarget) {
+      const agentic = await checkAgentic({
+        origin: agenticOrigin,
+        target: agenticTarget,
+        maxAgeMs: agenticMaxAgeMs,
+        reportPath: agenticReport,
+      });
       console.log(
-        `PASS: perfect web scores for ${targetUrl.href}; Is Agentic origin ${agenticTarget}`,
+        `Is Agentic: ${JSON.stringify({
+          target: agentic.target,
+          score: agentic.score,
+          score_label: agentic.score_label,
+          scanned_at: agentic.scanned_at,
+        })}`,
+      );
+      if (agentic.score !== 100) {
+        console.error(
+          `FAIL: Is Agentic score is ${agentic.score}, expected 100`,
+        );
+        failed = true;
+      }
+    } else {
+      console.log(
+        "Is Agentic: skipped; it cannot score the requested path or query",
       );
     }
+    if (!failed) {
+      console.log(`PASS: web-score checks for ${targetUrl.href}`);
+    }
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
     if (!cleanedUp) {
       cleanedUp = true;
       await cleanup(children, profileDir);
     }
-    if (failed) {
-      for (const [from, to] of [
-        [lighthouseRunReport, failedLighthouseReport],
-        [agenticRunReport, failedAgenticReport],
-      ]) {
-        try {
-          copyFileSync(from, to);
-        } catch {
-          // The failing half may not have produced a report.
-        }
-      }
-    }
-    rmSync(lighthouseRunReport, { force: true });
-    rmSync(agenticRunReport, { force: true });
   }
   if (failed) process.exitCode = 1;
 }
