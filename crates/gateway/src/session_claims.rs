@@ -4,6 +4,18 @@ use opensesame_domain::{ActorId, OrganizationId, OrganizationRole, PrincipalId, 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+/// Exact operation grant required to send sealed attachment bytes through a
+/// tenant's configured provider connection.
+pub const ATTACHMENT_REPLICATE_CAPABILITY: &str = "sealed_store.attach.replicate";
+
+fn native_capability_ceiling(role: OrganizationRole) -> Vec<String> {
+    let mut capabilities = vec!["host:user".into()];
+    if role.can_configure_integrations() {
+        capabilities.push(ATTACHMENT_REPLICATE_CAPABILITY.into());
+    }
+    capabilities
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Assurance {
@@ -75,7 +87,7 @@ impl HostSessionClaims {
             last_step_up_at: None,
             dpop_jkt: None,
             origin: None,
-            capability_ceiling: vec!["host:user".into()],
+            capability_ceiling: native_capability_ceiling(organization_role),
             project_id: None,
             actor_id: None,
             credential_handle: None,
@@ -178,7 +190,7 @@ pub fn fixture(
         last_step_up_at: None,
         dpop_jkt: None,
         origin: None,
-        capability_ceiling: vec!["host:user".into()],
+        capability_ceiling: native_capability_ceiling(role),
         project_id: None,
         actor_id: None,
         credential_handle: None,
@@ -231,5 +243,31 @@ mod tests {
         for field in ["session_id", "session_digest", "access_token", "token"] {
             assert!(view.get(field).is_none());
         }
+    }
+
+    #[test]
+    fn only_native_administrators_receive_attachment_replication_authority() {
+        for role in [OrganizationRole::Owner, OrganizationRole::Admin] {
+            let claims = fixture(
+                PrincipalId::new(),
+                OrganizationId::new(),
+                role,
+                "https://host.test",
+            );
+            assert!(claims
+                .capability_ceiling
+                .iter()
+                .any(|cap| cap == ATTACHMENT_REPLICATE_CAPABILITY));
+        }
+        let member = fixture(
+            PrincipalId::new(),
+            OrganizationId::new(),
+            OrganizationRole::Member,
+            "https://host.test",
+        );
+        assert!(!member
+            .capability_ceiling
+            .iter()
+            .any(|cap| cap == ATTACHMENT_REPLICATE_CAPABILITY));
     }
 }

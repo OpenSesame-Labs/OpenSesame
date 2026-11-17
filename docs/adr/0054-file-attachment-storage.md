@@ -154,8 +154,9 @@ curl -X PUT "$HOST/api/v1/attachments/target" \
   -H "X-OpenSesame-Operator: $OPERATOR_TOKEN" \
   -d '{"connection_id":"'$ID'","folder_path":"/OpenSesame/attachments"}'
 
-# 3. Push sealed bytes. The client drives this; the Host injects the
-#    provider credential and forwards.
+# 3. Push sealed bytes. The client drives this; the Host requires an owner or
+#    admin session with the exact `sealed_store.attach.replicate` operation
+#    grant, then injects the provider credential and forwards.
 opensesame pass attach sync
 ```
 

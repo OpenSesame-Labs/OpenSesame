@@ -23,7 +23,8 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::app_state::AppState;
-use crate::middleware::auth::{require_operator, resolve_caller, Caller};
+use crate::middleware::auth::{require_operator, require_session, Caller};
+use crate::session_claims::ATTACHMENT_REPLICATE_CAPABILITY;
 
 /// Largest sealed chunk frame: 1 MiB of plaintext plus AEAD overhead, rounded
 /// to the chunk ceiling the store writes. Anything larger did not come from
@@ -76,6 +77,31 @@ fn require_configurator(
 ) -> Result<Caller, Response> {
     require_operator(st, headers)?;
     Ok(Caller::Operator)
+}
+
+fn require_replication_authority(
+    st: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> Result<opensesame_domain::OrganizationId, Response> {
+    if let Ok((_, claims)) = require_session(st, headers) {
+        let granted = claims
+            .capability_ceiling
+            .iter()
+            .any(|cap| cap == ATTACHMENT_REPLICATE_CAPABILITY);
+        if claims.organization_role.can_configure_integrations() && granted {
+            return Ok(claims.organization_id);
+        }
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": "forbidden",
+                "hint": "attachment replication requires an administrator session with sealed_store.attach.replicate",
+            })),
+        )
+            .into_response());
+    }
+    require_operator(st, headers)?;
+    Ok(st.connection_organization)
 }
 
 fn target_view(target: &AttachmentTarget) -> serde_json::Value {
@@ -367,11 +393,10 @@ pub async fn replicate_chunk(
     Query(query): Query<ChunkQuery>,
     body: Bytes,
 ) -> Response {
-    let who = match resolve_caller(&st, &headers) {
-        Ok(who) => who,
+    let organization = match require_replication_authority(&st, &headers) {
+        Ok(organization) => organization,
         Err(resp) => return resp,
     };
-    let organization = who.organization(st.connection_organization);
 
     if !valid_digest(&query.digest) {
         return unprocessable(
@@ -419,11 +444,10 @@ pub async fn replicate_manifest(
     Query(query): Query<ManifestQuery>,
     body: Bytes,
 ) -> Response {
-    let who = match resolve_caller(&st, &headers) {
-        Ok(who) => who,
+    let organization = match require_replication_authority(&st, &headers) {
+        Ok(organization) => organization,
         Err(resp) => return resp,
     };
-    let organization = who.organization(st.connection_organization);
 
     if !valid_logical_path(&query.path) {
         return unprocessable(
@@ -898,3 +922,7 @@ mod tests {
         assert!(upload_shape("no-such-provider").is_none());
     }
 }
+
+#[cfg(test)]
+#[path = "attachments_authority_tests.rs"]
+mod authority_tests;
