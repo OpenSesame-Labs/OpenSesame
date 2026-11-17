@@ -1,0 +1,17 @@
+# Copy to a private .tfvars file and choose an immutable template version.
+# This VM includes Docker and Compose; it does not deploy OpenSesame by itself.
+instances = {
+  host = {
+    name     = "opensesame-host"
+    template = "agent37-ubuntu"
+    type     = "vm"
+    region   = "us"
+    resources = {
+      cpu    = 2
+      memory = 4
+      disk   = 20
+    }
+    auto_sleep = false
+    metadata   = { environment = "example" }
+  }
+}
