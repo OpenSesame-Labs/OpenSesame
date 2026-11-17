@@ -1,12 +1,20 @@
 variable "api_base_url" {
-  description = "Agent37 API origin. A loopback HTTP origin is permitted for local tests."
+  description = "Agent37 API origin. Loopback HTTP requires the explicit local-test opt-in."
   type        = string
   default     = "https://api.agent37.com"
 
   validation {
-    condition     = can(regex("^https://api[.]agent37[.]com/?$|^http://127[.]0[.]0[.]1:[0-9]+/?$", var.api_base_url))
-    error_message = "Use the Agent37 HTTPS API origin or a loopback HTTP test server."
+    condition = can(regex("^https://api[.]agent37[.]com/?$", var.api_base_url)) || (
+      var.allow_http_loopback && can(regex("^http://127[.]0[.]0[.]1:[0-9]+/?$", var.api_base_url))
+    )
+    error_message = "Use the Agent37 HTTPS API origin; a loopback HTTP test server requires allow_http_loopback = true."
   }
+}
+
+variable "allow_http_loopback" {
+  description = "Allow an unencrypted loopback API endpoint for local tests with a test-only key."
+  type        = bool
+  default     = false
 }
 
 variable "instances" {

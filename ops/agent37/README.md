@@ -65,12 +65,17 @@ in both the API request and state, so never put secrets in them. Agent37 may
 also return application log tails in a failure response. Protect state and
 saved plans as sensitive data. Use the provided wrapper for every operation:
 the pinned REST provider can expose the bearer token in debug logs. The wrapper
-clears Terraform logging overrides and sets `TF_LOG=OFF`; do not enable logging
-or provider debugging with a live key.
+clears Terraform logging overrides and sets `TF_LOG=OFF`; it also clears other
+`REST_API_*` variables so inherited settings cannot disable TLS verification or
+change API methods. Do not enable logging or provider debugging with a live key.
+The API origin defaults to Agent37 HTTPS. An HTTP endpoint is allowed only on
+loopback when `allow_http_loopback = true`, for tests with a test-only key.
 
 Do not import an existing instance with the pinned provider: version 3.0.0
 enables request debugging during import and retains that setting in the
-imported state. Terraform logging can then expose the API key. For an
+imported state. Terraform logging can then expose the API key. The wrapper
+rejects the `import` command before starting Terraform; do not bypass it or add
+Terraform `import` blocks to this configuration. For an
 interrupted create, check the correct Agent37 workspace for an orphan before
 retrying; a retry can allocate a second instance. Preserve any data before
 retiring an orphan, or manage it outside Terraform until a safe import path is
