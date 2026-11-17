@@ -128,10 +128,7 @@ async function passwordSteps(page, step, check, first, label) {
   await page.locator(".coach__btn--go").click();
   await step("editor.password-options", first + 2);
   await page.getByRole("button", { name: "Password options" }).first().click();
-  if (process.env.TUTORIALS_RECOVERY === "1") {
-    await recoverPasswordOptions(page, check, label);
-  }
-  await step("editor.pepper", first + 3);
+  await preparePepperStep(page, step, check, first, label);
   await page.getByLabel("Include pepper").uncheck();
   await step("editor.generate-password", first + 4);
   if (process.env.TUTORIALS_PEPPER_BACK === "1") {
@@ -177,6 +174,29 @@ async function passwordSteps(page, step, check, first, label) {
     (await page.locator(".coach").count()) === 0,
     `${label}: finishing does not immediately start another tutorial`,
   );
+}
+
+async function preparePepperStep(page, step, check, first, label) {
+  if (process.env.TUTORIALS_RECOVERY === "1") {
+    await recoverPasswordOptions(page, check, label);
+  }
+  await step("editor.pepper", first + 3);
+  if (process.env.TUTORIALS_PEPPER_BACK !== "1") return;
+  const options = page
+    .getByRole("button", { name: "Password options" })
+    .first();
+  await options.click();
+  const waiting = page.locator(
+    '.coach[data-coach-target="editor.pepper"][data-coach-degraded="true"]',
+  );
+  await waiting.waitFor({ timeout: 15000 });
+  check(
+    (await waiting.locator(".coach__btn--go").getAttribute("aria-disabled")) ===
+      "true",
+    `${label}: closing options does not turn pepper off or advance`,
+  );
+  await options.click();
+  await step("editor.pepper", first + 3);
 }
 
 async function revisitPepper(page, step, check, first, label) {

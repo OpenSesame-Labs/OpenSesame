@@ -30,17 +30,25 @@ describe("account editor: pepper (ADR 0174)", () => {
   it("tracks the option for authored guides without exposing it to model context", async () => {
     open("/vault/new/account");
     const password = block("Password");
+    const options = password.getByRole("button", { name: "Password options" });
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
     await showOptions(password);
-    const pepper = password.getByLabelText("Include pepper");
     expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
     expect(
       describeGuideTargets("/vault").some(
         (target) => target.id === "editor.pepper-enabled",
       ),
     ).toBe(false);
-    await userEvent.click(pepper);
+    await userEvent.click(options);
+    expect(password.queryByLabelText("Include pepper")).toBeNull();
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
+    await userEvent.click(options);
+    await userEvent.click(password.getByLabelText("Include pepper"));
     expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(false);
-    await userEvent.click(pepper);
+    await userEvent.click(options);
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(false);
+    await userEvent.click(options);
+    await userEvent.click(password.getByLabelText("Include pepper"));
     expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
   });
 

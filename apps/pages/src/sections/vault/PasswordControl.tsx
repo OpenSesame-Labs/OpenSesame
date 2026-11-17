@@ -1,7 +1,7 @@
 import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
 import type { PasswordMethod } from "@opensesame/vault-core";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import {
   IconEye,
@@ -9,7 +9,10 @@ import {
   IconRefresh,
   IconSettings,
 } from "../../components/Icons.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import {
+  useGuideTarget,
+  useOptionalGuideTarget,
+} from "../../tutorial/registry/react.jsx";
 import {
   holdValue,
   regenerate,
@@ -42,6 +45,17 @@ export function PasswordControl({
   );
   const optionsRef = useGuideTarget<HTMLButtonElement>(
     "editor.password-options",
+  );
+  // The state marker must survive closing the options panel.
+  const enabledRef = useOptionalGuideTarget<HTMLButtonElement>(
+    method.pepper ? "editor.pepper-enabled" : undefined,
+  );
+  const bindOptions = useCallback(
+    (element: HTMLButtonElement | null) => {
+      optionsRef(element);
+      enabledRef(element);
+    },
+    [optionsRef, enabledRef],
   );
   const { generator } = method;
   return (
@@ -81,7 +95,7 @@ export function PasswordControl({
       ) : null}
       <IconKey
         label="Password options"
-        keyRef={optionsRef}
+        keyRef={bindOptions}
         aria-expanded={options.open}
         aria-controls={options.controls}
         onClick={options.onToggle}
