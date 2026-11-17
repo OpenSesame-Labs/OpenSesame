@@ -46,6 +46,25 @@ const PENDING = {
 };
 
 describe("trust is resolved again on the way back in", () => {
+  const reboundIssuer = "http://127.0.0.1:1";
+  function byoContext(id: string): AppContext {
+    const ctx = ctxWith({
+      allowDevDefaults: true,
+      trustedUpstreamIssuers: [],
+    });
+    ctx.repos.byoUpstreams.findByIssuer = async () => ({
+      id,
+      issuer: reboundIssuer,
+      label: "Local",
+      clientId: "client",
+      clientAuth: "none",
+      registrationSource: "manual",
+      state: "active",
+      createdAt: new Date(),
+    });
+    return ctx;
+  }
+
   /**
    * The pending cookie names its own issuer. Trusting it because "we checked
    * at start" would let a cookie minted before an issuer lost its authority —
@@ -68,6 +87,20 @@ describe("trust is resolved again on the way back in", () => {
       completeFederatedAuth(
         ctxWith(),
         { ...PENDING, issuer: "https://evil.example" },
+        new URL("https://identity.example/cb?code=c&state=st"),
+      ),
+    ).rejects.toMatchObject({ code: "untrusted_issuer" });
+  });
+
+  it.each([
+    ["organization source", { orgId: "org:original" }],
+    ["different visitor record", { byoId: "byo:original" }],
+    ["legacy source without provenance", {}],
+  ])("refuses a callback rebound from %s", async (_label, provenance) => {
+    await expect(
+      completeFederatedAuth(
+        byoContext("byo:replacement"),
+        { ...PENDING, issuer: reboundIssuer, ...provenance },
         new URL("https://identity.example/cb?code=c&state=st"),
       ),
     ).rejects.toMatchObject({ code: "untrusted_issuer" });

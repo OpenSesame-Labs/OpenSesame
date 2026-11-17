@@ -130,7 +130,8 @@
     "skills:sync": "node scripts/dev/sync-agent-skills.mjs",
     "skills:check": "node scripts/dev/sync-agent-skills.mjs --check",
     "deps:install": "bash scripts/dev/install-dependencies.sh",
-    "test:ci-promotion": "node --test scripts/release/*.test.mjs"
+    "test:ci-promotion": "node --test scripts/release/*.test.mjs",
+    "verify:auth-source": "node spec/auth-verification/source/verify.mjs && node --test spec/auth-verification/source/verify.test.mjs spec/auth-verification/source/extended.test.mjs"
   },
   "devDependencies": {
     "@levischuck/tiny-cbor": "file:patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",

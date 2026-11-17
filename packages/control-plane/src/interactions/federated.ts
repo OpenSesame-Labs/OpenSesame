@@ -8,6 +8,10 @@ import {
 import { mintAppleClientSecret } from "./apple-secret.js";
 import { siteOrigin, upstreamFetch } from "./federated-fetch.js";
 import type { PendingFederatedAuth } from "./federated-pending.js";
+import {
+  pendingProvenance,
+  trustMatchesPending,
+} from "./federated-trust-binding.js";
 import type { OidcProviderDescriptor } from "./registry.js";
 import { type TrustResolution, resolveTrustedIssuer } from "./trust.js";
 
@@ -465,17 +469,11 @@ async function resolveOrRefuse(
   return trust;
 }
 
-/** The v2 pending fields a trust resolution implies (C3). */
-function pendingProvenance(
-  trust: TrustResolution,
-): Pick<PendingFederatedAuth, "kind" | "providerId" | "byoId" | "orgId"> {
-  if (trust.source === "static") {
-    return { kind: trust.provider.kind, providerId: trust.provider.id };
-  }
-  if (trust.source === "byo") {
-    return { kind: "oidc", byoId: trust.record.id };
-  }
-  return { kind: "oidc", orgId: trust.organizationId };
+function rejectTrustRebinding(): never {
+  throw new FederatedAuthError(
+    "untrusted_issuer",
+    "The authority for that sign-in provider changed. Start the sign-in again.",
+  );
 }
 
 /**
@@ -528,6 +526,7 @@ export async function completeFederatedAuth(
   currentUrl: URL,
 ): Promise<FederatedIdentity> {
   const trust = await resolveOrRefuse(ctx, pending.issuer);
+  if (!trustMatchesPending(trust, pending)) rejectTrustRebinding();
   const mode = await clientModeFor(ctx.config, trust);
   const config = await upstreamConfiguration(ctx, pending.issuer, mode);
 

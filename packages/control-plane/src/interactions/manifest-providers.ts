@@ -5,7 +5,7 @@
  * file declares endpoints, scopes and a subject field, and the platform's
  * own token-exchange legs execute it (ADR 0055 §3 keeps those modules
  * platform-owned). Loaded descriptors join the *static* provider set, so
- * `resolveTrustedIssuer`'s static → BYO → org order is preserved by
+ * `resolveTrustedIssuer`'s static → org → BYO order is preserved by
  * construction — that function is deliberately untouched.
  *
  * Fail-closed rules, each the lesson of a survey incident

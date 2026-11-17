@@ -206,6 +206,182 @@ jobs:
           HEAD_SHA: ''
         run: bash .ci-control/scripts/test/mobile-changed.sh
 
+  behavior-verification:
+    name: Behavior models, proofs and browser properties
+    needs: admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    env:
+      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+    steps:
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci-control
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          sparse-checkout: |
+            .github/workflows
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          ref: ${{ env.CANDIDATE_REVISION }}
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+          printf '%s\n' '.ci-control/' >> .git/info/exclude
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          cache: false
+          install_args: node java
+      - name: Install the candidate source's test dependencies
+        run: npm ci --ignore-scripts
+      - name: Obtain the reviewed TLC release
+        run: |
+          curl --fail --show-error --location --retry 3 --max-time 120 \
+            --proto '=https' --proto-redir '=https' --max-filesize 10485760 \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar \
+            --output "$RUNNER_TEMP/tla2tools.jar"
+          printf '%s  %s\n' '936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88' "$RUNNER_TEMP/tla2tools.jar" | sha256sum --check
+          java -version
+      - name: Check verification inventory
+        run: |
+          node --test scripts/formal/ledger.test.mjs
+          node scripts/formal/inventory.mjs --check
+      - name: Check every finite behavior model
+        env:
+          TLA2TOOLS_JAR: ${{ runner.temp }}/tla2tools.jar
+        run: |
+          npm run verify:behavior-models -w @opensesame/pages
+          node --test spec/ui-behavior/toast-model-fault.test.mjs
+          node --test spec/ui-behavior/roving-tabs-model-fault.test.mjs
+          node --test spec/auth-verification/provisional-session-counterexample.test.mjs
+          node --test spec/auth-verification/native-oidc-evidence-counterexample.test.mjs
+          node --test spec/auth-verification/webauthn-model-fault.test.mjs
+          node --test spec/auth-verification/device-model-fault.test.mjs
+          node --test spec/auth-verification/agent-registration-model-fault.test.mjs
+          node --test spec/auth-verification/claim-lifecycle-model-fault.test.mjs
+          node --test spec/auth-verification/saml-replay-model-fault.test.mjs
+          node --test spec/auth-verification/passkey-race-model-fault.test.mjs
+          node --test spec/auth-verification/issuer-trust-model-fault.test.mjs
+          node --test spec/auth-verification/federated-pending-model-fault.test.mjs
+          node --test spec/auth-verification/federated-trust-model-fault.test.mjs
+      - name: Exercise production behavior against generated cases
+        run: |
+          npm exec -w @opensesame/pages -- vitest run \
+            src/sections/connections/connect/ConnectorModes.test.tsx \
+            src/sections/connections/BackupEnableSwitch.lifecycle.property.test.tsx \
+            src/sections/settings/CapabilitySwitch.behavior.test.tsx \
+            src/sections/settings/CapabilitySwitch.settings.integration.test.tsx \
+            src/sections/settings/ProviderTiles.test.tsx \
+            src/sections/settings/IntegrationSections.roads.test.tsx \
+            src/components/AppShell.test.tsx \
+            src/components/InlineRecommendations.behavior.test.tsx \
+            src/components/NoticeCorner.test.tsx \
+            src/components/NoticeCorner.behavior.test.tsx \
+            src/components/Notices.test.tsx \
+            src/components/Recommender.test.tsx \
+            src/components/ToastStack.test.tsx \
+            src/components/ToastStack.offer.test.tsx \
+            src/components/ToastStack.reading.test.tsx \
+            scripts/saml-browser-crypto.integration.test.mjs \
+            src/lib/capabilities/classification.test.ts \
+            src/lib/capabilities/classification-notification-ownership.test.ts \
+            src/tutorial/first-visit/FirstVisitOffer.placement.test.tsx \
+            src/tutorial/tutorial-route.property.test.tsx \
+            src/screens/use-roving-tabs.property.test.tsx
+          npm exec -w @opensesame/app-core -- vitest run \
+            src/browser/oidc/transaction.auth-proof.properties.test.ts \
+            src/browser/oidc/evidence-custody.property.test.ts \
+            src/browser/saml/assertion.test.ts \
+            src/browser/saml/replay-custody.property.test.ts \
+            src/browser/saml/admission.test.ts \
+            src/browser/saml/metadata.test.ts \
+            src/browser/saml/configured-runtime.test.ts \
+            src/browser/saml/authn-request.test.ts \
+            src/browser/saml/xml-crypto-certificate.test.ts \
+            src/lib/identity-saml-activation.test.ts \
+            src/lib/local-passkeys.test.ts \
+            src/lib/secret-backends/bitwarden-native-kdf.test.ts \
+            src/lib/duress/crypto/slot-secret-lifetime.test.ts \
+            src/lib/duress/crypto/slots.test.ts \
+            src/tutorial/registry/context.test.ts \
+            src/tutorial/registry/routes.test.ts \
+            src/lib/federation-pending.property.test.ts \
+            src/lib/github-connection-lifecycle.property.test.ts \
+            src/lib/notice-toast.test.ts \
+            src/lib/recommendations.test.ts \
+            src/lib/vault/vault-interaction.property.test.ts
+          npm exec -w @opensesame/control-plane -- vitest run \
+            src/__tests__/auth-admission.properties.test.ts \
+            src/__tests__/auth-session-interleaving.property.test.ts \
+            src/__tests__/webauthn-challenge.property.test.ts \
+            src/__tests__/device-authorization.property.test.ts \
+            src/__tests__/agent-registration.property.test.ts \
+            src/__tests__/claim-lifecycle.property.test.ts \
+            src/__tests__/passkey-store.property.test.ts \
+            src/__tests__/passkey-durable-race.test.ts \
+            src/__tests__/issuer-trust.property.test.ts \
+            src/__tests__/federated-pending-integrity.test.ts \
+            src/__tests__/federated-pending-integrity.property.test.ts \
+            src/__tests__/federated-trust-binding.property.test.ts \
+            src/__tests__/federated.units.test.ts
+          npm exec -w @opensesame/auth-upstream -- vitest run \
+            src/__tests__/assertion-purpose-boundary.test.ts \
+            src/__tests__/passkey-verification-race.test.ts \
+            src/__tests__/webauthn-adapter.test.ts \
+            src/__tests__/webauthn.test.ts
+          npm exec -w @opensesame/os-domain -- vitest run \
+            src/__tests__/authorization-request-finite.test.ts \
+            src/__tests__/claim-completion-identity.test.ts
+          npm exec -w @opensesame/support-agent -- vitest run \
+            src/egress-routes.test.ts
+      - name: Obtain the reviewed Lean release
+        run: |
+          curl --fail --show-error --location --retry 3 --max-time 600 \
+            --proto '=https' --proto-redir '=https' --max-filesize 524288000 \
+            https://github.com/leanprover/lean4/releases/download/v4.24.0/lean-4.24.0-linux.tar.zst \
+            --output "$RUNNER_TEMP/lean.tar.zst"
+          printf '%s  %s\n' 'b14f5e5159219dd1a1956c3b806813319f5e94ccd5bdfd56f54520609a5bb5ec' "$RUNNER_TEMP/lean.tar.zst" | sha256sum --check
+          mkdir "$RUNNER_TEMP/lean"
+          tar --zstd --extract --file "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 \
+            --no-same-owner --no-same-permissions --directory "$RUNNER_TEMP/lean"
+          "$RUNNER_TEMP/lean/bin/lean" --version
+      - name: Check authentication proofs and their negative controls
+        env:
+          LEAN_BIN: ${{ runner.temp }}/lean/bin/lean
+        run: |
+          node spec/auth-verification/verify.mjs
+          node --test spec/auth-verification/verify.test.mjs
+          npm run verify:auth-source
+      - name: Explore the real UI component with Bombadil
+        env:
+          TMPDIR: ${{ runner.temp }}/ui-behavior
+        run: |
+          mkdir -p "$TMPDIR"
+          google-chrome --version
+          npm run verify:ui-properties -w @opensesame/pages
+      - name: Verify the browser property detects a known violation
+        env:
+          TMPDIR: ${{ runner.temp }}/ui-behavior
+        run: |
+          npm run verify:ui-properties -w @opensesame/pages -- --self-check
+      - name: Retain browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ui-behavior-${{ inputs.source_sha }}
+          path: ${{ runner.temp }}/ui-behavior/
+          if-no-files-found: warn
+          retention-days: 14
+
   typescript-tests:
     name: TypeScript tests
     needs: changes
@@ -1952,7 +2128,7 @@ jobs:
 
   gate:
     name: Prerelease gate
-    needs: [admission, changes, typescript-tests, bundle, ai-connections-e2e, tailnet-browser-node-e2e, device-inbox, push-e2e, device-identity-e2e, tutorials-e2e, live-join-e2e, rust, android-native, apple-native, mtls, typescript, bundle-check, rust-check, complete-verify, native-platform, password-parity, container, native-wasm, autofill-browser, sync-target-security, coverage, artifact-materialize, artifact-smoke]
+    needs: [admission, changes, behavior-verification, typescript-tests, bundle, ai-connections-e2e, tailnet-browser-node-e2e, device-inbox, push-e2e, device-identity-e2e, tutorials-e2e, live-join-e2e, rust, android-native, apple-native, mtls, typescript, bundle-check, rust-check, complete-verify, native-platform, password-parity, container, native-wasm, autofill-browser, sync-target-security, coverage, artifact-materialize, artifact-smoke]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
