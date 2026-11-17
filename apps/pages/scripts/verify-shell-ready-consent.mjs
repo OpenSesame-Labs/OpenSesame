@@ -4,7 +4,7 @@
  *
  *   npm run verify:shell-ready-consent -w @opensesame/pages
  *
- * The before shell is `git show origin/main:apps/pages/src/bindings/shell-ready.ts`,
+ * The before shell is pinned via `SHELL_READY_BEFORE_SHA` (default merge-base SHA).
  * swapped over the reviewed shell for that build. There is no checked-in pre-fix fixture.
  */
 
@@ -40,9 +40,12 @@ function runVitest(relativeSpecs, logName) {
   if (result.status !== 0) throw new Error(`vitest failed: ${relativeSpecs}`);
 }
 
-const MAIN_SHELL_SPEC = "origin/main:apps/pages/src/bindings/shell-ready.ts";
+const DEFAULT_MAIN_BEFORE_SHA = "057eea4200ac9350176eefc3eecfa014840edd58";
 
 function mainShellSource() {
+  const sha =
+    process.env.SHELL_READY_BEFORE_SHA?.trim() || DEFAULT_MAIN_BEFORE_SHA;
+  const MAIN_SHELL_SPEC = `${sha}:apps/pages/src/bindings/shell-ready.ts`;
   const result = spawnSync("git", ["show", MAIN_SHELL_SPEC], {
     cwd: repoRoot,
     encoding: "utf8",

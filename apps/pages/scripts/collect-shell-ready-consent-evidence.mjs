@@ -2,7 +2,8 @@
 /**
  * #2610 evidence: behavior test main-fail, vault-shell profile PNGs, Playwright consent timing.
  *
- * The before shell is `git show origin/main:apps/pages/src/bindings/shell-ready.ts`.
+ * The before shell is `git show <SHELL_READY_BEFORE_SHA>:apps/pages/src/bindings/shell-ready.ts`
+ * (default pinned merge-base, not a moving `origin/main` ref).
  * Full-profile timing only: `CONSENT_PROFILES=full`.
  * A missing Playwright main-vs-fix delta warns; `app-root.shell-ready.test.tsx` stays authoritative.
  */
@@ -47,9 +48,17 @@ if (!behaviorTestSource.includes("withdraws contributed")) {
   );
 }
 
-const MAIN_SHELL_SPEC = "origin/main:apps/pages/src/bindings/shell-ready.ts";
+const DEFAULT_MAIN_BEFORE_SHA = "057eea4200ac9350176eefc3eecfa014840edd58";
+
+function mainShellBeforeSha() {
+  return (
+    process.env.SHELL_READY_BEFORE_SHA?.trim() || DEFAULT_MAIN_BEFORE_SHA
+  );
+}
 
 function mainShellSource() {
+  const sha = mainShellBeforeSha();
+  const MAIN_SHELL_SPEC = `${sha}:apps/pages/src/bindings/shell-ready.ts`;
   const result = spawnSync("git", ["show", MAIN_SHELL_SPEC], {
     cwd: repoRoot,
     encoding: "utf8",
@@ -60,7 +69,7 @@ function mainShellSource() {
       `git show ${MAIN_SHELL_SPEC} failed (${result.status ?? "no exit"}): ${result.stderr ?? ""}`,
     );
   }
-  return source;
+  return { source, sha, spec: MAIN_SHELL_SPEC };
 }
 
 function vitest(spec, cwd, { expectFail = false }) {
@@ -106,8 +115,16 @@ function withShellSource(source, fn) {
 }
 
 const fixedSource = readFileSync(shellReadyPath, "utf8");
-const mainSource = mainShellSource();
+const {
+  source: mainSource,
+  sha: mainShellSha,
+  spec: mainShellSpec,
+} = mainShellSource();
 writeFileSync(join(logDir, "main-shell-ready.snapshot.ts"), mainSource);
+writeFileSync(
+  join(logDir, "main-shell-before.json"),
+  `${JSON.stringify({ sha: mainShellSha, spec: mainShellSpec }, null, 2)}\n`,
+);
 
 const mainFailLog = withShellSource(mainSource, () =>
   vitest(BEHAVIOR_SPEC, pagesRoot, { expectFail: true }),
@@ -184,6 +201,7 @@ for (const walk of timingWalks) {
 
 const report = {
   behaviorTest: BEHAVIOR_SPEC,
+  shellReadyBeforeSha: mainShellSha,
   playwright: {
     activationDelayMs: Number(timingDelayMs),
     byProfile: timingByProfile,

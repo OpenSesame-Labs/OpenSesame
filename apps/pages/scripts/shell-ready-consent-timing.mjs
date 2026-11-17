@@ -31,10 +31,11 @@ import { BASE, emptyRecord } from "./lib/verification-checklist-shot.mjs";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
 
-const ACTIVATION_DELAY_MS = Number(
-  process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS ?? 2_500,
-);
 const SAMPLE_MS = Number(process.env.SHELL_READY_CONSENT_SAMPLE_MS ?? 450);
+
+function activationDelayMs() {
+  return Number(process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS ?? 2_500);
+}
 
 async function sampleConsent(page) {
   return page.evaluate(() => ({
@@ -56,6 +57,7 @@ export async function captureConsentActivationTiming({
   outDir,
   walk = { name: "default", setupChoice: "Default" },
 }) {
+  const ACTIVATION_DELAY_MS = activationDelayMs();
   mkdirSync(outDir, { recursive: true });
   const discovery = findChromium();
   if (!discovery.path) throw new Error("no chromium");
