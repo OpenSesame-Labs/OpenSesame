@@ -260,6 +260,13 @@
       "when": 1794949200420,
       "tag": "0036_calm_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794949200421,
+      "tag": "0037_legacy_membership_tokens",
+      "breakpoints": true
     }
   ]
 }
