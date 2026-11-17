@@ -15,7 +15,6 @@ import type {
   CapabilityId,
   EffectivePlan,
 } from "@opensesame/capability-composition";
-import { env } from "../../host.js";
 import { vaultStore } from "../vault/store.js";
 import { vaultIdOf } from "./invalidation.js";
 import { leaseIsCurrent } from "./lease.js";
@@ -70,24 +69,6 @@ function startBackgroundJobs(signal: AbortSignal): void {
 export const changeSeams = {
   activateApprovedCapability,
   deactivateGeneration,
-  /**
-   * Verify builds may stall before `markActivated` (Playwright consent timing).
-   *
-   * A production host never reads the delay unless `DEV` or
-   * `VITE_VERIFY_ACTIVATION_STALL` is set. Pages stamps those in
-   * `apps/pages/src/host/boot.ts` and constant-folds the delay out of a
-   * default production bundle. This coordinator reads the host env, the
-   * same port as every other build flag.
-   */
-  stallMarkActivated: async (_generation: number) => {
-    const built = env();
-    const verifyStall =
-      built.VITE_VERIFY_ACTIVATION_STALL === "1" ||
-      built.VITE_VERIFY_ACTIVATION_STALL === "true";
-    if (built.DEV !== true && !verifyStall) return;
-    const delay = Number(built.VITE_VERIFY_ACTIVATION_DELAY_MS ?? 0);
-    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-  },
 };
 
 /**
@@ -146,7 +127,6 @@ export function activatePlan(store: CompositionStore): () => void {
     }
     if (leaseIsCurrent(lease, store.getSnapshot().generation)) {
       startBackgroundJobs(lease.signal);
-      await changeSeams.stallMarkActivated(generation);
       markActivated(generation);
     }
   };

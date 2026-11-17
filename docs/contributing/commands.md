@@ -199,10 +199,8 @@ PLAYWRIGHT_CHROMIUM=<chromium-binary> \
 # (no checked-in pre-fix fixture). The after build is the reviewed shell.
 # Then it samples the local IAM popup during activation.
 # PAGES_VERIFY_OUT writes logs (default artifacts/shell-ready-consent).
-# Needs Playwright Chromium. The activation stall is
-# VITE_VERIFY_ACTIVATION_DELAY_MS, and only when the Pages build also sets
-# VITE_VERIFY_ACTIVATION_STALL=1 (or is a dev build). A default production
-# build does not read the delay.
+# Needs Playwright Chromium. Wall-clock activation sampling uses
+# SHELL_READY_CONSENT_ACTIVATION_DELAY_MS in the Playwright harness only.
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   npm run verify:shell-ready-consent -w @opensesame/pages
 # Run after changing the Pages boot path, opening state, or front-door copy.

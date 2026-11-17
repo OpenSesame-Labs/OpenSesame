@@ -122,11 +122,8 @@ const afterLog = vitest(
 );
 writeFileSync(join(logDir, "regression-after-fix.log"), afterLog);
 
-const delay = "2500";
-const viteEnv = {
-  VITE_VERIFY_ACTIVATION_STALL: "1",
-  VITE_VERIFY_ACTIVATION_DELAY_MS: delay,
-};
+const timingDelayMs = "2500";
+process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS = timingDelayMs;
 const scriptsDir = join(pagesRoot, "scripts");
 const profilesDir = join(pagesRoot, "capability-profiles");
 const walks = resolveWalks(profilesDir);
@@ -158,7 +155,6 @@ for (const walk of timingWalks) {
       scriptsDir,
       outDir: mainDist,
       capabilityProfile: walk.capabilityProfile,
-      viteEnv,
     });
   });
   withShellSource(fixedSource, () => {
@@ -167,7 +163,6 @@ for (const walk of timingWalks) {
       scriptsDir,
       outDir: fixDist,
       capabilityProfile: walk.capabilityProfile,
-      viteEnv,
     });
   });
   const beforeDir = join(outRoot, "consent-timing", walk.name, "main");

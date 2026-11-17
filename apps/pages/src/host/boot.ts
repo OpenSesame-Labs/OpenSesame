@@ -24,18 +24,6 @@ configureHost(
       VITE_HOST_API: import.meta.env.VITE_HOST_API,
       VITE_IDENTITY_API: import.meta.env.VITE_IDENTITY_API,
       VITE_SUPPORT_AGENT_URL: import.meta.env.VITE_SUPPORT_AGENT_URL,
-      // Same key-by-key stamp as the flags above. The delay is named only
-      // when DEV or the verify flag is on, so Vite drops that read from a
-      // default production bundle (a leaked VITE_VERIFY_ACTIVATION_DELAY_MS
-      // must not stall activation).
-      VITE_VERIFY_ACTIVATION_STALL: import.meta.env
-        .VITE_VERIFY_ACTIVATION_STALL,
-      VITE_VERIFY_ACTIVATION_DELAY_MS:
-        import.meta.env.DEV === true ||
-        import.meta.env.VITE_VERIFY_ACTIVATION_STALL === "1" ||
-        import.meta.env.VITE_VERIFY_ACTIVATION_STALL === "true"
-          ? import.meta.env.VITE_VERIFY_ACTIVATION_DELAY_MS
-          : undefined,
     },
     ...shellBuild,
   }),

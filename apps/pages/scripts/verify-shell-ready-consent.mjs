@@ -69,8 +69,6 @@ function buildDist(shellSource, distCopyTarget) {
         env: {
           ...process.env,
           VITE_BASE: "/OpenSesame/",
-          VITE_VERIFY_ACTIVATION_STALL: "1",
-          VITE_VERIFY_ACTIVATION_DELAY_MS: "2500",
         },
       },
     );
