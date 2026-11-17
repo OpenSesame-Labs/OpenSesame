@@ -60,7 +60,19 @@ export interface ScimUserStore {
     expectedRevision: string,
     next: ScimUserRecord,
   ): Promise<VersionedScimUser | undefined>;
-  listByOrganization(orgId: string): Promise<ScimUserRecord[]>;
+  /**
+   * Atomically create only while the tenant remains below its durable limit.
+   * Duplicate user names win over the capacity response; null means full.
+   */
+  createWithinLimit(
+    user: ScimUserRecord,
+    limit: number,
+  ): Promise<ScimUserRecord | null>;
+  countByOrganization(orgId: string): Promise<number>;
+  listByOrganization(
+    orgId: string,
+    page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]>;
 }
 
 /**

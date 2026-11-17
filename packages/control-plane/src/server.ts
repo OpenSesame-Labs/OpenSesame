@@ -1,5 +1,5 @@
-import http from "node:http";
 import type { OutgoingHttpHeader, OutgoingHttpHeaders } from "node:http";
+import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { pathToFileURL } from "node:url";
 import { getRequestListener } from "@hono/node-server";
@@ -388,7 +388,7 @@ function createDispatcher(
 export async function startServer(
   options: Parameters<typeof createControlPlane>[0] = {},
 ): Promise<StartedControlPlane> {
-  const { app, ctx, config } = createControlPlane(options);
+  const { app, ctx, config, withdrawalRecovery } = createControlPlane(options);
   const honoListener = getRequestListener(app.fetch);
   const oidcCallback = ctx.oauth.provider.callback();
   const dispatch = createDispatcher(ctx, honoListener, oidcCallback);
@@ -413,12 +413,12 @@ export async function startServer(
     // evidence (AT-TLS-FAKECONTEXT).
     preparePlainRequest(req, bindings());
     dispatch(req, res);
-  });
+  }).once("close", () => void withdrawalRecovery.stop());
 
   // The system owner principal row must exist before the first /auth prefetch
   // auto-admits an origin client owned by it (ADR 0050 R-A; the FK is real on
   // Postgres). Fail startup rather than fail the first admission.
-  await ctx.systemPrincipalReady;
+  await Promise.all([ctx.systemPrincipalReady, ctx.securityRecoveryReady]);
 
   await new Promise<void>((resolve, reject) => {
     server.listen(config.port, config.host, () => resolve());

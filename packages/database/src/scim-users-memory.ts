@@ -52,6 +52,26 @@ export class MemoryScimUserStore implements ScimUserStore {
     return normalizeScimUser(row);
   }
 
+  async createWithinLimit(
+    user: ScimUserRecord,
+    limit: number,
+  ): Promise<ScimUserRecord | null> {
+    this.checkScope(user.organizationId);
+    const row = normalizeScimUser(user);
+    if (this.#users.has(row.id)) {
+      throw new ConflictError(`scim user already exists: ${row.userName}`);
+    }
+    this.checkUserName(row);
+    if (this.ofOrg(row.organizationId).length >= limit) return null;
+    this.#users.set(row.id, { user: row, revision: randomUUID() });
+    this.touch(row.organizationId);
+    return normalizeScimUser(row);
+  }
+
+  async countByOrganization(orgId: string): Promise<number> {
+    return this.ofOrg(orgId).length;
+  }
+
   async getById(orgId: string, id: string): Promise<ScimUserRecord | null> {
     const row = this.#users.get(id)?.user;
     return row && row.organizationId === orgId ? normalizeScimUser(row) : null;
@@ -129,10 +149,16 @@ export class MemoryScimUserStore implements ScimUserStore {
     return { user: normalizeScimUser(row), revision };
   }
 
-  async listByOrganization(orgId: string): Promise<ScimUserRecord[]> {
-    return this.ofOrg(orgId)
+  async listByOrganization(
+    orgId: string,
+    page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]> {
+    const ordered = this.ofOrg(orgId)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(normalizeScimUser);
+    return page
+      ? ordered.slice(page.offset, page.offset + page.limit)
+      : ordered;
   }
 
   forkForTransaction(orgId: string): MemoryStoreFork<MemoryScimUserStore> {

@@ -33,6 +33,8 @@ export const HostChallenge = z
 type Challenge = z.infer<typeof HostChallenge>;
 export type HostAuthorizationPending = {
   principalId: string;
+  membershipIncarnation: string;
+  authorityRevision: string;
   challenge: Challenge;
   webauthnChallenge: string;
   transactionDigest: string;
@@ -107,7 +109,10 @@ async function activeOrganizationMembership(
 ) {
   const [organization, membership] = await Promise.all([
     ctx.stores.organizations.get(organizationId),
-    ctx.stores.organizationMemberships.find(organizationId, principalId),
+    ctx.stores.organizationMemberships.findVersioned(
+      organizationId,
+      principalId,
+    ),
   ]);
   return organization?.state === "active" ? membership : undefined;
 }
@@ -135,7 +140,8 @@ export async function beginHostAuthorization(
     challenge.organization_id,
     principalId,
   );
-  if (!membership) throw new Error("Host challenge refused");
+  if (!membership || membership.withdrawal)
+    throw new Error("Host challenge refused");
   hostSigningJwk(ctx);
   const transactionDigest = createHash("sha256")
     .update(JSON.stringify({ principalId, ...challenge }))
@@ -160,6 +166,8 @@ export async function beginHostAuthorization(
   }
   await ctx.stores.hostAuthorizations.set(authorizationId, {
     principalId,
+    membershipIncarnation: membership.incarnation,
+    authorityRevision: membership.authorityRevision,
     challenge,
     webauthnChallenge: issued.challenge,
     transactionDigest,
@@ -241,6 +249,9 @@ export async function completeHostAuthorization(
   const now = Math.floor(ctx.clock().getTime() / 1000);
   if (
     !membership ||
+    membership.withdrawal ||
+    membership.incarnation !== pending.membershipIncarnation ||
+    membership.authorityRevision !== pending.authorityRevision ||
     now >= pending.challenge.expires_at ||
     !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)
   )
@@ -249,7 +260,9 @@ export async function completeHostAuthorization(
   const key = await importJWK(jwk, "RS256");
   const assertion = await new SignJWT({
     ...pending.challenge,
-    organization_role: membership.role,
+    organization_role: membership.membership.role,
+    membership_incarnation: membership.incarnation,
+    authority_revision: membership.authorityRevision,
     auth_time: now,
     amr: ["webauthn"],
     assurance: "phishing_resistant",

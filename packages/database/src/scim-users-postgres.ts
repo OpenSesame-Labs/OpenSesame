@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
@@ -45,6 +45,74 @@ export class PostgresScimUserStore implements ScimUserStore {
       }
       throw error;
     }
+  }
+
+  async createWithinLimit(
+    user: ScimUserRecord,
+    limit: number,
+  ): Promise<ScimUserRecord | null> {
+    const row = normalizeScimUser(user);
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Lock the tenant through admission so separate API processes share it.
+        const [organization] = await tx
+          .select({ id: schema.organizations.id })
+          .from(schema.organizations)
+          .where(eq(schema.organizations.id, row.organizationId))
+          .for("update");
+        if (!organization) {
+          throw new Error(`scim organization not found: ${row.organizationId}`);
+        }
+        const [duplicate] = await tx
+          .select({ id: schema.scimUsers.id })
+          .from(schema.scimUsers)
+          .where(
+            and(
+              eq(schema.scimUsers.organizationId, row.organizationId),
+              eq(schema.scimUsers.userName, row.userName),
+            ),
+          )
+          .limit(1);
+        if (duplicate) {
+          throw new ConflictError(`scim user already exists: ${row.userName}`);
+        }
+        const [total] = await tx
+          .select({ value: count() })
+          .from(schema.scimUsers)
+          .where(eq(schema.scimUsers.organizationId, row.organizationId));
+        if (Number(total?.value ?? 0) >= limit) return null;
+        const [inserted] = await tx
+          .insert(schema.scimUsers)
+          .values({
+            id: row.id,
+            organizationId: row.organizationId,
+            externalId: row.externalId ?? null,
+            userName: row.userName,
+            active: row.active,
+            displayName: row.displayName ?? null,
+            raw: row.raw,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          })
+          .returning();
+        if (!inserted) throw new Error("insert scim user returned no row");
+        return mapScimUser(inserted);
+      });
+    } catch (error) {
+      if (error instanceof ConflictError) throw error;
+      if (isUniqueViolation(overlapCast(error))) {
+        throw new ConflictError(`scim user already exists: ${row.userName}`);
+      }
+      throw error;
+    }
+  }
+
+  async countByOrganization(orgId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ value: count() })
+      .from(schema.scimUsers)
+      .where(eq(schema.scimUsers.organizationId, orgId));
+    return Number(row?.value ?? 0);
   }
 
   async getVersioned(
@@ -161,12 +229,18 @@ export class PostgresScimUserStore implements ScimUserStore {
     return this.write(next, expectedRevision);
   }
 
-  async listByOrganization(orgId: string): Promise<ScimUserRecord[]> {
-    const rows = await this.db
+  async listByOrganization(
+    orgId: string,
+    page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]> {
+    const base = this.db
       .select()
       .from(schema.scimUsers)
       .where(eq(schema.scimUsers.organizationId, orgId))
       .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id));
+    const rows = page
+      ? await base.limit(page.limit).offset(page.offset)
+      : await base;
     return rows.map(mapScimUser);
   }
 }
