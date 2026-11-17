@@ -4,6 +4,7 @@ import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
 import {
   BetterAuthBridgeError,
+  betterAuthBridgeStatus,
   principalForBetterAuthSubject,
   upstreamAuthFor,
   verifyMagicLinkToken,
@@ -44,13 +45,6 @@ const ALLOWED_BETTER_AUTH_PATHS = new Set(["/sign-in/magic-link"]);
 
 /** Long enough for any token Better Auth mints; short enough not to be a buffer. */
 const MAX_TOKEN_LENGTH = 512;
-
-/**
- * The two ways the provisional-mint fence refuses. Both are "come back later",
- * so both answer 429 — the same mapping the interaction login route uses, so a
- * client does not have to learn which surface it is talking to.
- */
-const MINT_REFUSALS = new Set(["rate_limited", "provisional_capacity"]);
 
 export function createUpstreamAuthRoutes(
   ctx: AppContext,
@@ -100,7 +94,7 @@ export function createUpstreamAuthRoutes(
       if (error instanceof BetterAuthBridgeError) {
         return c.json(
           { error: error.code, message: error.message },
-          MINT_REFUSALS.has(error.code) ? 429 : 403,
+          betterAuthBridgeStatus(error.code),
         );
       }
       throw error;

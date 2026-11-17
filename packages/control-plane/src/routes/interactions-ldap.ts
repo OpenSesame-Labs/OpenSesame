@@ -37,7 +37,6 @@ import {
 } from "../ui/interaction-pages.js";
 import { jitJoinOrganization } from "./organizations.js";
 import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
-import { provisionedRoleForSubject } from "./scim.js";
 
 type NodeEnv = { Bindings: HttpBindings };
 
@@ -361,27 +360,25 @@ export function createLdapInteractionRoutes(
       }
     }
 
-    // Membership follows the bind: the tenant's own directory just vouched for
-    // this human, and the groups it listed decide the role. Where the bind
-    // named no group this tenant maps, a SCIM push may still have said what
-    // this subject joins as (C15) — the LDAP mapping wins because it comes
-    // from the directory that just authenticated them.
     const mappedRole = roleForGroups(config, bound.groups);
     const role =
       mappedRole ??
-      (Object.keys(config.groupRoleMap).length > 0
-        ? "member"
-        : await provisionedRoleForSubject(ctx, organization.id, bound.subject));
+      (Object.keys(config.groupRoleMap).length > 0 ? "member" : undefined);
     const joined = await jitJoinOrganization(ctx, {
       organization,
       principalId: accountId,
       subject: bound.subject,
       method: "ldap",
       correlationId,
-      ...(role !== undefined ? { role } : undefined),
+      ...(role !== undefined
+        ? { role, roleSource: "ldap" as const }
+        : undefined),
     });
     if (!joined.ok) {
-      return c.text(joined.message, 403);
+      return c.text(
+        joined.message,
+        joined.error === "membership_withdrawing" ? 503 : 403,
+      );
     }
 
     const returnTo = await finishLoginInteraction(
