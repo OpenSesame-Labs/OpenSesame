@@ -166,6 +166,20 @@ describe("the run's page", () => {
     expect(fake.injected.at(-1)).toBe("pfUnmask");
   });
 
+  it("rejects a still when another tab becomes active during capture", async () => {
+    const p = await pages();
+    await p.navigate(`${RP}/account/password`);
+    const other = await browser.tabs.create({ url: `${RP}/other` });
+    if (other.id === undefined) throw new Error("Fake tab missing id");
+    const otherId = other.id;
+    fake.onCapture = () => {
+      fake.onCapture = null;
+      fake.activateTab(otherId);
+    };
+    expect(await p.capture(["#new"])).toBeNull();
+    expect(fake.injected.at(-1)).toBe("pfUnmask");
+  });
+
   it("opens a private window for a fresh login, drives it, and closes it", async () => {
     const p = await pages();
     const before = fake.tabs.size;
