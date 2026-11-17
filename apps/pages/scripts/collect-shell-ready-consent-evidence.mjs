@@ -15,6 +15,10 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { captureVaultShellProfiles } from "./capture-vault-shell-profiles.mjs";
 import { captureConsentActivationTiming } from "./shell-ready-consent-timing.mjs";
+import {
+  buildDist as buildProfileDist,
+  resolveWalks,
+} from "./lib/verification-checklist-profiles.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
@@ -99,48 +103,83 @@ const afterLog = vitest(
 );
 writeFileSync(join(logDir, "regression-after-fix.log"), afterLog);
 
-const baselineDist = join(pagesRoot, "dist-shell-before");
-const fixedDist = join(pagesRoot, "dist");
 const delay = "2500";
-buildDist(mainSource, baselineDist, { delay });
-buildDist(fixedSource, fixedDist, { delay });
+const viteEnv = { VITE_VERIFY_ACTIVATION_DELAY_MS: delay };
+const scriptsDir = join(pagesRoot, "scripts");
+const profilesDir = join(pagesRoot, "capability-profiles");
+const walks = resolveWalks(profilesDir);
 
 const vaultOut = join(outRoot, "vault-shell-profiles");
 await captureVaultShellProfiles({ outDir: vaultOut });
 
-const timingBeforeDir = join(outRoot, "consent-timing-before");
-const timingAfterDir = join(outRoot, "consent-timing-after");
-const beforeTiming = await captureConsentActivationTiming({
-  distDir: baselineDist,
-  label: "main",
-  outDir: timingBeforeDir,
-});
-const afterTiming = await captureConsentActivationTiming({
-  distDir: fixedDist,
-  label: "fix",
-  outDir: timingAfterDir,
-});
+const timingByProfile = {};
+for (const walk of walks) {
+  const mainDist = join(pagesRoot, `dist-timing-${walk.name}-main`);
+  const fixDist = join(pagesRoot, `dist-timing-${walk.name}-fix`);
+  withShellSource(mainSource, () => {
+    buildProfileDist({
+      appRoot: pagesRoot,
+      scriptsDir,
+      outDir: mainDist,
+      capabilityProfile: walk.capabilityProfile,
+      viteEnv,
+    });
+  });
+  withShellSource(fixedSource, () => {
+    buildProfileDist({
+      appRoot: pagesRoot,
+      scriptsDir,
+      outDir: fixDist,
+      capabilityProfile: walk.capabilityProfile,
+      viteEnv,
+    });
+  });
+  const beforeDir = join(outRoot, "consent-timing", walk.name, "main");
+  const afterDir = join(outRoot, "consent-timing", walk.name, "fix");
+  const beforeTiming = await captureConsentActivationTiming({
+    distDir: mainDist,
+    label: "main",
+    outDir: beforeDir,
+    walk,
+  });
+  const afterTiming = await captureConsentActivationTiming({
+    distDir: fixDist,
+    label: "fix",
+    outDir: afterDir,
+    walk,
+  });
+  timingByProfile[walk.name] = { main: beforeTiming, fix: afterTiming };
+}
 
 const report = {
   behaviorTest: BEHAVIOR_SPEC,
   playwright: {
     activationDelayMs: Number(delay),
-    before: beforeTiming,
-    after: afterTiming,
+    byProfile: timingByProfile,
     expectBeforePreActivationConsent: true,
     expectAfterPreActivationConsent: false,
   },
 };
 writeFileSync(join(outRoot, "evidence-summary.json"), JSON.stringify(report, null, 2));
 
-if (beforeTiming.pre.consentHeading !== true) {
-  console.warn(
-    "WARNING: main build did not show consent pre-activation in Playwright; vitest behavior test remains authoritative.",
-  );
+let playwrightRepro = false;
+for (const [name, row] of Object.entries(timingByProfile)) {
+  const beforeShows =
+    row.main.pre.consentHeading === true || row.main.pre.consentStub;
+  const afterHidden =
+    row.fix.pre.consentHeading !== true &&
+    !row.fix.pre.consentStub &&
+    (row.fix.pre.vaultSkeleton || row.fix.post.consentHeading === true);
+  if (beforeShows && afterHidden) playwrightRepro = true;
+  if (!beforeShows) {
+    console.warn(
+      `WARNING: ${name} main build did not show consent pre-activation in Playwright`,
+    );
+  }
 }
-if (afterTiming.pre.consentHeading === true && !afterTiming.pre.vaultSkeleton) {
+if (!playwrightRepro) {
   console.warn(
-    "WARNING: fix build still showed consent pre-activation in Playwright.",
+    "WARNING: Playwright did not show a clear main-vs-fix consent timing delta; vitest App-root behavior test remains authoritative.",
   );
 }
 
