@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Run TLC on the four #2608 subsystem models; writes logs under TLC_LOG_DIR. */
+/** Run TLC on formal-verification subsystem models; writes logs under TLC_LOG_DIR. */
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -33,6 +33,11 @@ const models = [
   "daemon-fill-pairing/DaemonFillPairing",
   "control-plane-session/ControlPlaneSession",
   "onboarding-recovery/OnboardingRecovery",
+  "vault-presentation/VaultPresentation",
+  "open-vault-lease/OpenVaultLease",
+  "pwa-shell-ready/PwaShellReady",
+  "sync-manifest/ManifestMerge",
+  "autofill-gesture/AutofillGesture",
 ];
 
 for (const rel of models) {

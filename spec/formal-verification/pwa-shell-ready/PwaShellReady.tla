@@ -112,7 +112,8 @@ WaitTimeout ==
 \* After the shell has opened once, later generations stay mounted (shell-ready.ts).
 NoShellBeforeActivationOrTimeout ==
   ShellMounted =>
-    ComputeReady \/ timedOut \/ (OpenedMatchesVault /\ actGen < compGen)
+    ComputeReady \/ timedOut \/
+    (OpenedMatchesVault /\ actGen < compGen /\ ~fromNull)
 
 Spec ==
   Init /\ [][UnlockPersonal \/ PlanForPersonal \/ ClearStaleLatch

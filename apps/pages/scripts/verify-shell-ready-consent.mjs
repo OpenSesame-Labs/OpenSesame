@@ -135,6 +135,14 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
       1280,
       false,
       async (consentPopup) => {
+        if (!expectEarlyConsent) {
+          await consentPopup
+            .waitForFunction(
+              () => Boolean(document.querySelector(".vault-skeleton")),
+              { timeout: 15_000 },
+            )
+            .catch(() => undefined);
+        }
         const started = Date.now();
         while (Date.now() - started < 800) {
           during = await consentPopup.evaluate(() => ({
@@ -144,7 +152,11 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
             ),
             vaultSkeleton: Boolean(document.querySelector(".vault-skeleton")),
           }));
-          if (during.consentHeading || during.vaultSkeleton) return;
+          if (expectEarlyConsent) {
+            if (during.consentHeading || during.vaultSkeleton) return;
+          } else if (during.vaultSkeleton) {
+            return;
+          }
           await consentPopup.waitForTimeout(50);
         }
       },

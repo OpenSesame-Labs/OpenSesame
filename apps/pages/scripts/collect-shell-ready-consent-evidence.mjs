@@ -185,7 +185,7 @@ for (const walk of timingWalks) {
 const report = {
   behaviorTest: BEHAVIOR_SPEC,
   playwright: {
-    activationDelayMs: Number(delay),
+    activationDelayMs: Number(timingDelayMs),
     byProfile: timingByProfile,
     expectBeforePreActivationConsent: true,
     expectAfterPreActivationConsent: false,
