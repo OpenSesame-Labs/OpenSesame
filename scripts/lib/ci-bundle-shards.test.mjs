@@ -37,6 +37,7 @@ const GATES = [
   "verify:webmcp",
   "verify:self-hosted-connectors",
   "verify-mqtt-packet-debug.mjs",
+  "verify-saml-worker.mjs",
   "verify:native-connectors",
   "verify:native-public-protocol",
   "test:mcp-cross-realm",

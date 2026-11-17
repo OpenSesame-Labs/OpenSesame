@@ -21,6 +21,7 @@ export const DRIVER_GATES = {
   "verify-experience-journeys.mjs": ["journeys"],
   "verify-webmcp.mjs": ["budgets"],
   "verify-push-worker.mjs": ["budgets"],
+  "verify-saml-worker.mjs": ["budgets"],
   // P8-6: a dirty edit holds a service-worker release reload.
   "verify-sw-dirty-edit.mjs": ["budgets"],
   "verify-capability-graph.mjs": ["budgets"],

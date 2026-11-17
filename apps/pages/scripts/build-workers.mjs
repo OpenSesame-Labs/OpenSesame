@@ -24,6 +24,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, loadConfigFromFile } from "vite";
+import { assertSamlWorkerFresh } from "./saml-worker-freshness.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // `PAGES_OUT_DIR` names another build's output (`build:push-verify`), relative
@@ -173,6 +174,7 @@ async function buildVariant(id, manifest) {
 }
 
 async function main() {
+  assertSamlWorkerFresh();
   assertCoreWorkerHasNoPush();
   const wanted = distributedVariants(process.env);
   const manifest = shellManifest();

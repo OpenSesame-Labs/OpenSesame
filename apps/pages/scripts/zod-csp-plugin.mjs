@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { assertSamlWorkerFresh } from "./saml-worker-freshness.mjs";
 
 /** Make schema configuration a dependency, even when Rollup moves schemas. */
 export function zodCsp() {
@@ -11,6 +12,7 @@ export function zodCsp() {
   return {
     name: "zod-csp-configuration",
     enforce: "pre",
+    buildStart: assertSamlWorkerFresh,
     transform(source, id) {
       const path = id.split("?")[0].replaceAll("\\", "/");
       if (!path.endsWith("/node_modules/zod/v4/core/core.js")) return null;
