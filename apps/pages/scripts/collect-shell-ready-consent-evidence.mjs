@@ -51,9 +51,7 @@ if (!behaviorTestSource.includes("withdraws contributed")) {
 const DEFAULT_MAIN_BEFORE_SHA = "057eea4200ac9350176eefc3eecfa014840edd58";
 
 function mainShellBeforeSha() {
-  return (
-    process.env.SHELL_READY_BEFORE_SHA?.trim() || DEFAULT_MAIN_BEFORE_SHA
-  );
+  return process.env.SHELL_READY_BEFORE_SHA?.trim() || DEFAULT_MAIN_BEFORE_SHA;
 }
 
 function mainShellSource() {
