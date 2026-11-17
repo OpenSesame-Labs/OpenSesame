@@ -27,6 +27,9 @@ pub struct CreateRequest {
 #[path = "browser_pairings/ceiling.rs"]
 mod ceiling;
 use ceiling::{allowed_capabilities, provisions_membership, verified_ceiling};
+#[path = "browser_pairings/decision.rs"]
+mod decision;
+use decision::decision;
 #[cfg(test)]
 #[path = "browser_pairings/decision_tests.rs"]
 mod decision_tests;
@@ -102,88 +105,6 @@ pub async fn create(
         "expires_in":300,"interval":5}),
     )
     .into_response()
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DecisionRequest {
-    user_code: String,
-    decision: Decision,
-    principal_id: String,
-    organization_id: String,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Decision {
-    Approve,
-    Deny,
-}
-
-pub async fn decision(
-    State(st): State<AppState>,
-    headers: HeaderMap,
-    Json(req): Json<DecisionRequest>,
-) -> Response {
-    if let Err(response) = require_operator(&st, &headers) {
-        return response;
-    }
-    let Some(principal) = parse_principal(&req.principal_id) else {
-        return refusal("invalid_pairing_decision");
-    };
-    let Ok(org) = OrganizationId::parse(&req.organization_id) else {
-        return refusal("invalid_pairing_decision");
-    };
-    if org.as_uuid().is_nil() || req.user_code.len() > 32 {
-        return refusal("invalid_pairing_decision");
-    }
-    let now = Utc::now().timestamp();
-    if !st
-        .db
-        .admit_browser_pairing_attempt("pairing-decision", now)
-        .await
-        .unwrap_or(false)
-    {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(json!({"error":"pairing_rate_limited"})),
-        )
-            .into_response();
-    }
-    let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", &req.user_code);
-    // A pairing's capabilities are fixed when it is created; read them first.
-    let Ok(Some(pending)) = st.db.inspect_browser_pairing(&digest, now).await else {
-        return refusal("invalid_pairing_decision");
-    };
-    let requested: Vec<String> =
-        serde_json::from_value(pending["capabilities"].clone()).unwrap_or_default();
-    let changed = st
-        .db
-        .decide_browser_pairing(
-            &digest,
-            &principal.to_string(),
-            &org.to_string(),
-            matches!(req.decision, Decision::Approve),
-            now,
-        )
-        .await
-        .unwrap_or(false);
-    if !changed {
-        return refusal("invalid_pairing_decision");
-    }
-    if matches!(req.decision, Decision::Approve)
-        && provisions_membership(&requested)
-        && opensesame_connection_broker::config_access::provision_native_role(
-            st.db.pool(),
-            &org,
-            &principal,
-            OrganizationRole::Member,
-        )
-        .await
-        .is_err()
-    {
-        return StatusCode::SERVICE_UNAVAILABLE.into_response();
-    }
-    StatusCode::NO_CONTENT.into_response()
 }
 
 #[derive(Deserialize)]
@@ -325,10 +246,12 @@ pub fn session_claims(grant: &BrowserGrant) -> Result<HostSessionClaims, Respons
         expires_at,
         local_session: true,
         membership_revision: match (&grant.membership_incarnation, &grant.authority_revision) {
-            (Some(incarnation), Some(revision)) => Some(crate::session_claims::MembershipRevision {
-                incarnation: incarnation.clone(),
-                revision: revision.clone(),
-            }),
+            (Some(incarnation), Some(revision)) => {
+                Some(crate::session_claims::MembershipRevision {
+                    incarnation: incarnation.clone(),
+                    revision: revision.clone(),
+                })
+            }
             (None, None) => None,
             _ => return Err(refusal("invalid_grant")),
         },

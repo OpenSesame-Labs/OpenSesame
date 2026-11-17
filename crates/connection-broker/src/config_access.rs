@@ -61,26 +61,9 @@ fn rank(role: OrganizationRole) -> u8 {
     }
 }
 
-/// Initialize policy only during explicit native approval. Existing ceilings,
-/// including revocations, are never raised by another login or pairing.
-/// # Errors
-/// Returns database failures. Concurrent first approvals use the stored winner.
-pub async fn provision_native_role(
-    pool: &SqlitePool,
-    organization: &OrganizationId,
-    principal: &PrincipalId,
-    role: OrganizationRole,
-) -> anyhow::Result<()> {
-    if role_policy(pool, organization, principal).await?.is_some() {
-        return Ok(());
-    }
-    if let Err(error) = set_role_ceiling(pool, organization, principal, Some(role), 0, 0).await {
-        if role_policy(pool, organization, principal).await?.is_none() {
-            return Err(error);
-        }
-    }
-    Ok(())
-}
+#[path = "config_access/native_role.rs"]
+mod native_role;
+pub use native_role::{provision_native_role, provision_native_role_in_transaction};
 fn role_text(role: OrganizationRole) -> &'static str {
     match role {
         OrganizationRole::Owner => "owner",

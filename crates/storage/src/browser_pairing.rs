@@ -1,6 +1,10 @@
 //! Durable origin/key binding. All authority transitions are atomic SQL writes.
 use super::{Db, Row};
 
+#[path = "browser_pairing_decision.rs"]
+mod decision;
+pub use decision::decide_browser_pairing_in_transaction;
+
 pub struct NewBrowserPairing<'a> {
     pub id: &'a str,
     pub device_digest: &'a str,
@@ -134,23 +138,18 @@ impl Db {
         approve: bool,
         now: i64,
     ) -> anyhow::Result<bool> {
-        let changed = sqlx::query(
-            "UPDATE browser_pairings SET state=?,principal_id=?,organization_id=?,approved_at=?,
-            identity_required=EXISTS(SELECT 1 FROM host_membership_withdrawals w
-                WHERE w.principal_id=? AND w.organization_id=?)
-            WHERE user_code_digest=? AND state='pending' AND expires_at>?",
+        let mut tx = self.pool.begin().await?;
+        let changed = decide_browser_pairing_in_transaction(
+            &mut tx,
+            code_digest,
+            principal,
+            org,
+            approve,
+            now,
         )
-        .bind(if approve { "approved" } else { "denied" })
-        .bind(principal)
-        .bind(org)
-        .bind(now)
-        .bind(principal)
-        .bind(org)
-        .bind(code_digest)
-        .bind(now)
-        .execute(&self.pool)
         .await?;
-        Ok(changed.rows_affected() == 1)
+        tx.commit().await?;
+        Ok(changed.is_some())
     }
 
     /// Consume approval and create the short-lived grant in one transaction.
