@@ -55,7 +55,10 @@ function fixture(t) {
   );
   execFileSync("git", ["init", "-q"], { cwd: repo });
   execFileSync("git", ["add", "."], { cwd: repo });
-  for (const file of ["node_modules/tool/package-lock.json", "work/Cargo.lock"]) {
+  for (const file of [
+    "node_modules/tool/package-lock.json",
+    "work/Cargo.lock",
+  ]) {
     mkdirSync(dirname(join(repo, file)), { recursive: true });
     writeFileSync(join(repo, file), "untracked\n");
   }
@@ -187,6 +190,21 @@ test("nested-workspace advisories fail even when scanner exits successfully", (t
     assert.equal(result.status, 1);
     assert.match(result.stderr, /GHSA-fixture/);
     assert.match(result.stderr, /\.deepsec\/package-lock.json/);
+    assert.doesNotMatch(result.stdout, /CLEAN/);
+  }
+});
+
+test("scanner configuration cannot suppress an advisory before reporting", (t) => {
+  const gate = fixture(t);
+  for (const config of [
+    'IgnoredVulns = [{ id = "GHSA-fixture", reason = "hidden" }]\n',
+    'IgnoredVulns = "invalid"\n',
+    "IgnoredVulns = [\n",
+  ]) {
+    writeFileSync(join(gate.repo, "osv-scanner.toml"), config);
+    const result = gate.run();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /invalid config/);
     assert.doesNotMatch(result.stdout, /CLEAN/);
   }
 });

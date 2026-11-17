@@ -8,6 +8,23 @@ source "$ROOT/scripts/lib/audit-directory.sh"
 opensesame_audit_directory
 mkdir -p .tools/bin
 
+# A scanner-side ignore would hide the finding before the fail-closed report
+# adapter sees it. Check the configuration before invoking the scanner.
+python3 - <<'PY'
+import sys
+import tomllib
+
+try:
+    with open("osv-scanner.toml", "rb") as stream:
+        config = tomllib.load(stream)
+    ignored = config.get("IgnoredVulns", [])
+    if not isinstance(ignored, list) or ignored:
+        raise ValueError("advisory ignores are not accepted")
+except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
+    print(f"osv-scanner gate: FAIL (invalid config: {error})", file=sys.stderr)
+    sys.exit(1)
+PY
+
 VERSION="${OPENSESAME_OSV_SCANNER_VERSION:-2.5.0}"
 BIN="${OPENSESAME_OSV_SCANNER_BIN:-$ROOT/.tools/bin/osv-scanner}"
 [[ "$BIN" != *$'\n'* && "$BIN" != *$'\r'* ]] || { echo "invalid scanner path" >&2; exit 1; }
