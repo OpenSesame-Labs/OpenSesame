@@ -34,6 +34,16 @@ const BEHAVIOR_SPEC =
 
 for (const dir of [logDir, outRoot, mirrorRoot]) mkdirSync(dir, { recursive: true });
 
+const behaviorTestSource = readFileSync(
+  join(pagesRoot, "src/app-root.shell-ready.test.tsx"),
+  "utf8",
+);
+if (!behaviorTestSource.includes("withdraws contributed")) {
+  throw new Error(
+    "app-root.shell-ready.test.tsx lacks withdraws-contributed case; run collector on cursor/pwa-shell-ready-formal-ee3b (signed branch may lag land-signed-stack)",
+  );
+}
+
 function mainShellSource() {
   const out = spawnSync(
     "git",
@@ -45,15 +55,31 @@ function mainShellSource() {
 }
 
 function vitest(spec, cwd, { expectFail = false }) {
+  spawnSync("rm", ["-rf", join(cwd, "node_modules/.vite")], { stdio: "ignore" });
   const result = spawnSync("npx", ["vitest", "run", ...spec.split(/\s+/)], {
     cwd,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, CI: "true" },
+    env: { ...process.env, CI: "true", VITEST_MAX_WORKERS: "1" },
   });
   const text = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-  if (expectFail ? result.status === 0 : result.status !== 0) {
-    throw new Error(expectFail ? `expected failure: ${spec}` : text);
+  const skippedAll =
+    /Tests\s+0\s+passed.*\d+\s+skipped/.test(text) ||
+    (/Tests\s+\d+\s+skipped/.test(text) && !/failed/.test(text) && expectFail);
+  if (skippedAll) {
+    throw new Error(
+      `vitest ran no matching tests for ${spec}; branch may lack app-root.shell-ready withdrawal case`,
+    );
+  }
+  const failedCount = Number(text.match(/Tests\s+(\d+)\s+failed/)?.[1] ?? 0);
+  if (expectFail) {
+    if (result.status === 0 || failedCount === 0) {
+      throw new Error(
+        `expected main shell-ready swap to fail tests (${spec}); exit=${result.status} failed=${failedCount}\n${text}`,
+      );
+    }
+  } else if (result.status !== 0) {
+    throw new Error(text);
   }
   return text;
 }
