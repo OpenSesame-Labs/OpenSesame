@@ -68,6 +68,13 @@ describe("violations", () => {
         ]),
       ],
       {
+        capabilitySourceClosures: [
+          {
+            module: "apps/pages/src/modules/sharing.drops/runtime.ts",
+            capability: "sharing.drops",
+            allowed: [],
+          },
+        ],
         moduleEdges: [
           {
             from: "virtual:opensesame-capability-modules",

@@ -13,6 +13,7 @@ import {
   moduleDirectoryOwner,
   pathTo,
 } from "./capability-graph.mjs";
+import { capabilityClosureViolations } from "./capability-source-closures.mjs";
 
 const optionalIn = (chunk) =>
   chunk.modules.filter((m) => m.classification === "optional" && m.capability);
@@ -155,6 +156,7 @@ export function violations(graph, distributed, mode, options = {}) {
   const chunkByFile = new Map(graph.chunks.map((c) => [c.file, c]));
 
   chunkViolations(graph, distributed, mode, core, add);
+  capabilityClosureViolations(graph, add);
 
   reachViolations(
     graph,

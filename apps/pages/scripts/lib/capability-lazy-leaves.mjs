@@ -181,30 +181,31 @@ const LAZY_LEAVES = [
   [
     "/src/modules/identity.local-iam/cli-authorize-panel",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-pairing-form",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-paired-panel",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-mint-proof",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-panel-model",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
-  // Device signing, oschip2 formatters, pairing confirm, and vault-session-root
-  // (dynamic vault/store) load only with the authorize sheet — one lazy chunk.
+  // Pairing and signing primitives also serve live peer trust. Keep the
+  // authorization UI above in its own chunk so live sharing does not load
+  // the identity capability through this shared crypto dependency.
   [
     "/packages/app-core/src/lib/cli-app-integration/",
     "identity.local-iam",
