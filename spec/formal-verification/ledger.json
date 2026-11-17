@@ -754,6 +754,7 @@
       "claim": "A transient notification stays visible and its remaining time is held while the pointer or keyboard focus is inside it; updated text gets a fresh interval and it may be dismissed explicitly.",
       "implementation": [
         "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/use-toast-queue.ts",
         "apps/pages/src/components/use-toast-reading.ts"
       ],
       "evidence": [
@@ -836,6 +837,7 @@
       "claim": "Persistent recommendation previews preserve unanswered notices, show their explanations before an action, and do not cover the current task or guidance.",
       "implementation": [
         "apps/pages/src/components/ToastStack.tsx",
+        "apps/pages/src/components/use-toast-queue.ts",
         "apps/pages/src/components/InlineRecommendations.tsx",
         "apps/pages/src/components/Recommender.tsx",
         "packages/app-core/src/lib/notice-toast.ts",
