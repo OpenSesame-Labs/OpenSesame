@@ -35,7 +35,7 @@ pub fn assert_pdp_base_url(raw: &str) -> Result<()> {
     }
 }
 
-/// Accept one nonempty, unambiguous URL path segment. OpenFGA's store IDs
+/// Accept one nonempty, unambiguous URL path segment. `OpenFGA`'s store IDs
 /// and the conventional test IDs are included; encoded separators and dot
 /// segments are never reinterpreted as a different endpoint.
 pub(crate) fn assert_store_id(id: &str) -> Result<()> {
