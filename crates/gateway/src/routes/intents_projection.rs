@@ -11,7 +11,7 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use opensesame_provider_openfga::invoke_check_tuple;
+use opensesame_provider_openfga::{invoke_check_tuple, RemotePdp};
 use opensesame_storage::authority::ProjectionMark;
 use serde_json::json;
 
@@ -31,22 +31,53 @@ pub(super) async fn authorize_openfga(
     operation: &str,
     resource: &str,
 ) -> Result<(), Response> {
+    let pdp = st.openfga.as_ref().map(|client| client as &dyn RemotePdp);
+    authorize_openfga_with_pdp(
+        st,
+        pdp,
+        organization_id,
+        subject,
+        resolved,
+        operation,
+        resource,
+    )
+    .await
+}
+
+async fn authorize_openfga_with_pdp(
+    st: &AppState,
+    pdp: Option<&dyn RemotePdp>,
+    organization_id: &str,
+    subject: &str,
+    resolved: &ResolvedInvocation,
+    operation: &str,
+    resource: &str,
+) -> Result<(), Response> {
     if !require_projection_fresh(st, organization_id, resolved).await? {
         return Ok(());
     }
-    let Some(openfga) = &st.openfga else {
+    let Some(pdp) = pdp else {
         return Ok(());
     };
     let connection = resolved.connection_id.to_string();
-    let Ok(tuple) = invoke_check_tuple(subject, operation, resource, Some(connection.as_str()))
-    else {
+    authorize_pdp(pdp, subject, operation, resource, &connection).await
+}
+
+async fn authorize_pdp(
+    pdp: &dyn RemotePdp,
+    subject: &str,
+    operation: &str,
+    resource: &str,
+    connection: &str,
+) -> Result<(), Response> {
+    let Ok(tuple) = invoke_check_tuple(subject, operation, resource, Some(connection)) else {
         return Err((
             StatusCode::FORBIDDEN,
             Json(json!({"error": "openfga_unmapped", "type": "about:blank"})),
         )
             .into_response());
     };
-    match openfga.check_tuple(&tuple).await {
+    match pdp.check(&tuple).await {
         Ok(true) => Ok(()),
         Ok(false) => Err((
             StatusCode::FORBIDDEN,
