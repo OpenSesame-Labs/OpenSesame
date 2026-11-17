@@ -1,11 +1,17 @@
+import { randomUUID } from "node:crypto";
 import type { ScimUserRecord } from "@opensesame/database";
 import type { Organization, OrganizationRole } from "@opensesame/os-domain";
-import { isString } from "@opensesame/os-domain";
+import { isJsonObject, isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
-  revokeOrganizationMembership,
-  serializeMembershipMutation,
-} from "./organizations.js";
+  prepareDirectoryRemoval,
+  removeDirectoryMembership,
+} from "./directory-removal.js";
+import {
+  type PreparedWithdrawal,
+  prepareRoleWithdrawal,
+} from "../services/organization-withdrawal.js";
 
 /**
  * Where a Groups PATCH records the derived role, on the SCIM row itself.
@@ -22,14 +28,19 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
  * multi-row revocation starts so a retry after a partial failure still knows
  * whose sessions to end, without guessing from a now-removed membership.
  */
-const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
+export const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
+
+/** Durable identity and progress for one deactivation cycle. */
+export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
+  "urn:opensesame:params:scim:2.0:deprovision-journal";
 
 /** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
   SCIM_ROLE_ATTRIBUTE,
   SCIM_SUBJECTS_ATTRIBUTE,
   SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE,
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
 ]);
 
 const ORG_IDENTITY_KINDS = ["oidc", "oauth2", "saml", "ldap", "email"] as const;
@@ -195,66 +206,186 @@ async function principalsForUser(
   return [...principalIds];
 }
 
-/** Withdraw a deactivated subject's membership and live sessions (D11). */
+type DeprovisionTarget = {
+  principalId: string;
+  incarnation: string;
+  completed: boolean;
+};
+type DeprovisionJournal = { cycle: string; targets: DeprovisionTarget[] };
+
+/** A missing or malformed old journal cannot safely identify a past membership. */
+export function deprovisionJournal(
+  user: ScimUserRecord,
+): DeprovisionJournal | undefined {
+  const value = user.raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE];
+  if (
+    !isJsonObject(value) ||
+    !isString(value.cycle) ||
+    !value.cycle ||
+    !Array.isArray(value.targets)
+  )
+    return undefined;
+  const targets: DeprovisionTarget[] = [];
+  for (const target of value.targets) {
+    if (
+      !isJsonObject(target) ||
+      !isString(target.principalId) ||
+      !target.principalId ||
+      !isString(target.incarnation) ||
+      !target.incarnation ||
+      typeof target.completed !== "boolean"
+    )
+      return undefined;
+    targets.push({
+      principalId: target.principalId,
+      incarnation: target.incarnation,
+      completed: target.completed,
+    });
+  }
+  return { cycle: value.cycle, targets };
+}
+
+/** Must run inside the organization boundary before the inactive row commits. */
+export async function prepareDeprovision(
+  ctx: AppContext,
+  organization: Organization,
+  user: ScimUserRecord,
+  correlationId: string,
+): Promise<ScimUserRecord> {
+  const targets: DeprovisionTarget[] = [];
+  for (const principalId of await principalsForUser(
+    ctx,
+    organization,
+    user,
+    false,
+  )) {
+    const current = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      principalId,
+    );
+    if (!current) continue;
+    const prepared = await prepareDirectoryRemoval(ctx, {
+      organizationId: organization.id,
+      principalId,
+      incarnation: current.incarnation,
+      reason: "scim_deactivated",
+      correlationId,
+    });
+    // An unrelated removal already fences admission until it completes. A
+    // competing role change cannot safely be allowed to clear that fence.
+    if (prepared.status === "busy" && current.withdrawal?.kind !== "remove") {
+      throw new Error("Membership update is in progress; retry deprovisioning");
+    }
+    if (prepared.status === "last_owner")
+      throw new Error("Directory removal could not be prepared");
+    targets.push({
+      principalId,
+      incarnation: current.incarnation,
+      completed: false,
+    });
+  }
+  const raw = { ...user.raw };
+  delete raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
+  raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE] = { cycle: randomUUID(), targets };
+  return { ...user, raw };
+}
+
+/** Resume only the exact membership incarnations selected by this transition. */
 export async function deprovision(
   ctx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   correlationId: string,
-  previous?: ScimUserRecord,
 ): Promise<void> {
-  const record = previous ? withRememberedSubjects(previous, user) : user;
-  // Resolve members first. Only a principal that held a membership in THIS
-  // organization is in scope; the persisted marker carries that set into a
-  // retry after the membership rows are already gone.
-  const members = await principalsForUser(ctx, organization, record, true);
-  const prior = record.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
-  const recorded = Array.isArray(prior)
-    ? prior.filter(
-        (value): value is string => isString(value) && value.length > 0,
-      )
-    : [];
-  const targets = new Set<string>([...members, ...recorded]);
-  if (members.length > 0) {
-    await ctx.stores.scim.users.update({
-      ...record,
-      raw: {
-        ...record.raw,
-        [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: [...targets],
-      },
-      updatedAt: ctx.clock(),
-    });
-  }
-  for (const principalId of targets) {
-    await revokeOrganizationMembership(ctx, {
+  const journal = deprovisionJournal(user);
+  if (!journal)
+    throw new Error(
+      "Cannot safely resume a legacy SCIM deactivation without an incarnation journal",
+    );
+  for (const target of journal.targets) {
+    if (target.completed) continue;
+    await removeDirectoryMembership(ctx, {
       organizationId: organization.id,
-      principalId,
+      principalId: target.principalId,
       correlationId,
       reason: "scim_deactivated",
-      revokeSessionsWithoutMembership: true,
+      incarnation: target.incarnation,
+    });
+    await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
+      const current = await tx.stores.scim.users.getVersioned(
+        organization.id,
+        user.id,
+      );
+      if (!current) return;
+      const latest = deprovisionJournal(current.user);
+      if (!latest || latest.cycle !== journal.cycle) return;
+      const targets = latest.targets.map((entry) =>
+        entry.principalId === target.principalId &&
+        entry.incarnation === target.incarnation
+          ? { ...entry, completed: true }
+          : entry,
+      );
+      const updated = await tx.stores.scim.users.replaceIfRevision(
+        organization.id,
+        user.id,
+        current.revision,
+        {
+          ...current.user,
+          raw: {
+            ...current.user.raw,
+            [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: {
+              cycle: latest.cycle,
+              targets,
+            },
+          },
+        },
+      );
+      if (!updated)
+        throw new Error("SCIM deprovision journal changed concurrently");
     });
   }
 }
 
-/** Apply a Groups mapping to whoever already holds a membership here. */
+/** Prepare membership role changes in the caller's organization transaction. */
 export async function applyRole(
   ctx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   role: OrganizationRole,
-): Promise<void> {
+  correlationId: string,
+  onlyPending = false,
+): Promise<PreparedWithdrawal[]> {
+  const prepared: PreparedWithdrawal[] = [];
   for (const principalId of await principalsForUser(ctx, organization, user)) {
-    await serializeMembershipMutation(ctx, organization.id, async () => {
-      const existing = await ctx.stores.organizationMemberships.find(
-        organization.id,
-        principalId,
-      );
-      if (!existing || existing.role === role) return;
-      await ctx.stores.organizationMemberships.upsert({
-        ...existing,
-        role,
-        updatedAt: ctx.clock(),
-      });
+    const current = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      principalId,
+    );
+    if (!current) continue;
+    if (
+      onlyPending &&
+      (current.withdrawal?.kind !== "change_role" ||
+        current.withdrawal.role !== role)
+    )
+      continue;
+    const result = await prepareRoleWithdrawal(ctx, {
+      organizationId: organization.id,
+      principalId,
+      expectedIncarnation: current.incarnation,
+      role,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId,
     });
+    if (result.status === "ready") prepared.push(result.prepared);
+    else if (result.status === "last_owner")
+      throw new Error(
+        "The directory would leave this organization without an owner",
+      );
+    else if (result.status === "busy")
+      throw new Error(
+        "Membership update is in progress; retry the group update",
+      );
   }
+  return prepared;
 }

@@ -1,4 +1,4 @@
-import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
+import { createHash, hkdfSync, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,
   type UpstreamAuthBundle,
@@ -6,7 +6,6 @@ import {
 } from "@opensesame/auth-upstream";
 import {
   type BoundaryValue,
-  type ProvisionalSession,
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
@@ -18,10 +17,17 @@ import {
 import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeIssuer } from "../interactions/registry.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
+import { BetterAuthBridgeError } from "./better-auth-errors.js";
+import { issueProvisionalBearer } from "./better-auth-session.js";
 import { normalizeEmail } from "./email-normalization.js";
 import { attachVerifiedExternalIdentity } from "./identity-link.js";
 import { settleVerifiedOwner } from "./identity-principal-fence.js";
 
+export {
+  BetterAuthBridgeError,
+  betterAuthBridgeStatus,
+  type BetterAuthBridgeErrorCode,
+} from "./better-auth-errors.js";
 export { normalizeEmail } from "./email-normalization.js";
 
 /**
@@ -49,18 +55,6 @@ export type BetterAuthSubject = {
   emailVerified?: boolean;
 };
 
-export type BetterAuthBridgeErrorCode =
-  /** The verification did not carry an address asserted as verified. */
-  | "unverified_email"
-  /** The mapped principal is gone, suspended, or otherwise not signing in. */
-  | "principal_unavailable"
-  /** The address is already bound to a different principal by tuple. */
-  | "identity_collision"
-  /** The deployment is at its provisional-principal ceiling. */
-  | "provisional_capacity"
-  /** The per-address mint budget refused. */
-  | "rate_limited";
-
 /**
  * What a completed magic-link admission hands its caller: the canonical
  * principal, and a first-party bearer bound to it. Deliberately the same shape
@@ -72,31 +66,11 @@ export type BridgedSession = {
   accessToken: string;
 };
 
-export class BetterAuthBridgeError extends Error {
-  override readonly name = "BetterAuthBridgeError";
-  readonly code: BetterAuthBridgeErrorCode;
-
-  constructor(code: BetterAuthBridgeErrorCode, message: string) {
-    super(message);
-    this.code = code;
-  }
-}
-
 /**
  * The metadata key carrying the interaction the request started from, so the
  * link built in `sendMagicLink` can land back inside that interaction.
  */
 export const MAGIC_LINK_INTERACTION_KEY = "interactionUid";
-
-/** Session scope for an email-verified admission: identical to every other leg. */
-const PROVISIONAL_ACTIONS = [
-  "project.create",
-  "project.create_temporary",
-  "resource.create_temporary",
-  "claim.create",
-  "agent.register_ephemeral",
-  "session.continue_anonymous",
-] as const;
 
 /**
  * The issuer recorded on an email identity: this deployment.
@@ -261,26 +235,6 @@ export async function verifyMagicLinkToken(
     // an expired, unknown or already-spent token are one outcome here.
     return undefined;
   }
-}
-
-/** Mint a first-party bearer for a principal that already exists. */
-async function issueProvisionalBearer(
-  ctx: AppContext,
-  principalId: string,
-): Promise<string> {
-  const now = ctx.clock();
-  const session: ProvisionalSession = {
-    id: `ps_${randomBytes(16).toString("hex")}`,
-    principalId,
-    quotaProfile: "anonymous",
-    allowedActions: [...PROVISIONAL_ACTIONS],
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
-  };
-  const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await ctx.stores.provisionalSessions.set(session.id, session);
-  await ctx.stores.provisionalTokens.set(accessToken, session.id);
-  return accessToken;
 }
 
 /**
