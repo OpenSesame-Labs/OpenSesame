@@ -197,6 +197,19 @@ function validIndex(value: BoundaryValue, length: number): value is number {
   );
 }
 
+function decodeId(encodedId: BoundaryValue, paths: JsonValue[]): string | null {
+  if (isString(encodedId)) return encodedId;
+  if (
+    Array.isArray(encodedId) &&
+    encodedId.length === 2 &&
+    validIndex(encodedId[0], paths.length) &&
+    isString(paths[encodedId[0]]) &&
+    isString(encodedId[1])
+  )
+    return `${paths[encodedId[0]]}${encodedId[1]}`;
+  return null;
+}
+
 function decodeSource(
   row: BoundaryValue,
   capabilities: JsonValue[],
@@ -206,15 +219,7 @@ function decodeSource(
   if (!Array.isArray(row) || (row.length !== 5 && row.length !== 6))
     return null;
   const [encodedId, classification, cap, reason, size, moduleId] = row;
-  let id: string | null = isString(encodedId) ? encodedId : null;
-  if (
-    Array.isArray(encodedId) &&
-    encodedId.length === 2 &&
-    validIndex(encodedId[0], paths.length) &&
-    isString(paths[encodedId[0]]) &&
-    isString(encodedId[1])
-  )
-    id = `${paths[encodedId[0]]}${encodedId[1]}`;
+  const id = decodeId(encodedId, paths);
   if (
     !isString(id) ||
     !isClassification(classification) ||
