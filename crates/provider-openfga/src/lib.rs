@@ -2,8 +2,12 @@
 //!
 //! When `OPENSESAME_OPENFGA_URL` is unset, callers may fall back to the in-process PEP.
 
+mod config;
 mod grant_tuples;
+
 use async_trait::async_trait;
+pub use config::assert_pdp_base_url;
+use config::assert_store_id;
 pub use grant_tuples::{
     grant_to_openfga_tuples, invoke_check_tuple, GrantTupleMappingError, GrantTupleMappingResult,
 };
@@ -24,31 +28,6 @@ pub enum OpenFgaError {
 }
 
 pub type Result<T> = std::result::Result<T, OpenFgaError>;
-
-/// Operator PDP base URL: https, or loopback http. No userinfo (SSRF / credential leak).
-/// # Errors
-/// Returns an error when validation or the underlying operation fails.
-pub fn assert_pdp_base_url(raw: &str) -> Result<()> {
-    let url = url::Url::parse(raw.trim()).map_err(|e| OpenFgaError::Config(e.to_string()))?;
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(OpenFgaError::Config(
-            "PDP URL must not embed credentials".into(),
-        ));
-    }
-    let loopback = match url.host() {
-        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
-        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
-        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
-        None => false,
-    };
-    match url.scheme() {
-        "https" => Ok(()),
-        "http" if loopback => Ok(()),
-        _ => Err(OpenFgaError::Config(
-            "PDP URL must be https or loopback http".into(),
-        )),
-    }
-}
 
 /// Interpret an `OpenFGA` Check HTTP body.
 ///
@@ -93,23 +72,67 @@ impl OpenFgaClient {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn from_env() -> Result<Option<Self>> {
-        let base = match std::env::var("OPENSESAME_OPENFGA_URL") {
-            Ok(u) if !u.trim().is_empty() => u.trim_end_matches('/').to_string(),
-            _ => return Ok(None),
-        };
-        let store_id = std::env::var("OPENSESAME_OPENFGA_STORE_ID").map_err(|_| {
-            OpenFgaError::Config("OPENSESAME_OPENFGA_STORE_ID required when URL is set".into())
-        })?;
-        assert_pdp_base_url(&base)?;
-        Ok(Some(Self::new(base, store_id)))
+        Self::from_lookup(|name| std::env::var(name))
     }
 
+    fn from_lookup(
+        lookup: impl Fn(&str) -> std::result::Result<String, std::env::VarError>,
+    ) -> Result<Option<Self>> {
+        let raw = match lookup("OPENSESAME_OPENFGA_URL") {
+            Ok(value) => value,
+            Err(std::env::VarError::NotPresent) => return Ok(None),
+            Err(std::env::VarError::NotUnicode(_)) => {
+                return Err(OpenFgaError::Config(
+                    "OPENSESAME_OPENFGA_URL must be UTF-8".into(),
+                ))
+            }
+        };
+        if raw.trim().is_empty() {
+            return Ok(None);
+        }
+        let base = raw.trim().trim_end_matches('/');
+        let store_id = lookup("OPENSESAME_OPENFGA_STORE_ID").map_err(|_| {
+            OpenFgaError::Config("OPENSESAME_OPENFGA_STORE_ID required when URL is set".into())
+        })?;
+        assert_store_id(&store_id)?;
+        assert_pdp_base_url(base)?;
+        Ok(Some(Self::try_new(base, store_id)?))
+    }
+
+    /// Construct a client, preserving the historical infallible API.
+    ///
+    /// # Panics
+    ///
+    /// If the default HTTP client cannot be constructed. Use [`Self::try_new`]
+    /// when a caller needs to report that failure.
+    #[must_use]
     pub fn new(base: impl Into<String>, store_id: impl Into<String>) -> Self {
-        Self {
+        Self::try_new(base, store_id).expect("OpenFGA HTTP client")
+    }
+
+    /// Construct a client which refuses redirects.
+    ///
+    /// # Errors
+    ///
+    /// The HTTP client cannot be initialized.
+    pub fn try_new(base: impl Into<String>, store_id: impl Into<String>) -> Result<Self> {
+        Self::with_builder(base, store_id, reqwest::Client::builder())
+    }
+
+    fn with_builder(
+        base: impl Into<String>,
+        store_id: impl Into<String>,
+        builder: reqwest::ClientBuilder,
+    ) -> Result<Self> {
+        let http = builder
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|_| OpenFgaError::Config("OpenFGA HTTP client unavailable".into()))?;
+        Ok(Self {
             base: base.into().trim_end_matches('/').to_string(),
             store_id: store_id.into(),
-            http: reqwest::Client::new(),
-        }
+            http,
+        })
     }
 
     ///
@@ -169,6 +192,7 @@ impl OpenFgaClient {
     /// Returns an error when validation or the underlying operation fails.
     pub async fn write_authorization_model(&self, model: Value) -> Result<String> {
         assert_pdp_base_url(&self.base)?;
+        assert_store_id(&self.store_id)?;
         let url = format!(
             "{}/stores/{}/authorization-models",
             self.base, self.store_id
@@ -201,6 +225,7 @@ impl OpenFgaClient {
     /// Returns an error when validation or the underlying operation fails.
     pub async fn write_tuples(&self, writes: &[TupleKey]) -> Result<()> {
         assert_pdp_base_url(&self.base)?;
+        assert_store_id(&self.store_id)?;
         let url = format!("{}/stores/{}/write", self.base, self.store_id);
         let writes: Vec<Value> = writes
             .iter()
@@ -231,6 +256,7 @@ impl OpenFgaClient {
     /// Returns an error when validation or the underlying operation fails.
     pub async fn check_tuple(&self, tuple: &TupleKey) -> Result<bool> {
         assert_pdp_base_url(&self.base)?;
+        assert_store_id(&self.store_id)?;
         let url = format!("{}/stores/{}/check", self.base, self.store_id);
         let resp = self
             .http
@@ -299,10 +325,10 @@ impl RemotePdp for OpenFgaClient {
 ///
 /// Returns an error when validation or the underlying operation fails.
 pub async fn bootstrap_demo_store(base: &str) -> Result<(OpenFgaClient, String)> {
-    let bootstrap = OpenFgaClient::new(base, "pending");
+    let bootstrap = OpenFgaClient::try_new(base, "pending")?;
     bootstrap.health().await?;
     let store_id = bootstrap.create_store("opensesame-demo").await?;
-    let client = OpenFgaClient::new(base, &store_id);
+    let client = OpenFgaClient::try_new(base, &store_id)?;
     client
         .write_authorization_model(OpenFgaClient::connection_model())
         .await?;
@@ -344,3 +370,11 @@ mod tests {
 #[cfg(test)]
 #[path = "pact_tests.rs"]
 mod pact;
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod config_tests;
+
+#[cfg(test)]
+#[path = "http_tests.rs"]
+mod http_tests;

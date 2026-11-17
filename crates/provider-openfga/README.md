@@ -12,8 +12,12 @@ back to the in-process PEP. A projected tuple is never itself authority.
   projection) and the fuzz crate [`tests/fuzz/cargo`](../../tests/fuzz/cargo)
   (`openfga_response`).
 - **Builds on:** [`opensesame-domain`](../domain) (`Grant`); `reqwest`.
-- The PDP base URL must be https or loopback http, with no userinfo
-  (`assert_pdp_base_url`).
+- The PDP base URL must be https or loopback http, with no userinfo, query or
+  fragment (`assert_pdp_base_url`). A configured store ID is a single
+  URL-safe path segment. Invalid configured values refuse Host startup;
+  an absent or blank URL leaves the PDP unconfigured.
+- The HTTP client refuses redirects on every operation; a response from a
+  different endpoint cannot be accepted as an authorization decision.
 - A grant the mapping refuses is left unprojected, so the gateway's freshness
   check stays fail-closed.
 
