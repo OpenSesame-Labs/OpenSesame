@@ -57,9 +57,8 @@ pub fn wasm_open(key: &WasmDeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u
 /// Returns an error for malformed or unauthenticated input.
 #[wasm_bindgen]
 pub fn wasm_open_sync_blob(key: &WasmDeviceKey, blob: JsValue) -> Result<Vec<u8>, JsValue> {
-    let blob: crate::sync_limits::BoundedBlob = serde_wasm_bindgen::from_value(blob)
+    let blob: SyncBlob = serde_wasm_bindgen::from_value(blob)
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
-    let blob: SyncBlob = blob.into();
     open_sync_blob(&key.inner, &blob).map_err(|error| JsValue::from_str(&error.to_string()))
 }
 
@@ -111,7 +110,7 @@ impl WasmSyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&mut self, key: &WasmDeviceKey) -> Result<String, JsValue> {
+    pub fn to_persisted_json(&self, key: &WasmDeviceKey) -> Result<String, JsValue> {
         self.inner
             .to_persisted_json(&key.inner)
             .map_err(|e| JsValue::from_str(&e.to_string()))

@@ -24,19 +24,9 @@ pub mod wasm;
 mod legacy_migration;
 mod persist_auth;
 pub mod snapshot;
-mod sync_apply;
 mod sync_auth;
-#[cfg(not(target_arch = "wasm32"))]
-mod sync_files;
-mod sync_limits;
 
-pub use sync_auth::{
-    open_sync_blob, LEGACY_MIGRATION_CIPHERTEXT_MAX, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
-};
-pub use sync_limits::{
-    MAX_SYNC_BLOBS, MAX_SYNC_DEVICE_ID_BYTES, MAX_SYNC_JSON_BYTES, MAX_SYNC_PROJECT_ID_BYTES,
-    MAX_SYNC_TOTAL_BYTES,
-};
+pub use sync_auth::{open_sync_blob, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES};
 
 pub use snapshot::{
     assert_ciphertext_only_json, refuse_deployment_seal_as_wrap_key, CiphertextSyncSnapshot,
@@ -66,7 +56,6 @@ pub enum ClientCoreError {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct SyncCursor {
     pub device_id: String,
     pub epoch: u64,
@@ -81,20 +70,13 @@ pub struct SyncBlob {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct PersistedStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
-    #[serde(deserialize_with = "sync_limits::deserialize_cursor")]
     cursor: SyncCursor,
     /// Sealed entries only.
-    #[serde(deserialize_with = "sync_limits::deserialize_blobs")]
     blobs: Vec<SyncBlob>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "sync_limits::deserialize_integrity"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     integrity: Option<String>,
 }
 
@@ -127,14 +109,11 @@ impl DeviceKey {
 /// # Errors
 ///
 /// Returns an error when validation or the underlying operation fails.
-pub(crate) fn seal_with_nonce(
-    key: &DeviceKey,
-    plaintext: &[u8],
-    aad: &[u8],
-    nonce_bytes: [u8; 24],
-) -> Result<Vec<u8>, ClientCoreError> {
+pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
-    let nonce: &XNonce = (&nonce_bytes).into();
+    let mut nonce_bytes = [0u8; 24];
+    rand::rng().fill_bytes(&mut nonce_bytes);
+    let nonce = XNonce::from_slice(&nonce_bytes);
     let mut out = nonce_bytes.to_vec();
     let ct = cipher
         .encrypt(
@@ -149,12 +128,6 @@ pub(crate) fn seal_with_nonce(
     Ok(out)
 }
 
-pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
-    let mut nonce_bytes = [0u8; 24];
-    rand::rng().fill_bytes(&mut nonce_bytes);
-    seal_with_nonce(key, plaintext, aad, nonce_bytes)
-}
-
 ///
 /// # Errors
 ///
@@ -165,7 +138,7 @@ pub fn open(key: &DeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u8>, Clien
     }
     let (nonce_bytes, ct) = sealed.split_at(24);
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
-    let nonce = <&XNonce>::try_from(nonce_bytes).map_err(|_| ClientCoreError::Aead)?;
+    let nonce = XNonce::from_slice(nonce_bytes);
     cipher
         .decrypt(nonce, chacha20poly1305::aead::Payload { msg: ct, aad })
         .map_err(|_| ClientCoreError::Aead)
@@ -224,7 +197,6 @@ impl SyncStore {
         plaintext: &[u8],
     ) -> Result<SyncBlob, ClientCoreError> {
         let id = id.into();
-        sync_limits::validate_cursor(&self.cursor)?;
         let guard = self.checked_key(key)?;
         let epoch = self
             .cursor
@@ -233,7 +205,6 @@ impl SyncStore {
             .filter(|value| *value <= i64::MAX as u64)
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob(key, id, epoch, plaintext)?;
-        sync_limits::validate_capacity(&self.entries, std::slice::from_ref(&blob))?;
         self.entries
             .insert(blob.id.clone(), (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
@@ -241,32 +212,8 @@ impl SyncStore {
         Ok(blob)
     }
 
-    /// Re-seal migrated legacy plaintext with deterministic v2 envelopes so
-    /// independent migrations of the same trusted export converge.
-    pub(crate) fn put_local_migrated(
-        &mut self,
-        key: &DeviceKey,
-        id: impl Into<String>,
-        plaintext: &[u8],
-    ) -> Result<(), ClientCoreError> {
-        let id = id.into();
-        let guard = self.checked_key(key)?;
-        let epoch = self
-            .cursor
-            .epoch
-            .checked_add(1)
-            .filter(|value| *value <= i64::MAX as u64)
-            .ok_or(ClientCoreError::EpochExhausted)?;
-        let blob = sync_auth::seal_blob_deterministic(key, id.clone(), epoch, plaintext)?;
-        self.entries
-            .insert(id, (epoch, blob.ciphertext.clone()));
-        self.cursor.epoch = epoch;
-        self.remember_key(guard);
-        Ok(())
-    }
-
     /// Authenticate every remote blob before applying any of them.
-    /// Higher authenticated epoch wins; equal epoch with different ciphertext is an error.
+    /// Last-writer-wins by higher authenticated epoch.
     ///
     /// # Errors
     ///
@@ -279,6 +226,34 @@ impl SyncStore {
     ) -> Result<SyncCursor, ClientCoreError> {
         self.apply_authenticated(key, blobs)?;
         Ok(self.cursor.clone())
+    }
+
+    pub(crate) fn apply_authenticated(
+        &mut self,
+        key: &DeviceKey,
+        blobs: &[SyncBlob],
+    ) -> Result<usize, ClientCoreError> {
+        let guard = self.checked_key(key)?;
+        for blob in blobs {
+            sync_auth::verify_blob(key, blob)?;
+        }
+        let mut applied = 0;
+        for b in blobs {
+            match self.entries.get(&b.id) {
+                Some((ep, _)) if *ep > b.epoch => {}
+                Some((ep, _)) if *ep == b.epoch => {}
+                _ => {
+                    self.entries
+                        .insert(b.id.clone(), (b.epoch, b.ciphertext.clone()));
+                    self.cursor.epoch = self.cursor.epoch.max(b.epoch);
+                    applied += 1;
+                }
+            }
+        }
+        if !blobs.is_empty() {
+            self.remember_key(guard);
+        }
+        Ok(applied)
     }
 
     #[must_use]
@@ -306,8 +281,8 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&mut self, key: &DeviceKey) -> Result<String, ClientCoreError> {
-        let guard = self.checked_key(key)?;
+    pub fn to_persisted_json(&self, key: &DeviceKey) -> Result<String, ClientCoreError> {
+        self.checked_key(key)?;
         let blobs: Vec<SyncBlob> = self
             .entries
             .iter()
@@ -324,11 +299,7 @@ impl SyncStore {
             integrity: None,
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
-        self.remember_key(guard);
-        let json =
-            serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        sync_limits::check_json_size(json.len())?;
-        Ok(json)
+        serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))
     }
 
     ///
@@ -336,18 +307,10 @@ impl SyncStore {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn from_persisted_json(key: &DeviceKey, json: &str) -> Result<Self, ClientCoreError> {
-        sync_limits::check_json_size(json.len())?;
         let p: PersistedStore =
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         persist_auth::verify(key, &p)?;
         let mut store = Self::new(p.cursor.device_id.clone());
-        // Pin before apply_remote so an empty blob list cannot leave the store
-        // unbound. apply_remote repeats this for non-empty loads; both writes
-        // use the same guard.
-        store.remember_key(blake3::keyed_hash(
-            key.as_bytes(),
-            b"OpenSesame sync store key v2",
-        ));
         store.apply_remote(key, &p.blobs)?;
         if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
             return Err(ClientCoreError::Persist(
@@ -356,6 +319,41 @@ impl SyncStore {
         }
         store.cursor.epoch = p.cursor.epoch;
         Ok(store)
+    }
+
+    /// Native filesystem persistence (OPFS equivalent for browsers lives in packages/client-core).
+    #[cfg(not(target_arch = "wasm32"))]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when validation or the underlying operation fails.
+    pub fn save_path(
+        &self,
+        key: &DeviceKey,
+        path: &std::path::Path,
+    ) -> Result<(), ClientCoreError> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        }
+        let json = self.to_persisted_json(key)?;
+        // Refuse to write if plaintext-looking keys somehow appear (defense in depth).
+        if json.contains("\"plaintext\"") {
+            return Err(ClientCoreError::Persist(
+                "refusing to persist structure with plaintext field".into(),
+            ));
+        }
+        std::fs::write(path, json).map_err(|e| ClientCoreError::Persist(e.to_string()))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when validation or the underlying operation fails.
+    pub fn load_path(key: &DeviceKey, path: &std::path::Path) -> Result<Self, ClientCoreError> {
+        let json =
+            std::fs::read_to_string(path).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        Self::from_persisted_json(key, &json)
     }
 }
 

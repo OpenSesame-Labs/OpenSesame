@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 use crate::{
-    open, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore,
-    SyncBlob, SyncCursor, SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
+    open, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore, SyncBlob, SyncCursor,
+    SyncStore, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
@@ -21,7 +21,6 @@ impl SyncStore {
         key: &DeviceKey,
         json: &str,
     ) -> Result<Self, ClientCoreError> {
-        crate::sync_limits::check_json_size(json.len())?;
         let legacy: PersistedStore = serde_json::from_str(json)
             .map_err(|error| ClientCoreError::Persist(error.to_string()))?;
         if legacy.version.is_some() || legacy.integrity.is_some() {
@@ -56,8 +55,12 @@ fn migrate(
     cursor: SyncCursor,
     blobs: Vec<SyncBlob>,
 ) -> Result<SyncStore, ClientCoreError> {
-    crate::sync_limits::validate_cursor(&cursor)?;
-    crate::sync_limits::validate_blobs(&blobs)?;
+    if cursor.device_id.is_empty() || cursor.device_id.len() > 128 || cursor.epoch > i64::MAX as u64
+    {
+        return Err(ClientCoreError::Persist(
+            "invalid legacy sync cursor".into(),
+        ));
+    }
     let mut high = cursor.epoch;
     let mut latest: BTreeMap<String, SyncBlob> = BTreeMap::new();
     for blob in blobs {
@@ -65,7 +68,7 @@ fn migrate(
             || blob.id.len() > MAX_SYNC_ID_BYTES
             || blob.epoch == 0
             || blob.epoch > i64::MAX as u64
-            || blob.ciphertext.len() > sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX
+            || blob.ciphertext.len() > MAX_SYNC_CIPHERTEXT_BYTES
         {
             return Err(ClientCoreError::InvalidBlob("invalid legacy sync blob"));
         }
@@ -86,26 +89,9 @@ fn migrate(
     }
     let mut store = SyncStore::new(cursor.device_id);
     store.cursor.epoch = high;
-    let empty = latest.is_empty();
     for (_, blob) in latest {
         let plaintext = Zeroizing::new(open(key, &blob.ciphertext, blob.id.as_bytes())?);
-        store.put_local_migrated(key, blob.id, &plaintext)?;
+        store.put_local(key, blob.id, &plaintext)?;
     }
-    if empty {
-        store.remember_key(blake3::keyed_hash(
-            key.as_bytes(),
-            b"OpenSesame sync store key v2",
-        ));
-    }
-    let migrated: Vec<SyncBlob> = store
-        .entries
-        .iter()
-        .map(|(id, (epoch, ciphertext))| SyncBlob {
-            id: id.clone(),
-            epoch: *epoch,
-            ciphertext: ciphertext.clone(),
-        })
-        .collect();
-    sync_limits::validate_blobs(&migrated)?;
     Ok(store)
 }

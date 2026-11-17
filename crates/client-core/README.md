@@ -45,19 +45,8 @@ application's existing secure key custody; the SDK does not store it in the
 snapshot. Raw `seal`/`open` remain general-purpose APIs; use `open_sync_blob`
 for sync envelopes.
 
-The Rust SDK limits one store or snapshot to 512 blobs and 32 MiB of total
-ciphertext. Each blob is limited to 2 MiB, IDs to 128 bytes, and encoded JSON
-to 129 MiB. Inputs exceeding a limit are rejected rather than partially
-applied; separate project-scoped stores and snapshots can be used where
-appropriate. Native loads
-read only regular files and stop at the JSON limit. These bounds apply to the
-explicit legacy migration paths as well.
-
 Version 1 ciphertext and persisted stores cannot authenticate epochs. Normal
-loading and sync reject them. This is a coordinated flag-day cutover: one
-authenticated batch fails if it mixes v1 and v2 blobs, so pause sync everywhere,
-migrate once from a single trusted export, then bring devices back on v2 before
-exchanging data again. To retain existing data, stop sync on all devices,
+loading and sync reject them. To retain existing data, stop sync on all devices,
 select a legacy persisted store or snapshot whose provenance and freshness you
 trust, and explicitly use `migrate_trusted_legacy_json` or
 `migrate_trusted_legacy_snapshot` with its key. These methods re-seal the
