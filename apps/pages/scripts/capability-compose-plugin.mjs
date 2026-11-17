@@ -27,6 +27,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
+import { encodeGraph } from "../src/sw/graph-records.ts";
 import { buildGraph } from "./lib/capability-build-graph.mjs";
 import { composeState } from "./lib/capability-compose-state.mjs";
 import { publicPathTarget } from "./lib/capability-distribution.mjs";
@@ -195,7 +196,7 @@ function gateOrReport(state, graph, logger, stage) {
 }
 
 /** The graph ships (the worker reads it), so it is written compact. */
-const graphJson = (graph) => canonicalJson(graph, 0);
+const graphJson = (graph) => canonicalJson(encodeGraph(graph), 0);
 
 function writeGraph(outDir, graph) {
   mkdirSync(outDir, { recursive: true });
