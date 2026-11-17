@@ -13,10 +13,16 @@ The check is a TLA+ model of the snapshot `buildVaultState` publishes, read with
 
 ## Rerun
 
-From the repo root. `statechart` is the `/statechart` check. Do not replace it with a copied script path. `formal-verification` renders whatever chart that check writes. The output directory must be new, and it must sit outside the repo.
+From the repo root. TLC is the pstack `/statechart` skill. Nothing in this repo, `package.json`, or `mise.toml` installs a `statechart` binary, so a shell named `statechart` stops at `command not found`. Invoke `/statechart` the way `skills/formal-verification/SKILL.md` describes, then render with the `formal-verification` skill. Do not replace either skill with a copied script path. The output directory must be new, and it must sit outside the repo.
 
 ```bash
-OUT="$(mktemp -d)" && statechart spec/formal-verification/vault-presentation/VaultPresentation.tla --view spec/formal-verification/vault-presentation/VaultPresentation.view.mjs --out "$OUT/chart" && npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
+OUT="$(mktemp -d)"
+```
+
+Invoke `/statechart` with the spec `spec/formal-verification/vault-presentation/VaultPresentation.tla`, `--view spec/formal-verification/vault-presentation/VaultPresentation.view.mjs`, and `--out "$OUT/chart"`. That skill writes `chart.mmd`. Then render it:
+
+```bash
+npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
 ```
 
 `/statechart` exits 0 when every rule holds. The model has 14 distinct states. The chart labels come from `VaultPresentation.view.mjs` (`state()` and `step()`). No step is hidden.
@@ -37,15 +43,15 @@ Do not weaken `PresentationMatchesStore`, `NoStalePendingWhileOpen`, or `OpenSes
 
 ## Tell a real bug from a modeling error
 
-Replay the failing path one published snapshot at a time against `buildVaultState` and the lock/unlock methods above. The replay test is `packages/app-core/src/lib/vault/vault-presentation-formal.replay.test.ts`. It walks the BuggyUnlock counterexample. On the real function, the frame where the parked key is still set and the vault is open keeps `awaitingSecondStep` false.
+Replay the failing path one published snapshot at a time. The replay test is `packages/app-core/src/lib/vault/vault-presentation-formal.replay.test.ts`. It walks the counterexample on `VaultStore` (create, enroll a second step, lock, primary unlock, finish the second step) and drives `StoreUnlockSession.activate` from the parked-key state that `BuggyUnlockOpen` opens. It asserts each published snapshot and that the parked key is clear once the session is open. `buildVaultState` still keeps `awaitingSecondStep` false on an open vault.
 
-If that test fails, the screen formula has drifted and the model is reporting a product bug. If the test passes and TLC fails, the model and the code have diverged; read the diff of the covered files since the sync commit before changing a rule.
+If that test fails, the screen formula or the unlock session has drifted and the model is reporting a product bug. If the test passes and TLC fails, the model and the code have diverged; read the diff of the covered files since the sync commit before changing a rule.
 
 ## Scratch break (BuggyUnlock)
 
 The committed config sets `BuggyUnlock = FALSE`. That is the code: `activate` clears the parked key before publish, and `buildVaultState` uses `pending && !open`.
 
-Prove the rules can fail. Copy `spec/formal-verification/vault-presentation/` to a scratch directory outside the repo. In the scratch config only, set `BuggyUnlock = TRUE`. Point the rerun command's `statechart` half at that copy and a new `--out` directory. Do not chain the render on a successful exit; this run must not succeed.
+Prove the rules can fail. Copy `spec/formal-verification/vault-presentation/` to a scratch directory outside the repo. In the scratch config only, set `BuggyUnlock = TRUE`. Invoke `/statechart` on that copy with a new `--out` directory. Do not chain the render on a successful exit; this run must not succeed.
 
 `/statechart` must report that the rules break. The shortest path is:
 
