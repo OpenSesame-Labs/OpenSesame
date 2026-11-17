@@ -13,6 +13,7 @@ use crate::Result;
 
 pub const GITHUB_APP_REGISTER_URL: &str = "https://github.com/settings/apps/new";
 pub const GITHUB_APP_MANIFEST_CONVERSIONS: &str = "https://api.github.com/app-manifests";
+const MAX_CONVERSION_RESPONSE_BYTES: usize = 256 * 1024;
 
 /// GitHub App client ids are `Iv1.` / `Iv23`… Classic OAuth apps use other forms.
 #[must_use]
@@ -187,39 +188,91 @@ pub async fn convert_manifest_code(
     http: &reqwest::Client,
     code: &str,
 ) -> Result<GithubAppCredentials> {
+    convert_manifest_code_at(http, GITHUB_APP_MANIFEST_CONVERSIONS, code).await
+}
+
+async fn convert_manifest_code_at(
+    http: &reqwest::Client,
+    endpoint: &str,
+    code: &str,
+) -> Result<GithubAppCredentials> {
     let code = code.trim();
     if code.is_empty() {
         return Err(BrokerError::Invalid("manifest code is required".into()));
     }
-    let url = format!("{GITHUB_APP_MANIFEST_CONVERSIONS}/{code}/conversions");
-    let res = http
-        .post(&url)
+    let mut url = url::Url::parse(endpoint)
+        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?;
+    url.path_segments_mut()
+        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?
+        .pop_if_empty()
+        .push(code)
+        .push("conversions");
+    let mut res = http
+        .post(url)
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "OpenSesame-Host/0.1")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
+        .map_err(|_| {
+            BrokerError::ExchangeFailed("GitHub App manifest conversion request failed".into())
+        })?;
     let status = res.status();
-    let text = res
-        .text()
-        .await
-        .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
     if !(200..300).contains(&status.as_u16()) {
-        let snippet: String = text.chars().take(200).collect();
         return Err(BrokerError::ExchangeFailed(format!(
-            "GitHub App manifest conversion failed ({status}): {snippet}"
+            "GitHub App manifest conversion failed ({status})"
         )));
     }
-    serde_json::from_str(&text).map_err(|e| {
-        BrokerError::ExchangeFailed(format!("invalid GitHub App conversion response: {e}"))
-    })
+    if res
+        .content_length()
+        .is_some_and(|length| length > MAX_CONVERSION_RESPONSE_BYTES as u64)
+    {
+        return Err(BrokerError::ExchangeFailed(
+            "GitHub App conversion response exceeds size limit".into(),
+        ));
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await.map_err(|_| {
+        BrokerError::ExchangeFailed("could not read GitHub App conversion response".into())
+    })? {
+        if body.len() + chunk.len() > MAX_CONVERSION_RESPONSE_BYTES {
+            return Err(BrokerError::ExchangeFailed(
+                "GitHub App conversion response exceeds size limit".into(),
+            ));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&body)
+        .map_err(|_| BrokerError::ExchangeFailed("invalid GitHub App conversion response".into()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::BrokerConfig;
+    use axum::{extract::State, http::StatusCode, routing::post, Router};
+
+    async fn conversion_server(
+        status: StatusCode,
+        body: String,
+    ) -> (String, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let router = Router::new()
+                .route(
+                    "/app-manifests/{code}/conversions",
+                    post(
+                        |State((status, body)): State<(StatusCode, String)>| async move {
+                            (status, body)
+                        },
+                    ),
+                )
+                .with_state((status, body));
+            let _ = axum::serve(listener, router).await;
+        });
+        (format!("http://{address}/app-manifests"), task)
+    }
 
     #[test]
     fn app_credentials_print_no_secret_or_key() {
@@ -234,6 +287,54 @@ mod tests {
             assert!(!shown.contains(leaked), "{leaked} in {shown}");
         }
         assert!(shown.contains("Iv1.public"), "{shown}");
+    }
+
+    #[tokio::test]
+    async fn transport_errors_never_expose_the_one_time_code() {
+        let code = "github-one-time-code-canary";
+        let error = convert_manifest_code_at(
+            &reqwest::Client::new(),
+            "http://127.0.0.1:1/app-manifests",
+            code,
+        )
+        .await
+        .expect_err("closed port must fail");
+        let shown = error.to_string();
+        assert_eq!(
+            shown,
+            "token exchange failed: GitHub App manifest conversion request failed"
+        );
+        assert!(!shown.contains(code));
+        assert!(!shown.contains("127.0.0.1"));
+    }
+
+    #[tokio::test]
+    async fn rejected_conversion_discards_a_reflected_code() {
+        let code = "github-one-time-code-canary";
+        let reflected = format!("provider reflected {code}");
+        let (endpoint, task) = conversion_server(StatusCode::BAD_REQUEST, reflected.clone()).await;
+        let error = convert_manifest_code_at(&reqwest::Client::new(), &endpoint, code)
+            .await
+            .expect_err("provider rejection");
+        task.abort();
+        let shown = error.to_string();
+        assert!(shown.contains("400 Bad Request"));
+        assert!(!shown.contains(code));
+        assert!(!shown.contains(&reflected));
+    }
+
+    #[tokio::test]
+    async fn successful_conversion_still_parses_credentials() {
+        let body = r#"{"id":7,"name":"os","client_id":"Iv1.public","client_secret":"secret"}"#;
+        let (endpoint, task) = conversion_server(StatusCode::OK, body.into()).await;
+        let credentials =
+            convert_manifest_code_at(&reqwest::Client::new(), &endpoint, "single-use")
+                .await
+                .expect("valid conversion");
+        task.abort();
+        assert_eq!(credentials.id, 7);
+        assert_eq!(credentials.client_id, "Iv1.public");
+        assert_eq!(credentials.client_secret, "secret");
     }
 
     #[test]
