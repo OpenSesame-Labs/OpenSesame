@@ -85,6 +85,18 @@ deviceRoutes.post("/approve", requirePrincipal(), async (c) => {
       400,
     );
   }
+  if (
+    body.organization_id !== undefined &&
+    (!isString(body.organization_id) || !body.organization_id.trim())
+  ) {
+    return c.json(
+      {
+        error: "invalid_request",
+        hint: "organization_id must be a nonempty string",
+      },
+      400,
+    );
+  }
   let memberships =
     await ctx.stores.organizationMemberships.listByPrincipal(principalId);
   // Local/dev Pages flow: a provisional principal with no workspace yet still
@@ -93,6 +105,9 @@ deviceRoutes.post("/approve", requirePrincipal(), async (c) => {
     await ensurePersonalOrganization(ctx, principalId);
     memberships =
       await ctx.stores.organizationMemberships.listByPrincipal(principalId);
+  }
+  if (memberships.length === 0) {
+    return c.json({ error: "organization_membership_required" }, 403);
   }
   const organizationId =
     (isString(body.organization_id) ? body.organization_id.trim() : "") ||

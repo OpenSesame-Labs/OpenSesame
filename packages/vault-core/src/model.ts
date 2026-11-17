@@ -1,15 +1,15 @@
 /** Vault item model. Everything here lives inside the sealed body — never in plaintext storage. */
 import type { JsonObject } from "@opensesame/os-domain";
 import type { FieldValues } from "@opensesame/vault-item-types";
+import type { AccountItem } from "./account.js";
+import type { CredentialItem } from "./credential.js";
+import { credentialSearchText, credentialSubtitle } from "./credential-read.js";
+import type { ItemEnvironments, VaultEnvironments } from "./environments.js";
 // Type-only in the other direction, so this stays a leaf at runtime.
 import { typedSearchText, typedSubtitle } from "./item-types.js";
-
-import type { AccountItem } from "./account.js";
-import { credentialSearchText, credentialSubtitle } from "./credential-read.js";
-import type { CredentialItem } from "./credential.js";
-import type { ItemEnvironments, VaultEnvironments } from "./environments.js";
 import type { LoginUri, UriMatch } from "./login-uri.js";
 import type { ItemTypeInstallTimes, VaultTombstones } from "./sync-model.js";
+
 export type { AccountItem } from "./account.js";
 export type { LoginUri, UriMatch } from "./login-uri.js";
 export type { ItemTypeInstallTimes, VaultTombstones } from "./sync-model.js";
@@ -120,6 +120,8 @@ export type CapabilityGrant = {
 export type SecretItem = BaseItem & {
   kind: "secret";
   value: string;
+  /** Sealed metadata for an integration whose credential is this item. */
+  integration?: { provider: string; metadata: string };
   /**
    * Optional grant metadata: the outer bound for any grant of this secret to
    * an agent. It only matters when granting the secret, and it never widens.
@@ -240,6 +242,7 @@ export type VaultBody = {
 };
 
 import { KIND_LABEL } from "./kind-labels.js";
+
 export { createItem, createTypedItem } from "./item-factory.js";
 export { KIND_LABEL, KIND_PLURAL } from "./kind-labels.js";
 
