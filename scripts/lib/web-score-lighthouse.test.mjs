@@ -148,7 +148,7 @@ fs.writeFileSync(output, JSON.stringify({
       for (const formFactor of ["desktop", "mobile"]) {
         const result = await runLighthouse({
           targetUrl,
-          port: 1234,
+          withBrowser: (audit) => audit(1234),
           reportPath: join(dir, "report.json"),
           timeout: 10_000,
           attempts: 1,
@@ -186,12 +186,15 @@ it.skipIf(process.platform === "win32")(
     const dir = mkdtempSync(join(tmpdir(), "score-samples-test-"));
     const originalPath = process.env.PATH;
     const originalCount = process.env.SCORE_TEST_COUNT;
+    const originalPorts = process.env.SCORE_TEST_PORTS;
     const countPath = join(dir, "count");
+    const portsPath = join(dir, "ports");
     writeFileSync(
       join(dir, "npm"),
       `#!/usr/bin/env node
 const fs = require("node:fs");
 const args = process.argv.slice(2);
+fs.appendFileSync(process.env.SCORE_TEST_PORTS, args.find((arg) => arg.startsWith("--port=")) + "\\n");
 const n = fs.existsSync(process.env.SCORE_TEST_COUNT) ? Number(fs.readFileSync(process.env.SCORE_TEST_COUNT)) + 1 : 1;
 fs.writeFileSync(process.env.SCORE_TEST_COUNT, String(n));
 const output = args.find((arg) => arg.startsWith("--output-path=")).slice(14);
@@ -206,10 +209,12 @@ fs.writeFileSync(output, JSON.stringify({
     );
     process.env.PATH = `${dir}:${originalPath}`;
     process.env.SCORE_TEST_COUNT = countPath;
+    process.env.SCORE_TEST_PORTS = portsPath;
     try {
+      let browsers = 0;
       const result = await runLighthouse({
         targetUrl,
-        port: 1234,
+        withBrowser: (audit) => audit(1234 + browsers++),
         reportPath: join(dir, "report.json"),
         timeout: 10_000,
         attempts: 2,
@@ -217,6 +222,11 @@ fs.writeFileSync(output, JSON.stringify({
         formFactor: "mobile",
       });
       expect(result.passed).toBe(false);
+      expect(browsers).toBe(2);
+      expect(readFileSync(portsPath, "utf8").trim().split("\n")).toEqual([
+        "--port=1234",
+        "--port=1235",
+      ]);
       expect(result.samples).toHaveLength(2);
       expect(
         result.samples.map((sample) => sample.categories.performance),
@@ -233,6 +243,9 @@ fs.writeFileSync(output, JSON.stringify({
       if (originalCount === undefined)
         Reflect.deleteProperty(process.env, "SCORE_TEST_COUNT");
       else process.env.SCORE_TEST_COUNT = originalCount;
+      if (originalPorts === undefined)
+        Reflect.deleteProperty(process.env, "SCORE_TEST_PORTS");
+      else process.env.SCORE_TEST_PORTS = originalPorts;
       rmSync(dir, { recursive: true, force: true });
     }
   },

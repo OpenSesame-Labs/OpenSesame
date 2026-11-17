@@ -216,7 +216,7 @@ async function auditLighthouse({
 
 export async function runLighthouse({
   targetUrl,
-  port,
+  withBrowser,
   reportPath,
   timeout,
   attempts,
@@ -238,16 +238,26 @@ export async function runLighthouse({
       attempts === 1
         ? reportPath
         : `${reportPath.replace(/\.json$/u, "")}.attempt-${attempt}.json`;
-    const result = await auditLighthouse({
-      attempt,
-      targetUrl,
-      port,
-      reportPath: samplePath,
-      timeout,
-      children,
-      formFactor,
-      expectApp,
-    });
+    let result;
+    try {
+      result = await withBrowser((port) =>
+        auditLighthouse({
+          attempt,
+          targetUrl,
+          port,
+          reportPath: samplePath,
+          timeout,
+          children,
+          formFactor,
+          expectApp,
+        }),
+      );
+    } catch (error) {
+      result = {
+        categories: {},
+        problems: [`isolated Lighthouse run failed: ${error.message}`],
+      };
+    }
     samples.push({ ...result, reportPath: samplePath });
     for (const problem of result.problems) {
       console.error(

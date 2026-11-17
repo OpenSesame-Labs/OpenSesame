@@ -105,15 +105,7 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
 async function main() {
   let failed = false;
   const agenticTarget = originScoreTarget(targetUrl);
-  const { child, getError } = startChrome({
-    chrome,
-    profileDir,
-    noSandbox: process.env.WEB_SCORE_NO_SANDBOX === "1",
-    children,
-    expectApp,
-  });
   try {
-    const port = await waitForChrome(profileDir, child, getError);
     if (expectApp) {
       try {
         await checkAppReady({
@@ -130,7 +122,26 @@ async function main() {
     for (const { formFactor, report } of lighthouseReports) {
       const lighthouse = await runLighthouse({
         targetUrl,
-        port,
+        withBrowser: async (audit) => {
+          // Each run models a fresh visitor. A previous audit can leave
+          // IndexedDB or a service worker behind even after Lighthouse resets
+          // storage, so do not share a Chrome profile between samples.
+          const sampleProfile = mkdtempSync(join(profileDir, "sample-"));
+          const { child, getError } = startChrome({
+            chrome,
+            profileDir: sampleProfile,
+            noSandbox: process.env.WEB_SCORE_NO_SANDBOX === "1",
+            children,
+            expectApp,
+          });
+          try {
+            const port = await waitForChrome(sampleProfile, child, getError);
+            return await audit(port);
+          } finally {
+            await cleanup(new Set([child]), sampleProfile);
+            children.delete(child);
+          }
+        },
         reportPath: report,
         timeout: lighthouseTimeoutMs,
         attempts,

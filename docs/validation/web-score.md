@@ -39,6 +39,8 @@ stream's raw `result.score` can use a different scoring contract.
 Lighthouse runs once by default. Set `WEB_SCORE_LIGHTHOUSE_ATTEMPTS` to take
 multiple samples when investigating lab variability. Every sample is retained
 and all must pass; a favorable run cannot hide a failing or incomplete one.
+Each sample starts a new disposable Chrome profile, so IndexedDB, caches, and
+service workers from a previous sample cannot carry into the next one.
 The script uses `npm exec` to run pinned Lighthouse 12.8.2; the first run
 downloads it. Treat scores as diagnostics alongside real journeys and field
 data, not as a reason to remove or disguise the designed experience.
