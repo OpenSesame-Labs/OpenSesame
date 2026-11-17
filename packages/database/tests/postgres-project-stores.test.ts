@@ -6,8 +6,9 @@ import {
 } from "../src/repos/interfaces.js";
 import { createPostgresProjectStores } from "../src/repos/postgres.js";
 import { makePrincipal, makeProject } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let stores: ProjectStores;
 
@@ -17,12 +18,12 @@ async function principal(): Promise<string> {
 }
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   stores = createPostgresProjectStores(ctx.db);
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 describe("PostgresProjectStore", () => {

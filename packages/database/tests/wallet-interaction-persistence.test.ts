@@ -3,20 +3,21 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "../src/schema/index.js";
 import { interactionApprovalQuarantine } from "../src/schema/wallet-interactions.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 import {
   makeInteraction,
   refusalText,
 } from "./wallet-interaction-test-helpers.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 describe("PostgresRepositories.interactions session-only guard (F12)", () => {

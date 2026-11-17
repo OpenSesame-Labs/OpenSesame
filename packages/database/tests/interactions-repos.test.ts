@@ -14,7 +14,8 @@ import {
 } from "../src/index.js";
 import * as schema from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
+
 /**
  * Storage contract for the canonical interaction (ADR 0086).
  *
@@ -396,15 +397,14 @@ describe("InteractionRepository patch type", () => {
   });
 });
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
-afterAll(async () => {
-  await ctx.client.close();
-});
+afterAll(() => pgOwner.close());
 
 interactionRepositoryContract("PostgresRepositories", async () => {
   const approver = await ctx.repos.principals.create(makePrincipal());

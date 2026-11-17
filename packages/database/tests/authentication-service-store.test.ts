@@ -11,13 +11,12 @@ import {
 import type { Repositories } from "../src/repos/interfaces.js";
 import { MemoryRepositories } from "../src/repos/memory.js";
 import { makePrincipal } from "./factories.js";
-import { createPgTestContext } from "./pg-harness-full.js";
+import { createPgOwner } from "./pg-harness-full.js";
 
 type Backend = {
   repos: Repositories;
   stores: AuthenticationServiceStores;
   restart(): AuthenticationServiceStores;
-  close(): Promise<void>;
 };
 
 async function memoryBackend(): Promise<Backend> {
@@ -26,30 +25,34 @@ async function memoryBackend(): Promise<Backend> {
     repos: new MemoryRepositories(),
     stores,
     restart: () => stores,
-    close: async () => {},
   };
 }
 
-async function postgresBackend(): Promise<Backend> {
-  const ctx = await createPgTestContext();
+async function postgresBackend(
+  owner: ReturnType<typeof createPgOwner>,
+): Promise<Backend> {
+  const ctx = await owner.acquire();
   return {
     repos: ctx.repos,
     stores: createPostgresAuthenticationServiceStores(ctx.db),
     restart: () => createPostgresAuthenticationServiceStores(ctx.db),
-    close: () => ctx.client.close(),
   };
 }
 
 describe.each([
-  { name: "memory", create: memoryBackend },
+  {
+    name: "memory",
+    create: (_owner: ReturnType<typeof createPgOwner>) => memoryBackend(),
+  },
   { name: "postgres", create: postgresBackend },
 ])("$name authentication service storage", ({ create }) => {
+  const pgOwner = createPgOwner();
   let backend: Backend;
   let application: AuthenticationApplication;
   const now = new Date("2026-08-26T12:00:00.000Z");
 
   beforeAll(async () => {
-    backend = await create();
+    backend = await create(pgOwner);
     const owner = makePrincipal({ id: `prn_auth_${randomUUID()}` });
     await backend.repos.principals.create(owner);
     application = {
@@ -71,7 +74,7 @@ describe.each([
     await backend.stores.applications.create(application);
   }, 60_000);
 
-  afterAll(async () => backend.close());
+  afterAll(async () => pgOwner.close());
 
   it("atomically completes registration and survives a store restart", async () => {
     const tokenHash = `registration-${randomUUID()}`;

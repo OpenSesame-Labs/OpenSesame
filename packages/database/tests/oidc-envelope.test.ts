@@ -6,16 +6,17 @@ import { EventSealError, createEventSealer } from "../src/event-seal.js";
 import { createPostgresOidcStore } from "../src/oidc-store.js";
 import { sealLegacyOidc } from "../src/repos/sealed-oidc-sweep.js";
 import * as schema from "../src/schema/index.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 const sealer = createEventSealer("oidc envelope deployment test key");
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 afterEach(() => vi.restoreAllMocks());
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 it("persists opaque token jti and lookup capabilities only as keyed indexes and envelopes", async () => {

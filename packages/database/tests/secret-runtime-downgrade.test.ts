@@ -2,20 +2,21 @@ import { createCipheriv, hkdfSync, randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { EventSealError, createEventSealer } from "../src/event-seal.js";
-import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import { withSealedSecrets } from "../src/repos/sealed-secrets.js";
+import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import * as schema from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 const root = "runtime downgrade fixture root";
 const sealer = createEventSealer(root);
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 function legacy(value: string): string {
   const key = Buffer.from(

@@ -14,21 +14,22 @@ import {
 } from "../src/index.js";
 import { oidcLookup } from "../src/oidc-seal.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 const sealer = createEventSealer("oidc-persistence-test-deployment-key");
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let oidc: OidcStore;
 let pairwise: PairwiseSubjectStore;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   oidc = createPostgresOidcStore(ctx.db, sealer);
   pairwise = createPostgresPairwiseStore(ctx.db);
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 describe("createPostgresOidcStore", () => {

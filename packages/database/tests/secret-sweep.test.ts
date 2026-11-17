@@ -5,24 +5,25 @@ import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { EventSealError, createEventSealer } from "../src/event-seal.js";
 import { createPostgresOrgFederationStores } from "../src/org-federation-store.js";
 import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
-import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import { withSealedSecrets } from "../src/repos/sealed-secrets.js";
+import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import { sealLegacySessions } from "../src/repos/sealed-sessions-sweep.js";
 import * as schema from "../src/schema/index.js";
 import { openSecretText } from "../src/secret-seal.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 const sealer = createEventSealer(
   "durable test key for migrating customer secrets",
 );
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterEach(() => vi.restoreAllMocks());
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 it("migrates every reversible domain secret and remains idempotent", async () => {

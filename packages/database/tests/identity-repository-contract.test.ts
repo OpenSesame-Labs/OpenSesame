@@ -6,19 +6,20 @@ import {
   type Repositories,
 } from "../src/index.js";
 import { makeIdentity, makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * Identity registration must behave the same through the in-memory and SQL
  * repository ports. The SQL fixture uses migrated PGlite by default; setting
  * DATABASE_URL runs this same contract on a disposable real Postgres database.
  */
+const pgOwner = createPgOwner();
 let pg: PgTestContext | undefined;
 beforeAll(async () => {
-  pg = await createPgTestContext();
+  pg = await pgOwner.acquire();
 }, 60_000);
 afterAll(async () => {
-  await pg?.client.close();
+  await pgOwner.close();
 });
 
 interface Backend {

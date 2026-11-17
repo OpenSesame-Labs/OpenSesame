@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as schema from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * The repositories only exercise a subset of the schema. These round-trips
@@ -11,14 +11,15 @@ import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
  * migrations: every insert+select below fails if the SQL DDL and the drizzle
  * column mapping drift apart.
  */
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 describe("schema round-trips (tables without repositories)", () => {

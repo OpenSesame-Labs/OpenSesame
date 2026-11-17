@@ -17,7 +17,7 @@ import {
   makeNotificationDelivery,
   makePrincipal,
 } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 /**
  * Event rows at rest (ADR 0157). Every assertion reads the table itself, not
@@ -27,14 +27,15 @@ import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
 const SECRET = "test-event-secret-with-at-least-32-chars";
 const PLAINTEXT = "hunter2-do-not-store";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 const sealer = createEventSealer(SECRET);
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 function rawText(value: JsonObject | null | undefined): string {
