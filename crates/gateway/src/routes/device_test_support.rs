@@ -29,6 +29,7 @@ pub(super) async fn mint_approved(
                 principal,
                 organization_id,
                 organization_role: opensesame_domain::OrganizationRole::Member,
+                membership_revision: None,
             }),
         },
     );
@@ -76,6 +77,8 @@ pub(super) fn spawn_failed_approve(
                 principal: None,
                 organization_id: None,
                 organization_role: None,
+                membership_incarnation: None,
+                authority_revision: None,
             }),
         )
         .await

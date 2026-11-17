@@ -82,6 +82,7 @@ async fn unknown_clients_and_client_swaps_fail_closed() {
                 principal: opensesame_domain::PrincipalId::new().to_string(),
                 organization_id: opensesame_domain::OrganizationId::new(),
                 organization_role: opensesame_domain::OrganizationRole::Member,
+                membership_revision: None,
             }),
         },
     );
@@ -216,6 +217,7 @@ async fn trusted_organization_session_mints_and_identifies_without_demo_bootstra
                 principal: principal.clone(),
                 organization_id,
                 organization_role: opensesame_domain::OrganizationRole::Admin,
+                membership_revision: None,
             }),
         },
     );

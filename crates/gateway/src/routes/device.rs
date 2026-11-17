@@ -118,8 +118,21 @@ pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenReques
     // Membership mutations revoke approved grants and live sessions together.
     // Hold the same lifecycle fence until this grant is consumed and its session
     // is published, so revocation cannot slip between those two states.
-    let _lifecycle = st.session_lifecycle.lock().unwrap();
+    let _lifecycle = st.session_lifecycle.lock().await;
     let device_code_hash = hash_secret(&req.device_code);
+    let approved = st.device_codes.lock().unwrap().get(&device_code_hash)
+        .and_then(|pending| pending.approved.clone());
+    if let Some(approved) = approved {
+        if let Some(revision) = &approved.membership_revision {
+            if !st.db.host_membership_live(
+                &approved.organization_id.to_string(),
+                &approved.principal,
+                Some((&revision.incarnation, &revision.revision)),
+            ).await.unwrap_or(false) {
+                return (StatusCode::BAD_REQUEST, Json(json!({"error":"invalid_grant"}))).into_response();
+            }
+        }
+    }
     let mut map = st.device_codes.lock().unwrap();
     let Some(pending) = map.get_mut(&device_code_hash) else {
         return (
@@ -183,6 +196,8 @@ pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenReques
     claims.actor_id = actor_id;
     claims.project_id = project_id;
     claims.credential_handle = credential_handle;
+    claims.membership_revision = approved.membership_revision.clone();
+    claims.local_session = approved.membership_revision.is_none();
     let meta = claims.public_view();
     {
         let mut sessions = st.sessions.lock().unwrap();
@@ -218,7 +233,10 @@ pub struct DeviceApproveRequest {
     principal: Option<String>,
     organization_id: Option<String>,
     organization_role: Option<opensesame_domain::OrganizationRole>,
+    membership_incarnation: Option<String>,
+    authority_revision: Option<String>,
 }
+
 
 fn approved_organization(
     organization_id: Option<&str>,
@@ -252,6 +270,13 @@ pub async fn approve(
     headers: axum::http::HeaderMap,
     Json(req): Json<DeviceApproveRequest>,
 ) -> Response {
+    if let Err(resp) = require_operator(&st, &headers) {
+        return resp;
+    }
+    let revision = match approval::membership_revision(&req) {
+        Ok(revision) => revision,
+        Err(()) => return (StatusCode::BAD_REQUEST, Json(json!({"error":"membership_revision_required"}))).into_response(),
+    };
     let principal = req
         .principal
         .as_deref()
@@ -262,7 +287,14 @@ pub async fn approve(
         st.bootstrap.lock().unwrap().as_ref().map(|boot| boot.org),
     )
     .ok();
-    let response = approve_native(&st, &headers, &req);
+    let _lifecycle = st.session_lifecycle.lock().await;
+    if let (Some(principal), Some((org, _)), Some(revision)) = (principal, organization, revision.as_ref()) {
+        if !st.db.host_membership_live(&org.to_string(), &principal.to_string(),
+            Some((&revision.incarnation, &revision.revision))).await.unwrap_or(false) {
+            return (StatusCode::CONFLICT, Json(json!({"error":"membership_withdrawn"}))).into_response();
+        }
+    }
+    let response = approval::approve_native(&st, &headers, &req, revision.clone());
     if response.status().is_success() {
         if let (Some(principal), Some((org, role))) = (principal, organization) {
             if opensesame_connection_broker::config_access::provision_native_role(
@@ -274,101 +306,30 @@ pub async fn approve(
             .await
             .is_err()
             {
+                approval::clear_approval(&st, &req.user_code);
                 return StatusCode::SERVICE_UNAVAILABLE.into_response();
+            }
+            if let Some(revision) = revision.as_ref() {
+                if !st.db.activate_host_membership(&org.to_string(), &principal.to_string(),
+                    &revision.incarnation, &revision.revision).await.unwrap_or(false) {
+                    approval::clear_approval(&st, &req.user_code);
+                    return (StatusCode::CONFLICT, Json(json!({"error":"membership_withdrawn"}))).into_response();
+                }
             }
         }
     }
     response
 }
 
-fn approve_native(
-    st: &AppState,
-    headers: &axum::http::HeaderMap,
-    req: &DeviceApproveRequest,
-) -> Response {
-    if let Err(resp) = require_operator(st, headers) {
-        return resp;
-    }
-    let now = Utc::now();
-    // Hold the failure fence across the guess so concurrent misses cannot all
-    // observe count < MAX and then all push.
-    let mut failures = st.device_approve_failures.lock().unwrap();
-    if prune_failures(&mut failures, now) >= MAX_APPROVE_FAILURES {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(json!({
-                "error": "too_many_attempts",
-                "retry_after_seconds": APPROVE_FAILURE_WINDOW_SECS,
-            })),
-        )
-            .into_response();
-    }
 
-    let mut map = st.device_codes.lock().unwrap();
-    map.retain(|_, p| p.expires_at > now);
-    // The digest is bound per device code, so the attempt is recomputed for each
-    // candidate rather than compared against one global hash.
-    for (device_digest, pending) in map.iter_mut() {
-        let attempt_hash = user_code_digest(&st.claim_pepper, device_digest, &req.user_code);
-        if hash_eq(&attempt_hash, &pending.user_code_hash) {
-            drop(failures);
-            let operator_default =
-                if req.organization_id.is_none() && req.organization_role.is_none() {
-                    match require_demo_bootstrap(st) {
-                        Ok(boot) => Some(boot.org),
-                        Err(resp) => return resp,
-                    }
-                } else {
-                    None
-                };
-            let organization = match approved_organization(
-                req.organization_id.as_deref(),
-                req.organization_role,
-                operator_default,
-            ) {
-                Ok(organization) => organization,
-                Err(error) => {
-                    return (StatusCode::BAD_REQUEST, Json(json!({"error":error}))).into_response();
-                }
-            };
-            let Some(principal) = req
-                .principal
-                .as_deref()
-                .and_then(crate::session_claims::parse_principal)
-            else {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({"error":"principal_required"})),
-                )
-                    .into_response();
-            };
-            pending.approved = Some(ApprovedDevice {
-                principal: principal.to_string(),
-                organization_id: organization.0,
-                organization_role: organization.1,
-            });
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "status":"approved",
-                    "client_id": pending.client_id,
-                    "scope": pending.scope,
-                })),
-            )
-                .into_response();
-        }
-    }
-    // A miss costs the guesser budget, not the pending authorizations.
-    // Push while still holding `failures` — a second lock here deadlocks
-    // `std::sync::Mutex` and lets concurrent misses all observe count < MAX.
-    failures.push(now);
-    (
-        StatusCode::NOT_FOUND,
-        Json(json!({"error":"unknown_user_code"})),
-    )
-        .into_response()
-}
+
+#[path = "device_approval.rs"]
+mod approval;
 
 #[cfg(test)]
 #[path = "device_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "device_membership_tests.rs"]
+mod membership_tests;

@@ -66,6 +66,7 @@ fn revocation_clears_matching_approved_device_codes() {
             principal: principal.into(),
             organization_id,
             organization_role: OrganizationRole::Member,
+            membership_revision: None,
         }),
     };
     let mut pending = HashMap::from([
@@ -105,6 +106,7 @@ fn revocation_normalizes_identity_and_host_principal_spellings() {
                 principal: principal.to_string(),
                 organization_id,
                 organization_role: OrganizationRole::Member,
+                membership_revision: None,
             }),
         },
     )]);
@@ -167,6 +169,7 @@ fn revocation_waiting_on_a_token_mint_clears_the_new_session() {
                 principal: principal.to_string(),
                 organization_id,
                 organization_role: OrganizationRole::Member,
+                membership_revision: None,
             }),
         },
     )])));
