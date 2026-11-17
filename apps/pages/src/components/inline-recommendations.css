@@ -1,0 +1,24 @@
+.recommendation-seat {
+  flex: none;
+}
+
+.recommendation-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.recommendation-preview strong {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font);
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+  .recommendation-preview button {
+    min-height: 44px;
+  }
+}

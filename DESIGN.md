@@ -567,6 +567,11 @@ out in the prose beside the keys, not as a word on the key. A menu is the
 exception by nature: a menu entry is a named choice in a list (with its key
 beside it), and an icon-only menu would be mystery meat.
 
+Notification dismissals are a narrow exception (ADR 0225): the button
+visibly says **Dismiss**, and its accessible name includes the notification
+title. This makes an unfamiliar notification easy to identify and close on a
+touch screen. Other executing actions keep the icon-key rule.
+
 Text on a control is only the object of a choice: a provider, a mode, a
 navigation target, or the guest road. Never a text verb stretched across a
 row, a card foot, or an empty state. A form or ceremony that ends in an

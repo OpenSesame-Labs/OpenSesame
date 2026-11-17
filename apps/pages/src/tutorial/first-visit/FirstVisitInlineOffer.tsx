@@ -1,8 +1,9 @@
 import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { FormCommit } from "../../components/FormCommit.js";
 import { IconPlay } from "../../components/Icons.js";
+import { landFocus } from "../../lib/focus.js";
 
 export type InlineOffer = Readonly<{
   host: HTMLElement;
@@ -22,23 +23,25 @@ export function FirstVisitInlineOffer({
   body: string;
   onClose: () => void;
 }) {
-  const priorFocus = useRef<HTMLElement | null>(null);
+  const before = useRef<Element | null>(document.activeElement);
+  useEffect(() => {
+    const remember = (event: FocusEvent) => {
+      if (event.target instanceof Element && !offer.host.contains(event.target))
+        before.current = event.target;
+    };
+    document.addEventListener("focusin", remember);
+    return () => document.removeEventListener("focusin", remember);
+  }, [offer.host]);
   const finish = (action: () => void) => {
     if (offer.host.contains(document.activeElement)) {
       const target = offer.host.dataset.firstVisitReturn;
-      let restored = false;
-      if (target) {
-        const element = resolveGuideTargetElement(target);
-        const selector = "input:not(:disabled), button:not(:disabled)";
-        const focus = element?.matches(selector)
-          ? element
-          : element?.querySelector<HTMLElement>(selector);
-        focus?.focus();
-        restored = focus != null && document.activeElement === focus;
-      }
-      if (!restored && priorFocus.current?.isConnected) {
-        priorFocus.current.focus();
-      }
+      const guide = target ? resolveGuideTargetElement(target) : null;
+      const control = guide?.matches(
+        "input:not(:disabled), button:not(:disabled)",
+      )
+        ? guide
+        : guide?.querySelector("input:not(:disabled), button:not(:disabled)");
+      if (!landFocus(control)) landFocus(before.current);
     }
     onClose();
     action();
@@ -49,16 +52,15 @@ export function FirstVisitInlineOffer({
       aria-label={`${offer.title} walkthrough`}
       onFocusCapture={(event) => {
         if (
-          event.relatedTarget instanceof HTMLElement &&
+          event.relatedTarget instanceof Element &&
           !event.currentTarget.contains(event.relatedTarget)
-        ) {
-          priorFocus.current = event.relatedTarget;
-        }
+        )
+          before.current = event.relatedTarget;
       }}
     >
       <div className="panel__body">
         <p>
-          <strong>{offer.title}.</strong> {body}
+          <strong>Walkthrough: {offer.title}.</strong> {body}
         </p>
         <FormCommit
           label="Show me"

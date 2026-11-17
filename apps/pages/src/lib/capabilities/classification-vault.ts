@@ -192,6 +192,10 @@ export const TUTORIAL_RULES = [
     "the seat a gate screen keeps for the help key, and the host that holds it; core screens import it, the capability draws into it (ADR 0166)",
   ),
   shared(
+    `${T}gate-presence`,
+    "gate presence shared by core notification placement and the help seat",
+  ),
+  shared(
     `${T}registry/`,
     "target/route/predicate registration hooks used by core chrome",
   ),
@@ -231,6 +235,7 @@ export const TUTORIAL_RULES = [
       // The first-visit offer rides in the support capability (ADR 0221).
       "first-visit/",
       "support-controller.test-support",
+      "tutorial-route.property.test",
       "use-support-route",
       "ask-guard",
       "choose-agent",

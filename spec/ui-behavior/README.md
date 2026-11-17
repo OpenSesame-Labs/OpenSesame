@@ -21,14 +21,16 @@ credentials, remote configuration, focus, or browser layout.
 
 `ToastReading.tla` models one transient notification with separate pointer
 and keyboard-focus states and bounded timer ticks. TLC checks that reading
-holds its remaining time and that it disappears only by dismissal or after
-its idle time runs out. `ToastStack.reading.test.tsx` exercises the component
+holds its remaining time, that new text on the same card gets a full interval,
+and that it disappears only by dismissal or after its idle time runs out.
+`ToastStack.reading.test.tsx` exercises the component
 with generated input sequences and controlled timers. The model abstracts
 event delivery, layout, the notice tray and screen-reader announcements; it
 does not prove React refinement or liveness.
 The prerelease job also runs `toast-model-fault.test.mjs`: it changes the
 model so both pointer and focus are required to hold time and checks that TLC
-rejects that deliberate fault with `ReadingHoldsTime`.
+rejects that deliberate fault with `ReadingHoldsTime`. A second fault control
+checks that TLC rejects updates that do not restart the reading interval.
 
 `RovingTabs.tla` models a stable nonempty set of enabled, mounted tabs, a
 controlled selected index and focus moved either externally or by Left, Right,

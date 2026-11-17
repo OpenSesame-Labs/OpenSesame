@@ -288,3 +288,4 @@ looks arbitrary, the ADR it cites explains it.
 | [0222](0222-github-well-architected-and-ssdf.md) | The engineering system follows the NIST SSDF and the GitHub Well-Architected recommendations, and says where it does not | Accepted |
 | [0223](0223-service-test-doubles.md) | Test services at their real boundaries | Accepted |
 | [0224](0224-bounded-support-route-vocabulary.md) | Preserve the bounded support route vocabulary | Accepted |
+| [0225](0225-first-visit-offers-in-flow.md) | Guidance offers live in the current screen's flow | Accepted |

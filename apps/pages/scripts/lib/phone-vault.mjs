@@ -71,11 +71,11 @@ export async function backOutStops(page, stop, { harness, audit }) {
 
 /**
  * The phone's vault actions, measured. The tree is the sections and nothing
- * else: no strip of keys, no tool rows and no item-creation button. On the
- * item list, Add is one button in the bottom corner — the `+`, one tap, and a
- * hold that slides to Import or Export. A long press opens the alternatives
- * without navigating. The list's header is back and the view it
- * shows, named, as one choice the width of the rest. Search is the status-line
+ * else: no strip of keys, tool rows, or item-creation button. On the item
+ * list, Add is one button in the bottom corner — the `+`, one tap, and a hold
+ * that slides to Import or Export. A real long press on the `+` opens the
+ * same alternatives, without navigating. The list's header is back and the
+ * view it shows, named, as one choice the width of the rest. Search is the status-line
  * prompt's `/?` verb — the one text input on the screen, which keeps the words
  * and narrows the list as they are typed. Skipped where the walk is not on the
  * tree, so it can be called wherever the vault is entered.
@@ -91,17 +91,17 @@ export async function treeActions(page, stop, { harness, audit }) {
   );
   harness.check(
     (await page.locator(".fab__add").count()) === 0,
-    `${stop("tree-actions")}: the section tree does not offer a new item`,
+    `${stop("tree-actions")}: item creation is not presented as a tree action`,
   );
+  await audit(page, stop("tree-actions"));
 
   await page
     .getByRole("treeitem", { name: /^all\b/i })
     .first()
     .tap();
   await page.waitForTimeout(600);
-  await fabIsPinned(page, stop("tree-actions"), harness);
-  await addSlide(page, stop("tree-actions"), harness, { stop, audit });
-  await audit(page, stop("tree-actions"));
+  await fabIsPinned(page, stop("list-actions"), harness);
+  await addSlide(page, stop("list-actions"), harness, { stop, audit });
   const header = await page.evaluate(() => {
     const bar = document.querySelector(".vault__list .vtree__pathbar");
     const view = bar?.querySelector(".vfilter__open");

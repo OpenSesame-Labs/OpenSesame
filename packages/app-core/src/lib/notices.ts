@@ -68,6 +68,8 @@ export type NoticeAct = {
    * draws its icon key.
    */
   worded?: boolean;
+  /** A shorter preview of this act's recommendation, never the tray title. */
+  compactTitle?: string;
 };
 
 export type StatusNoticeInput = {
