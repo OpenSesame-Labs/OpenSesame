@@ -378,8 +378,9 @@ test("devcontainer and cloud install run dotfiles before npm ci via mise", () =>
   assert.match(source, /fetch --depth 1 origin "\$\{ref\}"/);
   assert.match(
     source,
-    /"\$\{sha256_bin\}" "\$\{checkout\}\/install\.sh"/,
+    /actual_sha256="\$\("\$\{sha256_bin\}" "\$\{checkout\}\/install\.sh"\)"/,
   );
+  assert.doesNotMatch(source, /\|\s*(?:awk|cut|sed)\b/);
   assert.doesNotMatch(source, /staging\/tyler-dotfiles/);
   assert.match(source, /GIT_TERMINAL_PROMPT=0/);
   assert.match(source, /GIT_CONFIG_GLOBAL=\/dev\/null/);

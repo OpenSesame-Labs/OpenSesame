@@ -111,7 +111,8 @@ verify_tree() {
   [[ -f "${checkout}/install.sh" ]] || return 1
   actual_ref="$(git_anonymous -C "${checkout}" rev-parse HEAD 2>/dev/null)" || return 1
   [[ "${actual_ref}" == "${ref}" ]] || return 1
-  actual_sha256="$("${sha256_bin}" "${checkout}/install.sh" | awk '{print $1}')" || return 1
+  actual_sha256="$("${sha256_bin}" "${checkout}/install.sh")" || return 1
+  actual_sha256="${actual_sha256%% *}"
   [[ "${actual_sha256}" == "${install_sha256}" ]]
 }
 
