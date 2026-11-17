@@ -9,6 +9,7 @@
 import { isString } from "@opensesame/os-domain";
 import { env } from "../host.js";
 import { maybePage } from "../ports.js";
+import { isLocalOnlyGuest } from "./guest-session-context.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
 import { loadSettings } from "./settings.js";
 
@@ -78,6 +79,10 @@ export async function identityPlaneRequest(
   path: string,
   init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<Response> {
+  if (isLocalOnlyGuest() && !isDeviceIdentityMode())
+    throw new Error(
+      "This vault is local only. Sign out and start a new guest session to connect services.",
+    );
   if (isDeviceIdentityMode()) {
     // The host, its sessions and its key code load on the first device
     // request, never with the entry: a device that never asks pays nothing.
@@ -87,6 +92,9 @@ export async function identityPlaneRequest(
   const { timeoutMs = IDENTITY_FETCH_MS, ...rest } = init;
   return localNetworkFetch(`${resolveIdentityBase()}${path}`, {
     ...rest,
+    // A redirect could forward session proofs to a different service and
+    // mistake its response for the configured Identity service's response.
+    redirect: "error",
     timeoutMs,
   });
 }

@@ -15,7 +15,20 @@ export function stubFetch(
   handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
 ) {
   const spy = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
-    Promise.resolve(handler(String(input), init)),
+    (async () => {
+      const url = String(input);
+      if (url === `${IDENTITY}/v1/bound/status`)
+        return jsonResponse({ sessions: [], more: false });
+      if (url === `${IDENTITY}/v1/bound/session-mint`) {
+        const response = await handler(
+          `${IDENTITY}/v1/principals/provisional`,
+          init,
+        );
+        response.headers.set("x-opensesame-cookie-bound", "1");
+        return response;
+      }
+      return handler(url, init);
+    })(),
   );
   vi.stubGlobal("fetch", spy);
   return spy;
@@ -24,6 +37,7 @@ export function stubFetch(
 export function provisionalBody(token = "identity_tok") {
   return {
     principalId: "principal_1",
+    sessionId: "ps_test",
     accessToken: token,
     expiresAt: "2099-01-01T00:00:00Z",
   };
@@ -37,6 +51,8 @@ export function stubBasic(
     const override = handler?.(url, init);
     if (override) return override;
     if (url === `${IDENTITY}/v1/principals/me`) return jsonResponse({}, 401);
+    if (url === `${IDENTITY}/v1/principals/cookie-status`)
+      return jsonResponse({}, 401);
     if (url === `${IDENTITY}/v1/principals/provisional`) {
       return jsonResponse(provisionalBody());
     }

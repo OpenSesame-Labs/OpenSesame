@@ -3,16 +3,20 @@
  * Shoo is never sent through this path.
  */
 
-import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import type { BoundaryValue } from "@opensesame/os-domain";
+import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import {
   type VerifiedIdTokenClaims,
   createPkcePair,
   randomString,
   verifyBrowserIdTokenClaims,
 } from "@opensesame/sdk-browser";
-import { endpointBelongsToIssuer } from "../federation-endpoint-origin.js";
 import { FederationError, type UpstreamIdentity } from "../federation.js";
+import { endpointBelongsToIssuer } from "../federation-endpoint-origin.js";
+import {
+  assertGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "../guest-return-epoch.js";
 import { currentAuthGeneration } from "./generation.js";
 import {
   type ProviderConnection,
@@ -45,6 +49,7 @@ export async function beginAmbientOidc(input: {
   policyRevision: string;
   now?: number;
 }): Promise<AmbientAuthorizeRequest> {
+  const authEpoch = requireGuestReturnEpoch();
   if (input.connection.protocol === "shoo") {
     throw new FederationError(
       "unsupported",
@@ -63,6 +68,7 @@ export async function beginAmbientOidc(input: {
     );
   }
   const pkce = await createPkcePair();
+  assertGuestReturnEpoch(authEpoch);
   const verifier = pkce.codeVerifier;
   const challenge = pkce.codeChallenge;
   const state = pkce.state;
@@ -83,10 +89,12 @@ export async function beginAmbientOidc(input: {
     intent: input.intent,
     policyRevision: input.policyRevision,
     generation: currentAuthGeneration(),
+    authEpoch,
     providerKey: input.connection.key,
     transport: input.transport,
   });
   persistTransaction(transaction);
+  assertGuestReturnEpoch(authEpoch);
 
   const url = new URL(input.authorizationEndpoint);
   url.searchParams.set("response_type", "code");

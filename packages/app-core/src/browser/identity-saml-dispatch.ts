@@ -1,3 +1,8 @@
+import { requireGuestReturnCleared } from "../lib/guest-continuation.js";
+import {
+  captureGuestReturnSignOutCheck,
+  restoreGuestReturnSignOut,
+} from "../lib/guest-return-signout.js";
 import type { IdentityConnectionDraft } from "../lib/identity-connections-schema.js";
 import {
   getIdentityConnectionRuntime,
@@ -116,6 +121,7 @@ export function captureSamlConfiguration(
   });
 }
 export { saveCapturedIdentityConfiguration as saveConfiguredNativeSaml } from "./identity-configuration-publication.js";
+
 function retainPopup(original: ReturnType<typeof resumeNativeAuthPopup>) {
   const show = original.showFormConsent;
   const cancel = original.cancel;
@@ -137,6 +143,9 @@ function retainPopup(original: ReturnType<typeof resumeNativeAuthPopup>) {
 export async function beginSavedNativeSaml(
   connectionId: string,
 ): Promise<void> {
+  restoreGuestReturnSignOut();
+  captureGuestReturnSignOutCheck()();
+  requireGuestReturnCleared();
   const original = captureNativeIdentityOwner(connectionId);
   let popup: ReturnType<typeof retainPopup> | null = null;
   let route: ReturnType<typeof captureMetadataRoute> | null = null;

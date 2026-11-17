@@ -27,7 +27,7 @@ import {
   readInteractionArrival,
 } from "@opensesame/ceremony-kit/links";
 import { env } from "../host.js";
-import { maybePage } from "../ports.js";
+import { maybePage, maybeSessionStore } from "../ports.js";
 
 export type DeviceArrival =
   /** Not the device route, or the route opened with no code. */
@@ -141,6 +141,51 @@ export function userCodeFromEntry(raw: string): string {
 }
 
 let captured: DeviceArrival = { kind: "none" };
+const DEVICE_ARRIVAL_KEY = "opensesame.device-arrival";
+const DEVICE_ARRIVAL_MAX_AGE_MS = 15 * 60 * 1000;
+
+function saveArrival(arrival: DeviceArrival): void {
+  try {
+    const store = maybeSessionStore();
+    if (arrival.kind === "code") {
+      store?.setItem(
+        DEVICE_ARRIVAL_KEY,
+        JSON.stringify({ code: arrival.userCode, at: Date.now() }),
+      );
+    } else {
+      store?.removeItem(DEVICE_ARRIVAL_KEY);
+    }
+  } catch {
+    /* the current page can still finish its ceremony */
+  }
+}
+
+function restoredArrival(): DeviceArrival {
+  try {
+    const store = maybeSessionStore();
+    const raw = store?.getItem(DEVICE_ARRIVAL_KEY);
+    if (!raw) return { kind: "none" };
+    const value: unknown = JSON.parse(raw);
+    if (
+      value &&
+      typeof value === "object" &&
+      "code" in value &&
+      "at" in value &&
+      typeof value.code === "string" &&
+      /^[A-Z0-9._-]{1,64}$/.test(value.code) &&
+      typeof value.at === "number" &&
+      Number.isFinite(value.at) &&
+      value.at <= Date.now() &&
+      Date.now() - value.at <= DEVICE_ARRIVAL_MAX_AGE_MS
+    ) {
+      return { kind: "code", userCode: value.code };
+    }
+    store?.removeItem(DEVICE_ARRIVAL_KEY);
+  } catch {
+    /* the current page can still finish its ceremony */
+  }
+  return { kind: "none" };
+}
 
 /**
  * Take a device link out of this page's address, before anything renders
@@ -152,22 +197,28 @@ export function captureDeviceLinkFromPage(): DeviceArrival {
   if (!page) return { kind: "none" };
   const read = readDeviceLink(page.location.href, env().BASE_URL || "/");
   if (read.address !== null) page.replaceUrl(read.address);
-  if (read.arrival.kind !== "none") captured = read.arrival;
+  if (read.arrival.kind !== "none") {
+    captured = read.arrival;
+    saveArrival(captured);
+  }
   return read.arrival;
 }
 
 /** Look without taking: the route's first render. */
 export function peekDeviceArrival(): DeviceArrival {
+  if (captured.kind === "none") captured = restoredArrival();
   return captured;
 }
 
 /** Hand the waiting arrival to the device route, and forget it here. */
 export function takeDeviceArrival(): DeviceArrival {
-  const taken = captured;
+  const taken = peekDeviceArrival();
   captured = { kind: "none" };
+  saveArrival(captured);
   return taken;
 }
 
-export function resetDeviceArrivalForTests(): void {
+export function resetDeviceArrivalForTests(preserveStash = false): void {
   captured = { kind: "none" };
+  if (!preserveStash) saveArrival(captured);
 }

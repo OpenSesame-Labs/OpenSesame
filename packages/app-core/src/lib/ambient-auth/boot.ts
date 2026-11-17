@@ -3,14 +3,15 @@
  * hook runs. Default personal mode performs no network I/O.
  */
 
-import { restoreAuthenticatedSession } from "../federation-restoration.js";
-import { readFederationSessionJson } from "../federation-session-store.js";
 import {
   clearSession,
   discover,
   loadSession,
   redirectUri,
 } from "../federation.js";
+import { restoreAuthenticatedSession } from "../federation-restoration.js";
+import { readFederationSessionJson } from "../federation-session-store.js";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { readLastSignIn } from "../last-sign-in.js";
 import { signInMethods } from "../settings.js";
 import { vaultStore } from "../vault/store.js";
@@ -19,6 +20,7 @@ import {
   evaluateEligibility,
   startAutomaticAttempt,
 } from "./controller.js";
+import { captureAmbientGuestFence } from "./guest-fence.js";
 import { readUserAmbientPreference } from "./policy.js";
 import { deployedAmbientPolicy, deployedAmbientProviders } from "./runtime.js";
 
@@ -65,6 +67,11 @@ export function runAmbientAuthBoot({
   hasAuthCallback,
   pathname,
 }: AmbientBootInput): void {
+  try {
+    captureAmbientGuestFence()();
+  } catch {
+    return;
+  }
   const snapshot = vaultStore.getSnapshot();
   const session = revalidateStoredSession();
   const eligibility = evaluateEligibility({
@@ -74,7 +81,9 @@ export function runAmbientAuthBoot({
       snapshot.status === "unlocked" || snapshot.status === "locked"
         ? snapshot.status
         : "empty",
-    guestOpen: snapshot.guest === true && snapshot.status === "unlocked",
+    guestOpen:
+      (snapshot.guest || isGuestVaultId(snapshot.tomb)) &&
+      snapshot.status === "unlocked",
     privilegedOperation: snapshot.awaitingSecondStep === true,
     unsavedWork: false,
     localConsentRoute:

@@ -1,5 +1,10 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  forgetGuestContinuation,
+  saveGuestContinuation,
+} from "../guest-continuation.js";
+import { newGuestVaultId } from "../guest-vault-id.js";
 
 beforeEach(() => {
   const memory = new Map<string, string>();
@@ -13,6 +18,7 @@ beforeEach(() => {
     },
   });
 });
+
 import { type UpstreamIdentity, originClientId } from "../federation.js";
 import { admitAmbientSession, vaultStateFromStore } from "./admission.js";
 import { fenceLocalSignOut } from "./generation.js";
@@ -52,7 +58,45 @@ const claims = {
   nonce: "nonce-value-16chars",
 };
 
+function savePendingGuestReturn() {
+  saveGuestContinuation({
+    kind: "vercel",
+    token: "one",
+    connectionId: "conn",
+    tomb: newGuestVaultId(),
+    person: { id: "guest", name: "Guest" },
+    origin: "https://app.example",
+    pathname: "/",
+    deadline: Date.now() + 60000,
+    identity: null,
+  });
+}
+
 describe("ambient admission", () => {
+  it("does not publish an ambient identity while a guest return is pending", async () => {
+    savePendingGuestReturn();
+    const saveIdentity = vi.fn();
+    try {
+      const result = await admitAmbientSession(
+        {
+          intent,
+          identity: identity(),
+          claims,
+          transactionId: "tx1",
+          generation: 0,
+          policyRevision: "rev1",
+          expectedPolicyRevision: "rev1",
+          vault: { status: "empty", guest: false },
+          permitJitProvisioning: false,
+        },
+        { saveIdentity },
+      );
+      expect(result).toEqual({ kind: "rejected", reason: "guest_open" });
+      expect(saveIdentity).not.toHaveBeenCalled();
+    } finally {
+      forgetGuestContinuation();
+    }
+  });
   it("ID-LOCKED: does not unlock or decrypt a locked vault", async () => {
     const saveIdentity = vi.fn();
     const bootstrapEmptyWorkspace = vi.fn();

@@ -8,6 +8,10 @@ import {
   saveSession,
 } from "../federation.js";
 import {
+  advanceGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "../guest-return-epoch.js";
+import {
   type VaultNamespaceState,
   ambientAdmissionSeams,
 } from "./admission.js";
@@ -74,6 +78,7 @@ function completed(sub = "sso-sub", issuer = "https://shoo.dev") {
     },
     transactionId: "tx1",
     generation: 0,
+    authEpoch: requireGuestReturnEpoch(),
     policyRevision: "rev1",
     claims: {
       iss: issuer,
@@ -107,6 +112,17 @@ describe("applyAmbientReturn", () => {
     expect(loadSession()?.pairwiseSub).toBe("sso-sub");
     expect(loadSession()?.pairwiseSub).not.toBe("cookie-sub");
     expect(readAuthOutcome()?.kind).toBe("authenticated");
+  });
+
+  it("refuses an ambient result when another tab signed out after completion", async () => {
+    const result = completed();
+    advanceGuestReturnEpoch();
+    const save = vi.fn();
+    ambientAdmissionSeams.saveIdentity = save;
+    setVault({ status: "empty", guest: false });
+    await applyAmbientReturn(result);
+    expect(save).not.toHaveBeenCalled();
+    expect(readAuthOutcome()?.kind).toBe("error");
   });
 
   it("ID-SAMEEMAIL: different issuer/subject is not merged onto the open vault", async () => {

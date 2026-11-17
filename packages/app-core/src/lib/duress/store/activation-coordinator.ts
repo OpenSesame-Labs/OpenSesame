@@ -1,10 +1,10 @@
+import { isGuestVaultId } from "../../guest-vault-id.js";
 /**
  * Coordinate pending vault writes/caches/generations with duress activation (STORE-E).
  * Guest and onboarding sessions are preserved — never fenced or flushed into production tombs.
  */
 
 import { ProtectionSessionGuard } from "../../vault/protection/session-guard.js";
-import { GUEST_TOMB } from "../../vfs.js";
 
 export type ActivationHost = Readonly<{
   activeTomb: () => string;
@@ -31,7 +31,7 @@ const coordinatorGuard = new ProtectionSessionGuard();
 export async function coordinateActivation(
   host: ActivationHost,
 ): Promise<CoordinationResult> {
-  if (host.isGuestOrEphemeral() || host.activeTomb() === GUEST_TOMB) {
+  if (host.isGuestOrEphemeral() || isGuestVaultId(host.activeTomb())) {
     return {
       skipped: true,
       reason: "guest",

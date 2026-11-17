@@ -1,4 +1,10 @@
+import { requireGuestReturnCleared } from "../lib/guest-continuation.js";
 /** Original factory, actor and browser window are retained before cold private hydration. */
+
+import {
+  captureGuestReturnSignOutCheck,
+  restoreGuestReturnSignOut,
+} from "../lib/guest-return-signout.js";
 import type { IdentityConnectionDraft } from "../lib/identity-connections-schema.js";
 import {
   getIdentityConnectionRuntime,
@@ -32,6 +38,7 @@ import {
   type BrowserOidcHTTP,
   captureBrowserOidcHTTP,
 } from "./oidc/browser-transport.js";
+
 export {
   nativeIdentityPeering as nativeOidcPeering,
   subscribeNativeIdentityPeering as subscribeNativeOidcPeering,
@@ -145,6 +152,9 @@ function retainPopup(popup: NativeAuthPopup) {
 export async function beginSavedNativeOidc(
   connectionId: string,
 ): Promise<void> {
+  restoreGuestReturnSignOut();
+  captureGuestReturnSignOutCheck()();
+  requireGuestReturnCleared();
   const owner = captureNativeIdentityOwner(connectionId, "oidc");
   const pendingOwner = Object.freeze({
     signal: owner.signal,

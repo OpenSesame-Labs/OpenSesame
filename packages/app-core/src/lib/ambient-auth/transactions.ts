@@ -18,10 +18,12 @@ import {
   maybeLocalStore,
   maybeSessionStore,
 } from "../../ports.js";
-import type { AuthenticationIntent } from "./types.js";
+import type {
+  AmbientTransport,
+  AuthenticationIntent,
+  ProviderConnectionKey,
+} from "./types.js";
 import { AUTHENTICATION_INTENT_KINDS } from "./types.js";
-import type { AmbientTransport } from "./types.js";
-import type { ProviderConnectionKey } from "./types.js";
 
 export const TX_SCHEMA = 1 as const;
 export const TX_STORE_KEY = "opensesame:ambient-auth:tx";
@@ -52,6 +54,7 @@ export type FederationTransaction = {
   intent: AuthenticationIntent;
   policyRevision: string;
   generation: number;
+  authEpoch?: string;
   providerKey: ProviderConnectionKey;
   organizationBinding?: string;
   expectedAccountKey?: string;
@@ -211,6 +214,8 @@ export function createTransaction(
 export function persistTransaction(record: FederationTransaction): void {
   pruneExpired(Date.now());
   activeStore.put(record);
+  if (JSON.stringify(activeStore.get(record.state)) !== JSON.stringify(record))
+    throw new Error("The sign-in could not be saved. Try again.");
 }
 
 export function lookupTransaction(state: string): FederationTransaction | null {

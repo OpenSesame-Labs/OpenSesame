@@ -34,8 +34,6 @@ import { clearEnrollmentStateForUnlock } from "./unlock-enrollment.js";
 
 const GUEST_PIN = "48291037";
 const DURESS_CODE = "01234567";
-const GUEST_HEADER = tombFileKey(GUEST_TOMB, HEADER_PATH);
-const GUEST_BODY = tombFileKey(GUEST_TOMB, BODY_PATH);
 const PERSONAL_HEADER = tombFileKey(PERSONAL_TOMB, HEADER_PATH);
 
 function resetFence(): void {
@@ -61,13 +59,15 @@ async function armDecoyTrigger(): Promise<void> {
 }
 
 /** A guest who enrolled a PIN and kept one item, then locked. */
-async function sealedGuest(store: VaultStore): Promise<void> {
+async function sealedGuest(store: VaultStore): Promise<string> {
   await store.createGuest();
+  const tomb = store.activeTomb();
   await store.enrollPin(GUEST_PIN);
   await store.saveItem(createItem("account", "Guest keeps this"));
   await store.flushPendingWrites();
   store.lock();
   await vfsFlush();
+  return tomb;
 }
 
 beforeEach(() => {
@@ -88,9 +88,11 @@ afterEach(() => {
 describe("duress decoy beside a sealed guest", () => {
   it("opens a decoy on the guest unlock screen without touching the sealed guest", async () => {
     const store = new VaultStore();
-    await sealedGuest(store);
-    const headerBefore = kvGet(GUEST_HEADER);
-    const bodyBefore = kvGet(GUEST_BODY);
+    const guestTomb = await sealedGuest(store);
+    const guestHeader = tombFileKey(guestTomb, HEADER_PATH);
+    const guestBody = tombFileKey(guestTomb, BODY_PATH);
+    const headerBefore = kvGet(guestHeader);
+    const bodyBefore = kvGet(guestBody);
     expect(headerBefore).not.toBeNull();
     expect(bodyBefore).not.toBeNull();
     await armDecoyTrigger();
@@ -112,8 +114,8 @@ describe("duress decoy beside a sealed guest", () => {
     await store.saveItem(createItem("account", "Written under duress"));
     await store.flushPendingWrites();
     await vfsFlush();
-    expect(kvGet(GUEST_HEADER)).toBe(headerBefore);
-    expect(kvGet(GUEST_BODY)).toBe(bodyBefore);
+    expect(kvGet(guestHeader)).toBe(headerBefore);
+    expect(kvGet(guestBody)).toBe(bodyBefore);
 
     // Locking the decoy leaves the sealed guest's unlock, and no trace in the list.
     store.lock();
@@ -121,10 +123,10 @@ describe("duress decoy beside a sealed guest", () => {
     expect(listTombs()).not.toContain(DECOY_SCRATCH_TOMB);
     expect(kvGet(tombFileKey(DECOY_SCRATCH_TOMB, BODY_PATH))).toBeNull();
     const locked = store.getSnapshot();
-    expect(locked.tomb).toBe(GUEST_TOMB);
+    expect(locked.tomb).toBe(guestTomb);
     expect(locked.status).toBe("locked");
     expect(locked.header?.unlocks?.pin).toBeTruthy();
-    expect(readLastVaultId()).toBe(GUEST_TOMB);
+    expect(readLastVaultId()).toBe(guestTomb);
 
     // The guest's own PIN still opens the original items.
     clearEnrollmentStateForUnlock();
@@ -138,8 +140,9 @@ describe("duress decoy beside a sealed guest", () => {
     const { header } = await createVault("correct horse battery staple");
     kvSet(PERSONAL_HEADER, JSON.stringify(header));
     const store = new VaultStore();
-    await sealedGuest(store);
-    const bodyBefore = kvGet(GUEST_BODY);
+    const guestTomb = await sealedGuest(store);
+    const guestBody = tombFileKey(guestTomb, BODY_PATH);
+    const bodyBefore = kvGet(guestBody);
     await armDecoyTrigger();
 
     store.loadActiveProjectScope();
@@ -150,11 +153,11 @@ describe("duress decoy beside a sealed guest", () => {
       }),
     ).resolves.toBe("duress_session");
     expect(store.getSnapshot().guest).toBe(true);
-    expect(kvGet(GUEST_BODY)).toBe(bodyBefore);
+    expect(kvGet(guestBody)).toBe(bodyBefore);
 
     store.lock();
     clearEnrollmentStateForUnlock();
-    writeLastVaultId(GUEST_TOMB);
+    writeLastVaultId(guestTomb);
     store.rehydrate();
     await store.unlockWithPin(GUEST_PIN);
     expect(outsideAccounts(store.getSnapshot().items)).toHaveLength(1);
@@ -207,7 +210,8 @@ describe("duress decoy beside a sealed guest", () => {
         requireDurable: false,
       }),
     ).resolves.toBe("duress_session");
-    expect(store.activeTomb()).toBe(GUEST_TOMB);
+    expect(store.activeTomb()).toBe(DECOY_SCRATCH_TOMB);
+    expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
     expect(store.getSnapshot().guest).toBe(true);
     store.lock();
   });

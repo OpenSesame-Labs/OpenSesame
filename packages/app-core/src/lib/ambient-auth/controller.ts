@@ -14,6 +14,7 @@ import {
   isAutoAuthSuppressed,
   writeAttemptRecord,
 } from "./generation.js";
+import { captureAmbientGuestFence } from "./guest-fence.js";
 import { beginAmbientOidc } from "./oidc.js";
 import {
   type AmbientAuthPolicy,
@@ -203,17 +204,30 @@ export async function runAutomaticAttempt(
   if (eligibility.policy.allowedTransport === "interactive-continue") {
     return { kind: "interaction-required", reason: "interaction_required" };
   }
+  let checkGuest: () => void;
+  try {
+    checkGuest = captureAmbientGuestFence();
+    checkGuest();
+  } catch {
+    return { kind: "cancelled" };
+  }
   if (!claimAttempt(eligibility)) {
     return { kind: "rejected", reason: "attempt_budget" };
   }
   const generation = currentAuthGeneration();
   try {
     if (eligibility.policy.allowedTransport === "silent-iframe") {
-      return await runSilentIframeAttempt(eligibility, redirectUri, generation);
+      return await runSilentIframeAttempt(
+        eligibility,
+        redirectUri,
+        generation,
+        checkGuest,
+      );
     }
     const discovery = await ambientControllerSeams.discover(
       eligibility.connection.issuer,
     );
+    checkGuest();
     const { url } = await beginAmbientOidc({
       connection: eligibility.connection,
       authorizationEndpoint: discovery.authorization_endpoint,
@@ -232,6 +246,7 @@ export async function runAutomaticAttempt(
     if (generation !== currentAuthGeneration()) {
       return { kind: "rejected", reason: "stale_generation" };
     }
+    checkGuest();
     ambientControllerSeams.navigate(url);
     return { kind: "interaction-required", reason: "login_required" };
   } catch {

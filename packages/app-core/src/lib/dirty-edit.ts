@@ -17,9 +17,14 @@ type Hold = { id: string };
 const holds = new Map<string, Hold>();
 const savers = new Map<string, DraftSaver>();
 const listeners = new Set<() => void>();
+const saverListeners = new Set<() => void>();
 
 function emit(): void {
   for (const listener of listeners) listener();
+}
+
+function emitSavers(): void {
+  for (const listener of saverListeners) listener();
 }
 
 /** The page has something the person has not saved. */
@@ -53,10 +58,19 @@ export function holdDirtyEdit(id: string): () => void {
 
 /** Replace the saver for `id`. Absent means this editor cannot persist quietly. */
 export function registerDraftSaver(id: string, save: DraftSaver): () => void {
+  const hadSaver = hasDraftSaver();
   savers.set(id, save);
+  if (!hadSaver) emitSavers();
   return () => {
-    if (savers.get(id) === save) savers.delete(id);
+    if (savers.get(id) !== save) return;
+    savers.delete(id);
+    if (!hasDraftSaver()) emitSavers();
   };
+}
+
+export function subscribeDraftSavers(listener: () => void): () => void {
+  saverListeners.add(listener);
+  return () => saverListeners.delete(listener);
 }
 
 export function subscribeDirtyEdit(listener: () => void): () => void {
@@ -88,4 +102,5 @@ export function resetDirtyEdits(): void {
   holds.clear();
   savers.clear();
   emit();
+  emitSavers();
 }
