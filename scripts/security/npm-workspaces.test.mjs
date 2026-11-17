@@ -26,6 +26,9 @@ const patches = {
   "@esbuild-kit/core-utils@3.3.2":
     "patches/@esbuild-kit__core-utils@3.3.2.patch",
   "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
+  "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
+  "@aws-sdk/xml-builder@3.972.42":
+    "patches/@aws-sdk__xml-builder@3.972.42.patch",
 };
 
 function read(relativePath) {

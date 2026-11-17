@@ -186,7 +186,8 @@
     "tiny-cbor-v3-patched": "file:patches/vendor/levischuck-tiny-cbor-0.3.6.tgz",
     "typed-rest-client": "file:patches/vendor/typed-rest-client-2.3.1.tgz",
     "@esbuild-kit/core-utils": "file:patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
-    "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz"
+    "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz",
+    "@aws-sdk/xml-builder": "file:patches/vendor/aws-sdk-xml-builder-3.972.42.tgz"
   },
   "overrides": {
     "vitest": "4.1.12",
@@ -215,9 +216,6 @@
       "jks-js": "-"
     },
     "@node-saml/node-saml": {
-      "@xmldom/xmldom": "0.8.15"
-    },
-    "kdbxweb": {
       "@xmldom/xmldom": "0.8.15"
     },
     "xml-crypto": {
@@ -291,7 +289,8 @@
     "uuid@^11.1.0": "11.1.1",
     "uuid@^13.0.0": "13.0.2",
     "esbuild@^0.25.4": "0.25.12",
-    "nunjucks": "$nunjucks"
+    "nunjucks": "$nunjucks",
+    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder"
   },
   "patchedDependencies": {
     "js-yaml@3.15.2": "patches/js-yaml@3.15.2.patch",
@@ -303,6 +302,8 @@
     "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch",
     "typed-rest-client@2.3.1": "patches/typed-rest-client@2.3.1.patch",
     "@esbuild-kit/core-utils@3.3.2": "patches/@esbuild-kit__core-utils@3.3.2.patch",
-    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch"
+    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
+    "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
+    "@aws-sdk/xml-builder@3.972.42": "patches/@aws-sdk__xml-builder@3.972.42.patch"
   }
 }

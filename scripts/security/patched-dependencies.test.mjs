@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import {
@@ -71,6 +71,15 @@ test("every declared patch is vendored or recorded as having no target", () => {
     assert.equal(packageJson.patchedDependencies[selector], entry.patch);
     assert.equal(existsSync(join(root, entry.patch)), true, entry.patch);
     assert.equal(existsSync(join(root, entry.tarball)), true, entry.tarball);
+    if (entry.upstreamTarball) {
+      const { name, version } = split(selector);
+      const base = name.split("/").at(-1);
+      assert.equal(
+        entry.upstreamTarball,
+        `https://registry.npmjs.org/${name}/-/${base}-${version}.tgz`,
+        selector,
+      );
+    }
   }
 });
 
@@ -99,13 +108,24 @@ test("the lockfile installs every copy of a patched package from its tarball", (
   }
 });
 
-test("npm reaches each tarball through a root dependency and an override", () => {
-  // A relative file: override is resolved against the dependent package, not
-  // the project, so the root depends on the tarball and the override points
-  // at that dependency with npm's `$name` reference.
+test("npm reaches each tarball through a verified workspace pin or root override", () => {
+  // A workspace can pin its own dependency directly. For transitive patches,
+  // the root dependency and npm's `$name` override reference select the tarball.
   const overrides = Object.entries(packageJson.overrides);
   for (const [selector, entry] of vendored) {
     const { name } = split(selector);
+    if (entry.workspaceDependency) {
+      const workspace = readJson(entry.workspaceDependency);
+      const relativeTarball = `file:${relative(
+        dirname(join(root, entry.workspaceDependency)),
+        join(root, entry.tarball),
+      )
+        .split(sep)
+        .join("/")}`;
+      assert.equal(workspace.dependencies[name], relativeTarball, selector);
+      assert.equal(packageJson.overrides[name], undefined, selector);
+      continue;
+    }
     const rootDependency = entry.rootDependency ?? name;
     assert.equal(
       packageJson.devDependencies[rootDependency],

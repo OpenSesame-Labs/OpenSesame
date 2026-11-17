@@ -32,8 +32,9 @@ globalThis.runKdbxProof = async (fixture) => {
   db.setVersion(3);
   db.header.keyEncryptionRounds = 10;
   const item = db.createEntry(db.getDefaultGroup());
-  item.fields.set("Title", "Native <XML> & Unicode 雪");
-  item.fields.set("UserName", "reader");
+  item.fields.set("Title", "Native <XML> & Unicode 雪\\tTab");
+  item.fields.set("UserName", "reader\\there\\rreturns");
+  item.fields.set("Notes", "__KDBX_CR_0__\\r\\nsecond");
   item.fields.set("Password", sdk.ProtectedValue.fromString("protected-roundtrip"));
   const saved = await db.save();
   const loaded = await sdk.Kdbx.load(saved.slice(0), credentials(pass));
@@ -44,6 +45,11 @@ globalThis.runKdbxProof = async (fixture) => {
   const corrupt = new Uint8Array(saved.slice(0));
   corrupt[corrupt.length - 1] ^= 1;
   const external = await keepassKdbx.parse(input(new Uint8Array(fixture).buffer, "correct horse battery staple"));
+  const xmlDoc = sdk.XmlUtils.parse("<Root><V/></Root>");
+  xmlDoc.documentElement.setAttribute("value", "attr\\r\\t\\nend");
+  xmlDoc.getElementsByTagName("V")[0].textContent = "__KDBX_CR_T_0__\\rtext";
+  xmlDoc.documentElement.appendChild(xmlDoc.createCDATASection("__KDBX_CR_C_0__\\r&<"));
+  const xmlRoundTrip = sdk.XmlUtils.parse(sdk.XmlUtils.serialize(xmlDoc));
   // Generate with the released UMD and read with the tree-shaken source: this
   // catches format, key-derivation and protected-value compatibility changes.
   sdk.CryptoEngine.setArgon2Impl(async (password,salt,memory,iterations,length,parallelism,type)=>{
@@ -68,10 +74,12 @@ globalThis.runKdbxProof = async (fixture) => {
     const wrong4=await rejected(()=>keepassKdbx.parse(input(saved4,"wrong")));
     const corrupt4=new Uint8Array(saved4.slice(0)); corrupt4[corrupt4.length-1]^=1;
     const bad4=await rejected(()=>keepassKdbx.parse(input(corrupt4.buffer,pass)));
-    v4.push({items:parsed4.items,wrong4,bad4});
+    v4.push({items:parsed4.items,warnings:parsed4.warnings,wrong4,bad4});
   }
   return {
     v4,
+    xmlAttribute: xmlRoundTrip.documentElement.getAttribute("value"),
+    xmlText: xmlRoundTrip.documentElement.textContent,
     native: typeof DOMParser === "function" && typeof XMLSerializer === "function" && !!crypto.subtle,
     magic: new DataView(saved).getUint32(0,true),
     title: restored.fields.get("Title"),
@@ -208,15 +216,23 @@ test("real Chromium native XML preserves encrypted KDBX import and integrity", {
     for (const item of result.v4) {
       assert.equal(item.items[0].name, "v4 secret");
       assert.equal(item.items[0].password, "v4 password");
+      assert.equal(item.items[0].folder, "Nested");
+      assert.deepEqual(item.warnings, [
+        "1 attachment was left behind. This vault stores fields, not files.",
+      ]);
       assert.equal(item.wrong4, true);
       assert.equal(item.bad4, true);
     }
+    assert.equal(result.xmlAttribute, "attr\r\t\nend");
+    assert.equal(result.xmlText, "__KDBX_CR_T_0__\rtext__KDBX_CR_C_0__\r&<");
     assert.equal(result.native, true);
     assert.equal(result.magic, 0x9aa2d903);
-    assert.equal(result.title, "Native <XML> & Unicode 雪");
+    assert.equal(result.title, "Native <XML> & Unicode 雪\tTab");
     assert.equal(result.protected, true);
     assert.equal(result.secret, "protected-roundtrip");
-    assert.equal(result.parsed.items[0].name, result.title);
+    assert.equal(result.parsed.items[0].name, "Native <XML> & Unicode 雪_Tab");
+    assert.equal(result.parsed.items[0].username, "reader\there\rreturns");
+    assert.equal(result.parsed.items[0].notes, "__KDBX_CR_0__\r\nsecond");
     assert.equal(result.parsed.items[0].password, result.secret);
     for (const key of [
       "wrongPassword",
