@@ -123,7 +123,7 @@ async function handleClaimResume(c: Context): Promise<Response> {
   // fresh `pst_` session must never be minted for a principal that is no
   // longer active.
   const principal = await ctx.repos.principals.getById(accountId);
-  if (!principal || principal.state !== "active") return login();
+  if (principal?.state !== "active") return login();
   await establishProvisionalSession(c, ctx, accountId);
   return c.redirect(returnTo, 303);
 }

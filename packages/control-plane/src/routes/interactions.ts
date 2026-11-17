@@ -168,8 +168,7 @@ async function completeFederatedLeg(
     ? providerById(ctx.config, pending.providerId)
     : undefined;
   if (
-    !descriptor ||
-    descriptor.kind !== "oauth2" ||
+    descriptor?.kind !== "oauth2" ||
     normalizeIssuer(descriptor.issuer) !== normalizeIssuer(pending.issuer)
   ) {
     // The cookie named a provider this deployment no longer offers, or one

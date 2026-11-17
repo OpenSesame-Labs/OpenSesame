@@ -245,7 +245,7 @@ export function createLdapInteractionRoutes(
     }
 
     const organization = await ctx.stores.organizations.getBySlug(slug);
-    if (!organization || organization.state !== "active") return refuse(401);
+    if (organization?.state !== "active") return refuse(401);
     const config: OrgLdapConfig | null =
       await ctx.stores.orgFederation.ldapConfigs.get(organization.id);
     // A tenant with no directory answers exactly like a wrong password: the

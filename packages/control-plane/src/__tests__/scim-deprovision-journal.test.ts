@@ -2,15 +2,15 @@ import { createHash } from "node:crypto";
 import type { Organization, ProvisionalSession } from "@opensesame/os-domain";
 import { afterEach, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
-import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import { saveProvisional } from "../repos/session-storage.js";
-import { roleForGroupName } from "../routes/scim-groups.js";
 import { jitJoinOrganization } from "../routes/organization-membership.js";
 import {
   SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
   deprovisionJournal,
 } from "../routes/scim-effects.js";
+import { roleForGroupName } from "../routes/scim-groups.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 
 afterEach(() => vi.restoreAllMocks());
 

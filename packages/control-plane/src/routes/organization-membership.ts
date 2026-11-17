@@ -128,7 +128,7 @@ async function prepareJoin(
 ): Promise<PreparedJoin> {
   const orgId = input.organization.id;
   const currentOrg = await tx.stores.organizations.get(orgId);
-  if (!currentOrg || currentOrg.state !== "active") {
+  if (currentOrg?.state !== "active") {
     return {
       ok: false,
       error: "organization_unavailable",
@@ -222,8 +222,7 @@ async function revalidateJoin(
     input.principalId,
   );
   if (
-    !org ||
-    org.state !== "active" ||
+    org?.state !== "active" ||
     (org.provisioningEnabled && !provisioned?.active)
   ) {
     return {

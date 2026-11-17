@@ -38,7 +38,7 @@ async function withdraw(
         );
         if (!owner.ok) return { status: "unauthorized" as const, owner };
         const input = {
-        principalId: c.req.param("principalId") ?? "",
+          principalId: c.req.param("principalId") ?? "",
           actorPrincipalId: actor.value,
           actorType: "human" as const,
           correlationId: c.get("correlationId"),

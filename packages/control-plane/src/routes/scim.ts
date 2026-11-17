@@ -24,11 +24,6 @@ import {
   provisionedRoleForSubject,
 } from "./scim-effects.js";
 import {
-  type UserPatch,
-  deleteScimUser,
-  patchScimUser,
-} from "./scim-user-mutations.js";
-import {
   patchScimGroup,
   putGroupRoleMapping,
   roleForGroupName,
@@ -43,6 +38,11 @@ import {
   scimPatchOperations,
   scimUserUpdateAudit,
 } from "./scim-protocol.js";
+import {
+  type UserPatch,
+  deleteScimUser,
+  patchScimUser,
+} from "./scim-user-mutations.js";
 
 export { provisionedRoleForSubject, putGroupRoleMapping, roleForGroupName };
 

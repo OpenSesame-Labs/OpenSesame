@@ -25,8 +25,8 @@ import { settleVerifiedOwner } from "./identity-principal-fence.js";
 
 export {
   BetterAuthBridgeError,
-  betterAuthBridgeStatus,
   type BetterAuthBridgeErrorCode,
+  betterAuthBridgeStatus,
 } from "./better-auth-errors.js";
 export { normalizeEmail } from "./email-normalization.js";
 

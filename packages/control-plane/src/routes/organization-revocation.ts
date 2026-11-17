@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { MemoryOrganizationMembershipStore } from "@opensesame/database";
 import type { ProvisionalSession } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { DurableMap } from "../repos/durable-map.js";
 import {
   type OrganizationRevocationAuditIntent,
   finishOrganizationRevocationAudit,
 } from "../repos/organization-revocation-audit.js";
 import type { OrganizationWithdrawalAuditIntent } from "../repos/organization-withdrawal-audit.js";
-import { DurableMap } from "../repos/durable-map.js";
 import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import {
   beginProvisionalRevocationBatch,
