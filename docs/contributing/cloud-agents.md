@@ -19,8 +19,11 @@ is gitignored.
 A hosted environment bootstraps this repository the same way a contributor
 does: `scripts/dev/dotfiles-bootstrap.sh` (personal mise and Grok, cloned with
 anonymous HTTPS from `DOTFILES_REPO`, default
-`https://github.com/Tyler-R-Kendrick/dotfiles.git`; no GitHub token and no credential helper; a failed clone
-stops the bootstrap), then `mise install --locked` and `mise run deps`
+`https://github.com/Tyler-R-Kendrick/dotfiles.git`; the script pins a reviewed
+commit and the exact `install.sh` SHA-256; a custom repository must also set
+`DOTFILES_REF` and `DOTFILES_INSTALL_SHA256`; no GitHub token and no credential
+helper; a failed or mismatched checkout stops the bootstrap), then
+`mise install --locked` and `mise run deps`
 (fingerprinted `npm ci` via `scripts/dev/install-dependencies.sh`), then
 `cargo fetch`. Prefer the shared cargo target dir documented in
 [shipping](shipping.md) when compiling Rust.

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -18,6 +19,9 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const script = "scripts/dev/dotfiles-bootstrap.sh";
 const defaultRepo = "https://github.com/Tyler-R-Kendrick/dotfiles.git";
+const defaultRef = "720ba701a41a3bd6cfc086141067d7a1003a0392";
+const defaultInstallSha256 =
+  "7d3c74db2b469c73de388957aeb52699998cfe3a89c874a3da83a6149cf3886e";
 
 function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -33,7 +37,7 @@ function uncommented(text) {
 function baseEnv(home, extra = {}) {
   const env = { ...process.env, HOME: home, ...extra };
   for (const key of Object.keys(env)) {
-    if (key.startsWith("GIT_") || key === "DOTFILES_REPO") delete env[key];
+    if (key.startsWith("GIT_") || key.startsWith("DOTFILES_")) delete env[key];
   }
   env.HOME = home;
   env.GIT_AUTHOR_NAME = "Dotfiles Test";
@@ -128,13 +132,20 @@ for arg in "$@"; do
   dest="$arg"
 done
 case "$*" in
-  *clone*)
-    mkdir -p "$dest"
-    cat > "$dest/install.sh" << 'END_INSTALL'
+  *" init "*) mkdir -p "$dest/.git" ;;
+  *" fetch "*)
+    checkout=
+    previous=
+    for arg in "$@"; do
+      if [ "$previous" = "-C" ]; then checkout="$arg"; fi
+      previous="$arg"
+    done
+    cat > "$checkout/install.sh" << 'END_INSTALL'
 ${installBody}
 END_INSTALL
-    chmod 755 "$dest/install.sh"
+    chmod 755 "$checkout/install.sh"
     ;;
+  *" rev-parse "*) printf '%s\n' "\${DOTFILES_REF}" ;;
 esac
 exit 0
 `,
@@ -153,6 +164,10 @@ exit 0
     GIT_ASKPASS: "should-not-run",
     GIT_CONFIG_COUNT: "1",
     GIT_CONFIG_PARAMETERS: "'credential.helper' 'store'",
+    DOTFILES_REF: defaultRef,
+    DOTFILES_INSTALL_SHA256: createHash("sha256")
+      .update(`${installBody}\n`)
+      .digest("hex"),
   });
   delete env.GIT_TERMINAL_PROMPT;
   writeFileSync(
@@ -164,6 +179,7 @@ exit 0
   assert.equal(existsSync(ghLog), false);
   const log = readFileSync(gitLog, "utf8");
   assert.match(log, new RegExp(defaultRepo.replaceAll(".", "\\.")));
+  assert.match(log, new RegExp(`fetch --depth 1 origin ${defaultRef}`));
   assert.match(log, /credential\.helper=/);
   assert.match(log, /GIT_TERMINAL_PROMPT=0/);
   assert.match(log, /GITHUB_TOKEN=unset/);
@@ -197,9 +213,21 @@ test("a local clone is reused when a later refresh cannot reach the remote", (t)
     ["-c", "core.hooksPath=/dev/null", "commit", "-m", "fixture"],
     { cwd: origin, env: gitEnv },
   );
+  const ref = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: origin,
+    env: gitEnv,
+    encoding: "utf8",
+  }).trim();
+  const installSha256 = execFileSync(
+    "sha256sum",
+    [join(origin, "install.sh")],
+    { encoding: "utf8" },
+  ).split(/\s+/)[0];
   const env = baseEnv(f.home, {
     PATH: process.env.PATH,
     DOTFILES_REPO: origin,
+    DOTFILES_REF: ref,
+    DOTFILES_INSTALL_SHA256: installSha256,
   });
   const result = run(f.copy, env);
   assert.equal(result.status, 0, result.stderr);
@@ -210,9 +238,24 @@ test("a local clone is reused when a later refresh cannot reach the remote", (t)
   rmSync(origin, { recursive: true, force: true });
   const again = run(f.copy, env);
   assert.equal(again.status, 0, again.stderr);
-  assert.match(again.stderr, /refresh failed; using existing checkout/);
+  assert.match(
+    again.stderr,
+    /refresh failed; using the verified pinned checkout/,
+  );
   assert.equal(readFileSync(trace, "utf8").trim().split("\n").length, 2);
   assertTools(f.home);
+
+  writeFileSync(join(checkout, "install.sh"), "#!/bin/sh\nexit 99\n", {
+    mode: 0o755,
+  });
+  const tampered = run(f.copy, env);
+  assert.equal(tampered.status, 1);
+  assert.match(tampered.stderr, /verified checkout/);
+  assert.equal(
+    readFileSync(trace, "utf8").trim().split("\n").length,
+    2,
+    "a checkout with a mismatched installer digest must never execute",
+  );
 });
 
 test("clone failure exits 1 and keeps the previous binary", (t) => {
@@ -226,11 +269,34 @@ test("clone failure exits 1 and keeps the previous binary", (t) => {
   const env = baseEnv(f.home, { PATH: `${f.bin}:${process.env.PATH}` });
   const missing = run(f.copy, env);
   assert.equal(missing.status, 1);
-  assert.match(missing.stderr, /clone of .* failed/);
+  assert.match(missing.stderr, /verified checkout of .* failed/);
   assert.match(missing.stderr, /anonymous HTTPS only/);
   assert.match(missing.stderr, new RegExp(defaultRepo.replaceAll(".", "\\.")));
   assert.doesNotMatch(missing.stderr, /staging/);
   assert.equal(readFileSync(grok, "utf8"), "previous\n");
+});
+
+test("custom repositories require an immutable ref and installer digest", (t) => {
+  const f = layout(t);
+  const gitLog = join(f.dir, "git-log");
+  tool(
+    f.bin,
+    "git",
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> ${JSON.stringify(gitLog)}\nexit 0\n`,
+  );
+  const result = run(
+    f.copy,
+    baseEnv(f.home, {
+      PATH: `${f.bin}:${process.env.PATH}`,
+      DOTFILES_REPO: "https://example.test/dotfiles.git",
+    }),
+  );
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /DOTFILES_REF must be a full lowercase commit id/,
+  );
+  assert.equal(existsSync(gitLog), false);
 });
 
 test("SSH and credentialed URLs are refused before git runs", (t) => {
@@ -247,7 +313,12 @@ test("SSH and credentialed URLs are refused before git runs", (t) => {
     "ssh://git@github.com/Tyler-R-Kendrick/dotfiles.git",
     "https://x-access-token:secret@github.com/Tyler-R-Kendrick/dotfiles.git",
   ]) {
-    const result = run(f.copy, { ...env, DOTFILES_REPO: url });
+    const result = run(f.copy, {
+      ...env,
+      DOTFILES_REPO: url,
+      DOTFILES_REF: defaultRef,
+      DOTFILES_INSTALL_SHA256: defaultInstallSha256,
+    });
     assert.equal(result.status, 1, url);
     assert.match(result.stderr, /anonymous HTTPS only/);
     assert.match(result.stderr, /refusing/);
@@ -302,6 +373,13 @@ function assertDevcontainerBootstrapOrder() {
 test("devcontainer and cloud install run dotfiles before npm ci via mise", () => {
   const source = uncommented(read(script));
   assert.match(source, new RegExp(defaultRepo.replaceAll(".", "\\.")));
+  assert.match(source, new RegExp(defaultRef));
+  assert.match(source, new RegExp(defaultInstallSha256));
+  assert.match(source, /fetch --depth 1 origin "\$\{ref\}"/);
+  assert.match(
+    source,
+    /"\$\{sha256_bin\}" "\$\{checkout\}\/install\.sh"/,
+  );
   assert.doesNotMatch(source, /staging\/tyler-dotfiles/);
   assert.match(source, /GIT_TERMINAL_PROMPT=0/);
   assert.match(source, /GIT_CONFIG_GLOBAL=\/dev\/null/);
