@@ -82,6 +82,8 @@ ensure_osv_scanner
 
 # Fail closed if the scanner stops reporting the verified SQLx path dependency.
 python3 scripts/security/check-sqlx-scanner-coverage.py "$BIN"
+# Keep the defensive Keepass source fix visible to the same scanner inventory.
+python3 scripts/security/check-keepass-scanner-coverage.py "$BIN"
 
 # Enumerate tracked inputs so hidden tooling workspaces and independent Rust/Go
 # modules are scanned too, without walking node_modules or private audit output.
