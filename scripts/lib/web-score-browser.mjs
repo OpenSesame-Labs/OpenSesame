@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isWindows } from "./web-score-common.mjs";
+import { isWindows, realVisitorChromeArgs } from "./web-score-common.mjs";
 
 export function signalTree(pid, signal) {
   if (!pid) return;
@@ -86,13 +86,20 @@ export function sweepProfiles(maxAgeMs = 2 * 60 * 60 * 1000) {
 }
 
 /** Launch Chrome on an ephemeral debugging port; the port is read from disk. */
-export function startChrome({ chrome, profileDir, noSandbox, children }) {
+export function startChrome({
+  chrome,
+  profileDir,
+  noSandbox,
+  children,
+  expectApp,
+}) {
   let spawnError = null;
   const child = spawn(
     chrome,
     [
       "--headless=new",
       ...(noSandbox ? ["--no-sandbox"] : []),
+      ...(expectApp ? realVisitorChromeArgs : []),
       "--disable-gpu",
       "--disable-dev-shm-usage",
       "--no-first-run",

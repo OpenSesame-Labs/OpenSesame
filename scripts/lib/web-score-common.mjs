@@ -3,6 +3,12 @@ import { join } from "node:path";
 
 export const isWindows = process.platform === "win32";
 
+// The app's default first-visit guidance differs for navigator.webdriver.
+// Measure the default a person sees rather than the automation-only offer.
+export const realVisitorChromeArgs = [
+  "--disable-blink-features=AutomationControlled",
+];
+
 const chromeCandidates = (env) => [
   env.CHROME_PATH,
   "/usr/bin/google-chrome",
@@ -93,6 +99,11 @@ export function samePage(actualUrl, expectedUrl) {
   } catch {
     return false;
   }
+}
+
+/** An origin-only score describes the target only when the target is that root. */
+export function originScoreTarget(target) {
+  return target.pathname === "/" && !target.search ? `${target.origin}/` : null;
 }
 
 export function reportAgeMs(report) {
