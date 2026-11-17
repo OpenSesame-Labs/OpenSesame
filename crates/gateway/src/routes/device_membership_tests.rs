@@ -44,8 +44,6 @@ async fn replica_withdrawal_blocks_late_approval_and_old_device_redemption() {
     let first = test_demo_state().await;
     let mut second = first.clone();
     second.sessions = Arc::new(Mutex::new(HashMap::new()));
-    second.device_codes = Arc::new(Mutex::new(HashMap::new()));
-    second.session_lifecycle = Arc::new(tokio::sync::Mutex::new(()));
     let principal = PrincipalId::new().to_string();
     let org = OrganizationId::new().to_string();
     let inc = uuid::Uuid::new_v4().to_string();

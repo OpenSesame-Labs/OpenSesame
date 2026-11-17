@@ -68,7 +68,7 @@ pub(super) fn operator(st: &AppState) -> HeaderMap {
 
 /// A session of `role` that has just stepped up with a passkey.
 pub(super) fn stepped_up(st: &AppState, subject: &str, role: OrganizationRole) -> HeaderMap {
-    let token = uuid::Uuid::new_v4().to_string();
+    let token = format!("fixture_{}", uuid::Uuid::new_v4());
     let mut claims = crate::session_claims::fixture(
         crate::session_claims::parse_principal(subject).unwrap(),
         st.connection_organization,
