@@ -170,8 +170,11 @@ async function guarded(ctx, page, what, run) {
   } catch (error) {
     ctx.check(
       false,
-      `${what}: threw — ${String(error.message).split("\n")[0]}`,
+      `${what}: threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
     );
+    await page
+      .screenshot({ path: `${ctx.out}/${what}-error.png` })
+      .catch(() => {});
     await page.keyboard.press("Escape").catch(() => {});
   }
 }

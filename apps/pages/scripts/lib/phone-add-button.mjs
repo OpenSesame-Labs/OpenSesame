@@ -141,7 +141,7 @@ export async function addSlide(page, label, harness, { stop, audit }) {
     `${label}: letting go in the middle offers Import and Export without navigating (${await where()})`,
   );
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
+  await page.locator('[role="menu"]').waitFor({ state: "detached" });
 
   // Slide up: Import is inked, and letting go there opens the OS file picker.
   const up = await holdAndSlide(page, -70);

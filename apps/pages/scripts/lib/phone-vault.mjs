@@ -37,7 +37,7 @@ export async function toTheList(page) {
     .or(all)
     .first()
     .waitFor({ state: "visible", timeout: 15000 });
-  // The pane, not the New item key: the + is drawn on the tree pane too.
+  // Check the pane after each navigation before trying the next route.
   const pane = () => page.locator(".vault").first().getAttribute("data-pane");
   if ((await pane()) === "list") return;
   if (await back.isVisible()) {
@@ -98,7 +98,7 @@ export async function treeActions(page, stop, { harness, audit }) {
     .getByRole("treeitem", { name: /^all\b/i })
     .first()
     .tap();
-  await page.waitForTimeout(600);
+  await page.locator(".vault[data-pane='list']").waitFor({ timeout: 5000 });
   await fabIsPinned(page, stop("tree-actions"), harness);
   await addSlide(page, stop("tree-actions"), harness, { stop, audit });
   await audit(page, stop("tree-actions"));

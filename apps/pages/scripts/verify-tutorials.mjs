@@ -47,7 +47,9 @@ import { passTheDoor } from "./lib/front-door.mjs";
 import { sealLocalOnly } from "./lib/pages-journey.mjs";
 import { inShard, isFirstShard, parseShard } from "./lib/shard.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
+import { firstVaultPass, walkFirstItem } from "./lib/tutorial-first-vault.mjs";
 import { gatePass, popupPass } from "./lib/tutorial-gates.mjs";
+import { walkGuestPassword } from "./lib/tutorial-guest-password.mjs";
 import {
   escapeEndsTheTour,
   moveAdvancesTheTour,
@@ -128,7 +130,17 @@ const PHONE = {
 };
 
 async function newPage(width) {
-  const device = width < 600 ? PHONE : { viewport: { width, height: 900 } };
+  const height =
+    Number(process.env.TUTORIALS_HEIGHT) || (width <= 320 ? 568 : 844);
+  const device =
+    width < 600
+      ? { ...PHONE, viewport: { width, height } }
+      : {
+          viewport: {
+            width,
+            height: Number(process.env.TUTORIALS_HEIGHT) || 900,
+          },
+        };
   if (!devUrl) {
     const made = await harness.newPage(browser, { device });
     return made;
@@ -237,7 +249,21 @@ async function shellPass(width) {
       moveAdvancesTheTour(page, { check, base }),
     );
   }
-  await walkEntries(page, entries, { phone, width });
+  await walkEntries(
+    page,
+    entries.filter((entry) => entry.id !== "vault.item.first"),
+    { phone, width },
+  );
+  const firstItemContext = {
+    width,
+    phone,
+    sealedShell,
+    guarded,
+    origin,
+    check,
+  };
+  where = `${width}px first item`;
+  await walkFirstItem(entries, firstItemContext);
   // A tutorial that points at an item is offered only where the vault holds
   // one, so a second pass adds items the way a person does and walks what the
   // library offers then that it did not before.
@@ -254,7 +280,9 @@ async function shellPass(width) {
   await walkEntries(page, later, { phone, width });
   const seconds = Math.round((Date.now() - started) / 1000);
   const total = entries.length + later.length;
-  check(total > 0, "the library offers tutorials");
+  if (only.size === 0 || [...only].some((id) => !id.startsWith("gate."))) {
+    check(total > 0, "the library offers tutorials");
+  }
   console.log(`${width}px: ${total} tutorials walked in ${seconds}s`);
   if (gatesWanted) {
     const popupsBegan = Date.now();
@@ -310,6 +338,7 @@ async function gateScreens(width) {
       newPage,
       origin,
       base,
+      out,
       check,
       setWhere: (next) => {
         where = next;
@@ -320,9 +349,24 @@ async function gateScreens(width) {
   } catch (error) {
     check(
       false,
-      `gates: walking threw — ${String(error.message).split("\n")[0]}`,
+      `gates: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
     );
   }
+  if (wants("gate.front-door")) {
+    const { page, context } = await newPage(width);
+    try {
+      await firstVaultPass({ page, context, origin, base, check, phone });
+    } catch (error) {
+      check(
+        false,
+        `first vault: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
+      );
+    } finally {
+      await context.close();
+    }
+  }
+  const guestContext = { phone, wants, newPage, width, origin, base, check };
+  await walkGuestPassword(guestContext);
   console.log(
     `${width}px: gates walked in ${Math.round((Date.now() - began) / 1000)}s`,
   );
@@ -330,7 +374,9 @@ async function gateScreens(width) {
 
 try {
   for (const width of widths) {
-    await shellPass(width);
+    if (only.size === 0 || [...only].some((id) => !id.startsWith("gate."))) {
+      await shellPass(width);
+    }
     if (gatesWanted) await gateScreens(width);
   }
 } finally {

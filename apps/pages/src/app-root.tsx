@@ -223,7 +223,7 @@ function VaultApp() {
     slots.recoverPendingFederatedLink,
   );
 
-  useVaultLanding(status, location.pathname, navigate);
+  useVaultLanding(status, guest, location.pathname, navigate);
   // Enrolling a guest's first key makes it durable in place. Keep its open
   // ceremony while still resetting the tree for another tomb, a fresh guest
   // session on the same tomb, or a decoy actor.

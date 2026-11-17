@@ -12,70 +12,21 @@
  * Runs in the page: everything one step shows. Small helpers, so the
  * measurement stays readable and each one is simple to trust.
  */
-export function measureStep() {
+export function measureStep(tools) {
   const root = document.querySelector(".coach");
   if (!root) return null;
   const text = (selector) => root.querySelector(selector)?.textContent ?? "";
-  const box = (node) => {
-    if (!node) return null;
-    const { left, top, right, bottom, width, height } =
-      node.getBoundingClientRect();
-    return { left, top, right, bottom, width, height };
-  };
-  const pointable = (element) => {
-    for (let node = element; node; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      if (style.display === "none" || style.visibility === "hidden")
-        return false;
-    }
-    return true;
-  };
-  const describe = (node) => {
-    if (!node) return "nothing";
-    const id = node.id ? `#${node.id}` : "";
-    const first = String(node.getAttribute("class") ?? "").split(" ")[0];
-    return `${node.tagName.toLowerCase()}${id}${first ? `.${first}` : ""}`;
-  };
-  const viewport = {
-    width: document.documentElement.clientWidth,
-    height: innerHeight,
-  };
-  // The part of the control a person could press: its box inside the screen
-  // and inside the aperture the product opened for it.
-  const visiblePart = (control, ring) => {
-    const parts = [
-      box(control),
-      { left: 0, top: 0, right: viewport.width, bottom: viewport.height },
-    ];
-    if (ring) parts.push(ring);
-    const left = Math.max(...parts.map((part) => part.left));
-    const top = Math.max(...parts.map((part) => part.top));
-    const right = Math.min(...parts.map((part) => part.right));
-    const bottom = Math.min(...parts.map((part) => part.bottom));
-    return right > left && bottom > top ? { left, top, right, bottom } : null;
-  };
-  const probeControl = (control, ring) => {
-    const part = visiblePart(control, ring);
-    if (!part) return { visible: false };
-    const x = (part.left + part.right) / 2;
-    const y = (part.top + part.bottom) / 2;
-    const hit = document.elementFromPoint(x, y);
-    return {
-      visible: true,
-      x: Math.round(x),
-      y: Math.round(y),
-      hit: describe(hit),
-      onControl: Boolean(hit) && control.contains(hit),
-      onCard: Boolean(hit?.closest(".coach__card")),
-      onDim: Boolean(hit?.classList.contains("coach__dim")),
-    };
-  };
+  const { box, pointable, viewport, visiblePart, probeControl } = tools();
   const target = root.getAttribute("data-coach-target") ?? "";
-  const control = target
-    ? ([...document.querySelectorAll(`[data-guide-targets~="${target}"]`)].find(
-        pointable,
-      ) ?? null)
-    : null;
+  const candidates = target
+    ? [
+        ...document.querySelectorAll(`[data-guide-targets~="${target}"]`),
+      ].filter(pointable)
+    : [];
+  const control =
+    candidates.find((candidate) => visiblePart(candidate, null)) ??
+    candidates[0] ??
+    null;
   const card = root.querySelector(".coach__card");
   const ring = root.querySelector(".coach__ring");
   const go = root.querySelector(".coach__btn--go");
@@ -97,6 +48,11 @@ export function measureStep() {
     card: box(card),
     ring: ringBox,
     control: box(control),
+    visibleControl: control ? visiblePart(control, null) : null,
+    actionable:
+      control?.matches(
+        'button, a, input, select, textarea, [role="button"], [role="switch"]',
+      ) ?? false,
     probe: control ? probeControl(control, ringBox) : null,
     go: box(go),
     goDisabled: go ? go.disabled : null,
@@ -192,6 +148,19 @@ function litChecks(info) {
     [!intersects(card, ring), "the card does not cover the lit control"],
     ...reachChecks(info),
   );
+  if (info.actionable && info.visibleControl && info.control) {
+    out.push(
+      [
+        !intersects(card, info.visibleControl),
+        "the card does not cover the actual control",
+      ],
+      [
+        info.visibleControl.width >= info.control.width - 1 &&
+          info.visibleControl.height >= info.control.height - 1,
+        "the actual control is fully visible inside its scrollports",
+      ],
+    );
+  }
   return out;
 }
 

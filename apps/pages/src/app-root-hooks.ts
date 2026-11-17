@@ -16,6 +16,7 @@ import type { VaultItem } from "@opensesame/vault-core";
 import { useEffect, useState } from "react";
 import type { NavigateFunction } from "react-router";
 import { useComposition } from "./bindings/capabilities.js";
+import { takeNewGuestLanding } from "./lib/guest-landing.js";
 
 export function useCapabilityGate(id: string) {
   const snapshot = useComposition();
@@ -78,13 +79,19 @@ export function useAfterUnlock(
  */
 export function useVaultLanding(
   status: string,
+  guest: boolean | undefined,
   pathname: string,
   navigate: NavigateFunction,
 ): void {
   useEffect(() => {
-    if (status === "unlocked" && pathname === "/")
-      navigate("/vault", { replace: true });
-  }, [pathname, navigate, status]);
+    if (status !== "unlocked") return;
+    const newGuest = guest === true && takeNewGuestLanding();
+    // Only item links can refer to a previous guest's now-empty vault. Keep
+    // links into Settings and the vault's own creation and health screens.
+    const item = pathname.match(/^\/vault\/([^/]+)(?:\/edit)?\/?$/)?.[1];
+    const staleItem = newGuest && item && item !== "new" && item !== "health";
+    if (pathname === "/" || staleItem) navigate("/vault", { replace: true });
+  }, [guest, pathname, navigate, status]);
 }
 
 type OpenVault = { tomb: string | undefined; guest: boolean; opened: number };
