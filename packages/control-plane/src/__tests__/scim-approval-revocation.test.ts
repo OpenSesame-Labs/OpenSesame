@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import type { Organization } from "@opensesame/os-domain";
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import { SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE } from "../routes/scim-effects.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+
+afterEach(() => vi.restoreAllMocks());
 
 type CreatedScimUser = {
   id: string;
@@ -14,6 +17,7 @@ it.each(["PATCH", "DELETE"])(
   "SCIM %s still removes existing membership and sessions after issuer approval is withdrawn",
   async (method) => {
     const { app, ctx } = createControlPlane();
+    mockHostWithdrawal(ctx);
     const minted = await app.request("/v1/principals/provisional", {
       method: "POST",
     });

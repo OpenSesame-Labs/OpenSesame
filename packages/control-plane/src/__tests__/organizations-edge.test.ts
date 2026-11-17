@@ -1,23 +1,20 @@
-import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
+import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { revokeProvisionalSession } from "../repos/provisional-revocation.js";
+import { adoptSessionWithinCapacity } from "../routes/federated-session.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
   hostApiEndpoint,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
+
 import {
   auth,
-  createOrg,
   provisional,
-  baseTestConfig as testConfig,
-  verified,
-} from "./organization-tenant-fixture.js";
-
-function mockHostFetch(impl: () => Promise<Response>) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(impl);
-}
+  testConfig,
+} from "./organizations-edge.test-support.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -102,582 +99,203 @@ describe("organization helpers", () => {
     expect(again.membershipRemoved).toBe(false);
     expect(again.sessionsRevoked).toBe(0);
   });
-});
 
-describe("organizations routes edge cases", () => {
-  it("gates creation on assurance, validation, and slug uniqueness", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const anon = await provisional(app);
-
-    const lowAssurance = await createOrg(app, anon.accessToken, "anon-org");
-    expect(lowAssurance.status).toBe(403);
-    expect(overlapCast(await lowAssurance.json()).error).toBe(
-      "assurance_too_low",
-    );
-
-    const owner = await verified(app, "org-create-owner");
-    const invalid = await app.request("/v1/organizations", {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ slug: "BAD SLUG", displayName: "Nope" }),
-    });
-    expect(invalid.status).toBe(400);
-
-    expect((await createOrg(app, owner.accessToken, "acme")).status).toBe(201);
-    const dupe = await createOrg(app, owner.accessToken, "acme");
-    expect(dupe.status).toBe(409);
-    expect(overlapCast(await dupe.json()).error).toBe("slug_taken");
-  });
-
-  it("reads hide deleted and foreign organizations", async () => {
+  it("marks every member session revoked before cleanup can fail", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "org-read-owner");
-    const outsider = await verified(app, "org-read-outsider");
-
-    const created = await createOrg(app, owner.accessToken, "readable");
-    const org = overlapCast(await created.json());
-
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}`, {
-          headers: auth(owner.accessToken),
-        })
-      ).status,
-    ).toBe(200);
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}`, {
-          headers: auth(outsider.accessToken),
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request("/v1/organizations/org:missing", {
-          headers: auth(owner.accessToken),
-        })
-      ).status,
-    ).toBe(404);
-
-    // A deleted org disappears from reads and lists.
-    const stored = await ctx.stores.organizations.get(org.id);
-    if (!stored) throw new Error("org missing");
-    await ctx.stores.organizations.set(org.id, {
-      ...stored,
-      state: "deleted",
-    });
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}`, {
-          headers: auth(owner.accessToken),
-        })
-      ).status,
-    ).toBe(404);
-    const list = await app.request("/v1/organizations", {
-      headers: auth(owner.accessToken),
-    });
-    const ids = overlapCast(await list.json()).organizations.map((o) => o.id);
-    expect(ids).not.toContain(org.id);
-  });
-
-  it("lists members only for owners", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "org-members-owner");
     const member = await provisional(app);
-    const outsider = await provisional(app);
-
-    const org = overlapCast(
-      await (await createOrg(app, owner.accessToken, "members-org")).json(),
+    const membership = await ensurePersonalOrganization(
+      ctx,
+      member.principalId,
+    );
+    const original = [...(await ctx.stores.provisionalSessions.entries())]
+      .map(([, session]) => session)
+      .find((session) => session.principalId === member.principalId);
+    if (!original) throw new Error("Missing member session");
+    const secondId = `${original.id}-second`;
+    const secondToken = "second-session-token";
+    await ctx.stores.provisionalSessions.set(secondId, {
+      ...original,
+      id: secondId,
+    });
+    await ctx.stores.provisionalTokens.set(secondToken, secondId);
+    vi.spyOn(ctx.repos.auditEvents, "append").mockRejectedValueOnce(
+      new Error("audit unavailable"),
     );
 
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}/members`, {
-          headers: auth(outsider.accessToken),
-        })
-      ).status,
-    ).toBe(404);
-
-    const addMember = await app.request(`/v1/organizations/${org.id}/members`, {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ principalId: member.principalId, role: "member" }),
-    });
-    expect(addMember.status).toBe(201);
-
-    const asMember = await app.request(`/v1/organizations/${org.id}/members`, {
-      headers: auth(member.accessToken),
-    });
-    expect(asMember.status).toBe(403);
-    expect(overlapCast(await asMember.json()).error).toBe("owner_required");
-
-    const asOwner = await app.request(`/v1/organizations/${org.id}/members`, {
-      headers: auth(owner.accessToken),
-    });
-    expect(asOwner.status).toBe(200);
-    expect(overlapCast(await asOwner.json()).members).toHaveLength(2);
-  });
-
-  it.each(["suspended", "deleted"] as const)(
-    "retires member-management authority when the organization is %s",
-    async (state) => {
-      const { app, ctx } = createControlPlane({ config: testConfig() });
-      const owner = await verified(app, `org-inactive-owner-${state}`);
-      const target = await provisional(app);
-      const org = overlapCast(
-        await (
-          await createOrg(app, owner.accessToken, `inactive-members-${state}`)
-        ).json(),
-      );
-      const stored = await ctx.stores.organizations.get(String(org.id));
-      if (!stored) throw new Error("organization missing");
-      await ctx.stores.organizations.set(stored.id, {
-        ...stored,
-        state,
-        updatedAt: new Date(),
-      });
-
-      expect(
-        (
-          await app.request(`/v1/organizations/${org.id}/members`, {
-            headers: auth(owner.accessToken),
-          })
-        ).status,
-      ).toBe(404);
-      expect(
-        (
-          await app.request(`/v1/organizations/${org.id}/members`, {
-            method: "POST",
-            headers: {
-              ...auth(owner.accessToken),
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              principalId: target.principalId,
-              role: "member",
-            }),
-          })
-        ).status,
-      ).toBe(404);
-    },
-  );
-
-  it("fences member addition by role and principal state", async () => {
-    const { app, ctx } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "org-add-owner");
-    const member = await provisional(app);
-    const third = await provisional(app);
-    const outsider = await provisional(app);
-
-    const org = overlapCast(
-      await (await createOrg(app, owner.accessToken, "add-org")).json(),
-    );
-    const add = (token: string, body: BoundaryValue) =>
-      app.request(`/v1/organizations/${org.id}/members`, {
-        method: "POST",
-        headers: { ...auth(token), "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-    expect(
-      (
-        await add(outsider.accessToken, {
-          principalId: third.principalId,
-          role: "member",
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      (await add(owner.accessToken, { principalId: third.principalId })).status,
-    ).toBe(400);
-    expect(
-      (
-        await add(owner.accessToken, {
-          principalId: "prn_missing",
-          role: "member",
-        })
-      ).status,
-    ).toBe(404);
-
-    const suspendedRecord = await ctx.repos.principals.getById(
-      third.principalId,
-    );
-    if (!suspendedRecord) throw new Error("principal missing");
-    await ctx.repos.principals.update(
-      third.principalId,
-      { state: "suspended" },
-      suspendedRecord.version,
-    );
-    const inactive = await add(owner.accessToken, {
-      principalId: third.principalId,
-      role: "member",
-    });
-    expect(inactive.status).toBe(409);
-    expect(overlapCast(await inactive.json()).error).toBe("principal_inactive");
-
-    expect(
-      (
-        await add(owner.accessToken, {
-          principalId: member.principalId,
-          role: "member",
-        })
-      ).status,
-    ).toBe(201);
-    const dupe = await add(owner.accessToken, {
-      principalId: member.principalId,
-      role: "member",
-    });
-    expect(dupe.status).toBe(409);
-    expect(overlapCast(await dupe.json()).error).toBe("membership_exists");
-
-    // A plain member cannot add anyone.
-    expect(
-      (
-        await add(member.accessToken, {
-          principalId: outsider.principalId,
-          role: "member",
-        })
-      ).status,
-    ).toBe(403);
-  });
-
-  it("changes roles only through the owner and rolls back when Host fails", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "org-role-owner");
-    const member = await provisional(app);
-
-    const org = overlapCast(
-      await (await createOrg(app, owner.accessToken, "role-org")).json(),
-    );
-    await app.request(`/v1/organizations/${org.id}/members`, {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ principalId: member.principalId, role: "member" }),
-    });
-
-    const change = (
-      token: string,
-      target: string,
-      body: BoundaryValue,
-      orgId = org.id,
-    ) =>
-      app.request(`/v1/organizations/${orgId}/members/${target}`, {
-        method: "PATCH",
-        headers: { ...auth(token), "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-    expect(
-      (
-        await change(
-          owner.accessToken,
-          member.principalId,
-          { role: "admin" },
-          "org:missing",
-        )
-      ).status,
-    ).toBe(404);
-    expect(
-      (await change(member.accessToken, member.principalId, { role: "admin" }))
-        .status,
-    ).toBe(403);
-    expect(
-      (await change(owner.accessToken, "prn_missing", { role: "admin" }))
-        .status,
-    ).toBe(404);
-    expect(
-      (await change(owner.accessToken, member.principalId, {})).status,
-    ).toBe(400);
-
-    // No-op change answers with the current membership without calling Host.
-    const fetchSpy = mockHostFetch(() =>
-      Promise.resolve(new Response("{}", { status: 200 })),
-    );
-    const noop = await change(owner.accessToken, member.principalId, {
-      role: "member",
-    });
-    expect(noop.status).toBe(200);
-    expect(fetchSpy).not.toHaveBeenCalled();
-
-    // The last owner cannot be demoted.
-    const lastOwner = await change(owner.accessToken, owner.principalId, {
-      role: "member",
-    });
-    expect(lastOwner.status).toBe(409);
-    expect(overlapCast(await lastOwner.json()).error).toBe("last_owner");
-
-    // Host acknowledgement gates the change.
-    const promoted = await change(owner.accessToken, member.principalId, {
-      role: "admin",
-    });
-    expect(promoted.status).toBe(200);
-    expect(overlapCast(await promoted.json()).role).toBe("admin");
-
-    // Host failure restores the previous role.
-    fetchSpy.mockResolvedValue(new Response("nope", { status: 500 }));
-    const failed = await change(owner.accessToken, member.principalId, {
-      role: "member",
-    });
-    expect(failed.status).toBe(502);
-    expect(overlapCast(await failed.json()).error).toBe(
-      "session_revocation_failed",
-    );
-    const members = await app.request(`/v1/organizations/${org.id}/members`, {
-      headers: auth(owner.accessToken),
-    });
-    const rows = overlapCast(await members.json()).members;
-    expect(rows.find((m) => m.principalId === member.principalId)?.role).toBe(
-      "admin",
-    );
-
-    // An unreachable Host rolls back the same way.
-    fetchSpy.mockRejectedValue(new Error("connection refused"));
-    const unreachable = await change(owner.accessToken, member.principalId, {
-      role: "member",
-    });
-    expect(unreachable.status).toBe(502);
-  });
-
-  it("removes members with owner and last-owner fences and Host rollback", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "org-remove-owner");
-    const member = await provisional(app);
-    const outsider = await provisional(app);
-
-    const org = overlapCast(
-      await (await createOrg(app, owner.accessToken, "remove-org")).json(),
-    );
-    await app.request(`/v1/organizations/${org.id}/members`, {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ principalId: member.principalId, role: "member" }),
-    });
-
-    const remove = (token: string, target: string, orgId = org.id) =>
-      app.request(`/v1/organizations/${orgId}/members/${target}`, {
-        method: "DELETE",
-        headers: auth(token),
-      });
-
-    expect(
-      (await remove(owner.accessToken, member.principalId, "org:missing"))
-        .status,
-    ).toBe(404);
-    expect(
-      (await remove(outsider.accessToken, member.principalId)).status,
-    ).toBe(404);
-    expect((await remove(member.accessToken, owner.principalId)).status).toBe(
-      403,
-    );
-    expect((await remove(owner.accessToken, "prn_missing")).status).toBe(404);
-
-    const lastOwner = await remove(owner.accessToken, owner.principalId);
-    expect(lastOwner.status).toBe(409);
-    expect(overlapCast(await lastOwner.json()).error).toBe("last_owner");
-
-    // Host failure keeps the membership in place.
-    const fetchSpy = mockHostFetch(() =>
-      Promise.resolve(new Response("nope", { status: 500 })),
-    );
-    const failed = await remove(owner.accessToken, member.principalId);
-    expect(failed.status).toBe(502);
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}/members`, {
-          headers: auth(owner.accessToken),
-        })
-      ).status,
-    ).toBe(200);
-
-    fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
-    expect((await remove(owner.accessToken, member.principalId)).status).toBe(
-      204,
-    );
-    const after = await app.request(`/v1/organizations/${org.id}/members`, {
-      headers: auth(owner.accessToken),
-    });
-    expect(overlapCast(await after.json()).members).toHaveLength(1);
-  });
-});
-
-describe("device approve edge cases", () => {
-  it("requires a configured operator token", async () => {
-    const { app } = createControlPlane({
-      config: { ...testConfig(), operatorToken: "" },
-    });
-    const created = await provisional(app);
-    const res = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-    });
-    expect(res.status).toBe(503);
-    expect(overlapCast(await res.json()).error).toBe(
-      "operator_token_unconfigured",
-    );
-  });
-
-  it("requires a user_code in a JSON object body", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const created = await provisional(app);
-
-    const notJson = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: "not json at all{",
-    });
-    expect(notJson.status).toBe(400);
-
-    const missing = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "   " }),
-    });
-    expect(missing.status).toBe(400);
-    expect(overlapCast(await missing.json()).error).toBe("invalid_request");
-  });
-
-  it("requires disambiguation when the principal holds several memberships", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "device-multi-org");
-    // Personal workspace plus one created organization.
-    expect((await createOrg(app, owner.accessToken, "second-org")).status).toBe(
-      201,
-    );
-
-    const res = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-    });
-    expect(res.status).toBe(400);
-    expect(overlapCast(await res.json()).error).toBe(
-      "organization_id_required",
-    );
-  });
-
-  it("denies approval into organizations the caller cannot use", async () => {
-    const { app, ctx } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "device-deny-owner");
-    const other = await verified(app, "device-deny-other");
-    const foreignOrg = overlapCast(
-      await (await createOrg(app, other.accessToken, "foreign-org")).json(),
-    );
-
-    // Not a member.
-    const notMember = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        user_code: "ABCD-EFGH",
-        organization_id: foreignOrg.id,
+    await expect(
+      revokeOrganizationMembership(ctx, {
+        organizationId: membership.organizationId,
+        principalId: member.principalId,
+        correlationId: "corr-batch-failure",
+        reason: "deprovisioned",
       }),
-    });
-    expect(notMember.status).toBe(403);
-    expect(overlapCast(await notMember.json()).error).toBe(
-      "organization_access_denied",
-    );
+    ).rejects.toThrow("audit unavailable");
 
-    // A suspended organization denies even its owner.
-    const stored = await ctx.stores.organizations.get(foreignOrg.id);
-    if (!stored) throw new Error("org missing");
-    await ctx.stores.organizations.set(foreignOrg.id, {
-      ...stored,
-      state: "suspended",
-    });
-    const suspendedOrg = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(other.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        user_code: "ABCD-EFGH",
-        organization_id: foreignOrg.id,
-      }),
-    });
-    expect(suspendedOrg.status).toBe(403);
+    expect(
+      (await ctx.stores.provisionalSessions.get(original.id))?.revokedAt,
+    ).toBeDefined();
+    expect(
+      (await ctx.stores.provisionalSessions.get(secondId))?.revokedAt,
+    ).toBeDefined();
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: auth(member.accessToken),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: auth(secondToken),
+        })
+      ).status,
+    ).toBe(401);
   });
 
-  it("maps Host failures to statuses and keeps the operator token server-side", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    // A fresh principal per probe: the per-principal device throttle is
-    // deliberately lower than the Host's deployment-global failure fence.
-    const approve = async () => {
-      const owner = await provisional(app);
-      return app.request("/v1/device/approve", {
-        method: "POST",
-        headers: {
-          ...auth(owner.accessToken),
-          "content-type": "application/json",
+  it("revokes a session published before a waiting deprovision completes", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const membership = await ensurePersonalOrganization(
+      ctx,
+      member.principalId,
+    );
+    const sessions = ctx.stores.provisionalSessions;
+    if (!(sessions instanceof Map)) throw new Error("Expected memory store");
+    const set = sessions.set.bind(sessions);
+    let release = () => {};
+    let reached = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    vi.spyOn(sessions, "set").mockImplementationOnce(
+      overlapCast(
+        async (
+          id: string,
+          session: typeof sessions extends Map<string, infer S> ? S : never,
+        ) => {
+          reached();
+          await gate;
+          return set(id, session);
         },
-        body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-      });
-    };
-
-    const fetchSpy = mockHostFetch(() =>
-      Promise.resolve(new Response("gone", { status: 404 })),
+      ),
     );
-    const notFound = await approve();
-    expect(notFound.status).toBe(404);
-    expect(overlapCast(await notFound.json()).error).toBe(
-      "host_approval_failed",
+    const adoption = adoptSessionWithinCapacity(
+      ctx,
+      member.principalId,
+      "corr-concurrent-adoption",
     );
-    fetchSpy.mockResolvedValue(new Response("boom", { status: 500 }));
-    const badGateway = await approve();
-    expect(badGateway.status).toBe(502);
-    expect(overlapCast(await badGateway.json()).error).toBe(
-      "host_approval_failed",
-    );
-
-    fetchSpy.mockRejectedValue(new Error("connection refused"));
-    const unreachable = await approve();
-    expect(unreachable.status).toBe(502);
-    expect(overlapCast(await unreachable.json()).error).toBe(
-      "host_api_unreachable",
-    );
-
-    // Host bodies are never consumed or reflected, including secret-shaped text.
-    fetchSpy.mockResolvedValue(
-      new Response("secret-sentinel", { status: 200 }),
-    );
-    const plain = await approve();
-    expect(plain.status).toBe(200);
-    expect(await plain.json()).toEqual({ ok: true, status: 200 });
+    await paused;
+    const deprovision = revokeOrganizationMembership(ctx, {
+      organizationId: membership.organizationId,
+      principalId: member.principalId,
+      correlationId: "corr-concurrent-deprovision",
+      reason: "deprovisioned",
+    });
+    release();
+    const adopted = await adoption;
+    await deprovision;
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: auth(adopted.accessToken),
+        })
+      ).status,
+    ).toBe(401);
+    const live = [...(await sessions.entries())]
+      .map(([, session]) => session)
+      .filter(
+        (session) =>
+          session.principalId === member.principalId && !session.revokedAt,
+      );
+    expect(live).toEqual([]);
   });
 
-  it("fails closed when the Host API URL is not a plain HTTP(S) base", async () => {
-    expect(() =>
-      createControlPlane({
-        config: { ...testConfig(), hostApiUrl: "ftp://host.example" },
+  it("refuses a publication started after the deprovision snapshot", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const membership = await ensurePersonalOrganization(
+      ctx,
+      member.principalId,
+    );
+    const sessions = ctx.stores.provisionalSessions;
+    if (!(sessions instanceof Map)) throw new Error("Expected memory store");
+    const values = sessions.values.bind(sessions);
+    let release = () => {};
+    let reached = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    vi.spyOn(sessions, "values").mockImplementationOnce(
+      overlapCast(async () => {
+        reached();
+        await gate;
+        return values();
       }),
-    ).toThrow(/Invalid deployment endpoint/);
+    );
+
+    const deprovision = revokeOrganizationMembership(ctx, {
+      organizationId: membership.organizationId,
+      principalId: member.principalId,
+      correlationId: "corr-snapshot-deprovision",
+      reason: "deprovisioned",
+    });
+    await paused;
+    const adoption = expect(
+      adoptSessionWithinCapacity(
+        ctx,
+        member.principalId,
+        "corr-after-snapshot-adoption",
+      ),
+    ).rejects.toThrow(/epoch/i);
+    await adoption;
+    release();
+    await deprovision;
+
+    const live = [...(await sessions.entries())]
+      .map(([, session]) => session)
+      .filter(
+        (session) =>
+          session.principalId === member.principalId && !session.revokedAt,
+      );
+    expect(live).toEqual([]);
+  });
+
+  it("does not reopen a completed human revocation during deprovisioning", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const membership = await ensurePersonalOrganization(
+      ctx,
+      member.principalId,
+    );
+    const session = [...(await ctx.stores.provisionalSessions.entries())]
+      .map(([, value]) => value)
+      .find((value) => value.principalId === member.principalId);
+    if (!session) throw new Error("Missing member session");
+    await revokeProvisionalSession(ctx, session.id, {
+      actorType: "human",
+      correlationId: "corr-human-signout",
+      metadata: { action: "principal.provisional_revoke" },
+    });
+
+    await expect(
+      revokeOrganizationMembership(ctx, {
+        organizationId: membership.organizationId,
+        principalId: member.principalId,
+        correlationId: "corr-deprovision-after-signout",
+        reason: "deprovisioned",
+      }),
+    ).resolves.toMatchObject({ membershipRemoved: true, sessionsRevoked: 0 });
+    expect(
+      (await ctx.stores.provisionalSessions.get(session.id))
+        ?.revocationCleanupPending,
+    ).toBeUndefined();
+    expect((await provisional(app)).accessToken).toBeTypeOf("string");
   });
 });

@@ -1,13 +1,23 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import {
   type ReferenceIdp,
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
-import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { type JsonObject, overlapCast } from "@opensesame/os-domain";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { resumePendingUpstreamLogouts } from "../interactions/upstream-logout.js";
 import { resetBackchannelLogoutBudget } from "../routes/backchannel-logout.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { mintOrgIdToken } from "./backchannel-logout.test-support.js";
 
 /**
  * OIDC Back-Channel Logout (C17, D13).
@@ -131,47 +141,6 @@ function unsignedToken(issuer: string, subject: string): string {
   ].join(".");
 }
 
-async function mintOrgIdToken(origin: string) {
-  const clientId = `origin:${origin}`;
-  const redirectUri = `${origin}/opensesame/callback`;
-  const verifier = randomBytes(32).toString("base64url");
-  const authorize = new URL(`${idp.issuer}/authorize`);
-  authorize.searchParams.set("client_id", clientId);
-  authorize.searchParams.set("redirect_uri", redirectUri);
-  authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", "openid email profile");
-  authorize.searchParams.set(
-    "code_challenge",
-    createHash("sha256").update(verifier).digest("base64url"),
-  );
-  authorize.searchParams.set("code_challenge_method", "S256");
-  const redirected = await fetch(authorize, { redirect: "manual" });
-  const code =
-    new URL(redirected.headers.get("location") ?? "").searchParams.get(
-      "code",
-    ) ?? "";
-  const tokens = await fetch(`${idp.issuer}/token`, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", origin },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      code_verifier: verifier,
-    }),
-  });
-  const idToken = overlapCast(await tokens.json()).id_token;
-  if (!isString(idToken)) throw new Error("no id_token minted");
-  const [, payload] = idToken.split(".");
-  const claims = overlapCast(
-    JSON.parse(Buffer.from(payload ?? "", "base64url").toString("utf8")),
-  );
-  const subject = claims.pairwise_sub ?? claims.sub;
-  if (!isString(subject)) throw new Error("no subject in id_token");
-  return { idToken, subject };
-}
-
 describe("back-channel logout", () => {
   it("ends the subject's sessions and answers 200 with nothing", async () => {
     const { app } = createControlPlane({ config: staticConfig() });
@@ -189,6 +158,34 @@ describe("back-channel logout", () => {
     expect(await stillSignedIn(app, session.accessToken)).toBe(false);
     // Only that subject: a logout is not a mass sign-out.
     expect(await stillSignedIn(app, bystander.accessToken)).toBe(true);
+  }, 30_000);
+
+  it("resumes a claimed logout after a crash at the replay boundary", async () => {
+    const { app, ctx } = createControlPlane({ config: staticConfig() });
+    const session = await signedIn(app, idp.issuer, "crash-boundary-user");
+    const token = await idp.mintBackchannelLogoutToken("crash-boundary-user");
+    const claim = ctx.repos.callbackReplays.claim.bind(
+      ctx.repos.callbackReplays,
+    );
+    let interrupted = false;
+    vi.spyOn(ctx.repos.callbackReplays, "claim").mockImplementation(
+      async (record) => {
+        const result = await claim(record);
+        if (!interrupted) {
+          interrupted = true;
+          throw new Error("process interrupted after replay claim");
+        }
+        return result;
+      },
+    );
+
+    expect((await postLogout(app, token)).status).toBe(500);
+    expect(await stillSignedIn(app, session.accessToken)).toBe(true);
+    await resumePendingUpstreamLogouts(ctx);
+    expect(await stillSignedIn(app, session.accessToken)).toBe(false);
+    const replay = await postLogout(app, token);
+    expect(replay.status).toBe(200);
+    expect(await stillSignedIn(app, session.accessToken)).toBe(false);
   }, 30_000);
 
   it("refuses a logout token carrying a nonce, and leaves the session alone", async () => {
@@ -304,7 +301,7 @@ describe("back-channel logout", () => {
       ).status,
     ).toBe(200);
 
-    const { idToken, subject } = await mintOrgIdToken(PAGES_ORIGIN);
+    const { idToken, subject } = await mintOrgIdToken(PAGES_ORIGIN, idp);
     const guest = await provisional(app);
     const joined = await app.request("/v1/organizations/tenants/acme/join", {
       method: "POST",
