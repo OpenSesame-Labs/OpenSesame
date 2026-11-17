@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
@@ -136,7 +137,12 @@ const profilesDir = join(pagesRoot, "capability-profiles");
 const walks = resolveWalks(profilesDir);
 
 const vaultOut = join(outRoot, "vault-shell-profiles");
-await captureVaultShellProfiles({ outDir: vaultOut });
+const vaultManifest = join(vaultOut, "manifest.json");
+if (process.env.SKIP_VAULT_SHELL_CAPTURE === "1" && existsSync(vaultManifest)) {
+  console.error(`[evidence] reuse vault-shell profiles at ${vaultManifest}`);
+} else {
+  await captureVaultShellProfiles({ outDir: vaultOut });
+}
 
 const timingByProfile = {};
 for (const walk of walks) {
