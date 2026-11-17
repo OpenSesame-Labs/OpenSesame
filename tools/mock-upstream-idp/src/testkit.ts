@@ -1,13 +1,20 @@
+import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
+import { createLogger } from "@opensesame/observability";
 import type { JWK } from "jose";
 import {
   OAUTH2_METADATA_PATH,
   oauth2Urls as oauth2EndpointUrls,
 } from "./oauth2.js";
-import { SAML_METADATA_PATH, SAML_SSO_PATH } from "./saml.js";
 import type { SamlMutation } from "./saml.js";
-import { createMockUpstreamIdp } from "./server.js";
+import { SAML_METADATA_PATH, SAML_SSO_PATH } from "./saml.js";
 import type { MintLogoutTokenOptions, MockUpstreamIdp } from "./server.js";
+import { createMockUpstreamIdp } from "./server.js";
+
+export {
+  type ReferenceOidcGrant,
+  obtainReferenceOidcGrant,
+} from "./testkit-oidc-grant.js";
 
 /**
  * The reference IdP as an embeddable test counterparty.
@@ -161,14 +168,23 @@ export async function startReferenceIdp(
   options: ReferenceIdpOptions = {},
 ): Promise<ReferenceIdp> {
   const protocol = options.protocol ?? "oidc";
-  const idp = await createMockUpstreamIdp({
-    host: "127.0.0.1",
-    port: options.port ?? 0,
-    issuer: "http://127.0.0.1:0",
-    formPost: options.formPost ?? false,
-    registration: options.registration ?? true,
-    clientMode: options.clientMode ?? "both",
-  });
+  const idp = await createMockUpstreamIdp(
+    {
+      host: "127.0.0.1",
+      port: options.port ?? 0,
+      issuer: "http://127.0.0.1:0",
+      clientSecret: randomBytes(32).toString("base64url"),
+      formPost: options.formPost ?? false,
+      registration: options.registration ?? true,
+      clientMode: options.clientMode ?? "both",
+    },
+    {},
+    createLogger({
+      name: "reference-idp-testkit",
+      level: "silent",
+      destination: { write() {} },
+    }),
+  );
   if (options.subject !== undefined) idp.config.testUser.sub = options.subject;
 
   const issuer = await listenEphemeral(idp, options.port ?? 0);
