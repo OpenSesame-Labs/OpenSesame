@@ -1,7 +1,7 @@
 // Exercise the built entry before and after JavaScript, including a return
 // visit whose correct screen is different from a fresh device's front door.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -89,6 +89,63 @@ try {
     console.log("PASS: failed eager module shows a startup error");
   } else {
     console.log("SKIP: the built entry has no static module dependency");
+  }
+
+  const splitBootstrap = entrySource.match(
+    /\b(?:from|import)\s*["']\.\/(pages-[A-Za-z0-9_-]{8,64}\.js)["']/u,
+  )?.[1];
+  const pushWorker = join(dist, "sw-push.js");
+  if (splitBootstrap && existsSync(pushWorker)) {
+    assert.ok(
+      readFileSync(pushWorker, "utf8").includes(`assets/${splitBootstrap}`),
+      "the push worker must recognize the executing bootstrap chunk",
+    );
+  }
+
+  // When the host already supplies COOP/COEP, a first worker claim for this
+  // same build must not navigate away from the page the person is using.
+  const isolatedServer = await serveLoopbackDist({
+    dist,
+    base,
+    headers: {
+      "cross-origin-opener-policy": "same-origin",
+      "cross-origin-embedder-policy": "require-corp",
+      "cross-origin-resource-policy": "same-origin",
+    },
+  });
+  const isolated = await browser.newContext();
+  try {
+    await isolated.addInitScript(() => {
+      const key = "__startup_claim_check";
+      sessionStorage.setItem(
+        key,
+        String(Number(sessionStorage.getItem(key) ?? "0") + 1),
+      );
+    });
+    const isolatedPage = await isolated.newPage();
+    await isolatedPage.goto(isolatedServer.href, {
+      waitUntil: "domcontentloaded",
+    });
+    await isolatedPage.waitForFunction(
+      () => crossOriginIsolated && Boolean(navigator.serviceWorker?.controller),
+      null,
+      { timeout: 30_000 },
+    );
+    await isolatedPage
+      .getByRole("button", { name: "Set up your own", exact: true })
+      .waitFor({ timeout: 30_000 });
+    await isolatedPage.waitForTimeout(3_000);
+    assert.equal(
+      await isolatedPage.evaluate(() =>
+        Number(sessionStorage.getItem("__startup_claim_check")),
+      ),
+      1,
+      "a compatible first worker claim must not reload an isolated page",
+    );
+    console.log("PASS: an isolated first worker claim keeps the page");
+  } finally {
+    await isolated.close();
+    await isolatedServer.close();
   }
 
   // A lazy chunk can fail after the shell has already loaded. Keep the file

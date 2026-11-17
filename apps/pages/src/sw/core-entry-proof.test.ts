@@ -9,9 +9,9 @@ const NONCE = "a".repeat(43);
 const URL = `https://example.test/OpenSesame/${MODULE}`;
 const hello = { type: "WORKER_HELLO", pageModuleUrl: URL, proofNonce: NONCE };
 
-function fixture() {
+function fixture(modulePath = MODULE) {
   const env = new FakeWorkerEnv();
-  const module = { url: MODULE, revision: null };
+  const module = { url: modulePath, revision: null };
   const manifest = [...RELEASE_MANIFEST, module];
   installCoreWorker(env.sw, {
     variant: "core-only",
@@ -48,6 +48,20 @@ describe("worker module handoff proof", () => {
     });
     expect(setup.client.messages).toEqual([]);
     expect(setup.env.fetched).toEqual([]);
+  });
+
+  it("proves a split bootstrap only when the executing chunk is in its manifest", async () => {
+    const split = "assets/pages-EfGh5678.js";
+    const pageModuleUrl = `https://example.test/OpenSesame/${split}`;
+    expect(
+      await request(fixture(split), { ...hello, pageModuleUrl }),
+    ).toMatchObject({
+      pageModuleUrl,
+      proofNonce: NONCE,
+    });
+    expect(
+      await request(fixture(), { ...hello, pageModuleUrl }),
+    ).toBeUndefined();
   });
 
   it("keeps the original hello response when no proof port is supplied", async () => {

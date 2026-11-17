@@ -146,7 +146,7 @@ function loopbackFile(dist, base, pathname) {
  * static host: a service worker bypasses it and can reach the live site, and
  * a large dist blocks the route handler so the document navigation never ends.
  */
-export function serveLoopbackDist({ dist, base }) {
+export function serveLoopbackDist({ dist, base, headers = {} }) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const file = loopbackFile(dist, base, url.pathname);
@@ -159,6 +159,7 @@ export function serveLoopbackDist({ dist, base }) {
       "content-type": MIME[path.extname(file)] ?? "application/octet-stream",
       "cache-control": "no-store",
       ...PAGES_CORS,
+      ...headers,
     });
     const stream = fs.createReadStream(file);
     stream.on("error", () => response.destroy());
