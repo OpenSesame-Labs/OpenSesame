@@ -4,17 +4,18 @@ import {
   deadmanStatusForUnlock,
   readDeadmanConfig,
 } from "@opensesame/app-core/lib/deadman/index.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { useEffect, useMemo, useState } from "react";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconPlus, IconTrash } from "../../../components/Icons.js";
 import { useVault } from "../../../lib/vault/hooks.js";
 import { DeadmanPanelView } from "./DeadmanPanelView.js";
-import { MethodRow } from "./MethodRow.js";
 import {
   type DeadmanPanelModel,
   beginDeadmanPanel,
   createDeadmanActions,
 } from "./deadman-panel-actions.js";
+import { MethodRow } from "./MethodRow.js";
 
 function daysPhrase(days: number): string {
   return days === 1 ? "1 day" : `${days} days`;
@@ -27,8 +28,8 @@ function remainingPhrase(status: DeadmanStatus): string {
 
 /** Whether the panel draws: the owner of an open vault, never a guest. */
 export function useDeadmanPanelShown(): boolean {
-  const { guest, status } = useVault();
-  return !guest && status === "unlocked";
+  const { guest, status, tomb } = useVault();
+  return !guest && !isGuestVaultId(tomb) && status === "unlocked";
 }
 
 function DeadmanRow({

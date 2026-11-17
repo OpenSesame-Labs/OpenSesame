@@ -32,7 +32,11 @@ function GuidedRoad({
   road,
   guideId,
   onPick,
-}: { road: Road; guideId: string; onPick: () => void }) {
+}: {
+  road: Road;
+  guideId: string;
+  onPick: () => void;
+}) {
   const ref = useGuideTarget<HTMLAnchorElement>(guideId);
   return <RoadRow road={road} onPick={onPick} anchorRef={ref} />;
 }
@@ -78,7 +82,6 @@ export function VaultFilterMenu({
   const [open, setOpen] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const openRef = useGuideTarget<HTMLButtonElement>("vault.filter");
   // Stable: `useModalFocus` keeps this in its effect deps, and a fresh
   // arrow each render would re-run the effect — re-focusing Close and
   // taking the keyboard off whatever the person was on. `useConnectors`
@@ -102,7 +105,6 @@ export function VaultFilterMenu({
   return (
     <div className="vfilter">
       <button
-        ref={openRef}
         type="button"
         className={`choice vfilter__open${narrowed ? " is-narrowed" : ""}`}
         aria-label={label}

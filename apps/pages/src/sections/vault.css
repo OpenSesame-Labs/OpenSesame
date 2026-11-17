@@ -1236,6 +1236,11 @@
     border-top: 1px solid var(--line);
     background: var(--canvas);
   }
+
+  /* A keyboard can leave the pane shorter than the sticky actions themselves. */
+  .editor__actions--short-viewport {
+    position: static;
+  }
 }
 
 .drop-card__link {
@@ -1295,6 +1300,13 @@
 }
 
 /* —— Phone polish ———————————————————————————————————————————— */
+
+@media (pointer: coarse), (max-width: 900px) {
+  /* The label is the checkbox's touch target, including during the tutorial. */
+  .editor__pepper-check {
+    min-height: 2.75rem;
+  }
+}
 
 @media (max-width: 900px) {
   /* A password's own keys (reveal, copy) sit in the row's key column; its

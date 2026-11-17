@@ -13,6 +13,7 @@
  * silently.
  */
 
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import {
   type DeviceVault,
   removeVault,
@@ -32,10 +33,10 @@ import { GuideTarget } from "../../tutorial/registry/react.jsx";
 import { NewVaultSheet } from "./NewVaultSheet.js";
 
 export function VaultsPanel() {
-  const { status, guest } = useVault();
+  const { status, guest, tomb } = useVault();
   const vaults = useDeviceVaults();
   // A guest's key was never wrapped to disk, so there is nothing to share.
-  const canShareKey = status === "unlocked" && !guest;
+  const canShareKey = status === "unlocked" && !guest && !isGuestVaultId(tomb);
   const [creating, setCreating] = useState(false);
   const [arming, setArming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,7 +53,9 @@ export function VaultsPanel() {
   }
 
   const deletable = (vault: DeviceVault) =>
-    vault.kind === "project" && vault.state !== "open";
+    (vault.kind === "project" ||
+      (vault.kind === "guest" && vault.state === "locked")) &&
+    vault.state !== "open";
 
   return (
     <section className="panel" id="vaults">

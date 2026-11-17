@@ -457,8 +457,10 @@ kbd {
    never smaller than the icon key beside it in a narrow window. */
 @media (pointer: coarse), (max-width: 900px) {
   .go {
-    width: max(2.75rem, var(--go-size, 2.75rem));
-    height: max(2.75rem, var(--go-size, 2.75rem));
+    width: max(44px, 2.75rem, var(--go-size, 2.75rem));
+    height: max(44px, 2.75rem, var(--go-size, 2.75rem));
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
