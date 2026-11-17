@@ -33,6 +33,8 @@ export type GuideTargetDescriptor = {
   readonly routes: readonly GuideRouteId[];
   /** The ADR-0065 capability this control exercises, when it exercises one. */
   readonly capabilityId: string | null;
+  /** A private state marker for authored guides; never include it in model context. */
+  readonly authoredOnly?: boolean;
 };
 
 type MountedTarget = {
@@ -285,6 +287,7 @@ export function describeGuideTargets(
 ): readonly SupportTargetDescription[] {
   const out: SupportTargetDescription[] = [];
   for (const descriptor of mergedGuideTargets()) {
+    if (descriptor.authoredOnly) continue;
     if (!scopeApplies(descriptor.routes, route)) continue;
     out.push({
       id: descriptor.id,

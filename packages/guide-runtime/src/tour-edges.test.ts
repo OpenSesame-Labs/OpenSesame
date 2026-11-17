@@ -57,6 +57,39 @@ function harness(mounted: readonly GuideTargetId[] = TARGETS) {
 }
 
 describe("tour mode edges", () => {
+  it("rechecks a satisfied action if it becomes unsatisfied while the step is open", async () => {
+    const h = harness(["vault.create"]);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Turn the option off.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.export",
+          event: "disappear",
+          timeoutMs: 30000,
+        },
+        { kind: "success", message: "Off." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: false });
+    h.targets.appear("vault.export");
+    h.runtime.next();
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: true });
+    h.targets.disappear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.kind).toBe("close");
+  });
+
   it("relights a missing control and waits for its required action", async () => {
     const h = harness([]);
     void h.runtime.start(

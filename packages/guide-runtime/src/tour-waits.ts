@@ -1,4 +1,4 @@
-import type { WaitInstruction } from "@opensesame/guide-lang";
+import type { GuideTargetId, WaitInstruction } from "@opensesame/guide-lang";
 import type { GuideBeat, GuidePlan } from "./plan.js";
 import type { GuideRuntimePorts, GuideTourView } from "./ports.js";
 
@@ -52,4 +52,34 @@ export function alreadyHolds(
   if (wait.event === "appear") return ports.targets.isMounted(wait.target);
   if (wait.event === "disappear") return !ports.targets.isMounted(wait.target);
   return false;
+}
+
+/** Recheck a satisfied level wait if the person makes it false again. */
+export function observeWhenLost(
+  ports: GuideRuntimePorts,
+  wait: WaitInstruction,
+): ((signal: AbortSignal) => Promise<void>) | null {
+  if (wait.subject === "state") {
+    return (signal) =>
+      ports.state.observe(wait.predicate, !wait.expected, signal);
+  }
+  if (wait.subject === "target" && wait.event !== "activate") {
+    const event = wait.event === "appear" ? "disappear" : "appear";
+    return (signal) => ports.targets.observe(wait.target, event, signal);
+  }
+  return null;
+}
+
+export function watchStep(
+  ports: GuideRuntimePorts,
+  wait: WaitInstruction | null,
+  missing: GuideTargetId | null,
+  holds: boolean,
+): ((signal: AbortSignal) => Promise<void>) | null {
+  if (missing !== null)
+    return (signal) => ports.targets.observe(missing, "appear", signal);
+  if (wait === null) return null;
+  return holds
+    ? observeWhenLost(ports, wait)
+    : (signal) => observeWait(ports, wait, signal);
 }

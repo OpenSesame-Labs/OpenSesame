@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
 import {
+  describeGuideTargets,
+  isMountedGuideTarget,
+} from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
   passwordMethod,
   pepperBinding,
   sealWithPepper,
@@ -7,6 +11,7 @@ import {
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { makeAccount } from "./account.test-support.js";
 import {
   block,
   input,
@@ -18,10 +23,26 @@ import {
   showOptions,
   vault,
 } from "./account-editor.test-support.js";
-import { makeAccount } from "./account.test-support.js";
 
 describe("account editor: pepper (ADR 0174)", () => {
   installEditorHarness();
+
+  it("tracks the option for authored guides without exposing it to model context", async () => {
+    open("/vault/new/account");
+    const password = block("Password");
+    await showOptions(password);
+    const pepper = password.getByLabelText("Include pepper");
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
+    expect(
+      describeGuideTargets("/vault").some(
+        (target) => target.id === "editor.pepper-enabled",
+      ),
+    ).toBe(false);
+    await userEvent.click(pepper);
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(false);
+    await userEvent.click(pepper);
+    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
+  });
 
   it("has Include pepper on at the end by default, never asks for one, and draws where it goes only while it is on", async () => {
     open("/vault/new/account");

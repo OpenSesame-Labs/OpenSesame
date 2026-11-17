@@ -17,7 +17,11 @@
  * person never read.
  */
 
-import type { GuideProgram, GuideRouteId } from "@opensesame/guide-lang";
+import type {
+  GuideProgram,
+  GuideRouteId,
+  WaitInstruction,
+} from "@opensesame/guide-lang";
 
 import { type GuideBeat, type GuidePlan, planGuideSteps } from "./plan.js";
 import type {
@@ -27,7 +31,7 @@ import type {
   GuideRuntimeStatus,
   GuideTourView,
 } from "./ports.js";
-import { alreadyHolds, observeWait, viewOf } from "./tour-waits.js";
+import { alreadyHolds, observeWait, viewOf, watchStep } from "./tour-waits.js";
 
 export type TourCommand = "next" | "back" | "restart";
 
@@ -268,6 +272,22 @@ async function enter(
     : lightTarget(ctx, beat, beat.target);
 }
 
+function mustRecheck(
+  ports: GuideRuntimePorts,
+  wait: WaitInstruction | null,
+  held: boolean,
+  raced: Raced,
+): boolean {
+  if (!held) return false;
+  if (raced.kind === "observed") return true;
+  return (
+    raced.kind === "command" &&
+    raced.command === "next" &&
+    wait !== null &&
+    !alreadyHolds(ports, wait)
+  );
+}
+
 /** Holds a presented step until the person moves it, or does what it waits for. */
 async function holdBeat(
   ctx: TourContext,
@@ -287,15 +307,13 @@ async function holdBeat(
       beat.present < 0 ? beat.start : beat.present,
     );
     const target = missing ? beat.target : null;
-    const observe =
-      target !== null
-        ? (signal: AbortSignal) =>
-            ports.targets.observe(target, "appear", signal)
-        : until !== null && !holds
-          ? (signal: AbortSignal) => observeWait(ports, until, signal)
-          : null;
+    const observe = watchStep(ports, until, target, holds);
     const raced = await raceWith(host, run, observe, null);
-    if (target === null || raced.kind !== "observed") return raced;
+    if (target === null) {
+      if (mustRecheck(ports, until, holds, raced)) continue;
+      return raced;
+    }
+    if (raced.kind !== "observed") return raced;
     // A control that returns should be lit again and its action observed;
     // treating its appearance as the action would skip a required step.
     const entry = await lightTarget(ctx, beat, target);

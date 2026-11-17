@@ -134,6 +134,9 @@ async function passwordSteps(page, step, check, first, label) {
   await step("editor.pepper", first + 3);
   await page.getByLabel("Include pepper").uncheck();
   await step("editor.generate-password", first + 4);
+  if (process.env.TUTORIALS_PEPPER_BACK === "1") {
+    await revisitPepper(page, step, check, first, label);
+  }
   const password = page.getByLabel("Password", { exact: true }).first();
   const before = await password.inputValue();
   await page
@@ -174,6 +177,33 @@ async function passwordSteps(page, step, check, first, label) {
     (await page.locator(".coach").count()) === 0,
     `${label}: finishing does not immediately start another tutorial`,
   );
+}
+
+async function revisitPepper(page, step, check, first, label) {
+  const back = page.getByRole("button", { name: "Back", exact: true });
+  const next = page.locator(".coach__btn--go");
+  const pepper = page.getByLabel("Include pepper");
+  await back.click();
+  await step("editor.pepper", first + 3);
+  check(!(await pepper.isChecked()), `${label}: Back keeps pepper off`);
+  check(
+    (await next.getAttribute("aria-disabled")) !== "true",
+    `${label}: an already disabled pepper allows Next`,
+  );
+  await next.click();
+  await step("editor.generate-password", first + 4);
+  await back.click();
+  await step("editor.pepper", first + 3);
+  await pepper.check();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector(".coach__btn--go")
+        ?.getAttribute("aria-disabled") === "true",
+  );
+  check(true, `${label}: re-enabling pepper requires turning it off again`);
+  await pepper.uncheck();
+  await step("editor.generate-password", first + 4);
 }
 
 async function recoverPasswordOptions(page, check, label) {
