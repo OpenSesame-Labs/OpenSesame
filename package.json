@@ -157,6 +157,7 @@
     "@vitejs/plugin-react": "6.2.1",
     "@vitest/coverage-v8": "4.1.12",
     "better-auth": "1.7.18",
+    "cve-lite-cli": "1.41.4",
     "drizzle-kit": "0.31.11",
     "drizzle-orm": "0.45.4",
     "handlebars": "4.7.10",
@@ -174,7 +175,11 @@
     "vite": "8.3.6",
     "vitest": "4.1.12",
     "wxt": "0.21.5",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@balena/dockerignore": "1.0.2",
+    "playwright-core": "1.65.0",
+    "sharp": "0.35.5",
+    "yaml": "2.9.1"
   },
   "overrides": {
     "vitest": "4.1.12",
@@ -246,7 +251,7 @@
       "@noble/curves": "2.4.0",
       "@noble/hashes": "2.4.0"
     },
-    "basic-ftp": "6.2.1",
+    "basic-ftp": "6.2.6",
     "flatted": "3.4.2",
     "js-yaml@^3": "$js-yaml",
     "js-yaml@^5": "5.4.1",
