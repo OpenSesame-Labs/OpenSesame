@@ -50,10 +50,13 @@ it("records proof sign-out once when two database-backed replicas race", async (
       }),
     });
     expect(minted.status).toBe(201);
-    const { sessionId, principalId } = (await minted.json()) as {
+    const {
+      sessionId,
+      principalId,
+    }: {
       sessionId: string;
       principalId: string;
-    };
+    } = overlapCast(await minted.json());
     let arrived = 0;
     let release = () => {};
     const together = new Promise<void>((resolve) => {
@@ -124,10 +127,10 @@ it("resumes a durable pending revocation by the session's unhashed id on another
     const minted = await first.app.request("/v1/principals/provisional", {
       method: "POST",
     });
-    const body = (await minted.json()) as {
+    const body: {
       sessionId: string;
       accessToken: string;
-    };
+    } = overlapCast(await minted.json());
     await beginProvisionalRevocation(first.ctx, body.sessionId, {
       actorType: "system",
       correlationId: "durable-resume-test",
@@ -192,10 +195,10 @@ it("resumes a durable upstream logout by its logical key and records the aggrega
     const minted = await first.app.request("/v1/principals/provisional", {
       method: "POST",
     });
-    const body = (await minted.json()) as {
+    const body: {
       sessionId: string;
       accessToken: string;
-    };
+    } = overlapCast(await minted.json());
     const operationKey = `oidc-logout:${"a".repeat(64)}`;
     await first.ctx.stores.upstreamLogoutOperations.set(operationKey, {
       operationKey,
@@ -262,10 +265,10 @@ it("rolls back durable session publication when writing the bearer fails", async
     const minted = await control.app.request("/v1/principals/provisional", {
       method: "POST",
     });
-    const body = (await minted.json()) as {
+    const body: {
       sessionId: string;
       principalId: string;
-    };
+    } = overlapCast(await minted.json());
     const original = await control.ctx.stores.provisionalSessions.get(
       body.sessionId,
     );

@@ -4,6 +4,7 @@ import {
   createDrizzle,
   createSqlClient,
 } from "@opensesame/database";
+import { overlapCast } from "@opensesame/os-domain";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -82,10 +83,10 @@ describe.skipIf(!databaseUrl)("replica session boundary on PostgreSQL", () => {
       method: "POST",
     });
     expect(response.status).toBe(201);
-    const person = (await response.json()) as {
+    const person: {
       principalId: string;
       accessToken: string;
-    };
+    } = overlapCast(await response.json());
     const membership = await ensurePersonalOrganization(
       first.ctx,
       person.principalId,

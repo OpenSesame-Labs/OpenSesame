@@ -82,9 +82,9 @@ it("rejects an in-flight old Host approval and admits a re-added incarnation", a
   const revoked = new Set<string>();
   let first = true;
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    const body = JSON.parse(String(init?.body)) as {
+    const body: {
       authority_revision: string;
-    };
+    } = overlapCast(JSON.parse(String(init?.body)));
     if (String(url).endsWith("/sessions/revoke")) {
       revoked.add(body.authority_revision);
       return new Response("{}", { status: 200 });
@@ -148,10 +148,10 @@ it("keeps local sessions fenced through ambiguous Host failures and retries the 
     [];
   const tombstones = new Set<string>();
   vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
-    const body = JSON.parse(String(init?.body)) as {
+    const body: {
       withdrawal_id: string;
       authority_revision: string;
-    };
+    } = overlapCast(JSON.parse(String(init?.body)));
     payloads.push(body);
     if (payloads.length === 1) throw new Error("unreachable before commit");
     tombstones.add(body.authority_revision);
