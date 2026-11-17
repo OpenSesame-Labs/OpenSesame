@@ -64,6 +64,7 @@ pub struct AppState {
     pub deployment: config::Deployment,
     pub identity_mapping: Option<crate::identity_mapping::IdentityMappingClient>,
     pub host_authorization: Option<crate::host_authorization::HostAuthorizationVerifier>,
+    pub client_app_url: Option<url::Url>,
     pub resource: String,
     pub issuer: String,
     pub db: Db,
@@ -214,6 +215,7 @@ async fn build_with_security(
         deployment: security.deployment,
         identity_mapping: security.identity_mapping,
         host_authorization: security.host_authorization,
+        client_app_url: security.client_app_url,
         resource: args.resource,
         issuer: args.issuer,
         db,
@@ -310,6 +312,7 @@ pub async fn build_test(args: Args) -> anyhow::Result<AppState> {
         config::StartupSecurity {
             host_authorization: None,
             identity_mapping: None,
+            client_app_url: Some(url::Url::parse("https://pages.test/OpenSesame/").unwrap()),
             deployment: config::Deployment {
                 mode: config::DeploymentMode::Test,
                 exposure: config::ExposureClass::LocalOnly,

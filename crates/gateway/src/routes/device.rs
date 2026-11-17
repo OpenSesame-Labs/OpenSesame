@@ -13,6 +13,10 @@ use opensesame_claims::{hash_eq, hash_low_entropy, hash_secret};
 use crate::app_state::{AppState, ApprovedDevice};
 use crate::middleware::auth::{require_demo_bootstrap, require_operator, same_principal_subject};
 
+#[cfg(test)]
+#[path = "device_verification_tests.rs"]
+mod verification_tests;
+
 /// Failed `user_code` guesses tolerated across the whole instance per window.
 ///
 /// A guess cannot be attributed to a particular pending authorization, so the
@@ -23,7 +27,6 @@ const MAX_APPROVE_FAILURES: usize = 10;
 const APPROVE_FAILURE_WINDOW_SECS: i64 = 60;
 const MAX_PENDING_DEVICE_CODES: usize = 512;
 const DEVICE_SCOPE: &str = "opensesame.session";
-
 fn admitted_client(client_id: &str) -> bool {
     matches!(client_id, "opensesame-cli" | "opensesame-pages")
 }
@@ -60,6 +63,21 @@ pub async fn authorize(
         )
             .into_response();
     }
+    let Some(mut verification_uri) = st.client_app_url.clone() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": "device_approval_unavailable",
+                "message": "Device approval is unavailable. Ask your administrator to configure the OpenSesame app URL."
+            })),
+        )
+            .into_response();
+    };
+    verification_uri
+        .path_segments_mut()
+        .expect("validated client app URL")
+        .pop_if_empty()
+        .push("device");
     let now = Utc::now();
     {
         let mut map = st.device_codes.lock().unwrap();
@@ -73,6 +91,10 @@ pub async fn authorize(
         }
         let device_code = format!("dc_{}", uuid::Uuid::new_v4());
         let user_code = opensesame_claims::generate_user_code();
+        let mut verification_uri_complete = verification_uri.clone();
+        verification_uri_complete
+            .query_pairs_mut()
+            .append_pair("user_code", &user_code);
         let expires_at = now + Duration::minutes(15);
         let device_digest = hash_secret(&device_code);
         map.insert(
@@ -89,8 +111,8 @@ pub async fn authorize(
         Json(json!({
             "device_code": device_code,
             "user_code": user_code,
-            "verification_uri": format!("{}/device", st.resource),
-            "verification_uri_complete": format!("{}/device?user_code={}", st.resource, user_code),
+            "verification_uri": verification_uri.as_str(),
+            "verification_uri_complete": verification_uri_complete.as_str(),
             "expires_in": 900,
             "interval": 5,
             "client_id": req.client_id,
@@ -120,16 +142,29 @@ pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenReques
     // is published, so revocation cannot slip between those two states.
     let _lifecycle = st.session_lifecycle.lock().await;
     let device_code_hash = hash_secret(&req.device_code);
-    let approved = st.device_codes.lock().unwrap().get(&device_code_hash)
+    let approved = st
+        .device_codes
+        .lock()
+        .unwrap()
+        .get(&device_code_hash)
         .and_then(|pending| pending.approved.clone());
     if let Some(approved) = approved {
         if let Some(revision) = &approved.membership_revision {
-            if !st.db.host_membership_live(
-                &approved.organization_id.to_string(),
-                &approved.principal,
-                Some((&revision.incarnation, &revision.revision)),
-            ).await.unwrap_or(false) {
-                return (StatusCode::BAD_REQUEST, Json(json!({"error":"invalid_grant"}))).into_response();
+            if !st
+                .db
+                .host_membership_live(
+                    &approved.organization_id.to_string(),
+                    &approved.principal,
+                    Some((&revision.incarnation, &revision.revision)),
+                )
+                .await
+                .unwrap_or(false)
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error":"invalid_grant"})),
+                )
+                    .into_response();
             }
         }
     }
@@ -237,7 +272,6 @@ pub struct DeviceApproveRequest {
     authority_revision: Option<String>,
 }
 
-
 fn approved_organization(
     organization_id: Option<&str>,
     organization_role: Option<opensesame_domain::OrganizationRole>,
@@ -264,7 +298,6 @@ fn approved_organization(
 fn user_code_digest(pepper: &str, device_digest: &str, user_code: &str) -> String {
     hash_low_entropy(pepper, device_digest, user_code)
 }
-
 pub async fn approve(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -275,7 +308,13 @@ pub async fn approve(
     }
     let revision = match approval::membership_revision(&req) {
         Ok(revision) => revision,
-        Err(()) => return (StatusCode::BAD_REQUEST, Json(json!({"error":"membership_revision_required"}))).into_response(),
+        Err(()) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error":"membership_revision_required"})),
+            )
+                .into_response()
+        }
     };
     let principal = req
         .principal
@@ -288,10 +327,24 @@ pub async fn approve(
     )
     .ok();
     let _lifecycle = st.session_lifecycle.lock().await;
-    if let (Some(principal), Some((org, _)), Some(revision)) = (principal, organization, revision.as_ref()) {
-        if !st.db.host_membership_live(&org.to_string(), &principal.to_string(),
-            Some((&revision.incarnation, &revision.revision))).await.unwrap_or(false) {
-            return (StatusCode::CONFLICT, Json(json!({"error":"membership_withdrawn"}))).into_response();
+    if let (Some(principal), Some((org, _)), Some(revision)) =
+        (principal, organization, revision.as_ref())
+    {
+        if !st
+            .db
+            .host_membership_live(
+                &org.to_string(),
+                &principal.to_string(),
+                Some((&revision.incarnation, &revision.revision)),
+            )
+            .await
+            .unwrap_or(false)
+        {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"error":"membership_withdrawn"})),
+            )
+                .into_response();
         }
     }
     let response = approval::approve_native(&st, &headers, &req, revision.clone());
@@ -310,18 +363,29 @@ pub async fn approve(
                 return StatusCode::SERVICE_UNAVAILABLE.into_response();
             }
             if let Some(revision) = revision.as_ref() {
-                if !st.db.activate_host_membership(&org.to_string(), &principal.to_string(),
-                    &revision.incarnation, &revision.revision).await.unwrap_or(false) {
+                if !st
+                    .db
+                    .activate_host_membership(
+                        &org.to_string(),
+                        &principal.to_string(),
+                        &revision.incarnation,
+                        &revision.revision,
+                    )
+                    .await
+                    .unwrap_or(false)
+                {
                     approval::clear_approval(&st, &req.user_code);
-                    return (StatusCode::CONFLICT, Json(json!({"error":"membership_withdrawn"}))).into_response();
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(json!({"error":"membership_withdrawn"})),
+                    )
+                        .into_response();
                 }
             }
         }
     }
     response
 }
-
-
 
 #[path = "device_approval.rs"]
 mod approval;

@@ -650,6 +650,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceAuthorizeResponse" }
+        "503":
+          description: Device approval is unavailable because the Pages app URL is not configured; no device code was issued
   /device/token:
     post:
       summary: Poll a device authorization and mint an organization-bound session
