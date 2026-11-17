@@ -153,7 +153,7 @@ async fn only_a_person_with_a_verified_recipe_starts_a_run() {
     let reply = send(&app, &operator(&st), "POST", &uri, Vec::new()).await;
     assert_eq!(reply.status, StatusCode::FORBIDDEN);
     let delegated = {
-        let token = uuid::Uuid::new_v4().to_string();
+        let token = format!("fixture_{}", uuid::Uuid::new_v4());
         let mut claims = crate::session_claims::fixture(
             crate::session_claims::parse_principal(P27).unwrap(),
             st.connection_organization,

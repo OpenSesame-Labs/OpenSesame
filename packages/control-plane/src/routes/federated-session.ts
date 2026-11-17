@@ -13,8 +13,12 @@ import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
 import {
+  resumePendingProvisionalRevocations,
+  revokeProvisionalSession,
+} from "../repos/provisional-revocation.js";
+import {
   removeOrphanTokens,
-  revokeSessionTokens,
+  saveProvisional,
 } from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
 import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
@@ -102,6 +106,7 @@ function accessTokens(ctx: AppContext): AccessTokenModel {
 
 export type FederatedSessionAdoption = {
   principalId: string;
+  sessionId: string;
   accessToken: string;
   expiresAt: string;
 };
@@ -137,19 +142,7 @@ export async function adoptSession(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await ctx.stores.provisionalSessions.set(session.id, session);
-  try {
-    await ctx.stores.provisionalTokens.set(accessToken, session.id);
-  } catch (error) {
-    // A capacity refusal on the token must not leave a session nobody can
-    // redeem, occupying a slot until its TTL.
-    try {
-      await ctx.stores.provisionalSessions.delete(session.id);
-    } catch {
-      // Best effort: the original refusal is what the caller needs to see.
-    }
-    throw error;
-  }
+  await saveProvisional(ctx.stores, session, accessToken);
 
   await appendAuditEvent(ctx.repos.auditEvents, {
     eventType: "principal.session_adopted",
@@ -166,6 +159,7 @@ export async function adoptSession(
 
   return {
     principalId,
+    sessionId: session.id,
     accessToken,
     expiresAt: session.expiresAt.toISOString(),
   };
@@ -191,6 +185,7 @@ export async function adoptSessionWithinCapacity(
     ctx.stores.principalMutations,
     "provisional-mint",
     async () => {
+      await resumePendingProvisionalRevocations(ctx);
       if ((await ctx.stores.provisionalSessions.size) >= MAX_PROVISIONAL) {
         // Expired/revoked rows are not live sessions. Drop them (and the
         // tokens that pointed at them) before refusing a sign-in.
@@ -199,7 +194,10 @@ export async function adoptSessionWithinCapacity(
           id,
           session,
         ] of await ctx.stores.provisionalSessions.entries()) {
-          if (session.revokedAt || session.expiresAt <= now)
+          if (
+            !session.revocationCleanupPending &&
+            (session.revokedAt || session.expiresAt <= now)
+          )
             await deleteSecurityMapEntry(ctx.stores.provisionalSessions, id);
         }
         await removeOrphanTokens(ctx.stores);
@@ -240,14 +238,11 @@ export async function settleAdoption(
     adoption.accessToken,
   );
   if (sessionId) {
-    const session = await ctx.stores.provisionalSessions.get(sessionId);
-    if (session && !session.revokedAt) {
-      await ctx.stores.provisionalSessions.set(sessionId, {
-        ...session,
-        revokedAt: ctx.clock(),
-      });
-    }
-    await revokeSessionTokens(ctx.stores, sessionId);
+    await revokeProvisionalSession(ctx, sessionId, {
+      actorType: "system",
+      correlationId: `settle-adoption-${sessionId}`,
+      metadata: { action: "principal.provisional_revoke" },
+    });
   }
   return false;
 }
@@ -315,11 +310,7 @@ export function createFederatedSessionRoutes(): Hono<{ Variables: Variables }> {
       return invalid();
     }
     const client = await ctx.oauth.clientStore.findById(clientId);
-    if (
-      !client ||
-      client.admissionMode !== "origin_profile" ||
-      client.state !== "active"
-    )
+    if (client?.admissionMode !== "origin_profile" || client.state !== "active")
       return invalid();
 
     // The exchange exists to finish a sign-in, not to broaden an arbitrary
@@ -328,7 +319,7 @@ export function createFederatedSessionRoutes(): Hono<{ Variables: Variables }> {
     if (!scopes.includes("openid")) return invalid();
 
     const principal = await ctx.repos.principals.getById(accountId);
-    if (!principal || principal.state !== "active") return invalid();
+    if (principal?.state !== "active") return invalid();
 
     // This path must obey the same provisional-session ceiling as the
     // interaction mint; otherwise a bearer can bypass MAX_PROVISIONAL. The

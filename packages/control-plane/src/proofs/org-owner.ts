@@ -54,9 +54,13 @@ export async function orgOwner<A, O>(
   liveness: OrgLiveness,
 ): Promise<OrgOwnerVerdict<A, O>> {
   const organization = await stores.organizations.get(org.value);
-  const membership = organization
-    ? await stores.organizationMemberships.find(organization.id, actor.value)
+  const versioned = organization
+    ? await stores.organizationMemberships.findVersioned(
+        organization.id,
+        actor.value,
+      )
     : undefined;
+  const membership = versioned?.withdrawal ? undefined : versioned?.membership;
   const live =
     organization !== undefined &&
     (liveness === "unchecked" ||

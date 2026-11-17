@@ -22,10 +22,9 @@ import {
   planNotificationRoute,
 } from "@opensesame/os-domain";
 import { Hono } from "hono";
-import type { Context } from "hono";
-import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
+import { hasFreshAuthentication } from "../services/fresh-authentication.js";
 import { resolveApprovalPolicy } from "./approval-policy.js";
 import { authenticatedPrincipalId } from "./organizations.js";
 import { pushSubscriptionRoutes } from "./push-subscriptions.js";
@@ -62,7 +61,6 @@ import { pushSubscriptionRoutes } from "./push-subscriptions.js";
  * step-up: when the ceremony exists, this is the function to replace, and the
  * routes below already funnel through it.
  */
-const STEP_UP_MAX_AGE_SECONDS = 900;
 const BINDING_CHALLENGE_TTL_SECONDS = 900;
 const BINDING_CHALLENGE_MAX_ATTEMPTS = 5;
 const MAX_BINDINGS_PER_PRINCIPAL = 20;
@@ -96,18 +94,6 @@ function takeBindingLabel(challengeId: string): string | undefined {
   const entry = pendingBindingLabels.get(challengeId);
   pendingBindingLabels.delete(challengeId);
   return entry && entry.expiresAt > Date.now() ? entry.label : undefined;
-}
-
-async function hasFreshAuthentication(
-  ctx: AppContext,
-  c: Context<{ Variables: Variables }>,
-): Promise<boolean> {
-  const sessionId = c.get("provisionalSessionId");
-  if (!sessionId) return false;
-  const session = await ctx.stores.provisionalSessions.get(sessionId);
-  if (!session || session.revokedAt) return false;
-  const age = ctx.clock().getTime() - session.createdAt.getTime();
-  return age <= STEP_UP_MAX_AGE_SECONDS * 1000;
 }
 
 /** The stored form of a binding nonce. Never the nonce itself. */
@@ -224,7 +210,7 @@ notificationChannelRoutes.get("/bindings", requirePrincipal(), async (c) => {
 notificationChannelRoutes.post("/bindings", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const principalId = authenticatedPrincipalId(c.get("principalId"));
-  if (!(await hasFreshAuthentication(ctx, c))) {
+  if (!(await hasFreshAuthentication(ctx, c.get("provisionalSessionId")))) {
     return c.json({ error: "step_up_required" }, 403);
   }
   const parsed = BeginChannelBindingSchema.safeParse(
@@ -348,7 +334,7 @@ notificationChannelRoutes.post(
   async (c) => {
     const ctx = c.get("ctx");
     const principalId = authenticatedPrincipalId(c.get("principalId"));
-    if (!(await hasFreshAuthentication(ctx, c))) {
+    if (!(await hasFreshAuthentication(ctx, c.get("provisionalSessionId")))) {
       return c.json({ error: "step_up_required" }, 403);
     }
     const parsed = CompleteChannelBindingSchema.safeParse(
@@ -508,7 +494,7 @@ notificationChannelRoutes.delete(
   async (c) => {
     const ctx = c.get("ctx");
     const principalId = authenticatedPrincipalId(c.get("principalId"));
-    if (!(await hasFreshAuthentication(ctx, c))) {
+    if (!(await hasFreshAuthentication(ctx, c.get("provisionalSessionId")))) {
       return c.json({ error: "step_up_required" }, 403);
     }
     const id = c.req.param("id") ?? "";

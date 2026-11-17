@@ -2,17 +2,29 @@ import type { OrganizationRole } from "@opensesame/os-domain";
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "./repos/postgres.js";
 import { scimGroupRoleMappings, scimGroups } from "./schema/scim-groups.js";
+import { normalizeGroup } from "./scim-group-values.js";
+import {
+  MemoryScimGroupMappingStore,
+  MemoryScimGroupStore,
+} from "./scim-groups-memory.js";
 import {
   type ScimTokenRecord,
   type ScimTokenStore,
   type ScimUserRecord,
   type ScimUserStore,
   type ScimStores as ScimUserTokenStores,
+  type VersionedScimUser,
   createMemoryScimStores as createMemoryScimUserTokenStores,
   createPostgresScimStores as createPostgresScimUserTokenStores,
 } from "./scim-store.js";
 
-export type { ScimTokenRecord, ScimTokenStore, ScimUserRecord, ScimUserStore };
+export type {
+  ScimTokenRecord,
+  ScimTokenStore,
+  ScimUserRecord,
+  ScimUserStore,
+  VersionedScimUser,
+};
 
 export interface ScimGroupRecord {
   id: string;
@@ -49,84 +61,6 @@ export interface ScimGroupMappingStore {
 export interface ScimStores extends ScimUserTokenStores {
   groups: ScimGroupStore;
   mappings: ScimGroupMappingStore;
-}
-
-function groupKey(orgId: string, id: string): string {
-  return `${orgId}\0${id}`;
-}
-
-function cloneGroup(group: ScimGroupRecord): ScimGroupRecord {
-  return { ...group, memberIds: [...group.memberIds] };
-}
-
-function normalizeGroup(group: ScimGroupRecord): ScimGroupRecord {
-  return {
-    id: group.id,
-    organizationId: group.organizationId,
-    displayName: group.displayName,
-    memberIds: [...new Set(group.memberIds)],
-    createdAt: group.createdAt,
-    updatedAt: group.updatedAt,
-  };
-}
-
-function createMemoryGroupStores(): Pick<ScimStores, "groups" | "mappings"> {
-  const groups = new Map<string, ScimGroupRecord>();
-  const mappings = new Map<string, ScimGroupMapping>();
-
-  const ofOrg = (orgId: string) =>
-    [...groups.values()].filter((group) => group.organizationId === orgId);
-
-  return {
-    groups: {
-      async upsert(group) {
-        const row = normalizeGroup(group);
-        groups.set(groupKey(row.organizationId, row.id), row);
-        return cloneGroup(row);
-      },
-
-      async getById(orgId, id) {
-        const row = groups.get(groupKey(orgId, id));
-        return row ? cloneGroup(row) : null;
-      },
-
-      async listByOrganization(orgId) {
-        return ofOrg(orgId)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(cloneGroup);
-      },
-
-      async listByMember(orgId, memberId) {
-        return ofOrg(orgId)
-          .filter((group) => group.memberIds.includes(memberId))
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(cloneGroup);
-      },
-    },
-
-    mappings: {
-      async put(orgId, groupId, role) {
-        const row: ScimGroupMapping = {
-          organizationId: orgId,
-          groupId,
-          role,
-        };
-        mappings.set(groupKey(orgId, groupId), row);
-        return { ...row };
-      },
-
-      async get(orgId, groupId) {
-        return mappings.get(groupKey(orgId, groupId))?.role;
-      },
-
-      async listByOrganization(orgId) {
-        return [...mappings.values()]
-          .filter((row) => row.organizationId === orgId)
-          .sort((a, b) => (a.groupId < b.groupId ? -1 : 1))
-          .map((row) => ({ ...row }));
-      },
-    },
-  };
 }
 
 function attachGroupStores(
@@ -268,10 +202,10 @@ function createPostgresGroupStores(
 }
 
 export function createMemoryScimStores(): ScimStores {
-  return attachGroupStores(
-    createMemoryScimUserTokenStores(),
-    createMemoryGroupStores(),
-  );
+  return attachGroupStores(createMemoryScimUserTokenStores(), {
+    groups: new MemoryScimGroupStore(),
+    mappings: new MemoryScimGroupMappingStore(),
+  });
 }
 
 export function createPostgresScimStores(db: Database): ScimStores {

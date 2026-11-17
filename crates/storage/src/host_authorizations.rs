@@ -42,6 +42,34 @@ pub async fn narrow_identity_role(
 struct Authentication {
     role: String,
     auth_time: i64,
+    membership_incarnation: Option<String>,
+    authority_revision: Option<String>,
+}
+
+/// Bind an Identity assertion to the browser in the same transaction as its
+/// challenge consumption. A legacy assertion is allowed only before any
+/// withdrawal for the subject; a tagged assertion must name a live revision.
+async fn bind_membership(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    client: &str,
+    evidence: &Authentication,
+) -> anyhow::Result<bool> {
+    let incarnation = evidence.membership_incarnation.as_deref();
+    let revision = evidence.authority_revision.as_deref();
+    if incarnation.is_some() != revision.is_some() {
+        return Ok(false);
+    }
+    let changed = sqlx::query("UPDATE browser_clients SET membership_incarnation=?,authority_revision=?
+        WHERE id=? AND revoked_at IS NULL
+        AND ((membership_incarnation IS NULL AND authority_revision IS NULL)
+            OR (membership_incarnation=? AND authority_revision=?))
+        AND NOT EXISTS(SELECT 1 FROM host_membership_withdrawals w
+            WHERE w.organization_id=browser_clients.organization_id AND w.principal_id=browser_clients.principal_id
+            AND (? IS NULL OR (w.membership_incarnation=? AND w.authority_revision=?)))")
+        .bind(incarnation).bind(revision).bind(client).bind(incarnation).bind(revision)
+        .bind(incarnation).bind(incarnation).bind(revision)
+        .execute(&mut **tx).await?.rows_affected();
+    Ok(changed == 1)
 }
 
 pub struct HostAuthorization {
@@ -135,6 +163,9 @@ impl Db {
                 "wrong authorization purpose"
             );
             let evidence: Authentication = serde_json::from_str(authentication)?;
+            if !bind_membership(&mut tx, &input.client_id, &evidence).await? {
+                return Ok(false);
+            }
             let client = sqlx::query("SELECT principal_id,organization_id FROM browser_clients WHERE id=? AND revoked_at IS NULL")
                 .bind(&input.client_id).fetch_one(&mut *tx).await?;
             narrow_identity_role(
@@ -145,6 +176,17 @@ impl Db {
                 evidence.auth_time,
             )
             .await?;
+            if let (Some(incarnation), Some(revision)) =
+                (&evidence.membership_incarnation, &evidence.authority_revision)
+            {
+                sqlx::query("INSERT INTO host_membership_current
+                    (organization_id,principal_id,membership_incarnation,authority_revision)
+                    VALUES (?,?,?,?) ON CONFLICT(organization_id,principal_id) DO UPDATE SET
+                    membership_incarnation=excluded.membership_incarnation,authority_revision=excluded.authority_revision")
+                    .bind(client.try_get::<String, _>("organization_id")?)
+                    .bind(client.try_get::<String, _>("principal_id")?)
+                    .bind(incarnation).bind(revision).execute(&mut *tx).await?;
+            }
             sqlx::query("UPDATE browser_clients SET authentication_json=? WHERE id=? AND revoked_at IS NULL")
                 .bind(authentication).bind(&input.client_id).execute(&mut *tx).await?;
             sqlx::query("UPDATE browser_grants SET issued_at=? WHERE client_id=? AND expires_at>?")

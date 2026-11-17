@@ -90,7 +90,7 @@ fn session_shaped(
     role: OrganizationRole,
     shape: impl FnOnce(&mut crate::session_claims::HostSessionClaims),
 ) -> HeaderMap {
-    let token = uuid::Uuid::new_v4().to_string();
+    let token = format!("fixture_{}", uuid::Uuid::new_v4());
     let mut claims = crate::session_claims::fixture(
         crate::session_claims::parse_principal(subject).unwrap(),
         organization,

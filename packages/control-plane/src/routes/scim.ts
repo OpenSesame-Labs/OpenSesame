@@ -14,14 +14,14 @@ import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { serializeKeyed } from "../serialize.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { mintScimToken, revokeScimToken } from "../services/org-admin.js";
 import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 import {
   SCIM_BOOKKEEPING_ATTRIBUTES as BOOKKEEPING,
   deprovision,
+  prepareDeprovision,
   provisionedRoleForSubject,
-  withRememberedSubjects,
 } from "./scim-effects.js";
 import {
   patchScimGroup,
@@ -38,6 +38,11 @@ import {
   scimPatchOperations,
   scimUserUpdateAudit,
 } from "./scim-protocol.js";
+import {
+  type UserPatch,
+  deleteScimUser,
+  patchScimUser,
+} from "./scim-user-mutations.js";
 
 export { provisionedRoleForSubject, putGroupRoleMapping, roleForGroupName };
 
@@ -202,13 +207,6 @@ function asActive(value: BoundaryValue): boolean | undefined {
   return undefined;
 }
 
-type UserPatch = {
-  active?: boolean;
-  userName?: string;
-  displayName?: string;
-  externalId?: string;
-};
-
 /** Fold one PATCH body into the fields this service models. */
 function foldUserPatch(operations: ScimPatchOperation[]): UserPatch {
   const patch: UserPatch = {};
@@ -347,31 +345,38 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if (!userName) {
       return scimError(c, 400, "userName is required.", "invalidValue");
     }
-    if (await ctx.stores.scim.users.findByUserName(organization.id, userName)) {
-      return scimError(
-        c,
-        409,
-        "A user with that userName already exists.",
-        "uniqueness",
-      );
-    }
-
     const now = ctx.clock();
     const externalId = boundedScimString(body.externalId, MAX_USER_NAME_LENGTH);
     const displayName = boundedScimString(body.displayName, MAX_DISPLAY_LENGTH);
     let created: ScimUserRecord;
     try {
-      created = await ctx.stores.scim.users.create({
-        id: randomUUID(),
-        organizationId: organization.id,
-        userName,
-        active: asActive(body.active) ?? true,
-        raw: sanitizeRaw(body),
-        createdAt: now,
-        updatedAt: now,
-        ...(externalId !== undefined ? { externalId } : undefined),
-        ...(displayName !== undefined ? { displayName } : undefined),
-      });
+      created = await withScimOrganizationBoundary(
+        ctx,
+        organization.id,
+        async (tx) => {
+          let user: ScimUserRecord = {
+            id: randomUUID(),
+            organizationId: organization.id,
+            userName,
+            active: asActive(body.active) ?? true,
+            raw: sanitizeRaw(body),
+            createdAt: now,
+            updatedAt: now,
+            ...(externalId !== undefined ? { externalId } : undefined),
+            ...(displayName !== undefined ? { displayName } : undefined),
+          };
+          if (!user.active)
+            user = await prepareDeprovision(
+              tx,
+              organization,
+              user,
+              c.get("correlationId"),
+            );
+          return tx.stores.scim.users.create(user);
+        },
+      );
+      if (!created.active)
+        await deprovision(ctx, organization, created, c.get("correlationId"));
     } catch (error) {
       if (error instanceof ConflictError) {
         return scimError(
@@ -391,7 +396,10 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
       ...scimAuditActor(c),
       targetType: "scim_user",
       targetId: created.id,
-      metadata: { action: "organization.scim_user.create", state: "active" },
+      metadata: {
+        action: "organization.scim_user.create",
+        state: created.active ? "active" : "inactive",
+      },
     });
 
     c.header(
@@ -458,86 +466,34 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const body = await readScimJsonBody(c);
     if (!body) return scimError(c, 400, "Body is not a SCIM PatchOp.");
 
-    return serializeKeyed(
-      ctx.stores.principalMutations,
-      `scim-user:${organization.id}:${userId}`,
-      async () => {
-        const user = await ctx.stores.scim.users.getById(
-          organization.id,
-          userId,
-        );
-        if (!user) return scimError(c, 404, "User not found.");
-
-        const patch = foldUserPatch(scimPatchOperations(body));
-        if (patch.userName && patch.userName !== user.userName) {
-          const clash = await ctx.stores.scim.users.findByUserName(
-            organization.id,
-            patch.userName,
-          );
-          if (clash && clash.id !== user.id) {
-            return scimError(
-              c,
-              409,
-              "A user with that userName already exists.",
-              "uniqueness",
-            );
-          }
-        }
-
-        const next = {
-          ...user,
-          userName: patch.userName ?? user.userName,
-          active: patch.active ?? user.active,
-          updatedAt: ctx.clock(),
-          ...(patch.displayName !== undefined
-            ? { displayName: patch.displayName }
-            : undefined),
-          ...(patch.externalId !== undefined
-            ? { externalId: patch.externalId }
-            : undefined),
-        };
-        let updated: ScimUserRecord;
-        try {
-          updated = await ctx.stores.scim.users.update(
-            withRememberedSubjects(user, next),
-          );
-        } catch (error) {
-          if (error instanceof ConflictError) {
-            return scimError(
-              c,
-              409,
-              "A user with that userName already exists.",
-              "uniqueness",
-            );
-          }
-          throw error;
-        }
-
-        // Always reconcile an inactive row, not only the first transition:
-        // deprovisioning touches several durable rows and a retry after a
-        // partial failure must finish the job rather than see `active: false`
-        // and do nothing.
-        if (!updated.active) {
-          await deprovision(
-            ctx,
-            organization,
-            updated,
-            c.get("correlationId"),
-            user,
-          );
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          ...scimUserUpdateAudit(user.active, updated.active),
-          outcome: "succeeded",
-          organizationId: organization.id,
-          correlationId: c.get("correlationId"),
-          ...scimAuditActor(c),
-          targetType: "scim_user",
-          targetId: updated.id,
-        });
-        return scimBody(c, 200, userResource(ctx, updated));
-      },
+    const outcome = await patchScimUser(
+      ctx,
+      organization,
+      userId,
+      foldUserPatch(scimPatchOperations(body)),
+      c.get("correlationId"),
     );
+    if ("error" in outcome) {
+      if (outcome.error === "not_found")
+        return scimError(c, 404, "User not found.");
+      return scimError(
+        c,
+        409,
+        "A user with that userName already exists.",
+        "uniqueness",
+      );
+    }
+    const { user, updated } = outcome;
+    await appendAuditEvent(ctx.repos.auditEvents, {
+      ...scimUserUpdateAudit(user.active, updated.active),
+      outcome: "succeeded",
+      organizationId: organization.id,
+      correlationId: c.get("correlationId"),
+      ...scimAuditActor(c),
+      targetType: "scim_user",
+      targetId: updated.id,
+    });
+    return scimBody(c, 200, userResource(ctx, updated));
   });
 
   /**
@@ -552,45 +508,34 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const { ctx, organization } = session;
     const userId = c.req.param("id") ?? "";
 
-    return serializeKeyed(
-      ctx.stores.principalMutations,
-      `scim-user:${organization.id}:${userId}`,
-      async () => {
-        const user = await ctx.stores.scim.users.getById(
-          organization.id,
-          userId,
-        );
-        if (!user) return scimError(c, 404, "User not found.");
-        const updated = user.active
-          ? await ctx.stores.scim.users.update({
-              ...user,
-              active: false,
-              updatedAt: ctx.clock(),
-            })
-          : user;
-        // DELETE is the leaver signal, and deprovisioning is a multi-row
-        // operation. Re-run it even when the row already reads inactive so a
-        // retry after a partial failure completes instead of returning 204
-        // over a membership that still exists.
-        await deprovision(ctx, organization, updated, c.get("correlationId"));
-        if (user.active) {
-          await appendAuditEvent(ctx.repos.auditEvents, {
-            eventType: "organization.scim_user_deactivated",
-            outcome: "succeeded",
-            organizationId: organization.id,
-            correlationId: c.get("correlationId"),
-            ...scimAuditActor(c),
-            targetType: "scim_user",
-            targetId: updated.id,
-            metadata: {
-              action: "organization.scim_user.delete",
-              state: "inactive",
-            },
-          });
-        }
-        return c.body(null, 204);
-      },
+    const outcome = await deleteScimUser(
+      ctx,
+      organization,
+      userId,
+      c.get("correlationId"),
     );
+    if ("error" in outcome) {
+      if (outcome.error === "not_found")
+        return scimError(c, 404, "User not found.");
+      return scimError(c, 409, "The user could not be deactivated.");
+    }
+    const { user, updated } = outcome;
+    if (user.active) {
+      await appendAuditEvent(ctx.repos.auditEvents, {
+        eventType: "organization.scim_user_deactivated",
+        outcome: "succeeded",
+        organizationId: organization.id,
+        correlationId: c.get("correlationId"),
+        ...scimAuditActor(c),
+        targetType: "scim_user",
+        targetId: updated.id,
+        metadata: {
+          action: "organization.scim_user.delete",
+          state: "inactive",
+        },
+      });
+    }
+    return c.body(null, 204);
   });
 
   routes.patch("/:organizationId/scim/v2/Groups/:groupId", async (c) => {

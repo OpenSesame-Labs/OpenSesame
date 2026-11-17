@@ -14,8 +14,14 @@ import type { startServer } from "../server.js";
 import {
   emailIdentityIssuer,
   upstreamAuthFor,
+  verifyMagicLinkToken,
 } from "../services/better-auth-bridge.js";
 import { onFreePort } from "./free-port.js";
+import {
+  confirmFirstPartyMagicLink,
+  exchangeFirstPartyMagicLink,
+  firstPartyMagicRequest,
+} from "./magic-link-first-party.fixture.js";
 
 /**
  * Email magic-link, end to end through the mounted Better Auth (C20 / C22 /
@@ -99,6 +105,7 @@ describe("email magic-link sign-in", () => {
           // message.
           publicUrl: `http://127.0.0.1:${port}`,
           issuer: `http://127.0.0.1:${port}`,
+          corsOrigins: [RP_ORIGIN],
         },
         processEnv: {
           ...process.env,
@@ -117,7 +124,7 @@ describe("email magic-link sign-in", () => {
   });
 
   beforeEach(() => {
-    resetEmailLinkBudget();
+    resetEmailLinkBudget(ctx);
   });
 
   async function req(
@@ -254,15 +261,19 @@ describe("email magic-link sign-in", () => {
 
     expect((await req(jar, link.toString())).status).toBe(303);
 
-    // Re-offer the SAME token to the route that needs no interaction to
-    // resume. A second session here would mean the link was replayable and the
-    // first refusal was only the finished interaction talking.
-    const replay = await fetch(
-      `${base}/v1/auth/magic-link/complete?token=${encodeURIComponent(token)}`,
-      { redirect: "manual" },
+    // Check Better Auth directly so a finished interaction cannot mask a replay.
+    expect(await verifyMagicLinkToken(ctx, token)).toBeUndefined();
+  });
+
+  it("shares the per-address send limit with first-party requests", async () => {
+    const email = "shared-budget@example.test";
+    for (let index = 0; index < 5; index++) await requestLink(email);
+    const attempt = firstPartyMagicRequest(email, RP_ORIGIN);
+    const refused = await fetch(
+      `${base}/v1/auth/sign-in/magic-link`,
+      attempt.init,
     );
-    expect(replay.status).toBe(401);
-    expect(await replay.json()).toEqual({ error: "invalid_token" });
+    expect(refused.status).toBe(429);
   });
 
   it("refuses a link whose token was never issued", async () => {
@@ -369,6 +380,7 @@ describe("the Better Auth mount serves magic-link and nothing else", () => {
           port,
           publicUrl: `http://127.0.0.1:${port}`,
           issuer: `http://127.0.0.1:${port}`,
+          corsOrigins: [RP_ORIGIN],
         },
         processEnv: {
           ...process.env,
@@ -387,7 +399,7 @@ describe("the Better Auth mount serves magic-link and nothing else", () => {
   });
 
   beforeEach(() => {
-    resetEmailLinkBudget();
+    resetEmailLinkBudget(ctx);
   });
 
   it.each([
@@ -416,45 +428,15 @@ describe("the Better Auth mount serves magic-link and nothing else", () => {
     },
   );
 
-  it("issues a first-party bearer for a link a client requested itself", async () => {
-    const email = "pages-visitor@example.test";
-    const requested = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    expect(requested.status).toBe(200);
-    expect(await requested.json()).toMatchObject({ status: true });
-
-    // SAFETY: jsonTransport's serialization of the composed message, whose
-    // fields are all optional in `ComposedMail`.
-    const mail: ComposedMail = overlapCast(
-      JSON.parse(ctx.mailer.outbox.at(-1)?.body ?? "{}"),
-    );
-    const link = new URL(mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "");
-    // No interaction started this one, so it lands on the API route (D18).
-    expect(link.pathname).toBe("/v1/auth/magic-link/complete");
-
-    const completed = await fetch(link, { redirect: "manual" });
-    expect(completed.status).toBe(200);
-    // SAFETY: the route answers this shape on 200, asserted a line above.
-    const session: BridgedSession = overlapCast(await completed.json());
-    expect(session.principalId).toMatch(/^prn_/);
-    expect(session.accessToken).toMatch(/^pst_/);
-
-    // Single-use: the same link cannot mint a second session.
-    expect((await fetch(link, { redirect: "manual" })).status).toBe(401);
-  });
-
   it("never puts a Better Auth user id in a /v1 response body (T33)", async () => {
     const email = "no-leak@example.test";
     const bodies: string[] = [];
 
-    const requested = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
+    const attempt = firstPartyMagicRequest(email, RP_ORIGIN);
+    const requested = await fetch(
+      `${base}/v1/auth/sign-in/magic-link`,
+      attempt.init,
+    );
     bodies.push(await requested.text());
 
     // SAFETY: jsonTransport's serialization of the composed message, whose
@@ -462,9 +444,16 @@ describe("the Better Auth mount serves magic-link and nothing else", () => {
     const mail: ComposedMail = overlapCast(
       JSON.parse(ctx.mailer.outbox.at(-1)?.body ?? "{}"),
     );
-    const link = mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "";
-    const completed = await fetch(link, { redirect: "manual" });
-    const sessionBody = await completed.text();
+    const link = new URL(mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "");
+    const completed = await confirmFirstPartyMagicLink(link);
+    const result = await exchangeFirstPartyMagicLink(
+      base,
+      completed.headers.get("location") ?? "",
+      attempt.verifier,
+      attempt.state,
+      RP_ORIGIN,
+    );
+    const sessionBody = await result.text();
     bodies.push(sessionBody);
     // SAFETY: the completion route answers the bridged-session shape on 200.
     const session: BridgedSession = overlapCast(JSON.parse(sessionBody));
@@ -540,10 +529,6 @@ describe("magic links outlive the instance that minted them", () => {
     await client.close();
   });
 
-  beforeEach(() => {
-    resetEmailLinkBudget();
-  });
-
   /** A control plane sharing the one database — a replica, or a redeploy. */
   async function instance(): Promise<Started> {
     const { startServer: start } = await import("../server.js");
@@ -554,6 +539,8 @@ describe("magic links outlive the instance that minted them", () => {
           port,
           publicUrl: `http://127.0.0.1:${port}`,
           issuer: `http://127.0.0.1:${port}`,
+          corsOrigins: [RP_ORIGIN],
+          claimPepper: "shared-magic-link-test-pepper-32-bytes",
         },
         betterAuthDatabase,
         processEnv: {
@@ -573,13 +560,10 @@ describe("magic links outlive the instance that minted them", () => {
   it("verifies on a second instance a link a first one sent", async () => {
     const minted = await instance();
     const email = "durable@example.test";
+    const attempt = firstPartyMagicRequest(email, RP_ORIGIN);
     const requested = await fetch(
       `http://127.0.0.1:${minted.port}/v1/auth/sign-in/magic-link`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
-      },
+      attempt.init,
     );
     expect(requested.status).toBe(200);
 
@@ -589,7 +573,7 @@ describe("magic links outlive the instance that minted them", () => {
       JSON.parse(minted.ctx.mailer.outbox.at(-1)?.body ?? "{}"),
     );
     const link = new URL(mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "");
-    const token = link.searchParams.get("token") ?? "";
+    const token = new URLSearchParams(link.hash.slice(1)).get("token") ?? "";
     expect(token).not.toBe("");
 
     // The instance that sent the email is gone before the link is followed.
@@ -597,21 +581,24 @@ describe("magic links outlive the instance that minted them", () => {
 
     const other = await instance();
     try {
-      const completed = await fetch(
-        `http://127.0.0.1:${other.port}/v1/auth/magic-link/complete?token=${encodeURIComponent(token)}`,
-        { redirect: "manual" },
+      const otherBase = `http://127.0.0.1:${other.port}`;
+      const completed = await confirmFirstPartyMagicLink(link, otherBase);
+      expect(completed.status).toBe(303);
+      const result = await exchangeFirstPartyMagicLink(
+        otherBase,
+        completed.headers.get("location") ?? "",
+        attempt.verifier,
+        attempt.state,
+        RP_ORIGIN,
       );
-      expect(completed.status).toBe(200);
+      expect(result.status).toBe(200);
       // SAFETY: the route answers this shape on 200, asserted a line above.
-      const session: BridgedSession = overlapCast(await completed.json());
+      const session: BridgedSession = overlapCast(await result.json());
       expect(session.principalId).toMatch(/^prn_/);
       expect(session.accessToken).toMatch(/^pst_/);
 
       // Still single-use across instances: the row was consumed, not copied.
-      const replayed = await fetch(
-        `http://127.0.0.1:${other.port}/v1/auth/magic-link/complete?token=${encodeURIComponent(token)}`,
-        { redirect: "manual" },
-      );
+      const replayed = await confirmFirstPartyMagicLink(link, otherBase);
       expect(replayed.status).toBe(401);
     } finally {
       await close(other);
@@ -622,22 +609,17 @@ describe("magic links outlive the instance that minted them", () => {
     const started = await instance();
     try {
       const email = "hashed@example.test";
+      const attempt = firstPartyMagicRequest(email, RP_ORIGIN);
       await fetch(
         `http://127.0.0.1:${started.port}/v1/auth/sign-in/magic-link`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email }),
-        },
+        attempt.init,
       );
       // SAFETY: jsonTransport's serialization of the composed message.
       const mail: ComposedMail = overlapCast(
         JSON.parse(started.ctx.mailer.outbox.at(-1)?.body ?? "{}"),
       );
-      const token =
-        new URL(mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "").searchParams.get(
-          "token",
-        ) ?? "";
+      const link = new URL(mail.text?.match(/https?:\/\/\S+/)?.[0] ?? "");
+      const token = new URLSearchParams(link.hash.slice(1)).get("token") ?? "";
       expect(token).not.toBe("");
 
       const rows = await client.query<{ value: string; identifier: string }>(

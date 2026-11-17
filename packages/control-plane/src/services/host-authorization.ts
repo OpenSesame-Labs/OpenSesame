@@ -33,11 +33,51 @@ export const HostChallenge = z
 type Challenge = z.infer<typeof HostChallenge>;
 export type HostAuthorizationPending = {
   principalId: string;
+  membershipIncarnation: string;
+  authorityRevision: string;
   challenge: Challenge;
   webauthnChallenge: string;
   transactionDigest: string;
   expiresAt: Date;
 };
+
+function validChallenge(
+  ctx: AppContext,
+  challenge: Challenge,
+  now: number,
+): boolean {
+  const origin = new URL(challenge.origin);
+  return !(
+    !ctx.hostAuthorizationAudiences.includes(challenge.host_audience) ||
+    origin.origin !== challenge.origin ||
+    origin.username ||
+    origin.password ||
+    (origin.protocol !== "https:" &&
+      (origin.protocol !== "http:" || !loopbackHost(origin.hostname))) ||
+    challenge.expires_at * 1000 <= now ||
+    challenge.expires_at * 1000 > now + 300_000
+  );
+}
+
+type Membership = Awaited<
+  ReturnType<AppContext["stores"]["organizationMemberships"]["findVersioned"]>
+>;
+
+function validMembership(
+  ctx: AppContext,
+  pending: HostAuthorizationPending,
+  membership: Membership,
+  now: number,
+): membership is NonNullable<Membership> {
+  return Boolean(
+    membership &&
+      !membership.withdrawal &&
+      membership.incarnation === pending.membershipIncarnation &&
+      membership.authorityRevision === pending.authorityRevision &&
+      now < pending.challenge.expires_at &&
+      ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience),
+  );
+}
 
 export function hostAuthorizationAudiences(
   env: NodeJS.ProcessEnv,
@@ -106,23 +146,14 @@ export async function beginHostAuthorization(
   challenge: Challenge,
 ) {
   const now = ctx.clock().getTime();
-  const origin = new URL(challenge.origin);
-  if (
-    !ctx.hostAuthorizationAudiences.includes(challenge.host_audience) ||
-    origin.origin !== challenge.origin ||
-    origin.username ||
-    origin.password ||
-    (origin.protocol !== "https:" &&
-      (origin.protocol !== "http:" || !loopbackHost(origin.hostname))) ||
-    challenge.expires_at * 1000 <= now ||
-    challenge.expires_at * 1000 > now + 300_000
-  )
+  if (!validChallenge(ctx, challenge, now))
     throw new Error("Host challenge refused");
-  const membership = await ctx.stores.organizationMemberships.find(
+  const membership = await ctx.stores.organizationMemberships.findVersioned(
     challenge.organization_id,
     principalId,
   );
-  if (!membership) throw new Error("Host challenge refused");
+  if (!membership || membership.withdrawal)
+    throw new Error("Host challenge refused");
   hostSigningJwk(ctx);
   const transactionDigest = createHash("sha256")
     .update(JSON.stringify({ principalId, ...challenge }))
@@ -147,6 +178,8 @@ export async function beginHostAuthorization(
   }
   await ctx.stores.hostAuthorizations.set(authorizationId, {
     principalId,
+    membershipIncarnation: membership.incarnation,
+    authorityRevision: membership.authorityRevision,
     challenge,
     webauthnChallenge: issued.challenge,
     transactionDigest,
@@ -220,22 +253,20 @@ export async function completeHostAuthorization(
   });
   if (!result.ok || result.principalId !== principalId)
     throw new Error("Host authorization refused");
-  const membership = await ctx.stores.organizationMemberships.find(
+  const membership = await ctx.stores.organizationMemberships.findVersioned(
     pending.challenge.organization_id,
     principalId,
   );
   const now = Math.floor(ctx.clock().getTime() / 1000);
-  if (
-    !membership ||
-    now >= pending.challenge.expires_at ||
-    !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)
-  )
+  if (!validMembership(ctx, pending, membership, now))
     throw new Error("Host authorization refused");
   const jwk = hostSigningJwk(ctx);
   const key = await importJWK(jwk, "RS256");
   const assertion = await new SignJWT({
     ...pending.challenge,
-    organization_role: membership.role,
+    organization_role: membership.membership.role,
+    membership_incarnation: membership.incarnation,
+    authority_revision: membership.authorityRevision,
     auth_time: now,
     amr: ["webauthn"],
     assurance: "phishing_resistant",

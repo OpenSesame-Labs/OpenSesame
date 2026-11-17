@@ -39,6 +39,23 @@ export class DurableMap<T> {
       throw new Error("Invalid security store capacity");
   }
 
+  /** Bind the same protected namespace to an existing database transaction. */
+  onDatabase(db: Database): DurableMap<T> {
+    return new DurableMap(
+      db,
+      this.model,
+      this.secretKeys,
+      this.ttlMs,
+      this.capacity,
+      this.sealer,
+    );
+  }
+
+  /** Begin a transaction on the pool that owns this namespace. */
+  transaction<TValue>(run: (db: Database) => Promise<TValue>): Promise<TValue> {
+    return this.db.transaction((tx) => run(overlapCast(tx)));
+  }
+
   private legacyId(key: string) {
     return this.secretKeys
       ? createHash("sha256").update(key).digest("hex")
@@ -87,6 +104,16 @@ export class DurableMap<T> {
   }
   private expiry(value: T): Date | null {
     const record: BoundaryValue = overlapCast(value);
+    // An expired session may still be the only durable evidence that its
+    // revocation needs token and audit cleanup. Keep it until that succeeds.
+    if (
+      this.model === "OpenSesame:ProvisionalSession" &&
+      isTypeofObject(record) &&
+      record !== null &&
+      "revocationCleanupPending" in record &&
+      record.revocationCleanupPending === true
+    )
+      return null;
     const explicit =
       isTypeofObject(record) && record !== null && "expiresAt" in record
         ? record.expiresAt
@@ -237,6 +264,34 @@ export class DurableMap<T> {
       return next;
     });
   }
+
+  /** Atomically update several logical keys under one replica-shared transaction. */
+  async updateMany(
+    keys: readonly string[],
+    change: (key: string, current: T | undefined) => T | undefined,
+  ): Promise<Map<string, T | undefined>> {
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
+      );
+      const store = new DurableMap<T>(
+        overlapCast(tx),
+        this.model,
+        this.secretKeys,
+        this.ttlMs,
+        this.capacity,
+        this.sealer,
+      );
+      const result = new Map<string, T | undefined>();
+      for (const key of [...new Set(keys)]) {
+        const next = change(key, await store.get(key));
+        if (next === undefined) await store.delete(key);
+        else await store.set(key, next);
+        result.set(key, next);
+      }
+      return result;
+    });
+  }
 }
 
 export type SecurityMap<T> = Map<string, T> | DurableMap<T>;
@@ -251,6 +306,30 @@ export async function updateSecurityMap<T>(
   if (next === undefined) store.delete(key);
   else store.set(key, next);
   return next;
+}
+
+export async function updateSecurityMapMany<T>(
+  store: SecurityMap<T>,
+  keys: readonly string[],
+  change: (key: string, current: T | undefined) => T | undefined,
+): Promise<Map<string, T | undefined>> {
+  if (store instanceof DurableMap) return store.updateMany(keys, change);
+  const result = new Map<string, T | undefined>();
+  for (const key of [...new Set(keys)]) {
+    const next = change(key, store.get(key));
+    if (next === undefined) store.delete(key);
+    else store.set(key, next);
+    result.set(key, next);
+  }
+  return result;
+}
+
+export async function deleteSecurityMap<T>(
+  store: SecurityMap<T>,
+  key: string,
+): Promise<void> {
+  if (store instanceof DurableMap) await store.delete(key);
+  else store.delete(key);
 }
 
 export async function takeSecurityMap<T>(

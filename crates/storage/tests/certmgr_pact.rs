@@ -306,7 +306,10 @@ fn pact_migrations_are_append_only_and_end_with_0040() {
             "0057_est_passphrase_budget",
             "0058_bitwarden_attempt_budgets",
             "0059_est_source_budgets",
+            "0060_host_membership_withdrawals",
+            "0061_host_native_authority",
+            "0062_pairing_membership_revision",
         ]
     );
-    assert_eq!(versions.last().copied(), Some("0059_est_source_budgets"));
+    assert_eq!(versions.last().copied(), Some("0062_pairing_membership_revision"));
 }

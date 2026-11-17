@@ -32,7 +32,7 @@ scimMappingAdminRoutes.put(
   "/:organizationId/scim/mappings/:groupId",
   requirePrincipal(),
   async (c) =>
-    asOrgOwner(c, OWNER, async ({ ctx, org, proof, organization }) => {
+    asOrgOwner(c, OWNER, async ({ ctx, actor, org, proof, organization }) => {
       const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
       const body = overlapCast(await c.req.json().catch(() => ({})));
       const role = isString(body.role) ? body.role : "";
@@ -42,7 +42,15 @@ scimMappingAdminRoutes.put(
       ) {
         return c.json({ error: "validation_error" }, 400);
       }
-      await putGroupRoleMapping(ctx, org, proof, groupId, role);
+      const result = await putGroupRoleMapping(
+        ctx,
+        actor,
+        org,
+        proof,
+        groupId,
+        role,
+      );
+      if (!result.ok) return c.json({ error: result.error }, result.status);
       return c.json({
         organizationId: organization.id,
         groupId,

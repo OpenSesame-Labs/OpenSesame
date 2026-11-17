@@ -34,13 +34,22 @@ import type {
   AgentInstance,
   ProvisionalSession,
 } from "@opensesame/os-domain";
-import type { SiopIssuerProfile } from "@opensesame/siop-v2";
 import type { SecurityMap } from "./repos/durable-map.js";
 import type { EnrollmentTicketRecord } from "./repos/enrollment-tickets.js";
 import {
   type PostgresAgentInstanceStore,
   PostgresAgentStore,
 } from "./repos/legacy-agent-postgres.js";
+import type { OrganizationRevocationAuditIntent } from "./repos/organization-revocation-audit.js";
+import type { OrganizationWithdrawalAuditIntent } from "./repos/organization-withdrawal-audit.js";
+import type {
+  MfaCodeChallenge,
+  MfaCodeSendWindow,
+  PrincipalSessionFence,
+  ProvisionalProofRecord,
+  SiopLinkChallenge,
+  UpstreamLogoutOperation,
+} from "./security-state-types.js";
 import {
   type CeremonySubjectStore,
   createMemoryCeremonySubjectStore,
@@ -49,6 +58,15 @@ import {
   type HostSettlementStore,
   createMemoryHostSettlementStore,
 } from "./services/host-settlement.js";
+
+export type {
+  MfaCodeChallenge,
+  MfaCodeSendWindow,
+  PrincipalSessionFence,
+  ProvisionalProofRecord,
+  SiopLinkChallenge,
+  UpstreamLogoutOperation,
+} from "./security-state-types.js";
 
 export interface IdempotencyRecord {
   status: number;
@@ -67,47 +85,27 @@ export interface UsageSnapshot {
   claims: number;
 }
 
-/** Server-issued SIOP link ceremony binding (ADR 0117). Single-use, short TTL. */
-export interface SiopLinkChallenge {
-  id: string;
-  principalId: string;
-  nonce: string;
-  audience: string;
-  profile: SiopIssuerProfile;
-  expiresAt: number;
-}
-
-/**
- * A code sent out of band and not yet verified. Only its hash is held: the
- * code itself left with the message, and a memory dump of this process must
- * not be a second way to read it.
- */
-export interface MfaCodeChallenge {
-  principalId: string;
-  channel: "email" | "sms";
-  /** Where it went, verbatim — returned masked, never whole. */
-  to: string;
-  /** sha256(challengeId ":" code), hex. */
-  codeHash: string;
-  createdAt: number;
-  expiresAt: number;
-  attempts: number;
-}
-
-/** One rolling send window: a principal's, or a destination digest's. */
-export interface MfaCodeSendWindow {
-  /** When each send in the window happened, epoch ms, oldest first. */
-  sentAt: number[];
-  expiresAt: number;
-}
-
 export interface AppStores {
   hostAuthorizations: SecurityMap<
     import("./services/host-authorization.js").HostAuthorizationPending
   >;
   provisionalSessions: SecurityMap<ProvisionalSession>;
+  /** Proof tombstone retained beyond a session row for idempotent sign-out. */
+  provisionalProofs: SecurityMap<ProvisionalProofRecord>;
+  /** Replay-safe work journal for verified upstream logout tokens. */
+  upstreamLogoutOperations: SecurityMap<UpstreamLogoutOperation>;
+  /** Audit work committed with a membership revocation. */
+  organizationRevocationAudits: SecurityMap<OrganizationRevocationAuditIntent>;
+  /** Actor audit work committed with a membership withdrawal. */
+  organizationWithdrawalAudits: SecurityMap<OrganizationWithdrawalAuditIntent>;
+  /** Principal generation fencing session publication during deprovisioning. */
+  principalSessionEpochs: SecurityMap<PrincipalSessionFence>;
   /** session token → session id */
   provisionalTokens: SecurityMap<string>;
+  /** Single-use, verifier-bound magic-link completions. */
+  magicLinkExchanges: SecurityMap<
+    import("./services/magic-link-exchange.js").MagicLinkExchange
+  >;
   /**
    * Durable project rows (WP-8). Memory-backed in tests/dev, Postgres when a
    * database is configured — same interface either way.
@@ -234,7 +232,13 @@ export function createAppStores(options?: {
     options?.organizationStores ?? createMemoryOrganizationStores();
   return {
     provisionalSessions: new Map(),
+    provisionalProofs: new Map(),
+    upstreamLogoutOperations: new Map(),
+    organizationRevocationAudits: new Map(),
+    organizationWithdrawalAudits: new Map(),
+    principalSessionEpochs: new Map(),
     provisionalTokens: new Map(),
+    magicLinkExchanges: new Map(),
     projects: projectStores.projects,
     projectMemberships: projectStores.projectMemberships,
     authorityMembershipEdges:

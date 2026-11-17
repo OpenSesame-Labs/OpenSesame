@@ -43,6 +43,18 @@ impl Db {
     /// # Errors
     /// Refuses invalid lifetimes or unavailable durable state.
     pub async fn create_agent_launch(&self, launch: &AgentLaunch<'_>) -> anyhow::Result<bool> {
+        self.create_agent_launch_bound(launch, None).await
+    }
+
+    /// Bind a launch to a currently verified Identity revision. Untagged local
+    /// launches are refused once this subject has any withdrawal.
+    /// # Errors
+    /// Refuses invalid lifetimes or unavailable durable state.
+    pub async fn create_agent_launch_bound(
+        &self,
+        launch: &AgentLaunch<'_>,
+        membership: Option<(&str, &str)>,
+    ) -> anyhow::Result<bool> {
         let expiry = launch
             .now
             .checked_add(300)
@@ -53,10 +65,17 @@ impl Db {
             .execute(&mut *tx)
             .await?;
         sqlx::query("DELETE FROM agent_launches WHERE expires_at<=? AND NOT EXISTS(SELECT 1 FROM agent_capabilities c WHERE c.launch_digest=agent_launches.handle_digest)").bind(launch.now).execute(&mut *tx).await?;
-        let inserted=sqlx::query("INSERT INTO agent_launches(handle_digest,principal_id,organization_id,client_id,audience,resource,capabilities_json,approved_at,expires_at)
-            SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM agent_launches)<4096 AND
-            (SELECT COUNT(*) FROM agent_launches WHERE principal_id=? AND organization_id=?)<64")
-            .bind(launch.handle_digest).bind(launch.principal_id).bind(launch.organization_id).bind(launch.client_id).bind(launch.audience).bind(launch.resource).bind(launch.capabilities_json).bind(launch.now).bind(expiry).bind(launch.principal_id).bind(launch.organization_id).execute(&mut *tx).await?.rows_affected()==1;
+        let (incarnation, revision) = membership.map_or((None, None), |(a, b)| (Some(a), Some(b)));
+        let inserted=sqlx::query("INSERT INTO agent_launches(handle_digest,principal_id,organization_id,client_id,audience,resource,capabilities_json,approved_at,expires_at,membership_incarnation,authority_revision)
+            SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM agent_launches)<4096 AND
+            (SELECT COUNT(*) FROM agent_launches WHERE principal_id=? AND organization_id=?)<64
+            AND ((? IS NULL AND NOT EXISTS(SELECT 1 FROM host_membership_withdrawals WHERE principal_id=? AND organization_id=?))
+              OR EXISTS(SELECT 1 FROM host_membership_current WHERE principal_id=? AND organization_id=? AND membership_incarnation=? AND authority_revision=?))")
+            .bind(launch.handle_digest).bind(launch.principal_id).bind(launch.organization_id).bind(launch.client_id).bind(launch.audience).bind(launch.resource).bind(launch.capabilities_json).bind(launch.now).bind(expiry)
+            .bind(incarnation).bind(revision).bind(launch.principal_id).bind(launch.organization_id)
+            .bind(incarnation).bind(launch.principal_id).bind(launch.organization_id)
+            .bind(launch.principal_id).bind(launch.organization_id).bind(incarnation).bind(revision)
+            .execute(&mut *tx).await?.rows_affected()==1;
         tx.commit().await?;
         Ok(inserted)
     }

@@ -63,10 +63,9 @@ impl StreamAuthority {
                 claims
             }
             CredentialKind::NativeSession => {
-                let Ok(sessions) = st.sessions.lock() else {
-                    return false;
-                };
-                let Some(claims) = sessions.get(&self.digest).cloned() else {
+                let Ok(Some(claims)) =
+                    crate::native_authority::session(st.db.pool(), &self.digest).await
+                else {
                     return false;
                 };
                 claims

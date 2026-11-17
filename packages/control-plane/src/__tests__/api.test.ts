@@ -1231,14 +1231,12 @@ describe("control-plane API", () => {
       );
       expect(failedChange.status).toBe(502);
       expect(
-        overlapCast(
-          await (
-            await app.request(`/v1/organizations/${organization.id}`, {
-              headers: member.auth,
-            })
-          ).json(),
-        ).role,
-      ).toBe("member");
+        (
+          await app.request(`/v1/organizations/${organization.id}`, {
+            headers: member.auth,
+          })
+        ).status,
+      ).toBe(401);
 
       const changed = await app.request(
         `/v1/organizations/${organization.id}/members/${member.principalId}`,
@@ -1263,7 +1261,7 @@ describe("control-plane API", () => {
         ),
       ).toHaveLength(2);
       expect(host).toHaveBeenCalledTimes(4);
-      expect(rolesSeenByHost).toEqual(["admin", undefined]);
+      expect(rolesSeenByHost).toEqual(["member", "admin"]);
       expect(requests.map(({ url }) => new URL(url).pathname)).toEqual([
         "/tenant/api/v1/device/approve",
         "/tenant/api/v1/sessions/revoke",

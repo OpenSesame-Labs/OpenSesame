@@ -9,10 +9,14 @@ import type {
 import { isJsonObject } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { AppContext } from "../context.js";
-import type { OrganizationId } from "../lib/ids.js";
+import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import type { OrgOwner } from "../proofs/org-owner.js";
-import { serializeKeyed } from "../serialize.js";
+import { type OrgOwner, orgOwner } from "../proofs/org-owner.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
+import {
+  type PreparedWithdrawal,
+  finishOrganizationWithdrawal,
+} from "../services/organization-withdrawal.js";
 import { SCIM_ROLE_ATTRIBUTE, applyRole, roleOf } from "./scim-effects.js";
 import {
   memberIds,
@@ -60,19 +64,44 @@ export { memberIds, parseMemberSelector };
  */
 export async function putGroupRoleMapping<A, O>(
   ctx: AppContext,
+  actor: Named<A, ActorId>,
   org: Named<O, OrganizationId>,
   _proof: OrgOwner<A, O>,
   groupId: string,
   role: OrganizationRole,
-): Promise<void> {
+): Promise<
+  | { ok: true }
+  | { ok: false; status: 403 | 404; error: "not_found" | "owner_required" }
+> {
   const orgId = org.value;
-  await ctx.stores.scim.mappings.put(orgId, groupId, role);
-  const organization = await ctx.stores.organizations.get(orgId);
-  const group = await ctx.stores.scim.groups.getById(orgId, groupId);
-  if (!organization || !group) return;
-  for (const memberId of group.memberIds) {
-    await syncDerivedRole(ctx, organization, memberId);
-  }
+  const decision = await withScimOrganizationBoundary(
+    ctx,
+    orgId,
+    async (tx) => {
+      // A proof obtained before the request body was read can be stale. The
+      // organization lock orders this check with membership withdrawal.
+      const owner = await orgOwner(tx.stores, actor, org, "unchecked");
+      if (!owner.ok) return owner;
+      await tx.stores.scim.mappings.put(orgId, groupId, role);
+      const group = await tx.stores.scim.groups.getById(orgId, groupId);
+      if (!group) return { ok: true as const, prepared: [] };
+      const pending: PreparedWithdrawal[] = [];
+      for (const memberId of group.memberIds) {
+        pending.push(
+          ...(await syncDerivedRole(
+            tx,
+            owner.organization,
+            memberId,
+            `scim-role-${groupId}`,
+          )),
+        );
+      }
+      return { ok: true as const, prepared: pending };
+    },
+  );
+  if (!decision.ok) return decision;
+  await finishRoleChanges(ctx, decision.prepared);
+  return { ok: true };
 }
 
 export async function patchScimGroup(
@@ -86,29 +115,46 @@ export async function patchScimGroup(
   if (!groupId) return scimError(c, 400, "group id is required.");
 
   const operations = scimPatchOperations(body);
-  const existing = await ctx.stores.scim.groups.getById(
+  const outcome = await withScimOrganizationBoundary(
+    ctx,
     organization.id,
-    groupId,
+    async (tx) => {
+      const existing = await tx.stores.scim.groups.getById(
+        organization.id,
+        groupId,
+      );
+      const folded = foldGroupPatch(body, operations, existing, groupId);
+      if ("error" in folded) return folded;
+      const now = ctx.clock();
+      const stored = await tx.stores.scim.groups.upsert({
+        id: groupId,
+        organizationId: organization.id,
+        displayName: folded.displayName,
+        memberIds: folded.memberIds,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      });
+      const prepared: PreparedWithdrawal[] = [];
+      for (const memberId of folded.affected) {
+        prepared.push(
+          ...(await syncDerivedRole(
+            tx,
+            organization,
+            memberId,
+            c.get("correlationId"),
+          )),
+        );
+      }
+      return { stored, affected: folded.affected, prepared };
+    },
   );
-  const folded = foldGroupPatch(body, operations, existing, groupId);
-  if ("error" in folded) {
-    return scimError(c, 400, folded.error.detail, folded.error.scimType);
+  if ("error" in outcome)
+    return scimError(c, 400, outcome.error.detail, outcome.error.scimType);
+  await finishRoleChanges(ctx, outcome.prepared);
+  for (const memberId of outcome.affected) {
+    await auditDerivedRole(ctx, organization, memberId, c);
   }
-
-  const now = ctx.clock();
-  const stored = await ctx.stores.scim.groups.upsert({
-    id: groupId,
-    organizationId: organization.id,
-    displayName: folded.displayName,
-    memberIds: folded.memberIds,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  });
-
-  for (const memberId of folded.affected) {
-    await syncDerivedRole(ctx, organization, memberId, c);
-  }
-  return scimBody(c, 200, groupResource(stored));
+  return scimBody(c, 200, groupResource(outcome.stored));
 }
 
 function groupResource(group: ScimGroupRecord): JsonObject {
@@ -220,39 +266,64 @@ async function derivedRoleForUser(
   return derived;
 }
 
+/** Runs with the SCIM organization boundary already held. */
 async function syncDerivedRole(
   ctx: AppContext,
   organization: Organization,
   memberId: string,
-  c?: Context<{ Variables: Variables }>,
-): Promise<void> {
-  // The same lock SCIM Users PATCH/DELETE take. Without it a Group push can
-  // read `active: true`, race a deactivation's deprovision, then write the
-  // stale row back and re-admit the departed subject.
-  await serializeKeyed(
-    ctx.stores.principalMutations,
-    `scim-user:${organization.id}:${memberId}`,
-    async () => {
-      const user = await ctx.stores.scim.users.getById(
-        organization.id,
-        memberId,
-      );
-      if (!user) return;
-      const derived = await derivedRoleForUser(ctx, organization.id, memberId);
-      const previous = roleOf(user);
-      if (derived === previous) return;
-      const raw = { ...user.raw };
-      if (derived) raw[SCIM_ROLE_ATTRIBUTE] = derived;
-      else delete raw[SCIM_ROLE_ATTRIBUTE];
-      await ctx.stores.scim.users.update({
-        ...user,
-        raw,
-        updatedAt: ctx.clock(),
-      });
-      await applyRole(ctx, organization, user, derived ?? "member");
-    },
+  correlationId: string,
+): Promise<PreparedWithdrawal[]> {
+  const current = await ctx.stores.scim.users.getVersioned(
+    organization.id,
+    memberId,
   );
-  if (!c) return;
+  if (!current) return [];
+  const user = current.user;
+  const derived = await derivedRoleForUser(ctx, organization.id, memberId);
+  const previous = roleOf(user);
+  if (derived !== previous) {
+    const raw = { ...user.raw };
+    if (derived) raw[SCIM_ROLE_ATTRIBUTE] = derived;
+    else delete raw[SCIM_ROLE_ATTRIBUTE];
+    const replaced = await ctx.stores.scim.users.replaceIfRevision(
+      organization.id,
+      memberId,
+      current.revision,
+      { ...user, raw, updatedAt: ctx.clock() },
+    );
+    if (!replaced) throw new Error("SCIM user changed concurrently");
+  }
+  // Recheck even when the stored role is unchanged: a previous Host request
+  // may have failed after persisting its role-change intent.
+  return user.active
+    ? applyRole(
+        ctx,
+        organization,
+        user,
+        derived ?? "member",
+        correlationId,
+        derived === undefined && previous === undefined,
+      )
+    : [];
+}
+
+async function finishRoleChanges(
+  ctx: AppContext,
+  prepared: PreparedWithdrawal[],
+): Promise<void> {
+  for (const change of prepared) {
+    const result = await finishOrganizationWithdrawal(ctx, change);
+    if (result.status !== "changed")
+      throw new Error("Membership update is pending; retry the group update");
+  }
+}
+
+async function auditDerivedRole(
+  ctx: AppContext,
+  organization: Organization,
+  memberId: string,
+  c: Context<{ Variables: Variables }>,
+): Promise<void> {
   const user = await ctx.stores.scim.users.getById(organization.id, memberId);
   if (!user) return;
   await appendAuditEvent(ctx.repos.auditEvents, {

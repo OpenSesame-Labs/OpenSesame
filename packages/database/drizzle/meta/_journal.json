@@ -239,6 +239,34 @@
       "when": 1792759463925,
       "tag": "0033_cold_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794947344605,
+      "tag": "0034_stormy_prima",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794947841212,
+      "tag": "0035_vengeful_the_call",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794949200420,
+      "tag": "0036_calm_the_executioner",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794949200421,
+      "tag": "0037_legacy_membership_tokens",
+      "breakpoints": true
     }
   ]
 }

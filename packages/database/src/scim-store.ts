@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { type JsonObject, overlapCast } from "@opensesame/os-domain";
+import type { JsonObject } from "@opensesame/os-domain";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { isUniqueViolation } from "./client-origin-store.js";
-import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import { MemoryScimUserStore } from "./scim-users-memory.js";
+import { PostgresScimUserStore } from "./scim-users-postgres.js";
 
 /**
  * A SCIM 2.0 provisioned user (ADR 0056).
@@ -26,6 +26,12 @@ export interface ScimUserRecord {
   updatedAt: Date;
 }
 
+/** Internal concurrency metadata; it is not part of a SCIM user response. */
+export interface VersionedScimUser {
+  user: ScimUserRecord;
+  revision: string;
+}
+
 export interface ScimTokenRecord {
   id: string;
   organizationId: string;
@@ -36,6 +42,7 @@ export interface ScimTokenRecord {
 export interface ScimUserStore {
   create(user: ScimUserRecord): Promise<ScimUserRecord>;
   getById(orgId: string, id: string): Promise<ScimUserRecord | null>;
+  getVersioned(orgId: string, id: string): Promise<VersionedScimUser | null>;
   findByUserName(
     orgId: string,
     userName: string,
@@ -47,7 +54,18 @@ export interface ScimUserStore {
    */
   findBySubject(orgId: string, subject: string): Promise<ScimUserRecord | null>;
   update(user: ScimUserRecord): Promise<ScimUserRecord>;
+  replaceIfRevision(
+    orgId: string,
+    id: string,
+    expectedRevision: string,
+    next: ScimUserRecord,
+  ): Promise<VersionedScimUser | undefined>;
   listByOrganization(orgId: string): Promise<ScimUserRecord[]>;
+  /** Stable, bounded global scan used to fence legacy inactive users at startup. */
+  listInactiveForRecovery(
+    afterId: string | undefined,
+    limit: number,
+  ): Promise<Array<{ id: string; organizationId: string }>>;
 }
 
 /**
@@ -68,41 +86,6 @@ export interface ScimStores {
   tokens: ScimTokenStore;
 }
 
-function cloneScimUser(user: ScimUserRecord): ScimUserRecord {
-  return { ...user, raw: structuredClone(user.raw) };
-}
-
-function normalizeScimUser(user: ScimUserRecord): ScimUserRecord {
-  const row: ScimUserRecord = {
-    id: user.id,
-    organizationId: user.organizationId,
-    userName: user.userName,
-    active: user.active,
-    raw: structuredClone(user.raw),
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-  if (user.externalId) row.externalId = user.externalId;
-  if (user.displayName) row.displayName = user.displayName;
-  return row;
-}
-
-function mapScimUser(
-  row: typeof schema.scimUsers.$inferSelect,
-): ScimUserRecord {
-  return normalizeScimUser({
-    id: row.id,
-    organizationId: row.organizationId,
-    userName: row.userName,
-    active: row.active,
-    raw: overlapCast(row.raw ?? {}),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    ...(row.externalId ? { externalId: row.externalId } : undefined),
-    ...(row.displayName ? { displayName: row.displayName } : undefined),
-  });
-}
-
 function mapScimToken(
   row: typeof schema.scimTokens.$inferSelect,
 ): ScimTokenRecord {
@@ -115,59 +98,10 @@ function mapScimToken(
 }
 
 export function createMemoryScimStores(): ScimStores {
-  const users = new Map<string, ScimUserRecord>();
   const tokens = new Map<string, ScimTokenRecord & { hash: string }>();
 
-  const ofOrg = (orgId: string) =>
-    [...users.values()].filter((user) => user.organizationId === orgId);
-
   return {
-    users: {
-      async create(user) {
-        const row = normalizeScimUser(user);
-        const clash = ofOrg(row.organizationId).find(
-          (existing) => existing.userName === row.userName,
-        );
-        if (clash) {
-          throw new ConflictError(`scim user already exists: ${row.userName}`);
-        }
-        users.set(row.id, row);
-        return cloneScimUser(row);
-      },
-
-      async getById(orgId, id) {
-        const row = users.get(id);
-        return row && row.organizationId === orgId ? cloneScimUser(row) : null;
-      },
-
-      async findByUserName(orgId, userName) {
-        const row = ofOrg(orgId).find((user) => user.userName === userName);
-        return row ? cloneScimUser(row) : null;
-      },
-
-      async findBySubject(orgId, subject) {
-        const scoped = ofOrg(orgId);
-        const byExternalId = scoped.find((user) => user.externalId === subject);
-        if (byExternalId) return cloneScimUser(byExternalId);
-        const byUserName = scoped.find((user) => user.userName === subject);
-        return byUserName ? cloneScimUser(byUserName) : null;
-      },
-
-      async update(user) {
-        const row = normalizeScimUser(user);
-        if (!users.has(row.id)) {
-          throw new ConflictError(`scim user not found: ${row.id}`);
-        }
-        users.set(row.id, row);
-        return cloneScimUser(row);
-      },
-
-      async listByOrganization(orgId) {
-        return ofOrg(orgId)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(cloneScimUser);
-      },
-    },
+    users: new MemoryScimUserStore(),
 
     tokens: {
       async mint(orgId, hash) {
@@ -214,132 +148,7 @@ export function createMemoryScimStores(): ScimStores {
 
 export function createPostgresScimStores(db: Database): ScimStores {
   return {
-    users: {
-      async create(user) {
-        const row = normalizeScimUser(user);
-        try {
-          const [inserted] = await db
-            .insert(schema.scimUsers)
-            .values({
-              id: row.id,
-              organizationId: row.organizationId,
-              externalId: row.externalId ?? null,
-              userName: row.userName,
-              active: row.active,
-              displayName: row.displayName ?? null,
-              raw: row.raw,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            })
-            .returning();
-          if (!inserted) throw new Error("insert scim user returned no row");
-          return mapScimUser(inserted);
-        } catch (error) {
-          if (isUniqueViolation(overlapCast(error))) {
-            throw new ConflictError(
-              `scim user already exists: ${row.userName}`,
-            );
-          }
-          throw error;
-        }
-      },
-
-      async getById(orgId, id) {
-        const [row] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.id, id),
-            ),
-          )
-          .limit(1);
-        return row ? mapScimUser(row) : null;
-      },
-
-      async findByUserName(orgId, userName) {
-        const [row] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.userName, userName),
-            ),
-          )
-          .limit(1);
-        return row ? mapScimUser(row) : null;
-      },
-
-      async findBySubject(orgId, subject) {
-        const [byExternalId] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.externalId, subject),
-            ),
-          )
-          .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id))
-          .limit(1);
-        if (byExternalId) return mapScimUser(byExternalId);
-        const [byUserName] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.userName, subject),
-            ),
-          )
-          .limit(1);
-        return byUserName ? mapScimUser(byUserName) : null;
-      },
-
-      async update(user) {
-        const row = normalizeScimUser(user);
-        try {
-          const [updated] = await db
-            .update(schema.scimUsers)
-            .set({
-              externalId: row.externalId ?? null,
-              userName: row.userName,
-              active: row.active,
-              displayName: row.displayName ?? null,
-              raw: row.raw,
-              updatedAt: row.updatedAt,
-            })
-            .where(
-              and(
-                eq(schema.scimUsers.organizationId, row.organizationId),
-                eq(schema.scimUsers.id, row.id),
-              ),
-            )
-            .returning();
-          if (!updated)
-            throw new ConflictError(`scim user not found: ${row.id}`);
-          return mapScimUser(updated);
-        } catch (error) {
-          if (isUniqueViolation(overlapCast(error))) {
-            throw new ConflictError(
-              `scim user already exists: ${row.userName}`,
-            );
-          }
-          throw error;
-        }
-      },
-
-      async listByOrganization(orgId) {
-        const rows = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(eq(schema.scimUsers.organizationId, orgId))
-          .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id));
-        return rows.map(mapScimUser);
-      },
-    },
+    users: new PostgresScimUserStore(db),
 
     tokens: {
       async mint(orgId, hash) {
