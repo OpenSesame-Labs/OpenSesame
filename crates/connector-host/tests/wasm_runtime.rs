@@ -2,8 +2,8 @@
 //!
 //! The guest is a hand-authored WAT component implementing the
 //! `opensesame:connector` world: `describe` reports id `echo`, and `invoke`
-//! returns `Ok([])` for real operations but spins forever for the 4-byte
-//! operation `spin` — which is exactly what the fuel and deadline tests need.
+//! returns `Ok(JSON)` containing an encoded credential for real operations,
+//! but spins for `spin` — exactly what the output and budget tests need.
 #![cfg(feature = "wasm-connectors")]
 
 use std::sync::Arc;
@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 ///   (id "echo" @16, version "1.0.0" @20, empty operations list);
 /// - `invoke`'s core signature is the flattened intent (16 params, the
 ///   `expires-at-unix-ms` u64 at index 13) returning a pointer to a
-///   result<list<u8>, invoke-error>; offset 128 is zero bytes = `Ok([])`;
+///   result<list<u8>, invoke-error>; offset 128 is an `Ok` list descriptor;
 /// - operation length (param index 4) == 4 selects the infinite loop.
 const ECHO_WAT: &str = r#"
 (component
@@ -49,6 +49,8 @@ const ECHO_WAT: &str = r#"
     (data (i32.const 16) "echo1.0.0")
     ;; connector-info record: id ptr/len, version ptr/len, operations ptr/len
     (data (i32.const 64) "\10\00\00\00\04\00\00\00\14\00\00\00\05\00\00\00\00\00\00\00\00\00\00\00")
+    (data (i32.const 128) "\00\00\00\00\00\01\00\00\21\00\00\00")
+    (data (i32.const 256) "{\"result\":\"cHJvdmlkZXItdG9rZW4=\"}")
   )
   (canon resource.drop $conn (core func $drop))
   (core instance $i (instantiate $m
@@ -207,8 +209,8 @@ fn loads_describes_and_invokes() {
 
     let result = connector.invoke(&request("echo.read")).expect("invoke ok");
     assert!(result.ok);
-    // Ok([]) from the guest: not JSON, so the summary reports size only.
-    assert_eq!(result.safe_summary["bytes"], 0);
+    assert_eq!(result.safe_summary, serde_json::json!({"status": "completed"}));
+    assert!(!result.safe_summary.to_string().contains("cHJvdmlkZXItdG9rZW4="));
     assert!(result
         .external_request_digest
         .as_deref()

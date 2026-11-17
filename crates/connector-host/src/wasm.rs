@@ -14,15 +14,15 @@
 //!   before every instantiation;
 //! - all egress goes through [`HostEgress`] after re-checking the
 //!   *intersection* of `HostPolicy` egress and the manifest's
-//!   `outbound.hosts`; credentials are injected on the host side of that
-//!   trait and never enter guest linear memory.
+//!   `outbound.hosts`; credentials are injected host-side, and tainted guest
+//!   output never becomes a receipt summary.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::{json, Value};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
@@ -495,27 +495,24 @@ impl WasmConnector {
             return match trap {
                 wasmtime::Trap::OutOfFuel => HostError::Connector("fuel exhausted".into()),
                 wasmtime::Trap::Interrupt => HostError::Connector("deadline exceeded".into()),
-                other => HostError::Connector(format!("trap: {other}")),
+                _ => HostError::Connector("guest trapped".into()),
             };
         }
-        HostError::Connector(format!("guest: {error}"))
+        HostError::Connector("guest execution failed".into())
     }
 }
 
 fn map_invoke_error(error: &types::InvokeError) -> HostError {
+    // Variant names are the host-owned error schema. Every guest payload is
+    // tainted output and must not cross into the durable broker receipt.
     let text = match error {
-        types::InvokeError::InvalidInput(m) => format!("invalid-input: {m}"),
-        types::InvokeError::Unauthorized(m) => format!("unauthorized: {m}"),
-        types::InvokeError::ApprovalRequired(m) => format!("approval-required: {m}"),
-        types::InvokeError::RateLimited(after) => match after {
-            Some(secs) => format!("rate-limited: retry after {secs}s"),
-            None => "rate-limited".to_owned(),
-        },
-        types::InvokeError::ProviderError((status, m)) => {
-            format!("provider-error {status}: {m}")
-        }
-        types::InvokeError::Transient(m) => format!("transient: {m}"),
-        types::InvokeError::Permanent(m) => format!("permanent: {m}"),
+        types::InvokeError::InvalidInput(_) => "invalid-input".to_owned(),
+        types::InvokeError::Unauthorized(_) => "unauthorized".to_owned(),
+        types::InvokeError::ApprovalRequired(_) => "approval-required".to_owned(),
+        types::InvokeError::RateLimited(_) => "rate-limited".to_owned(),
+        types::InvokeError::ProviderError(_) => "provider-error".to_owned(),
+        types::InvokeError::Transient(_) => "transient".to_owned(),
+        types::InvokeError::Permanent(_) => "permanent".to_owned(),
     };
     HostError::Connector(text)
 }
@@ -581,10 +578,9 @@ impl Connector for WasmConnector {
             return Err(HostError::Connector("result exceeds size cap".into()));
         }
         let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
-        // Guest output is data, never trusted structure: parse as JSON when
-        // it is JSON, otherwise report only its size and digest.
-        let safe_summary = serde_json::from_slice::<Value>(&bytes)
-            .unwrap_or_else(|_| json!({ "bytes": bytes.len() }));
+        // Guest output is tainted even when it parses as JSON. Keep only its
+        // one-way digest; the summary is constructed entirely by the host.
+        let safe_summary = json!({ "status": "completed" });
         Ok(InvokeResult {
             ok: true,
             safe_summary,

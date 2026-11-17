@@ -328,7 +328,7 @@
       "max-lines": 1324
     },
     "crates/connector-host/src/wasm.rs": {
-      "max-lines": 699
+      "max-lines": 695
     },
     "crates/daemon/src/cli_probe.rs": {
       "max-lines": 695
