@@ -69,6 +69,12 @@ function startBackgroundJobs(signal: AbortSignal): void {
 export const changeSeams = {
   activateApprovedCapability,
   deactivateGeneration,
+  /** Verify builds may stall before `markActivated` (Playwright consent timing). */
+  stallMarkActivated: async (_generation: number) => {
+    const delay = Number(import.meta.env.VITE_VERIFY_ACTIVATION_DELAY_MS ?? 0);
+    if (delay > 0)
+      await new Promise((resolve) => setTimeout(resolve, delay));
+  },
 };
 
 /**
@@ -127,6 +133,7 @@ export function activatePlan(store: CompositionStore): () => void {
     }
     if (leaseIsCurrent(lease, store.getSnapshot().generation)) {
       startBackgroundJobs(lease.signal);
+      await changeSeams.stallMarkActivated(generation);
       markActivated(generation);
     }
   };
