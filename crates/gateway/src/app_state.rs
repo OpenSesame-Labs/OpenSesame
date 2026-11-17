@@ -41,7 +41,7 @@ pub struct DevicePending {
     pub approved: Option<ApprovedDevice>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct ApprovedDevice {
     pub principal: String,
     pub organization_id: OrganizationId,
@@ -77,13 +77,8 @@ pub struct AppState {
     /// kept as a leak with a name on it. A slow reader lags and is told so; it
     /// never grows the buffer for everybody else.
     pub session_channels: Arc<Mutex<HashMap<opensesame_domain::SessionId, SessionChannel>>>,
-    pub device_codes: Arc<Mutex<HashMap<String, DevicePending>>>,
     /// Pending GitHub App Manifest handshakes (state → org + `return_to`).
     pub github_app_pending: Arc<Mutex<HashMap<String, GithubAppPending>>>,
-    /// Serializes device-token minting with principal/org session revocation.
-    pub session_lifecycle: Arc<tokio::sync::Mutex<()>>,
-    /// Timestamps of failed `user_code` approval guesses (global cooldown fence).
-    pub device_approve_failures: Arc<Mutex<Vec<opensesame_time::DateTime<opensesame_time::Utc>>>>,
     pub claims: Arc<Mutex<HashMap<String, ClaimSession>>>,
     pub(crate) public_enrollment: Arc<Mutex<crate::middleware::public_enrollment::Budgets>>,
     /// `claim_id` -> failed user-code attempts on completion (brute-force fence).
@@ -173,6 +168,8 @@ async fn build_with_security(
     } else {
         Db::connect_sqlite(&args.database_url).await?
     };
+    crate::native_authority::bind_configuration(db.pool(), &args.resource, &security.claim_pepper)
+        .await?;
     // Before anything writes an event: they rest sealed (ADR 0157).
     let broker_config = BrokerConfig::from_env()?;
     let production = security.deployment.production_safeguards();
@@ -218,10 +215,7 @@ async fn build_with_security(
         broker: Arc::new(boot.broker),
         sessions: Arc::new(Mutex::new(HashMap::new())),
         session_channels: Arc::new(Mutex::new(HashMap::new())),
-        device_codes: Arc::new(Mutex::new(HashMap::new())),
         github_app_pending: Arc::new(Mutex::new(HashMap::new())),
-        session_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
-        device_approve_failures: Arc::new(Mutex::new(Vec::new())),
         claims: Arc::new(Mutex::new(HashMap::new())),
         public_enrollment: Arc::new(Mutex::new(
             crate::middleware::public_enrollment::Budgets::default(),
@@ -365,7 +359,7 @@ pub fn test_session_headers(
     organization_id: OrganizationId,
     organization_role: OrganizationRole,
 ) -> axum::http::HeaderMap {
-    let token = uuid::Uuid::new_v4().to_string();
+    let token = format!("fixture_{}", uuid::Uuid::new_v4());
     state.sessions.lock().unwrap().insert(
         opensesame_claims::hash_secret(&token),
         crate::session_claims::fixture(

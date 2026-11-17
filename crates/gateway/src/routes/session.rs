@@ -20,8 +20,16 @@ pub async fn status(State(st): State<AppState>, headers: axum::http::HeaderMap) 
     if let Err(resp) = require_session_or_operator(&st, &headers) {
         return resp;
     }
-    let n = st.sessions.lock().unwrap().len();
-    Json(json!({"active_sessions": n})).into_response()
+    match sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM host_native_sessions WHERE expires_at>?",
+    )
+    .bind(Utc::now().timestamp_millis())
+    .fetch_one(st.db.pool())
+    .await
+    {
+        Ok(n) => Json(json!({"active_sessions": n})).into_response(),
+        Err(_) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
+    }
 }
 
 /// Explicit operator-only local development session. Browsers use pairing.
@@ -55,7 +63,6 @@ pub async fn local_mint(State(st): State<AppState>, headers: axum::http::HeaderM
     {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
-    let _lifecycle = st.session_lifecycle.lock().await;
     let session_id = format!("sess_{}", uuid::Uuid::new_v4());
     let session_digest = opensesame_claims::hash_secret(&session_id);
     let mut claims = HostSessionClaims::operator_approved(
@@ -70,18 +77,18 @@ pub async fn local_mint(State(st): State<AppState>, headers: axum::http::HeaderM
     claims.credential_handle = Some(format!("handle_{}", uuid::Uuid::new_v4()));
     claims.local_session = true;
     let meta = claims.public_view();
-    {
-        let mut sessions = st.sessions.lock().unwrap();
-        let now = Utc::now();
-        sessions.retain(|_, m| m.valid_for(&st.resource, now));
-        if sessions.len() >= 1024 {
+    match crate::native_authority::mint_local(st.db.pool(), &session_digest, &claims).await {
+        Ok(true) => {
+            st.sessions.lock().unwrap().insert(session_digest, claims);
+        }
+        Ok(false) => {
             return (
                 StatusCode::TOO_MANY_REQUESTS,
                 Json(json!({"error":"session_capacity"})),
             )
-                .into_response();
+                .into_response()
         }
-        sessions.insert(session_digest, claims);
+        Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
     }
 
     (
@@ -142,6 +149,7 @@ fn revoke_specific_sessions(
     before - sessions.len()
 }
 
+#[cfg(test)]
 fn revoke_specific_authorizations(
     pending: &mut HashMap<String, crate::app_state::DevicePending>,
     principal_id: &str,
@@ -154,7 +162,11 @@ fn revoke_specific_authorizations(
         if authorization.approved.as_ref().is_some_and(|approved| {
             same_principal_subject(&approved.principal, principal_id)
                 && approved.organization_id == organization_id
-                && matches_revision(approved.membership_revision.as_ref(), target, include_legacy)
+                && matches_revision(
+                    approved.membership_revision.as_ref(),
+                    target,
+                    include_legacy,
+                )
         }) {
             authorization.approved = None;
             revoked += 1;
@@ -181,8 +193,9 @@ pub async fn revoke(
     let Some(principal) = crate::session_claims::parse_principal(&req.principal_id) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
-    let valid_uuid = |value: &str| uuid::Uuid::parse_str(value)
-        .is_ok_and(|id| !id.is_nil() && id.to_string() == value);
+    let valid_uuid = |value: &str| {
+        uuid::Uuid::parse_str(value).is_ok_and(|id| !id.is_nil() && id.to_string() == value)
+    };
     if organization_id.as_uuid().is_nil()
         || !valid_uuid(&req.membership_incarnation)
         || !valid_uuid(&req.authority_revision)
@@ -196,58 +209,72 @@ pub async fn revoke(
         incarnation: req.membership_incarnation,
         revision: req.authority_revision,
     };
-    // Device-token minting holds this fence from reading its approval through
-    // publishing the session. Revocation therefore observes and clears either
-    // the pending grant or the minted session, never a gap between them.
-    let _lifecycle = st.session_lifecycle.lock().await;
-    let include_legacy = match st.db.withdraw_host_membership(
-        &opensesame_storage::host_membership::MembershipWithdrawal {
-            withdrawal_id: &req.withdrawal_id,
-            organization_id: &canonical_organization_id,
-            principal_id: &principal_id,
-            membership_incarnation: &target.incarnation,
-            authority_revision: &target.revision,
-        },
-        Utc::now().timestamp(),
-    ).await {
+    // The database transaction also clears pending grants and native sessions;
+    // approval and token exchange take the same write lock across replicas.
+    let (include_legacy, revoked) = match st
+        .db
+        .withdraw_host_membership_with_count(
+            &opensesame_storage::host_membership::MembershipWithdrawal {
+                withdrawal_id: &req.withdrawal_id,
+                organization_id: &canonical_organization_id,
+                principal_id: &principal_id,
+                membership_incarnation: &target.incarnation,
+                authority_revision: &target.revision,
+            },
+            Utc::now().timestamp(),
+        )
+        .await
+    {
         Ok(inserted) => inserted,
         Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
     };
     let mut sessions = st.sessions.lock().unwrap();
-    let revoked =
-        revoke_specific_sessions(&mut sessions, &principal_id, &canonical_organization_id, &target, include_legacy);
-    drop(sessions);
-
-    // An approved device code can mint a session after this request. Clear matching
-    // approvals too so a membership mutation revokes both live and not-yet-minted sessions.
-    revoke_specific_authorizations(
-        &mut st.device_codes.lock().unwrap(),
+    revoke_specific_sessions(
+        &mut sessions,
         &principal_id,
-        organization_id,
+        &canonical_organization_id,
         &target,
         include_legacy,
     );
+    drop(sessions);
 
     Json(json!({"revoked": revoked})).into_response()
 }
 
 #[cfg(test)]
 fn revoke_matching_sessions(
-    sessions: &mut HashMap<String, HostSessionClaims>, principal: &str, org: &str,
+    sessions: &mut HashMap<String, HostSessionClaims>,
+    principal: &str,
+    org: &str,
 ) -> usize {
-    revoke_specific_sessions(sessions, principal, org, &crate::session_claims::MembershipRevision {
-        incarnation: String::new(), revision: String::new(),
-    }, true)
+    revoke_specific_sessions(
+        sessions,
+        principal,
+        org,
+        &crate::session_claims::MembershipRevision {
+            incarnation: String::new(),
+            revision: String::new(),
+        },
+        true,
+    )
 }
 
 #[cfg(test)]
 fn revoke_pending_authorizations(
-    pending: &mut HashMap<String, crate::app_state::DevicePending>, principal: &str,
+    pending: &mut HashMap<String, crate::app_state::DevicePending>,
+    principal: &str,
     org: opensesame_domain::OrganizationId,
 ) -> usize {
-    revoke_specific_authorizations(pending, principal, org, &crate::session_claims::MembershipRevision {
-        incarnation: String::new(), revision: String::new(),
-    }, true)
+    revoke_specific_authorizations(
+        pending,
+        principal,
+        org,
+        &crate::session_claims::MembershipRevision {
+            incarnation: String::new(),
+            revision: String::new(),
+        },
+        true,
+    )
 }
 
 #[cfg(test)]
