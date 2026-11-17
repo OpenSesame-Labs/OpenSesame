@@ -23,6 +23,10 @@ describe("open vault lease formal replay", () => {
       withExclusiveOpenLease("personal", async () => "destroyed"),
     ).rejects.toBeInstanceOf(VaultStoreConflictError);
 
+    await expect(
+      withExclusiveOpenLease("personal", async () => "destroyed-again"),
+    ).rejects.toBeInstanceOf(VaultStoreConflictError);
+
     await currentRelease();
 
     await expect(
