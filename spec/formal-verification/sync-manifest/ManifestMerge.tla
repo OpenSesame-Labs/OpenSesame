@@ -14,7 +14,9 @@ Init ==
 
 TombstoneItem ==
   /\ tombstoned' = TRUE
-  /\ UNCHANGED <<manifestHasPath, mergeAdds, mergeUpdates>>
+  /\ mergeAdds' = FALSE
+  /\ mergeUpdates' = FALSE
+  /\ UNCHANGED manifestHasPath
 
 \* A trashed path comes back as a new item. It is not patched in place.
 ImportManifest ==

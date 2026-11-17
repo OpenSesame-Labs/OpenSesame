@@ -109,8 +109,10 @@ WaitTimeout ==
   /\ UNCHANGED <<status, vault, planVault, compGen, actGen, fromNull>>
 
 \* Consent must not mount on composition alone before activation or timeout.
+\* After the shell has opened once, later generations stay mounted (shell-ready.ts).
 NoShellBeforeActivationOrTimeout ==
-  ShellMounted => ComputeReady \/ timedOut
+  ShellMounted =>
+    ComputeReady \/ timedOut \/ (OpenedMatchesVault /\ actGen < compGen)
 
 Spec ==
   Init /\ [][UnlockPersonal \/ PlanForPersonal \/ ClearStaleLatch

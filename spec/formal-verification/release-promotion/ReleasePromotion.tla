@@ -32,8 +32,12 @@ RewriteVersion ==
   /\ authorized' = FALSE
   /\ UNCHANGED <<publishedId, payloadMatch>>
 
+TamperPayload ==
+  /\ payloadMatch' = FALSE
+  /\ UNCHANGED <<publishedId, promotedId, authorized>>
+
 NoPromotionRewrite == ~authorized \/ (promotedId = publishedId /\ payloadMatch)
 
-Spec == Init /\ [][PublishCandidate \/ Promote \/ RewriteVersion]_vars
+Spec == Init /\ [][PublishCandidate \/ Promote \/ RewriteVersion \/ TamperPayload]_vars
 
 ====
