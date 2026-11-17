@@ -183,7 +183,10 @@
     "@rollup/plugin-node-resolve": "16.0.3",
     "deepmerge": "4.3.1",
     "rollup": "4.67.4",
-    "tiny-cbor-v3-patched": "file:patches/vendor/levischuck-tiny-cbor-0.3.6.tgz"
+    "tiny-cbor-v3-patched": "file:patches/vendor/levischuck-tiny-cbor-0.3.6.tgz",
+    "typed-rest-client": "file:patches/vendor/typed-rest-client-2.3.1.tgz",
+    "@esbuild-kit/core-utils": "file:patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
+    "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz"
   },
   "overrides": {
     "vitest": "4.1.12",
@@ -193,10 +196,8 @@
     "shell-quote": "1.11.0",
     "adm-zip": "0.6.1",
     "tmp": "0.2.7",
-    "uuid": "14.0.1",
     "qs": "6.16.1",
     "playwright": "1.65.0",
-    "esbuild": "0.28.2",
     "fast-uri": "3.1.9",
     "fx-runner": {
       "shell-quote": "1.11.0"
@@ -225,7 +226,6 @@
     "xml-encryption": {
       "@xmldom/xmldom": "0.8.15"
     },
-    "ws": "8.22.1",
     "sharp": "0.35.5",
     "hono": "4.13.16",
     "follow-redirects": "1.16.2",
@@ -285,7 +285,13 @@
     "dts-bundle-generator": {
       "typescript": "6.0.3"
     },
-    "@levischuck/tiny-cbor@^0.3": "$tiny-cbor-v3-patched"
+    "@levischuck/tiny-cbor@^0.3": "$tiny-cbor-v3-patched",
+    "typed-rest-client": "$typed-rest-client",
+    "@esbuild-kit/core-utils": "$@esbuild-kit/core-utils",
+    "uuid@^11.1.0": "11.1.1",
+    "uuid@^13.0.0": "13.0.2",
+    "esbuild@^0.25.4": "0.25.12",
+    "nunjucks": "$nunjucks"
   },
   "patchedDependencies": {
     "js-yaml@3.15.2": "patches/js-yaml@3.15.2.patch",
@@ -294,6 +300,9 @@
     "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
     "picomatch@2.3.2": "patches/picomatch@2.3.2.patch",
     "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
-    "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch"
+    "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch",
+    "typed-rest-client@2.3.1": "patches/typed-rest-client@2.3.1.patch",
+    "@esbuild-kit/core-utils@3.3.2": "patches/@esbuild-kit__core-utils@3.3.2.patch",
+    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch"
   }
 }
