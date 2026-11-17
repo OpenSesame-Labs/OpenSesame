@@ -11,6 +11,7 @@
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' data: http: https: ws: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self' https://github.com; frame-src 'none'"    />
+    <script src="/boot-watch.js"></script>
     <script src="/browser-schema-config.js"></script>
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light dark" />
@@ -74,60 +75,63 @@
       }
     </script>
     <style>
-      .static-door { box-sizing: border-box; min-height: 100vh; margin: 0; padding: clamp(2rem, 8vw, 6rem); display: grid; place-content: center; gap: 1rem; background: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-      .static-door * { box-sizing: border-box; }
-      .static-door__eyebrow { margin: 0; color: #5eead4; font: 600 0.75rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.18em; text-transform: uppercase; }
-      .static-door h1 { max-width: 17ch; margin: 0; font-size: clamp(2.25rem, 7vw, 4.5rem); line-height: 0.98; letter-spacing: -0.04em; }
-      .static-door__lede { max-width: 58ch; margin: 0; color: #cbd5e1; font-size: clamp(1rem, 2vw, 1.25rem); line-height: 1.6; }
-      .static-door__facts { max-width: 58ch; margin: 0; padding-left: 1.1rem; color: #cbd5e1; line-height: 1.6; }
-      .static-door__links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 0.5rem; }
-      .static-door a { color: #5eead4; text-underline-offset: 0.2em; }
-      .static-door a:focus-visible { outline: 2px solid #5eead4; outline-offset: 4px; }
+      /* The device's vault state is not known until boot completes. */
+      body { margin: 0; background: #fafafa; color: #171717; }
+      .boot { min-height: 100vh; display: grid; align-content: start; justify-items: center; gap: 1.25rem; padding: 2rem 1.25rem; box-sizing: border-box; font: 0.875rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .boot__content { width: min(100%, 30rem); display: grid; justify-items: center; gap: 0.9rem; padding: 2.4rem 0; text-align: center; }
+      .boot__hero { width: 100%; margin: 0; line-height: 0; color: inherit; }
+      .boot__wordmark { display: block; width: 100%; height: auto; }
+      .boot__lede { color: #4d4d4d; font: 0.9375rem/1.5 system-ui, sans-serif; }
+      .boot__status { font: 0.875rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .boot__notes { width: min(100%, 30rem); box-sizing: border-box; background: #ededed; padding: 1.25rem 0.85rem; }
+      .boot__notes h2 { margin: 0; padding-bottom: 1rem; border-bottom: 1px solid #bdbdbd; font: 600 1.125rem/1.25 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .boot p { margin: 0; }
+      .boot__slit { fill: var(--mark-slit, #8f8f8f); }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0f0f0f; color: #f5f5f5; }
+        .boot__slit { fill: var(--mark-slit, #666666); }
+        .boot__lede { color: #b3b3b3; }
+        .boot__notes { background: #222222; }
+        .boot__notes h2 { border-color: #5c5c5c; }
+      }
+      @media (min-width: 1100px) {
+        .boot { grid-template-columns: 1fr 1fr; align-content: stretch; align-items: stretch; gap: 0; padding: 0; }
+        .boot__content { width: min(calc(100% - 2.5rem), 30rem); justify-self: end; align-self: center; margin-right: clamp(1.5rem, 4vw, 3.5rem); }
+        .boot__notes { width: auto; min-height: 100vh; justify-self: stretch; padding: clamp(2rem, 11.6vh, 7rem) clamp(1.5rem, 3.125vw, 3.25rem) 2rem; box-shadow: inset 1px 0 0 #bdbdbd; }
+        .boot__notes h2 { padding-bottom: 1.5rem; font-size: 2.25rem; }
+      }
     </style>
+    <noscript><style>.boot__status { display: none; }</style></noscript>
     <title>OpenSesame — encrypted vault and agent auth broker</title>
   </head>
   <body>
-    <!--
-      THESIS: A real end-to-end-encrypted vault. The master password derives the key that decrypts
-        every item; nothing else does, and nothing leaves the device. Four audiences, one store:
-        humans keep passwords and passkeys, agents draw scoped grants, websites authenticate
-        against it, developers govern it.
-      OWN-WORLD: Password-manager canon (Bitwarden / 1Password craft bar) in OpenSesame navy and
-        teal. Three-pane desktop frame — navy rail, list, detail. System UI stack; mono reserved
-        for codes, digests, and measurements. Light and dark both first-class.
-      STORY: Create or unlock the vault → land on the item list → reveal, copy, generate, rotate →
-        step sideways into Agents, Sites, or Authority when the same identity governs more than
-        passwords.
-      FIRST VIEWPORT: The unlock card, stating plainly that there is no recovery, over a navy
-        ground. First run adds a strength meter and an explicit acknowledgement.
-      FORM: Canon taken by the user's own words ("it's a Bitwarden alternative"), executed at full
-        fidelity — no irony, no smuggled quirk. Craft bar: Bitwarden, 1Password.
-      FINISH: pending — full redesign in flight; DESIGN.md rewritten from the built result.
-    -->
     <div id="root">
-      <main class="static-door">
-        <p class="static-door__eyebrow">OpenSesame</p>
-        <h1>An encrypted vault for people, agents, and websites.</h1>
-        <p class="static-door__lede">
-          OpenSesame is a local-first, end-to-end-encrypted vault. Your master
-          password derives the key that opens it; the server never sees that
-          key. Keep passwords, passkeys, cards, notes, and agent secrets in one
-          place, then let a website or an approved agent ask for a narrow,
-          time-boxed grant instead of your password.
-        </p>
-        <ul class="static-door__facts">
-          <li>Passwords, passkeys, TOTP, cards, and secure notes.</li>
-          <li>An auth broker for static sites, with scoped share grants.</li>
-          <li>Agent access that is explicit, auditable, and revocable.</li>
-        </ul>
-        <nav class="static-door__links" aria-label="OpenSesame resources">
-          <a href="./">Open the vault</a>
-          <a href="./llms.txt">Agent guide (llms.txt)</a>
-          <a href="./about.html">About</a>
-          <a href="./privacy.html">Privacy</a>
-          <a href="https://github.com/OpenSesame-Labs/OpenSesame">Source code</a>
-          <a href="https://github.com/OpenSesame-Labs/OpenSesame/tree/main/docs">Documentation</a>
-        </nav>
+      <main class="boot">
+        <div class="boot__content">
+          <h1 class="boot__hero" aria-label="open-sesame">
+            <svg class="boot__wordmark" viewBox="0 0 778 100" aria-hidden="true" focusable="false">
+              <defs>
+                <pattern id="boot-particles" width="8" height="8" patternUnits="userSpaceOnUse">
+                  <circle cx="2" cy="2.2" r="2.1" fill="currentColor" opacity=".68" />
+                  <rect x="4.8" y="4.8" width="3" height="3" fill="currentColor" opacity=".5" />
+                </pattern>
+                <mask id="boot-letters">
+                  <rect x="108" y="6" width="666" height="87" fill="white" />
+                  <text x="108" y="76" fill="black" font-family="OS Logo, ui-monospace, monospace" font-size="78" font-weight="800" textLength="666" lengthAdjust="spacingAndGlyphs">OPEN SESAME</text>
+                </mask>
+              </defs>
+              <svg x="4" y="6" width="87" height="87" viewBox="0 0 17 17">
+                <path fill="currentColor" d="M0 0h12v17H0z" />
+                <path class="boot__slit" d="M14.7 0H17v17h-2.3z" />
+              </svg>
+              <rect x="108" y="6" width="666" height="87" fill="url(#boot-particles)" mask="url(#boot-letters)" />
+            </svg>
+          </h1>
+          <p class="boot__lede">Set up your own vault, or join one.</p>
+          <p class="boot__status" role="status">Opening OpenSesame…</p>
+          <noscript><p>OpenSesame needs JavaScript to open the vault on this device.</p></noscript>
+        </div>
+        <aside class="boot__notes" aria-label="Release notes"><h2>Release Notes</h2></aside>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>

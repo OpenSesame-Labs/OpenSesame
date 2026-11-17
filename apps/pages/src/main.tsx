@@ -171,4 +171,13 @@ void (async () => {
   requestAnimationFrame(() => {
     setTimeout(() => void ensurePersistence(), 0);
   });
-})();
+})().catch(() => {
+  // Do not leave the startup state on screen if local initialization fails.
+  const status = root.querySelector(".boot__status");
+  if (status) {
+    status.textContent = "OpenSesame could not start.";
+    status.setAttribute("role", "alert");
+  } else {
+    root.textContent = "OpenSesame could not start.";
+  }
+});

@@ -1,0 +1,185 @@
+// Exercise the built entry before and after JavaScript, including a return
+// visit whose correct screen is different from a fresh device's front door.
+import assert from "node:assert/strict";
+import { mkdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "@playwright/test";
+import { serveLoopbackDist } from "./lib/static-origin-harness.mjs";
+
+const dist =
+  process.env.PAGES_VERIFY_DIST ??
+  fileURLToPath(new URL("../dist", import.meta.url));
+const base = process.env.VITE_BASE ?? "/OpenSesame/";
+const out = process.env.PAGES_VERIFY_OUT;
+if (out) mkdirSync(out, { recursive: true });
+const server = await serveLoopbackDist({ dist, base });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
+  headless: true,
+});
+
+async function screenshot(page, name) {
+  if (out) await page.screenshot({ path: join(out, `${name}.png`) });
+}
+
+try {
+  const noJs = await browser.newContext({ javaScriptEnabled: false });
+  const noJsPage = await noJs.newPage();
+  await noJsPage.goto(server.href);
+  assert.match(await noJsPage.locator("body").innerText(), /needs JavaScript/);
+  assert.equal(await noJsPage.getByRole("button").count(), 0);
+  assert.equal(await noJsPage.locator(".boot__status:visible").count(), 0);
+  await screenshot(noJsPage, "startup-no-javascript");
+  await noJs.close();
+
+  const dark = await browser.newContext({
+    javaScriptEnabled: false,
+    colorScheme: "dark",
+    viewport: { width: 390, height: 844 },
+  });
+  const darkPage = await dark.newPage();
+  await darkPage.goto(server.href);
+  assert.equal(
+    await darkPage
+      .locator("body")
+      .evaluate((body) => getComputedStyle(body).backgroundColor),
+    "rgb(15, 15, 15)",
+  );
+  await screenshot(darkPage, "startup-dark-no-javascript");
+  await dark.close();
+
+  const failedEntry = await browser.newContext({ serviceWorkers: "block" });
+  const failedPage = await failedEntry.newPage();
+  await failedPage.route("**/assets/main-*.js", (route) => route.abort());
+  await failedPage.goto(server.href, { waitUntil: "domcontentloaded" });
+  const failure = failedPage.getByRole("alert");
+  await failure.waitFor({ state: "visible", timeout: 15_000 });
+  assert.match(await failure.innerText(), /could not start/);
+  await failedEntry.close();
+
+  // A dependency of the entry can fail before the entry module evaluates too.
+  // Abort a real static import from the built module rather than simulating a
+  // bootstrap exception after the application has already begun to run.
+  const builtHtml = readFileSync(join(dist, "index.html"), "utf8");
+  const entryPath = builtHtml.match(
+    /src="([^"]*\/assets\/main-[\w-]+\.js)"/u,
+  )?.[1];
+  assert.ok(entryPath, "built HTML must identify the app entry module");
+  const entrySource = readFileSync(
+    join(dist, "assets", basename(entryPath)),
+    "utf8",
+  );
+  const eagerImport = entrySource.match(
+    /\b(?:from|import)\s*["'](\.[^"']+\.js)["']/u,
+  )?.[1];
+  if (eagerImport) {
+    const dependencyPath = new URL(eagerImport, new URL(entryPath, server.href))
+      .pathname;
+    const failedDependency = await browser.newContext({
+      serviceWorkers: "block",
+    });
+    const dependencyPage = await failedDependency.newPage();
+    await dependencyPage.route(`**${dependencyPath}`, (route) => route.abort());
+    await dependencyPage.goto(server.href, { waitUntil: "domcontentloaded" });
+    const dependencyFailure = dependencyPage.getByRole("alert");
+    await dependencyFailure.waitFor({ state: "visible", timeout: 15_000 });
+    assert.match(await dependencyFailure.innerText(), /could not start/);
+    await failedDependency.close();
+    console.log("PASS: failed eager module shows a startup error");
+  } else {
+    console.log("SKIP: the built entry has no static module dependency");
+  }
+
+  for (const device of [
+    { name: "desktop", viewport: { width: 1365, height: 900 } },
+    {
+      name: "phone",
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    },
+  ]) {
+    const { name, ...options } = device;
+    const context = await browser.newContext({
+      ...options,
+      serviceWorkers: "block",
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    let releaseEntry;
+    const entryHeld = new Promise((resolve) => {
+      releaseEntry = resolve;
+    });
+    await page.route("**/assets/main-*.js", async (route) => {
+      await entryHeld;
+      await route.continue();
+    });
+    await page.goto(server.href, { waitUntil: "commit" });
+    const status = page.getByRole("status");
+    await status.waitFor({ state: "visible", timeout: 15_000 });
+    assert.match(await status.innerText(), /Opening OpenSesame/);
+    await page.locator(".boot__wordmark").waitFor({
+      state: "visible",
+      timeout: 15_000,
+    });
+    assert.match(
+      await page.locator(".boot__wordmark text").textContent(),
+      /OPEN SESAME/,
+    );
+    const lede = await page.locator(".boot__lede").innerText();
+    const notesTitle = await page.locator(".boot__notes h2").innerText();
+    assert.equal(await page.getByRole("button").count(), 0);
+    await screenshot(page, `${name}-opening`);
+    releaseEntry();
+
+    const setup = page.getByRole("button", {
+      name: "Set up your own",
+      exact: true,
+    });
+    await setup.waitFor({ state: "visible", timeout: 30_000 });
+    assert.equal(await page.locator(".boot").count(), 0);
+    assert.equal(await page.locator(".door__lede").innerText(), lede);
+    assert.equal(
+      await page.locator(".unlock__notes-title").innerText(),
+      notesTitle,
+    );
+    for (const road of [
+      "Join a session",
+      "Import passwords from a file",
+      "Skip sign-in and continue as guest",
+    ]) {
+      await page.getByRole("button", { name: road }).waitFor({
+        state: "visible",
+        timeout: 30_000,
+      });
+      assert.equal(
+        await page.getByRole("button", { name: road }).count(),
+        1,
+        road,
+      );
+    }
+    await screenshot(page, `${name}-front-door`);
+
+    // A real action changes the device's setup state. After a reload, the
+    // startup state must yield to sign-in rather than a hard-coded front door.
+    await setup.click();
+    await page.getByRole("button", { name: "Skip all" }).click();
+    await page
+      .getByRole("button", { name: "Use without an account" })
+      .waitFor({ timeout: 30_000 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("button", { name: "Use without an account" })
+      .waitFor({ timeout: 30_000 });
+    assert.equal(await setup.count(), 0);
+    assert.deepEqual(errors, []);
+    await screenshot(page, `${name}-returning`);
+    await context.close();
+    console.log(`PASS: ${name} startup, front door and returning visit`);
+  }
+} finally {
+  await browser.close();
+  await server.close();
+}
