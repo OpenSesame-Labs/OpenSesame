@@ -62,8 +62,10 @@ beforeEach(() => {
     activeProject: () => state.projects[0],
   });
   kvDelete(tombFileKey(PERSONAL_TOMB, HEADER_PATH));
+  kvDelete(tombFileKey(GUEST_TOMB, HEADER_PATH));
   kvDelete(tombFileKey("prj_named", HEADER_PATH));
   clearGuestSessionPerson();
+  vaultStore.loadActiveProjectScope();
 });
 
 afterEach(() => {
@@ -238,7 +240,7 @@ describe("a duress decoy in the list", () => {
   it("leaves an ordinary guest as the guest row", async () => {
     await vaultStore.createGuest();
     expect(vaultStore.getSnapshot().decoy).toBe(false);
-    expect(openVaultLabel()).toBe("guest");
+    expect(openVaultLabel()).toMatch(/^guest(?:-[1-9]\d*)?$/);
     vaultStore.lock();
   });
 });
@@ -249,7 +251,7 @@ describe("switchVault", () => {
     expect(vaultStore.isUnlocked()).toBe(true);
     await expect(switchVault(GUEST_TOMB)).resolves.toBe("locked");
     const snap = vaultStore.getSnapshot();
-    expect(snap.tomb).toBe(GUEST_TOMB);
+    expect(snap.tomb).toMatch(/^guest_[0-9a-f-]{36}$/);
     expect(snap.status).toBe("empty");
     expect(vaultStore.isUnlocked()).toBe(false);
   });

@@ -8,7 +8,11 @@ import {
 import { type SealedBlob, b64ToBytes } from "@opensesame/vault-core";
 import { VfsError } from "./vfs-error.js";
 
-export type TombsRegistry = { v: 1; tombs: string[] };
+export type TombsRegistry = {
+  v: 1;
+  tombs: string[];
+  guestReservations?: Record<string, string>;
+};
 export type TombIndex = { v: 1; files: Record<string, number> };
 export function parseRegistry(raw: string | null): string[] {
   if (!raw) return [];
@@ -19,6 +23,52 @@ export function parseRegistry(raw: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+function readReservations(
+  value: BoundaryValue | undefined,
+): Record<string, string> {
+  if (!isJsonObject(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] =>
+      isString(entry[1]),
+    ),
+  );
+}
+
+/** Mutations must never replace an unreadable registry with an empty one. */
+export function parseRegistryForWrite(raw: string | null): TombsRegistry {
+  if (raw === null) return { v: 1, tombs: [] };
+  try {
+    const parsed: BoundaryValue = JSON.parse(raw);
+    if (isJsonObject(parsed) && parsed.v === 1 && Array.isArray(parsed.tombs)) {
+      const names = parsed.tombs;
+      if (
+        names.length > 32 ||
+        !names.every(
+          (value) =>
+            isString(value) && value.length <= 200 && TOMB_NAME_RE.test(value),
+        ) ||
+        new Set(names).size !== names.length ||
+        !(
+          parsed.guestReservations === undefined ||
+          (isJsonObject(parsed.guestReservations) &&
+            Object.entries(parsed.guestReservations).every(
+              ([name, proof]) =>
+                names.includes(name) &&
+                isString(proof) &&
+                /^[0-9a-f-]{36}$/u.test(proof),
+            ))
+        )
+      )
+        throw new Error("Invalid registry");
+      const guestReservations = readReservations(parsed.guestReservations);
+      return { v: 1, tombs: names.filter(isString), guestReservations };
+    }
+  } catch {
+    // A malformed record is an error, not an empty registry.
+  }
+  throw new VfsError("corrupt", "The vault registry could not be read.");
 }
 export function parseIndex(value: BoundaryValue): TombIndex {
   if (!isJsonObject(value) || !isJsonObject(value.files))

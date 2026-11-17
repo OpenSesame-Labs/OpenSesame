@@ -28,6 +28,13 @@ import {
 import type { ConnectPlan } from "./connect-plan.js";
 import { updateBody, updateProblems } from "./connect-update.js";
 import type { Connection } from "./connections.js";
+import { prepareGuestProviderReturn } from "./guest-provider-return.js";
+import {
+  ConnectError,
+  rememberConnector,
+  requireAuth,
+  requireTransport,
+} from "./vercel-connect.js";
 import { connectorOf, iso, toConnectConnection } from "./vercel-connect-map.js";
 import {
   type VercelAuthorizeResult,
@@ -37,12 +44,6 @@ import {
   teamQuery,
 } from "./vercel-connect-ops.js";
 import { connectRelayConfigured, relayFetch } from "./vercel-connect-relay.js";
-import {
-  ConnectError,
-  rememberConnector,
-  requireAuth,
-  requireTransport,
-} from "./vercel-connect.js";
 
 export type ConnectorDetail = {
   id: string;
@@ -250,11 +251,24 @@ export async function updateConnector(
   return detail;
 }
 
-function relayCallback(id: string): string | undefined {
+async function relayCallback(id: string): Promise<{
+  callbackUrl?: string;
+  guestReturnToken?: string;
+}> {
   const relay = connectCallbackBase().replace(/\/+$/, "");
-  return relay
-    ? `${relay}/api/connect/callback?return_to=${encodeURIComponent(connectReturnTo(id))}`
+  const guestReturnToken = relay ? crypto.randomUUID() : undefined;
+  const returnTo = guestReturnToken
+    ? await prepareGuestProviderReturn(
+        "vercel",
+        guestReturnToken,
+        connectReturnTo(id),
+        id,
+      )
+    : "";
+  const callbackUrl = relay
+    ? `${relay}/api/connect/callback?return_to=${encodeURIComponent(returnTo)}`
     : undefined;
+  return { callbackUrl, guestReturnToken };
 }
 
 /** Start an authorization for a person (default) or the app itself. */
@@ -263,7 +277,7 @@ export async function authorizeConnectorAs(
   subject: ConnectSubject,
   scopes: readonly string[],
 ): Promise<VercelAuthorizeResult> {
-  const callbackUrl = relayCallback(id);
+  const { callbackUrl, guestReturnToken } = await relayCallback(id);
   const relayed: JsonObject = { connectorId: id, subject, scopes: [...scopes] };
   if (callbackUrl) relayed.callbackUrl = callbackUrl;
   const reply = connectRelayConfigured()
@@ -286,6 +300,7 @@ export async function authorizeConnectorAs(
   }
   return {
     authorizationUrl: url,
+    guestReturnToken,
     expiresAt: answer.expiresAt
       ? iso(answer.expiresAt)
       : new Date(Date.now() + 600_000).toISOString(),
