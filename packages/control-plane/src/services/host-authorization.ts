@@ -41,6 +41,44 @@ export type HostAuthorizationPending = {
   expiresAt: Date;
 };
 
+function validChallenge(
+  ctx: AppContext,
+  challenge: Challenge,
+  now: number,
+): boolean {
+  const origin = new URL(challenge.origin);
+  return !(
+    !ctx.hostAuthorizationAudiences.includes(challenge.host_audience) ||
+    origin.origin !== challenge.origin ||
+    origin.username ||
+    origin.password ||
+    (origin.protocol !== "https:" &&
+      (origin.protocol !== "http:" || !loopbackHost(origin.hostname))) ||
+    challenge.expires_at * 1000 <= now ||
+    challenge.expires_at * 1000 > now + 300_000
+  );
+}
+
+type Membership = Awaited<
+  ReturnType<AppContext["stores"]["organizationMemberships"]["findVersioned"]>
+>;
+
+function validMembership(
+  ctx: AppContext,
+  pending: HostAuthorizationPending,
+  membership: Membership,
+  now: number,
+): membership is NonNullable<Membership> {
+  return Boolean(
+    membership &&
+      !membership.withdrawal &&
+      membership.incarnation === pending.membershipIncarnation &&
+      membership.authorityRevision === pending.authorityRevision &&
+      now < pending.challenge.expires_at &&
+      ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience),
+  );
+}
+
 export function hostAuthorizationAudiences(
   env: NodeJS.ProcessEnv,
   production: boolean,
@@ -108,17 +146,7 @@ export async function beginHostAuthorization(
   challenge: Challenge,
 ) {
   const now = ctx.clock().getTime();
-  const origin = new URL(challenge.origin);
-  if (
-    !ctx.hostAuthorizationAudiences.includes(challenge.host_audience) ||
-    origin.origin !== challenge.origin ||
-    origin.username ||
-    origin.password ||
-    (origin.protocol !== "https:" &&
-      (origin.protocol !== "http:" || !loopbackHost(origin.hostname))) ||
-    challenge.expires_at * 1000 <= now ||
-    challenge.expires_at * 1000 > now + 300_000
-  )
+  if (!validChallenge(ctx, challenge, now))
     throw new Error("Host challenge refused");
   const membership = await ctx.stores.organizationMemberships.findVersioned(
     challenge.organization_id,
@@ -230,14 +258,7 @@ export async function completeHostAuthorization(
     principalId,
   );
   const now = Math.floor(ctx.clock().getTime() / 1000);
-  if (
-    !membership ||
-    membership.withdrawal ||
-    membership.incarnation !== pending.membershipIncarnation ||
-    membership.authorityRevision !== pending.authorityRevision ||
-    now >= pending.challenge.expires_at ||
-    !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)
-  )
+  if (!validMembership(ctx, pending, membership, now))
     throw new Error("Host authorization refused");
   const jwk = hostSigningJwk(ctx);
   const key = await importJWK(jwk, "RS256");

@@ -43,7 +43,6 @@ export interface StartedControlPlane {
 
 /** /token is a form exchange; a megabyte is already far beyond any grant. */
 const MAX_TOKEN_BODY_BYTES = 1024 * 1024;
-
 /**
  * Read a request body with a hard cap before buffering it.
  *
@@ -86,7 +85,6 @@ const ORIGIN_ADMISSIONS_GLOBAL = 300;
 const ORIGIN_ADMISSION_MAX_KEYS = 2048;
 const ORIGIN_ADMISSION_GLOBAL_KEY = "__global__";
 let originAdmissionsByContext = new WeakMap<object, Map<string, number[]>>();
-
 function consumeOriginAdmission(
   contextKey: ReturnType<typeof createControlPlane>["ctx"],
   clientId: string,

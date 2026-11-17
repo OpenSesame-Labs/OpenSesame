@@ -65,15 +65,14 @@ function eventInput(intent: OrganizationWithdrawalAuditIntent) {
   };
 }
 
-async function linkedAudit(
-  ctx: AppContext,
-  intent: OrganizationWithdrawalAuditIntent,
-): Promise<boolean> {
-  const expected = eventInput(intent);
-  const event = await ctx.repos.auditEvents.getById(expected.id);
+function matchesAudit(
+  event: NonNullable<
+    Awaited<ReturnType<AppContext["repos"]["auditEvents"]["getById"]>>
+  >,
+  expected: ReturnType<typeof eventInput>,
+): boolean {
   const metadata = redactAuditMetadata(expected.metadata);
-  if (
-    !event ||
+  return !(
     event.eventType !== expected.eventType ||
     event.outcome !== expected.outcome ||
     event.actorType !== expected.actorType ||
@@ -85,8 +84,16 @@ async function linkedAudit(
     ) ||
     !event.previousDigest ||
     event.digest !== auditEventDigest(event, event.previousDigest)
-  )
-    return false;
+  );
+}
+
+async function linkedAudit(
+  ctx: AppContext,
+  intent: OrganizationWithdrawalAuditIntent,
+): Promise<boolean> {
+  const expected = eventInput(intent);
+  const event = await ctx.repos.auditEvents.getById(expected.id);
+  if (!event?.previousDigest || !matchesAudit(event, expected)) return false;
   let previous = event.previousDigest;
   const visited = new Set<string>([event.digest ?? ""]);
   while (previous !== AUDIT_CHAIN_GENESIS) {
