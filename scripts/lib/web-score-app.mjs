@@ -2,11 +2,17 @@ import { chromium } from "@playwright/test";
 import { realVisitorChromeArgs } from "./web-score-common.mjs";
 
 /** A score cannot pass for a static placeholder or a failed app bootstrap. */
-export async function checkAppReady({ chrome, targetUrl, noSandbox }) {
-  const browser = await chromium.launch({
+export async function checkAppReady({
+  chrome,
+  targetUrl,
+  noSandbox,
+  browserType = chromium,
+}) {
+  const browser = await browserType.launch({
     executablePath: chrome,
     headless: true,
-    args: [...realVisitorChromeArgs, ...(noSandbox ? ["--no-sandbox"] : [])],
+    chromiumSandbox: !noSandbox,
+    args: realVisitorChromeArgs,
   });
   try {
     const context = await browser.newContext();
