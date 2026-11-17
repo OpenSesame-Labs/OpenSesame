@@ -394,5 +394,6 @@ bench = false
 # RUSTSEC-2026-0374: upstream consumer migrations replace unmaintained basic-toml
 # with maintained toml; immutable pins until those fixes reach crates.io.
 [patch.crates-io]
+keepass = { path = "../../../patches/vendor/keepass-0.17.0" }
 sqlx-sqlite = { path = "../../../patches/vendor/sqlx-sqlite-0.9.0" }
 i18n-config = { git = "https://github.com/kellpossible/cargo-i18n", rev = "2ce7b1dfe9a8cc224288bf50cbc2a67a6de863c4" }
