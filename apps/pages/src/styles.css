@@ -1261,16 +1261,14 @@ body {
 
 @media (max-width: 900px) {
   /* Keep the phone's Add button clear while its vault list is showing. */
-  .toasts {
-    inset-inline-end: auto;
-    right: max(1rem, env(safe-area-inset-right, 0px));
-  }
-
   .toasts--vault-list {
+    inset-inline-end: auto;
     inline-size: min(
       22rem,
       calc(
-        100vw - 6.5rem - env(safe-area-inset-left, 0px) -
+        100vw -
+        6.5rem -
+        env(safe-area-inset-left, 0px) -
         env(safe-area-inset-right, 0px)
       )
     );

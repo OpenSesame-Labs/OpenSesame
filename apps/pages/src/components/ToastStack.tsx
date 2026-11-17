@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router";
 import { landFocus } from "../lib/focus.js";
 import { ringDesktopNotice, tabAway } from "../lib/notice-desktop.js";
+import { useNarrow } from "../lib/use-narrow.js";
 import { vaultPane } from "../lib/vault-list-path.js";
 import { IconKey } from "./IconKey.js";
 import { IconAlert, IconArrowRight, IconInfo, IconX } from "./Icons.js";
@@ -64,6 +65,7 @@ export function withinLimit(
 /** Keep the phone's fixed toast away from the vault's fixed controls. */
 function useToastPlacement(): { className: string; editing: boolean } {
   const location = useLocation();
+  const narrow = useNarrow();
   const besideAdd =
     vaultPane(location.pathname, new URLSearchParams(location.search)) ===
     "list";
@@ -72,7 +74,7 @@ function useToastPlacement(): { className: string; editing: boolean } {
     matchPath("/vault/:itemId/edit", location.pathname) !== null;
   return {
     className: `toasts${besideAdd ? " toasts--vault-list" : ""}${aboveEditor ? " toasts--vault-editor" : ""}`,
-    editing: aboveEditor,
+    editing: narrow && aboveEditor,
   };
 }
 
@@ -96,6 +98,15 @@ function useShownToasts(editing: boolean) {
   const dismiss = useCallback((id: string) => {
     setShown((current) => current.filter((item) => item.id !== id));
   }, []);
+  useEffect(() => {
+    if (!editing) {
+      setShown((current) =>
+        current.length <= TOAST_LIMIT
+          ? current
+          : current.reduce<ToastMessage[]>(withinLimit, []),
+      );
+    }
+  }, [editing]);
   const visible = useMemo(() => {
     const eligible = editing ? shown.filter((toast) => !toast.sticky) : shown;
     return eligible.length <= TOAST_LIMIT
