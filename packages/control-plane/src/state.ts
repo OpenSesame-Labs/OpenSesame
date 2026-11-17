@@ -102,6 +102,10 @@ export interface AppStores {
   principalSessionEpochs: SecurityMap<PrincipalSessionFence>;
   /** session token → session id */
   provisionalTokens: SecurityMap<string>;
+  /** Single-use, verifier-bound magic-link completions. */
+  magicLinkExchanges: SecurityMap<
+    import("./services/magic-link-exchange.js").MagicLinkExchange
+  >;
   /**
    * Durable project rows (WP-8). Memory-backed in tests/dev, Postgres when a
    * database is configured — same interface either way.
@@ -234,6 +238,7 @@ export function createAppStores(options?: {
     organizationWithdrawalAudits: new Map(),
     principalSessionEpochs: new Map(),
     provisionalTokens: new Map(),
+    magicLinkExchanges: new Map(),
     projects: projectStores.projects,
     projectMemberships: projectStores.projectMemberships,
     authorityMembershipEdges:
