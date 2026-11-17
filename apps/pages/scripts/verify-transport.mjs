@@ -152,8 +152,9 @@ async function cacheJourney(page) {
   await page.waitForTimeout(800);
   const locked = await snap(page, "cache-locked", { fullPage: false });
   check(
-    (await page.getByRole("button", { name: /^Unlock$/ }).count()) >= 1,
-    "the unlock screen is the same local gate",
+    (await page.getByRole("button", { name: "Continue as guest" }).count()) >=
+      1,
+    "the guest screen offers a new local session",
   );
   check(
     !/\btransport\b|\bmTLS\b/i.test(locked),

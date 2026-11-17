@@ -19,6 +19,7 @@ function pointStep(probe, overrides = {}) {
     degraded: false,
     notOnScreen: false,
     text: "Press this.",
+    textReadable: true,
     card: box(400, 300, 300, 120),
     ring: box(20, 20, 40, 40),
     control: box(26, 26, 28, 28),
@@ -75,6 +76,15 @@ describe("the lit control's reach", () => {
   it("fails when no part of the control is visible inside the aperture", () => {
     const checks = stepChecks(pointStep({ visible: false }), { phone: false });
     expect(checks.some(([ok]) => !ok)).toBe(true);
+  });
+
+  it("fails when a card clips its instruction", () => {
+    const checks = stepChecks(pointStep(onControl, { textReadable: false }), {
+      phone: true,
+    });
+    expect(
+      checks.some(([ok, what]) => !ok && what.includes("instruction")),
+    ).toBe(true);
   });
 
   it("asks nothing of the control for a step that points at nothing", () => {

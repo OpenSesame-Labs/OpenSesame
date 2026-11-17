@@ -1,27 +1,10 @@
 #!/usr/bin/env node
 import { privateTempDir } from "./lib/private-files.mjs";
 /**
- * Every tutorial, walked end to end in a real browser (ADR 0163, ADR 0166).
- *
- * The Support sheet's Tutorials tab is the only way in: this suite lists what
- * the product offers, starts each one from its row, and gets through it with
- * Next alone — by mouse on one step and by keyboard on the next — checking on
- * every step that the card is whole and inside the screen, that Next is
- * there, that the steps are numbered 1..N with none skipped, and that the
- * control being pointed at is lit, visible, uncovered and reachable through
- * the aperture. Then it goes Back, Replays, finishes with
- * Done and checks where focus went. It does this at desktop and phone width,
- * on the shell with every optional capability switched on, and on the gates:
- * the front door, setup, sign-in, unlock and the broker and federation
- * screens each draw a help key (ADR 0166), and the gate pass starts every
- * tutorial a gate offers from that key, on the real screen. It also leaves a
- * tour with Escape from the card and from the lit control, and makes the move
- * an action step waits for through the aperture. The
- * control a step lights is found by its registry target id, and a pointer at
- * its visible centre must reach it, not the card, the dim or anything else.
- *
- * A step whose control is missing degrades to text for a person; here it is a
- * failure, because a tutorial that points at nothing is the bug.
+ * Walk every offered tutorial at desktop and phone widths (ADR 0163, 0166).
+ * Verify numbered steps, visible and reachable targets, card placement,
+ * mouse and keyboard navigation, replay, escape and required actions. A
+ * missing target is a failure even when the product falls back to text.
  *
  *   VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
  *   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium \
@@ -47,12 +30,21 @@ import { passTheDoor } from "./lib/front-door.mjs";
 import { sealLocalOnly } from "./lib/pages-journey.mjs";
 import { inShard, isFirstShard, parseShard } from "./lib/shard.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
+import {
+  runFirstVaultPass,
+  walkFirstItem,
+} from "./lib/tutorial-first-vault.mjs";
 import { gatePass, popupPass } from "./lib/tutorial-gates.mjs";
+import { walkGuestPassword } from "./lib/tutorial-guest-password.mjs";
 import {
   escapeEndsTheTour,
   moveAdvancesTheTour,
 } from "./lib/tutorial-interact.mjs";
+import { createTutorialPageFactory, isPhone } from "./lib/tutorial-page.mjs";
+import { configureRecoveryCodes } from "./lib/tutorial-recovery-setup.mjs";
 import { seedVault } from "./lib/tutorial-seed.mjs";
+import { configureSignInService } from "./lib/tutorial-signin-service.mjs";
+import { verifyEmptyTrash } from "./lib/tutorial-trash-empty.mjs";
 import {
   listTutorials,
   resetToVault,
@@ -120,26 +112,7 @@ const browser = devUrl
     })
   : await harness.launch();
 
-const PHONE = {
-  viewport: { width: 390, height: 844 },
-  hasTouch: true,
-  isMobile: true,
-  deviceScaleFactor: 2,
-};
-
-async function newPage(width) {
-  const device = width < 600 ? PHONE : { viewport: { width, height: 900 } };
-  if (!devUrl) {
-    const made = await harness.newPage(browser, { device });
-    return made;
-  }
-  const context = await browser.newContext(device);
-  const page = await context.newPage();
-  page.on("pageerror", (error) =>
-    harness.record("PAGE-ERROR", String(error.message).slice(0, 300)),
-  );
-  return { page, context };
-}
+const newPage = createTutorialPageFactory({ browser, devUrl, harness });
 
 const say = (line) => {
   if (verbose) console.log(line);
@@ -181,6 +154,14 @@ async function sealedShell(width) {
   await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
   await unlockIfLocked(page);
   await resetToVault(page, base);
+  if (process.env.TUTORIALS_CONFIGURE_SIGNIN_SERVICE === "1") {
+    await configureSignInService(page, { origin, base });
+    await resetToVault(page, base);
+  }
+  if (process.env.TUTORIALS_CONFIGURE_RECOVERY === "1") {
+    await configureRecoveryCodes(page, { base });
+    await resetToVault(page, base);
+  }
   return made;
 }
 
@@ -211,7 +192,7 @@ async function walkGate(page, entry, { phone, width }) {
 const helpers = { say, wants, walkGate, guarded };
 
 async function shellPass(width) {
-  const phone = width < 600;
+  const phone = isPhone(width);
   where = `${width}px shell`;
   const { page, context } = await sealedShell(width);
   const listed = await listTutorials(page);
@@ -237,13 +218,33 @@ async function shellPass(width) {
       moveAdvancesTheTour(page, { check, base }),
     );
   }
-  await walkEntries(page, entries, { phone, width });
+  await walkEntries(
+    page,
+    entries.filter((entry) => entry.id !== "vault.item.first"),
+    { phone, width },
+  );
+  const firstItemContext = {
+    width,
+    phone,
+    sealedShell,
+    guarded,
+    origin,
+    check,
+    out,
+    keepShots,
+  };
+  where = `${width}px first item`;
+  await walkFirstItem(entries, firstItemContext);
   // A tutorial that points at an item is offered only where the vault holds
   // one, so a second pass adds items the way a person does and walks what the
   // library offers then that it did not before.
   const walked = new Set(entries.map((entry) => entry.id));
   where = `${width}px seed`;
-  await guarded(page, "seed", () => seedVault(page, base));
+  const checkEmptyTrash =
+    process.env.TUTORIALS_TRASH_EMPTY === "1" && wants("vault.item.trash")
+      ? () => verifyEmptyTrash(page, { check, walkOne, phone, width })
+      : undefined;
+  await guarded(page, "seed", () => seedVault(page, base, checkEmptyTrash));
   const later = (await listTutorials(page)).filter(
     (entry) =>
       !walked.has(entry.id) &&
@@ -254,7 +255,9 @@ async function shellPass(width) {
   await walkEntries(page, later, { phone, width });
   const seconds = Math.round((Date.now() - started) / 1000);
   const total = entries.length + later.length;
-  check(total > 0, "the library offers tutorials");
+  if (only.size === 0 || [...only].some((id) => !id.startsWith("gate."))) {
+    check(total > 0, "the library offers tutorials");
+  }
   console.log(`${width}px: ${total} tutorials walked in ${seconds}s`);
   if (gatesWanted) {
     const popupsBegan = Date.now();
@@ -301,7 +304,7 @@ async function walkEntries(page, entries, { phone, width }) {
 
 async function gateScreens(width) {
   const began = Date.now();
-  const phone = width < 600;
+  const phone = isPhone(width);
   where = `${width}px gates`;
   try {
     await gatePass({
@@ -310,6 +313,7 @@ async function gateScreens(width) {
       newPage,
       origin,
       base,
+      out,
       check,
       setWhere: (next) => {
         where = next;
@@ -320,9 +324,23 @@ async function gateScreens(width) {
   } catch (error) {
     check(
       false,
-      `gates: walking threw — ${String(error.message).split("\n")[0]}`,
+      `gates: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
     );
   }
+  if (wants("gate.front-door")) {
+    await runFirstVaultPass({
+      newPage,
+      width,
+      origin,
+      base,
+      check,
+      phone,
+      out,
+      keepShots,
+    });
+  }
+  const guestContext = { phone, wants, newPage, width, origin, base, check };
+  await walkGuestPassword(guestContext);
   console.log(
     `${width}px: gates walked in ${Math.round((Date.now() - began) / 1000)}s`,
   );
@@ -330,7 +348,9 @@ async function gateScreens(width) {
 
 try {
   for (const width of widths) {
-    await shellPass(width);
+    if (only.size === 0 || [...only].some((id) => !id.startsWith("gate."))) {
+      await shellPass(width);
+    }
     if (gatesWanted) await gateScreens(width);
   }
 } finally {

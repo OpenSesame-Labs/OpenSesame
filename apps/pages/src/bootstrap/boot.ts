@@ -18,8 +18,8 @@ import {
   vaultIdOf,
 } from "@opensesame/app-core/lib/capabilities/invalidation.js";
 import { vaultSelectionKey } from "@opensesame/app-core/lib/capabilities/keys.js";
-import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { captureAliasArrivalFromPage } from "@opensesame/app-core/lib/ceremony-aliases.js";
 import {
   bindClaimLockReset,
@@ -29,6 +29,8 @@ import { deadmanBootKeys } from "@opensesame/app-core/lib/deadman/keys.js";
 import { captureDeviceLinkFromPage } from "@opensesame/app-core/lib/device-link.js";
 import { resumeWipeAtBoot } from "@opensesame/app-core/lib/duress/wipe/real.js";
 import { restoreConfiguredIdentityAtBootIfPresent } from "@opensesame/app-core/lib/federation-configured-lazy.js";
+import { ensureGuestSignOutOwner } from "@opensesame/app-core/lib/guest-return-barrier.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { captureInteractionArrivalFromPage } from "@opensesame/app-core/lib/interactions-link.js";
 import { captureInvocationArrivalFromPage } from "@opensesame/app-core/lib/invoke-link.js";
 import {
@@ -36,7 +38,7 @@ import {
   watchInviteArrivals,
 } from "@opensesame/app-core/lib/join/invite.js";
 import { kvHydrate } from "@opensesame/app-core/lib/kv.js";
-import { lastVaultIsGuest } from "@opensesame/app-core/lib/last-vault.js";
+import { lastGuestVaultId } from "@opensesame/app-core/lib/last-vault.js";
 import {
   activeProject,
   listProjects,
@@ -49,6 +51,7 @@ import {
 } from "@opensesame/app-core/lib/runtime-config.js";
 import { restorePacks } from "@opensesame/app-core/lib/type-packs/restore.js";
 import { watchVaultTypes } from "@opensesame/app-core/lib/type-packs/watch.js";
+import { recoverIncompleteGuestVaults } from "@opensesame/app-core/lib/vault/guest-vault-promotion.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   migrateLegacyVaultStorage,
@@ -57,6 +60,7 @@ import {
 import {
   GUEST_TOMB,
   HEADER_PATH,
+  listTombs,
   tombFileKey,
 } from "@opensesame/app-core/lib/vfs.js";
 import { bootstrapTheme } from "../lib/theme.js";
@@ -83,7 +87,7 @@ async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   return runtimeConfig;
 }
 
-export async function bootCore(): Promise<CoreBoot> {
+function captureArrivals(): void {
   // An invite's bearer leaves the address bar before anything else runs or
   // paints: history, a bookmark or a shared screen must never carry it.
   captureInviteFromPage();
@@ -113,12 +117,21 @@ export async function bootCore(): Promise<CoreBoot> {
   // leaves the query here and is held in memory for the hand-off, never
   // fetched (ADR 0140 plan step 10).
   captureInvocationArrivalFromPage();
+}
+
+export async function bootCore(): Promise<CoreBoot> {
+  captureArrivals();
   // Every stored value is sealed under the device's at-rest key (ADR 0149):
   // wait for it, then seal whatever an older build left in the clear, before
   // anything is read or hydrated.
   await atRestReady();
   sealLegacyWebStorage("local");
   sealLegacyWebStorage("session");
+  try {
+    ensureGuestSignOutOwner();
+  } catch {
+    // Session-only entry remains available when browser storage is disabled.
+  }
   await sealLegacyOriginFiles();
   // OPFS is async and the store reads its header synchronously, so pull the
   // persisted keys into the KV cache and re-read before the first paint.
@@ -133,6 +146,9 @@ export async function bootCore(): Promise<CoreBoot> {
   // vault it had already unlisted is never offered at the unlock screen
   // (ADR 0168). Nothing happens when none began.
   await resumeWipeAtBoot();
+  // A crash during guest protection may leave a reserved but unfinished tomb.
+  // Recovery keeps anything with a header or an active session untouched.
+  await recoverIncompleteGuestVaults(listTombs());
   // The active project's plaintext boundary is what legacy storage migrates
   // into. But the tomb the unlock screen will ask about is the guest tomb
   // when that was the last authorized account (AGENTS.md §5), so its header
@@ -140,7 +156,7 @@ export async function bootCore(): Promise<CoreBoot> {
   // enrolled gate unreadable on reload, and the unlock form then offered a
   // road with no challenge behind it (#467).
   const tomb = activeProject().id;
-  const guestTomb = lastVaultIsGuest() ? GUEST_TOMB : null;
+  const guestTomb = lastGuestVaultId();
   await kvHydrate([
     ...projectScopedKeys(),
     ...tombStorageKeys(tomb),
@@ -155,6 +171,9 @@ export async function bootCore(): Promise<CoreBoot> {
     // The duress code is checked against every header on the device, so this
     // one is read whichever account was last, not only when it was the guest.
     tombFileKey(GUEST_TOMB, HEADER_PATH),
+    ...listTombs()
+      .filter(isGuestVaultId)
+      .map((id) => tombFileKey(id, HEADER_PATH)),
   ]);
   // Move any legacy flat vault keys into the tomb before the store reads it.
   // Pre-unlock this is plaintext moves only (header params, sealed body
