@@ -40,10 +40,12 @@ type GoVerbInput = {
   awaitingSecondStep: boolean;
   awaitingPasskeyDuressCode: boolean;
   guestUnlock: boolean;
+  guestKeyless: boolean;
   activeMethod: UnlockTabId;
 };
 
 function busyVerb(input: GoVerbInput): string {
+  if (input.guestKeyless) return "Continuing as guest…";
   if (input.firstRun) {
     if (input.activeMethod === "passkey") return "Waiting for passkey…";
     if (input.activeMethod === "pin") return "Sealing…";
@@ -69,6 +71,7 @@ const UNLOCK_VERB = {
 /** Sentence for the unlock `.go` key — lives in aria-label / title, not on the face. */
 export function unlockGoVerb(input: GoVerbInput): string {
   if (input.busy) return busyVerb(input);
+  if (input.guestKeyless) return "Continue as guest";
   if (input.firstRun) {
     if (input.activeMethod === "passkey") return "Seal with passkey";
     if (input.activeMethod === "pin") return "Seal with PIN";
@@ -84,8 +87,10 @@ export function unlockTitle(input: {
   signIn: boolean;
   firstRun: boolean;
   awaitingSecondStep: boolean;
+  guestKeyless: boolean;
 }): string {
   if (input.signIn) return "Sign in";
+  if (input.guestKeyless) return "Guest vault cleared";
   if (input.firstRun) return "Seal this device";
   if (input.awaitingSecondStep) return "Confirm it is you";
   return "Unlock";

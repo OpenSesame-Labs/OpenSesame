@@ -1,15 +1,3 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-/** @vitest-environment jsdom */
-import { identityHookSeams } from "../bindings/identity.js";
-import { expectInTray } from "../components/tray.test-support.js";
-
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
 import { guestAuthSeams } from "@opensesame/app-core/lib/guest-auth.js";
@@ -21,6 +9,17 @@ import {
 } from "@opensesame/app-core/lib/settings.js";
 import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { isFunction } from "@opensesame/os-domain";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment jsdom */
+import { identityHookSeams } from "../bindings/identity.js";
+import { expectInTray } from "../components/tray.test-support.js";
 
 /**
  * The front door (ADR 0115, ADR 0150 §1): two roads made large — set up your
@@ -181,6 +180,8 @@ describe("the front door", () => {
     const skip = screen.getByRole("button", {
       name: "Skip sign-in and continue as guest",
     });
+    expect(skip.getAttribute("aria-describedby")).toBe("door-guest-note");
+    expect(screen.getByText(/temporary guest session/)).toBeTruthy();
     fireEvent.click(skip);
     expect(continueAsGuest).toHaveBeenCalledTimes(1);
     // The card is busy until the guest road settles, then it is free again.

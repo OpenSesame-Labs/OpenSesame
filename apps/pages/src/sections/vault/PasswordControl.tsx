@@ -9,6 +9,7 @@ import {
   IconRefresh,
   IconSettings,
 } from "../../components/Icons.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import {
   holdValue,
   regenerate,
@@ -29,20 +30,19 @@ export function PasswordControl({
   method,
   onEdit,
   options,
-  onGenerate,
 }: {
   method: PasswordMethod;
   onEdit: (next: PasswordMethod) => void;
   /** The key that opens the generator's options, and whether they are open. */
   options: { open: boolean; controls: string; onToggle: () => void };
-  /**
-   * Agent-driven reset for a saved account with a web login origin. Resolves
-   * true when the reset handoff handled the key (queued or prompted to
-   * configure); absent or false keeps the local regenerate.
-   */
-  onGenerate?: (() => Promise<boolean>) | undefined;
 }) {
   const [reveal, setReveal] = useState(false);
+  const generateRef = useGuideTarget<HTMLButtonElement>(
+    "editor.generate-password",
+  );
+  const optionsRef = useGuideTarget<HTMLButtonElement>(
+    "editor.password-options",
+  );
   const { generator } = method;
   return (
     <div className="editor__inline editor__inline--adorned">
@@ -65,19 +65,15 @@ export function PasswordControl({
       {GENERATED.has(generator.id) ? (
         <IconKey
           label="Generate another password"
+          keyRef={generateRef}
           onClick={() => {
-            void (async () => {
-              if (onGenerate && (await onGenerate())) return;
-              const made =
-                generator.id === "derived"
-                  ? rotate(method)
-                  : regenerate(method);
-              if (made) {
-                onEdit(made);
-                setReveal(true);
-                signalRecommendation("password.generated");
-              }
-            })();
+            const made =
+              generator.id === "derived" ? rotate(method) : regenerate(method);
+            if (made) {
+              onEdit(made);
+              setReveal(true);
+              signalRecommendation("password.generated");
+            }
           }}
         >
           <IconRefresh size={17} />
@@ -85,6 +81,7 @@ export function PasswordControl({
       ) : null}
       <IconKey
         label="Password options"
+        keyRef={optionsRef}
         aria-expanded={options.open}
         aria-controls={options.controls}
         onClick={options.onToggle}

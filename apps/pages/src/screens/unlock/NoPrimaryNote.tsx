@@ -5,6 +5,16 @@
  * a standing condition with roads out (delete, or continue as a guest), not a
  * failed operation, so it never goes to the tray.
  */
-export function NoPrimaryNote() {
-  return <p className="hint">No key opens it.</p>;
+export function NoPrimaryNote({
+  unavailable = false,
+}: {
+  unavailable?: boolean;
+}) {
+  return (
+    <p className="hint">
+      {unavailable
+        ? "No available key can open this vault here."
+        : "No key opens it."}
+    </p>
+  );
 }

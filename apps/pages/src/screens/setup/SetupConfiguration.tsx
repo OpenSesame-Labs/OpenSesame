@@ -73,6 +73,7 @@ export function SetupConfiguration({
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const targetRef = useGuideTarget<HTMLFieldSetElement>("setup.configurations");
+  const defaultRef = useGuideTarget<HTMLButtonElement>("setup.default");
   const move = (event: KeyboardEvent, at: number) => {
     const step =
       event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -105,6 +106,7 @@ export function SetupConfiguration({
             key={choice.id}
             ref={(node) => {
               refs.current[at] = node;
+              if (choice.id === "default") defaultRef(node);
             }}
             type="button"
             className={choice.recommended ? "road road--lead" : "road"}

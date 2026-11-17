@@ -21,8 +21,8 @@
  */
 
 import { clearAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
-import { continueAsGuest } from "@opensesame/app-core/lib/guest-auth.js";
 import { useEffect, useRef, useState } from "react";
+import { useGuestsAllowed } from "../bindings/guest-access.js";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { GateTools } from "../components/GateTools.js";
 import { IconAuthority } from "../components/Icons.js";
@@ -35,6 +35,7 @@ import { useSupportRoute } from "../tutorial/session.js";
 import { RequirementsGate } from "./capabilities/RequirementsGate.js";
 import { JoinRoadButton } from "./join/JoinRoad.js";
 import { GuestSkip } from "./unlock/GuestRoad.js";
+import { startGuestSession } from "./unlock/guest-entry.js";
 import { useIdleDial } from "./unlock/IdleDial.js";
 import { ImportRoadButton } from "./unlock/ImportRoad.js";
 import { PendingLinkBanner } from "./unlock/PendingLinkBanner.js";
@@ -71,7 +72,7 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
     setGuestFailed(null);
     setBusy(true);
     clearAuthOutcome();
-    void continueAsGuest()
+    void startGuestSession()
       .catch((caught) =>
         setGuestFailed(
           caught instanceof Error ? caught.message : "Guest login failed.",
@@ -89,10 +90,7 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
         <GuestSkip busy={busy} onGuest={startGuest} lands />
         <PendingLinkBanner />
         <GateNoticeSeat />
-        <header className="door__hero">
-          <Wordmark as="h1" className="door__wordmark" fit={HERO_FIT} />
-          <p className="door__lede">Set up your own vault, or join one.</p>
-        </header>
+        <DoorHero />
 
         {/* A managed instance's required roots, when this deployment has
             any nobody has accepted yet. Never in front of sign-in. */}
@@ -143,5 +141,21 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
       </div>
       <ReleaseNotes ref={notesRef} />
     </div>
+  );
+}
+
+function DoorHero() {
+  const guestsAllowed = useGuestsAllowed();
+  return (
+    <header className="door__hero">
+      <Wordmark as="h1" className="door__wordmark" fit={HERO_FIT} />
+      <p className="door__lede">Set up your own vault, or join one.</p>
+      {guestsAllowed ? (
+        <p className="door__lede" id="door-guest-note">
+          Skip starts a temporary guest session. Its items are lost when you
+          lock the vault or close the tab unless you add a vault key.
+        </p>
+      ) : null}
+    </header>
   );
 }

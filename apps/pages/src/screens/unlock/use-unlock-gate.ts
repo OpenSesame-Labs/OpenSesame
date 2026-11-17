@@ -17,6 +17,7 @@
  */
 
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
+import { useCallback, useRef } from "react";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { useSupportRoute } from "../../tutorial/session.js";
 
@@ -53,4 +54,17 @@ export function useUnlockTargets() {
     setupRef: useGuideTarget<HTMLButtonElement>("unlock.setup"),
     methodsRef: useGuideTarget<HTMLDivElement>("unlock.methods"),
   };
+}
+
+export function useSealGuideForm(firstRun: boolean) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const guideRef = useGuideTarget<HTMLFormElement>("unlock.seal");
+  const bindForm = useCallback(
+    (element: HTMLFormElement | null) => {
+      formRef.current = element;
+      guideRef(firstRun ? element : null);
+    },
+    [firstRun, guideRef],
+  );
+  return { formRef, bindForm };
 }

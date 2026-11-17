@@ -42,14 +42,20 @@ export function UnlockFoot({
 }) {
   return (
     <div className="unlock__foot">
+      {guestKeyless && !showSignIn ? (
+        <output className="note note--warn">
+          <span>
+            Items in the guest vault were lost when it locked. Your guest
+            connections may still be available.
+          </span>
+        </output>
+      ) : null}
       {offerSignIn ? (
         <button type="button" className="unlock__switch" onClick={onSignIn}>
           Sign in instead
         </button>
       ) : null}
-      {/* Guest tomb beside a sealed vault (GuestRoad.tsx). Not on
-            sign-in or a keyless tomb — Unlock resumes that tomb. Allow
-            guests is the only gate (AGENTS.md §5). */}
+      {/* A keyless guest already has a start action on the form. */}
       {!firstRun && !showSignIn ? <DeadmanSwitchRoad /> : null}
       {!firstRun && !showSignIn && !showReset ? (
         <GuestUnlockSwitch
@@ -59,7 +65,7 @@ export function UnlockFoot({
           hidden={guestKeyless}
         />
       ) : null}
-      {!firstRun && !showSignIn ? (
+      {!firstRun && !showSignIn && !guestKeyless ? (
         <ResetVault
           open={showReset}
           onOpen={onAskReset}
