@@ -4,6 +4,8 @@
 
 mod config;
 mod grant_tuples;
+#[cfg(any(test, feature = "testkit"))]
+pub mod testkit;
 
 use async_trait::async_trait;
 pub use config::assert_pdp_base_url;
