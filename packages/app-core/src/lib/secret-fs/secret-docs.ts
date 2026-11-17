@@ -29,6 +29,7 @@ import {
   vaultSealBinding,
 } from "@opensesame/vault-core";
 import { Effect, Schema } from "effect";
+import { z } from "zod";
 import { SecretFsRejected } from "./errors.js";
 import type { Revision } from "./files.js";
 import { type SecretFileName, secretFilePath } from "./layout.js";
@@ -40,26 +41,62 @@ export const MANIFEST_FORMAT = "opensesame.vault";
 export const FOLDER_FORMAT = "opensesame.folder";
 export const CONCURRENCY = 8;
 
-const SealedSchema = Schema.Struct({
-  ivB64: Schema.String,
-  ctB64: Schema.String,
+const SealedRuntimeSchema = z.object({
+  ivB64: z.string(),
+  ctB64: z.string(),
 });
-/** `spec/secret-files/*.schema.json` is generated from these; a drift test holds them together. */
-export const SecretDoc = Schema.Struct({
-  format: Schema.Literal(SECRET_FORMAT),
-  version: Schema.Literal(1),
-  kind: Schema.String,
-  sealed: SealedSchema,
+
+function sealedSchema() {
+  return Schema.Struct({ ivB64: Schema.String, ctB64: Schema.String });
+}
+
+function secretSchema() {
+  return Schema.Struct({
+    format: Schema.Literal(SECRET_FORMAT),
+    version: Schema.Literal(1),
+    kind: Schema.String,
+    sealed: sealedSchema(),
+  });
+}
+
+function folderSchema() {
+  return Schema.Struct({
+    format: Schema.Literal(FOLDER_FORMAT),
+    version: Schema.Literal(1),
+    sealed: sealedSchema(),
+  });
+}
+
+function manifestSchema() {
+  return Schema.Struct({
+    format: Schema.Literal(MANIFEST_FORMAT),
+    version: Schema.Literal(1),
+    sealed: sealedSchema(),
+  });
+}
+
+/** `spec/secret-files/*.schema.json` is generated from these public schemas. */
+export const SecretDoc = /* @__PURE__ */ secretSchema();
+export const FolderDoc = /* @__PURE__ */ folderSchema();
+export const ManifestDoc = /* @__PURE__ */ manifestSchema();
+
+// Runtime validation has the same input and output contract as the public
+// schemas; differential tests hold both readers together.
+const RuntimeSecretDoc = z.object({
+  format: z.literal(SECRET_FORMAT),
+  version: z.literal(1),
+  kind: z.string(),
+  sealed: SealedRuntimeSchema,
 });
-export const FolderDoc = Schema.Struct({
-  format: Schema.Literal(FOLDER_FORMAT),
-  version: Schema.Literal(1),
-  sealed: SealedSchema,
+const RuntimeFolderDoc = z.object({
+  format: z.literal(FOLDER_FORMAT),
+  version: z.literal(1),
+  sealed: SealedRuntimeSchema,
 });
-export const ManifestDoc = Schema.Struct({
-  format: Schema.Literal(MANIFEST_FORMAT),
-  version: Schema.Literal(1),
-  sealed: SealedSchema,
+const RuntimeManifestDoc = z.object({
+  format: z.literal(MANIFEST_FORMAT),
+  version: z.literal(1),
+  sealed: SealedRuntimeSchema,
 });
 
 export type Listing = { id: string; file: string; rev: number };
@@ -136,26 +173,30 @@ type FolderDocBody = typeof FolderDoc.Type;
 export const encode = (doc: SecretDocBody | ManifestDocBody | FolderDocBody) =>
   new TextEncoder().encode(`${JSON.stringify(doc, null, 2)}\n`);
 
-const secretDocFile = Schema.fromJsonString(SecretDoc);
-const manifestDocFile = Schema.fromJsonString(ManifestDoc);
-const folderDocFile = Schema.fromJsonString(FolderDoc);
 const notOfThisFormat = (path: string) => () =>
   corrupt(path, "is not a file of this format");
 
+function decodeDoc<T>(bytes: Uint8Array, path: string, schema: z.ZodType<T>) {
+  return Effect.try({
+    try: () => {
+      const result = schema.safeParse(
+        JSON.parse(new TextDecoder().decode(bytes)),
+      );
+      if (!result.success) throw new Error("Invalid secret file");
+      return result.data;
+    },
+    catch: notOfThisFormat(path),
+  });
+}
+
 export const decodeSecretDoc = (bytes: Uint8Array, path: string) =>
-  Schema.decodeUnknownEffect(secretDocFile)(
-    new TextDecoder().decode(bytes),
-  ).pipe(Effect.mapError(notOfThisFormat(path)));
+  decodeDoc(bytes, path, RuntimeSecretDoc);
 
 export const decodeFolderDoc = (bytes: Uint8Array, path: string) =>
-  Schema.decodeUnknownEffect(folderDocFile)(
-    new TextDecoder().decode(bytes),
-  ).pipe(Effect.mapError(notOfThisFormat(path)));
+  decodeDoc(bytes, path, RuntimeFolderDoc);
 
 export const decodeManifestDoc = (bytes: Uint8Array, path: string) =>
-  Schema.decodeUnknownEffect(manifestDocFile)(
-    new TextDecoder().decode(bytes),
-  ).pipe(Effect.mapError(notOfThisFormat(path)));
+  decodeDoc(bytes, path, RuntimeManifestDoc);
 
 export const secretBinding = (tomb: string, id: string) =>
   vaultSealBinding(tomb, `secret/${id}`);
