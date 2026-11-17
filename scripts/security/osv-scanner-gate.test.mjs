@@ -29,6 +29,10 @@ function fixture(t) {
   ])
     copyFileSync(join(root, file), join(repo, file));
   writeFileSync(join(repo, "osv-scanner.toml"), "IgnoredVulns = []\n");
+  writeFileSync(
+    join(repo, "scripts/security/check-sqlx-scanner-coverage.py"),
+    'import os, sys\nsys.exit(int(os.environ.get("OSV_TEST_SQLX_COVERAGE_STATUS", "0")))\n',
+  );
   mkdirSync(join(repo, "tools/pwa-tailscale-native-http"), { recursive: true });
   writeFileSync(
     join(repo, "tools/pwa-tailscale-native-http/source.json"),
@@ -165,6 +169,15 @@ test("native source requires a successful package-graph audit", (t) => {
   const missing = gate.run();
   assert.notEqual(missing.status, 0);
   assert.doesNotMatch(missing.stdout, /CLEAN/);
+});
+
+test("the local SQLx replacement requires successful scanner coverage", (t) => {
+  const gate = fixture(t);
+  const failed = gate.run({ OSV_TEST_SQLX_COVERAGE_STATUS: "1" });
+  assert.notEqual(failed.status, 0);
+  assert.doesNotMatch(failed.stdout, /CLEAN/);
+  rmSync(join(gate.repo, "scripts/security/check-sqlx-scanner-coverage.py"));
+  assert.notEqual(gate.run().status, 0);
 });
 
 test("nested-workspace advisories fail even when scanner exits successfully", (t) => {
