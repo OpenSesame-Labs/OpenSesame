@@ -4,7 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -34,16 +34,23 @@ export function classifyNpmPublishResult(result, version) {
   return "failed";
 }
 
+function pinnedNpmCli() {
+  const cli = process.env.OPENSESAME_PINNED_NPM_CLI;
+  if (!cli || !isAbsolute(cli)) {
+    throw new Error("OPENSESAME_PINNED_NPM_CLI must name the verified npm CLI");
+  }
+  return cli;
+}
+
 /**
  * @param {string} packageName
  * @param {string} version
  */
 export function npmViewVersion(packageName, version) {
   const result = spawnSync(
-    "npx",
+    process.execPath,
     [
-      "-y",
-      "npm@11.21.1",
+      pinnedNpmCli(),
       "view",
       `${packageName}@${version}`,
       "version",
@@ -71,10 +78,9 @@ function sleepSync(ms) {
  */
 function runNpmPublish(cwd, distTag) {
   const result = spawnSync(
-    "npx",
+    process.execPath,
     [
-      "-y",
-      "npm@11.21.1",
+      pinnedNpmCli(),
       "publish",
       "--access",
       "public",

@@ -78,12 +78,20 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   assert.doesNotMatch(action, /--tag\s+latest/);
   assert.doesNotMatch(action, /dist-tag add/);
   assert.doesNotMatch(action, /npm install -g npm@/);
-  assert.match(action, /npx -y npm@11\.21\.1/);
-  assert.match(action, /Refusing dist-tag latest/);
+  assert.doesNotMatch(action, /npx(?:\s+-y)?\s+npm@/);
+  assert.match(action, /npm-11\.21\.1\.tgz/);
+  assert.match(action, /sha512sum --check --strict/);
   assert.match(
     action,
-    /test "\$\(npx -y npm@11\.21\.1 --version\)" = "11\.21\.1"/,
+    /613ccbe90044257c87713bb426251ced128ca7e9b3949b65eeb18b98445a5d441e14720c73d6ad76be86f4cf42f2f0d66efe347a9a13400ccd2f6fcfb5954385/,
   );
+  assert.match(action, /Refusing dist-tag latest/);
+  assert.match(action, /test "\$\(node "\$npm_cli" --version\)" = "11\.21\.1"/);
+  const install = action.slice(
+    action.indexOf("Install integrity-pinned npm"),
+    action.indexOf("Configure the npmjs registry"),
+  );
+  assert.doesNotMatch(install, /NPM_TOKEN|NODE_AUTH_TOKEN/);
   assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
   assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: false/);
   assert.doesNotMatch(cli, /cancel-in-progress: false/);
