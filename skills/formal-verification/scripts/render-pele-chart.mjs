@@ -137,7 +137,8 @@ async function main() {
   mkdirSync(args.outDir, { recursive: true });
   let mmd = readFileSync(resolve(args.mmd), "utf8");
   if (args.stripLegend) mmd = stripChartLegend(mmd);
-  if (args.theme) mmd = stripMermaidMarks(mmd);
+  const defaultMmd = mmd;
+  const themedMmd = args.theme ? stripMermaidMarks(mmd) : mmd;
 
   const base = resolve(args.mmd)
     .replace(/\.mmd$/i, "")
@@ -151,7 +152,7 @@ async function main() {
 
   for (const mode of modes) {
     const svgPath = join(args.outDir, `${base}.${mode}.svg`);
-    const svg = renderOne(pele, mmd, { theme: args.theme, mode });
+    const svg = renderOne(pele, themedMmd, { theme: args.theme, mode });
     writeFileSync(svgPath, svg);
     if (args.png) {
       writePng(svgPath, svgPath.replace(/\.svg$/, ".png"));
@@ -160,7 +161,7 @@ async function main() {
 
   if (args.theme && args.mode === "both") {
     const defPath = join(args.outDir, `${base}.default.svg`);
-    const defSvg = renderOne(pele, mmd, { theme: false, mode: "light" });
+    const defSvg = renderOne(pele, defaultMmd, { theme: false, mode: "light" });
     writeFileSync(defPath, defSvg);
     if (args.png) {
       writePng(defPath, defPath.replace(/\.svg$/, ".png"));
