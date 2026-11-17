@@ -17,7 +17,10 @@ describe("installPwaRefresh", () => {
     };
     vi.spyOn(pwaRefreshSeams, "host").mockReturnValue({
       document,
-      navigator: { serviceWorker: {} as ServiceWorkerContainer },
+      navigator: {
+        // SAFETY: installPwaRefresh only checks that a service worker container is present, so an empty object matches the part it reads.
+        serviceWorker: {} as ServiceWorkerContainer,
+      },
     });
     const check = vi.fn(async () => true);
     const dispose = installPwaRefresh(check);
