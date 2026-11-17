@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
  * #2610 evidence: behavior test main-fail, vault-shell profile PNGs, Playwright consent timing.
+ *
+ * The before shell is `git show origin/main:apps/pages/src/bindings/shell-ready.ts`.
+ * Full-profile timing only: `CONSENT_PROFILES=full`.
+ * A missing Playwright main-vs-fix delta warns; `app-root.shell-ready.test.tsx` stays authoritative.
  */
 
 import { spawnSync } from "node:child_process";
@@ -39,14 +43,23 @@ const behaviorTestSource = readFileSync(
 );
 if (!behaviorTestSource.includes("withdraws contributed")) {
   throw new Error(
-    "app-root.shell-ready.test.tsx lacks withdraws-contributed case; run collector on cursor/pwa-shell-ready-formal-ee3b (signed branch may lag land-signed-stack)",
+    "app-root.shell-ready.test.tsx lacks withdraws-contributed case; run collector on verify-formal-stack-main-ee3b-signed",
   );
 }
 
+const MAIN_SHELL_SPEC = "origin/main:apps/pages/src/bindings/shell-ready.ts";
+
 function mainShellSource() {
-  const path = join(pagesRoot, "scripts/fixtures/shell-ready-pre-fix.ts");
-  const source = readFileSync(path, "utf8");
-  if (!source.trim()) throw new Error("pre-fix shell-ready fixture is empty");
+  const result = spawnSync("git", ["show", MAIN_SHELL_SPEC], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  const source = result.stdout ?? "";
+  if (result.status !== 0 || !source.trim()) {
+    throw new Error(
+      `git show ${MAIN_SHELL_SPEC} failed (${result.status ?? "no exit"}): ${result.stderr ?? ""}`,
+    );
+  }
   return source;
 }
 
@@ -110,7 +123,10 @@ const afterLog = vitest(
 writeFileSync(join(logDir, "regression-after-fix.log"), afterLog);
 
 const delay = "2500";
-const viteEnv = { VITE_VERIFY_ACTIVATION_DELAY_MS: delay };
+const viteEnv = {
+  VITE_VERIFY_ACTIVATION_STALL: "1",
+  VITE_VERIFY_ACTIVATION_DELAY_MS: delay,
+};
 const scriptsDir = join(pagesRoot, "scripts");
 const profilesDir = join(pagesRoot, "capability-profiles");
 const walks = resolveWalks(profilesDir);

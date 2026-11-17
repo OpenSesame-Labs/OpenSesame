@@ -3,6 +3,9 @@
  * Shell-ready consent gating evidence for #2607.
  *
  *   npm run verify:shell-ready-consent -w @opensesame/pages
+ *
+ * The before shell is `git show origin/main:apps/pages/src/bindings/shell-ready.ts`,
+ * swapped over the reviewed shell for that build. There is no checked-in pre-fix fixture.
  */
 
 import { spawnSync } from "node:child_process";
@@ -37,13 +40,20 @@ function runVitest(relativeSpecs, logName) {
   if (result.status !== 0) throw new Error(`vitest failed: ${relativeSpecs}`);
 }
 
-const preFixShellPath = join(
-  pagesRoot,
-  "scripts/fixtures/shell-ready-pre-fix.ts",
-);
+const MAIN_SHELL_SPEC = "origin/main:apps/pages/src/bindings/shell-ready.ts";
 
 function mainShellSource() {
-  return readFileSync(preFixShellPath, "utf8");
+  const result = spawnSync("git", ["show", MAIN_SHELL_SPEC], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  const source = result.stdout ?? "";
+  if (result.status !== 0 || !source.trim()) {
+    throw new Error(
+      `git show ${MAIN_SHELL_SPEC} failed (${result.status ?? "no exit"}): ${result.stderr ?? ""}`,
+    );
+  }
+  return source;
 }
 
 function buildDist(shellSource, distCopyTarget) {
@@ -59,6 +69,7 @@ function buildDist(shellSource, distCopyTarget) {
         env: {
           ...process.env,
           VITE_BASE: "/OpenSesame/",
+          VITE_VERIFY_ACTIVATION_STALL: "1",
           VITE_VERIFY_ACTIVATION_DELAY_MS: "2500",
         },
       },
@@ -165,10 +176,6 @@ runVitest(
 );
 
 const mainShell = mainShellSource();
-if (!mainShell.trim()) {
-  console.error("checked-in pre-fix shell-ready fixture is empty");
-  process.exit(2);
-}
 writeFileSync(join(logDir, "main-shell-ready.ts"), mainShell);
 
 const fixedDist = join(pagesRoot, "dist");

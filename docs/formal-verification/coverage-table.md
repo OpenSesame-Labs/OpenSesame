@@ -1,15 +1,15 @@
 # Formal verification coverage
 
-Living record for Phase 2. Update the result column when a model, skill, and signed PR exist.
+Living record for Phase 2. Update the result column when a model, skill, and signed PR exist. This stack is open PR #2682. Earlier stack PRs (#2602–#2610) did not reach `main`; #2602 is the Pele theme, and #2605 closed unmerged.
 
 | Subsystem | Files / functions modeled | Properties (plain) | TLC bounds | Result | PR |
 | --- | --- | --- | --- | --- | --- |
-| Vault presentation & session | `buildVaultState`; `StoreUnlockSession.activate`, `requireTrusted`, `reset`; `VaultStore.lock`, `#afterPrimaryUnwrap`, create paths | Screen `status` matches open/header; `awaitingSecondStep = pending ∧ ¬open`; no parked key while open (`open ⇒ ¬pending`) | Finite session states in `VaultPresentation.tla` (14 states) | Model + skill on branch; TLC green on `BuggyUnlock=FALSE` | (pending signed stack on #2602) |
-| Proxy / open lease & surrogate | `vault-shared-locks.ts` acquire/release/forget/exclusive | `DestroyOnlyAtZero`; stale `release()` preserves count; no destroy during mid-release | `MaxLive=3`, `MaxStale=6`, `MaxGen=3` (~209 states) | Model + replay + scratch break green | #2605 |
-| Sync / manifest merge | `planManifestMerge` tombstone map | Trashed items are not updated in place | 2-state sketch | Replay green; no product finding | (pending stack) |
-| Autofill gesture & origin | `decideFill` trusted triggers | No fill without extension gesture | 2-state sketch | Replay green; no product finding | (pending stack) |
-| Release / promotion | — | — | — | Not done | — |
-| CLI daemon session | — | — | — | Not done | — |
-| Control plane auth | — | — | — | Not done | — |
-| PWA shell vs vault generation | `useShellReady` / `computeShellReady` | No shell before activation or timeout; later gen stays mounted | `MaxGen = 3` (TLC bounded) | Fix + replay + integration green | (pending stack) |
-| Onboarding & recovery | — | — | — | Not done | — |
+| Vault presentation & session | `buildVaultState`; `StoreUnlockSession.activate`, `requireTrusted`, `reset`; `VaultStore.lock`, `#afterPrimaryUnwrap`, create paths. Skill `verify-formal-vault`. | Screen `status` matches open/header; `awaitingSecondStep = pending ∧ ¬open`; no parked key while open (`open ⇒ ¬pending`) | Finite session states in `VaultPresentation.tla` (14 states). Config keeps `BuggyUnlock=FALSE`. | Model, replay, and skill on this stack | #2682 (supersedes open #2603) |
+| Proxy / open lease & surrogate | `vault-shared-locks.ts` acquire/release/forget/exclusive. Skill `verify-formal-proxy-lease`. | `DestroyOnlyAtZero`; stale `release()` preserves count; no destroy during mid-release | `MaxLive=3`, `MaxStale=6`, `MaxGen=3` (~209 states) | Model, replay, and scratch-break skill on this stack | #2682 (closed #2605 did not reach main) |
+| Sync / manifest merge | `planManifestMerge` tombstone map. Skill `verify-formal-sync-manifest`. | Trashed items are not updated in place (`NoReviveTombstone`) | 2-state sketch | Replay green; no product finding | #2682 (models from #2608, which did not reach main) |
+| Autofill gesture & origin | `decideFill` trusted triggers. Skill `verify-formal-autofill-gesture`. | No fill without an extension gesture (`NoFillWithoutGesture`) | 2-state sketch | Replay green; no product finding | #2682 (models from #2608, which did not reach main) |
+| Release / promotion | `validatePromotion`. Skill `verify-formal-release-promotion`. | Promoted envelope matches the candidate id, sha, run ids, and digest (`NoPromotionRewrite`) | Finite promotion sketch | Model and replay skill on this stack | #2682 |
+| CLI daemon session | Fill pairing only (`fill_value` / `paired_caller`). Skill `verify-formal-daemon-fill`. Restarts and mixed vault scopes are not in this check. | An unpaired fill token is refused (`NoFillWithoutPairing`) | Pairing sketch | Model and replay skill on this stack. Restarts and mixed scopes remain open. | #2682 |
+| Control plane auth | `resolveProvisionalSession`. Skill `verify-formal-control-plane-session`. | A revoked or expired provisional session does not resolve (`NoZombieSession`) | Session sketch | Model and replay skill on this stack | #2682 |
+| PWA shell vs vault generation | `useShellReady` / `computeShellReady`. Skill `verify-formal-pwa-shell`. | No shell before activation or timeout; later gen stays mounted | `MaxGen = 3` (TLC bounded) | Product fix and replay are on this stack. The model's `fromNull` latch is coarser than render-time `awaitingPlanActivation`; the replay test is the product oracle. | #2682 (product commits cite #2610) |
+| Onboarding & recovery | `buildVaultState` while a second step is pending. Skill `verify-formal-onboarding-recovery`. | No unlocked snapshot while a second step is still pending (`NoUnlockedWhilePending`) | Sketch | Model and replay skill on this stack | #2682 |

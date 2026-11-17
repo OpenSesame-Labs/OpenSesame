@@ -31,6 +31,16 @@ export type RuntimeEnv = {
   readonly VITE_HOST_API?: string;
   readonly VITE_IDENTITY_API?: string;
   readonly VITE_SUPPORT_AGENT_URL?: string;
+  /**
+   * `1` or `true` on a consent-timing verify build. A default production
+   * build leaves this unset, and then does not stamp the activation delay.
+   */
+  readonly VITE_VERIFY_ACTIVATION_STALL?: string;
+  /**
+   * Milliseconds to wait before `markActivated`. Stamped only when `DEV`
+   * or `VITE_VERIFY_ACTIVATION_STALL` is set (`apps/pages/src/host/boot.ts`).
+   */
+  readonly VITE_VERIFY_ACTIVATION_DELAY_MS?: string;
 };
 
 /**
