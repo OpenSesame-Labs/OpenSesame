@@ -1,54 +1,42 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { installPwaRefresh, pwaRefreshSeams } from "./pwa-refresh.js";
 
-describe("installPwaRefresh", () => {
-  it("reloads once when a controlled window changes worker", () => {
-    const listeners = new Map<string, EventListener>();
-    const reload = vi.fn();
-    pwaRefreshSeams.host = () => ({
-      serviceWorker: {
-        // SAFETY: installPwaRefresh only checks that a controller is present, so an empty object matches the part of ServiceWorker it reads.
-        controller: {} as ServiceWorker,
-        addEventListener: (type: string, listener: EventListener) =>
-          listeners.set(type, listener),
-        removeEventListener: (type: string) => listeners.delete(type),
-      },
-      visibilityState: "hidden",
-      addEventListener: (type: string, listener: EventListener) =>
-        listeners.set(type, listener),
-      removeEventListener: (type: string) => listeners.delete(type),
-      reload,
-    });
-    const check = vi.fn(async () => true);
-    installPwaRefresh(check);
-    listeners.get("controllerchange")?.(new Event("controllerchange"));
-    listeners.get("controllerchange")?.(new Event("controllerchange"));
-    expect(reload).toHaveBeenCalledOnce();
-    expect(check).toHaveBeenCalledOnce();
-  });
+afterEach(() => vi.restoreAllMocks());
 
-  it("checks again when the page becomes visible", () => {
+describe("installPwaRefresh", () => {
+  it("checks on startup and when the document returns to the foreground", () => {
     const listeners = new Map<string, EventListener>();
     let visibility: DocumentVisibilityState = "hidden";
-    pwaRefreshSeams.host = () => ({
-      serviceWorker: {
-        controller: null,
-        addEventListener: (type: string, listener: EventListener) =>
-          listeners.set(type, listener),
-        removeEventListener: () => undefined,
-      },
+    const document = {
       get visibilityState() {
         return visibility;
       },
       addEventListener: (type: string, listener: EventListener) =>
         listeners.set(type, listener),
-      removeEventListener: () => undefined,
-      reload: vi.fn(),
+      removeEventListener: (type: string) => listeners.delete(type),
+    };
+    vi.spyOn(pwaRefreshSeams, "host").mockReturnValue({
+      document,
+      navigator: {
+        // SAFETY: installPwaRefresh only checks that a service worker container is present, so an empty object matches the part it reads.
+        serviceWorker: {} as ServiceWorkerContainer,
+      },
     });
     const check = vi.fn(async () => true);
-    installPwaRefresh(check);
+    const dispose = installPwaRefresh(check);
+    expect(check).toHaveBeenCalledTimes(1);
     visibility = "visible";
     listeners.get("visibilitychange")?.(new Event("visibilitychange"));
     expect(check).toHaveBeenCalledTimes(2);
+    expect(listeners.has("controllerchange")).toBe(false);
+    dispose();
+    expect(listeners.size).toBe(0);
+  });
+
+  it("does nothing when service workers are unavailable", () => {
+    vi.spyOn(pwaRefreshSeams, "host").mockReturnValue({});
+    const check = vi.fn(async () => true);
+    installPwaRefresh(check)();
+    expect(check).not.toHaveBeenCalled();
   });
 });
