@@ -11,6 +11,7 @@
 
 import type { PackRow } from "@opensesame/app-core/sections/settings/item-type-packs-model.js";
 import { StatusMark } from "../../../components/StatusMark.js";
+import { useOptionalGuideTarget } from "../../../tutorial/registry/react.jsx";
 
 function End({ row }: { row: PackRow }) {
   // On because another type needs it: no count to show, only the reason.
@@ -68,10 +69,24 @@ export function PackRowView({
   onToggle: (row: PackRow) => void;
 }) {
   const described = `pack-${row.id}-sentence`;
+  const install = useOptionalGuideTarget<HTMLElement>(
+    row.id === "account" && row.phase !== "on"
+      ? "settings.account-pack"
+      : undefined,
+  );
+  const ready = useOptionalGuideTarget<HTMLElement>(
+    row.id === "account" && row.phase === "on"
+      ? "settings.account-ready"
+      : undefined,
+  );
+  const bind = (element: HTMLElement | null) => {
+    install(element);
+    ready(element);
+  };
   if (row.control !== "switch") {
     return (
       <li className="pack pack--fixed" data-phase={row.phase}>
-        <div className="pack__hit">
+        <div ref={bind} className="pack__hit">
           <Face row={row} />
         </div>
       </li>
@@ -80,6 +95,7 @@ export function PackRowView({
   return (
     <li className="pack" data-phase={row.phase}>
       <button
+        ref={bind}
         type="button"
         role="switch"
         className="pack__hit"

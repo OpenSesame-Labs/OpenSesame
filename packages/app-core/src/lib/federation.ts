@@ -1,67 +1,71 @@
-import {
-  type BoundaryValue,
-  type JsonObject,
-  isString,
-  overlapCast,
-} from "@opensesame/os-domain";
+import type { JsonObject } from "@opensesame/os-domain";
 import { decodeJwtEnvelope, sha256Base64Url } from "@opensesame/sdk-browser";
-import { host } from "../host.js";
-import { page, pageOrigin } from "../ports.js";
+import { page } from "../ports.js";
 import { ambientAuthSeams } from "./ambient-auth-seam.js";
+import {
+  type CallbackCapture,
+  captureFederationAction,
+} from "./federation-action-owner.js";
+import { isBrokeredIssuer } from "./federation-broker.js";
+import { adoptBrokeredSessionDefault } from "./federation-brokered-adoption.js";
 import { parseAuthCallback } from "./federation-callback.js";
-import { configuredIdentitySessionTrusted } from "./federation-configured-token.js";
+
+export { isBrokeredIssuer } from "./federation-broker.js";
+
 import type {
   BeginSignInOptions,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
+import {
+  federationCurrentSessionSeam,
+  issuerIsTrusted,
+  loadCurrentFederationSession,
+} from "./federation-current-session.js";
+
 export type {
   BeginSignInOptions,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
+
 import {
   consumeBrokeredPublication,
   runOwnedFederationExchange,
 } from "./federation-publication.js";
+
 export {
   federationExchangeSeams,
   saveSession,
 } from "./federation-publication.js";
+
 import { FederationError } from "./federation-error.js";
 import {
   type FederationSessionGeneration,
   type UpstreamIdentity,
   upstreamIdentityDisplayName as displayNameDefault,
-  federationSessionGeneration,
-  readNativeFederationSession,
 } from "./federation-native-session.js";
 import { isOperatorIdpIssuer } from "./federation-operator.js";
-import {
-  originCallbackUri,
-  originClientId,
-  redirectUri,
-} from "./federation-origin.js";
+import { originCallbackUri } from "./federation-origin.js";
 import { takeMatchingPending } from "./federation-pending.js";
+import { bindPendingOwner } from "./federation-pending-owner.js";
 import { clearFederationSession as clearSessionDefault } from "./federation-retirement.js";
-import { readFederationSessionJson } from "./federation-session-store.js";
-import { readStoredSessionSync } from "./federation-stored-session.js";
 import {
-  type IdentitySession,
-  identitySessionEpoch,
-  remoteIdentityApi,
-  restoreSession,
-} from "./identity.js";
-import { localNetworkFetch } from "./local-network-fetch.js";
-import { signInMethods } from "./settings.js";
-export {
-  operatorUpstream,
-  isOperatorIdpIssuer,
-} from "./federation-operator.js";
+  TRUSTED_UPSTREAMS,
+  defaultUpstreamDefault,
+} from "./federation-upstreams.js";
+
+export { TRUSTED_UPSTREAMS, upstreamByIssuer } from "./federation-upstreams.js";
+
+import type { IdentitySession } from "./identity.js";
 
 export { FederationError } from "./federation-error.js";
+export {
+  isOperatorIdpIssuer,
+  operatorUpstream,
+} from "./federation-operator.js";
 export {
   originCallbackUri,
   originClientId,
@@ -77,75 +81,6 @@ export {
  * the upstream, not here. The wire contract is
  * docs/architecture/federated-signin.md §1.
  */
-/**
- * Trust is configuration, not discovery: an issuer absent from this list is
- * refused even if it completes a flow correctly (ADR 0033 §2).
- */
-export const TRUSTED_UPSTREAMS: readonly TrustedUpstream[] = [
-  {
-    id: "shoo",
-    displayName: "Shoo",
-    issuer: "https://shoo.dev",
-    accountKind: "Google",
-    authorizationEndpoint: "https://shoo.dev/authorize",
-    tokenEndpoint: "https://shoo.dev/token",
-    jwksUri: "https://shoo.dev/.well-known/jwks.json",
-    protocol: "shoo",
-    sessionCheckEndpoint: "https://shoo.dev/session/check",
-  },
-  {
-    // Hermetic tests name this upstream explicitly. It is never the product
-    // default — first run signs in through Shoo, which is a real OIDC broker.
-    id: "mock",
-    displayName: "Local mock IdP",
-    issuer: "http://127.0.0.1:9090",
-    accountKind: "a test account",
-    authorizationEndpoint: "http://127.0.0.1:9090/authorize",
-    tokenEndpoint: "http://127.0.0.1:9090/token",
-    jwksUri: "http://127.0.0.1:9090/jwks",
-  },
-];
-
-/**
- * The compiled-in broker is Shoo on every origin, including loopback.
- *
- * A self-hosted Identity API is optional plumbing (org SSO, SAML, magic
- * link, guest). It is not a requirement for first-run sign-in: this static
- * page is a public OIDC client of Shoo, which fronts Google — including
- * Google passkeys — and already serves CORS on `POST /token` for this origin.
- * The mock IdP stays in the allowlist so hermetic tests can name it.
- */
-function defaultUpstreamDefault(): TrustedUpstream {
-  const found = TRUSTED_UPSTREAMS.find((u) => u.id === "shoo");
-  if (!found) throw new Error('no trusted upstream "shoo"');
-  return found;
-}
-
-export function upstreamByIssuer(issuer: string): TrustedUpstream | undefined {
-  return TRUSTED_UPSTREAMS.find((u) => u.issuer === issuer);
-}
-
-function trimSlashes(value: string): string {
-  return value.replace(/\/+$/, "");
-}
-
-/**
- * The configured Identity API is a trusted issuer for this app (C11).
- *
- * It is not in `TRUSTED_UPSTREAMS` because it is not compiled in: it is
- * whatever the Settings store points at, and it is the one runtime issuer this
- * app already trusts with everything else — sessions, principals, org joins.
- * Brokered sign-in (D7/D8) is that same relationship, so its assertions are
- * admitted here and nowhere else. This is deliberately NOT the `orgSlug`
- * allowlist skip in `readIdentity`, which admits any runtime-constructed
- * upstream and is left exactly as narrow as it was (T18).
- */
-export function isBrokeredIssuer(issuer: string): boolean {
-  const base = trimSlashes(remoteIdentityApi());
-  // An unconfigured remote Identity API is "" and must not make the
-  // device-native Pages origin a trusted brokered issuer.
-  return base.length > 0 && trimSlashes(issuer) === base;
-}
 
 export type { UpstreamIdentity } from "./federation-native-session.js";
 
@@ -209,70 +144,10 @@ async function beginSignInDefault(
 
 export { hasAuthResponse } from "./federation-response.js";
 
-function callbackTrust(): string {
-  return JSON.stringify({
-    upstreams: TRUSTED_UPSTREAMS,
-    broker: remoteIdentityApi(),
-    signIn: signInMethods(),
-  });
+/** Capture the initiating tab and session before any sign-in prerequisite awaits. */
+export function captureSignInCheck(): () => void {
+  return captureFederationAction().assertCurrent;
 }
-
-/** Capture before action code loads; callback consumption/scrubbing still precede its own loader await. */
-function captureFederationAction() {
-  const originalHost = host();
-  const { search, origin, href } = page().location;
-  const generation = federationSessionGeneration();
-  const trust = callbackTrust();
-  const originalFetch = fetch;
-  let expectedHref = href;
-  const assertConfiguration = () => {
-    if (
-      host() !== originalHost ||
-      pageOrigin() !== origin ||
-      page().location.href !== expectedHref ||
-      fetch !== originalFetch ||
-      callbackTrust() !== trust
-    )
-      throw new FederationError(
-        "invalid_request",
-        "Identity configuration changed or callback was replaced during sign-in; start again",
-      );
-  };
-  const assertCurrent = () => {
-    if (federationSessionGeneration() !== generation)
-      throw new FederationError(
-        "sign_in_cancelled",
-        "That sign-in was ended by a sign-out. Start again.",
-      );
-    assertConfiguration();
-  };
-
-  return Object.freeze({
-    search,
-    origin,
-    generation,
-    clientId: originClientId(origin),
-    redirectUri: redirectUri(),
-    assertCurrent,
-    assertConfiguration,
-    scrub() {
-      assertCurrent();
-      const url = new URL(expectedHref);
-      for (const key of [
-        "code",
-        "state",
-        "error",
-        "error_description",
-        "scope",
-      ])
-        url.searchParams.delete(key);
-      expectedHref = url.toString();
-      page().replaceUrl(expectedHref);
-      assertCurrent();
-    },
-  });
-}
-type CallbackCapture = ReturnType<typeof captureFederationAction>;
 
 /**
  * Finish a redirect that `beginSignIn` started. Returns null when this load is
@@ -317,7 +192,7 @@ async function completeSignInDefault(
     // record is different: a real ceremony was in flight and went bad, so it
     // is refused out loud even beside a live session — silence here would
     // discard an account-switch sign-in without a word.
-    if (!stale && loadSessionDefault()) return null;
+    if (!stale && loadCurrentFederationSession()) return null;
     throw new FederationError(
       "invalid_request",
       "This sign-in expired or started somewhere else. Start again from the sign-in screen.",
@@ -348,6 +223,7 @@ async function completeSignInDefault(
     code_verifier: pending.verifier,
   });
 
+  const owner = bindPendingOwner(captured, pending);
   const context = Object.freeze({
     pending: Object.freeze({ ...pending }),
     body: body.toString(),
@@ -356,100 +232,14 @@ async function completeSignInDefault(
     upstreams: Object.freeze(
       TRUSTED_UPSTREAMS.map((upstream) => Object.freeze({ ...upstream })),
     ),
-    assertCurrent: captured.assertCurrent,
+    assertCurrent: owner.assertCurrent,
     decodeClaims: decodeJwtClaims,
     issuerTrusted: issuerIsTrusted,
     issuerBrokered: isBrokeredIssuer,
     subjectIsPairwise: (issuer: string) =>
       isBrokeredIssuer(issuer) || isOperatorIdpIssuer(issuer),
   });
-  return runOwnedFederationExchange(context, captured);
-}
-
-/**
- * Trade the brokered access token for a first-party session (C13/D8).
- *
- * The Identity API looks the token up in its own store, reads the principal it
- * was issued for, and mints a provisional bearer for that same principal. No
- * identity row is written and no principal is minted — which is exactly why
- * this, and not `link-identities`, is the brokered adoption path (T23).
- */
-async function adoptBrokeredSessionDefault(
-  accessToken: string,
-  expectedGeneration?: FederationSessionGeneration,
-  assertOriginal: () => void = () => undefined,
-): Promise<IdentitySession> {
-  assertOriginal();
-  const generation = expectedGeneration ?? federationSessionGeneration();
-  const sessionEpoch = identitySessionEpoch();
-  if (federationSessionGeneration() !== generation)
-    throw new FederationError(
-      "sign_in_cancelled",
-      "That sign-in was ended by a sign-out. Start again.",
-    );
-  const base = remoteIdentityApi();
-  if (!base) {
-    throw new FederationError(
-      "no_identity_api",
-      "No sign-in service is connected, so this sign-in cannot be adopted.",
-    );
-  }
-  let response: Response;
-  try {
-    response = await localNetworkFetch(
-      `${base}/v1/principals/federated-session`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        // The token IS the credential here; a cookie beside it would let a
-        // surviving session answer in its place.
-        credentials: "omit",
-        body: JSON.stringify({ accessToken }),
-      },
-    );
-  } catch {
-    throw new FederationError(
-      "identity_unavailable",
-      `Could not reach the sign-in service at ${base} to finish signing in.`,
-    );
-  }
-  assertOriginal();
-  if (!response.ok) {
-    throw new FederationError(
-      "session_adoption_failed",
-      response.status === 401
-        ? "That sign-in expired before it could be adopted. Try again."
-        : `The sign-in service refused the sign-in (${response.status}).`,
-    );
-  }
-  const body: {
-    principalId?: BoundaryValue;
-    accessToken?: BoundaryValue;
-    expiresAt?: BoundaryValue;
-  } = overlapCast(await response.json());
-  assertOriginal();
-  if (!isString(body.principalId) || !isString(body.accessToken)) {
-    throw new FederationError(
-      "session_adoption_failed",
-      "The sign-in service returned an unusable session.",
-    );
-  }
-  const session: IdentitySession = {
-    principalId: body.principalId,
-    accessToken: body.accessToken,
-    issuerOrigin: new URL(base).origin,
-    ...(isString(body.expiresAt) ? { expiresAt: body.expiresAt } : undefined),
-  };
-  // The generation was checked before the request; check it again before the
-  // synchronous adoption so a sign-out during the exchange cannot be undone.
-  if (federationSessionGeneration() !== generation)
-    throw new FederationError(
-      "sign_in_cancelled",
-      "That sign-in was ended by a sign-out. Start again.",
-    );
-  assertOriginal();
-  restoreSession(session, sessionEpoch);
-  return session;
+  return runOwnedFederationExchange(context, owner);
 }
 
 /** Strip the code out of the address bar so a reload cannot replay it. */
@@ -459,27 +249,6 @@ export function clearAuthResponseFromUrl(): void {
     url.searchParams.delete(key);
   }
   page().replaceUrl(url.toString());
-}
-
-function issuerIsTrusted(issuer: string): boolean {
-  return Boolean(
-    upstreamByIssuer(issuer) ||
-      isBrokeredIssuer(issuer) ||
-      isOperatorIdpIssuer(issuer),
-  );
-}
-
-function loadSessionDefault(): UpstreamIdentity | null {
-  const native = readNativeFederationSession();
-  if (native) return native;
-  const raw = readFederationSessionJson();
-  if (!raw) return null;
-  const identity = readStoredSessionSync(raw, issuerIsTrusted);
-  if (!identity || !configuredIdentitySessionTrusted(identity)) {
-    clearSessionDefault();
-    return null;
-  }
-  return identity;
 }
 
 async function completeSignInWired(): Promise<CompletedSignIn | null> {
@@ -497,7 +266,12 @@ export const federationSeams = {
   beginSignIn: beginSignInDefault,
   completeSignIn: completeSignInWired,
   adoptBrokeredSession: adoptBrokeredSessionDefault,
-  loadSession: loadSessionDefault,
+  get loadSession() {
+    return federationCurrentSessionSeam.load;
+  },
+  set loadSession(load: typeof federationCurrentSessionSeam.load) {
+    federationCurrentSessionSeam.load = load;
+  },
   clearSession: clearSessionDefault,
   displayName: displayNameDefault,
 };
@@ -510,6 +284,9 @@ export async function beginSignIn(
   upstream: TrustedUpstream,
   options: BeginSignInOptions = {},
 ): Promise<void> {
+  const check = captureSignInCheck();
+  const { prepareFederatedSignIn } = await import("./guest-signin-gate.js");
+  await prepareFederatedSignIn(check);
   return federationSeams.beginSignIn(upstream, options);
 }
 

@@ -12,6 +12,7 @@
  * without an active fence is unchanged.
  */
 
+import { isGuestVaultId } from "./guest-vault-id.js";
 import {
   type LocalDirectory,
   type LocalDirectoryChange,
@@ -155,7 +156,7 @@ export async function resolveCurrentAccessRole(
   }
 
   const claimed = hasClaimedOperator(directory);
-  if (vaultStore.getSnapshot().guest) {
+  if (vaultStore.getSnapshot().guest || isGuestVaultId(tomb)) {
     // Sole guest setup can administer; once a claimed operator exists, stop.
     return claimed ? "guest" : "operator";
   }

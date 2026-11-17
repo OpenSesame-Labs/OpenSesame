@@ -10,6 +10,12 @@ import {
   isString,
 } from "@opensesame/os-domain";
 import { maybeSessionStore } from "../ports.js";
+import { isGuestSession } from "./guest-isolation.js";
+import {
+  activeGuestEpoch,
+  captureGuestSessionContext,
+  isLocalOnlyGuest,
+} from "./guest-session-context.js";
 import { readGuestSessionPerson } from "./local-guest.js";
 
 const KEY = "opensesame.guest.connections.v2";
@@ -58,6 +64,7 @@ function activeGuestId(): string | null {
 }
 
 export function guestClaimedConnections(): ReadonlySet<string> {
+  if (isLocalOnlyGuest()) return new Set();
   const id = activeGuestId();
   if (!id) return new Set();
   return new Set(readMap().get(id) ?? []);
@@ -73,6 +80,27 @@ export function claimGuestConnection(id: string): void {
   if (next.includes(trimmed)) return;
   map.set(principalId, [...next, trimmed]);
   writeMap(map);
+}
+
+/** A slow connector creation cannot become a different guest's connection. */
+export async function createForCurrentGuest<T extends { connectionId: string }>(
+  create: () => Promise<T>,
+): Promise<T> {
+  const guest = isGuestSession();
+  const current = guest ? captureGuestSessionContext() : null;
+  if (
+    guest &&
+    (isLocalOnlyGuest() || !current?.() || activeGuestEpoch() === null)
+  )
+    throw new Error("The guest session ended. Connect again.");
+  const created = await create();
+  if (guest) {
+    if (!current?.() || !isGuestSession())
+      throw new Error("The guest session ended. Connect again.");
+    claimGuestConnection(created.connectionId);
+  } else if (isGuestSession())
+    throw new Error("The vault session changed. Connect again.");
+  return created;
 }
 
 export function releaseGuestConnection(id: string): void {

@@ -20,6 +20,7 @@ import {
   isString,
 } from "@opensesame/os-domain";
 import { type SealedBlob, openJson, sealJson } from "@opensesame/vault-core";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { type ReturnSecret, deriveBundleKey } from "./return-code.js";
 
 export const TRAVEL_BUNDLE_FORMAT = "opensesame.travel-bundle";
@@ -174,6 +175,7 @@ function readVault(raw: BoundaryValue, owns: VaultNamespace): TravelVault {
     !isString(raw.id) ||
     !TOMB_ID_RE.test(raw.id) ||
     NOT_VAULTS.has(raw.id) ||
+    isGuestVaultId(raw.id) ||
     (raw.kind !== "personal" && raw.kind !== "project")
   ) {
     throw new TravelBundleError("bundle_malformed", "Not a travel bundle.");

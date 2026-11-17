@@ -11,12 +11,13 @@ const HOST_TESTKIT_SOURCE = /^crates\/gateway\/src\/testkit(?:\.rs|\/.*\.rs)$/u;
 const SCOPES = Object.freeze({
   "local-vault-activation": [
     /^packages\/app-core\/src\/lib\/(?:vfs|kv|local-iam|local-directory|local-credentials|local-passkey|local-passkeys|local-sessions|trusted-unlock|projects|orgs|idp-registry)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
+    /^packages\/app-core\/src\/lib\/(?:local-guest|guest-(?:vault-id|session-context|continuation|auth|access|provider-return|signout-copy|return-(?:epoch|record|barrier|signout)))(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/device-identity-(?:carry|key|record-data|trust)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/secret-fs\/install(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
-    /^packages\/app-core\/src\/lib\/secret-fs\/(?:files|memory|filesystem|s3|resilient|vfs-files)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
+    /^packages\/app-core\/src\/lib\/secret-fs\/(?:files|memory|filesystem|s3|resilient|vfs-files|vfs-file-keys|vfs-body-(?:delete|crypto)|owned-body-files|projection|secret-docs|config-docs|layout|transient-guest-seams)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/node\/secret-files(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/deadman\/(?:state|authentication|fence|keys|crypto|arm)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
-    /^packages\/app-core\/src\/lib\/vault\/(?:store-(?:unlock|operation|primary|second-step|scope|state|presentation|view|body|seal|write|header|device|preferences)|vault-shared-locks|passkey-unlock|protector-unlock|primary-unwrap|second-step-guard|recovery-codes|remote-code|unlock-(?:methods|factor|attempts)|tomb-migration|seal-rebind|prefs-io|lock-events)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
+    /^packages\/app-core\/src\/lib\/vault\/(?:store-(?:unlock|operation|primary|second-step|scope|state|presentation|view|body|fresh|seal|write|header|device|preferences|new-vault-persistence|guest|open-lease|tomb-destruction)|guest-(?:vault|person-metadata)|ordinary-peer-body-refresh|original-store-memory-body-proof-data|original-unlock-policy-proof|vault-shared-locks|passkey-unlock|protector-unlock|primary-unwrap|second-step-guard|recovery-codes|remote-code|unlock-(?:methods|factor|attempts)|tomb-migration|seal-rebind|prefs-io|lock-events)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/vault\/self-authenticator(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/vault\/authentication-storage(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,
     /^packages\/app-core\/src\/lib\/vault\/protection\/(?:adapter|session-guard|browser-service|browser-operation-data|browser-operation-check|manifest-auth|unlock-protector-open)(?:-[^/]+)?(?:\.ts|\/.*\.ts)$/u,

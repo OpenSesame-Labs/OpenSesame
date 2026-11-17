@@ -8,6 +8,7 @@ import { GateTools } from "../../components/GateTools.js";
 import { InstallMark } from "../../components/InstallMark.js";
 import { GateNoticeSeat } from "../../components/Notices.js";
 import type { WordmarkHandle } from "../../components/Wordmark.js";
+import { GuestReturnSignOutStatus } from "./GuestReturnSignOutStatus.js";
 import { PendingLinkBanner } from "./PendingLinkBanner.js";
 import { ReleaseNotes } from "./ReleaseNotes.js";
 import { UnlockLockV5 } from "./UnlockLockV5.js";
@@ -71,6 +72,7 @@ export function UnlockStage({
       </div>
       <div className="unlock__card" ref={cardRef}>
         <PendingLinkBanner />
+        <GuestReturnSignOutStatus />
         <div className="unlock__brand">
           {/* Space kept for the in-card wordmark the hero replaced (lock-v5). */}
           <span className="unlock__wordmark unlock__wordmark--reserve" />

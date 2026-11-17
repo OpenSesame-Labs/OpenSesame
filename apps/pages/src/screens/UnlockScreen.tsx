@@ -2,6 +2,7 @@ import {
   outcomeWantsSignIn,
   readAuthOutcome,
 } from "@opensesame/app-core/lib/auth-outcome.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { currentSession } from "@opensesame/app-core/lib/identity.js";
 import { PERSONAL_PROJECT_ID } from "@opensesame/app-core/lib/projects.js";
 import type { FederatedProviderSummary } from "@opensesame/app-core/lib/providers.js";
@@ -9,9 +10,7 @@ import { noWayIn } from "@opensesame/app-core/lib/settings.js";
 import { loadSetup } from "@opensesame/app-core/lib/setup.js";
 import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlock-protector-methods.js";
 import type { SentCode } from "@opensesame/app-core/lib/vault/remote-code.js";
-import { GUEST_TOMB } from "@opensesame/app-core/lib/vault/store.js";
 import {
-  MIN_PIN_LENGTH,
   type SecondStepId,
   checkWebauthnHost,
   listSecondSteps,
@@ -24,11 +23,7 @@ import {
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import {
-  useFileWaitingForVault,
-  usePendingImport,
-} from "../bindings/pending-import.js";
-import { FailureNotice } from "../components/FailureNotice.js";
+import { useFileWaitingForVault } from "../bindings/pending-import.js";
 import {
   IconArrowRight,
   IconEye,
@@ -38,24 +33,13 @@ import {
 import { checkForAppUpdate } from "../lib/pwa-update.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { GuideTarget } from "../tutorial/registry/react.jsx";
-import { FrontDoor } from "./FrontDoor.js";
-import { SetupScreen, type SetupStep } from "./SetupScreen.js";
-import { VaultsScreen } from "./VaultsScreen.js";
 import { RequirementsGate } from "./capabilities/RequirementsGate.js";
+import { FrontDoor } from "./FrontDoor.js";
 import { useJoinRoad } from "./join/JoinRoad.js";
+import { SetupScreen, type SetupStep } from "./SetupScreen.js";
+import { ConfirmPin } from "./unlock/ConfirmPin.js";
+import { guestReturnState } from "./unlock/guest-return-state.js";
 import { PendingImportNote } from "./unlock/ImportRoad.js";
-import { MethodIcon } from "./unlock/MethodIcon.js";
-import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
-import { FormNotes, LockoutNote } from "./unlock/Notes.js";
-import { PasskeyChoice } from "./unlock/PasskeyChoice.js";
-import { ProtectorField } from "./unlock/ProtectorField.js";
-import { SecondStepFields } from "./unlock/SecondStepFields.js";
-import { SignInConfigurationNote } from "./unlock/SignInConfigurationNote.js";
-import { SignInPanel } from "./unlock/SignInPanel.js";
-import { TrustedUnlockGate } from "./unlock/TrustedUnlockGate.js";
-import { UnlockFoot } from "./unlock/UnlockFoot.js";
-import { UnlockStage } from "./unlock/UnlockStage.js";
-import { UnlockUserMenu } from "./unlock/UnlockUserMenu.js";
 import {
   METHOD_LABEL,
   RESEND_COOLDOWN_MS,
@@ -63,7 +47,22 @@ import {
   isTypedProtector,
   unlockGoVerb,
   unlockTitle,
+  unlockVaultLabel,
 } from "./unlock/labels.js";
+import { MethodIcon } from "./unlock/MethodIcon.js";
+import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
+import { FormNotes, LockoutNote } from "./unlock/Notes.js";
+import { PasskeyChoice } from "./unlock/PasskeyChoice.js";
+import { PinEntry } from "./unlock/PinEntry.js";
+import { ProtectorField } from "./unlock/ProtectorField.js";
+import { SecondStepFields } from "./unlock/SecondStepFields.js";
+import { SignInConfigurationNote } from "./unlock/SignInConfigurationNote.js";
+import { SignInPanel } from "./unlock/SignInPanel.js";
+import { TrustedUnlockGate } from "./unlock/TrustedUnlockGate.js";
+import { UnlockErrors } from "./unlock/UnlockErrors.js";
+import { UnlockFoot } from "./unlock/UnlockFoot.js";
+import { UnlockStage } from "./unlock/UnlockStage.js";
+import { UnlockUserMenu } from "./unlock/UnlockUserMenu.js";
 import { useUnlockFormFocus } from "./unlock/unlock-form-focus.js";
 import { submitUnlockForm } from "./unlock/unlock-form-submit.js";
 import {
@@ -71,11 +70,13 @@ import {
   unlockMethodTabs,
 } from "./unlock/unlock-method-tabs.js";
 import { useFederatedProviders } from "./unlock/use-federated-providers.js";
+import { useLocalOnly } from "./unlock/use-local-only.js";
 import { usePasskeyCeremony } from "./unlock/use-passkey-ceremony.js";
 import { usePasskeyRoad } from "./unlock/use-passkey-road.js";
 import { useUnlockRoute, useUnlockTargets } from "./unlock/use-unlock-gate.js";
 import { useUnlockLockV5 } from "./unlock/use-unlock-lock-v5.js";
 import { useCountdown } from "./unlock/useCountdown.js";
+import { VaultsScreen } from "./VaultsScreen.js";
 import "./unlock.css";
 
 export const unlockScreenDependencies = {
@@ -117,7 +118,7 @@ export function UnlockScreen() {
   const startsFromFile = useFileWaitingForVault(status);
   const frontDoor =
     status === "empty" &&
-    tomb !== GUEST_TOMB &&
+    !isGuestVaultId(tomb) &&
     unlockScreenDependencies.loadSetup() === null &&
     !startsFromFile;
 
@@ -166,8 +167,18 @@ function UnlockForm({
   /** Back to the front door: every vault on this device (ADR 0089). */
   onOpenVaults: () => void;
 }) {
-  const { submitRef, secretRef, passkeyRef, setupRef, methodsRef } =
-    useUnlockTargets();
+  const {
+    submitRef,
+    secretRef,
+    passkeyRef,
+    setupRef,
+    methodsRef,
+    sealRef,
+    sealPinRef,
+    sealPinEntryRef,
+    sealPinConfirmRef,
+    sealAckRef,
+  } = useUnlockTargets();
   const {
     status,
     tomb,
@@ -180,28 +191,19 @@ function UnlockForm({
   } = useVault();
   const store = useVaultStore();
   const activeTomb = tomb ?? PERSONAL_PROJECT_ID;
-  // The guest tomb is isolated, not keyless: a guest may enroll a gate (ADR
-  // 0091) and those wraps are the key to this tomb. What makes the road guest
-  // is the tomb, so nothing below is gated on it (AGENTS.md §5).
-  const guestUnlock = activeTomb === GUEST_TOMB && status !== "unlocked";
+  // A guest tomb is isolated but can still have an enrolled key (ADR 0091).
+  const guestUnlock = isGuestVaultId(activeTomb) && status !== "unlocked";
   const firstRun = status === "empty" && !guestUnlock;
   // Which vault this key opens — shown whenever there is a choice to go back to, or this is not the personal vault.
-  const vaultCrumb =
-    unlockScreenDependencies.deviceHasSeveralVaults() ||
-    activeTomb !== PERSONAL_PROJECT_ID
-      ? (unlockScreenDependencies
-          .listDeviceVaults()
-          .find((vault) => vault.id === activeTomb)?.label ?? activeTomb)
-      : null;
+  const vaultCrumb = unlockVaultLabel(
+    activeTomb,
+    unlockScreenDependencies.deviceHasSeveralVaults,
+    unlockScreenDependencies.listDeviceVaults,
+  );
   const passkeyHost = checkWebauthnHost();
   const passkeyOk = usePasskeyRoad(passkeyHost.ok);
-  // First run leads with identity (ADR 0033 §4): sign-in is the default stage, the local seal form the explicit road.
-  const [localOnlyChosen, setLocalOnly] = useState(false);
-  // A vault that begins from a file is sealed on this device, whichever road
-  // the file was chosen from (ADR 0188); removing the file gives the road back.
-  const startsFromFile = usePendingImport() !== null && firstRun;
-  const localOnly = localOnlyChosen || startsFromFile;
-  const signInStage = firstRun && !localOnly;
+  const { startsFromFile, localOnly, setLocalOnly, signInStage } =
+    useLocalOnly(firstRun);
   // A returning vault shows the key ceremony; sign-in lives in the user menu. Mid-MFA the code field is the screen.
   const [signingIn, setSigningIn] = useState(() =>
     outcomeWantsSignIn(readAuthOutcome()),
@@ -215,17 +217,9 @@ function UnlockForm({
     () => unlockMethodTabs({ firstRun, header, passkeyOk }),
     [firstRun, header, passkeyOk],
   );
-  // A guest tomb that enrolled no key at all: guest entry itself is the road
-  // in, and the commit says so rather than pretending to unlock something.
-  const guestKeyless = guestUnlock && methods.length === 0;
-  // A vault with an authenticator code but no passkey, PIN or password: a
-  // code can only ever follow a key, so nothing here can open it. Said out
-  // loud rather than drawn as three tabs that all fail. A guest tomb with no
-  // key is not that case — it has the guest road, and `guestKeyless` is it.
-  const noPrimary = !firstRun && !guestUnlock && methods.length === 0;
-  // The second step, announced before the first is taken.
-  // Exactly the second steps this vault enrolled — authenticator, email,
-  // text — offered at step 2 in the same tab vocabulary step 1 uses for keys.
+  // Guest entry is the road in only when the tomb enrolled no key.
+  const guestKeyless = guestUnlock && !header && methods.length === 0;
+  const noPrimary = !firstRun && !guestKeyless && methods.length === 0;
   const secondSteps = firstRun ? [] : listSecondSteps(header);
   const hasTotpStep = !firstRun && !noPrimary && secondSteps.length > 0;
   const [method, setMethod] = useState<UnlockTabId | null>(null);
@@ -265,8 +259,7 @@ function UnlockForm({
     secondStep && secondSteps.includes(secondStep)
       ? secondStep
       : (secondSteps[0] ?? "totp");
-  // A code by email or text is sent the moment that tab is picked, once;
-  // "Send it again" clears the mark and a fresh one goes out.
+  // Selecting an email or text tab sends one code; resend clears the mark.
   const [sent, setSent] = useState<SentCode | null>(null);
   const [sentAt, setSentAt] = useState<number | null>(null);
   const requestedFor = useRef<SecondStepId | null>(null);
@@ -390,6 +383,7 @@ function UnlockForm({
       passwordRef,
       protectorRef,
       totpRef,
+      goRef,
       pendingFocus,
     });
     beginCeremonyIfUnlocked(before, signInStage || showSignIn || firstRun);
@@ -399,7 +393,6 @@ function UnlockForm({
     firstRun && activeMethod === "pin" ? pinPolicyProblems(pin) : [];
   const pinProblem =
     activeMethod === "pin" && pin.length > 0 ? (pinProblems[0] ?? null) : null;
-  // A new vault is sealed with a passkey or a PIN, never a password (ADR 0180).
   const createBlocked =
     !accepted ||
     (isCeremonyMethod(activeMethod)
@@ -422,14 +415,20 @@ function UnlockForm({
 
   const disabled =
     busy || lockedFor > 0 || (firstRun ? createBlocked : unlockBlocked);
-  const goVerb = unlockGoVerb({
-    busy,
-    firstRun,
-    awaitingSecondStep,
-    awaitingPasskeyDuressCode,
-    guestUnlock,
-    activeMethod,
-  });
+  const guestReturn = guestReturnState(guestKeyless, error);
+  const goVerb =
+    guestReturn.continuing && !busy
+      ? "Continue connection setup"
+      : unlockGoVerb({
+          busy,
+          firstRun,
+          awaitingSecondStep,
+          awaitingPasskeyDuressCode,
+          guestUnlock,
+          guestKeyless,
+          activeMethod,
+        });
+  const fail = guestKeyless ? "Guest session" : "Unlock";
 
   if (trustedUnlock) {
     return (
@@ -453,6 +452,7 @@ function UnlockForm({
             signIn: signInStage || showSignIn,
             firstRun,
             awaitingSecondStep,
+            guestKeyless,
           })}
         </h1>
         {!firstRun ? (
@@ -530,7 +530,8 @@ function UnlockForm({
           onSubmit={(e) => void onSubmit(e)}
         >
           {hasTotpStep ? (
-            <div className="steps" aria-label="Unlock steps">
+            // biome-ignore lint/a11y/useSemanticElements: This group labels progress, not form fields.
+            <div className="steps" role="group" aria-label="Unlock steps">
               <div
                 className={
                   awaitingSecondStep
@@ -556,7 +557,9 @@ function UnlockForm({
             </div>
           ) : null}
 
-          {noPrimary ? <NoPrimaryNote /> : null}
+          {noPrimary ? (
+            <NoPrimaryNote unavailable={guestUnlock && Boolean(header)} />
+          ) : null}
 
           {showMethodTabs ? (
             <div
@@ -568,7 +571,13 @@ function UnlockForm({
               {methods.map((id) => (
                 <button
                   key={id}
-                  ref={id === "passkey" ? passkeyRef : undefined}
+                  ref={
+                    id === "passkey"
+                      ? passkeyRef
+                      : firstRun && id === "pin"
+                        ? sealPinRef
+                        : undefined
+                  }
                   type="button"
                   role="tab"
                   aria-selected={activeMethod === id}
@@ -655,39 +664,32 @@ function UnlockForm({
           ) : null}
 
           {showsPinField ? (
-            <div className="field">
-              <label htmlFor="unlock-pin">
-                {awaitingPasskeyDuressCode
-                  ? "Code"
-                  : firstRun
-                    ? "Device PIN"
-                    : "PIN"}
-              </label>
-              <input
-                id="unlock-pin"
-                ref={(element) => {
-                  pinRef.current = element;
-                  secretRef(element);
-                }}
-                type={reveal ? "text" : "password"}
-                inputMode="numeric"
-                autoComplete={firstRun ? "new-password" : "one-time-code"}
-                value={pin}
-                title={
-                  firstRun
-                    ? `${MIN_PIN_LENGTH}–12 characters, no repeated character, no sequential digits`
-                    : undefined
-                }
-                aria-invalid={pinProblem ? true : undefined}
-                disabled={busy || lockedFor > 0}
-                onChange={(e) => setPin(e.target.value)}
-              />
-              {pinProblem ? (
-                <p className="hint" aria-live="polite">
-                  {pinProblem}
-                </p>
-              ) : null}
-            </div>
+            <PinEntry
+              firstRun={firstRun}
+              duress={awaitingPasskeyDuressCode}
+              reveal={reveal}
+              value={pin}
+              problem={pinProblem}
+              disabled={busy || lockedFor > 0}
+              inputRef={(element) => {
+                pinRef.current = element;
+                secretRef(element);
+                sealPinEntryRef(
+                  firstRun && activeMethod === "pin" ? element : null,
+                );
+              }}
+              onChange={setPin}
+            />
+          ) : null}
+
+          {firstRun && activeMethod === "pin" ? (
+            <ConfirmPin
+              value={confirm}
+              reveal={reveal}
+              disabled={busy}
+              onChange={setConfirm}
+              inputRef={sealPinConfirmRef}
+            />
           ) : null}
 
           {showsPrimaryField &&
@@ -734,25 +736,11 @@ function UnlockForm({
             </div>
           )}
 
-          {firstRun && activeMethod === "pin" ? (
-            <div className="field">
-              <label htmlFor="confirm">Confirm PIN</label>
-              <input
-                id="confirm"
-                type={reveal ? "text" : "password"}
-                inputMode="numeric"
-                autoComplete="new-password"
-                value={confirm}
-                disabled={busy}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
-          ) : null}
-
           <FormNotes
             firstRun={firstRun}
             activeMethod={activeMethod}
             acceptRef={acceptRef}
+            ackGuideRef={firstRun ? sealAckRef : undefined}
             accepted={accepted}
             setAccepted={setAccepted}
             header={header}
@@ -760,22 +748,31 @@ function UnlockForm({
             durable={durable}
           />
 
-          <FailureNotice id="unlock:error" title="Unlock" message={error} />
+          <UnlockErrors
+            title={fail}
+            message={error}
+            clear={() => setError(null)}
+            guestKeyless={guestKeyless}
+          />
 
           <LockoutNote lockedFor={lockedFor} failedAttempts={failedAttempts} />
 
-          {noPrimary ? null : (
+          {noPrimary || guestReturn.expired ? null : (
             <div className="go-row">
               <button
                 ref={(element) => {
                   goRef.current = element;
                   submitRef(element);
+                  sealRef(firstRun ? element : null);
                 }}
                 type="submit"
                 className="go"
                 disabled={disabled}
                 aria-busy={busy}
                 aria-label={goVerb}
+                aria-describedby={
+                  guestKeyless ? "guest-resume-note" : undefined
+                }
                 title={goVerb}
               >
                 {isCeremonyMethod(activeMethod) &&
@@ -800,6 +797,8 @@ function UnlockForm({
         showSignIn={showSignIn}
         showReset={showReset}
         guestKeyless={guestKeyless}
+        continuingGuest={guestReturn.continuing}
+        expiredGuestReturn={guestReturn.expired}
         busy={busy}
         setBusy={setBusy}
         setError={setError}

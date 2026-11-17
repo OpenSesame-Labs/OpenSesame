@@ -29,9 +29,10 @@ export async function runSilentIframeAttempt(
   eligibility: Eligibility,
   redirectUri: string,
   generation: number,
+  checkGuest: () => void = () => {},
 ): Promise<PassiveOutcome> {
   const connection = eligibility.connection;
-  if (!connection || connection.protocol !== "entra") {
+  if (connection?.protocol !== "entra") {
     return { kind: "unsupported", reason: "unsupported" };
   }
   const result = await acquireEntraSilent(
@@ -44,6 +45,7 @@ export async function runSilentIframeAttempt(
     fetch,
   );
   if (result.kind !== "authenticated") return result;
+  checkGuest();
   if (generation !== currentAuthGeneration()) {
     return { kind: "rejected", reason: "stale_generation" };
   }
@@ -61,6 +63,7 @@ export async function runSilentIframeAttempt(
     expectedPolicyRevision: eligibility.policy.policyRevision,
     vault: vaultFromEligibility(eligibility),
     permitJitProvisioning: false,
+    assertCurrent: checkGuest,
   });
   if (admitted.kind === "admitted") return admitted.outcome;
   if (admitted.kind === "mismatch") return { kind: "account-mismatch" };

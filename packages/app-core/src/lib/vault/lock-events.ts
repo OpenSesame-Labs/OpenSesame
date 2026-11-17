@@ -46,12 +46,25 @@ export function announceVaultDestroyed(tomb: string): void {
   }
 }
 
+/** Ask another tab to end a guest whose callback is being signed out. */
+export function announceGuestSignOut(tomb: string): void {
+  try {
+    destroyNotice()?.postMessage({ type: "guest-signout", tomb });
+  } catch {
+    // The exclusive lease still prevents an unverified sign-out.
+  }
+}
+
 export function onVaultDestroyed(handler: (tomb: string) => void): () => void {
   const channel = destroyNotice();
   if (!channel) return () => undefined;
   const listener = (event: MessageEvent) => {
     const data: BoundaryValue = event.data;
-    if (isJsonObject(data) && data.type === "destroyed" && isString(data.tomb))
+    if (
+      isJsonObject(data) &&
+      (data.type === "destroyed" || data.type === "guest-signout") &&
+      isString(data.tomb)
+    )
       handler(data.tomb);
   };
   channel.addEventListener("message", listener);

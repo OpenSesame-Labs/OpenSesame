@@ -1,3 +1,4 @@
+import { isGuestVaultId } from "./guest-vault-id.js";
 /**
  * Default owner person, organization, OpenSesame agent, and this app.
  *
@@ -22,12 +23,6 @@ export {
   isGuestDisplayName,
   mintGuestSessionPerson,
 } from "./local-guest.js";
-import {
-  guestSessionPersonLocked,
-  isGuestDisplayName,
-  isGuestPersonEntry,
-  readGuestSessionPerson,
-} from "./local-guest.js";
 
 import { describeAccount } from "./account.js";
 import {
@@ -36,8 +31,12 @@ import {
   readLocalDirectory,
   withLocalDirectoryLock,
 } from "./local-directory.js";
+import {
+  guestSessionPersonLocked,
+  isGuestDisplayName,
+  readGuestSessionPerson,
+} from "./local-guest.js";
 import { vaultStore } from "./vault/store.js";
-import { GUEST_TOMB } from "./vfs.js";
 
 function isPlaceholderPerson(name: string): boolean {
   const trimmed = name.trim();
@@ -67,7 +66,7 @@ export function currentOwnerPersonName(): string {
   const account = describeAccount();
   const snap = vaultStore.getSnapshot();
   // Guest tomb is always the guest road — even before unlock marks ephemeral.
-  const guestRoad = snap.guest || snap.tomb === GUEST_TOMB;
+  const guestRoad = snap.guest || isGuestVaultId(snap.tomb);
   return ownerPersonName(guestRoad, account?.name, account?.guest);
 }
 
@@ -79,11 +78,11 @@ function findGuestPerson(
     const match = directory.entries.find((entry) => entry.id === session.id);
     if (match) return match;
   }
-  return directory.entries.find((entry) => isGuestPersonEntry(entry));
+  return undefined;
 }
 
 function guestSessionActive(tomb: string): boolean {
-  return tomb === GUEST_TOMB || vaultStore.getSnapshot().guest;
+  return isGuestVaultId(tomb) || vaultStore.getSnapshot().guest;
 }
 
 async function ensurePerson(

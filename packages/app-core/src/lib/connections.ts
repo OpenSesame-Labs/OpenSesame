@@ -14,12 +14,12 @@
  * with the reason, never attempted.
  */
 
+import type { BoundaryValue } from "@opensesame/os-domain";
 import {
   type JsonObject,
   isTypeofObject,
   overlapCast,
 } from "@opensesame/os-domain";
-import type { BoundaryValue } from "@opensesame/os-domain";
 import { page, pageOrigin } from "../ports.js";
 import {
   noteConnectionCreated,
@@ -49,16 +49,14 @@ import {
   buildGithubAppRegistration,
   readLocalGithubApp,
 } from "./github-app-manifest.js";
-import { claimGuestConnection } from "./guest-connections.js";
-import { isGuestSession } from "./guest-isolation.js";
+import { createForCurrentGuest } from "./guest-connections.js";
 import type { ModelApi } from "./model-api.js";
 import type { ProviderCategory } from "./provider-category.js";
 import * as vercelConnect from "./vercel-connect-ops.js";
 
 export type { Integration } from "./connections-integrations.js";
-export { ConnectionsError };
-
 export type { ModelApi, ProviderCategory };
+export { ConnectionsError };
 export type AuthKind =
   | "oauth2_authorization_code"
   | "api_key"
@@ -261,7 +259,7 @@ function createConnectionDefault(body: {
 function authorizeConnectionDefault(
   id: string,
   scopes?: string[],
-): Promise<{ authorizationUrl: string; expiresAt: string }> {
+): Promise<vercelConnect.VercelAuthorizeResult> {
   if (vercelConnect.isConnectConnector(id))
     return vercelConnect.authorizeVercelConnection(id, scopes);
   return Promise.reject(noRoad("This connection", "be authorized"));
@@ -425,8 +423,9 @@ export function listConnections(): Promise<Connection[]> {
 export async function createConnection(
   body: Parameters<typeof createConnectionDefault>[0],
 ): Promise<Connection> {
-  const created = await connectionSeams.createConnection(body);
-  if (isGuestSession()) claimGuestConnection(created.connectionId);
+  const created = await createForCurrentGuest(() =>
+    connectionSeams.createConnection(body),
+  );
   noteConnectionCreated(created.connectionId);
   return created;
 }

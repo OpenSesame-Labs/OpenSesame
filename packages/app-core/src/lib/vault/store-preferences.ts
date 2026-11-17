@@ -1,13 +1,13 @@
 /** Existing preference persistence and idle scheduling; no owner authority issuer. */
 import { overlapCast } from "@opensesame/os-domain";
-import { VfsError } from "../vfs.js";
-import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
+import { VfsError, requireTombCheck } from "../vfs.js";
 import {
   VAULT_PREFS_REVISION,
   type VaultPrefs,
   defaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
+import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
 
 export class StorePreferences {
   prefs: VaultPrefs = defaultPrefs;
@@ -21,17 +21,32 @@ export class StorePreferences {
     changed: () => void,
   ): Promise<void> {
     const prefs = this.prefs;
-    return chain.then(() =>
-      writePrefsJson(tomb, prefs).catch(async () => {
+    const owner = requireTombCheck(tomb);
+    return chain.then(async () => {
+      try {
+        owner();
+        if (currentTomb() !== tomb) return;
+        await writePrefsJson(tomb, prefs, owner);
+      } catch {
+        try {
+          owner();
+        } catch {
+          return;
+        }
         if (this.prefs !== prefs || currentTomb() !== tomb) return;
         const durable: Partial<VaultPrefs> = overlapCast(
           await readPrefsJson(currentTomb()).catch(() => ({})),
         );
+        try {
+          owner();
+        } catch {
+          return;
+        }
         if (this.prefs !== prefs || currentTomb() !== tomb) return;
         this.prefs = normalizeVaultPrefs(durable);
         changed();
-      }),
-    );
+      }
+    });
   }
 
   async load(
@@ -45,7 +60,10 @@ export class StorePreferences {
       check();
       this.prefs = normalizeVaultPrefs(stored);
       if ((stored.prefsRevision ?? 0) < VAULT_PREFS_REVISION) {
-        await writePrefsJson(currentTomb(), this.prefs).catch(() => undefined);
+        await writePrefsJson(currentTomb(), this.prefs, check).catch(
+          () => undefined,
+        );
+        check();
       }
     } catch (error) {
       check();
@@ -55,6 +73,11 @@ export class StorePreferences {
 
   touch(): void {
     this.#lastActivity = Date.now();
+  }
+  idleDeadline(): number | null {
+    return this.prefs.autoLockMinutes > 0
+      ? this.#lastActivity + this.prefs.autoLockMinutes * 60_000
+      : null;
   }
   stop(): void {
     if (this.#idleTimer) clearTimeout(this.#idleTimer);

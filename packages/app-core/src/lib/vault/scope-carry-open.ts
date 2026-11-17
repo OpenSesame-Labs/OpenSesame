@@ -8,6 +8,7 @@ import {
   type VaultHeader,
   emptyBody,
 } from "@opensesame/vault-core";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { carryProjectsViewInto, projectsState } from "../projects.js";
 import { BODY_PATH, lockTomb, readSealedFile, unlockTomb } from "../vfs.js";
 import { emitVaultLock } from "./lock-events.js";
@@ -38,7 +39,12 @@ export async function carryOpenActiveScopeWithCurrentKey(input: {
 }): Promise<void> {
   input.cancelPendingOps();
   const vaultKey = input.vaultKey;
-  if (!vaultKey || !input.header || input.ephemeral) {
+  if (
+    !vaultKey ||
+    !input.header ||
+    input.ephemeral ||
+    isGuestVaultId(input.scope.tomb)
+  ) {
     throw new Error("Unlock the vault before carrying it into another.");
   }
   const { assertCompartmentSwitchAllowed } = await import(

@@ -1,6 +1,8 @@
 import { storeAuthOutcome } from "../auth-outcome.js";
 import type { CompletedSignIn } from "../federation.js";
 import { displayName, loadSession } from "../federation.js";
+import { assertGuestReturnEpoch } from "../guest-return-epoch.js";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { vaultStore } from "../vault/store.js";
 import {
   type VaultNamespaceState,
@@ -27,7 +29,7 @@ export const ambientReturnSeams = {
     const snapshot = vaultStore.getSnapshot();
     return vaultStateFromStore({
       status: snapshot.status,
-      guest: snapshot.guest,
+      guest: snapshot.guest || isGuestVaultId(snapshot.tomb),
       pairwiseSub: loadSession()?.pairwiseSub,
     });
   },
@@ -66,6 +68,7 @@ export async function applyAmbientReturn(
       result.policyRevision ?? result.intent.policyRevision,
     vault: ambientReturnSeams.vault(),
     permitJitProvisioning: false,
+    assertCurrent: () => assertGuestReturnEpoch(result.authEpoch ?? ""),
   });
   if (admitted.kind !== "admitted") {
     storeAuthOutcome(

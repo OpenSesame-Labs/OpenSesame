@@ -2,12 +2,19 @@
 import { type VaultBody, WrongPasswordError } from "@opensesame/vault-core";
 import { noteVaultUnlocked } from "../activity-log.js";
 import { recordDeadmanAuthentication } from "../deadman/state.js";
+import {
+  assertGuestReturnEpoch,
+  captureGuestReturnEpoch,
+} from "../guest-return-epoch.js";
+import { isGuestVaultId, isIsolatedGuestVaultId } from "../guest-vault-id.js";
 import { kvDelete } from "../kv.js";
 import { writeLastVaultId } from "../last-vault.js";
+import type { GuestSessionPerson } from "../local-guest.js";
 import {
   type LocalIamAccess,
   createTrustedUnlockAccess,
 } from "../local-iam-access.js";
+import { setStatusNotice } from "../notices.js";
 import {
   type TrustedUnlockPolicy,
   type TrustedUnlockView,
@@ -15,7 +22,14 @@ import {
   trustedUnlockSeams,
   trustedUnlockView,
 } from "../trusted-unlock.js";
-import { unlockTomb } from "../vfs.js";
+import {
+  assertGuestReservationCleared,
+  recoverGuestDeletion,
+  unlockTomb,
+} from "../vfs.js";
+import { flushTombWrites } from "../vfs-write-order.js";
+import { readVaultGuestPerson } from "./guest-person-metadata.js";
+import { recoverIncompleteGuestVaults } from "./guest-vault-promotion.js";
 import type { VaultProtectionBrowserService } from "./protection/browser-service.js";
 import { rebindTombSeals } from "./seal-rebind.js";
 import { PendingChallenge } from "./second-step-guard.js";
@@ -29,6 +43,7 @@ import { hydrateAndMigrateTombOnUnlock } from "./tomb-migration.js";
 type Lease = { tomb: string; release: () => Promise<void> };
 export type UnlockAttempt = Readonly<{
   scope: VaultScope;
+  guestEpoch: string | null;
   check: () => void;
   session: () => void;
   closeOriginal: (close: () => void) => void;
@@ -43,8 +58,16 @@ type UnlockHost = Readonly<{
   frozen: () => void;
   clearPending: () => void;
   setKey: (key: CryptoKey) => void;
-  loadBody: (tomb: string, key: CryptoKey) => Promise<VaultBody>;
+  loadBody: (
+    tomb: string,
+    key: CryptoKey,
+    check: () => void,
+  ) => Promise<VaultBody>;
   setBody: (body: VaultBody, mark: string | null) => void;
+  setGuestPerson: (
+    person: GuestSessionPerson | null,
+    epoch: string | null,
+  ) => void;
   bodyPort: () => VaultBodyPort;
   preferences: StorePreferences;
   protection: () => VaultProtectionBrowserService;
@@ -90,14 +113,19 @@ export class StoreUnlockSession {
     this.cancel();
     const scope = this.#host.scope();
     const operation = this.#host.original();
+    const guestEpoch = isGuestVaultId(scope.tomb)
+      ? captureGuestReturnEpoch()
+      : null;
     const attempt: UnlockAttempt = {
       scope,
+      guestEpoch,
       session: operation.context,
       closeOriginal: operation.closeOriginal,
       lease: null,
       check: () => {
         if (this.#current !== attempt) this.#stale();
         operation.context();
+        if (guestEpoch !== null) assertGuestReturnEpoch(guestEpoch);
       },
     };
     this.#current = attempt;
@@ -119,7 +147,10 @@ export class StoreUnlockSession {
   async #release(attempt: UnlockAttempt): Promise<void> {
     const lease = attempt.lease;
     attempt.lease = null;
-    if (lease) await lease.release().catch(() => undefined);
+    if (lease) {
+      if (isIsolatedGuestVaultId(lease.tomb)) await flushTombWrites(lease.tomb);
+      await lease.release().catch(() => undefined);
+    }
   }
 
   /** Lock uses this synchronously, before any later completion can publish. */
@@ -252,6 +283,42 @@ export class StoreUnlockSession {
     };
   }
 
+  async #openGuestPerson(tomb: string, attempt: UnlockAttempt): Promise<void> {
+    if (!isGuestVaultId(tomb)) return;
+    let person: GuestSessionPerson | null = null;
+    try {
+      person = await readVaultGuestPerson(tomb, attempt.check);
+    } catch {
+      attempt.check();
+    }
+    attempt.check();
+    this.#host.setGuestPerson(person, attempt.guestEpoch);
+    if (!person)
+      setStatusNotice({
+        id: "guest-identity-unavailable",
+        tone: "warn",
+        title: "Guest identity unavailable",
+        body: "The vault opened, but its guest identity could not be verified. Connections remain unavailable.",
+      });
+  }
+
+  async #loadUnlockedBody(
+    tomb: string,
+    key: CryptoKey,
+    attempt: UnlockAttempt,
+  ): Promise<void> {
+    await rebindTombSeals(tomb, key, attempt.check);
+    attempt.check();
+    await hydrateAndMigrateTombOnUnlock(tomb, attempt.check);
+    attempt.check();
+    await this.#host.preferences.load(() => tomb, attempt.check);
+    attempt.check();
+    const body = await this.#host.loadBody(tomb, key, attempt.check);
+    attempt.check();
+    this.#host.setBody(body, sealMark(tomb));
+    await this.#openGuestPerson(tomb, attempt);
+  }
+
   async activate(key: CryptoKey, attempt = this.begin()): Promise<void> {
     attempt.check();
     if (this.#activating.has(attempt)) this.#stale();
@@ -260,22 +327,26 @@ export class StoreUnlockSession {
     const { tomb, attempts } = attempt.scope;
     try {
       this.#host.frozen();
+      if (isIsolatedGuestVaultId(tomb)) {
+        await recoverIncompleteGuestVaults([tomb]);
+        attempt.check();
+      }
       // Store the returned resource before checking: cancel may win acquisition.
       attempt.lease = await this.#host.acquire(tomb);
       attempt.check();
+      if (isIsolatedGuestVaultId(tomb)) {
+        await assertGuestReservationCleared(tomb, attempt.check);
+        attempt.check();
+      }
       this.#revokeTrustedAccess();
       this.#host.setKey(key);
       this.#host.clearPending();
       unlockTomb(tomb, key);
-      await rebindTombSeals(tomb, key, attempt.check);
-      attempt.check();
-      await hydrateAndMigrateTombOnUnlock(tomb, attempt.check);
-      attempt.check();
-      await this.#host.preferences.load(() => tomb, attempt.check);
-      attempt.check();
-      const body = await this.#host.loadBody(tomb, key);
-      attempt.check();
-      this.#host.setBody(body, sealMark(tomb));
+      if (isIsolatedGuestVaultId(tomb)) {
+        await recoverGuestDeletion(tomb, attempt.check);
+        attempt.check();
+      }
+      await this.#loadUnlockedBody(tomb, key, attempt);
       await levelDeviceKey(this.#bodyPort(attempt), { check: attempt.check });
       attempt.check();
       await this.#host.protection().ensureProtectionProjected();

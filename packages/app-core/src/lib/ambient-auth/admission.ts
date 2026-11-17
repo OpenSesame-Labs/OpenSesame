@@ -10,8 +10,12 @@ import type { VerifiedIdTokenClaims } from "@opensesame/sdk-browser";
 import type { UpstreamIdentity } from "../federation.js";
 import { clearSession, saveSession } from "../federation.js";
 import { matchesAuthGeneration } from "./generation.js";
-import type { AuthenticationIntent } from "./types.js";
-import type { AmbientReasonCode, PassiveOutcome } from "./types.js";
+import { captureAmbientGuestFence } from "./guest-fence.js";
+import type {
+  AmbientReasonCode,
+  AuthenticationIntent,
+  PassiveOutcome,
+} from "./types.js";
 
 export type VaultNamespaceState = {
   status: "empty" | "locked" | "unlocked";
@@ -30,6 +34,7 @@ export type AdmissionContext = {
   expectedPolicyRevision: string;
   vault: VaultNamespaceState;
   permitJitProvisioning: boolean;
+  assertCurrent?: () => void;
 };
 
 export type AdmissionSideEffects = {
@@ -64,13 +69,22 @@ function staleGeneration(): Extract<AdmissionResult, { kind: "rejected" }> {
   return { kind: "rejected", reason: "stale_generation" };
 }
 
+function ownerCurrent(ctx: AdmissionContext): boolean {
+  try {
+    ctx.assertCurrent?.();
+    return matchesAuthGeneration(ctx.generation);
+  } catch {
+    return false;
+  }
+}
+
 function commitIdentity(
   ctx: AdmissionContext,
   run: AdmissionSideEffects,
 ): AdmissionResult | null {
-  if (!matchesAuthGeneration(ctx.generation)) return staleGeneration();
+  if (!ownerCurrent(ctx)) return staleGeneration();
   run.saveIdentity(ctx.identity);
-  if (matchesAuthGeneration(ctx.generation)) return null;
+  if (ownerCurrent(ctx)) return null;
   run.clearIdentity();
   return staleGeneration();
 }
@@ -80,6 +94,13 @@ export async function admitAmbientSession(
   effects: Partial<AdmissionSideEffects> = {},
 ): Promise<AdmissionResult> {
   const run: AdmissionSideEffects = { ...ambientAdmissionSeams, ...effects };
+  let checkGuest: () => void;
+  try {
+    checkGuest = captureAmbientGuestFence();
+    checkGuest();
+  } catch {
+    return { kind: "rejected", reason: "guest_open" };
+  }
   if (ctx.intent.kind !== "ambient") {
     return { kind: "rejected", reason: "rejected" };
   }
@@ -105,7 +126,13 @@ export async function admitAmbientSession(
   let createdWorkspace = false;
   if (ctx.vault.status === "empty" && ctx.permitJitProvisioning) {
     await run.bootstrapEmptyWorkspace();
-    if (!matchesAuthGeneration(ctx.generation)) {
+    try {
+      checkGuest();
+    } catch {
+      run.clearIdentity();
+      return { kind: "rejected", reason: "guest_open" };
+    }
+    if (!ownerCurrent(ctx)) {
       run.clearIdentity();
       return staleGeneration();
     }

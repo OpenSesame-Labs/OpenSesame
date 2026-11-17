@@ -1,3 +1,4 @@
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { normalizeInviteCode } from "@opensesame/app-core/lib/join/invite.js";
 import {
   type LiveLink,
@@ -139,6 +140,8 @@ export function useAsk(held: LiveLink | null, vaultStatus: VaultStatus) {
     setFailed("");
     try {
       if (vaultStatus === "empty") {
+        if (isGuestVaultId(store.activeTomb()))
+          await sealNewVault(cleanedName, { shareKey: false });
         await store.createWithPin(fields.pin);
         await ensureOwnerPerson(store.activeTomb(), cleanedName);
       } else if (vaultStatus === "locked") {

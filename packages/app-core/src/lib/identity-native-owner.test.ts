@@ -4,6 +4,7 @@ import { createMemoryStorage } from "../memory-storage.js";
 import { createTestHost } from "../test-host.js";
 import { fenceLocalSignOut } from "./ambient-auth/generation.js";
 import { advanceFederationSessionGeneration } from "./federation-native-session.js";
+import { advanceGuestReturnEpoch } from "./guest-return-epoch.js";
 import { identityConnectionDraft } from "./identity-connections-presets.js";
 import { writeIdentityConnection } from "./identity-connections-store.js";
 import {
@@ -135,6 +136,16 @@ it("sign-out during preparation cannot be adopted by runtime initialization", as
   expect(() => selected.prepareRuntime(install)).toThrow("changed");
   expect(install).not.toHaveBeenCalled();
 });
+it.each(["saml", "oidc"] as const)(
+  "refuses a %s callback after another tab signs out",
+  async (protocol) => {
+    const { selected } = await owner(protocol);
+    advanceGuestReturnEpoch();
+    const install = vi.fn();
+    expect(() => selected.prepareRuntime(install)).toThrow();
+    expect(install).not.toHaveBeenCalled();
+  },
+);
 it("canonical federation replacement during preparation cannot be rebased", async () => {
   const { selected } = await owner();
   advanceFederationSessionGeneration();

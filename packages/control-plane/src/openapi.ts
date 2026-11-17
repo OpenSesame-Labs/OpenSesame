@@ -447,7 +447,8 @@ export function buildOpenApiDocument(config: ControlPlaneConfig) {
               description: "Organization selection required or request invalid",
             },
             "403": {
-              description: "Caller is not an active member of the organization",
+              description:
+                "Caller has no organization membership or is not an active member of the selected organization",
             },
             "404": { description: "Host device authorization not found" },
             "500": { description: "Configured Host API URL is invalid" },

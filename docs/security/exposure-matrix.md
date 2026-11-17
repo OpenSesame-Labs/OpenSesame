@@ -92,11 +92,11 @@ artifacts, changing its enforcement classification, or adding global guarantees.
 
 | Required control | Reviewed behavior |
 |---|---|
-| `original-owner-lifetime` | Primary, second-step and contact completions retain the original scope, session generation, cancellation signal and transport identity. A stale completion cannot adopt or close a newer session. |
+| `original-owner-lifetime` | Primary, second-step and contact completions retain the original scope, session generation, cancellation signal and transport identity. VFS operations retain the particular unlock lifetime even if a later unlock reuses the same key object. A held lifetime check contains no key and does not retain a retired key after lock. A read begun while locked cannot publish after that tomb is unlocked and locked again. A stale completion cannot adopt or close a newer session. |
 | `synchronous-provisional-revocation` | Cancel, expiry and lock clear owned provisional key/body/VFS custody immediately; cleanup releases only the original attempt's resources. Late decrypted project, org and IdP hydration cannot republish retired session state. |
 | `bounded-preapproval-iam` | An opaque, revocable handle reads only trusted policy, identity directory and identity credentials, with fixed size limits. Genuine WebAuthn verification may advance an existing assertion counter through a writer that checks the original owner before durable commit and cache publication. Unsupported transports refuse this write and policy enrollment; they cannot borrow the default KV writer. It opens no ordinary VFS, releases no root/key or ordinary file, and issues no consumable IAM sign-in evidence. |
 | `owned-single-flight-publication` | Activation and acquired leases have one owner. Duplicate/concurrent approvals cannot publish multiple activations or lose a lease; metadata, preferences, credential counters and device-key/body publication retain the original operation checks. Late authentication bookkeeping cannot overwrite newer deadman state, and late self-authenticator registration cannot restore a removed or replaced factor. |
-| `separate-ordinary-file-metadata-writes` | An already unlocked vault may reconcile its device identity through an explicit file-store writer. The original owner is checked at the backend commit and before mirror, index and registry publication. This metadata capability refuses BODY projection and does not provide the private IAM writer or a fresh authentication reader. Unsupported stores refuse guarded writes instead of borrowing another transport. |
+| `separate-ordinary-file-metadata-writes` | An already unlocked vault may reconcile its device identity through an explicit file-store writer. The original owner is checked at the backend commit and before mirror, index and registry publication. This metadata capability refuses BODY projection and does not provide the private IAM writer or a fresh authentication reader. Separate owner-bound body projection and deletion capabilities check each physical mutation and mirror publication; a file-backed store without guarded write, removal and fallback deletion refuses those operations. Plaintext VFS writes admit only the header and migration markers. A guest promotion checks the physical header while holding the registry lock, even if the registry has lost that tomb; temporary guest destruction cannot delete its durable namesake. |
 
 The mandatory source and regression inventory lives in
 [`exposure-local-vault.mjs`](../../scripts/lib/exposure-local-vault.mjs).
@@ -109,8 +109,9 @@ global expiry. Shared
 package exports and factor/header integrity helpers are bound too. The genuine
 store regressions cover canceled or expired completions, newer-session survival,
 quorum before ordinary file access, real contact assertions, counter custody,
-lease cleanup, guarded file/index/registry commits and late cache/device-key,
-deadman and factor-registration results. Their controlled-completion
+lease cleanup, guest promotion and return fencing, guarded file/index/registry
+commits, body projection and physical deletion after owner withdrawal, and late
+cache/device-key, deadman and factor-registration results. Their controlled-completion
 fixture is also fingerprinted; naming a test alone cannot establish that proof.
 Discovery includes new modules under these named lanes and their nested helper
 directories. Every discovered local activation helper must bind to the mandatory
@@ -119,8 +120,12 @@ A new authentication road outside them requires extending discovery. File-backed
 stores retain ordinary unlock and identity adoption/replacement without contact
 quorum. Their separate ordinary metadata writer carries the same owner check
 through memory publication, directory rename and signed S3 request dispatch,
-including retry and success-recovery paths. Withdrawal cannot publish a stale
-mirror or start a later index/registry write. An already accepted physical or
+including retry and success-recovery paths. Projection staging and cleanup
+also preserve guarded conditional removal and the unlock lifetime. Body reads
+check that lifetime before publishing their mirror and do not treat a missing
+or unreadable physical body as a newer cached projection. Deletion checks the
+manifest revision before cleaning up the snapshotted files. Withdrawal cannot
+publish a stale mirror or start a later index/registry write. An already accepted physical or
 remote write is not rolled back. Private preapproval IAM and policy enrollment
 still require their own supported transport; an ordinary metadata capability
 cannot stand in for it.

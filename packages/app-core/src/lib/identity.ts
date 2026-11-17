@@ -1,11 +1,5 @@
-import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-/**
- * Identity plane session.
- *
- * The access token lives in memory for the tab session only — never OPFS,
- * never localStorage. The control-plane also sets an HttpOnly cookie, so
- * requests carry credentials as well as the bearer header.
- */
+import { overlapCast } from "@opensesame/os-domain";
+/** The tab keeps its access token in memory; Identity may set an HttpOnly cookie. */
 
 import {
   type BrowserGrant,
@@ -15,24 +9,60 @@ import {
   pairedHostFetch,
 } from "./browser-pairing.js";
 import {
-  deviceIdentityOrigin,
-  identityPlaneRequest,
   isDeviceIdentityMode,
   isRemoteIdentityConfigured,
   remoteIdentityApi,
   resolveIdentityBase,
 } from "./device-identity.js";
+import { isLocalOnlyGuest } from "./guest-session-context.js";
+import { resumeIdentityCookie } from "./identity-cookie-resume.js";
+import {
+  cookieAuthenticates,
+  identityOriginFor,
+  revokeRequest,
+} from "./identity-cookie-transport.js";
+import { guardedIdentityFetch } from "./identity-fetch.js";
+import {
+  assertIdentityAdoption,
+  assertIdentityEpoch,
+  captureIdentityEpoch,
+  identityEpochChanged,
+} from "./identity-owner-epoch.js";
+import {
+  type ProvisionalOptions,
+  connectProvisionalLocked as connectProvisionalOriginal,
+} from "./identity-provisional.js";
+import { beginProvisional } from "./identity-provisional-entry.js";
+
+export { inspectIdentityCookie } from "./identity-cookie-transport.js";
+export { identityRevocationPending } from "./identity-signout-fence.js";
+
+import {
+  clearCookieBinding,
+  saveCookieBinding,
+} from "./identity-cookie-binding.js";
 import {
   type HealthState,
   type ProbeResult,
   probeIdentityPlane,
 } from "./identity-probe.js";
+import { hasPendingBoundRevocation } from "./identity-revocation-journal.js";
+import { restoreBoundRevocations } from "./identity-revocation-journal-queue.js";
+import {
+  queueIssuerRevocation,
+  settleIdentityRevocations,
+} from "./identity-revocation-queue.js";
 import {
   HostSessionError,
   IdentityError,
   type IdentitySession,
   type Principal,
 } from "./identity-session-types.js";
+import {
+  assertNoPendingSignOut,
+  signOutFenceActive,
+} from "./identity-signout-fence.js";
+import { endIdentitySession } from "./identity-signout-owner.js";
 import { proveTokenOwner, readError } from "./identity-token-proof.js";
 import { loadSettings } from "./settings.js";
 import type { OriginalRemoteCodeHandle } from "./vault/captured-remote-code-data.js";
@@ -52,20 +82,18 @@ const IDENTITY_FETCH_MS = 8000;
 const PROBE_MS = 4000;
 
 let session: IdentitySession | null = null;
+let sessionOwnerEpoch: string | null = null;
 type HostSession = BrowserGrant;
 let pendingIdentitySession: Promise<IdentitySession> | null = null;
-/** In-flight revoke, so a reconnect cannot race its cookie teardown. */
-let pendingRevoke: Promise<void> | null = null;
-/**
- * A previous tab's HttpOnly cookie still authenticates, but no bearer for it
- * survived here. The session cannot be resumed — only shown and revoked.
- */
+/** A previous tab's cookie authenticates, but its bearer did not survive. */
 let orphanCookie = false;
 /** Bumped whenever the session is ended, to fence slow session creators. */
 let sessionEpoch = 0;
+let sessionRevision = 0;
 const listeners = new Set<() => void>();
 
 function emit(): void {
+  sessionRevision += 1;
   for (const listener of listeners) listener();
 }
 
@@ -83,12 +111,16 @@ export function orphanSessionActive(): boolean {
 }
 
 function currentSessionDefault(): IdentitySession | null {
-  if (session && session.issuerOrigin !== identityOrigin()) {
-    clearSession();
+  if (isLocalOnlyGuest()) return null;
+  if (
+    session &&
+    (signOutFenceActive() || identityEpochChanged(sessionOwnerEpoch))
+  )
     return null;
-  }
+  if (session && session.issuerOrigin !== identityOrigin()) return null;
   if (session?.expiresAt && Date.parse(session.expiresAt) <= Date.now()) {
     session = null;
+    sessionOwnerEpoch = null;
     clearHostSession();
     // Expiry would otherwise be silent, leaving the rail claiming a session
     // that can no longer act. Emit off-stack because this is also called from
@@ -100,22 +132,17 @@ function currentSessionDefault(): IdentitySession | null {
 
 export function clearSession(): void {
   session = null;
+  sessionOwnerEpoch = null;
   clearHostSession();
-  // Anything already in flight that would set a session must notice it was
-  // ended, or a slow connect resurrects credentials after a lock.
+  // Fence session creators already in flight.
   sessionEpoch += 1;
   emit();
 }
 
-/**
- * Detect a provisional cookie left behind by an earlier tab. The bearer lives in
- * memory only, so after a reload the cookie can still act while this tab reads
- * as disconnected — the user has to be told, and given a way to end it.
- */
+/** Detect an authenticating cookie left by an earlier tab. */
 async function probeOrphanSessionDefault(): Promise<boolean> {
   if (session) return false;
-  // Unreachable means unknown, and warning about a session we cannot see would
-  // be noise on every offline load.
+  // An unreachable service is not a confirmed orphan.
   setOrphan(await cookieAuthenticates(false));
   return orphanCookie;
 }
@@ -126,64 +153,28 @@ function setOrphan(next: boolean): void {
   emit();
 }
 
-/** Does the cookie alone still authenticate? `whenUnreachable` breaks the tie. */
-async function cookieAuthenticates(whenUnreachable: boolean): Promise<boolean> {
-  try {
-    const res = await identityPlaneRequest("/v1/principals/me", {
-      credentials: "include",
-      timeoutMs: PROBE_MS,
-    });
-    return res.ok;
-  } catch {
-    return whenUnreachable;
-  }
-}
-
-/**
- * End the session everywhere. Dropping the in-memory bearer is not enough — the
- * control plane also set an HttpOnly cookie that authenticates on its own, so
- * the server has to revoke it.
- */
-function endSessionDefault(): void {
-  // Send the bearer we are about to forget: an adopted CLI token has no cookie,
-  // so it is the only thing that identifies the session to revoke.
-  const bearer =
-    session && !session.cookieOnly && session.issuerOrigin === identityOrigin()
-      ? session.accessToken
-      : undefined;
-  clearSession();
-  setOrphan(false);
-  // Unconditional, because a reload loses the in-memory bearer while the
-  // HttpOnly cookie lives on and authenticates on its own. Chained onto any
-  // revoke still in flight, so none is dropped from tracking and left able to
-  // land its cookie clear after a reconnect.
-  pendingRevoke = (pendingRevoke ?? Promise.resolve())
-    .then(() => revokeRequest(bearer))
-    .then(async (res) => {
-      if (res.ok) return;
-      // The revoke was refused, so the cookie may still act. Say so rather than
-      // leave the UI claiming a session that is alive is gone.
-      await recheckOrphan();
-    })
-    .catch(async () => {
-      // Offline or unreachable: assume the session outlived us until proven
-      // otherwise, so the warning stays up and a reconnect revokes again.
-      await recheckOrphan();
-    });
-}
-
-function revokeRequest(
-  bearer?: string,
-  credentials: RequestCredentials = "include",
-): Promise<Response> {
-  return identityPlaneRequest("/v1/principals/provisional/revoke", {
-    method: "POST",
-    credentials,
-    timeoutMs: IDENTITY_FETCH_MS,
-    ...(bearer
-      ? { headers: { authorization: `Bearer ${bearer}` } }
-      : undefined),
+/** Revoke the current session and any requested observable cookies. */
+function endSessionDefault(options?: { orphan?: boolean }): void {
+  endIdentitySession({
+    session,
+    issuer: session?.issuerOrigin ?? identityOrigin(),
+    currentIssuer: identityOrigin,
+    orphan: options?.orphan === true,
+    clear: () => {
+      clearSession();
+      setOrphan(false);
+    },
+    failed: recheckOrphan,
   });
+}
+
+/** Never send an old session's proof or bearer to a reconfigured service. */
+function queueRevokeForIssuer(
+  issuer: string,
+  request: () => Promise<Response>,
+  failed?: () => Promise<void>,
+): void {
+  queueIssuerRevocation(issuer, identityOrigin, request, failed);
 }
 
 async function recheckOrphan(): Promise<void> {
@@ -191,27 +182,18 @@ async function recheckOrphan(): Promise<void> {
   setOrphan(await cookieAuthenticates(true));
 }
 
-/** Wait for every revoke to land, including ones started while waiting. */
 export async function settleRevokes(): Promise<void> {
-  while (pendingRevoke) {
-    const inFlight = pendingRevoke;
-    await inFlight;
-    if (pendingRevoke === inFlight) pendingRevoke = null;
-  }
+  restoreBoundRevocations(identityOrigin, recheckOrphan);
+  await settleIdentityRevocations();
+  if (hasPendingBoundRevocation())
+    throw new Error("Sign-out did not finish. Try again.");
 }
 
 function identityBaseDefault(): string {
   return resolveIdentityBase();
 }
 
-function identityOrigin(): string {
-  if (isDeviceIdentityMode()) return deviceIdentityOrigin();
-  try {
-    return new URL(identityBase()).origin;
-  } catch {
-    return "";
-  }
-}
+const identityOrigin = () => identityOriginFor(identityBase);
 
 function hostBaseDefault(): string {
   return loadSettings().hostApi.replace(/\/$/, "");
@@ -221,7 +203,6 @@ export function clearHostSession(): void {
   clearBrowserPairing();
 }
 
-/** Eligibility means a live explicitly approved browser grant, never merely loopback. */
 function hostLocalSessionEligibleDefault(
   hostApi: string = hostBase(),
 ): boolean {
@@ -245,10 +226,7 @@ export async function ensureIdentitySession(): Promise<IdentitySession> {
   }
 }
 
-/**
- * Reuse an explicitly approved tab-owned Host grant. No request implicitly
- * creates local authority or exchanges an Identity bearer for Host authority.
- */
+/** Reuse an approved tab-owned Host grant without creating authority. */
 async function ensureHostSessionDefault(): Promise<HostSession> {
   const active = hostBase() ? currentBrowserGrant(hostBase()) : null;
   if (!active)
@@ -274,38 +252,17 @@ async function hostFetchDefault(
   }
 }
 
-/** Fetch against the Identity API, attaching the session when we have one. */
+/** Fetch against Identity with the current tab's verified session. */
 async function identityFetchDefault(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const active = currentSession();
-  if (active && !active.cookieOnly) {
-    headers.set("authorization", `Bearer ${active.accessToken}`);
-  }
-  if (init.body && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
-  const res = await identityPlaneRequest(path, {
-    ...init,
-    headers,
-    // An adopted token stands alone. Sending a cookie beside it would let a
-    // survivor answer once the bearer is refused, running every ceremony as a
-    // principal other than the one on screen — and hiding the refusal.
-    credentials: active?.adopted ? "omit" : "include",
-    timeoutMs: IDENTITY_FETCH_MS,
-  });
-  if (res.status === 401 && active) noteUnauthorized();
-  return res;
+  if (session && !currentSession())
+    throw new IdentityError("Finish signing out before signing in again.", 409);
+  return guardedIdentityFetch(path, init, currentSession, noteUnauthorized);
 }
 
-/**
- * The API refused the bearer we hold. Keeping it would resend a dead credential
- * under a UI still claiming a session; the cookie may have outlived it, so that
- * is surfaced as an orphan instead. Also for callers fetching outside
- * `identityFetch`, such as the SDK-driven claim ceremony.
- */
+/** Retire a refused bearer and check whether its cookie remains active. */
 function noteUnauthorizedDefault(): void {
   if (!session) return;
   clearSession();
@@ -322,128 +279,97 @@ async function identityJsonDefault<T>(
 }
 
 /** Start a provisional session. This is the anonymous on-ramp the API exposes. */
-async function connectProvisionalDefault(): Promise<IdentitySession> {
-  const resumed = await resumeCookieSession();
-  if (resumed) return resumed;
-  // A cookie left by an earlier tab is only flagged once something has probed
-  // for it. Connecting from Agents or Sites never probes, so look here
-  // too rather than mint a second session beside one nobody is watching.
-  if (!session && !orphanCookie) await probeOrphanSession();
-  // End an earlier session before starting another, so the old one does not live
-  // out its TTL with a credential nobody is watching.
-  if (session || orphanCookie) endSession();
-  // Let any revoke finish first: its response clears the cookie by name, which
-  // would otherwise land after the new one is set and take it with it.
-  await settleRevokes();
-  const epoch = sessionEpoch;
-  const res = await identityPlaneRequest("/v1/principals/provisional", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: "{}",
-    timeoutMs: IDENTITY_FETCH_MS,
+async function connectProvisionalDefault(
+  options?: ProvisionalOptions,
+): Promise<IdentitySession> {
+  if (session && !currentSession())
+    throw new IdentityError("Finish signing out before signing in again.", 409);
+  return beginProvisional(options, connectProvisionalLocked, settleRevokes);
+}
+
+async function connectProvisionalLocked(
+  options: ProvisionalOptions,
+  owner: string | null,
+): Promise<IdentitySession> {
+  const issuer = identityOrigin();
+  return connectProvisionalOriginal(options, {
+    active: () => session,
+    epoch: () => sessionEpoch,
+    origin: identityOrigin,
+    resume: resumeCookieSession,
+    orphan: () => setOrphan(true),
+    revoke: (token) => {
+      queueRevokeForIssuer(issuer, () => revokeRequest(token, "omit"));
+    },
+    publish: (next) => {
+      sessionOwnerEpoch = owner;
+      session = next;
+      emit();
+    },
   });
-  if (!res.ok) throw new IdentityError(await readError(res), res.status);
-  const body: JsonObject = overlapCast(await res.json());
-  if (
-    !isString(body.principalId) ||
-    !isString(body.accessToken) ||
-    (body.expiresAt !== undefined && !isString(body.expiresAt))
-  ) {
-    throw new IdentityError(
-      "Identity returned an invalid provisional session.",
-      502,
-    );
-  }
-  const accessToken = body.accessToken;
-  if (sessionEpoch !== epoch) {
-    // A lock or Disconnect landed while this was in flight. Adopting it now
-    // would resurrect a credential the user just ended, so throw it away.
-    pendingRevoke = (pendingRevoke ?? Promise.resolve())
-      .then(() => revokeRequest(accessToken))
-      .then(() => undefined)
-      .catch(() => undefined);
-    throw new IdentityError(
-      "The session was ended while connecting. Connect again.",
-      409,
-    );
-  }
-  const nextSession: IdentitySession = {
-    principalId: body.principalId,
-    accessToken,
-    expiresAt: body.expiresAt,
-    issuerOrigin: identityOrigin(),
+}
+
+async function resumeCookieSession(
+  check: () => void = () => {},
+): Promise<IdentitySession | null> {
+  const owner = captureIdentityEpoch();
+  const guarded = () => {
+    check();
+    assertIdentityEpoch(owner);
+    assertNoPendingSignOut();
   };
-  session = nextSession;
-  emit();
-  return nextSession;
+  return resumeIdentityCookie(guarded, {
+    epoch: () => sessionEpoch,
+    origin: identityOrigin,
+    current: () => currentSession(),
+    publish: (restored) => {
+      sessionOwnerEpoch = owner;
+      session = restored;
+      setOrphan(false);
+      emit();
+    },
+  });
 }
 
-async function resumeCookieSession(): Promise<IdentitySession | null> {
-  if (session) return session;
-  // Device-native identity has no HttpOnly cookie plane.
-  if (isDeviceIdentityMode()) return null;
-  try {
-    const res = await identityPlaneRequest("/v1/principals/me", {
-      credentials: "include",
-      timeoutMs: PROBE_MS,
-    });
-    if (!res.ok) return null;
-    const body = overlapCast(await res.json());
-    if (!isString(body.id) || !body.id) return null;
-    const nextSession: IdentitySession = {
-      principalId: body.id,
-      // An opaque local identity for Host-session deduplication only. It is
-      // never sent as a bearer; the HttpOnly cookie authenticates requests.
-      accessToken: `cookie:${body.id}`,
-      cookieOnly: true,
-      issuerOrigin: identityOrigin(),
-    };
-    session = nextSession;
-    setOrphan(false);
-    emit();
-    return nextSession;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Stand on a rebound session: end only the previous bearer, cookies
- * withheld, since the cookie already names this token and the revoke
- * route ends every credential a request presents.
- */
+/** Revoke only the previous bearer when adopting a rebound session. */
 function standOnRebound(
   token: string,
   principalId: string,
   issuerOrigin: string,
+  owner: string | null,
+  nextProof?: { sessionId: string; proof: string },
 ): void {
   const previous =
     session && !session.cookieOnly && session.issuerOrigin === issuerOrigin
       ? session.accessToken
       : undefined;
-  session = { principalId, accessToken: token, adopted: true, issuerOrigin };
+  const unverifiedBrowserSessions = session?.unverifiedBrowserSessions;
+  sessionOwnerEpoch = owner;
+  session = {
+    principalId,
+    accessToken: token,
+    adopted: true,
+    issuerOrigin,
+    unverifiedBrowserSessions,
+  };
+  // A rebound token belongs to a different server session; the old proof must
+  // never be used to adopt that new session across a navigation.
+  if (nextProof) saveCookieBinding({ issuerOrigin, principalId, ...nextProof });
+  else clearCookieBinding();
   setOrphan(false);
   emit();
   if (previous && previous !== token) {
-    pendingRevoke = (pendingRevoke ?? Promise.resolve())
-      .then(() => revokeRequest(previous, "omit"))
-      .then(() => undefined)
-      .catch(() => undefined);
+    queueRevokeForIssuer(issuerOrigin, () => revokeRequest(previous, "omit"));
   }
 }
 
-/** Adopt a token the operator already holds (CLI `opensesame-id`, tests). */
-/**
- * A sign-out or lock landed while a token was on its way. A rebound token
- * already has a server session and the cookie, so it is ended here too.
- */
-function refuseEndedSession(serverBoundToken?: string): never {
+/** Revoke a rebound token if sign-out lands while it is being adopted. */
+function refuseEndedSession(
+  serverBoundToken?: string,
+  issuer = identityOrigin(),
+): never {
   if (serverBoundToken) {
-    pendingRevoke = (pendingRevoke ?? Promise.resolve())
-      .then(() => revokeRequest(serverBoundToken))
-      .then(() => undefined)
-      .catch(() => undefined);
+    queueRevokeForIssuer(issuer, () => revokeRequest(serverBoundToken, "omit"));
   }
   throw new IdentityError(
     "The session was ended while adopting that token. Try again.",
@@ -451,42 +377,62 @@ function refuseEndedSession(serverBoundToken?: string): never {
   );
 }
 
+function refuseHiddenSession(
+  rebound: boolean,
+  token: string,
+  issuer: string,
+): void {
+  if (session && !currentSession())
+    refuseEndedSession(rebound ? token : undefined, issuer);
+}
+
 async function adoptTokenDefault(
   accessToken: string,
   rebound = false,
   expectedEpoch?: number,
+  nextProof?: { sessionId: string; proof: string },
+  check?: () => void,
 ): Promise<void> {
   const token = accessToken.trim();
+  const issuerOrigin = identityOrigin();
+  const owner = captureIdentityEpoch();
+  const checkOriginal = () =>
+    assertIdentityAdoption(owner, check, () =>
+      refuseEndedSession(rebound ? token : undefined, issuerOrigin),
+    );
+  checkOriginal();
+  refuseHiddenSession(rebound, token, issuerOrigin);
   if (session?.accessToken === token) return;
   // A rebind names the epoch its link request started in: the session can
   // end while that request is in flight, before this function ever runs.
   const epoch = expectedEpoch ?? sessionEpoch;
-  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
-  const issuerOrigin = identityOrigin();
+  if (sessionEpoch !== epoch)
+    refuseEndedSession(rebound ? token : undefined, issuerOrigin);
   const principalId = await proveTokenOwner(token, IDENTITY_FETCH_MS);
-  if (sessionEpoch !== epoch) refuseEndedSession(rebound ? token : undefined);
+  checkOriginal();
+  if (sessionEpoch !== epoch || identityOrigin() !== issuerOrigin)
+    refuseEndedSession(rebound ? token : undefined, issuerOrigin);
   if (rebound) {
-    standOnRebound(token, principalId, issuerOrigin);
+    standOnRebound(token, principalId, issuerOrigin, owner, nextProof);
     return;
   }
   // Only now end what came before, detected orphan or not: a cookie this tab
   // never saw would otherwise keep acting alongside the pasted token.
   endSession();
   const adoptionEpoch = sessionEpoch;
+  const adoptionOwner = captureIdentityEpoch();
   await settleRevokes();
-  if (sessionEpoch !== adoptionEpoch) {
+  if (sessionEpoch !== adoptionEpoch || identityEpochChanged(adoptionOwner)) {
     // A sign-out landed while the old session's revoke was in flight. The
     // pasted token was never adopted, so drop it server-side too rather than
     // resurrect a credential after the person ended the session.
-    pendingRevoke = (pendingRevoke ?? Promise.resolve())
-      .then(() => revokeRequest(token))
-      .then(() => undefined)
-      .catch(() => undefined);
+    queueRevokeForIssuer(issuerOrigin, () => revokeRequest(token, "omit"));
     throw new IdentityError(
       "The session was ended while adopting that token. Try again.",
       409,
     );
   }
+  sessionOwnerEpoch = adoptionOwner;
   session = {
     principalId,
     accessToken: token,
@@ -507,17 +453,25 @@ function restoreSessionDefault(
   next: IdentitySession,
   expectedEpoch?: number,
 ): void {
-  if (expectedEpoch !== undefined && sessionEpoch !== expectedEpoch) {
+  if (
+    isLocalOnlyGuest() ||
+    signOutFenceActive() ||
+    (session && !currentSession()) ||
+    (expectedEpoch !== undefined && sessionEpoch !== expectedEpoch)
+  ) {
     if (!next.cookieOnly)
-      pendingRevoke = (pendingRevoke ?? Promise.resolve())
-        .then(() => revokeRequest(next.accessToken))
-        .then(() => undefined)
-        .catch(() => undefined);
+      queueRevokeForIssuer(next.issuerOrigin, () =>
+        revokeRequest(next.accessToken, "omit"),
+      );
     throw new IdentityError(
       "The session was ended while finishing sign-in. Sign in again.",
       409,
     );
   }
+  // A separately verified sign-in has its own session; an earlier cookie
+  // proof must never be attached to it merely because the principal matches.
+  sessionOwnerEpoch = captureIdentityEpoch();
+  clearCookieBinding();
   session = next;
   setOrphan(false);
   emit();
@@ -532,6 +486,7 @@ async function probeIdentityDefault(): Promise<HealthState> {
 }
 
 export const identitySeams = {
+  hasRetainedIdentitySession: () => session !== null,
   hostFetch: hostFetchDefault,
   endSession: endSessionDefault,
   ensureHostSession: ensureHostSessionDefault,
@@ -546,8 +501,12 @@ export const identitySeams = {
   connectProvisional: connectProvisionalDefault,
   resumeSession: resumeCookieSession,
   adoptToken: adoptTokenDefault,
-  rebindSession: (accessToken: string, expectedEpoch?: number) =>
-    adoptTokenDefault(accessToken, true, expectedEpoch),
+  rebindSession: (
+    accessToken: string,
+    expectedEpoch?: number,
+    nextProof?: { sessionId: string; proof: string },
+    check?: () => void,
+  ) => adoptTokenDefault(accessToken, true, expectedEpoch, nextProof, check),
   probeIdentity: probeIdentityDefault,
   fetchPrincipal: fetchPrincipalDefault,
   restoreSession: restoreSessionDefault,
@@ -560,8 +519,8 @@ export async function hostFetch(
   return identitySeams.hostFetch(path, init);
 }
 
-export function endSession(): void {
-  identitySeams.endSession();
+export function endSession(options?: { orphan?: boolean }): void {
+  identitySeams.endSession(options);
 }
 
 export async function ensureHostSession(): Promise<HostSession> {
@@ -602,8 +561,10 @@ export async function identityJson<T>(
 ): Promise<T> {
   return identitySeams.identityJson<T>(...args);
 }
-export async function connectProvisional(): Promise<IdentitySession> {
-  return identitySeams.connectProvisional();
+export async function connectProvisional(
+  options?: ProvisionalOptions,
+): Promise<IdentitySession> {
+  return identitySeams.connectProvisional(options);
 }
 export async function adoptToken(accessToken: string): Promise<void> {
   return identitySeams.adoptToken(accessToken);
@@ -612,8 +573,15 @@ export async function adoptToken(accessToken: string): Promise<void> {
 export async function rebindSession(
   accessToken: string,
   expectedEpoch?: number,
+  nextProof?: { sessionId: string; proof: string },
+  check?: () => void,
 ): Promise<void> {
-  return identitySeams.rebindSession(accessToken, expectedEpoch);
+  return identitySeams.rebindSession(
+    accessToken,
+    expectedEpoch,
+    nextProof,
+    check,
+  );
 }
 export async function probeIdentity(): Promise<HealthState> {
   return identitySeams.probeIdentity();
@@ -632,6 +600,11 @@ export function restoreSession(
 /** Fence value for work that must not restore across a sign-out. */
 export function identitySessionEpoch(): number {
   return sessionEpoch;
+}
+
+/** Moves on every published session or orphan-cookie change. */
+export function identitySessionRevision(): number {
+  return sessionRevision;
 }
 
 /** Original bearer transport DATA only; the private Store must prove primary/all configured factors. */

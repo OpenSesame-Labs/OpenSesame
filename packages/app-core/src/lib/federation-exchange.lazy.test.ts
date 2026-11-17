@@ -7,6 +7,12 @@ import {
   resetAmbientAuthSeams,
 } from "./ambient-auth-seam.js";
 import {
+  clearSession,
+  completeSignIn,
+  federationExchangeSeams,
+  loadSession,
+} from "./federation.js";
+import {
   type TokenFault,
   callbackHost,
   exchangeIssuer,
@@ -14,12 +20,7 @@ import {
 } from "./federation-exchange.test-support.js";
 import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
-import {
-  clearSession,
-  completeSignIn,
-  federationExchangeSeams,
-  loadSession,
-} from "./federation.js";
+import { advanceGuestReturnEpoch } from "./guest-return-epoch.js";
 
 const closes: (() => Promise<void>)[] = [];
 beforeEach(() => {
@@ -93,6 +94,16 @@ it.each(["signout", "configuration", "callback", "origin", "fetch"] as const)(
     expect(readFederationSessionJson()).toBeNull();
   },
 );
+it("refuses a callback already consumed when another tab signs out", async () => {
+  const { issuer, gate } = await setup();
+  const completion = completeSignIn();
+  await gate.arrived;
+  advanceGuestReturnEpoch();
+  gate.release();
+  await expect(completion).rejects.toMatchObject({ code: "sign_in_cancelled" });
+  expect(issuer.requests).toEqual([]);
+  expect(readFederationSessionJson()).toBeNull();
+});
 it("keeps the immutable original PKCE/client/redirect while preserving an unrelated newer pending ceremony", async () => {
   const { issuer, gate } = await setup();
   const completion = completeSignIn();

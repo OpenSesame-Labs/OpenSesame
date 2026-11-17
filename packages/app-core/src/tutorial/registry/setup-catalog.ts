@@ -14,9 +14,51 @@ const CEREMONY = [
 
 export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
+    id: "setup.default",
+    description: "Selects the default setup and its optional extensions.",
+    role: "action",
+    routes: ["/setup/choose"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal",
+    description: "Seals a new vault with the selected unlock method.",
+    role: "action",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal-pin",
+    description: "Chooses PIN when sealing a new vault.",
+    role: "action",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal-pin-entry",
+    description: "The device PIN field for a new vault.",
+    role: "action",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal-pin-confirm",
+    description: "The PIN confirmation field for a new vault.",
+    role: "action",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
+    id: "unlock.seal-ack",
+    description: "Acknowledges the new vault's recovery notice.",
+    role: "action",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
     id: "unlock.submit",
     description:
-      "The ink square that opens the vault — passkey or PIN, or a master password an older vault still holds, whichever method is selected.",
+      "Unlock the vault with the selected method, or finish creating a new vault.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: null,
@@ -24,14 +66,14 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.secret",
     description:
-      "The field that takes the PIN (or, on an older vault, the master password) used to unwrap the vault key on this device.",
+      "Enter the PIN, password or recovery credential for the selected method.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: null,
   },
   {
     id: "unlock.passkey",
-    description: "Chooses the passkey challenge as the way to open this vault.",
+    description: "Choose a passkey to unlock this vault.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: null,
@@ -39,7 +81,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.methods",
     description:
-      "The tabs of unlock methods: exactly the keys this vault has enrolled — a passkey, a PIN, or a master password an older vault still holds — and on first run the two it can be sealed with.",
+      "Choose an enrolled unlock method, or a passkey or PIN when creating a vault.",
     role: "navigation",
     routes: ["/unlock"],
     capabilityId: null,
@@ -47,7 +89,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.guest",
     description:
-      "The guest road: Skip in the corner of the front door, and Skip to the guest vault under the unlock form beside a sealed vault. Not on the sign-in panel, and not beside a keyless guest tomb, where Unlock resumes that tomb. A guest vault is sealed on this device and kept apart from any other vault here, which it never reads.",
+      "Select Skip on the welcome screen or Skip to the guest vault on the unlock screen. A new guest vault is temporary and separate from other vaults. Its items are lost when it locks unless you first protect the vault with a key.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: null,
@@ -55,15 +97,14 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.local-only",
     description:
-      "Use without an account, on first run: seals a vault on this device with a passkey or PIN and no account, so there is no sync and no account recovery.",
+      "Create a local vault without an account and protect it with a passkey or PIN. Account recovery is unavailable.",
     role: "action",
     routes: ["/unlock/signin"],
     capabilityId: null,
   },
   {
     id: "unlock.account",
-    description:
-      "The user menu on the right of the unlock screen: who locked this vault, the other vaults on this device, Sign in to swap identity, and Sign out.",
+    description: "Open the account menu to switch vaults, sign in or sign out.",
     role: "status",
     routes: ["/unlock"],
     capabilityId: "identity.signout",
@@ -71,15 +112,14 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.signin",
     description:
-      "The sign-in panel: identity providers configured for this deployment, plus the option to bring your own issuer.",
+      "Choose a configured identity provider or enter an issuer to sign in.",
     role: "ceremony",
     routes: ["/unlock"],
     capabilityId: "identity.login",
   },
   {
     id: "vaults.list",
-    description:
-      "The list of vaults on this device — the personal vault, each project vault, and the guest road — where pressing a row switches to it.",
+    description: "Select a vault on this device to switch to it.",
     role: "surface",
     routes: ["/unlock", "/settings/vaults"],
     capabilityId: "vaults.switch",
@@ -87,7 +127,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "prompt.tomb",
     description:
-      "The vault segment of the shell prompt (who@vault:/); opens the list of vaults on this device to switch between them.",
+      "Select the vault name to switch between vaults on this device.",
     role: "action",
     routes: [],
     capabilityId: "vaults.switch",
@@ -95,7 +135,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.setup",
     description:
-      "Opens optional deployment setup — connectors, sign-in, backups, all skippable. The Set up your own road on the front door; after the ceremony, setup lives behind unlock.",
+      "Open setup to configure optional features and sign-in providers.",
     role: "ceremony",
     routes: ["/unlock"],
     capabilityId: "setup.first_run",
@@ -103,31 +143,22 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "setup.join",
     description:
-      "The front door's Join a session road: join somebody's live session from the link they shared (plus the code, for an invite), browser to browser by trading request and reply codes (by hand, or through a carrier the owner named), or accept a Host invite. A shared link opens it by itself.",
+      "Join a live session using a shared link or by exchanging request and reply codes. An invitation may also require a code.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: "setup.first_run",
   },
   {
-    id: "setup.configurations",
-    description:
-      "The four ways to set this device up — Default (recommended), Minimal, Full and Custom — with Skip all beneath them. Custom opens the tabbed ceremony.",
-    role: "surface",
-    routes: ["/setup/choose"],
-    capabilityId: null,
-  },
-  {
     id: "setup.tabs",
     description:
-      "The tabs of the setup ceremony, one for each concern and each skippable. The first is what this installation runs; the rest belong to features that are on.",
+      "Move between setup sections. Available sections depend on the features enabled.",
     role: "navigation",
     routes: CEREMONY,
     capabilityId: null,
   },
   {
     id: "setup.ways",
-    description:
-      "The allowlist of sign-in roads: brokered providers, operators' own issuers, and an optional Identity service.",
+    description: "Choose the sign-in providers allowed for this installation.",
     role: "surface",
     routes: ["/setup/identity"],
     capabilityId: "setup.first_run",
@@ -135,7 +166,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "setup.connectors",
     description:
-      "The connectors tab of setup: a Nango-compatible directory endpoint and key, and the Sync that brings every connection it already holds across by reference.",
+      "Enter a compatible connector directory endpoint and key, then sync its connections by reference.",
     role: "surface",
     routes: ["/setup/connectors"],
     capabilityId: "connectors.directory.sync",
@@ -143,15 +174,14 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "setup.keep",
     description:
-      "The offer to keep this app on the device — install the PWA, with no wrong answer if declined.",
+      "Choose whether to install OpenSesame as an app on this device.",
     role: "action",
     routes: CEREMONY,
     capabilityId: "app.install",
   },
   {
     id: "setup.finish",
-    description:
-      "The ink square that finishes setup and returns to sign-in with the roads just chosen.",
+    description: "Finish setup and continue to sign-in.",
     role: "action",
     routes: CEREMONY,
     capabilityId: "setup.first_run",
@@ -159,7 +189,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "broker.consent",
     description:
-      "The card of the broker popup that asks a person to approve a static site receiving an upstream identity assertion, or says why it cannot.",
+      "Review and approve the identity assertion requested by the site, or see why authorization cannot proceed.",
     role: "ceremony",
     routes: ["/broker/authorize"],
     capabilityId: "identity.login",
@@ -167,7 +197,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "federation.return",
     description:
-      "What the screen that finishes an identity-provider redirect says: Finishing sign-in while it works, or why it could not, with Back to sign-in. It lands back in the vault or on unlock.",
+      "Shows sign-in progress or an error after returning from an identity provider.",
     role: "ceremony",
     routes: ["/federation"],
     capabilityId: "identity.login",

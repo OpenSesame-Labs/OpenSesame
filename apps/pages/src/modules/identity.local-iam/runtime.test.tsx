@@ -2,6 +2,7 @@ import { deviceIdentityFetch } from "@opensesame/app-core/lib/device-identity-ho
 import { identityServes } from "@opensesame/app-core/lib/identity-plane.js";
 import { subscribeLocalIamChanges } from "@opensesame/app-core/lib/local-iam-events.js";
 import { emitVaultLock } from "@opensesame/app-core/lib/vault/lock-events.js";
+import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -55,10 +56,10 @@ describe("identity.local-iam runtime", () => {
     await expectLifecycle(runtimeOf(runtime), {
       capability: "identity.local-iam",
       kinds: KINDS,
-      // 1 section + 2 routes + 1 section command + 2 tab commands + 1 jump
+      // 1 section + 2 routes + 1 section command + 5 tab commands + 1 jump
       // + 1 unlock effect + tutorial descriptors
       count:
-        1 + 2 + 1 + 3 + 1 + 1 + targets.length + goals.length + routes.length,
+        1 + 2 + 1 + 6 + 1 + 1 + targets.length + goals.length + routes.length,
     });
   });
 
@@ -77,17 +78,26 @@ describe("identity.local-iam runtime", () => {
     expect(t.entries("command-path")).toEqual([
       { path: "/identity", label: "Identity" },
       { path: "/identity/authorize?cli=1", label: "Pair CLI" },
+      { path: "/identity?view=people", label: "Identity · People" },
+      { path: "/identity?view=agents", label: "Identity · Agents" },
       { path: "/identity?view=devices", label: "Identity · Devices" },
       {
         path: "/identity?view=service-accounts",
         label: "Identity · Applications",
       },
+      {
+        path: "/identity?view=organization",
+        label: "Identity · Organizations",
+      },
     ]);
     expect(t.entries("keymap-jump")).toEqual([{ key: "i", path: "/identity" }]);
     expect(t.entries("tutorial-target").map((d) => d.id)).toEqual([
       "nav.identity",
+      "identity.people",
+      "identity.agents",
       "identity.devices",
       "identity.service-accounts",
+      "identity.organization",
     ]);
     // The whole identity partition of the route registry: the two Identity
     // screens plus `/federation`, whose return screen is core sign-in but
@@ -100,16 +110,45 @@ describe("identity.local-iam runtime", () => {
     await handle.dispose();
   });
 
-  it("puts Devices and Applications on the page, and takes them back on dispose", async () => {
-    // Devices is here without the Identity API directory: its list is the
-    // browsers that unlocked this vault, and a household that runs only
-    // browser-local IAM could not see them until this capability drew it.
+  it("exposes local Identity views without the hosted directory", async () => {
     expect(enabledIdentityViews()).toEqual([]);
     const t = createTestContext();
     const handle = await runtime.capabilityRuntime.activate(t.ctx);
-    expect(enabledIdentityViews()).toEqual(["devices", "service-accounts"]);
+    expect(enabledIdentityViews()).toEqual([
+      "people",
+      "agents",
+      "devices",
+      "service-accounts",
+      "organization",
+    ]);
     await handle.dispose();
     expect(enabledIdentityViews()).toEqual([]);
+  });
+
+  it("can compile local identity guides with only local IAM contributions", () => {
+    const { goals, targets, routes } = runtime.TUTORIAL;
+    const vocabulary = {
+      goals: goals.map((goal) => goal.id),
+      targets: targets.map((target) => target.id),
+      routes: routes.map((route) => route.id),
+      predicates: [],
+    };
+    const ids = [
+      "identity.local.agent.keys.manage",
+      "identity.local.directory.manage",
+      "identity.local.organizations.member",
+      "identity.local.passkeys.manage",
+    ];
+    for (const id of ids) {
+      const guide = goals.find((goal) => goal.id === id);
+      expect(guide, id).toBeDefined();
+      const compiled = compileGuide(
+        guide?.guide ?? "",
+        vocabulary,
+        AUTHORED_GUIDE_LIMITS,
+      );
+      expect(compiled.ok, `${id}: ${JSON.stringify(compiled)}`).toBe(true);
+    }
   });
 
   it("contributes its device Identity routes only while active (ADR 0160)", async () => {

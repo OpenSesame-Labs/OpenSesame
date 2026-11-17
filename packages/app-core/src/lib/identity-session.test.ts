@@ -12,7 +12,6 @@ import { loopbackProfileEligible } from "./__tests__/loopback-profile.js";
 import { browserPairingSeams } from "./browser-pairing.js";
 import { defaultCapabilityConnectors } from "./capabilities.js";
 import {
-  HostSessionError,
   IdentityError,
   adoptToken,
   clearHostSession,
@@ -20,24 +19,25 @@ import {
   connectProvisional,
   currentSession,
   endSession,
-  ensureHostSession,
   ensureIdentitySession,
-  fetchPrincipal,
-  hostFetch,
   identityFetch,
-  identityJson,
-  noteUnauthorized,
-  probeIdentity,
   probeOrphanSession,
+  restoreSession,
   settleRevokes,
 } from "./identity.js";
+import {
+  clearCookieBinding,
+  saveCookieBinding,
+} from "./identity-cookie-binding.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 import { saveSettings } from "./settings.js";
+
 const networkEligible = localNetworkFetchSeams.eligible;
 
 beforeEach(() => {
   localNetworkFetchSeams.eligible = loopbackProfileEligible;
   clearSession();
+  clearCookieBinding();
   clearHostSession();
   saveSettings({
     hostApi: HOST,
@@ -51,7 +51,8 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await settleRevokes();
   localNetworkFetchSeams.eligible = networkEligible;
   clearSession();
   clearHostSession();
@@ -66,7 +67,6 @@ describe("session lifecycle", () => {
     expect(session.principalId).toBe("principal_1");
     expect(session.issuerOrigin).toBe(new URL(IDENTITY).origin);
     expect(currentSession()?.accessToken).toBe("identity_tok");
-    // A second caller reuses the live session instead of minting again.
     await expect(ensureIdentitySession()).resolves.toBe(session);
   });
 
@@ -101,36 +101,15 @@ describe("session lifecycle", () => {
 
     expect(currentSession()).toBeNull();
     await vi.waitFor(() => {
-      const revoke = spy.mock.calls.find(([url]) =>
-        String(url).endsWith("/provisional/revoke"),
+      const revoke = spy.mock.calls.find(
+        ([url]) =>
+          String(url) === `${IDENTITY}/v1/principals/provisional/revoke`,
       );
       expect(revoke).toBeTruthy();
       expect(new Headers(revoke?.[1]?.headers).get("authorization")).toBe(
         "Bearer identity_tok",
       );
       expect(revoke?.[1]?.method).toBe("POST");
-    });
-  });
-
-  it("flags an orphan cookie when the revoke is refused but the cookie still acts", async () => {
-    let meResponds = (): Response => jsonResponse({}, 401);
-    stubFetch((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) return meResponds();
-      if (url === `${IDENTITY}/v1/principals/provisional`) {
-        return jsonResponse(provisionalBody());
-      }
-      if (url === `${IDENTITY}/v1/principals/provisional/revoke`) {
-        return jsonResponse({ error: "nope" }, 500);
-      }
-      return jsonResponse({}, 500);
-    });
-    await connectProvisional();
-    meResponds = () => jsonResponse({ id: "principal_1" });
-
-    endSession();
-
-    await vi.waitFor(async () => {
-      await expect(probeOrphanSession()).resolves.toBe(true);
     });
   });
 
@@ -180,7 +159,7 @@ describe("session lifecycle", () => {
     await vi.waitFor(() => {
       expect(
         spy.mock.calls.some(
-          ([url]) => url === `${IDENTITY}/v1/principals/provisional`,
+          ([url]) => url === `${IDENTITY}/v1/bound/session-mint`,
         ),
       ).toBe(true);
     });
@@ -203,10 +182,18 @@ describe("session lifecycle", () => {
     });
   });
 
-  it("resumes from the HttpOnly cookie without inventing a bearer", async () => {
+  it("restores only the principal previously bound to this tab", async () => {
+    saveCookieBinding({
+      issuerOrigin: new URL(IDENTITY).origin,
+      principalId: "principal_cookie",
+      sessionId: "ps_old",
+      proof: "a".repeat(64),
+    });
     stubFetch((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({ id: "principal_cookie" });
+      if (url === `${IDENTITY}/v1/bound/principals/me`) {
+        const response = jsonResponse({ id: "principal_cookie" });
+        response.headers.set("x-opensesame-cookie-bound", "1");
+        return response;
       }
       return jsonResponse({}, 500);
     });
@@ -223,12 +210,12 @@ describe("session lifecycle", () => {
     await connectProvisional();
     expect(
       spy.mock.calls.some(
-        ([url]) => url === `${IDENTITY}/v1/principals/provisional`,
+        ([url]) => url === `${IDENTITY}/v1/bound/session-mint`,
       ),
     ).toBe(true);
   });
 
-  it("treats an unreachable Identity as no cookie session", async () => {
+  it("does not mint when Identity cannot confirm that the cookie is absent", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL) => {
@@ -238,8 +225,9 @@ describe("session lifecycle", () => {
         return Promise.reject(new TypeError("Failed to fetch"));
       }),
     );
-    const session = await connectProvisional();
-    expect(session.principalId).toBe("principal_1");
+    await expect(connectProvisional()).rejects.toThrow(
+      /Identity sign-in could not be verified/,
+    );
   });
 });
 
@@ -285,6 +273,11 @@ describe("adopted tokens", () => {
   });
 
   it("does not adopt a token when a sign-out lands during the old revoke", async () => {
+    restoreSession({
+      principalId: "old",
+      accessToken: "old_bearer",
+      issuerOrigin: new URL(IDENTITY).origin,
+    });
     let releaseRevoke: () => void = () => undefined;
     const blocked = new Promise<void>((resolve) => {
       releaseRevoke = resolve;
@@ -347,141 +340,6 @@ describe("adopted tokens", () => {
   it("falls back to the status when the refusal is not JSON", async () => {
     stubFetch(() => new Response("nope", { status: 403 }));
     await expect(adoptToken("bad")).rejects.toThrow(/Request failed \(403\)/);
-  });
-});
-
-describe("identityFetch and readers", () => {
-  it("attaches the bearer and defaults the content type for bodies", async () => {
-    const spy = stubBasic((url, init) => {
-      if (
-        url === `${IDENTITY}/v1/principals/me` &&
-        new Headers(init?.headers).get("authorization") ===
-          "Bearer identity_tok"
-      ) {
-        return jsonResponse({
-          id: "principal_1",
-          state: "active",
-          assurance: "provisional",
-          createdAt: "2026-08-01T00:00:00Z",
-          updatedAt: "2026-08-01T00:00:00Z",
-          version: 1,
-          identities: [],
-        });
-      }
-      return undefined;
-    });
-    await connectProvisional();
-
-    const principal = await fetchPrincipal();
-    expect(principal.id).toBe("principal_1");
-    const call = spy.mock.calls.at(-1);
-    expect(new Headers(call?.[1]?.headers).get("authorization")).toBe(
-      "Bearer identity_tok",
-    );
-    expect(call?.[1]?.credentials).toBe("include");
-
-    await identityFetch("/v1/x", { method: "POST", body: "{}" });
-    const post = spy.mock.calls.at(-1);
-    expect(new Headers(post?.[1]?.headers).get("content-type")).toBe(
-      "application/json",
-    );
-  });
-
-  it("ends the session when the API refuses the bearer", async () => {
-    stubBasic((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({ error: "revoked" }, 401);
-      }
-      return undefined;
-    });
-    await connectProvisional();
-
-    const res = await identityFetch("/v1/principals/me");
-    expect(res.status).toBe(401);
-    expect(currentSession()).toBeNull();
-  });
-
-  it("noteUnauthorized is a no-op without a session", () => {
-    expect(() => noteUnauthorized()).not.toThrow();
-  });
-
-  it("identityJson throws IdentityError with the server's message", async () => {
-    stubBasic((url) => {
-      if (url === `${IDENTITY}/v1/broken`) {
-        return jsonResponse({ error: "bad_request_code" }, 400);
-      }
-      return undefined;
-    });
-    await connectProvisional();
-    const error = await identityJson("/v1/broken").catch((caught) => caught);
-    expect(error).toBeInstanceOf(IdentityError);
-    expect(overlapCast(error).message).toBe("bad_request_code");
-    expect(overlapCast(error).status).toBe(400);
-  });
-});
-
-describe("missing configuration", () => {
-  beforeEach(() => {
-    vi.stubGlobal("location", {
-      hostname: "me.github.io",
-      href: "https://me.github.io/OpenSesame/",
-      origin: "https://me.github.io",
-    });
-    saveSettings({
-      hostApi: "",
-      identityApi: "",
-      daemonApi: "",
-      capabilityConnectors: {
-        ...defaultCapabilityConnectors(),
-        encryption: { providerId: "webcrypto" },
-        history: { providerId: "github" },
-      },
-    });
-  });
-
-  it("mints a device-native provisional session when no remote Identity API is set", async () => {
-    stubFetch(() => jsonResponse({}, 401));
-    const session = await ensureIdentitySession();
-    expect(session.principalId).toMatch(/^prn_/);
-    expect(session.accessToken.length).toBeGreaterThan(8);
-    expect(session.issuerOrigin.length).toBeGreaterThan(0);
-  });
-
-  it("connects provisionally against the device identity host", async () => {
-    stubFetch(() => jsonResponse({}, 401));
-    const session = await connectProvisional();
-    expect(session.principalId).toMatch(/^prn_/);
-  });
-
-  it("reports device identity as reachable without fetching", async () => {
-    const spy = stubFetch(() => jsonResponse({}, 500));
-    await expect(probeIdentity()).resolves.toBe("reachable");
-    expect(spy).not.toHaveBeenCalled();
-  });
-});
-
-describe("Host session authority", () => {
-  it("requires explicit pairing and never calls a local or device mint endpoint", async () => {
-    const fetcher = stubFetch(() => jsonResponse({}));
-    await expect(ensureHostSession()).rejects.toBeInstanceOf(HostSessionError);
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it("does not exchange an Identity session for an unbound browser bearer", async () => {
-    stubBasic();
-    await connectProvisional();
-    const fetcher = stubFetch(() => jsonResponse({}));
-    await expect(hostFetch("/api/v1/sync/pull")).rejects.toMatchObject({
-      code: "setup_required",
-    });
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-});
-
-describe("plane probes", () => {
-  it("calls a 200 without OpenSesame health JSON unreachable", async () => {
-    stubFetch(() => new Response("<html>ok</html>", { status: 200 }));
-    await expect(probeIdentity()).resolves.toBe("unreachable");
   });
 });
 

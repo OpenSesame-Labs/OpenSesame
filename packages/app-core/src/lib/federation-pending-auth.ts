@@ -22,6 +22,7 @@ export type PendingAuth = {
   jwksUri: string;
   scope: string;
   createdAt?: number;
+  authEpoch?: string;
   sessionCheckEndpoint?: string | undefined;
   redirectUri?: string;
   clientId?: string;
@@ -71,6 +72,7 @@ function applyOptionalPendingFields(
   pending: PendingAuth,
   raw: Record<string, BoundaryValue>,
 ): void {
+  if (isString(raw.authEpoch)) pending.authEpoch = raw.authEpoch;
   if (isString(raw.sessionCheckEndpoint)) {
     pending.sessionCheckEndpoint = raw.sessionCheckEndpoint;
   }

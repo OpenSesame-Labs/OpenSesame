@@ -2,8 +2,8 @@ import { Duration, Effect, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 import { describeSecretFiles, failureOf } from "./files.conformance.js";
 import { resilient } from "./resilient.js";
-import { makeS3SecretFiles } from "./s3.js";
 import type { S3FilesConfig } from "./s3.js";
+import { makeS3SecretFiles } from "./s3.js";
 import {
   ACCESS_KEY,
   BUCKET_NAME,
@@ -107,6 +107,47 @@ describe("an S3 bucket", () => {
     );
     expect(error._tag).toBe("SecretFsConflict");
   });
+
+  it.each([null, "*", 'W/"weak"', "unquoted"])(
+    "does not overwrite a rival when the bucket exposes no strong ETag (%s)",
+    async (etag) => {
+      const bucket = fakeBucket();
+      const first = await Effect.runPromise(
+        client(bucket).write("a.json", bytes("one")),
+      );
+      const racing: typeof fetch = async (input, init) => {
+        const request = new Request(input, init);
+        const response = await bucket.fetch(request);
+        if (request.method !== "GET") return response;
+        bucket.objects.set("a.json", {
+          bytes: bytes("rival"),
+          etag: '"rival"',
+        });
+        const headers = new Headers(response.headers);
+        if (etag === null) headers.delete("etag");
+        else headers.set("etag", etag);
+        return new Response(await response.arrayBuffer(), {
+          status: response.status,
+          headers,
+        });
+      };
+      const error = await failureOf(
+        client(bucket, { fetch: racing }).write("a.json", bytes("two"), {
+          ifRevision: first,
+        }),
+      );
+      expect(error).toMatchObject({
+        _tag: "SecretFsRejected",
+        kind: "unsupported",
+      });
+      expect(
+        new TextDecoder().decode(bucket.objects.get("a.json")?.bytes),
+      ).toBe("rival");
+      expect(
+        bucket.log.filter((entry) => entry.startsWith("PUT ")),
+      ).toHaveLength(1);
+    },
+  );
 
   it("is refused by a bucket that does not know the key, as a permission and not a retry", async () => {
     const error = await failureOf(

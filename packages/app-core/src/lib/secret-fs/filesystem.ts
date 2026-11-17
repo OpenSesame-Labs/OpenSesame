@@ -12,11 +12,16 @@
  * root, symlinks included (`filesystem-guard.ts`).
  */
 import { Effect, FileSystem, Semaphore } from "effect";
-import { SecretFsConflict } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
+import { SecretFsConflict } from "./errors.js";
+import type {
+  RemoveOptions,
+  Revision,
+  SecretFiles,
+  WriteOptions,
+} from "./files.js";
 import { STAGING_SUFFIX, checkPath, revisionOf } from "./files.js";
-import type { Revision, SecretFiles, WriteOptions } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 import {
   DIRECTORY_MODE,
   FILE_MODE,
@@ -49,6 +54,7 @@ const stageAndRename = (
   path: string,
   bytes: Uint8Array,
   check?: () => void,
+  assertLockOwner: Effect.Effect<void, SecretFsError> = Effect.void,
 ) =>
   Effect.gen(function* () {
     const { fs } = dir;
@@ -71,6 +77,8 @@ const stageAndRename = (
       ),
     ).pipe(
       Effect.andThen(checkWriteOwner(path, check)),
+      Effect.andThen(assertLockOwner),
+      Effect.andThen(checkWriteOwner(path, check)),
       Effect.andThen(platform(path, fs.rename(staged, target))),
     );
     yield* stage.pipe(
@@ -86,6 +94,28 @@ const standing = (dir: Directory, path: string) =>
     Effect.map((file) => file.revision),
     Effect.catchTag("SecretFsNotFound", () => Effect.succeed(null)),
   );
+
+const discardFile =
+  (dir: Directory, path: string, options?: RemoveOptions, check?: () => void) =>
+  (assertLockOwner: Effect.Effect<void, SecretFsError>) =>
+    Effect.gen(function* () {
+      yield* checkWriteOwner(path, check);
+      if (options?.ifRevision !== undefined) {
+        const actual = yield* standing(dir, path);
+        yield* checkWriteOwner(path, check);
+        if (actual === null) return;
+        if (actual !== options.ifRevision) {
+          return yield* new SecretFsConflict({
+            path,
+            expected: options.ifRevision,
+            actual,
+          });
+        }
+      }
+      yield* assertLockOwner;
+      yield* checkWriteOwner(path, check);
+      yield* platform(path, dir.fs.remove(dir.absolute(path), { force: true }));
+    });
 
 const isFile = (fs: FileSystem.FileSystem, target: string) =>
   fs.stat(target).pipe(
@@ -154,36 +184,51 @@ export function makeFileSystemSecretFiles(
       Effect.gen(function* () {
         yield* checkPath(path);
         yield* checkWriteOwner(path, check);
-        const replace = Effect.gen(function* () {
-          yield* checkWriteOwner(path, check);
-          if (options?.ifRevision !== undefined) {
-            const actual = yield* standing(dir, path);
-            if (actual !== options.ifRevision) {
-              return yield* new SecretFsConflict({
-                path,
-                expected: options.ifRevision,
-                actual,
-              });
+        const replace = (assertLockOwner: Effect.Effect<void, SecretFsError>) =>
+          Effect.gen(function* () {
+            yield* checkWriteOwner(path, check);
+            if (options?.ifRevision !== undefined) {
+              const actual = yield* standing(dir, path);
+              yield* checkWriteOwner(path, check);
+              if (actual !== options.ifRevision) {
+                return yield* new SecretFsConflict({
+                  path,
+                  expected: options.ifRevision,
+                  actual,
+                });
+              }
             }
-          }
-          yield* stageAndRename(dir, path, bytes, check);
-          return revisionOf(bytes);
-        });
-        const guarded: Effect.Effect<Revision, SecretFsError> =
-          options?.ifRevision === undefined
-            ? replace
-            : withLock(fs, root, path, dir.absolute(path), replace);
+            yield* stageAndRename(dir, path, bytes, check, assertLockOwner);
+            return revisionOf(bytes);
+          });
+        const guarded: Effect.Effect<Revision, SecretFsError> = withLock(
+          fs,
+          root,
+          path,
+          dir.absolute(path),
+          replace,
+        );
         return yield* writer.withPermit(guarded);
       });
 
-    const remove: SecretFiles["remove"] = (path) =>
+    const remove = (
+      path: string,
+      options?: RemoveOptions,
+      check?: () => void,
+    ) =>
       Effect.gen(function* () {
         yield* checkPath(path);
+        yield* checkWriteOwner(path, check);
         const target = dir.absolute(path);
         yield* confine(fs, root, path, target);
-        yield* writer.withPermit(
-          platform(path, fs.remove(target, { force: true })),
+        const guarded = withLock(
+          fs,
+          root,
+          path,
+          target,
+          discardFile(dir, path, options, check),
         );
+        yield* writer.withPermit(guarded);
       });
 
     const list: SecretFiles["list"] = (prefix) =>
@@ -197,6 +242,7 @@ export function makeFileSystemSecretFiles(
       writeGuarded: (path, bytes, check, options) =>
         write(path, bytes, options, check),
       remove,
+      removeGuarded: (path, check, options) => remove(path, options, check),
       list,
     };
   });

@@ -18,6 +18,8 @@ export function UnlockFoot({
   showSignIn,
   showReset,
   guestKeyless,
+  continuingGuest,
+  expiredGuestReturn,
   busy,
   setBusy,
   setError,
@@ -32,6 +34,8 @@ export function UnlockFoot({
   showSignIn: boolean;
   showReset: boolean;
   guestKeyless: boolean;
+  continuingGuest: boolean;
+  expiredGuestReturn: boolean;
   busy: boolean;
   setBusy: (busy: boolean) => void;
   setError: (message: string | null) => void;
@@ -42,14 +46,23 @@ export function UnlockFoot({
 }) {
   return (
     <div className="unlock__foot">
+      {guestKeyless && !showSignIn ? (
+        <output className="note note--warn" id="guest-resume-note">
+          <span>
+            {expiredGuestReturn
+              ? "Your temporary vault items did not survive the page change."
+              : continuingGuest
+                ? "Continue the connection setup you started in this tab. Your temporary vault items did not survive the page change."
+                : "Items in the temporary guest vault were lost when it locked. Continue to start a new guest session."}
+          </span>
+        </output>
+      ) : null}
       {offerSignIn ? (
         <button type="button" className="unlock__switch" onClick={onSignIn}>
           Sign in instead
         </button>
       ) : null}
-      {/* Guest tomb beside a sealed vault (GuestRoad.tsx). Not on
-            sign-in or a keyless tomb — Unlock resumes that tomb. Allow
-            guests is the only gate (AGENTS.md §5). */}
+      {/* A keyless guest already has a start action on the form. */}
       {!firstRun && !showSignIn ? <DeadmanSwitchRoad /> : null}
       {!firstRun && !showSignIn && !showReset ? (
         <GuestUnlockSwitch
@@ -59,7 +72,7 @@ export function UnlockFoot({
           hidden={guestKeyless}
         />
       ) : null}
-      {!firstRun && !showSignIn ? (
+      {!firstRun && !showSignIn && !guestKeyless ? (
         <ResetVault
           open={showReset}
           onOpen={onAskReset}

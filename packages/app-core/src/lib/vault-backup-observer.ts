@@ -10,9 +10,10 @@ import {
   readLocalBackupTarget,
   subscribeLocalBackupTarget,
 } from "./backup-target-local.js";
-import { drainBackupWebhooks, syncVaultBackup } from "./vault-backup-sync.js";
+import { isGuestVaultId } from "./guest-vault-id.js";
+import { vaultStore } from "./vault/store.js";
 import { sealMark } from "./vault/store-fresh.js";
-import { GUEST_TOMB, vaultStore } from "./vault/store.js";
+import { drainBackupWebhooks, syncVaultBackup } from "./vault-backup-sync.js";
 import { HEADER_PATH, readPlaintextFile } from "./vfs.js";
 
 export type BackupSyncReason =
@@ -108,7 +109,7 @@ async function runSync(reason: BackupSyncReason): Promise<void> {
 
 export function publishBackupSyncEvent(reason: BackupSyncReason): void {
   const { tomb } = vaultStore.getSnapshot();
-  if (tomb === GUEST_TOMB) return;
+  if (isGuestVaultId(tomb)) return;
   const event: BackupSyncEvent = { reason };
   for (const listener of listeners) listener(event);
   // resyncBackup owns and awaits manual dispatch for its selected provider.
@@ -153,7 +154,7 @@ export function startVaultBackupObserver(): () => void {
     if (next === lastStatus) return;
     lastStatus = next;
     const { status, tomb } = vaultStore.getSnapshot();
-    if (status !== "unlocked" || tomb === GUEST_TOMB) return;
+    if (status !== "unlocked" || isGuestVaultId(tomb)) return;
     publishBackupSyncEvent("vault");
   });
   targetUnsub = subscribeLocalBackupTarget(() => {

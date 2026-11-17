@@ -7,12 +7,13 @@ import { useCoachFocus } from "./use-coach-behavior.js";
 
 afterEach(cleanup);
 
-function Card(): ReactElement {
+function Card({ actionOnly = false }: { actionOnly?: boolean }): ReactElement {
   const card = useRef<HTMLElement>(null);
   const primary = useRef<HTMLButtonElement>(null);
-  useCoachFocus(true, "1:step:1", card, primary);
+  useCoachFocus(true, "1:step:1", card, primary, actionOnly);
   return (
     <section ref={card}>
+      <button type="button" aria-label="Exit tutorial" />
       <button type="button" ref={primary}>
         Next
       </button>
@@ -28,6 +29,13 @@ function outside(tag: "input" | "button"): HTMLElement {
 }
 
 describe("the card's first move of focus", () => {
+  it("focuses Exit when a compact action step hides Next", () => {
+    const { getByRole } = render(<Card actionOnly />);
+    expect(document.activeElement).toBe(
+      getByRole("button", { name: "Exit tutorial" }),
+    );
+  });
+
   it("takes it from the page body", () => {
     const { getByRole } = render(<Card />);
     expect(document.activeElement).toBe(getByRole("button", { name: "Next" }));

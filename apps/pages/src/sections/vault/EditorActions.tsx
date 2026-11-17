@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { IconCheck, IconX } from "../../components/Icons.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { useShortViewport } from "./use-short-viewport.js";
 
 /**
  * Render after all fields so keyboard and visual order agree. The save is the
@@ -18,8 +19,11 @@ export function EditorActions({
 }) {
   // A walkthrough may point at Save; it never presses it.
   const guideRef = useGuideTarget<HTMLButtonElement>("item.editor.save");
+  const shortViewport = useShortViewport();
   return (
-    <div className="editor__actions go-row">
+    <div
+      className={`editor__actions go-row${shortViewport ? " editor__actions--short-viewport" : ""}`}
+    >
       <button
         ref={guideRef}
         type="submit"

@@ -13,8 +13,8 @@ import { useNavigate } from "react-router";
 import { IconShare } from "../../components/Icons.js";
 import { useVaultShare } from "../../components/vault-share-seat.js";
 import { useVault } from "../../lib/vault/hooks.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { useLiveGuest, useLiveHost } from "./live-hooks.js";
+import { useLiveShareGuideTarget } from "./use-live-share-guide.js";
 import "./live.css";
 
 export function LiveShareButton() {
@@ -23,7 +23,7 @@ export function LiveShareButton() {
   const { host, state } = useLiveHost();
   const joined = useLiveGuest();
   const navigate = useNavigate();
-  const ref = useGuideTarget<HTMLButtonElement>("shell.share");
+  const ref = useLiveShareGuideTarget();
   if (!share) return null;
   // A joined guest still needs one key back to the live catalog after moving
   // around the vault; the Share sheet is the owner's, not theirs.

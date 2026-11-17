@@ -121,7 +121,7 @@ async function verifyRestMenu(page, label, harness, before) {
     `${label}: letting go in the middle opens the named Import and Export menu without navigating (${where})`,
   );
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
+  await menu.waitFor({ state: "detached" });
   harness.check(
     (await menu.count()) === 0,
     `${label}: Escape closes Add actions`,

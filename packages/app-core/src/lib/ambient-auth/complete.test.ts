@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  advanceGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "../guest-return-epoch.js";
 import { completeAmbientIfPresent } from "./complete.js";
 import { providerConnectionKey } from "./provider.js";
 import {
@@ -38,6 +42,7 @@ function pending(state: string, issuer: string) {
     },
     policyRevision: "rev1",
     generation: 0,
+    authEpoch: requireGuestReturnEpoch(),
     providerKey: key,
     transport: "silent-redirect",
   });
@@ -74,5 +79,17 @@ describe("completeAmbientIfPresent", () => {
     });
     expect(lookupTransaction("state-b")?.status).toBe("pending");
     expect(lookupTransaction("state-a")?.status).toBe("cancelled");
+  });
+
+  it("rejects an automatic callback started before another tab signed out", async () => {
+    persistTransaction(pending("state-a", "https://idp.example"));
+    advanceGuestReturnEpoch();
+    const fetcher = vi.fn();
+    await expect(
+      completeAmbientIfPresent("?code=abc&state=state-a", fetcher),
+    ).rejects.toMatchObject({
+      code: "stale_generation",
+    });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

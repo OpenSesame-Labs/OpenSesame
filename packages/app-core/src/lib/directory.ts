@@ -370,11 +370,15 @@ function createOrganizationDefault(
  * own transport wording for a failure that names no code, so it reads like
  * every other directory call.
  */
-async function approveDeviceDefault(userCode: string): Promise<DeviceApproval> {
+async function approveDeviceDefault(
+  userCode: string,
+  organizationId?: string,
+): Promise<DeviceApproval> {
   try {
     return await approveDeviceRequest({
       baseUrl: "",
       userCode,
+      ...(organizationId ? { organizationId } : {}),
       fetchImpl: (input, init) => identityFetch(String(input), init),
       fallbackWords: plainWords,
     });
@@ -451,6 +455,11 @@ export function createOrganization(
 ): ReturnType<typeof createOrganizationDefault> {
   return directorySeams.createOrganization(...args);
 }
-export function approveDevice(userCode: string): Promise<DeviceApproval> {
-  return directorySeams.approveDevice(userCode);
+export function approveDevice(
+  userCode: string,
+  organizationId?: string,
+): Promise<DeviceApproval> {
+  return organizationId
+    ? directorySeams.approveDevice(userCode, organizationId)
+    : directorySeams.approveDevice(userCode);
 }

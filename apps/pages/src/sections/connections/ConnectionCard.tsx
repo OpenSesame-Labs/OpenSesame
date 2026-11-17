@@ -11,6 +11,10 @@ import {
 import { publicConnectorFields } from "@opensesame/app-core/lib/device-connectors.js";
 import { isLocalGitRemoteId } from "@opensesame/app-core/lib/git-remote-local.js";
 import {
+  assertGuestVercelNavigationCanResume,
+  captureGuestProviderAttempt,
+} from "@opensesame/app-core/lib/guest-provider-return.js";
+import {
   type Flash,
   STATUS_CHIP,
   errorText,
@@ -63,14 +67,20 @@ export function ConnectionCard({
         : "Re-authorize";
 
   async function reauthorize() {
-    const popup = openConsentPopup("about:blank");
+    let popup: Window | null = null;
     setBusy("authorize");
     try {
-      const { authorizationUrl } = await authorizeConnection(
+      const checkGuest = captureGuestProviderAttempt();
+      popup = openConsentPopup("about:blank");
+      const { authorizationUrl, guestReturnToken } = await authorizeConnection(
         connection.connectionId,
       );
+      checkGuest();
       if (popup) popup.location.href = authorizationUrl;
-      else window.location.href = authorizationUrl;
+      else {
+        assertGuestVercelNavigationCanResume(guestReturnToken);
+        window.location.href = authorizationUrl;
+      }
       const outcome = await awaitConsent(connection.connectionId, popup);
       if (outcome.result === "active") {
         onFlash({

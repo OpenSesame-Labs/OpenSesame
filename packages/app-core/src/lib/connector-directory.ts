@@ -40,6 +40,7 @@ import {
   listDirectory,
   normalizeDirectoryEndpoint,
 } from "./nango-directory.js";
+import { onVaultLock } from "./vault/lock-events.js";
 import {
   VfsError,
   readFile,
@@ -154,13 +155,14 @@ export async function readConnectorDirectory(
 async function writeConnectorDirectory(
   tomb: string,
   record: ConnectorDirectory,
+  check?: () => void,
 ): Promise<void> {
   const bytes = new TextEncoder().encode(JSON.stringify(record));
   if (bytes.length > MAX_BYTES) {
     throw new Error("That directory is too large to keep here.");
   }
   try {
-    await writeFile(tomb, DIRECTORY_PATH, bytes);
+    await writeFile(tomb, DIRECTORY_PATH, bytes, check);
   } finally {
     notifyLocalIamChange();
   }
@@ -169,6 +171,7 @@ async function writeConnectorDirectory(
 /* ------------------------------------------------ the sync, and its parking */
 
 let pending: ConnectorDirectory | null = null;
+let pendingGeneration = 0;
 
 /** What a sync left behind before any vault could seal it. */
 export function pendingConnectorDirectory(): ConnectorDirectory | null {
@@ -178,7 +181,10 @@ export function pendingConnectorDirectory(): ConnectorDirectory | null {
 /** Tests, and a deliberate discard: forget an unsealed sync. */
 export function clearPendingConnectorDirectory(): void {
   pending = null;
+  pendingGeneration += 1;
 }
+
+onVaultLock(clearPendingConnectorDirectory);
 
 export const connectorDirectorySeams = {
   listDirectory,
@@ -195,6 +201,11 @@ export async function syncConnectorDirectory(input: {
   key: string;
   tomb: string | null;
 }): Promise<ConnectorDirectory> {
+  const generation = ++pendingGeneration;
+  const check = () => {
+    if (generation !== pendingGeneration)
+      throw new Error("The directory import ended. Try again.");
+  };
   const endpoint = normalizeDirectoryEndpoint(input.endpoint);
   if (!endpoint) {
     throw new Error("Use an https address, or http on loopback.");
@@ -203,6 +214,7 @@ export async function syncConnectorDirectory(input: {
     endpoint,
     input.key.trim(),
   );
+  check();
   const record: ConnectorDirectory = {
     version: 1,
     endpoint,
@@ -212,8 +224,10 @@ export async function syncConnectorDirectory(input: {
     connections: listing.connections,
   };
   await writeDirectoryEndpoint(endpoint);
+  check();
   if (input.tomb && tombUnlocked(input.tomb)) {
-    await writeConnectorDirectory(input.tomb, record);
+    await writeConnectorDirectory(input.tomb, record, check);
+    check();
     pending = null;
   } else {
     pending = record;
@@ -227,13 +241,22 @@ export async function syncConnectorDirectory(input: {
  */
 export async function sealPendingConnectorDirectory(
   tomb: string,
-  { ephemeral = false }: { ephemeral?: boolean } = {},
+  _options: { ephemeral?: boolean } = {},
 ): Promise<boolean> {
   if (!pending || !tombUnlocked(tomb)) return false;
-  await writeConnectorDirectory(tomb, pending);
-  // A guest tomb is wiped on lock: it gets the list for its session, and the
-  // sync keeps waiting for a vault that lasts.
-  if (!ephemeral) pending = null;
+  const record = pending;
+  clearPendingConnectorDirectory();
+  const generation = pendingGeneration;
+  try {
+    await writeConnectorDirectory(tomb, record, () => {
+      if (generation !== pendingGeneration)
+        throw new Error("The directory import ended. Try again.");
+    });
+  } catch (error) {
+    if (generation === pendingGeneration && tombUnlocked(tomb) && !pending)
+      pending = record;
+    throw error;
+  }
   return true;
 }
 

@@ -18,22 +18,24 @@
  */
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { asBufferSource } from "@opensesame/os-domain";
 import { Effect } from "effect";
+import type { SecretFsError } from "./errors.js";
 import {
+  SecretFsConflict,
   SecretFsNotFound,
   SecretFsRejected,
   SecretFsUnavailable,
 } from "./errors.js";
-import type { SecretFsError } from "./errors.js";
-import { checkPath, revisionOf } from "./files.js";
 import type { SecretFiles } from "./files.js";
+import { checkPath, revisionOf } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 import { keysOf, moreAfter } from "./s3-listing.js";
-import { s3Exchange } from "./s3-response.js";
 import type { S3Reply } from "./s3-response.js";
-import { EMPTY_PAYLOAD, signS3 } from "./s3-sigv4.js";
+import { s3Exchange } from "./s3-response.js";
 import type { S3Credentials } from "./s3-sigv4.js";
+import { EMPTY_PAYLOAD, signS3 } from "./s3-sigv4.js";
 import { s3Write } from "./s3-write.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_LIST_PAGES = 1000;
@@ -265,12 +267,67 @@ const readFile =
     });
 
 const removeFile =
-  (wire: Wire): SecretFiles["remove"] =>
-  (path) =>
+  (wire: Wire, check?: () => void): SecretFiles["remove"] =>
+  (path, options) =>
     Effect.gen(function* () {
       yield* checkPath(path);
       yield* wire.current(path);
-      const response = yield* wire.call({ method: "DELETE", path });
+      yield* checkWriteOwner(path, check);
+      const headers = new Headers();
+      if (options?.ifRevision !== undefined) {
+        const current = yield* wire.call({
+          method: "GET",
+          path,
+          beforeCommit: check,
+        });
+        yield* checkWriteOwner(path, check);
+        if (current.status === 404) return;
+        if (!current.ok) return yield* refusal(path, current.status);
+        const actual = revisionOf(current.bytes);
+        if (actual !== options.ifRevision) {
+          return yield* new SecretFsConflict({
+            path,
+            expected: options.ifRevision,
+            actual,
+          });
+        }
+        if (
+          current.etag === null ||
+          !/^"[\x21\x23-\x7e\x80-\xff]*"$/.test(current.etag)
+        ) {
+          return yield* new SecretFsRejected({
+            path,
+            kind: "unsupported",
+            reason:
+              "the bucket must expose a strong ETag for conditional removal",
+          });
+        }
+        headers.set("if-match", current.etag);
+      }
+      const response = yield* wire.call({
+        method: "DELETE",
+        path,
+        headers,
+        beforeCommit: check,
+      });
+      yield* checkWriteOwner(path, check);
+      if (response.status === 409 || response.status === 412) {
+        const now = yield* wire
+          .call({ method: "GET", path, beforeCommit: check })
+          .pipe(
+            Effect.map((reply) =>
+              reply.ok ? revisionOf(reply.bytes) : (null as string | null),
+            ),
+            Effect.orElseSucceed(() => null),
+          );
+        yield* wire.current(path);
+        yield* checkWriteOwner(path, check);
+        return yield* new SecretFsConflict({
+          path,
+          expected: options?.ifRevision ?? null,
+          actual: now,
+        });
+      }
       if (!response.ok && response.status !== 404) {
         return yield* refusal(path, response.status);
       }
@@ -323,6 +380,8 @@ export function makeS3SecretFiles(config: S3FilesConfig): SecretFiles {
     writeGuarded: (path, bytes, check, options) =>
       s3Write(wire, refusal, check)(path, bytes, options),
     remove: removeFile(wire),
+    removeGuarded: (path, check, options) =>
+      removeFile(wire, check)(path, options),
     list: listFiles(wire),
   };
 }

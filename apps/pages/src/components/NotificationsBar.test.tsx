@@ -47,6 +47,30 @@ describe("NotificationsBar", () => {
     ).toBeTruthy();
   });
 
+  it("runs a notice's dismissal callback only when the person dismisses it", () => {
+    const onDismiss = vi.fn();
+    setStatusNotice({
+      id: "temporary-offer",
+      tone: "info",
+      title: "Choose an option",
+      body: "Select an option to continue.",
+      onDismiss,
+      transient: true,
+    });
+    render(
+      <MemoryRouter>
+        <NotificationsBar />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Notifications — 1 pending" }),
+    );
+    expect(onDismiss).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Choose an option")).toBeNull();
+  });
+
   it("shows a pending guest claim and can start the claim sign-in", () => {
     pushNotice({
       kind: "guest_claim",

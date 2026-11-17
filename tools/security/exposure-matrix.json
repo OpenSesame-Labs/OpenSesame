@@ -948,7 +948,56 @@
         "packages/vault-core/src/index.ts",
         "packages/vault-core/src/crypto.ts",
         "packages/vault-core/src/bytes.ts",
-        "packages/vault-core/src/factor-configuration.ts"
+        "packages/vault-core/src/factor-configuration.ts",
+        "packages/app-core/src/lib/vfs-delete.ts",
+        "packages/app-core/src/lib/vfs-guest-deletion.ts",
+        "packages/app-core/src/lib/vfs-registry.ts",
+        "packages/app-core/src/lib/vfs-storage-key.ts",
+        "packages/app-core/src/lib/vfs-tomb-keys.ts",
+        "packages/app-core/src/lib/vfs-plaintext.ts",
+        "packages/app-core/src/lib/vfs-transient-guest.ts",
+        "packages/app-core/src/lib/guest-vault-id.ts",
+        "packages/app-core/src/lib/guest-return-epoch.ts",
+        "packages/app-core/src/lib/guest-return-epoch-key.ts",
+        "packages/app-core/src/lib/guest-return-record.ts",
+        "packages/app-core/src/lib/guest-return-barrier.ts",
+        "packages/app-core/src/lib/guest-return-signout.ts",
+        "packages/app-core/src/lib/guest-continuation.ts",
+        "packages/app-core/src/lib/guest-continuation-key.ts",
+        "packages/app-core/src/lib/guest-session-context.ts",
+        "packages/app-core/src/lib/local-guest.ts",
+        "packages/app-core/src/lib/secret-fs/config-docs.ts",
+        "packages/app-core/src/lib/secret-fs/layout.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-file-keys.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-delete.ts",
+        "packages/app-core/src/lib/secret-fs/owned-body-files.ts",
+        "packages/app-core/src/lib/secret-fs/projection-read.ts",
+        "packages/app-core/src/lib/secret-fs/projection-write.ts",
+        "packages/app-core/src/lib/secret-fs/projection-plan.ts",
+        "packages/app-core/src/lib/secret-fs/projection-staging.ts",
+        "packages/app-core/src/lib/secret-fs/secret-docs.ts",
+        "packages/app-core/src/lib/secret-fs/transient-guest-seams.ts",
+        "packages/app-core/src/lib/vault/store-new-vault-persistence.ts",
+        "packages/app-core/src/lib/vault/store-guest-material.ts",
+        "packages/app-core/src/lib/vault/store-guest-protection.ts",
+        "packages/app-core/src/lib/vault/store-guest-scope.ts",
+        "packages/app-core/src/lib/vault/store-open-lease.ts",
+        "packages/app-core/src/lib/vault/store-tomb-destruction.ts",
+        "packages/app-core/src/lib/vault/guest-person-metadata.ts",
+        "packages/app-core/src/lib/vault/guest-vault-promotion.ts",
+        "packages/app-core/src/lib/guest-auth.ts",
+        "packages/app-core/src/lib/guest-auth-entry.ts",
+        "packages/app-core/src/lib/guest-auth-dependencies.ts",
+        "packages/app-core/src/lib/guest-auth-link-guard.ts",
+        "packages/app-core/src/lib/guest-access.ts",
+        "packages/app-core/src/lib/guest-provider-return.ts",
+        "packages/app-core/src/lib/guest-signout-copy.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-files-settle.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-crypto.ts",
+        "packages/app-core/src/lib/vault/store-fresh.ts",
+        "packages/app-core/src/lib/vault/ordinary-peer-body-refresh.ts",
+        "packages/app-core/src/lib/vault/original-store-memory-body-proof-data.ts",
+        "packages/app-core/src/lib/vault/original-unlock-policy-proof.ts"
       ],
       "regressions": [
         "packages/app-core/src/node/secret-files.test.ts",
@@ -973,6 +1022,7 @@
         "packages/app-core/src/lib/trusted-unlock-access-legacy.test.ts",
         "packages/app-core/src/lib/trusted-unlock.test.ts",
         "packages/app-core/src/lib/local-passkeys.test.ts",
+        "packages/app-core/src/lib/local-authorization.test.ts",
         "packages/app-core/src/lib/local-passkey-prf-wipe.test.ts",
         "packages/app-core/src/lib/local-sessions.test.ts",
         "packages/app-core/src/lib/local-directory.test.ts",
@@ -1001,9 +1051,49 @@
         "packages/app-core/src/lib/tailnet-sync/device-identity-restore-sync.test.ts",
         "packages/app-core/src/lib/tailnet-sync/devices-lifecycle.test.ts",
         "packages/auth-upstream/src/__tests__/webauthn.test.ts",
-        "packages/sdk-browser/src/webauthn.test.ts"
+        "packages/sdk-browser/src/webauthn.test.ts",
+        "packages/app-core/src/lib/vault/store-guest-promotion-races.test.ts",
+        "packages/app-core/src/lib/vault/store-guest-lease.test.ts",
+        "packages/app-core/src/lib/vault/store-guest-delete-race.test.ts",
+        "packages/app-core/src/lib/vault/store.guest-gates.test.ts",
+        "packages/app-core/src/lib/vault/device-key-restore.test.ts",
+        "packages/app-core/src/lib/vault/store-preferences-lifetime.test.ts",
+        "packages/app-core/src/lib/vault/guest-vault-recovery.test.ts",
+        "packages/app-core/src/lib/vfs-guest-guard.test.ts",
+        "packages/app-core/src/lib/vfs-guest-deletion.test.ts",
+        "packages/app-core/src/lib/vfs-registry-concurrency.test.ts",
+        "packages/app-core/src/lib/vfs-registry-protected.test.ts",
+        "packages/app-core/src/lib/vfs-key-retirement.test.ts",
+        "packages/app-core/src/lib/vfs-memory-only-refresh.test.ts",
+        "packages/app-core/src/lib/guest-return-epoch.test.ts",
+        "packages/app-core/src/lib/guest-return-record.test.ts",
+        "packages/app-core/src/lib/guest-return-resume.test.ts",
+        "packages/app-core/src/lib/guest-return-signout.test.ts",
+        "packages/app-core/src/lib/guest-return-reload.test.ts",
+        "packages/app-core/src/lib/guest-return-cross-tab.test.ts",
+        "packages/app-core/src/lib/guest-continuation.test.ts",
+        "packages/app-core/src/lib/local-guest.test.ts",
+        "packages/app-core/src/lib/secret-fs/guarded-removal.test.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-ownership.test.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-delete-ownership.test.ts",
+        "packages/app-core/src/lib/secret-fs/transient-guest.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection.test.ts",
+        "packages/app-core/src/lib/secret-fs/layout.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection-conflicts.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection-long-path.test.ts",
+        "packages/app-core/src/lib/secret-fs/s3-vfs-race.test.ts",
+        "packages/app-core/src/lib/guest-auth.test.ts",
+        "packages/app-core/src/lib/guest-auth.access.test.ts",
+        "packages/app-core/src/lib/guest-auth.chaos.test.ts",
+        "packages/app-core/src/lib/guest-auth.units.test.ts",
+        "packages/app-core/src/lib/guest-auth-lifetime.test.ts",
+        "packages/app-core/src/lib/guest-local-only.test.ts",
+        "packages/app-core/src/lib/guest-access.test.ts",
+        "packages/app-core/src/lib/guest-provider-return.test.ts",
+        "packages/app-core/src/lib/github-app-manifest.test.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-read-ownership.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-17: Reviewed guest activation, return fencing, unique unlock lifetimes and file-backed projection, including owner-guarded physical writes and removals, conditional S3 operations, staging recovery and mirror publication. Guest sign-out and promotion preserve their exclusive lease; ordinary metadata, body and delete capabilities do not grant preapproval IAM. Executed 122 projection/storage conformance tests and 80 guest/owner tests; focused preference and lifetime regressions passed. These local checks neither retract an already accepted remote operation nor provide offline or global revocation. Further review added owner-fenced body assembly, physical absence/error handling, same-key reopen fencing, tracked preference writes, and manifest-revision-conditional body deletion. Storage and guest-entry regressions exercise successful owners, interrupted reads/writes/removals and a competing manifest. Further review kept vault keys private behind check-only lifetime tokens that retain no retired key after lock, and restricted plaintext writes to headers and migration markers. A forced-GC regression failed with the old owner-capturing closure and passes with the token-only closure. A physical header refresh under the registry lock prevents guest promotion from overwriting an orphaned protected vault; transient destruction retains its target and waits for return revocation without deleting durable namesakes. Executed 57 guest and registry tests and 38 VFS/file-custody tests, including stale physical caches, failed revocation, retry and offline protected-guest access. GitHub guest registration tests also run the browser physical-vault ports over encrypted fake OPFS, verifying protected same-tab registration and secret-save retry; unprotected same-tab navigation is refused with actionable guidance. Corrected 52 local authorization, passkey and device-key restore tests to inject guarded-write failures and use each guest's isolated tomb; all pass."
     },
     {
       "id": "native-provider-custody",
@@ -3446,14 +3536,14 @@
       "98d5d0de"
     ],
     "packages/app-core/src/lib/kv.ts": [
-      "e4a7589e",
-      "0e6f00eb",
-      "82f532dc",
-      "92a96734",
-      "5f7c98f3",
-      "52280dd3",
-      "9800fab1",
-      "c2c222c8"
+      "b0c2d569",
+      "45c21932",
+      "3da3ac72",
+      "9c2f1fdf",
+      "adec78d2",
+      "60d83ea9",
+      "0465d7a8",
+      "e5b466e5"
     ],
     "packages/app-core/src/lib/kv-entry-lifecycle.ts": [
       "4bdcc962",
@@ -3476,24 +3566,24 @@
       "a3da297b"
     ],
     "packages/app-core/src/lib/vfs.ts": [
-      "931a97e4",
-      "d65f26df",
-      "e8e05e0a",
-      "c464e224",
-      "68e82195",
-      "21a1ef2e",
-      "bc973640",
-      "432edd33"
+      "4b4764c9",
+      "5faf189c",
+      "8fa7c87d",
+      "a0fc8f41",
+      "fab9ee22",
+      "0bc6f7f0",
+      "5388343b",
+      "3739a6b8"
     ],
     "packages/app-core/src/lib/vfs-operation-check.ts": [
-      "53d74e57",
-      "4f579f36",
-      "6d70bafa",
-      "e9910d72",
-      "b03f37fd",
-      "c3cad98c",
-      "ebe5222e",
-      "73731420"
+      "17d6f3ac",
+      "aae0de52",
+      "6e443ee9",
+      "49a78e53",
+      "b63a8790",
+      "32fe99ee",
+      "a8fe5e2f",
+      "6d3db783"
     ],
     "packages/app-core/src/lib/vfs-cross-tab-lock.ts": [
       "f56d94b8",
@@ -3506,14 +3596,14 @@
       "2f81a13f"
     ],
     "packages/app-core/src/lib/vfs-write-order.ts": [
-      "b8e28c45",
-      "a0905ca4",
-      "5d0f172e",
-      "1909d8c8",
-      "964536f6",
-      "adacd671",
-      "7c36f84a",
-      "836aed61"
+      "d330e0cb",
+      "d92876dd",
+      "a0126032",
+      "54466df5",
+      "73daf0be",
+      "b5244ff8",
+      "9b9a0222",
+      "fa7696fc"
     ],
     "packages/app-core/src/lib/vfs-shared-write.ts": [
       "29d6c3b1",
@@ -3526,34 +3616,34 @@
       "ebcb6b6a"
     ],
     "packages/app-core/src/lib/vfs-seams.ts": [
-      "4a128aaa",
-      "57c9086b",
-      "ea693c3c",
-      "7a528bf3",
-      "8f1a0bfe",
-      "1ea75bba",
-      "be9ae508",
-      "905185f7"
+      "866ec64e",
+      "06f240ef",
+      "ad6559ab",
+      "a387ba52",
+      "dc644275",
+      "0382fb49",
+      "eda1fc9a",
+      "69a05a2a"
     ],
     "packages/app-core/src/lib/vfs-seams-state.ts": [
-      "729616ee",
-      "d2fe2a95",
-      "de07db38",
-      "3f87207c",
-      "4ac3725e",
-      "a8bc1fc1",
-      "de7f42e5",
-      "e228b453"
+      "df1e35c2",
+      "f7a11459",
+      "c612e98a",
+      "18343d8f",
+      "424de7d8",
+      "3da83109",
+      "1a787410",
+      "7d3e9052"
     ],
     "packages/app-core/src/lib/vfs-metadata-data.ts": [
-      "ddf66dc6",
-      "5fb65131",
-      "e0c2e84d",
-      "d838c603",
-      "e3988b6c",
-      "7e4285bb",
-      "928eea73",
-      "17f8a8db"
+      "31e01f45",
+      "a754b867",
+      "64456d9e",
+      "dea92c03",
+      "b4ce325e",
+      "b59de0e4",
+      "3d5e22f3",
+      "9644d617"
     ],
     "packages/app-core/src/lib/vfs-error.ts": [
       "04427c55",
@@ -3616,14 +3706,14 @@
       "51b9e451"
     ],
     "packages/app-core/src/lib/local-directory.ts": [
-      "7fc5fc16",
-      "983c1ab4",
-      "1a32deae",
-      "cc8e9aa9",
-      "7f24849d",
-      "ce42f3c0",
-      "a7da4936",
-      "5c85a085"
+      "60a12c95",
+      "e666045f",
+      "21458558",
+      "3670b552",
+      "15eddbb0",
+      "13384953",
+      "7385a230",
+      "0ed3deeb"
     ],
     "packages/app-core/src/lib/local-directory-admin.ts": [
       "9adcdf9d",
@@ -3636,14 +3726,14 @@
       "ffa2ed20"
     ],
     "packages/app-core/src/lib/local-directory-bootstrap.ts": [
-      "7c38cd2f",
-      "9b698f72",
-      "2c616c02",
-      "725898bf",
-      "460832f3",
-      "88ca4715",
-      "afd49bfd",
-      "fa201c98"
+      "d340051b",
+      "c4a537f7",
+      "889ff2d2",
+      "2487909a",
+      "64853ebf",
+      "b113477c",
+      "ad2a5d62",
+      "78e32dcf"
     ],
     "packages/app-core/src/lib/local-directory-memberships.ts": [
       "95bf5d92",
@@ -3736,24 +3826,24 @@
       "cddd1066"
     ],
     "packages/app-core/src/lib/projects-session.ts": [
-      "c2bccde4",
-      "0a15d73a",
-      "e84ef69b",
-      "806883d7",
-      "ab4e432b",
-      "a67ace75",
-      "e2750bf4",
-      "f69d896c"
+      "d6ba7678",
+      "3cd390a8",
+      "b1fcb7bb",
+      "4e69fc44",
+      "606a30a4",
+      "affca16c",
+      "b9a90c00",
+      "817b2caa"
     ],
     "packages/app-core/src/lib/projects-state.ts": [
-      "b063003f",
-      "70854167",
-      "d4c7de28",
-      "48c442d0",
-      "33955178",
-      "cedbca81",
-      "f3115407",
-      "e4520068"
+      "64518cba",
+      "529d7950",
+      "579e1d75",
+      "b6c0ab9d",
+      "0fb295af",
+      "e9e74542",
+      "e5c7edec",
+      "cfc83da8"
     ],
     "packages/app-core/src/lib/orgs.ts": [
       "95584560",
@@ -3816,34 +3906,34 @@
       "49291a53"
     ],
     "packages/app-core/src/lib/vault/store.ts": [
-      "fce4b68d",
-      "cd11d6d3",
-      "d6822fb3",
-      "9bb548a9",
-      "f8f08c36",
-      "f02defee",
-      "be730383",
-      "6a40f178"
+      "ac82f221",
+      "8f42e1eb",
+      "2b996f2f",
+      "ef39fdcf",
+      "14bdf3ce",
+      "87bc1dd4",
+      "313d6de6",
+      "d8c5990e"
     ],
     "packages/app-core/src/lib/vault/store-unlock-session.ts": [
-      "50fbcb3f",
-      "cb0544ec",
-      "a300b0ca",
-      "7d43828c",
-      "08c7b499",
-      "d67eaaf6",
-      "9b7e4e1c",
-      "3d1dda2a"
+      "b6bf0e84",
+      "8f92f30e",
+      "7470eac4",
+      "76213720",
+      "f3cc8120",
+      "40a82f28",
+      "b7266e00",
+      "3591f611"
     ],
     "packages/app-core/src/lib/vault/store-unlock-races.fixture.ts": [
-      "add17b6d",
-      "e0eb6474",
-      "90246605",
-      "7d93ebe2",
-      "3c40bfc8",
-      "e6e195cf",
-      "d3dc36d4",
-      "8e7997ff"
+      "44c63d16",
+      "4cfce830",
+      "5e63213f",
+      "4d8733c7",
+      "08aede8d",
+      "b80f7d24",
+      "b8ae3de5",
+      "b54f71d3"
     ],
     "packages/app-core/src/lib/vault/store-operation-check.ts": [
       "e3692f85",
@@ -3876,24 +3966,24 @@
       "ff47cd61"
     ],
     "packages/app-core/src/lib/vault/store-scope.ts": [
-      "84d2254c",
-      "8e0de824",
-      "9300bc48",
-      "ee53d258",
-      "fb5029b6",
-      "aa6acd3a",
-      "971c2022",
-      "c8fdc67a"
+      "e4578f3f",
+      "d05f8b4b",
+      "59b706b0",
+      "816c90be",
+      "a4e11489",
+      "5b9f8d86",
+      "854d6e0a",
+      "e1ad32a3"
     ],
     "packages/app-core/src/lib/vault/store-state.ts": [
-      "e1ff0de8",
-      "fc6fff41",
-      "f6bfd7d9",
-      "4f79cbd0",
-      "f9854edd",
-      "7d66ce1e",
-      "57675cc9",
-      "56360d4e"
+      "c1e48f31",
+      "e8bbf3f0",
+      "eb48086c",
+      "d4d57909",
+      "7ef00f81",
+      "d1249ff0",
+      "07da3d1a",
+      "a4c329f5"
     ],
     "packages/app-core/src/lib/vault/store-presentation.ts": [
       "62679fa8",
@@ -3916,24 +4006,24 @@
       "f7799790"
     ],
     "packages/app-core/src/lib/vault/store-body.ts": [
-      "563c387d",
-      "57c80516",
-      "1c821636",
-      "d164d6b2",
-      "3c3e75a6",
-      "564c5bfe",
-      "479db1a2",
-      "3513c465"
+      "1a16a2f6",
+      "f5508ed1",
+      "8b4e7ec1",
+      "0cebbfd2",
+      "e909a537",
+      "497865e2",
+      "e41e7e6a",
+      "01985720"
     ],
     "packages/app-core/src/lib/vault/store-body-writes.ts": [
-      "2e232c06",
-      "715d40bc",
-      "ab9f6a1f",
-      "5c42acab",
-      "d7280a1a",
-      "e45091d8",
-      "47c777c8",
-      "6b84bced"
+      "d8ae7ba1",
+      "6884e7bc",
+      "5d5167c7",
+      "3d7fe8f7",
+      "740e5aac",
+      "fa920a06",
+      "babdbf22",
+      "fec0eccc"
     ],
     "packages/app-core/src/lib/vault/store-seal.ts": [
       "f1e091d1",
@@ -3946,24 +4036,24 @@
       "1e9a1b0a"
     ],
     "packages/app-core/src/lib/vault/store-write-queue.ts": [
-      "c4b7439c",
-      "16921c06",
-      "74ed71e6",
-      "0e3155cb",
-      "43e8ea19",
-      "fd6134ed",
-      "29918ba4",
-      "c188ac0d"
+      "7a87582a",
+      "fee99d54",
+      "0befd2de",
+      "5f8a3ecb",
+      "bf0e7cea",
+      "84daf360",
+      "485134c9",
+      "158e0c66"
     ],
     "packages/app-core/src/lib/vault/vault-shared-locks.ts": [
-      "bee2e599",
-      "4bdebb1f",
-      "2d3fcb2e",
-      "ab3e9c0b",
-      "b2383db5",
-      "9c76a79d",
-      "c0143ac8",
-      "eca71624"
+      "ae8af579",
+      "3d211ff1",
+      "3b3bcc75",
+      "2a56c52e",
+      "5caf4402",
+      "5e57e3fb",
+      "771b2263",
+      "bbc0499e"
     ],
     "packages/app-core/src/lib/vault/store-header-publication.ts": [
       "74156bd7",
@@ -4006,14 +4096,14 @@
       "27e844d6"
     ],
     "packages/app-core/src/lib/vault/store-preferences.ts": [
-      "7afdac99",
-      "84bd8d43",
-      "4b18f094",
-      "0dd89daf",
-      "79a5fae3",
-      "3ecb1172",
-      "10c9384c",
-      "4a4e6702"
+      "7edad2ed",
+      "dfd68b1b",
+      "2f9e3885",
+      "7e487331",
+      "5fe59125",
+      "faaa5cbe",
+      "70b47446",
+      "022a7460"
     ],
     "packages/app-core/src/lib/vault/store-preferences-api.ts": [
       "093390fd",
@@ -4116,44 +4206,44 @@
       "2b4c1499"
     ],
     "packages/app-core/src/lib/vault/tomb-migration.ts": [
-      "7ce1a0c8",
-      "bb414272",
-      "38b5cc10",
-      "1acc886a",
-      "6283282c",
-      "e04e78ed",
-      "1d43ec35",
-      "98a59182"
+      "bab4d73d",
+      "3d6f58d6",
+      "b11da93e",
+      "b760faef",
+      "9fa2283c",
+      "c9f97645",
+      "0a78efae",
+      "d3231ca6"
     ],
     "packages/app-core/src/lib/vault/seal-rebind.ts": [
-      "840d2692",
-      "3ae8dcfb",
-      "c62010fc",
-      "3bc61932",
-      "63563021",
-      "b2a153c9",
-      "91d82707",
-      "f7de625f"
+      "b616cbe1",
+      "3896d67f",
+      "aaf3331b",
+      "0f6142e8",
+      "591d7914",
+      "e339168d",
+      "9d5f6407",
+      "cc49bb1b"
     ],
     "packages/app-core/src/lib/vault/prefs-io.ts": [
-      "a00e232a",
-      "e3fbbc59",
-      "3514620a",
-      "1e23aca3",
-      "0f8c432e",
-      "d9761eeb",
-      "503ca0b9",
-      "d45da1fa"
+      "f46b5738",
+      "82eb97c3",
+      "7dbea082",
+      "23e0ade1",
+      "1d8272f4",
+      "baff6ddb",
+      "592e8585",
+      "132eac2d"
     ],
     "packages/app-core/src/lib/vault/lock-events.ts": [
-      "d396b956",
-      "92d3acc4",
-      "78426c86",
-      "b0748be3",
-      "2dd31d63",
-      "3cd11172",
-      "85a8f165",
-      "3f5394ec"
+      "44f6dae1",
+      "498d7780",
+      "eca7e432",
+      "4f228875",
+      "df18d389",
+      "c513ddf7",
+      "510e8fd6",
+      "f960cd8f"
     ],
     "packages/app-core/src/lib/vault/self-authenticator.ts": [
       "e908dd28",
@@ -4406,14 +4496,14 @@
       "b65140aa"
     ],
     "packages/app-core/src/lib/vault/store-body.test.ts": [
-      "33bdef9c",
-      "4c94a7de",
-      "27863800",
-      "4ab2e0f8",
-      "ea4fc99d",
-      "486eb75b",
-      "cce02e79",
-      "c9f17250"
+      "0160f780",
+      "33a86473",
+      "22ca5e0f",
+      "839db89f",
+      "5ccd36ae",
+      "9ee77823",
+      "a7e07449",
+      "b7db56c9"
     ],
     "packages/app-core/src/lib/vault/tomb-migration.test.ts": [
       "c7e25807",
@@ -4456,14 +4546,14 @@
       "e408edb4"
     ],
     "packages/app-core/src/lib/local-passkeys.test.ts": [
-      "500c343a",
-      "b3c48859",
-      "6f11c53a",
-      "14c2732b",
-      "7a0eed1f",
-      "a22c05c3",
-      "56ce58ba",
-      "5a8ac807"
+      "680b1e3f",
+      "0e479fbb",
+      "1124a614",
+      "4ceab9dc",
+      "5c81664c",
+      "062b72ee",
+      "36213b78",
+      "9d832f41"
     ],
     "packages/app-core/src/lib/local-passkey-prf-wipe.test.ts": [
       "fb10b763",
@@ -4486,14 +4576,14 @@
       "50e6dd0a"
     ],
     "packages/app-core/src/lib/local-directory.test.ts": [
-      "2ac98c6a",
-      "9c85d703",
-      "2253d0f8",
-      "52a7b7a0",
-      "848f6a05",
-      "8d0fec0a",
-      "b28d1434",
-      "4996862d"
+      "a4f68629",
+      "7e197ce6",
+      "9eb0ff64",
+      "da693a75",
+      "d26d72b8",
+      "a650cb01",
+      "936dc282",
+      "eaaaf0d8"
     ],
     "packages/app-core/src/lib/projects.test.ts": [
       "5db62212",
@@ -4526,14 +4616,14 @@
       "848dbcfc"
     ],
     "packages/app-core/src/lib/vfs.test.ts": [
-      "a702ec6e",
-      "de394c7a",
-      "9c05adff",
-      "1951634d",
-      "15f87583",
-      "a733169d",
-      "dd81add0",
-      "97c3eaa2"
+      "769725cf",
+      "80d23833",
+      "3438bbe0",
+      "ea6cd37c",
+      "26ebeb9d",
+      "7bdb13bc",
+      "c50f14d4",
+      "3d87b3af"
     ],
     "packages/app-core/src/lib/vfs-write-order.test.ts": [
       "ff093a9e",
@@ -4596,14 +4686,14 @@
       "e42cab82"
     ],
     "packages/app-core/src/lib/vault/store-ops.fixture.ts": [
-      "1ec04c1a",
-      "71ae8e38",
-      "ca479140",
-      "a70fab3e",
-      "99558bd4",
-      "82d4059b",
-      "166b99ed",
-      "56b35800"
+      "f9286a24",
+      "776694a8",
+      "b19c3532",
+      "9cd87e68",
+      "ab0000ec",
+      "5a4ea37f",
+      "a3b34b8e",
+      "b8938470"
     ],
     "packages/app-core/src/lib/vault/store-totp.fixture.ts": [
       "91735fb6",
@@ -4626,14 +4716,14 @@
       "2625cfa4"
     ],
     "packages/app-core/src/lib/secret-fs/install.ts": [
-      "de5533e5",
-      "400a9604",
-      "80bb21c6",
-      "573bdfb2",
-      "e875e85a",
-      "043b71de",
-      "77542e2d",
-      "4aba3ba5"
+      "43593c61",
+      "17710358",
+      "573a8f8f",
+      "14c3da80",
+      "ea45f557",
+      "6a82e0f2",
+      "4c8b3cc9",
+      "1344873f"
     ],
     "packages/app-core/src/lib/trusted-unlock-access-commit.test.ts": [
       "629ff8a9",
@@ -6186,14 +6276,14 @@
       "10ce55c0"
     ],
     "packages/app-core/src/lib/secret-fs/files.ts": [
-      "8eebd787",
-      "85c2d7b0",
-      "8f987bfe",
-      "456c3c6b",
-      "979a463c",
-      "fe80fe0b",
-      "ce6d06b3",
-      "4548e32d"
+      "de43b3c7",
+      "bba13461",
+      "044a716c",
+      "0291fb1c",
+      "5094f404",
+      "208051d4",
+      "d841b8df",
+      "ff196e7c"
     ],
     "packages/app-core/src/lib/secret-fs/files.conformance.ts": [
       "6627ff30",
@@ -6216,54 +6306,54 @@
       "63792ed3"
     ],
     "packages/app-core/src/lib/secret-fs/errors.ts": [
-      "42624ad1",
-      "4a5a8ab9",
-      "aff6279a",
-      "bb1c4a82",
-      "abcba6ff",
-      "589e1e53",
-      "139aea13",
-      "0536a1d6"
+      "17aa232a",
+      "9228c3e6",
+      "aa6ad15d",
+      "b399ef05",
+      "b3282f46",
+      "4832adf8",
+      "6cfd248f",
+      "6eca666f"
     ],
     "packages/app-core/src/lib/secret-fs/memory.ts": [
-      "40612666",
-      "2eb90d05",
-      "5bce8aee",
-      "9516f763",
-      "9d13390d",
-      "8afe7438",
-      "cd627cf6",
-      "96ae7519"
+      "ceb62f91",
+      "228f0b67",
+      "7aa33343",
+      "cb60add4",
+      "f9afb473",
+      "95b6da69",
+      "496a0158",
+      "8be89f3f"
     ],
     "packages/app-core/src/lib/secret-fs/filesystem.ts": [
-      "43060b15",
-      "63c23164",
-      "a8bbb3dc",
-      "7897c305",
-      "05311311",
-      "cb79ccba",
-      "a49ecd92",
-      "920dded3"
+      "f46e14b2",
+      "a21e03d8",
+      "507f8cdf",
+      "f096d8c8",
+      "1e7935dd",
+      "fdd43673",
+      "7ae4877f",
+      "d7c815c4"
     ],
     "packages/app-core/src/lib/secret-fs/filesystem-guard.ts": [
-      "665dc799",
-      "7ac86c77",
-      "97d0c237",
-      "06d6b934",
-      "ebc1863a",
-      "74241d95",
-      "ba71aaa1",
-      "fa9b89a4"
+      "acdfb573",
+      "3471c710",
+      "0e24cd79",
+      "19137e57",
+      "87c18145",
+      "e36e8de7",
+      "a7ef2b8c",
+      "a579ff7c"
     ],
     "packages/app-core/src/lib/secret-fs/s3.ts": [
-      "914d9711",
-      "b931d69d",
-      "1980a8e7",
-      "dbfbfe46",
-      "4f68ef62",
-      "c331c37e",
-      "bf7bd46c",
-      "773604c0"
+      "b19815cf",
+      "d157125c",
+      "de20cb93",
+      "0f785f35",
+      "87dca1c2",
+      "32844eec",
+      "9c382813",
+      "14db9ec2"
     ],
     "packages/app-core/src/lib/secret-fs/s3-config.ts": [
       "a5b2038c",
@@ -6316,74 +6406,74 @@
       "cd39aaff"
     ],
     "packages/app-core/src/lib/secret-fs/s3.test-support.ts": [
-      "4a7418d1",
-      "4a22d1e5",
-      "60c504e9",
-      "edb1025a",
-      "9d2b0dea",
-      "98dcc3f0",
-      "f454c3ba",
-      "3df83220"
+      "2257bcdb",
+      "ee56bfae",
+      "e3cd525e",
+      "a3bdbd1a",
+      "aed8cf0d",
+      "45a44e13",
+      "36b4429b",
+      "5988def0"
     ],
     "packages/app-core/src/lib/secret-fs/s3-write.ts": [
-      "36356d59",
-      "4dddec7e",
-      "cfd1aa62",
-      "a603569a",
-      "5875f6fa",
-      "ec7d079b",
-      "c4ccdf08",
-      "d06b508d"
+      "d3e90f82",
+      "d46c5abc",
+      "0258d429",
+      "310bd7e9",
+      "821c9d64",
+      "292c9c2d",
+      "b10ca176",
+      "34433710"
     ],
     "packages/app-core/src/lib/secret-fs/resilient.ts": [
-      "435b14df",
-      "d60dd958",
-      "4834e330",
-      "470cf9d0",
-      "5e984dfe",
-      "9f41365c",
-      "0b2daa4f",
-      "559b9eee"
+      "d38b06c0",
+      "3b65fe9c",
+      "8bcc0376",
+      "53094345",
+      "42d803a0",
+      "56a4c653",
+      "98647058",
+      "8853dc03"
     ],
     "packages/app-core/src/lib/secret-fs/vfs-files.ts": [
-      "dd61d159",
-      "25ecaafb",
-      "2f8ce321",
-      "5450e5d0",
-      "68b083ba",
-      "2e1c465c",
-      "919766bf",
-      "ded41fb2"
+      "9f3bad5d",
+      "c3284b0b",
+      "e3c23520",
+      "ec446523",
+      "1dbf15fb",
+      "c53d3ab0",
+      "e3be47b7",
+      "c2433dfc"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.conformance.ts": [
-      "be99b7a5",
-      "517670d1",
-      "40b245a9",
-      "1ba8c4c3",
-      "bccba067",
-      "7a52619f",
-      "74f67a2e",
-      "972cdbf9"
+      "8b017857",
+      "ed884bb2",
+      "bbc1bdaf",
+      "0e13a53b",
+      "247fa420",
+      "982939d8",
+      "77476000",
+      "e0de50ec"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files-tamper.conformance.ts": [
-      "ca17cf81",
-      "4bebed9a",
-      "791d1ad5",
-      "b0cfbbd6",
-      "dc96ace8",
-      "c9e57010",
-      "33c6a456",
-      "7c944d95"
+      "d2e30aff",
+      "f736e92b",
+      "7742bbb0",
+      "c32e935f",
+      "9d4b83c8",
+      "b7c3dc73",
+      "efc8cf35",
+      "26417c78"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.support.ts": [
-      "6d8d2437",
-      "7119f8c8",
-      "4e8bebc8",
-      "fb917d9a",
-      "69c76b4f",
-      "b4244d93",
-      "34e41706",
-      "35f2d910"
+      "de3f35d7",
+      "312da875",
+      "18a52ef1",
+      "420cb0fe",
+      "6d0ec49a",
+      "9ee5f38e",
+      "9f0ccaca",
+      "6dffa14d"
     ],
     "packages/app-core/src/node/secret-files.test.ts": [
       "5aa42d3d",
@@ -6446,14 +6536,14 @@
       "a45ccc69"
     ],
     "packages/app-core/src/lib/secret-fs/s3.test.ts": [
-      "e512112a",
-      "bc4df7df",
-      "870d113f",
-      "db8017fd",
-      "41547a4e",
-      "434e0fcf",
-      "e42b343a",
-      "4e4fd8be"
+      "c2d2cc9f",
+      "fee513ee",
+      "6469ca46",
+      "0596a56b",
+      "4adac7b7",
+      "24b12e7b",
+      "a3dbe337",
+      "408ff111"
     ],
     "packages/app-core/src/lib/secret-fs/s3-sigv4.test.ts": [
       "1b035e13",
@@ -6496,14 +6586,14 @@
       "f83a2df1"
     ],
     "packages/app-core/src/lib/secret-fs/vfs-files.test.ts": [
-      "410d1cb9",
-      "1457c193",
-      "60b58a3a",
-      "bda85c45",
-      "3dbbf3a7",
-      "1dccb536",
-      "13622529",
-      "5754bace"
+      "1ad89381",
+      "a2f91d93",
+      "5245e8a0",
+      "1b893710",
+      "a118bd5f",
+      "e422de6f",
+      "a38e19a3",
+      "703e68fa"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.test.ts": [
       "6ff3a4de",
@@ -6994,6 +7084,906 @@
       "aa16d365",
       "41a1a39f",
       "85ce9bc4"
+    ],
+    "packages/app-core/src/lib/vfs-delete.ts": [
+      "043fa915",
+      "5ce0b80d",
+      "6bb6077d",
+      "4cc075fe",
+      "8dd3309e",
+      "280e28dc",
+      "cb3f2508",
+      "0100a8f5"
+    ],
+    "packages/app-core/src/lib/vfs-guest-deletion.ts": [
+      "493a39a0",
+      "af456910",
+      "ca897134",
+      "38b422b3",
+      "fb1e180f",
+      "5127879d",
+      "240808ad",
+      "3f85e478"
+    ],
+    "packages/app-core/src/lib/vfs-registry.ts": [
+      "7a5dba45",
+      "32c7d167",
+      "71dc5551",
+      "8880bd15",
+      "b35150bd",
+      "fcb3b23c",
+      "eae85ac3",
+      "ca9ec19c"
+    ],
+    "packages/app-core/src/lib/vfs-storage-key.ts": [
+      "4a9dec01",
+      "27a07d2e",
+      "18a9b35d",
+      "8085a728",
+      "7a9f4c27",
+      "31305ee1",
+      "4570419e",
+      "a63482c0"
+    ],
+    "packages/app-core/src/lib/vfs-plaintext.ts": [
+      "b8f817e8",
+      "3f488d58",
+      "5032a42a",
+      "6cdebf62",
+      "2b6f29bb",
+      "ea6e3a30",
+      "bc7e0be5",
+      "accd5a88"
+    ],
+    "packages/app-core/src/lib/vfs-registry-protected.test.ts": [
+      "046f02b0",
+      "459b34d4",
+      "669f8ab4",
+      "47d6ceb0",
+      "b42ee042",
+      "8c836758",
+      "9d8cdb2e",
+      "6adb3f20"
+    ],
+    "packages/app-core/src/lib/vault/store.guest-gates.test.ts": [
+      "06b3321d",
+      "c6e236fa",
+      "ad04df33",
+      "72056909",
+      "ffd51615",
+      "ffb0d3f2",
+      "a094b5d2",
+      "c44b1e52"
+    ],
+    "packages/app-core/src/lib/guest-local-only.test.ts": [
+      "6ce77080",
+      "0a033705",
+      "3d1b19e4",
+      "1e22c394",
+      "04049c9d",
+      "78c07801",
+      "92e6a563",
+      "0a8e0432"
+    ],
+    "packages/app-core/src/lib/github-app-manifest.test.ts": [
+      "a61d9b46",
+      "7aaee741",
+      "601bc3c8",
+      "69ae85db",
+      "b54f0a38",
+      "caecd205",
+      "1d9895eb",
+      "62535b5a"
+    ],
+    "packages/app-core/src/lib/vfs-key-retirement.test.ts": [
+      "304a216a",
+      "a4300089",
+      "7280a8fb",
+      "b580d5ab",
+      "06769804",
+      "bcc142d5",
+      "d51ff1c2",
+      "1fddbfa0"
+    ],
+    "packages/app-core/src/lib/local-authorization.test.ts": [
+      "fb0d94d3",
+      "752e7796",
+      "2a04639e",
+      "4d45250c",
+      "fd0a4846",
+      "e76ed830",
+      "5c73dbee",
+      "c77084d5"
+    ],
+    "packages/app-core/src/lib/vault/device-key-restore.test.ts": [
+      "2f7b01f5",
+      "c9a9932d",
+      "42385c9b",
+      "6d20c3c4",
+      "496a0977",
+      "5949bafb",
+      "622aa1d7",
+      "4fdaad9b"
+    ],
+    "packages/app-core/src/lib/vfs-tomb-keys.ts": [
+      "5c11bc2d",
+      "a720b023",
+      "13390762",
+      "2fd3b450",
+      "c620457e",
+      "cc367f1d",
+      "9c4c7514",
+      "9502962c"
+    ],
+    "packages/app-core/src/lib/vfs-transient-guest.ts": [
+      "36a35502",
+      "3ad8e34e",
+      "ee84d1f5",
+      "24f628b5",
+      "226f97fd",
+      "8bab7dcc",
+      "b03cd1bb",
+      "8363c26c"
+    ],
+    "packages/app-core/src/lib/guest-vault-id.ts": [
+      "be152a05",
+      "7d0df3dd",
+      "208d61ad",
+      "e9067f29",
+      "1825d2fd",
+      "3d5ecd58",
+      "d1af2a6a",
+      "5ac4abd4"
+    ],
+    "packages/app-core/src/lib/guest-return-epoch.ts": [
+      "c3e86c2d",
+      "83b036af",
+      "88ae0f36",
+      "2f987a6e",
+      "a4e72192",
+      "20be5161",
+      "335be25d",
+      "d8a302bf"
+    ],
+    "packages/app-core/src/lib/guest-return-epoch-key.ts": [
+      "a14f56fb",
+      "a19b2ca9",
+      "22d6934f",
+      "ab8e0f2d",
+      "d2758367",
+      "ef73dc87",
+      "505685ca",
+      "6eae8eaf"
+    ],
+    "packages/app-core/src/lib/guest-return-record.ts": [
+      "c1029597",
+      "3c5d6831",
+      "542cfee3",
+      "0777ba57",
+      "0fdd9d5e",
+      "264b4c9c",
+      "f7416225",
+      "fbb888c0"
+    ],
+    "packages/app-core/src/lib/guest-return-barrier.ts": [
+      "d7d9939e",
+      "1b9ce420",
+      "df76b831",
+      "be798fe7",
+      "50d95aae",
+      "886de402",
+      "9031be1d",
+      "803912d9"
+    ],
+    "packages/app-core/src/lib/guest-return-signout.ts": [
+      "3c96ef9d",
+      "3d94ce08",
+      "6f7e1ba6",
+      "5e9793be",
+      "3a3f619e",
+      "45e4766f",
+      "ac900b12",
+      "420649db"
+    ],
+    "packages/app-core/src/lib/guest-continuation.ts": [
+      "8ad7ea54",
+      "71f2f12f",
+      "3d47ba3a",
+      "1b0469af",
+      "92a9f17f",
+      "5790f004",
+      "ebd0b28d",
+      "df5ac366"
+    ],
+    "packages/app-core/src/lib/guest-continuation-key.ts": [
+      "42a5cf8f",
+      "611bbbe4",
+      "2e8c9674",
+      "74631271",
+      "12891def",
+      "821140bd",
+      "e53e3461",
+      "59b7416b"
+    ],
+    "packages/app-core/src/lib/guest-session-context.ts": [
+      "18c7d763",
+      "ffb84bf3",
+      "5f724e88",
+      "122c0e6e",
+      "d12868a9",
+      "51895457",
+      "860d6743",
+      "d53a5d4b"
+    ],
+    "packages/app-core/src/lib/local-guest.ts": [
+      "35deb924",
+      "db984eb3",
+      "c864a4d3",
+      "917b1796",
+      "cfde4ea5",
+      "33fd5930",
+      "2e8774b4",
+      "bf0a1094"
+    ],
+    "packages/app-core/src/lib/secret-fs/config-docs.ts": [
+      "7067b629",
+      "269b4c21",
+      "9971fbef",
+      "4f69c1d8",
+      "bb8de6d8",
+      "53958f73",
+      "3d984b50",
+      "c54ca4e8"
+    ],
+    "packages/app-core/src/lib/secret-fs/layout.ts": [
+      "ae473797",
+      "cda33dc2",
+      "bd6903bb",
+      "b82b468c",
+      "228e3cf1",
+      "c144f45c",
+      "27348c22",
+      "357a8eff"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-file-keys.ts": [
+      "22a34753",
+      "5e7299b3",
+      "2cd86044",
+      "afe572b6",
+      "ac374fa2",
+      "bc6660d5",
+      "a32a11f4",
+      "3a28c3d0"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-delete.ts": [
+      "4a22ea68",
+      "737ef0eb",
+      "ccd722aa",
+      "61a5421d",
+      "a9e21938",
+      "83347510",
+      "75ece617",
+      "057ba66a"
+    ],
+    "packages/app-core/src/lib/secret-fs/owned-body-files.ts": [
+      "c7a39bbe",
+      "d04cb9ef",
+      "d6226bd0",
+      "e9520619",
+      "fa9a051f",
+      "22658d1a",
+      "492fa971",
+      "f56397a3"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-read.ts": [
+      "fb46dd92",
+      "a4f276c9",
+      "0e358929",
+      "c4f66615",
+      "3631dbe5",
+      "da957289",
+      "08fa2e88",
+      "8d7e18c6"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-write.ts": [
+      "2fddfc6e",
+      "e8137dd2",
+      "03e01088",
+      "f8ce7a4f",
+      "6737e67f",
+      "a9784b48",
+      "0b078219",
+      "70580293"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-plan.ts": [
+      "b69ba59c",
+      "74caab32",
+      "4c2b730a",
+      "b807860f",
+      "f2922a20",
+      "bee0005b",
+      "a46a61cf",
+      "e29df4a9"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-staging.ts": [
+      "aba997b7",
+      "6f1ef9d9",
+      "cd093ce6",
+      "e86c51fc",
+      "bf10d75f",
+      "a28f4a43",
+      "c6817057",
+      "fa99c3df"
+    ],
+    "packages/app-core/src/lib/secret-fs/secret-docs.ts": [
+      "48687e2d",
+      "3e4483e1",
+      "68dec4ce",
+      "d78bdca3",
+      "fa2d6aa9",
+      "30e59234",
+      "4f6ab8ae",
+      "4da1d0df"
+    ],
+    "packages/app-core/src/lib/secret-fs/transient-guest-seams.ts": [
+      "04bbcf08",
+      "3575650c",
+      "f433be3b",
+      "2ca5c627",
+      "c3aaceed",
+      "9d2c814b",
+      "cbef12fd",
+      "eac1bd44"
+    ],
+    "packages/app-core/src/lib/vault/store-new-vault-persistence.ts": [
+      "69c4863a",
+      "99ad8e4a",
+      "1996852f",
+      "914a121f",
+      "0d143da9",
+      "99b2a12f",
+      "83059f21",
+      "3c4eb370"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-material.ts": [
+      "41db8988",
+      "a73c1524",
+      "6b52ff06",
+      "a196c870",
+      "634f931c",
+      "dc59a60c",
+      "0190c0eb",
+      "50c18410"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-protection.ts": [
+      "620d1cb7",
+      "f07440a7",
+      "2d31d51c",
+      "262e294e",
+      "be9135bd",
+      "0670bb30",
+      "d5c5095e",
+      "13faac5a"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-scope.ts": [
+      "7e813b47",
+      "0b8bff76",
+      "0fe4db92",
+      "ae42aab6",
+      "ddbdb285",
+      "1dccc0db",
+      "5309ba4d",
+      "340916d0"
+    ],
+    "packages/app-core/src/lib/vault/store-open-lease.ts": [
+      "53de6bfd",
+      "344117bf",
+      "ed95d5a3",
+      "27bf9eb9",
+      "bc3939b5",
+      "509a101f",
+      "116c6911",
+      "131fb7fc"
+    ],
+    "packages/app-core/src/lib/vault/store-tomb-destruction.ts": [
+      "b9a98d17",
+      "2dce8277",
+      "2d790233",
+      "dd7b6afe",
+      "2cf4939a",
+      "891f27ac",
+      "24191541",
+      "ff3c72f4"
+    ],
+    "packages/app-core/src/lib/vault/guest-person-metadata.ts": [
+      "95f399b2",
+      "a9eeb7b3",
+      "a867404d",
+      "4674411d",
+      "a7366587",
+      "7881f7c6",
+      "47be7d17",
+      "7b9aaa36"
+    ],
+    "packages/app-core/src/lib/vault/guest-vault-promotion.ts": [
+      "02c1005e",
+      "ec60ca7a",
+      "da54bd09",
+      "95a28202",
+      "4fad3498",
+      "ab14eabe",
+      "accfdd76",
+      "393fbfe4"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-promotion-races.test.ts": [
+      "07ed64fd",
+      "ca798e6a",
+      "7c4e32c4",
+      "25becfab",
+      "18761df9",
+      "ccc3d06a",
+      "40da2e9b",
+      "6d7f5f56"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-lease.test.ts": [
+      "94f69ac7",
+      "0762c707",
+      "5d1a0129",
+      "607c0c00",
+      "b6d8bd20",
+      "4625df37",
+      "cb976d48",
+      "57918c51"
+    ],
+    "packages/app-core/src/lib/vault/store-guest-delete-race.test.ts": [
+      "6541ee58",
+      "cae5a5c0",
+      "9b4f1a56",
+      "f4f7ba28",
+      "6b6317b0",
+      "50343103",
+      "15b11996",
+      "79371145"
+    ],
+    "packages/app-core/src/lib/vault/store-preferences-lifetime.test.ts": [
+      "52406553",
+      "24eaa4ae",
+      "6a8a92ae",
+      "39b59950",
+      "57efc6bf",
+      "3d4a8a44",
+      "d12e428c",
+      "d5fa32b0"
+    ],
+    "packages/app-core/src/lib/vault/guest-vault-recovery.test.ts": [
+      "3ce64977",
+      "0a167e7f",
+      "8e70b6b0",
+      "417cabc0",
+      "f449c2d8",
+      "b76805ef",
+      "98caa601",
+      "6ed26928"
+    ],
+    "packages/app-core/src/lib/vfs-guest-guard.test.ts": [
+      "419fe180",
+      "ed87610e",
+      "57a2732b",
+      "da51496c",
+      "78600d41",
+      "bbca9fa3",
+      "86d8997d",
+      "7f78dd34"
+    ],
+    "packages/app-core/src/lib/vfs-guest-deletion.test.ts": [
+      "813c6734",
+      "d6569853",
+      "aa93fb89",
+      "06a4ae8f",
+      "c0f1e35c",
+      "8caa5d68",
+      "c33b655b",
+      "4f820626"
+    ],
+    "packages/app-core/src/lib/vfs-registry-concurrency.test.ts": [
+      "4a7a8a4b",
+      "c2f8ab4f",
+      "aca445f1",
+      "3d0abb9b",
+      "b82b6408",
+      "10bcc061",
+      "a9eb82c3",
+      "0d39e1ef"
+    ],
+    "packages/app-core/src/lib/vfs-memory-only-refresh.test.ts": [
+      "8aff69ce",
+      "a78d9729",
+      "6ca6e715",
+      "8b116436",
+      "221b066e",
+      "f5a9af19",
+      "d44261d7",
+      "6b3486c4"
+    ],
+    "packages/app-core/src/lib/guest-return-epoch.test.ts": [
+      "2996ec4c",
+      "371e2c83",
+      "1418a510",
+      "ef9b7a80",
+      "c9851e94",
+      "a9c4d576",
+      "8481cec8",
+      "5fad7c97"
+    ],
+    "packages/app-core/src/lib/guest-return-record.test.ts": [
+      "9783252a",
+      "756b10d5",
+      "4d943b59",
+      "316beacc",
+      "c891a9d7",
+      "b31d99c5",
+      "1b30d70a",
+      "79149dfe"
+    ],
+    "packages/app-core/src/lib/guest-return-resume.test.ts": [
+      "0f9f47e8",
+      "8f44e769",
+      "57b26a79",
+      "0bd9c38b",
+      "1fca3a40",
+      "3cbf200b",
+      "1fc2d8c7",
+      "df047680"
+    ],
+    "packages/app-core/src/lib/guest-return-signout.test.ts": [
+      "04ab2573",
+      "6e1e0d11",
+      "2c18e733",
+      "77699441",
+      "2dd24831",
+      "e2c1453e",
+      "a368d3d2",
+      "e062307a"
+    ],
+    "packages/app-core/src/lib/guest-return-reload.test.ts": [
+      "e0cf371f",
+      "e92b7971",
+      "18666a82",
+      "f4b77f9f",
+      "1d0f0f2f",
+      "285d89dc",
+      "cdf8cc3d",
+      "0fc6a523"
+    ],
+    "packages/app-core/src/lib/guest-return-cross-tab.test.ts": [
+      "ee7f7305",
+      "9897ef0d",
+      "c8cc9a27",
+      "67926057",
+      "b258965e",
+      "5d3da5f0",
+      "3094f593",
+      "c9eac847"
+    ],
+    "packages/app-core/src/lib/guest-continuation.test.ts": [
+      "e35787b8",
+      "e050708e",
+      "af481694",
+      "49264284",
+      "478ecb2b",
+      "e312a193",
+      "1abf1ef4",
+      "15a6c412"
+    ],
+    "packages/app-core/src/lib/local-guest.test.ts": [
+      "0c11f2cb",
+      "8c31fcd0",
+      "3cb9d14f",
+      "15d85172",
+      "43eb03ca",
+      "445b5379",
+      "38eb32d0",
+      "62f5d9dd"
+    ],
+    "packages/app-core/src/lib/secret-fs/guarded-removal.test.ts": [
+      "2c4bb264",
+      "b7fa7dfd",
+      "d15b4c8d",
+      "4303f3c1",
+      "59544922",
+      "e32af84a",
+      "83148acb",
+      "1f6f2126"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-ownership.test.ts": [
+      "b24fbec2",
+      "0f60f629",
+      "4b35a8dd",
+      "06373850",
+      "fac679dc",
+      "95216c1e",
+      "93c43749",
+      "fd32675d"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-delete-ownership.test.ts": [
+      "722a1873",
+      "1accee0e",
+      "d326244b",
+      "eead8020",
+      "db133c06",
+      "3adda5ac",
+      "429956e6",
+      "7ae1f9b3"
+    ],
+    "packages/app-core/src/lib/secret-fs/transient-guest.test.ts": [
+      "bab7395c",
+      "178bff88",
+      "05630a27",
+      "75202363",
+      "cbcedbe2",
+      "be47e53f",
+      "15e0dee1",
+      "a9690cff"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection.test.ts": [
+      "e36b9f5d",
+      "fbd57612",
+      "b1e14bec",
+      "8fbf6633",
+      "0301681f",
+      "6a630c2f",
+      "89cb8cec",
+      "fb24eb90"
+    ],
+    "packages/app-core/src/lib/secret-fs/layout.test.ts": [
+      "21890a91",
+      "f3158b3f",
+      "8ee74852",
+      "0995cb2a",
+      "b6fdb3da",
+      "2570a190",
+      "e40efc51",
+      "db6b6dee"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-conflicts.test.ts": [
+      "32b85bc8",
+      "288345ea",
+      "81ea58f5",
+      "59675492",
+      "597c5eb5",
+      "2e5d9683",
+      "495b1a16",
+      "82f8e1b2"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-long-path.test.ts": [
+      "5d316611",
+      "78349491",
+      "fd92fdf1",
+      "b22b8f90",
+      "71b47bb5",
+      "675ea755",
+      "07b9a0d9",
+      "16799261"
+    ],
+    "packages/app-core/src/lib/secret-fs/s3-vfs-race.test.ts": [
+      "35793e80",
+      "2a83db4f",
+      "ca0e4e58",
+      "0ec29d7c",
+      "a16cd99b",
+      "42f5ecb9",
+      "a8b6ab8e",
+      "42d596a0"
+    ],
+    "packages/app-core/src/lib/guest-auth.ts": [
+      "8406aec6",
+      "706c5deb",
+      "2722c3a8",
+      "24ce117d",
+      "0c1382f6",
+      "c7d575ac",
+      "2784c9c5",
+      "0eeb445b"
+    ],
+    "packages/app-core/src/lib/guest-auth-entry.ts": [
+      "880a32b4",
+      "6c7cb36f",
+      "ca445651",
+      "e9dc7d56",
+      "07dea6b1",
+      "75ab34cf",
+      "f1701ff3",
+      "d417f85a"
+    ],
+    "packages/app-core/src/lib/guest-auth-dependencies.ts": [
+      "4536f878",
+      "3a374590",
+      "e6d855ed",
+      "7eb06ded",
+      "dba87792",
+      "e3693e69",
+      "278e1a55",
+      "f4a92237"
+    ],
+    "packages/app-core/src/lib/guest-auth-link-guard.ts": [
+      "91c7c4c1",
+      "f5768264",
+      "090cedc8",
+      "830fbfb4",
+      "d06a9200",
+      "779a2969",
+      "785629ca",
+      "c89440ad"
+    ],
+    "packages/app-core/src/lib/guest-access.ts": [
+      "43d0aba5",
+      "847b43c4",
+      "cd190358",
+      "98f576bb",
+      "279482e6",
+      "9eab2bf4",
+      "9810d083",
+      "6a906d75"
+    ],
+    "packages/app-core/src/lib/guest-provider-return.ts": [
+      "d259b615",
+      "c043693f",
+      "59f5c410",
+      "a2347add",
+      "1e33a746",
+      "b09c95e7",
+      "ba729c69",
+      "595f7a11"
+    ],
+    "packages/app-core/src/lib/guest-signout-copy.ts": [
+      "95209224",
+      "bb8ae7c7",
+      "85750286",
+      "8ab3d2a7",
+      "72b491f2",
+      "4bbb2cdc",
+      "04ebca11",
+      "2c720384"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-files-settle.ts": [
+      "64f4ad94",
+      "012e8a37",
+      "5fd1c813",
+      "86b56ca0",
+      "b538dbb5",
+      "f2a11fe9",
+      "63398493",
+      "a8b0db14"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-crypto.ts": [
+      "04e74ff5",
+      "71bb4cb0",
+      "97a107b3",
+      "ec045784",
+      "6f548be3",
+      "4c6b95a1",
+      "bc83a99d",
+      "9881aa9e"
+    ],
+    "packages/app-core/src/lib/vault/store-fresh.ts": [
+      "81683085",
+      "2ffb3047",
+      "2fba1b0e",
+      "75906677",
+      "1098f8f9",
+      "2d086a9c",
+      "fd7d0bff",
+      "3a6a053f"
+    ],
+    "packages/app-core/src/lib/vault/ordinary-peer-body-refresh.ts": [
+      "c1e31a3e",
+      "9baba537",
+      "42b97043",
+      "7d74b527",
+      "64c8a920",
+      "3cd6e3f6",
+      "706e3a27",
+      "23f5adbd"
+    ],
+    "packages/app-core/src/lib/vault/original-store-memory-body-proof-data.ts": [
+      "350c6ba2",
+      "4fade208",
+      "a949e6f0",
+      "36357ffb",
+      "275d5dd1",
+      "d40f990f",
+      "eace543c",
+      "80a6f80c"
+    ],
+    "packages/app-core/src/lib/vault/original-unlock-policy-proof.ts": [
+      "c3c25648",
+      "3f1456ee",
+      "54215626",
+      "5b9a38f9",
+      "64cde8cf",
+      "ec7cf076",
+      "be4567a6",
+      "85018b41"
+    ],
+    "packages/app-core/src/lib/guest-auth.test.ts": [
+      "aa0a1815",
+      "ef935ccc",
+      "78e1a8b2",
+      "69960d2a",
+      "944a6fd8",
+      "8896df28",
+      "bf4600d5",
+      "895ba305"
+    ],
+    "packages/app-core/src/lib/guest-auth.access.test.ts": [
+      "268843a7",
+      "39fb9303",
+      "f9e61aa6",
+      "58193145",
+      "7b870d3f",
+      "c71bb2e6",
+      "d213d30e",
+      "a0626985"
+    ],
+    "packages/app-core/src/lib/guest-auth.chaos.test.ts": [
+      "d46b3c6b",
+      "dae7b7d9",
+      "652bfc98",
+      "2763e435",
+      "c5ebdc0b",
+      "f69eea80",
+      "d19f4c2e",
+      "7a14d29e"
+    ],
+    "packages/app-core/src/lib/guest-auth.units.test.ts": [
+      "4894f3b3",
+      "a98dce86",
+      "49af66ca",
+      "78133c83",
+      "0df6b3cf",
+      "5ad1fe44",
+      "22d1384c",
+      "1708e4a5"
+    ],
+    "packages/app-core/src/lib/guest-auth-lifetime.test.ts": [
+      "7dd99466",
+      "624bf155",
+      "83905f79",
+      "46654b12",
+      "a6b77a94",
+      "e5b8a98a",
+      "996aceaa",
+      "1b3ea4d8"
+    ],
+    "packages/app-core/src/lib/guest-access.test.ts": [
+      "19017ba6",
+      "664de072",
+      "c825e692",
+      "7916aae7",
+      "8ad70167",
+      "76550909",
+      "4e30b13f",
+      "384ec456"
+    ],
+    "packages/app-core/src/lib/guest-provider-return.test.ts": [
+      "65886f82",
+      "d0128577",
+      "c8228dd4",
+      "c4e741bf",
+      "bd5fa780",
+      "43ca325e",
+      "539279b0",
+      "88d03c7c"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-read-ownership.test.ts": [
+      "47a937b4",
+      "018efe23",
+      "331029e0",
+      "01bd3516",
+      "061d8f00",
+      "78abf234",
+      "19a74843",
+      "4f427f31"
     ]
   }
 }

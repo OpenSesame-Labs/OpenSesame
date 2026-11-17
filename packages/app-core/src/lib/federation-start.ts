@@ -17,6 +17,7 @@ import { storePending } from "./federation-pending.js";
 
 export type FederationStartOwner = Readonly<{
   origin: string;
+  authEpoch: string | null;
   assertCurrent: () => void;
 }>;
 export type FederationStartContext = Readonly<{
@@ -157,22 +158,30 @@ export async function beginCapturedSignIn(
   const clientId = context.clientId;
 
   owner.assertCurrent();
-  storePending({
-    upstreamId: upstream.id,
-    issuer: discovery.issuer,
-    verifier,
-    state,
-    nonce,
-    tokenEndpoint: discovery.token_endpoint,
-    jwksUri: discovery.jwks_uri,
-    scope,
-    sessionCheckEndpoint: upstream.sessionCheckEndpoint,
-    redirectUri: returnUri,
-    clientId,
-    returnTo: options.returnTo,
-    orgSlug: options.orgSlug,
-    orgMethod: options.orgMethod,
-  });
+  if (!owner.authEpoch)
+    throw new FederationError(
+      "invalid_request",
+      "This browser cannot securely save sign-in. Enable persistent storage and try again.",
+    );
+  storePending(
+    {
+      upstreamId: upstream.id,
+      issuer: discovery.issuer,
+      verifier,
+      state,
+      nonce,
+      tokenEndpoint: discovery.token_endpoint,
+      jwksUri: discovery.jwks_uri,
+      scope,
+      sessionCheckEndpoint: upstream.sessionCheckEndpoint,
+      redirectUri: returnUri,
+      clientId,
+      returnTo: options.returnTo,
+      orgSlug: options.orgSlug,
+      orgMethod: options.orgMethod,
+    },
+    owner.authEpoch,
+  );
 
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set("client_id", clientId);

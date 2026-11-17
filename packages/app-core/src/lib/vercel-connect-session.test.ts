@@ -1,17 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  armVercelConnectAuth,
-  clearPendingVercelConnectAuth,
-  disarmVercelConnectAuth,
-  hydrateVercelConnectAuth,
-  pendingVercelConnectAuth,
-  readVercelConnectAuth,
-} from "./vercel-connect-session.js";
+import { emitVaultLock } from "./vault/lock-events.js";
 import {
   setVercelConnectAuth,
   vercelConnectAuth,
   vercelConnectConfigured,
 } from "./vercel-connect.js";
+import {
+  armVercelConnectAuth,
+  clearPendingVercelConnectAuth,
+  disarmVercelConnectAuth,
+  forgetVercelConnectAuth,
+  hydrateVercelConnectAuth,
+  pendingVercelConnectAuth,
+  readVercelConnectAuth,
+} from "./vercel-connect-session.js";
 import * as vfs from "./vfs.js";
 
 const tomb = "tomb_test";
@@ -127,5 +129,52 @@ describe("Vercel Connect session handoff", () => {
     await expect(hydrateVercelConnectAuth(tomb)).resolves.toBe(false);
     expect(write).not.toHaveBeenCalled();
     expect(vercelConnectConfigured()).toBe(false);
+  });
+
+  it("consumes a staged credential once and clears it on lock", async () => {
+    vi.spyOn(vfs, "readFile").mockRejectedValue(
+      new vfs.VfsError("not-found", "missing"),
+    );
+    await armVercelConnectAuth({ token: "prior-guest-token" }, null);
+    await expect(
+      hydrateVercelConnectAuth(tomb, { ephemeral: true }),
+    ).resolves.toBe(true);
+    expect(pendingVercelConnectAuth()).toBeNull();
+    emitVaultLock();
+    await expect(
+      hydrateVercelConnectAuth("another-guest", { ephemeral: true }),
+    ).resolves.toBe(false);
+    expect(vercelConnectAuth()).toBeNull();
+  });
+
+  it("retains a failed staged write only until lock", async () => {
+    vi.spyOn(vfs, "writeFile").mockRejectedValueOnce(
+      new Error("storage unavailable"),
+    );
+    await armVercelConnectAuth({ token: "staged" }, null);
+    await expect(hydrateVercelConnectAuth(tomb)).rejects.toThrow(
+      "storage unavailable",
+    );
+    expect(pendingVercelConnectAuth()?.token).toBe("staged");
+    emitVaultLock();
+    expect(pendingVercelConnectAuth()).toBeNull();
+  });
+
+  it("does not restore a forgotten credential after a delayed write fails", async () => {
+    let rejectWrite: (error: Error) => void = () => {};
+    vi.spyOn(vfs, "writeFile").mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectWrite = reject;
+        }),
+    );
+    await armVercelConnectAuth({ token: "staged" }, null);
+    const hydrating = hydrateVercelConnectAuth(tomb);
+    const failure = expect(hydrating).rejects.toThrow("storage unavailable");
+    await forgetVercelConnectAuth(null);
+    rejectWrite(new Error("storage unavailable"));
+    await failure;
+    expect(pendingVercelConnectAuth()).toBeNull();
+    expect(vercelConnectAuth()).toBeNull();
   });
 });

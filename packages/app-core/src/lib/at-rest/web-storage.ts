@@ -12,6 +12,10 @@
 
 import { host } from "../../host.js";
 import type { WebStorage } from "../../ports.js";
+import { GUEST_CONTINUATION_KEY } from "../guest-continuation-key.js";
+import { GUEST_RETURN_EPOCH_KEY } from "../guest-return-epoch-key.js";
+import { IDENTITY_COOKIE_BINDING_KEY } from "../identity-cookie-binding-key.js";
+import { IDENTITY_REVOCATION_PREFIX } from "../identity-revocation-key.js";
 import { storageWritesHalted } from "../storage-halt.js";
 import {
   type WebStorageArea,
@@ -88,7 +92,15 @@ function read(
   if (!isSealedAtRest(raw)) {
     // Another writer's key is theirs to read raw; ours must open as a seal.
     if (ownsWebStorageKey(key, area)) {
-      if (!storageWritesHalted()) store.removeItem(key);
+      // Do not erase evidence needed to revoke a pending guest return.
+      if (
+        key !== GUEST_CONTINUATION_KEY &&
+        key !== GUEST_RETURN_EPOCH_KEY &&
+        key !== IDENTITY_COOKIE_BINDING_KEY &&
+        !key.startsWith(IDENTITY_REVOCATION_PREFIX) &&
+        !storageWritesHalted()
+      )
+        store.removeItem(key);
       return null;
     }
     return raw;
@@ -140,21 +152,34 @@ export function sealedWebStorage(
  * return plaintext). Keys another writer owns are left as they are.
  */
 export function sealLegacyWebStorage(area: WebStorageArea): number {
-  const store = host().storage?.[area];
-  if (!store || storageWritesHalted()) return 0;
-  const keys: string[] = [];
-  for (let index = 0; index < store.length; index += 1) {
-    const key = store.key(index);
-    if (key !== null && ownsWebStorageKey(key, area)) keys.push(key);
+  try {
+    const store = host().storage?.[area];
+    if (!store || storageWritesHalted()) return 0;
+    const keys: string[] = [];
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+      if (key !== null && ownsWebStorageKey(key, area)) keys.push(key);
+    }
+    let removed = 0;
+    for (const key of keys) {
+      const raw = store.getItem(key);
+      if (
+        raw === null ||
+        isSealedAtRest(raw) ||
+        key === GUEST_CONTINUATION_KEY ||
+        key === GUEST_RETURN_EPOCH_KEY ||
+        key === IDENTITY_COOKIE_BINDING_KEY ||
+        key.startsWith(IDENTITY_REVOCATION_PREFIX)
+      )
+        continue;
+      store.removeItem(key);
+      removed += 1;
+    }
+    return removed;
+  } catch {
+    // A blocked Web Storage getter must not stop the application from starting.
+    return 0;
   }
-  let removed = 0;
-  for (const key of keys) {
-    const raw = store.getItem(key);
-    if (raw === null || isSealedAtRest(raw)) continue;
-    store.removeItem(key);
-    removed += 1;
-  }
-  return removed;
 }
 
 /** Drop held values (tests). */

@@ -43,7 +43,11 @@ export class SecretFsUnavailable extends Data.TaggedError(
   }
 }
 
-export type SecretFsRejection = "invalid-path" | "permission" | "corrupt";
+export type SecretFsRejection =
+  | "invalid-path"
+  | "permission"
+  | "corrupt"
+  | "unsupported";
 
 /** The store refused, and asking again will not change its answer. */
 export class SecretFsRejected extends Data.TaggedError("SecretFsRejected")<{

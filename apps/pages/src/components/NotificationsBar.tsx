@@ -15,7 +15,7 @@ import {
 } from "@opensesame/app-core/lib/notice-toast.js";
 import {
   type Notice,
-  dismissNotice,
+  dismissNoticeByUser,
   listNotices,
   subscribeNoticeArrivals,
   subscribeNotices,
@@ -228,7 +228,7 @@ function NotificationsBarDefault({
                     }}
                     secondary={{
                       label: "Dismiss",
-                      onClick: () => dismissNotice(notice.id),
+                      onClick: () => dismissNoticeByUser(notice.id),
                     }}
                   >
                     <p className="hint">{notice.body}</p>

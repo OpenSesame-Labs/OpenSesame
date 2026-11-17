@@ -17,6 +17,7 @@ import {
   vaultSealBinding,
 } from "@opensesame/vault-core";
 import { BODY_PATH, readSealedFile, vfsSeams } from "../vfs.js";
+import { originalVfsCheck } from "../vfs-operation-check.js";
 import { retireLegacySample } from "./body-edits.js";
 
 const ROLLED_BACK =
@@ -59,10 +60,14 @@ async function readBody(
   vaultKey: CryptoKey,
   header: VaultHeader | null,
   acceptLegacy = false,
+  check: () => void = () => {},
 ): Promise<VaultBody> {
+  const active = originalVfsCheck(check);
   const recorded = header?.bodyRev ?? 0;
   // A store that keeps each secret as its own file puts the body together now.
-  await vfsSeams.openBody?.(tomb, vaultKey);
+  active();
+  await vfsSeams.openBody?.(tomb, vaultKey, active);
+  active();
   const sealed = readSealedFile(tomb, BODY_PATH);
   if (!sealed) {
     if (recorded > 0) {
@@ -77,6 +82,7 @@ async function readBody(
     const body = acceptLegacy
       ? (await openJsonForRebind<VaultBody>(vaultKey, sealed, binding)).value
       : await openJson<VaultBody>(vaultKey, sealed, binding);
+    active();
     const rev = body.rev ?? 0;
     if (rev < recorded) throw new VaultCorruptError(ROLLED_BACK);
     const opened: VaultBody = {
@@ -95,6 +101,7 @@ async function readBody(
     // from here on, and the next write seals them as such.
     return normalizeVaultBody(opened);
   } catch (error) {
+    active();
     throw error instanceof VaultCorruptError
       ? error
       : new VaultCorruptError("unreadable body");
@@ -105,14 +112,16 @@ export function loadVaultBody(
   tomb: string,
   key: CryptoKey,
   header: VaultHeader | null,
+  check?: () => void,
 ) {
-  return readBody(tomb, key, header);
+  return readBody(tomb, key, header, false, check);
 }
 /** Read-only compatibility proof; sealing migration remains after configured factors. */
 export function proveVaultBodyBeforeFactors(
   tomb: string,
   key: CryptoKey,
   header: VaultHeader | null,
+  check?: () => void,
 ) {
-  return readBody(tomb, key, header, true);
+  return readBody(tomb, key, header, true, check);
 }

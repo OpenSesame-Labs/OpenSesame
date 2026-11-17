@@ -9,6 +9,7 @@
 
 import type { UnlockEffectContribution } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { sealPendingConnectorDirectory } from "@opensesame/app-core/lib/connector-directory.js";
+import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import {
   disarmVercelConnectAuth,
   hydrateVercelConnectAuth,
@@ -28,16 +29,24 @@ export function connectorUnlockEffects(
   return [
     {
       id: "seal-connector-directory",
-      run: ({ tomb, guest, signal }) =>
-        runUnlessAborted(anySignal([lease, signal]), async () => {
+      run: ({ tomb, guest, signal }) => {
+        const scope = anySignal([lease, signal]);
+        return runUnlessAborted(scope, async () => {
           // A guest tomb is wiped on lock, so it gets the list without
           // taking it: the sync still waits for the vault that lasts.
           await connectorUnlockSeams
             .sealPendingConnectorDirectory(tomb, { ephemeral: guest })
             .catch(() => {
-              // The endpoint is on record; Access › Connectors syncs again.
+              if (!scope.aborted)
+                setStatusNotice({
+                  id: "connector-directory-save",
+                  tone: "warn",
+                  title: "Connector import not saved",
+                  body: "The connector directory could not be saved. Try importing it again from Connections.",
+                });
             });
-        }),
+        });
+      },
     },
     {
       id: "hydrate-vercel-connect",
@@ -57,8 +66,13 @@ export function connectorUnlockEffects(
           await connectorUnlockSeams
             .hydrateVercelConnectAuth(tomb, { ephemeral: guest, signal: scope })
             .catch(() => {
-              // A corrupt record reads as no Connect session, not a trapped
-              // vault.
+              if (!scope.aborted)
+                setStatusNotice({
+                  id: "connector-auth-save",
+                  tone: "warn",
+                  title: "Connection not saved",
+                  body: "The connection could not be restored. Try connecting it again from Connections.",
+                });
             });
         });
       },

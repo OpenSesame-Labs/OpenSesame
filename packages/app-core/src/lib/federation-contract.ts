@@ -102,6 +102,7 @@ export type CompletedSignIn = {
   intent?: AuthenticationIntent;
   transactionId?: string;
   generation?: number;
+  authEpoch?: string;
   policyRevision?: string;
   claims?: VerifiedIdTokenClaims;
 };

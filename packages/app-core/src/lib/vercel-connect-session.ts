@@ -10,6 +10,7 @@ import {
   isJsonObject,
   isString,
 } from "@opensesame/os-domain";
+import { onVaultLock } from "./vault/lock-events.js";
 import {
   type VercelConnectAuth,
   setVercelConnectAuth,
@@ -28,6 +29,7 @@ type SealedConnectAuth = {
 };
 
 let pending: VercelConnectAuth | null = null;
+let pendingGeneration = 0;
 
 function text(value: BoundaryValue | undefined, max = 512): string {
   return isString(value) ? value.trim().slice(0, max) : "";
@@ -69,7 +71,13 @@ export function pendingVercelConnectAuth(): VercelConnectAuth | null {
 
 export function clearPendingVercelConnectAuth(): void {
   pending = null;
+  pendingGeneration += 1;
 }
+
+onVaultLock(() => {
+  clearPendingVercelConnectAuth();
+  setVercelConnectAuth(null);
+});
 
 /** Forget the live Connect transport (lock / sign-out). */
 export function disarmVercelConnectAuth(): void {
@@ -107,7 +115,7 @@ export async function writeVercelConnectAuth(
 export async function forgetVercelConnectAuth(
   tomb: string | null,
 ): Promise<void> {
-  pending = null;
+  clearPendingVercelConnectAuth();
   setVercelConnectAuth(null);
   if (!tomb) return;
   try {
@@ -136,6 +144,7 @@ export async function armVercelConnectAuth(
   const record = normalize(auth);
   if (!record) throw new Error("A Vercel token or management key is required.");
   const next = toAuth(record);
+  pendingGeneration += 1;
   setVercelConnectAuth(next);
   if (tomb && !opts.ephemeral) {
     pending = null;
@@ -144,6 +153,21 @@ export async function armVercelConnectAuth(
   }
   if (opts.ephemeral) return;
   pending = next;
+}
+
+async function persistStagedCredential(
+  tomb: string,
+  staged: VercelConnectAuth,
+  generation: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await writeVercelConnectAuth(tomb, staged);
+  } catch (error) {
+    if (generation === pendingGeneration && !signal?.aborted && !pending)
+      pending = staged;
+    throw error;
+  }
 }
 
 /**
@@ -157,12 +181,17 @@ export async function hydrateVercelConnectAuth(
   opts: VercelConnectAuthOpts & { signal?: AbortSignal } = {},
 ): Promise<boolean> {
   if (opts.signal?.aborted) return false;
-  if (pending && !opts.ephemeral) {
-    await writeVercelConnectAuth(tomb, pending);
+  if (pending) {
+    const staged = pending;
     pending = null;
-  } else if (pending && opts.ephemeral) {
-    setVercelConnectAuth(pending);
-    return true;
+    const generation = ++pendingGeneration;
+    if (!opts.ephemeral) {
+      await persistStagedCredential(tomb, staged, generation, opts.signal);
+    } else {
+      if (opts.signal?.aborted) return false;
+      setVercelConnectAuth(staged);
+      return true;
+    }
   }
   const sealed = await readVercelConnectAuth(tomb);
   if (opts.signal?.aborted) return false;

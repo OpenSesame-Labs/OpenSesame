@@ -11,8 +11,8 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { Context, Effect } from "effect";
-import { SecretFsRejected } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsRejected } from "./errors.js";
 
 /** A file's revision: the SHA-256 of its bytes, so every backend agrees on it. */
 export type Revision = string;
@@ -29,6 +29,11 @@ export type WriteOptions = Readonly<{
    * must not exist yet. Left out, the write replaces whatever is there.
    */
   ifRevision?: Revision | null;
+}>;
+
+export type RemoveOptions = Readonly<{
+  /** Remove only the exact bytes previously read. */
+  ifRevision?: Revision;
 }>;
 
 export interface SecretFiles {
@@ -52,7 +57,16 @@ export interface SecretFiles {
     options?: WriteOptions,
   ) => Effect.Effect<Revision, SecretFsError>;
   /** Removes the file; a file that is already gone is not a failure. */
-  readonly remove: (path: string) => Effect.Effect<void, SecretFsError>;
+  readonly remove: (
+    path: string,
+    options?: RemoveOptions,
+  ) => Effect.Effect<void, SecretFsError>;
+  /** Recheck the original owner at the actual deletion boundary. */
+  readonly removeGuarded?: (
+    path: string,
+    beforeCommit: () => void,
+    options?: RemoveOptions,
+  ) => Effect.Effect<void, SecretFsError>;
   /** Every file at or under `prefix` ("" for all), sorted, relative to the root. */
   readonly list: (
     prefix: string,

@@ -28,6 +28,7 @@ import {
   readPlaintextFile,
   readSealedFile,
   registerTomb,
+  requireTombCheck,
   tombFileKey,
   unlockTomb,
   unregisterTomb,
@@ -75,6 +76,19 @@ async function unlockedTomb(): Promise<CryptoKey> {
 }
 
 describe("vfs sealed files", () => {
+  it("exposes an owner check without exposing its key or accepting a later unlock", async () => {
+    const key = await unlockedTomb();
+    const check = requireTombCheck(TOMB);
+    expect(typeof check).toBe("function");
+    expect("key" in check).toBe(false);
+    expect(check()).toBeUndefined();
+    lockTomb(TOMB);
+    expect(() => requireTombCheck(TOMB)).toThrowError(VfsError);
+    unlockTomb(TOMB, key);
+    expect(check).toThrowError(VfsError);
+    expect(requireTombCheck(TOMB)()).toBeUndefined();
+  });
+
   it("round-trips bytes through seal and unseal", async () => {
     await unlockedTomb();
     await writeFile(TOMB, "config/prefs", utf8.encode('{"theme":"dark"}'));
@@ -173,6 +187,17 @@ describe("vfs sealed files", () => {
     });
     // The header is the documented plaintext boundary — no key needed.
     expect(readPlaintextFile(TOMB, HEADER_PATH)).toBe('{"v":1}');
+  });
+
+  it("refuses plaintext writes to sealed body and configuration paths", async () => {
+    for (const path of [BODY_PATH, "config/prefs", INDEX_PATH]) {
+      await expect(
+        writePlaintextFile(TOMB, path, "sensitive fixture"),
+      ).rejects.toMatchObject({
+        code: "invalid-path",
+      });
+      expect(kvGet(tombFileKey(TOMB, path))).toBeNull();
+    }
   });
 
   it("rejects traversal, absolute paths, and reserved files", async () => {

@@ -1,3 +1,4 @@
+import { isGuestVaultId } from "../guest-vault-id.js";
 /**
  * The open vault's plugin-daemon pairing (ADR 0150 §7): read from the tomb
  * once the vault is open, dropped when it locks or another vault opens, and
@@ -10,7 +11,7 @@
  */
 
 import { PluginError } from "../plugins/client.js";
-import { GUEST_TOMB, vaultStore } from "../vault/store.js";
+import { vaultStore } from "../vault/store.js";
 import {
   type PluginDaemonPairing,
   readPluginDaemonConfig,
@@ -39,7 +40,9 @@ function notify(): void {
 /** An open vault that is not a guest's: the only place a key can be sealed. */
 export function pluginPairingPossible(): boolean {
   const snap = vaultStore.getSnapshot();
-  return snap.status === "unlocked" && !snap.guest && snap.tomb !== GUEST_TOMB;
+  return (
+    snap.status === "unlocked" && !snap.guest && !isGuestVaultId(snap.tomb)
+  );
 }
 
 function vaultKey(): string {

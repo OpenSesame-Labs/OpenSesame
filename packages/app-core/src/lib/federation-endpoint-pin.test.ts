@@ -3,6 +3,7 @@ import type { JsonObject } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localStore } from "../ports.js";
 import { completeSignIn, loadSession, originClientId } from "./federation.js";
+import { requireGuestReturnEpoch } from "./guest-return-epoch.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 
 const PKCE_KEY = "opensesame:federation:pkce";
@@ -31,6 +32,7 @@ function seedPending(overrides: JsonObject = {}): void {
       jwksUri: "http://127.0.0.1:9090/jwks",
       scope: "openid",
       createdAt: Date.now(),
+      authEpoch: requireGuestReturnEpoch(),
       ...overrides,
     }),
   );

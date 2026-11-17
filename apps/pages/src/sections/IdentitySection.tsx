@@ -54,6 +54,7 @@ import { useOnline } from "../lib/use-online.js";
 import { brandFor } from "../screens/unlock/ProviderBrand.js";
 import { monogram } from "./connections/connector-marks.js";
 import * as Directory from "./identity/DirectoryTabs.js";
+import { useDirectoryPanels } from "./identity/directory-panel-slot.js";
 import {
   OrganizationPanel,
   PeoplePanel,
@@ -61,9 +62,9 @@ import {
 } from "./identity/HostedIdentityPanels.js";
 import { HostedConnectWorkspace } from "./identity/HostedRecordParts.js";
 import type { IdentityTab } from "./identity/IdentityTabs.js";
+import { useEnabledIdentityViews } from "./identity/identity-views.js";
 import { LocalDirectoryWorkspace } from "./identity/LocalDirectoryWorkspace.js";
 import { ProvidersWorkspace } from "./identity/ProvidersWorkspace.js";
-import { useEnabledIdentityViews } from "./identity/identity-views.js";
 import { providersListRoute } from "./identity/providers-list-route.js";
 // Brand button treatments (.signin__social, .signin__provider--*) come from the sign-in hub's stylesheet; the ceremony reuses them verbatim.
 import "../screens/unlock.css";
@@ -72,6 +73,7 @@ import "./identity.css";
 import { identityErrorText } from "@opensesame/app-core/sections/identity-section-model.js";
 import { useIdentitySession } from "../bindings/identity.js";
 import { FormCommit } from "../components/FormCommit.js";
+
 /**
  * Browser-local identity management, with optional hosted Identity
  * surfaces. Provider registration is an explicit ceremony, not an entry gate.
@@ -99,14 +101,14 @@ function IdentityTabPanels({
   onOpenCeremony: () => void;
   ceremony?: ReactNode;
 }) {
-  // Guest sessions are local-vault IAM only — never hide Guest N behind a
-  // hosted People panel the guest cannot see themselves in.
+  const directoryEnabled = useDirectoryPanels() !== null;
   const localOnly = isGuestSession() || !configured;
+  const localDirectoryOnly = localOnly || !directoryEnabled;
   return (
     <>
       <StatusNote title="Identity" message={flash} />
       {tab === "people" ? (
-        localOnly ? (
+        localDirectoryOnly ? (
           <LocalDirectoryWorkspace kind="person" />
         ) : (
           <PeoplePanel online={online} session={session} />
@@ -125,7 +127,7 @@ function IdentityTabPanels({
         <Directory.DevicesTab online={online} session={session} />
       ) : null}
       {tab === "agents" ? (
-        localOnly ? (
+        localDirectoryOnly ? (
           <LocalDirectoryWorkspace kind="agent" />
         ) : session ? (
           <Directory.DirectoryAgents online={online} />
@@ -145,7 +147,7 @@ function IdentityTabPanels({
         )
       ) : null}
       {tab === "organization" ? (
-        localOnly ? (
+        localDirectoryOnly ? (
           <LocalDirectoryWorkspace kind="organization" />
         ) : (
           <OrganizationPanel
@@ -541,17 +543,15 @@ function ByoClientFields({
       <div className="field">
         <span className="label">Redirect URI for your provider</span>
         {redirectUri ? (
-          <>
-            <div className="byo__uri">
-              <code>{redirectUri}</code>
-              <IconKey
-                label="Copy redirect URI"
-                onClick={() => copy(redirectUri, "redirect")}
-              >
-                {copied === "redirect" ? <IconCheck /> : <IconCopy />}
-              </IconKey>
-            </div>
-          </>
+          <div className="byo__uri">
+            <code>{redirectUri}</code>
+            <IconKey
+              label="Copy redirect URI"
+              onClick={() => copy(redirectUri, "redirect")}
+            >
+              {copied === "redirect" ? <IconCheck /> : <IconCopy />}
+            </IconKey>
+          </div>
         ) : (
           <p className="hint">No remote Identity URL.</p>
         )}

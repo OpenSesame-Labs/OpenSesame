@@ -80,7 +80,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
     id: "password-reset",
     title: "Let the vault change passwords for you",
     compactTitle: "Automatic password changes",
-    body: "Password reset signs in to the site and changes the password there whenever you generate a new one. It needs a computer-use runtime, connected next.",
+    body: "Password reset can help change an account's password on its website. Connect a computer-use runtime to use it.",
     label: "Turn on password reset",
     action: {
       kind: "feature",
@@ -93,7 +93,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
     id: "password-reset-runtime",
     title: "Finish setting up password reset",
     compactTitle: "Finish password reset",
-    body: "Password reset is on but has nothing to drive a browser with yet. Connect a computer-use runtime and a generated password is changed on the site too.",
+    body: "Password reset is on. Connect a computer-use runtime to request a password change on a website.",
     label: "Connect a runtime",
     action: {
       kind: "open",
@@ -108,7 +108,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
     id: "password-reset-model",
     title: "Choose a model for password reset",
     compactTitle: "Password reset model",
-    body: "Password reset is on and has a runtime, but no model to drive it. Choose one and a generated password is changed on the site too.",
+    body: "Password reset has a runtime. Choose a model to request a password change on a website.",
     label: "Choose a model",
     action: { kind: "open", to: "/settings/features#feature-ai" },
     wanted: (facts) =>

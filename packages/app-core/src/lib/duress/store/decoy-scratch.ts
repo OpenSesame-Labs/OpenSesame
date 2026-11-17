@@ -8,7 +8,7 @@
  * road, and is erased when the session ends.
  */
 
-import { kvSet } from "../../kv.js";
+import { isGuestVaultId } from "../../guest-vault-id.js";
 import { headerCarriesGate } from "../../vault/header-gate.js";
 import { readTombHeader } from "../../vault/store-header.js";
 import { ATTEMPTS_KEY, type VaultScope } from "../../vault/store-scope.js";
@@ -16,7 +16,7 @@ import {
   discardVaultBody,
   wipeTombOnDestroy,
 } from "../../vault/tomb-migration.js";
-import { GUEST_TOMB, TOMBS_REGISTRY_KEY, listTombs } from "../../vfs.js";
+import { GUEST_TOMB, unregisterTomb } from "../../vfs.js";
 
 /** Plaintext name only; nothing in it says what the session was. */
 export const DECOY_SCRATCH_TOMB = "guest-scratch";
@@ -39,7 +39,7 @@ export function decoyScratchScope(): VaultScope {
 
 /** The guest isolation tomb or the decoy's stand-in for it. */
 export function isGuestSessionTomb(tomb: string | null): boolean {
-  return tomb === GUEST_TOMB || tomb === DECOY_SCRATCH_TOMB;
+  return isGuestVaultId(tomb) || tomb === DECOY_SCRATCH_TOMB;
 }
 
 let decoySession = false;
@@ -61,17 +61,10 @@ export function presentedTomb(tomb: string): string {
   return tomb === DECOY_SCRATCH_TOMB ? GUEST_TOMB : tomb;
 }
 
-/**
- * Drop the scratch tomb from the registry synchronously. The registry is the
- * record `vfs.ts` keeps (`{ v: 1, tombs }`); writing memory now (kvSet) means
- * the project list rebuilt on lock can never show the scratch tomb.
- */
-export function forgetDecoyScratch(tomb: string): void {
+/** Retire the scratch registry entry under the shared registry lock. */
+export async function forgetDecoyScratch(tomb: string): Promise<void> {
   if (tomb !== DECOY_SCRATCH_TOMB) return;
-  const tombs = listTombs();
-  if (!tombs.includes(DECOY_SCRATCH_TOMB)) return;
-  const rest = tombs.filter((name) => name !== DECOY_SCRATCH_TOMB).sort();
-  kvSet(TOMBS_REGISTRY_KEY, JSON.stringify({ v: 1, tombs: rest }));
+  await unregisterTomb(tomb);
 }
 
 /** End an ephemeral session's tomb: the scratch tomb goes whole, guest keeps its wipe. */
@@ -80,8 +73,8 @@ export async function endEphemeralTomb(tomb: string): Promise<void> {
     await wipeTombOnDestroy(tomb);
     return;
   }
-  forgetDecoyScratch(tomb);
   // Discard refreshes the shared index; finish before the wipe removes it.
   await discardVaultBody(tomb);
   await wipeTombOnDestroy(tomb);
+  await forgetDecoyScratch(tomb);
 }

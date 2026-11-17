@@ -44,6 +44,7 @@ import {
 import { DeadmanRelease } from "./screens/DeadmanRelease.js";
 import { FederationReturn as DefaultFederationReturn } from "./screens/FederationReturn.js";
 import { UnlockScreen as DefaultUnlockScreen } from "./screens/UnlockScreen.js";
+import { GuestReturnSignOutStatus } from "./screens/unlock/GuestReturnSignOutStatus.js";
 import { useExportFlow } from "./sections/vault/ExportKey.js";
 import { GateHost } from "./tutorial/gate-seat.js";
 
@@ -223,7 +224,7 @@ function VaultApp() {
     slots.recoverPendingFederatedLink,
   );
 
-  useVaultLanding(status, location.pathname, navigate);
+  useVaultLanding(status, guest, location.pathname, navigate);
   // Enrolling a guest's first key makes it durable in place. Keep its open
   // ceremony while still resetting the tree for another tomb, a fresh guest
   // session on the same tomb, or a decoy actor.
@@ -341,7 +342,10 @@ export function AppRoot({ slots }: { slots?: Partial<AppSlots> } = {}) {
 
   return (
     <AppSlotsContext.Provider value={resolved}>
-      <Notices shellless={shellless}>{body}</Notices>
+      <Notices shellless={shellless}>
+        {unlocked ? <GuestReturnSignOutStatus /> : null}
+        {body}
+      </Notices>
       {unlocked ? exportFlow.element : null}
       <ContextMenuLayer />
     </AppSlotsContext.Provider>

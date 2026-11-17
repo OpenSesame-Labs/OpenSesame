@@ -5,7 +5,14 @@ import {
   readGithubApp,
 } from "./github-app-direct.js";
 import {
+  reserveGuestGithubItemId,
+  saveGuestGithubApp,
+  updateGuestGithubAppMetadata,
+} from "./github-app-guest.js";
+import { stagePendingGuestGithubClaim } from "./github-app-guest-pending.js";
+import {
   type LocalGithubApp,
+  ensureGuestGithubAppLoaded,
   ownerFromPayload,
   pemFromVault,
   readLocalGithubApp,
@@ -18,6 +25,7 @@ import {
   captureGithubAuthority,
   consumeGithubRegistration,
 } from "./github-app-vault-transport.js";
+import { isGuestSession } from "./guest-isolation.js";
 
 /** A denial is not evidence that the person uninstalled their App. */
 export async function verifyGithubAppInstallations(
@@ -62,6 +70,12 @@ export async function verifyGithubAppInstallations(
         accountType: row.account.type ?? "",
       })),
     };
+    if (isGuestSession())
+      await updateGuestGithubAppMetadata(
+        next,
+        operation.transport.assertCurrent,
+      );
+    operation.transport.assertCurrent();
     rememberLocalGithubApp(next);
     return next;
   } finally {
@@ -84,7 +98,8 @@ export async function claimGithubAppCode(
   code: string,
   state: string,
 ): Promise<"registered" | "ignored" | "failed"> {
-  if (code.trim() === "" || !consumeGithubRegistration(state)) return "ignored";
+  if (code.trim() === "") return "ignored";
+  if (!consumeGithubRegistration(state)) return "failed";
   let currentApp = readLocalGithubApp();
   let operation: ReturnType<typeof captureGithubAuthority> | null = null;
   try {
@@ -92,6 +107,9 @@ export async function claimGithubAppCode(
       allowBeforeVault: true,
       binding: () => readLocalGithubApp() === currentApp,
     });
+    await ensureGuestGithubAppLoaded();
+    currentApp = readLocalGithubApp();
+    operation.transport.assertCurrent();
     const payload = await convertGithubAppManifest(operation.transport, code);
     operation.transport.assertCurrent();
     const { ownerLogin, ownerType } = ownerFromPayload(payload);
@@ -105,16 +123,44 @@ export async function claimGithubAppCode(
       installedByLogin: null,
       installations: [],
     };
-    currentApp = app;
-    rememberLocalGithubApp(app);
-    operation.transport.assertCurrent();
     // A callback may arrive before unlock. Only public metadata is durable then.
-    stashPendingGithubAppSecret(
-      app,
-      `${payload.client_secret}\n${payload.pem}`,
-      operation.tomb,
-    );
-    await sealPendingGithubAppPem();
+    const secret = `${payload.client_secret}\n${payload.pem}`;
+    if (isGuestSession()) {
+      const itemId = reserveGuestGithubItemId();
+      try {
+        await saveGuestGithubApp(
+          app,
+          secret,
+          operation.transport.assertCurrent,
+          itemId,
+        );
+      } catch (error) {
+        operation.transport.assertCurrent();
+        stagePendingGuestGithubClaim(async (check) => {
+          const retry = captureGithubAuthority();
+          try {
+            const active = () => {
+              check();
+              retry.transport.assertCurrent();
+            };
+            await saveGuestGithubApp(app, secret, active, itemId);
+            active();
+            rememberLocalGithubApp(app);
+          } finally {
+            retry.close();
+          }
+        });
+        throw error;
+      }
+      currentApp = app;
+      rememberLocalGithubApp(app);
+    } else {
+      currentApp = app;
+      rememberLocalGithubApp(app);
+      operation.transport.assertCurrent();
+      stashPendingGithubAppSecret(app, secret, operation.tomb);
+      await sealPendingGithubAppPem();
+    }
     operation.transport.assertCurrent();
     return "registered";
   } catch {

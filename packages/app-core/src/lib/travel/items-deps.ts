@@ -103,7 +103,7 @@ export const travelItemSeams: TravelItemSeams = {
     duressActive,
     ownerPresent: () => {
       const snapshot = vaultStore.getSnapshot();
-      return snapshot.status === "unlocked" && !snapshot.guest;
+      return snapshot.status === "unlocked" && vaultStore.isGenuineSession();
     },
     exclusive: async (work) => {
       const locks = lockManager();
@@ -114,7 +114,7 @@ export const travelItemSeams: TravelItemSeams = {
       const snapshot = vaultStore.getSnapshot();
       if (
         snapshot.status !== "unlocked" ||
-        snapshot.guest ||
+        !vaultStore.isGenuineSession() ||
         snapshot.header === null
       ) {
         return null;

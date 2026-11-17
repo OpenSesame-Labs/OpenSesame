@@ -1,8 +1,3 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-/** @vitest-environment jsdom */
-import { identityHookSeams } from "../../bindings/identity.js";
-
 import type {
   OperatorIdp,
   PagesSettings,
@@ -11,6 +6,16 @@ import {
   defaultSignInMethods,
   settingsSeams,
 } from "@opensesame/app-core/lib/settings.js";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment jsdom */
+import { identityHookSeams } from "../../bindings/identity.js";
 
 /**
  * Setup is the allowlist, and this screen is where that has to be true.
@@ -42,6 +47,7 @@ Object.assign(settingsSeams, {
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { localStore } from "@opensesame/app-core/ports.js";
+
 Object.assign(identitySeams, {
   identityBase: () => state.identityApi,
 });
@@ -54,6 +60,7 @@ Object.assign(deviceIdentitySeams, {
 
 import type { TrustedUpstream } from "@opensesame/app-core/lib/federation.js";
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
+
 const beginSignIn = vi.fn((_upstream: TrustedUpstream) => Promise.resolve());
 Object.assign(federationSeams, {
   beginSignIn,
@@ -126,6 +133,20 @@ function renderPanel() {
 }
 
 describe("what the sign-in screen offers", () => {
+  it("returns a device ceremony to its approval route after federated sign-in", async () => {
+    render(
+      <SignInPanel placement="secondary" providers={[]} returnTo="/device" />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
+    await waitFor(() =>
+      expect(beginSignIn).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "shoo" }),
+        { returnTo: "/device" },
+      ),
+    );
+  });
   it("offers the compiled-in broker while setup keeps it", () => {
     renderPanel();
     expect(
@@ -165,10 +186,11 @@ describe("what the sign-in screen offers", () => {
     expect(labels).toEqual(["Continue with Google", "Continue with Okta"]);
   });
 
-  it("starts the operator's own provider against its own issuer", () => {
+  it("starts the operator's own provider against its own issuer", async () => {
     state.signIn = { builtin: false, providers: [idp()] };
     renderPanel();
     screen.getByRole("button", { name: "Continue with Okta" }).click();
+    await waitFor(() => expect(beginSignIn).toHaveBeenCalled());
     expect(beginSignIn.mock.calls[0]?.[0]).toMatchObject({
       issuer: "https://acme.okta.com",
       clientId: "0oa1b2c3d4EXAMPLE",

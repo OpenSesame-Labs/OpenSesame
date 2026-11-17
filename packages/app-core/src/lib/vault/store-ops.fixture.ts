@@ -7,6 +7,7 @@ import {
   INDEX_PATH,
   MIGRATION_MARKER_PATH,
   PERSONAL_TOMB,
+  SEAL_BOUND_MARKER_PATH,
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
@@ -28,6 +29,7 @@ export function clearVault(): void {
   // Re-run unlock-time migration; the index was sealed with the former key.
   kvDelete(tombFileKey(PERSONAL_TOMB, MIGRATION_MARKER_PATH));
   kvDelete(tombFileKey(PERSONAL_TOMB, INDEX_PATH));
+  kvDelete(tombFileKey(PERSONAL_TOMB, SEAL_BOUND_MARKER_PATH));
 }
 
 export function newStore(): VaultStore {

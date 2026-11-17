@@ -26,6 +26,17 @@ export function withTombWriteTurn<T>(
   });
 }
 const tombWriteChains = new Map<string, Promise<unknown>>();
+const pendingCleanup = new Set<Promise<void>>();
+
+/** Keep scheduled writes and teardown visible to callers waiting for a quiet VFS. */
+export function trackVfsWork(work: Promise<void>): void {
+  pendingCleanup.add(work);
+  void work.then(
+    () => pendingCleanup.delete(work),
+    () => pendingCleanup.delete(work),
+  );
+}
+export const trackVfsCleanup = trackVfsWork;
 
 export function enqueueTombWrite<T>(
   tomb: string,
@@ -45,6 +56,23 @@ export function enqueueTombWrite<T>(
 }
 
 /** Settle every queued tomb write — for tests that need a quiet store. */
-export async function vfsFlush(): Promise<void> {
+export async function vfsFlushWrites(): Promise<void> {
   await Promise.all([...tombWriteChains.values()]);
+}
+
+/** Drain this tomb without waiting on teardown that itself holds its lease. */
+export async function flushTombWrites(tomb: string): Promise<void> {
+  for (;;) {
+    const current = tombWriteChains.get(tomb);
+    if (!current) return;
+    await current;
+    if (tombWriteChains.get(tomb) === current) return;
+  }
+}
+
+export async function vfsFlush(): Promise<void> {
+  do {
+    await vfsFlushWrites();
+    await Promise.all([...pendingCleanup]);
+  } while (pendingCleanup.size > 0);
 }

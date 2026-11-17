@@ -18,7 +18,9 @@ const out =
   privateTempDir("opensesame-keyboard-verification-");
 console.log(`Evidence: ${out}`);
 const harness = createHarness({
-  dist: fileURLToPath(new URL("../dist", import.meta.url)),
+  dist:
+    process.env.PAGES_VERIFY_DIST ??
+    fileURLToPath(new URL("../dist", import.meta.url)),
   origin,
   base,
   out,
@@ -324,14 +326,13 @@ try {
       .filter({ visible: true });
     await tabTo(page, lock);
     await page.keyboard.press("Enter");
-    // Guest lock keeps the guest tomb selected (guest resume); Unlock is the
-    // road back, not another "Continue as guest" affordance.
+    // A keyless guest lock ends the session; the next guest starts afresh.
     await expect(
-      page.getByRole("button", { name: /^Unlock$/ }).first(),
+      page.getByRole("button", { name: "Continue as guest" }).first(),
     ).toBeVisible();
     await page.reload({ waitUntil: "networkidle" });
     await expect(
-      page.getByRole("button", { name: /^Unlock$/ }).first(),
+      page.getByRole("button", { name: "Continue as guest" }).first(),
     ).toBeFocused();
     await expect(page.locator(":focus")).not.toHaveJSProperty(
       "tagName",
@@ -343,7 +344,13 @@ try {
     );
     // Live sessions (ADR 0150): every swap between the form, the request code,
     // the joined view and the ended one leaves the keyboard on a control.
-    await liveKeyboardContract({ harness, origin, base, width, tabTo });
+    try {
+      await liveKeyboardContract({ harness, origin, base, width, tabTo });
+    } catch (error) {
+      const message = `live sessions (${width}px): ${String(error).split("\n")[0]}`;
+      console.error(`FAIL ${message}`);
+      harness.check(false, message);
+    }
     // Settings' files: the stage draws the one focus cue a painted textarea has.
     await settingsFileKeyboardContract({
       harness,

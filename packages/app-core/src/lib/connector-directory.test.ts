@@ -15,6 +15,8 @@ import {
 } from "./connector-directory.js";
 import { kvDelete } from "./kv.js";
 import type { DirectoryConnection } from "./nango-directory.js";
+import { emitVaultLock } from "./vault/lock-events.js";
+import * as vfs from "./vfs.js";
 import { lockAllTombs, unlockTomb } from "./vfs.js";
 
 const github: DirectoryConnection = {
@@ -96,7 +98,7 @@ describe("a sync", () => {
     expect(await sealPendingConnectorDirectory(tomb)).toBe(false);
   });
 
-  it("gives a guest session the list but keeps waiting for a vault that lasts", async () => {
+  it("consumes a staged list once instead of passing it to another vault", async () => {
     await syncConnectorDirectory({
       endpoint: "https://api.nango.dev",
       key: "sk-env",
@@ -107,13 +109,56 @@ describe("a sync", () => {
       await sealPendingConnectorDirectory(guest, { ephemeral: true }),
     ).toBe(true);
     expect((await readConnectorDirectory(guest))?.key).toBe("sk-env");
-    expect(pendingConnectorDirectory()?.endpoint).toBe("https://api.nango.dev");
-    const personal = await openTomb();
-    expect(await sealPendingConnectorDirectory(personal)).toBe(true);
     expect(pendingConnectorDirectory()).toBeNull();
-    expect((await readConnectorDirectory(personal))?.connections).toHaveLength(
-      1,
+    const personal = await openTomb();
+    expect(await sealPendingConnectorDirectory(personal)).toBe(false);
+    expect(pendingConnectorDirectory()).toBeNull();
+    expect(await readConnectorDirectory(personal)).toBeNull();
+  });
+
+  it("does not stage a directory whose request finishes after lock", async () => {
+    let release!: (
+      listing: Awaited<
+        ReturnType<typeof connectorDirectorySeams.listDirectory>
+      >,
+    ) => void;
+    connectorDirectorySeams.listDirectory = vi.fn(
+      () =>
+        new Promise<
+          Awaited<ReturnType<typeof connectorDirectorySeams.listDirectory>>
+        >((resolve) => {
+          release = resolve;
+        }),
     );
+    const syncing = syncConnectorDirectory({
+      endpoint: "https://api.nango.dev",
+      key: "prior-secret",
+      tomb: null,
+    });
+    const rejected = expect(syncing).rejects.toThrow(/import ended/i);
+    emitVaultLock();
+    release({ integrations: [], connections: [github] });
+    await rejected;
+    expect(pendingConnectorDirectory()).toBeNull();
+  });
+
+  it("keeps a failed import for retry only until the current session locks", async () => {
+    await syncConnectorDirectory({
+      endpoint: "https://api.nango.dev",
+      key: "prior-secret",
+      tomb: null,
+    });
+    const tomb = await openTomb();
+    vi.spyOn(vfs, "writeFile").mockRejectedValueOnce(
+      new Error("storage unavailable"),
+    );
+    await expect(sealPendingConnectorDirectory(tomb)).rejects.toThrow(
+      "storage unavailable",
+    );
+    expect(pendingConnectorDirectory()?.key).toBe("prior-secret");
+    emitVaultLock();
+    expect(pendingConnectorDirectory()).toBeNull();
+    vi.restoreAllMocks();
   });
 
   it("keeps nothing sealed when the tomb it was told about is locked", async () => {

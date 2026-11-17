@@ -14,13 +14,19 @@ import { pageOrigin } from "../ports.js";
 import type { Connection } from "./connections.js";
 import { deviceConnection } from "./device-connectors.js";
 import { remoteIdentityApi } from "./device-identity.js";
-import { assertSafeReturnTo } from "./federation-callback.js";
 import {
   beginSignIn,
+  captureSignInCheck,
   clearSession,
   loadSession,
   operatorUpstream,
 } from "./federation.js";
+import { assertSafeReturnTo } from "./federation-callback.js";
+import { requireGuestReturnCleared } from "./guest-continuation.js";
+import {
+  captureGuestReturnSignOutCheck,
+  restoreGuestReturnSignOut,
+} from "./guest-return-signout.js";
 import {
   admitConfiguredIdentitySession,
   captureConfiguredIdentitySessionOwner,
@@ -57,27 +63,28 @@ import { requireValidIdentityConnection } from "./identity-connections-validatio
 import { isNativeOidcConfiguration } from "./identity-oidc-config.js";
 import type { OrgSignInOrganization } from "./org-signin.js";
 import { type OperatorIdp, signInMethods } from "./settings.js";
-export { readInitialIdentityDraft } from "./identity-connections-trust.js";
+
+export type { IdentityConnectionPreset } from "./identity-connections-presets.js";
 
 export {
   IDENTITY_CONNECTION_PRESETS,
   identityConnectionDraft,
   identityConnectionPreset,
 } from "./identity-connections-presets.js";
-export type { IdentityConnectionPreset } from "./identity-connections-presets.js";
 export type {
   IdentityConnectionCredentials,
   IdentityConnectionDraft,
   IdentityConnectionTest,
   IdentityProtocol,
 } from "./identity-connections-schema.js";
-export { identityConnectionProblems } from "./identity-connections-validation.js";
 export {
   getIdentityConnectionRuntime,
   hydrateIdentityConnections,
   listIdentityConnections,
   readIdentityConnection,
 } from "./identity-connections-store.js";
+export { readInitialIdentityDraft } from "./identity-connections-trust.js";
+export { identityConnectionProblems } from "./identity-connections-validation.js";
 
 function assertBroker(brokerUrl?: string): void {
   if (
@@ -273,6 +280,15 @@ export async function beginIdentityConnectionSignIn(
   connectionId: string,
   options: IdentityConnectionSignInOptions = {},
 ): Promise<void> {
+  restoreGuestReturnSignOut();
+  const checkReturn = captureGuestReturnSignOutCheck();
+  const checkAuth = captureSignInCheck();
+  const check = () => {
+    checkReturn();
+    requireGuestReturnCleared();
+    checkAuth();
+  };
+  check();
   const returnTo = configuredIdentityReturnTo(options);
   if (
     signInMethods().providers.some(
@@ -291,6 +307,7 @@ export async function beginIdentityConnectionSignIn(
   )
     return beginSavedNativeSaml(connectionId);
   await hydrateIdentityConnections();
+  check();
   const draft = getIdentityConnectionRuntime(connectionId);
   if (!draft) throw new Error("Saved identity connection not found");
   requireValidIdentityConnection(draft);
@@ -319,8 +336,10 @@ export async function beginIdentityConnectionSignIn(
     const owner = captureConfiguredIdentitySessionOwner(connectionId);
     try {
       const identity = await signInIdentitySession(draft, options.credentials);
+      check();
       owner.assertCurrent();
       await assertIdentityConnectionUnchanged(connectionId, draft);
+      check();
       identity.upstreamId = `identity:${connectionId}`;
       await admitConfiguredIdentitySession(identity, owner);
     } finally {

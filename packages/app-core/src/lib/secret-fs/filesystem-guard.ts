@@ -7,17 +7,18 @@
  */
 import { Effect, type FileSystem, Option, Schedule } from "effect";
 import type { PlatformError } from "effect/PlatformError";
+import type { SecretFsError } from "./errors.js";
 import {
   SecretFsNotFound,
   SecretFsRejected,
   SecretFsUnavailable,
 } from "./errors.js";
-import type { SecretFsError } from "./errors.js";
 
 export const FILE_MODE = 0o600;
 export const DIRECTORY_MODE = 0o700;
 /** A lock older than this was left by a process that died holding it. */
 const LOCK_STALE_MS = 15_000;
+const LOCK_HEARTBEAT = "5 seconds";
 const LOCK_EVERY = "20 millis";
 // Long enough to outlast a stale lock left by a process that died.
 const LOCK_TRIES = 800;
@@ -119,7 +120,9 @@ export function withLock<A>(
   root: string,
   path: string,
   target: string,
-  work: Effect.Effect<A, SecretFsError>,
+  work: (
+    assertOwned: Effect.Effect<void, SecretFsError>,
+  ) => Effect.Effect<A, SecretFsError>,
 ): Effect.Effect<A, SecretFsError> {
   const lock = `${dirname(target)}/.${basename(target)}.lock`;
   const token = new TextEncoder().encode(crypto.randomUUID());
@@ -145,9 +148,54 @@ export function withLock<A>(
     );
     return lock;
   });
+  const heartbeat = (held: string) =>
+    Effect.sleep(LOCK_HEARTBEAT).pipe(
+      Effect.andThen(
+        fs
+          .readFile(held)
+          .pipe(
+            Effect.flatMap((content) =>
+              new TextDecoder().decode(content) ===
+              new TextDecoder().decode(token)
+                ? fs.utimes(held, new Date(), new Date())
+                : Effect.fail(new Error("File lock ownership changed.")),
+            ),
+          ),
+      ),
+      Effect.forever,
+      Effect.ignore,
+    );
   return Effect.acquireUseRelease(
     acquire,
-    () => work,
+    (held) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* Effect.forkScoped(heartbeat(held));
+          const assertOwned = fs.readFile(held).pipe(
+            Effect.flatMap((content) =>
+              new TextDecoder().decode(content) ===
+              new TextDecoder().decode(token)
+                ? Effect.void
+                : Effect.fail(
+                    new SecretFsUnavailable({
+                      path,
+                      reason: "the cross-process write lock was displaced",
+                    }),
+                  ),
+            ),
+            Effect.mapError((error) =>
+              error instanceof SecretFsUnavailable
+                ? error
+                : new SecretFsUnavailable({
+                    path,
+                    reason:
+                      "the cross-process write lock could not be verified",
+                  }),
+            ),
+          );
+          return yield* work(assertOwned);
+        }),
+      ),
     // Only a lock still ours: one taken over as stale is another writer's now.
     (held) =>
       fs.readFile(held).pipe(

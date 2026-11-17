@@ -2,12 +2,10 @@
  * Which Identity tabs are on the page.
  *
  * The Identity section is one component hosted by `identity.local-iam`, but
- * its tabs belong to three capabilities: Applications to local IAM itself,
- * Providers to `identity.federation`, and People / Agents / Organization to
- * `enterprise.directory-provisioning`. Devices belongs to both, because both
- * draw in it — the local device list and the directory's device approval —
- * and the count below is what lets a shared tab stay while either owner is
- * live. Each runtime contributes its tabs in `activate` and takes them back
+ * its views are contributed by local IAM, federation and directory
+ * provisioning. People, Agents, Devices and Organizations are shared by
+ * local IAM and the hosted directory, so either can keep a view available.
+ * Each runtime contributes its views in `activate` and takes them back
  * in `dispose`; the tabs, the rail subtree and the URL fallback all read the
  * same set here.
  *
@@ -17,9 +15,8 @@
  * tab and hoping the panel behind it fails closed.
  */
 
-import { useSyncExternalStore } from "react";
-
 import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
+import { useSyncExternalStore } from "react";
 export type IdentityView = (typeof IDENTITY_VIEWS)[number];
 
 const counts = new Map<IdentityView, number>();

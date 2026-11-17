@@ -21,6 +21,12 @@ function stubStorage(): void {
 beforeEach(() => {
   stubStorage();
 });
+
+import {
+  forgetGuestContinuation,
+  saveGuestContinuation,
+} from "../guest-continuation.js";
+import { newGuestVaultId } from "../guest-vault-id.js";
 import {
   ambientControllerSeams,
   evaluateEligibility,
@@ -56,6 +62,7 @@ const runtime = {
 describe("ambient controller", () => {
   afterEach(() => {
     resetAmbientController();
+    forgetGuestContinuation();
     localStorage.clear();
     entraSeams.loadSdk = async () => {
       throw new Error("reset");
@@ -317,6 +324,37 @@ describe("ambient controller", () => {
       "https://app.example/auth/redirect.html",
     );
     expect(outcome).toEqual({ kind: "rejected", reason: "stale_generation" });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+  it("does not redirect when a guest provider return is awaiting completion", async () => {
+    saveGuestContinuation({
+      kind: "vercel",
+      token: "one",
+      connectionId: "conn",
+      tomb: newGuestVaultId(),
+      person: { id: "guest", name: "Guest" },
+      origin: "https://app.example",
+      pathname: "/",
+      deadline: Date.now() + 60000,
+      identity: null,
+    });
+    const navigate = vi.fn();
+    ambientControllerSeams.navigate = navigate;
+    const eligibility = evaluateEligibility({
+      hasAuthCallback: false,
+      pathname: "/",
+      vaultStatus: "empty",
+      guestOpen: false,
+      privilegedOperation: false,
+      unsavedWork: false,
+      localConsentRoute: false,
+      existingVerifiedSession: false,
+      operatorProviders: [entraIdp],
+      runtimePolicy: runtime,
+    });
+    await expect(
+      runAutomaticAttempt(eligibility, "https://app.example/"),
+    ).resolves.toEqual({ kind: "cancelled" });
     expect(navigate).not.toHaveBeenCalled();
   });
 });

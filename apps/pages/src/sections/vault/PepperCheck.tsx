@@ -1,6 +1,7 @@
 import type { PasswordMethod } from "@opensesame/vault-core";
 import { useState } from "react";
 import { StatusMark } from "../../components/StatusMark.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { setPepper, setPepperAt } from "./account-secrets.js";
 
 /**
@@ -19,10 +20,11 @@ export function PepperCheck({
 }) {
   const [text, setText] = useState(method.pepperAt ?? "");
   const [invalid, setInvalid] = useState(false);
+  const guideRef = useGuideTarget<HTMLLabelElement>("editor.pepper");
   return (
     <>
       <div className="field">
-        <label className="check">
+        <label ref={guideRef} className="check editor__pepper-check">
           <input
             type="checkbox"
             checked={method.pepper}

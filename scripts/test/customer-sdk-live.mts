@@ -150,9 +150,6 @@ try {
     spoofedDevice.blobs.map((blob) => blob.id),
     [blobA],
   );
-  console.log(
-    "PASS: real Host public device approval + API SDK sync; same principal and same blob ID, two customer organizations; outsider overwrite refused; pages and device filters remain customer-scoped.",
-  );
 } catch (error) {
   failure = error;
 }
@@ -165,3 +162,6 @@ const errors = cleanup.flatMap((result) =>
 if (failure !== undefined) errors.unshift(failure);
 if (errors.length)
   throw new AggregateError(errors, "Customer SDK regression failed");
+console.log(
+  "PASS: real Host public device approval + API SDK sync; same principal and same blob ID, two customer organizations; outsider overwrite refused; pages and device filters remain customer-scoped.",
+);

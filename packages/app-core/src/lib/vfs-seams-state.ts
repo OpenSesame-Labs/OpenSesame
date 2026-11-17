@@ -25,6 +25,13 @@ export type VfsSeams = {
     beforeCommit: () => void,
     vaultKey?: CryptoKey,
   ) => Promise<void>;
+  /** Only for a live in-memory guest; never grants file-backed authentication. */
+  guestWriteRawGuarded?: (
+    key: string,
+    value: string,
+    beforeCommit: () => void,
+    vaultKey?: CryptoKey,
+  ) => Promise<void>;
   /** Guarded metadata for an already-open ordinary VFS key; never pre-unlock IAM support. */
   writeOwnedMetadata?: (
     key: string,
@@ -32,9 +39,27 @@ export type VfsSeams = {
     beforeCommit: () => void,
     vaultKey?: CryptoKey,
   ) => Promise<void>;
+  /** Guarded body projection for an already-open ordinary vault, not preapproval IAM. */
+  writeOwnedBody?: (
+    key: string,
+    value: string,
+    beforeCommit: () => void,
+    vaultKey?: CryptoKey,
+  ) => Promise<void>;
   deleteRaw: (key: string) => Promise<void>;
+  deleteRawGuarded?: (key: string, beforeCommit: () => void) => Promise<void>;
+  /** Guarded deletion for an already-open ordinary file-backed vault. */
+  deleteOwnedFile?: (key: string, beforeCommit: () => void) => Promise<void>;
+  guestDeleteRawGuarded?: (
+    key: string,
+    beforeCommit: () => void,
+  ) => Promise<void>;
   /** A file-per-secret store assembles the body here, before it is first read. */
-  openBody?: (tomb: string, vaultKey: CryptoKey) => Promise<void>;
+  openBody?: (
+    tomb: string,
+    vaultKey: CryptoKey,
+    check?: () => void,
+  ) => Promise<void>;
   /** Bounded physical refresh; absence refuses fresh authentication snapshots. */
   refreshRaw?: (
     key: string,

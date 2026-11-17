@@ -30,8 +30,7 @@
  *    stays untouched. Who is signed in, and the way out of it, is the user menu —
  *    not this panel's.
  *
- * Every federated entry ends in a navigation, so success never returns here —
- * only a failure gets to clear `busy` and say why, in plain words.
+ * Federated entries navigate on success; failures return to this panel.
  */
 
 import {
@@ -40,13 +39,16 @@ import {
   readAuthOutcome,
 } from "@opensesame/app-core/lib/auth-outcome.js";
 import type { ByoRegistration } from "@opensesame/app-core/lib/byo.js";
-import { describeFederationError } from "@opensesame/app-core/lib/federation-copy.js";
 import {
   type BeginSignInOptions,
   type TrustedUpstream,
   beginSignIn as beginFederatedSignIn,
+  captureSignInCheck,
   defaultUpstream,
 } from "@opensesame/app-core/lib/federation.js";
+import { describeFederationError } from "@opensesame/app-core/lib/federation-copy.js";
+import { requireGuestReturnCleared } from "@opensesame/app-core/lib/guest-continuation.js";
+import { settleGuestReturnSignOut } from "@opensesame/app-core/lib/guest-return-signout.js";
 import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import { readLastSignIn } from "@opensesame/app-core/lib/last-sign-in.js";
 import {
@@ -70,7 +72,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { FailureNotice } from "../../components/FailureNotice.js";
 import { landFocus } from "../../lib/focus.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { ByoProviderSheet } from "./ByoProviderSheet.js";
@@ -81,28 +82,14 @@ import {
 import { IdentifierField } from "./IdentifierField.js";
 import { ImportRoadButton } from "./ImportRoad.js";
 import { MagicLinkStage } from "./MagicLinkStage.js";
+import { SignInFailure } from "./SignInFailure.js";
 import { SignInSocialBar } from "./SignInSocialBar.js";
-
-type Props = (
-  | {
-      /** First run: this panel is the screen. */
-      placement: "primary";
-      /** The deployment's provider catalog; empty falls back to the default upstream. */
-      providers: FederatedProviderSummary[];
-      /** Switch to the local-only seal form — no account, no sync, no recovery. */
-      onUseLocalOnly: () => void;
-    }
-  | {
-      /** A vault already exists here: the unlock form is the screen. */
-      placement: "secondary";
-      providers: FederatedProviderSummary[];
-    }
-) & { onSignedIn?: () => void };
+import type { SignInPanelProps } from "./sign-in-panel-props.js";
 
 /** Which single step of the ceremony is on screen. */
 type Stage = "hub" | "magic-link" | "byo" | "identity";
 
-export function SignInPanel(props: Props) {
+export function SignInPanel(props: SignInPanelProps) {
   const { providers } = props;
   const localOnlyRef = useGuideTarget<HTMLButtonElement>("unlock.local-only");
   const [busy, setBusy] = useState(false);
@@ -191,15 +178,19 @@ export function SignInPanel(props: Props) {
    * the note said, starting a sign-in spends it — the banner it drew should
    * not still be there when the person comes back.
    */
-  function beginSignIn(
+  async function beginSignIn(
     upstream: TrustedUpstream,
     options?: BeginSignInOptions,
   ): Promise<void> {
+    const check = captureSignInCheck();
+    await settleGuestReturnSignOut();
+    check();
+    requireGuestReturnCleared();
     const forceLogin = outcomeForcesLogin(readAuthOutcome());
     clearAuthOutcome();
-    const merged: BeginSignInOptions | undefined = forceLogin
-      ? { ...options, prompt: "login" }
-      : options;
+    let merged: BeginSignInOptions | undefined = options;
+    if (props.returnTo) merged = { ...merged, returnTo: props.returnTo };
+    if (forceLogin) merged = { ...merged, prompt: "login" };
     return merged === undefined
       ? beginFederatedSignIn(upstream)
       : beginFederatedSignIn(upstream, merged);
@@ -215,9 +206,7 @@ export function SignInPanel(props: Props) {
 
   function startProvider(provider: FederatedProviderSummary): void {
     const upstream = providerUpstream(provider);
-    // No returnTo: the return screen already lands on the app root, and an
-    // explicit one would read as "resume a task", which would skip opening
-    // the vault for a first-run sign-in.
+    // First-run sign-in returns to the app root; a ceremony can resume itself.
     startFederated(() =>
       upstream.id === provider.id
         ? beginSignIn(upstream)
@@ -279,7 +268,7 @@ export function SignInPanel(props: Props) {
   }
 
   const errorNote = (
-    <FailureNotice id="unlock:sign-in" title="Sign-in" message={error} />
+    <SignInFailure message={error} clear={() => setError(null)} />
   );
 
   if (stage === "identity" && configured.connection) {
@@ -303,6 +292,7 @@ export function SignInPanel(props: Props) {
       <MagicLinkStage
         busy={busy}
         setBusy={setBusy}
+        returnTo={props.magicLinkReturnTo}
         back={backButton("Back to sign-in", "hub")}
       />
     );

@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -14,18 +15,31 @@ import {
 } from "./guest-auth.js";
 import { clearNotices, listNotices, pushNotice } from "./notices.js";
 
+const original = { ...guestAuthDependencies };
+
 describe("chaos — guest login under a broken Identity plane", () => {
   beforeEach(() => {
     clearNotices();
+    sessionStorage.clear();
     guestAuthDependencies.createGuest = vi.fn().mockResolvedValue(undefined);
     guestAuthDependencies.isRemoteIdentityConfigured = () => true;
     guestAuthDependencies.connectProvisional = vi.fn();
     guestAuthDependencies.identityJson = vi.fn();
     guestAuthDependencies.currentSession = () => null;
+    guestAuthDependencies.inspectIdentityCookie = async () => "absent";
+    guestAuthDependencies.inspectSavedIdentityBinding = () => "none";
+    guestAuthDependencies.settleRevokes = async () => {};
+    guestAuthDependencies.hasRetainedIdentitySession = () => false;
+    guestAuthDependencies.hasHostSession = () => false;
+    guestAuthDependencies.loadFederationSession = () => null;
+    guestAuthDependencies.guestOwnerIsCurrent = () => true;
+    guestAuthDependencies.clearCookieBinding = () => {};
   });
 
   afterEach(() => {
     clearNotices();
+    sessionStorage.clear();
+    Object.assign(guestAuthDependencies, original);
   });
 
   it("chaos: a refused provisional mint still opens the guest vault", async () => {

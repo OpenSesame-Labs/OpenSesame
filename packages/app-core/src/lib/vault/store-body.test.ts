@@ -5,7 +5,7 @@
 
 import { createItem, createVault } from "@opensesame/vault-core";
 import { beforeEach, describe, expect, it } from "vitest";
-import { kvDelete, kvGet, kvSet } from "../kv.js";
+import { kvDelete, kvForgetAll, kvGet, kvSet } from "../kv.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -32,8 +32,7 @@ async function storeWithOneWrite(): Promise<VaultStore> {
 }
 
 beforeEach(() => {
-  kvDelete(HEADER_KEY);
-  kvDelete(BODY_KEY);
+  kvForgetAll();
 });
 
 describe("VaultStore body rollback witness", () => {

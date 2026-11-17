@@ -239,12 +239,13 @@ describe("decoy with everyday items, through unlock", () => {
   it("runs beside a sealed guest in the scratch tomb, leaving the guest whole", async () => {
     const store = new VaultStore();
     await store.createGuest();
+    const guestTomb = store.activeTomb();
     await store.enrollPin("48291037");
     await store.saveItem(createItem("account", "Guest keeps this"));
     await store.flushPendingWrites();
     store.lock();
     await vfsFlush();
-    const guestBefore = raw(GUEST_TOMB);
+    const guestBefore = raw(guestTomb);
     expect(guestBefore[1]).not.toBeNull();
     expect(
       await enableDuressCode({
@@ -266,11 +267,11 @@ describe("decoy with everyday items, through unlock", () => {
     ).not.toContain("Guest keeps this");
     await store.flushPendingWrites();
     await vfsFlush();
-    expect(raw(GUEST_TOMB)).toEqual(guestBefore);
+    expect(raw(guestTomb)).toEqual(guestBefore);
     store.lock();
     await vfsFlush();
     expect(listTombs()).not.toContain(DECOY_SCRATCH_TOMB);
-    expect(raw(GUEST_TOMB)).toEqual(guestBefore);
+    expect(raw(guestTomb)).toEqual(guestBefore);
   });
 
   it("is proven to notice nothing happening: with the runner gone the decoy is empty", async () => {

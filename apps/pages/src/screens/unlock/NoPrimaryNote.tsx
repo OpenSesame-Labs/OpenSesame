@@ -5,6 +5,11 @@
  * a standing condition with roads out (delete, or continue as a guest), not a
  * failed operation, so it never goes to the tray.
  */
-export function NoPrimaryNote() {
+export function NoPrimaryNote({
+  unavailable = false,
+}: {
+  unavailable?: boolean;
+}) {
+  if (unavailable) return <p className="hint">No usable key here.</p>;
   return <p className="hint">No key opens it.</p>;
 }

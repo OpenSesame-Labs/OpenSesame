@@ -59,7 +59,12 @@ export async function proveOriginalStoreMemoryBodyData(
     original();
     // Always authenticate the real current bound BODY, including a same-IV
     // mirror; the original cache mark supplies no proof here.
-    const body = await proveVaultBodyBeforeFactors(tomb, key, current);
+    const body = await proveVaultBodyBeforeFactors(
+      tomb,
+      key,
+      current,
+      original,
+    );
     original();
     if (
       JSON.stringify(readTombHeader(tomb)) !== headerWire ||

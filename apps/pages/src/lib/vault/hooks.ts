@@ -1,11 +1,15 @@
 import { trustedHideRetires } from "@opensesame/app-core/lib/document-lifecycle.js";
-import { endSession } from "@opensesame/app-core/lib/identity.js";
+import {
+  endSession,
+  settleRevokes,
+} from "@opensesame/app-core/lib/identity.js";
 import {
   clearNotices,
   dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
 import { clearStagedClaimTokens } from "@opensesame/app-core/lib/queue.js";
+import { signOut } from "@opensesame/app-core/lib/session-exit.js";
 import {
   type VaultState,
   vaultStore,
@@ -52,6 +56,24 @@ export function useVaultStore() {
   return vaultHooksSeams.useVaultStore();
 }
 
+function signOutOnLock(): void {
+  const failed = () =>
+    setStatusNotice({
+      id: "session.signout-incomplete",
+      tone: "err",
+      title: "Sign-out incomplete",
+      body: "Check your connection and browser storage, then try signing out again.",
+      retry: signOut,
+      transient: true,
+    });
+  try {
+    endSession();
+    void settleRevokes().catch(failed);
+  } catch {
+    failed();
+  }
+}
+
 /** Keep the idle clock honest and lock on tab hide when the user asked for it. */
 function useSessionGuardsDefault(): void {
   const { prefs, status } = useVault();
@@ -68,7 +90,7 @@ function useSessionGuardsDefault(): void {
         clearStagedClaimTokens();
         clearNotices();
         if (vaultStore.getSnapshot().prefs.signOutOnLock) {
-          endSession();
+          signOutOnLock();
         }
       }),
     [],
@@ -76,7 +98,9 @@ function useSessionGuardsDefault(): void {
 
   useEffect(() => {
     if (status !== "unlocked") return;
-    const touch = () => vaultStore.touch();
+    const touch = () => {
+      if (!vaultStore.expireIdleIfNeeded()) vaultStore.touch();
+    };
     // Reading/scrolling counts as activity — not only clicks and keypresses.
     const events = [
       "pointerdown",

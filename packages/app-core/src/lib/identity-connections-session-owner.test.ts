@@ -4,12 +4,19 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { configureHost } from "../host.js";
 import { createMemoryStorage } from "../memory-storage.js";
+import type { PagePort } from "../ports.js";
 import { createTestHost } from "../test-host.js";
 import { loopbackProfileEligible } from "./__tests__/loopback-profile.js";
 import { fenceLocalSignOut } from "./ambient-auth/generation.js";
-import { readFederationSessionJson } from "./federation-session-store.js";
 import { clearSession, loadSession } from "./federation.js";
+import { readFederationSessionJson } from "./federation-session-store.js";
 import { guestAuthSeams } from "./guest-auth.js";
+import { identitySeams } from "./identity.js";
+import {
+  beginIdentityConnectionSignIn,
+  identityConnectionDraft,
+  saveIdentityConnection,
+} from "./identity-connections.js";
 import {
   betterAuthFixture,
   email,
@@ -20,12 +27,6 @@ import {
   getIdentityConnectionRuntime,
   writeIdentityConnection,
 } from "./identity-connections-store.js";
-import {
-  beginIdentityConnectionSignIn,
-  identityConnectionDraft,
-  saveIdentityConnection,
-} from "./identity-connections.js";
-import { identitySeams } from "./identity.js";
 import { kvFlush, kvForgetAll } from "./kv.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 import { vaultStore } from "./vault/store.js";
@@ -33,6 +34,39 @@ import { vfsFlush } from "./vfs.js";
 
 const directFetch = globalThis.fetch;
 const cleanups: (() => Promise<void>)[] = [];
+
+function testPage(): PagePort {
+  const url = new URL("https://app.example.test/");
+  const unexpected = (): never => {
+    throw new Error("This native sign-in test does not navigate");
+  };
+  return {
+    location: {
+      origin: url.origin,
+      hostname: url.hostname,
+      host: url.host,
+      protocol: url.protocol,
+      pathname: url.pathname,
+      href: url.href,
+      search: url.search,
+      hash: url.hash,
+      assign: unexpected,
+      replace: unexpected,
+      reload: unexpected,
+    },
+    opener: null,
+    isSecureContext: true,
+    visibilityState: "visible",
+    replaceUrl: unexpected,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    open: unexpected,
+    close: unexpected,
+    onVisibilityChange: () => () => {},
+    startDownload: unexpected,
+    submitForm: unexpected,
+  };
+}
 
 function gate() {
   let release = () => {};
@@ -54,6 +88,7 @@ beforeEach(async () => {
   configureHost(
     createTestHost({
       storage: { local: createMemoryStorage(), session: createMemoryStorage() },
+      page: testPage(),
     }),
   );
   vaultStore.loadActiveProjectScope();
@@ -201,10 +236,20 @@ for (const protocol of ["better-auth", "supabase"] as const) {
         current.saved.connectionId,
         { credentials: { email, password } },
       );
-      // Attach the rejection assertion before releasing any held server response.
-      const refused = expect(pending).rejects.toThrow(/changed|owner/);
+      // Capture early rejection and fail promptly if the request never reaches JWKS.
+      const refused = pending.then(
+        () => null,
+        (error: unknown) => error,
+      );
       try {
-        await current.reached;
+        await Promise.race([
+          current.reached,
+          refused.then(() => {
+            throw new Error(
+              "Sign-in ended before reaching the held JWKS request",
+            );
+          }),
+        ]);
         if (transition === "sign-out") {
           fenceLocalSignOut();
           clearSession();
@@ -231,7 +276,16 @@ for (const protocol of ["better-auth", "supabase"] as const) {
       } finally {
         current.resume();
       }
-      await refused;
+      const error = await refused;
+      expect(error).toBeInstanceOf(Error);
+      if (transition === "sign-out" || transition === "lock") {
+        expect(error).toMatchObject({
+          name: "FederationError",
+          code: "sign_in_cancelled",
+        });
+      } else {
+        expect(String(error)).toMatch(/changed|owner/);
+      }
       expect(loadSession()).toBeNull();
       expect(readFederationSessionJson()).toBeNull();
       expect(guestAuthSeams.adoptFederatedIdentity).not.toHaveBeenCalled();

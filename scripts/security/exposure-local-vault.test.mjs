@@ -182,6 +182,30 @@ const futureSources = [
   `${lib}secret-fs/s3-write/dispatch.ts`,
   `${lib}secret-fs/resilient/retry.ts`,
   `${lib}secret-fs/vfs-files/publish.ts`,
+  `${lib}secret-fs/vfs-files-settle/error.ts`,
+  `${lib}secret-fs/vfs-file-keys/lookup.ts`,
+  `${lib}secret-fs/vfs-body-delete/remove.ts`,
+  `${lib}secret-fs/vfs-body-crypto/probe.ts`,
+  `${lib}secret-fs/owned-body-files/commit.ts`,
+  `${lib}secret-fs/projection-staging/remove.ts`,
+  `${lib}secret-fs/secret-docs/verify.ts`,
+  `${lib}secret-fs/config-docs/decode.ts`,
+  `${lib}secret-fs/layout/path.ts`,
+  `${lib}secret-fs/transient-guest-seams/publish.ts`,
+  `${lib}guest-vault-id/validate.ts`,
+  `${lib}guest-return-record/consume.ts`,
+  `${lib}guest-return-epoch/check.ts`,
+  `${lib}guest-session-context/retire.ts`,
+  `${lib}guest-auth-entry/admit.ts`,
+  `${lib}guest-auth-dependencies/session.ts`,
+  `${lib}guest-provider-return/check.ts`,
+  `${vault}guest-vault-promotion/recover.ts`,
+  `${vault}guest-person-metadata/read.ts`,
+  `${vault}store-guest-material/prepare.ts`,
+  `${vault}store-open-lease/acquire.ts`,
+  `${vault}ordinary-peer-body-refresh/read.ts`,
+  `${vault}original-store-memory-body-proof-data/check.ts`,
+  `${vault}original-unlock-policy-proof/verify.ts`,
   "packages/app-core/src/node/secret-files-owner.ts",
   `${lib}deadman/authentication/heartbeat.ts`,
   `${lib}deadman/state-publish.ts`,
@@ -201,37 +225,46 @@ test("bounded discovery follows named local entry, verification and persistence 
     "packages/auth-upstream/src/unrelated-verifier.ts",
     `${lib}deadman/package-format.ts`,
     `${lib}deadman/relay.ts`,
-    `${lib}secret-fs/config-docs.ts`,
+    `${lib}secret-fs/unrelated-storage-ui.ts`,
     `${lib}secret-fs/files-owner.test.ts`,
   ])
     assert.equal(sourceArea(path), undefined, path);
 });
 
 test("local activation helpers cannot borrow a new artifact row in the same area", () => {
-  const value = matrix();
-  const path = futureSources[0];
-  value.sources[path] = encodeSourceDigest(sha256(Buffer.alloc(0)));
-  value.surfaces.push({
-    ...structuredClone(row(value)),
-    id: "local-helper-bookkeeping",
-    flow: "local-helper-bookkeeping",
-    kind: "artifact",
-    artifacts: [],
-    verification: "none",
-    controls: [],
-    implementation: [path],
-  });
-  assert.deepEqual(rules(value), []);
-  const snapshot = {
-    paths: () => [path],
-    mode: () => "100644",
-    read: () => Buffer.alloc(0),
-  };
-  assert.ok(
-    coverageViolations(value, snapshot).some((issue) =>
-      issue.startsWith(`EM-COVERAGE: unclassified protected source ${path};`),
-    ),
-  );
+  for (const path of [
+    futureSources[0],
+    `${lib}secret-fs/projection-staging/remove.ts`,
+    `${lib}secret-fs/owned-body-files/commit.ts`,
+    `${lib}secret-fs/vfs-file-keys/lookup.ts`,
+    `${lib}guest-return-record/consume.ts`,
+    `${vault}guest-vault-promotion/recover.ts`,
+  ]) {
+    const value = matrix();
+    value.sources[path] = encodeSourceDigest(sha256(Buffer.alloc(0)));
+    value.surfaces.push({
+      ...structuredClone(row(value)),
+      id: "local-helper-bookkeeping",
+      flow: "local-helper-bookkeeping",
+      kind: "artifact",
+      artifacts: [],
+      verification: "none",
+      controls: [],
+      implementation: [path],
+    });
+    assert.deepEqual(rules(value), []);
+    const snapshot = {
+      paths: () => [path],
+      mode: () => "100644",
+      read: () => Buffer.alloc(0),
+    };
+    assert.ok(
+      coverageViolations(value, snapshot).some((issue) =>
+        issue.startsWith(`EM-COVERAGE: unclassified protected source ${path};`),
+      ),
+      path,
+    );
+  }
 });
 
 test("real local sources and regressions fail on source drift", (t) => {
@@ -264,7 +297,33 @@ test("real local sources and regressions fail on source drift", (t) => {
     `${lib}secret-fs/resilient.ts`,
     `${lib}secret-fs/device-identity-carry.test.ts`,
     `${lib}secret-fs/guarded-backends.test.ts`,
+    `${lib}secret-fs/guarded-removal.test.ts`,
     `${lib}secret-fs/owned-metadata.test.ts`,
+    `${lib}secret-fs/owned-body-files.ts`,
+    `${lib}secret-fs/vfs-file-keys.ts`,
+    `${lib}secret-fs/vfs-body-delete.ts`,
+    `${lib}secret-fs/vfs-body-crypto.ts`,
+    `${lib}secret-fs/vfs-files-settle.ts`,
+    `${lib}secret-fs/projection-plan.ts`,
+    `${lib}secret-fs/projection-staging.ts`,
+    `${lib}secret-fs/projection-long-path.test.ts`,
+    `${lib}secret-fs/vfs-body-ownership.test.ts`,
+    `${lib}secret-fs/vfs-body-read-ownership.test.ts`,
+    `${lib}secret-fs/vfs-delete-ownership.test.ts`,
+    `${lib}vfs-tomb-keys.ts`,
+    `${lib}vfs-plaintext.ts`,
+    `${lib}vfs-registry-protected.test.ts`,
+    `${lib}vfs-key-retirement.test.ts`,
+    `${lib}guest-local-only.test.ts`,
+    `${lib}github-app-manifest.test.ts`,
+    `${lib}local-authorization.test.ts`,
+    `${vault}store.guest-gates.test.ts`,
+    `${vault}device-key-restore.test.ts`,
+    `${lib}guest-return-record.ts`,
+    `${lib}guest-auth-entry.ts`,
+    `${vault}guest-vault-promotion.ts`,
+    `${vault}store-preferences-lifetime.test.ts`,
+    `${lib}vfs-guest-guard.test.ts`,
     `${lib}trusted-unlock-access-commit.test.ts`,
     `${lib}trusted-unlock-access-legacy.test.ts`,
     `${lib}vfs-guarded-commit.test.ts`,

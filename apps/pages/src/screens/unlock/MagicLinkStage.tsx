@@ -1,8 +1,8 @@
 import { requestEmailMagicLink } from "@opensesame/app-core/lib/providers.js";
 import { type ReactElement, useState } from "react";
-import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconMail } from "../../components/Icons.js";
+import { SignInFailure } from "./SignInFailure.js";
 
 /**
  * Sign in by a link to an address: the address, one key that sends it, and
@@ -13,10 +13,12 @@ export function MagicLinkStage({
   busy,
   setBusy,
   back,
+  returnTo,
 }: {
   busy: boolean;
   setBusy: (busy: boolean) => void;
   back: ReactElement;
+  returnTo?: string | undefined;
 }) {
   const [linkEmail, setLinkEmail] = useState("");
   const [linkSent, setLinkSent] = useState(false);
@@ -26,7 +28,8 @@ export function MagicLinkStage({
     setLinkError(null);
     setBusy(true);
     try {
-      await requestEmailMagicLink(linkEmail.trim());
+      if (returnTo) await requestEmailMagicLink(linkEmail.trim(), returnTo);
+      else await requestEmailMagicLink(linkEmail.trim());
       setLinkSent(true);
     } catch (caught) {
       setLinkError(
@@ -68,11 +71,7 @@ export function MagicLinkStage({
           </IconKey>
         </div>
         {linkSent ? <p className="hint">Link sent.</p> : null}
-        <FailureNotice
-          id="unlock:magic-link"
-          title="Email link"
-          message={linkError}
-        />
+        <SignInFailure message={linkError} clear={() => setLinkError(null)} />
       </div>
     </div>
   );

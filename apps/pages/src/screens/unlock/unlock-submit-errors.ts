@@ -2,7 +2,24 @@ import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlo
 import { describeWebauthnError } from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import { WrongPasswordError } from "@opensesame/vault-core";
 import type { MutableRefObject } from "react";
+import { clearNewGuestLanding } from "../../lib/guest-landing.js";
 import type { PendingFocus } from "./use-refocus-after-failure.js";
+
+/** A keyless guest did not attempt a passkey ceremony. */
+export function applyGuestStartFailure(input: {
+  caught: unknown;
+  setError: (message: string | null) => void;
+  goRef: MutableRefObject<HTMLButtonElement | null>;
+  pendingFocus: PendingFocus;
+}): void {
+  const { caught } = input;
+  clearNewGuestLanding();
+  if (caught instanceof DOMException && caught.name === "AbortError") return;
+  input.setError(
+    caught instanceof Error ? caught.message : "Guest session could not start.",
+  );
+  input.pendingFocus.current = input.goRef;
+}
 
 export function applyUnlockSubmitFailure(input: {
   caught: unknown;

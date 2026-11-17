@@ -9,10 +9,14 @@ import {
   it,
   vi,
 } from "vitest";
+
 const endSession = vi.hoisted(() => vi.fn());
 const clearStagedClaimTokens = vi.hoisted(() => vi.fn());
 const hostFetch = vi.hoisted(() => vi.fn());
+
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+import { listNotices } from "@opensesame/app-core/lib/notices.js";
+
 const originalIdentitySeams = { ...identitySeams };
 Object.assign(identitySeams, {
   endSession,
@@ -22,7 +26,9 @@ Object.assign(identitySeams, {
   hostLocalSessionEligible: () => false,
 });
 afterAll(() => Object.assign(identitySeams, originalIdentitySeams));
+
 import { queueSeams } from "@opensesame/app-core/lib/queue.js";
+
 const originalQueueSeams = { ...queueSeams };
 Object.assign(queueSeams, { clearStagedClaimTokens });
 afterAll(() => Object.assign(queueSeams, originalQueueSeams));
@@ -94,6 +100,29 @@ describe("useSessionGuards", () => {
       vaultStore.lock();
     });
     expect(endSession).toHaveBeenCalled();
+    act(() => {
+      vaultStore.setPrefs({ signOutOnLock: false });
+    });
+  });
+
+  it("shows a retry when sign-out on lock cannot save its recovery proof", () => {
+    endSession.mockImplementationOnce(() => {
+      throw new Error("Storage unavailable");
+    });
+    act(() => {
+      vaultStore.setPrefs({ signOutOnLock: true });
+    });
+    renderHook(() => useSessionGuards());
+    act(() => {
+      vaultStore.lock();
+    });
+    expect(
+      listNotices().some(
+        (notice) =>
+          notice.id === "session.signout-incomplete" &&
+          typeof notice.retry === "function",
+      ),
+    ).toBe(true);
     act(() => {
       vaultStore.setPrefs({ signOutOnLock: false });
     });

@@ -7,6 +7,7 @@ import {
   pairedHostFetch,
   pollBrowserPairing,
 } from "./browser-pairing.js";
+import { activateGuestTomb, retireGuestTomb } from "./guest-session-context.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
 
 const host = "http://127.0.0.1:8787";
@@ -190,5 +191,39 @@ describe("explicit browser authority", () => {
     expect(signal.aborted).toBe(true);
     release(Response.json({ ok: true }));
     await expect(request).rejects.toMatchObject({ code: "pairing_expired" });
+  });
+
+  it("does not send a Host grant when a local-only guest opens during proof creation", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(pairing))
+      .mockResolvedValueOnce(Response.json(issued));
+    vi.stubGlobal("fetch", fetcher);
+    await beginBrowserPairing(host);
+    await pollBrowserPairing();
+    let release = () => {};
+    let started = () => {};
+    const begun = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    proof.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          started();
+          release = () => resolve("proof");
+        }),
+    );
+    const request = pairedHostFetch(host, "/api/v1/sync/pull-page");
+    const rejected = expect(request).rejects.toThrow(/local only/i);
+    await begun;
+    try {
+      activateGuestTomb("test-local-guest", null, true);
+      release();
+      await rejected;
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      release();
+      retireGuestTomb("test-local-guest");
+    }
   });
 });

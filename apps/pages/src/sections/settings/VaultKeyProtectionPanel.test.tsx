@@ -78,6 +78,11 @@ describe("VaultKeyProtectionPanel", () => {
     expect(screen.getByText("Password")).toBeTruthy();
     expect(screen.getByLabelText("Verified")).toBeTruthy();
     expect(screen.queryByText(/WebCrypto/i)).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Add key protection method" })
+        .getAttribute("data-guide-targets"),
+    ).toContain("settings.vault-key-protection");
   });
 
   it("draws no static policy prose and no row without an action", () => {

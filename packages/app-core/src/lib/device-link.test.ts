@@ -5,7 +5,7 @@
  * one — a sign-in callback's `?code=` at the base.
  */
 import { LEGACY_LINKS } from "@opensesame/ceremony-kit";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   captureDeviceLinkFromPage,
   devicePath,
@@ -184,6 +184,35 @@ describe("captureDeviceLinkFromPage", () => {
       userCode: "ABCD-EFGH",
     });
     expect(takeDeviceArrival()).toEqual({ kind: "none" });
+  });
+
+  it("restores a code after a sign-in redirect and removes it after approval", () => {
+    history.replaceState(null, "", "/device?user_code=ABCD-EFGH");
+    captureDeviceLinkFromPage();
+    resetDeviceArrivalForTests(true);
+    expect(peekDeviceArrival()).toEqual({
+      kind: "code",
+      userCode: "ABCD-EFGH",
+    });
+    expect(takeDeviceArrival()).toEqual({
+      kind: "code",
+      userCode: "ABCD-EFGH",
+    });
+    resetDeviceArrivalForTests(true);
+    expect(peekDeviceArrival()).toEqual({ kind: "none" });
+  });
+
+  it("does not restore a code after the device authorization expires", () => {
+    vi.useFakeTimers();
+    try {
+      history.replaceState(null, "", "/device?user_code=ABCD-EFGH");
+      captureDeviceLinkFromPage();
+      resetDeviceArrivalForTests(true);
+      vi.advanceTimersByTime(15 * 60 * 1000 + 1);
+      expect(peekDeviceArrival()).toEqual({ kind: "none" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("leaves a sign-in callback where the router will find it", () => {

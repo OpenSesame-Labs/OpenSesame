@@ -26,7 +26,6 @@ import { kvDelete } from "../kv.js";
 import { clearNotices, listNotices } from "../notices.js";
 import {
   BODY_PATH,
-  GUEST_TOMB,
   HEADER_PATH,
   INDEX_PATH,
   MIGRATION_MARKER_PATH,
@@ -37,8 +36,8 @@ import {
   vfsSeams,
 } from "../vfs.js";
 import { offlineBackupFile, sealedVaultText } from "./offline-backup-file.js";
-import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
+import { bodyPortOf, installDeviceKeyCarrier } from "./store-device-key.js";
 
 const PASSWORD = "correct horse battery staple";
 const OTHER_PASSWORD = "fourteen ungulate carriage nail";
@@ -273,13 +272,14 @@ describe("a backup without a key this vault can take", () => {
 describe("a restore that cannot finish", () => {
   /** Fail every write of the vault body, as a full disk would. */
   function failBodyWrites(): () => void {
-    const write = vfsSeams.writeRaw;
-    vfsSeams.writeRaw = (key, value) =>
+    const write = vfsSeams.writeRawGuarded;
+    if (!write) throw new Error("Missing guarded VFS write");
+    vfsSeams.writeRawGuarded = (key, ...args) =>
       key.endsWith(`/${BODY_PATH}`)
         ? Promise.reject(new Error("disk full"))
-        : write(key, value);
+        : write(key, ...args);
     return () => {
-      vfsSeams.writeRaw = write;
+      vfsSeams.writeRawGuarded = write;
     };
   }
 
@@ -345,7 +345,7 @@ describe("a guest", () => {
     const store = newStore();
     installDeviceKeyCarrier(() => bodyPortOf(store));
     await store.createGuest();
-    const key = await ensureDeviceIdentityKey(GUEST_TOMB);
+    const key = await ensureDeviceIdentityKey(store.activeTomb());
     expect(key.principalId).toMatch(/^prn_/);
     expect(bodyPortOf(store).body().deviceIdentityKey).toBeUndefined();
   });
@@ -354,16 +354,16 @@ describe("a guest", () => {
     const first = newStore();
     installDeviceKeyCarrier(() => bodyPortOf(first));
     await first.createGuest();
-    const before = await ensureDeviceIdentityKey(GUEST_TOMB);
+    const before = await ensureDeviceIdentityKey(first.activeTomb());
     first.lock();
+    await vfsFlush();
     forgetDeviceIdentityKeyInFlightForTests();
 
     const second = newStore();
     installDeviceKeyCarrier(() => bodyPortOf(second));
     await second.createGuest();
-    // The earlier guest's sealed key is ciphertext under a dead key: it is
-    // wiped with the tomb, so the new guest mints its own instead of failing.
-    const after = await ensureDeviceIdentityKey(GUEST_TOMB);
+    // A fresh guest has a separate tomb and mints its own identity key.
+    const after = await ensureDeviceIdentityKey(second.activeTomb());
     expect(after.principalId).not.toBe(before.principalId);
   });
 });

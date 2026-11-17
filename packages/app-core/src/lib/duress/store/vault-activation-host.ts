@@ -1,10 +1,10 @@
+import { isGuestVaultId } from "../../guest-vault-id.js";
 /**
  * STORE-E — vault store surface for duress activation coordination.
  */
 
 import type { VaultHeader } from "@opensesame/vault-core";
 import { discardTombCaches } from "../../vault/tomb-migration.js";
-import { GUEST_TOMB } from "../../vfs.js";
 
 export type DuressVaultActivationHost = Readonly<{
   activeTomb: () => string;
@@ -28,7 +28,7 @@ export function createDuressVaultActivationHost(input: {
   return {
     activeTomb: input.activeTomb,
     isGuestOrEphemeral: () =>
-      input.ephemeral() || input.activeTomb() === GUEST_TOMB,
+      input.ephemeral() || isGuestVaultId(input.activeTomb()),
     isOnboarding: () =>
       input.header() === null &&
       !input.ephemeral() &&

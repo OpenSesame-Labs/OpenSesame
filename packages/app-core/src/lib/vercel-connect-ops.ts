@@ -13,6 +13,18 @@ import { connectCallbackBase } from "./connect-callback.js";
 import type { Connection } from "./connections.js";
 import { releaseGuestConnection, visibleToGuest } from "./guest-connections.js";
 import { isGuestSession } from "./guest-isolation.js";
+import { prepareGuestProviderReturn } from "./guest-provider-return.js";
+import {
+  CONNECT_API,
+  ConnectError,
+  type VercelConnectAuth,
+  appSubject,
+  rememberConnector,
+  requireAuth,
+  requireTransport,
+  sdkOptions,
+  vercelConnectSeams,
+} from "./vercel-connect.js";
 import {
   isReadonlyPaymentProvider,
   isVercelConnectable,
@@ -25,17 +37,6 @@ import {
   toConnectConnection,
 } from "./vercel-connect-map.js";
 import { connectRelayConfigured, relayFetch } from "./vercel-connect-relay.js";
-import {
-  CONNECT_API,
-  ConnectError,
-  type VercelConnectAuth,
-  appSubject,
-  rememberConnector,
-  requireAuth,
-  requireTransport,
-  sdkOptions,
-  vercelConnectSeams,
-} from "./vercel-connect.js";
 
 export { isConnectConnector, usesConnect } from "./vercel-connect.js";
 
@@ -252,6 +253,7 @@ export async function createVercelConnection(body: {
 export type VercelAuthorizeResult = {
   authorizationUrl: string;
   expiresAt: string;
+  guestReturnToken?: string;
 };
 
 /**
@@ -269,8 +271,17 @@ export async function authorizeVercelConnection(
   scopes?: string[],
 ): Promise<VercelAuthorizeResult> {
   const relay = connectCallbackBase().replace(/\/+$/, "");
+  const guestReturnToken = relay ? crypto.randomUUID() : undefined;
+  const returnTo = guestReturnToken
+    ? await prepareGuestProviderReturn(
+        "vercel",
+        guestReturnToken,
+        connectReturnTo(id),
+        id,
+      )
+    : "";
   const callbackUrl = relay
-    ? `${relay}/api/connect/callback?return_to=${encodeURIComponent(connectReturnTo(id))}`
+    ? `${relay}/api/connect/callback?return_to=${encodeURIComponent(returnTo)}`
     : undefined;
   if (connectRelayConfigured()) {
     const payload: JsonObject = { connectorId: id };
@@ -292,7 +303,7 @@ export async function authorizeVercelConnection(
       isJsonObject(reply) && reply.expiresAt
         ? iso(reply.expiresAt)
         : new Date(Date.now() + 600_000).toISOString();
-    return { authorizationUrl: url, expiresAt };
+    return { authorizationUrl: url, expiresAt, guestReturnToken };
   }
   const auth = requireAuth();
   const reply = await vercelConnectSeams.startAuthorization(
@@ -309,6 +320,7 @@ export async function authorizeVercelConnection(
   }
   return {
     authorizationUrl: reply.url,
+    guestReturnToken,
     expiresAt: reply.expiresAt
       ? iso(reply.expiresAt)
       : new Date(Date.now() + 600_000).toISOString(),

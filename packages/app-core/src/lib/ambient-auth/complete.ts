@@ -2,8 +2,9 @@
  * Ambient callback completion. Correlates state before consume.
  */
 
-import { parseAuthCallback } from "../federation-callback.js";
 import { type CompletedSignIn, FederationError } from "../federation.js";
+import { parseAuthCallback } from "../federation-callback.js";
+import { assertGuestReturnEpoch } from "../guest-return-epoch.js";
 import { admitAmbientSession, vaultStateFromStore } from "./admission.js";
 import { currentAuthGeneration, matchesAuthGeneration } from "./generation.js";
 import { exchangeAmbientCode } from "./oidc.js";
@@ -49,6 +50,18 @@ export async function completeAmbientIfPresent(
         "This sign-in was already finished.",
       );
     }
+    const checkEpoch = () => {
+      try {
+        assertGuestReturnEpoch(claimed.authEpoch ?? "");
+      } catch {
+        cancelTransaction(state);
+        throw new FederationError(
+          "stale_generation",
+          "That sign-in is no longer valid.",
+        );
+      }
+    };
+    checkEpoch();
     if (!matchesAuthGeneration(claimed.generation)) {
       cancelTransaction(state);
       throw new FederationError(
@@ -78,6 +91,7 @@ export async function completeAmbientIfPresent(
       parsed.code,
       fetchImpl,
     );
+    checkEpoch();
     consumeTransaction(state, OWNER);
     return {
       intent: claimed.intent,
@@ -86,6 +100,7 @@ export async function completeAmbientIfPresent(
         intent: claimed.intent,
         transactionId: claimed.transactionId,
         generation: claimed.generation,
+        authEpoch: claimed.authEpoch,
         policyRevision: claimed.policyRevision,
         claims,
       },
@@ -93,4 +108,4 @@ export async function completeAmbientIfPresent(
   });
 }
 
-export { currentAuthGeneration, vaultStateFromStore, admitAmbientSession };
+export { admitAmbientSession, currentAuthGeneration, vaultStateFromStore };
