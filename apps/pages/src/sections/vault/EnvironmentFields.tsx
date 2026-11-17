@@ -78,6 +78,7 @@ function GeneratedFile({
   values: EnvironmentSchemaValues;
   id: string;
 }>) {
+  const copySecret = useCopySecret();
   const result = renderEnvironmentSchemaItem(itemName, values);
   const file = result.file;
   const [copied, setCopied] = useState(false);
