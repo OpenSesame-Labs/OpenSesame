@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Playwright consent timing with stalled plan activation (VITE_VERIFY_ACTIVATION_DELAY_MS).
+ * Playwright consent timing across plan activation (wall-clock samples after unlock).
  * Samples during vault unlock, not only after IAM password entry.
  */
 
@@ -23,6 +23,7 @@ import {
 } from "./lib/verification-checklist-profiles.mjs";
 import {
   applySetupChoice,
+  captureChoices,
   openDoor,
 } from "./lib/verification-checklist-setup.mjs";
 import { BASE, emptyRecord } from "./lib/verification-checklist-shot.mjs";
@@ -31,7 +32,7 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
 
 const ACTIVATION_DELAY_MS = Number(
-  process.env.VITE_VERIFY_ACTIVATION_DELAY_MS ?? 2_500,
+  process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS ?? 2_500,
 );
 const SAMPLE_MS = Number(process.env.SHELL_READY_CONSENT_SAMPLE_MS ?? 450);
 
@@ -77,6 +78,7 @@ export async function captureConsentActivationTiming({
     const shot = proofShot(page, outDir, texts, record);
     await openDoor(page, shot, record, server.href);
     assertLocalPage(page, walk.name);
+    await captureChoices(page, shot, record);
     await applySetupChoice(page, shot, record, walk.setupChoice);
     await sealWithPin(page);
     await page.getByRole("button", { name: "Lock vault" }).first().click();
