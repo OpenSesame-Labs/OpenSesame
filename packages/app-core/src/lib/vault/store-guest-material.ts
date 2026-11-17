@@ -17,10 +17,19 @@ export type GuestCreationOptions = {
   decoy?: boolean;
   scratch?: true;
 };
+
+/** A new guest must never replace a guest vault that has an enrolled key. */
+export function assertGuestVaultAvailable(): void {
+  if (guestTombIsSealed()) {
+    throw new Error("Unlock the protected guest vault before continuing.");
+  }
+}
+
 export function selectGuestScope(options?: GuestCreationOptions) {
-  // Guests run in GUEST_TOMB, apart from member tombs; a decoy never wipes a
-  // guest tomb that holds its own key: it runs in a scratch tomb.
+  // A duress decoy uses scratch beside a protected guest. Ordinary guest entry
+  // must refuse rather than overwrite that vault or create an unopenable one.
   markDecoySession(options?.decoy === true);
+  if (!options?.decoy) assertGuestVaultAvailable();
   const scratch =
     options?.decoy === true &&
     (options.scratch === true || guestTombIsSealed());

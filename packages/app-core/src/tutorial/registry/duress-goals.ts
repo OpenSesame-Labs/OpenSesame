@@ -34,7 +34,7 @@ export const DURESS_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "vaults.travel"',
-      'say "Travel mode takes the vaults that are not safe to carry off this device before a trip, and brings them back afterwards. It draws beside the duress code, so it appears once you are in a vault you own."',
+      'say "Travel mode removes vaults you choose not to carry on this device and restores them after your trip. It appears beside Duress when you open a vault you own."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
