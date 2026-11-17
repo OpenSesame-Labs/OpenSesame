@@ -4,6 +4,7 @@ import {
   IDENTITY,
   jsonResponse,
   stubBasic,
+  stubFetch,
 } from "./__tests__/identity-session-support.js";
 import { loopbackProfileEligible } from "./__tests__/loopback-profile.js";
 import { defaultCapabilityConnectors } from "./capabilities.js";
@@ -102,5 +103,58 @@ describe("rebound sessions", () => {
       )
       .map(([, init]) => new Headers(init?.headers).get("authorization"));
     expect(revoked).toContain("Bearer " + "rebound_token");
+  });
+
+  it("does not publish a rebound token when its owner check changes during proof", async () => {
+    stubBasic();
+    await connectProvisional();
+    let release = () => {};
+    let started = () => {};
+    let allowed = true;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const begun = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const fetcher = stubFetch(async (url, init) => {
+      if (
+        url.endsWith("/v1/principals/me") &&
+        new Headers(init?.headers).get("authorization") ===
+          "Bearer rebound_token"
+      ) {
+        started();
+        await gate;
+        return jsonResponse({ id: "principal_existing" });
+      }
+      return jsonResponse({ ok: true });
+    });
+    const binding = rebindSession(
+      "rebound_token",
+      identitySessionEpoch(),
+      undefined,
+      () => {
+        if (!allowed) throw new Error("The sign-in ended.");
+      },
+    );
+    const refused = expect(binding).rejects.toThrow();
+    await begun;
+    try {
+      allowed = false;
+      release();
+      await refused;
+      await settleRevokes();
+      expect(currentSession()?.accessToken).not.toBe("rebound_token");
+      expect(
+        fetcher.mock.calls.some(
+          ([url, init]) =>
+            String(url).endsWith("/provisional/revoke") &&
+            new Headers(init?.headers).get("authorization") ===
+              "Bearer rebound_token",
+        ),
+      ).toBe(true);
+    } finally {
+      release();
+    }
   });
 });

@@ -3,12 +3,17 @@ import { currentAuthGeneration } from "./auth-generation.js";
 import { subscribeDeviceRows } from "./device-connector-records.js";
 import { resolveIdentityBase } from "./device-identity.js";
 import { federationSessionGeneration } from "./federation-native-session.js";
+import {
+  assertGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "./guest-return-epoch.js";
+import { isLocalOnlyGuest } from "./guest-session-context.js";
+import { currentSession, subscribeIdentitySession } from "./identity.js";
 import type { IdentityConnectionDraft } from "./identity-connections-schema.js";
 import {
   getIdentityConnectionRuntime,
   identityConnectionRevision,
 } from "./identity-connections-store.js";
-import { currentSession, subscribeIdentitySession } from "./identity.js";
 import { signInMethods, subscribeSettings } from "./settings.js";
 import { vaultStore } from "./vault/store.js";
 
@@ -59,6 +64,7 @@ function publicTarget(connectionId: string, protocol: NativeIdentityProtocol) {
 class OriginalNativeIdentityOwner {
   readonly stop = new AbortController();
   readonly authGeneration = currentAuthGeneration();
+  readonly authEpoch = requireGuestReturnEpoch();
   readonly identitySession = currentSession();
   readonly identityRealm = resolveIdentityBase();
   readonly original = vaultStore.getSnapshot();
@@ -106,6 +112,15 @@ class OriginalNativeIdentityOwner {
   };
   assertLocal(): void {
     this.stop.signal.throwIfAborted();
+    if (isLocalOnlyGuest())
+      throw new Error(
+        "This vault is local only. Sign out and start a new guest session to connect services.",
+      );
+    try {
+      assertGuestReturnEpoch(this.authEpoch);
+    } catch {
+      throw new Error("This sign-in ended. Start again.");
+    }
     if (
       currentAuthGeneration() !== this.authGeneration ||
       currentSession() !== this.identitySession ||
@@ -220,6 +235,10 @@ export function captureNativeIdentityOwner(
   protocol: NativeIdentityProtocol = "saml",
   resolveTarget?: NativeIdentityTargetResolver,
 ): NativeIdentityOwner {
+  if (isLocalOnlyGuest())
+    throw new Error(
+      "This vault is local only. Sign out and start a new guest session to connect services.",
+    );
   if (protocol === "ldap" && !resolveTarget)
     throw new Error("LDAP requires its exact configured realm and audience");
   const original = new OriginalNativeIdentityOwner(
