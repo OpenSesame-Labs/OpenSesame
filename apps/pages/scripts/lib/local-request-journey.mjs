@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { dismissFirstVisitOffer } from "./dismiss-first-visit.mjs";
 import {
   accessWorkspace,
   openLocalAccessPage,
@@ -65,6 +66,7 @@ async function createKeyboardRequest(page, panel, create, width, captures) {
     .getByLabel("Reason", { exact: true })
     .fill("Browser request approval proof");
   await capture(page, width, captures, "form");
+  await dismissFirstVisitOffer(page);
   await panel
     .getByRole("button", { name: "Create local request", exact: true })
     .click();
