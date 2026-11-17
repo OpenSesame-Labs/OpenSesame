@@ -14,7 +14,7 @@ fn sync_preserves_ids_and_epochs() {
     let mut a = SyncStore::new("dev-a");
     let blob = a.put_local(&key, "note-1", b"hello").unwrap();
     let mut b = SyncStore::new("dev-b");
-    b.apply_remote(&key, &[blob.clone()]).unwrap();
+    b.apply_remote(&key, std::slice::from_ref(&blob)).unwrap();
     assert_eq!(b.entries.get("note-1").unwrap().0, blob.epoch);
     let out = b.collect_outgoing(&SyncCursor {
         device_id: "x".into(),
@@ -100,7 +100,9 @@ fn forged_epochs_are_rejected_atomically_before_conflict_resolution() {
     let newest = source.put_local(&key, "item", b"new").unwrap();
     let other = source.put_local(&key, "other", b"other").unwrap();
     let mut destination = SyncStore::new("destination");
-    destination.apply_remote(&key, &[newest.clone()]).unwrap();
+    destination
+        .apply_remote(&key, std::slice::from_ref(&newest))
+        .unwrap();
     let before = destination.to_persisted_json(&key).unwrap();
 
     for forged_epoch in [newest.epoch + 100, u64::MAX] {

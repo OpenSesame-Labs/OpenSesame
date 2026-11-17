@@ -3805,6 +3805,7 @@ dependencies = [
  "getrandom 0.2.17",
  "getrandom 0.4.3",
  "js-sys",
+ "libc",
  "opensesame-core",
  "opensesame-human-vault",
  "rand 0.10.3",

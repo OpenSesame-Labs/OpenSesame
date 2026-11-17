@@ -25,8 +25,15 @@ mod legacy_migration;
 mod persist_auth;
 pub mod snapshot;
 mod sync_auth;
+#[cfg(not(target_arch = "wasm32"))]
+mod sync_files;
+mod sync_limits;
 
 pub use sync_auth::{open_sync_blob, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES};
+pub use sync_limits::{
+    MAX_SYNC_BLOBS, MAX_SYNC_DEVICE_ID_BYTES, MAX_SYNC_JSON_BYTES, MAX_SYNC_PROJECT_ID_BYTES,
+    MAX_SYNC_TOTAL_BYTES,
+};
 
 pub use snapshot::{
     assert_ciphertext_only_json, refuse_deployment_seal_as_wrap_key, CiphertextSyncSnapshot,
@@ -73,10 +80,16 @@ pub struct SyncBlob {
 struct PersistedStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
+    #[serde(deserialize_with = "sync_limits::deserialize_cursor")]
     cursor: SyncCursor,
     /// Sealed entries only.
+    #[serde(deserialize_with = "sync_limits::deserialize_blobs")]
     blobs: Vec<SyncBlob>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "sync_limits::deserialize_integrity"
+    )]
     integrity: Option<String>,
 }
 
@@ -197,6 +210,7 @@ impl SyncStore {
         plaintext: &[u8],
     ) -> Result<SyncBlob, ClientCoreError> {
         let id = id.into();
+        sync_limits::validate_cursor(&self.cursor)?;
         let guard = self.checked_key(key)?;
         let epoch = self
             .cursor
@@ -205,6 +219,7 @@ impl SyncStore {
             .filter(|value| *value <= i64::MAX as u64)
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob(key, id, epoch, plaintext)?;
+        sync_limits::validate_capacity(&self.entries, std::slice::from_ref(&blob))?;
         self.entries
             .insert(blob.id.clone(), (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
@@ -233,6 +248,8 @@ impl SyncStore {
         key: &DeviceKey,
         blobs: &[SyncBlob],
     ) -> Result<usize, ClientCoreError> {
+        sync_limits::validate_cursor(&self.cursor)?;
+        sync_limits::validate_capacity(&self.entries, blobs)?;
         let guard = self.checked_key(key)?;
         for blob in blobs {
             sync_auth::verify_blob(key, blob)?;
@@ -299,7 +316,10 @@ impl SyncStore {
             integrity: None,
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
-        serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))
+        let json =
+            serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        sync_limits::check_json_size(json.len())?;
+        Ok(json)
     }
 
     ///
@@ -307,6 +327,7 @@ impl SyncStore {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn from_persisted_json(key: &DeviceKey, json: &str) -> Result<Self, ClientCoreError> {
+        sync_limits::check_json_size(json.len())?;
         let p: PersistedStore =
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         persist_auth::verify(key, &p)?;
@@ -319,41 +340,6 @@ impl SyncStore {
         }
         store.cursor.epoch = p.cursor.epoch;
         Ok(store)
-    }
-
-    /// Native filesystem persistence (OPFS equivalent for browsers lives in packages/client-core).
-    #[cfg(not(target_arch = "wasm32"))]
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when validation or the underlying operation fails.
-    pub fn save_path(
-        &self,
-        key: &DeviceKey,
-        path: &std::path::Path,
-    ) -> Result<(), ClientCoreError> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        }
-        let json = self.to_persisted_json(key)?;
-        // Refuse to write if plaintext-looking keys somehow appear (defense in depth).
-        if json.contains("\"plaintext\"") {
-            return Err(ClientCoreError::Persist(
-                "refusing to persist structure with plaintext field".into(),
-            ));
-        }
-        std::fs::write(path, json).map_err(|e| ClientCoreError::Persist(e.to_string()))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when validation or the underlying operation fails.
-    pub fn load_path(key: &DeviceKey, path: &std::path::Path) -> Result<Self, ClientCoreError> {
-        let json =
-            std::fs::read_to_string(path).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        Self::from_persisted_json(key, &json)
     }
 }
 

@@ -57,8 +57,9 @@ pub fn wasm_open(key: &WasmDeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u
 /// Returns an error for malformed or unauthenticated input.
 #[wasm_bindgen]
 pub fn wasm_open_sync_blob(key: &WasmDeviceKey, blob: JsValue) -> Result<Vec<u8>, JsValue> {
-    let blob: SyncBlob = serde_wasm_bindgen::from_value(blob)
+    let blob: crate::sync_limits::BoundedBlob = serde_wasm_bindgen::from_value(blob)
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let blob: SyncBlob = blob.into();
     open_sync_blob(&key.inner, &blob).map_err(|error| JsValue::from_str(&error.to_string()))
 }
 
