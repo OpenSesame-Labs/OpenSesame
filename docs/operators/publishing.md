@@ -113,6 +113,10 @@ a separate policy. It does not consume the qualified Pages artifact and is
 outside this initial publisher. Review such external automatic deployments when
 adopting the weekly production cadence.
 
+[Agent37](../../ops/agent37/README.md) is an allocation option for sandboxes
+and VMs. Its Terraform configuration does not publish or deploy a release;
+choose a qualified artifact and configure the workload separately.
+
 The Pages product is static and device-local. Do not reintroduce Identity,
 Host or daemon endpoints into its runtime configuration: the existing writer
 enforces that boundary. Hosted Identity/Host services have their own operator
