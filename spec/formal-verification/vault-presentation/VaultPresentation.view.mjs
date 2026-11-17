@@ -33,7 +33,8 @@ export const step = (action, from, to) => {
     return "you unlock and the vault opens";
   }
   if (action === "FinishSecondStep") {
-    if (to.trusted) return "you enter the second step and a circle must approve";
+    if (to.trusted)
+      return "you enter the second step and a circle must approve";
     return "you enter the second step and the vault opens";
   }
   if (action === "BuggyUnlockOpen") {

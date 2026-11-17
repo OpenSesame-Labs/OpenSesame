@@ -59,9 +59,7 @@ describe("vault presentation formal replay", () => {
       expect(view.awaitingSecondStep, frame.action).toBe(
         frame.pending && !frame.open,
       );
-      expect(view.status === "unlocked" && view.awaitingSecondStep).toBe(
-        false,
-      );
+      expect(view.status === "unlocked" && view.awaitingSecondStep).toBe(false);
     }
 
     const stale = BUGGY_UNLOCK_TRACE[5];
