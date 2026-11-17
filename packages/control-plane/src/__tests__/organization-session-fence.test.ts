@@ -18,7 +18,9 @@ it("keeps session publication fenced while two replicas deprovision the same mem
   const minted = await app.request("/v1/principals/provisional", {
     method: "POST",
   });
-  const { principalId } = (await minted.json()) as { principalId: string };
+  const { principalId }: { principalId: string } = overlapCast(
+    await minted.json(),
+  );
   const membership = await ensurePersonalOrganization(ctx, principalId);
   // Replicas share durable stores, but each has its own in-process mutex.
   const other = {
@@ -60,7 +62,7 @@ it("keeps session publication fenced while two replicas deprovision the same mem
       "overlapping-adoption",
     ).then(
       () => false,
-      (error: unknown) => {
+      (error) => {
         expect(error).toBeInstanceOf(Error);
         expect(String(error)).toMatch(/epoch/i);
         return true;

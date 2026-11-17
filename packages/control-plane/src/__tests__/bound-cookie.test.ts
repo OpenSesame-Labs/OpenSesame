@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { overlapCast } from "@opensesame/os-domain";
 import { expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { boundCookiePath } from "../middleware/bound-cookie-name.js";
@@ -23,10 +24,10 @@ it("dispatches only a cookie bound to the initiating tab's proof and session", a
       }),
     });
     expect(response.status).toBe(201);
-    const body = (await response.json()) as {
+    const body: {
       principalId: string;
       sessionId: string;
-    };
+    } = overlapCast(await response.json());
     const cookie = response.headers.get("set-cookie")?.split(";")[0];
     if (!cookie) throw new Error("Missing session cookie");
     return { ...body, cookie };
@@ -55,10 +56,10 @@ it("dispatches only a cookie bound to the initiating tab's proof and session", a
   const response = await request(first.cookie, first.sessionId);
   expect(response.status).toBe(200);
   expect(response.headers.get("x-opensesame-cookie-bound")).toBe("1");
-  const result = (await response.json()) as {
+  const result: {
     id: string;
     accessToken?: string;
-  };
+  } = overlapCast(await response.json());
   expect(result.id).toBe(first.principalId);
   expect(result.accessToken).toBeUndefined();
   const both = `${first.cookie}; ${second.cookie}`;
@@ -178,10 +179,13 @@ it("revokes the exact proof-bound session after its cookie is no longer present"
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const cookie = minted.headers.get("set-cookie")?.split(";")[0] ?? "";
   const audit = vi.spyOn(ctx.repos.auditEvents, "append");
   const exit = (secret: string, origin = "http://localhost") =>
@@ -227,10 +231,13 @@ it("accepts only the retained proof after the live session row expires", async (
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const sessions = ctx.stores.provisionalSessions;
   if (!(sessions instanceof Map)) throw new Error("Expected memory store");
   sessions.delete(sessionId);
@@ -264,10 +271,13 @@ it("treats a retry as complete after both the session and proof retention expire
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const sessions = ctx.stores.provisionalSessions;
   const proofs = ctx.stores.provisionalProofs;
   if (!(sessions instanceof Map) || !(proofs instanceof Map))

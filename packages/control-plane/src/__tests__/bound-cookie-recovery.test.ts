@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { auditEventDigest, verifyAuditChain } from "@opensesame/audit";
 import { MemoryRepositories } from "@opensesame/database";
+import { overlapCast } from "@opensesame/os-domain";
 import { expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 
@@ -20,10 +21,13 @@ it("retries proof-based cleanup after an audit write fails", async () => {
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const audit = vi
     .spyOn(ctx.repos.auditEvents, "append")
     .mockRejectedValueOnce(new Error("audit unavailable"));
@@ -67,10 +71,13 @@ it("resumes pending proof cleanup during a later mint after the original tab is 
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   vi.spyOn(ctx.repos.auditEvents, "append").mockRejectedValueOnce(
     new Error("audit unavailable"),
   );
@@ -127,10 +134,13 @@ it("does not treat a bare revoked marker as completed proof cleanup", async () =
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const session = await ctx.stores.provisionalSessions.get(sessionId);
   if (!session) throw new Error("Missing session");
   await ctx.stores.provisionalSessions.set(sessionId, {
@@ -178,10 +188,13 @@ it("does not duplicate the audit event when cleanup fails after the audit commit
     }),
   });
   expect(minted.status).toBe(201);
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   const store = ctx.stores.provisionalSessions;
   if (!(store instanceof Map)) throw new Error("Expected memory session store");
   const set = store.set.bind(store);
@@ -240,10 +253,13 @@ it("does not accept a detached audit row as completed revocation", async () => {
       restoreProofHash: createHash("sha256").update(proof).digest("hex"),
     }),
   });
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   vi.spyOn(ctx.repos.auditEvents, "append").mockRejectedValueOnce(
     new Error("audit unavailable"),
   );

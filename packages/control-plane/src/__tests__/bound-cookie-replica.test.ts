@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { verifyAuditChain } from "@opensesame/audit";
 import { MemoryRepositories } from "@opensesame/database";
+import { overlapCast } from "@opensesame/os-domain";
 import { expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 
@@ -24,10 +25,13 @@ it("records one proof revocation across independent server instances", async () 
     }),
   });
   expect(minted.status).toBe(201);
-  const { sessionId, principalId } = (await minted.json()) as {
+  const {
+    sessionId,
+    principalId,
+  }: {
     sessionId: string;
     principalId: string;
-  };
+  } = overlapCast(await minted.json());
   let arrived = 0;
   let release = () => {};
   const together = new Promise<void>((resolve) => {
