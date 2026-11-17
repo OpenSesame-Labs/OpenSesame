@@ -1,0 +1,78 @@
+name: Tutorial visual review evidence
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+permissions: {}
+jobs:
+  comparison:
+    if: github.event.pull_request.number == 2586
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: 2ebe34e09ea551ec162534163c76cbcc1243e1ae
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+      - name: Build both reviewed revisions
+        env:
+          VITE_BASE: /OpenSesame/
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/evidence-base" 003d0d7917ea3a1fbdf053520aec6fc235dbd542
+          (cd "$RUNNER_TEMP/evidence-base" && npm ci --ignore-scripts --force --no-audit --no-fund && npm run build -w @opensesame/pages)
+          npm ci --ignore-scripts --force --no-audit --no-fund
+          npm run build -w @opensesame/pages
+      - name: Capture and compose review sheets
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+        run: |
+          mkdir -p work/evidence/tutorial-review/pages/web
+          cat > work/evidence/tutorial-review/pages/web/journey.json <<'JSON'
+          {
+            "out": ".",
+            "screens": [
+              { "width": 390, "height": 844, "steps": [
+                { "metrics": ".door__roads .road" },
+                { "shot": "390-door" },
+                { "supportOpen": null },
+                { "tutorialsTab": null },
+                { "tour": { "title": "", "question": "" } },
+                { "tourMeasure": null },
+                { "metrics": ".coach__card, .driver-popover, .road--lead" },
+                { "shot": "390-tutorial" }
+              ] },
+              { "width": 1280, "height": 900, "desktop": true, "steps": [
+                { "metrics": ".door__roads .road" },
+                { "shot": "1280-door" },
+                { "supportOpen": null },
+                { "tutorialsTab": null },
+                { "tour": { "title": "", "question": "" } },
+                { "tourMeasure": null },
+                { "metrics": ".coach__card, .driver-popover, .road--lead" },
+                { "shot": "1280-tutorial" }
+              ] }
+            ],
+            "sheets": [
+              { "shot": "390-door", "width": 390, "title": "First visit — phone", "caption": "Same first visit at 390 × 844.", "before": "Base", "after": "Updated" },
+              { "shot": "390-tutorial", "width": 390, "title": "First tutorial — phone", "caption": "Same start action at 390 × 844.", "before": "Base", "after": "Updated" },
+              { "shot": "1280-door", "width": 1280, "title": "First visit — desktop", "caption": "Same first visit at 1280 × 900.", "before": "Base", "after": "Updated" },
+              { "shot": "1280-tutorial", "width": 1280, "title": "First tutorial — desktop", "caption": "Same start action at 1280 × 900.", "before": "Base", "after": "Updated" }
+            ]
+          }
+          JSON
+          EVIDENCE_DIST="$RUNNER_TEMP/evidence-base/apps/pages/dist" node apps/pages/scripts/capture-evidence.mjs capture before work/evidence/tutorial-review/pages/web/journey.json
+          node apps/pages/scripts/capture-evidence.mjs capture after work/evidence/tutorial-review/pages/web/journey.json
+          node apps/pages/scripts/capture-evidence.mjs compose work/evidence/tutorial-review/pages/web/journey.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tutorial-visual-comparison
+          path: work/evidence/tutorial-review/pages/web/*.png
+          if-no-files-found: error
+          retention-days: 30
