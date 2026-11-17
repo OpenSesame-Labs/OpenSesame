@@ -186,10 +186,12 @@ try {
     2,
     "an unavailable lazy chunk must not reload the same build repeatedly",
   );
-  await stalePage.getByText("Out of date", { exact: true }).waitFor({
-    state: "visible",
-    timeout: 15_000,
-  });
+  await stalePage
+    .getByRole("heading", { name: "Notification: Out of date" })
+    .waitFor({
+      state: "visible",
+      timeout: 15_000,
+    });
   await screenshot(stalePage, "startup-stale-chunk");
   await stale.close();
   console.log("PASS: a missing lazy chunk gets one automatic retry");

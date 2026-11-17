@@ -76,6 +76,7 @@ const GIT_FILES = [
   "git-backup-forges",
   "git-remote-local",
   "github-history",
+  "github-connection-lifecycle.property.test",
   "history-backups",
   "history-backup-idb",
   "history-claim-notice",

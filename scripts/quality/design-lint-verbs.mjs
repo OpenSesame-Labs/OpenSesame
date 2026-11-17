@@ -28,6 +28,11 @@ const CHOICE_ROLE =
   /\brole="(tab|radio|switch|menuitem|menuitemradio|menuitemcheckbox|option)"|\baria-pressed=/;
 const CHOICE_CLASS =
   /\b(choice|road|vault-row__body--road|unlock__switch|identity-ceremony__later|broker__link|account-switcher__(exit|add)|signin__menu-item)\b/;
+const NOTICE_DISMISS_HOMES = new Set([
+  "apps/pages/src/components/ToastStack.tsx",
+  "apps/pages/src/components/InlineRecommendations.tsx",
+  "apps/pages/src/components/StatusNoticeCard.tsx",
+]);
 
 /** The open tag says its words are the thing chosen, by role or by class. */
 export function wordsAreChoice(tag) {
@@ -66,8 +71,24 @@ function faces(face) {
   return out;
 }
 
+/** A notice's labeled dismiss is a specific accessibility exception (ADR 0224). */
+function noticeDismiss(tag, face) {
+  const classes = tag.match(/className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  const name = tag.match(/\baria-label=(?:"([^"]*)"|\{`([^`]*)`\})/);
+  const label = name?.[1] ?? name?.[2] ?? "";
+  const words = faces(face);
+  return (
+    classes.includes("notice-dismiss") &&
+    /^Dismiss (?:notification|offer|recommendation|\$\{kind\}): (?:\$\{[\w$.]+(?:\[\d+\][\w$.]*)*\}|[^\s${}][^${}]*)$/.test(
+      label,
+    ) &&
+    words.length === 1 &&
+    words[0] === "Dismiss"
+  );
+}
+
 /** Source offsets of every button that paints an executing verb. */
-export function wordVerbHits(source) {
+export function wordVerbHits(source, { path = "" } = {}) {
   const hits = [];
   for (const match of source.matchAll(/<button\b/g)) {
     const start = match.index ?? 0;
@@ -80,7 +101,9 @@ export function wordVerbHits(source) {
     if (wordsAreChoice(tag)) continue;
     const close = source.indexOf("</button>", end);
     if (close === -1) continue;
-    if (faces(source.slice(end, close)).some((face) => EXECUTING.test(face))) {
+    const face = source.slice(end, close);
+    if (NOTICE_DISMISS_HOMES.has(path) && noticeDismiss(tag, face)) continue;
+    if (faces(face).some((word) => EXECUTING.test(word))) {
       hits.push(start);
     }
   }

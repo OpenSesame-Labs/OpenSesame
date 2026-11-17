@@ -6,8 +6,19 @@ import {
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
-import { act, cleanup, render } from "@testing-library/react";
+import {
+  recommendationById,
+  signalRecommendation,
+} from "@opensesame/app-core/lib/recommendations.js";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { useState } from "react";
 import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -15,6 +26,7 @@ import {
   type RecommenderDevice,
   recommenderSeams,
 } from "./Recommender.js";
+import { ToastStack } from "./ToastStack.js";
 
 /** The features switched on in this case; everything is shipped and permitted. */
 let on: readonly FeatureId[] = [];
@@ -46,6 +58,18 @@ function mount() {
   );
 }
 
+function Preview() {
+  const [seat, place] = useState<HTMLDivElement | null>(null);
+  return (
+    <>
+      <div ref={place} />
+      <ToastStack inlineSeat={seat} />
+      <Recommender />
+      <Where />
+    </>
+  );
+}
+
 const settle = async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(recommenderSeams.delayMs + 5);
@@ -74,6 +98,80 @@ afterEach(() => {
 });
 
 describe("the recommender", () => {
+  it.each([
+    {
+      id: "password-reset",
+      trigger: "password.generated",
+      on: [],
+      blocker: null,
+      saved: false,
+    },
+    {
+      id: "password-reset-runtime",
+      trigger: "password.generated",
+      on: ["password-reset"],
+      blocker: "runtime",
+      saved: false,
+    },
+    {
+      id: "password-reset-model",
+      trigger: "password.generated",
+      on: ["password-reset"],
+      blocker: "model",
+      saved: false,
+    },
+    {
+      id: "breach-checks",
+      trigger: "item.saved",
+      on: [],
+      blocker: null,
+      saved: true,
+    },
+    {
+      id: "backups",
+      trigger: "item.saved",
+      on: [],
+      blocker: null,
+      saved: false,
+    },
+    {
+      id: "autofill",
+      trigger: "password.copied",
+      on: [],
+      blocker: null,
+      saved: false,
+    },
+  ] as const)(
+    "carries $id from its signal to a clear preview and complete review",
+    async (example) => {
+      on = [...example.on];
+      recommenderSeams.backupSaved = () => example.saved;
+      recommenderSeams.passwordResetBlocker = async () => example.blocker;
+      render(
+        <MemoryRouter>
+          <Preview />
+        </MemoryRouter>,
+      );
+      signalRecommendation(example.trigger);
+      await settle();
+      const entry = recommendationById(example.id);
+      if (!entry) throw new Error(`Missing recommendation ${example.id}`);
+      expect(
+        screen.getByText(`Recommendation: ${entry.compactTitle}`),
+      ).toBeTruthy();
+      expect(listNotices()[0]?.title).toBe(entry.title);
+      fireEvent.click(
+        screen.getByRole("button", { name: `Review ${entry.title}` }),
+      );
+      const dialog = screen.getByRole("dialog", { name: "Recommendations" });
+      expect(within(dialog).getByText(entry.title)).toBeTruthy();
+      expect(within(dialog).getByText(entry.body)).toBeTruthy();
+      expect(
+        within(dialog).getByRole("button", { name: entry.label }),
+      ).toBeTruthy();
+    },
+  );
+
   it("recommends backups after an export, with one worded key", async () => {
     mount();
     signalRecommendation("vault.exported");
@@ -252,6 +350,28 @@ describe("the recommender", () => {
     });
     expect(listNotices()).toHaveLength(0);
     expect(loadGuidance().recommendations).toEqual([]);
+  });
+
+  it("does not make a recommendation after the shell unmounts during readiness", async () => {
+    on = ["password-reset"];
+    let ready: (blocker: "runtime") => void = () => undefined;
+    recommenderSeams.passwordResetBlocker = () =>
+      new Promise((resolve) => {
+        ready = resolve;
+      });
+    const view = mount();
+    signalRecommendation("password.generated");
+    await settle();
+    view.unmount();
+    await act(async () => {
+      ready("runtime");
+      await Promise.resolve();
+    });
+    expect(listNotices()).toHaveLength(0);
+    expect(loadGuidance().recommendations).toEqual([]);
+    signalRecommendation("vault.exported");
+    await settle();
+    expect(listNotices()).toHaveLength(0);
   });
 
   it("is silent when guidance is off", async () => {

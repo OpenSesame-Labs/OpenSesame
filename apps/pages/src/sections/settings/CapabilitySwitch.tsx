@@ -7,6 +7,7 @@
  */
 
 import { setGuestsAllowed } from "@opensesame/app-core/lib/guest-access.js";
+import { Switch, SwitchThumb } from "@ui-sdk/react/switch";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useGuestsAllowed } from "../../bindings/guest-access.js";
@@ -68,16 +69,22 @@ export function CapabilitySwitch({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Switch
       className="toggle capsection__switch"
-      role="switch"
-      aria-checked={on}
+      checked={on}
       aria-label={label}
       title={label}
       data-capability-title={capabilityTitle}
-      onClick={onToggle}
-    />
+      onCheckedChange={onToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.click();
+        }
+      }}
+    >
+      <SwitchThumb className="visually-hidden" aria-hidden="true" />
+    </Switch>
   );
 }
 

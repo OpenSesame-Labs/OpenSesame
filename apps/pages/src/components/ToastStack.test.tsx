@@ -195,6 +195,45 @@ describe("ToastStack", () => {
     expect(screen.getByText("Set up a backup")).toBeTruthy();
   });
 
+  it("holds in-flow recommendations while the phone editor is open", () => {
+    const dismissed = vi.fn();
+    const narrow = new FakeMediaQueryList("(max-width: 900px)", true);
+    vi.stubGlobal("matchMedia", () => narrow);
+    const seat = document.createElement("div");
+    document.body.append(seat);
+    try {
+      render(
+        <MemoryRouter initialEntries={["/vault/new"]}>
+          <Link to="/vault">Back to list</Link>
+          <ToastStack inlineSeat={seat} />
+        </MemoryRouter>,
+      );
+      act(() => {
+        showToast({
+          id: "offer",
+          tone: "info",
+          title: "Set up a backup",
+          body: "An offer.",
+          sticky: true,
+          onDismiss: dismissed,
+        });
+        showToast({
+          id: "save-failed",
+          tone: "err",
+          title: "Save failed",
+          body: "The form still needs a name.",
+        });
+      });
+      expect(screen.queryByText("Recommendation: Set up a backup")).toBeNull();
+      expect(screen.getByText("Save failed")).toBeTruthy();
+      fireEvent.click(screen.getByRole("link", { name: "Back to list" }));
+      expect(screen.getByText("Recommendation: Set up a backup")).toBeTruthy();
+      expect(dismissed).not.toHaveBeenCalled();
+    } finally {
+      seat.remove();
+    }
+  });
+
   it("does not bring expired transient notices back after the editor closes", () => {
     const narrow = new FakeMediaQueryList("(max-width: 900px)", true);
     vi.stubGlobal("matchMedia", () => narrow);
@@ -259,7 +298,9 @@ describe("ToastStack", () => {
   it("dismisses on its key; the tray keeps the notice", () => {
     renderStack();
     arrive("Gone");
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss notification: Gone" }),
+    );
     expect(screen.queryByText("Gone")).toBeNull();
   });
 

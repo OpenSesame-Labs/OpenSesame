@@ -2,7 +2,7 @@
   "version": 1,
   "maxTrackedBytes": 104857600,
   "maxFileBytes": 2097152,
-  "maxFiles": 15000,
+  "maxFiles": 15200,
   "forbiddenDirectoryNames": [
     "node_modules",
     "target",

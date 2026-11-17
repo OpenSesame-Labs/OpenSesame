@@ -22,11 +22,14 @@ import {
   type ReactNode,
   createContext,
   useContext,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 import { useTabSwipe } from "../lib/tab-swipe-hook.js";
+import { enterGate } from "./gate-presence.js";
 import { SupportRouteOverrideContext } from "./session.js";
+import "./first-visit/first-visit-seat.css";
 import "./gate-seat.css";
 
 type Seat = {
@@ -68,6 +71,7 @@ export function GateHost({
   // Every gate screen (the door, setup, unlock, the federation return) turns
   // its tabs on a sideways swipe; the shell does the same from `AppShell`.
   useTabSwipe();
+  useLayoutEffect(enterGate, []);
   const [node, place] = useState<HTMLElement | null>(null);
   const [route, setRoute] = useState<GuideRouteId | null>(null);
   const seat = useMemo(() => ({ node, place }), [node]);
@@ -77,7 +81,15 @@ export function GateHost({
   return (
     <SupportRouteOverrideContext.Provider value={setRoute}>
       <SeatContext.Provider value={seat}>
-        {children}
+        <div className="gate-offer-frame">
+          <div className="gate-offer-frame__body">{children}</div>
+          <section
+            className="first-visit-seat"
+            data-first-visit-offer="gate"
+            aria-label="Walkthrough offers"
+            aria-live="polite"
+          />
+        </div>
         <RouteContext.Provider value={route}>
           {gates.map((entry) =>
             entry.Gate ? <entry.Gate key={entry.id} /> : null,
