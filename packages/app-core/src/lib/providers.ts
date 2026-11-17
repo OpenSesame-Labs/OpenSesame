@@ -28,7 +28,11 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import { pageOrigin } from "../ports.js";
-import { TRUSTED_UPSTREAMS, type TrustedUpstream } from "./federation.js";
+import {
+  TRUSTED_UPSTREAMS,
+  type TrustedUpstream,
+  captureSignInCheck,
+} from "./federation.js";
 import {
   identityBase,
   isRemoteIdentityConfigured,
@@ -196,16 +200,28 @@ export function workEmailDomain(email: string): string {
  * INTEGRATOR: the Better Auth mount (S11) serves this path. Until it lands the
  * request 404s and the caller surfaces "Email sign-in is not available".
  */
-async function requestEmailMagicLinkDefault(email: string): Promise<void> {
+async function requestEmailMagicLinkDefault(
+  email: string,
+  returnTo?: string,
+): Promise<void> {
   const base = remoteIdentityApi();
   if (!base) {
     throw new Error("No sign-in service is connected.");
   }
+  const { assertSafeReturnTo } = await import("./federation-callback.js");
+  const safeReturn = returnTo
+    ? assertSafeReturnTo(returnTo, pageOrigin(), "/")
+    : undefined;
+  if (returnTo && !safeReturn)
+    throw new Error("Invalid sign-in return address.");
   const res = await localNetworkFetch(`${base}/v1/auth/sign-in/magic-link`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     credentials: "omit",
-    body: JSON.stringify({ email, callbackURL: pageOrigin() }),
+    body: JSON.stringify({
+      email,
+      callbackURL: `${pageOrigin()}${safeReturn ?? ""}`,
+    }),
     timeoutMs: PROVIDERS_FETCH_MS,
   });
   if (!res.ok) {
@@ -228,6 +244,14 @@ export async function listFederatedProviders(): Promise<
   return providersSeams.listFederatedProviders();
 }
 
-export async function requestEmailMagicLink(email: string): Promise<void> {
-  return providersSeams.requestEmailMagicLink(email);
+export async function requestEmailMagicLink(
+  email: string,
+  returnTo?: string,
+): Promise<void> {
+  const check = captureSignInCheck();
+  const { prepareFederatedSignIn } = await import("./guest-signin-gate.js");
+  await prepareFederatedSignIn(check);
+  return returnTo
+    ? providersSeams.requestEmailMagicLink(email, returnTo)
+    : providersSeams.requestEmailMagicLink(email);
 }

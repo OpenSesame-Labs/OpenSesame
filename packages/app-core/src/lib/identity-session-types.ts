@@ -33,6 +33,8 @@ export type IdentitySession = {
   adopted?: boolean;
   /** Resumed from the HttpOnly cookie; no bearer is copied into JavaScript. */
   cookieOnly?: boolean;
+  /** Ambient browser sign-ins could not be inspected during explicit sign-in. */
+  unverifiedBrowserSessions?: boolean;
 };
 
 export class IdentityError extends Error {

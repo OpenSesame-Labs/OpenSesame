@@ -351,3 +351,16 @@ it.each(["sync", "durable"])(
       expect(root.files.has(kvFileName(key))).toBe(false);
     }),
 );
+
+it("does not erase a newer immediate value when a guarded delete finishes", () =>
+  withFixture(async () => {
+    const key = "lifecycle/guarded-delete-newer";
+    await kvSetDurable(key, "before");
+    const removal = kvDeleteDurable(key, () => {});
+    kvSet(key, "after");
+    await expect(removal).rejects.toThrow("Storage changed during deletion");
+    expect(kvGet(key)).toBe("after");
+    await kvFlush();
+    await kvRefresh(key, 1024);
+    expect(kvGet(key)).toBe("after");
+  }));

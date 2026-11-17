@@ -42,6 +42,10 @@ export type Notice = {
    * a reload keeps the words and the route, and this act is gone.
    */
   act?: NoticeAct | undefined;
+  /** Called when the person dismisses this row, not when its owner removes it. */
+  onDismiss?: (() => void) | undefined;
+  /** A screen-specific notice that should not be restored after a reload. */
+  transient?: boolean;
   /** An in-app route the notice points at, opened from the tray. */
   open?: NoticeOpen;
   createdAt: string;
@@ -60,7 +64,7 @@ export type NoticeOpen = { to: string; label: string };
 export type NoticeAct = {
   label: string;
   run: () => void;
-  icon?: "power" | "export" | "settings";
+  icon?: "power" | "export" | "settings" | "play";
   opens?: boolean;
   /**
    * The toast that echoes this notice draws the act as a worded key — the
@@ -82,7 +86,9 @@ export type StatusNoticeInput = {
   retry?: (() => void) | undefined;
   retryLabel?: string;
   act?: NoticeAct;
+  onDismiss?: (() => void) | undefined;
   open?: NoticeOpen;
+  transient?: boolean;
 };
 
 type Listener = () => void;
@@ -137,6 +143,7 @@ function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
     existing.ceremony === input.ceremony &&
     existing.ceremonyLabel === input.ceremonyLabel &&
     existing.retryLabel === input.retryLabel &&
+    existing.transient === input.transient &&
     existing.open?.to === input.open?.to &&
     existing.open?.label === input.open?.label
   );
@@ -150,6 +157,7 @@ function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
     // loop the effect that mirrors a page condition into this store.
     existing.retry = input.retry;
     existing.act = input.act;
+    existing.onDismiss = input.onDismiss;
     return existing;
   }
   const notice: Notice = {
@@ -273,6 +281,13 @@ export function restorePersistedTrayNotices(restored: Notice[]): void {
 
 export function dismissNotice(id: string): void {
   noticeSeams.dismissNotice(id);
+}
+
+/** A deliberate dismissal, as opposed to taking back a stale notice. */
+export function dismissNoticeByUser(id: string): void {
+  const notice = listNotices().find((entry) => entry.id === id);
+  dismissNotice(id);
+  notice?.onDismiss?.();
 }
 
 export function clearNotices(): void {

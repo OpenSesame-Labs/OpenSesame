@@ -1,5 +1,6 @@
 /** Sealed project-view lifetime: a retired hydration never republishes decrypted names. */
 import { type BoundaryValue, isJsonObject } from "@opensesame/os-domain";
+import { isGuestVaultId } from "./guest-vault-id.js";
 import { kvGet, kvRefresh, kvSetDurable } from "./kv.js";
 import {
   type BootRecord,
@@ -14,7 +15,6 @@ import {
   withKnownNames,
 } from "./projects-state.js";
 import {
-  GUEST_TOMB,
   TOMBS_REGISTRY_KEY,
   VfsError,
   listTombs,
@@ -58,7 +58,12 @@ export class ProjectSession {
     ]);
     const projects: PagesProject[] = [personalProject()];
     for (const id of [...ids].sort()) {
-      if (id === PERSONAL_PROJECT_ID || id === GUEST_TOMB) continue;
+      if (
+        id === PERSONAL_PROJECT_ID ||
+        isGuestVaultId(id) ||
+        id === "guest-scratch"
+      )
+        continue;
       const known = this.unsealedNames.get(id);
       projects.push({
         id,

@@ -2,6 +2,7 @@ import { mintVaultKey } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webLocksDouble } from "./__tests__/web-locks-double.js";
 import { kvGet } from "./kv.js";
+import { LOCAL_DIRECTORY_PATH, readLocalDirectory } from "./local-directory.js";
 import { changeLocalDirectory } from "./local-directory-admin.js";
 import {
   GUEST_PERSON_NAME,
@@ -12,7 +13,6 @@ import {
   ensureOwnerPerson,
   ownerPersonName,
 } from "./local-directory-bootstrap.js";
-import { LOCAL_DIRECTORY_PATH, readLocalDirectory } from "./local-directory.js";
 import { mintGuestSessionPerson } from "./local-guest.js";
 import {
   lockAllTombs,
@@ -278,7 +278,7 @@ describe("local encrypted directory", () => {
     ).toBe(SUPPORT_AGENT_NAME);
   });
 
-  it("treats ciphertext from a destroyed guest key as an empty directory", async () => {
+  it("preserves a directory that cannot be opened with the current key", async () => {
     await changeLocalDirectory(tomb, 0, {
       action: "create",
       kind: "person",
@@ -289,12 +289,8 @@ describe("local encrypted directory", () => {
     lockAllTombs();
     const { vaultKey } = await mintVaultKey();
     unlockTomb(tomb, vaultKey);
-    expect(await readLocalDirectory(tomb)).toEqual({
-      version: 2,
-      revision: 0,
-      entries: [],
-      memberships: [],
-    });
+    await expect(readLocalDirectory(tomb)).rejects.toThrow();
+    expect(kvGet(tombFileKey(tomb, LOCAL_DIRECTORY_PATH))).toBe(leftover);
   });
 
   it("never replaces a corrupt directory with an empty one", async () => {

@@ -13,6 +13,7 @@ import {
 import { bindRead } from "./kv-original-reader-data.js";
 import { haltedWriteError, storageWritesHalted } from "./storage-halt.js";
 import { ORIGIN_FILE_PREFIX } from "./storage-ownership.js";
+
 /**
  * Same-origin KV with OPFS primary + in-memory fallback.
  * Never uses localStorage/sessionStorage (XSS-exfiltrable; banned by ast-grep).
@@ -280,29 +281,44 @@ export function kvDelete(key: string): void {
  * is gone rather than that it has been asked to go. Absent already counts as
  * gone; anything else is reported.
  */
-export async function kvDeleteDurable(key: string): Promise<void> {
-  originMemoryChanged(fileName(key), true);
-  memory.delete(key);
-  unreadable.delete(key);
-  return withOriginFile(fileName(key), async () => {
-    const root = await opfsRoot();
-    if (!root) return;
+export async function kvDeleteDurable(
+  key: string,
+  beforeCommit?: () => void,
+): Promise<void> {
+  if (!beforeCommit) {
+    originMemoryChanged(fileName(key), true);
+    memory.delete(key);
+    unreadable.delete(key);
+  }
+  return withOriginFile(fileName(key), async (turn) => {
+    const root = await opfsRoot(Boolean(beforeCommit));
+    beforeCommit?.();
     try {
-      await root.removeEntry(fileName(key));
+      if (root) await root.removeEntry(fileName(key));
     } catch (error) {
-      if (error instanceof DOMException && error.name === "NotFoundError")
-        return;
+      if (error instanceof DOMException && error.name === "NotFoundError") {
+        // Already absent is a successful deletion.
+      }
       // Restricted OPFS (CI Chrome / sandboxed profiles) refuses mutation; memory
       // already dropped the key, so treat as session-only storage.
-      if (
+      else if (
         error instanceof DOMException &&
         (error.name === "NoModificationAllowedError" ||
           error.name === "SecurityError")
       ) {
+        if (beforeCommit) throw error;
         durability = "memory";
-        return;
-      }
-      throw error;
+      } else throw error;
+    }
+    if (beforeCommit) {
+      beforeCommit();
+      if (
+        !turn.publish(() => {
+          memory.delete(key);
+          unreadable.delete(key);
+        })
+      )
+        throw new Error("Storage changed during deletion.");
     }
   });
 }
@@ -321,10 +337,7 @@ async function kvHydrateDefault(keys: string[]): Promise<void> {
   await Promise.all(reads);
 }
 
-/** Refresh a security record without treating storage failure as absence.
- * Call under the record's Web Lock before evaluating or changing authority.
- * Browsers without OPFS retain explicitly session-only storage.
- */
+/** Refresh under the record Web Lock; storage errors are not absence. */
 export async function kvRefresh(
   key: string,
   maxBytes: number,
@@ -333,6 +346,11 @@ export async function kvRefresh(
   original();
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
     throw new Error("Invalid storage read limit");
+  // An ephemeral key cannot read this session from disk; keep memory authoritative.
+  if (atRestSettled()?.durable === false) {
+    durability = "memory";
+    return;
+  }
   const openRoot = originFiles();
   if (!openRoot) {
     durability = "memory";

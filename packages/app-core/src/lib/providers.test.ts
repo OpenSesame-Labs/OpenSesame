@@ -2,6 +2,11 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deviceIdentitySeams } from "./device-identity.js";
+import {
+  forgetGuestContinuation,
+  saveGuestContinuation,
+} from "./guest-continuation.js";
+import { newGuestVaultId } from "./guest-vault-id.js";
 import { identitySeams } from "./identity.js";
 import {
   brokeredOrgUpstream,
@@ -179,7 +184,33 @@ describe("workEmailDomain", () => {
   });
 });
 
+function savePendingGuestReturn() {
+  saveGuestContinuation({
+    kind: "vercel",
+    token: "one",
+    connectionId: "conn",
+    tomb: newGuestVaultId(),
+    person: { id: "guest", name: "Guest" },
+    origin: "https://app.example",
+    pathname: "/",
+    deadline: Date.now() + 60000,
+    identity: null,
+  });
+}
+
 describe("requestEmailMagicLink", () => {
+  it("requires the pending guest to sign out before sending a link", async () => {
+    const fetchMock = jsonOnce({ status: true });
+    savePendingGuestReturn();
+    try {
+      await expect(requestEmailMagicLink("ada@example.com")).rejects.toThrow(
+        /sign out/i,
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      forgetGuestContinuation();
+    }
+  });
   it("posts the address to the Identity API's magic-link route", async () => {
     const fetchMock = jsonOnce({ status: true });
     await requestEmailMagicLink("ada@example.com");
@@ -190,6 +221,27 @@ describe("requestEmailMagicLink", () => {
     });
     // The token IS the credential on the way back; no cookie rides along.
     expect(init?.credentials).toBe("omit");
+  });
+
+  it("returns a device sign-in to its same-origin ceremony and rejects foreign callbacks", async () => {
+    const fetchMock = jsonOnce({ status: true });
+    await requestEmailMagicLink(
+      "ada@example.com",
+      "/OpenSesame/device?user_code=ABCD-EFGH",
+    );
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    expect(new URL(JSON.parse(String(init?.body)).callbackURL).pathname).toBe(
+      "/OpenSesame/device",
+    );
+    expect(
+      new URL(JSON.parse(String(init?.body)).callbackURL).searchParams.get(
+        "user_code",
+      ),
+    ).toBe("ABCD-EFGH");
+    await expect(
+      requestEmailMagicLink("ada@example.com", "https://evil.example/device"),
+    ).rejects.toThrow(/return address/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("says so plainly when the deployment has no email sign-in", async () => {
