@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import "reflect-metadata";
 import {
   X509Certificate,
   generateKeyPairSync,
