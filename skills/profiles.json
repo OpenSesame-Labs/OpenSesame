@@ -18,7 +18,8 @@
         "opensesame-mcps",
         "security-review",
         "visual-evidence",
-        "formal-verification"
+        "formal-verification",
+        "verify-formal-vault"
       ]
     },
     "reusable-optional": {
