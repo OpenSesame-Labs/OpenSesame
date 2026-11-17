@@ -35,7 +35,6 @@ import {
 import { Recommender } from "./Recommender.js";
 import { Statusline } from "./Statusline.js";
 import { ToastStack } from "./ToastStack.js";
-import "./shell-first-visit.css";
 
 /**
  * A capability removed while its route is current leaves the person on a
@@ -128,11 +127,6 @@ function Shell({ children }: { children?: ReactNode }) {
 
         <DuressPresentationOverlay />
         {children}
-        <div
-          className="shell-first-visit"
-          data-first-visit-offer
-          data-first-visit-fallback
-        />
       </div>
 
       {/* A fixed block over the frame: an arrival never takes a grid row or

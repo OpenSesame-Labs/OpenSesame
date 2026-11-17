@@ -37,7 +37,7 @@ it("returns focus to the actual gate control after an offer is dismissed", async
   expect(document.activeElement).toBe(target);
 });
 
-it("returns focus to the prior control when the shell has no specific target", async () => {
+it("returns focus to the prior control when an offer has no specific target", async () => {
   const target = document.createElement("button");
   const host = document.createElement("div");
   document.body.append(target, host);
