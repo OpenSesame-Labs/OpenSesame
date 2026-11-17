@@ -5,19 +5,18 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { captureConsentActivationTiming } from "./shell-ready-consent-timing.mjs";
 import {
   buildDist,
   resolveWalks,
 } from "./lib/verification-checklist-profiles.mjs";
+import { captureConsentActivationTiming } from "./shell-ready-consent-timing.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
 const repoRoot = resolve(pagesRoot, "../..");
 const shellReadyPath = join(pagesRoot, "src/bindings/shell-ready.ts");
 const outRoot =
-  process.env.PAGES_VERIFY_OUT ??
-  "/opt/cursor/artifacts/shell-ready-consent";
+  process.env.PAGES_VERIFY_OUT ?? "/opt/cursor/artifacts/shell-ready-consent";
 const profilesDir = join(pagesRoot, "capability-profiles");
 const walk = resolveWalks(profilesDir).find((w) => w.name === "full");
 if (!walk) throw new Error("full profile walk missing");

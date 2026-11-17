@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { envelope } from "./candidate-model.mjs";
 import { validatePromotionForFormal } from "./candidate-published-formal.mjs";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -34,7 +33,12 @@ describe("release promotion formal replay", () => {
     };
     assert.throws(
       () =>
-        validatePromotionForFormal(promotion, published, bytes, promotion.repository),
+        validatePromotionForFormal(
+          promotion,
+          published,
+          bytes,
+          promotion.repository,
+        ),
       /does not authorize/,
     );
   });

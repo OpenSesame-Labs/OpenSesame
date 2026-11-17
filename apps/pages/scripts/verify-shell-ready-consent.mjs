@@ -49,15 +49,25 @@ function buildDist(shellSource, distCopyTarget) {
   const saved = readFileSync(shellReadyPath, "utf8");
   writeFileSync(shellReadyPath, shellSource);
   try {
-    const built = spawnSync("npm", ["run", "build", "-w", "@opensesame/pages"], {
-      cwd: repoRoot,
-      stdio: "inherit",
-      env: { ...process.env, VITE_BASE: "/OpenSesame/" },
-    });
+    const built = spawnSync(
+      "npm",
+      ["run", "build", "-w", "@opensesame/pages"],
+      {
+        cwd: repoRoot,
+        stdio: "inherit",
+        env: { ...process.env, VITE_BASE: "/OpenSesame/" },
+      },
+    );
     if (built.status !== 0) process.exit(built.status ?? 1);
     if (distCopyTarget) {
-      spawnSync("rm", ["-rf", distCopyTarget], { cwd: pagesRoot, stdio: "inherit" });
-      spawnSync("cp", ["-a", "dist", distCopyTarget], { cwd: pagesRoot, stdio: "inherit" });
+      spawnSync("rm", ["-rf", distCopyTarget], {
+        cwd: pagesRoot,
+        stdio: "inherit",
+      });
+      spawnSync("cp", ["-a", "dist", distCopyTarget], {
+        cwd: pagesRoot,
+        stdio: "inherit",
+      });
     }
   } finally {
     writeFileSync(shellReadyPath, saved);
@@ -108,7 +118,7 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
     await popup.screenshot({
       path: join(shotDir, "consent-popup.png"),
     });
-  if (expectEarlyConsent) {
+    if (expectEarlyConsent) {
       expect(sawConsentBeforeReady || !sawSkeleton).toBe(true);
     } else {
       expect(sawConsentBeforeReady).toBe(false);

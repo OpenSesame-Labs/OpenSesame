@@ -8,27 +8,28 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findChromium } from "./duress/find-chromium.mjs";
-import { serveLoopbackDist } from "./lib/static-origin-harness.mjs";
-import { resolveWalks } from "./lib/verification-checklist-profiles.mjs";
-import {
-  applySetupChoice,
-  openDoor,
-} from "./lib/verification-checklist-setup.mjs";
-import {
-  BASE,
-  emptyRecord,
-} from "./lib/verification-checklist-shot.mjs";
 import {
   assertLocalPage,
   captureChoice,
   proofShot,
 } from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
-import { openSettingsCategory } from "./lib/pages-journey.mjs";
+import { findChromium } from "./duress/find-chromium.mjs";
 import { awaitCapabilitySections } from "./lib/always-on.mjs";
-import { enterVault } from "./lib/verification-checklist-setup.mjs";
-import { buildDist } from "./lib/verification-checklist-profiles.mjs";
-import { createHarness } from "./lib/static-origin-harness.mjs";
+import { openSettingsCategory } from "./lib/pages-journey.mjs";
+import {
+  createHarness,
+  serveLoopbackDist,
+} from "./lib/static-origin-harness.mjs";
+import {
+  buildDist,
+  resolveWalks,
+} from "./lib/verification-checklist-profiles.mjs";
+import {
+  applySetupChoice,
+  enterVault,
+  openDoor,
+} from "./lib/verification-checklist-setup.mjs";
+import { BASE, emptyRecord } from "./lib/verification-checklist-shot.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
@@ -98,7 +99,11 @@ export async function captureVaultShellProfiles({ outDir }) {
   const unique = new Set(manifests.map((m) => m.sha256));
   writeFileSync(
     join(outDir, "manifest.json"),
-    JSON.stringify({ profiles: manifests, uniqueDigests: unique.size }, null, 2),
+    JSON.stringify(
+      { profiles: manifests, uniqueDigests: unique.size },
+      null,
+      2,
+    ),
   );
   if (unique.size !== manifests.length) {
     throw new Error(
