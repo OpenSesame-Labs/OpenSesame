@@ -40,7 +40,8 @@ export async function captureVaultShellProfiles({ outDir }) {
   process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   const { chromium } = await import("playwright");
   const browser = await chromium.launch();
-  const walks = resolveWalks();
+  const profilesDir = join(pagesRoot, "capability-profiles");
+  const walks = resolveWalks(profilesDir);
   const manifests = [];
   const pngPaths = [];
 
