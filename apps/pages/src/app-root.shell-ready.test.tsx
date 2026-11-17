@@ -128,6 +128,25 @@ describe("shell after unlock", () => {
     Object.assign(shellReadySeams, realSeams);
   });
 
+  it("withdraws contributed screens when the vault plan resolves before its generation activates", () => {
+    renderConsent();
+    publish({
+      status: "unlocked",
+      snapshot: { ...INITIAL_SNAPSHOT, generation: 1 },
+      activated: 1,
+    });
+    expect(screen.getByText("consent screen")).toBeTruthy();
+    expect(counts.mounts).toBe(1);
+
+    publish({ snapshot: snapshotAt(2, "personal"), activated: 1 });
+    expect(screen.queryByText("consent screen")).toBeNull();
+    expect(counts.unmounts).toBe(1);
+
+    publish({ activated: 2 });
+    expect(screen.getByText("consent screen")).toBeTruthy();
+    expect(counts.mounts).toBe(2);
+  });
+
   it("does not mount a contributed screen until the unlocked vault's generation has activated", () => {
     renderConsent();
     expect(screen.getByText("unlock screen stub")).toBeTruthy();
