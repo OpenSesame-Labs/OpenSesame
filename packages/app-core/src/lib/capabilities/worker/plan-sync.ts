@@ -111,7 +111,7 @@ export function forceSessionReload(
  */
 export async function reloadForStaleAsset(): Promise<boolean> {
   if (staleAssetReload.already()) return false;
-  staleAssetReload.mark();
+  if (!staleAssetReload.mark()) return false;
   if (!state.reloadStarted && anyDirtyEdit() && hasDraftSaver()) {
     try {
       await saveDirtyDrafts();
@@ -123,9 +123,9 @@ export async function reloadForStaleAsset(): Promise<boolean> {
   return true;
 }
 
-/** The shell loaded. A later chunk failure may reload again. */
-export function noteShellLoaded(): void {
-  staleAssetReload.clear();
+/** A new immutable entry can make a fresh stale-asset recovery attempt. */
+export function noteShellLoaded(moduleUrl?: string): void {
+  if (moduleUrl) staleAssetReload.beginBuild(moduleUrl);
 }
 
 export function postToController(message: PageToWorkerMessage): boolean {
