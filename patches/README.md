@@ -67,6 +67,9 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `@levischuck/tiny-cbor@0.2.11` | Encodes text by its UTF-8 byte length, respects input view offsets and rejects truncated byte and text strings | [audit](../docs/security/audits/2026-11-11-dependency-patches-not-installed.md) |
 | `@levischuck/tiny-cbor@0.3.6` | Rejects truncated byte and text strings and accepts `Uint8Array` subclasses including Node `Buffer` | `scripts/security/tiny-cbor-views.test.mjs` |
 | `picomatch@2.3.2` and `4.0.7` | Bounds repeated-star extglob matching for GHSA-fc5q-39xc-vjpf, including malformed and composed forms | `scripts/security/picomatch-backport.test.mjs` |
+| `typed-rest-client@2.3.1` | Allows the existing security-fixed `qs` release | `scripts/lib/dependency-compatibility.test.mjs` |
+| `@esbuild-kit/core-utils@3.3.2` | Allows the security-fixed esbuild used by its loader | `scripts/security/npm-workspaces.test.mjs` |
+| `nunjucks@3.2.4` | Supports chokidar 5 and starts its resolver watcher with an empty path list | `scripts/security/npm-workspaces.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
 
 The picomatch backport preserves the generated expressions and ordinary match

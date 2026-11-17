@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 42304c0..d4fc171 100644
+--- a/package.json
++++ b/package.json
+@@ -27,7 +27,7 @@
+     }
+   },
+   "dependencies": {
+-    "esbuild": "~0.18.20",
++    "esbuild": "^0.28.2",
+     "source-map-support": "^0.5.21"
+   }
+ }
+\ No newline at end of file

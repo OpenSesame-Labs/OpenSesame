@@ -36,6 +36,21 @@
       "upstreamIntegrity": "sha512-uh1K62xhRZbEbnXEPUJ1WHd7uJTAKg65EX/7S/DDX3u2lexCvSjqrOOR3rb+5TDhCyGVHflu/HEtFjuEQ6y+qw==",
       "rootDependency": "tiny-cbor-v3-patched",
       "override": "@levischuck/tiny-cbor@^0.3"
+    },
+    "typed-rest-client@2.3.1": {
+      "patch": "patches/typed-rest-client@2.3.1.patch",
+      "tarball": "patches/vendor/typed-rest-client-2.3.1.tgz",
+      "upstreamIntegrity": "sha512-k4kX5Up6qA68D0Cby2AK+6+vM5k3qTxe+/3FqhnHRExjY5cfbOnzjQZbP/LXleF8hVoDvDqxlgk9KK83HoBZlQ=="
+    },
+    "@esbuild-kit/core-utils@3.3.2": {
+      "patch": "patches/@esbuild-kit__core-utils@3.3.2.patch",
+      "tarball": "patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
+      "upstreamIntegrity": "sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ=="
+    },
+    "nunjucks@3.2.4": {
+      "patch": "patches/nunjucks@3.2.4.patch",
+      "tarball": "patches/vendor/nunjucks-3.2.4.tgz",
+      "upstreamIntegrity": "sha512-26XRV6BhkgK0VOxfbU5cQI+ICFUtMLixv1noZn1tGU38kQH5A5nmmbk/O45xdyBhD1esk47nKrY0mvQpZIhRjQ=="
     }
   },
   "notInstalled": {
