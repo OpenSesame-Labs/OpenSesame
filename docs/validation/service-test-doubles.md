@@ -28,15 +28,16 @@ they begin; `scope.use(await startService())` is for sequential setup.
 | Host storage | [`Db::connect_memory`](../../crates/storage/README.md) uses in-memory SQLite and the real storage interface. | File durability, filesystem permissions, crash recovery and multi-process contention. |
 | Native TaskBus | [`InMemoryTaskBus` and `ScriptedTaskBus`](../../crates/task-bus/README.md#testing-consumers) implement `TaskBus`; the latter can inject failures. | NATS JetStream persistence, deduplication, redelivery, server configuration and TLS; run the live-server suites. |
 | Identity worker TaskBus | [`MemoryTaskBus` and `createTestTaskBus`](../../packages/identity-worker/README.md#taskbus-test-double) use the worker's `TaskBus` port; the latter scripts failures. | NATS stream guarantees, durability and network behavior. |
+| Workload connector host | [`opensesame_worker::testkit`](../../crates/worker/README.md#integration-test-workers) runs the real local-token or mTLS router on loopback with isolated test credentials. | Deployed certificate and environment loading, external providers, and live service behavior. The fixture accepts only the offline-safe `encrypted-remote` provider. |
 | Notifications | [`@opensesame/identity-worker/testkit`](../../packages/identity-worker/README.md) supplies a scripted channel at the worker port. [`startPushStandIn`](../../packages/notification-adapters/README.md) verifies VAPID and decrypts Web Push with independent libraries. | Actual provider delivery, callback provenance and availability; the channel double does not settle requests. |
 | Workload identity, STS | [`fake-workload-api`](../../crates/spiffe-source/README.md) and the [STS stand-in](../../crates/connection-broker/src/aws_sts/stand_in.rs) cover selected protocols. | Real SPIFFE infrastructure, IAM policy, AWS behavior and deployment transport. |
 | Support agent | [`createFakeSupportAgent`](../../packages/support-agent/README.md) implements the support port with scripted results. | Actual model/runtime behavior and provider availability. |
 | OpenBao authority | [`MemoryAuthority`](../../crates/provider-openbao/src/lib.rs) is a simplified local stand-in. | Signing, decryption and revocation semantics: it echoes input for sign/decrypt and revocation is a no-op. It is not cryptographic evidence. |
 
 This is an inventory of service boundaries, not a claim that every endpoint
-is emulated. In particular, the native daemon and workload connector host do
-not yet have general reusable whole-service emulators; use their existing
-component fixtures and real-process tests. Client libraries, pure domain,
+is emulated. In particular, the native daemon does not yet have a general
+reusable whole-service emulator; use its existing component fixtures and
+real-process tests. Client libraries, pure domain,
 policy, format and cryptographic packages should normally run their actual
 implementation with dependency ports faked only when useful.
 
