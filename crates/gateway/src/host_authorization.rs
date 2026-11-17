@@ -31,6 +31,10 @@ pub struct HostEvidence {
     pub sub: String,
     pub organization_id: String,
     pub organization_role: opensesame_domain::OrganizationRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_incarnation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority_revision: Option<String>,
     pub challenge_id: String,
     pub challenge_digest: String,
     pub operation: String,
@@ -157,6 +161,9 @@ impl HostAuthorizationVerifier {
             || evidence.amr != ["webauthn"]
             || crate::session_claims::parse_principal(&evidence.sub).is_none()
             || opensesame_domain::OrganizationId::parse(&evidence.organization_id).is_err()
+            || evidence.membership_incarnation.is_some() != evidence.authority_revision.is_some()
+            || evidence.membership_incarnation.as_ref().is_some_and(|value| !valid_uuid(value))
+            || evidence.authority_revision.as_ref().is_some_and(|value| !valid_uuid(value))
         {
             return Err(INVALID);
         }
@@ -183,4 +190,8 @@ impl HostAuthorizationVerifier {
             .map_err(|_| "proof_mismatch")?;
         Ok(evidence)
     }
+}
+
+fn valid_uuid(value: &str) -> bool {
+    uuid::Uuid::parse_str(value).is_ok_and(|id| !id.is_nil() && id.to_string() == value)
 }

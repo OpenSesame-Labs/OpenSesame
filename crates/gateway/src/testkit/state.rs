@@ -55,7 +55,7 @@ pub(super) async fn build() -> anyhow::Result<AppState> {
         session_channels: Arc::new(Mutex::new(HashMap::new())),
         device_codes: Arc::new(Mutex::new(HashMap::new())),
         github_app_pending: Arc::new(Mutex::new(HashMap::new())),
-        session_lifecycle: Arc::new(Mutex::new(())),
+        session_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
         device_approve_failures: Arc::new(Mutex::new(Vec::new())),
         claims: Arc::new(Mutex::new(HashMap::new())),
         public_enrollment: Arc::new(Mutex::default()),
