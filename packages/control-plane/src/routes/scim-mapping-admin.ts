@@ -7,13 +7,10 @@ import { putGroupRoleMapping } from "./scim-groups.js";
 
 export const scimMappingAdminRoutes = new Hono<{ Variables: Variables }>();
 
-/**
- * These routes have never read the organization's state, only the caller's
- * membership — recorded as `unchecked` rather than quietly changed (ADR 0178).
- */
+/** SCIM mapping changes require a live organization (ADR 0178). */
 const OWNER: OrgOwnerSource = {
   param: "organizationId",
-  liveness: "unchecked",
+  liveness: "active",
 };
 
 scimMappingAdminRoutes.get(

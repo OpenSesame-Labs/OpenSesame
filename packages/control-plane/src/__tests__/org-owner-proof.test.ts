@@ -40,21 +40,20 @@ async function verdictFor(
 }
 
 /**
- * The three liveness readings are not one rule, and they must stay what each
- * call site always did: collapsing them would change who may manage a
- * suspended, provisional or deleted organization (ADR 0178).
+ * Recovery surfaces can reach a non-deleted organization; membership and
+ * provisioning administration require it to be active (ADR 0178).
  */
 const MATRIX: ReadonlyArray<[OrganizationState, Record<OrgLiveness, boolean>]> =
   [
-    ["active", { not_deleted: true, active: true, unchecked: true }],
-    ["provisional", { not_deleted: true, active: false, unchecked: true }],
-    ["suspended", { not_deleted: true, active: false, unchecked: true }],
-    ["deleted", { not_deleted: false, active: false, unchecked: true }],
+    ["active", { not_deleted: true, active: true }],
+    ["provisional", { not_deleted: true, active: false }],
+    ["suspended", { not_deleted: true, active: false }],
+    ["deleted", { not_deleted: false, active: false }],
   ];
 
 describe("orgOwner proof", () => {
   for (const [state, expected] of MATRIX) {
-    for (const liveness of ["not_deleted", "active", "unchecked"] as const) {
+    for (const liveness of ["not_deleted", "active"] as const) {
       it(`an owner of a ${state} organization is ${
         expected[liveness] ? "proven" : "refused 404"
       } under '${liveness}'`, async () => {
@@ -96,7 +95,7 @@ describe("orgOwner proof", () => {
     const verdict = await name(
       actorId("prn_1"),
       organizationId("org:missing"),
-      (actor, org) => orgOwner(stores, actor, org, "unchecked"),
+      (actor, org) => orgOwner(stores, actor, org, "active"),
     );
     expect(verdict).toEqual({ ok: false, status: 404, error: "not_found" });
   });

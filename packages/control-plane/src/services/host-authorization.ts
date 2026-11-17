@@ -118,11 +118,15 @@ export async function beginHostAuthorization(
     challenge.expires_at * 1000 > now + 300_000
   )
     throw new Error("Host challenge refused");
+  const organization = await ctx.stores.organizations.get(
+    challenge.organization_id,
+  );
   const membership = await ctx.stores.organizationMemberships.find(
     challenge.organization_id,
     principalId,
   );
-  if (!membership) throw new Error("Host challenge refused");
+  if (organization?.state !== "active" || !membership)
+    throw new Error("Host challenge refused");
   hostSigningJwk(ctx);
   const transactionDigest = createHash("sha256")
     .update(JSON.stringify({ principalId, ...challenge }))
@@ -224,8 +228,12 @@ export async function completeHostAuthorization(
     pending.challenge.organization_id,
     principalId,
   );
+  const organization = await ctx.stores.organizations.get(
+    pending.challenge.organization_id,
+  );
   const now = Math.floor(ctx.clock().getTime() / 1000);
   if (
+    organization?.state !== "active" ||
     !membership ||
     now >= pending.challenge.expires_at ||
     !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)

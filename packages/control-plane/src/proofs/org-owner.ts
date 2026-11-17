@@ -26,14 +26,11 @@ export interface OrgOwner<A, O> extends Proof<"OrgOwner", [A, O]> {}
  * `not_deleted` is what organizations, domains and LDAP have always accepted,
  * so a suspended organization's owner can still reach them to fix it.
  * `active` is the stricter reading SCIM provisioning has always used.
- * `unchecked` is what the membership routes in `routes/organizations.ts` have
- * always done: they never read the organization's state, so an owner of a
- * deleted organization can still list and edit members. That is recorded drift
- * (ADR 0178), kept so this change alters no behavior; it is not an endorsement.
- * They are named, not unified, because collapsing them would change who may
- * manage a suspended or deleted organization.
+ * Membership and provisioning administration require `active`. Recovery
+ * surfaces that can make a suspended organization usable again may use
+ * `not_deleted`; no owner proof may skip the organization-state check.
  */
-export type OrgLiveness = "not_deleted" | "active" | "unchecked";
+export type OrgLiveness = "not_deleted" | "active";
 
 export type OrgOwnerVerdict<A, O> =
   | {
@@ -59,10 +56,9 @@ export async function orgOwner<A, O>(
     : undefined;
   const live =
     organization !== undefined &&
-    (liveness === "unchecked" ||
-      (liveness === "active"
-        ? organization.state === "active"
-        : organization.state !== "deleted"));
+    (liveness === "active"
+      ? organization.state === "active"
+      : organization.state !== "deleted");
   if (!organization || !live || !membership) {
     return { ok: false, status: 404, error: "not_found" };
   }
