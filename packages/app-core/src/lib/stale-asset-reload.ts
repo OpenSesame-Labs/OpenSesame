@@ -1,46 +1,64 @@
 /**
- * One automatic reload per tab session when a lazy chunk 404s.
+ * One automatic reload per executing build when a lazy chunk fails.
  *
- * The old service worker can keep serving the index this page booted from, so
- * a reload that does not help must not run again. The shell clears the shot
- * once it has loaded, and a later miss may reload once more.
+ * A successful shell import does not prove that every lazy chunk is present.
+ * Keep the shot across reloads of the same build; a new immutable entry can
+ * try again. Without durable tab storage, do not start an unbounded loop.
  */
 
 const KEY = "os-stale-asset-reload";
 
 /** This document's shot, for a host with no `sessionStorage`. */
 let memory = false;
+let build: string | null = null;
 
-function stored(): boolean | null {
+function storage(): Storage | null {
   const scope: { sessionStorage?: Storage } = globalThis;
   try {
-    const storage = scope.sessionStorage;
-    if (!storage) return null;
-    return storage.getItem(KEY) === "1";
+    return scope.sessionStorage ?? null;
   } catch {
     return null;
   }
 }
 
 export const staleAssetReload = {
-  /** A reload for a missing chunk already happened in this tab session. */
-  already(): boolean {
-    return memory || stored() === true;
-  },
-  mark(): void {
-    memory = true;
-    const scope: { sessionStorage?: Storage } = globalThis;
+  /** Bind the guard to the immutable module that is executing this document. */
+  beginBuild(moduleUrl: string): void {
     try {
-      scope.sessionStorage?.setItem(KEY, "1");
+      const url = new URL(moduleUrl);
+      const match = url.pathname.match(/\/assets\/([\w.-]+-[\w-]{8,64}\.js)$/u);
+      build = !url.search && !url.hash ? (match?.[1] ?? null) : null;
+      const previous = storage()?.getItem(KEY);
+      if (build && previous && previous !== build) this.clear();
     } catch {
-      // Private mode. The in-memory shot still stops a loop in this document.
+      build = null;
+    }
+  },
+  /** A reload for a missing chunk already happened for this build. */
+  already(): boolean {
+    try {
+      return memory || storage()?.getItem(KEY) != null;
+    } catch {
+      return memory;
+    }
+  },
+  /** Return false when the guard cannot survive a navigation. */
+  mark(): boolean {
+    memory = true;
+    try {
+      const store = storage();
+      if (!store) return false;
+      const value = build ?? "1";
+      store.setItem(KEY, value);
+      return store.getItem(KEY) === value;
+    } catch {
+      return false;
     }
   },
   clear(): void {
     memory = false;
-    const scope: { sessionStorage?: Storage } = globalThis;
     try {
-      scope.sessionStorage?.removeItem(KEY);
+      storage()?.removeItem(KEY);
     } catch {
       // The in-memory shot is already clear.
     }

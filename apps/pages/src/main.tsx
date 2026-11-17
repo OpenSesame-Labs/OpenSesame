@@ -39,6 +39,7 @@ import "./sections/vault/path-field.css";
 import "./styles.css";
 
 bootTrayNotices();
+staleAssetReload.beginBuild(import.meta.url);
 installStaleAssetReload();
 
 const root = document.getElementById("root");
@@ -140,7 +141,6 @@ void (async () => {
     }
     throw caught;
   }
-  staleAssetReload.clear();
   createRoot(root).render(
     <StrictMode>
       <ResetGate>

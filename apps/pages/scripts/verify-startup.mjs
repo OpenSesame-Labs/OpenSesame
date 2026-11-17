@@ -91,6 +91,52 @@ try {
     console.log("SKIP: the built entry has no static module dependency");
   }
 
+  // A lazy chunk can fail after the shell has already loaded. Keep the file
+  // unavailable across a real navigation and ensure the same build stops
+  // retrying instead of clearing its guard on every successful shell import.
+  const stale = await browser.newContext({ serviceWorkers: "block" });
+  await stale.addInitScript(() => {
+    const key = "__startup_reload_check";
+    sessionStorage.setItem(
+      key,
+      String(Number(sessionStorage.getItem(key) ?? "0") + 1),
+    );
+  });
+  const stalePage = await stale.newPage();
+  let failedChunks = 0;
+  await stalePage.route("**/assets/VaultSection-*.js", (route) => {
+    failedChunks += 1;
+    return route.abort();
+  });
+  await stalePage.goto(server.href, { waitUntil: "domcontentloaded" });
+  await stalePage.waitForFunction(
+    () => Number(sessionStorage.getItem("__startup_reload_check")) >= 2,
+    null,
+    { timeout: 30_000 },
+  );
+  await stalePage
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .waitFor({ timeout: 30_000 });
+  const stop = Date.now() + 15_000;
+  while (failedChunks < 2 && Date.now() < stop)
+    await stalePage.waitForTimeout(100);
+  assert.ok(failedChunks >= 2, "the same lazy chunk failed on both documents");
+  await stalePage.waitForTimeout(2_000);
+  assert.equal(
+    await stalePage.evaluate(() =>
+      Number(sessionStorage.getItem("__startup_reload_check")),
+    ),
+    2,
+    "an unavailable lazy chunk must not reload the same build repeatedly",
+  );
+  await stalePage.getByText("Out of date", { exact: true }).waitFor({
+    state: "visible",
+    timeout: 15_000,
+  });
+  await screenshot(stalePage, "startup-stale-chunk");
+  await stale.close();
+  console.log("PASS: a missing lazy chunk gets one automatic retry");
+
   for (const device of [
     { name: "desktop", viewport: { width: 1365, height: 900 } },
     {

@@ -7,19 +7,8 @@
  */
 
 import { overlapCast } from "@opensesame/os-domain";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { holdDirtyEdit, registerDraftSaver } from "../dirty-edit.js";
-import {
-  forceSessionReload,
-  noteShellLoaded,
-  registerWorkerForPlan,
-  reloadForStaleAsset,
-  resetWorkerController,
-  updateIsOwed,
-  workerControllerSeams,
-  workerControllerSettled,
-  workerStatus,
-} from "./worker-controller.js";
 import {
   CORE_URL,
   DISTRIBUTION,
@@ -34,11 +23,32 @@ import {
   restoreSeams,
   selection,
 } from "./worker/test-harness.js";
-
 import type { PageToWorkerMessage } from "./worker/types.js";
+import {
+  forceSessionReload,
+  noteShellLoaded,
+  registerWorkerForPlan,
+  reloadForStaleAsset,
+  resetWorkerController,
+  updateIsOwed,
+  workerControllerSeams,
+  workerControllerSettled,
+  workerStatus,
+} from "./worker-controller.js";
 
-beforeEach(installSeams);
-afterEach(restoreSeams);
+beforeEach(() => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  });
+  installSeams();
+});
+afterEach(() => {
+  restoreSeams();
+  vi.unstubAllGlobals();
+});
 
 const store = () =>
   new FakeStore({
@@ -188,12 +198,23 @@ describe("an unsaved edit", () => {
     expect(env.reloads).toBe(1);
     expect(await reloadForStaleAsset()).toBe(false);
     expect(env.reloads).toBe(1);
-    // A new document starts with a fresh controller. The shell then clears
-    // the one-shot, so a later miss may reload again.
+    // Resetting the controller is a test seam that clears its state.
     noteShellLoaded();
     resetWorkerController();
     expect(await reloadForStaleAsset()).toBe(true);
     expect(env.reloads).toBe(2);
+  });
+
+  it("does not reload when it cannot persist the retry guard", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("storage unavailable");
+      },
+      removeItem: () => undefined,
+    });
+    expect(await reloadForStaleAsset()).toBe(false);
+    expect(env.reloads).toBe(0);
   });
 });
 
