@@ -96,6 +96,7 @@ function openConsentWith(harness) {
     credentials,
     width,
     agentMode = false,
+    observe,
   ) {
     const opening = context.waitForEvent("page");
     await tabTo(
@@ -116,6 +117,7 @@ function openConsentWith(harness) {
     await popup.keyboard.insertText("Cedar-lantern-47-river!");
     await expect(password).toHaveValue("Cedar-lantern-47-river!");
     await popup.keyboard.press("Enter");
+    if (typeof observe === "function") await observe(popup);
     await expect(
       popup.getByRole("heading", {
         name: agentMode

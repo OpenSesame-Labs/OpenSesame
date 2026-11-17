@@ -20,7 +20,9 @@ ExtensionGesture ==
 
 PageGesture ==
   /\ gesture' = FALSE
-  /\ UNCHANGED <<topFrame, originOn, entryMatch, askValue, writeValue>>
+  /\ askValue' = FALSE
+  /\ writeValue' = FALSE
+  /\ UNCHANGED <<topFrame, originOn, entryMatch>>
 
 DecideFill ==
   /\ IF /\ gesture /\ topFrame /\ originOn /\ entryMatch

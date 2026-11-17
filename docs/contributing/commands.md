@@ -194,6 +194,14 @@ sign-in, setup, settings defaults or anything on the boot path:**
 VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   npm run verify:startup -w @opensesame/pages
+# Shell-ready consent gate. Builds the checked-in pre-fix source
+# (apps/pages/scripts/fixtures/shell-ready-pre-fix.ts) and the reviewed
+# shell, then samples the local IAM popup during activation.
+# PAGES_VERIFY_OUT writes logs (default artifacts/shell-ready-consent).
+# Needs Playwright Chromium. The activation stall is
+# VITE_VERIFY_ACTIVATION_DELAY_MS on the Pages build.
+PLAYWRIGHT_CHROMIUM=<chromium-binary> \
+  npm run verify:shell-ready-consent -w @opensesame/pages
 # Run after changing the Pages boot path, opening state, or front-door copy.
 # Exercises the built dist/ with JavaScript disabled or delayed, dark mode,
 # a failed entry (and an eager-module download when present), and real first

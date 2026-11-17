@@ -37,12 +37,13 @@ function runVitest(relativeSpecs, logName) {
   if (result.status !== 0) throw new Error(`vitest failed: ${relativeSpecs}`);
 }
 
+const preFixShellPath = join(
+  pagesRoot,
+  "scripts/fixtures/shell-ready-pre-fix.ts",
+);
+
 function mainShellSource() {
-  return spawnSync(
-    "git",
-    ["show", "origin/main:apps/pages/src/bindings/shell-ready.ts"],
-    { cwd: repoRoot, encoding: "utf8" },
-  ).stdout;
+  return readFileSync(preFixShellPath, "utf8");
 }
 
 function buildDist(shellSource, distCopyTarget) {
@@ -55,10 +56,16 @@ function buildDist(shellSource, distCopyTarget) {
       {
         cwd: repoRoot,
         stdio: "inherit",
-        env: { ...process.env, VITE_BASE: "/OpenSesame/" },
+        env: {
+          ...process.env,
+          VITE_BASE: "/OpenSesame/",
+          VITE_VERIFY_ACTIVATION_DELAY_MS: "2500",
+        },
       },
     );
-    if (built.status !== 0) process.exit(built.status ?? 1);
+    if (built.status !== 0) {
+      throw new Error(`pages build failed: ${built.status ?? 1}`);
+    }
     if (distCopyTarget) {
       spawnSync("rm", ["-rf", distCopyTarget], {
         cwd: pagesRoot,
@@ -85,7 +92,8 @@ function profileProof(outDir, distDir) {
         ...process.env,
         VERIFY_SKIP_BUILD: "1",
         PWA_PROFILE_PROOF_OUT: outDir,
-        PAGES_VERIFY_DIST: distDir,
+        PWA_PROFILE_PROOF_NAME: "full",
+        PWA_PROFILE_PROOF_DIST: distDir,
       },
     },
   );
@@ -110,18 +118,36 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
   });
   try {
     const { page, context, credentials } = await seedJourney(false);
-    const { popup } = await openConsent(page, context, credentials, 1280);
-    const skeleton = page.locator(".vault-skeleton");
-    const earlyConsent = page.getByText("Sign in to continue");
-    const sawSkeleton = (await skeleton.count()) > 0;
-    const sawConsentBeforeReady = await earlyConsent.isVisible();
+    let during = { consentHeading: false, vaultSkeleton: false };
+    const { popup } = await openConsent(
+      page,
+      context,
+      credentials,
+      1280,
+      false,
+      async (consentPopup) => {
+        const started = Date.now();
+        while (Date.now() - started < 800) {
+          during = await consentPopup.evaluate(() => ({
+            consentHeading: [...document.querySelectorAll("h1,h2")].some(
+              (node) =>
+                /Sign in to|Authorize agent/.test(node.textContent ?? ""),
+            ),
+            vaultSkeleton: Boolean(document.querySelector(".vault-skeleton")),
+          }));
+          if (during.consentHeading || during.vaultSkeleton) return;
+          await consentPopup.waitForTimeout(50);
+        }
+      },
+    );
     await popup.screenshot({
       path: join(shotDir, "consent-popup.png"),
     });
     if (expectEarlyConsent) {
-      expect(sawConsentBeforeReady || !sawSkeleton).toBe(true);
+      expect(during.consentHeading).toBe(true);
     } else {
-      expect(sawConsentBeforeReady).toBe(false);
+      expect(during.consentHeading).toBe(false);
+      expect(during.vaultSkeleton).toBe(true);
     }
   } finally {
     await browser.close();
@@ -139,14 +165,14 @@ runVitest(
 );
 
 const mainShell = mainShellSource();
-if (!mainShell) {
-  console.error("could not read origin/main shell-ready.ts");
+if (!mainShell.trim()) {
+  console.error("checked-in pre-fix shell-ready fixture is empty");
   process.exit(2);
 }
 writeFileSync(join(logDir, "main-shell-ready.ts"), mainShell);
 
 const fixedDist = join(pagesRoot, "dist");
-const baselineDist = join(pagesRoot, "dist-shell-before");
+const baselineDist = join(pagesRoot, "work", "shell-ready-before");
 
 if (process.env.VERIFY_SKIP_BUILD !== "1") {
   buildDist(mainShell, baselineDist);

@@ -54,8 +54,9 @@ section("release-promotion", {
       "scripts/release/lib/candidate-published-formal.replay.test.mjs",
     ]),
   scratch: () => {
-    const path = "scripts/release/lib/candidate-published-formal.mjs";
-    const text = readFileSync(join(repo, path), "utf8");
+    const path = "scripts/release/lib/candidate-promotion.mjs";
+    const absolute = join(repo, path);
+    const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
       `  demand(
     promoted.candidate_id === published.candidate_id &&
@@ -67,14 +68,14 @@ section("release-promotion", {
   );`,
       `  // scratch: promotion binding removed`,
     );
-    writeFileSync(join(repo, path), broken);
+    writeFileSync(absolute, broken);
     try {
       run("node", [
         "--test",
         "scripts/release/lib/candidate-published-formal.replay.test.mjs",
       ]);
     } finally {
-      run("git", ["checkout", "--", path]);
+      writeFileSync(absolute, text);
     }
   },
 });
@@ -92,12 +93,13 @@ section("control-plane-session", {
     ]),
   scratch: () => {
     const path = "packages/control-plane/src/middleware/auth.ts";
-    const text = readFileSync(join(repo, path), "utf8");
+    const absolute = join(repo, path);
+    const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
       "session.revokedAt",
       "/*scratch*/ false && session.revokedAt",
     );
-    writeFileSync(join(repo, path), broken);
+    writeFileSync(absolute, broken);
     try {
       run("npm", [
         "run",
@@ -109,7 +111,7 @@ section("control-plane-session", {
         "auth-formal.replay",
       ]);
     } finally {
-      run("git", ["checkout", "--", path]);
+      writeFileSync(absolute, text);
     }
   },
 });
@@ -127,12 +129,13 @@ section("onboarding-recovery", {
     ]),
   scratch: () => {
     const path = "packages/app-core/src/lib/vault/store-presentation.ts";
-    const text = readFileSync(join(repo, path), "utf8");
+    const absolute = join(repo, path);
+    const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
       "awaitingSecondStep: pending && !open",
       "awaitingSecondStep: false",
     );
-    writeFileSync(join(repo, path), broken);
+    writeFileSync(absolute, broken);
     try {
       run("npm", [
         "run",
@@ -144,7 +147,7 @@ section("onboarding-recovery", {
         "onboarding-recovery-formal",
       ]);
     } finally {
-      run("git", ["checkout", "--", path]);
+      writeFileSync(absolute, text);
     }
   },
 });
@@ -161,12 +164,13 @@ section("daemon-fill-pairing", {
     ]),
   scratch: () => {
     const path = "crates/daemon/src/fill/caller.rs";
-    const text = readFileSync(join(repo, path), "utf8");
+    const absolute = join(repo, path);
+    const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
       "if fill.pairings.verify(&caller.origin, &caller.token) {",
       "if true || fill.pairings.verify(&caller.origin, &caller.token) {",
     );
-    writeFileSync(join(repo, path), broken);
+    writeFileSync(absolute, broken);
     try {
       run("cargo", [
         "test",
@@ -177,7 +181,7 @@ section("daemon-fill-pairing", {
         "--nocapture",
       ]);
     } finally {
-      run("git", ["checkout", "--", path]);
+      writeFileSync(absolute, text);
     }
   },
 });

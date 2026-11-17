@@ -21,15 +21,16 @@ const shellReadyPath = join(pagesRoot, "src/bindings/shell-ready.ts");
 const outRoot =
   process.env.PAGES_VERIFY_OUT ??
   join(repoRoot, "artifacts/shell-ready-consent");
+const defaultMirror = "/opt/cursor/artifacts/shell-ready-consent";
 const mirrorRoot =
   outRoot === join(repoRoot, "artifacts/shell-ready-consent")
-    ? "/opt/cursor/artifacts/shell-ready-consent"
-    : outRoot;
+    ? defaultMirror
+    : null;
 const logDir = join(outRoot, "logs");
 const BEHAVIOR_SPEC =
   "src/app-root.shell-ready.test.tsx -t withdraws contributed";
 
-for (const dir of [logDir, outRoot, mirrorRoot])
+for (const dir of [logDir, outRoot, mirrorRoot].filter(Boolean))
   mkdirSync(dir, { recursive: true });
 
 const behaviorTestSource = readFileSync(
@@ -43,14 +44,10 @@ if (!behaviorTestSource.includes("withdraws contributed")) {
 }
 
 function mainShellSource() {
-  const out = spawnSync(
-    "git",
-    ["show", "origin/main:apps/pages/src/bindings/shell-ready.ts"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
-  if (out.status !== 0 || !out.stdout.trim())
-    throw new Error("main shell-ready");
-  return out.stdout;
+  const path = join(pagesRoot, "scripts/fixtures/shell-ready-pre-fix.ts");
+  const source = readFileSync(path, "utf8");
+  if (!source.trim()) throw new Error("pre-fix shell-ready fixture is empty");
+  return source;
 }
 
 function vitest(spec, cwd, { expectFail = false }) {
@@ -136,8 +133,9 @@ const timingWalks =
     ? walks.filter((walk) => consentProfiles.includes(walk.name))
     : walks.filter((walk) => walk.name !== "custom");
 for (const walk of timingWalks) {
-  const mainDist = join(pagesRoot, `dist-timing-${walk.name}-main`);
-  const fixDist = join(pagesRoot, `dist-timing-${walk.name}-fix`);
+  const timingRoot = join(pagesRoot, "work", "shell-ready-timing");
+  const mainDist = join(timingRoot, `${walk.name}-main`);
+  const fixDist = join(timingRoot, `${walk.name}-fix`);
   withShellSource(mainSource, () => {
     buildProfileDist({
       appRoot: pagesRoot,
@@ -208,6 +206,13 @@ if (!playwrightRepro) {
   );
 }
 
-spawnSync("rm", ["-rf", mirrorRoot], { stdio: "inherit" });
-spawnSync("cp", ["-a", outRoot, mirrorRoot], { stdio: "inherit" });
+if (mirrorRoot && resolve(mirrorRoot) !== resolve(outRoot)) {
+  spawnSync("rm", ["-rf", mirrorRoot], { stdio: "inherit" });
+  const copied = spawnSync("cp", ["-a", outRoot, mirrorRoot], {
+    stdio: "inherit",
+  });
+  if (copied.status !== 0) {
+    throw new Error(`evidence mirror failed: ${copied.status}`);
+  }
+}
 console.log(`Evidence complete: ${outRoot}`);

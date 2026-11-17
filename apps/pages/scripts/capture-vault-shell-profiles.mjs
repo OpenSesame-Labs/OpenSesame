@@ -45,7 +45,7 @@ export async function captureVaultShellProfiles({ outDir }) {
   if (!discovery.path) throw new Error("no chromium for vault-shell profiles");
   process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   const { chromium } = await import("playwright");
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: discovery.path });
   const profilesDir = join(pagesRoot, "capability-profiles");
   const walks = resolveWalks(profilesDir);
   const manifests = [];

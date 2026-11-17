@@ -18,7 +18,8 @@ Revoke ==
 
 Expire ==
   /\ expired' = TRUE
-  /\ UNCHANGED <<revoked, resolves>>
+  /\ resolves' = FALSE
+  /\ UNCHANGED revoked
 
 Authenticate ==
   /\ IF revoked \/ expired
@@ -26,7 +27,7 @@ Authenticate ==
      ELSE resolves' = TRUE
   /\ UNCHANGED <<revoked, expired>>
 
-NoZombieSession == revoked => ~resolves
+NoZombieSession == (revoked \/ expired) => ~resolves
 
 Spec == Init /\ [][Revoke \/ Expire \/ Authenticate]_vars
 

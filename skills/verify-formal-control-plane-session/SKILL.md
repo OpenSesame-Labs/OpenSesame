@@ -9,7 +9,7 @@ description: "Check revoked provisional sessions never resolve. Use when changin
 
 Replay: `packages/control-plane/src/middleware/auth-formal.replay.test.ts`.
 
-Model: `spec/formal-verification/control-plane-session/ControlPlaneSession.tla` (`NoZombieSession`).
+Model: `spec/formal-verification/control-plane-session/ControlPlaneSession.tla` (`NoZombieSession` covers revoke and expiry).
 
 **Property:** `resolveProvisionalSession` never returns a session after `revokedAt` is set or the lease expires.
 

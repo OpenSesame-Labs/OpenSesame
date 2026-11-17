@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /** One-off: full-profile consent timing only (main vs fix shell-ready). */
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +12,6 @@ import { captureConsentActivationTiming } from "./shell-ready-consent-timing.mjs
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
-const repoRoot = resolve(pagesRoot, "../..");
 const shellReadyPath = join(pagesRoot, "src/bindings/shell-ready.ts");
 const outRoot =
   process.env.PAGES_VERIFY_OUT ?? "/opt/cursor/artifacts/shell-ready-consent";
@@ -22,13 +20,12 @@ const walk = resolveWalks(profilesDir).find((w) => w.name === "full");
 if (!walk) throw new Error("full profile walk missing");
 
 function mainShellSource() {
-  const out = spawnSync(
-    "git",
-    ["show", "origin/main:apps/pages/src/bindings/shell-ready.ts"],
-    { cwd: repoRoot, encoding: "utf8" },
+  const source = readFileSync(
+    join(pagesRoot, "scripts/fixtures/shell-ready-pre-fix.ts"),
+    "utf8",
   );
-  if (out.status !== 0) throw new Error("main shell-ready");
-  return out.stdout;
+  if (!source.trim()) throw new Error("pre-fix shell-ready fixture is empty");
+  return source;
 }
 
 function withShell(source, fn) {
@@ -45,8 +42,9 @@ const fixedSource = readFileSync(shellReadyPath, "utf8");
 const mainSource = mainShellSource();
 const viteEnv = { VITE_VERIFY_ACTIVATION_DELAY_MS: "2500" };
 const scriptsDir = join(pagesRoot, "scripts");
-const mainDist = join(pagesRoot, "dist-timing-full-main");
-const fixDist = join(pagesRoot, "dist-timing-full-fix");
+const timingRoot = join(pagesRoot, "work", "shell-ready-timing");
+const mainDist = join(timingRoot, "full-main");
+const fixDist = join(timingRoot, "full-fix");
 
 withShell(mainSource, () =>
   buildDist({

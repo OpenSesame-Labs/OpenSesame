@@ -20,7 +20,14 @@
         "visual-evidence",
         "formal-verification",
         "verify-formal-vault",
-        "verify-formal-proxy-lease"
+        "verify-formal-proxy-lease",
+        "verify-formal-pwa-shell",
+        "verify-formal-sync-manifest",
+        "verify-formal-autofill-gesture",
+        "verify-formal-release-promotion",
+        "verify-formal-daemon-fill",
+        "verify-formal-control-plane-session",
+        "verify-formal-onboarding-recovery"
       ]
     },
     "reusable-optional": {

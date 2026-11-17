@@ -60,7 +60,7 @@ export async function captureConsentActivationTiming({
   if (!discovery.path) throw new Error("no chromium");
   process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   const { chromium } = await import("playwright");
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: discovery.path });
   const server = await serveLoopbackDist({ dist: distDir, base: BASE });
   const harness = createHarness({
     dist: distDir,
@@ -83,13 +83,23 @@ export async function captureConsentActivationTiming({
     await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20_000 });
     await page.getByLabel("PIN", { exact: true }).fill(PIN);
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
-    const authorize = `${server.origin}${BASE}identity/authorize?response_type=code&client_id=local&state=verify-timing&redirect_uri=${encodeURIComponent(`${server.origin}${BASE}`)}`;
-    await Promise.all([
-      page.waitForTimeout(SAMPLE_MS),
-      page
-        .goto(authorize, { waitUntil: "domcontentloaded" })
-        .catch(() => undefined),
-    ]);
+    const authorize = new URL(`${server.origin}${BASE}identity/authorize`);
+    authorize.search = new URLSearchParams({
+      client_id: "local_00000000-0000-4000-8000-000000000001",
+      redirect_uri: `${server.origin}/callback`,
+      scope: "openid",
+      state: "s".repeat(43),
+      nonce: "n".repeat(43),
+      code_challenge: "c".repeat(43),
+      code_challenge_method: "S256",
+    }).toString();
+    await page.evaluate(async (next) => {
+      const url = new URL(next);
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }, authorize.href);
+    await page.waitForTimeout(SAMPLE_MS);
     const pre = await sampleConsent(page);
     await page.screenshot({
       path: join(outDir, `${label}-pre-activation.png`),
@@ -112,9 +122,9 @@ export async function captureConsentActivationTiming({
       join(outDir, `${label}-timing.json`),
       JSON.stringify(payload, null, 2),
     );
-    await server.close();
     return { pre, post };
   } finally {
+    await server.close();
     await browser.close();
   }
 }
