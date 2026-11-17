@@ -18,7 +18,7 @@
   "totals": {
     "files": 441,
     "violations": 700,
-    "oversizedLines": 213911
+    "oversizedLines": 213906
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -465,13 +465,13 @@
       "max-lines": 510
     },
     "crates/pki-core/src/ca.rs": {
-      "max-lines": 474
+      "max-lines": 471
     },
     "crates/pki-core/src/policy.rs": {
       "max-lines": 1606
     },
     "crates/pki-core/src/revocation.rs": {
-      "max-lines": 1131
+      "max-lines": 1129
     },
     "crates/pki-core/src/types.rs": {
       "max-lines": 915
