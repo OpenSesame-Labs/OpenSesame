@@ -66,6 +66,38 @@ pub struct PinnedAuthority {
     pub addrs: Vec<SocketAddr>,
 }
 
+/// Resolve an authority exactly once and retain only addresses safe for a
+/// credentialed connection. `allow_loopback` is limited to literal loopback
+/// targets used by the bundled mock provider and in-process tests; it never
+/// admits private, link-local, or other internal DNS answers.
+///
+/// # Errors
+///
+/// Returns `MalformedConfiguration` when resolution fails or yields no
+/// permitted address.
+pub async fn resolve_pinned_authority(
+    host: &str,
+    port: u16,
+    allow_loopback: bool,
+) -> Result<PinnedAuthority, TransportError> {
+    let host = host.to_ascii_lowercase();
+    let mut addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
+        .collect();
+    addrs.retain(|addr| !is_internal(addr.ip()) || (allow_loopback && addr.ip().is_loopback()));
+    if addrs.is_empty() {
+        return Err(TransportError::malformed(
+            "connector authority resolved to no permitted address",
+        ));
+    }
+    Ok(PinnedAuthority {
+        label: format!("{host}:{port}"),
+        host,
+        addrs,
+    })
+}
+
 /// The one client for one scope.
 ///
 /// # Errors

@@ -16,7 +16,7 @@ use super::{
     assert_invoke_order, ConnectionCredential, ConnectorContext, ConnectorInvocation,
     ConnectorInvokeError, ConnectorTransportExecutor,
 };
-use crate::transport::client::is_internal;
+use crate::transport::client::{is_internal, resolve_pinned_authority};
 use crate::transport::memory::MemoryTransportResolver;
 use crate::transport::pool::ConnectorClientPool;
 use crate::transport::{
@@ -237,4 +237,20 @@ fn an_internal_address_is_never_a_connector_upstream() {
     }
     assert!(is_internal(IpAddr::V4(Ipv4Addr::UNSPECIFIED)));
     assert!(is_internal(IpAddr::V6(Ipv6Addr::UNSPECIFIED)));
+}
+
+#[tokio::test]
+async fn resolved_internal_addresses_are_removed_before_dial() {
+    let denied = resolve_pinned_authority("localhost", 443, false)
+        .await
+        .expect_err("production resolution must reject loopback");
+    assert_eq!(denied.code(), "malformed_configuration");
+
+    let test_only = resolve_pinned_authority("localhost", 443, true)
+        .await
+        .expect("test loopback is explicit");
+    assert!(test_only
+        .addrs
+        .iter()
+        .all(|address| address.ip().is_loopback()));
 }
