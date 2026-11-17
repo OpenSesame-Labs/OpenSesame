@@ -3,6 +3,7 @@
  */
 
 import type { VaultHeader } from "@opensesame/vault-core";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { carryProjectsViewInto, projectsState } from "../projects.js";
 import { HEADER_PATH, unlockTomb, writePlaintextFile } from "../vfs.js";
 
@@ -28,8 +29,8 @@ export async function carryForkUnlockedIntoActiveScope(input: {
   if (!input.vaultKey || !input.header) {
     throw new Error("Unlock the vault before carrying it into a new project.");
   }
-  if (input.ephemeral) {
-    throw new Error("A guest session has no key to share.");
+  if (input.ephemeral || isGuestVaultId(input.scope.tomb)) {
+    throw new Error("A guest vault cannot share its key with another vault.");
   }
   const { assertCompartmentSwitchAllowed } = await import(
     "../duress/store/compartment-guard.js"

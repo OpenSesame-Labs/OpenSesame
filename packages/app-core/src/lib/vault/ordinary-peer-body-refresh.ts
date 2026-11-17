@@ -6,6 +6,7 @@ import { verifyManifestAuth } from "./protection/manifest-auth.js";
 import { loadVaultBody } from "./store-body.js";
 import { freshBody } from "./store-fresh.js";
 import { operationHeader } from "./store-operation-check.js";
+
 function stale(): never {
   throw new ProtectionError(
     "stale_operation",
@@ -61,7 +62,7 @@ export async function ordinaryPeerFreshBody(
   // The owned raw bytes are copied before any await and wiped on every path.
   const root = raw?.slice();
   try {
-    const fresh = await freshBody(tomb, key, held, readHeader);
+    const fresh = await freshBody(tomb, key, held, readHeader, original);
     original();
     const header = fresh.header;
     if (!header) stale();
@@ -72,7 +73,7 @@ export async function ordinaryPeerFreshBody(
     original();
     // A changed HEADER never borrows the IV-only cache shortcut: authenticate
     // the actual current BODY with the original key and rollback witness.
-    const body = await loadVaultBody(tomb, key, header);
+    const body = await loadVaultBody(tomb, key, header, original);
     original();
     if ((body.rev ?? 0) < (held.body.rev ?? 0)) stale();
     if (operationHeader(readHeader() ?? previous) !== operationHeader(header))

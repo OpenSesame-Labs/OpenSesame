@@ -1,9 +1,14 @@
-import { mintVaultKey } from "@opensesame/vault-core";
+import {
+  mintVaultKey,
+  sealJson,
+  vaultSealBinding,
+} from "@opensesame/vault-core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { kvGet } from "../kv.js";
 import {
   BODY_PATH,
   INDEX_PATH,
+  SEAL_BOUND_MARKER_PATH,
   lockTomb,
   readFile,
   tombFileKey,
@@ -30,7 +35,7 @@ function stored(path: string): string | null {
 beforeEach(async () => {
   await vfsFlush();
   lockTomb(TOMB);
-  for (const path of [A, B, INDEX_PATH, BODY_PATH]) {
+  for (const path of [A, B, INDEX_PATH, BODY_PATH, SEAL_BOUND_MARKER_PATH]) {
     await vfsSeams.deleteRaw(tombFileKey(TOMB, path));
   }
 });
@@ -67,7 +72,13 @@ describe("rekeying a tomb for a vault-key rotation", () => {
     await writeFile(TOMB, A, new Uint8Array([9]));
     await vfsSeams.writeRaw(
       tombFileKey(TOMB, BODY_PATH),
-      JSON.stringify({ ivB64: "aXY=", ctB64: "Ym9keQ==" }),
+      JSON.stringify(
+        await sealJson(
+          old.vaultKey,
+          { v: 1 },
+          vaultSealBinding(TOMB, BODY_PATH),
+        ),
+      ),
     );
     const body = stored(BODY_PATH);
     await rekeyTomb(TOMB, old.vaultKey, next.rawVaultKey);
@@ -103,7 +114,7 @@ describe("rekeying a tomb for a vault-key rotation", () => {
     const next = await freshKey();
     unlockTomb(TOMB, old.vaultKey);
     const key = await rekeyTomb(TOMB, old.vaultKey, next.rawVaultKey);
-    expect(stored(INDEX_PATH)).toBeNull();
+    expect(stored(INDEX_PATH)).not.toBeNull();
     await writeFile(TOMB, A, new Uint8Array([7]));
     expect(await readFile(TOMB, A)).toEqual(new Uint8Array([7]));
     lockTomb(TOMB);

@@ -37,16 +37,26 @@ import {
 
 export { openJsonForRebind } from "@opensesame/vault-core";
 
+export class FileBackedRotationUnsupportedError extends Error {
+  constructor() {
+    super(
+      "This file-backed storage cannot atomically rotate the vault key. Move the vault to local browser storage before changing its root credential.",
+    );
+    this.name = "FileBackedRotationUnsupportedError";
+  }
+}
+
 /** Cancellation and original transport identity only; supplies no root or admission verdict. */
 function originalSealIO(check?: () => void) {
-  const { readRaw, writeRaw, open, seal } = vfsSeams;
+  const { readRaw, writeRaw, open, seal, refreshRaw } = vfsSeams;
   const active = () => {
     check?.();
     if (
       vfsSeams.readRaw !== readRaw ||
       vfsSeams.writeRaw !== writeRaw ||
       vfsSeams.open !== open ||
-      vfsSeams.seal !== seal
+      vfsSeams.seal !== seal ||
+      vfsSeams.refreshRaw !== refreshRaw
     )
       throw new Error("Original vault seal transport changed.");
   };
@@ -55,6 +65,7 @@ function originalSealIO(check?: () => void) {
     active,
     readRaw: readRaw.bind(vfsSeams),
     writeRaw: writeRaw.bind(vfsSeams),
+    refreshRaw,
     open: <T>(key: CryptoKey, blob: SealedBlob, binding?: string): Promise<T> =>
       open<T>(key, blob, binding),
     seal: seal.bind(vfsSeams),
@@ -69,10 +80,13 @@ function emptyIndex(): TombIndex {
 }
 
 function parseIndex(value: BoundaryValue): TombIndex {
-  if (!isJsonObject(value) || !isJsonObject(value.files)) return emptyIndex();
+  if (!isJsonObject(value) || value.v !== 1 || !isJsonObject(value.files))
+    throw new Error("The vault index could not be read.");
   const files: Record<string, number> = {};
   for (const [path, rev] of Object.entries(value.files)) {
-    if (isNumber(rev)) files[path] = rev;
+    if (!isNumber(rev) || !Number.isSafeInteger(rev) || rev < 1)
+      throw new Error("The vault index could not be read.");
+    files[path] = rev;
   }
   return { v: 1, files };
 }
@@ -132,7 +146,7 @@ async function rebindIndex(
     return empty;
   }
   const blob = parseBlob(raw);
-  if (!blob) return emptyIndex();
+  if (!blob) throw new Error("The vault index could not be read.");
   return parseIndex(await rewriteIfUnbound(tomb, key, INDEX_PATH, blob, io));
 }
 
@@ -146,20 +160,70 @@ export async function rebindTombSeals(
   check?: () => void,
 ): Promise<void> {
   const io = originalSealIO(check);
-  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") return;
+  await io.refreshRaw?.(
+    tombFileKey(tomb, SEAL_BOUND_MARKER_PATH),
+    65536,
+    io.active,
+  );
+  io.active();
+  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") {
+    if (io.refreshRaw) {
+      await io.refreshRaw(
+        tombFileKey(tomb, INDEX_PATH),
+        8 * 1024 * 1024,
+        io.active,
+      );
+      await io.refreshRaw(
+        tombFileKey(tomb, BODY_PATH),
+        256 * 1024 * 1024,
+        io.active,
+      );
+    }
+    const raw = io.readRaw(tombFileKey(tomb, INDEX_PATH));
+    const blob = raw ? parseBlob(raw) : null;
+    if (!blob) throw new Error("The vault index could not be read.");
+    parseIndex(
+      await io.open<BoundaryValue>(
+        key,
+        blob,
+        vaultSealBinding(tomb, INDEX_PATH),
+      ),
+    );
+    io.active();
+    return;
+  }
   // This runs first on a vault's first unlock, ahead of the unlock's own
   // hydrate: on a fresh page the index and the files it names are on disk but
   // not yet in memory. Reading them as absent would seal an empty index over
   // the real one and drop every file written before the reload from the listing.
-  await kvHydrate([
-    tombFileKey(tomb, INDEX_PATH),
-    tombFileKey(tomb, BODY_PATH),
-  ]);
+  if (io.refreshRaw) {
+    await io.refreshRaw(
+      tombFileKey(tomb, INDEX_PATH),
+      8 * 1024 * 1024,
+      io.active,
+    );
+    await io.refreshRaw(
+      tombFileKey(tomb, BODY_PATH),
+      256 * 1024 * 1024,
+      io.active,
+    );
+  } else
+    await kvHydrate([
+      tombFileKey(tomb, INDEX_PATH),
+      tombFileKey(tomb, BODY_PATH),
+    ]);
   const index = await rebindIndex(tomb, key, io);
   io.active();
   const paths = new Set<string>(Object.keys(index.files));
   paths.add(BODY_PATH);
-  await kvHydrate([...paths].map((path) => tombFileKey(tomb, path)));
+  if (io.refreshRaw) {
+    for (const path of paths)
+      await io.refreshRaw(
+        tombFileKey(tomb, path),
+        256 * 1024 * 1024,
+        io.active,
+      );
+  } else await kvHydrate([...paths].map((path) => tombFileKey(tomb, path)));
   for (const path of paths) {
     if (path === INDEX_PATH) continue;
     const raw = io.readRaw(tombFileKey(tomb, path));
@@ -232,6 +296,8 @@ export async function rekeyTomb(
   check?: () => void,
   turn?: TombWriteTurn,
 ): Promise<CryptoKey> {
+  if (vfsSeams.authenticationStorage === "file-backed")
+    throw new FileBackedRotationUnsupportedError();
   if (!turn)
     return withTombWriteTurn(tomb, (owned) =>
       rekeyTomb(tomb, from, nextRaw, check, owned),

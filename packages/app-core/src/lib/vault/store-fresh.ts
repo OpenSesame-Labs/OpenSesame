@@ -50,11 +50,14 @@ export async function freshBody(
     mark: string | null;
   }>,
   readHeader: () => VaultHeader | null,
+  check: () => void = () => {},
 ): Promise<FreshBody> {
+  check();
   const header = readHeader() ?? held.header;
   const mark = sealMark(tomb);
   if (mark !== null && mark === held.mark) return { header, body: null };
-  const disk = await loadVaultBody(tomb, vaultKey, header);
+  const disk = await loadVaultBody(tomb, vaultKey, header, check);
+  check();
   return {
     header,
     body: (disk.rev ?? 0) > (held.body.rev ?? 0) ? disk : null,

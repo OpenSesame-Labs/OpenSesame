@@ -7,6 +7,7 @@
  */
 
 import { overlapCast } from "@opensesame/os-domain";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { kvGet } from "../kv.js";
 import { activeProject, scopedKey } from "../projects.js";
 import { GUEST_TOMB } from "../vfs.js";
@@ -32,10 +33,11 @@ export function scopedVaultScope(): VaultScope {
 }
 
 /** Guest-beside-vault tomb — isolated, throwaway, never a project id. */
-export function guestVaultScope(): VaultScope {
+export function guestVaultScope(tomb: string = GUEST_TOMB): VaultScope {
+  if (!isGuestVaultId(tomb)) throw new Error("Invalid guest vault.");
   return {
-    tomb: GUEST_TOMB,
-    attempts: `${ATTEMPTS_KEY}.${GUEST_TOMB}`,
+    tomb,
+    attempts: `${ATTEMPTS_KEY}.${tomb}`,
   };
 }
 

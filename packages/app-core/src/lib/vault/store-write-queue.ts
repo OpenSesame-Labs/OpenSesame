@@ -1,5 +1,9 @@
 /** Ordinary promise ordering only; never receives a key, owner verdict or admission port. */
-import { type TombWriteTurn, withTombWriteTurn } from "../vfs-write-order.js";
+import {
+  type TombWriteTurn,
+  trackVfsWork,
+  withTombWriteTurn,
+} from "../vfs-write-order.js";
 import type { StorePreferences } from "./store-preferences.js";
 import { withBodyWriteLockOrBare } from "./vault-shared-locks.js";
 
@@ -18,9 +22,14 @@ export class StoreWriteQueue {
     currentTomb: () => string,
     completed: () => void,
   ): void => {
-    this.assign(
-      preferences.persist(tomb, this.pending(), currentTomb, completed),
+    const pending = preferences.persist(
+      tomb,
+      this.pending(),
+      currentTomb,
+      completed,
     );
+    this.assign(pending);
+    trackVfsWork(pending);
   };
   rootTurn = (
     tomb: string,

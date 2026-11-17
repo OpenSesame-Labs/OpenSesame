@@ -18,8 +18,14 @@ const utf8decode = new TextDecoder();
 export async function writePrefsJson(
   tomb: string,
   prefs: JsonObject,
+  check?: () => void,
 ): Promise<void> {
-  await writeFile(tomb, PREFS_CONFIG_PATH, utf8.encode(JSON.stringify(prefs)));
+  await writeFile(
+    tomb,
+    PREFS_CONFIG_PATH,
+    utf8.encode(JSON.stringify(prefs)),
+    check,
+  );
 }
 
 function asJsonValue(value: JsonValue): JsonValue {

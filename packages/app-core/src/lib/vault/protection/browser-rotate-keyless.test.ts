@@ -10,6 +10,8 @@ import {
   vi,
 } from "vitest";
 import { kvDelete } from "../../kv.js";
+import { installFileBackedVfs } from "../../secret-fs/install.js";
+import { makeMemorySecretFiles } from "../../secret-fs/memory.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -245,6 +247,14 @@ describe("a rotation that fails part-way puts the vault back", () => {
       if (key.endsWith(suffix)) throw new Error("disk full");
       return write(key, value);
     });
+    const guarded = vfsSeams.writeRawGuarded;
+    if (guarded)
+      vi.spyOn(vfsSeams, "writeRawGuarded").mockImplementation(
+        async (key, value, check, vaultKey) => {
+          if (key.endsWith(suffix)) throw new Error("disk full");
+          return guarded(key, value, check, vaultKey);
+        },
+      );
   }
 
   async function pinVaultWithFile(bytes: Uint8Array): Promise<VaultStore> {
@@ -286,4 +296,21 @@ describe("a rotation that fails part-way puts the vault back", () => {
     store.lock();
     await stillOpensWithTheOldPin(bytes);
   });
+});
+
+it("refuses file-backed root rotation without locking the current session", async () => {
+  const restore = await installFileBackedVfs(makeMemorySecretFiles());
+  try {
+    const store = newStore();
+    await store.createWithPin(OLD_PIN);
+    await store.protection.ensureProtectionProjected();
+    const before = store.getSnapshot().header;
+    await expect(
+      store.protection.rotateCompromisedRoot({ pin: NEW_PIN }),
+    ).rejects.toThrow(/cannot atomically rotate/i);
+    expect(store.getSnapshot().status).toBe("unlocked");
+    expect(store.getSnapshot().header).toEqual(before);
+  } finally {
+    restore();
+  }
 });
