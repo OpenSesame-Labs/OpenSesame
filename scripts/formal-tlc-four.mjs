@@ -19,7 +19,7 @@ if (!jar) {
     "TLA2TOOLS_JAR unset; see spec/ui-behavior/README.md",
   );
   console.error("TLA2TOOLS_JAR unset");
-  process.exit(0);
+  process.exit(1);
 }
 const digest = createHash("sha256").update(readFileSync(jar)).digest("hex");
 if (

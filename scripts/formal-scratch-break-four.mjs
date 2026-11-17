@@ -28,22 +28,31 @@ function section(name, fn) {
   const log = join(logDir, `${name}.log`);
   writeFileSync(log, `# ${name} scratch-break\n`);
   const append = (text) => appendFileSync(log, text);
+  append("## baseline (must pass)\n");
   try {
-    append("## baseline (must pass)\n");
     append(fn.baseline());
-    append("\n## scratch (must fail)\n");
+  } catch (baselineErr) {
+    append(
+      `BASELINE FAILED: ${baselineErr.stdout ?? baselineErr.message ?? baselineErr}\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  append("\n## scratch (must fail)\n");
+  try {
     fn.scratch();
     append("UNEXPECTED: scratch did not fail\n");
     process.exitCode = 1;
+    return;
   } catch (error) {
     append(String(error.stdout ?? error.message ?? error));
-    append("\n## revert (must pass again)\n");
-    try {
-      append(fn.baseline());
-    } catch (revertErr) {
-      append(`REVERT FAILED: ${revertErr}`);
-      process.exitCode = 1;
-    }
+  }
+  append("\n## revert (must pass again)\n");
+  try {
+    append(fn.baseline());
+  } catch (revertErr) {
+    append(`REVERT FAILED: ${revertErr}`);
+    process.exitCode = 1;
   }
 }
 
