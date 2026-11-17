@@ -162,3 +162,34 @@ test("a source change is refused even when the SDK distribution is unchanged", (
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("an unreviewed importer cannot silently gain a partial SDK", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "kdbx-importer-unreviewed-"));
+  try {
+    const packageRoot = resolve(
+      directory,
+      "packages/app-core/node_modules/kdbxweb",
+    );
+    mkdirSync(resolve(packageRoot, "dist"), { recursive: true });
+    writeFileSync(
+      resolve(packageRoot, "package.json"),
+      '{"main":"dist/kdbxweb.js"}',
+    );
+    cpSync(sdk, resolve(packageRoot, "dist/kdbxweb.js"));
+    cpSync(resolve(dirname(dirname(sdk)), "lib"), resolve(packageRoot, "lib"), {
+      recursive: true,
+    });
+    const importer = resolve(
+      directory,
+      "packages/app-core/src/lib/vault/import/formats/kdbx.ts",
+    );
+    mkdirSync(dirname(importer), { recursive: true });
+    writeFileSync(importer, "import('kdbxweb').then(sdk => sdk.KdbxMeta);");
+    assert.throws(
+      () => kdbxNativeDOM(directory).buildStart(),
+      /reviewed importer/,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

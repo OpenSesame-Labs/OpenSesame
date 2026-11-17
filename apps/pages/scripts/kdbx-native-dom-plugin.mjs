@@ -62,8 +62,13 @@ export function kdbxNativeDOM(root) {
       throw new Error(
         "KDBX source adapter requires the reviewed source bytes.",
       );
-    const importerBytes = readFileSync(importer, "utf8").replaceAll("\r\n", "\n");
-    if (createHash("sha256").update(importerBytes).digest("hex") !== importerHash)
+    const importerBytes = readFileSync(importer, "utf8").replaceAll(
+      "\r\n",
+      "\n",
+    );
+    if (
+      createHash("sha256").update(importerBytes).digest("hex") !== importerHash
+    )
       throw new Error("KDBX source adapter requires the reviewed importer.");
   };
   return {
