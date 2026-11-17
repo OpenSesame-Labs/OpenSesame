@@ -53,12 +53,14 @@ let signed;
 
 async function compile(plugins, name, unowned = false) {
   const entry = "\0owned-saml-application-test";
-  const owned = ["xml-signature", "metadata", "authn-request"]
-    .map(
-      (file) =>
-        `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
-    )
-    .join("\n");
+  const owned =
+    ["xml-signature", "metadata", "authn-request"]
+      .map(
+        (file) =>
+          `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
+      )
+      .join("\n") +
+    `\nexport { verifyPasskeyRegistration, verifyPasskeyAuthentication } from ${JSON.stringify(resolve(root, "packages/auth-upstream/src/browser.ts"))};`;
   const code =
     unowned === "root"
       ? `export { SignedXml } from ${JSON.stringify(resolve(input.esm, "index.js"))};`
@@ -217,9 +219,9 @@ it("retains the official XML verifier/canonicalizer with one existing certificat
   expect(
     included.some((id) => id.endsWith("/xmldsigjs/build/canonicalizer.js")),
   ).toBe(true);
-  expect(
-    included.filter((id) => id.endsWith("/@peculiar/x509/build/index.js")),
-  ).toHaveLength(1);
+  expect(included.filter((id) => id === input.sharedCertificate)).toHaveLength(
+    1,
+  );
   expect(included.some((id) => /\/(pkijs|bytestreamjs)\//.test(id))).toBe(
     false,
   );

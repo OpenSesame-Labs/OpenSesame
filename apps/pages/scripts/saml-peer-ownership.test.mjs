@@ -22,26 +22,23 @@ it("resolves each XML signature peer at its pinned compatible version", () => {
   expect(version(sdk, "pkijs")).toBe("4.0.1");
 });
 
-it("resolves the certificate parser and its nested ASN.1 peers consistently", () => {
-  const schema = realpathSync(core.resolve("@peculiar/asn1-schema"));
-  for (const name of [
-    "@peculiar/x509",
-    "@peculiar/asn1-x509-post-quantum",
-    "@peculiar/asn1-asym-key",
-  ]) {
-    const owner = createRequire(core.resolve(name));
-    expect(version(owner, "@peculiar/asn1-schema"), name).toBe("3.0.0");
-    expect(version(owner, "asn1js"), name).toBe("4.0.0");
-    expect(realpathSync(owner.resolve("@peculiar/asn1-schema")), name).toBe(
-      schema,
-    );
-  }
-});
-
-it("keeps WebAuthn on one shared ASN.1 registry separate from SAML", () => {
+it("shares the certificate parser and ASN.1 registry with WebAuthn", () => {
   const schema = realpathSync(workspace.resolve("@peculiar/asn1-schema"));
   expect(version(workspace, "@peculiar/asn1-schema")).toBe("2.11.1");
   expect(schema).not.toBe(realpathSync(core.resolve("@peculiar/asn1-schema")));
+  expect(version(core, "@peculiar/x509")).toBe("1.14.3");
+  expect(realpathSync(core.resolve("@peculiar/x509"))).toBe(
+    realpathSync(workspace.resolve("@peculiar/x509")),
+  );
+  const upstream = createRequire(
+    resolve(root, "packages/auth-upstream/package.json"),
+  );
+  expect(version(upstream, "asn1js")).toBe("3.1.0");
+  expect(realpathSync(upstream.resolve("asn1js"))).toBe(
+    realpathSync(
+      createRequire(core.resolve("@peculiar/x509")).resolve("asn1js"),
+    ),
+  );
   for (const name of [
     "@simplewebauthn/server",
     "@peculiar/x509",
@@ -53,5 +50,6 @@ it("keeps WebAuthn on one shared ASN.1 registry separate from SAML", () => {
     expect(realpathSync(owner.resolve("@peculiar/asn1-schema")), name).toBe(
       schema,
     );
+    expect(version(owner, "asn1js"), name).toBe("3.1.0");
   }
 });
