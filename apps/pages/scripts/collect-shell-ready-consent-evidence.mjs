@@ -28,7 +28,10 @@ const shellReadyPath = join(pagesRoot, "src/bindings/shell-ready.ts");
 const outRoot =
   process.env.PAGES_VERIFY_OUT ??
   join(repoRoot, "artifacts/shell-ready-consent");
-const mirrorRoot = "/opt/cursor/artifacts/shell-ready-consent";
+const mirrorRoot =
+  outRoot === join(repoRoot, "artifacts/shell-ready-consent")
+    ? "/opt/cursor/artifacts/shell-ready-consent"
+    : outRoot;
 const logDir = join(outRoot, "logs");
 const BEHAVIOR_SPEC =
   "src/app-root.shell-ready.test.tsx -t withdraws contributed";
@@ -146,7 +149,15 @@ if (process.env.SKIP_VAULT_SHELL_CAPTURE === "1" && existsSync(vaultManifest)) {
 }
 
 const timingByProfile = {};
-for (const walk of walks) {
+const consentProfiles = (process.env.CONSENT_PROFILES ?? "")
+  .split(",")
+  .map((name) => name.trim())
+  .filter(Boolean);
+const timingWalks =
+  consentProfiles.length > 0
+    ? walks.filter((walk) => consentProfiles.includes(walk.name))
+    : walks.filter((walk) => walk.name !== "custom");
+for (const walk of timingWalks) {
   const mainDist = join(pagesRoot, `dist-timing-${walk.name}-main`);
   const fixDist = join(pagesRoot, `dist-timing-${walk.name}-fix`);
   withShellSource(mainSource, () => {
