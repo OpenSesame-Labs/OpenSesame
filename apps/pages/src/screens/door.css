@@ -62,6 +62,11 @@
   gap: 0.5rem;
 }
 
+/* Offers share the gate's flow and add no empty grid item when absent. */
+.first-visit-host {
+  display: contents;
+}
+
 /* The third road — a vault that begins from a file — sits under the pair,
    across both columns: it is another kind of road, not a third of a row. */
 .road--wide {

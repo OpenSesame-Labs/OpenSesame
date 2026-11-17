@@ -81,6 +81,7 @@ export function UnlockStage({
         </div>
         <GateNoticeSeat />
         {children}
+        <div className="first-visit-host" data-first-visit-offer />
       </div>
       {vaultUnlocked ? null : <ReleaseNotes ref={notesRef} />}
     </div>

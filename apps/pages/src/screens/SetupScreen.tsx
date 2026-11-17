@@ -328,12 +328,14 @@ export function SetupScreen({
             <current.Panel />
           ) : null}
 
-          {/* Not a question — an offer with no wrong answer, below the
-                  step that is on screen and withheld entirely where the
-                  browser will not install. ADR 0086. */}
           <GuideTarget id="setup.keep">
             <KeepIt />
           </GuideTarget>
+          <div
+            className="first-visit-host"
+            data-first-visit-offer
+            data-first-visit-return="setup.finish"
+          />
         </main>
 
         <div className="setup__foot">

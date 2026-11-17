@@ -265,7 +265,7 @@ phone's actions are redrawn for a thumb:
 - **The list's header** is back and the view it is showing, *named* — `All
   items ▾`, one choice the width of the rest and 48px tall
   (`VaultFilterMenu`), in the accent colour while it narrows the vault.
-- **Adding is one button, in the bottom corner** (`NewItemFab`): the `+`, a
+- **Adding an item is one button on the list, in the bottom corner** (`NewItemFab`): the `+`, a
   56px sharp square, is the default and one tap. It has no ellipsis and opens
   no sheet. **Holding it draws a drag area** (`AddSlide`): a square zone above
   the button and one below, each named beside it — slide up to Import, slide
@@ -445,9 +445,10 @@ A finger is not a mouse pointer, and the phone is not a narrow desktop.
   page with tabs turns to the next or the previous tab, then the
   two-finger swipes, the two-finger tap and the shake in force — and what
   the vault's first pane asks of a thumb is drawn for one: search is the
-  status-line prompt (`/? words`), the one text input on the screen, and adding
-  is one button in the bottom corner — a `+`, with Import and Export a hold and
-  a slide away — not the desktop's row of small keys. A row never lists a
+  status-line prompt (`/? words`), the one text input on the screen. The
+  section tree offers **New vault**; the item list has one `+` in the bottom
+  corner, with Import and Export a hold and a slide away, not the desktop's row
+  of small keys. A row never lists a
   gesture with no recogniser behind it. Gestures are twins, never the only
   road, and a command that asks before it acts (trash, share) is still never a
   gesture of its own — it is an entry in the actions a hold or swipe opens.
