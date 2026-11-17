@@ -98,3 +98,20 @@ digest, the complete source inventory, and every file against the archive with
 only the reviewed manifest substitution. The structural quality gate runs this
 verification before excluding the immutable third-party source from the
 repository's source-size ratchet; CI runs it alongside the other patch checks.
+
+## Keepass timestamp parsing backport
+
+`patches/vendor/keepass-0.17.0/` is the published `keepass` 0.17.0 crate
+(SHA-256 `8025344cf174f72cccbac2a99640a8d1e82cf46922d57e06a45a32e49edfed16`).
+The only source change requires KDBX4 binary timestamps to decode to exactly
+eight bytes and uses checked date arithmetic. This prevents malformed vault
+timestamps from panicking the importer or overflowing the representable date
+range. The original archive, licenses, and every unchanged source byte remain
+in the repository.
+
+`python3 scripts/security/verify-vendored-keepass.py` checks the published
+archive digest, full file inventory, exact patched-file digest, both Cargo path
+bindings, and both lockfile identities. The structural quality gate verifies
+those conditions before excluding immutable upstream source from its ratchet.
+`check-keepass-scanner-coverage.py` additionally proves that the offline OSV
+gate continues to inspect the path dependency in both Cargo lockfiles.

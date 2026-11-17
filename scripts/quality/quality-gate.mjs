@@ -161,6 +161,14 @@ execFileSync(
     stdio: "inherit",
   },
 );
+execFileSync(
+  "python3",
+  [join(root, "scripts/security/verify-vendored-keepass.py")],
+  {
+    cwd: root,
+    stdio: "inherit",
+  },
+);
 const measured = measureStructure(root, oxlintConfig);
 const baseline = relocatePath ? relocated(readBaseline()) : readBaseline();
 

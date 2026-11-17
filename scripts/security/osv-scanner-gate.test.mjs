@@ -33,6 +33,10 @@ function fixture(t) {
     join(repo, "scripts/security/check-sqlx-scanner-coverage.py"),
     'import os, sys\nsys.exit(int(os.environ.get("OSV_TEST_SQLX_COVERAGE_STATUS", "0")))\n',
   );
+  writeFileSync(
+    join(repo, "scripts/security/check-keepass-scanner-coverage.py"),
+    'import os, sys\nsys.exit(int(os.environ.get("OSV_TEST_KEEPASS_COVERAGE_STATUS", "0")))\n',
+  );
   mkdirSync(join(repo, "tools/pwa-tailscale-native-http"), { recursive: true });
   writeFileSync(
     join(repo, "tools/pwa-tailscale-native-http/source.json"),
@@ -177,6 +181,15 @@ test("the local SQLx replacement requires successful scanner coverage", (t) => {
   assert.notEqual(failed.status, 0);
   assert.doesNotMatch(failed.stdout, /CLEAN/);
   rmSync(join(gate.repo, "scripts/security/check-sqlx-scanner-coverage.py"));
+  assert.notEqual(gate.run().status, 0);
+});
+
+test("the local Keepass replacement requires successful scanner coverage", (t) => {
+  const gate = fixture(t);
+  const failed = gate.run({ OSV_TEST_KEEPASS_COVERAGE_STATUS: "1" });
+  assert.notEqual(failed.status, 0);
+  assert.doesNotMatch(failed.stdout, /CLEAN/);
+  rmSync(join(gate.repo, "scripts/security/check-keepass-scanner-coverage.py"));
   assert.notEqual(gate.run().status, 0);
 });
 
