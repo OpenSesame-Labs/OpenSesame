@@ -8,8 +8,9 @@ import {
 } from "../provenance.mjs";
 import { EVIDENCE_ASSETS, productAssets } from "../stage-release.mjs";
 import { verifySite } from "../verify-site.mjs";
-import { envelope, validateManifest } from "./candidate-model.mjs";
+import { validateManifest } from "./candidate-model.mjs";
 import { ROOT, demand, digest, hash } from "./candidate-policy.mjs";
+import { validatePromotion } from "./candidate-promotion.mjs";
 
 export function samePublishedPayload(published, selected) {
   validateManifest(published, {
@@ -144,24 +145,6 @@ async function retainMetadata(service, release, publishedBytes, metadata) {
     );
     await writeFile(join(metadata, name), bytes);
   }
-}
-
-function validatePromotion(promotion, published, publishedBytes, repository) {
-  demand(
-    promotion.format === "opensesame-promotion" &&
-      promotion.schema_version === 1 &&
-      promotion.repository === repository,
-    "Unknown published promotion schema",
-  );
-  const promoted = envelope(promotion.candidate);
-  demand(
-    promoted.candidate_id === published.candidate_id &&
-      promoted.source_sha === published.source_sha &&
-      promoted.run_id === String(published.producer.run_id) &&
-      promoted.run_attempt === String(published.producer.run_attempt) &&
-      promoted.payload_digest === hash(publishedBytes),
-    "Published promotion does not authorize this candidate",
-  );
 }
 
 async function verifyPublishedProofs(service, metadata, published, promotion) {

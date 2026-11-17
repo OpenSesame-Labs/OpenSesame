@@ -42,6 +42,8 @@
     "verify:sw-dirty-edit": "node scripts/verify-sw-dirty-edit.mjs",
     "verify:mobile": "node scripts/verify-mobile.mjs",
     "verify:header-layout": "node scripts/verify-header-layout.mjs",
+    "verify:shell-ready-consent": "node scripts/verify-shell-ready-consent.mjs",
+    "collect:shell-ready-consent-evidence": "node scripts/collect-shell-ready-consent-evidence.mjs",
     "verify:local-iam": "vitest run scripts/local-iam-headers.test.mjs && node scripts/verify-local-iam.mjs",
     "verify:siop": "vitest run scripts/siop-headers.test.mjs && node scripts/verify-siop.mjs",
     "verify:webmcp": "node scripts/verify-webmcp.mjs",
