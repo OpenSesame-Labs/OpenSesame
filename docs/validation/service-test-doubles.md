@@ -21,7 +21,7 @@ they begin; `scope.use(await startService())` is for sequential setup.
 
 | Boundary | Local counterpart | What still needs a real service |
 |---|---|---|
-| Host API | [`@opensesame/api-client/testkit`](../../packages/api-client/README.md#scripted-host-http-stub) scripts responses through the client's real `fetchImpl`. | The stub has no gateway, authentication, authorization, storage, DPoP or TLS. Use gateway and live-stack tests. |
+| Host API | [`@opensesame/api-client/testkit`](../../packages/api-client/README.md#scripted-host-http-stub) scripts responses through the client's real `fetchImpl` and composes explicit service origins. | The stub has no gateway, authentication, authorization, storage, DPoP or TLS. Use gateway and live-stack tests. |
 | Local daemon | [`DaemonTestkit`](../../crates/daemon/README.md#test-the-daemons-local-routes) runs selected production routes with isolated in-memory state and an operator token. | Real sign-in, discovery, proxying, credential fill, persistence and OS peer identity require their existing integration tests. |
 | Identity API | [`@opensesame/identity-testkit`](../../packages/identity-testkit/README.md) starts the real Identity HTTP dispatcher and issuer with memory-backed state. | Production Postgres, external providers, TLS and hardware; see its README for process-global limitations. |
 | Upstream identity | [`@opensesame/mock-upstream-idp/testkit`](../../tools/mock-upstream-idp/README.md) serves signed local OIDC/SAML and selected OAuth2 flows, and drives a PKCE grant for real token consumers; an LDAP stand-in is also provided. | Individual real IdP policies, account recovery, passkey authenticators and deployment configuration. The fixture auto-approves a synthetic user. |
