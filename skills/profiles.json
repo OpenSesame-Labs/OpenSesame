@@ -19,7 +19,8 @@
         "security-review",
         "visual-evidence",
         "formal-verification",
-        "verify-formal-vault"
+        "verify-formal-vault",
+        "verify-formal-proxy-lease"
       ]
     },
     "reusable-optional": {
