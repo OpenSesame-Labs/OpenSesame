@@ -73,7 +73,7 @@ impl TailnetAdminHost {
     }
 
     /// No state directory: every route refuses (tests that do not use it).
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testkit"))]
     pub(crate) fn detached() -> Self {
         Self::at(None, Upstream::production())
     }

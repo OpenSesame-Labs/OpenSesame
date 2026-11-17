@@ -11,6 +11,11 @@ use super::ratelimit;
 use super::tailnet_admin_routes;
 use super::App;
 
+#[cfg(feature = "testkit")]
+mod harness;
+#[cfg(feature = "testkit")]
+pub use harness::{DaemonTestkit, RunningDaemon};
+
 pub(crate) fn test_operator_token() -> &'static str {
     static TOKEN: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
         format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
@@ -18,6 +23,7 @@ pub(crate) fn test_operator_token() -> &'static str {
     &TOKEN
 }
 
+#[cfg(test)]
 pub(crate) fn test_router(host_api: &str) -> (axum::Router, App) {
     let state = test_state(host_api);
     (super::router(state.clone()), state)

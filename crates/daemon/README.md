@@ -74,9 +74,50 @@ Source areas under `src/`: `discovery.rs`, `keychain.rs`, `cli_probe.rs`,
 
 ## Develop
 
+### Test the daemon's local routes
+
+The `testkit` feature exposes `test_fixtures::DaemonTestkit`. It mounts the
+same route handlers used by the daemon for `/health`, `/health/live`,
+`/v1/list_sessions`, `/v1/mint_capability`, `/v1/introspect_capability`,
+`/v1/revoke` and `/v1/helper-mints[/{connection_id}]`. State is in memory and
+every fixture generates its own operator token. Use it from a dev-dependency:
+
+```toml
+opensesame-daemon = { path = "../daemon", features = ["testkit"] }
+```
+
+```rust,no_run
+use opensesame_daemon::test_fixtures::DaemonTestkit;
+
+let daemon = DaemonTestkit::new();
+let server = daemon.start().await?; // ephemeral 127.0.0.1 port
+let base = server.base_url();
+let operator = daemon.operator_token();
+// Point a client at `base` and use `operator` for operator routes.
+server.close().await?;
+# Ok::<(), std::io::Error>(())
+```
+
+`router()` supplies the same handlers as an Axum service for in-process tests.
+`seed_session(id, principal)` inserts a synthetic session to exercise
+capability issuance and revocation; it does not authenticate anyone. Create a
+new fixture for empty state. `close().await` stops the server, allows active
+requests 500 ms to finish and cancels any remaining connections; it returns an
+error if shutdown cannot be confirmed within three seconds. Dropping its handle
+initiates the same shutdown without waiting. State remains alive until the
+fixture and any router/server clones are dropped.
+
+The fixture deliberately omits discovery, Host/Identity proxies, Unix-socket
+peer attestation, plugins, fill, and upstream calls. It does not apply the
+production listener's CORS/security-header wrapper or startup configuration
+checks. It therefore does not prove sign-in, real credential use, filesystem
+persistence, TLS, process isolation, or socket authorization; use the real
+daemon and integration suites for those behaviors.
+
 ```bash
 cargo test -p opensesame-daemon
 cargo test -p opensesame-daemon --features tailscale
+cargo test -p opensesame-daemon --features testkit --test testkit
 cargo run -p opensesame-cli -- daemon run --help
 npm run audit:daemon-deps
 ```

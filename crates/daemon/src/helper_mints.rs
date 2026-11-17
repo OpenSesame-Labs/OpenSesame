@@ -121,7 +121,7 @@ impl HelperMints {
     }
 
     /// An empty list that is never written down.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testkit"))]
     pub(crate) fn in_memory() -> Self {
         Self::open(None, "")
     }
