@@ -552,9 +552,11 @@ The graph's `graphFormat` value `opensesame-capability-graph/2` identifies a
 lossless source-record encoding. Each chunk's `modules` is an ownership
 projection retained for already-installed service workers; it is not the
 source inventory. Complete source records are in `sourceModules`: each row is
-`[id, classification, capabilityIndex, rationaleIndex, size, moduleId?]`,
-with indices into the top-level `sourceCapabilities` and `sourceRationales`
-arrays. Use `decodeGraph` from `apps/pages/src/sw/graph-records.ts` to obtain
+`[id, classification, capabilityIndex, rationaleIndex, size, moduleId?]`.
+An `id` is either a complete string or `[pathIndex, suffix]`, where the index
+selects a prefix from `sourcePaths`. The other indices select entries in the
+top-level `sourceCapabilities` and `sourceRationales` arrays. Use
+`decodeGraph` from `apps/pages/src/sw/graph-records.ts` to obtain
 the former full `chunks[].modules` records. The decoder rejects unknown
 formats, invalid indices and projections that disagree with the source rows.
 Readers that previously used `chunks[].modules[].id`, `rationale` or `size`

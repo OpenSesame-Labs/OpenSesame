@@ -29,7 +29,7 @@ const graph: JsonObject = {
       imports: ["shared.js"],
       dynamicImports: ["mixed.js", "on-demand.js"],
       modules: [
-        module("main", "core", null),
+        module("apps/pages/src/main.ts", "core", null),
         module("bootstrap", "core", null),
       ],
     },
@@ -65,6 +65,7 @@ function legacyProjection(wire: JsonObject): JsonObject {
     graphFormat: _format,
     sourceCapabilities: _capabilities,
     sourceRationales: _rationales,
+    sourcePaths: _paths,
     ...legacy
   } = wire;
   const chunks = legacy.chunks;
@@ -121,6 +122,10 @@ describe("capability graph source records", () => {
     const copy = () => JSON.parse(JSON.stringify(wire));
     const invalidIndex = copy();
     invalidIndex.chunks[0].sourceModules[0][2] = 999999;
+    const invalidPath = copy();
+    invalidPath.chunks[0].sourceModules[0][0][0] = 999999;
+    const duplicatePaths = copy();
+    duplicatePaths.sourcePaths.push(duplicatePaths.sourcePaths[0]);
     const alteredOwner = copy();
     alteredOwner.chunks[2].modules[0].classification = "shared";
     const missingFormat = copy();
@@ -131,6 +136,8 @@ describe("capability graph source records", () => {
     missingProvenance.chunks[0].sourceModules[0].pop();
     for (const damaged of [
       invalidIndex,
+      invalidPath,
+      duplicatePaths,
       alteredOwner,
       missingFormat,
       future,

@@ -6,6 +6,17 @@ import type {
 } from "@opensesame/os-domain";
 
 const FORMAT = "opensesame-capability-graph/2";
+// Store common source roots once while leaving arbitrary paths representable.
+const SOURCE_PATHS = [
+  "packages/app-core/src/lib/vault/",
+  "packages/app-core/src/lib/",
+  "packages/app-core/src/",
+  "apps/pages/src/sections/",
+  "apps/pages/src/components/",
+  "apps/pages/src/",
+  "node_modules/@peculiar/",
+  "node_modules/",
+];
 
 type Source = {
   id: string;
@@ -119,7 +130,8 @@ export function encodeGraph(value: BoundaryValue): JsonObject {
     !Array.isArray(value.chunks) ||
     value.graphFormat !== undefined ||
     value.sourceCapabilities !== undefined ||
-    value.sourceRationales !== undefined
+    value.sourceRationales !== undefined ||
+    value.sourcePaths !== undefined
   )
     throw new Error("Invalid source capability graph");
   const capabilities: (string | null)[] = [];
@@ -151,8 +163,11 @@ export function encodeGraph(value: BoundaryValue): JsonObject {
       return result;
     });
     const sourceModules: JsonValue[] = records.map((entry) => {
+      const path = SOURCE_PATHS.findIndex((prefix) =>
+        entry.id.startsWith(prefix),
+      );
       const row: JsonValue[] = [
-        entry.id,
+        path < 0 ? entry.id : [path, entry.id.slice(SOURCE_PATHS[path].length)],
         entry.classification,
         intern(entry.capability, capabilities, capIndex),
         intern(entry.rationale, rationales, reasonIndex),
@@ -168,6 +183,7 @@ export function encodeGraph(value: BoundaryValue): JsonObject {
     graphFormat: FORMAT,
     sourceCapabilities: capabilities,
     sourceRationales: rationales,
+    sourcePaths: [...SOURCE_PATHS],
     chunks,
   };
 }
@@ -185,10 +201,20 @@ function decodeSource(
   row: BoundaryValue,
   capabilities: JsonValue[],
   rationales: JsonValue[],
+  paths: JsonValue[],
 ): Source | null {
   if (!Array.isArray(row) || (row.length !== 5 && row.length !== 6))
     return null;
-  const [id, classification, cap, reason, size, moduleId] = row;
+  const [encodedId, classification, cap, reason, size, moduleId] = row;
+  let id: string | null = isString(encodedId) ? encodedId : null;
+  if (
+    Array.isArray(encodedId) &&
+    encodedId.length === 2 &&
+    validIndex(encodedId[0], paths.length) &&
+    isString(paths[encodedId[0]]) &&
+    isString(encodedId[1])
+  )
+    id = `${paths[encodedId[0]]}${encodedId[1]}`;
   if (
     !isString(id) ||
     !isClassification(classification) ||
@@ -236,6 +262,7 @@ function decodeChunk(
   chunk: BoundaryValue,
   capabilities: JsonValue[],
   rationales: JsonValue[],
+  paths: JsonValue[],
 ): JsonObject | null {
   if (
     !object(chunk) ||
@@ -245,7 +272,7 @@ function decodeChunk(
     return null;
   const records: Source[] = [];
   for (const row of chunk.sourceModules) {
-    const record = decodeSource(row, capabilities, rationales);
+    const record = decodeSource(row, capabilities, rationales, paths);
     if (!record) return null;
     records.push(record);
   }
@@ -257,12 +284,15 @@ function decodeChunk(
 function validTables(
   capabilities: JsonValue[],
   rationales: JsonValue[],
+  paths: JsonValue[],
 ): boolean {
   return (
     capabilities.every(isNullableString) &&
     rationales.every(isString) &&
+    paths.every((path) => isString(path) && path.length > 0) &&
     new Set(capabilities).size === capabilities.length &&
-    new Set(rationales).size === rationales.length
+    new Set(rationales).size === rationales.length &&
+    new Set(paths).size === paths.length
   );
 }
 
@@ -273,6 +303,7 @@ export function decodeGraph(value: BoundaryValue): JsonObject | null {
     if (
       value.sourceCapabilities !== undefined ||
       value.sourceRationales !== undefined ||
+      value.sourcePaths !== undefined ||
       value.chunks.some(
         (chunk) => object(chunk) && chunk.sourceModules !== undefined,
       )
@@ -284,7 +315,12 @@ export function decodeGraph(value: BoundaryValue): JsonObject | null {
     value.graphFormat !== FORMAT ||
     !Array.isArray(value.sourceCapabilities) ||
     !Array.isArray(value.sourceRationales) ||
-    !validTables(value.sourceCapabilities, value.sourceRationales)
+    !Array.isArray(value.sourcePaths) ||
+    !validTables(
+      value.sourceCapabilities,
+      value.sourceRationales,
+      value.sourcePaths,
+    )
   )
     return null;
   const chunks: JsonObject[] = [];
@@ -293,6 +329,7 @@ export function decodeGraph(value: BoundaryValue): JsonObject | null {
       chunk,
       value.sourceCapabilities,
       value.sourceRationales,
+      value.sourcePaths,
     );
     if (!decoded) return null;
     chunks.push(decoded);
@@ -301,6 +338,7 @@ export function decodeGraph(value: BoundaryValue): JsonObject | null {
     graphFormat: _graphFormat,
     sourceCapabilities: _sourceCapabilities,
     sourceRationales: _sourceRationales,
+    sourcePaths: _sourcePaths,
     ...rest
   } = value;
   return { ...rest, chunks };
