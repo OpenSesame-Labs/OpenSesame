@@ -2,12 +2,7 @@
 /** Run scratch-break replay tests for #2608 formal subsystems; writes logs under SCRATCH_LOG_DIR. */
 
 import { execFileSync } from "node:child_process";
-import {
-  appendFileSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const repo = resolve(import.meta.dirname, "..");
@@ -126,7 +121,8 @@ section("onboarding-recovery", {
       "onboarding-recovery-formal",
     ]),
   scratch: () => {
-    const path = "packages/app-core/src/lib/vault/store-presentation.ts";
+    const path =
+      "packages/app-core/src/lib/vault/store-presentation.ts";
     const text = readFileSync(join(repo, path), "utf8");
     const broken = text.replace(
       "awaitingSecondStep: pending && !open",

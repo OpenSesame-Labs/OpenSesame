@@ -13,7 +13,8 @@ Init ==
 
 Revoke ==
   /\ revoked' = TRUE
-  /\ UNCHANGED <<expired, resolves>>
+  /\ resolves' = FALSE
+  /\ UNCHANGED expired
 
 Expire ==
   /\ expired' = TRUE
