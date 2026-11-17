@@ -324,9 +324,7 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": [
-        "authority-api"
-      ],
+      "artifacts": ["authority-api"],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
