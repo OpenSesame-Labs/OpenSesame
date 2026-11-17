@@ -1,0 +1,34 @@
+{
+  "name": "@opensesame/identity-testkit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated loopback Identity service for integration tests",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opensesame/control-plane": "*",
+    "@opensesame/os-domain": "*",
+    "@opensesame/testing": "*"
+  },
+  "devDependencies": {
+    "@opensesame/sdk-cli": "*",
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "4.1.12"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenSesame-Labs/OpenSesame.git"
+  }
+}

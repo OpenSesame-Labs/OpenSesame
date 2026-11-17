@@ -31,12 +31,18 @@ describe("Rust fuzz tooling", () => {
       join(root, ".github/workflows/ci-release-checks.yml"),
       "utf8",
     );
-    const toolchain =
-      /OPENSESAME_FUZZ_TOOLCHAIN: (nightly-\d{4}-\d{2}-\d{2})/u.exec(
-        workflow,
-      )?.[1];
+    const declared = [
+      ...workflow.matchAll(
+        /OPENSESAME_FUZZ_TOOLCHAIN: (nightly-\d{4}-\d{2}-\d{2})/gu,
+      ),
+    ].map((match) => match[1]);
+    const toolchain = declared[0];
     expect(toolchain).toBeDefined();
-    expect(workflow).toContain(`toolchain: ${toolchain}`);
+    expect(new Set(declared).size).toBe(1);
+    expect(workflow).toContain(
+      `install_args: rust[components=miri]@${toolchain}`,
+    );
+    expect(workflow).toContain(`MIRI_TOOLCHAIN: ${toolchain}`);
   });
 
   it.each(["scripts/fuzz/fuzz-pr-gate.sh", "scripts/fuzz/fuzz-batch.sh"])(

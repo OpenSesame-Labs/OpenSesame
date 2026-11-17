@@ -45,6 +45,45 @@ npm run typecheck -w @opensesame/api-client
 The Host API's OpenAPI description is
 [`spec/openapi/host-api.yaml`](../../spec/openapi/host-api.yaml).
 
+## Scripted Host HTTP stub
+
+Tests can opt in to `@opensesame/api-client/testkit`. The stub implements the
+same `fetchImpl` interface used by the real client; it never opens a listener
+or makes a network request. Register each expected method and pathname, and
+the handler can inspect its `Request` (including query, headers and body):
+
+```ts
+import { createApiClient } from "@opensesame/api-client";
+import { createHostApiStub } from "@opensesame/api-client/testkit";
+
+const host = createHostApiStub();
+try {
+  host.route("GET", "/api/v1/connections", () =>
+    Response.json({ connections: [] }),
+  );
+  const client = createApiClient({ baseUrl: host.baseUrl, fetchImpl: host.fetchImpl });
+  await client.listConnections();
+} finally {
+  await host.close();
+}
+```
+
+An unregistered method/path or a different origin fails immediately; there
+are no built-in successful routes. `reset()` removes routes and invalidates
+handlers that have not returned a response, and `close()` disposes of the
+stub. Once a handler returns a response, its body is owned by the caller;
+reset and close cannot cancel a body already being read. Await or cancel such
+bodies before resetting or disposing the stub. Separate instances have
+separate state. Tests may register a handler for a refusal or return a sequence
+of responses from a closure. The caller is responsible for keeping test data
+synthetic; the stub itself does not record requests.
+
+This is a programmable stub, not a simulated gateway. It does not implement
+authentication, authorization, DPoP, persistence, transport security, or
+the Host's other behavior, and a scripted success proves none of them. Use
+the real Host integration tests for those properties and update scripts when
+the actual API contract changes.
+
 ## Related
 
 - [ADR 0017](../../docs/adr/0017-host-client-product-topology.md) — host/client
