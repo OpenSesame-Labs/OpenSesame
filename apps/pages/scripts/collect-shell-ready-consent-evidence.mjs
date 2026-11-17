@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Collect #2610 evidence: main-fail logs, profile PNGs, pixel diff, Playwright trace.
- * Outputs to PAGES_VERIFY_OUT or repo artifacts/shell-ready-consent (mirrored to /opt/cursor/artifacts).
+ * #2610 evidence: behavior test main-fail, vault-shell profile PNGs, Playwright consent timing.
  */
 
 import { createHash } from "node:crypto";
@@ -9,14 +8,13 @@ import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createLocalIamRig } from "./lib/local-iam-rig.mjs";
-import { createHarness } from "./lib/static-origin-harness.mjs";
+import { captureVaultShellProfiles } from "./capture-vault-shell-profiles.mjs";
+import { captureConsentActivationTiming } from "./shell-ready-consent-timing.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const pagesRoot = resolve(here, "..");
@@ -25,14 +23,12 @@ const shellReadyPath = join(pagesRoot, "src/bindings/shell-ready.ts");
 const outRoot =
   process.env.PAGES_VERIFY_OUT ??
   join(repoRoot, "artifacts/shell-ready-consent");
-const logDir = join(outRoot, "logs");
-const profilesBefore = join(outRoot, "profiles-before");
-const profilesAfter = join(outRoot, "profiles-after");
 const mirrorRoot = "/opt/cursor/artifacts/shell-ready-consent";
+const logDir = join(outRoot, "logs");
+const BEHAVIOR_SPEC =
+  "src/app-root.shell-ready.test.tsx -t withdraws contributed";
 
-for (const dir of [logDir, profilesBefore, profilesAfter, mirrorRoot]) {
-  mkdirSync(dir, { recursive: true });
-}
+for (const dir of [logDir, outRoot, mirrorRoot]) mkdirSync(dir, { recursive: true });
 
 function mainShellSource() {
   const out = spawnSync(
@@ -44,8 +40,8 @@ function mainShellSource() {
   return out.stdout;
 }
 
-function vitest(specs, cwd, expectFail) {
-  const result = spawnSync("npx", ["vitest", "run", ...specs], {
+function vitest(spec, cwd, { expectFail = false }) {
+  const result = spawnSync("npx", ["vitest", "run", ...spec.split(/\s+/)], {
     cwd,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
@@ -53,11 +49,7 @@ function vitest(specs, cwd, expectFail) {
   });
   const text = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
   if (expectFail ? result.status === 0 : result.status !== 0) {
-    throw new Error(
-      expectFail
-        ? `expected vitest failure for ${specs}`
-        : `vitest failed: ${specs}`,
-    );
+    throw new Error(expectFail ? `expected failure: ${spec}` : text);
   }
   return text;
 }
@@ -72,163 +64,86 @@ function withShellSource(source, fn) {
   }
 }
 
-function buildDist(shellSource, copyTo) {
+function buildDist(shellSource, copyTo, extraEnv = {}) {
   withShellSource(shellSource, () => {
     const built = spawnSync("npm", ["run", "build", "-w", "@opensesame/pages"], {
       cwd: repoRoot,
       stdio: "inherit",
-      env: { ...process.env, VITE_BASE: "/OpenSesame/" },
+      env: {
+        ...process.env,
+        VITE_BASE: "/OpenSesame/",
+        VITE_VERIFY_ACTIVATION_DELAY_MS: extraEnv.delay ?? "",
+      },
     });
     if (built.status !== 0) process.exit(built.status ?? 1);
     if (copyTo) {
       spawnSync("rm", ["-rf", copyTo], { stdio: "inherit" });
-      spawnSync("cp", ["-a", join(pagesRoot, "dist"), copyTo], {
-        stdio: "inherit",
-      });
+      spawnSync("cp", ["-a", join(pagesRoot, "dist"), copyTo], { stdio: "inherit" });
     }
   });
 }
 
-function profileProof(outDir, distDir) {
-  const result = spawnSync(
-    "node",
-    ["scripts/ci/pwa-install-profile-proof.mjs"],
-    {
-      cwd: repoRoot,
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        VERIFY_SKIP_BUILD: "1",
-        PWA_PROFILE_PROOF_OUT: outDir,
-        PAGES_VERIFY_DIST: distDir,
-      },
-    },
-  );
-  if (result.status !== 0) process.exit(result.status ?? 1);
-}
-
-function sha256File(path) {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
-}
-
-function pixelDiffReport(beforeDir, afterDir, reportPath, bundlePaths) {
-  const names = [
-    "minimal-local.png",
-    "default.png",
-    "custom.png",
-    "full.png",
-  ];
-  const lines = [
-    "# Install-profile composite PNGs (front-door walk)",
-    ...names.map((name) => {
-      const bHash = sha256File(join(beforeDir, name));
-      const aHash = sha256File(join(afterDir, name));
-      return `${name}: byte_identical=${bHash === aHash}`;
-    }),
-    "",
-    "# Application main chunk (shell-ready gate)",
-    `main-before: sha256=${sha256File(bundlePaths.before)} (${bundlePaths.before})`,
-    `main-after: sha256=${sha256File(bundlePaths.after)} (${bundlePaths.after})`,
-    `bundle_byte_identical=${sha256File(bundlePaths.before) === sha256File(bundlePaths.after)}`,
-  ];
-  writeFileSync(reportPath, `${lines.join("\n")}\n`);
-  console.log(`wrote ${reportPath}`);
-}
-
-function findMainChunk(distDir) {
-  const assets = join(distDir, "assets");
-  const main = readdirSync(assets).find((f) => /^main-[\w-]+\.js$/.test(f));
-  if (!main) throw new Error(`no main chunk in ${distDir}`);
-  return join(assets, main);
-}
-
-async function consentTrace(distDir, label) {
-  const origin = "https://opensesame-labs.github.io";
-  const base = "/OpenSesame/";
-  const rp = "https://rp.example.test";
-  const issuerUrl = `${origin}${base}identity/authorize`;
-  const shotDir = join(outRoot, `playwright-${label}`);
-  mkdirSync(shotDir, { recursive: true });
-  const harness = createHarness({ dist: distDir, origin, base, out: shotDir });
-  const captures = { path: () => shotDir };
-  const { browser, seedJourney, openConsent } = await createLocalIamRig({
-    harness,
-    origin,
-    rp,
-    issuerUrl,
-    captures,
-  });
-  const context = browser.contexts()[0];
-  if (!context) throw new Error("rig did not create a browser context");
-  await context.tracing.start({
-    screenshots: true,
-    snapshots: true,
-    sources: true,
-  });
-  try {
-    const { page, context: rpContext, credentials } = await seedJourney(false);
-    const { popup } = await openConsent(page, rpContext, credentials, 1280);
-    await popup.screenshot({ path: join(shotDir, "consent-popup-frame.png") });
-    const vaultSkeleton = await popup.locator(".vault-skeleton").count();
-    const bodyText = await popup.locator("body").innerText();
-    writeFileSync(
-      join(shotDir, "consent-timing.json"),
-      JSON.stringify(
-        { vaultSkeleton, bodySnippet: bodyText.slice(0, 400) },
-        null,
-        2,
-      ),
-    );
-  } finally {
-    await context.tracing.stop({ path: join(shotDir, "trace.zip") });
-    await browser.close();
-  }
-  copyFileSync(
-    join(shotDir, "trace.zip"),
-    join(outRoot, `${label}-consent-trace.zip`),
-  );
-  console.log(`wrote playwright ${label} trace`);
-}
-
 const fixedSource = readFileSync(shellReadyPath, "utf8");
 const mainSource = mainShellSource();
-
 writeFileSync(join(logDir, "main-shell-ready.snapshot.ts"), mainSource);
 
 const mainFailLog = withShellSource(mainSource, () =>
-  vitest(["src/bindings/shell-ready-fix-required.test.ts"], pagesRoot, true),
+  vitest(BEHAVIOR_SPEC, pagesRoot, { expectFail: true }),
 );
 writeFileSync(join(logDir, "regression-main-fail.log"), mainFailLog);
 
 const afterLog = vitest(
-  [
-    "src/bindings/shell-ready-regression.baseline.test.ts",
-    "src/bindings/shell-ready-formal.replay.test.ts",
-    "src/app-root.shell-ready.test.tsx",
-  ],
+  "src/app-root.shell-ready.test.tsx src/bindings/shell-ready-regression.baseline.test.ts src/bindings/shell-ready-formal.replay.test.ts",
   pagesRoot,
-  false,
+  { expectFail: false },
 );
 writeFileSync(join(logDir, "regression-after-fix.log"), afterLog);
 
 const baselineDist = join(pagesRoot, "dist-shell-before");
 const fixedDist = join(pagesRoot, "dist");
-buildDist(mainSource, baselineDist);
-buildDist(fixedSource, fixedDist);
+const delay = "2500";
+buildDist(mainSource, baselineDist, { delay });
+buildDist(fixedSource, fixedDist, { delay });
 
-profileProof(profilesBefore, baselineDist);
-profileProof(profilesAfter, fixedDist);
-pixelDiffReport(profilesBefore, profilesAfter, join(outRoot, "profile-pixel-diff.txt"), {
-  before: findMainChunk(baselineDist),
-  after: findMainChunk(fixedDist),
+const vaultOut = join(outRoot, "vault-shell-profiles");
+await captureVaultShellProfiles({ outDir: vaultOut });
+
+const timingBeforeDir = join(outRoot, "consent-timing-before");
+const timingAfterDir = join(outRoot, "consent-timing-after");
+const beforeTiming = await captureConsentActivationTiming({
+  distDir: baselineDist,
+  label: "main",
+  outDir: timingBeforeDir,
+});
+const afterTiming = await captureConsentActivationTiming({
+  distDir: fixedDist,
+  label: "fix",
+  outDir: timingAfterDir,
 });
 
-await consentTrace(baselineDist, "before");
-await consentTrace(fixedDist, "after");
+const report = {
+  behaviorTest: BEHAVIOR_SPEC,
+  playwright: {
+    activationDelayMs: Number(delay),
+    before: beforeTiming,
+    after: afterTiming,
+    expectBeforePreActivationConsent: true,
+    expectAfterPreActivationConsent: false,
+  },
+};
+writeFileSync(join(outRoot, "evidence-summary.json"), JSON.stringify(report, null, 2));
 
-function mirrorTree(src, dest) {
-  spawnSync("rm", ["-rf", dest], { stdio: "inherit" });
-  spawnSync("cp", ["-a", src, dest], { stdio: "inherit" });
+if (beforeTiming.pre.consentHeading !== true) {
+  console.warn(
+    "WARNING: main build did not show consent pre-activation in Playwright; vitest behavior test remains authoritative.",
+  );
 }
-mirrorTree(outRoot, mirrorRoot);
-console.log(`Evidence complete: ${outRoot} (mirrored to ${mirrorRoot})`);
+if (afterTiming.pre.consentHeading === true && !afterTiming.pre.vaultSkeleton) {
+  console.warn(
+    "WARNING: fix build still showed consent pre-activation in Playwright.",
+  );
+}
+
+spawnSync("rm", ["-rf", mirrorRoot], { stdio: "inherit" });
+spawnSync("cp", ["-a", outRoot, mirrorRoot], { stdio: "inherit" });
+console.log(`Evidence complete: ${outRoot}`);
