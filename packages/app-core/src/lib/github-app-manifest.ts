@@ -13,20 +13,19 @@ import {
 import { startGithubRegistration } from "./github-app-vault-transport.js";
 
 export {
+  claimGithubAppCode,
+  refreshGithubAppInstallations,
+  verifyGithubAppInstallations,
+} from "./github-app-claim.js";
+export {
+  type LocalGithubApp,
+  type LocalGithubInstall,
   forgetLocalGithubApp,
   readLocalGithubApp,
   refreshGithubAppOwner,
   sealPendingGithubAppPem,
   subscribeLocalGithubApp,
-  type LocalGithubApp,
-  type LocalGithubInstall,
 } from "./github-app-local.js";
-
-export {
-  claimGithubAppCode,
-  refreshGithubAppInstallations,
-  verifyGithubAppInstallations,
-} from "./github-app-claim.js";
 
 export { githubAppRedirectUrl, githubAppRelayBase };
 
@@ -76,16 +75,16 @@ function manifestFor(name: string, redirectUrl: string): JsonObject {
   };
 }
 
-export function buildGithubAppRegistration(body: {
+export async function buildGithubAppRegistration(body: {
   returnTo: string;
   displayName?: string;
   origin?: string;
-}): GithubAppRegistration {
+}): Promise<GithubAppRegistration> {
   const name = (body.displayName?.trim() || "OpenSesame").slice(0, 32);
   const origin = body.origin ?? maybePage()?.location.origin ?? "";
   const redirectUrl = githubAppRedirectUrl(body.returnTo, origin);
   const state = crypto.randomUUID().replaceAll("-", "");
-  startGithubRegistration(state, redirectUrl);
+  await startGithubRegistration(state, redirectUrl);
   return {
     action: REGISTER_URL,
     state,

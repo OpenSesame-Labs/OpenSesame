@@ -29,6 +29,9 @@ Object.assign(guestAuthDependencies, {
   createGuest,
   vaultStatus,
   loadFederationSession,
+  inspectIdentityCookie: vi.fn(async () => "absent"),
+  settleRevokes: vi.fn(async () => {}),
+  guestOwnerIsCurrent: () => true,
 });
 
 beforeEach(() => {
@@ -69,6 +72,7 @@ afterEach(() => {
 });
 
 describe("continueAsGuest", () => {
+  beforeEach(() => currentSession.mockReturnValue(null));
   it("opens a guest vault and stages a claim notice without minting a resource claim", async () => {
     await continueAsGuest();
     expect(createGuest).toHaveBeenCalledTimes(1);
@@ -82,9 +86,9 @@ describe("continueAsGuest", () => {
       body: "You skipped registered sign-in. Sign in with a trusted account to attach it to this principal — the id stays the same.",
     });
     // Each Continue-as-guest mints guest-N; never a bearer.
-    const raw = sessionStore().getItem("opensesame.guest.session-person");
-    expect(raw).toBeTruthy();
-    expect(JSON.parse(raw ?? "{}").name).toMatch(/^guest-[1-9]\d*$/);
+    expect(createGuest.mock.calls[0]?.[0]?.guestPerson.name).toMatch(
+      /^guest-[1-9]\d*$/,
+    );
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       expect(key).not.toMatch(/token|bearer|refresh/i);
@@ -106,7 +110,7 @@ describe("continueAsGuest", () => {
     await continueAsGuest();
     expect(listNotices()[0]).toMatchObject({
       kind: "guest_claim",
-      body: "Continue as guest succeeded. Claim auth from the notifications bell when you want a registered sign-in.",
+      body: "Your guest session is ready. Use notifications to sign in when you are ready.",
     });
   });
 });
@@ -117,6 +121,7 @@ describe("with no identity service configured (ADR 0090)", () => {
   // assertion held on this device. Neither is "pending" anything.
   beforeEach(() => {
     isRemoteIdentityConfigured.mockReturnValue(false);
+    currentSession.mockReturnValue(null);
   });
 
   it("enters as a guest with nothing to claim and no notice", async () => {
@@ -152,14 +157,18 @@ describe("with no identity service configured (ADR 0090)", () => {
 
 describe("linkGuestAccount", () => {
   it("uses the active guest session without persisting its bearer", async () => {
+    currentSession.mockReturnValue(null);
     await continueAsGuest();
+    currentSession.mockReturnValue({
+      principalId: "prn_guest",
+      accessToken: "guest-tok",
+      issuerOrigin: "http://127.0.0.1:18788",
+    });
     connectProvisional.mockClear();
     await linkGuestAccount("id.token.here");
     expect(connectProvisional).not.toHaveBeenCalled();
     // Guest principal stays; bearer still must not.
-    expect(
-      sessionStore().getItem("opensesame.guest.session-person"),
-    ).toBeTruthy();
+    expect(createGuest.mock.calls[0]?.[0]?.guestPerson.id).toMatch(/^local_/);
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i);
       expect(key).not.toMatch(/token|bearer|refresh/i);

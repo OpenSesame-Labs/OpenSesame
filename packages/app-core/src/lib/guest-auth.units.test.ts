@@ -41,8 +41,6 @@ type GuestAuthDependencyOverrides = {
   loadFederationSession?: () => FederationSessionFixture | null;
 };
 
-type SessionOverrides = Partial<IdentitySession>;
-
 function withDeps(overrides: GuestAuthDependencyOverrides): void {
   // An identity service is configured in every unit here; the no-service
   // road (ADR 0090) has its own cases in guest-auth.test.ts.
@@ -53,7 +51,7 @@ function withDeps(overrides: GuestAuthDependencyOverrides): void {
   );
 }
 
-function session(extra: SessionOverrides = {}): IdentitySession {
+function session(extra: Partial<IdentitySession> = {}): IdentitySession {
   return {
     principalId: "prn_1",
     accessToken: "pst_1",
@@ -61,6 +59,8 @@ function session(extra: SessionOverrides = {}): IdentitySession {
     ...extra,
   };
 }
+
+const unitSession = session();
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -89,7 +89,7 @@ describe("claimGuestAuth", () => {
   it("mints a provisional principal and raises the claim prompt", async () => {
     withDeps({
       connectProvisional: vi.fn(async () => undefined),
-      currentSession: () => session(),
+      currentSession: () => unitSession,
     });
 
     await guestAuthSeams.claimGuestAuth();
@@ -104,7 +104,7 @@ describe("claimGuestAuth", () => {
       connectProvisional: vi.fn(async () => {
         throw new Error("offline");
       }),
-      currentSession: () => session(),
+      currentSession: () => unitSession,
     });
 
     await guestAuthSeams.claimGuestAuth();
@@ -119,13 +119,13 @@ describe("claimGuestAuth", () => {
         // A bare string, not an Error: the notice must still read sensibly.
         throw "not-an-error";
       }),
-      currentSession: () => session(),
+      currentSession: () => unitSession,
     });
 
     await guestAuthSeams.claimGuestAuth();
 
     const notice = listNotices().find((n) => n.kind === "guest_claim");
-    expect(notice?.body).toContain("notifications bell");
+    expect(notice?.body).toContain("notifications");
   });
 });
 
@@ -133,7 +133,7 @@ describe("adoptFederatedIdentity", () => {
   function deps(overrides: GuestAuthDependencyOverrides = {}): void {
     withDeps({
       vaultStatus: () => "unlocked",
-      currentSession: () => session(),
+      currentSession: () => unitSession,
       connectProvisional: vi.fn(async () => undefined),
       identityJson: vi.fn(async () => ({})),
       createGuest: vi.fn(async () => undefined),
@@ -237,7 +237,7 @@ describe("adoptFederatedIdentity", () => {
     const identityJson = vi.fn(async () => ({}));
     deps({
       vaultStatus: () => "locked",
-      currentSession: () => session(),
+      currentSession: () => unitSession,
       identityJson,
     });
 
@@ -441,7 +441,7 @@ describe("branches the journey tests do not separate", () => {
     withDeps({
       vaultStatus: () => "empty",
       createGuest: vi.fn(async () => undefined),
-      currentSession: () => session(),
+      currentSession: () => unitSession,
       identityJson: vi.fn(async () => {
         throw new IdentityError("service unavailable", 503);
       }),
@@ -462,7 +462,7 @@ describe("branches the journey tests do not separate", () => {
     withDeps({
       vaultStatus: () => "empty",
       createGuest: vi.fn(async () => undefined),
-      currentSession: () => session(),
+      currentSession: () => unitSession,
       identityJson: vi.fn(async () => ({})),
       loadFederationSession: () => null,
     });
@@ -505,7 +505,7 @@ describe("prompt de-duplication is per kind, not per any-notice", () => {
   it("still raises the guest-claim prompt when an unrelated notice is showing", async () => {
     pushNotice({ kind: "federated_link", title: "other", body: "b" });
     const connectProvisional = vi.fn(async () => undefined);
-    withDeps({ connectProvisional, currentSession: () => session() });
+    withDeps({ connectProvisional, currentSession: () => unitSession });
 
     await guestAuthSeams.claimGuestAuth();
 

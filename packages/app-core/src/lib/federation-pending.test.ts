@@ -1,8 +1,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { localStore, sessionStore } from "../ports.js";
-import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 import { completeSignIn } from "./federation.js";
+import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
+import {
+  advanceGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "./guest-return-epoch.js";
 
 const TEST_VERIFIER = "test-verifier-abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -47,6 +51,7 @@ function seedPending(): void {
       jwksUri: "http://127.0.0.1:9090/jwks",
       scope: "openid",
       createdAt: Date.now(),
+      authEpoch: requireGuestReturnEpoch(),
     }),
   );
 }
@@ -95,6 +100,20 @@ describe("legacy pending correlation", () => {
     expect(JSON.parse(localStore().getItem(PKCE_KEY) ?? "null")?.state).toBe(
       "state-new-1",
     );
+  });
+
+  it("rejects an authorization started before a different tab signed out", () => {
+    storePending({
+      upstreamId: "mock",
+      issuer: "http://127.0.0.1:9090",
+      verifier: TEST_VERIFIER,
+      state: "state-before-signout",
+      tokenEndpoint: "http://127.0.0.1:9090/token",
+      jwksUri: "http://127.0.0.1:9090/jwks",
+      scope: "openid",
+    });
+    advanceGuestReturnEpoch();
+    expect(peekPending()).toEqual({ pending: null, stale: true });
   });
 
   it("OIDC-ERROR-STATE: login_required without matching state does not consume pending", async () => {

@@ -11,36 +11,50 @@ import {
   markPendingLink,
   pendingLinkMarked,
 } from "./federated-pending-link.js";
-import { loadSession as loadFederationSession } from "./federation.js";
 
 export {
   forgetPendingLink,
   storedKeyPresent,
 } from "./federated-pending-link.js";
 
-import { assertGuestsAllowed } from "./guest-access.js";
+import { guestAuthDependencies } from "./guest-auth-dependencies.js";
+import {
+  claimGuestAuthDefault,
+  continueAsGuestDefault,
+  hasIdentityService,
+  openGuestVault,
+  resumeGuestSessionDefault,
+} from "./guest-auth-entry.js";
+
+export { guestAuthDependencies } from "./guest-auth-dependencies.js";
+
+import { commitGuestLink } from "./guest-auth-link-guard.js";
+import {
+  captureGuestReturnSignOutCheck,
+  settleGuestReturnSignOut,
+} from "./guest-return-signout.js";
 import { claimProvisionalHistoryAccounts } from "./history-backups.js";
 import {
-  GUEST_NOTICE_BODY,
   GUEST_NOTICE_TITLE,
   announceMintedIdentity,
 } from "./history-claim-notice.js";
+import { IdentityError } from "./identity.js";
 import {
-  IdentityError,
-  connectProvisional,
-  currentSession,
-  identityJson,
-  identitySeams,
-  identitySessionEpoch,
-  isRemoteIdentityConfigured,
-  rebindSession,
-} from "./identity.js";
+  newCookieProof,
+  readCookieBinding,
+} from "./identity-cookie-binding.js";
+import { withIdentityCookieLock } from "./identity-cookie-lock.js";
 import {
-  mintGuestSessionPersonLocked,
-  readGuestSessionPerson,
-} from "./local-guest.js";
-import { clearNotices, listNotices, pushNotice } from "./notices.js";
-import { vaultStore } from "./vault/store.js";
+  clearNotices,
+  listNotices,
+  pushNotice,
+  setStatusNotice,
+} from "./notices.js";
+
+export {
+  GUEST_SIGN_OUT_FIRST,
+  GUEST_SIGN_OUT_UNVERIFIED,
+} from "./guest-auth-entry.js";
 
 const FEDERATED_NOTICE_TITLE = "Finish attaching your sign-in";
 const FEDERATED_NOTICE_BODY =
@@ -54,137 +68,77 @@ const FEDERATED_NOTICE_BODY =
 const COLLISION_MESSAGE =
   "That account is already attached to a different OpenSesame identity.";
 
-// Stryker disable all: mutable test seam; behavior is exercised through the exported operations
-export const guestAuthDependencies = {
-  rebindSession,
-  sessionEpoch: identitySessionEpoch,
-  connectProvisional,
-  resumeSession: () => identitySeams.resumeSession(),
-  currentSession,
-  isRemoteIdentityConfigured,
-  identityJson,
-  createGuest: (options?: { resume?: boolean }) =>
-    vaultStore.createGuest(options),
-  vaultStatus: () => vaultStore.getSnapshot().status,
-  loadFederationSession,
-  /** Identity installs the directory seed; a minimal vault leaves it undone. */
-  ensureDefaultAccess: async (_tomb: string): Promise<void> => {},
-};
-// Stryker restore all
-
-let inFlightClaim: Promise<void> | null = null;
-
-/**
- * Whether there is an identity service to attach a principal to at all.
- *
- * A static deployment with no Identity API is the common case and a complete
- * one (ADR 0090): a guest session is a local vault, and a federated sign-in is
- * the broker's assertion held on this device. Nothing here is "pending" — a
- * claim or link prompt would name a service that does not exist and read as
- * an error on a deployment that is working exactly as designed.
- */
-function hasIdentityService(): boolean {
-  return guestAuthDependencies.isRemoteIdentityConfigured();
-}
-
-async function claimGuestAuthDefault(): Promise<void> {
-  if (!hasIdentityService()) return;
-  if (listNotices().some((notice) => notice.kind === "guest_claim")) {
-    return;
-  }
-  if (inFlightClaim) return inFlightClaim;
-  inFlightClaim = (async () => {
-    try {
-      await guestAuthDependencies.connectProvisional();
-      pushNotice({
-        kind: "guest_claim",
-        title: GUEST_NOTICE_TITLE,
-        body: GUEST_NOTICE_BODY,
-      });
-    } catch (caught) {
-      pushNotice({
-        kind: "guest_claim",
-        title: GUEST_NOTICE_TITLE,
-        body:
-          caught instanceof Error
-            ? `Continue as guest succeeded. Claim auth when Identity is reachable — ${caught.message}`
-            : "Continue as guest succeeded. Claim auth from the notifications bell when you want a registered sign-in.",
-      });
-    }
-  })().finally(() => {
-    inFlightClaim = null;
-  });
-  return inFlightClaim;
-}
-
-async function seedGuestAccess(): Promise<void> {
-  try {
-    // Seed the tomb this guest session actually unlocked — always the guest
-    // isolation tomb after createGuest, never a member vault.
-    await guestAuthDependencies.ensureDefaultAccess(vaultStore.activeTomb());
-  } catch {
-    /* Access seeds when Identity/Access opens; guest entry must not fail. */
-  }
-}
-
-async function openGuestVault(mode: "fresh" | "resume"): Promise<void> {
-  // Both guest roads end here, so the operator's switch is enforced here too.
-  assertGuestsAllowed();
-  // Fresh mints a new principal (`guest-N`); resume only when none survived.
-  if (mode === "fresh" || !readGuestSessionPerson())
-    await mintGuestSessionPersonLocked();
-  await guestAuthDependencies.createGuest({ resume: mode === "resume" });
-  await seedGuestAccess();
-}
-
-async function continueAsGuestDefault(): Promise<void> {
-  await openGuestVault("fresh");
-  await claimGuestAuthDefault();
-}
-
-/** Unlock on the guest road after lock/reload — same principal, keep claims. */
-async function resumeGuestSessionDefault(): Promise<void> {
-  await openGuestVault("resume");
-  await claimGuestAuthDefault();
-}
-
 export type LinkGuestAccountOutcome = { mintedPrincipal: boolean };
 
 async function linkGuestAccountDefault(
   idToken: string,
 ): Promise<LinkGuestAccountOutcome> {
+  await settleGuestReturnSignOut();
+  const signOutCheck = captureGuestReturnSignOutCheck(
+    guestAuthDependencies.isRemoteIdentityConfigured(),
+  );
   let mintedPrincipal = false;
   if (!guestAuthDependencies.currentSession()) {
     // Resume the server-authenticated HttpOnly cookie first — that is the
     // persistent user, reused. Only when no session survived does
     // connecting mint a new provisional principal, and the caller is told
     // so a brand-new identity is never created silently.
-    const resumed = await guestAuthDependencies.resumeSession();
+    const resumed = await guestAuthDependencies.resumeSession(signOutCheck);
+    signOutCheck();
     if (!resumed) {
       mintedPrincipal = true;
-      await guestAuthDependencies.connectProvisional();
+      await guestAuthDependencies.connectProvisional({
+        explicitSignIn: true,
+        check: signOutCheck,
+      });
+      signOutCheck();
     }
   }
   // The session this link is for. A sign-out or lock while the request is
   // in flight must not be undone by the token the answer carries.
   const epoch = guestAuthDependencies.sessionEpoch();
-  const linked = await guestAuthDependencies.identityJson<{
-    principalId?: string;
-    accessToken?: string;
-  }>("/v1/principals/link-identities", {
-    method: "POST",
-    body: JSON.stringify({ idToken }),
-  });
-  // The verified identity can belong to a principal that already exists
-  // (verified-email join, or the same upstream account returning): the
-  // server rebound the session to that principal and issued its token.
-  // Stand on it (rebind, not adopt: the cookie already names it), so this
-  // device continues as the person it used to be rather
-  // than as a provisional minted for the trip — nothing new was created.
-  if (linked?.accessToken) {
-    mintedPrincipal = false;
-    await guestAuthDependencies.rebindSession(linked.accessToken, epoch);
-  }
+  const current = guestAuthDependencies.currentSession();
+  const originalBinding = current
+    ? readCookieBinding(current.issuerOrigin)
+    : null;
+  const nextProof = await newCookieProof();
+  signOutCheck();
+  const linked = await withIdentityCookieLock(async () => {
+    signOutCheck();
+    if (
+      guestAuthDependencies.sessionEpoch() !== epoch ||
+      guestAuthDependencies.currentSession() !== current
+    )
+      throw new Error("The session ended while signing in.");
+    const result = await guestAuthDependencies.identityJson<{
+      principalId?: string;
+      accessToken?: string;
+      sessionId?: string;
+    }>("/v1/principals/link-identities", {
+      method: "POST",
+      headers: { "x-opensesame-next-proof": nextProof.hash },
+      body: JSON.stringify({ idToken }),
+    });
+    if (result?.accessToken) {
+      const token = result.accessToken;
+      mintedPrincipal = false;
+      await commitGuestLink(
+        token,
+        current?.issuerOrigin ?? "",
+        signOutCheck,
+        () =>
+          guestAuthDependencies.rebindSession(
+            token,
+            epoch,
+            originalBinding && result.sessionId
+              ? { sessionId: result.sessionId, proof: nextProof.proof }
+              : undefined,
+            signOutCheck,
+          ),
+      );
+    } else signOutCheck();
+    return result;
+  }, Boolean(originalBinding));
   const principalId =
     linked?.principalId ?? guestAuthDependencies.currentSession()?.principalId;
   if (principalId) {
@@ -195,6 +149,13 @@ async function linkGuestAccountDefault(
     }
   }
   clearNotices();
+  if (guestAuthDependencies.currentSession()?.unverifiedBrowserSessions)
+    setStatusNotice({
+      id: "identity.browser-session-unverified",
+      tone: "warn",
+      title: "Other browser sign-ins could not be checked",
+      body: "This account is signed in separately. Other Identity sessions in this browser may still be active. Sign out of them directly at the Identity service.",
+    });
   return { mintedPrincipal };
 }
 
@@ -235,6 +196,7 @@ export type FederatedAdoptOutcome =
 async function adoptFederatedIdentityDefault(
   idToken: string,
 ): Promise<FederatedAdoptOutcome> {
+  await settleGuestReturnSignOut();
   const status = guestAuthDependencies.vaultStatus();
 
   if (!hasIdentityService()) {
@@ -325,6 +287,7 @@ async function linkToOpenVault(idToken: string): Promise<void> {
  * landed in the app.
  */
 async function openVaultAfterSignInDefault(): Promise<boolean> {
+  await settleGuestReturnSignOut();
   if (guestAuthDependencies.vaultStatus() === "empty") {
     await openGuestVault("resume");
   }

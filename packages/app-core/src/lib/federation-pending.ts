@@ -11,6 +11,10 @@ import {
   dropPkcePending,
   readPkcePendingRaw,
 } from "./federation-pkce-pending-slot.js";
+import {
+  assertGuestReturnEpoch,
+  requireGuestReturnEpoch,
+} from "./guest-return-epoch.js";
 
 export const PKCE_KEY = "opensesame:federation:pkce";
 export const PENDING_MAX_AGE_MS = 10 * 60 * 1000;
@@ -39,7 +43,12 @@ function parsePending(raw: string): TakenPending {
     return { pending: null, stale: true };
   }
   const pending = asPendingAuth(parsed);
-  if (!pending) {
+  if (!pending?.authEpoch) {
+    return { pending: null, stale: true };
+  }
+  try {
+    assertGuestReturnEpoch(pending.authEpoch);
+  } catch {
     return { pending: null, stale: true };
   }
   const createdAt = pending.createdAt;
@@ -63,19 +72,32 @@ export function consumePending(): void {
 /** Drop an outstanding sign-in when the session ends, so its code cannot
  * complete after a sign-out. */
 export function clearPendingSignIn(): void {
-  sessionStore().removeItem(PKCE_KEY);
-  dropRawPending();
+  try {
+    sessionStore().removeItem(PKCE_KEY);
+  } finally {
+    dropRawPending();
+  }
 }
 
-export function storePending(pending: PendingAuth): void {
+export function storePending(
+  pending: PendingAuth,
+  originalEpoch?: string,
+): void {
+  const authEpoch = originalEpoch ?? requireGuestReturnEpoch();
+  assertGuestReturnEpoch(authEpoch);
   // localStorage, not sessionStorage, ON PURPOSE: PWA handoff. Drop any
   // session copy so a second lane cannot shadow or swap the live record.
   sessionStore().removeItem(PKCE_KEY);
   // ast-grep-ignore: ts-localstorage-set
-  localStore().setItem(
-    PKCE_KEY,
-    JSON.stringify({ ...pending, createdAt: Date.now() }),
-  );
+  const record = JSON.stringify({
+    ...pending,
+    createdAt: Date.now(),
+    authEpoch,
+  });
+  localStore().setItem(PKCE_KEY, record);
+  if (localStore().getItem(PKCE_KEY) !== record)
+    throw new Error("The sign-in could not be saved. Try again.");
+  assertGuestReturnEpoch(authEpoch);
 }
 
 /**

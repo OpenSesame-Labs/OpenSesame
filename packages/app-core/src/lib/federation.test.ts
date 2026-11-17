@@ -2,6 +2,7 @@
 import type { BoundaryValue, JsonObject } from "@opensesame/os-domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deviceIdentitySeams } from "./device-identity.js";
+import type { UpstreamIdentity } from "./federation.js";
 import {
   FederationError,
   TRUSTED_UPSTREAMS,
@@ -24,7 +25,7 @@ import {
   saveSession,
   upstreamByIssuer,
 } from "./federation.js";
-import type { UpstreamIdentity } from "./federation.js";
+import { requireGuestReturnEpoch } from "./guest-return-epoch.js";
 import { identitySeams } from "./identity.js";
 import {
   brokeredRealmUpstream,
@@ -61,6 +62,7 @@ function seedPending(overrides: JsonObject = {}): void {
       jwksUri: "http://127.0.0.1:9090/jwks",
       scope: "openid",
       createdAt: Date.now(),
+      authEpoch: requireGuestReturnEpoch(),
       ...overrides,
     }),
   );
@@ -86,6 +88,7 @@ function identity(overrides: Partial<UpstreamIdentity> = {}): UpstreamIdentity {
 
 import { localStore, sessionStore } from "../ports.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
+
 const originalNetworkEligibility = localNetworkFetchSeams.eligible;
 
 /** Node 24 shadows Storage with an unavailable experimental global. */
@@ -497,7 +500,7 @@ describe("completeSignIn", () => {
     });
   });
 
-  it("finishes a sign-in that an older build left in sessionStorage", async () => {
+  it("requires a new sign-in for an older, unstamped sessionStorage request", async () => {
     localStore().removeItem(PKCE_KEY);
     sessionStore().setItem(
       PKCE_KEY,
@@ -513,16 +516,12 @@ describe("completeSignIn", () => {
       }),
     );
     history.replaceState(null, "", "/?code=abc&state=state-ab12");
-    stubTokenResponse({
-      id_token: jwt({
-        iss: "http://127.0.0.1:9090",
-        aud: originClientId(),
-        exp: Date.now() / 1000 + 3600,
-        pairwise_sub: "sub-legacy",
-      }),
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    await expect(completeSignIn()).rejects.toMatchObject({
+      code: "invalid_request",
     });
-    const result = await completeSignIn();
-    expect(result?.identity.pairwiseSub).toBe("sub-legacy");
+    expect(fetcher).not.toHaveBeenCalled();
     expect(sessionStore().getItem(PKCE_KEY)).toBeNull();
     expect(localStore().getItem(PKCE_KEY)).toBeNull();
   });
