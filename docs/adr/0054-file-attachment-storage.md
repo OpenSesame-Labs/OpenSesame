@@ -109,7 +109,12 @@ provider seeing ciphertext and nothing else.
    because the gateway never possesses attachment chunks — such an actor would
    have nothing to replicate. `pass attach sync --to-dir` covers the
    encrypted-disk case with no gateway involvement at all, and needs no
-   passphrase, since replication never opens what it moves.
+   passphrase, since replication never opens what it moves. Provider target
+   discovery and uploads require the Host operator credential: membership in
+   the same organization does not grant use of the target's storage connection.
+   The operator may write any valid attachment path below the configured target.
+   Delegated native-user writers and per-user logical-path grants are not
+   currently supported; a provider-operation delegation is not such a grant.
 
 ## Consequences
 
@@ -155,7 +160,8 @@ curl -X PUT "$HOST/api/v1/attachments/target" \
   -d '{"connection_id":"'$ID'","folder_path":"/OpenSesame/attachments"}'
 
 # 3. Push sealed bytes. The client drives this; the Host injects the
-#    provider credential and forwards.
+#    provider credential and forwards. Configure OPENSESAME_OPERATOR_TOKEN
+#    for the selected Host; use an HTTPS origin or loopback HTTP.
 opensesame pass attach sync
 ```
 
@@ -167,5 +173,38 @@ opensesame pass attach sync --to-dir /Volumes/encrypted/opensesame
 ```
 
 Replication is idempotent: chunks are digest-addressed and uploaded in overwrite
-mode, so re-running after a partial failure is safe. A local cache skips what
-already landed and is always safe to delete.
+mode, so re-running after a partial failure is safe. Each sync uploads all
+current ciphertext again, with chunks before manifests. It does not rely on a
+local filename cache, which cannot prove a changed manifest or target is backed
+up. The client copies the manifest inventory to a private temporary directory
+under a store read lock, releases the lock before network I/O, and verifies each
+inventoried chunk against its ciphertext digest. If one is missing, changed,
+or fails to upload, no manifest is published. Individual manifests are limited
+to 1 MiB and the temporary manifest snapshot to 256 MiB. Snapshot consistency
+requires every concurrent writer to use the current exclusive store lock;
+older writers that only take a shared lock must be upgraded first. A forced
+process termination can leave a private `opensesame-attachment-snapshot-*`
+directory of encrypted manifests in the system temporary directory; it can be
+removed after the interrupted sync has stopped. On Windows the temporary
+directory must be on local NTFS, where the snapshot can use a verified private
+ACL; unsupported filesystems are refused.
+
+When a local attachment revision counter exists, snapshot creation refuses a
+manifest advertising a different revision before contacting a destination or
+writing to it. This passphrase-free comparison cannot authenticate the header;
+an absent, edited, or restored counter is not an independent freshness witness.
+It does not protect direct operator uploads, nor an older concurrent snapshot
+that finishes after a newer sync. A restored whole store and its old counters
+can still roll back a replica. Preserve and independently verify backups.
+
+This is not an atomic multi-manifest snapshot on the provider: a failure during
+manifest publication can leave some old and some new versions. The CLI binds
+each upload to the `replication_version` returned by target discovery and
+stops if the configured connection or destination changes; other operator
+clients can supply that value in the `X-OpenSesame-Attachment-Target` header.
+Do not reauthorize the connection to a different provider account during a
+sync: the configuration version does not identify the credential's account.
+Manifests are encrypted and the passphrase-free sync cannot
+tell whether a chunk was already absent before the inventory. These limits mean
+a successful upload is not proof that a backup is restorable: verify a restored
+store with its key and preserve an independent backup.

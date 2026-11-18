@@ -32,6 +32,125 @@ fn get(root: &StoreRoot, key: &ItemDataKey, name: &str) -> Result<Vec<u8>, Store
 }
 
 #[test]
+fn first_authenticated_read_persists_revision_and_rejects_replay_after_restart() {
+    let (dir, root, key) = store();
+    add(&root, &key, "One/scan", b"old");
+    let rel = attach_relative("One/scan").unwrap();
+    let old = confined_read(&root.path, &rel).unwrap();
+    root.attach_add(
+        "One/scan",
+        &mut std::io::Cursor::new(b"new"),
+        3,
+        AttachMeta {
+            filename: "scan.pdf".into(),
+            mime: None,
+        },
+        &key,
+        true,
+    )
+    .unwrap();
+    // A fresh clone does not carry the untracked revision map.
+    std::fs::remove_file(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap();
+    let reopened = StoreRoot::open(dir.path()).unwrap();
+    assert_eq!(get(&reopened, &key, "One/scan").unwrap(), b"new");
+    assert_eq!(reopened.attachment_revisions().unwrap()["One/scan"], 2);
+
+    // The newly recorded counter survives process restart and rejects a
+    // valid but older manifest as long as the local sidecar is intact.
+    drop(reopened);
+    confined_write(dir.path(), &rel, &old).unwrap();
+    let restarted = StoreRoot::open(dir.path()).unwrap();
+    assert!(get(&restarted, &key, "One/scan").is_err());
+    assert_eq!(restarted.attachment_revisions().unwrap()["One/scan"], 2);
+}
+
+#[test]
+fn first_read_records_nothing_if_authentication_or_parsing_fails() {
+    let (_dir, root, key) = store();
+    add(&root, &key, "One/scan", b"content");
+    let rel = attach_relative("One/scan").unwrap();
+    let valid = confined_read(&root.path, &rel).unwrap();
+    let revisions = root.path.join(ATTACHMENT_REVISION_FILE);
+    std::fs::remove_file(&revisions).unwrap();
+    assert!(get(&root, &ItemDataKey::generate(), "One/scan").is_err());
+    assert!(!revisions.exists());
+
+    // Even a valid envelope cannot initialize state with a malformed body.
+    let malformed = seal_osseal_in(
+        COLLECTION_ATTACHMENTS,
+        b"not a manifest",
+        &key,
+        "One/scan",
+        900,
+    )
+    .unwrap();
+    confined_write(&root.path, &rel, &malformed).unwrap();
+    assert!(get(&root, &key, "One/scan").is_err());
+    assert!(!revisions.exists());
+    confined_write(&root.path, &rel, &valid).unwrap();
+    assert_eq!(get(&root, &key, "One/scan").unwrap(), b"content");
+    assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 1);
+}
+
+#[test]
+fn first_read_refuses_a_concurrent_writer_before_initializing() {
+    let (_dir, root, key) = store();
+    add(&root, &key, "One/scan", b"content");
+    let revisions = root.path.join(ATTACHMENT_REVISION_FILE);
+    std::fs::remove_file(&revisions).unwrap();
+    let held = crate::store_lock::StoreLock::key_file_edit(&root.path).unwrap();
+    assert!(get(&root, &key, "One/scan").is_err());
+    assert!(!revisions.exists());
+    drop(held);
+    assert_eq!(get(&root, &key, "One/scan").unwrap(), b"content");
+    assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 1);
+}
+
+#[test]
+#[cfg(unix)]
+fn first_read_refuses_if_its_revision_cannot_be_persisted() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (_dir, root, key) = store();
+    add(&root, &key, "One/scan", b"content");
+    let revisions = root.path.join(ATTACHMENT_REVISION_FILE);
+    std::fs::remove_file(&revisions).unwrap();
+    std::fs::set_permissions(&root.path, std::fs::Permissions::from_mode(0o500)).unwrap();
+    // A privileged process can bypass chmod, so verify this fixture can
+    // actually simulate the write failure before asserting on the result.
+    let probe = root.path.join("permission-probe");
+    if std::fs::write(&probe, b"").is_ok() {
+        std::fs::remove_file(probe).unwrap();
+        std::fs::set_permissions(&root.path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        return;
+    }
+    let mut output = Vec::new();
+    let result = root.attach_get("One/scan", &mut output, &key);
+    std::fs::set_permissions(&root.path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(result.is_err());
+    assert!(output.is_empty());
+    assert!(!revisions.exists());
+    assert_eq!(get(&root, &key, "One/scan").unwrap(), b"content");
+}
+
+#[test]
+fn listing_and_locked_garbage_collection_initialize_missing_counters() {
+    let (_dir, root, key) = store();
+    add(&root, &key, "One/scan", b"first");
+    add(&root, &key, "Two/scan", b"second");
+    let revisions = root.path.join(ATTACHMENT_REVISION_FILE);
+    std::fs::remove_file(&revisions).unwrap();
+    assert_eq!(root.attach_ls(None, &key).unwrap().len(), 2);
+    assert_eq!(root.attachment_revisions().unwrap().len(), 2);
+
+    // GC already holds the exclusive lock: first reads within it must not
+    // attempt to reacquire the lock or silently skip the initial counters.
+    std::fs::remove_file(revisions).unwrap();
+    root.attach_gc(&key).unwrap();
+    assert_eq!(root.attachment_revisions().unwrap().len(), 2);
+}
+
+#[test]
 fn removal_tombstone_survives_fresh_clone_and_interrupted_unlink() {
     let (_dir, root, key) = store();
     add(&root, &key, "One/scan", b"first");

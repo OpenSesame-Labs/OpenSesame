@@ -43,6 +43,13 @@ Native entry and attachment revisions are checked against local JSON files.
 An intact local counter can detect replacement with an older ciphertext, and
 removal advances it before unlinking so copied-back ciphertext at the same
 logical name is rejected.
+On the first authenticated attachment read or listing without a local counter,
+the observed revision is recorded before the manifest is returned; garbage
+collection does the same while holding its existing store lock. Passphrase-free
+replication refuses an advertised manifest revision that disagrees with an
+existing counter, but neither the header nor the counter proves freshness;
+replication does not authenticate manifests and rotation does not initialize
+these counters.
 These files are **not authenticated, independently witnessed, or included in
 the Git backup**. Anyone able to alter or remove them can restore old valid
 ciphertext; a fresh clone has no earlier local counter to compare with. Even an
