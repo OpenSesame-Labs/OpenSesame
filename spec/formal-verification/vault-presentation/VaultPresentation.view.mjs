@@ -13,20 +13,22 @@ export const state = (v) => {
   return "Nothing stored";
 };
 
+function lockStep(from, to) {
+  if (!to.header) return "the guest session ends";
+  if (from.open && from.pending) {
+    return "cancelling the second step locks the open vault";
+  }
+  if (from.pending) return "the second step is cancelled";
+  if (from.trusted) return "the circle approval is cancelled";
+  return "the vault locks";
+}
+
 export const step = (action, from, to) => {
   if (action === "CreateVault") return "you create a vault";
   if (action === "CreateGuest") return "you continue as a guest";
   if (action === "EnrollSecondStep") return "you turn on a second step";
   if (action === "RemoveSecondStep") return "you turn off the second step";
-  if (action === "Lock") {
-    if (!to.header) return "the guest session ends";
-    if (from.open && from.pending) {
-      return "cancelling the second step locks the open vault";
-    }
-    if (from.pending) return "the second step is cancelled";
-    if (from.trusted) return "the circle approval is cancelled";
-    return "the vault locks";
-  }
+  if (action === "Lock") return lockStep(from, to);
   if (action === "PrimaryUnlock") {
     if (to.pending) return "you unlock and the vault asks for the second step";
     if (to.trusted) return "you unlock and a circle must approve";

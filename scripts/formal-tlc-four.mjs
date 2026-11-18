@@ -107,14 +107,14 @@ for (const rel of models) {
           `${rel}: fault config ${faultCfg} passed but must fail TLC`,
         );
         process.exitCode = 1;
-      } else {
-        const needle = faultEvidence[rel];
-        if (needle && !faultOutput.includes(needle)) {
-          console.error(
-            `${rel}: fault config ${faultCfg} failed TLC but output lacks ${needle}`,
-          );
-          process.exitCode = 1;
-        }
+      } else if (
+        faultEvidence[rel] &&
+        !faultOutput.includes(faultEvidence[rel])
+      ) {
+        console.error(
+          `${rel}: fault config ${faultCfg} failed TLC but output lacks ${faultEvidence[rel]}`,
+        );
+        process.exitCode = 1;
       }
     } finally {
       rmSync(faultMetadata, { recursive: true, force: true });
