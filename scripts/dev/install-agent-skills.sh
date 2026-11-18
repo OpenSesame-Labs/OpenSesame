@@ -1,31 +1,35 @@
 #!/usr/bin/env bash
-# Install/refresh third-party agent skills into .agents/skills/ (+ mirrors).
+# Verify third-party agent skills, or explicitly refresh them with --refresh.
 #
 # These skills are install output, not source: .gitignore covers every
 # harness root except the repo-built adapters whitelisted there, and the
-# third-party trees were removed from source control. skills-lock.json is
-# the catalogue (which skills, from which sources); skill CONTENT floats
-# to upstream latest on every run (unpinned by design for optional
-# profiles), while the installer CLIs below are version-pinned in
-# mise.toml (npm:skills, npm:impeccable, npm:typeui.sh) — bump the script
-# and those pins together. Tiers live in skills/profiles.json. First-party
+# third-party trees were removed from source control. skills-lock.json is the
+# reviewed content-integrity catalogue. Container startup never fetches or
+# updates executable instructions. A maintainer may pass --refresh to update
+# installed copies and the catalogue together for review. The installer CLI is
+# version-pinned in mise.toml. Tiers live in skills/profiles.json. First-party
 # skills in skills/ are tracked source and need no install; core
 # validation passes without any of this.
 #
-# Runs on every devcontainer start (postStartCommand, which also covers
-# first creation) and via `npm run skills:install`. Safe to re-run; a lock
+# Runs in verification-only mode on every devcontainer start and refreshes only
+# via `npm run skills:install`. Safe to re-run; a lock
 # file (override: OPENSESAME_SKILLS_LOCK_FILE) serializes concurrent
-# runs. Per-skill failures warn and continue (optional profiles may be
-# absent, e.g. offline); the outcome is recorded in
+# runs. Hash mismatches and uncatalogued third-party skills are moved out of
+# discovery roots; the outcome is recorded in
 # .agents/.skills-currency.json instead of failing container start.
 set -uo pipefail
 
-# Pinned installer tool versions (skill content still floats to latest).
-# Same versions as mise.toml npm:skills, npm:impeccable, and npm:typeui.sh.
-# `mise install` puts those bins on PATH; npx below uses the same pins.
+# Pinned installer tool version. `mise install` puts it on PATH; npx below uses
+# the same pin only during an explicit refresh.
 SKILLS_CLI="skills@1.7.4"
-IMPECCABLE_CLI="impeccable@4.8.0"
-TYPEUI_CLI="typeui.sh@0.7.1"
+
+REFRESH="false"
+if [ "${1:-}" = "--refresh" ]; then
+  REFRESH="true"
+elif [ "$#" -ne 0 ]; then
+  echo "usage: $0 [--refresh]" >&2
+  exit 2
+fi
 
 cd "$(dirname "$0")/../.." || exit 1
 warn() { echo "install-agent-skills: WARN: $*" >&2; }
@@ -43,17 +47,18 @@ if command -v flock >/dev/null 2>&1; then
   fi
 fi
 
-# Snapshot which tracked adapter/lock files are already dirty, so the
+# Snapshot which tracked adapter files are already dirty, so the
 # restore at the end only touches installer side effects, never local work.
-TRACKED=".codex/hooks.json .claude/settings.json skills-lock.json"
+TRACKED=".codex/hooks.json .claude/settings.json"
 DIRTY_BEFORE=$(git status --porcelain -- $TRACKED 2>/dev/null | cut -c4- | sort || true)
 
-# 1. Install missing catalogue skills at upstream latest
+# 1. During an explicit refresh, install missing catalogue skills.
 #    (lock key stitch::x installs as stitch-x/). Explicit agents only:
 #    '*' also writes Universal (./skills/) and OpenClaw (./agent/) roots
 #    this repo does not use. Codex, Copilot, OpenCode, and Gemini
 #    discover .agents/skills natively; Claude Code and Grok need mirrors.
-if ! missing=$(node -e "
+missing=""
+if [ "$REFRESH" = "true" ] && ! missing=$(node -e "
   const fs = require('fs');
   const lock = JSON.parse(fs.readFileSync('skills-lock.json', 'utf8'));
   for (const [name, meta] of Object.entries(lock.skills)) {
@@ -65,10 +70,8 @@ if ! missing=$(node -e "
   degrade "could not read skills-lock.json; skipping catalogue install"
   missing=""
 fi
-if ! command -v skills >/dev/null 2>&1 \
-  || ! command -v impeccable >/dev/null 2>&1 \
-  || ! command -v typeui.sh >/dev/null 2>&1; then
-  echo "install-agent-skills: HINT: mise install npm:skills npm:impeccable npm:typeui.sh installs the pinned CLIs; using npx ${SKILLS_CLI}, ${IMPECCABLE_CLI}, ${TYPEUI_CLI}" >&2
+if [ "$REFRESH" = "true" ] && ! command -v skills >/dev/null 2>&1; then
+  echo "install-agent-skills: HINT: mise install npm:skills installs the pinned CLI; using npx ${SKILLS_CLI}" >&2
 fi
 if [ -n "$missing" ]; then
   while IFS="$(printf '\t')" read -r name source; do
@@ -78,31 +81,13 @@ if [ -n "$missing" ]; then
   done <<< "$missing"
 fi
 
-# 2. Refresh everything already installed to upstream latest.
-timeout --kill-after=15 600 npx -y "$SKILLS_CLI" update -y </dev/null \
-  || degrade "skills update failed (offline?); keeping installed versions"
-
-# 3. impeccable ships its own installer/updater (not in skills-lock.json).
-#    Restricted providers + no hooks: hook registration belongs to tracked
-#    config (.codex/hooks.json, .claude/settings.json), never to an
-#    installer's ignored side effects.
-if [ -f .agents/skills/impeccable/SKILL.md ]; then
-  timeout --kill-after=15 600 npx -y "$IMPECCABLE_CLI" update -y --project --no-hooks </dev/null \
-    || degrade "could not update optional skill impeccable"
-else
-  timeout --kill-after=15 600 npx -y "$IMPECCABLE_CLI" install -y --project --no-hooks --providers=claude,agents,grok </dev/null \
-    || degrade "could not install optional skill impeccable"
+# 2. Refresh only when a maintainer explicitly requested reviewed lock changes.
+if [ "$REFRESH" = "true" ]; then
+  timeout --kill-after=15 600 npx -y "$SKILLS_CLI" update -y </dev/null \
+    || degrade "skills update failed; keeping verified installed versions"
 fi
 
-# 4. design-system is a TypeUI pull (not in skills-lock.json); re-pull latest.
-timeout --kill-after=15 300 npx -y "$TYPEUI_CLI" pull minimal -f skill -p claude-code </dev/null \
-  || degrade "could not refresh optional skill design-system"
-if [ ! -f .agents/skills/design-system/SKILL.md ] && [ -f .claude/skills/design-system/SKILL.md ]; then
-  mkdir -p .agents/skills/design-system
-  cp -r .claude/skills/design-system/. .agents/skills/design-system/
-fi
-
-# 5. Remove hook registrations installers wrote into ignored roots
+# 3. Remove hook registrations installers wrote into ignored roots
 #    (older host installs, other tools), preserving unrelated hooks: only
 #    the impeccable entries are stripped from shared manifests, and only
 #    single-purpose impeccable.json manifests are deleted. Tracked files
@@ -144,33 +129,17 @@ for f in .cursor/hooks.json .claude/settings.local.json; do
   fi
 done
 
-# 6. Container Chromium patch for scandinavian-design verifiers: the tracked
-#    repo previously carried this as a patched .claude variant; installed
-#    copies are patched in place instead (ignored output, re-applied after
-#    every update) and the patch is verified, not assumed. Container-only:
-#    outside the container the canonical `channel: 'chrome'` (system Chrome)
-#    must stay, or local verifiers would launch a nonexistent executable.
-PATCH_OK="true"
-if [ -n "${PLAYWRIGHT_CHROMIUM:-}" ] || [ -x /opt/pw-browsers/chromium ]; then
-  for f in .agents/skills/scandinavian-design/scripts/density.js \
-           .agents/skills/scandinavian-design/scripts/lines.js \
-           .agents/skills/scandinavian-design/scripts/tints.js; do
-    if [ -f "$f" ]; then
-      perl -pi -e "s/channel: 'chrome',/executablePath: process.env.PLAYWRIGHT_CHROMIUM || '\/opt\/pw-browsers\/chromium',/" "$f"
-      if grep -q "channel: 'chrome'," "$f"; then
-        PATCH_OK="false"
-        degrade "scandinavian-design Chromium patch did not apply to $f (upstream format changed?)"
-      fi
-    fi
-  done
+# 4. Reject unreviewed executable instructions before mirrors are exposed.
+if ! node scripts/dev/verify-agent-skills.mjs --quarantine; then
+  degrade "unverified third-party skills were quarantined"
 fi
 
-# 7. Installers materialize real copies in harness mirrors; collapse them
+# 5. Installers materialize real copies in harness mirrors; collapse them
 #    to links (this also removes stale mirrors of uninstalled optional
-#    skills). Then restore tracked adapters/lock that installers rewrite —
+#    skills). Then restore tracked adapters that installers rewrite —
 #    but only files that were clean before this run; pre-existing local
-#    edits are left alone. Installed content floats to latest; tracked
-#    files change only in reviewed commits.
+#    edits are left alone. An explicit refresh leaves skills-lock.json changed
+#    for review; ordinary startup never writes it.
 node scripts/dev/sync-agent-skills.mjs || degrade "skill mirror sync reported problems"
 for f in $TRACKED; do
   if printf '%s\n' "$DIRTY_BEFORE" | grep -qx "$f"; then
@@ -180,7 +149,7 @@ for f in $TRACKED; do
   fi
 done
 
-# 8. Record currency durably, then gate. A failed check degrades the run
+# 6. Record currency durably, then gate. A failed check degrades the run
 #    (recorded + warned) instead of failing container start; CI gates the
 #    fresh tracked tree separately.
 if ! node scripts/dev/sync-agent-skills.mjs --check; then
@@ -196,8 +165,7 @@ node -e "
     version: 1,
     updatedAt: new Date().toISOString(),
     status: '$STATUS',
-    method: 'skills add/update (latest, unpinned) + impeccable + typeui',
-    scandinavianPatch: $PATCH_OK,
+    method: '$REFRESH' === 'true' ? 'explicit reviewed-catalog refresh' : 'offline integrity verification',
     installed,
   }, null, 2) + '\n');
 " || warn "could not write .agents/.skills-currency.json"
