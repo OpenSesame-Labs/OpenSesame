@@ -13,7 +13,14 @@ import {
   advancePrincipalSessionEpochOn,
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
-import { removeOrganizationMembership } from "../services/org-admin.js";
+import { removeOrphanTokens } from "../repos/session-storage.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
+import {
+  type PreparedWithdrawal,
+  finishOrganizationWithdrawal,
+  prepareRoleWithdrawal,
+} from "../services/organization-withdrawal.js";
+import { roleOf } from "./scim-effects.js";
 
 export async function getMembership(
   ctx: AppContext,
@@ -151,11 +158,21 @@ export type JitJoinInput = {
   method: string;
   correlationId: string;
   role?: OrganizationRole;
+  /** LDAP groups supplied the role directly, instead of a prior SCIM read. */
+  roleSource?: "ldap";
 };
 
 export type JitJoinResult =
   | { ok: true; membership: OrganizationMembership; created: boolean }
-  | { ok: false; error: "not_provisioned" | "last_owner"; message: string };
+  | {
+      ok: false;
+      error:
+        | "not_provisioned"
+        | "last_owner"
+        | "membership_withdrawing"
+        | "organization_unavailable";
+      message: string;
+    };
 
 /**
  * Join an authenticated subject to a tenant (ADR 0055/0056).
@@ -171,77 +188,151 @@ export async function jitJoinOrganization(
   ctx: AppContext,
   input: JitJoinInput,
 ): Promise<JitJoinResult> {
-  const org = input.organization;
-  if (org.provisioningEnabled) {
-    const provisioned = await ctx.stores.scim.users.findBySubject(
-      org.id,
-      input.subject,
+  const result = await withScimOrganizationBoundary(
+    ctx,
+    input.organization.id,
+    (tx) => prepareJoin(tx, input),
+  );
+  if ("prepared" in result) {
+    const finished = await finishOrganizationWithdrawal(ctx, result.prepared);
+    if (finished.status !== "changed") return busy();
+    return withScimOrganizationBoundary(ctx, input.organization.id, (tx) =>
+      revalidateJoin(tx, input, result.prepared.incarnation),
     );
-    if (!provisioned?.active) {
-      return {
-        ok: false,
-        error: "not_provisioned",
-        message: "This organization provisions members through its directory.",
-      };
-    }
   }
-
-  return serializeMembershipMutation(ctx, org.id, async () => {
-    const existing = await getMembership(ctx, org.id, input.principalId);
-    if (existing) {
-      if (input.role !== undefined && input.role !== existing.role) {
-        if (
-          existing.role === "owner" &&
-          (await ctx.stores.organizationMemberships.countOwners(org.id)) === 1
-        ) {
-          return {
-            ok: false,
-            error: "last_owner",
-            message:
-              "The directory would leave this organization without an owner.",
-          };
-        }
-        const changed = await ctx.stores.organizationMemberships.upsert({
-          ...existing,
-          role: input.role,
-          updatedAt: ctx.clock(),
-        });
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_role_changed",
-          outcome: "succeeded",
-          principalId: input.principalId,
-          organizationId: org.id,
-          correlationId: input.correlationId,
-          metadata: {
-            action: "organization.member.role.directory",
-            previousRole: existing.role,
-            role: changed.role,
-          },
-        });
-        return { ok: true as const, membership: changed, created: false };
-      }
-      return { ok: true as const, membership: existing, created: false };
-    }
-
-    const now = ctx.clock();
-    const membership = await ctx.stores.organizationMemberships.upsert({
-      organizationId: org.id,
-      principalId: input.principalId,
-      role: input.role ?? "member",
-      createdAt: now,
-      updatedAt: now,
-    });
+  if (result.ok && result.created) {
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.member_joined",
       outcome: "succeeded",
       principalId: input.principalId,
-      organizationId: org.id,
+      organizationId: input.organization.id,
       correlationId: input.correlationId,
-      metadata: {
-        action: "organization.tenant.join",
-        method: input.method,
-      },
+      metadata: { action: "organization.tenant.join", method: input.method },
     });
-    return { ok: true as const, membership, created: true };
+  }
+  return result;
+}
+
+type PreparedJoin = JitJoinResult | { prepared: PreparedWithdrawal };
+
+function busy(): JitJoinResult {
+  return {
+    ok: false,
+    error: "membership_withdrawing",
+    message: "Membership update is in progress. Try again later.",
+  };
+}
+
+async function prepareJoin(
+  tx: AppContext,
+  input: JitJoinInput,
+): Promise<PreparedJoin> {
+  const orgId = input.organization.id;
+  const currentOrg = await tx.stores.organizations.get(orgId);
+  if (currentOrg?.state !== "active") {
+    return {
+      ok: false,
+      error: "organization_unavailable",
+      message: "This organization is unavailable.",
+    };
+  }
+  const provisioned = await tx.stores.scim.users.findBySubject(
+    orgId,
+    input.subject,
+  );
+  if (currentOrg.provisioningEnabled && !provisioned?.active) {
+    return {
+      ok: false,
+      error: "not_provisioned",
+      message: "This organization provisions members through its directory.",
+    };
+  }
+  const role =
+    input.roleSource === "ldap"
+      ? input.role
+      : provisioned?.active
+        ? roleOf(provisioned)
+        : undefined;
+  return serializeMembershipMutation(tx, orgId, async () => {
+    const current = await tx.stores.organizationMemberships.findVersioned(
+      orgId,
+      input.principalId,
+    );
+    if (current) {
+      if (
+        current.withdrawalId ||
+        (role !== undefined && role !== current.membership.role)
+      ) {
+        if (role === undefined) return busy();
+        return prepareJoinRole(tx, input, current.incarnation, role);
+      }
+      return { ok: true, membership: current.membership, created: false };
+    }
+    const now = tx.clock();
+    const membership = await tx.stores.organizationMemberships.upsert({
+      organizationId: orgId,
+      principalId: input.principalId,
+      role: role ?? "member",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { ok: true, membership, created: true };
   });
+}
+
+async function prepareJoinRole(
+  tx: AppContext,
+  input: JitJoinInput,
+  incarnation: string,
+  role: OrganizationRole,
+): Promise<PreparedJoin> {
+  const result = await prepareRoleWithdrawal(tx, {
+    organizationId: input.organization.id,
+    principalId: input.principalId,
+    expectedIncarnation: incarnation,
+    role,
+    actorPrincipalId: input.principalId,
+    actorType: "system",
+    correlationId: input.correlationId,
+  });
+  if (result.status === "ready") return { prepared: result.prepared };
+  if (result.status === "unchanged")
+    return { ok: true, membership: result.membership, created: false };
+  if (result.status === "last_owner")
+    return {
+      ok: false,
+      error: "last_owner",
+      message: "The directory would leave this organization without an owner.",
+    };
+  return busy();
+}
+
+async function revalidateJoin(
+  tx: AppContext,
+  input: JitJoinInput,
+  incarnation: string,
+): Promise<JitJoinResult> {
+  const orgId = input.organization.id;
+  const org = await tx.stores.organizations.get(orgId);
+  const provisioned = await tx.stores.scim.users.findBySubject(
+    orgId,
+    input.subject,
+  );
+  const current = await tx.stores.organizationMemberships.findVersioned(
+    orgId,
+    input.principalId,
+  );
+  if (
+    org?.state !== "active" ||
+    (org.provisioningEnabled && !provisioned?.active)
+  ) {
+    return {
+      ok: false,
+      error: "not_provisioned",
+      message: "This organization provisions members through its directory.",
+    };
+  }
+  if (!current || current.withdrawalId || current.incarnation !== incarnation)
+    return busy();
+  return { ok: true, membership: current.membership, created: false };
 }
