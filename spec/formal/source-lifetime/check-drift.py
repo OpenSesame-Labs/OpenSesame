@@ -52,6 +52,7 @@ PATHS = [
     "crates/gateway/src/transport/mod.rs",
     "crates/gateway/src/transport_lifecycle/mod.rs",
     "crates/gateway/src/transport/boot.rs",
+    "crates/gateway/src/transport/source_trust_selection.rs",
     "crates/gateway/src/transport/runtime.rs",
     "crates/gateway/src/transport/admission.rs",
     "crates/gateway/src/transport/status.rs",

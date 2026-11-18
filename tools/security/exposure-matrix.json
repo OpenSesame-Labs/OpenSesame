@@ -488,6 +488,8 @@
         "crates/gateway/src/transport/admission.rs",
         "crates/gateway/src/transport/bindings.rs",
         "crates/gateway/src/transport/boot.rs",
+        "crates/gateway/src/transport/source_trust_selection.rs",
+        "crates/gateway/src/transport/source_trust_selection_formal.rs",
         "crates/gateway/src/transport/config.rs",
         "crates/gateway/src/transport/managed.rs",
         "crates/gateway/src/transport/mod.rs",
@@ -517,6 +519,7 @@
       "regressions": [
         "crates/gateway/src/config_listener_tests.rs",
         "crates/gateway/src/transport/boot_tests.rs",
+        "crates/gateway/src/transport/boot_source_trust_tests.rs",
         "crates/gateway/src/transport/admission_tests.rs",
         "crates/gateway/src/transport/admission_source_tests.rs",
         "crates/gateway/src/transport/status_tests.rs",
@@ -530,7 +533,7 @@
         "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
         "crates/gateway/src/transport_lifecycle/trust_source_tests.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. This does not establish durable history or peer URI-domain validation."
     },
     {
       "id": "certificate-binding",
@@ -3010,14 +3013,24 @@
       "161580e7"
     ],
     "crates/gateway/src/transport/boot.rs": [
-      "9cab3c37",
-      "fddfb755",
-      "2b10f358",
-      "d793a9cf",
-      "8f63083a",
-      "a2dd25c0",
-      "86ce59f2",
-      "b5f8e1ab"
+      "73913117",
+      "e9ae7cfc",
+      "203b070e",
+      "1d6fa860",
+      "d068655b",
+      "d171fa0f",
+      "72be24a1",
+      "3d1a3e10"
+    ],
+    "crates/gateway/src/transport/boot_source_trust_tests.rs": [
+      "81e21dc7",
+      "4b45e7b9",
+      "0aab8bdd",
+      "4bd713a5",
+      "32b65ff2",
+      "47d901b6",
+      "1d91fe02",
+      "fe9df972"
     ],
     "crates/gateway/src/transport/boot_tests.rs": [
       "a6c90c3f",
@@ -3028,6 +3041,26 @@
       "c11e5138",
       "4d6e2543",
       "7c2d2415"
+    ],
+    "crates/gateway/src/transport/source_trust_selection.rs": [
+      "641e3e9f",
+      "dd177f29",
+      "cf62db43",
+      "fd239639",
+      "ef1072c8",
+      "42cef295",
+      "995d428b",
+      "515820ed"
+    ],
+    "crates/gateway/src/transport/source_trust_selection_formal.rs": [
+      "e2a5e1b4",
+      "2d22d22b",
+      "7507b397",
+      "8f83128d",
+      "0db7714a",
+      "5d8b4443",
+      "48ffe6be",
+      "d9af3f40"
     ],
     "crates/gateway/src/transport/config.rs": [
       "0ebd0b88",

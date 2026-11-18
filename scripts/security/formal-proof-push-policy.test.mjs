@@ -12,43 +12,64 @@ const requirements = JSON.parse(
 const manifest = "spec/formal/proof-requirements.json";
 const registryPath = "spec/formal/proof-registry.json";
 
-function seedRequiredSuite(f, suite) {
+function seedRequiredSuite(
+  f,
+  suite,
+  implementationPath = suite.implementation[0],
+) {
   f.pin(requirements);
+  f.write(
+    "scripts/security/formal-proof-manifest-set.mjs",
+    readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
+  );
   f.write(manifest, JSON.stringify(requirements));
   f.write(registryPath, JSON.stringify(requirements));
-  for (const required of requirements.suites)
-    for (const proof of required.proofs) f.write(proof, "proof\n");
-  f.write(suite.implementation[0], "original\n");
+  for (const proof of suite.proofs) f.write(proof, "proof\n");
+  f.write(implementationPath, "original\n");
 }
 
 test("every reviewed suite runs for its own implementation", (t) => {
   for (const suite of requirements.suites) {
     const f = fixture(t);
-    seedRequiredSuite(f, suite);
+    const projected = new Set(
+      requirements.suites.flatMap(
+        (entry) => entry.manifestProjection?.manifests ?? [],
+      ),
+    );
+    const path = suite.implementation.find(
+      (entry) =>
+        !projected.has(entry) &&
+        entry !== "Cargo.toml" &&
+        entry !== "Cargo.lock" &&
+        !entry.endsWith("/build.rs"),
+    );
+    assert.ok(path, `${suite.id}: expected a direct implementation path`);
+    seedRequiredSuite(f, suite, path);
+    const selected = requirements.suites.filter((entry) =>
+      entry.implementation.includes(path),
+    );
+    for (const entry of selected)
+      for (const proof of entry.proofs) f.write(proof, "proof\n");
     const base = f.commit();
-    f.write(suite.implementation[0], "changed\n");
+    f.write(path, "changed\n");
     const target = f.commit();
     const result = f.run(f.tuple(target, base));
     assert.equal(result.status, 0, `${suite.id}: ${result.stderr}`);
     assert.deepEqual(
       f.commands(),
-      requirements.suites
-        .filter((required) =>
-          required.implementation.includes(suite.implementation[0]),
-        )
-        .map((required) => `run ${required.command[2]}`),
+      selected.map((entry) => `run ${entry.command[2]}`),
     );
   }
 });
 
-test("overlapping authority, SPIFFE, and lifetime mappings all run, but an unrelated edit skips", (t) => {
-  const path = "crates/domain/Cargo.toml";
+test("overlapping mapped suites all run, but an unrelated edit skips", (t) => {
+  const path = "crates/domain/src/lib.rs";
   const selected = requirements.suites.filter((entry) =>
     entry.implementation.includes(path),
   );
   assert.deepEqual(
     selected.map((entry) => entry.id),
-    ["authority", "spiffe", "source-lifetime"],
+    ["authority", "spiffe", "source-lifetime", "source-trust-selection"],
   );
   for (const changed of [path, "docs/unrelated.md"]) {
     const f = fixture(t);
@@ -69,8 +90,7 @@ test("overlapping authority, SPIFFE, and lifetime mappings all run, but an unrel
   }
 });
 
-
-test("signing implementation changes select the lifetime proof without selecting proof-only edits", (t) => {
+test("signing implementation selects all mapped proofs without selecting proof-only edits", (t) => {
   const suite = requirements.suites.find(
     (entry) => entry.id === "source-lifetime",
   );
@@ -87,7 +107,19 @@ test("signing implementation changes select the lifetime proof without selecting
     "docs/unrelated.md",
   ]) {
     const f = fixture(t);
+    const selected = requirements.suites.filter((entry) =>
+      entry.implementation.includes(changed),
+    );
+    if (implementation.includes(changed)) {
+      assert.deepEqual(
+        selected.map((entry) => entry.id),
+        ["source-lifetime", "source-trust-selection"],
+      );
+    }
     seedRequiredSuite(f, suite);
+    for (const entry of selected)
+      for (const proof of entry.proofs) f.write(proof, "proof\n");
+    if (implementation.includes(changed)) f.write(changed, "before\n");
     const base = f.commit();
     f.write(changed, "changed\n");
     const target = f.commit();
@@ -95,11 +127,66 @@ test("signing implementation changes select the lifetime proof without selecting
     assert.equal(result.status, 0, `${changed}: ${result.stderr}`);
     assert.deepEqual(
       f.commands(),
-      implementation.includes(changed) ? [`run ${suite.command[2]}`] : [],
+      selected.map((entry) => `run ${entry.command[2]}`),
     );
   }
 });
 
+test("source selector changes select the lifetime and selector proofs only", (t) => {
+  const path = "crates/gateway/src/transport/source_trust_selection.rs";
+  const selected = requirements.suites.filter((entry) =>
+    entry.implementation.includes(path),
+  );
+  assert.deepEqual(
+    selected.map((entry) => entry.id),
+    ["source-lifetime", "source-trust-selection"],
+  );
+  for (const changed of [path, "docs/unrelated.md"]) {
+    const f = fixture(t);
+    seedRequiredSuite(f, selected[0]);
+    for (const entry of selected)
+      for (const proof of entry.proofs) f.write(proof, "proof\n");
+    f.write(path, "before\n");
+    const base = f.commit();
+    f.write(changed, "changed\n");
+    const target = f.commit();
+    const result = f.run(f.tuple(target, base));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      f.commands(),
+      changed === path
+        ? selected.map((entry) => `run ${entry.command[2]}`)
+        : [],
+    );
+  }
+});
+
+test("a new or transient local build script selects its covered proof suites", (t) => {
+  const path = "crates/domain/build.rs";
+  const selected = requirements.suites.filter((entry) =>
+    entry.implementation.includes(path),
+  );
+  assert.ok(selected.some((entry) => entry.id === "source-trust-selection"));
+  for (const transient of [false, true]) {
+    const f = fixture(t);
+    seedRequiredSuite(f, selected[0]);
+    for (const entry of selected)
+      for (const proof of entry.proofs) f.write(proof, "proof\n");
+    const base = f.commit();
+    f.write(path, 'fn main() { println!("cargo:rustc-cfg=policy"); }\n');
+    if (transient) {
+      f.commit();
+      f.git("rm", path);
+    }
+    const target = f.commit();
+    const result = f.run(f.tuple(target, base));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      f.commands(),
+      selected.map((entry) => `run ${entry.command[2]}`),
+    );
+  }
+});
 
 test("a historical base may predate a newly registered suite", (t) => {
   const f = fixture(t);

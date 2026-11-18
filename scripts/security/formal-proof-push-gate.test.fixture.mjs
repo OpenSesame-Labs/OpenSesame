@@ -43,6 +43,7 @@ function setupController(controller) {
     "formal-proof-push-history.mjs",
     "formal-proof-lock-history.mjs",
     "formal-proof-manifest-set.mjs",
+    "formal-proof-source-selection.mjs",
     "formal-proof-remote-main.mjs",
     "formal-proof-required-suites.mjs",
   ])
@@ -199,6 +200,7 @@ export function installHook(f) {
   for (const name of [
     "formal-proof-lock-history.mjs",
     "formal-proof-manifest-set.mjs",
+    "formal-proof-source-selection.mjs",
     "cargo-lock-projection.py",
     "cargo-workspace-projection.py",
     "cargo-workspace-multipackage.py",

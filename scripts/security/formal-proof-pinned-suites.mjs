@@ -1,3 +1,5 @@
+import { SOURCE_TRUST_SELECTION_SUITE } from "./formal-proof-source-selection.mjs";
+
 // Independently reviewed minimum. Extend with each new formal suite or mapping.
 export const PINNED_FORMAL_SUITES = [
   {
@@ -213,6 +215,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/gateway/src/transport/mod.rs",
       "crates/gateway/src/transport_lifecycle/mod.rs",
       "crates/gateway/src/transport/boot.rs",
+      "crates/gateway/src/transport/source_trust_selection.rs",
       "crates/gateway/src/transport/runtime.rs",
       "crates/gateway/src/transport/admission.rs",
       "crates/gateway/src/transport/status.rs",
@@ -245,4 +248,5 @@ export const PINNED_FORMAL_SUITES = [
     ],
     command: ["npm", "run", "verify:source-lifetime-formal"],
   },
+  SOURCE_TRUST_SELECTION_SUITE,
 ];
