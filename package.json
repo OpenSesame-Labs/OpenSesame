@@ -54,6 +54,7 @@
     "verify:auth-formal": "bash scripts/test/auth-formal.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
+    "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
     "test:visual": "npm run test:visual -w @opensesame/visual-contract",
     "test:anti-slop": "diff -ru --exclude=.turbo --exclude=MANIFEST.sha256 --exclude=node_modules --exclude=package.json --exclude=verify.mjs --exclude=vitest.config.ts skills/install-anti-slop/assets/anti-slop tools/oxlint/anti-slop && node skills/install-anti-slop/scripts/manifest.mjs --check && npm run typecheck:anti-slop && vitest run --root tools/oxlint/anti-slop",

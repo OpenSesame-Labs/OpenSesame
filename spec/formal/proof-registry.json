@@ -52,6 +52,30 @@
         "spec/formal/check-axioms.sh"
       ],
       "command": ["npm", "run", "verify:webauthn-formal"]
+    },
+    {
+      "id": "interaction-clock",
+      "implementation": [
+        "packages/control-plane/src/services/interaction-clock.ts",
+        "packages/control-plane/src/routes/interaction-activation-spend.ts",
+        "packages/control-plane/src/routes/interaction-handoff.ts",
+        "packages/os-domain/src/machines/interaction.ts",
+        "packages/os-domain/src/errors.ts"
+      ],
+      "proofs": [
+        "spec/formal/interaction-clock/InteractionClock.lean",
+        "spec/formal/interaction-clock/required-theorems.lean",
+        "spec/formal/interaction-clock/clock-conformance.test.ts",
+        "spec/formal/interaction-clock/vitest.config.ts",
+        "spec/formal/interaction-clock/verify.sh",
+        "spec/formal/interaction-clock/check-report.mjs",
+        "spec/formal/interaction-clock/check-drift.mjs",
+        "spec/formal/interaction-clock/coverage.json",
+        "spec/formal/interaction-clock/negative-controls.py",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh"
+      ],
+      "command": ["npm", "run", "verify:interaction-clock-formal"]
     }
   ]
 }
