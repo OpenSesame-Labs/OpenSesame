@@ -1,0 +1,62 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import {
+  readWebAuthnBrowserInputs,
+  renderWebAuthnBrowserEntry,
+  validateWebAuthnBrowserSource,
+  webAuthnBrowserEntry,
+} from "./webauthn-browser-entry.mjs";
+
+const input = readWebAuthnBrowserInputs();
+
+test("the browser entry retains the exact official verification functions", async () => {
+  const source = renderWebAuthnBrowserEntry(input);
+  assert.match(source, /verifyAuthenticationResponse/);
+  assert.match(source, /verifyRegistrationResponse/);
+  assert.doesNotMatch(source, /generateAuthenticationOptions|metadataService/);
+  const official = await import("@simplewebauthn/server");
+  const authentication = await import(
+    input.sources["esm/authentication/verifyAuthenticationResponse.js"].path
+  );
+  const registration = await import(
+    input.sources["esm/registration/verifyRegistrationResponse.js"].path
+  );
+  assert.equal(
+    authentication.verifyAuthenticationResponse,
+    official.verifyAuthenticationResponse,
+  );
+  assert.equal(
+    registration.verifyRegistrationResponse,
+    official.verifyRegistrationResponse,
+  );
+});
+
+test("every reviewed SimpleWebAuthn input is content pinned", () => {
+  assert.throws(
+    () =>
+      validateWebAuthnBrowserSource(
+        "esm/index.js",
+        `${input.sources["esm/index.js"].source}\n`,
+      ),
+    /pin mismatch/,
+  );
+  assert.doesNotThrow(() => readWebAuthnBrowserInputs());
+});
+
+test("the build plugin rewires only the owned browser seam", () => {
+  const plugin = webAuthnBrowserEntry();
+  plugin.buildStart();
+  const seam = input.packageRoot.replace(
+    /node_modules\/@simplewebauthn\/server$/,
+    "packages/auth-upstream/src/simplewebauthn.ts",
+  );
+  assert.match(plugin.resolveId("@simplewebauthn/server", seam), /webauthn/);
+  assert.equal(
+    plugin.resolveId("@simplewebauthn/server", "/fixture/other.ts"),
+    null,
+  );
+  assert.match(
+    plugin.load("\0opensesame-simplewebauthn-browser"),
+    /verifyRegistrationResponse/,
+  );
+});
