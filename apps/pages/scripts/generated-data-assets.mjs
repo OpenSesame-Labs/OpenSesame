@@ -100,6 +100,13 @@ const generatedModules = Object.freeze([
   capabilityTutorialDescriptor,
   {
     kind: "json-default",
+    path: `${root}/apps/pages/src/sections/connections/connector-marks.generated.json`,
+    hash: "f295248680222c831fb2a095874a991f7a1d8a2d86704074a8424fce872d6282",
+    exportName: "default",
+    assetName: "generated-data/connector-marks.json",
+  },
+  {
+    kind: "json-default",
     path: `${root}/packages/capability-registry/pwa-summaries.json`,
     hash: "cf8c3ddb5dabcf753b719373a65b0a164e2904735e16cdb0c19cfffa5a1114cc",
     exportName: "default",
