@@ -74,6 +74,8 @@ export const DRIVER_GATES = {
   // ADR 0181: the journeys shard runs the relay join walk.
   "verify-relay-join.mjs": ["journeys"],
   "verify-relay-join-live.mjs": ["journeys"],
+  // Startup verification is a local package command, not a CI shard.
+  "verify-startup.mjs": null,
   "verify-live-netns.mjs": null,
   "verify-mutations.mjs": null,
   "verify-tailnet-devices.mjs": null,
