@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { skillFolderHash } from "../dev/verify-agent-skills.mjs";
+import { skillTreeHashV2 } from "../dev/verify-agent-skills.mjs";
 
 test("startup verifies offline and quarantines content changed since review", (t) => {
   const root = mkdtempSync(join(tmpdir(), "skills-install-status-"));
@@ -35,10 +35,10 @@ test("startup verifies offline and quarantines content changed since review", (t
   put("scripts/dev/sync-agent-skills.mjs", "");
   put("skills/core/SKILL.md", "# Core\n");
   put(".agents/skills/demo/SKILL.md", "# Demo\n");
-  const computedHash = skillFolderHash(join(root, ".agents/skills/demo"));
+  const treeHashV2 = skillTreeHashV2(join(root, ".agents/skills/demo"));
   put(
     "skills-lock.json",
-    `${JSON.stringify({ skills: { demo: { computedHash, source: "example/demo" } } })}\n`,
+    `${JSON.stringify({ integrity: { algorithm: "opensesame-skill-tree-v2" }, skills: { demo: { treeHashV2, source: "example/demo" } } })}\n`,
   );
   put(".codex/hooks.json", "{}\n");
   put(".claude/settings.json", "{}\n");

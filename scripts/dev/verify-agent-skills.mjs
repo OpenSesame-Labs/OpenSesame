@@ -12,24 +12,64 @@ import {
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-function filesBelow(root, current = root, found = []) {
+function entriesBelow(root, current = root, found = []) {
   for (const entry of readdirSync(current, { withFileTypes: true })) {
-    if (entry.name === ".git" || entry.name === "node_modules") continue;
     const path = join(current, entry.name);
-    if (entry.isDirectory()) filesBelow(root, path, found);
-    else if (entry.isFile()) found.push(path);
+    if (entry.isDirectory()) {
+      found.push({ path, type: 2 });
+      entriesBelow(root, path, found);
+    } else if (entry.isFile()) found.push({ path, type: 1 });
     else throw new Error(`Unsupported entry in installed skill: ${path}`);
   }
   return found;
 }
 
-export function skillFolderHash(root) {
+function lengthPrefix(value) {
+  const bytes = Buffer.alloc(8);
+  bytes.writeBigUInt64BE(BigInt(value));
+  return bytes;
+}
+
+function portablePath(root, path) {
+  const value = relative(root, path).split(sep).join("/");
+  if (value !== value.normalize("NFC")) {
+    throw new Error(`Non-canonical Unicode path in installed skill: ${value}`);
+  }
+  return value;
+}
+
+export function skillTreeHashV2(root) {
+  const entries = entriesBelow(root).map(({ path, type }) => ({
+    path,
+    type,
+    relative: portablePath(root, path),
+  }));
+  entries.sort((a, b) =>
+    Buffer.compare(Buffer.from(a.relative), Buffer.from(b.relative)),
+  );
+  const insensitive = new Set();
+  for (const { relative: name } of entries) {
+    const folded = name.toLowerCase();
+    if (insensitive.has(folded)) {
+      throw new Error(`Case-colliding paths in installed skill: ${name}`);
+    }
+    insensitive.add(folded);
+  }
+
   const hash = createHash("sha256");
-  for (const path of filesBelow(root).sort((a, b) =>
-    relative(root, a).localeCompare(relative(root, b)),
-  )) {
-    hash.update(relative(root, path).split(sep).join("/"));
-    hash.update(readFileSync(path));
+  hash.update("OpenSesame skill tree\0v2\0");
+  hash.update(lengthPrefix(entries.length));
+  for (const { path, relative: name, type } of entries) {
+    const nameBytes = Buffer.from(name);
+    // Modes are intentionally excluded: catalogue copies cross filesystems
+    // that do not preserve POSIX mode bits. Entry type, every path and every
+    // regular-file byte are authenticated; links and special files fail.
+    const contents = type === 1 ? readFileSync(path) : Buffer.alloc(0);
+    hash.update(Buffer.from([type]));
+    hash.update(lengthPrefix(nameBytes.length));
+    hash.update(nameBytes);
+    hash.update(lengthPrefix(contents.length));
+    hash.update(contents);
   }
   return hash.digest("hex");
 }
@@ -41,11 +81,21 @@ function containedBy(parent, child) {
 
 export function verifyInstalledSkills({ repo, installed, quarantine }) {
   const lock = JSON.parse(readFileSync(join(repo, "skills-lock.json"), "utf8"));
+  if (
+    lock.integrity?.algorithm !== "opensesame-skill-tree-v2" ||
+    !lock.skills ||
+    typeof lock.skills !== "object" ||
+    Array.isArray(lock.skills)
+  ) {
+    throw new Error("skills lock has no supported integrity catalogue");
+  }
   const expected = new Map(
-    Object.entries(lock.skills).map(([name, entry]) => [
-      name.replace("stitch::", "stitch-"),
-      entry.computedHash,
-    ]),
+    Object.entries(lock.skills).map(([name, entry]) => {
+      if (!/^[0-9a-f]{64}$/u.test(entry.treeHashV2 ?? "")) {
+        throw new Error(`skills lock has no valid tree hash for ${name}`);
+      }
+      return [name.replace("stitch::", "stitch-"), entry.treeHashV2];
+    }),
   );
   const firstParty = realpathSync(join(repo, "skills"));
   const rejected = [];
@@ -70,7 +120,7 @@ export function verifyInstalledSkills({ repo, installed, quarantine }) {
     }
     let digest;
     try {
-      digest = entry.isDirectory() ? skillFolderHash(path) : undefined;
+      digest = entry.isDirectory() ? skillTreeHashV2(path) : undefined;
     } catch {
       // Unsupported entries (including nested links) cannot be authenticated.
     }

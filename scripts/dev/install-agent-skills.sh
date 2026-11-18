@@ -85,6 +85,21 @@ fi
 if [ "$REFRESH" = "true" ]; then
   timeout --kill-after=15 600 npx -y "$SKILLS_CLI" update -y </dev/null \
     || degrade "skills update failed; keeping verified installed versions"
+  # The installer owns computedHash, whose legacy path/content concatenation
+  # is ambiguous. Keep it for installer compatibility and record our reviewed,
+  # framed whole-tree digest in a dedicated versioned field.
+  node --input-type=module -e "
+    import fs from 'node:fs';
+    import { skillTreeHashV2 } from './scripts/dev/verify-agent-skills.mjs';
+    const lock = JSON.parse(fs.readFileSync('skills-lock.json', 'utf8'));
+    for (const [name, entry] of Object.entries(lock.skills)) {
+      const dir = '.agents/skills/' + name.replace('stitch::', 'stitch-');
+      if (!fs.existsSync(dir + '/SKILL.md')) throw new Error('missing refreshed skill ' + name);
+      entry.treeHashV2 = skillTreeHashV2(dir);
+    }
+    lock.integrity = { algorithm: 'opensesame-skill-tree-v2' };
+    fs.writeFileSync('skills-lock.json', JSON.stringify(lock, null, 2) + '\n');
+  " || degrade "could not record framed catalogue tree hashes"
 fi
 
 # 3. Remove hook registrations installers wrote into ignored roots
