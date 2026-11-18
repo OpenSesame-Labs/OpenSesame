@@ -8,6 +8,7 @@ import {
   assertBlocked,
   assertClean,
   gateFixture,
+  installFormalGate,
 } from "./exposure-gate-fixture.mjs";
 import { CHECKER_SOURCES } from "./exposure-matrix-gate.mjs";
 
@@ -234,6 +235,15 @@ test("a real pre-push hook checks actual other refs even when optional checks ar
   const remote = join(f.container, "remote.git");
   f.git(["init", "--bare", "-q", remote]);
   f.git(["remote", "add", "origin", remote]);
+  f.git([
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "--quiet",
+    "origin",
+    "HEAD:refs/heads/safe",
+  ]);
+  installFormalGate(f);
   f.git(["config", "core.hooksPath", ".githooks"]);
   const env = { OPENSESAME_PREPUSH: "off" };
   const safe = f.command(
@@ -242,6 +252,10 @@ test("a real pre-push hook checks actual other refs even when optional checks ar
   );
   assert.equal(safe.status, 0, safe.stderr);
   assert.match(`${safe.stdout}\n${safe.stderr}`, /exposure matrix: CLEAN/);
+  assert.match(
+    safe.stdout,
+    /formal proof push gate: no mapped implementation changes/,
+  );
   assert.equal(
     f.git(["--git-dir", remote, "rev-parse", "refs/heads/safe"]),
     f.head,
