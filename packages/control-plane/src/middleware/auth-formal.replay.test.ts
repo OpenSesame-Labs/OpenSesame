@@ -42,6 +42,7 @@ describe("control plane session formal replay", () => {
       headers: { "user-agent": "formal-replay" },
     });
     expect(mint.status).toBe(201);
+    // SAFETY: status 201 was checked; the provisional mint JSON contract returns accessToken and sessionId.
     const body = (await mint.json()) as {
       accessToken: string;
       sessionId: string;

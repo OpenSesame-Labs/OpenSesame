@@ -11,8 +11,16 @@ Requires `formal-verification` for the Pele render after `/statechart`.
 
 ## Rerun
 
+From the repo root. TLC is the pstack `/statechart` skill. Nothing in this repo installs a `statechart` binary. Invoke `/statechart` the way `skills/formal-verification/SKILL.md` describes, then render with the `formal-verification` skill. The output directory must be new and sit outside the repo.
+
 ```bash
-OUT="$(mktemp -d)" && statechart spec/formal-verification/pwa-shell-ready/PwaShellReady.tla --view spec/formal-verification/pwa-shell-ready/PwaShellReady.view.mjs --config spec/formal-verification/pwa-shell-ready/PwaShellReady.cfg --out "$OUT/chart" && npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
+OUT="$(mktemp -d)"
+```
+
+Invoke `/statechart` with spec `spec/formal-verification/pwa-shell-ready/PwaShellReady.tla`, view `spec/formal-verification/pwa-shell-ready/PwaShellReady.view.mjs`, config `spec/formal-verification/pwa-shell-ready/PwaShellReady.cfg`, and `--out "$OUT/chart"`. Then:
+
+```bash
+npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
 ```
 
 Replay tests: `apps/pages/src/bindings/shell-ready-formal.replay.test.ts` and `apps/pages/src/app-root.shell-ready.test.tsx`.

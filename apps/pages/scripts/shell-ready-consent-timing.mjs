@@ -90,10 +90,6 @@ export async function captureConsentActivationTiming({
     await captureChoices(page, shot, record);
     await applySetupChoice(page, shot, record, walk.setupChoice);
     await sealWithPin(page);
-    await page.getByRole("button", { name: "Lock vault" }).first().click();
-    await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20_000 });
-    await page.getByLabel("PIN", { exact: true }).fill(PIN);
-    await page.getByRole("button", { name: "Unlock", exact: true }).click();
     const redirectUri = `${server.origin}/callback`;
     await page.addScriptTag({ content: timingFixture });
     const identities = await page.evaluate(async (redirect) => {
@@ -103,6 +99,10 @@ export async function captureConsentActivationTiming({
         redirect,
       );
     }, redirectUri);
+    await page.getByRole("button", { name: "Lock vault" }).first().click();
+    await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20_000 });
+    await page.getByLabel("PIN", { exact: true }).fill(PIN);
+    await page.getByRole("button", { name: "Unlock", exact: true }).click();
     const authorize = new URL(`${server.origin}${BASE}identity/authorize`);
     authorize.search = new URLSearchParams({
       client_id: identities.app,

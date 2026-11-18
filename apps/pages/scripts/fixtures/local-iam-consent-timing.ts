@@ -1,6 +1,9 @@
 import "./install-browser-host.js";
 import { atRestReady } from "@opensesame/app-core/lib/at-rest/key.js";
-import { configureLocalApplication } from "@opensesame/app-core/lib/local-applications.js";
+import {
+  configureLocalApplication,
+  readLocalApplications,
+} from "@opensesame/app-core/lib/local-applications.js";
 import {
   type LocalDirectoryChange,
   readLocalDirectory,
@@ -58,8 +61,8 @@ export async function registerConsentTimingApplication(redirectUri: string) {
     principalId: person.id,
     role: "owner",
   });
-  directory = await readLocalDirectory(tomb);
-  await configureLocalApplication(tomb, directory.revision, app.id, {
+  const applications = await readLocalApplications(tomb);
+  await configureLocalApplication(tomb, applications.revision, app.id, {
     applicationId: app.id,
     organizationId: org.id,
     redirectUris: [redirectUri],

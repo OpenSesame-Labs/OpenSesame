@@ -67,10 +67,10 @@ ForgetLeases ==
   /\ stale' = stale + live + releasing
   /\ live' = 0
   /\ releasing' = 0
-  /\ lockHeld' = 0
   /\ count' = 0
   /\ gen' = gen + 1
   /\ exclusiveOk' = FALSE
+  /\ UNCHANGED <<lockHeld>>
 
 \* withExclusiveOpenLease: throws VaultStoreConflictError when count > 0.
 TryExclusiveDestroy ==
