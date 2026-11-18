@@ -23,18 +23,24 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import {
+  MAX_FILE_PART_CIPHERTEXT_BYTES,
   type ObjectStore,
   type VaultItem,
   readFileManifest,
 } from "@opensesame/vault-core";
 import {
+  DriveError,
   driveClientSeams,
   driveHeaders,
-  readJson,
   refused,
   slotBase,
 } from "./client.js";
 import type { DrivePairing } from "./pairing.js";
+import {
+  MAX_DRIVE_PARTS,
+  MAX_DRIVE_PART_LIST_BYTES,
+  readPartResponse,
+} from "./parts-bounds.js";
 
 function partUrl(pairing: DrivePairing, key: string): string {
   return `${slotBase(pairing)}/parts/${encodeURIComponent(key)}`;
@@ -50,10 +56,27 @@ export async function listDriveParts(
     cache: "no-store",
   });
   if (!response.ok) throw refused(response);
-  const json = await readJson(response);
-  const parts =
-    isJsonObject(json) && Array.isArray(json.parts) ? json.parts : [];
-  return new Set(parts.filter(isString));
+  let json: JsonValue;
+  try {
+    const bytes = await readPartResponse(response, MAX_DRIVE_PART_LIST_BYTES);
+    json = overlapCast(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+    );
+  } catch (error) {
+    if (error instanceof DriveError) throw error;
+    throw new DriveError("The drive answered with something unreadable.", 502);
+  }
+  if (
+    !isJsonObject(json) ||
+    !Array.isArray(json.parts) ||
+    json.parts.length > MAX_DRIVE_PARTS ||
+    json.parts.some(
+      (part) => !isString(part) || !/^[A-Za-z0-9_-]{16}$/.test(part),
+    )
+  ) {
+    throw new DriveError("The drive returned an invalid part list.", 502);
+  }
+  return new Set(json.parts.filter(isString));
 }
 
 export async function readDrivePart(
@@ -68,7 +91,7 @@ export async function readDrivePart(
   });
   if (response.status === 404) return null;
   if (!response.ok) throw refused(response);
-  return new Uint8Array(await response.arrayBuffer());
+  return readPartResponse(response, MAX_FILE_PART_CIPHERTEXT_BYTES);
 }
 
 export async function writeDrivePart(
@@ -76,6 +99,8 @@ export async function writeDrivePart(
   key: string,
   bytes: Uint8Array,
 ): Promise<void> {
+  if (bytes.byteLength > MAX_FILE_PART_CIPHERTEXT_BYTES)
+    throw new DriveError("The file part exceeds the size limit.", 413);
   const response = await driveClientSeams.fetch(partUrl(pairing, key), {
     method: "PUT",
     headers: driveHeaders(pairing, "application/octet-stream"),
