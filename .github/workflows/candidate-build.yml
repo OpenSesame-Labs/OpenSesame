@@ -341,15 +341,24 @@ jobs:
         source "$RUNNER_TEMP/opensesame-dbus/env.sh"
         [ "$(rustc -vV | sed -n 's/^host: //p')" = "$TARGET" ]
         export RUSTFLAGS="--remap-path-prefix=$GITHUB_WORKSPACE=/opensesame --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo"
-        export CARGO_TARGET_DIR="$PWD/target"
         mkdir -p bins
-        cargo build --locked --release -p opensesame-cli --bin opensesame
-        cp target/release/opensesame bins/opensesame
+        resolve_bin() {
+          cargo build --locked --release -p "$1" --bin "$2" \
+            --message-format=json-render-diagnostics 2>/dev/null \
+            | node ../.ci-control/scripts/release/cargo-built-executable.mjs "$2"
+        }
+        OPENSEAME_BIN="$(resolve_bin opensesame-cli opensesame)"
+        echo "resolved opensesame: ${OPENSEAME_BIN}"
+        cp "${OPENSEAME_BIN}" bins/opensesame
         [ "$(bins/opensesame --version)" = "opensesame ${TAG#v}" ]
-        cargo build --locked --release -p opensesame-surrogate-proxy --bin opensesame-surrogate-proxy
-        cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy
-        cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy
-        cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy-TEST-upstream-override
+        SURROGATE_BIN="$(resolve_bin opensesame-surrogate-proxy opensesame-surrogate-proxy)"
+        echo "resolved opensesame-surrogate-proxy: ${SURROGATE_BIN}"
+        cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy
+        SURROGATE_TEST_BIN="$(cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy \
+          --message-format=json-render-diagnostics 2>/dev/null \
+          | node ../.ci-control/scripts/release/cargo-built-executable.mjs opensesame-surrogate-proxy)"
+        echo "resolved opensesame-surrogate-proxy (TEST): ${SURROGATE_TEST_BIN}"
+        cp "${SURROGATE_TEST_BIN}" bins/opensesame-surrogate-proxy-TEST-upstream-override
         echo "${BRIDGE_SHA256}  bridge/opensesame-env-parse.mjs" | sha256sum -c -
         OPENSESAME_RELEASE_LICENSE="$PWD/LICENSE" ../.ci-control/scripts/release/kit-archive.sh pack "$TAG" "$TARGET" bins bridge/opensesame-env-parse.mjs dist
     - name: Smoke the actual archived kit and reject a writable bridge

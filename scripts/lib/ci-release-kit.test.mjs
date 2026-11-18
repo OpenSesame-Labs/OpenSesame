@@ -63,14 +63,17 @@ describe("candidate producer workflow", () => {
 
   it("copies shipped proxy bytes before building the separately named TEST variant", () => {
     const build = jobScripts(producer.jobs["native-untrusted"]);
+    expect(build).toContain("cargo-built-executable.mjs");
+    expect(build).toContain('echo "resolved opensesame:');
     expect(
       build.indexOf(
-        "cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy\n",
+        'cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy\n',
       ),
     ).toBeLessThan(build.indexOf("--features upstream-override"));
     expect(build).toContain(`bins/${TEST_BUILD}`);
+    expect(build).toContain('resolve_bin opensesame-cli opensesame');
     expect(build).toContain(
-      "--locked --release -p opensesame-cli --bin opensesame",
+      'cargo build --locked --release -p "$1" --bin "$2"',
     );
     expect(
       producer.jobs["native-untrusted"].strategy.matrix.include
