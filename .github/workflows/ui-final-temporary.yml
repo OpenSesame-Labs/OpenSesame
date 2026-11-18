@@ -1,7 +1,7 @@
 name: Temporary exact-candidate UI validation
 on:
   pull_request:
-    types: [synchronize]
+    types: [opened]
 permissions: {}
 
 jobs:

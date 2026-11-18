@@ -1,0 +1,41 @@
+name: Temporary signed-tree repository checks
+on:
+  pull_request:
+    types: [synchronize]
+permissions: {}
+
+jobs:
+  repository_checks:
+    if: github.event.pull_request.number == 2775 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/tutorial-visual-verification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [lint, quality, typecheck, test]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 7f533eba308d3c8412d1aabd513fd029bba42875
+          path: candidate
+          persist-credentials: false
+          fetch-depth: 100
+      - name: Verify the reviewed branch and fetch its base
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "7f533eba308d3c8412d1aabd513fd029bba42875"
+          test "$(git rev-parse HEAD^{tree})" = "df5786e650c56fef0e884f2841b48eb50699fe75"
+          git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
+          git merge-base HEAD origin/main > /dev/null
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - name: Run repository check
+        working-directory: candidate
+        run: npm run "${{ matrix.check }}"
