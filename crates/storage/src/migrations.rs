@@ -238,4 +238,8 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0060_host_membership_withdrawals",
         include_str!("../migrations/0060_host_membership_withdrawals.sql"),
     ),
+    (
+        "0061_pairing_membership_revision",
+        include_str!("../migrations/0061_pairing_membership_revision.sql"),
+    ),
 ];
