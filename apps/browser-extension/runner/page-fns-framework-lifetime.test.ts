@@ -47,13 +47,21 @@ it.each(["input", "textarea"])(
     field.addEventListener("change", () =>
       observed.push(`change:${field.value}`),
     );
-    expect(pfFill("#tracked", "public-framework-fixture")).toBe("ok");
+    expect(
+      pfFill("#tracked", "public-framework-fixture", window.location.origin),
+    ).toBe("ok");
     expect(instanceWrites).toEqual([]);
     expect(observed).toEqual([
       "input:public-framework-fixture",
       "change:public-framework-fixture",
     ]);
-    expect(pfPresence("#tracked", "public-framework-fixture")).toBe("present");
+    expect(
+      pfPresence(
+        "#tracked",
+        "public-framework-fixture",
+        window.location.origin,
+      ),
+    ).toBe("present");
     expect(document.activeElement).toBe(field);
   },
 );
@@ -63,7 +71,11 @@ it.each(["match", "timeout"])(
   async (kind) => {
     // The spy delegates to the actual browser-DOM implementation.
     const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-    const pending = pfWaitFor("#eventual", kind === "match" ? 100 : 1);
+    const pending = pfWaitFor(
+      "#eventual",
+      kind === "match" ? 100 : 1,
+      window.location.origin,
+    );
     if (kind === "match") {
       const match = document.createElement("div");
       match.id = "eventual";

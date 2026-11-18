@@ -9,8 +9,8 @@
  * checked by `guard` against the step it answers before it leaves.
  */
 import type { RunnerStepRequest } from "@opensesame/api-client";
-import { WAIT_MS, ctxOf } from "./context";
 import type { DriverDeps, EpochState } from "./context";
+import { WAIT_MS, ctxOf } from "./context";
 import { withinOrigin } from "./origin";
 import type { StepPages } from "./ports";
 import { verifyByFreshLogin } from "./verify";
@@ -114,8 +114,10 @@ async function screenshot(
   maskSelectors: string[],
   d: DriverDeps,
 ): Promise<RunnerStepOutcome> {
+  if (!d.pages.captureSupported) return failed("refused");
   await settleEpoch(d.pages, d.epoch);
   const taken = await d.pages.capture(maskSelectors);
+  if (taken === "unsupported") return failed("refused");
   if (taken === null) return failed("transport");
   // The mask was composited under one layout. If the page moved between the
   // mask and the still, the epoch advances past the one the Host asked for and

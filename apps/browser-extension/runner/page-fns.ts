@@ -20,7 +20,11 @@ export type PageVerdict = "ok" | "timeout" | "invalid";
 export function pfWaitFor(
   selector: string,
   timeoutMs: number,
+  expectedOrigin: string,
 ): Promise<PageVerdict> {
+  if (document.defaultView?.location.origin !== expectedOrigin) {
+    return Promise.reject(new Error("off_origin"));
+  }
   return new Promise((resolve) => {
     const present = (): boolean | null => {
       try {
@@ -59,15 +63,20 @@ export function pfWaitFor(
 export function pfFill(
   selector: string,
   value: string,
+  expectedOrigin: string,
 ): "ok" | "no_such_field" | "invalid" {
+  const win = document.defaultView;
+  if (!win) return "no_such_field";
+  // This runs in the destination document, after executeScript has selected
+  // it. A background tab check alone can race a navigation to another origin.
+  if (win.location.origin !== expectedOrigin) throw new Error("off_origin");
   let element: Element | null;
   try {
     element = document.querySelector(selector);
   } catch {
     return "invalid";
   }
-  const win = document.defaultView;
-  if (!win || !element) return "no_such_field";
+  if (!element) return "no_such_field";
   const field =
     element instanceof win.HTMLInputElement ||
     element instanceof win.HTMLTextAreaElement
@@ -94,6 +103,15 @@ export function pfFill(
   };
   if (!fillable()) return "no_such_field";
   field.focus();
+  // Focus can synchronously invoke page handlers that move or detach a field.
+  const leftAuthorizedPage = () =>
+    win.location.origin !== expectedOrigin ||
+    field.ownerDocument !== document ||
+    !field.isConnected;
+  if (leftAuthorizedPage()) {
+    throw new Error("off_origin");
+  }
+  if (!fillable()) return "no_such_field";
   // The prototype's setter, so a framework that wraps `value` still hears it.
   const proto =
     field instanceof win.HTMLInputElement
@@ -114,15 +132,18 @@ export function pfFill(
 export function pfPresence(
   selector: string,
   expected: string,
+  expectedOrigin: string,
 ): "present" | "absent" | "mismatch" | "invalid" {
+  const win = document.defaultView;
+  if (!win) return "absent";
+  if (win.location.origin !== expectedOrigin) throw new Error("off_origin");
   let element: Element | null;
   try {
     element = document.querySelector(selector);
   } catch {
     return "invalid";
   }
-  const win = document.defaultView;
-  if (!win || !element) return "absent";
+  if (!element) return "absent";
   const field =
     element instanceof win.HTMLInputElement ||
     element instanceof win.HTMLTextAreaElement
@@ -135,15 +156,18 @@ export function pfPresence(
 /** Press the control at `selector`: submit a form, click anything else. */
 export function pfSubmit(
   selector: string,
-): "ok" | "no_such_element" | "invalid" {
+  expectedOrigin: string,
+): "ok" | "no_such_element" | "invalid" | "off_origin" {
+  const win = document.defaultView;
+  if (!win) return "no_such_element";
+  if (win.location.origin !== expectedOrigin) return "off_origin";
   let element: Element | null;
   try {
     element = document.querySelector(selector);
   } catch {
     return "invalid";
   }
-  const win = document.defaultView;
-  if (!win || !element || !(element instanceof win.HTMLElement)) {
+  if (!element || !(element instanceof win.HTMLElement)) {
     return "no_such_element";
   }
   if (element instanceof win.HTMLFormElement) element.requestSubmit();
@@ -156,9 +180,11 @@ export function pfSubmit(
  * control's box. Two reads that differ were taken under different layouts,
  * which is what a frame's mask epoch has to notice.
  */
-export function pfLayout(): string {
-  const root = document.documentElement;
+export function pfLayout(expectedOrigin: string): string {
   const win = document.defaultView;
+  if (win && win.location.origin !== expectedOrigin)
+    throw new Error("off_origin");
+  const root = document.documentElement;
   const boxes: string[] = [];
   const controls = document.querySelectorAll("input,textarea,select,iframe");
   for (const control of Array.from(controls).slice(0, 200)) {
@@ -183,7 +209,10 @@ export function pfLayout(): string {
  * emptied. The live `value` property never reaches markup, and the attribute is
  * removed as well, so a value set either way is gone.
  */
-export function pfReadDom(strip: string[]): string {
+export function pfReadDom(strip: string[], expectedOrigin: string): string {
+  if (document.defaultView?.location.origin !== expectedOrigin) {
+    throw new Error("off_origin");
+  }
   // SAFETY: a deep clone of the document element is structurally an Element.
   const root = document.documentElement.cloneNode(true) as Element;
   for (const node of Array.from(
@@ -228,7 +257,10 @@ export function pfReadDom(strip: string[]): string {
  * that matched something. A selector that matched nothing is not counted:
  * the count is what the Host compares with what it asked to have covered.
  */
-export function pfMask(selectors: string[]): number {
+export function pfMask(selectors: string[], expectedOrigin: string): number {
+  if (document.defaultView?.location.origin !== expectedOrigin) {
+    throw new Error("off_origin");
+  }
   let covered = 0;
   for (const selector of selectors) {
     let nodes: Element[] = [];
@@ -263,7 +295,10 @@ export function pfMask(selectors: string[]): number {
 }
 
 /** Take the overlays down. */
-export function pfUnmask(): number {
+export function pfUnmask(expectedOrigin: string): number {
+  if (document.defaultView?.location.origin !== expectedOrigin) {
+    throw new Error("off_origin");
+  }
   const covers = Array.from(
     document.querySelectorAll("[data-opensesame-mask]"),
   );
