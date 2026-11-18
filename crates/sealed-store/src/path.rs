@@ -2,6 +2,10 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::StoreError;
 
+#[path = "path_atomic.rs"]
+mod atomic;
+pub(crate) use atomic::{confined_atomic_write, confined_read_bounded};
+
 #[cfg(unix)]
 mod confined {
     use std::ffi::CString;
@@ -38,7 +42,11 @@ mod confined {
         Ok(unsafe { File::from_raw_fd(fd) })
     }
 
-    fn open_parent(root: &Path, rel: &Path, create: bool) -> Result<(File, CString), StoreError> {
+    pub(super) fn open_parent(
+        root: &Path,
+        rel: &Path,
+        create: bool,
+    ) -> Result<(File, CString), StoreError> {
         if std::fs::symlink_metadata(root)?.file_type().is_symlink() {
             return Err(StoreError::InvalidPath(
                 "store root may not be a symlink".into(),
@@ -78,6 +86,13 @@ mod confined {
     }
 
     pub fn read(root: &Path, rel: &Path) -> Result<Vec<u8>, StoreError> {
+        let mut file = open_read(root, rel)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    pub(super) fn open_read(root: &Path, rel: &Path) -> Result<File, StoreError> {
         let (dir, name) = open_parent(root, rel, false)?;
         // SAFETY: valid directory fd/component; O_NOFOLLOW blocks a final symlink.
         let fd = unsafe {
@@ -91,10 +106,7 @@ mod confined {
             return Err(StoreError::Io(std::io::Error::last_os_error()));
         }
         // SAFETY: successful openat returns a new owned descriptor.
-        let mut file = unsafe { File::from_raw_fd(fd) };
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(bytes)
+        Ok(unsafe { File::from_raw_fd(fd) })
     }
 
     pub fn remove(root: &Path, rel: &Path) -> Result<(), StoreError> {

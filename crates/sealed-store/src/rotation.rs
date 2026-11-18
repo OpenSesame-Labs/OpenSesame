@@ -205,7 +205,7 @@ fn stage_entries(
     for name in names {
         let rel = StoreRoot::entry_relative(name, "osseal")?;
         let blob = confined_read(&store.path, &rel)?;
-        let expected = revisions.get(name).copied();
+        let expected = crate::store::revision_for(&revisions, name)?;
         let mut opened = open_osseal(&blob, old_key, name, expected)?;
         let sealed = seal_osseal(&opened.plaintext, new_key, name, opened.revision);
         opened.plaintext.zeroize();
@@ -226,8 +226,8 @@ fn stage_attachments(
     for name in names {
         let mut manifest = store.open_manifest(name, old_key)?;
         let rel = attach_relative(name)?;
-        let revision = match revisions.get(name) {
-            Some(revision) => *revision,
+        let revision = match crate::store::revision_for(&revisions, name)? {
+            Some(revision) => revision,
             None => envelope_revision(&confined_read(&store.path, &rel)?)?,
         };
         let mut id = [0u8; 16];

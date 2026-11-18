@@ -6,6 +6,7 @@
 
 mod age_fmt;
 mod attachment;
+mod attachment_snapshot;
 mod entry;
 mod envelope;
 mod generate;
@@ -42,6 +43,7 @@ pub use attachment::{
     ATTACHMENT_REVISION_FILE, ATTACH_EXT, CHUNK_EXT, CHUNK_PLAINTEXT_BYTES, GC_GRACE_SECONDS,
     MAX_ATTACHMENT_BYTES,
 };
+pub use attachment_snapshot::verify_replication_chunk;
 pub use entry::Entry;
 pub use envelope::{open_osseal, seal_osseal, OpenedOsseal, OSSEAL_MAGIC};
 pub use generate::{

@@ -37,6 +37,49 @@ use; reveal is a human CLI concern.
 | Pages bridge | `parse_manifest`, `seal_manifest` — seal a Pages path manifest into entries and one commit |
 | Paths | `logical_to_relative`, `relative_to_logical`, `ObjectStore`, `FsObjectStore`, `assert_confined_rel` |
 
+## Revision-state limits and recovery
+
+Native entry and attachment revisions are checked against local JSON files.
+An intact local counter can detect replacement with an older ciphertext, and
+removal advances it before unlinking so copied-back ciphertext at the same
+logical name is rejected.
+These files are **not authenticated, independently witnessed, or included in
+the Git backup**. Anyone able to alter or remove them can restore old valid
+ciphertext; a fresh clone has no earlier local counter to compare with. Even an
+authenticated file stored alongside the ciphertext cannot detect replay of an
+entire old store. Defending against that attack requires an independently held,
+non-rollbackable freshness witness, checked on every relevant operation; this
+store does not currently provide one. Do not rely on the revision files as a
+security boundary against local or backup rollback.
+
+Revision keys normalize logical path components, including surrounding
+whitespace. They do not yet unify case aliases on case-insensitive filesystems,
+so even an intact sidecar does not protect against every alternate path
+spelling on those filesystems.
+
+Revision updates use atomic replacement, and new clients serialize updates to
+avoid losing counters. On filesystems that do not support syncing a directory,
+power-loss durability depends on the filesystem. Upgrade every client accessing
+a store before concurrent use: older clients can initialize revision state
+without taking the mutation lock, and do not record entry-removal tombstones.
+The sidecar format remains compatible, but downgrades weaken these protections.
+
+If removal is interrupted after recording its counter but before unlinking,
+the file remains present but will not open as the current version. Retry the
+same removal to finish it. For a Git-backed entry that should instead be
+retained, inspect `opensesame pass history NAME` and deliberately restore the
+chosen commit with `opensesame pass restore NAME --rev COMMIT`; it is re-encrypted
+at a newer revision. This is an explicit choice to trust that historical
+content. Alternatively, if the intact on-disk ciphertext is independently
+verified as the version to keep, run
+`opensesame pass protect recover-ciphertext NAME --trust-source` (add
+`--attachment` for an attachment). This works without a Git backup and reseals
+the file at a newer revision. It authenticates the ciphertext's name and
+contents but **cannot establish its freshness**: `--trust-source` is an
+explicit decision to accept that file even if it is an old replay. Do not use
+it until its provenance and version have been verified independently. Missing
+attachment chunks still need to be restored from a trusted backup.
+
 ## Develop
 
 ```bash
