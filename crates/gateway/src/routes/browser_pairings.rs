@@ -336,6 +336,7 @@ pub fn session_claims(grant: &BrowserGrant) -> Result<HostSessionClaims, Respons
         issued_at,
         expires_at,
         local_session: true,
+        membership_revision: None,
     };
     if let Some(authentication) = &grant.authentication_json {
         let authentication: super::host_authorizations::BrowserAuthentication =

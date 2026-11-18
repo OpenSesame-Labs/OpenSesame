@@ -27,7 +27,7 @@ pub enum Assurance {
     PhishingResistant,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct HostSessionClaims {
     pub credential_kind: CredentialKind,
     pub principal_id: PrincipalId,
@@ -48,6 +48,13 @@ pub struct HostSessionClaims {
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub local_session: bool,
+    pub membership_revision: Option<MembershipRevision>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct MembershipRevision {
+    pub incarnation: String,
+    pub revision: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -94,6 +101,7 @@ impl HostSessionClaims {
             issued_at: now,
             expires_at: now + opensesame_time::Duration::minutes(5),
             local_session: false,
+            membership_revision: None,
         }
     }
     /// Validation runs on every use, not merely at insertion.
@@ -165,6 +173,8 @@ impl HostSessionClaims {
             "issued_at": self.issued_at,
             "expires_at": self.expires_at,
             "local_session": self.local_session,
+            "membership_incarnation": self.membership_revision.as_ref().map(|value| &value.incarnation),
+            "authority_revision": self.membership_revision.as_ref().map(|value| &value.revision),
         })
     }
 }
@@ -197,6 +207,7 @@ pub fn fixture(
         issued_at: now,
         expires_at: now + opensesame_time::Duration::minutes(5),
         local_session: false,
+        membership_revision: None,
     }
 }
 

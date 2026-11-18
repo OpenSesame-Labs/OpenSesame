@@ -41,11 +41,12 @@ pub struct DevicePending {
     pub approved: Option<ApprovedDevice>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 pub struct ApprovedDevice {
     pub principal: String,
     pub organization_id: OrganizationId,
     pub organization_role: OrganizationRole,
+    pub membership_revision: Option<crate::session_claims::MembershipRevision>,
 }
 
 #[derive(Clone)]

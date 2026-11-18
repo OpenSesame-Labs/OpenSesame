@@ -234,4 +234,8 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0059_est_source_budgets",
         include_str!("../migrations/0059_est_source_budgets.sql"),
     ),
+    (
+        "0060_host_membership_withdrawals",
+        include_str!("../migrations/0060_host_membership_withdrawals.sql"),
+    ),
 ];
