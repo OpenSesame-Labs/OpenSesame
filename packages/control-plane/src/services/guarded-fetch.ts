@@ -165,6 +165,28 @@ export const guardedFetchSeams: GuardedFetchSeams = {
   transport: pinnedTransport,
 };
 
+/** Stop waiting for DNS at the same deadline as the pinned request. */
+async function resolveBeforeAbort(
+  url: URL,
+  signal: AbortSignal,
+): Promise<string[]> {
+  signal.throwIfAborted();
+  let onAbort: () => void = () => undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    signal.throwIfAborted();
+    return await Promise.race([
+      resolveSafeMetadataAddresses(url, guardedFetchSeams.lookup),
+      aborted,
+    ]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
 function encodeBody(
   body: RequestBody | null | undefined,
   headers: Headers,
@@ -206,11 +228,11 @@ export async function guardedFetch(
   const url = assertPublicUpstreamUrl(target);
   let addresses: string[];
   try {
-    addresses = await resolveSafeMetadataAddresses(
-      url,
-      guardedFetchSeams.lookup,
-    );
+    addresses = await resolveBeforeAbort(url, signal);
   } catch (error) {
+    // Preserve the caller's cancellation (including timeout) rather than
+    // misclassifying it as a refused DNS destination.
+    signal.throwIfAborted();
     throw new UnsafeUpstreamError(
       error instanceof Error ? error.message : "Upstream refused",
     );
