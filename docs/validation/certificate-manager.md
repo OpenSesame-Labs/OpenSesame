@@ -14,8 +14,7 @@ number, or a number carried over from
 - Predecessor evidence:
   [`docs/validation/automatic-certificate-issuance.md`](automatic-certificate-issuance.md)
   (ADR 0052-cert issuance stack), which remains valid for everything it covers.
-- Implementation plan:
-  [`docs/archive/plans/plans/2026-08-30-infisical-cert-manager-parity-swarm.md`](../archive/plans/plans/2026-08-30-infisical-cert-manager-parity-swarm.md).
+- Canonical design decisions: ADRs 0066–0072 in [`docs/adr`](../adr/README.md).
 - Integration base commit: _pending: fill from `git rev-parse origin/main` at
   integration time._
 - Implementation head: _pending: fill from `git rev-parse HEAD` at integration
