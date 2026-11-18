@@ -381,7 +381,11 @@ pub(super) async fn execute_invocation(
     resolved: &ResolvedInvocation,
     input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
+    replay_only: bool,
 ) -> anyhow::Result<InvocationReceipt> {
+    if replay_only {
+        return st.broker.replay(input).await;
+    }
     let Some(network) = constrained_http else {
         return st.broker.invoke(input).await;
     };
@@ -488,19 +492,7 @@ async fn create_checked(
     .await?;
     // Budgets decrement after authorization and before execution, and deny
     // when the decrement cannot be performed (ADR 0044 decision 10 + INV-BUDGET).
-    let idempotency_key = body
-        .idempotency_key
-        .clone()
-        .unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
     let intent = build_intent(body, &parameters, &boot, &resolved)?;
-    let authority_hold = super::intents_budget::spend_invoke_budgets(
-        &st,
-        &boot.org.to_string(),
-        &resolved,
-        &idempotency_key,
-    )
-    .await?;
-
     let invoke_input = InvokeInput {
         intent,
         grant: resolved.grant.clone(),
@@ -509,6 +501,15 @@ async fn create_checked(
         parameters: parameters.clone(),
         lineage: resolved.lineage.clone(),
     };
+    // Use the key in the built intent: when the caller omitted it, that is
+    // the only generated key shared by the budget and broker idempotency paths.
+    let authority_hold = super::intents_budget::spend_invoke_budgets(
+        &st,
+        &boot.org.to_string(),
+        &resolved,
+        &invoke_input,
+    )
+    .await?;
     Ok(intents_queue::dispatch_or_hold(
         &st,
         boot.org,

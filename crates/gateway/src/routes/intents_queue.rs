@@ -16,7 +16,8 @@ use opensesame_domain::OrganizationId;
 use serde_json::json;
 
 use super::super::intents_budget::{
-    release_authority_budget_hold, settle_authority_budget_hold, AuthorityBudgetHold,
+    invocation_budget_binding, release_authority_budget_hold, settle_authority_budget_hold,
+    settle_replayed_invoke, InvokeBudgetHold,
 };
 use super::{execute_invocation, not_found, ConstrainedHttpInput, ResolvedInvocation};
 use crate::app_state::AppState;
@@ -28,7 +29,7 @@ struct QueuedInvoke {
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 }
 
@@ -48,7 +49,7 @@ pub(super) async fn dispatch_or_hold(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 ) -> Response {
     #[cfg(test)]
@@ -133,7 +134,7 @@ async fn finish_dispatch(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 ) -> Response {
     if let Err(response) = reauthorize(st, &resolved, &invoke_input.subject).await {
@@ -142,7 +143,30 @@ async fn finish_dispatch(
     }
     #[cfg(test)]
     hold::record_side_effect();
-    let result = execute_invocation(st, org, &resolved, invoke_input, constrained_http).await;
+    let replay = if authority_hold.is_none() {
+        invocation_budget_binding(st, &invoke_input)
+            .ok()
+            .map(|fingerprint| (invoke_input.intent.idempotency_key.clone(), fingerprint))
+    } else {
+        None
+    };
+    // A request without its own hold is a replay, even if the stored intent
+    // disappears while it waits: it must never fall through to new work.
+    let replay_only = authority_hold.is_none();
+    let result = execute_invocation(
+        st,
+        org,
+        &resolved,
+        invoke_input,
+        constrained_http,
+        replay_only,
+    )
+    .await;
+    if result.is_ok() {
+        if let Some((key, fingerprint)) = replay {
+            settle_replayed_invoke(st, &org.to_string(), &key, &fingerprint).await;
+        }
+    }
     settle_authority_budget_hold(st, authority_hold).await;
     match result {
         Ok(receipt) => {
