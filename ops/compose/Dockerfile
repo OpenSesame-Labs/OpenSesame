@@ -9,7 +9,7 @@
 # copies ops/compose/prebuilt/opensesame from the build context to
 # /usr/local/bin/opensesame with mode 0755. CI writes that binary; it is not
 # committed. Leave it out of .dockerignore so the context still contains it.
-FROM rust:1.97.1-bookworm@sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97 AS chef
+FROM rust:1.99.0-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS chef
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config mold \
   && rm -rf /var/lib/apt/lists/* \
@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 # the prebuilt target does not depend on the chef compile.
 # Debian trixie (glibc 2.41). The GHCR binary is linked on the Ubuntu 24.04
 # runner (glibc 2.39). The bookworm chef binary from `runtime` also runs here.
-FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS debian-runtime
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime
 RUN useradd -u 10001 -m app \
   && apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl libdbus-1-3 \
