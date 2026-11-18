@@ -27,4 +27,5 @@ OPENSESAME_INTERACTION_CLOCK_VECTORS="$vectors" \
   "$root/node_modules/.bin/vitest" run --config spec/formal/interaction-clock/vitest.config.ts --maxWorkers=2 \
     --reporter=default --reporter=json --outputFile.json="$report"
 node spec/formal/interaction-clock/check-report.mjs "$report"
+npm run test --workspace=@opensesame/control-plane -- src/__tests__/interaction-settlement-clock.security.test.ts
 node spec/formal/interaction-clock/check-drift.mjs

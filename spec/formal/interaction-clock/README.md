@@ -36,3 +36,23 @@ repository's Node dependencies installed. Run
 isolated deadline and activation-pair mutations fail the real correspondence,
 then that the normal command still passes. The pre-push registry selects this
 suite when a mapped implementation changes.
+
+## Transactional settlement samples
+
+Consume settlement samples the application clock before the interaction CAS,
+before reservation acquisition, after reservation acquisition, after outbox
+dispatch, before reservation commit, and after the awaited fence commit before
+the synchronous Host projection. An expired sample throws inside the unit of
+work so staged database and outbox writes roll back.
+
+`settlement_requires_every_stage_live` proves the abstract conjunction: a
+settlement can be admitted only when every modeled sample is live. The
+controlled-clock regression pauses reservation acquisition and demonstrates
+that the former single-sample implementation returned 200 after expiry.
+
+This does not prove database commit-time clock admission, monotonicity of the
+application clock, or rollback of effects outside the unit of work. There is a
+small unmodeled interval between the final application sample and the database
+commit itself. The synchronous Host projection is also not transactionally
+rolled back if a later database commit fails; that pre-existing boundary is
+documented rather than represented as a Lean guarantee.
