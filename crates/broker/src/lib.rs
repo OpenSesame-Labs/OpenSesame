@@ -205,7 +205,6 @@ impl Broker {
         let mut inv = Self::begin_invocation(input.intent.id, now)?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
-            self.db.insert_invocation(&inv).await?;
             let receipt = self.finish_receipt(
                 &input,
                 &inv,
@@ -222,7 +221,9 @@ impl Broker {
                     ),
                 },
             )?;
-            self.db.insert_receipt(&receipt).await?;
+            self.db
+                .insert_denied_invocation_with_receipt(&inv, &receipt)
+                .await?;
             return Ok(receipt);
         }
 
@@ -263,12 +264,13 @@ impl Broker {
 
         let (outcome, summary, ext) = match result {
             Ok(r) => {
-                invocation.transition(InvocationState::Succeeded, Utc::now())?;
-                (
-                    ReceiptOutcome::Succeeded,
-                    r.safe_summary,
-                    r.external_request_digest,
-                )
+                let (state, outcome) = if r.ok {
+                    (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
+                } else {
+                    (InvocationState::Failed, ReceiptOutcome::Failed)
+                };
+                invocation.transition(state, Utc::now())?;
+                (outcome, r.safe_summary, r.external_request_digest)
             }
             Err(e) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
@@ -300,7 +302,9 @@ impl Broker {
         if !receipt.assert_no_secret_leak() {
             anyhow::bail!("receipt summary rejected by secret-leak check");
         }
-        self.db.insert_receipt(&receipt).await?;
+        self.db
+            .finish_executing_invocation(&invocation, &receipt)
+            .await?;
         Ok(receipt)
     }
 

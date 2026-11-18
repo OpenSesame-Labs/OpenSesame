@@ -14,7 +14,7 @@ use opensesame_task_access::{InMemoryTaskStore, StartTaskParams};
 
 type Narrowing = (&'static str, fn(&mut Grant));
 
-fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
+pub(super) fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     Grant {
         id: GrantId::new(),
         version: 1,
@@ -50,7 +50,7 @@ fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     }
 }
 
-fn sample_intent(org: OrganizationId, principal: PrincipalId) -> FrozenIntentV2 {
+pub(super) fn sample_intent(org: OrganizationId, principal: PrincipalId) -> FrozenIntentV2 {
     FrozenIntentV2 {
         schema_version: FROZEN_INTENT_SCHEMA_VERSION,
         id: IntentId::new(),
