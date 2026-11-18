@@ -110,110 +110,9 @@ pub struct DeviceTokenRequest {
     grant_type: String,
 }
 
-pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenRequest>) -> Response {
-    if req.grant_type != "urn:ietf:params:oauth:grant-type:device_code" {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"unsupported_grant_type"})),
-        )
-            .into_response();
-    }
-    // Membership mutations revoke approved grants and live sessions together.
-    // Hold the same lifecycle fence until this grant is consumed and its session
-    // is published, so revocation cannot slip between those two states.
-    let _lifecycle = st.session_lifecycle.lock().unwrap();
-    let device_code_hash = hash_secret(&req.device_code);
-    let mut map = st.device_codes.lock().unwrap();
-    let Some(pending) = map.get_mut(&device_code_hash) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"invalid_grant"})),
-        )
-            .into_response();
-    };
-    if pending.client_id != req.client_id {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"invalid_grant"})),
-        )
-            .into_response();
-    }
-    if Utc::now() >= pending.expires_at {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"expired_token"})),
-        )
-            .into_response();
-    }
-    let Some(approved) = pending.approved.clone() else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"authorization_pending"})),
-        )
-            .into_response();
-    };
-    // Identity already supplied the trusted principal, organization, and role.
-    // Demo bootstrap metadata is useful in development, but production disables
-    // that bootstrap and must still be able to mint this organization session.
-    let boot = st.bootstrap.lock().unwrap().clone().filter(|boot| {
-        boot.org == approved.organization_id
-            && same_principal_subject(&approved.principal, &boot.principal.to_string())
-    });
-    let session_id = format!("sess_{}", uuid::Uuid::new_v4());
-    // The session id *is* the bearer; only its digest is retained server-side.
-    let session_digest = hash_secret(&session_id);
-    let actor_id = boot.as_ref().map(|boot| boot.actor);
-    let project_id = boot.as_ref().map(|boot| boot.project);
-    let credential_handle = boot
-        .as_ref()
-        .map(|_| format!("handle_{}", uuid::Uuid::new_v4()));
-    // Bind session to the *approved* principal — never the bootstrap demo id alone.
-    let Some(principal) = crate::session_claims::parse_principal(&approved.principal) else {
-        map.remove(&device_code_hash);
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"invalid_grant"})),
-        )
-            .into_response();
-    };
-    let mut claims = crate::session_claims::HostSessionClaims::operator_approved(
-        principal,
-        approved.organization_id,
-        approved.organization_role,
-        pending.client_id.clone(),
-        st.resource.clone(),
-    );
-    claims.actor_id = actor_id;
-    claims.project_id = project_id;
-    claims.credential_handle = credential_handle;
-    let meta = claims.public_view();
-    {
-        let mut sessions = st.sessions.lock().unwrap();
-        let now = Utc::now();
-        sessions.retain(|_, m| m.valid_for(&st.resource, now));
-        if sessions.len() >= 1024 {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(json!({"error":"session_capacity"})),
-            )
-                .into_response();
-        }
-        sessions.insert(session_digest, claims);
-    }
-    map.remove(&device_code_hash);
-    // Never return refresh token bytes — opaque handle only
-    (
-        StatusCode::OK,
-        [("cache-control", "no-store")],
-        Json(json!({
-            "token_type": "Bearer",
-            "expires_in": 300,
-            "session": meta,
-            "access_token": format!("opaque-session:{session_id}")
-        })),
-    )
-        .into_response()
-}
+#[path = "device_token.rs"]
+mod token_route;
+pub use token_route::token;
 
 #[derive(Deserialize)]
 pub struct DeviceApproveRequest {
@@ -221,6 +120,29 @@ pub struct DeviceApproveRequest {
     principal: Option<String>,
     organization_id: Option<String>,
     organization_role: Option<opensesame_domain::OrganizationRole>,
+    membership_incarnation: Option<String>,
+    authority_revision: Option<String>,
+}
+
+fn membership_revision(
+    req: &DeviceApproveRequest,
+) -> Result<Option<crate::session_claims::MembershipRevision>, ()> {
+    let local = req.organization_id.is_none() && req.organization_role.is_none();
+    match (&req.membership_incarnation, &req.authority_revision, local) {
+        (None, None, true) => Ok(None),
+        (Some(incarnation), Some(revision), false)
+            if [incarnation, revision].iter().all(|value| {
+                uuid::Uuid::parse_str(value)
+                    .is_ok_and(|id| !id.is_nil() && id.to_string() == value.as_str())
+            }) =>
+        {
+            Ok(Some(crate::session_claims::MembershipRevision {
+                incarnation: incarnation.clone(),
+                revision: revision.clone(),
+            }))
+        }
+        _ => Err(()),
+    }
 }
 
 fn approved_organization(
@@ -255,6 +177,16 @@ pub async fn approve(
     headers: axum::http::HeaderMap,
     Json(req): Json<DeviceApproveRequest>,
 ) -> Response {
+    let revision = match membership_revision(&req) {
+        Ok(revision) => revision,
+        Err(()) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error":"membership_revision_required"})),
+            )
+                .into_response()
+        }
+    };
     let principal = req
         .principal
         .as_deref()
@@ -265,7 +197,31 @@ pub async fn approve(
         st.bootstrap.lock().unwrap().as_ref().map(|boot| boot.org),
     )
     .ok();
-    let response = approve_native(&st, &headers, &req);
+    if let (Some(principal), Some((org, _)), Some(revision)) =
+        (principal.as_ref(), organization.as_ref(), revision.as_ref())
+    {
+        match st
+            .db
+            .host_membership_live(
+                &org.to_string(),
+                &principal.to_string(),
+                &revision.incarnation,
+                &revision.revision,
+            )
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(json!({"error":"membership_withdrawn"})),
+                )
+                    .into_response()
+            }
+            Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        }
+    }
+    let response = approve_native(&st, &headers, &req, revision);
     if response.status().is_success() {
         if let (Some(principal), Some((org, role))) = (principal, organization) {
             if opensesame_connection_broker::config_access::provision_native_role(
@@ -288,6 +244,7 @@ fn approve_native(
     st: &AppState,
     headers: &axum::http::HeaderMap,
     req: &DeviceApproveRequest,
+    revision: Option<crate::session_claims::MembershipRevision>,
 ) -> Response {
     if let Err(resp) = require_operator(st, headers) {
         return resp;
@@ -349,6 +306,7 @@ fn approve_native(
                 principal: principal.to_string(),
                 organization_id: organization.0,
                 organization_role: organization.1,
+                membership_revision: revision,
             });
             return (
                 StatusCode::OK,

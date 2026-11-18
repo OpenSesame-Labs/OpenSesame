@@ -82,6 +82,7 @@ async fn unknown_clients_and_client_swaps_fail_closed() {
                 principal: opensesame_domain::PrincipalId::new().to_string(),
                 organization_id: opensesame_domain::OrganizationId::new(),
                 organization_role: opensesame_domain::OrganizationRole::Member,
+                membership_revision: None,
             }),
         },
     );
@@ -216,6 +217,7 @@ async fn trusted_organization_session_mints_and_identifies_without_demo_bootstra
                 principal: principal.clone(),
                 organization_id,
                 organization_role: opensesame_domain::OrganizationRole::Admin,
+                membership_revision: None,
             }),
         },
     );
@@ -361,4 +363,84 @@ async fn approve_failure_fence_holds_under_interleaving() {
     );
     assert_eq!(unknown + limited, 32);
     assert!(state.device_approve_failures.lock().unwrap().len() <= MAX_APPROVE_FAILURES);
+}
+
+fn revision_pending(
+    state: &AppState,
+    device_code: &str,
+) -> (
+    opensesame_domain::PrincipalId,
+    opensesame_domain::OrganizationId,
+    crate::session_claims::MembershipRevision,
+) {
+    let principal = opensesame_domain::PrincipalId::new();
+    let organization = opensesame_domain::OrganizationId::new();
+    let revision = crate::session_claims::MembershipRevision {
+        incarnation: uuid::Uuid::new_v4().to_string(),
+        revision: uuid::Uuid::new_v4().to_string(),
+    };
+    state.device_codes.lock().unwrap().insert(
+        hash_secret(device_code),
+        DevicePending {
+            user_code_hash: "unused".into(),
+            client_id: "opensesame-cli".into(),
+            scope: DEVICE_SCOPE.into(),
+            expires_at: Utc::now() + Duration::minutes(5),
+            approved: Some(ApprovedDevice {
+                principal: principal.to_string(),
+                organization_id: organization,
+                organization_role: opensesame_domain::OrganizationRole::Member,
+                membership_revision: Some(revision.clone()),
+            }),
+        },
+    );
+    (principal, organization, revision)
+}
+
+fn token_request(device_code: &str) -> DeviceTokenRequest {
+    DeviceTokenRequest {
+        device_code: device_code.into(),
+        client_id: "opensesame-cli".into(),
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code".into(),
+    }
+}
+
+#[tokio::test]
+async fn withdrawal_before_redemption_rejects_the_stale_approval() {
+    let state = crate::app_state::test_demo_state().await;
+    let (principal, organization, revision) = revision_pending(&state, "dc_withdrawn");
+    let withdrawal_id = uuid::Uuid::new_v4().to_string();
+    let organization_id = organization.to_string();
+    let principal_id = principal.to_string();
+    state
+        .db
+        .withdraw_host_membership(&opensesame_storage::host_membership::MembershipWithdrawal {
+            withdrawal_id: &withdrawal_id,
+            organization_id: &organization_id,
+            principal_id: &principal_id,
+            membership_incarnation: &revision.incarnation,
+            authority_revision: &revision.revision,
+        })
+        .await
+        .unwrap();
+
+    let response = token(State(state.clone()), Json(token_request("dc_withdrawn"))).await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(state.sessions.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn simultaneous_redemption_has_one_winner() {
+    let state = crate::app_state::test_demo_state().await;
+    revision_pending(&state, "dc_once");
+    let (first, second) = tokio::join!(
+        token(State(state.clone()), Json(token_request("dc_once"))),
+        token(State(state.clone()), Json(token_request("dc_once")))
+    );
+    let successes = [first.status(), second.status()]
+        .into_iter()
+        .filter(|status| *status == StatusCode::OK)
+        .count();
+    assert_eq!(successes, 1);
+    assert_eq!(state.sessions.lock().unwrap().len(), 1);
 }
