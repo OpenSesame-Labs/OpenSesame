@@ -60,6 +60,15 @@ mounts at `/bitwarden` only when `OPENSESAME_BITWARDEN_COMPAT=on`
 | Operator | `/api/v1/operator/*` (incl. `operator/transport/*`), `/api/v1/admin` |
 | KV v2 facade | `/v1/sys`, `/v1/{mount}`, only with `OPENSESAME_KV_FACADE` set to `true` or `1` |
 
+Relay execution is temporarily unavailable: submission, executable pending
+inbox delivery, and approval return `501 relay_execution_unavailable` until a
+holder runtime independently re-authorizes at the effect boundary. Existing
+requests may still be inspected by ID or denied, and previously approved work
+may report its outcome. Inspection exposes only the ID, state and normalized
+outcome; legacy summaries are withheld and new summaries are discarded. This
+cannot recall previously disclosed requests or cancel an external action
+already in progress.
+
 Source areas under `src/`: `routes/` (one module per group), `middleware/`
 (caller resolution, agent and browser grants), `transport/` and
 `transport_lifecycle/` (mTLS admission, bindings, certificate lifecycle),

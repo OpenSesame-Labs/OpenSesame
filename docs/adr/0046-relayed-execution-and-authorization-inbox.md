@@ -3,11 +3,17 @@
 Status: Proposed (partly implemented; see Implementation)
 Date: 2026-08-19
 Amends: ADR 0044 (post-claim controls; delegation items gain an execution mode)
-Implementation: the Host side is built: `/api/v1/relay/requests` (submit,
-`pending`, get, `approve`, `deny`, `result`) in
-`crates/gateway/src/routes/relay.rs` over the `relay_requests` table
-(`0012_connection_delegations.sql`), `crates/relay`, and
-`POST /api/v1/delegations/{id}/narrow`.
+Implementation: the Host has request storage and decision routes, but the
+holder runtime and its independent per-use authorization are not implemented.
+Submit, pending inbox delivery and approval return `501` with
+`relay_execution_unavailable`. Existing requests can be inspected or denied;
+previously approved work can report a result while its authority remains live.
+Inspection exposes only request ID, state and normalized outcome; it withholds
+executable details and holder-authored summaries. Reporting a result retains
+only its normalized outcome. A result is a report of an effect, not
+authorization to perform it. Requests already disclosed before this gate
+cannot be recalled, and the gate cannot cancel an external action that has
+begun.
 
 ## Context
 

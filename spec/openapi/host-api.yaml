@@ -1689,8 +1689,8 @@ paths:
         "401": { $ref: "#/components/responses/ContractError" }
   /relay/requests:
     post:
-      summary: Submit a relayed request against a relay-mode delegation
-      description: Refused unless the delegation is relay-mode and the holder has a fresh heartbeat — an absent holder is the end of the request, never a queue.
+      summary: Submit a relayed request (temporarily unavailable)
+      description: Holder-side per-use authorization is not yet implemented. Authenticated requests receive relay_execution_unavailable and no request is created.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -1705,37 +1705,16 @@ paths:
                 resource: { type: string }
                 parameters: { type: object }
       responses:
-        "202":
-          description: Parked in the holder's inbox, digest-bound
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [id, state, request_digest, expires_in]
-                properties:
-                  id: { type: string }
-                  state: { type: string }
-                  request_digest: { type: string }
-                  expires_in: { type: integer }
         "401": { $ref: "#/components/responses/ContractError" }
-        "403": { $ref: "#/components/responses/ContractError" }
-        "404": { $ref: "#/components/responses/ContractError" }
-        "409": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/pending:
     get:
-      summary: The holder drains its relay inbox (draining proves liveness)
+      summary: Deliver pending relay work (temporarily unavailable)
+      description: Executable request parameters are withheld until holder-side per-use authorization exists.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       responses:
-        "200":
-          description: Undecided and approved requests awaiting this holder
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [requests]
-                properties:
-                  requests: { type: array, items: { type: object } }
         "401": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/{id}:
     get:
       summary: Delegate or holder polls one relayed request
@@ -1744,7 +1723,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         "200":
-          description: State, digest, and (when completed) the safe result
+          description: Host-owned request ID, state and normalized outcome only; executable details and legacy result summaries are withheld.
           content:
             application/json:
               schema: { type: object }
@@ -1752,7 +1731,8 @@ paths:
         "404": { $ref: "#/components/responses/ContractError" }
   /relay/requests/{id}/approve:
     post:
-      summary: The holder consents, echoing the digest it reviewed
+      summary: Approve a relayed request (temporarily unavailable)
+      description: Approval cannot authorize a later effect without an independently enforcing holder runtime.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -1766,16 +1746,12 @@ paths:
               properties:
                 request_digest: { type: string }
       responses:
-        "200":
-          description: Approved
-          content:
-            application/json:
-              schema: { type: object }
         "401": { $ref: "#/components/responses/ContractError" }
-        "404": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/{id}/deny:
     post:
-      summary: The holder refuses, echoing the digest it reviewed
+      summary: The holder denies a pending request by ID
+      description: Denial is scoped to the holder and organization and cannot change an approved or completed request. The request body may be an empty JSON object.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
@@ -1785,9 +1761,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [request_digest]
-              properties:
-                request_digest: { type: string }
+              properties: {}
       responses:
         "200":
           description: Denied
@@ -1799,7 +1773,7 @@ paths:
   /relay/requests/{id}/result:
     post:
       summary: The holder reports the executed outcome, digest-bound
-      description: The full admission runs here — approval required and executed digest must equal the approved one. Summaries are leak-checked before they land.
+      description: Reporting remains available for previously approved work. Live authority and the approved digest are rechecked, but reporting happens after the effect and cannot authorize or undo it. Holder-authored summaries are discarded.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }

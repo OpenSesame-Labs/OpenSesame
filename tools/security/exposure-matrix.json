@@ -2882,14 +2882,14 @@
       "c9262dce"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "b34b6927",
-      "b0fb9222",
-      "3d3a937a",
-      "3172998c",
-      "7719cb63",
-      "7d60a7d2",
-      "a194b36f",
-      "45697cd4"
+      "0f134c3e",
+      "ba8b3d79",
+      "216ae2d4",
+      "e2d60acb",
+      "79da7bb6",
+      "47a3aa49",
+      "4f05fb21",
+      "a21658ef"
     ],
     "crates/gateway/src/transport/admission.rs": [
       "38fd26bc",
