@@ -60,6 +60,7 @@ function fixture(t) {
       const path = join(dir, proof);
       if (
         proof === "spec/formal/check-axioms.sh" ||
+        proof === "spec/formal/check-axioms.test.mjs" ||
         proof === "spec/formal/required-theorem-command.lean"
       )
         continue;
