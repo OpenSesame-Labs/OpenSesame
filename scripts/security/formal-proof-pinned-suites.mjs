@@ -1,0 +1,79 @@
+// Independently reviewed minimum. Extend with each new formal suite or mapping.
+export const PINNED_FORMAL_SUITES = [
+  {
+    id: "auth",
+    implementation: [
+      "packages/control-plane/src/middleware/auth.ts",
+      "packages/control-plane/src/proofs/verified-principal.ts",
+      "packages/control-plane/src/proofs/project-role.ts",
+      "packages/control-plane/src/services/project-access.ts",
+      "packages/os-domain/src/types.ts",
+    ],
+    proofs: [
+      "spec/formal/auth/AuthPolicy.lean",
+      "spec/formal/auth/required-theorems.lean",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+    ],
+    command: ["npm", "run", "verify:auth-formal"],
+  },
+  {
+    id: "oauth",
+    implementation: [
+      "packages/control-plane/src/interactions/federated-leg.ts",
+      "packages/control-plane/src/interactions/federated-pending.ts",
+      "packages/control-plane/src/interactions/federated-trust-binding.ts",
+      "packages/control-plane/src/interactions/federated.ts",
+      "packages/control-plane/src/interactions/oauth2.ts",
+      "packages/control-plane/src/interactions/trust.ts",
+      "packages/control-plane/src/routes/interactions.ts",
+    ],
+    proofs: [
+      "spec/formal/oauth/PendingIntegrity.lean",
+      "spec/formal/oauth/required-theorems.lean",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+    ],
+    command: ["npm", "run", "verify:oauth-formal"],
+  },
+  {
+    id: "webauthn",
+    implementation: [
+      "packages/os-domain/src/machines/interaction.ts",
+      "packages/os-domain/src/interaction.ts",
+      "packages/os-domain/src/proofs/approval-seal.ts",
+      "packages/os-domain/src/errors.ts",
+    ],
+    proofs: [
+      "spec/formal/webauthn/ApprovalBinding.lean",
+      "spec/formal/webauthn/required-theorems.lean",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+    ],
+    command: ["npm", "run", "verify:webauthn-formal"],
+  },
+  {
+    id: "interaction-clock",
+    implementation: [
+      "packages/control-plane/src/services/interaction-clock.ts",
+      "packages/control-plane/src/routes/interaction-activation-spend.ts",
+      "packages/control-plane/src/routes/interaction-handoff.ts",
+      "packages/os-domain/src/machines/interaction.ts",
+      "packages/os-domain/src/errors.ts",
+    ],
+    proofs: [
+      "spec/formal/interaction-clock/InteractionClock.lean",
+      "spec/formal/interaction-clock/required-theorems.lean",
+      "spec/formal/interaction-clock/clock-conformance.test.ts",
+      "spec/formal/interaction-clock/vitest.config.ts",
+      "spec/formal/interaction-clock/verify.sh",
+      "spec/formal/interaction-clock/check-report.mjs",
+      "spec/formal/interaction-clock/check-drift.mjs",
+      "spec/formal/interaction-clock/coverage.json",
+      "spec/formal/interaction-clock/negative-controls.py",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+    ],
+    command: ["npm", "run", "verify:interaction-clock-formal"],
+  },
+];

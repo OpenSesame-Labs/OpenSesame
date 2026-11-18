@@ -31,7 +31,8 @@ function validSuitePaths(suite) {
     suite.proofs.length > 0 &&
     suite.proofs.every(
       (path) => safePath(path) && path.startsWith("spec/formal/"),
-    )
+    ) &&
+    new Set(suite.proofs).size === suite.proofs.length
   );
 }
 
