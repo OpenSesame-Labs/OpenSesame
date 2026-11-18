@@ -497,7 +497,18 @@
         "crates/gateway/src/transport/runtime.rs",
         "crates/gateway/src/transport/status.rs",
         "crates/gateway/src/transport/test_support.rs",
+        "crates/transport-security/src/lib.rs",
+        "crates/transport-security/src/client.rs",
         "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/guard.rs",
+        "crates/transport-security/src/identity.rs",
+        "crates/transport-security/src/listener.rs",
+        "crates/transport-security/src/server.rs",
+        "crates/transport-security/src/server_conn.rs",
+        "crates/transport-security/src/signing_fence.rs",
+        "crates/transport-security/src/testkit/mod.rs",
+        "crates/transport-security/src/testkit/ca.rs",
+        "crates/transport-security/src/testkit/leaf.rs",
         "crates/transport-security/src/source_lifetime.rs",
         "crates/transport-security/src/source_trust.rs",
         "crates/gateway/src/transport_lifecycle/mod.rs",
@@ -509,11 +520,17 @@
         "crates/gateway/src/transport/admission_tests.rs",
         "crates/gateway/src/transport/admission_source_tests.rs",
         "crates/gateway/src/transport/status_tests.rs",
+        "crates/transport-security/src/signing_fence_tests.rs",
         "crates/transport-security/src/source_lifetime_tests.rs",
+        "crates/transport-security/tests/common/mod.rs",
+        "crates/transport-security/tests/signing_fence_races.rs",
+        "crates/transport-security/tests/source_lifetime.rs",
+        "crates/transport-security/tests/source_lifetime_edges.rs",
+        "crates/transport-security/tests/source_lifetime_tls12.rs",
         "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
         "crates/gateway/src/transport_lifecycle/trust_source_tests.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. Already-admitted work is not cancelled."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence."
     },
     {
       "id": "certificate-binding",
@@ -7291,6 +7308,176 @@
       "4cae1f7a",
       "707ebb45",
       "556eacfd"
+    ],
+    "crates/transport-security/src/lib.rs": [
+      "7ebf516f",
+      "cf38c2ec",
+      "c0b92f40",
+      "2c43d12e",
+      "9aa9b226",
+      "02272e44",
+      "2baa25ab",
+      "ca6a17f7"
+    ],
+    "crates/transport-security/src/client.rs": [
+      "ee29984a",
+      "2936b3d0",
+      "cd6f66ac",
+      "9979ac85",
+      "602bd967",
+      "a8c1ac79",
+      "5008e988",
+      "265d991f"
+    ],
+    "crates/transport-security/src/guard.rs": [
+      "abe2ccb3",
+      "99441bec",
+      "c4126439",
+      "a2f2ec42",
+      "a8925064",
+      "07ef3386",
+      "4b4e5eac",
+      "bf257bca"
+    ],
+    "crates/transport-security/src/identity.rs": [
+      "8dc5e16c",
+      "03570e0d",
+      "09167706",
+      "1cd3f8ad",
+      "6f34c7e0",
+      "68144655",
+      "a24e9ecb",
+      "bbd0d2be"
+    ],
+    "crates/transport-security/src/listener.rs": [
+      "66d35c81",
+      "0ea8f7f2",
+      "3e7df5b7",
+      "f363b892",
+      "0a07c71c",
+      "83e6fa94",
+      "139f6ca9",
+      "579517ae"
+    ],
+    "crates/transport-security/src/server.rs": [
+      "e72373c4",
+      "45cc47ad",
+      "1e9fe7bb",
+      "d0065afe",
+      "78a2b2f3",
+      "907d4629",
+      "78cd86db",
+      "584579b5"
+    ],
+    "crates/transport-security/src/server_conn.rs": [
+      "d97e01c8",
+      "e7c5933c",
+      "0c47c7b6",
+      "516b0dc8",
+      "31c70f69",
+      "6fbeec60",
+      "31ed2b68",
+      "07fe9601"
+    ],
+    "crates/transport-security/src/signing_fence.rs": [
+      "5c38a5c3",
+      "7314c680",
+      "13604df4",
+      "084699b1",
+      "3ba4ff1f",
+      "f4c0ef43",
+      "d2e442f1",
+      "17a6b8ab"
+    ],
+    "crates/transport-security/src/signing_fence_tests.rs": [
+      "5a346300",
+      "5ac2e5d3",
+      "01baea82",
+      "fb171744",
+      "d2ee0e2f",
+      "49ec5007",
+      "5af3ae6b",
+      "5b2123f3"
+    ],
+    "crates/transport-security/tests/common/mod.rs": [
+      "c3278089",
+      "cf922f62",
+      "bc436438",
+      "5c03c9a4",
+      "d5ddd963",
+      "9ba8be38",
+      "8e9c9468",
+      "cdfe67c6"
+    ],
+    "crates/transport-security/tests/signing_fence_races.rs": [
+      "9dab78ed",
+      "09e5a9ce",
+      "945eda2e",
+      "a748333d",
+      "048c0785",
+      "98dbf9d9",
+      "eb5604f9",
+      "78bc126b"
+    ],
+    "crates/transport-security/tests/source_lifetime.rs": [
+      "b8f98754",
+      "dd5eb9d8",
+      "26cf9606",
+      "783232ec",
+      "92e62ad5",
+      "85af0d13",
+      "a3ffa165",
+      "fc93ce44"
+    ],
+    "crates/transport-security/tests/source_lifetime_edges.rs": [
+      "1f07ebdf",
+      "61eb6fae",
+      "bad66729",
+      "36e61ccf",
+      "f613d3e6",
+      "ea807ffd",
+      "05966d80",
+      "5955cbe3"
+    ],
+    "crates/transport-security/tests/source_lifetime_tls12.rs": [
+      "64358730",
+      "2519fec2",
+      "4f69cbfd",
+      "1618805b",
+      "5e8c137d",
+      "f660b60e",
+      "65091e90",
+      "fe17231c"
+    ],
+    "crates/transport-security/src/testkit/mod.rs": [
+      "a0cd7bc3",
+      "c5296c01",
+      "cf276c6b",
+      "eff41021",
+      "5b35671b",
+      "6854f87d",
+      "677655a3",
+      "d4c91ac6"
+    ],
+    "crates/transport-security/src/testkit/ca.rs": [
+      "f9ed4c64",
+      "72bdb74b",
+      "0970f979",
+      "8896c488",
+      "56351887",
+      "feccc06d",
+      "f2e18f24",
+      "eccc26e6"
+    ],
+    "crates/transport-security/src/testkit/leaf.rs": [
+      "176044fa",
+      "2a3c88f3",
+      "287dc808",
+      "47f19ace",
+      "30d6232b",
+      "44bd3790",
+      "1aea9136",
+      "790fc306"
     ]
   }
 }

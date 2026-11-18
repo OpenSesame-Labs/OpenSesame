@@ -13,6 +13,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 TEST = "lean_vectors_match_source_owned_generation_manager"
+SIGNER_TEST = "signing_fence::tests::lean_vectors_match_generation_bound_signer"
 TREES = (Path("crates/domain"), Path("crates/transport-security"), Path("spec/formal/source-lifetime"))
 FILES = (Path("Cargo.toml"), Path("Cargo.lock"), Path("rust-toolchain.toml"),
          Path("spec/formal/check-axioms.sh"), Path("spec/formal/required-theorem-command.lean"))
@@ -68,6 +69,23 @@ def test(cwd: Path, vector: Path, env: dict[str, str], label: str, diagnostic: s
     print(f"{label}: {'passed' if diagnostic is None else 'rejected'}", flush=True)
 
 
+def signer_test(cwd: Path, vector: Path, env: dict[str, str], label: str,
+                diagnostic: str | None) -> None:
+    test_env = env | {"OPENSESAME_SOURCE_LIFETIME_VECTORS": str(vector)}
+    command = ["cargo", "test", "--locked", "-p", "opensesame-transport-security", "--all-features",
+               "--lib", SIGNER_TEST, "--", "--ignored", "--exact"]
+    result = run(command, cwd, test_env)
+    output = result.stdout + result.stderr
+    if diagnostic is None:
+        good = result.returncode == 0 and f"test {SIGNER_TEST} ... ok" in output
+    else:
+        good = (result.returncode == 101 and f"test {SIGNER_TEST} ... FAILED" in output
+                and "panicked at" in output and diagnostic in output)
+    if not good:
+        raise RuntimeError(f"{label}: unexpected result {result.returncode}\n{output[-8000:]}")
+    print(f"{label}: {'passed' if diagnostic is None else 'rejected'}", flush=True)
+
+
 def main() -> None:
     env = os.environ.copy() | {"CARGO_INCREMENTAL": "0", "CARGO_NET_OFFLINE": "true"}
     lean = env.get("OPENSESAME_LEAN_BIN", "lean")
@@ -75,6 +93,8 @@ def main() -> None:
         raise RuntimeError("activate the pinned Rust and Lean toolchains first")
     target = ROOT / "crates/transport-security/src/source_lifetime.rs"
     live_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+    live_signer = ROOT / "crates/transport-security/src/signing_fence.rs"
+    live_signer_hash = hashlib.sha256(live_signer.read_bytes()).hexdigest()
     try:
         with tempfile.TemporaryDirectory(prefix="opensesame-lifetime-negative-") as directory:
             scratch = Path(directory)
@@ -84,13 +104,14 @@ def main() -> None:
             if result.returncode != 0:
                 raise RuntimeError(f"cannot generate Lean vectors: {result.stderr}")
             lines = result.stdout.splitlines()
-            if len(lines) != 25:
+            if len(lines) != 33:
                 raise RuntimeError("unexpected baseline vector count")
             vectors = scratch / "vectors.tsv"
             def write(values: list[str]) -> None:
                 vectors.write_text("\n".join(values) + ("\n" if values else ""))
             write(lines)
             test(scratch, vectors, env, "unmodified correspondence", None)
+            signer_test(scratch, vectors, env, "unmodified signer correspondence", None)
             bad = []
             bad.append(("empty vectors", [], "incomplete Lean vector matrix"))
             bad.append(("missing vector", lines[:-1], "incomplete Lean vector matrix"))
@@ -117,6 +138,12 @@ def main() -> None:
             for label, rows, diagnostic in bad:
                 write(rows)
                 test(scratch, vectors, env, label, diagnostic)
+            altered_signer = lines.copy()
+            row = altered_signer[-1].split("\t")
+            row[-1] = "1" if row[-1] == "0" else "0"
+            altered_signer[-1] = "\t".join(row)
+            write(altered_signer)
+            signer_test(scratch, vectors, env, "altered signer output", "assertion `left == right` failed")
             write(lines)
             source = scratch / "crates/transport-security/src/source_lifetime.rs"
             original = source.read_text()
@@ -134,10 +161,30 @@ def main() -> None:
                 finally:
                     source.write_text(original)
             test(scratch, vectors, env, "restored correspondence", None)
+            signer = scratch / "crates/transport-security/src/signing_fence.rs"
+            original_signer = signer.read_text()
+            for label, before, after in [
+                ("signer pre-check removed",
+                 "self.fence.check()?;\n        let signature = self.inner.sign(message)?;",
+                 "let signature = self.inner.sign(message)?;"),
+                ("signer post-check removed",
+                 "let signature = self.inner.sign(message)?;\n        self.fence.check()?;",
+                 "let signature = self.inner.sign(message)?;"),
+            ]:
+                if original_signer.count(before) != 1:
+                    raise RuntimeError(f"{label}: mutation target is not unique")
+                try:
+                    signer.write_text(original_signer.replace(before, after, 1))
+                    signer_test(scratch, vectors, env, label, "assertion `left == right` failed")
+                finally:
+                    signer.write_text(original_signer)
+            signer_test(scratch, vectors, env, "restored signer correspondence", None)
     finally:
         if hashlib.sha256(target.read_bytes()).hexdigest() != live_hash:
             raise RuntimeError("live source changed while negative controls ran")
-    print("six malformed matrices and four implementation mutants rejected", flush=True)
+        if hashlib.sha256(live_signer.read_bytes()).hexdigest() != live_signer_hash:
+            raise RuntimeError("live signing fence changed while negative controls ran")
+    print("seven malformed matrices and six implementation mutants rejected", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "ac8236c9b2d1236fec5dc4593390724ff17e6f6d",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision.",
+  "reviewed_revision": "b9b09424aeaf088991a176275e91111beddfa0b8",
+  "reviewed_source_state": "Source hashes identify the reviewed ownership and signing-fence changes after the recorded base revision.",
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -58,7 +58,19 @@
     },
     {
       "path": "crates/transport-security/src/listener.rs",
-      "sha256": "e00c2481ef8a1d1a11746d9e53a50039f9a391b17a32ff1f4a1501440344b32c"
+      "sha256": "66d35c810ea8f7f23e7df5b7f363b8920a07c71c83e6fa94139f6ca9579517ae"
+    },
+    {
+      "path": "crates/transport-security/src/client.rs",
+      "sha256": "ee29984a2936b3d0cd6f66ac9979ac85602bd967a8c1ac795008e988265d991f"
+    },
+    {
+      "path": "crates/transport-security/src/server.rs",
+      "sha256": "e72373c445cc47ad1e9fe7bbd0065afe78a2b2f3907d462978cd86db584579b5"
+    },
+    {
+      "path": "crates/transport-security/src/signing_fence.rs",
+      "sha256": "5c38a5c37314c68013604df4084699b13ba4ff1ff4c0ef43d2e442f117a6b8ab"
     },
     {
       "path": "crates/transport-security/src/server_conn.rs",
@@ -78,7 +90,7 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "88797510802c3403593e6ce9d42ffcd8eadac33cfeba348adcd48607c34c9578"
+      "sha256": "7ebf516fcf38c2ecc0b92f402c43d12e9aa9b22602272e442baa25abca6a17f7"
     },
     {
       "path": "crates/spiffe-source/Cargo.toml",
@@ -221,6 +233,10 @@
       "sha256": "c3c82bed965d5b8936d5f2f9a7e1a3b6b0eac4683079dd5198c1a813bc6e7a3b"
     },
     {
+      "path": "crates/transport-security/src/signing_fence_tests.rs",
+      "sha256": "5a3463005ac2e5d301baea82fb171744d2ee0e2f49ec50075af3ae6b5b2123f3"
+    },
+    {
       "path": "crates/gateway/src/transport/status_tests.rs",
       "sha256": "81dfbef784151780f81027881607818fd277eaeb169c51863dc376f60f2a2798"
     },
@@ -258,15 +274,23 @@
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_formal.rs",
-      "sha256": "3fe6a22059a7664d5c9a1e888f0511a9d6fada7581cb837b5c9f845df80fdbc0"
+      "sha256": "5ab2c31aad4e276c07d277eb2345a40ee0a13f23cdc0e356e3188cdfad9b13ac"
+    },
+    {
+      "path": "crates/transport-security/tests/signing_fence_races.rs",
+      "sha256": "9dab78ed09e5a9ce945eda2ea748333d048c078598dbf9d9eb5604f978bc126b"
+    },
+    {
+      "path": "crates/transport-security/tests/source_lifetime_tls12.rs",
+      "sha256": "643587302519fec24f69cbfd1618805b5e8c137df660b60e65091e90fe17231c"
     },
     {
       "path": "crates/transport-security/tests/source_lifetime.rs",
-      "sha256": "b192f3b7aed683e902849f444313f5a008d5bee602fbc6e8540f967fded2c795"
+      "sha256": "b8f98754dd5eb9d826cf9606783232ec92e62ad585af0d13a3ffa165fc93ce44"
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_edges.rs",
-      "sha256": "eedfc23e3e12e39debeb6f07c5dce24c8dd07975c1acc384555ff32f6b6fa316"
+      "sha256": "1f07ebdf61eb6faebad6672936e61ccff613d3e6ea807ffd05966d805955cbe3"
     },
     {
       "path": "crates/transport-security/tests/common/mod.rs",

@@ -58,7 +58,7 @@ and must be executed to support an interoperability claim.
 The source now claims its generation sink and quarantines prior material
 before starting its task. The manager binds updates and retirement to that
 owner and source epoch. It checks wall and monotonic bounds after the source
-observes an outage, at post-handshake and request-admission boundaries. Ordinary
+observes an outage, before and after TLS signing, at post-handshake and request-admission boundaries. Ordinary
 trust updates must preserve source-owned profiles, including profiles previously
 removed during the manager's lifetime; operators can remove a conflicting stored
 profile without replacing source trust. The separate
@@ -69,8 +69,16 @@ The outage interval starts when the source task observes a failure, not when a
 physical disconnect that it has not yet observed occurred. Initial certificate
 deadline conversion assumes a correct wall clock. `std::time::Instant` need not
 advance while a machine is suspended, so rollback across suspend can extend
-real elapsed retention. A handshake started before expiry can still use or
-present the old TLS key before the post-handshake check rejects it. Operations
+real elapsed retention. The signing fence withholds a signature if the
+post-signing check observes expiry or rotation, but cannot cancel an in-flight
+key operation. Scheduling can delay a key operation until after expiry or a
+signature's transmission until after the last check. Source-owned listeners
+disable session resumption so those handshakes use the signing fence. Earlier
+ordinary configs retain resumption while current, but their session stores
+check the generation before and after retrieval. A claim just after retrieval
+can still race a resumed handshake; the post-handshake check rejects it before
+application admission. Standalone client or server
+configs have no such manager binding. Operations
 already admitted cannot be rolled back. Source-owned trust tombstones live in
 the manager; they are not persisted across restart. A caller with an owner
 capability is trusted to provide fresh Workload API material. These checks do

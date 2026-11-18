@@ -26,8 +26,9 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::error::malformed;
 use crate::generations::{Generation, TransportGenerations};
-use crate::server::{server_config, ServerProfile};
+use crate::server::{server_config_with_key, ServerProfile};
 use crate::server_conn::{serve_connection, Prepared};
+use crate::signing_fence::{fence_key, fence_sessions};
 
 type ProfileFn = dyn Fn(&Generation) -> Result<ServerProfile, TransportError> + Send + Sync;
 
@@ -105,12 +106,39 @@ impl std::fmt::Debug for SecureListener {
     }
 }
 
-fn prepare(profile_fn: &ProfileFn, generation: &Generation) -> Result<Prepared, TransportError> {
+fn prepare(
+    profile_fn: &ProfileFn,
+    generation: &Generation,
+    manager: &Arc<TransportGenerations>,
+) -> Result<Prepared, TransportError> {
     if let Some(reason) = &generation.withdrawn {
         return Err(reason.clone());
     }
     let profile = profile_fn(generation)?;
-    let config = server_config(&profile)?;
+    let source_owned = manager.source_trust(generation.number)?.is_some();
+    if source_owned
+        && !generation
+            .identity
+            .as_ref()
+            .is_some_and(|identity| Arc::ptr_eq(identity, &profile.identity))
+    {
+        return Err(TransportError::GenerationStale);
+    }
+    let key = fence_key(profile.identity.certified_key(), manager, generation.number);
+    // A source-owned handshake must pass the signer. An older ordinary
+    // generation may have cached tickets, so fence its cache as well: a
+    // connection prepared before a source claim cannot retrieve them later.
+    let mut config = server_config_with_key(&profile, key, source_owned)?;
+    let config_mut = Arc::get_mut(&mut config)
+        .ok_or_else(|| malformed("listener TLS config unexpectedly shared"))?;
+    if config_mut.ticketer.enabled() {
+        return Err(malformed("stateless tickets cannot be generation-fenced"));
+    }
+    config_mut.session_storage = fence_sessions(
+        Arc::clone(&config_mut.session_storage),
+        manager,
+        generation.number,
+    );
     Ok(Prepared {
         number: generation.number,
         acceptor: TlsAcceptor::from(config),
@@ -138,7 +166,7 @@ impl SecureListener {
     ) -> Result<Self, TransportError> {
         let profile_fn: Arc<ProfileFn> = Arc::new(profile_fn);
         let current = generations.checked_current(None)?;
-        let prepared = prepare(profile_fn.as_ref(), &current)?;
+        let prepared = prepare(profile_fn.as_ref(), &current, &generations)?;
         let tcp = TcpListener::bind(addr)
             .await
             .map_err(|e| malformed(format!("bind {addr}: {e}")))?;
@@ -184,7 +212,11 @@ impl SecureListener {
         if prepared.number == generation.number {
             return Ok(prepared);
         }
-        let rebuilt = Arc::new(prepare(self.profile_fn.as_ref(), &generation)?);
+        let rebuilt = Arc::new(prepare(
+            self.profile_fn.as_ref(),
+            &generation,
+            &self.generations,
+        )?);
         self.prepared.store(Arc::clone(&rebuilt));
         tracing::info!(
             generation = generation.number,
