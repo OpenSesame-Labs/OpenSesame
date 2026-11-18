@@ -5,14 +5,16 @@ import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   continueFirstVaultGuide,
+  firstVaultSignInPending,
   preserveFirstVaultGate,
   takeFirstVaultGuide,
   useFirstVaultGateHandoff,
   useFirstVaultHandoff,
 } from "./first-vault-handoff.js";
+import type { SupportController } from "./session.js";
 import { stubSupportController } from "./support-controller.test-support.js";
 
-const signInGuide: GuideRuntimeSnapshot = {
+const signInGuide = {
   status: "running",
   goal: "gate.front-door",
   index: 0,
@@ -31,37 +33,68 @@ const signInGuide: GuideRuntimeSnapshot = {
     degraded: false,
     canBack: false,
   },
-};
+} satisfies GuideRuntimeSnapshot;
 
 afterEach(() => {
   cleanup();
   takeFirstVaultGuide();
 });
 
-it("resumes the sign-in step once when setup replaces the gate", async () => {
-  const oldController = stubSupportController("/unlock/signin", {
-    guide: signInGuide,
-  }).support;
-  const destroy = vi.spyOn(oldController, "destroy");
-  preserveFirstVaultGate(oldController);
-  expect(destroy).toHaveBeenCalledOnce();
+function SignInGate({ controller }: { controller: SupportController }) {
+  useFirstVaultGateHandoff(controller, "/unlock/signin");
+  return null;
+}
 
-  const nextController = stubSupportController("/unlock/signin").support;
-  const startGuide = vi.spyOn(nextController, "startGuide").mockResolvedValue();
-  function Gate() {
-    useFirstVaultGateHandoff(nextController, "/unlock/signin");
-    return null;
-  }
-  render(
-    <StrictMode>
-      <Gate />
-    </StrictMode>,
-  );
-  await waitFor(() => expect(startGuide).toHaveBeenCalledOnce());
-  expect(startGuide).toHaveBeenCalledWith(
-    expect.stringContaining('focus "unlock.local-only"'),
-    "authored",
-  );
+it.each(["setup.default", "unlock.local-only"])(
+  "resumes the sign-in step once when setup replaces the gate at %s",
+  async (target) => {
+    const oldController = stubSupportController("/unlock/signin", {
+      guide: { ...signInGuide, tour: { ...signInGuide.tour, target } },
+    }).support;
+    const destroy = vi.spyOn(oldController, "destroy");
+    preserveFirstVaultGate(oldController);
+    expect(destroy).toHaveBeenCalledOnce();
+
+    const next = stubSupportController("/unlock/signin");
+    const startGuide = vi
+      .spyOn(next.support, "startGuide")
+      .mockImplementation(async () => {
+        next.set({ guide: signInGuide });
+      });
+    render(
+      <StrictMode>
+        <SignInGate controller={next.support} />
+      </StrictMode>,
+    );
+    await waitFor(() => expect(startGuide).toHaveBeenCalledOnce());
+    expect(startGuide).toHaveBeenCalledWith(
+      expect.stringContaining('focus "unlock.local-only"'),
+      "authored",
+    );
+  },
+);
+
+it("keeps the sign-in handoff if setup replaces a gate before its engine loads", async () => {
+  const original = stubSupportController("/unlock/signin", {
+    guide: signInGuide,
+  });
+  preserveFirstVaultGate(original.support);
+
+  const loading = stubSupportController("/unlock/signin");
+  const next = stubSupportController("/unlock/signin");
+  const rendered = render(<SignInGate controller={loading.support} />);
+  await waitFor(() => expect(loading.started).toHaveLength(1));
+  expect(firstVaultSignInPending("/unlock/signin")).toBe(true);
+  preserveFirstVaultGate(loading.support);
+  rendered.rerender(<SignInGate controller={next.support} />);
+  await waitFor(() => expect(next.started).toHaveLength(1));
+  act(() => next.set({ guide: signInGuide }));
+  expect(firstVaultSignInPending("/unlock/signin")).toBe(false);
+
+  const later = stubSupportController("/unlock/signin");
+  rendered.rerender(<SignInGate controller={later.support} />);
+  await act(async () => {});
+  expect(later.started).toHaveLength(0);
 });
 
 it("resumes once after StrictMode remounts the shell effects", async () => {
@@ -89,11 +122,7 @@ it("does not restart the gate tutorial after the vault has opened", async () => 
   preserveFirstVaultGate(oldController, true);
   const controller = stubSupportController("/unlock/signin").support;
   const startGuide = vi.spyOn(controller, "startGuide").mockResolvedValue();
-  function Gate() {
-    useFirstVaultGateHandoff(controller, "/unlock/signin");
-    return null;
-  }
-  render(<Gate />);
+  render(<SignInGate controller={controller} />);
   await act(async () => {});
   expect(startGuide).not.toHaveBeenCalled();
 });

@@ -188,9 +188,9 @@
 /* Keep a focused editor scrollable when a software keyboard leaves only a
    short layout viewport. The shell chrome returns when the field is blurred. */
 @media (max-width: 900px) and (max-height: 220px) {
-  :where(.app:has(.editor :is(input, textarea):focus))
+  .app:where(:has(.editor :is(input, textarea):focus))
     > :is(.app-header, .statusline),
-  :where(.app:has(.editor :is(input, textarea):focus))
+  .app:where(:has(.editor :is(input, textarea):focus))
     > .main
     > :is(.crumbs, .first-visit-seat, .recommendation-seat) {
     display: none;

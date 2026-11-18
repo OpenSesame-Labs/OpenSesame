@@ -15,6 +15,10 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  preserveFirstVaultGate,
+  useFirstVaultGateHandoff,
+} from "../first-vault-handoff.js";
 import type { SupportController, SupportView } from "../session.js";
 import { SupportContext } from "../support-context.js";
 import { stubSupportController } from "../support-controller.test-support.js";
@@ -38,7 +42,10 @@ const choose = (name: string) =>
   fireEvent.click(within(seat).getByRole("button", { name }));
 
 /** The runtime's snapshot while a tour for `goal` is on its first step. */
-function touring(goal: string): GuideRuntimeSnapshot {
+function touring(
+  goal: string,
+  target: string | null = null,
+): GuideRuntimeSnapshot {
   return {
     status: "running",
     goal,
@@ -52,7 +59,7 @@ function touring(goal: string): GuideRuntimeSnapshot {
       count: 1,
       kind: "narrate",
       message: "This is the first step.",
-      target: null,
+      target,
       side: null,
       action: false,
       degraded: false,
@@ -285,6 +292,28 @@ describe("the first-visit offer", () => {
     mount(support);
     settle();
     expect(started).toHaveLength(1);
+  });
+
+  it("waits for a continuing vault tutorial before offering sign-in help", async () => {
+    setGuidanceMode("auto");
+    const guide = touring("gate.front-door", "unlock.local-only");
+    const setup = stubSupportController("/setup/choose", { guide });
+    preserveFirstVaultGate(setup.support);
+    const signIn = stubSupportController("/unlock/signin");
+    function SignInGate() {
+      useFirstVaultGateHandoff(signIn.support, "/unlock/signin");
+      return (
+        <SupportContext.Provider value={signIn.support}>
+          <FirstVisitOffer gateScreen />
+        </SupportContext.Provider>
+      );
+    }
+    render(<SignInGate />);
+    await act(async () => {});
+    expect(signIn.started[0]?.source).toContain('goal "gate.front-door"');
+    settle();
+    expect(signIn.started).toHaveLength(1);
+    act(() => signIn.set({ guide }));
   });
 
   it("records an automatic tour as answered once it is on screen", () => {

@@ -12,6 +12,17 @@ let pending = false;
 let pendingSignIn = false;
 const listeners = new Set<() => void>();
 
+export function firstVaultSignInPending(route: string): boolean {
+  return route === "/unlock/signin" && pendingSignIn;
+}
+
+function firstVaultTarget(controller: SupportController): string | null {
+  const guide = controller.view().guide;
+  return guide?.goal === "gate.front-door"
+    ? (guide.tour?.target ?? null)
+    : null;
+}
+
 export function continueFirstVaultGuide(): void {
   pending = true;
   for (const listener of [...listeners]) listener();
@@ -33,11 +44,10 @@ export function preserveFirstVaultGate(
   controller: SupportController,
   unlocked = false,
 ): void {
-  const guide = controller.view().guide;
+  const target = firstVaultTarget(controller);
   if (
     !unlocked &&
-    guide?.goal === "gate.front-door" &&
-    guide.tour?.target === "unlock.local-only"
+    (target === "setup.default" || target === "unlock.local-only")
   ) {
     pendingSignIn = true;
   }
@@ -51,13 +61,28 @@ export function useFirstVaultGateHandoff(
   useEffect(() => {
     if (route !== "/unlock/signin") return;
     let active = true;
+    const acknowledge = () => {
+      if (firstVaultTarget(controller) === "unlock.local-only") {
+        pendingSignIn = false;
+      }
+    };
+    const stop = controller.subscribe(acknowledge);
     queueMicrotask(() => {
       if (!active || !pendingSignIn) return;
-      pendingSignIn = false;
-      void controller.startGuide(FIRST_VAULT_SIGNIN_GUIDE, "authored");
+      // Setup can replace the controller again while its guide engine loads.
+      // Keep the handoff available until the replacement publishes its guide.
+      acknowledge();
+      if (pendingSignIn) {
+        void controller
+          .startGuide(FIRST_VAULT_SIGNIN_GUIDE, "authored")
+          .finally(() => {
+            if (active) pendingSignIn = false;
+          });
+      }
     });
     return () => {
       active = false;
+      stop();
     };
   }, [controller, route]);
 }

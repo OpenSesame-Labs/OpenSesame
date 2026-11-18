@@ -41,6 +41,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
+import { firstVaultSignInPending } from "../first-vault-handoff.js";
 import { gateIsPresent, subscribeGatePresence } from "../gate-presence.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
@@ -193,7 +194,11 @@ function useFirstVisitPlacement({
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
       // since neither ending changes anything this effect depends on.
-      if (firstVisitSeams.modalOpen() || firstVisitSeams.editing()) {
+      if (
+        firstVaultSignInPending(route) ||
+        firstVisitSeams.modalOpen() ||
+        firstVisitSeams.editing()
+      ) {
         timer = setTimeout(speak, firstVisitSeams.retryMs);
         return;
       }

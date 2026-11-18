@@ -1238,6 +1238,12 @@
   }
 }
 
+@media (max-width: 900px) and (max-height: 220px) {
+  .editor:focus-within .editor__actions {
+    position: static;
+  }
+}
+
 .drop-card__link {
   overflow-wrap: anywhere;
 }
