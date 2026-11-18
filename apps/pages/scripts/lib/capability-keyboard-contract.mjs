@@ -37,6 +37,10 @@ async function openFeatures(page, tabTo) {
  * would be lying if it passed anyway.
  */
 export async function approveByKeyboard(page, tabTo, titles) {
+  await expect(page.locator("#command-bar-input")).toBeEnabled({
+    timeout: 60_000,
+  });
+  console.log("PASS capability activation settled before feature edits");
   for (const title of titles) {
     // Always on (ADR 0135): in every plan, with no row to add it from.
     if (ALWAYS_ON_TITLES.has(title)) continue;
@@ -51,5 +55,26 @@ export async function approveByKeyboard(page, tabTo, titles) {
     await expect(capabilityOnSwitch(page, title)).toHaveCount(1, {
       timeout: 15_000,
     });
+  }
+  // A checked switch says the current plan approves the capability; its
+  // contributed routes and keymap entries arrive only when that generation's
+  // activation pass finishes. The command bar uses the production readiness
+  // signal (`activatedGeneration === composition generation`), so do not
+  // claim the capability walk is complete until the same signal is ready.
+  try {
+    await expect(page.locator("#command-bar-input")).toBeEnabled({
+      timeout: 60_000,
+    });
+  } catch (error) {
+    console.error(
+      "Capability activation marks:",
+      await page.locator(".status-mark").evaluateAll((marks) =>
+        marks.map((mark) => ({
+          label: mark.getAttribute("aria-label"),
+          row: mark.closest(".capsection__cap")?.textContent?.trim(),
+        })),
+      ),
+    );
+    throw error;
   }
 }
