@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { TextDecoder } from "node:util";
 import {
+  assertCleanWorktree,
   assertProofFiles,
   hasControl,
   parseRegistry,
@@ -346,13 +347,11 @@ export function runPushGate(root, input, remote) {
     throw new Error(
       "Mapped implementation changes include a non-HEAD commit or multiple pushed tips. Push each from a clean worktree checked out at its matching commit.",
     );
-  if (
-    git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
-      .length
-  )
-    throw new Error(
-      "Mapped implementation changes require a clean worktree matching the pushed commit. Commit or isolate local changes and retry.",
-    );
+  assertCleanWorktree(
+    root,
+    git,
+    "Mapped implementation changes require a clean worktree matching the pushed commit. Commit or isolate local changes and retry.",
+  );
   const registryBytes = readFileSync(resolve(root, registryPath));
   const pushedRegistry = git(root, ["show", `${head}:${registryPath}`]);
   if (!registryBytes.equals(pushedRegistry))
@@ -370,13 +369,11 @@ export function runPushGate(root, input, remote) {
         throw new Error(
           `Formal proof suite ${suite.id} failed or could not run`,
         );
-      if (
-        git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
-          .length
-      )
-        throw new Error(
-          `Formal proof suite ${suite.id} changed the source tree. Restore a clean worktree and retry.`,
-        );
+      assertCleanWorktree(
+        root,
+        git,
+        `Formal proof suite ${suite.id} changed the source tree. Restore a clean worktree and retry.`,
+      );
     }
   }
 }

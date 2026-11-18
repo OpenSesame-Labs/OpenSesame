@@ -54,9 +54,14 @@ An existing Lean executable can be selected with
 version and treats Lean warnings, including a `sorry`, as errors. Lean checks
 theorems and emits the cases; Vitest compares those cases to the real functions;
 finally the source-hash check fails on an unreviewed change to any covered file.
-The hashes detect drift. They do not prove the review or the model is correct.
+It also compares those hashes to the declared reviewed commit; the commit and
+its source blobs must be present locally. Fetch the reviewed history if they
+are missing. The hashes detect drift. They do not prove the review or the model
+is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed. Release qualification
+files occur in the commits being pushed. Selected suites require a clean
+worktree with no `assume-unchanged` or `skip-worktree` index flags, so Git cannot
+hide proof-input changes. Unrelated pushes do not run the proof suites. Release qualification
 runs every registered suite. The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the proof registry](../../spec/formal/proof-registry.json)

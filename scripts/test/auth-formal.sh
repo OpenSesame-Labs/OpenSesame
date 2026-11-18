@@ -23,3 +23,4 @@ cd "$root"
 OPENSESAME_AUTH_FORMAL_VECTORS="$vectors" \
   "$root/node_modules/.bin/vitest" run --config spec/formal/auth/vitest.config.ts --maxWorkers=2
 node scripts/test/auth-formal-drift.mjs
+node --test scripts/test/auth-formal-drift.test.mjs

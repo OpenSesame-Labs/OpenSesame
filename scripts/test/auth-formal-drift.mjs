@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -23,6 +24,28 @@ if (
   throw new Error("auth-formal: invalid covered-source manifest");
 }
 for (const entry of coverage.sources) {
+  let reviewed;
+  try {
+    reviewed = execFileSync(
+      "git",
+      ["show", `${coverage.reviewed_revision}:${entry.path}`],
+      {
+        cwd: root,
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" },
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60000,
+      },
+    );
+  } catch {
+    throw new Error(
+      `auth-formal: reviewed revision or source unavailable for ${entry.path}`,
+    );
+  }
+  if (createHash("sha256").update(reviewed).digest("hex") !== entry.sha256) {
+    throw new Error(
+      `auth-formal: reviewed revision does not match ${entry.path}`,
+    );
+  }
   const digest = createHash("sha256")
     .update(readFileSync(`${root}/${entry.path}`))
     .digest("hex");

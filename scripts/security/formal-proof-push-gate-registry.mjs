@@ -4,6 +4,18 @@ import { TextDecoder } from "node:util";
 import { isString } from "../lib/json-boundary.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
+export function assertCleanWorktree(root, git, dirtyMessage) {
+  const entries = decoder.decode(git(root, ["ls-files", "-v", "-z"]));
+  if (entries.split("\0").some((entry) => /^[a-zS] /u.test(entry)))
+    throw new Error(
+      "Mapped implementation changes require clearing assume-unchanged and skip-worktree index flags before proof verification",
+    );
+  if (
+    git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
+      .length
+  )
+    throw new Error(dirtyMessage);
+}
 export const hasControl = (value) =>
   [...value].some((character) => {
     const code = character.charCodeAt(0);
