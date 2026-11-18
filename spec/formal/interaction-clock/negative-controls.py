@@ -11,6 +11,8 @@ CASES = {
     "expiry-equality": ("sampledAt < deadline", "sampledAt <= deadline"),
     "inverted-deadline": ("sampledAt < deadline", "sampledAt > deadline"),
     "unchecked-deadline": ("sampledAt < deadline", "true"),
+    "ignore-interaction-deadline": ("!isLiveAt(interactionDeadline, now)", "false"),
+    "ignore-activation-deadline": ("!isLiveAt(activationDeadline, now)", "false"),
 }
 
 

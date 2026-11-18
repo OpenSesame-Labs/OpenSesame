@@ -19,8 +19,8 @@ report="$(mktemp "${TMPDIR:-/tmp}/opensesame-clock-report.XXXXXXXX")"
 trap 'rm -f "$vectors" "$report"' EXIT
 cd "$root"
 bash spec/formal/check-axioms.sh "$lean_bin" spec/formal/interaction-clock/InteractionClock.lean > "$vectors"
-if [[ "$(wc -l < "$vectors")" -ne 36 ]]; then
-  echo "interaction-clock-formal: expected 36 Lean vectors" >&2
+if [[ "$(wc -l < "$vectors")" -ne 252 ]]; then
+  echo "interaction-clock-formal: expected 252 Lean vectors" >&2
   exit 1
 fi
 OPENSESAME_INTERACTION_CLOCK_VECTORS="$vectors" \

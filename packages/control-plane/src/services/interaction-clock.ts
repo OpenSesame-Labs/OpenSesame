@@ -16,6 +16,17 @@ export function isLiveAt(expiresAt: Date, now: Date): boolean {
   );
 }
 
+/** The pair is admitted only when both deadlines are live at the same sample. */
+export function activationDeadlineError(
+  interactionDeadline: Date,
+  activationDeadline: Date,
+  now: Date,
+): "interaction_expired" | "activation_expired" | undefined {
+  if (!isLiveAt(interactionDeadline, now)) return "interaction_expired";
+  if (!isLiveAt(activationDeadline, now)) return "activation_expired";
+  return undefined;
+}
+
 export function requireLiveAt(expiresAt: Date, now: Date): Date {
   if (!isLiveAt(expiresAt, now)) {
     throw new DomainError("EXPIRED", "interaction expired");
