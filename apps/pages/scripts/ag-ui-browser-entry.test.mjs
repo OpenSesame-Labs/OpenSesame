@@ -42,6 +42,11 @@ test("the build plugin rewires only the owned transport", () => {
   const entry = plugin.load("\0opensesame-ag-ui-sse-client");
   assert.match(entry, /parseSSEStream/);
   for (const id of entry.matchAll(/from "([^"]+)"/g)) {
-    assert.equal(typeof plugin.load(JSON.parse(`"${id[1]}"`)), "string");
+    const sourceId = JSON.parse(`"${id[1]}"`);
+    assert.equal(
+      plugin.resolveId(sourceId, "\0opensesame-ag-ui-sse-client"),
+      sourceId,
+    );
+    assert.equal(typeof plugin.load(sourceId), "string");
   }
 });

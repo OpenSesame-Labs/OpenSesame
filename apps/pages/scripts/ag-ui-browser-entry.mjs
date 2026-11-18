@@ -18,6 +18,8 @@ const sourceIds = Object.freeze({
   http: "\0opensesame-ag-ui-sse-client/http-request.ts",
   sse: "\0opensesame-ag-ui-sse-client/sse.ts",
 });
+const sourceIdValues = Object.freeze(Object.values(sourceIds));
+const runtimeSourceIds = Object.freeze([sourceIds.http, sourceIds.sse]);
 
 const pins = Object.freeze({
   "package.json":
@@ -109,6 +111,7 @@ export function agUiBrowserEntry() {
     },
     resolveId(source, importer) {
       if (!input) throw new Error("AG-UI browser entry was not initialized");
+      if (sourceIdValues.includes(source)) return source;
       if (
         source === "@ag-ui/client" &&
         importer?.replaceAll("\\", "/") === transportPath
@@ -132,7 +135,11 @@ export function agUiBrowserEntry() {
         throw new Error(`AG-UI browser boundary mismatch: client=${resolved}`);
       if (!ids.includes(virtualId))
         throw new Error("AG-UI browser build lost the SSE boundary");
-      for (const id of Object.values(sourceIds)) {
+      // The product never supplies the optional debug logger, so Rolldown can
+      // erase it together with its type-only agent-types import. Both sources
+      // remain extracted and content-pinned above; the HTTP and SSE leaves are
+      // the official runtime contract that must survive into the graph.
+      for (const id of runtimeSourceIds) {
         if (!ids.includes(id))
           throw new Error(`AG-UI browser build lost official source ${id}`);
       }
