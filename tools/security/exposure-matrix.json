@@ -370,6 +370,8 @@
         "crates/connection-broker/src/config_custom_egress.rs",
         "crates/connection-broker/src/custom_egress.rs",
         "crates/connection-broker/src/constructor.rs",
+        "crates/connection-broker/src/egress.rs",
+        "crates/connection-broker/src/egress_http.rs",
         "crates/connection-broker/src/store.rs",
         "crates/storage/src/lib.rs",
         "crates/storage/src/tenancy.rs",
@@ -391,9 +393,10 @@
         "crates/gateway/src/testkit/server_tests.rs",
         "crates/gateway/tests/testkit.rs",
         "crates/gateway/tests/host-consumer.test.ts",
-        "crates/connection-broker/src/constructor_tests.rs"
+        "crates/connection-broker/src/constructor_tests.rs",
+        "crates/connection-broker/src/egress_http_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free."
     },
     {
       "id": "host-listeners",
@@ -1168,6 +1171,36 @@
     }
   ],
   "sources": {
+    "crates/connection-broker/src/egress.rs": [
+      "8cea5122",
+      "00c2a3c9",
+      "5d78278b",
+      "1096cdde",
+      "a2813dd8",
+      "6e503c5c",
+      "455e1477",
+      "fdefc1b3"
+    ],
+    "crates/connection-broker/src/egress_http.rs": [
+      "2a96ed0f",
+      "ad8491c6",
+      "64258337",
+      "dee811a5",
+      "70d178bc",
+      "efc395e2",
+      "3047e800",
+      "6703ad3a"
+    ],
+    "crates/connection-broker/src/egress_http_tests.rs": [
+      "0cdf7f28",
+      "9a17fce9",
+      "68490600",
+      "0f267d96",
+      "8615992a",
+      "81d79ede",
+      "8642f962",
+      "a89d0897"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",
@@ -6779,14 +6812,14 @@
       "4d04dd2f"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "5c82ad95",
-      "3433cc91",
-      "bfea3798",
-      "e2ea9dfb",
-      "2f6155b8",
-      "59586757",
-      "c07021df",
-      "17022d99"
+      "fa2499a6",
+      "1cdafc31",
+      "654fac42",
+      "a9d0cbd8",
+      "ef2135ea",
+      "692b8a07",
+      "30c87d9f",
+      "206a5bd4"
     ],
     "crates/connection-broker/src/config.rs": [
       "4e2535ca",
@@ -6819,14 +6852,14 @@
       "97f7339a"
     ],
     "crates/connection-broker/src/constructor.rs": [
-      "3b76416e",
-      "82900de7",
-      "12f70dff",
-      "60c72aa9",
-      "e1d2b903",
-      "4cb855a3",
-      "b8a486c1",
-      "6abe5a78"
+      "c022fb07",
+      "6db5c77c",
+      "664b2c4e",
+      "860e43c5",
+      "eaad9ccd",
+      "31563d26",
+      "5414f2e7",
+      "3c570132"
     ],
     "crates/connection-broker/src/store.rs": [
       "5ab48843",
@@ -6889,14 +6922,14 @@
       "99c1cc3f"
     ],
     "crates/connection-broker/src/constructor_tests.rs": [
-      "042e314f",
-      "d55b06df",
-      "8ec3f03d",
-      "17bb5706",
-      "2e39a6b2",
-      "632d7c38",
-      "8f4f4c91",
-      "f0cd7556"
+      "e808c2bd",
+      "b85e7259",
+      "3e0e73f1",
+      "26b0f917",
+      "5dc3225d",
+      "8e915566",
+      "c68a68a2",
+      "fa495522"
     ],
     "crates/audit/src/lib.rs": [
       "623075cb",
