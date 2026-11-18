@@ -76,7 +76,13 @@ function run(appRoot, file, args, env) {
 }
 
 /** Build one dist. Reuses it when `VERIFY_SKIP_BUILD=1` and index.html is there. */
-export function buildDist({ appRoot, scriptsDir, outDir, capabilityProfile }) {
+export function buildDist({
+  appRoot,
+  scriptsDir,
+  outDir,
+  capabilityProfile,
+  viteEnv = {},
+}) {
   if (
     process.env.VERIFY_SKIP_BUILD === "1" &&
     existsSync(path.join(outDir, "index.html"))
@@ -84,7 +90,7 @@ export function buildDist({ appRoot, scriptsDir, outDir, capabilityProfile }) {
     console.error(`[checklist] reuse ${outDir}`);
     return;
   }
-  const env = { VITE_BASE: "/OpenSesame/" };
+  const env = { VITE_BASE: "/OpenSesame/", ...viteEnv };
   if (capabilityProfile) {
     env.OPENSESAME_CAPABILITY_PROFILE = capabilityProfile;
     env.OPENSESAME_BUILD_MODE = "selective";
