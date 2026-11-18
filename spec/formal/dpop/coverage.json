@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "reviewed_revision": "c7226a372ed6233a3cc678109c59dec33c7d0746",
+  "sources": [
+    {
+      "path": "crates/proof/src/replay.rs",
+      "sha256": "f6da7a1a31cddd450b6c66b13d4c5b89d951fd9e1dab72e7defa836d29bb3920"
+    },
+    {
+      "path": "crates/proof/src/validator.rs",
+      "sha256": "967ad727efd4936e834163d882dd1bf79e8ca6efdac99755b5d5cef29525ac8f"
+    },
+    {
+      "path": "crates/proof/src/jwk.rs",
+      "sha256": "fd7971be7e10f469cc7db78ea5aaa62f05181536db86d04a182bb27882708b06"
+    }
+  ]
+}
