@@ -1,15 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
+  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs.",
   "sources": [
-    {
-      "path": "Cargo.toml",
-      "sha256": "7c000d563c1b31f985c7dcda0412f57fd6a032e74f46a9aacb395edac1ac0539"
-    },
-    {
-      "path": "Cargo.lock",
-      "sha256": "58ec97af675d3946079752fc794004750f4e34936e3305858b7b56809075767e"
-    },
     {
       "path": "crates/domain/Cargo.toml",
       "sha256": "cefbd1a56a9dd926480879fb37b9ef54b9c8679b1e91b87973507321f7d015ef"
@@ -33,6 +26,35 @@
     {
       "path": "crates/domain/src/ids.rs",
       "sha256": "6ad2e7b2d2ca9c4dc0ef5b4247b3ac7725f375fdc3b3ab6109feaa5b4c2757db"
+    },
+    {
+      "path": "crates/domain/src/lib.rs",
+      "sha256": "2db2ace5bf8abd4ac858d40a72caa704cd22508090f6d8605c12f30bdc7437ae"
+    },
+    {
+      "path": "spec/formal/authority/Cargo.toml",
+      "sha256": "39e5a01052d3ffe15527a269469a9999151c55b33065e5414f53d052539860d9"
+    },
+    {
+      "path": "spec/formal/authority/Cargo.lock",
+      "sha256": "eddf539e6fcea44033ea744f06c414c7188af369083ee1a5a07a72daae9c231b"
+    }
+  ],
+  "lock_projection": {
+    "root": "opensesame-domain",
+    "algorithm": "cargo-lock-projection-v1-sha256",
+    "sha256": "24348fbcbbef827f8de31dd47eed868329ccaf43d691cb6797fc229808487b23"
+  },
+  "workspace_projection": {
+    "root": "opensesame-domain",
+    "package": "crates/domain/Cargo.toml",
+    "algorithm": "cargo-workspace-projection-v1-sha256",
+    "sha256": "0ce680c7dcc59c7510b56ebfabea1eb7ca29578caac5c9caed6adfc10d17e531"
+  },
+  "optional_sources": [
+    {
+      "path": "crates/domain/build.rs",
+      "sha256": null
     }
   ]
 }

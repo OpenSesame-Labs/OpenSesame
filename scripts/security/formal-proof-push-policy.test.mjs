@@ -41,14 +41,14 @@ test("every reviewed suite runs for its own implementation", (t) => {
   }
 });
 
-test("overlapping SPIFFE and lifetime mappings both run, but an unrelated edit skips", (t) => {
+test("overlapping authority, SPIFFE, and lifetime mappings all run, but an unrelated edit skips", (t) => {
   const path = "crates/domain/Cargo.toml";
   const selected = requirements.suites.filter((entry) =>
     entry.implementation.includes(path),
   );
   assert.deepEqual(
     selected.map((entry) => entry.id),
-    ["spiffe", "source-lifetime"],
+    ["authority", "spiffe", "source-lifetime"],
   );
   for (const changed of [path, "docs/unrelated.md"]) {
     const f = fixture(t);

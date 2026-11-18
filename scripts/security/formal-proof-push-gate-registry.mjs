@@ -63,6 +63,25 @@ function validLockProjection(suite) {
   );
 }
 
+function validManifestProjection(suite) {
+  const projection = suite.manifestProjection;
+  if (projection === undefined) return true;
+  if (!isJsonObject(projection)) return false;
+  return (
+    Object.keys(projection).every((key) =>
+      ["path", "package", "lock", "root"].includes(key),
+    ) &&
+    projection.path === "Cargo.toml" &&
+    projection.lock === "Cargo.lock" &&
+    safePath(projection.package) &&
+    projection.package.endsWith("/Cargo.toml") &&
+    isString(projection.root) &&
+    /^[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(projection.root) &&
+    !suite.implementation.includes(projection.path) &&
+    suite.implementation.includes(projection.package)
+  );
+}
+
 function validSuite(suite, ids) {
   return (
     suite &&
@@ -71,6 +90,7 @@ function validSuite(suite, ids) {
     !ids.has(suite.id) &&
     validSuitePaths(suite) &&
     validLockProjection(suite) &&
+    validManifestProjection(suite) &&
     validSuiteCommand(suite.command)
   );
 }

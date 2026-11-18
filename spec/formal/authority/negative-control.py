@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run guarded mutants in a separate temporary worktree and restore it."""
 import json
+from hashlib import sha256
 import os
 from pathlib import Path
 import shutil
@@ -48,23 +49,45 @@ with tempfile.TemporaryDirectory(prefix="opensesame-authority-mutants-") as temp
         added = True
         destination = scratch / "spec/formal/authority"
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            shutil.rmtree(destination)
         shutil.copytree(model, destination)
         for entry in manifest["sources"]:
             shutil.copy2(root / entry["path"], scratch / entry["path"])
+        for entry in manifest["optional_sources"]:
+            source, target = root / entry["path"], scratch / entry["path"]
+            if source.exists():
+                shutil.copy2(source, target)
+            elif target.exists():
+                target.unlink()
+        for name in ("cargo-lock-projection.py", "cargo-workspace-projection.py"):
+            shutil.copy2(root / "scripts/security" / name, scratch / "scripts/security" / name)
+        for relative in ("Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
+                         "spec/formal/check-axioms.sh", "spec/formal/required-theorem-command.lean"):
+            shutil.copy2(root / relative, scratch / relative)
         baseline = check(scratch)
         if baseline.returncode:
             raise RuntimeError("scratch baseline failed:\n" + (baseline.stdout + baseline.stderr)[-2000:])
         for name, relative, before, after in mutations:
             source = scratch / relative
             original = source.read_bytes()
+            coverage_path = destination / "coverage.json"
+            coverage_original = coverage_path.read_bytes()
             text = original.decode()
             if text.count(before) != 1:
                 raise RuntimeError(f"{name}: mutation point is absent or ambiguous")
             try:
                 source.write_text(text.replace(before, after, 1))
+                # Exercise correspondence, not the earlier source-drift alarm.
+                # Only this disposable worktree receives the mutant hash.
+                mutant_coverage = json.loads(coverage_original)
+                entry = next(item for item in mutant_coverage["sources"] if item["path"] == relative)
+                entry["sha256"] = sha256(source.read_bytes()).hexdigest()
+                coverage_path.write_text(json.dumps(mutant_coverage, indent=2) + "\n")
                 result = check(scratch)
             finally:
                 source.write_bytes(original)
+                coverage_path.write_bytes(coverage_original)
             output = result.stdout + result.stderr
             if result.returncode == 0 or "assertion `left == right` failed" not in output or "vector:" not in output:
                 raise RuntimeError(f"{name}: no corresponding assertion failed:\n{output[-2000:]}")

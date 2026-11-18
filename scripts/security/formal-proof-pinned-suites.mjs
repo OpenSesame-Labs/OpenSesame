@@ -93,7 +93,17 @@ export const PINNED_FORMAL_SUITES = [
       "crates/domain/src/grant_budgets.rs",
       "crates/domain/src/grant_lineage.rs",
       "crates/domain/src/ids.rs",
+      "crates/domain/Cargo.toml",
+      "crates/domain/src/lib.rs",
+      "crates/domain/build.rs",
     ],
+    lockProjection: { path: "Cargo.lock", root: "opensesame-domain" },
+    manifestProjection: {
+      path: "Cargo.toml",
+      package: "crates/domain/Cargo.toml",
+      lock: "Cargo.lock",
+      root: "opensesame-domain",
+    },
     proofs: [
       "spec/formal/authority/Authority.lean",
       "spec/formal/authority/required-theorems.lean",
