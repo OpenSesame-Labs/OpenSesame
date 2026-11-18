@@ -31,8 +31,15 @@ FillRequest ==
      ELSE released' = FALSE
   /\ UNCHANGED <<paired, approved>>
 
+\* Mirrors `POST /v1/fill/pair/revoke`: drop pairing and approval authority.
+Revoke ==
+  /\ paired
+  /\ paired' = FALSE
+  /\ approved' = FALSE
+  /\ released' = FALSE
+
 NoFillWithoutPairing == released => (paired /\ approved)
 
-Spec == Init /\ [][Pair \/ Approve \/ FillRequest]_vars
+Spec == Init /\ [][Pair \/ Approve \/ FillRequest \/ Revoke]_vars
 
 ====

@@ -3,7 +3,13 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { validateLedger } from "./formal/ledger.mjs";
@@ -74,36 +80,44 @@ for (const rel of models) {
   const spec = rel.split("/")[1];
   const metadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
   const log = join(logDir, `${rel.replace("/", "-")}.log`);
-  const result = runTlc(dir, `${spec}.cfg`, spec, metadata);
-  writeFileSync(
-    log,
-    `${result.stdout ?? ""}\n${result.stderr ?? ""}\nexit=${result.status}\n`,
-  );
-  if (result.status !== 0) process.exitCode = 1;
+  try {
+    const result = runTlc(dir, `${spec}.cfg`, spec, metadata);
+    writeFileSync(
+      log,
+      `${result.stdout ?? ""}\n${result.stderr ?? ""}\nexit=${result.status}\n`,
+    );
+    if (result.status !== 0) process.exitCode = 1;
+  } finally {
+    rmSync(metadata, { recursive: true, force: true });
+  }
 
   const faultCfg = faultConfigs[rel];
   if (faultCfg) {
     const faultMetadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
     const faultLog = join(logDir, `${rel.replace("/", "-")}-fault.log`);
-    const fault = runTlc(dir, faultCfg, spec, faultMetadata);
-    writeFileSync(
-      faultLog,
-      `${fault.stdout ?? ""}\n${fault.stderr ?? ""}\nexit=${fault.status}\n`,
-    );
-    const faultOutput = `${fault.stdout ?? ""}${fault.stderr ?? ""}`;
-    if (fault.status === 0) {
-      console.error(
-        `${rel}: fault config ${faultCfg} passed but must fail TLC`,
+    try {
+      const fault = runTlc(dir, faultCfg, spec, faultMetadata);
+      writeFileSync(
+        faultLog,
+        `${fault.stdout ?? ""}\n${fault.stderr ?? ""}\nexit=${fault.status}\n`,
       );
-      process.exitCode = 1;
-    } else {
-      const needle = faultEvidence[rel];
-      if (needle && !faultOutput.includes(needle)) {
+      const faultOutput = `${fault.stdout ?? ""}${fault.stderr ?? ""}`;
+      if (fault.status === 0) {
         console.error(
-          `${rel}: fault config ${faultCfg} failed TLC but output lacks ${needle}`,
+          `${rel}: fault config ${faultCfg} passed but must fail TLC`,
         );
         process.exitCode = 1;
+      } else {
+        const needle = faultEvidence[rel];
+        if (needle && !faultOutput.includes(needle)) {
+          console.error(
+            `${rel}: fault config ${faultCfg} failed TLC but output lacks ${needle}`,
+          );
+          process.exitCode = 1;
+        }
       }
+    } finally {
+      rmSync(faultMetadata, { recursive: true, force: true });
     }
   }
 }

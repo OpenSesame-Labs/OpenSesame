@@ -142,7 +142,7 @@ section("pwa-shell-ready", {
     const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
       "input.awaitingPlanActivation !== true))",
-      "false && input.awaitingPlanActivation !== true))",
+      "true))",
     );
     writeFileSync(absolute, broken);
     try {
