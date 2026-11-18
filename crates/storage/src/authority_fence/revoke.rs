@@ -45,26 +45,56 @@ pub async fn fence_grant(
     at: opensesame_time::DateTime<opensesame_time::Utc>,
 ) -> anyhow::Result<FenceCommit> {
     let mut tx = begin_write(pool).await?;
+    let result = fence_grant_on(&mut tx, grant_id, reason, at).await?;
+    tx.commit().await?;
+    Ok(result)
+}
 
-    let path: Option<String> =
-        sqlx::query("SELECT ancestor_path FROM grant_lineage WHERE grant_id = ?")
-            .bind(grant_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .map(|row| row.get("ancestor_path"));
-    let Some(path) = path else {
+/// Fence one grant inside a caller-owned SQLite transaction.
+///
+/// This acquires the SQLite writer before reading the fence. The caller must
+/// also reserve it before any other authority reads (for example with
+/// `BEGIN IMMEDIATE`), and must commit every intended fence and audit record
+/// together. A result is provisional until that commit. This primitive does
+/// not authenticate an operator or establish grant provenance.
+///
+/// # Errors
+/// Returns an error on missing or inconsistent lineage, or a storage failure.
+pub async fn fence_grant_on(
+    tx: &mut Transaction<'_, Sqlite>,
+    grant_id: &str,
+    reason: &str,
+    at: opensesame_time::DateTime<opensesame_time::Utc>,
+) -> anyhow::Result<FenceCommit> {
+    sqlx::query("UPDATE grant_invalidations SET sequence = sequence WHERE 0")
+        .execute(&mut **tx)
+        .await?;
+    let row = sqlx::query(
+        "SELECT ancestor_path, root_grant_id, parent_grant_id, depth
+         FROM grant_lineage WHERE grant_id = ?",
+    )
+    .bind(grant_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some(row) = row else {
         anyhow::bail!("grant {grant_id} has no recorded lineage; cannot fence it coherently");
     };
-    let lineage = Lineage::from_path(&path)?;
+    let lineage = Lineage::from_path(&row.get::<String, _>("ancestor_path"))?;
+    if lineage.grant_id() != grant_id
+        || row.get::<String, _>("root_grant_id") != lineage.root_id()
+        || row.get::<Option<String>, _>("parent_grant_id").as_deref() != lineage.parent_id()
+        || row.get::<i64, _>("depth") != i64::from(lineage.depth())
+    {
+        anyhow::bail!("grant {grant_id} has inconsistent lineage; cannot fence it coherently");
+    }
 
     let existing: Option<i64> =
         sqlx::query("SELECT sequence FROM grant_invalidations WHERE grant_id = ?")
             .bind(grant_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .map(|row| row.get("sequence"));
     if let Some(sequence) = existing {
-        tx.commit().await?;
         return Ok(FenceCommit {
             sequence: sequence.try_into().unwrap_or(u64::MAX),
             cascaded_grants: 0,
@@ -75,7 +105,7 @@ pub async fn fence_grant(
 
     let next: i64 =
         sqlx::query("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM grant_invalidations")
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await?
             .get("next");
     // Descriptive only: `sequence` is the authority on order, so a caller's
@@ -89,7 +119,7 @@ pub async fn fence_grant(
     .bind(next)
     .bind(reason)
     .bind(&stamp)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
 
     // Bookkeeping, not enforcement. One range scan over the path index covers
@@ -105,7 +135,7 @@ pub async fn fence_grant(
     .bind(&stamp)
     .bind(&low)
     .bind(&high)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?
     .rows_affected();
     let delegations = sqlx::query(
@@ -117,12 +147,9 @@ pub async fn fence_grant(
     .bind(&stamp)
     .bind(&low)
     .bind(&high)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?
     .rows_affected();
-
-    // Everything above becomes true at once, here.
-    tx.commit().await?;
 
     Ok(FenceCommit {
         sequence: next.try_into().unwrap_or(u64::MAX),

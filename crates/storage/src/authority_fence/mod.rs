@@ -54,7 +54,7 @@ mod revoke;
 
 pub use read::{fence_high_water, fence_status};
 pub use record::{record_lineage, REASON_OWNER_REVOKED};
-pub use revoke::{fence_grant, FenceCommit};
+pub use revoke::{fence_grant, fence_grant_on, FenceCommit};
 
 use opensesame_lifecycle::{FenceVerdict, Freshness, Lineage};
 
