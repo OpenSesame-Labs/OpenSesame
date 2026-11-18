@@ -129,6 +129,14 @@ export function assertPromotionDocs(cli, pwa, spec) {
 }
 export function assertGatesProofAndCiChecks() {
   const gates = read(".github/workflows/cd-promotion-gates-proof.yml");
+  const steps = workflow(gates).jobs.unit.steps;
+  const install = steps.findIndex((step) =>
+    /npm ci\b[^\n]*--ignore-scripts/.test(String(step.run ?? "")),
+  );
+  const gateTests = steps.findIndex((step) =>
+    /node --test\b/.test(String(step.run ?? "")),
+  );
+  assert.ok(install >= 0 && gateTests > install);
   assert.match(gates, /cd-production-npm-version\.test\.mjs/);
   assert.match(gates, /pull_request:/);
   assert.match(gates, /workflow_dispatch:/);

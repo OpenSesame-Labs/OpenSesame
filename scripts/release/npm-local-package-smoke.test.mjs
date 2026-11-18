@@ -5,10 +5,11 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import {
   localProofEnvironment,
@@ -139,6 +140,78 @@ test("uses Node's paired npm outside the checkout instead of a PATH shim", (t) =
     if (previousPath === undefined) delete process.env.PATH;
     else process.env.PATH = previousPath;
   }
+});
+
+function fakeNodeToolchain(f, npmCli) {
+  const toolchain = join(f.root, "node-toolchain");
+  const bin = join(toolchain, "bin");
+  const npmBin = join(toolchain, "lib/node_modules/npm/bin");
+  const node = join(bin, "node");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(npmBin, { recursive: true });
+  symlinkSync(process.execPath, node);
+  symlinkSync(npmCli, join(npmBin, "npm-cli.js"));
+  writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 88\n", { mode: 0o755 });
+  return node;
+}
+
+function runProofWithNode(node, f) {
+  const program = `
+      import { pathToFileURL } from "node:url";
+      Object.defineProperty(process, "execPath", { value: process.argv[1] });
+      const { smokeLocalPackage } = await import(pathToFileURL(process.argv[2]).href);
+      const result = smokeLocalPackage(process.argv[3], process.argv[4], process.argv[5]);
+      if (result.name !== process.argv[4] || result.version !== process.argv[5]) process.exitCode = 1;
+    `;
+  return spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      program,
+      node,
+      join(import.meta.dirname, "npm-local-package-smoke.mjs"),
+      f.root,
+      pwaName,
+      version,
+    ],
+    { encoding: "utf8" },
+  );
+}
+
+test("uses Node's bundled npm CLI when mise replaces bin/npm with a shell shim", {
+  skip: process.platform === "win32" ? "mise shim is POSIX-only" : false,
+}, (t) => {
+  const f = fixture(t, pwaName);
+  const npmCli = resolve(
+    dirname(process.execPath),
+    "../lib/node_modules/npm/bin/npm-cli.js",
+  );
+  const result = runProofWithNode(fakeNodeToolchain(f, npmCli), f);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(f.sentinel), false);
+});
+
+test("rejects malformed npm pack metadata before trusting its files", {
+  skip: process.platform === "win32" ? "fixture uses POSIX symlinks" : false,
+}, (t) => {
+  const f = fixture(t, pwaName);
+  const npmCli = join(f.root, "fake-npm-cli.cjs");
+  writeFileSync(npmCli, "");
+  const node = fakeNodeToolchain(f, npmCli);
+  for (const item of [
+    { name: pwaName, version, filename: "../escape.tgz", files: [] },
+    { name: pwaName, version, filename: "release.tgz", files: [null] },
+  ]) {
+    writeFileSync(
+      npmCli,
+      `process.stdout.write(${JSON.stringify(JSON.stringify([item]))});`,
+    );
+    const result = runProofWithNode(node, f);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /identity does not match/);
+  }
+  assert.equal(existsSync(f.sentinel), false);
 });
 
 test("the intentional smoke failure blocks the local proof", () => {

@@ -55,6 +55,8 @@ jobs:
         with:
           cache: false
           install_args: node@24 hurl@8.1.0
+      - name: Install gate test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Gate script tests
         run: |
           set -euo pipefail

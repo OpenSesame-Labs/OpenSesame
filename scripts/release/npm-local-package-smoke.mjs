@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isJsonObject, isString } from "../lib/json-boundary.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 
 function run(command, args, cwd, env) {
@@ -53,10 +54,15 @@ export function localProofEnvironment(root) {
 }
 
 function runNpm(args, cwd, env) {
-  // GitHub Actions exposes npm through a mise shim whose HOME and cwd must
-  // point at the checkout. Invoke the npm paired with this Node directly so
-  // the proof can use a separate HOME and working directory.
-  const npmCli = realpathSync(join(dirname(process.execPath), "npm"));
+  // mise replaces bin/npm with a shell wrapper. Use the npm CLI bundled with
+  // this Node directly, not that wrapper or an npm discovered through PATH.
+  const prefix =
+    process.platform === "win32"
+      ? dirname(process.execPath)
+      : join(dirname(process.execPath), "..", "lib");
+  const npmCli = realpathSync(
+    join(prefix, "node_modules", "npm", "bin", "npm-cli.js"),
+  );
   return run(process.execPath, [npmCli, ...args], cwd, env);
 }
 
@@ -95,12 +101,13 @@ function packLocalPackage(
   const item =
     Array.isArray(packed) && packed.length === 1 ? packed[0] : undefined;
   if (
-    !item ||
+    !isJsonObject(item) ||
     item.name !== expectedName ||
     item.version !== expectedVersion ||
-    typeof item.filename !== "string" ||
+    !isString(item.filename) ||
     basename(item.filename) !== item.filename ||
-    !Array.isArray(item.files)
+    !Array.isArray(item.files) ||
+    item.files.some((entry) => !isJsonObject(entry) || !isString(entry.path))
   ) {
     throw new Error("Staged npm package identity does not match the release");
   }
