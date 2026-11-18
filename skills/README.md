@@ -69,6 +69,7 @@ reviewed commits). Anything a build or gate depends on must be core.
 | [`local-debug-session`](local-debug-session/SKILL.md) | "Run it locally": an attached Vite HMR session with the browser console watched, never a static preview. |
 | [`visual-evidence`](visual-evidence/SKILL.md) | Before/after screenshots from two real builds for any user-visible change. |
 | [`security-review`](security-review/SKILL.md) | The deterministic security gates and budgeted Codex Security scans. |
+| [`verify-auth-formal`](verify-auth-formal/SKILL.md) | Maintain the Lean authorization model, its source correspondence, and the real-code conformance check. |
 | [`verify-formal-vault`](verify-formal-vault/SKILL.md) | The vault screen never says a second step is still waiting while the vault is open. |
 | [`verify-formal-proxy-lease`](verify-formal-proxy-lease/SKILL.md) | Tomb destroy waits until open leases are gone; stale releases never drop a newer generation. |
 | [`install-anti-slop`](install-anti-slop/SKILL.md) | Installing the anti-slop Oxlint plugin into another repository; its `assets/` mirror [`tools/oxlint/anti-slop`](../tools/oxlint/anti-slop) (`npm run test:anti-slop` checks they match), `install.mjs --no-tests` leaves the test suites out, and the asset's `MANIFEST.sha256` and `verify.mjs` let a consuming repository check its copy offline (`npm run anti-slop:manifest` regenerates the manifest). |
