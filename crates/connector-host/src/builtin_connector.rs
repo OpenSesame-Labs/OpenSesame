@@ -7,9 +7,6 @@ use super::{
 use serde_json::json;
 
 impl Connector for MockConnector {
-    fn permits_outcome_disclosure(&self) -> bool {
-        true
-    }
     fn id(&self) -> &str {
         MOCK_CONNECTOR_ID
     }
@@ -72,10 +69,20 @@ impl Connector for MockConnector {
 }
 
 impl HostRuntime {
-    /// Whether the bound host-owned connector can safely expose its outcome.
+    /// This identifies only the host-installed synchronous mock. It says
+    /// nothing about independent executors or constrained-HTTP work.
+    #[must_use]
+    pub fn is_inert_builtin_mock(&self, connection_id: &str) -> bool {
+        self.connection_connectors
+            .get(connection_id)
+            .and_then(|id| self.connectors.get(id))
+            .is_some_and(|registered| registered.inert_builtin_mock)
+    }
+
+    /// Only the host-installed mock may disclose an outcome. Registered
+    /// connectors cannot grant themselves that authority.
     #[must_use]
     pub fn permits_outcome_disclosure(&self, connection_id: &str) -> bool {
-        self.connector(connection_id)
-            .is_some_and(|connector| connector.permits_outcome_disclosure())
+        self.is_inert_builtin_mock(connection_id)
     }
 }

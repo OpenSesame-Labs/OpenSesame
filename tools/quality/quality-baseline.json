@@ -315,7 +315,7 @@
       "max-lines": 501
     },
     "crates/connector-host/src/lib.rs": {
-      "max-lines": 957
+      "max-lines": 900
     },
     "crates/connector-host/src/manifest.rs": {
       "max-lines": 515
