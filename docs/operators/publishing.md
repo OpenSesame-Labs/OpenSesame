@@ -40,58 +40,20 @@ An npm token or tag alone must not restore the old rebuild-and-publish path.
 
 ## Stored publication credentials
 
-Two credentials outlive a workflow run, and each run that uses one says so.
+The weekly release uses the protected `RELEASE_PUBLISH_TOKEN` described below.
+An `NPM_TOKEN` may still exist in a GitHub environment, but current CD jobs do
+not read it and the shared npm publish action fails closed. No npm package is
+published until candidate-bound promotion is implemented; existing registry
+versions and tags remain unchanged. Remove any unused long-lived npm token
+through the normal owner-controlled credential process.
 
-| Secret | Environment | Used by | Shown as |
-|---|---|---|---|
-| `NPM_TOKEN` | `Preview`, `Production` | `cd-npm-cli.yml`, `cd-pwa.yml` through `.github/actions/publish-npm-package` | A warning on every publish that reads it; a notice when the publish used OIDC instead |
-| `RELEASE_PUBLISH_TOKEN` | `release` | The stage job of `release-publish.yml` | Its expiry date on every release, as a warning when it never expires, expires within 14 days, or expires more than 90 days out |
-
-Neither message contains a credential's value. `scripts/release/credential-expiry.mjs`
-reads the kind from the token's public prefix and the date from GitHub's
-`github-authentication-token-expiration` response header.
-
-The npm publish action downloads npm 11.21.1 with a scrubbed environment,
-checks its tarball against the committed SHA-512 in
-`scripts/release/prepare-npm-cli.mjs`, and safely extracts it. Before
-publication credentials are available, the pinned CLI packs the staged tree
-with lifecycle scripts disabled. The action validates the frozen tarball's
-identity and publish configuration, then uses a clean working directory and
-controlled npm configuration for anonymous registry queries and publication.
-A rerun accepts an existing version only when its registry integrity matches
-the frozen tarball. The publish step retains GitHub OIDC credentials for
-provenance: npm attempts OIDC trusted publishing even when a stored token is
-present, and uses that token if the OIDC exchange does not supply credentials.
-
-### Retire `NPM_TOKEN`
-
-The publish action already publishes with OIDC when the token is empty, the
-publish jobs already hold `id-token: write`, and the rows to configure are in
-`npm_trusted_publishing.publishers` of
-[`docs/ci/github-setup-spec.json`](../ci/github-setup-spec.json). Nothing in
-the repository has to change. On npmjs.com, as the package owner:
-
-1. For each of the four rows (two packages, `Preview` and `Production`), add a
-   trusted publisher to the package: GitHub Actions, the organization, the
-   repository, the workflow filename and the environment name. npm matches
-   every field exactly, including case, and does not check them when saved: a
-   mistake only shows at the next publish.
-2. Delete `NPM_TOKEN` from the `Preview` environment. The next `main` push
-   that publishes `0.0.0-alpha.N` must show the notice
-   "This publish uses OIDC trusted publishing". npm drops a new trusted
-   publisher that has not published within two days, so do this soon after
-   step 1. If the publish fails, restore the secret, correct the row and try
-   again.
-3. Delete `NPM_TOKEN` from the `Production` environment and confirm the same
-   notice on the next `0.0.0-next.N` publish.
-4. For each package, under Settings, Publishing access, select "Require
-   two-factor authentication and disallow tokens", then revoke the old token.
-   After this a stolen token cannot publish even if one is created again.
-
-What trusted publishing requires is already true here: the publish jobs run on
-GitHub-hosted runners, the action pins an npm newer than 11.5.1 on Node 24,
-the publish step is in the workflow file npm is told about (not a reusable
-workflow), and each published `package.json` names this repository.
+The preserved, currently unreachable npm publication code verifies a pinned
+npm CLI, packs without credentials, isolates npm configuration, and compares
+registry integrity on reruns. Re-enabling it requires npm tarballs in the
+immutable candidate inventory, qualification and provenance for those exact
+bytes, and promotion without rebuilding. It also requires independently
+configured protected publishing environments and npm trusted publisher policy.
+A token or an environment setting alone does not enable publication.
 
 ### Keep `RELEASE_PUBLISH_TOKEN` short-lived
 

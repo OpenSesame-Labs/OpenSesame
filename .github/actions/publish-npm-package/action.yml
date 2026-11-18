@@ -1,10 +1,8 @@
 name: Publish npm package
 description: >-
-  Publish a staged release directory to npm with provenance. npm attempts
-  OIDC trusted publishing and can fall back to the supplied npm-token.
-  An empty token requires OIDC (id-token: write). Preview publishes 0.0.0-alpha.N on alpha.
-  Production publishes the same staged payload as 0.0.0-next.N on next.
-  Never prints tokens. Never publishes latest.
+  npm publication is disabled until the tarball is included in the qualified
+  immutable candidate and promoted from that candidate. The preserved
+  publication steps are unreachable until this gate is intentionally replaced.
 
 inputs:
   working-directory:
@@ -29,6 +27,12 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Refuse unqualified npm publication
+      shell: bash
+      run: |
+        echo "::error::npm publication is disabled until qualified candidate-bound promotion is implemented." >&2
+        exit 1
+
     - name: Prepare pinned npm and freeze the package without publication credentials
       shell: bash
       env:

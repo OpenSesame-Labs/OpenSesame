@@ -8,8 +8,8 @@ Status words are defined in [SSDF conformance](ssdf-conformance.md). "Declared" 
 
 - A public repository in one organization, with one maintainer who holds the admin role.
 - Many commits are written by coding agents. Changes merge by squash through a merge queue.
-- GitHub Actions builds every change, qualifies candidates nightly and weekly, and publishes to npm, GHCR and GitHub Pages.
-- Secrets read by workflows include `NPM_TOKEN`, `RELEASE_PUBLISH_TOKEN`, `TURBO_TOKEN`, and `GITLEAKS_LICENSE`. Publishing credentials must be scoped to protected deployment environments. GHCR publication is disabled until qualified OCI promotion and independently restricted package access exist.
+- GitHub Actions builds every change, qualifies candidates nightly and weekly, and publishes qualified Pages and native kits. npm and GHCR publication are disabled pending qualified candidate promotion.
+- Secrets read by workflows include `RELEASE_PUBLISH_TOKEN`, `TURBO_TOKEN`, and `GITLEAKS_LICENSE`. Publishing credentials must be scoped to protected deployment environments; future GHCR publication also requires independently restricted package access.
 
 Trust boundaries: the maintainer's GitHub account; each agent harness and its signing key; the GitHub Actions app identity; third-party actions; package registries.
 
