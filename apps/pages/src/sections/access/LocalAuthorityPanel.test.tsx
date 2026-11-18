@@ -101,6 +101,23 @@ it("lists local records without a backend and cancels with keyboard focus restor
   expect(listRecordedLocalGrants).toHaveBeenCalledWith("vault-a");
 });
 
+it("does not undo the first keyboard move after reopening confirmation", async () => {
+  const user = userEvent.setup();
+  render(<LocalAuthorityPanel tomb="vault-a" records="grant" />);
+  const revoke = await screen.findByRole("button", { name: "Revoke grant" });
+
+  revoke.focus();
+  await user.keyboard("{Enter}");
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(document.activeElement).toBe(revoke));
+
+  await user.keyboard("{Enter}");
+  await user.keyboard("{Shift>}{Tab}{/Shift}");
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Confirm revocation" }),
+  );
+});
+
 it("restores focus even when a frame fires before the confirmation's removal commits", async () => {
   // Under load a frame can run before React commits the render that closes
   // the confirmation, while the row's key is still disabled beside it.

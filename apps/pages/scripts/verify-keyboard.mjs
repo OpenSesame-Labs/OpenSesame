@@ -241,6 +241,7 @@ try {
     console.log(
       `PASS ${width}px: capabilities are chosen with the keyboard alone`,
     );
+    const contributedSections = ["Connections", "Access", "Identity"];
     if (width !== 1280) {
       // Sections are behind one key on a phone, so that key is navigation and
       // has to answer the keyboard: Tab reaches it, Enter opens the drawer,
@@ -252,6 +253,11 @@ try {
       await expect(drawer).toBeVisible();
       await expect(page.locator(":focus")).toHaveCount(1);
       await expect(drawer.locator(":focus")).toHaveCount(1);
+      for (const name of contributedSections) {
+        await expect(
+          drawer.getByRole("link", { name, exact: true }),
+        ).toBeVisible();
+      }
       await tabTo(page, drawer.getByRole("link", { name: "Connections" }));
       await page.keyboard.press("Escape");
       await expect(drawer).toHaveCount(0);
@@ -261,6 +267,11 @@ try {
     if (width === 1280) {
       const items = page.locator(".vtree__rows");
       const rail = page.locator(".railtree");
+      for (const name of contributedSections) {
+        await expect(
+          rail.getByRole("treeitem", { name: new RegExp(`^${name}\\b`) }),
+        ).toBeVisible();
+      }
       await tabTo(page, items);
       await page.keyboard.press("F6");
       await expect(rail).toBeFocused();
