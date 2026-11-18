@@ -89,14 +89,6 @@ export const SPARSE_CD_PWA_PUBLISH = Object.freeze([
   "/package-lock.json",
 ]);
 
-/** GHCR manifest job only tests that these Dockerfiles exist. */
-export const SPARSE_GHCR_MANIFEST = Object.freeze([
-  "/ops/compose/Dockerfile",
-  "/ops/containers/cli/Dockerfile",
-  "/ops/containers/web-pwa/Dockerfile",
-  "/ops/containers/control-plane/Dockerfile",
-]);
-
 export const AFFECTED_GRAPH_HISTORY =
   "merge-base and name-only diffs for the affected graph need full history.";
 
@@ -156,7 +148,6 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_GHCR_MANIFEST }),
   ]),
 });
 
