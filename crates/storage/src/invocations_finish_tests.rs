@@ -52,6 +52,7 @@ fn evidence(
         id: ReceiptId::new(),
         invocation_id: invocation.id,
         intent_digest: "sha256:intent".into(),
+        idempotency_binding: None,
         principal_id: intent.principal_id,
         organization_id: Some(organization),
         actor_id: intent.actor_id,
@@ -152,6 +153,40 @@ async fn terminal_state_and_receipt_commit_once_together() {
             .await
             .is_err());
         assert_eq!(db.count_receipts().await.unwrap(), 1);
+    }
+}
+
+#[tokio::test]
+async fn opaque_indeterminate_receipt_preserves_the_private_terminal_state() {
+    for state in [InvocationState::Succeeded, InvocationState::Failed] {
+        let (db, organization) = setup().await;
+        let (intent, executing, mut receipt) = evidence(
+            organization,
+            InvocationState::Executing,
+            ReceiptOutcome::Indeterminate,
+        );
+        receipt.receipt_schema_version = 5;
+        receipt.safe_result_summary = None;
+        db.insert_intent(&intent).await.unwrap();
+        db.insert_invocation(&executing).await.unwrap();
+        let mut terminal = executing.clone();
+        terminal.transition(state, Utc::now()).unwrap();
+        db.finish_executing_invocation(&terminal, &receipt)
+            .await
+            .unwrap();
+        assert_eq!(
+            stored_invocation(&db, organization, terminal.id).await,
+            terminal
+        );
+        assert_eq!(
+            db.get_receipt(&receipt.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .receipt
+                .outcome,
+            ReceiptOutcome::Indeterminate
+        );
     }
 }
 

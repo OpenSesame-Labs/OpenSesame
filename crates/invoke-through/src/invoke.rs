@@ -76,9 +76,9 @@ pub struct InvokeRequest {
     pub actor: Option<String>,
 }
 
-/// What the caller gets back: the upstream response and nothing else.
-/// Contains no credential material by construction — Debug is safe.
-#[derive(Debug)]
+/// The upstream response after bounded direct-reflection scrubbing.
+/// It can still contain transformed credentials and is not safe to disclose
+/// or log without an additional output policy.
 pub struct InvokeResponse {
     pub status: u16,
     /// Allowlisted response headers only.
@@ -87,11 +87,19 @@ pub struct InvokeResponse {
     pub receipt: ReceiptMeta,
 }
 
+impl std::fmt::Debug for InvokeResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InvokeResponse")
+            .field("status", &self.status)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Structured receipt metadata for one brokered call (ADR 0049 §5).
 ///
 /// `path` is the URL path **only** — query strings may carry secrets
 /// (presigned URLs, `?access_token=`) and are never recorded. Serialize this
-/// freely: by construction it cannot contain the credential.
+/// with the same care as other caller-supplied request metadata.
 #[derive(Debug, Clone, Serialize)]
 pub struct ReceiptMeta {
     pub provider_id: String,

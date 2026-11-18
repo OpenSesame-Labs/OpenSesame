@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 441,
-    "violations": 700,
-    "oversizedLines": 213645
+    "files": 440,
+    "violations": 698,
+    "oversizedLines": 212496
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -254,9 +254,6 @@
     "crates/breach-intel/src/event.rs": {
       "max-lines": 452
     },
-    "crates/broker/src/frozen.rs": {
-      "max-lines": 620
-    },
     "crates/ceremony/src/capture.rs": {
       "max-lines": 506
     },
@@ -318,7 +315,7 @@
       "max-lines": 501
     },
     "crates/connector-host/src/lib.rs": {
-      "max-lines": 1012
+      "max-lines": 957
     },
     "crates/connector-host/src/manifest.rs": {
       "max-lines": 515
@@ -327,7 +324,7 @@
       "max-lines": 1324
     },
     "crates/connector-host/src/wasm.rs": {
-      "max-lines": 699
+      "max-lines": 683
     },
     "crates/daemon/src/cli_probe.rs": {
       "max-lines": 695
@@ -408,10 +405,10 @@
       "max-lines": 530
     },
     "crates/gateway/src/routes/kv_facade.rs": {
-      "max-lines": 758
+      "max-lines": 737
     },
     "crates/gateway/src/routes/kv_facade/tests.rs": {
-      "max-lines": 747
+      "max-lines": 742
     },
     "crates/gateway/src/routes/lifecycle.rs": {
       "max-lines": 1592
@@ -1220,10 +1217,9 @@
       "max-lines-per-function": 1
     },
     "packages/mcp-host/src/tools-handlers.test.ts": {
-      "max-lines": 587
+      "max-lines": 586
     },
     "packages/mcp-host/src/tools.ts": {
-      "max-lines": 431,
       "max-lines-per-function": 1
     },
     "packages/notification-adapters/src/__tests__/slack.test.ts": {

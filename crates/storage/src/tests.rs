@@ -26,7 +26,6 @@ async fn claim_host_kv(db: std::sync::Arc<Db>, worker: usize) -> bool {
         .await
         .unwrap()
 }
-
 fn evidence(
     organization_id: OrganizationId,
     claimed_organization_id: Option<OrganizationId>,
@@ -74,6 +73,7 @@ fn evidence(
         id: ReceiptId::new(),
         invocation_id: invocation.id,
         intent_digest: "sha256:intent".into(),
+        idempotency_binding: None,
         principal_id: intent.principal_id,
         organization_id: claimed_organization_id,
         actor_id: intent.actor_id,

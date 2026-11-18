@@ -40,18 +40,15 @@ impl Connector for FixedConnector {
         self.calls.fetch_add(1, Ordering::SeqCst);
         Ok(InvokeResult {
             ok: self.ok,
-            safe_summary: json!({"result": "provider complete"}),
-            external_request_digest: Some("sha256:fixture".into()),
+            safe_summary: json!({"result": "1-ssecca-ecar"}),
+            external_request_digest: Some("1-ssecca-ecar".into()),
         })
     }
 }
 
 #[tokio::test]
 async fn frozen_connector_outcome_is_signed_and_replayed_without_reexecution() {
-    for (ok, expected) in [
-        (false, ReceiptOutcome::Failed),
-        (true, ReceiptOutcome::Succeeded),
-    ] {
+    for ok in [false, true] {
         let org = OrganizationId::new();
         let principal = PrincipalId::new();
         let capabilities = CapabilitySet::new(vec![Capability::new(
@@ -128,19 +125,21 @@ async fn frozen_connector_outcome_is_signed_and_replayed_without_reexecution() {
         };
 
         let receipt = broker.invoke_frozen(&tasks, input()).await.unwrap();
-        assert_eq!(receipt.outcome, expected);
-        assert_eq!(
-            receipt.safe_result_summary.as_ref().unwrap()["result"],
-            "provider complete"
-        );
-        assert_eq!(
-            receipt.external_request_digest.as_deref(),
-            Some("sha256:fixture")
-        );
+        assert_eq!(receipt.outcome, ReceiptOutcome::Indeterminate);
+        let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
+            .bind(receipt.invocation_id.to_string())
+            .fetch_one(broker.db.pool())
+            .await
+            .unwrap();
+        assert_eq!(state, if ok { "succeeded" } else { "failed" });
+        assert!(receipt.has_opaque_result());
+        assert!(!serde_json::to_string(&receipt)
+            .unwrap()
+            .contains("1-ssecca-ecar"));
         broker.signer.verify_receipt(&receipt).unwrap();
         let replay = broker.invoke_frozen(&tasks, input()).await.unwrap();
         assert_eq!(replay.id, receipt.id);
-        assert_eq!(replay.outcome, expected);
+        assert_eq!(replay.outcome, ReceiptOutcome::Indeterminate);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 }

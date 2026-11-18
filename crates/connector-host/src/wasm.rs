@@ -15,14 +15,15 @@
 //! - all egress goes through [`HostEgress`] after re-checking the
 //!   *intersection* of `HostPolicy` egress and the manifest's
 //!   `outbound.hosts`; credentials are injected on the host side of that
-//!   trait and never enter guest linear memory.
+//!   trait. A hostile upstream can nevertheless encode a credential in its
+//!   response, so guest memory must be treated as potentially sensitive.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::{json, Value};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
@@ -45,9 +46,13 @@ use bindings::opensesame::connector::host_http;
 use bindings::opensesame::connector::host_oauth;
 use bindings::opensesame::connector::types;
 
+#[path = "wasm_outcome.rs"]
+mod outcome;
+use outcome::map_invoke_error;
+
 /// One outbound HTTP request as it crosses the host boundary. The connection
-/// is identified by ref; the host injects the credential after this value is
-/// formed — a guest never sees or supplies credential bytes.
+/// is identified by ref; the guest cannot directly supply or open the
+/// credential. A hostile provider can still encode it in a response.
 #[derive(Clone, Debug)]
 pub struct EgressRequest {
     pub method: String,
@@ -495,29 +500,11 @@ impl WasmConnector {
             return match trap {
                 wasmtime::Trap::OutOfFuel => HostError::Connector("fuel exhausted".into()),
                 wasmtime::Trap::Interrupt => HostError::Connector("deadline exceeded".into()),
-                other => HostError::Connector(format!("trap: {other}")),
+                _ => HostError::Connector("guest trapped".into()),
             };
         }
-        HostError::Connector(format!("guest: {error}"))
+        HostError::Connector("guest failed".into())
     }
-}
-
-fn map_invoke_error(error: &types::InvokeError) -> HostError {
-    let text = match error {
-        types::InvokeError::InvalidInput(m) => format!("invalid-input: {m}"),
-        types::InvokeError::Unauthorized(m) => format!("unauthorized: {m}"),
-        types::InvokeError::ApprovalRequired(m) => format!("approval-required: {m}"),
-        types::InvokeError::RateLimited(after) => match after {
-            Some(secs) => format!("rate-limited: retry after {secs}s"),
-            None => "rate-limited".to_owned(),
-        },
-        types::InvokeError::ProviderError((status, m)) => {
-            format!("provider-error {status}: {m}")
-        }
-        types::InvokeError::Transient(m) => format!("transient: {m}"),
-        types::InvokeError::Permanent(m) => format!("permanent: {m}"),
-    };
-    HostError::Connector(text)
 }
 
 impl Connector for WasmConnector {
@@ -580,15 +567,12 @@ impl Connector for WasmConnector {
         if bytes.len() > self.limits.max_result_bytes {
             return Err(HostError::Connector("result exceeds size cap".into()));
         }
-        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
-        // Guest output is data, never trusted structure: parse as JSON when
-        // it is JSON, otherwise report only its size and digest.
-        let safe_summary = serde_json::from_slice::<Value>(&bytes)
-            .unwrap_or_else(|_| json!({ "bytes": bytes.len() }));
+        // The guest may have seen an upstream response that encodes the
+        // injected credential. JSON, a size, and a digest can all disclose it.
         Ok(InvokeResult {
             ok: true,
-            safe_summary,
-            external_request_digest: Some(digest),
+            safe_summary: json!({ "result": "completed" }),
+            external_request_digest: None,
         })
     }
 }

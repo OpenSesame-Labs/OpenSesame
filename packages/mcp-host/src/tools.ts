@@ -3,16 +3,14 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 import { z } from "zod";
 import { forAgent } from "./agent-payload.js";
 import { daemonFetch, hostFetch } from "./host-api.js";
-import { invocationFailed } from "./receipt-outcome.js";
 import {
-  clearFrozenIntent,
   getTaskContext,
-  requireFrozenIntent,
   requireTaskRunId,
   setTaskContext,
   updateTaskFromResponse,
 } from "./task-context.js";
 import { registerActTools } from "./tools-act.js";
+import { registerInvokeTool } from "./tools-invoke.js";
 import { registerReadTools } from "./tools-read.js";
 
 export const hostTools = [
@@ -330,44 +328,7 @@ export function registerHostTools(server: McpServer): void {
     }
   });
 
-  server.tool(
-    "task_invoke_l1",
-    "Execute the frozen task intent with the scoped agent capability; no operator authority",
-    {},
-    async () => {
-      try {
-        const taskRunId = requireTaskRunId();
-        const intent = requireFrozenIntent();
-        // Operation, resource, and arguments are whatever was frozen: letting the
-        // model restate them here would execute one call while presenting another
-        // call's digest.
-        const res = await hostFetch("/api/v1/tasks/invoke", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-opensesame-task-run-id": taskRunId,
-            "x-opensesame-intent-digest": intent.intentDigest,
-          },
-          body: JSON.stringify({
-            intent_digest: intent.intentDigest,
-          }),
-        });
-        const body = await res.json();
-        // The digest has been spent. Keeping it in context invites a second call
-        // that can only be refused, and describes authority that no longer exists.
-        clearFrozenIntent();
-        return {
-          content: textContent(forAgent(JSON.stringify(body) ?? "null")),
-          isError: invocationFailed(res.ok, body),
-        };
-      } catch (e) {
-        return toolError(
-          "operator_invoke_failed",
-          e instanceof Error ? e : String(e),
-        );
-      }
-    },
-  );
+  registerInvokeTool(server);
 
   registerReadTools(server);
   registerActTools(server);

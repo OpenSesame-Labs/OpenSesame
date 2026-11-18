@@ -19,7 +19,13 @@ fn validate_pair(invocation: &Invocation, receipt: &InvocationReceipt) -> anyhow
         _ => bail!("invocation is not terminal"),
     };
     ensure!(
-        receipt.outcome == outcome,
+        receipt.outcome == outcome
+            || (receipt.outcome == ReceiptOutcome::Indeterminate
+                && matches!(
+                    invocation.state,
+                    InvocationState::Succeeded | InvocationState::Failed
+                )
+                && receipt.has_opaque_result()),
         "receipt outcome does not match invocation"
     );
     receipt.assert_schema_invariants()?;

@@ -312,12 +312,7 @@ async fn a_session_token_reads_the_kv_v2_envelope_and_gets_a_receipt() {
         .expect("receipt verifies");
     assert_eq!(stored.receipt.operation, "kv.read");
     assert_eq!(stored.receipt.resource, "kv/v2/secret/connections/gh-prod");
-    let summary = stored.receipt.safe_result_summary.clone().unwrap();
-    assert_eq!(summary["family"], "connections");
-    assert!(summary["keys"].as_u64().unwrap() > 0);
-    // Counts, never key names.
-    assert!(summary.get("configured_fields").is_none());
-    assert!(!summary.to_string().contains("granted_scopes"));
+    assert!(stored.receipt.has_opaque_result());
 }
 
 #[tokio::test]

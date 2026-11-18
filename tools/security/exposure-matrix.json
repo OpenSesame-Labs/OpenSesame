@@ -6952,24 +6952,24 @@
       "2497f909"
     ],
     "crates/connector-host/src/lib.rs": [
-      "cc69443c",
-      "e103d539",
-      "bb3bcc35",
-      "06b5112f",
-      "b2e90346",
-      "c53fa38b",
-      "8ffcbcfa",
-      "30e470c9"
+      "0f92c5e3",
+      "9f446911",
+      "a1ba7de7",
+      "f04062df",
+      "2791110c",
+      "9637ebe9",
+      "66e94862",
+      "0c6e94e1"
     ],
     "crates/connector-host/src/constrained_http.rs": [
-      "1077414d",
-      "785a2430",
-      "3d1e815f",
-      "1c08cb67",
-      "a1718783",
-      "02a137e7",
-      "7c30f95f",
-      "9090dd85"
+      "9677897d",
+      "3d3008f9",
+      "60842ef2",
+      "ad359c12",
+      "01419732",
+      "da1017df",
+      "46730390",
+      "ef92091f"
     ],
     "crates/invoke-through/src/surrogate.rs": [
       "9e6f0519",

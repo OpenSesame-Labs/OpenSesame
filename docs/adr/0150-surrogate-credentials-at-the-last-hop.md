@@ -160,7 +160,7 @@ surrogate carries no provider checksum. There are three reasons:
 A client that validates token format is served by `Handle` delivery or an L1
 typed operation instead.
 
-### 4. The credential never rides back in a response (landed as a fix)
+### 4. Reflection defense and untrusted provider responses
 
 The same oracle runs the other way. An upstream that echoes what it was sent
 hands the caller the credential the broker placed. Examples:
@@ -184,14 +184,63 @@ body or any allowlisted header, the following are replaced with
 `ReceiptMeta.credential_reflected` records that it happened. A well-behaved API
 never sets it.
 
-This protects every invoke-through caller, not only surrogate clients.
+This reduces direct reflection for every invoke-through caller, not only
+surrogate clients. It does not prove that returned data is safe to disclose.
 
 Limits, stated plainly:
 
-- A hash, an encryption or any other transform of the credential is not the
-  credential, and is not matched.
-- The scrub cannot be used as an oracle. Confirming a guess requires guessing
-  the whole token.
+- Reversals, encryption with a known key, nested encodings, split fragments,
+  and other transforms can disclose the credential without matching the scrub.
+  A digest can also disclose a low-entropy credential through guessing.
+- An upstream or connector controlling response fields can encode data in
+  arbitrary strings, numbers, lengths, hashes, or error messages. A schema or
+  finite list of encodings cannot make arbitrary returned data safe.
+
+Consequently, broker receipts use schema 5 with an opaque result: they retain
+host-owned invocation and authority metadata, but no provider
+body, headers, connector output, free-form error, or output-derived digest.
+Credential-bearing and community-connector executions report `indeterminate`
+regardless of their actual terminal outcome, which is kept in the Host's
+protected invocation record. Host-owned mock and KV operations retain their
+accurate outcome. An indeterminate receipt must not be treated as success or
+as evidence that no side effect occurred.
+Constrained HTTP and community Wasm connectors likewise return only a fixed
+result summary through their public invocation interface. Internal Host
+adapters that need provider JSON, including GitHub setup and certificate/DNS
+workflows, continue to consume it inside the Host. The generic L2 and Wasm
+interfaces no longer return operation data to callers; restoring particular
+fields needs an explicit, reviewed operation-specific declassification and an
+authorization decision that treats the provider as trusted for those fields.
+GitHub setup also presents provider-supplied repository names and URLs to the
+authorized user. Those fields are necessary for that workflow and remain a
+trust in the provider, not a guarantee against a malicious GitHub response.
+The KV facade still returns its ordinary authorized read body, while its new
+receipt omits the prior count summary.
+
+The MCP task invocation returns only the outcome and a validated Host-issued
+receipt identifier to the model for schema 5 receipts. Older Host responses,
+HTTP failures and malformed responses all project to the same indeterminate
+outcome without an identifier. The frozen intent is cleared before dispatch,
+because a failed transport cannot prove the side effect did not occur. The
+response is bounded in size and time before parsing. Other receipt evidence
+remains available through the authorized Host receipt interface where
+disclosure is safe.
+
+Older signed receipts remain stored unchanged for verification. Public receipt
+GET and idempotent replay refuse receipts without the schema 5 opaque shape;
+they also verify the signature instead of trusting the version number. Receipt
+verification remains available without disclosing the old payload. A replay
+whose receipt was signed by a retired key is withheld until the broker can
+verify that key; it must never execute the provider a second time. An operator
+who finds an actual historical disclosure should rotate the affected
+credential, since old exports or previously delivered responses cannot be
+retracted.
+
+Execution timing and authorized side effects remain observable. A colluding
+provider can vary those channels; this boundary does not claim full
+noninterference against a hostile provider. During a rolling upgrade, direct
+clients remain exposed through any old Host or gateway still serving traffic;
+upgrade or drain every instance before relying on this boundary.
 
 ### 5. Every refusal is a tripwire, and the client learns nothing from it
 

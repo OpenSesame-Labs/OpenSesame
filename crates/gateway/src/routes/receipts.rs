@@ -53,7 +53,14 @@ pub async fn get(
     Path(id): Path<String>,
 ) -> Response {
     match load_owned(&st, &headers, &id).await {
-        Ok(r) => (StatusCode::OK, Json(r)).into_response(),
+        Ok(r) if r.has_opaque_result() && st.receipt_verifier.verify(&r).is_ok() => {
+            (StatusCode::OK, Json(r)).into_response()
+        }
+        Ok(_) => (
+            StatusCode::CONFLICT,
+            Json(json!({"error":"receipt_not_safely_disclosable"})),
+        )
+            .into_response(),
         Err(resp) => resp,
     }
 }
@@ -202,5 +209,44 @@ mod tests {
         let verify_response =
             verify(State(state), operator_headers, Path(receipt.id.to_string())).await;
         assert_eq!(verify_response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn legacy_or_forged_receipts_are_withheld_but_legacy_signatures_verify() {
+        let (state, receipt, subject, organization_id) = state_with_receipt().await;
+        let headers = crate::app_state::test_session_headers(
+            &state,
+            &subject,
+            organization_id,
+            OrganizationRole::Member,
+        );
+        sqlx::query("DELETE FROM receipts WHERE id = ?")
+            .bind(receipt.id.to_string())
+            .execute(state.db.pool())
+            .await
+            .unwrap();
+        let mut legacy = receipt;
+        legacy.receipt_schema_version = 3;
+        legacy.idempotency_binding = None;
+        legacy.safe_result_summary = Some(json!({"result":"1-ssecca-ecar"}));
+        let legacy = state.broker.signer.sign_receipt(legacy).unwrap();
+        state.db.insert_receipt(&legacy).await.unwrap();
+        let id = legacy.id.to_string();
+        let response = get(State(state.clone()), headers.clone(), Path(id.clone())).await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let verified = verify(State(state.clone()), headers.clone(), Path(id.clone())).await;
+        assert_eq!(verified.status(), StatusCode::OK);
+
+        sqlx::query("DELETE FROM receipts WHERE id = ?")
+            .bind(&id)
+            .execute(state.db.pool())
+            .await
+            .unwrap();
+        let mut forged = legacy;
+        forged.receipt_schema_version = 5;
+        forged.safe_result_summary = None;
+        state.db.insert_receipt(&forged).await.unwrap();
+        let response = get(State(state.clone()), headers, Path(id)).await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
     }
 }

@@ -20,9 +20,9 @@
 //!    header — it is refused, and the refusal is logged as a tripwire.
 //! 2. **Strip.** The header it arrived in is removed.
 //! 3. **Re-place.** [`Invoker::execute`] writes the connection's credential
-//!    into the one site the provider's egress rule names, and scrubs it from
-//!    whatever the upstream sends back. No text the caller wrote is ever
-//!    rewritten into a credential.
+//!    into the one site the provider's egress rule names. The broker scrubs
+//!    known reflections, and this interface withholds the upstream response.
+//!    No text the caller wrote is ever rewritten into a credential.
 //!
 //! The caller a surrogate is bound to is the connection-policy id the
 //! invocation arrives on (the `connection_id` of [`HostRuntime::invoke`]), so
@@ -32,7 +32,7 @@ mod params;
 mod tripwire;
 
 use std::collections::HashMap;
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
@@ -42,7 +42,6 @@ use opensesame_invoke_through::{
 };
 use secrecy::SecretString;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use crate::{
     is_constrained_http, opensesame_param_digest, HostError, HostRuntime, InvokeRequest,
@@ -116,8 +115,6 @@ impl fmt::Debug for ConstrainedHttp {
 pub(crate) struct Admitted<'a> {
     prepared: PreparedRequest,
     material: &'a SecretString,
-    connection_ref: String,
-    method: String,
 }
 
 impl HostRuntime {
@@ -172,8 +169,8 @@ impl HostRuntime {
 
     /// Execute one L2 request through `invoker`: admit it through the ledger,
     /// clear it through the invoker's own fence, and let the invoker place the
-    /// connection's credential and scrub it from the response. The summary
-    /// is the upstream's status, allowlisted headers, body and receipt.
+    /// connection's credential. Only a fixed host-owned result reaches the
+    /// caller; the upstream response is not safe to disclose generically.
     ///
     /// # Errors
     ///
@@ -196,12 +193,8 @@ impl HostRuntime {
         let response = invoker
             .execute(admitted.material, admitted.prepared)
             .await
-            .map_err(|error| HostError::Connector(error.to_string()))?;
-        Ok(summarize(
-            &admitted.connection_ref,
-            &admitted.method,
-            &response,
-        ))
+            .map_err(|_| HostError::Connector("upstream request failed".into()))?;
+        Ok(opaque_http_result(&response))
     }
 
     /// Admission alone, shared by both entry points so there is one rule set.
@@ -284,8 +277,6 @@ impl HostRuntime {
         Ok(Admitted {
             prepared,
             material: &connection.material,
-            connection_ref: call.connection_ref,
-            method: call.method,
         })
     }
 }
@@ -300,36 +291,16 @@ fn preflight_refusal(error: InvokeError) -> HostError {
     }
 }
 
-/// What the caller sees: the upstream response the broker already capped,
-/// filtered and scrubbed, and the receipt. The request digest covers the
-/// method and the receipt's scheme, host and path — never the query, never a
-/// header.
-fn summarize(connection_ref: &str, method: &str, response: &InvokeResponse) -> InvokeResult {
-    let receipt = &response.receipt;
-    let digest = Sha256::new()
-        .chain_update(method.to_ascii_uppercase())
-        .chain_update(b" ")
-        .chain_update(&receipt.scheme)
-        .chain_update(b"://")
-        .chain_update(&receipt.host)
-        .chain_update(&receipt.path)
-        .finalize();
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        let _ = write!(hex, "{byte:02x}");
-    }
+/// Convert a credentialed HTTP response into an opaque Host-internal result.
+/// A provider controls its headers and body even when reflection scrub found
+/// nothing, so neither is included. The `ok` bit is for internal settlement;
+/// credentialed outcomes must be withheld from untrusted API callers.
+#[must_use]
+pub fn opaque_http_result(response: &InvokeResponse) -> InvokeResult {
     InvokeResult {
         ok: (200..300).contains(&response.status),
-        safe_summary: json!({
-            "status": response.status,
-            "connection_ref": connection_ref,
-            "headers": response.headers,
-            "body": String::from_utf8_lossy(&response.body),
-            "receipt": receipt,
-            "credential_injected": true,
-            "credential_bytes_returned_to_guest": false,
-        }),
-        external_request_digest: Some(format!("sha256:{hex}")),
+        safe_summary: json!({ "result": "completed" }),
+        external_request_digest: None,
     }
 }
 

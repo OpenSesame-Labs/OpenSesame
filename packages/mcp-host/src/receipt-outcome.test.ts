@@ -82,10 +82,17 @@ describe("task_invoke_l1 receipt outcomes", () => {
     async ({ outcome, status, isError }) => {
       setFetchForTests(
         async () =>
-          new Response(JSON.stringify({ id: "receipt:1", outcome }), {
-            status,
-            headers: { "content-type": "application/json" },
-          }),
+          new Response(
+            JSON.stringify({
+              id: "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+              outcome,
+              receipt_schema_version: 5,
+            }),
+            {
+              status,
+              headers: { "content-type": "application/json" },
+            },
+          ),
       );
       const result = resultSchema.parse(await invokeHandler()({}));
       expect(result.isError).toBe(isError);
@@ -106,5 +113,72 @@ describe("task_invoke_l1 receipt outcomes", () => {
     );
     const result = resultSchema.parse(await invokeHandler()({}));
     expect(result.isError).toBe(true);
+  });
+
+  it("projects a legacy receipt without exposing transformed provider data", async () => {
+    const id = "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb";
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id,
+            outcome: "succeeded",
+            receipt_schema_version: 3,
+            safe_result_summary: { result: "1-ssecca-ecar" },
+            external_request_digest: "1-ssecca-ecar",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({
+      outcome: "indeterminate",
+    });
+  });
+
+  it("does not return free-form error details", async () => {
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: "frozen_invoke_denied",
+            detail: "1-ssecca-ecar",
+          }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({
+      outcome: "indeterminate",
+    });
+  });
+
+  it("does not return a malformed response body through a parser error", async () => {
+    setFetchForTests(
+      async () => new Response("1-ssecca-ecar is not JSON", { status: 200 }),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).not.toContain("1-ssecca-ecar");
+    expect(result.content[0]?.text).toContain("indeterminate");
+    expect(getTaskContext()?.frozenIntent).toBeUndefined();
+  });
+
+  it("refuses a malformed receipt id without claiming success", async () => {
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({ id: "1-ssecca-ecar", outcome: "succeeded" }),
+          {
+            status: 200,
+          },
+        ),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).not.toContain("1-ssecca-ecar");
+    expect(result.content[0]?.text).toContain("indeterminate");
   });
 });
