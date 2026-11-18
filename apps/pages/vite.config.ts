@@ -16,6 +16,7 @@ import { kdbxNativeDOM } from "./scripts/kdbx-native-dom-plugin.mjs";
 import { dependencyRoot } from "./scripts/lib/dependency-root.mjs";
 import { writePrivateSnapshot } from "./scripts/lib/private-files.mjs";
 import { mcpBrowserValidator } from "./scripts/mcp-browser-validator.mjs";
+import { configuredMsalDedupe } from "./scripts/msal-dedupe.mjs";
 import { nativeClientMetadataPlugin } from "./scripts/native-client-metadata-plugin.mjs";
 import { nativeSamlCallbackPlugin } from "./scripts/native-saml-callback-plugin.mjs";
 import { onePasswordWasmAssets } from "./scripts/onepassword-wasm-assets.mjs";
@@ -167,6 +168,7 @@ export default defineConfig({
     ),
   },
   resolve: {
+    dedupe: configuredMsalDedupe(),
     alias: {
       // Subpaths must precede the bare package alias; otherwise Vite resolves
       // `@opensesame/os-domain/authority-templates` as `browser.ts/authority-templates`.
