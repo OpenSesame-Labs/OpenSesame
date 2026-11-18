@@ -13,15 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
@@ -62,15 +62,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
@@ -112,15 +112,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
@@ -204,15 +204,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
@@ -265,15 +265,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
@@ -314,15 +314,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c8a6774c9395809e2e7386273f01d887e636aadf
+          ref: 540b26bfd1d0bb03c67e7bf6477e8c7262230c94
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c8a6774c9395809e2e7386273f01d887e636aadf"
-          test "$(git rev-parse HEAD^{tree})" = "98d66b630303bfc854611d813b5075e3c05776ae"
+          test "$(git rev-parse HEAD)" = "540b26bfd1d0bb03c67e7bf6477e8c7262230c94"
+          test "$(git rev-parse HEAD^{tree})" = "5fc86586d81e6077ccd6b48896ab98552ff96d20"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
       - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
