@@ -85,11 +85,22 @@ export function useCoachFocus(
   useEffect(() => {
     const before = document.activeElement;
     return () => {
-      const home =
-        before instanceof HTMLElement && before.isConnected
-          ? before
-          : resolveGuideTargetElement("shell.support");
-      home?.focus({ preventScroll: true });
+      // The launcher or a panel control may have disappeared while the guide
+      // ran. The body is also connected, but focusing it does not give the
+      // keyboard a useful starting point. A still-mounted control can become
+      // hidden or disabled as well, so check that it actually took focus.
+      if (
+        before instanceof HTMLElement &&
+        before !== document.body &&
+        before !== document.documentElement &&
+        before.isConnected
+      ) {
+        before.focus({ preventScroll: true });
+        if (document.activeElement === before) return;
+      }
+      resolveGuideTargetElement("shell.support")?.focus({
+        preventScroll: true,
+      });
     };
   }, []);
   const arrived = useRef(false);
