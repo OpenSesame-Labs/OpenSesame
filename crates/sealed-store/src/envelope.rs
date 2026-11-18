@@ -73,7 +73,7 @@ fn reject_unbound(body: &OssealBody) -> Result<(), StoreError> {
     {
         return Err(StoreError::Crypto(
             "legacy entry has no authenticated name; verify its source and use \
-             `opensesame vault pass protect migrate-legacy NAME --trust-source`"
+             `opensesame pass protect migrate-legacy NAME --trust-source`"
                 .into(),
         ));
     }
@@ -168,30 +168,6 @@ pub fn open_osseal_in(
     })
 }
 
-/// Authenticate a collection envelope using its stored spelling only when it
-/// resolves to the same logical path as the caller's name.
-pub(crate) fn open_osseal_in_for_path(
-    collection: &str,
-    blob: &[u8],
-    key: &ItemDataKey,
-    name: &str,
-    expected_revision: Option<u64>,
-) -> Result<(OpenedOsseal, String), StoreError> {
-    if !blob.starts_with(OSSEAL_MAGIC) {
-        return Err(StoreError::Crypto("missing OSSEAL1 magic".into()));
-    }
-    let body: OssealBody = serde_json::from_slice(&blob[OSSEAL_MAGIC.len()..])
-        .map_err(|error| StoreError::Crypto(error.to_string()))?;
-    let bound_name = body.envelope.ad.item_id;
-    if crate::store::revision_identity(&bound_name)? != crate::store::revision_identity(name)? {
-        return Err(StoreError::Crypto(
-            "attachment name does not match its path".into(),
-        ));
-    }
-    let opened = open_osseal_in(collection, blob, key, &bound_name, expected_revision)?;
-    Ok((opened, bound_name))
-}
-
 /// Open an `.osseal` blob.
 ///
 /// # Errors
@@ -221,35 +197,6 @@ pub fn open_osseal(
         revision,
         legacy: false,
     })
-}
-
-/// Authenticate the name carried by an existing envelope after confirming it
-/// resolves to the same logical path. Used by anchor migration and rotation,
-/// whose filesystem inventory cannot preserve older whitespace aliases.
-pub(crate) fn open_osseal_for_path(
-    blob: &[u8],
-    key: &ItemDataKey,
-    name: &str,
-    expected_revision: Option<u64>,
-) -> Result<OpenedOsseal, StoreError> {
-    if !blob.starts_with(OSSEAL_MAGIC) {
-        return Err(StoreError::Crypto("missing OSSEAL1 magic".into()));
-    }
-    let body: OssealBody = serde_json::from_slice(&blob[OSSEAL_MAGIC.len()..])
-        .map_err(|error| StoreError::Crypto(error.to_string()))?;
-    let bound_name = if body.envelope.ad.collection_id == COLLECTION_RESERVED_ENTRY
-        && body.envelope.ad.item_id == RESERVED_ENTRY_ID
-    {
-        LEGACY_ITEM_ID
-    } else {
-        body.envelope.ad.item_id.as_str()
-    };
-    if crate::store::revision_identity(bound_name)? != crate::store::revision_identity(name)? {
-        return Err(StoreError::Crypto(
-            "entry name does not match its path".into(),
-        ));
-    }
-    open_osseal(blob, key, bound_name, expected_revision)
 }
 
 /// Open only the old unbound format for an explicit, trusted-source migration.
