@@ -86,6 +86,7 @@ describeSourceOracle("PACT — federated leg fail-closed ordering", () => {
     assertSourceOrder(federatedSource, [
       "export async function completeFederatedAuth",
       "resolveOrRefuse(ctx, pending.issuer)",
+      "trustMatchesPending(trust, pending)",
       "clientModeFor(ctx.config, trust)",
       "authorizationCodeGrant",
     ]);

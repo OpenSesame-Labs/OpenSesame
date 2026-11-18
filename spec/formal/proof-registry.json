@@ -17,6 +17,25 @@
         "spec/formal/check-axioms.sh"
       ],
       "command": ["npm", "run", "verify:auth-formal"]
+    },
+    {
+      "id": "oauth",
+      "implementation": [
+        "packages/control-plane/src/interactions/federated-leg.ts",
+        "packages/control-plane/src/interactions/federated-pending.ts",
+        "packages/control-plane/src/interactions/federated-trust-binding.ts",
+        "packages/control-plane/src/interactions/federated.ts",
+        "packages/control-plane/src/interactions/oauth2.ts",
+        "packages/control-plane/src/interactions/trust.ts",
+        "packages/control-plane/src/routes/interactions.ts"
+      ],
+      "proofs": [
+        "spec/formal/oauth/PendingIntegrity.lean",
+        "spec/formal/oauth/required-theorems.lean",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh"
+      ],
+      "command": ["npm", "run", "verify:oauth-formal"]
     }
   ]
 }
