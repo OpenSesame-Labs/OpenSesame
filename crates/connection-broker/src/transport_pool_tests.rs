@@ -142,7 +142,13 @@ fn forgetting_a_connection_drops_only_its_clients() {
     for entry in [&mine, &rotated, &other_connection, &other_tenant] {
         pool.get_or_build(entry, counting(&built)).unwrap();
     }
-    assert_eq!(pool.len(), 4);
+    let a = ["1.1.1.1:443".parse().unwrap()];
+    let b = ["8.8.8.8:443".parse().unwrap()];
+    pool.get_or_build_pinned(&mine, &a, counting(&built))
+        .unwrap();
+    pool.get_or_build_pinned(&mine, &b, counting(&built))
+        .unwrap();
+    assert_eq!(pool.len(), 6);
 
     pool.forget_connection("org-a", "conn-1");
     assert!(!pool.contains(&mine));
@@ -150,6 +156,7 @@ fn forgetting_a_connection_drops_only_its_clients() {
     assert!(pool.contains(&other_connection));
     // A same-id connection in another tenant is a different connection.
     assert!(pool.contains(&other_tenant));
+    assert_eq!(pool.len(), 2);
 
     pool.clear();
     assert!(pool.is_empty());
