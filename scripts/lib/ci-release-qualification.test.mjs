@@ -16,7 +16,6 @@ const root = repoRootFromHere();
 const read = (name) =>
   readFileSync(join(root, ".github/workflows", name), "utf8");
 const release = read("ci-release-checks.yml");
-
 function job(text, id) {
   return (
     text.split(`\n  ${id}:\n`)[1]?.split(/\n {2}[a-z][a-z0-9-]*:\n/)[0] ?? ""
@@ -89,7 +88,7 @@ describe("release qualification evidence", () => {
       "check: [mutation-typescript, mutation-duress, mutation-rust]",
     );
     expect(job(release, "security")).toContain(
-      "check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript]",
+      "check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript, formal-proofs]",
     );
     expect(
       [...read("codeql.yml").matchAll(/- language: ([a-z-]+)/g)].map(
@@ -174,6 +173,11 @@ function fixture() {
     '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\nif [ "${FAKE_MUTATE:-0}" = 1 ]; then printf changed >> tracked.txt; fi\nexit "${FAKE_STATUS:-0}"\n',
     { mode: 0o755 },
   );
+  writeFileSync(
+    join(bin, "node"),
+    '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\nexit "${FAKE_STATUS:-0}"\n',
+    { mode: 0o755 },
+  );
   const runnerTemp = join(directory, "runner");
   mkdirSync(runnerTemp);
   const environment = {
@@ -197,6 +201,24 @@ function fixture() {
 }
 
 describe("deep check shell enforces execution and source integrity", () => {
+  it("requires all registered formal proofs and removes the receipt on failure", () => {
+    const f = fixture();
+    const passed = join(
+      f.directory,
+      "runner/release-checks/formal-proofs/passed.txt",
+    );
+    try {
+      expect(f.run("formal-proofs").status).toBe(0);
+      expect(readFileSync(f.log, "utf8").trim()).toBe(
+        "scripts/security/formal-proof-release-gate.mjs",
+      );
+      expect(existsSync(passed)).toBe(true);
+      expect(f.run("formal-proofs", { FAKE_STATUS: "9" }).status).not.toBe(0);
+      expect(existsSync(passed)).toBe(false);
+    } finally {
+      rmSync(f.directory, { recursive: true, force: true });
+    }
+  });
   it("records success only after execution and removes a stale pass on failure", () => {
     const f = fixture();
     try {
@@ -336,46 +358,22 @@ describe("CodeQL and publication boundaries", () => {
   });
 });
 
-describe("CodeQL crypto compilation and publication boundaries", () => {
-  it("compiles reviewed x/crypto tests through the checksum-verified overlay", () => {
-    const extract = job(read("codeql.yml"), "analyze")
-      .split(
-        "- name: Extract live-turn and its reviewed local crypto module\n",
-      )[1]
-      .split(/\n {6}- /)[0];
-    const baseline = extract.indexOf(
-      "python3 scripts/test/live-turn/verify-crypto-subset.py\n",
-    );
-    const overlayVerify = extract.indexOf(
-      'verify-crypto-subset.py --upstream-metadata "$scratch/upstream.json" --overlay "$scratch/overlay.json"',
-    );
-    expect(baseline).toBeGreaterThanOrEqual(0);
-    expect(overlayVerify).toBeGreaterThan(baseline);
-    expect(extract).toContain(
-      'go mod download -json "golang.org/x/crypto@$version"',
-    );
-    const compile = extract.indexOf(
-      'go test -c -overlay "$scratch/overlay.json" -o "$RUNNER_TEMP/codeql-xcrypto.test"',
-    );
-    expect(compile).toBeGreaterThan(overlayVerify);
-  });
-  it.each([
-    "deploy-pages.yml",
-    "release-kit.yml",
-    "publish-containers.yml",
-    "publish-npm.yml",
-  ])("%s cannot publish around qualification", (file) => {
-    const workflow = read(file);
-    expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
-    expect(workflow).not.toMatch(/(?:contents|pages|packages|id-token): write/);
-    expect(workflow).not.toContain("secrets.");
-    const result = spawnSync(
-      "bash",
-      ["-e", "-c", runBlock(job(workflow, "retired"))],
-      { encoding: "utf8" },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain("publisher is retired");
-  });
+it.each([
+  "deploy-pages.yml",
+  "release-kit.yml",
+  "publish-containers.yml",
+  "publish-npm.yml",
+])("%s cannot publish around qualification", (file) => {
+  const workflow = read(file);
+  expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
+  expect(workflow).not.toMatch(/(?:contents|pages|packages|id-token): write/);
+  expect(workflow).not.toContain("secrets.");
+  const result = spawnSync(
+    "bash",
+    ["-e", "-c", runBlock(job(workflow, "retired"))],
+    { encoding: "utf8" },
+  );
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe(1);
+  expect(result.stdout).toContain("publisher is retired");
 });

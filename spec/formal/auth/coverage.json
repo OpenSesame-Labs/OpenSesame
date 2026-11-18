@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
+  "sources": [
+    {
+      "path": "packages/control-plane/src/middleware/auth.ts",
+      "sha256": "260edbc2c467fb0ec3f3cd8cf38968204a797d54af3039a9ac96774a5e5a1a2a"
+    },
+    {
+      "path": "packages/control-plane/src/proofs/verified-principal.ts",
+      "sha256": "42cb9cf6a5c5cba8edc0e15fa7ca8397c1861fea68b4aa70b5ac28416aee173b"
+    },
+    {
+      "path": "packages/control-plane/src/proofs/project-role.ts",
+      "sha256": "2ad436387d39570055000c24ba51285a04265f046e78ad1ced4d165387c61322"
+    },
+    {
+      "path": "packages/control-plane/src/services/project-access.ts",
+      "sha256": "2713b01870a6a548f35e1cf5ae8e7115f810fb9ab9ad28b5901596a0adbe7075"
+    },
+    {
+      "path": "packages/os-domain/src/types.ts",
+      "sha256": "7dab9fac6425638e62b09fbbc656f2a25e4590d8c7b5ec01bdac717f61c01ec8"
+    }
+  ]
+}

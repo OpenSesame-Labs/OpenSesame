@@ -28,8 +28,8 @@ import {
   overlapCast,
   resolveInteractionRef,
 } from "@opensesame/os-domain";
-import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { AppContext } from "../context.js";
 import {
@@ -43,6 +43,7 @@ import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { claimPageSecurityHeaders } from "../middleware/security-headers.js";
 import { approverMayBeAsked } from "../services/interaction-approver-guard.js";
+import { decideAtLiveTime, liveNow } from "../services/interaction-clock.js";
 import {
   actorTypeFromProof,
   consumeAndSettle,
@@ -392,6 +393,7 @@ function invalidFields(issues: readonly { path: PropertyKey[] }[]): string[] {
  */
 function domainErrorName(error: DomainError, row: Interaction): ErrorName {
   if (error.code === "EXPIRED") return "interaction_expired";
+  if (error.code === "INVALID_TOKEN") return "proof_required";
   if (error.code === "INVALID_TRANSITION") return terminalError(row.status);
   return "invalid_request";
 }
@@ -895,7 +897,7 @@ export function createInteractionHandoffRoutes(): Hono<{
 
     try {
       const saved = await ctx.repos.transaction(async (uow) =>
-        consumeAndSettle(ctx, row, now, uow),
+        consumeAndSettle(ctx, row, liveNow(ctx, row), uow),
       );
       await drainConsumedSettlement(ctx, saved, c.get("correlationId"));
       await ctx.repos.outbox.markPublished(saved.command.id);
@@ -1036,43 +1038,40 @@ function decideRoute(decision: "approved" | "denied") {
       return fail(c, "digest_mismatch");
     }
 
-    let approvalProof: SealedApprovalProof | undefined;
-    if (decision === "approved") {
-      // Re-parse the body at the approve boundary so `activationId` arrives as
-      // the schema's own `string | undefined` — the shared `echo` is the
-      // `approve | deny` union, on which the field is not addressable without
-      // a runtime cast. This is the same `raw` the union already accepted, so
-      // the parse succeeds; a body without an activation is refused below.
-      const approveBody = ApproveInteractionSchema.safeParse(raw);
-      const activationId = approveBody.success
-        ? approveBody.data.activationId
-        : undefined;
-      if (!activationId) return fail(c, "proof_required");
-      const spent = await spendInteractionActivation({
-        ctx,
-        interaction: row,
-        principalId,
-        activationId,
-        decision: "approved",
-        now,
-      });
-      if (!spent.ok) return fail(c, spent.error);
-      approvalProof = spent.proof;
-    }
-
+    let approval: { proof: SealedApprovalProof; expiresAt: Date } | undefined;
     try {
-      const staged =
-        row.status === "awaiting_approval"
-          ? row
-          : interactionMachine.awaitApproval(row, principalId, now);
-      const settled =
-        decision === "approved" && approvalProof
-          ? interactionMachine.approve(staged, {
-              approverPrincipalId: principalId,
-              now,
-              proof: approvalProof,
-            })
-          : interactionMachine.deny(staged, principalId, now);
+      if (decision === "approved") {
+        // Re-parse the body at the approve boundary so `activationId` arrives as
+        // the schema's own `string | undefined` — the shared `echo` is the
+        // `approve | deny` union, on which the field is not addressable without
+        // a runtime cast. This is the same `raw` the union already accepted, so
+        // the parse succeeds; a body without an activation is refused below.
+        const approveBody = ApproveInteractionSchema.safeParse(raw);
+        const activationId = approveBody.success
+          ? approveBody.data.activationId
+          : undefined;
+        if (!activationId) return fail(c, "proof_required");
+        const spent = await spendInteractionActivation({
+          ctx,
+          interaction: row,
+          principalId,
+          activationId,
+          decision: "approved",
+        });
+        if (!spent.ok) return fail(c, spent.error);
+        approval = {
+          proof: spent.proof,
+          expiresAt: spent.activation.expiresAt,
+        };
+      }
+
+      const { settled, decidedAt } = decideAtLiveTime(
+        ctx,
+        row,
+        principalId,
+        decision,
+        approval,
+      );
 
       const saved = await ctx.repos.interactions.updateWithVersion(
         row.id,
@@ -1083,7 +1082,7 @@ function decideRoute(decision: "approved" | "denied") {
           ...(settled.approvalProof
             ? { approvalProof: settled.approvalProof }
             : undefined),
-          decidedAt: now,
+          decidedAt,
         },
       );
       await appendAuditEvent(ctx.repos.auditEvents, {

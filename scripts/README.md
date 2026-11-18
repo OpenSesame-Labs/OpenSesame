@@ -25,6 +25,22 @@ Keep an entry point thin: parse arguments, call into `lib/`, set the exit
 code. Logic that deserves a test goes in `lib/`, where `npm run quality:test`
 runs it.
 
+`npm run verify:auth-formal` checks the pinned Lean authentication model and
+compares its generated cases with the Identity API functions. The toolchain,
+coverage, assumptions, and limits are in [formal authentication and
+authorization verification](../docs/security/formal-auth-verification.md).
+
+Install the Git hooks with `npm run setup:hooks`. Before a push, the mandatory
+formal gate reads the actual ref updates and runs only suites whose registered
+implementation paths occur in the pushed changes. The mappings and commands are
+in [`proof-registry.json`](../spec/formal/proof-registry.json). Renames, deleted
+paths, and changes later reverted are included; deleting a remote ref alone
+does not run a suite. A proof-bearing push must use a clean worktree checked
+out at the target commit; push different target commits separately. The gate
+fails closed if history or proof files are unavailable. `OPENSESAME_PREPUSH=off`
+skips optional checks but does not skip this gate. Release qualification runs
+all registered suites, including their shared axiom-control test.
+
 ## quality/ — `npm run quality`, `npm run lint`
 
 | Script | Task | Checks |

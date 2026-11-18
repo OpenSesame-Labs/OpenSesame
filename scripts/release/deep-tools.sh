@@ -3,7 +3,7 @@
 set -euo pipefail
 check="${1:?required check name}"
 case "$check" in
-  mutation-typescript|mutation-duress|mutation-rust|dependencies|sast|secrets|kani|miri|shuttle|fuzz-rust|fuzz-typescript) ;;
+  mutation-typescript|mutation-duress|mutation-rust|dependencies|sast|secrets|kani|miri|shuttle|fuzz-rust|fuzz-typescript|formal-proofs) ;;
   *) echo "Unknown release check: $check" >&2; exit 1 ;;
 esac
 tools_root="${RUNNER_TEMP:?}/release-tools/$check"
@@ -21,6 +21,15 @@ fetch_verified() {
 }
 
 case "$check" in
+  formal-proofs)
+    fetch_verified \
+      https://github.com/leanprover/lean4/releases/download/v4.24.0/lean-4.24.0-linux.tar.zst \
+      b14f5e5159219dd1a1956c3b806813319f5e94ccd5bdfd56f54520609a5bb5ec \
+      "$tools_root/lean.tar.zst"
+    tar --zstd -xf "$tools_root/lean.tar.zst" -C "$tools_root"
+    printf 'OPENSESAME_LEAN_BIN=%s\n' "$tools_root/lean-4.24.0-linux/bin/lean" >> "$GITHUB_ENV"
+    "$tools_root/lean-4.24.0-linux/bin/lean" --version
+    ;;
   mutation-rust)
     cargo install cargo-mutants --version 25.3.1 --locked --root "$tools_root"
     cargo mutants --version

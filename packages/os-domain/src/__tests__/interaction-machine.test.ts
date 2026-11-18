@@ -128,6 +128,25 @@ describe("interaction transitions", () => {
     expect(maybeExpire(unreadable, LATER).status).toBe("expired");
   });
 
+  it("refuses approval and consumption when the current clock is unreadable", () => {
+    const invalidNow = new Date(Number.NaN);
+    const live = awaitApproval(base(), "prn_a", LATER);
+    expect(() =>
+      approve(live, {
+        approverPrincipalId: "prn_a",
+        proof: proof(),
+        now: invalidNow,
+      }),
+    ).toThrow(/expired/);
+    const approved = approve(live, {
+      approverPrincipalId: "prn_a",
+      proof: proof(),
+      now: LATER,
+    });
+    expect(() => consume(approved, invalidNow)).toThrow(/expired/);
+    expect(maybeExpire(live, invalidNow).status).toBe("expired");
+  });
+
   it("projects a lapsed interaction as expired on read", () => {
     expect(maybeExpire(base(), AFTER_EXPIRY).status).toBe("expired");
     expect(maybeExpire(base(), LATER).status).toBe("pending");
@@ -187,6 +206,27 @@ describe("digest binding", () => {
       "grant_claim",
     ] as const) {
       const live = awaitApproval(withoutDigest({ kind }), "prn_a", LATER);
+      expect(() =>
+        approve(live, {
+          approverPrincipalId: "prn_a",
+          proof: proof({ boundDigest: "", mechanism: "session_reauth" }),
+          now: LATER,
+        }),
+      ).toThrow(/cannot be approved without a request digest/);
+    }
+  });
+
+  it("refuses operation approvals whose request and proof digests are empty", () => {
+    for (const kind of [
+      "authorization_request",
+      "transaction_authorization",
+      "grant_claim",
+    ] as const) {
+      const live = awaitApproval(
+        base({ kind, requestDigest: "" }),
+        "prn_a",
+        LATER,
+      );
       expect(() =>
         approve(live, {
           approverPrincipalId: "prn_a",

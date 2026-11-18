@@ -3,7 +3,7 @@
 set -euo pipefail
 check="${1:?required check name}"
 case "$check" in
-  mutation-typescript|mutation-duress|mutation-rust|dependencies|sast|secrets|kani|miri|shuttle|fuzz-rust|fuzz-typescript) ;;
+  mutation-typescript|mutation-duress|mutation-rust|dependencies|sast|secrets|kani|miri|shuttle|fuzz-rust|fuzz-typescript|formal-proofs) ;;
   *) echo "Unknown release check: $check" >&2; exit 1 ;;
 esac
 test "$(git rev-parse HEAD)" = "${SOURCE_SHA:?}"
@@ -16,6 +16,7 @@ printf '%s\n' "$SOURCE_SHA" > "$report_root/source-sha.txt"
 date -u +%Y-%m-%dT%H:%M:%SZ > "$report_root/started-at.txt"
 
 case "$check" in
+  formal-proofs) node scripts/security/formal-proof-release-gate.mjs ;;
   mutation-typescript)
     rm -f artifacts/mutation/typescript.json
     npm run test:mutation:ts
