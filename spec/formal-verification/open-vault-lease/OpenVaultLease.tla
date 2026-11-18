@@ -66,7 +66,7 @@ ForgetLeases ==
   /\ gen < MaxGen
   /\ stale' = stale + live + releasing
   /\ live' = 0
-  /\ releasing' = 0
+  /\ releasing' = lockHeld
   /\ count' = 0
   /\ gen' = gen + 1
   /\ exclusiveOk' = FALSE

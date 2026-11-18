@@ -128,23 +128,23 @@ describe("shell after unlock", () => {
     Object.assign(shellReadySeams, realSeams);
   });
 
-  it("withdraws contributed screens when the vault plan resolves before its generation activates", () => {
+  it("does not mount consent during the null-plan window before activation", () => {
     renderConsent();
     publish({
       status: "unlocked",
       snapshot: { ...INITIAL_SNAPSHOT, generation: 1 },
       activated: 1,
     });
-    expect(screen.getByText("consent screen")).toBeTruthy();
-    expect(counts.mounts).toBe(1);
+    expect(screen.queryByText("consent screen")).toBeNull();
+    expect(counts.mounts).toBe(0);
 
     publish({ snapshot: snapshotAt(2, "personal"), activated: 1 });
     expect(screen.queryByText("consent screen")).toBeNull();
-    expect(counts.unmounts).toBe(1);
+    expect(counts.unmounts).toBe(0);
 
     publish({ activated: 2 });
     expect(screen.getByText("consent screen")).toBeTruthy();
-    expect(counts.mounts).toBe(2);
+    expect(counts.mounts).toBe(1);
   });
 
   it("closes the shell on the render where a null plan becomes the vault plan", () => {
@@ -171,7 +171,7 @@ describe("shell after unlock", () => {
       snapshot: { ...INITIAL_SNAPSHOT, generation: 1 },
       activated: 1,
     });
-    expect(screen.getByText("ready")).toBeTruthy();
+    expect(screen.getByText("waiting")).toBeTruthy();
     frames.length = 0;
     publish({ snapshot: snapshotAt(2, "personal"), activated: 1 });
     expect(screen.getByText("waiting")).toBeTruthy();
@@ -254,11 +254,14 @@ describe("shell after unlock", () => {
     expect(counts).toEqual({ mounts: 2, unmounts: 1 });
   });
 
-  it("has nothing to wait for when no plan has resolved", () => {
+  it("has nothing to wait for when no plan has resolved", async () => {
+    shellReadySeams.maxWaitMs = 20;
     env.snapshot = INITIAL_SNAPSHOT;
     env.status = "unlocked";
     renderConsent();
-    expect(screen.getByText("consent screen")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("consent screen")).toBeTruthy();
+    });
   });
 
   it("mounts anyway once the wait runs out, so a stalled module never blanks the vault", async () => {

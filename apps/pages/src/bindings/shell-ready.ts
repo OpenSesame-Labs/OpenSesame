@@ -58,9 +58,9 @@ export function computeShellReady(input: ShellReadyInput): boolean {
   const plan = input.plan;
   const ready =
     vault !== undefined &&
-    (plan === null ||
-      (plan.identity.vaultId === vault &&
-        input.activatedGeneration === input.compositionGeneration));
+    plan !== null &&
+    plan.identity.vaultId === vault &&
+    input.activatedGeneration === input.compositionGeneration;
   const waitedOpen =
     vault !== undefined &&
     input.openedVault === vault &&
@@ -81,8 +81,9 @@ export function useShellReady(
   const plan = snapshot.plan;
   const ready =
     vault !== undefined &&
-    (plan === null ||
-      (plan.identity.vaultId === vault && activated === snapshot.generation));
+    plan !== null &&
+    plan.identity.vaultId === vault &&
+    activated === snapshot.generation;
   const [opened, setOpened] = useState<string | null | undefined>(undefined);
   const [timedOut, setTimedOut] = useState(false);
   const [awaitingPlanActivation, setAwaitingPlanActivation] = useState(false);

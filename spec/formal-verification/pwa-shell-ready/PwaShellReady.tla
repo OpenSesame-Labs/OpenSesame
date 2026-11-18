@@ -21,9 +21,8 @@ OpenedUnset == opened = 0
 
 ComputeReady ==
   /\ status = "unlocked"
-  /\ \/ planVault = "none"
-     \/ /\ planVault = vault
-        /\ actGen = compGen
+  /\ planVault = vault
+  /\ actGen = compGen
 
 \* Latch from the null-plan window is not a mount once the vault plan is in
 \* and activation has not caught up. Later generations stay mounted.

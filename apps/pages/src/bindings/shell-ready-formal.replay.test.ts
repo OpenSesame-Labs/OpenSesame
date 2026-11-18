@@ -10,6 +10,19 @@ function planFor(vaultId: string): EffectivePlan {
 
 /** TLC shortest path: unlock with `plan = null`, plan resolves before activation. */
 describe("PWA shell ready formal replay", () => {
+  it("does not mount on a transient null plan before activation or timeout", () => {
+    expect(
+      computeShellReady({
+        status: "unlocked",
+        tomb: "personal",
+        plan: null,
+        compositionGeneration: 1,
+        activatedGeneration: 1,
+        openedVault: undefined,
+      }),
+    ).toBe(false);
+  });
+
   it("does not keep the shell open on a stale opened flag after the plan arrives", () => {
     expect(
       computeShellReady({
