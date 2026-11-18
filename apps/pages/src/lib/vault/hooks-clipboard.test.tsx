@@ -173,6 +173,32 @@ describe("useCopySecret", () => {
     expect(clipboard.writeText).not.toHaveBeenCalled();
   });
 
+  it("does not clear an unknown clipboard after a timed read failure, but still attempts it on lock", async () => {
+    vi.useFakeTimers();
+    const clipboard = stubClipboard({
+      readText: vi.fn().mockRejectedValue(new Error("denied")),
+    });
+    act(() => {
+      vaultStore.setPrefs({ clipboardClearSeconds: 10 });
+    });
+    const { result } = renderHook(() => useCopySecret());
+    await result.current("secret-value");
+    clipboard.writeText.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(clipboard.readText).toHaveBeenCalledTimes(1);
+    expect(clipboard.writeText).not.toHaveBeenCalled();
+
+    clearCopiedSecret();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(clipboard.writeText).toHaveBeenLastCalledWith("");
+  });
+
   it("clears on lock without a clipboard-read prompt when read is not granted", async () => {
     const clipboard = stubClipboard();
     Object.defineProperty(navigator, "permissions", {
@@ -216,6 +242,31 @@ describe("useCopySecret", () => {
       await Promise.resolve();
     });
     expect(clipboard.writeText).toHaveBeenCalledTimes(1);
+    expect(clipboard.writeText).toHaveBeenLastCalledWith("");
+  });
+
+  it("clears a secret whose clipboard write finishes after lock", async () => {
+    clearCopiedSecret();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    let finishWrite: (() => void) | undefined;
+    const clipboard = stubClipboard({
+      readText: vi.fn().mockResolvedValue("late-secret"),
+      writeText: vi.fn().mockImplementation((value: string) => {
+        if (value !== "late-secret") return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        });
+      }),
+    });
+    const { result } = renderHook(() => useCopySecret());
+    const pending = result.current("late-secret");
+    clearCopiedSecret();
+    if (!finishWrite) throw new Error("copy did not start");
+    finishWrite();
+    await expect(pending).resolves.toBe("unavailable");
     expect(clipboard.writeText).toHaveBeenLastCalledWith("");
   });
 });

@@ -18,8 +18,9 @@ import { FieldShell } from "../../../components/FieldShell.js";
 import { IconCopy, IconPhone, IconSecret } from "../../../components/Icons.js";
 import { QrCode } from "../../../components/QrCode.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { Rail } from "./SecondStepCeremonies.js";
+import { useCopySecret } from "../../../lib/vault/hooks.js";
 import type { Run } from "./run.js";
+import { Rail } from "./SecondStepCeremonies.js";
 
 /**
  * The account's authenticator app, set up in the one Security sheet: scan,
@@ -124,6 +125,7 @@ function TotpScanCard({
   onScanned: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const copySecret = useCopySecret();
   const secret = uri ? secretOf(uri) : "";
   const copyLabel = copied ? "Copied" : "Copy setup key";
   const alts: CeremonyAlt[] = uri
@@ -145,9 +147,8 @@ function TotpScanCard({
                   aria-label={copyLabel}
                   title={copyLabel}
                   onClick={() =>
-                    void navigator.clipboard.writeText(secret).then(
-                      () => setCopied(true),
-                      () => setCopied(false),
+                    void copySecret(secret).then((result) =>
+                      setCopied(result === "copied"),
                     )
                   }
                 >

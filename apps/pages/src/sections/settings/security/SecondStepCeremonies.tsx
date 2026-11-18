@@ -34,7 +34,11 @@ import {
 import { QrCode } from "../../../components/QrCode.js";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { saveTextFile } from "../../../lib/file-system.js";
-import { useVault, useVaultStore } from "../../../lib/vault/hooks.js";
+import {
+  useCopySecret,
+  useVault,
+  useVaultStore,
+} from "../../../lib/vault/hooks.js";
 import { KeyCeremony } from "./KeyCeremony.js";
 import type { Run } from "./run.js";
 import { useAbandonEnrollment } from "./useAbandonEnrollment.js";
@@ -51,10 +55,6 @@ function CodesList({ codes, used }: { codes: string[]; used: boolean[] }) {
       ))}
     </ol>
   );
-}
-
-async function copyCodes(ledger: Codes): Promise<void> {
-  await navigator.clipboard.writeText(unusedText(ledger));
 }
 
 function downloadCodes(ledger: Codes): void {
@@ -78,6 +78,7 @@ function FreshCodes({
 }) {
   const ledger = { codes, used: codes.map(() => false) };
   const [copied, setCopied] = useState(false);
+  const copySecret = useCopySecret();
   return (
     <CeremonyShell
       ok
@@ -101,9 +102,8 @@ function FreshCodes({
           aria-label={copied ? "Copied" : "Copy"}
           title={copied ? "Copied" : "Copy"}
           onClick={() =>
-            void copyCodes(ledger).then(
-              () => setCopied(true),
-              () => setCopied(false),
+            void copySecret(unusedText(ledger)).then((result) =>
+              setCopied(result === "copied"),
             )
           }
         >
@@ -123,14 +123,9 @@ function FreshCodes({
   );
 }
 
-export function RecoveryCeremony({
-  busy,
-  run,
-}: {
-  busy: boolean;
-  run: Run;
-}) {
+export function RecoveryCeremony({ busy, run }: { busy: boolean; run: Run }) {
   const store = useVaultStore();
+  const copySecret = useCopySecret();
   const [ledger, setLedger] = useState<Ledger | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [fresh, setFresh] = useState<string[] | null>(null);
@@ -214,9 +209,8 @@ export function RecoveryCeremony({
           label: copied ? "Copied" : "Copy",
           icon: <IconCopy size={18} />,
           onClick: () =>
-            void copyCodes(ledger).then(
-              () => setCopied(true),
-              () => setCopied(false),
+            void copySecret(unusedText(ledger)).then((result) =>
+              setCopied(result === "copied"),
             ),
         }}
         secondary={{
@@ -238,15 +232,9 @@ export function RecoveryCeremony({
 
 type TotpStage = "key" | "scan" | "confirm" | "done";
 
-export function Rail({
-  steps,
-  now,
-}: {
-  steps: string[];
-  now: number;
-}) {
+export function Rail({ steps, now }: { steps: string[]; now: number }) {
   return (
-    <div className="steps" aria-label="Enrollment steps">
+    <section className="steps" aria-label="Enrollment steps">
       {steps.map((label, i) => (
         <div
           key={label}
@@ -264,7 +252,7 @@ export function Rail({
           </span>
         </div>
       ))}
-    </div>
+    </section>
   );
 }
 
@@ -285,6 +273,7 @@ export function AuthenticatorCeremony({
 }) {
   const store = useVaultStore();
   const { header } = useVault();
+  const copySecret = useCopySecret();
   // The rail is the whole ceremony, said before any step is taken — so a
   // vault that had no key when the sheet opened keeps its Key segment (done)
   // once the key exists, rather than renumbering the steps mid-way.
@@ -400,9 +389,8 @@ export function AuthenticatorCeremony({
                       className="icon-btn"
                       aria-label={copiedKey ? "Copied" : "Copy setup key"}
                       onClick={() =>
-                        void navigator.clipboard.writeText(secret).then(
-                          () => setCopiedKey(true),
-                          () => setCopiedKey(false),
+                        void copySecret(secret).then((result) =>
+                          setCopiedKey(result === "copied"),
                         )
                       }
                     >

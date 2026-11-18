@@ -5,11 +5,12 @@ import { FormCommit } from "../../../components/FormCommit.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconCheck, IconCopy } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { SheetFrame } from "./SheetFrame.js";
+import { useCopySecret } from "../../../lib/vault/hooks.js";
 import type {
   DeadmanPanelModel,
   createDeadmanActions,
 } from "./deadman-panel-actions.js";
+import { SheetFrame } from "./SheetFrame.js";
 
 type ViewProps = {
   model: DeadmanPanelModel;
@@ -173,6 +174,7 @@ function DeadmanConfirmation({
   commit,
 }: Pick<SheetProps, "model" | "commit">) {
   const { releaseKey, stored, busy, setStored, error } = model;
+  const copySecret = useCopySecret();
   return (
     <div className="deadman__confirm">
       <h3>Store the release key first</h3>
@@ -185,9 +187,7 @@ function DeadmanConfirmation({
         label="Copy release key"
         small
         onClick={() => {
-          void navigator.clipboard
-            ?.writeText(releaseKey)
-            .catch(() => undefined);
+          void copySecret(releaseKey);
         }}
       >
         <IconCopy size={16} />

@@ -25,7 +25,7 @@ import {
   IconTrash,
 } from "../../../components/Icons.js";
 import { StatusMark } from "../../../components/StatusMark.js";
-import { useVaultStore } from "../../../lib/vault/hooks.js";
+import { useCopySecret, useVaultStore } from "../../../lib/vault/hooks.js";
 import "./plugins.css";
 
 type TokenStatus = {
@@ -150,6 +150,7 @@ export function HoneyTokensPanel({
   notices: readonly PluginNotice[];
 }) {
   const store = useVaultStore();
+  const copySecret = useCopySecret();
   const scope = store.activeTomb?.() ?? "";
   const [rows, setRows] = useState<HoneyTokenRecord[]>([]);
   const [label, setLabel] = useState("");
@@ -199,10 +200,9 @@ export function HoneyTokensPanel({
   };
 
   const copy = async (token: HoneyTokenRecord): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(token.token);
+    if ((await copySecret(token.token)) === "copied") {
       setError(null);
-    } catch {
+    } else {
       setError("Copy the token from the field instead.");
     }
   };

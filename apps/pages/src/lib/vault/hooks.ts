@@ -67,6 +67,9 @@ function useSessionGuardsDefault(): void {
         clearCopiedSecret();
         clearStagedClaimTokens();
         clearNotices();
+        if (clipboardReadsInFlight > 0) {
+          setStatusNotice(CLIPBOARD_READ_NOTICE);
+        }
         if (vaultStore.getSnapshot().prefs.signOutOnLock) {
           endSession();
         }
@@ -154,9 +157,28 @@ export const CLIPBOARD_READ_NOTICE = {
   body: "Reading the clipboard to clear a secret this vault copied, if it is still the one there.",
 };
 
-/** Last value this app put on the clipboard, so lock can wipe it. */
-let lastCopied: string | null = null;
+// Identity matters even when two copies have the same value: an old async
+// read or permission check must not retire a newer copy's lock-time cleanup.
+type CopiedSecret = { value: string };
+let lastCopied: CopiedSecret | null = null;
 let pendingClear: number | null = null;
+let lockGeneration = 0;
+let clipboardWriteInFlight: Promise<void> | null = null;
+let clipboardReadsInFlight = 0;
+
+/** Reserve the clipboard until a write settles; callers may retry when busy. */
+function tryStartClipboardWrite(): (() => void) | null {
+  if (clipboardWriteInFlight !== null) return null;
+  let resolve: () => void = () => undefined;
+  const pending = new Promise<void>((done) => {
+    resolve = done;
+  });
+  clipboardWriteInFlight = pending;
+  return () => {
+    clipboardWriteInFlight = null;
+    resolve();
+  };
+}
 
 async function clipboardReadIsGranted(): Promise<boolean> {
   if (!navigator.permissions?.query) return false;
@@ -171,78 +193,116 @@ async function clipboardReadIsGranted(): Promise<boolean> {
 }
 
 async function clearIfOurs(
-  value: string,
+  copied: CopiedSecret,
   mode: "timer" | "lock",
 ): Promise<void> {
-  const readGranted = await clipboardReadIsGranted();
-  if (!readGranted) {
-    if (mode === "timer") {
+  while (lastCopied === copied) {
+    if (clipboardWriteInFlight !== null) {
+      await clipboardWriteInFlight;
+      continue;
+    }
+
+    const readGranted = await clipboardReadIsGranted();
+    if (lastCopied !== copied) return;
+    if (clipboardWriteInFlight !== null) continue;
+    if (!readGranted && mode === "timer") {
       // A timed clear must not surprise someone mid-navigation with a read prompt.
       return;
     }
-    // Lock must not open a clipboard-read permission dialog either.
+
+    if (readGranted) {
+      // The tray sentence is up before the read and leaves when it finishes.
+      let current: string | null = null;
+      let readFailed = false;
+      clipboardReadsInFlight += 1;
+      setStatusNotice(CLIPBOARD_READ_NOTICE);
+      try {
+        current = await navigator.clipboard.readText();
+      } catch {
+        readFailed = true;
+      } finally {
+        clipboardReadsInFlight -= 1;
+        if (clipboardReadsInFlight === 0) {
+          dismissNotice(CLIPBOARD_READ_NOTICE.id);
+        }
+      }
+      if (lastCopied !== copied) return;
+      // A copy could have begun while readText was pending. Wait for it and
+      // read again rather than acting on a snapshot from before that write.
+      if (clipboardWriteInFlight !== null) continue;
+      // A timed clear must not overwrite someone else's clipboard when we
+      // cannot establish ownership. Keep tracking it for a later lock.
+      if (readFailed && mode === "timer") return;
+      if (!readFailed && current !== copied.value) {
+        lastCopied = null;
+        return;
+      }
+    }
+
+    // On lock, unavailable or failed reads result in a best-effort clear. If
+    // another application changed the clipboard, this can overwrite it.
+    // Don't race an in-app copy: browser clipboard writes cannot be cancelled.
+    const finishWrite = tryStartClipboardWrite();
+    if (!finishWrite) continue;
     try {
       await navigator.clipboard.writeText("");
     } catch {
       /* clipboard unavailable — nothing further we can do */
+    } finally {
+      if (lastCopied === copied) lastCopied = null;
+      finishWrite();
     }
-    if (lastCopied === value) lastCopied = null;
     return;
   }
-  // The read is what prompts. The tray sentence is up before it, and leaves
-  // once the read has finished.
-  setStatusNotice(CLIPBOARD_READ_NOTICE);
-  try {
-    const current = await navigator.clipboard.readText();
-    if (current === value) await navigator.clipboard.writeText("");
-  } catch {
-    // Clipboard read is often denied. Clearing unconditionally is the safer
-    // failure mode for a secret we ourselves just wrote.
-    try {
-      await navigator.clipboard.writeText("");
-    } catch {
-      /* clipboard unavailable — nothing further we can do */
-    }
-  } finally {
-    dismissNotice(CLIPBOARD_READ_NOTICE.id);
-  }
-  if (lastCopied === value) lastCopied = null;
 }
 
 /** Wipe anything this app copied. Called on vault lock. */
 function clearCopiedSecretDefault(): void {
+  // A clipboard write may still be awaiting the browser when lock fires.
+  // That write must not publish an untracked secret after this clear.
+  lockGeneration += 1;
   if (pendingClear !== null) {
     window.clearTimeout(pendingClear);
     pendingClear = null;
   }
-  const value = lastCopied;
-  if (value === null) return;
-  void clearIfOurs(value, "lock");
+  const copied = lastCopied;
+  if (copied === null) return;
+  void clearIfOurs(copied, "lock");
 }
 
 /**
- * Copy a secret and schedule a clipboard clear. Also cleared when the vault
- * locks, so a copied password does not outlive the unlocked session.
+ * Copy a secret and schedule a best-effort clipboard clear on timer or lock.
  */
 function useCopySecretDefault(): (value: string) => Promise<CopyResult> {
   const { prefs } = useVault();
   return useCallback(
     async (value: string) => {
       if (!navigator.clipboard?.writeText) return "unavailable";
+      const finishWrite = tryStartClipboardWrite();
+      if (!finishWrite) return "unavailable";
+      const startedAtLockGeneration = lockGeneration;
+      let copied: CopiedSecret;
       try {
         await navigator.clipboard.writeText(value);
+        copied = { value };
+        lastCopied = copied;
+        if (pendingClear !== null) window.clearTimeout(pendingClear);
+        pendingClear = null;
+        const clearAfter = prefs?.clipboardClearSeconds ?? 0;
+        if (startedAtLockGeneration === lockGeneration && clearAfter > 0) {
+          pendingClear = window.setTimeout(() => {
+            pendingClear = null;
+            void clearIfOurs(copied, "timer");
+          }, clearAfter * 1000);
+        }
       } catch {
         return "unavailable";
+      } finally {
+        finishWrite();
       }
-      lastCopied = value;
-      if (pendingClear !== null) window.clearTimeout(pendingClear);
-      pendingClear = null;
-      const clearAfter = prefs?.clipboardClearSeconds ?? 0;
-      if (clearAfter > 0) {
-        pendingClear = window.setTimeout(() => {
-          pendingClear = null;
-          void clearIfOurs(value, "timer");
-        }, clearAfter * 1000);
+      if (startedAtLockGeneration !== lockGeneration) {
+        await clearIfOurs(copied, "lock");
+        return "unavailable";
       }
       return "copied";
     },

@@ -7,6 +7,7 @@ import { useId, useState } from "react";
 import { FieldShell } from "../../../components/FieldShell.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconCopy, IconEye, IconEyeOff } from "../../../components/Icons.js";
+import { useCopySecret } from "../../../lib/vault/hooks.js";
 
 type Props = {
   draft: SecretBackendItemInput;
@@ -16,6 +17,7 @@ type Props = {
 };
 function SecretField({ draft, editing, busy, onChange }: Props) {
   const [revealed, setRevealed] = useState(false);
+  const copySecret = useCopySecret();
   return (
     <FieldShell
       label={draft.kind === "login" ? "Password" : "Secret value"}
@@ -36,9 +38,7 @@ function SecretField({ draft, editing, busy, onChange }: Props) {
           </IconKey>
           <IconKey
             label="Copy backend secret"
-            onClick={() =>
-              void navigator.clipboard?.writeText(draft.secret).catch(() => {})
-            }
+            onClick={() => void copySecret(draft.secret)}
           >
             <IconCopy size={17} />
           </IconKey>

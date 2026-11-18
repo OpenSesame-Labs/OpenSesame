@@ -20,7 +20,7 @@ import { FieldRow } from "../../components/FieldRow.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconCheck, IconCopy, IconDownload } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
-import { useVault } from "../../lib/vault/hooks.js";
+import { useCopySecret, useVault } from "../../lib/vault/hooks.js";
 import { downloadSeams } from "../../screens/capabilities/download.js";
 import "./environment-item.css";
 
@@ -83,6 +83,7 @@ function GeneratedFile({
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [failed, setFailed] = useState("");
+  const copySecret = useCopySecret();
   useEffect(() => {
     if (!copied && !downloaded) return;
     const timer = setTimeout(() => {
@@ -94,11 +95,10 @@ function GeneratedFile({
 
   async function copy() {
     if (!file) return;
-    try {
-      await navigator.clipboard.writeText(file.content);
+    if ((await copySecret(file.content)) === "copied") {
       setFailed("");
       setCopied(true);
-    } catch {
+    } else {
       setFailed(`The ${file.fileName} file could not be copied.`);
     }
   }
