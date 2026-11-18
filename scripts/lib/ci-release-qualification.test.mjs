@@ -334,6 +334,9 @@ describe("CodeQL and publication boundaries", () => {
     expect(workflow).toContain("cancel-in-progress: ${{ !inputs.source_sha }}");
     expect(workflow).not.toContain("continue-on-error");
   });
+});
+
+describe("CodeQL crypto compilation and publication boundaries", () => {
   it("compiles reviewed x/crypto tests through the checksum-verified overlay", () => {
     const extract = job(read("codeql.yml"), "analyze")
       .split(
