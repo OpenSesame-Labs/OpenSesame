@@ -490,8 +490,7 @@ async fn create_checked(
         &body.resource,
     )
     .await?;
-    // Budgets decrement after authorization and before execution, and deny
-    // when the decrement cannot be performed (ADR 0044 decision 10 + INV-BUDGET).
+    // Budgets decrement after authorization and before execution (ADR 0044).
     let intent = build_intent(body, &parameters, &boot, &resolved)?;
     let invoke_input = InvokeInput {
         intent,
