@@ -70,21 +70,22 @@ pub async fn decision(
     // Read the clock after acquiring the writer so a queued request cannot
     // approve a code that expired while another transaction held the database.
     let decision_now = Utc::now().timestamp();
-    let capabilities = match opensesame_storage::browser_pairing::decide_browser_pairing_in_transaction(
-        &mut tx,
-        &digest,
-        &principal.to_string(),
-        &org.to_string(),
-        matches!(req.decision, Decision::Approve),
-        decision_now,
-        membership_revision,
-    )
-    .await
-    {
-        Ok(Some(capabilities)) => capabilities,
-        Ok(None) => return refusal("invalid_pairing_decision"),
-        Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
-    };
+    let capabilities =
+        match opensesame_storage::browser_pairing::decide_browser_pairing_in_transaction(
+            &mut tx,
+            &digest,
+            &principal.to_string(),
+            &org.to_string(),
+            matches!(req.decision, Decision::Approve),
+            decision_now,
+            membership_revision,
+        )
+        .await
+        {
+            Ok(Some(capabilities)) => capabilities,
+            Ok(None) => return refusal("invalid_pairing_decision"),
+            Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        };
     if matches!(req.decision, Decision::Approve) {
         let Ok(requested) = serde_json::from_str::<Vec<String>>(&capabilities) else {
             return refusal("invalid_pairing_decision");
