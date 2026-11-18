@@ -8,6 +8,9 @@ use opensesame_domain::*;
 use opensesame_storage::Db;
 use serde_json::json;
 
+#[path = "adversarial_broker/outcome.rs"]
+mod outcome_tests;
+
 fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     let now = Utc::now();
     Grant {

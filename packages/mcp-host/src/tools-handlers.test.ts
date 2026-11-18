@@ -520,7 +520,7 @@ describe("mcp-host tool handlers", () => {
           headers: new Headers(init?.headers),
           body: String(init?.body),
         });
-        return jsonResponse({ receipt_id: "rcpt-1", status: "executed" });
+        return jsonResponse({ receipt_id: "rcpt-1", outcome: "succeeded" });
       });
       const handlers = makeRegistrar();
 

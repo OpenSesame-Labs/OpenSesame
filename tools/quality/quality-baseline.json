@@ -1223,7 +1223,7 @@
       "max-lines": 587
     },
     "packages/mcp-host/src/tools.ts": {
-      "max-lines": 434,
+      "max-lines": 431,
       "max-lines-per-function": 1
     },
     "packages/notification-adapters/src/__tests__/slack.test.ts": {
