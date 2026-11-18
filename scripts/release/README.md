@@ -66,11 +66,13 @@ GitHub calls have not been exercised yet.
 
 ## Deferred registry publication
 
-The npm and container workflow entry points are retired, manual-only failures.
-The weekly candidate currently publishes Pages and Linux kits; it does not invoke
-`publish-packages.mjs` or publish an OCI image. The shell-free npm helper remains
-available for a future integration, with its exact workspace-name validation and
-separate security tests intact. Reenabling either registry requires an explicit
+The legacy generic npm and container workflow entry points are retired,
+manual-only failures. Separate npm CD workflows still publish outside this
+candidate path. The weekly candidate currently publishes Pages and Linux kits;
+it does not invoke `publish-packages.mjs` or publish an OCI image. The shell-free
+npm helper remains available for a future integration, with its exact
+workspace-name validation and separate security tests intact. Candidate-bound
+registry publication requires an explicit
 immutable artifact inventory, qualification, provenance and promotion contract.
 Calling the preserved helper directly is not a qualified release path.
 

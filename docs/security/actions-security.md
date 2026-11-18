@@ -49,7 +49,7 @@ A pull-request-triggered workflow must also be added to the trunk inventory in [
 
 | Recommendation | Here |
 |---|---|
-| Use OIDC for authentication | npm publishes with provenance and uses OIDC when `NPM_TOKEN` is empty. GHCR uses the job token. No cloud provider is deployed to. Every publish says which credential it used, and the release run reports when its credential expires ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
+| Use OIDC for authentication | npm publishes with provenance and attempts OIDC, with `NPM_TOKEN` available as a fallback when configured. GHCR publication is disabled until qualified OCI promotion and independent environment and package controls are in place ([GHCR setup](../operators/ghcr-images.md#restoring-qualified-publication)). No cloud provider is deployed to. The release run reports when its credential expires ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
 | Configure repository rules | [Declared rulesets](../../ops/github/README.md): pull request, reviews, signed commits, required checks, no force push. |
 | Least privilege for workflow permissions | Enforced as above. |
 | Dependabot for the supply chain | The `github-actions` ecosystem is in [`dependabot.yml`](../../.github/dependabot.yml). Because actions are SHA-pinned, Dependabot raises version updates for them, not security alerts; the weekly update is the patch path. |

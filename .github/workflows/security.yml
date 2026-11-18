@@ -218,11 +218,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Both moving tags: `next` is replaced by every push to main and
-        # `latest` by every release tag (docs/operators/ghcr-images.md).
+        # Scan both historical tags even while publication is disabled
+        # (docs/operators/ghcr-images.md).
         tag: [next, latest]
-        # Every image and platform the manifest job of cd-ghcr-publish.yml
-        # publishes. A test keeps the two lists equal.
+        # Every image and platform covered by the container proof workflow.
+        # A test keeps the two lists equal.
         target:
           - { image: opensesame, arch: amd64 }
           - { image: cli, arch: amd64 }
@@ -254,8 +254,8 @@ jobs:
           trap 'docker logout ghcr.io' EXIT
           # `latest` exists only once a release tag has been published. Its
           # absence, which the registry reports as an unknown manifest, is
-          # stated, not failed; any other error fails. A missing `next` fails:
-          # every push to main publishes it.
+          # stated, not failed; any other error fails. A missing `next` fails
+          # because it is an expected historical tag.
           if ! listing="$(docker manifest inspect "$IMAGE:$TAG" 2>&1)"; then
             if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest' <<<"$listing"; then
               echo "published=false" >> "$GITHUB_OUTPUT"
