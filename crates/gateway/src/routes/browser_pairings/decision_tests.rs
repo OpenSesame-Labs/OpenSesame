@@ -120,7 +120,12 @@ async fn failed_role_provision_leaves_no_redeemable_approval_and_allows_retry() 
     assert_eq!(failed.status(), StatusCode::SERVICE_UNAVAILABLE);
     let now = opensesame_time::Utc::now().timestamp();
     let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", code);
-    assert!(st.db.inspect_browser_pairing(&digest, now).await.unwrap().is_some());
+    assert!(st
+        .db
+        .inspect_browser_pairing(&digest, now)
+        .await
+        .unwrap()
+        .is_some());
     assert!(st
         .db
         .consume_browser_pairing(
@@ -133,7 +138,10 @@ async fn failed_role_provision_leaves_no_redeemable_approval_and_allows_retry() 
         .await
         .unwrap()
         .is_none());
-    assert!(role_policy(st.db.pool(), &org, &person).await.unwrap().is_none());
+    assert!(role_policy(st.db.pool(), &org, &person)
+        .await
+        .unwrap()
+        .is_none());
 
     sqlx::query("DROP TRIGGER fail_role")
         .execute(st.db.pool())
@@ -144,7 +152,10 @@ async fn failed_role_provision_leaves_no_redeemable_approval_and_allows_retry() 
         .await
         .unwrap();
     assert_eq!(retried.status(), StatusCode::NO_CONTENT);
-    assert!(role_policy(st.db.pool(), &org, &person).await.unwrap().is_some());
+    assert!(role_policy(st.db.pool(), &org, &person)
+        .await
+        .unwrap()
+        .is_some());
 }
 
 #[tokio::test]
@@ -153,9 +164,10 @@ async fn competing_approve_and_deny_publish_exactly_one_outcome() {
     let router = crate::routes::router(st.clone());
     let (org, person) = (OrganizationId::new(), PrincipalId::new());
     pending_pairing(&st, "BCDF-GHJK", "synthetic-race-device").await;
-    let approve = router
-        .clone()
-        .oneshot(decision_request(&st, "BCDF-GHJK", "approve", org, person));
+    let approve =
+        router
+            .clone()
+            .oneshot(decision_request(&st, "BCDF-GHJK", "approve", org, person));
     let deny = router.oneshot(decision_request(&st, "BCDF-GHJK", "deny", org, person));
     let (approved, denied) = tokio::join!(approve, deny);
     let (approved, denied) = (approved.unwrap().status(), denied.unwrap().status());

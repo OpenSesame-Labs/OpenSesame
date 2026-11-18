@@ -245,10 +245,7 @@ pub fn session_claims(grant: &BrowserGrant) -> Result<HostSessionClaims, Respons
         issued_at,
         expires_at,
         local_session: true,
-        membership_revision: match (
-            &grant.membership_incarnation,
-            &grant.authority_revision,
-        ) {
+        membership_revision: match (&grant.membership_incarnation, &grant.authority_revision) {
             (Some(incarnation), Some(revision)) => {
                 Some(crate::session_claims::MembershipRevision {
                     incarnation: incarnation.clone(),
