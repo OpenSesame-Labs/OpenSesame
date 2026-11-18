@@ -20,14 +20,17 @@ use anyhow::Context as _;
 use axum::Router;
 use opensesame_domain::transport::{TransportError, TransportPolicy};
 use opensesame_transport_security::{
-    enforce_current_generation, plain_provenance_layer, DenyThumbprint, SecureListener,
-    ServerProfile,
+    enforce_current_generation, plain_provenance_layer, DenyThumbprint, NativeTrustSpec,
+    SecureListener, ServerProfile,
 };
 
 use crate::app_state::AppState;
 use crate::config::Args;
 
 use super::{TransportRuntime, HOST_PLAIN_LISTENER};
+
+#[path = "source_trust_selection.rs"]
+mod source_trust_selection;
 
 /// Serve `app` on the plain listener, and on the secure listener when one is
 /// configured. Returns when either serving loop stops.
@@ -94,6 +97,23 @@ async fn bind_secure_listener(
         .map_err(anyhow::Error::msg)?;
     let policy = runtime.policy;
     let client_profile = runtime.client_trust_profile.clone();
+    let source_only = match runtime
+        .config
+        .listener
+        .as_ref()
+        .and_then(|l| l.client_trust.as_ref())
+    {
+        Some(NativeTrustSpec::SpiffeTrustDomain { trust_domain, .. }) => {
+            if trust_domain != &client_profile.name {
+                return Err(anyhow::anyhow!(
+                    "configured SPIFFE trust domain does not match its profile"
+                ));
+            }
+            true
+        }
+        _ => false,
+    };
+    let generations = Arc::clone(&runtime.generations);
     let deny_thumbprint = deny_hook(state, runtime);
     let listener = SecureListener::bind(
         listen,
@@ -106,7 +126,18 @@ async fn bind_secure_listener(
             let mut profile = ServerProfile::new(policy, identity, super::HOST_TLS_LISTENER);
             profile.deny_thumbprint = Arc::clone(&deny_thumbprint);
             if policy.authenticates_client() {
-                profile.client_trust = Some(generation.trust(&client_profile)?.clone());
+                let trust = if source_only {
+                    // The source's current view is authoritative. A stored
+                    // bundle with the same name cannot replace an absent
+                    // Workload API domain, including after process restart.
+                    source_trust_selection::select(
+                        generations.source_trust(generation.number),
+                        &client_profile,
+                    )?
+                } else {
+                    generation.trust(&client_profile)?.clone()
+                };
+                profile.client_trust = Some(trust);
             }
             Ok(profile)
         },
@@ -165,3 +196,7 @@ fn with_ingress(state: &AppState, app: Router) -> Router {
         None => app,
     }
 }
+
+#[cfg(test)]
+#[path = "boot_source_trust_tests.rs"]
+mod source_trust_tests;

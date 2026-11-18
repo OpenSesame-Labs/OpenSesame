@@ -193,6 +193,8 @@ export const CORE_CONTRACTS = Object.freeze({
     implementation: [
       `${gw}config.rs`,
       `${gw}transport/boot.rs`,
+      `${gw}transport/source_trust_selection.rs`,
+      `${gw}transport/source_trust_selection_formal.rs`,
       `${gw}transport/config.rs`,
       `${gw}lib.rs`,
       "crates/transport-security/src/lib.rs",
@@ -210,6 +212,7 @@ export const CORE_CONTRACTS = Object.freeze({
     regressions: [
       `${gw}config_listener_tests.rs`,
       `${gw}transport/boot_tests.rs`,
+      `${gw}transport/boot_source_trust_tests.rs`,
       "crates/transport-security/src/signing_fence_tests.rs",
       "crates/transport-security/tests/common/mod.rs",
       "crates/transport-security/tests/signing_fence_races.rs",

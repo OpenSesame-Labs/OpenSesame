@@ -56,6 +56,7 @@
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
     "verify:source-lifetime-formal": "bash spec/formal/source-lifetime/verify.sh",
+    "verify:source-trust-selection-formal": "bash spec/formal/source-trust-selection/verify.sh",
     "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",

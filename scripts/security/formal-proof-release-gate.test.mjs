@@ -126,7 +126,7 @@ test("release qualification rejects weakened suite contracts", (t) => {
       assert.notEqual(result.status, 0, `${required.id}: ${kind}`);
       assert.match(
         result.stderr,
-        /does not match required mappings, proofs, or command/,
+        /does not match required mappings, proofs, or command|Invalid formal proof suite/,
       );
       assert.deepEqual(f.commands(), []);
     }
@@ -142,7 +142,7 @@ test("release qualification requires new mappings to be pinned", (t) => {
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /does not match required mappings, proofs, or command/,
+    /does not match required mappings, proofs, or command|Invalid formal proof suite/,
   );
   assert.deepEqual(f.commands(), []);
 });
@@ -188,9 +188,9 @@ test("release qualification refuses to lose a required suite", (t) => {
 test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection"],
   );
-  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
@@ -212,8 +212,8 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     }
   }
 });
-test("the pinned SPIFFE and source-lifetime lock projections cannot be weakened", (t) => {
-  for (const id of ["spiffe", "source-lifetime"]) {
+test("the pinned source and SPIFFE lock projections cannot be weakened", (t) => {
+  for (const id of ["spiffe", "source-lifetime", "source-trust-selection"]) {
     for (const kind of ["remove", "root", "dependency"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
