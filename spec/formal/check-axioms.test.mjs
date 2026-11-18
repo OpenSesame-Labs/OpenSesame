@@ -44,7 +44,7 @@ const suites = [
     name: "oauth",
     model: "PendingIntegrity.lean",
     first: "current_message_binds_payload",
-    vectors: 97,
+    vectors: 113,
   },
 ];
 
