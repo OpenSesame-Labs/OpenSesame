@@ -43,5 +43,5 @@ What was run for each feature, and what the results do and do not show.
 | [WebMCP](webmcp.md) | Native Chrome WebMCP support and how to verify it. |
 
 Approved current-state evidence follows the feature/project/platform contract in [`docs/evidence/`](../evidence/README.md).
-The first baseline runs of both planes (2026-08-07) are archived in
-[`archive/2026-08-07-baseline/`](../archive/2026-08-07-baseline).
+Git history preserves the first baseline runs of both planes from 2026-08-07;
+the documents in this directory describe the maintained validation state.

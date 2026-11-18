@@ -5,9 +5,10 @@ baseline they started from, who owns which part, the contracts between parts,
 and the test plans that say when they are done. They are records of work in
 progress, not descriptions of the finished system — for that, read
 [architecture](../architecture/README.md). When a programme finishes, its
-directory moves to [`archive/`](../archive/README.md). The status column below
-is as of 2026-10-08; a document whose body no longer reads as current opens with
-a dated status line of its own.
+binding decisions move to ADRs or current-state evidence and the working record
+is retired to Git history under the [repository footprint contract](../contributing/repository-footprint.md).
+The status column below is as of 2026-10-08; a document whose body no longer
+reads as current opens with a dated status line of its own.
 
 | Programme | Documents | Status |
 |---|---|---|
