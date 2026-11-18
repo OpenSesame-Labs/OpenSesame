@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
-  "reviewed_source_state": "Source hashes identify the NATS rotation and shared TLS changes above the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
+  "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
+  "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -526,7 +526,7 @@
     },
     {
       "path": "crates/task-bus/Cargo.toml",
-      "sha256": "0790215c896314ca5bc988e5b748cd4e7f2052c8059226df336938ff24248633"
+      "sha256": "434a9f857bd9ba12100d7f2c6708ec1087c4c7b95ac9d2a333bb50a643a767e5"
     },
     {
       "path": "crates/transport-security/Cargo.toml",

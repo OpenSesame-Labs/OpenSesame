@@ -20,7 +20,6 @@ jetstream = [
   "dep:tokio",
   "dep:opensesame-transport-security",
   "dep:opensesame-domain",
-  "dep:tracing",
   "dep:thiserror",
 ]
 ## Real-server suites (`#[ignore]`, `OPENSESAME_MTLS_FIXTURES=1`): disposable
@@ -42,7 +41,7 @@ tokio = { workspace = true, optional = true }
 # Native TLS client configuration (ADR 0132); never a daemon/wasm dependency.
 opensesame-transport-security = { path = "../transport-security", optional = true }
 opensesame-domain = { path = "../domain", optional = true }
-tracing = { workspace = true, optional = true }
+tracing = { workspace = true }
 thiserror = { workspace = true, optional = true }
 # `xkeys`: the live callout responder opens and seals `xkv1` envelopes.
 nkeys = { version = "0.4.5", optional = true, features = ["xkeys"] }

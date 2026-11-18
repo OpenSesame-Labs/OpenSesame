@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
-  "reviewed_source_state": "Source hashes identify the NATS rotation and shared TLS changes above the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
+  "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
+  "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -466,7 +466,7 @@
     },
     {
       "path": "crates/task-bus/Cargo.toml",
-      "sha256": "0790215c896314ca5bc988e5b748cd4e7f2052c8059226df336938ff24248633"
+      "sha256": "434a9f857bd9ba12100d7f2c6708ec1087c4c7b95ac9d2a333bb50a643a767e5"
     },
     {
       "path": "crates/trusted-exec/Cargo.toml",
@@ -703,8 +703,8 @@
   },
   "nats": {
     "version": 1,
-    "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
-    "reviewed_source_state": "NATS source hashes describe the reviewed changes above this base; the model and finite tests do not prove Rust execution, source provenance, or concurrent refinement.",
+    "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
+    "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
     "lock_projection": {
       "root": "opensesame-task-bus",
       "algorithm": "cargo-lock-projection-v1-sha256",
@@ -717,7 +717,7 @@
       },
       {
         "path": "crates/task-bus/Cargo.toml",
-        "sha256": "0790215c896314ca5bc988e5b748cd4e7f2052c8059226df336938ff24248633"
+        "sha256": "434a9f857bd9ba12100d7f2c6708ec1087c4c7b95ac9d2a333bb50a643a767e5"
       },
       {
         "path": "crates/transport-security/Cargo.toml",
@@ -749,7 +749,7 @@
       },
       {
         "path": "crates/task-bus/src/lib.rs",
-        "sha256": "515b4e2c556e81b0b21db7633e5cac8029b69f04725ec1ee9dc0708c74d58ade"
+        "sha256": "bc59f0af4ffa7e90ad7cf1423686cc3c119ad258080bcaa98e356548c9e7c85c"
       },
       {
         "path": "crates/task-bus/src/nats.rs",
@@ -785,7 +785,7 @@
       },
       {
         "path": "crates/task-bus/src/lib_tests.rs",
-        "sha256": "cf2c42937cd179d51fbb9fdb026efc7114a661c2d3f8ec194dfe613f67032c2b"
+        "sha256": "9b9cf380a813edd9386a20dee2bf9e55bbeb06df4199c1177318e225961c9d57"
       },
       {
         "path": "crates/task-bus/src/nats_tests.rs",
