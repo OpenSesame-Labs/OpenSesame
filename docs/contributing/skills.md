@@ -1,6 +1,6 @@
 # Skills index
 
-Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (10 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
+Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (18 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
 
 ## 7. Skills
 
