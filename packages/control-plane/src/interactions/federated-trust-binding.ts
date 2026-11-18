@@ -43,3 +43,19 @@ export function trustMatchesPending(
   // the static provider set. Do not reinterpret one as tenant or visitor trust.
   return trust.source === "static" && trust.provider.kind === "oidc";
 }
+
+/** Bind either callback leg to the source that began it. */
+export function callbackTrustMatchesPending(
+  trust: TrustResolution,
+  pending: PendingFederatedAuth,
+): boolean {
+  if (pending.kind !== "oauth2") return trustMatchesPending(trust, pending);
+  return (
+    trust.source === "static" &&
+    trust.provider.kind === "oauth2" &&
+    pending.providerId !== undefined &&
+    trust.provider.id === pending.providerId &&
+    pending.byoId === undefined &&
+    pending.orgId === undefined
+  );
+}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "reviewed_revision": "6a48f86a30e5343e21a8d066389b9c2962d5b885",
+  "sources": [
+    {
+      "path": "packages/control-plane/src/services/interaction-clock.ts",
+      "sha256": "5d7a8d35a32b62b5e8c35412c9189ca335913dba6991c24a724096e54579b2b7"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-activation-spend.ts",
+      "sha256": "94bf40bad7d5d6c9100d05d8f246963f1e3deb084dd1c37d94f9dbdd6c5837c5"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-handoff.ts",
+      "sha256": "f4b5e422fe08e08d3151317ec3f2341568fe90b819d08d150b00ae024781efe8"
+    },
+    {
+      "path": "packages/os-domain/src/machines/interaction.ts",
+      "sha256": "869845f4bd3c3f6cce804063de93013ef26c9b78387eaf8667ef7fbf4e8e5baf"
+    },
+    {
+      "path": "packages/os-domain/src/errors.ts",
+      "sha256": "b53d0cec6685c2460faf554aabbcbbc420732982f9e3ff13c63201b578f63854"
+    }
+  ],
+  "reviewed_source_state": "The reviewed base precedes this clock repair; hashes identify the reviewed implementation bytes."
+}

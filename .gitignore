@@ -87,7 +87,18 @@ skills/*
 !skills/opensesame-clis/
 !skills/opensesame-mcps/
 !skills/security-review/
+!skills/verify-auth-formal/
 !skills/visual-evidence/
+!skills/formal-verification/
+!skills/verify-formal-vault/
+!skills/verify-formal-proxy-lease/
+!skills/verify-formal-pwa-shell/
+!skills/verify-formal-sync-manifest/
+!skills/verify-formal-autofill-gesture/
+!skills/verify-formal-release-promotion/
+!skills/verify-formal-daemon-fill/
+!skills/verify-formal-control-plane-session/
+!skills/verify-formal-onboarding-recovery/
 
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.

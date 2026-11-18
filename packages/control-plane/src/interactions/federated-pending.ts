@@ -22,9 +22,8 @@ import { z } from "zod";
  * verifier is single-use and the cookie is deleted on the callback.
  *
  * Everything past `verifier` is optional by contract. Absent `kind` means
- * `"oidc"`. Legacy signatures that did not bind an organization or BYO ID
- * can continue only when neither ID is present; cookies carrying either ID
- * must restart.
+ * `"oidc"`. Legacy signatures can continue only when the payload contains
+ * no fields outside the former signed field set; other cookies must restart.
  */
 export type PendingFederatedAuth = {
   issuer: string;
@@ -158,6 +157,7 @@ function verifiedPendingPayload(
   const split = raw.lastIndexOf(".");
   if (split <= 0) return undefined;
   const payload = raw.slice(0, split);
+  if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;
   const supplied = Buffer.from(raw.slice(split + 1), "base64url");
   let macPending: Pick<
     PendingFederatedAuth,
@@ -171,7 +171,23 @@ function verifiedPendingPayload(
     const macResult = pendingFederatedAuthSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
     const data = macResult.data;
-    legacyEligible = data.orgId === undefined && data.byoId === undefined;
+    // Old signatures did not cover any field outside this set. A future
+    // decoder must not give an unsigned extension security meaning.
+    const legacyFields = new Set([
+      "issuer",
+      "state",
+      "nonce",
+      "verifier",
+      "kind",
+      "providerId",
+    ]);
+    // An absent/empty provider ID is MAC-equivalent and could have belonged
+    // to an organization or BYO flow whose unsigned ID was stripped.
+    const legacyProviderPresent =
+      data.providerId !== undefined && data.providerId.length > 0;
+    legacyEligible =
+      legacyProviderPresent &&
+      Object.keys(parsed).every((field) => legacyFields.has(field));
     macPending = {
       issuer: data.issuer,
       state: data.state,

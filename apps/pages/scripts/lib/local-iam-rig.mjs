@@ -89,14 +89,51 @@ export async function authenticator(page, credentials = []) {
   return { cdp, authenticatorId };
 }
 
+/**
+ * The consent watcher, read at the `openConsent` call.
+ *
+ * A suite omits it, or passes a function that runs after the vault unlock
+ * and before the consent heading is required. Anything else is refused
+ * here. The steps below branch on `absent` or `watch`.
+ *
+ * @param {((popup: import("@playwright/test").Page) => Promise<void> | void) | undefined} observe
+ * @returns
+ *   | { kind: "absent" }
+ *   | {
+ *       kind: "watch";
+ *       run: (popup: import("@playwright/test").Page) => Promise<void> | void;
+ *     }
+ */
+function parseConsentObserve(observe) {
+  if (observe === undefined) return { kind: "absent" };
+  try {
+    Function.prototype.toString.call(observe);
+  } catch {
+    throw new Error("openConsent observe must be a function");
+  }
+  return { kind: "watch", run: observe };
+}
+
 function openConsentWith(harness) {
+  /**
+   * @param {import("@playwright/test").Page} page
+   * @param {import("@playwright/test").BrowserContext} context
+   * @param {readonly unknown[]} credentials
+   * @param {number} width
+   * @param {boolean} [agentMode]
+   * @param {((popup: import("@playwright/test").Page) => Promise<void> | void) | undefined} [observe]
+   *   Runs after unlock, before the consent heading is required. Omitted when
+   *   the suite is not watching. `parseConsentObserve` is the call boundary.
+   */
   return async function openConsent(
     page,
     context,
     credentials,
     width,
     agentMode = false,
+    observe,
   ) {
+    const watch = parseConsentObserve(observe);
     const opening = context.waitForEvent("page");
     await tabTo(
       page,
@@ -116,6 +153,7 @@ function openConsentWith(harness) {
     await popup.keyboard.insertText("Cedar-lantern-47-river!");
     await expect(password).toHaveValue("Cedar-lantern-47-river!");
     await popup.keyboard.press("Enter");
+    if (watch.kind === "watch") await watch.run(popup);
     await expect(
       popup.getByRole("heading", {
         name: agentMode

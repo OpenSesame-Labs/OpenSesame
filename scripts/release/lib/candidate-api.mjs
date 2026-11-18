@@ -7,6 +7,7 @@ import {
   sha,
   timestamp,
 } from "./candidate-policy.mjs";
+import { REQUIRED_SECURITY_POLICY_FILES } from "./candidate-security-files.mjs";
 
 // Security tools read these paths from the candidate checkout. Include both
 // present files and future additions so an older candidate cannot qualify under
@@ -26,32 +27,6 @@ const SCANNER_CONFIG_NAMES = new Set([
   "deny.toml",
   "osv-scanner.toml",
 ]);
-const REQUIRED_SECURITY_POLICY_FILES = [
-  "tools/pwa-tailscale-native-http/source.json",
-  "packages/app-core/scripts/sops-oracle/oracle.mjs",
-  "apps/android/scripts/build-core.sh",
-  "crates/authenticator-core/src/bin/uniffi-bindgen.rs",
-  "crates/authenticator-core/src/lib.rs",
-  "apps/android/android/settings.gradle.kts",
-  "apps/android/android/build.gradle.kts",
-  "apps/android/android/app/build.gradle.kts",
-  "apps/android/android/gradle.properties",
-  "scripts/test/live-turn/go.mod",
-  "scripts/test/live-turn/go.sum",
-  "Cargo.toml",
-  "Cargo.lock",
-  "rust-toolchain.toml",
-  "package-lock.json",
-  "pnpm-workspace.yaml",
-  ".github/codeql/codeql-config.yml",
-  ".gitleaks.toml",
-  ".cargo/audit.toml",
-  "deny.toml",
-  "osv-scanner.toml",
-  "scripts/lib/dependency-compatibility.test.mjs",
-  "scripts/fuzz/jazzer-gate.sh",
-  "scripts/lib/fuzz-directory.sh",
-];
 
 function scannerHelper(path, prefix) {
   return (
@@ -82,9 +57,11 @@ function extractionBuildInput(path) {
       ".npmrc",
       ".pnpmfile.cjs",
     ].includes(name) ||
-    ["rust-toolchain.toml", "package-lock.json", "pnpm-workspace.yaml"].includes(
-      path,
-    ) ||
+    [
+      "rust-toolchain.toml",
+      "package-lock.json",
+      "pnpm-workspace.yaml",
+    ].includes(path) ||
     /(?:^|\/)gradle\.properties$/.test(path) ||
     /\.gradle(?:\.kts)?$/.test(name) ||
     parts.includes("buildSrc") ||
@@ -105,7 +82,6 @@ function securityHelperPath(path) {
     (path.startsWith("scripts/security/") && !path.includes(".test."))
   );
 }
-
 function scannerPolicyPath(path) {
   const parts = path.split("/");
   const name = parts.at(-1);
@@ -125,6 +101,13 @@ function scannerPolicyPath(path) {
   );
 }
 
+function formalProofPolicyPath(path) {
+  return (
+    path.startsWith("spec/formal/") ||
+    (path.startsWith("scripts/test/auth-formal") && !path.includes(".test."))
+  );
+}
+
 function isPolicyPath(path) {
   return (
     (path.startsWith(".github/workflows/") && /\.ya?ml$/.test(path)) ||
@@ -133,6 +116,7 @@ function isPolicyPath(path) {
     (path.startsWith("scripts/audit/") && path.endsWith("-gate.sh")) ||
     path.startsWith("tools/mutation/") ||
     path.startsWith("tools/security/") ||
+    formalProofPolicyPath(path) ||
     scannerPolicyPath(path) ||
     path === "scripts/fuzz/fuzz-batch.sh" ||
     CI_RECIPE.includes(path)

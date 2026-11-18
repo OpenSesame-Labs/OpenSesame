@@ -200,6 +200,7 @@
       },
       "implementation": [
         "packages/control-plane/src/routes/interaction-activation-spend.ts",
+        "packages/control-plane/src/services/interaction-clock.ts",
         "packages/control-plane/src/routes/interaction-activation-totp.ts",
         "packages/control-plane/src/routes/interaction-activation.ts",
         "packages/control-plane/src/routes/mfa-base32.ts",
@@ -3306,14 +3307,24 @@
       "109d1bcf"
     ],
     "packages/control-plane/src/routes/interaction-activation-spend.ts": [
-      "162c887b",
-      "e113346a",
-      "e1853fdd",
-      "1e04a68a",
-      "700d88b7",
-      "a996a9f3",
-      "a952b72c",
-      "022e9233"
+      "94bf40ba",
+      "d7d5d6c9",
+      "100d05d8",
+      "f246963f",
+      "1e3deb08",
+      "4dd1c37d",
+      "94f9dbdd",
+      "6c5837c5"
+    ],
+    "packages/control-plane/src/services/interaction-clock.ts": [
+      "5d7a8d35",
+      "a32b62b5",
+      "e8c35412",
+      "c9189ca3",
+      "35913dba",
+      "6991c24a",
+      "724096e5",
+      "4579b2b7"
     ],
     "packages/control-plane/src/routes/interaction-activation-totp.ts": [
       "2a3c0043",
