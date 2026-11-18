@@ -158,6 +158,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/src/source_lifetime.rs",
       "crates/transport-security/src/source_trust.rs",
       "crates/transport-security/Cargo.toml",
+      "crates/transport-security/src/lib.rs",
       "crates/transport-security/src/svid_profile.rs",
     ],
     lockProjection: {

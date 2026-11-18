@@ -55,15 +55,21 @@ bindings; and all subsets of the two sample actions. A fresh grant ID is used
 for each fixture. The [Rust lock file](Cargo.lock) pins the harness dependencies
 separately from the production workspace.
 
-Run with Lean 4.24.0, the repository Rust toolchain, and its usual shared Cargo
-cache:
+Run with Lean 4.24.0 and the repository Rust toolchain:
 
 ```sh
 bash spec/formal/authority/check.sh
 ```
 
 Set `OPENSESAME_LEAN_BIN` to the Lean executable when it is not on `PATH`.
-`CARGO_TARGET_DIR` should name the shared Cargo target directory. The command
+The covered `conformance.rs` proof input is explicitly selected as the
+`authority-conformance` Cargo binary; changing that proof input alone does not
+select a pre-push implementation proof. The harness uses a private temporary
+Cargo target because its domain dependency is outside the harness workspace.
+Negative controls place that target inside
+their leased scratch checkout. A surviving compiler keeps the lease after an
+interruption, and a later run can clean the checkout once the compiler exits.
+The command
 fails on Lean warnings such as `sorry`, failed Rust correspondence cases, or a
 covered-source hash change. On a covered source change, re-review the mapping
 and update the hashes only after rechecking the model. Advance the reviewed
@@ -73,10 +79,10 @@ The correspondence check was run against separate scratch mutations that
 removed the export, replacement, issuer, scope, dropped-key, transferred-key,
 and action guards. Each mutation caused a failing Rust assertion. The unchanged
 source passed afterward. Repeat those controls with
-`python3 spec/formal/authority/negative-control.py`. It creates a temporary Git
-worktree, copies the covered current source into it, restores each mutation,
-and removes the temporary worktree afterward. It requires the same Lean and
-Rust environment as the main check.
+`python3 spec/formal/authority/negative-control.py`. It requires an empty Git
+index, archives the committed tree into a locked scratch checkout, overlays the
+current modified and untracked files without following symlinks, and restores
+each mutation. It requires the same Lean and Rust environment as the main check.
 
 The Lean chain theorem assumes every hop uses the modeled export check. The
 code test covers one delegation hop and one replacement in a fixed set of grant

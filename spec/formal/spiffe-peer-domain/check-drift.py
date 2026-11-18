@@ -10,6 +10,25 @@ import tempfile
 import types
 
 ROOT = Path(__file__).resolve().parents[3]
+TARGETS = {
+    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
+    "crates/transport-security/Cargo.toml": {
+        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
+        "test": {name: f"tests/{name}.rs" for name in (
+            "spiffe_peer_domain", "spiffe_peer_rotation", "source_lifetime_edges", "servername",
+        )},
+    },
+    "crates/spiffe-source/Cargo.toml": {
+        "package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs"),
+        "test": {"production_sink_policy": "tests/production_sink_policy.rs"},
+    },
+    "crates/ingress-evidence/Cargo.toml": {
+        "package": "opensesame-ingress-evidence", "lib": ("opensesame_ingress_evidence", "src/lib.rs"),
+        "test": {"verify": "tests/verify.rs", "revocation": "tests/revocation.rs"},
+    },
+    "crates/storage/Cargo.toml": {"package": "opensesame-storage", "lib": ("opensesame_storage", "src/lib.rs")},
+    "crates/gateway/Cargo.toml": {"package": "opensesame-gateway", "lib": ("opensesame_gateway", "src/lib.rs")},
+}
 # Reviewed local package closure for the gateway proof target.
 MANIFESTS = [
     "crates/a2h/Cargo.toml",
@@ -145,6 +164,8 @@ PATHS = [
     "scripts/security/cargo-lock-projection.py",
     "scripts/security/cargo-workspace-projection.py",
     "scripts/security/cargo-workspace-multipackage.py",
+    "scripts/security/formal-cargo-isolation.py",
+    "scripts/security/formal-cargo-freshness.py",
 ]
 PATHS.extend(path for path in MANIFESTS if path not in PATHS)
 BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
@@ -206,6 +227,9 @@ def main():
             raise ValueError("review optional source/build configuration drift")
         if any(file_hash(path, optional=True) is not None for path in BUILD_PATHS):
             raise ValueError("local build script requires separately reviewed coverage")
+        helper_name = "scripts/security/formal-cargo-isolation.py"
+        isolation = load_verified("reviewed_cargo_isolation", helper_name, verified[helper_name])
+        isolation.check_cargo_targets(ROOT, TARGETS, set(verified))
         # Load the exact verified bytes in a new private directory. This also
         # isolates nested helper imports from ignored stale/forged __pycache__.
         helpers = [

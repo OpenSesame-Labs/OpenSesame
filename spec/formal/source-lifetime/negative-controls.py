@@ -9,23 +9,27 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 TEST = "lean_vectors_match_source_owned_generation_manager"
 SIGNER_TEST = "signing_fence::tests::lean_vectors_match_generation_bound_signer"
+ISOLATION: dict = {}
 TREES = (Path("crates/domain"), Path("crates/transport-security"), Path("spec/formal/source-lifetime"))
 FILES = (Path("Cargo.toml"), Path("Cargo.lock"), Path("rust-toolchain.toml"),
-         Path("spec/formal/check-axioms.sh"), Path("spec/formal/required-theorem-command.lean"))
+         Path("spec/formal/check-axioms.sh"), Path("spec/formal/required-theorem-command.lean"),
+         Path("scripts/security/formal-cargo-isolation.py"), Path("scripts/security/formal-cargo-freshness.py"))
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=300, check=False)
+    raw = env.get("OPENSESAME_FORMAL_SCRATCH_LOCK_FD")
+    fds = () if raw is None else (int(raw),)
+    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=300,
+                          check=False, pass_fds=fds)
 
 
-def archive(destination: Path) -> None:
+def archive(destination: Path, fds: tuple[int, ...] = ()) -> None:
     proc = subprocess.Popen(["git", "archive", "--format=tar", "HEAD"], cwd=ROOT,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=fds)
     assert proc.stdout is not None and proc.stderr is not None
     try:
         with tarfile.open(fileobj=proc.stdout, mode="r|") as source:
@@ -57,7 +61,10 @@ def test(cwd: Path, vector: Path, env: dict[str, str], label: str, diagnostic: s
     test_env = env | {"OPENSESAME_SOURCE_LIFETIME_VECTORS": str(vector)}
     command = ["cargo", "test", "--locked", "-p", "opensesame-transport-security", "--all-features",
                "--test", "source_lifetime_formal", TEST, "--", "--ignored", "--exact"]
-    result = run(command, cwd, test_env)
+    result = ISOLATION["checked_cargo"](
+        cwd, test_env, ["opensesame-transport-security"],
+        Path("spec/formal/source-lifetime/check-drift.py"), command[1:],
+    )
     output = result.stdout + result.stderr
     if diagnostic is None:
         good = result.returncode == 0 and f"test {TEST} ... ok" in output
@@ -74,7 +81,10 @@ def signer_test(cwd: Path, vector: Path, env: dict[str, str], label: str,
     test_env = env | {"OPENSESAME_SOURCE_LIFETIME_VECTORS": str(vector)}
     command = ["cargo", "test", "--locked", "-p", "opensesame-transport-security", "--all-features",
                "--lib", SIGNER_TEST, "--", "--ignored", "--exact"]
-    result = run(command, cwd, test_env)
+    result = ISOLATION["checked_cargo"](
+        cwd, test_env, ["opensesame-transport-security"],
+        Path("spec/formal/source-lifetime/check-drift.py"), command[1:],
+    )
     output = result.stdout + result.stderr
     if diagnostic is None:
         good = result.returncode == 0 and f"test {SIGNER_TEST} ... ok" in output
@@ -88,17 +98,36 @@ def signer_test(cwd: Path, vector: Path, env: dict[str, str], label: str,
 
 def main() -> None:
     env = os.environ.copy() | {"CARGO_INCREMENTAL": "0", "CARGO_NET_OFFLINE": "true"}
+    env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
     lean = env.get("OPENSESAME_LEAN_BIN", "lean")
     if shutil.which("cargo") is None or shutil.which(lean) is None:
         raise RuntimeError("activate the pinned Rust and Lean toolchains first")
+    baseline = run([sys.executable, "-I", "spec/formal/source-lifetime/check-drift.py"], ROOT, env)
+    if baseline.returncode:
+        raise RuntimeError(f"live baseline drift: {baseline.stderr}")
+    live_helper = ROOT / "scripts/security/formal-cargo-isolation.py"
+    lifecycle = {"__name__": "formal_cargo_isolation", "__file__": str(live_helper)}
+    exec(compile(live_helper.read_bytes(), str(live_helper), "exec", dont_inherit=True), lifecycle)
     target = ROOT / "crates/transport-security/src/source_lifetime.rs"
     live_hash = hashlib.sha256(target.read_bytes()).hexdigest()
     live_signer = ROOT / "crates/transport-security/src/signing_fence.rs"
     live_signer_hash = hashlib.sha256(live_signer.read_bytes()).hexdigest()
     try:
-        with tempfile.TemporaryDirectory(prefix="opensesame-lifetime-negative-") as directory:
-            scratch = Path(directory)
-            archive(scratch)
+        with lifecycle["scratch_checkout"](ROOT) as lease:
+            scratch = lease.path
+            env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(lease.lock_fd)
+            archive(scratch, (lease.lock_fd,))
+            baseline = run([sys.executable, "-I", "spec/formal/source-lifetime/check-drift.py"], scratch, env)
+            if baseline.returncode:
+                raise RuntimeError(f"scratch baseline drift: {baseline.stderr}")
+            wrapper = subprocess.check_output(
+                [sys.executable, "-I", str(scratch / "scripts/security/formal-cargo-isolation.py"), str(scratch)],
+                text=True, pass_fds=(lease.lock_fd,),
+            ).strip()
+            env |= {"RUSTC_WRAPPER": "", "RUSTC_WORKSPACE_WRAPPER": wrapper}
+            helper = scratch / "scripts/security/formal-cargo-isolation.py"
+            ISOLATION.update({"__name__": "formal_cargo_isolation", "__file__": str(helper)})
+            exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), ISOLATION)
             result = run(["bash", "spec/formal/check-axioms.sh", lean,
                           str(scratch / "spec/formal/source-lifetime/SourceLifetime.lean")], scratch, env)
             if result.returncode != 0:
@@ -155,11 +184,13 @@ def main() -> None:
             ]:
                 if original.count(before) != 1:
                     raise RuntimeError(f"{label}: mutation target is not unique")
-                try:
-                    source.write_text(original.replace(before, after, 1))
+                with ISOLATION["mutated_coverage"](
+                    scratch, Path("spec/formal/source-lifetime/coverage.json"),
+                    Path("crates/transport-security/src/source_lifetime.rs"), before, after,
+                    Path("spec/formal/source-lifetime/check-drift.py"),
+                    env=env,
+                ):
                     test(scratch, vectors, env, label, "assertion `left == right` failed")
-                finally:
-                    source.write_text(original)
             test(scratch, vectors, env, "restored correspondence", None)
             signer = scratch / "crates/transport-security/src/signing_fence.rs"
             original_signer = signer.read_text()
@@ -173,11 +204,13 @@ def main() -> None:
             ]:
                 if original_signer.count(before) != 1:
                     raise RuntimeError(f"{label}: mutation target is not unique")
-                try:
-                    signer.write_text(original_signer.replace(before, after, 1))
+                with ISOLATION["mutated_coverage"](
+                    scratch, Path("spec/formal/source-lifetime/coverage.json"),
+                    Path("crates/transport-security/src/signing_fence.rs"), before, after,
+                    Path("spec/formal/source-lifetime/check-drift.py"),
+                    env=env,
+                ):
                     signer_test(scratch, vectors, env, label, "assertion `left == right` failed")
-                finally:
-                    signer.write_text(original_signer)
             signer_test(scratch, vectors, env, "restored signer correspondence", None)
     finally:
         if hashlib.sha256(target.read_bytes()).hexdigest() != live_hash:

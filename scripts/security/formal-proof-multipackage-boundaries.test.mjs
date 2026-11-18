@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   fixture,
   installHook,
@@ -281,4 +282,89 @@ test("custom build paths fail closed during historical projection", (t) => {
     assert.match(result.stderr, /projection/i);
     assert.deepEqual(f.commands(), []);
   }
+});
+
+test("Rust proof drift checks reject rehashed Cargo target redirection before Cargo", () => {
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+  const driver = String.raw`import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
+root = pathlib.Path(sys.argv[1])
+cases = [
+    ("authority", "spec/formal/authority/Cargo.toml", "bin", "reviewed Cargo bin target"),
+    ("authority", "spec/formal/authority/Cargo.toml", "build", "build script"),
+    ("spiffe", "crates/spiffe-source/Cargo.toml", "lib", "reviewed Cargo lib target"),
+    ("spiffe", "crates/spiffe-source/Cargo.toml", "test:outage_policy", "reviewed Cargo test target"),
+    ("spiffe", "crates/spiffe-source/Cargo.toml", "custom", "build script"),
+    ("source-lifetime", "crates/transport-security/Cargo.toml", "lib", "reviewed Cargo lib target"),
+    ("source-lifetime", "crates/transport-security/Cargo.toml", "test:source_lifetime_formal", "reviewed Cargo test target"),
+    ("source-lifetime", "crates/transport-security/Cargo.toml", "build", "build script"),
+    ("source-lifetime", "crates/transport-security/Cargo.toml", "ambiguous", "ambiguous implicit Cargo test target"),
+    ("source-trust-selection", "crates/gateway/Cargo.toml", "lib-default", "reviewed Cargo lib target"),
+    ("source-trust-selection", "crates/gateway/Cargo.toml", "inactive", None),
+    ("spiffe-peer-domain", "crates/ingress-evidence/Cargo.toml", "test:verify", "reviewed Cargo test target"),
+]
+with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
+    for index, (suite, manifest, mode, expected) in enumerate(cases):
+        target = pathlib.Path(temporary) / str(index)
+        coverage_name = "spec/formal/" + suite + "/coverage.json"
+        coverage = json.loads((root / coverage_name).read_text())
+        names = [entry["path"] for entry in coverage["sources"] + coverage["optional_sources"]]
+        names += ["Cargo.toml", "Cargo.lock", coverage_name, "spec/formal/" + suite + "/check-drift.py",
+                  "scripts/security/cargo-lock-projection.py", "scripts/security/cargo-workspace-projection.py",
+                  "scripts/security/cargo-workspace-multipackage.py"]
+        for name in dict.fromkeys(names):
+            source, destination = root / name, target / name
+            if source.exists():
+                assert not source.is_symlink() and source.is_file(), name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+        file = target / manifest
+        original = file.read_text()
+        if mode == "bin":
+            before, after = 'path = "conformance.rs"', 'path = "other.rs"'
+        elif mode == "lib":
+            before, after = 'path = "src/lib.rs"', 'path = "src/other.rs"'
+        elif mode == "custom":
+            before, after = '[package]\n', '[package]\nbuild = "custom.rs"\n'
+        elif mode == "lib-default":
+            before, after = None, '\n[lib]\npath = "src/other.rs"\n'
+        elif mode.startswith("test:"):
+            before, after = None, '\n[[test]]\nname = "' + mode.split(":", 1)[1] + '"\npath = "tests/other.rs"\n'
+        elif mode == "inactive":
+            before, after = None, '\n[[test]]\nname = "unrelated_inactive"\npath = "tests/unrelated.rs"\n'
+        else:
+            before = after = None
+        if after is not None:
+            if before is None: changed = original + after
+            else:
+                assert original.count(before) == 1, (suite, mode)
+                changed = original.replace(before, after, 1)
+            file.write_text(changed)
+            next(entry for entry in coverage["sources"] if entry["path"] == manifest)["sha256"] = hashlib.sha256(file.read_bytes()).hexdigest()
+        if mode == "build":
+            script = file.parent / "build.rs"
+            script.write_text('fn main() {}\n')
+            for entry in coverage["optional_sources"]:
+                if entry["path"] == script.relative_to(target).as_posix():
+                    entry["sha256"] = hashlib.sha256(script.read_bytes()).hexdigest()
+        if mode == "ambiguous":
+            alternate = file.parent / "tests/source_lifetime_formal/main.rs"
+            alternate.parent.mkdir(parents=True, exist_ok=True)
+            alternate.write_text('// alternate\n')
+        (target / coverage_name).write_text(json.dumps(coverage))
+        fake = target / "fake-bin/cargo"
+        fake.parent.mkdir()
+        fake.write_text('#!/bin/sh\nprintf invoked > "$CARGO_MARKER"\nexit 0\n')
+        fake.chmod(0o700)
+        marker = target / "cargo-invoked"
+        env = os.environ.copy() | {"PATH": str(fake.parent) + os.pathsep + os.environ["PATH"], "CARGO_MARKER": str(marker)}
+        result = subprocess.run([sys.executable, "-I", "spec/formal/" + suite + "/check-drift.py"], cwd=target, env=env, text=True, capture_output=True)
+        assert not marker.exists(), (suite, mode, "Cargo executed")
+        if expected is None: assert result.returncode == 0, (suite, mode, result.stderr)
+        else: assert result.returncode != 0 and expected in result.stderr, (suite, mode, result.stdout, result.stderr)
+`;
+  const result = spawnSync("python3", ["-I", "-c", driver, root], {
+    encoding: "utf8",
+    timeout: 120000,
+  });
+  assert.equal(result.status, 0, result.stderr);
 });

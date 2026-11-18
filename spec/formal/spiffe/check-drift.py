@@ -21,6 +21,18 @@ sys.modules[SPEC.name] = projection
 exec(compile(HELPER.read_bytes(), str(HELPER), "exec", dont_inherit=True), projection.__dict__)
 ROOT_PACKAGE = "opensesame-spiffe-source"
 ALGORITHM = "cargo-lock-projection-v1-sha256"
+TARGETS = {
+    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
+    "crates/transport-security/Cargo.toml": {
+        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
+    },
+    "crates/spiffe-source/Cargo.toml": {
+        "package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs"),
+        "test": {name: f"tests/{name}.rs" for name in (
+            "synthetic_workload_api", "withdrawal_policy", "outage_policy", "trust_reduction_policy", "production_sink_policy",
+        )},
+    },
+}
 MINIMUM_PATHS = {
     'crates/spiffe-source/Cargo.toml',
     'crates/spiffe-source/src/source.rs',
@@ -49,8 +61,11 @@ MINIMUM_PATHS = {
     'crates/transport-security/src/source_trust.rs',
     'crates/transport-security/src/svid_profile.rs',
     'crates/transport-security/Cargo.toml',
+    'crates/transport-security/src/lib.rs',
     'crates/domain/Cargo.toml',
     'crates/domain/src/lib.rs',
+    'scripts/security/formal-cargo-isolation.py',
+    'scripts/security/formal-cargo-freshness.py',
 }
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -131,14 +146,21 @@ def main():
                 not MINIMUM_PATHS.issubset(paths) or
                 not re.fullmatch(r"[0-9a-f]{40}", str(coverage.get("reviewed_revision", "")))):
             raise ValueError("invalid reviewed source manifest")
+        verified = {}
         for item in entries:
-            digest = hashlib.sha256(regular_path(item["path"]).read_bytes()).hexdigest()
+            source = regular_path(item["path"]).read_bytes()
+            digest = hashlib.sha256(source).hexdigest()
             if digest != item["sha256"]:
                 raise ValueError(f"review source drift: {item['path']}")
+            verified[item["path"]] = source
         optional = coverage["optional_sources"]
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
+        helper_name = "scripts/security/formal-cargo-isolation.py"
+        scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
+        exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
+        scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
         graph = projection.read_lock(ROOT / "Cargo.lock")
         verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text())
     except (OSError, ValueError, KeyError, TypeError) as exc:
