@@ -43,7 +43,19 @@ for bin in tests/fuzz/cargo/target/*/release/*; do
   if [[ -x "$bin" && -f "$bin" ]]; then
     cp -f "$bin" "$OUT/$name"
     corpus="tests/fuzz/cargo/corpus/$name"
-    if [[ -d "$corpus" ]]; then
+    archive="tests/fuzz/cargo/seed-archives/$name.zip"
+    if [[ -f "$archive" ]]; then
+      seeds="$(mktemp -d)"
+      python3 scripts/lib/extract-fuzz-seeds.py "$archive" "$seeds"
+      if [[ -d "$corpus" ]]; then
+        for seed in "$corpus"/*; do
+          [[ ! -e "$seeds/$(basename "$seed")" ]] || { echo "duplicate seed: $seed" >&2; exit 1; }
+          cp -- "$seed" "$seeds/"
+        done
+      fi
+      (cd "$seeds" && zip -qr "$OUT/${name}_seed_corpus.zip" .)
+      rm -rf "$seeds"
+    elif [[ -d "$corpus" ]]; then
       (cd "$corpus" && zip -qr "$OUT/${name}_seed_corpus.zip" .)
     fi
   fi

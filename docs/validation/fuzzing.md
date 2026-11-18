@@ -36,9 +36,9 @@ Override duration with `FUZZ_SECONDS`. Override the Miri nightly with
 
 - `tests/fuzz/cargo/fuzz_targets/` — libFuzzer binaries
 - `tests/fuzz/cargo/src/` — shared `Arbitrary` types and security oracles
-- `tests/fuzz/cargo/corpus/<target>/` — committed seeds; the gates copy them
+- `tests/fuzz/cargo/corpus/<target>/` and `seed-archives/<target>.zip` — committed seeds; the gates copy or extract them
   into a private audit directory outside the checkout, where corpus growth
-  stays
+  stays. Use `bash scripts/fuzz/fuzz-one.sh <target>` for a single target so archived seeds are included. Python 3 is required to validate and extract archives.
 - `tests/fuzz/cargo/artifacts/` — gitignored; `tests/fuzz/clusterfuzzlite/build.sh`
   puts built targets and seed-corpus zips there when `OUT` is unset. Crashes
   from `npm run audit:fuzz*` and `npm run test:fuzz*` land in a private audit

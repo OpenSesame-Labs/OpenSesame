@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,13 @@ import { describe, expect, it } from "vitest";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 describe("Rust fuzz tooling", () => {
+  it("preserves and exposes the reviewed fuzz seed archive", () => {
+    execFileSync("bash", [join(root, "scripts/lib/fuzz-directory.test.sh")], {
+      cwd: root,
+      timeout: 30_000,
+    });
+  });
+
   it.each([
     "scripts/fuzz/fuzz-pr-gate.sh",
     "tests/fuzz/clusterfuzzlite/build.sh",

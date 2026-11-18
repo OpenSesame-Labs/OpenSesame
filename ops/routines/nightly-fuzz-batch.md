@@ -73,7 +73,7 @@ CodeRabbit does not auto-review while the repository has fewer than 10 stars.
    - Open a PR (`fix(fuzz): …`).
 4. Optionally promote small, reviewable new seeds from the private corpus
    (`$OPENSESAME_AUDIT_DIR/corpus/<target>/`) into
-   `tests/fuzz/cargo/corpus/<target>/` and include them in that PR. The gates
+   `tests/fuzz/cargo/corpus/<target>/` (or the reviewed archive for that target) and include them in that PR. The gates
    never write to the tracked corpus. Do not commit megabytes of unreviewed
    corpus.
 5. If everything is CLEAN, do not open an empty PR.
