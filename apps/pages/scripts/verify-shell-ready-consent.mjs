@@ -172,7 +172,9 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
           await consentPopup.waitForTimeout(50);
         }
         if (!expectEarlyConsent && !sawSkeleton) {
-          throw new Error("fixed build never showed vault skeleton during unlock");
+          throw new Error(
+            "fixed build never showed vault skeleton during unlock",
+          );
         }
       },
     );
