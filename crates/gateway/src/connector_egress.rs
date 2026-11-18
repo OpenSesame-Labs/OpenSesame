@@ -9,6 +9,9 @@
 //! - `OPENSESAME_CONNECTOR_TRUSTED_DIGESTS` is a comma-separated list of
 //!   `sha256:<hex>` digests. Setting the directory without pinning digests
 //!   refuses boot: consent is a pinned digest, never a directory listing.
+//! - `OPENSESAME_CONNECTOR_OCI_TOKEN_ORIGINS` optionally authorizes additional
+//!   HTTPS origins for registry bearer-token services. Without it, a token
+//!   realm must share the registry origin.
 //! - Any unreadable, invalid, or unpinned entry refuses boot — a gateway
 //!   never comes up "mostly" trusted.
 //! - When the `wasm-connectors` feature is off, setting the directory also
@@ -17,13 +20,15 @@
 pub const ENV_CONNECTOR_DIR: &str = "OPENSESAME_CONNECTOR_DIR";
 #[cfg_attr(not(feature = "wasm-connectors"), allow(dead_code))]
 pub const ENV_TRUSTED_DIGESTS: &str = "OPENSESAME_CONNECTOR_TRUSTED_DIGESTS";
+#[cfg_attr(not(feature = "wasm-connectors"), allow(dead_code))]
+pub const ENV_TOKEN_ORIGINS: &str = "OPENSESAME_CONNECTOR_OCI_TOKEN_ORIGINS";
 
 #[cfg(feature = "wasm-connectors")]
 pub use enabled::load_wasm_connectors;
 
 #[cfg(feature = "wasm-connectors")]
 mod enabled {
-    use super::{ENV_CONNECTOR_DIR, ENV_TRUSTED_DIGESTS};
+    use super::{ENV_CONNECTOR_DIR, ENV_TOKEN_ORIGINS, ENV_TRUSTED_DIGESTS};
     use anyhow::Context;
     use opensesame_connection_broker::ConnectionBroker;
     use opensesame_connector_host::manifest::ConnectorManifest;
@@ -164,6 +169,10 @@ mod enabled {
              consent is a pinned digest (ADR 0065 §3)"
         );
         host.policy.trusted_digests.extend(pinned);
+        let token_origins = crate::oci_component::parse_token_origins(
+            &std::env::var(ENV_TOKEN_ORIGINS).unwrap_or_default(),
+        )
+        .with_context(|| format!("invalid {ENV_TOKEN_ORIGINS}"))?;
 
         let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
             broker: Arc::clone(broker),
@@ -195,8 +204,9 @@ mod enabled {
                     .with_context(|| format!("read {}", component_path.display()))?
             } else {
                 crate::oci_component::fetch_component(
-                    broker.http_client(),
                     &manifest.spec.component.oci,
+                    &host.policy.trusted_digests,
+                    &token_origins,
                 )
                 .await
                 .with_context(|| format!("pull component for {}", path.display()))?
