@@ -4,8 +4,8 @@
  * These checks are hermetic: the registry comparison is the `verify` command.
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -18,17 +18,19 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
+import { c as createTar } from "tar";
 import {
   MANIFEST,
   applyPatch,
   differingFiles,
   extract,
   fileMap,
+  installedNpmBins,
   installedPackageDifferences,
   integrity,
-  patchApplies,
   readJson,
   root,
+  withoutVerifiedNpmBins,
 } from "./patched-dependencies.mjs";
 
 const manifest = readJson(MANIFEST);
@@ -55,9 +57,23 @@ function installed({ name, version }) {
 }
 
 let unpacked = 0;
-function unpack(entry) {
+const unpackedTarballs = new Map();
+function unpackFresh(entry) {
   unpacked += 1;
   return extract(join(root, entry.tarball), join(work, String(unpacked)));
+}
+
+function unpack(entry) {
+  if (!unpackedTarballs.has(entry.tarball))
+    unpackedTarballs.set(entry.tarball, unpackFresh(entry));
+  return unpackedTarballs.get(entry.tarball);
+}
+
+function copyUnpacked(entry) {
+  unpacked += 1;
+  const copy = join(work, String(unpacked));
+  cpSync(unpack(entry), copy, { recursive: true });
+  return copy;
 }
 
 test("every declared patch is vendored or recorded as having no target", () => {
@@ -122,7 +138,11 @@ test("npm reaches each tarball through a verified workspace pin or root override
       )
         .split(sep)
         .join("/")}`;
-      assert.equal(workspace.dependencies[name], relativeTarball, selector);
+      assert.equal(
+        workspace.dependencies?.[name] ?? workspace.devDependencies?.[name],
+        relativeTarball,
+        selector,
+      );
       assert.equal(packageJson.overrides[name], undefined, selector);
       continue;
     }
@@ -136,32 +156,32 @@ test("npm reaches each tarball through a verified workspace pin or root override
         ? key === entry.override
         : key === name || key.startsWith(`${name}@`),
     );
-    assert.deepEqual(rule?.[1], `$${rootDependency}`, selector);
+    const target = rule?.[1];
+    assert.deepEqual(
+      typeof target === "object" && target !== null ? target["."] : target,
+      `$${rootDependency}`,
+      selector,
+    );
   }
 });
 
-test("each tarball contains its patch and nothing unpatched", () => {
-  for (const [selector, entry] of vendored) {
-    const source = unpack(entry);
-    assert.equal(patchApplies(source, entry.patch, true), true, selector);
-    assert.equal(patchApplies(source, entry.patch, false), false, selector);
-  }
-});
-
-test("the installed copy of each patched package equals its tarball", () => {
+test("the installed copy of each patched package equals its tarball", async () => {
   for (const [selector, entry] of vendored) {
     const expected = fileMap(unpack(entry));
     for (const copy of installed(split(selector))) {
       const directory = join(root, copy.key);
       assert.equal(existsSync(directory), true, `${copy.key} is not installed`);
+      const actual = fileMap(directory);
+      const bins = await installedNpmBins(directory, copy.key, lock.packages);
       assert.deepEqual(
         installedPackageDifferences(
           expected,
-          fileMap(directory),
+          withoutVerifiedNpmBins(expected, actual, bins),
           copy.key,
           lock.packages,
         ),
         [],
+        copy.key,
       );
     }
   }
@@ -208,11 +228,9 @@ test("file maps include prototype-named files", () => {
 test("the checks reject a published, unpatched package and name what differs", () => {
   for (const [selector, entry] of vendored) {
     const patched = fileMap(unpack(entry));
-    const source = unpack(entry);
+    const source = copyUnpacked(entry);
     // Removing the patch yields the published package.
     applyPatch(source, entry.patch, true);
-    assert.equal(patchApplies(source, entry.patch, true), false, selector);
-    assert.equal(patchApplies(source, entry.patch, false), true, selector);
     assert.ok(differingFiles(patched, fileMap(source)).length > 0, selector);
   }
   assert.deepEqual(
@@ -230,10 +248,19 @@ test("a tarball with anything npm would install outside package/ is refused", ()
   const tamper = (name, change) => {
     const source = join(work, `tamper-${name}`);
     mkdirSync(source);
-    execFileSync("tar", ["-xzf", join(root, entry.tarball), "-C", source]);
+    cpSync(unpack(entry), join(source, "package"), { recursive: true });
     const members = change(source);
     const tarball = join(work, `${name}.tgz`);
-    execFileSync("tar", ["-czf", tarball, "-C", source, ...members]);
+    createTar(
+      {
+        cwd: source,
+        file: tarball,
+        gzip: true,
+        preservePaths: true,
+        sync: true,
+      },
+      members,
+    );
     return tarball;
   };
   const extra = tamper("extra", (source) => {

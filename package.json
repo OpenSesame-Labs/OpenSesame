@@ -171,6 +171,7 @@
     "react-dom": "19.3.1",
     "react-router": "8.5.1",
     "turbo": "2.11.10",
+    "tar": "7.5.22",
     "typescript": "7.0.2",
     "vite": "8.3.6",
     "vitest": "4.1.12",
@@ -187,7 +188,14 @@
     "typed-rest-client": "file:patches/vendor/typed-rest-client-2.3.1.tgz",
     "@esbuild-kit/core-utils": "file:patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
     "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz",
-    "@aws-sdk/xml-builder": "file:patches/vendor/aws-sdk-xml-builder-3.972.42.tgz"
+    "@aws-sdk/xml-builder": "file:patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
+    "glob10-patched": "file:patches/vendor/glob-10.5.0.tgz",
+    "glob11-patched": "file:patches/vendor/glob-11.1.0.tgz",
+    "minimatch9-patched": "file:patches/vendor/minimatch-9.0.9.tgz",
+    "minimatch10-patched": "file:patches/vendor/minimatch-10.2.6.tgz",
+    "docgen-plugin-patched": "file:patches/vendor/joshwooding-vite-plugin-react-docgen-typescript-0.7.0.tgz",
+    "react-docgen-patched": "file:patches/vendor/react-docgen-typescript-2.4.0.tgz",
+    "noble-post-quantum-patched": "file:patches/vendor/noble-post-quantum-0.5.4.tgz"
   },
   "overrides": {
     "vitest": "4.1.12",
@@ -213,7 +221,12 @@
       "ai": "6.0.333",
       "@hono/node-server": "2.1.6",
       "@huggingface/transformers": "-",
-      "jks-js": "-"
+      "jks-js": "-",
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      },
+      "minimatch": "$minimatch10-patched"
     },
     "@node-saml/node-saml": {
       "@xmldom/xmldom": "0.8.15"
@@ -226,33 +239,29 @@
     },
     "sharp": "0.35.5",
     "hono": "4.13.16",
+    "@noble/post-quantum": "$noble-post-quantum-patched",
     "follow-redirects": "1.16.2",
-    "glob@>=11.0.0 <14.0.0": "14.0.2",
-    "glob@^10.0.0": "14.0.2",
-    "glob": "14.0.2",
-    "minimatch": "11.0.1",
+    "glob@^10.0.0": "$glob10-patched",
     "archiver-utils": {
-      "glob": "14.0.2",
-      "minimatch": "11.0.1"
+      "glob": {
+        ".": "$glob10-patched",
+        "minimatch": "$minimatch9-patched"
+      }
     },
     "filelist": {
-      "minimatch": "11.0.1"
+      "minimatch": "5.1.9"
     },
     "readdir-glob": {
-      "minimatch": "11.0.1"
+      "minimatch": "5.1.9"
     },
-    "minimatch@^10.0.0": "11.0.1",
-    "minimatch@~10.2.4": "11.0.1",
-    "minimatch@^10.2.4": "11.0.1",
-    "minimatch@^9.0.4": "11.0.1",
-    "minimatch@^5.1.0": "11.0.1",
-    "minimatch@^5.0.1": "11.0.1",
+    "minimatch@^10.0.0": "$minimatch10-patched",
+    "minimatch@~10.2.4": "$minimatch10-patched",
+    "minimatch@^10.2.4": "$minimatch10-patched",
+    "minimatch@^9.0.4": "$minimatch9-patched",
+    "minimatch@^5.1.0": "5.1.9",
+    "minimatch@^5.0.1": "5.1.9",
     "chokidar@^3": "5.0.0",
     "yaml": "2.9.1",
-    "@noble/post-quantum": {
-      "@noble/curves": "2.4.0",
-      "@noble/hashes": "2.4.0"
-    },
     "basic-ftp": "6.2.6",
     "flatted": "3.4.2",
     "js-yaml@^3": "$js-yaml",
@@ -271,7 +280,6 @@
       "node-forge": "-"
     },
     "@xmldom/xmldom@^0.9.10": "0.9.12",
-    "@noble/hashes@2.0.1": "2.4.0",
     "deepmerge": "4.3.1",
     "undici@5.29.0": "6.29.1",
     "undici@^6": "6.29.1",
@@ -290,7 +298,37 @@
     "uuid@^13.0.0": "13.0.2",
     "esbuild@^0.25.4": "0.25.12",
     "nunjucks": "$nunjucks",
-    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder"
+    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder",
+    "brace-expansion@^2.0.1": "2.1.8",
+    "glob@^11.0.1": "$glob11-patched",
+    "glob@^13.0.1": "13.0.7",
+    "glob@^13.0.6": "13.0.7",
+    "minimatch@^10.1.1": "$minimatch10-patched",
+    "minimatch@^10.2.2": "$minimatch10-patched",
+    "workbox-build": {
+      "glob": {
+        ".": "$glob11-patched",
+        "minimatch": "$minimatch10-patched"
+      }
+    },
+    "@joshwooding/vite-plugin-react-docgen-typescript": {
+      ".": "$docgen-plugin-patched",
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      }
+    },
+    "react-docgen-typescript": "$react-docgen-patched",
+    "@modelcontextprotocol/server-filesystem": {
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      },
+      "minimatch": "$minimatch10-patched"
+    },
+    "@stryker-mutator/core": {
+      "minimatch": "$minimatch10-patched"
+    }
   },
   "patchedDependencies": {
     "js-yaml@3.15.2": "patches/js-yaml@3.15.2.patch",
@@ -304,6 +342,14 @@
     "@esbuild-kit/core-utils@3.3.2": "patches/@esbuild-kit__core-utils@3.3.2.patch",
     "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
     "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
-    "@aws-sdk/xml-builder@3.972.42": "patches/@aws-sdk__xml-builder@3.972.42.patch"
+    "@aws-sdk/xml-builder@3.972.42": "patches/@aws-sdk__xml-builder@3.972.42.patch",
+    "glob@10.5.0": "patches/glob@10.5.0.patch",
+    "glob@11.1.0": "patches/glob@11.1.0.patch",
+    "minimatch@9.0.9": "patches/minimatch@9.0.9.patch",
+    "minimatch@10.2.6": "patches/minimatch@10.2.6.patch",
+    "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
+    "react-docgen-typescript@2.4.0": "patches/react-docgen-typescript@2.4.0.patch",
+    "node-turn@0.0.6": "patches/node-turn@0.0.6.patch",
+    "@noble/post-quantum@0.5.4": "patches/@noble__post-quantum@0.5.4.patch"
   }
 }
