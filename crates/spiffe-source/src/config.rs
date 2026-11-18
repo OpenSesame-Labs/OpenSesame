@@ -21,7 +21,7 @@ use crate::svid_profile::SvidRole;
 /// The one environment variable that names the Workload API socket.
 pub const ENDPOINT_SOCKET_ENV: &str = "OPENSESAME_SPIFFE_ENDPOINT_SOCKET";
 /// Default bound on how long a generation outlives a broken stream.
-pub const DEFAULT_MAX_STALE: Duration = Duration::from_secs(5 * 60);
+pub const DEFAULT_MAX_STALE: Duration = Duration::from_mins(5);
 
 /// How this workload reaches its Workload API and which SVID it is.
 #[derive(Debug, Clone, PartialEq, Eq)]

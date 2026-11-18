@@ -164,7 +164,7 @@ pub(crate) fn print_shown(entry: &opensesame_sealed_store::Entry) {
         };
         if let Some(line) = line {
             let rendered = entry.render();
-            println!("{}", &*line);
+            println!("{}", *line);
             print!("{}", rendered.strip_prefix('\n').unwrap_or(&rendered));
             return;
         }

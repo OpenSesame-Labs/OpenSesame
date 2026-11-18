@@ -41,8 +41,8 @@ fn config() -> SpiffeSourceConfig {
 #[test]
 fn at_spiffe_select_exact_identity_wins_regardless_of_order_and_hint() {
     let td = FakeTrustDomain::new(TD);
-    let worker = td.issue_svid(WK, Duration::from_secs(60));
-    let gateway = td.issue_svid(GW, Duration::from_secs(60));
+    let worker = td.issue_svid(WK, Duration::from_mins(1));
+    let gateway = td.issue_svid(GW, Duration::from_mins(1));
     let ctx = context(&td, &[&worker, &gateway], true);
     assert_eq!(
         ctx.default_svid().unwrap().spiffe_id().to_string(),
@@ -60,7 +60,7 @@ fn at_spiffe_select_exact_identity_wins_regardless_of_order_and_hint() {
 #[test]
 fn at_spiffe_select_first_returned_is_never_chosen_when_the_configured_id_is_absent() {
     let td = FakeTrustDomain::new(TD);
-    let worker = td.issue_svid(WK, Duration::from_secs(60));
+    let worker = td.issue_svid(WK, Duration::from_mins(1));
     let ctx = context(&td, &[&worker], true);
     let err = SvidGeneration::select(&ctx, &config(), Utc::now()).unwrap_err();
     assert_eq!(err.code(), "svid_not_issued");
@@ -71,8 +71,8 @@ fn at_spiffe_select_first_returned_is_never_chosen_when_the_configured_id_is_abs
 #[test]
 fn duplicate_configured_identity_is_ambiguous_not_first_wins() {
     let td = FakeTrustDomain::new(TD);
-    let one = td.issue_svid(GW, Duration::from_secs(60));
-    let two = td.issue_svid(GW, Duration::from_secs(60));
+    let one = td.issue_svid(GW, Duration::from_mins(1));
+    let two = td.issue_svid(GW, Duration::from_mins(1));
     let ctx = context(&td, &[&one, &two], true);
     let err = SvidGeneration::select(&ctx, &config(), Utc::now()).unwrap_err();
     assert_eq!(err.code(), "svid_ambiguous");
@@ -82,7 +82,7 @@ fn duplicate_configured_identity_is_ambiguous_not_first_wins() {
 #[test]
 fn missing_own_bundle_is_an_authoritative_withdrawal() {
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(60));
+    let gateway = td.issue_svid(GW, Duration::from_mins(1));
     let ctx = context(&td, &[&gateway], false);
     let err = SvidGeneration::select(&ctx, &config(), Utc::now()).unwrap_err();
     assert_eq!(err.code(), "bundle_missing");
@@ -93,7 +93,7 @@ fn missing_own_bundle_is_an_authoritative_withdrawal() {
 #[test]
 fn profile_violation_is_a_malformed_update_not_a_withdrawal() {
     let td = FakeTrustDomain::new(TD);
-    let mut spec = crate::fake::SvidSpec::conforming(GW, Duration::from_secs(60));
+    let mut spec = crate::fake::SvidSpec::conforming(GW, Duration::from_mins(1));
     spec.eku = crate::fake::Eku::ServerOnly;
     let bad = td.issue(&spec);
     let ctx = context(&td, &[&bad], true);
@@ -105,8 +105,8 @@ fn profile_violation_is_a_malformed_update_not_a_withdrawal() {
 #[test]
 fn rotation_keeps_the_canonical_identity_and_changes_the_thumbprint() {
     let td = FakeTrustDomain::new(TD);
-    let first = td.issue_svid(GW, Duration::from_secs(60));
-    let second = td.issue_svid(GW, Duration::from_secs(60));
+    let first = td.issue_svid(GW, Duration::from_mins(1));
+    let second = td.issue_svid(GW, Duration::from_mins(1));
     let g1 = SvidGeneration::select(&context(&td, &[&first], true), &config(), Utc::now()).unwrap();
     let g2 =
         SvidGeneration::select(&context(&td, &[&second], true), &config(), Utc::now()).unwrap();

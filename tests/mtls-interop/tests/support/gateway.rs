@@ -45,7 +45,7 @@ pub fn binary() -> Result<PathBuf> {
         Command::new("cargo")
             .current_dir(repo_root())
             .args(["build", "-p", "opensesame-cli"]),
-        Duration::from_secs(2400),
+        Duration::from_mins(40),
     )?;
     if code != Some(0) || !path.is_file() {
         bail!("could not build opensesame ({code:?}): {err}");

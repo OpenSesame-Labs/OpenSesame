@@ -51,7 +51,10 @@ fn without_opensesame_node_the_path_is_the_trusted_entries_alone() {
     let fixture = Fixture::new(ID);
     let (guard, path) = run(&fixture, &[]);
     assert!(guard.unwrap().is_none());
-    assert_eq!(path.unwrap(), [fixture.trusted.clone()]);
+    assert_eq!(
+        path.unwrap().as_slice(),
+        std::slice::from_ref(&fixture.trusted)
+    );
 }
 
 #[test]

@@ -18,7 +18,7 @@
   "totals": {
     "files": 441,
     "violations": 700,
-    "oversizedLines": 213880
+    "oversizedLines": 213842
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -267,7 +267,7 @@
       "max-lines": 456
     },
     "crates/connection-broker/src/delegation.rs": {
-      "max-lines": 1493
+      "max-lines": 1491
     },
     "crates/connection-broker/src/egress.rs": {
       "max-lines": 518
@@ -276,7 +276,7 @@
       "max-lines": 604
     },
     "crates/connection-broker/src/integration.rs": {
-      "max-lines": 927
+      "max-lines": 925
     },
     "crates/connection-broker/src/lib.rs": {
       "max-lines": 2291
@@ -342,7 +342,7 @@
       "max-lines": 1338
     },
     "crates/daemon/src/tailscale.rs": {
-      "max-lines": 423
+      "max-lines": 422
     },
     "crates/domain/src/authority.rs": {
       "max-lines": 689
@@ -405,7 +405,7 @@
       "max-lines": 1082
     },
     "crates/gateway/src/routes/connections/tests.rs": {
-      "max-lines": 1688
+      "max-lines": 1687
     },
     "crates/gateway/src/routes/intents.rs": {
       "max-lines": 530
@@ -465,19 +465,19 @@
       "max-lines": 510
     },
     "crates/pki-core/src/ca.rs": {
-      "max-lines": 474
+      "max-lines": 471
     },
     "crates/pki-core/src/policy.rs": {
       "max-lines": 1606
     },
     "crates/pki-core/src/revocation.rs": {
-      "max-lines": 1131
+      "max-lines": 1129
     },
     "crates/pki-core/src/types.rs": {
-      "max-lines": 915
+      "max-lines": 903
     },
     "crates/pki-core/src/x509.rs": {
-      "max-lines": 553
+      "max-lines": 539
     },
     "crates/pm-bridges/src/keepassxc/actions.rs": {
       "max-lines": 646
@@ -513,7 +513,7 @@
       "max-lines": 420
     },
     "crates/sealed-store/src/attachment.rs": {
-      "max-lines": 1185
+      "max-lines": 1184
     },
     "crates/session-observe/src/lease.rs": {
       "max-lines": 625

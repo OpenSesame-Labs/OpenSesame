@@ -254,9 +254,7 @@ fn now_rfc3339() -> String {
 }
 
 fn parse_time(raw: &str) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(raw)
-        .map(|t| t.with_timezone(&Utc))
-        .unwrap_or(DateTime::<Utc>::MIN_UTC)
+    DateTime::parse_from_rfc3339(raw).map_or(DateTime::<Utc>::MIN_UTC, |t| t.with_timezone(&Utc))
 }
 
 impl ConnectionBroker {

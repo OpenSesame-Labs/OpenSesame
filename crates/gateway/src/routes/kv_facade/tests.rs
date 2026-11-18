@@ -629,7 +629,7 @@ async fn the_metadata_envelope_matches_a_real_vault_kv_v2_response() {
     assert_shape_matches(fixture_version, actual_version, "data.versions.1");
 }
 
-/// The self-conformance loop: OpenSesame's own Vault client
+/// The self-conformance loop: `OpenSesame`'s own Vault client
 /// (`crates/provider-openbao`, the client half of this protocol) reads a
 /// secret through the facade over loopback. If the envelope drifts, this test
 /// fails where a hand-written assertion would not.

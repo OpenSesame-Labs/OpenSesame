@@ -12,7 +12,7 @@ fn legacy(root: &[u8; 32], plain: &str) -> String {
     let ciphertext = XChaCha20Poly1305::new_from_slice(root)
         .unwrap()
         .encrypt(
-            XNonce::from_slice(&nonce),
+            (&nonce).into(),
             Payload {
                 msg: plain.as_bytes(),
                 aad: b"opensesame.log.v1",
@@ -46,7 +46,7 @@ fn unwrap(value: &str) -> Vec<u8> {
     let dek = XChaCha20Poly1305::new_from_slice(&kek)
         .unwrap()
         .decrypt(
-            XNonce::from_slice(&packed[..24]),
+            <&XNonce>::try_from(&packed[..24]).unwrap(),
             Payload {
                 msg: &packed[24..72],
                 aad: &aad,
@@ -56,7 +56,7 @@ fn unwrap(value: &str) -> Vec<u8> {
     let plaintext = XChaCha20Poly1305::new_from_slice(dek.as_slice())
         .unwrap()
         .decrypt(
-            XNonce::from_slice(&packed[72..96]),
+            <&XNonce>::try_from(&packed[72..96]).unwrap(),
             Payload {
                 msg: &packed[96..],
                 aad: &aad,

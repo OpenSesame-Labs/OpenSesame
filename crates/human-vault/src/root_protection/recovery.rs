@@ -30,7 +30,7 @@ pub fn wrap_vrk_with_recovery_key(
     let mut nonce = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
-        .encrypt(XNonce::from_slice(&nonce), vrk.0.as_ref())
+        .encrypt((&nonce).into(), vrk.0.as_ref())
         .map_err(|_| ProtectionError::Crypto)?;
     let fingerprint = fingerprint_recovery_key(recovery_key);
     Ok((
@@ -57,16 +57,13 @@ pub fn unwrap_vrk_with_recovery_key(
     let nonce = URL_SAFE_NO_PAD
         .decode(&wrap.nonce_b64)
         .map_err(|_| ProtectionError::MalformedEncoding("recovery nonce".into()))?;
-    if nonce.len() != 24 {
-        return Err(ProtectionError::MalformedEncoding(
-            "recovery nonce length".into(),
-        ));
-    }
+    let nonce = <&XNonce>::try_from(nonce.as_slice())
+        .map_err(|_| ProtectionError::MalformedEncoding("recovery nonce length".into()))?;
     let ct = URL_SAFE_NO_PAD
         .decode(&wrap.ct_b64)
         .map_err(|_| ProtectionError::MalformedEncoding("recovery ciphertext".into()))?;
     let mut pt = cipher
-        .decrypt(XNonce::from_slice(&nonce), ct.as_ref())
+        .decrypt(nonce, ct.as_ref())
         .map_err(|_| ProtectionError::CapsuleAuthFailed)?;
     if pt.len() != 32 {
         pt.zeroize();
@@ -90,4 +87,26 @@ pub fn generate_recovery_key() -> [u8; 32] {
     let mut key = [0u8; 32];
     rand::rng().fill_bytes(&mut key);
     key
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recovery_wrap_rejects_each_invalid_nonce_length() {
+        let key = [7; 32];
+        let vrk = VaultRootKey::generate();
+        let (wrap, _) = wrap_vrk_with_recovery_key(&key, &vrk).unwrap();
+        assert_eq!(unwrap_vrk_with_recovery_key(&key, &wrap).unwrap().0, vrk.0);
+        for length in [0, 23, 25] {
+            let mut malformed = wrap.clone();
+            malformed.nonce_b64 = URL_SAFE_NO_PAD.encode(vec![0; length]);
+            assert!(matches!(
+                unwrap_vrk_with_recovery_key(&key, &malformed),
+                Err(ProtectionError::MalformedEncoding(message))
+                    if message == "recovery nonce length"
+            ));
+        }
+    }
 }

@@ -3,7 +3,7 @@ use crate::budget_subject::tests::user;
 use std::sync::Arc;
 
 fn limiter(db: Db, namespace: &'static str, max: u32) -> FailureLimiter {
-    FailureLimiter::new(db, namespace, max, Duration::from_secs(60))
+    FailureLimiter::new(db, namespace, max, Duration::from_mins(1))
 }
 
 #[tokio::test]

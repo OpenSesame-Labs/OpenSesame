@@ -71,7 +71,7 @@ fn unwrap(store: &AdminStore, config: &TailnetConfig, value: &str, expected: &[u
     let dek = XChaCha20Poly1305::new_from_slice(&kek)
         .unwrap()
         .decrypt(
-            XNonce::from_slice(&packed[..24]),
+            <&XNonce>::try_from(&packed[..24]).unwrap(),
             Payload {
                 msg: &packed[24..72],
                 aad: &aad,
@@ -81,7 +81,7 @@ fn unwrap(store: &AdminStore, config: &TailnetConfig, value: &str, expected: &[u
     let plaintext = XChaCha20Poly1305::new_from_slice(dek.as_slice())
         .unwrap()
         .decrypt(
-            XNonce::from_slice(&packed[72..96]),
+            <&XNonce>::try_from(&packed[72..96]).unwrap(),
             Payload {
                 msg: &packed[96..],
                 aad: &aad,

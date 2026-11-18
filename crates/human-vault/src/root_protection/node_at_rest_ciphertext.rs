@@ -71,7 +71,7 @@ pub(crate) fn validate_node_at_rest_ciphertext(
         Zeroizing::new(
             cipher
                 .decrypt(
-                    XNonce::from_slice(&bytes[..NONCE]),
+                    <&XNonce>::try_from(&bytes[..NONCE]).map_err(|_| refused())?,
                     Payload {
                         msg: &bytes[NONCE..],
                         aad: binding.as_bytes(),
@@ -94,7 +94,7 @@ pub(crate) fn validate_node_at_rest_ciphertext(
         let data_key = Zeroizing::new(
             wrapper
                 .decrypt(
-                    XNonce::from_slice(&bytes[..NONCE]),
+                    <&XNonce>::try_from(&bytes[..NONCE]).map_err(|_| refused())?,
                     Payload {
                         msg: &bytes[NONCE..NONCE + WRAPPED],
                         aad: &aad(&binding, "wrap")?,
@@ -109,7 +109,7 @@ pub(crate) fn validate_node_at_rest_ciphertext(
         Zeroizing::new(
             cipher
                 .decrypt(
-                    XNonce::from_slice(&bytes[NONCE + WRAPPED..HEADER]),
+                    <&XNonce>::try_from(&bytes[NONCE + WRAPPED..HEADER]).map_err(|_| refused())?,
                     Payload {
                         msg: &bytes[HEADER..],
                         aad: &aad(&binding, "data")?,

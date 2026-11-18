@@ -17,9 +17,9 @@ use crate::crypto::SymmetricKey;
 use crate::error::{Error, Result};
 
 /// How long an unlocked session may live regardless of token lifetime.
-pub const DEFAULT_SESSION_TTL: Duration = Duration::from_secs(15 * 60);
+pub const DEFAULT_SESSION_TTL: Duration = Duration::from_mins(15);
 /// Refresh this long before the access token actually expires.
-const REFRESH_SKEW: Duration = Duration::from_secs(60);
+const REFRESH_SKEW: Duration = Duration::from_mins(1);
 
 /// Tokens plus the decrypted user key. Held only in memory.
 pub struct Session {

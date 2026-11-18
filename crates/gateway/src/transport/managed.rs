@@ -33,7 +33,8 @@ pub trait ManagedIdentityResolver: Send + Sync {
     fn capability(&self) -> CapabilityOutcome;
 }
 
-/// Reason reported while the custody bridge is absent.
+/// Reason reported by the test resolver while the custody bridge is absent.
+#[cfg(test)]
 pub const UNWIRED_REASON: &str =
     "managed certificate custody is not bridged to the transport runtime on this host";
 
@@ -71,10 +72,12 @@ impl ManagedIdentityResolver for AppState {
     }
 }
 
-/// A resolver with no managed custody at all (tests, the worker).
+/// A resolver with no managed custody at all, for transport tests.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoManagedIdentity;
 
+#[cfg(test)]
 #[async_trait::async_trait]
 impl ManagedIdentityResolver for NoManagedIdentity {
     async fn resolve(&self, _certificate_id: &str) -> Result<Arc<TlsIdentity>, TransportError> {

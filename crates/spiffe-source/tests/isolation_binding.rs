@@ -66,7 +66,7 @@ fn presented(generation: &SvidGeneration) -> Vec<PeerIdentitySelector> {
 #[test]
 fn a_source_for_a_cannot_satisfy_a_binding_for_b() {
     let td = FakeTrustDomain::new(TD);
-    let issued_a = td.issue_svid(A, Duration::from_secs(60));
+    let issued_a = td.issue_svid(A, Duration::from_mins(1));
     let gen_a = generation_for(&td, &issued_a, A);
     let profile = TrustProfileRef::new(TD).unwrap();
     let only_b = ServiceBindingSet {
@@ -103,7 +103,7 @@ fn a_source_for_a_cannot_satisfy_a_binding_for_b() {
 #[test]
 fn the_generation_manager_only_ever_presents_the_configured_identity() {
     let td = FakeTrustDomain::new(TD);
-    let issued_a = td.issue_svid(A, Duration::from_secs(60));
+    let issued_a = td.issue_svid(A, Duration::from_mins(1));
     let gen_a = generation_for(&td, &issued_a, A);
     let candidate = TransportGenerationsSink::candidate(&gen_a).unwrap();
     let identity = candidate.identity.expect("identity");
@@ -120,7 +120,7 @@ fn the_generation_manager_only_ever_presents_the_configured_identity() {
 #[test]
 fn a_snapshot_carrying_only_b_never_yields_a_generation_for_a() {
     let td = FakeTrustDomain::new(TD);
-    let issued_b = td.issue_svid(B, Duration::from_secs(60));
+    let issued_b = td.issue_svid(B, Duration::from_mins(1));
     let svid = Arc::new(
         X509Svid::parse_from_der(
             &issued_b.chain_der.concat(),

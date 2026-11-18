@@ -78,8 +78,8 @@ async fn withdrawn(handle: &SpiffeSourceHandle) -> SourceStatus {
 async fn at_spiffe_select_exact_configured_identity_among_many() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let worker = td.issue_svid(WK, Duration::from_secs(600));
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let worker = td.issue_svid(WK, Duration::from_mins(10));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&worker, &gateway]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
@@ -103,8 +103,8 @@ async fn at_spiffe_select_exact_configured_identity_among_many() {
 async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
-    let worker = td.issue_svid(WK, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
+    let worker = td.issue_svid(WK, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
@@ -123,7 +123,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
         "the worker SVID was never activated"
     );
 
-    let gateway2 = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway2 = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&worker, &gateway2]));
     streaming(&handle, 2).await;
     assert_eq!(
@@ -137,7 +137,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
 async fn at_spiffe_withdraw_when_own_bundle_is_removed() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
@@ -161,7 +161,7 @@ async fn at_spiffe_federation_removed_foreign_bundle_leaves_the_next_generation(
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let foreign = FakeTrustDomain::new("partner.test");
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(FakeWorkloadApi::snapshot(
         vec![gateway.to_proto(&td.bundle_der(), "")],
         &[("partner.test", foreign.bundle_der())],
@@ -190,11 +190,11 @@ async fn malformed_update_keeps_current_generation_only_until_its_not_after() {
     let gateway = td.issue_svid(GW, Duration::from_secs(3));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(60)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_mins(1)), sink.clone());
     streaming(&handle, 1).await;
 
     let mut spec =
-        opensesame_spiffe_source::fake::SvidSpec::conforming(GW, Duration::from_secs(600));
+        opensesame_spiffe_source::fake::SvidSpec::conforming(GW, Duration::from_mins(10));
     spec.eku = opensesame_spiffe_source::fake::Eku::ServerOnly;
     let bad = td.issue(&spec);
     api.push_snapshot(snapshot(&td, &[&bad]));
@@ -224,7 +224,7 @@ async fn malformed_update_keeps_current_generation_only_until_its_not_after() {
 async fn sink_refusal_keeps_the_previous_generation() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
@@ -232,7 +232,7 @@ async fn sink_refusal_keeps_the_previous_generation() {
     sink.reject_activations(Some(TransportError::KeyPairMismatch));
     api.push_snapshot(snapshot(
         &td,
-        &[&td.issue_svid(GW, Duration::from_secs(600))],
+        &[&td.issue_svid(GW, Duration::from_mins(10))],
     ));
     let status = handle
         .wait_for(WAIT, |s| {
@@ -249,7 +249,7 @@ async fn sink_refusal_keeps_the_previous_generation() {
 async fn at_spiffe_outage_stream_error_is_survived_within_bounds_and_reconnects() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone());
@@ -283,7 +283,7 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
         .unwrap();
     let api = FakeWorkloadApi::start_at(dir.path());
     let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_secs(600));
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let cfg = config(&api, Duration::from_millis(400));
@@ -323,12 +323,12 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
 async fn rotation_same_identity_new_key_is_a_new_generation_without_withdrawal() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
-    let v1 = td.issue_svid(GW, Duration::from_secs(600));
+    let v1 = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&v1]));
     let sink = RecordingSink::shared();
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
     streaming(&handle, 1).await;
-    let v2 = td.issue_svid(GW, Duration::from_secs(600));
+    let v2 = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&v2]));
     streaming(&handle, 2).await;
     let acts = activated(&sink.events());

@@ -212,7 +212,7 @@ async fn installation_deleted_marks_backup_suspended() {
     assert_eq!(target.last_error.as_deref(), Some("github_app_uninstalled"));
 }
 
-/// Chaos: TaskBus publish failures must not discard a verified durable enqueue.
+/// Chaos: `TaskBus` publish failures must not discard a verified durable enqueue.
 #[tokio::test]
 async fn webhook_survives_taskbus_publish_partition() {
     let secret = "whsec_chaos";

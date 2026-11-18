@@ -29,7 +29,7 @@ impl ConnectionBroker {
         // never redirect permission or a permissive client fallback.
         let http_bytes = reqwest::Client::builder()
             .no_proxy()
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_mins(1))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| {

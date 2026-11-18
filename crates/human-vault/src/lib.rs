@@ -4,7 +4,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chacha20poly1305::{
     aead::{Aead, KeyInit, Payload},
-    XChaCha20Poly1305, XNonce,
+    XChaCha20Poly1305,
 };
 use hkdf::Hkdf;
 use rand::Rng;
@@ -136,7 +136,7 @@ pub fn encrypt_item(
     rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            (&nonce).into(),
             Payload {
                 msg: plaintext,
                 aad: digest.as_bytes(),
@@ -182,7 +182,7 @@ pub fn decrypt_item(
         .map_err(|_| VaultCryptoError::Aead)?;
     cipher
         .decrypt(
-            XNonce::from_slice(&nonce),
+            (&nonce).into(),
             Payload {
                 msg: &ct,
                 aad: expected.as_bytes(),
@@ -312,7 +312,7 @@ pub fn seal_chunk(
     rand::rng().fill_bytes(&mut nonce);
     let ct = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            (&nonce).into(),
             Payload {
                 msg: plaintext,
                 aad: digest.as_bytes(),
@@ -357,7 +357,7 @@ pub fn open_chunk(
     let cipher = XChaCha20Poly1305::new_from_slice(&key.0).map_err(|_| VaultCryptoError::Aead)?;
     cipher
         .decrypt(
-            XNonce::from_slice(&nonce),
+            (&nonce).into(),
             Payload {
                 msg: &frame[OSCHUNK_HEADER_LEN..],
                 aad: digest.as_bytes(),

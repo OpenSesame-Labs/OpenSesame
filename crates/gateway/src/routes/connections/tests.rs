@@ -76,9 +76,8 @@ async fn operator_can_select_org_but_session_cannot_spoof_it() {
 #[test]
 fn connection_json_bodies_are_bounded_before_parsing() {
     let body = "x".repeat(32 * 1024 + 1);
-    let error = match super::parse_body::<super::CreateIntegrationBody>(&body) {
-        Ok(_) => panic!("oversized body accepted"),
-        Err(error) => error,
+    let Err(error) = super::parse_body::<super::CreateIntegrationBody>(&body) else {
+        panic!("oversized body accepted");
     };
     assert_eq!(error.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }

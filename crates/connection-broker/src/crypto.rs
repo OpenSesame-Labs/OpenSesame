@@ -159,14 +159,13 @@ pub fn open_with_ad(key: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<Vec
     if envelope::is_envelope(blob) {
         return envelope::open(key, aad, blob);
     }
-    if blob.nonce.len() != 24 {
-        return Err(BrokerError::SealUnavailable("nonce length".into()));
-    }
+    let nonce = <&XNonce>::try_from(blob.nonce.as_slice())
+        .map_err(|_| BrokerError::SealUnavailable("nonce length".into()))?;
     let legacy = legacy_context(aad).unwrap_or_else(|| aad.to_vec());
     XChaCha20Poly1305::new_from_slice(key)
         .map_err(|_| BrokerError::SealUnavailable("credential could not be opened".into()))?
         .decrypt(
-            XNonce::from_slice(&blob.nonce),
+            nonce,
             Payload {
                 msg: &blob.ciphertext,
                 aad: &legacy,
@@ -213,7 +212,7 @@ mod tests {
             let ciphertext = XChaCha20Poly1305::new_from_slice(&KEY)
                 .unwrap()
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    (&nonce).into(),
                     Payload {
                         msg: b"legacy",
                         aad: &legacy,
@@ -226,6 +225,14 @@ mod tests {
                 aad_digest: digest(&legacy),
             };
             assert_eq!(open_with_ad(&KEY, &aad, &blob).unwrap(), b"legacy");
+            for length in [0, 23, 25] {
+                let mut malformed = blob.clone();
+                malformed.nonce = vec![0; length];
+                assert!(matches!(
+                    open_with_ad(&KEY, &aad, &malformed),
+                    Err(BrokerError::SealUnavailable(message)) if message == "nonce length"
+                ));
+            }
         }
     }
 

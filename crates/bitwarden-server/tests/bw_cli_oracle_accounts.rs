@@ -7,13 +7,13 @@ mod common;
 
 use std::time::Duration;
 
-use opensesame_bitwarden_server::hashing::pbkdf2_sha256_record;
-use sha2::Sha256;
 use common::bw::Bw;
 use common::client::{http, Account, ARGON2ID, PBKDF2};
 use common::Harness;
+use opensesame_bitwarden_server::hashing::pbkdf2_sha256_record;
 use opensesame_bitwarden_server::SignupPolicy;
 use serde_json::{json, Value};
+use sha2::Sha256;
 
 const PASSWORD: &str = "correct horse battery staple";
 
@@ -102,12 +102,7 @@ async fn an_imported_legacy_server_hash_upgrades_on_bw_sign_in() {
     // over the client hash, in PHC form.
     let salt: Vec<u8> = (0..16_u8).collect();
     let mut hash = [0_u8; 32];
-    pbkdf2::pbkdf2_hmac::<Sha256>(
-        carol.password_hash().as_bytes(),
-        &salt,
-        100_000,
-        &mut hash,
-    );
+    pbkdf2::pbkdf2_hmac::<Sha256>(carol.password_hash().as_bytes(), &salt, 100_000, &mut hash);
     let legacy = pbkdf2_sha256_record(100_000, &salt, &hash);
     harness
         .db
@@ -137,7 +132,7 @@ async fn an_imported_legacy_server_hash_upgrades_on_bw_sign_in() {
 #[ignore = "needs the official bw CLI: npm run test:bitwarden-oracle"]
 async fn bw_refreshes_short_lived_access_tokens() {
     let harness = Harness::start_with(|mut config| {
-        config.access_token_ttl = Duration::from_secs(60);
+        config.access_token_ttl = Duration::from_mins(1);
         config
     })
     .await;

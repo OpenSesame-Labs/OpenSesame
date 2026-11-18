@@ -23,7 +23,7 @@ use crate::AuthorityError;
 
 /// How much of a lease is spent before a cached token is treated as stale, so
 /// a request is never made with a token that expires mid-flight.
-pub(crate) const RENEW_BEFORE: Duration = Duration::from_secs(60);
+pub(crate) const RENEW_BEFORE: Duration = Duration::from_mins(1);
 
 /// What a certificate login produced. `Debug` never shows the token.
 pub struct CertToken {

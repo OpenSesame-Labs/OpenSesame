@@ -89,7 +89,7 @@ impl InMemoryReplayCache {
 
     /// Retained entries (after pruning is applied on record).
     pub fn len(&self) -> usize {
-        self.seen.lock().map(|g| g.len()).unwrap_or(0)
+        self.seen.lock().map_or(0, |g| g.len())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -194,6 +194,25 @@ mod tests {
         assert!(matches!(
             cache.check_and_record_at("a", 100),
             Err(ProofError::Replay(_))
+        ));
+    }
+
+    #[cfg(not(feature = "concurrency-test"))]
+    #[test]
+    fn a_poisoned_cache_refuses_proofs() {
+        let cache = InMemoryReplayCache::with_limits(300, 2);
+        cache.check_and_record_at("a", 100).unwrap();
+        std::thread::scope(|scope| {
+            let thread = scope.spawn(|| {
+                let _guard = cache.seen.lock().unwrap();
+                panic!("poison replay cache for regression");
+            });
+            assert!(thread.join().is_err());
+        });
+        assert_eq!(cache.len(), 0);
+        assert!(matches!(
+            cache.check_and_record_at("b", 100),
+            Err(ProofError::InvalidProof(message)) if message.contains("poisoned")
         ));
     }
 

@@ -11,7 +11,7 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
         bytes.extend(
             cipher
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    (&nonce).into(),
                     Payload {
                         msg: payload,
                         aad: binding.as_bytes(),
@@ -40,7 +40,7 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
         bytes.extend(
             wrapper
                 .encrypt(
-                    XNonce::from_slice(&wrap_nonce),
+                    (&wrap_nonce).into(),
                     Payload {
                         msg: &dek,
                         aad: &wrap_aad,
@@ -52,7 +52,7 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
         bytes.extend(
             cipher
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    (&nonce).into(),
                     Payload {
                         msg: payload,
                         aad: &data_aad,

@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn a_request_stays_open_for_its_window_and_not_a_moment_more() {
         let fresh = time_left(Utc::now());
-        assert!(fresh > std::time::Duration::from_secs(14 * 60));
+        assert!(fresh > std::time::Duration::from_mins(14));
         assert_eq!(
             time_left(Utc::now() - Duration::minutes(WINDOW_MINUTES + 1)),
             std::time::Duration::ZERO

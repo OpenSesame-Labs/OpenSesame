@@ -34,13 +34,15 @@ fn connect_records_the_tailnet_and_keeps_the_secret_apart() {
 
 #[test]
 fn connect_refuses_what_tailscale_never_issues() {
+    type Case<'a> = (&'a str, Credential, fn() -> SecretString, &'a str);
+
     let tmp = tempfile::tempdir().unwrap();
     let store = AdminStore::at(tmp.path());
     let api = Credential {
         kind: CredentialKind::ApiKey,
         client_id: String::new(),
     };
-    let cases: [(&str, Credential, fn() -> SecretString, &str); 5] = [
+    let cases: [Case<'_>; 5] = [
         ("../etc", oauth(), client_secret, "invalid_tailnet"),
         ("-", api.clone(), client_secret, "invalid_credential"),
         ("-", oauth(), api_token, "invalid_credential"),

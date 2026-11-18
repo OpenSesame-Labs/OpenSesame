@@ -124,7 +124,7 @@ fn a_stale_lock_does_not_wedge_the_file() {
     let path = dir.path().join("plugins.json");
     let lock = dir.path().join("plugins.json.lock");
     std::fs::write(&lock, b"").unwrap();
-    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+    let old = std::time::SystemTime::now() - std::time::Duration::from_mins(10);
     std::fs::File::options()
         .write(true)
         .open(&lock)
@@ -159,7 +159,7 @@ fn a_file_others_can_write_is_not_trusted() {
 }
 
 fn install_unless_full(settings: &mut PluginSettings, id: &str, i: usize) {
-    if settings.plugins.len() < 2 || i % 2 == 0 {
+    if settings.plugins.len() < 2 || i.is_multiple_of(2) {
         settings
             .record_install(id, "1", &"d".repeat(64), "/q")
             .unwrap();

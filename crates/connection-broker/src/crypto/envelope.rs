@@ -98,7 +98,8 @@ pub(super) fn open(master: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<V
         XChaCha20Poly1305::new_from_slice(key.as_ref())
             .map_err(|_| unavailable())?
             .decrypt(
-                XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
+                <&XNonce>::try_from(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET])
+                    .map_err(|_| unavailable())?,
                 Payload {
                     msg: &blob.ciphertext[KEY_OFFSET..HEADER_LEN],
                     aad: &context,
@@ -113,7 +114,7 @@ pub(super) fn open(master: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<V
     XChaCha20Poly1305::new_from_slice(&dek)
         .map_err(|_| unavailable())?
         .decrypt(
-            XNonce::from_slice(&blob.nonce),
+            <&XNonce>::try_from(blob.nonce.as_slice()).map_err(|_| unavailable())?,
             Payload {
                 msg: &blob.ciphertext[HEADER_LEN..],
                 aad: &context,
@@ -137,7 +138,7 @@ mod tests {
             XChaCha20Poly1305::new_from_slice(key.as_ref())
                 .unwrap()
                 .decrypt(
-                    XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
+                    <&XNonce>::try_from(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]).unwrap(),
                     Payload {
                         msg: &blob.ciphertext[KEY_OFFSET..HEADER_LEN],
                         aad: &authenticated_context(aad, &blob.nonce),

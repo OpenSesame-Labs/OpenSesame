@@ -3,7 +3,7 @@ use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
-    XChaCha20Poly1305, XNonce,
+    XChaCha20Poly1305,
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -47,7 +47,7 @@ pub fn wrap_vrk_with_password(
     let mut nonce = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce);
     let wrapped = cipher
-        .encrypt(XNonce::from_slice(&nonce), vrk.0.as_ref())
+        .encrypt((&nonce).into(), vrk.0.as_ref())
         .map_err(|_| VaultCryptoError::Aead)?;
     Ok(PasswordWrapper {
         salt: STANDARD.encode(salt),
@@ -145,7 +145,7 @@ fn unwrap_admitted(
         XChaCha20Poly1305::new_from_slice(&wrapping_key).map_err(|_| VaultCryptoError::Aead)?;
     wrapping_key.zeroize();
     let mut plaintext_vrk = cipher
-        .decrypt(XNonce::from_slice(&nonce), wrapped_bytes.as_ref())
+        .decrypt((&nonce).into(), wrapped_bytes.as_ref())
         .map_err(|_| VaultCryptoError::Aead)?;
     // Authentic but wrong-sized material must be an error, not a panic on
     // `copy_from_slice`.

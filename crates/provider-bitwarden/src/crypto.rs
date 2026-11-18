@@ -270,7 +270,7 @@ impl SymmetricKey {
         if value.iv.len() != AES_BLOCK {
             return Err(Error::MalformedEncString("IV must be 16 bytes"));
         }
-        if value.data.is_empty() || value.data.len() % AES_BLOCK != 0 {
+        if value.data.is_empty() || !value.data.len().is_multiple_of(AES_BLOCK) {
             return Err(Error::MalformedEncString(
                 "ciphertext must be a non-zero multiple of the AES block size",
             ));

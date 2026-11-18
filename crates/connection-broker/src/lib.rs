@@ -288,7 +288,7 @@ impl ConnectionBroker {
         // Both credential transports fail closed; uploads get a longer timeout,
         // never redirect permission or a permissive client fallback.
         let http_bytes = reqwest::Client::builder()
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_mins(1))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|e| {
@@ -735,12 +735,12 @@ impl ConnectionBroker {
             id: opensesame_domain::ConnectionId::new().to_string(),
             organization_id: organization,
             project_id: request.project_id.filter(|p| !p.is_empty()),
-            provider_id: provider.id.to_string(),
+            provider_id: provider.id.clone(),
             integration_id,
             display_name: request
                 .display_name
                 .filter(|d| !d.trim().is_empty())
-                .unwrap_or_else(|| provider.display_name.to_string()),
+                .unwrap_or_else(|| provider.display_name.clone()),
             logical_name,
             status: ConnectionStatus::Pending,
             status_detail: None,
@@ -1088,12 +1088,12 @@ impl ConnectionBroker {
             .clone()
             .with_provider(&provider.id, provider_config);
         if !provider.auth.is_oauth() {
-            return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+            return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
         }
         let missing = config.missing_config(&provider);
         if !missing.is_empty() {
             return Err(BrokerError::ProviderUnconfigured {
-                provider: provider.id.to_string(),
+                provider: provider.id.clone(),
                 missing,
             });
         }
@@ -1573,7 +1573,7 @@ impl ConnectionBroker {
         let missing = config.missing_config(&provider);
         if !missing.is_empty() {
             return Err(BrokerError::ProviderUnconfigured {
-                provider: provider.id.to_string(),
+                provider: provider.id.clone(),
                 missing,
             });
         }
@@ -1678,7 +1678,7 @@ impl ConnectionBroker {
             .resolve_provider(&row.organization_id, &row.provider_id)
             .await?;
         if !accepts_pasted_access_token(&provider.id) {
-            return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+            return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
         }
         let (integration_id, _, _, _, expected_integration_updated_at) = self
             .resolve_integration(
@@ -1775,7 +1775,7 @@ impl ConnectionBroker {
             &provider.auth,
             AuthMethod::ApiKey { .. } | AuthMethod::Configuration
         ) {
-            return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+            return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
         }
         if let Some(value) = configuration_set.get_mut("api_key") {
             *value = value.trim().to_string();

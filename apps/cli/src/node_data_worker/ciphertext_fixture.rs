@@ -2,7 +2,7 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chacha20poly1305::{
     aead::{Aead, Payload},
-    KeyInit, XChaCha20Poly1305, XNonce,
+    KeyInit, XChaCha20Poly1305,
 };
 use hkdf::Hkdf;
 use sha2::Sha256;
@@ -26,7 +26,7 @@ pub(super) fn sealed_generation(name: &str, plaintext: &[u8]) -> Vec<u8> {
     bytes.extend(
         wrapper
             .encrypt(
-                XNonce::from_slice(&wrap_nonce),
+                (&wrap_nonce).into(),
                 Payload {
                     msg: &*dek,
                     aad: &aad("wrap"),
@@ -38,7 +38,7 @@ pub(super) fn sealed_generation(name: &str, plaintext: &[u8]) -> Vec<u8> {
     bytes.extend(
         cipher
             .encrypt(
-                XNonce::from_slice(&nonce),
+                (&nonce).into(),
                 Payload {
                     msg: plaintext,
                     aad: &aad("data"),
