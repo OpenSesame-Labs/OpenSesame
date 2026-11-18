@@ -16,6 +16,7 @@
 import { chromium, expect } from "@playwright/test";
 import { approveByKeyboard } from "./capability-keyboard-contract.mjs";
 import {
+  LiveConnectionTimeout,
   allowKeyboardMachine,
   joinerAsks,
   nameKeyboardMachine,
@@ -378,7 +379,8 @@ export async function liveKeyboardContract({
     };
     try {
       await walk();
-    } catch {
+    } catch (error) {
+      if (!(error instanceof LiveConnectionTimeout)) throw error;
       // One more walk. A loopback check that never completes is the flake
       // this shard hits; a second pair of browsers gets a new socket.
       console.error("live keyboard: connection did not form; trying once more");
