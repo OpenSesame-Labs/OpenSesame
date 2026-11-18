@@ -3,8 +3,16 @@ import { registerLegacyItemKinds } from "@opensesame/app-core/lib/contributions.
 import { switchCredentialPacksOn } from "@opensesame/app-core/lib/type-packs/credential-packs.test-support.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
 import { createItem } from "@opensesame/vault-core";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useLayoutEffect } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectInTray } from "../../components/tray.test-support.js";
@@ -109,5 +117,37 @@ describe("the most an item's fields hold", () => {
     expect(field("Name").value).toHaveLength(FIELD_LIMITS.name + 9);
     await userEvent.type(field("Name"), "x");
     expect(field("Name").value).toHaveLength(FIELD_LIMITS.name);
+  });
+});
+
+describe("a new item draft", () => {
+  it("saves a name entered as soon as the editor appears", async () => {
+    function NameOnArrival() {
+      useLayoutEffect(() => {
+        fireEvent.change(screen.getByLabelText("Name"), {
+          target: { value: "Service secret" },
+        });
+      }, []);
+      return null;
+    }
+    await act(async () => {
+      render(
+        <MemoryRouter initialEntries={["/vault/new/secret"]}>
+          <Routes>
+            <Route
+              path="/vault/new/:kind"
+              element={<ItemEditor mode="new" />}
+            />
+            <Route path="/vault/:itemId" element={<span>Saved</span>} />
+          </Routes>
+          <NameOnArrival />
+        </MemoryRouter>,
+      );
+    });
+    expect(field("Name").value).toBe("Service secret");
+    await userEvent.type(field("Secret value"), "example");
+    await userEvent.click(screen.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(saveItem).toHaveBeenCalled());
+    expect(saveItem.mock.calls[0]?.[0].name).toBe("Service secret");
   });
 });

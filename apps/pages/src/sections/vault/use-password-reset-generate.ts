@@ -3,7 +3,6 @@ import {
   accountWebLoginOrigin,
   enqueueManualRotation,
 } from "@opensesame/app-core/lib/vault/rotation-queue.js";
-import { processRotationQueue } from "@opensesame/app-core/lib/vault/rotation-relay.js";
 import {
   type VaultItem,
   itemRotationMode,
@@ -30,8 +29,8 @@ export function isPasswordResetEligible(item: VaultItem): boolean {
 /**
  * Request a provider-side reset from the rotation panel. Not configured
  * (capability off or readiness not ok)
- * prompts through the bell tray; configured queues a manual rotation and
- * offers it to the relay. Never touches a secret.
+ * prompts through the bell tray; configured queues a manual rotation for the
+ * caller to offer to the relay. Never touches a secret.
  */
 export function usePasswordResetGenerate(item: VaultItem, scope: string) {
   const navigate = useNavigate();
@@ -56,7 +55,6 @@ export function usePasswordResetGenerate(item: VaultItem, scope: string) {
     }
     if (!scope) return "no-scope";
     if (!enqueueManualRotation(item, scope)) return "ineligible";
-    await processRotationQueue(scope);
     return "queued";
   };
 
