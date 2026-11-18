@@ -19,6 +19,9 @@ const catalogInputs = inputs.filter(
 const bundledInputs = inputs.filter((input) => input.kind === "bundled-export");
 const jsonInputs = inputs.filter((input) => input.kind === "json-default");
 const packInputs = inputs.filter((input) => input.kind === "pack-index");
+const embeddedInputs = inputs.filter(
+  (input) => input.kind === "embedded-array",
+);
 
 test.each(catalogInputs)(
   "$exportName extracts the exact authored catalog behind source and value pins",
@@ -103,6 +106,23 @@ test.each(arrayInputs)(
   },
 );
 
+test.each(embeddedInputs)(
+  "$exportName extracts its exact JSON-safe embedded array and preserves its module tail",
+  (input) => {
+    const data = readPackedGeneratedData(input.source, input);
+    assert.ok(data.value.length > 0);
+    assert.deepEqual(data.value, JSON.parse(JSON.stringify(data.value)));
+    const rendered = renderGeneratedDataModule(input.source, input, "asset123");
+    assert.ok(rendered.code.includes(input.declaration));
+    assert.match(rendered.code, /__opensesameDataValue/);
+    assert.ok(
+      rendered.code.endsWith(
+        input.source.slice(input.source.indexOf(input.expressionEnd)),
+      ),
+    );
+  },
+);
+
 test.each(moduleInputs)(
   "$exportName extracts every exact JSON-safe tutorial export",
   (input) => {
@@ -171,6 +191,15 @@ test.each(inputs)(
       for (const name of input.exportNames) {
         assert.match(rendered.code, new RegExp(`export const ${name} =`));
       }
+      return;
+    }
+    if (input.kind === "embedded-array") {
+      assert.match(
+        rendered.code,
+        /await fetch\(import\.meta\.ROLLUP_FILE_URL_asset123\)/,
+      );
+      assert.ok(rendered.code.includes(input.declaration));
+      assert.doesNotMatch(rendered.code, /id: "listing\.next"/);
       return;
     }
     const prefixEnd =
