@@ -72,6 +72,11 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `nunjucks@3.2.4` | Supports chokidar 5 and starts its resolver watcher with an empty path list | `scripts/security/npm-workspaces.test.mjs` |
 | `@aws-sdk/xml-builder@3.972.42` | Preserves XML Unicode and entities and bounds custom entity expansion | `scripts/security/aws-xml-compat.test.mjs` and `.deepsec/aws-xml-compat.test.mjs` |
 | `kdbxweb@2.1.1` | Preserves tabs and carriage returns in XML text and CDATA and uses the reviewed fixed XML parser | `scripts/security/kdbxweb-compat.test.mjs` |
+| `glob@10.5.0`, `glob@11.1.0` | Stop filesystem traversal after cancellation while retaining compatible glob behavior | [compatibility note](#glob-and-minimatch-compatibility) |
+| `minimatch@9.0.9`, `minimatch@10.2.6` | Bound glob-part expansion while preserving matching behavior for older consumers | [compatibility note](#glob-and-minimatch-compatibility) |
+| `@joshwooding/vite-plugin-react-docgen-typescript@0.7.0`, `react-docgen-typescript@2.4.0` | Use the TypeScript 6 compiler API alongside the workspace's TypeScript 7 | `scripts/security/removed-dependencies.test.mjs` |
+| `node-turn@0.0.6` | Declares the reviewed security-fixed `js-yaml` and `log4js` releases used by the live TURN verifier | `scripts/security/dependency-override-upgrade.test.mjs` |
+| `@noble/post-quantum@0.5.4` | Declares the compatible, reviewed Noble 2.4 primitives already used by the workspace | `scripts/security/dependency-override-upgrade.test.mjs` |
 | `@devicefarmer/adbkit@3.3.8` | Loads its TCP bridge and key parser lazily. Not installed: nothing in the lockfile depends on it | `vendor/manifest.json` |
 
 The picomatch backport preserves the generated expressions and ordinary match
@@ -79,13 +84,55 @@ results. In Node, expressions with ambiguous nested repetition, repeated
 alternatives, multiple extglob repetitions, or direct quantified regex input
 execute in a reusable worker and throw if the match exceeds its deadline.
 Browser runtimes reject those expressions rather than returning a
-false match, which could bypass an exclusion. Raw expressions obtained from
-`parse` or `compileRe(..., true)`, and direct calls to the native
-`RegExp.prototype.exec`, do not use that boundary. The package retains its
-published version so an advisory scanner may continue to report the backport;
-the recorded tarball integrity and regression tests identify the patched copy.
+false match, which could bypass an exclusion. Public `parse`, `compileRe`,
+`makeRe`, and `toRegex` calls reject risky expressions before exposing either
+raw source or a `RegExp`; bounded matchers also redact their internal state and
+expression from detailed results. This prevents native `RegExp.prototype`
+methods from bypassing the worker boundary. The package retains its published
+version, while the recorded tarball integrity and regression tests identify
+the patched copy.
 
 A patch does not travel with a package published from this repository. A consumer who installs a published package resolves its dependencies from the registry.
+
+## Glob and minimatch compatibility
+
+The dependency graph requires different major versions of `glob` and
+`minimatch`. A global override to glob 14 and minimatch 11 changes their
+matching behavior: an archive or Workbox precache can silently omit a file
+after the first 10,000 brace alternatives, and `readdir-glob` changes a
+documented `noglobstar` match. The regression tests exercise those consumers.
+
+The npm tarballs are pinned to these published versions and patched sources:
+
+- `glob` 10.5.0 and 11.1.0: the four abort branches return after invoking the
+  callback, matching the upstream cancellation fix for GHSA-3g3m-2fjr-6pw4.
+  Both CommonJS and ESM distributions receive the change.
+- `minimatch` 9.0.9 and 10.2.6: the upstream glob-part expansion cap and
+  quadratic deduplication cutoff address GHSA-g3hv-75wg-m249. The 9.x branch
+  uses the upstream default cap; the 10.x branch also respects its existing
+  `braceExpandMax` option. Invalid runtime values fall back to the bounded
+  default before both brace and glob-part expansion; an explicit `Infinity`
+  remains the opt-in for callers that deliberately need an unbounded result.
+  Matching behavior for ordinary patterns is retained.
+- `minimatch` 5.1.9 uses `brace-expansion` 2.1.8. Both are published versions
+  within the older consumers' declared ranges and outside the known affected
+  ranges in the local advisory database.
+
+The published `glob` 13.0.7 already has the four cancellation returns. The
+local OSV data still lists releases before 14.0.2 as affected; keep that raw
+finding visible until the advisory data or a reviewed, artifact-bound evidence
+mechanism accounts for this exact release. The other backported versions also
+remain visible to version-only scanners until their patched bytes are verified.
+
+`removed-dependencies.test.mjs` exercises promise and stream cancellation
+through the installed CommonJS and ESM packages. Its consumer tests cover the
+archive, Workbox, Promptfoo, filesystem search, Stryker and docgen paths, as
+well as the actual legacy matcher behavior. `patches:verify` compares each
+vendored tarball against the integrity-pinned published archive plus its patch.
+
+The patched generated JavaScript retains the upstream line count. Its source
+maps embed the corresponding modified TypeScript and map generated code back to
+the changed guards in both CommonJS and ES module builds.
 
 ## SQLx SQLite compatibility backport
 

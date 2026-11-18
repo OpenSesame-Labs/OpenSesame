@@ -1,17 +1,4 @@
-#!/usr/bin/env node
-// Builds and verifies the patched dependency tarballs under patches/vendor/.
-//
-//   node scripts/security/patched-dependencies.mjs build    # rebuild tarballs, pin the lockfile
-//   node scripts/security/patched-dependencies.mjs verify   # prove tarball == upstream + patch
-//
-// npm does not apply `patchedDependencies`. Each patch is therefore shipped as
-// a tarball that is exactly the published package with the patch applied, and
-// the lockfile pins that tarball by integrity, so a plain `npm ci` installs
-// the patched code with no lifecycle script and no extra step.
-//
-// Both commands download the published package from the registry and refuse it
-// unless it matches the upstream integrity recorded in the manifest.
-// See patches/README.md.
+// scripts/security/patched-dependencies.mjs
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -26,20 +13,17 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { x as extractTar, t as listTar } from "tar";
 
-export const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-export const MANIFEST = "patches/vendor/manifest.json";
-
-export function readJson(path) {
+var root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+var MANIFEST = "patches/vendor/manifest.json";
+function readJson(path) {
   return JSON.parse(readFileSync(join(root, path), "utf8"));
 }
-
-/** npm's Subresource Integrity string for a file. */
-export function integrity(file) {
+function integrity(file) {
   const digest = createHash("sha512").update(readFileSync(file));
   return `sha512-${digest.digest("base64")}`;
 }
-
 function run(command, args, cwd) {
   return execFileSync(command, args, {
     cwd,
@@ -50,41 +34,31 @@ function run(command, args, cwd) {
     env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(cwd) },
   });
 }
-
-/**
- * npm installs every entry of a tarball with its first path component
- * removed, whatever that component is called. A tarball is accepted only if
- * each entry is a regular file or directory below `package/`, so comparing
- * `package/` compares everything npm would install.
- */
-export function assertPackageEntries(tarball) {
-  const cwd = dirname(tarball);
-  const names = run("tar", ["-tzf", tarball], cwd).split("\n").filter(Boolean);
-  const types = run("tar", ["-tvzf", tarball], cwd)
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => line[0]);
-  if (names.length === 0 || names.length !== types.length)
+function assertPackageEntries(tarball) {
+  const entries = [];
+  listTar({
+    file: tarball,
+    sync: true,
+    strict: true,
+    onentry: (entry) => entries.push({ type: entry.type, name: entry.path }),
+  });
+  if (entries.length === 0)
     throw new Error(`${tarball}: unreadable tarball listing`);
-  for (const [index, name] of names.entries()) {
+  for (const { type, name } of entries) {
     const inside =
       name.startsWith("package/") && !name.split("/").includes("..");
-    if (!inside || !["-", "d"].includes(types[index]))
+    if (!inside || !["File", "Directory"].includes(type))
       throw new Error(`${tarball}: refused entry ${JSON.stringify(name)}`);
   }
 }
-
-/** Unpacks an npm tarball into `into` and returns its `package/` directory. */
-export function extract(tarball, into) {
+function extract(tarball, into) {
   assertPackageEntries(tarball);
   mkdirSync(into, { recursive: true });
-  run("tar", ["-xzf", tarball, "-C", into], into);
+  extractTar({ file: tarball, cwd: into, sync: true, strict: true });
   return join(into, "package");
 }
-
-/** Relative path to SHA-256 for every file below `directory`. */
-export function fileMap(directory) {
-  const files = Object.create(null);
+function fileMap(directory) {
+  const files = /* @__PURE__ */ Object.create(null);
   const walk = (current) => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const path = join(current, entry.name);
@@ -98,9 +72,7 @@ export function fileMap(directory) {
   walk(directory);
   return files;
 }
-
-/** Whether `patch` applies to (`reverse` false) or is present in the tree. */
-export function patchApplies(packageDirectory, patch, reverse) {
+function patchApplies(packageDirectory, patch, reverse) {
   const args = ["apply", "--check", "-p1", "--whitespace=nowarn"];
   if (reverse) args.push("-R");
   try {
@@ -110,24 +82,15 @@ export function patchApplies(packageDirectory, patch, reverse) {
     return false;
   }
 }
-
-/** Applies `patch` to the tree, or removes it when `reverse` is set. */
-export function applyPatch(packageDirectory, patch, reverse = false) {
+function applyPatch(packageDirectory, patch, reverse = false) {
   const args = ["apply", "-p1", "--whitespace=nowarn"];
   if (reverse) args.push("-R");
   run("git", [...args, join(root, patch)], packageDirectory);
 }
-
 function lastLine(text) {
   return text.trim().split("\n").at(-1);
 }
-
-/**
- * Downloads the published package, checks it against the recorded upstream
- * integrity, applies the patch and packs the result with npm. No lifecycle
- * script of the package runs at any point.
- */
-export function buildPatched(selector, entry, work) {
+function buildPatched(selector, entry, work) {
   const upstreamDirectory = join(work, "upstream");
   const output = join(work, "out");
   mkdirSync(upstreamDirectory, { recursive: true });
@@ -154,10 +117,11 @@ export function buildPatched(selector, entry, work) {
   const packed = run("npm", [...pack, "--pack-destination", output], source);
   return join(output, lastLine(packed));
 }
-
-/** Files that differ between two file maps, in either direction. */
-export function differingFiles(expected, actual) {
-  const paths = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+function differingFiles(expected, actual) {
+  const paths = /* @__PURE__ */ new Set([
+    ...Object.keys(expected),
+    ...Object.keys(actual),
+  ]);
   return [...paths]
     .filter(
       (path) =>
@@ -167,19 +131,12 @@ export function differingFiles(expected, actual) {
     )
     .sort();
 }
-
-/** Compare the package's files while leaving separately locked child packages to npm. */
-export function installedPackageDifferences(
-  expected,
-  actual,
-  packagePath,
-  packages,
-) {
+function installedPackageDifferences(expected, actual, packagePath, packages) {
   const prefix = `${packagePath}/node_modules/`;
   const children = Object.keys(packages)
     .filter((key) => key.startsWith(prefix))
     .map((key) => `${key.slice(packagePath.length + 1)}/`);
-  const owned = Object.create(null);
+  const owned = /* @__PURE__ */ Object.create(null);
   for (const [path, value] of Object.entries(actual)) {
     const normalized = path.replaceAll("\\", "/");
     if (
@@ -191,8 +148,6 @@ export function installedPackageDifferences(
   }
   return differingFiles(expected, owned);
 }
-
-/** Points every lockfile copy of `selector` at the tarball and its integrity. */
 function pinLockfile(selector, tarball, value) {
   const at = selector.lastIndexOf("@");
   const name = selector.slice(0, at);
@@ -208,16 +163,18 @@ function pinLockfile(selector, tarball, value) {
     entry.resolved = `file:${tarball}`;
     entry.integrity = value;
   }
-  writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`);
+  writeFileSync(
+    path,
+    `${JSON.stringify(lock, null, 2)}
+`,
+  );
 }
-
 function build(selector, entry, work) {
   const built = buildPatched(selector, entry, work);
   copyFileSync(built, join(root, entry.tarball));
   pinLockfile(selector, entry.tarball, integrity(built));
   console.log(`${selector}: wrote ${entry.tarball}`);
 }
-
 function verify(selector, entry, work) {
   const built = fileMap(extract(buildPatched(selector, entry, work), work));
   const committed = fileMap(
@@ -231,16 +188,21 @@ function verify(selector, entry, work) {
   const count = Object.keys(committed).length;
   console.log(`${selector}: ${count} files equal upstream plus patch`);
 }
-
-function main(mode) {
+function main(mode, selected) {
   const action = { build, verify }[mode];
   if (!action) {
     console.error(
-      "Usage: node scripts/security/patched-dependencies.mjs build|verify",
+      "Usage: node scripts/security/patched-dependencies.mjs build|verify [package@version]",
     );
     process.exit(2);
   }
-  for (const [selector, entry] of Object.entries(readJson(MANIFEST).vendored)) {
+  const entries = Object.entries(readJson(MANIFEST).vendored).filter(
+    ([selector]) => selected === undefined || selector === selected,
+  );
+  if (entries.length === 0) {
+    throw new Error(`${selected}: no vendored dependency manifest entry`);
+  }
+  for (const [selector, entry] of entries) {
     const work = mkdtempSync(join(tmpdir(), "opensesame-patched-"));
     try {
       action(selector, entry, work);
@@ -249,6 +211,172 @@ function main(mode) {
     }
   }
 }
-
 if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))
-  main(process.argv[2]);
+  main(process.argv[2], process.argv[3]);
+
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync as mkdirSync2,
+  mkdtempSync as mkdtempSync2,
+  readFileSync as readFileSync2,
+  readlinkSync,
+  realpathSync,
+  rmSync as rmSync2,
+  writeFileSync as writeFileSync2,
+} from "node:fs";
+// scripts/security/npm-installed-bins.mjs
+import { createRequire } from "node:module";
+import { tmpdir as tmpdir2 } from "node:os";
+import {
+  dirname as dirname2,
+  isAbsolute,
+  join as join2,
+  relative as relative2,
+  resolve as resolve2,
+  sep,
+} from "node:path";
+
+function npmCommandShim() {
+  const bin = dirname2(process.execPath);
+  const paths = [
+    process.env.npm_execpath,
+    join2(bin, "node_modules/npm/bin/npm-cli.js"),
+    resolve2(bin, "../lib/node_modules/npm/bin/npm-cli.js"),
+    ...String(process.env.PATH ?? "")
+      .split(process.platform === "win32" ? ";" : ":")
+      .flatMap((dir) => [
+        join2(dir, "node_modules/npm/bin/npm-cli.js"),
+        resolve2(dir, "../lib/node_modules/npm/bin/npm-cli.js"),
+      ]),
+  ];
+  for (const path of paths) {
+    if (!path || !existsSync(path)) continue;
+    const executable = realpathSync(path);
+    const shim = resolve2(dirname2(executable), "../node_modules/cmd-shim");
+    if (existsSync(shim)) return createRequire(executable)(shim);
+  }
+  throw new Error(
+    "Cannot locate the active npm cmd-shim to verify Windows bins",
+  );
+}
+function directChildren(packagePath, packages) {
+  const prefix = `${packagePath}/node_modules/`;
+  return Object.entries(packages).flatMap(([key, entry]) => {
+    if (!key.startsWith(prefix)) return [];
+    const name = key.slice(prefix.length);
+    if (
+      !/^(?:@[^/]+\/)?[^/\\]+$/.test(name) ||
+      name.split("/").some((part) => part === "." || part === "..") ||
+      entry.link
+    )
+      return [];
+    if (!entry.bin || typeof entry.bin !== "object") return [];
+    return Object.entries(entry.bin).map(([bin, target]) => ({
+      name,
+      bin,
+      target,
+    }));
+  });
+}
+function validTarget(directory, child, bin, target) {
+  if (!bin || bin === "." || bin === ".." || /[/\\\0]/.test(bin)) return null;
+  if (typeof target !== "string" || isAbsolute(target)) return null;
+  const childRoot = resolve2(directory, "node_modules", child);
+  const file = resolve2(childRoot, target);
+  const inside = relative2(childRoot, file);
+  if (
+    !inside ||
+    inside === ".." ||
+    inside.startsWith(`..${sep}`) ||
+    isAbsolute(inside)
+  )
+    return null;
+  return file;
+}
+function isCorrectLink(link, target) {
+  if (!existsSync(link) || !lstatSync(link).isSymbolicLink()) return false;
+  return resolve2(dirname2(link), readlinkSync(link)) === target;
+}
+async function matchingWindowsShims(directory, child, bin, target, shim) {
+  const scratch = mkdtempSync2(join2(tmpdir2(), "opensesame-npm-bin-"));
+  try {
+    const targetInPackage = relative2(
+      join2(directory, "node_modules", child),
+      target,
+    );
+    const source = join2(scratch, "node_modules", child, targetInPackage);
+    const generated = join2(scratch, "node_modules", ".bin", bin);
+    mkdirSync2(dirname2(source), { recursive: true });
+    writeFileSync2(source, readFileSync2(target));
+    await shim(source, generated);
+    const actual = join2(directory, "node_modules", ".bin", bin);
+    return ["", ".cmd", ".ps1"].every((suffix) => {
+      const path = `${actual}${suffix}`;
+      return (
+        existsSync(path) &&
+        lstatSync(path).isFile() &&
+        readFileSync2(path).equals(readFileSync2(`${generated}${suffix}`))
+      );
+    });
+  } finally {
+    rmSync2(scratch, { recursive: true, force: true });
+  }
+}
+async function installedNpmBins(
+  directory,
+  packagePath,
+  packages,
+  options = {},
+) {
+  const platform = options.platform ?? process.platform;
+  const verified = /* @__PURE__ */ new Set();
+  for (const { name, bin, target } of directChildren(packagePath, packages)) {
+    const file = validTarget(directory, name, bin, target);
+    if (!file) continue;
+    const base = `node_modules/.bin/${bin}`;
+    if (!existsSync(join2(directory, base))) continue;
+    if (platform === "win32") {
+      if (
+        await matchingWindowsShims(
+          directory,
+          name,
+          bin,
+          file,
+          options.shim ?? npmCommandShim(),
+        )
+      )
+        for (const suffix of ["", ".cmd", ".ps1"])
+          verified.add(`${base}${suffix}`);
+    } else if (isCorrectLink(join2(directory, base), file)) {
+      verified.add(base);
+    }
+  }
+  return verified;
+}
+function withoutVerifiedNpmBins(expected, actual, bins) {
+  const owned = Object.assign(/* @__PURE__ */ Object.create(null), actual);
+  for (const path of Object.keys(owned)) {
+    if (!Object.hasOwn(expected, path) && bins.has(path.replaceAll("\\", "/")))
+      delete owned[path];
+  }
+  return owned;
+}
+
+export {
+  MANIFEST,
+  applyPatch,
+  assertPackageEntries,
+  buildPatched,
+  differingFiles,
+  extract,
+  fileMap,
+  installedNpmBins,
+  installedPackageDifferences,
+  integrity,
+  npmCommandShim,
+  patchApplies,
+  readJson,
+  root,
+  withoutVerifiedNpmBins,
+};
