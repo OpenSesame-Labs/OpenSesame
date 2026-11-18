@@ -38,7 +38,7 @@ const suites = [
     name: "webauthn",
     model: "ApprovalBinding.lean",
     first: "approved_proof_matches_request",
-    vectors: 3072,
+    vectors: 6144,
   },
   {
     name: "oauth",
