@@ -188,9 +188,9 @@ test("release qualification refuses to lose a required suite", (t) => {
 test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"],
   );
-  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe"]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
@@ -212,20 +212,25 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     }
   }
 });
-test("the pinned SPIFFE lock projection cannot be removed or narrowed", (t) => {
-  for (const kind of ["remove", "root", "dependency"]) {
-    const f = fixture(t);
-    const altered = structuredClone(REQUIREMENTS);
-    const suite = altered.suites.find((entry) => entry.id === "spiffe");
-    if (kind === "remove") delete suite.lockProjection;
-    if (kind === "root") suite.lockProjection.root = "other";
-    if (kind === "dependency") suite.lockProjection.dependency = "spiffe";
-    for (const name of ["proof-registry.json", "proof-requirements.json"])
-      writeFileSync(join(f.dir, "spec/formal", name), JSON.stringify(altered));
-    const result = f.run();
-    assert.notEqual(result.status, 0, kind);
-    assert.match(result.stderr, /required|mapping|proof/i);
-    assert.deepEqual(f.commands(), []);
+test("the pinned SPIFFE and source-lifetime lock projections cannot be weakened", (t) => {
+  for (const id of ["spiffe", "source-lifetime"]) {
+    for (const kind of ["remove", "root", "dependency"]) {
+      const f = fixture(t);
+      const altered = structuredClone(REQUIREMENTS);
+      const suite = altered.suites.find((entry) => entry.id === id);
+      if (kind === "remove") delete suite.lockProjection;
+      if (kind === "root") suite.lockProjection.root = "other";
+      if (kind === "dependency") suite.lockProjection.dependency = "spiffe";
+      for (const name of ["proof-registry.json", "proof-requirements.json"])
+        writeFileSync(
+          join(f.dir, "spec/formal", name),
+          JSON.stringify(altered),
+        );
+      const result = f.run();
+      assert.notEqual(result.status, 0, `${id}: ${kind}`);
+      assert.match(result.stderr, /required|mapping|proof/i);
+      assert.deepEqual(f.commands(), []);
+    }
   }
 });
 test("release qualification propagates a suite failure", (t) => {

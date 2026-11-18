@@ -55,7 +55,9 @@ pub mod testkit;
 pub use client::{client_config, dial_name, reqwest_builder, ClientProfile, ServerNamePolicy};
 pub use env::{NativeIdentitySpec, NativeTrustSpec, TransportEnv};
 pub use error::classify_tls_error;
-pub use generations::{Generation, GenerationCandidate, TransportGenerations};
+pub use generations::{
+    Generation, GenerationCandidate, SourceOwner, SourceTrust, TransportGenerations,
+};
 pub use guard::{enforce_current_generation, PeerDenyHook};
 pub use identity::{ChainUsage, TlsIdentity};
 pub use leaf::{LeafUsage, ParsedLeaf};

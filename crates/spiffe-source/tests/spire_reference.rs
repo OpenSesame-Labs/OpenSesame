@@ -46,7 +46,7 @@ async fn real_spire_issues_the_configured_svid_and_withdraws_it_when_the_entry_i
         .unwrap()
         .with_max_stale(Duration::from_secs(30));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(cfg, sink.clone());
+    let handle = SpiffeSource::start(cfg, sink.clone()).unwrap();
     let status = handle
         .wait_for(Duration::from_secs(90), |s| {
             s.phase == SourcePhase::Streaming && s.generation.is_some()
