@@ -11,7 +11,6 @@ const requirements = JSON.parse(
 );
 const manifest = "spec/formal/proof-requirements.json";
 const registryPath = "spec/formal/proof-registry.json";
-
 function seedRequiredSuite(
   f,
   suite,
@@ -27,7 +26,6 @@ function seedRequiredSuite(
   for (const proof of suite.proofs) f.write(proof, "proof\n");
   f.write(implementationPath, "original\n");
 }
-
 test("every reviewed suite runs for its own implementation", (t) => {
   for (const suite of requirements.suites) {
     const f = fixture(t);
@@ -62,7 +60,7 @@ test("every reviewed suite runs for its own implementation", (t) => {
   }
 });
 
-test("overlapping mapped suites all run, but an unrelated edit skips", (t) => {
+test("overlapping mapped suites run, but unrelated and Cargo helper edits skip", (t) => {
   const path = "crates/domain/src/lib.rs";
   const selected = requirements.suites.filter((entry) =>
     entry.implementation.includes(path),
@@ -77,7 +75,12 @@ test("overlapping mapped suites all run, but an unrelated edit skips", (t) => {
       "spiffe-peer-domain",
     ],
   );
-  for (const changed of [path, "docs/unrelated.md"]) {
+  for (const changed of [
+    path,
+    "docs/unrelated.md",
+    "scripts/security/formal-cargo-isolation.py",
+    "scripts/security/formal-cargo-freshness.py",
+  ]) {
     const f = fixture(t);
     seedRequiredSuite(f, selected[0]);
     for (const entry of selected)
@@ -206,7 +209,6 @@ test("a historical base may predate a newly registered suite", (t) => {
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(f.commands(), ["run verify:oauth-formal"]);
 });
-
 test("registry changes cannot add unpinned or remove required coverage", (t) => {
   for (const kind of [
     "missing-path",

@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 CRATE = Path("crates/spiffe-source")
@@ -21,6 +20,8 @@ LIVE_FILES = (
     Path("spec/formal/check-axioms.sh"),
     Path("spec/formal/required-theorem-command.lean"),
     Path("scripts/security/cargo-lock-projection.py"),
+    Path("scripts/security/formal-cargo-isolation.py"),
+    Path("scripts/security/formal-cargo-freshness.py"),
 )
 
 
@@ -163,7 +164,10 @@ def live_fingerprint() -> dict[str, str]:
 
 
 def run(command: list[str], *, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=300, check=False)
+    raw = env.get("OPENSESAME_FORMAL_SCRATCH_LOCK_FD")
+    fds = () if raw is None else (int(raw),)
+    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=300,
+                          check=False, pass_fds=fds)
 
 
 def require_success(command: list[str], *, cwd: Path, env: dict[str, str], label: str) -> None:
@@ -173,13 +177,14 @@ def require_success(command: list[str], *, cwd: Path, env: dict[str, str], label
     print(f"{label}: passed", flush=True)
 
 
-def archive_workspace(destination: Path) -> None:
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+def archive_workspace(destination: Path, fds: tuple[int, ...] = ()) -> None:
+    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, pass_fds=fds).strip()
     archive = subprocess.Popen(
         ["git", "archive", "--format=tar", revision],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        pass_fds=fds,
     )
     assert archive.stdout is not None and archive.stderr is not None
     try:
@@ -211,7 +216,7 @@ def archive_workspace(destination: Path) -> None:
         shutil.copy2(ROOT / relative, target)
 
 
-def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: dict[str, str]) -> None:
+def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: dict[str, str], helper: dict) -> None:
     if witness.arguments == ("verify",):
         result = run(["bash", "spec/formal/spiffe/verify.sh"], cwd=scratch, env=env)
         output = result.stdout + result.stderr
@@ -227,7 +232,10 @@ def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: d
         print(f"{mutation.name}: caught by {witness.name}", flush=True)
         return
     command = ["cargo", "test", "--locked", "-p", "opensesame-spiffe-source", "--all-features", *witness.arguments]
-    result = run(command, cwd=scratch, env=env)
+    result = helper["checked_cargo"](
+        scratch, env, ["opensesame-spiffe-source"],
+        Path("spec/formal/spiffe/check-drift.py"), command[1:],
+    )
     output = result.stdout + result.stderr
     if (
         result.returncode != 101
@@ -249,13 +257,30 @@ def main() -> None:
     if shutil.which(lean) is None:
         raise RuntimeError("Lean not found; activate the pinned Lean toolchain first")
     env = os.environ.copy()
+    env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
     env["CARGO_INCREMENTAL"] = "0"
     env["CARGO_NET_OFFLINE"] = "true"
+    require_success([sys.executable, "-I", "spec/formal/spiffe/check-drift.py"],
+                    cwd=ROOT, env=env, label="reviewed live baseline")
+    live_helper = ROOT / "scripts/security/formal-cargo-isolation.py"
+    lifecycle = {"__name__": "formal_cargo_isolation", "__file__": str(live_helper)}
+    exec(compile(live_helper.read_bytes(), str(live_helper), "exec", dont_inherit=True), lifecycle)
     original_hashes = live_fingerprint()
     try:
-        with tempfile.TemporaryDirectory(prefix="opensesame-spiffe-negative-") as directory:
-            scratch = Path(directory)
-            archive_workspace(scratch)
+        with lifecycle["scratch_checkout"](ROOT) as lease:
+            scratch = lease.path
+            env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(lease.lock_fd)
+            archive_workspace(scratch, (lease.lock_fd,))
+            require_success([sys.executable, "-I", "spec/formal/spiffe/check-drift.py"],
+                            cwd=scratch, env=env, label="reviewed scratch baseline")
+            wrapper = subprocess.check_output(
+                [sys.executable, "-I", str(scratch / "scripts/security/formal-cargo-isolation.py"), str(scratch)],
+                text=True, pass_fds=(lease.lock_fd,),
+            ).strip()
+            env |= {"RUSTC_WRAPPER": "", "RUSTC_WORKSPACE_WRAPPER": wrapper}
+            helper_path = scratch / "scripts/security/formal-cargo-isolation.py"
+            helper = {"__name__": "formal_cargo_isolation", "__file__": str(helper_path)}
+            exec(compile(helper_path.read_bytes(), str(helper_path), "exec", dont_inherit=True), helper)
             require_success(["bash", "spec/formal/spiffe/verify.sh"], cwd=scratch, env=env, label="unmodified suite before mutations")
             vectors = scratch / "spiffe-vectors.tsv"
             with vectors.open("w") as output:
@@ -268,6 +293,7 @@ def main() -> None:
                     text=True,
                     timeout=120,
                     check=False,
+                    pass_fds=(lease.lock_fd,),
                 )
             if result.returncode != 0:
                 raise RuntimeError(f"cannot generate checked Lean vectors: {result.stderr}")
@@ -277,12 +303,13 @@ def main() -> None:
                 original = path.read_text()
                 if original.count(mutation.before) != 1:
                     raise RuntimeError(f"{mutation.name}: mutation target is not unique")
-                try:
-                    path.write_text(original.replace(mutation.before, mutation.after, 1))
+                with helper["mutated_coverage"](
+                    scratch, Path("spec/formal/spiffe/coverage.json"), CRATE / mutation.source,
+                    mutation.before, mutation.after, Path("spec/formal/spiffe/check-drift.py"),
+                    env=env,
+                ):
                     for witness in mutation.witnesses:
-                        assert_caught(mutation, witness, scratch=scratch, env=mutant_env)
-                finally:
-                    path.write_text(original)
+                        assert_caught(mutation, witness, scratch=scratch, env=mutant_env, helper=helper)
             require_success(["bash", "spec/formal/spiffe/verify.sh"], cwd=scratch, env=env, label="unmodified suite after mutations")
     finally:
         after = live_fingerprint()

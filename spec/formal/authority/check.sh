@@ -19,9 +19,22 @@ if ! command -v "$rustc_bin" >/dev/null 2>&1 || [[ "$("$rustc_bin" --version)" !
 fi
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/opensesame-authority-formal.XXXXXXXX")"
 trap 'rm -rf "$scratch"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 vectors="$scratch/vectors.tsv"
-export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$scratch/target}"
 python3 -I "$root/spec/formal/authority/check-drift.py"
+# This harness is a separate Cargo workspace: its domain path dependency is
+# outside that workspace, so a workspace wrapper alone cannot isolate it.
+export CARGO_TARGET_DIR="$scratch/target"
+export RUSTC_WRAPPER=""
+unset OPENSESAME_FORMAL_RUSTC_LOG
+export RUSTC_WORKSPACE_WRAPPER="$(python3 -I "$root/scripts/security/formal-cargo-isolation.py" "$root/spec/formal/authority")"
+python3 -I "$root/scripts/security/formal-cargo-freshness.py" init \
+  --repo "$root" --manifest "$root/spec/formal/authority/Cargo.toml" \
+  --state "$scratch/cargo-state.json" --package opensesame-formal-authority
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/authority/Authority.lean" > "$vectors"
-cargo run --locked --manifest-path "$root/spec/formal/authority/Cargo.toml" -- "$vectors"
+python3 -I "$root/scripts/security/formal-cargo-freshness.py" run \
+  --state "$scratch/cargo-state.json" --input-check "$root/spec/formal/authority/check-drift.py" -- \
+  run --locked --manifest-path "$root/spec/formal/authority/Cargo.toml" --bin authority-conformance -- "$vectors"
 python3 -I "$root/spec/formal/authority/check-drift.py"

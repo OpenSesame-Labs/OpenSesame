@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 SELECTOR = Path("crates/gateway/src/transport/source_trust_selection.rs")
@@ -33,17 +32,20 @@ def scratch_path(base: Path, name: str) -> Path:
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=600, check=False)
+    raw = env.get("OPENSESAME_FORMAL_SCRATCH_LOCK_FD")
+    fds = () if raw is None else (int(raw),)
+    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=600,
+                          check=False, pass_fds=fds)
 
 
-def archive(destination: Path) -> None:
+def archive(destination: Path, fds: tuple[int, ...] = ()) -> None:
     staged = subprocess.run(["git", "diff", "--cached", "--quiet", "--"], cwd=ROOT, check=False)
     if staged.returncode == 1:
         raise RuntimeError("scratch controls require an empty index")
     if staged.returncode != 0:
         raise RuntimeError("could not inspect the Git index")
     proc = subprocess.Popen(["git", "archive", "--format=tar", "HEAD"], cwd=ROOT,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=fds)
     assert proc.stdout is not None and proc.stderr is not None
     try:
         with tarfile.open(fileobj=proc.stdout, mode="r|") as source:
@@ -99,26 +101,45 @@ def require_failure(result: subprocess.CompletedProcess[str], test: str, diagnos
     print(f"{label}: rejected", flush=True)
 
 
-def cargo_test(scratch: Path, env: dict[str, str], name: str, ignored: bool = False) -> subprocess.CompletedProcess[str]:
+def cargo_test(scratch: Path, env: dict[str, str], name: str, helper: dict,
+               ignored: bool = False) -> subprocess.CompletedProcess[str]:
     command = ["cargo", "test", "--locked", "-p", "opensesame-gateway", "--lib", name, "--"]
     if ignored:
         command.append("--ignored")
     command.append("--exact")
-    return run(command, scratch, env)
+    return helper["checked_cargo"](scratch, env, ["opensesame-gateway"],
+                                   Path("spec/formal/source-trust-selection/check-drift.py"), command[1:])
 
 
 def main() -> None:
     env = os.environ.copy() | {"CARGO_INCREMENTAL": "0", "CARGO_NET_OFFLINE": "true"}
+    env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
     lean = env.get("OPENSESAME_LEAN_BIN", "lean")
     if shutil.which("cargo") is None or shutil.which(lean) is None:
         raise RuntimeError("activate the pinned Rust and Lean toolchains first")
     require_pass(run([sys.executable, "-I", str(ROOT / "spec/formal/source-trust-selection/test_snapshot.py")], ROOT, env),
                  "scratch snapshot controls")
+    require_pass(run([sys.executable, "-I", "spec/formal/source-trust-selection/check-drift.py"], ROOT, env),
+                 "reviewed live baseline")
+    live_helper = ROOT / "scripts/security/formal-cargo-isolation.py"
+    lifecycle = {"__name__": "formal_cargo_isolation", "__file__": str(live_helper)}
+    exec(compile(live_helper.read_bytes(), str(live_helper), "exec", dont_inherit=True), lifecycle)
     original_hash = hashlib.sha256((ROOT / SELECTOR).read_bytes()).hexdigest()
     try:
-        with tempfile.TemporaryDirectory(prefix="opensesame-selection-negative-") as directory:
-            scratch = Path(directory)
-            archive(scratch)
+        with lifecycle["scratch_checkout"](ROOT) as lease:
+            scratch = lease.path
+            env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(lease.lock_fd)
+            archive(scratch, (lease.lock_fd,))
+            require_pass(run([sys.executable, "-I", "spec/formal/source-trust-selection/check-drift.py"],
+                             scratch, env), "reviewed scratch baseline")
+            wrapper = subprocess.check_output(
+                [sys.executable, "-I", str(scratch / "scripts/security/formal-cargo-isolation.py"), str(scratch)],
+                text=True, pass_fds=(lease.lock_fd,),
+            ).strip()
+            env |= {"RUSTC_WRAPPER": "", "RUSTC_WORKSPACE_WRAPPER": wrapper}
+            helper_path = scratch / "scripts/security/formal-cargo-isolation.py"
+            helper = {"__name__": "formal_cargo_isolation", "__file__": str(helper_path)}
+            exec(compile(helper_path.read_bytes(), str(helper_path), "exec", dont_inherit=True), helper)
             require_pass(run(["bash", "spec/formal/source-trust-selection/verify.sh"], scratch, env),
                          "unmodified suite")
             result = run(["bash", "spec/formal/check-axioms.sh", lean,
@@ -138,22 +159,26 @@ def main() -> None:
             for label, before, after, name, ignored, diagnostic in mutations:
                 if original.count(before) != 1:
                     raise RuntimeError(f"{label}: mutation target is not unique")
-                try:
-                    target.write_text(original.replace(before, after, 1))
-                    require_failure(cargo_test(scratch, test_env, name, ignored), name, diagnostic, label)
-                finally:
-                    target.write_text(original)
+                with helper["mutated_coverage"](
+                    scratch, Path("spec/formal/source-trust-selection/coverage.json"),
+                    SELECTOR, before, after, Path("spec/formal/source-trust-selection/check-drift.py"),
+                    env=env,
+                ):
+                    require_failure(cargo_test(scratch, test_env, name, helper, ignored), name, diagnostic, label)
             vectors.write_text("")
-            require_failure(cargo_test(scratch, test_env, CORRESPONDENCE, True), CORRESPONDENCE,
+            require_failure(cargo_test(scratch, test_env, CORRESPONDENCE, helper, True), CORRESPONDENCE,
                             "incomplete selector vector matrix", "empty vector matrix")
-            fake_bin = scratch / "fake-bin"
-            fake_bin.mkdir()
-            fake = fake_bin / "cargo"
-            fake.write_text("#!/bin/sh\nprintf 'running 0 tests\\n\\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\\n'\n")
-            fake.chmod(0o755)
-            zero_env = env | {"PATH": f"{fake_bin}{os.pathsep}{env['PATH']}"}
-            zero = run(["bash", "spec/formal/source-trust-selection/verify.sh"], scratch, zero_env)
-            if zero.returncode == 0 or "required selector correspondence did not run and pass" not in zero.stderr:
+            with helper["mutated_coverage"](
+                scratch, Path("spec/formal/source-trust-selection/coverage.json"),
+                Path("crates/gateway/src/transport/source_trust_selection_formal.rs"),
+                "fn lean_vectors_match_source_trust_selection() {",
+                "fn renamed_source_selection_correspondence() {",
+                Path("spec/formal/source-trust-selection/check-drift.py"),
+                env=env,
+            ):
+                zero = run(["bash", "spec/formal/source-trust-selection/verify.sh"], scratch, env)
+            if (zero.returncode == 0 or "required selector correspondence did not run and pass" not in zero.stderr or
+                    "test result: ok. 0 passed; 0 failed; 0 ignored;" not in zero.stdout):
                 raise RuntimeError(f"zero-test control not rejected\n{zero.stdout}\n{zero.stderr}")
             print("zero-test runner result: rejected", flush=True)
             require_pass(run(["bash", "spec/formal/source-trust-selection/verify.sh"], scratch, env),

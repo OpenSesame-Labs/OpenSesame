@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -239,4 +245,56 @@ test("a dirty or removed registry cannot mask a previously mapped implementation
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /required formal proof suite a is missing/i);
   assert.deepEqual(f.commands(), []);
+});
+
+test("transport lib changes select SPIFFE proofs while authority proof-only edits skip", (t) => {
+  const requirements = JSON.parse(
+    readFileSync(
+      new URL("../../spec/formal/proof-requirements.json", import.meta.url),
+    ),
+  );
+  const lib = "crates/transport-security/src/lib.rs";
+  const authorityProof = "spec/formal/authority/conformance.rs";
+  const selected = requirements.suites.filter((suite) =>
+    suite.implementation.includes(lib),
+  );
+  assert.deepEqual(
+    selected.map((suite) => suite.id),
+    [
+      "spiffe",
+      "source-lifetime",
+      "source-trust-selection",
+      "spiffe-peer-domain",
+    ],
+  );
+  assert.ok(
+    requirements.suites.every(
+      (suite) => !suite.implementation.includes(authorityProof),
+    ),
+  );
+  const authority = requirements.suites.find(
+    (suite) => suite.id === "authority",
+  );
+  const policy = { version: 1, suites: [authority, ...selected] };
+  for (const changed of [lib, authorityProof]) {
+    const f = fixture(t);
+    f.pin(policy);
+    f.write(
+      "scripts/security/formal-proof-manifest-set.mjs",
+      readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
+    );
+    for (const name of ["proof-registry.json", "proof-requirements.json"])
+      f.write(`spec/formal/${name}`, JSON.stringify(policy));
+    for (const suite of policy.suites)
+      for (const proof of suite.proofs) f.write(proof, "proof\n");
+    f.write(changed, "before\n");
+    const base = f.commit();
+    f.write(changed, "after\n");
+    const result = f.run(f.tuple(f.commit(), base));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      f.commands(),
+      changed === lib ? selected.map((suite) => `run ${suite.command[2]}`) : [],
+    );
+  }
 });

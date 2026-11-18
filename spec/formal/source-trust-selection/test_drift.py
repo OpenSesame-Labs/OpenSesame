@@ -109,7 +109,7 @@ def main() -> None:
                 entry["sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
         coverage_path.write_text(json.dumps(coverage))
         result = invoke(target, ["bash", str(SUITE / "verify.sh")], controlled)
-        require(result, False, "package.build", "rehashed custom build path")
+        require(result, False, "unreviewed Cargo build script or custom path", "rehashed custom build path")
         if cargo_marker.exists():
             raise RuntimeError("Cargo executed before refusing the custom build path")
         manifest.write_text(original)

@@ -29,8 +29,19 @@ paths = [
     "crates/domain/src/lib.rs",
     "spec/formal/authority/Cargo.toml",
     "spec/formal/authority/Cargo.lock",
+    "spec/formal/authority/conformance.rs",
+    "scripts/security/formal-cargo-isolation.py",
+    "scripts/security/formal-cargo-freshness.py",
 ]
 root_package = "opensesame-domain"
+TARGETS = {
+    "crates/domain/Cargo.toml": {
+        "package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs"),
+    },
+    "spec/formal/authority/Cargo.toml": {
+        "package": "opensesame-formal-authority", "bin": {"authority-conformance": "conformance.rs"},
+    },
+}
 crate_root_wiring_digest = "8b3f3bc845cc0ca24b75080aaf5c0143cb938104a9873801fbc53bb1a277f999"
 # A build script can read or generate additional, otherwise unmapped sources.
 # Enabling one requires a separately reviewed verifier and coverage extension.
@@ -134,6 +145,7 @@ def verify(manifest):
                 for entry in manifest["sources"]) or
             [entry["path"] for entry in manifest["sources"]] != paths):
         raise ValueError("invalid coverage manifest")
+    verified = {}
     for entry in manifest["sources"]:
         path = root / entry["path"]
         for parent in path.parents:
@@ -143,8 +155,10 @@ def verify(manifest):
                 raise ValueError(f"source path is not a regular directory: {entry['path']}")
         if not stat.S_ISREG(path.lstat().st_mode):
             raise ValueError(f"source is not a regular file: {entry['path']}")
-        if sha256(path.read_bytes()).hexdigest() != entry["sha256"]:
+        source = path.read_bytes()
+        if sha256(source).hexdigest() != entry["sha256"]:
             raise ValueError(f"source drift in {entry['path']}")
+        verified[entry["path"]] = source
     optional = manifest.get("optional_sources")
     if (not isinstance(optional, list) or len(optional) != 1 or
             not isinstance(optional[0], dict) or set(optional[0]) != {"path", "sha256"} or
@@ -161,6 +175,10 @@ def verify(manifest):
         raise ValueError("source drift in crates/domain/build.rs")
     if build_hash != reviewed_build_script_sha256:
         raise ValueError("domain build script requires separately reviewed verifier coverage")
+    helper_name = "scripts/security/formal-cargo-isolation.py"
+    scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(root / helper_name)}
+    exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
+    scope["check_cargo_targets"](root, TARGETS, set(verified))
     check_crate_paths(projection.read_toml(root / "crates/domain/Cargo.toml"))
     check_module_wiring((root / "crates/domain/src/lib.rs").read_text())
     graph = projection.lock_projection.read_lock(root / "Cargo.lock")
