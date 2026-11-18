@@ -2,7 +2,7 @@ import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registr
 import type { GuideTourView } from "@opensesame/guide-runtime";
 import { type RefObject, useCallback } from "react";
 import { padded } from "./CoachParts.js";
-import { clearOfDock, placeCoach } from "./placement.js";
+import { clearOfDock, phoneCardHeightLimit, placeCoach } from "./placement.js";
 import { useGlide } from "./use-coach-behavior.js";
 import {
   useLiveRect,
@@ -23,6 +23,7 @@ export function useCoachLayout(
   card: RefObject<HTMLElement | null>,
 ) {
   const target = tour.target;
+  const stepKey = `${runId}:${tour.kind}:${tour.step}`;
   const rect = useLiveRect(
     useCallback(
       () =>
@@ -31,32 +32,49 @@ export function useCoachLayout(
           : null,
       [target, tour.degraded],
     ),
+    stepKey,
   );
   const viewport = useViewport();
   const phone = usePhoneLayout();
   const insets = useSafeInsets();
-  const stepKey = `${runId}:${tour.kind}:${tour.step}`;
   const size = useMeasured(card, `${stepKey}:${tour.message}:${phone}`);
   const box = rect === null ? null : padded(rect);
-  const placement =
+  const relativeBox =
+    box === null ? null : { ...box, top: box.top - viewport.offsetTop };
+  const relativePlacement =
     size === null
       ? null
       : placeCoach({
           viewport,
           card: size,
-          target: box,
+          target: relativeBox,
           prefer: tour.side,
           phone,
+          insets,
         });
+  const placement =
+    relativePlacement && relativePlacement.kind !== "dock"
+      ? {
+          ...relativePlacement,
+          top: relativePlacement.top + viewport.offsetTop,
+        }
+      : relativePlacement;
+  const relativeHole =
+    relativeBox !== null && size !== null && placement?.kind === "dock"
+      ? clearOfDock(relativeBox, viewport, size, placement.edge, insets)
+      : relativeBox;
   const hole =
-    box !== null && size !== null && placement?.kind === "dock"
-      ? clearOfDock(box, viewport, size, placement.edge, insets)
-      : box;
+    relativeHole === null
+      ? null
+      : { ...relativeHole, top: relativeHole.top + viewport.offsetTop };
   return {
     stepKey,
     viewport,
     hole,
     placement,
+    maxHeight: phone
+      ? phoneCardHeightLimit(viewport, relativeBox, insets)
+      : undefined,
     gliding: useGlide(stepKey),
     // A control that was on screen and is gone — the person navigated away —
     // is the same situation as one that never appeared.

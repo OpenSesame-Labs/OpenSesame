@@ -115,6 +115,7 @@ describe("what the key opens", () => {
     const rows = sheet.querySelectorAll("[data-tutorial]");
     expect([...rows].map((row) => row.getAttribute("data-tutorial"))).toEqual([
       "gate.front-door",
+      "gate.guest",
       "gate.join",
     ]);
   });
@@ -142,7 +143,7 @@ describe("what the key opens", () => {
       .getAllByRole("button")
       .map((button) => button.textContent ?? "");
     expect(titles).not.toContain("Where do I lock the vault?");
-    expect(titles).toContain("The front door: two roads and Skip");
+    expect(titles).toContain("New password");
   });
 
   it("offers a Show me for written help only where its screen can start the tour", async () => {

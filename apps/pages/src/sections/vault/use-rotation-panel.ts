@@ -42,7 +42,7 @@ export function useRotationPanel(item: VaultItem, scope: string) {
   const origin = mode === "automatic" ? accountWebLoginOrigin(item) : null;
   const warning =
     mode === "automatic" && !origin
-      ? "Automatic rotation couldn't verify this account: it has no https site to rotate."
+      ? "Add an HTTPS website to enable automatic rotation."
       : itemRotationWarning(typeId);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -106,6 +106,7 @@ export function useRotationPanel(item: VaultItem, scope: string) {
 
   return {
     mode,
+    eligible,
     warning,
     schedule,
     event,

@@ -113,15 +113,17 @@ describe("the first-visit offer", () => {
     expect(offered()?.getAttribute("aria-label")).toBe(
       "Tour Settings: Danger walkthrough",
     );
-    expect(offered()?.textContent).toContain("It only points");
-    expect(within(seat).getByRole("button", { name: "Show me" })).toBeTruthy();
+    expect(offered()?.textContent).toContain("complete this task");
+    expect(
+      within(seat).getByRole("button", { name: "Start tutorial" }),
+    ).toBeTruthy();
   });
 
   it("starts the tour and remembers the answer", () => {
     const { support, started } = controller();
     mount(support);
     settle();
-    choose("Show me");
+    choose("Start tutorial");
     expect(started).toHaveLength(1);
     expect(started[0]?.origin).toBe("authored");
     expect(started[0]?.source).toContain('goal "settings.danger.review"');
@@ -147,7 +149,7 @@ describe("the first-visit offer", () => {
     const first = mount(security().support);
     settle();
     expect(offered()?.getAttribute("aria-label")).toBe(
-      "Review the security settings walkthrough",
+      "Security settings walkthrough",
     );
     choose("Not now");
     first.unmount();
@@ -350,7 +352,7 @@ describe("the first-visit offer", () => {
   });
 
   it("counts steps in plain words", () => {
-    expect(offerBody(1)).toContain("1 step,");
-    expect(offerBody(6)).toContain("6 steps,");
+    expect(offerBody(1)).toBe("Follow 1 step to complete this task.");
+    expect(offerBody(6)).toBe("Follow 6 steps to complete this task.");
   });
 });

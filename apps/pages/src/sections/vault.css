@@ -1296,6 +1296,12 @@
 
 /* —— Phone polish ———————————————————————————————————————————— */
 
+@media (pointer: coarse), (max-width: 900px) {
+  .editor__pepper-check {
+    min-height: 2.75rem;
+  }
+}
+
 @media (max-width: 900px) {
   /* A password's own keys (reveal, copy) sit in the row's key column; its
      "update" key lives in the text column, where a one-column grid dropped it

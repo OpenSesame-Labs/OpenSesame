@@ -119,7 +119,7 @@ describe("the tutorial card", () => {
     await user.click(within(card).getByRole("button", { name: /^Next/ }));
     await waitFor(() =>
       expect(card.querySelector(".coach__cue")?.textContent).toContain(
-        "your move",
+        "Complete this step",
       ),
     );
   });
@@ -142,7 +142,7 @@ describe("the tutorial card", () => {
     // The first step is authored prose and arrives as one text node.
     const text = card.querySelector(".coach__text");
     expect(text?.querySelectorAll("*").length).toBe(1); // only the hidden counter
-    expect(text?.textContent).toContain("Locking drops the keys");
+    expect(text?.textContent).toContain("Lock the vault to remove its keys");
   });
 
   it("marks its root with the step's target and whether it degraded", async () => {

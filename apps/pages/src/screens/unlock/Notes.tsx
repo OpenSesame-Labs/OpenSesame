@@ -41,6 +41,7 @@ export function FormNotes({
   firstRun,
   activeMethod,
   acceptRef,
+  ackGuideRef,
   accepted,
   setAccepted,
   header,
@@ -50,6 +51,7 @@ export function FormNotes({
   firstRun: boolean;
   activeMethod: UnlockTabId;
   acceptRef: Ref<HTMLInputElement>;
+  ackGuideRef?: Ref<HTMLLabelElement>;
   accepted: boolean;
   setAccepted: (value: boolean) => void;
   header: VaultHeader | null;
@@ -65,7 +67,7 @@ export function FormNotes({
               ? "There is no recovery. Lose this device's authenticator and the encrypted items on this device are unreadable — by you and by us. An authenticator that cannot seal fails on Seal; the PIN tab works on any device."
               : "There is no recovery. Forget this PIN and the encrypted items on this device are unreadable — by you and by us."}
           </p>
-          <label className="check">
+          <label className="check" ref={ackGuideRef}>
             <input
               type="checkbox"
               ref={acceptRef}
@@ -82,5 +84,32 @@ export function FormNotes({
       ) : null}
       <DurabilityNote durable={durable} />
     </>
+  );
+}
+
+export function UnlockSteps({
+  awaitingSecondStep,
+  authenticatorOnly,
+}: {
+  awaitingSecondStep: boolean;
+  authenticatorOnly: boolean;
+}) {
+  return (
+    <ol className="steps" aria-label="Unlock steps">
+      <li
+        className={
+          awaitingSecondStep ? "steps__seg is-done" : "steps__seg is-now"
+        }
+      >
+        <span className="steps__bar" />
+        <span className="steps__label">1 · Key</span>
+      </li>
+      <li className={awaitingSecondStep ? "steps__seg is-now" : "steps__seg"}>
+        <span className="steps__bar" />
+        <span className="steps__label">
+          {authenticatorOnly ? "2 · Authenticator code" : "2 · Code"}
+        </span>
+      </li>
+    </ol>
   );
 }

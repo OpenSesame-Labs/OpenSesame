@@ -27,10 +27,9 @@ type SectionProps = {
   integration: Integration;
   /** The first section drawn: its subheader stands for the list in a tutorial. */
   first: boolean;
-  sectionRef?: (element: HTMLElement | null) => void;
 };
 
-function IntegrationSection({ integration, first, sectionRef }: SectionProps) {
+function IntegrationSection({ integration, first }: SectionProps) {
   const ownHead = useGuideTarget<HTMLDivElement>(
     `integration.${integration.id}`,
   );
@@ -48,7 +47,6 @@ function IntegrationSection({ integration, first, sectionRef }: SectionProps) {
       className="conn-group capsection"
       id={id}
       aria-labelledby={`${id}-title`}
-      ref={sectionRef}
     >
       <SectionHead
         id={`${id}-title`}
@@ -78,25 +76,13 @@ function IntegrationSection({ integration, first, sectionRef }: SectionProps) {
   );
 }
 
-/** The backup guide points at the Backups section. */
-function BackupsSection(props: SectionProps) {
-  return (
-    <IntegrationSection
-      {...props}
-      sectionRef={useGuideTarget<HTMLElement>("settings.backup")}
-    />
-  );
-}
-
 export function IntegrationSections() {
   const drawn: readonly DrawnIntegration[] = useIntegrationsDrawn();
   return (
     <div className="capsections" id="settings-integrations">
       {drawn.map(({ integration }, index) => {
-        const Section =
-          integration.id === "backups" ? BackupsSection : IntegrationSection;
         return (
-          <Section
+          <IntegrationSection
             key={integration.id}
             integration={integration}
             first={index === 0}

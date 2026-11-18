@@ -23,16 +23,14 @@ export const TRUSTED_CONTACTS_ROUTES: readonly GuideRouteDescriptor[] = [
 export const TRUSTED_CONTACTS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.trusted-contacts",
-    description:
-      "The Trusted contacts section of Settings › Security: the circles you keep, kept on this device and handed between people as packets.",
+    description: "Manage trusted contact circles on this device.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: "quorum.circle.manage",
   },
   {
     id: "settings.trusted-contacts-circles",
-    description:
-      "The Circles panel: each circle you own is listed with its rule, such as 2 of 3, how many contacts it has and where it stands.",
+    description: "Review each circle’s approval rule, contacts and status.",
     role: "surface",
     routes: ["/settings"],
     capabilityId: "quorum.circle.manage",
@@ -40,7 +38,7 @@ export const TRUSTED_CONTACTS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "circle.new",
     description:
-      "The Start a circle key on the Circles panel: opens a sheet that names a circle and says what it protects, makes the invitation to hand to each contact, and sets the rule and the clocks for the people who answer.",
+      "Create a circle, set its approval rule and timing, and invite trusted contacts.",
     role: "action",
     routes: ["/settings"],
     capabilityId: "quorum.circle.manage",
@@ -58,8 +56,8 @@ export const TRUSTED_CONTACTS_GOALS: readonly GuideGoalDescriptor[] = [
       'goal "settings.trusted-contacts.circle"',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
-      'focus "settings.trusted-contacts" "A circle is the people you trust to approve a request, with a delay that gives you time to object. Each answers with their own security key, and what passes between you is a packet you hand over yourself. Nothing goes to a service." side=bottom',
-      'focus "settings.trusted-contacts-circles" "Circles are the ones you own. Each is a rule, the contacts in it and where it stands." side=top',
+      'focus "settings.trusted-contacts" "A circle lets trusted contacts approve requests. You exchange packets directly, and a delay gives you time to object." side=bottom',
+      'focus "settings.trusted-contacts-circles" "This list shows your circles, their approval rules, contacts and status." side=top',
       "end",
     ].join("\n"),
   },
@@ -71,12 +69,12 @@ export const TRUSTED_CONTACTS_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "settings.trusted-contacts.owner"',
-      'say "A circle is the people you trust to approve a request. You make it here: name it, hand an invitation to each person, and set how many of them it takes."',
+      'say "Create a circle, invite trusted contacts and choose how many approvals are required."',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
-      'focus "settings.trusted-contacts-circles" "Your circles are listed here, each with its rule, how many contacts it has and where it stands. Open one to invite more people, change it, ask its contacts to approve a share, or retire it." side=top',
-      'focus "circle.new" "Start a circle names it, makes the invitation and sets the rule and the clocks. Each contact answers with their own security key, and you hand each of them a packet." side=bottom',
-      'success "That is a circle: an invitation, the people who answer it, a rule, and a packet for each. Nothing goes to a service."',
+      'focus "settings.trusted-contacts-circles" "Open a circle to manage contacts, request approval or retire it." side=top',
+      'focus "circle.new" "Select Start a circle. Name it, set its approval rule and timing, then send each contact an invitation." side=bottom',
+      'success "Exchange the packets directly with your contacts."',
       "end",
     ].join("\n"),
   },

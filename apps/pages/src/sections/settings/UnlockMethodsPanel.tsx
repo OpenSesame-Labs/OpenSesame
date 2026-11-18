@@ -2,11 +2,12 @@ export {
   onCompleteUnlockCodeSubmission,
   persistEnrollmentStateForUnlock,
 } from "@opensesame/app-core/sections/settings/security/duress-unlock-bridge.js";
+
 import { AccountFactorError } from "@opensesame/app-core/lib/account-factors.js";
 import { describeRecovery } from "@opensesame/app-core/lib/configuration/recovery-outcomes.js";
 import { loadSession } from "@opensesame/app-core/lib/federation.js";
-import { readSignInService } from "@opensesame/app-core/lib/identity-service.js";
 import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
+import { readSignInService } from "@opensesame/app-core/lib/identity-service.js";
 import {
   dismissNotice,
   setStatusNotice,
@@ -82,8 +83,10 @@ function UnlockMethodsBody() {
   const [webauthnHost, setWebauthnHost] = useState<WebauthnHostCheck>(() =>
     checkWebauthnHost(),
   );
-  const secondStepRef = useGuideTarget<HTMLElement>("settings.second-step");
-  const recoveryRef = useGuideTarget<HTMLElement>("settings.recovery");
+  const secondStepRef = useGuideTarget<HTMLButtonElement>(
+    "settings.second-step",
+  );
+  const recoveryRef = useGuideTarget<HTMLButtonElement>("settings.recovery");
 
   useEffect(() => {
     setWebauthnHost(checkWebauthnHost());
@@ -236,11 +239,7 @@ function UnlockMethodsBody() {
         </div>
       </section>
 
-      <section
-        className="panel set__security"
-        id="second-step"
-        ref={secondStepRef}
-      >
+      <section className="panel set__security" id="second-step">
         <div className="panel__head">
           <div>
             <h2>Second step</h2>
@@ -261,6 +260,7 @@ function UnlockMethodsBody() {
             }
             action={
               <IconKey
+                keyRef={secondStepRef}
                 label={totpOn ? "Remove" : "Add"}
                 small
                 disabled={busy}
@@ -293,11 +293,7 @@ function UnlockMethodsBody() {
       ) : null}
 
       {hasRecovery ? (
-        <section
-          className="panel set__security"
-          id="recovery"
-          ref={recoveryRef}
-        >
+        <section className="panel set__security" id="recovery">
           <div className="panel__head">
             <div>
               <h2>Recovery</h2>
@@ -312,6 +308,7 @@ function UnlockMethodsBody() {
               sub="Each stands in for the second step once."
               action={
                 <IconKey
+                  keyRef={recoveryRef}
                   label="View recovery codes"
                   small
                   disabled={busy}

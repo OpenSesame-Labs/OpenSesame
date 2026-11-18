@@ -11,10 +11,37 @@
 import { sortItems } from "@opensesame/vault-core";
 import { vaultStore } from "../../lib/vault/store.js";
 import { type GuideRouteId, guideRouteForLocation } from "./routes.js";
+import {
+  isCopyableAccount,
+  isEditableTutorialItem,
+  isShareableTutorialItem,
+} from "./tutorial-items.js";
 
 export const VAULT_LIST_ROUTE = "/vault/list";
 export const VAULT_ITEM_ROUTE = "/vault/item";
 export const VAULT_TRASH_ROUTE = "/vault/trash";
+
+function firstAccountList(
+  route: GuideRouteId,
+  here: { readonly pathname: string; readonly search: string },
+  goal?: string | null,
+): boolean {
+  if (route !== VAULT_LIST_ROUTE) return false;
+  if (goal !== "gate.front-door" && goal !== "vault.item.first") return false;
+  const params = new URLSearchParams(here.search);
+  return !(
+    guideRouteForLocation(here.pathname, here.search) === route &&
+    params.get("f") === "account" &&
+    !params.has("folder")
+  );
+}
+
+function eligibleForGoal(goal?: string | null) {
+  if (goal === "vault.item.copy") return isCopyableAccount;
+  if (goal === "vault.item.edit") return isEditableTutorialItem;
+  if (goal === "vault.item.share") return isShareableTutorialItem;
+  return null;
+}
 
 /**
  * The address to go to for `route`, or `null` when nothing should move: the
@@ -24,6 +51,7 @@ export const VAULT_TRASH_ROUTE = "/vault/trash";
 export function guideNavigationPath(
   route: GuideRouteId,
   here: { readonly pathname: string; readonly search: string },
+  goal?: string | null,
 ): string | null {
   if (
     route !== VAULT_LIST_ROUTE &&
@@ -31,6 +59,16 @@ export function guideNavigationPath(
     route !== VAULT_TRASH_ROUTE
   )
     return route;
+  // Both password walkthroughs need New item to open an account editor,
+  // even when the person started in a list filtered to another item type.
+  if (firstAccountList(route, here, goal)) return "/vault?f=account";
+  const eligible = eligibleForGoal(goal);
+  if (route === VAULT_ITEM_ROUTE && eligible) {
+    const items = sortItems(vaultStore.getSnapshot().items.filter(eligible));
+    if (items.some((item) => here.pathname.endsWith(`/vault/${item.id}`)))
+      return null;
+    return items[0] ? `/vault/${items[0].id}` : null;
+  }
   if (guideRouteForLocation(here.pathname, here.search) === route) return null;
   if (route === VAULT_LIST_ROUTE) return "/vault?f=all";
   if (route === VAULT_TRASH_ROUTE) return "/vault?f=trash";
