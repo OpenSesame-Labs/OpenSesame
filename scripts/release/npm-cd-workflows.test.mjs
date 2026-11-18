@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
+import { parse } from "yaml";
 import {
   assertAutomatedGates,
   assertGatesProofAndCiChecks,
@@ -78,11 +79,12 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   assert.doesNotMatch(action, /--tag\s+latest/);
   assert.doesNotMatch(action, /dist-tag add/);
   assert.doesNotMatch(action, /npm install -g npm@/);
-  assert.match(action, /npx -y npm@11\.21\.1/);
+  assert.doesNotMatch(action, /npx\s/);
+  assert.match(action, /fetch-pinned-npm\.sh/);
   assert.match(action, /Refusing dist-tag latest/);
   assert.match(
-    action,
-    /test "\$\(npx -y npm@11\.21\.1 --version\)" = "11\.21\.1"/,
+    read("scripts/release/fetch-pinned-npm.sh"),
+    /npm-11\.21\.1\.tgz/,
   );
   assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
   assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: false/);
@@ -100,6 +102,25 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
     spec.npm_packages.map((entry) => entry.name),
     ["@opensesame-labs/cli", "@opensesame-labs/web-pwa"],
   );
+});
+
+test("npm is verified without credentials before direct script-free publication", () => {
+  const action = parse(read(".github/actions/publish-npm-package/action.yml"));
+  const [prepare, publish] = action.runs.steps;
+  assert.equal(action.runs.steps.length, 2);
+  assert.equal(prepare.env, undefined);
+  assert.match(prepare.run, /env -i/);
+  assert.match(prepare.run, /fetch-pinned-npm\.sh/);
+  assert.doesNotMatch(prepare.run, /inputs\.npm-token/);
+  assert.match(publish.env.NPM_TOKEN_INPUT, /inputs\.npm-token/);
+  assert.match(publish.run, /NPM_CONFIG_IGNORE_SCRIPTS=true/);
+  assert.match(publish.run, /unset NODE_OPTIONS NODE_PATH/);
+  const program = read("scripts/release/npm-trunk-publish.mjs");
+  assert.doesNotMatch(program, /\bnpx\b/);
+  assert.match(program, /process\.execPath/);
+  assert.match(program, /OPENSESAME_NPM_CLI/);
+  assert.match(program, /--ignore-scripts/);
+  assert.match(program, /--provenance/);
 });
 
 test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () => {

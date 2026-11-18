@@ -9,6 +9,7 @@ Release and merge-gate tooling run from a terminal or CI.
 | `land-signed-stack.mjs` | Replays a local branch stack as GitHub-verified commits |
 | `candidate.mjs`, `lib/candidate-*.mjs` | Select and admit immutable candidates; verify source, provenance, qualification receipts and existing publication |
 | `artifact-transfer.mjs`, `archive-safe.py` | Verify immutable artifact identity and downloaded bytes before safe extraction |
+| `fetch-pinned-npm.sh`, `prepare-npm-cli.mjs` | Fetch npm without publication credentials, verify its committed SHA-512 and safely extract the CLI for direct, script-free publishing |
 | `build-manifest.py`, `collect-build.mjs`, `provenance.mjs` | Assemble the complete candidate and bind its payloads to the selected source and original build |
 | `sbom.mjs` | CycloneDX inventory of every package the selected snapshot's `package-lock.json` and `Cargo.lock` pin, read by exact commit and signed against the candidate's artifact digests ([release kit](../../docs/operators/release-kit.md#dependency-inventory)) |
 | `deep-tools.sh`, `deep-check.sh` | Pinned weekly mutation/security tooling and required suites; missing or incomplete evidence fails |

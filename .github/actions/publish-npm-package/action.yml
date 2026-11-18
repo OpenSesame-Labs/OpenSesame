@@ -27,26 +27,22 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Pin npm 11.21.1 and configure the npmjs registry
+    - name: Prepare integrity-pinned npm 11.21.1 without publication credentials
       shell: bash
-      env:
-        NPM_TOKEN_INPUT: ${{ inputs.npm-token }}
       run: |
         set -euo pipefail
-        # npx caches under the runner user. A global install writes
-        # /usr/local/share/man and fails with EACCES (exit 243).
-        test "$(npx -y npm@11.21.1 --version)" = "11.21.1"
-        npmrc="${RUNNER_TEMP}/opensesame-npmjs.npmrc"
-        if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
-          printf '%s\n' \
-            'registry=https://registry.npmjs.org/' \
-            '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' \
-            > "$npmrc"
-        else
-          printf '%s\n' 'registry=https://registry.npmjs.org/' > "$npmrc"
-        fi
-        unset NPM_TOKEN_INPUT
-        echo "NPM_CONFIG_USERCONFIG=${npmrc}" >> "$GITHUB_ENV"
+        # GitHub makes OIDC request credentials available to every step in
+        # an id-token:write job. Keep them, and any inherited registry token,
+        # away from the download, verifier, extractor and version probe.
+        npm_cli="$(env -i PATH="$PATH" HOME="$HOME" \
+          MISE_DATA_DIR="${MISE_DATA_DIR:-$HOME/.local/share/mise}" MISE_YES=1 \
+          HTTP_PROXY="${HTTP_PROXY:-}" HTTPS_PROXY="${HTTPS_PROXY:-}" \
+          ALL_PROXY="${ALL_PROXY:-}" NO_PROXY="${NO_PROXY:-}" \
+          http_proxy="${http_proxy:-}" https_proxy="${https_proxy:-}" \
+          all_proxy="${all_proxy:-}" no_proxy="${no_proxy:-}" \
+          RUNNER_TEMP="$RUNNER_TEMP" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" \
+          bash "${GITHUB_WORKSPACE}/scripts/release/fetch-pinned-npm.sh")"
+        printf 'OPENSESAME_NPM_CLI=%s\n' "$npm_cli" >> "$GITHUB_ENV"
 
     - name: Publish to npm
       shell: bash
@@ -56,6 +52,7 @@ runs:
         NPM_DIST_TAG: ${{ inputs.npm-dist-tag }}
       run: |
         set -euo pipefail
+        unset NODE_OPTIONS NODE_PATH
         test -n "$NPM_DIST_TAG"
         if [ "$NPM_DIST_TAG" = "latest" ]; then
           echo "Refusing dist-tag latest. Preview publishes alpha; Production publishes 0.0.0-next.N on next." >&2
@@ -70,11 +67,17 @@ runs:
             exit 1
             ;;
         esac
+        npmrc="${RUNNER_TEMP}/opensesame-npmjs.npmrc"
+        printf '%s\n' 'registry=https://registry.npmjs.org/' > "$npmrc"
+        export NPM_CONFIG_USERCONFIG="$npmrc"
+        printf 'NPM_CONFIG_USERCONFIG=%s\n' "$npmrc" >> "$GITHUB_ENV"
+        export NPM_CONFIG_IGNORE_SCRIPTS=true
         # Non-empty token: NODE_AUTH_TOKEN only. Do not try OIDC first.
         # Empty token: OIDC trusted publishing (id-token: write) only.
         # Each publish says which it is, so a stored token is never in quiet
         # use. Only the kind of credential is printed, never a value.
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
+          printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' >> "$npmrc"
           export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
           echo "::warning title=npm credential::This publish uses the stored NPM_TOKEN secret, which outlives the run. Configure the npm trusted publisher and delete the secret: docs/operators/publishing.md."
         else
