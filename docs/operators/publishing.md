@@ -53,11 +53,15 @@ reads the kind from the token's public prefix and the date from GitHub's
 
 The npm publish action downloads npm 11.21.1 with a scrubbed environment,
 checks its tarball against the committed SHA-512 in
-`scripts/release/prepare-npm-cli.mjs`, and safely extracts it before exposing
-the registry token to the publish step. The same verified local CLI is used
-for registry queries and publication, with package lifecycle scripts disabled.
-The publish step still has the GitHub OIDC credentials needed for provenance
-and, when no npm token is configured, trusted publishing.
+`scripts/release/prepare-npm-cli.mjs`, and safely extracts it. Before
+publication credentials are available, the pinned CLI packs the staged tree
+with lifecycle scripts disabled. The action validates the frozen tarball's
+identity and publish configuration, then uses a clean working directory and
+controlled npm configuration for anonymous registry queries and publication.
+A rerun accepts an existing version only when its registry integrity matches
+the frozen tarball. The publish step retains GitHub OIDC credentials for
+provenance: npm attempts OIDC trusted publishing even when a stored token is
+present, and uses that token if the OIDC exchange does not supply credentials.
 
 ### Retire `NPM_TOKEN`
 

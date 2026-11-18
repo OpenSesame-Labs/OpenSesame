@@ -9,33 +9,38 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { createNpmContext } from "./npm-publish-isolation.mjs";
 import {
   classifyNpmPublishResult,
   isForbiddenRepublishOfVersion,
   npmTrunkPublish,
-  npmViewVersion,
+  npmViewIntegrity,
 } from "./npm-trunk-publish.mjs";
 
 const version = "0.0.0-alpha.23";
-const forbidden = `npm error code E403
-npm error 403 403 Forbidden - PUT https://registry.npmjs.org/@opensesame-labs%2fcli - You cannot publish over the previously published versions: 0.0.0-alpha.23.`;
+const integrity = `sha512-${Buffer.alloc(64, 1).toString("base64")}`;
+const otherIntegrity = `sha512-${Buffer.alloc(64, 2).toString("base64")}`;
+const forbidden = `npm error code E403\nnpm error 403 Forbidden - You cannot publish over the previously published versions: ${version}.`;
+const input = {
+  packageName: "@opensesame-labs/cli",
+  version,
+  distTag: "alpha",
+  tarball: "/tmp/frozen.tgz",
+  integrity,
+};
 
-test("isForbiddenRepublishOfVersion matches trunk CD 403 body", () => {
+test("duplicate publication is recognized without treating other failures as duplicates", () => {
   assert.equal(isForbiddenRepublishOfVersion(forbidden, version), true);
   assert.equal(
     isForbiddenRepublishOfVersion(forbidden, "0.0.0-alpha.24"),
     false,
   );
-  assert.equal(isForbiddenRepublishOfVersion("npm error 404", version), false);
-});
-
-test("classifyNpmPublishResult maps E403 republish to already_published", () => {
   assert.equal(
-    classifyNpmPublishResult(
-      { status: 1, stdout: "", stderr: forbidden },
+    isForbiddenRepublishOfVersion(
+      `You cannot publish over the previously published versions: ${version}.`,
       version,
     ),
-    "already_published",
+    true,
   );
   assert.equal(
     classifyNpmPublishResult({ status: 0, stdout: "", stderr: "" }, version),
@@ -50,80 +55,114 @@ test("classifyNpmPublishResult maps E403 republish to already_published", () => 
   );
 });
 
-const input = {
-  packageName: "@opensesame-labs/cli",
-  version,
-  distTag: "alpha",
-  cwd: ".",
-};
+test("an already-published version is accepted only with the frozen tarball's integrity", () => {
+  let published = 0;
+  const publish = () => {
+    published += 1;
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  assert.equal(
+    npmTrunkPublish(input, { view: () => integrity, publish }).outcome,
+    "already_published",
+  );
+  assert.equal(published, 0);
+  assert.throws(
+    () => npmTrunkPublish(input, { view: () => otherIntegrity, publish }),
+    /different integrity/,
+  );
+  assert.equal(published, 0);
+});
 
-test("a 403 republish is confirmed even when the registry's read side lags", () => {
-  // The incident: the view missed, the publish was refused as a republish.
-  // The first views after the 403 can miss for the same reason.
-  const views = [undefined, undefined, undefined, version];
+test("a duplicate publish is checked after read-side lag, including byte mismatch", () => {
   const waits = [];
+  const views = [undefined, undefined, undefined, integrity];
   const result = npmTrunkPublish(input, {
     view: () => views.shift(),
     publish: () => ({ status: 1, stdout: "", stderr: forbidden }),
     wait: (ms) => waits.push(ms),
   });
   assert.equal(result.outcome, "already_published");
-  assert.equal(result.confirmAfter403, version);
+  assert.equal(result.confirmAfter403, integrity);
   assert.equal(waits.length, 2);
-  assert.equal(views.length, 0);
+  let calls = 0;
+  assert.throws(
+    () =>
+      npmTrunkPublish(input, {
+        view: () => (++calls === 1 ? undefined : otherIntegrity),
+        publish: () => ({ status: 1, stdout: "", stderr: forbidden }),
+        wait: () => {},
+      }),
+    /different integrity/,
+  );
 });
 
-test("a 403 the registry never confirms is a failure, not a success", () => {
-  let asked = 0;
+test("unavailable integrity or unrelated publish errors never count as success", () => {
+  assert.throws(
+    () =>
+      npmTrunkPublish(input, {
+        view: () => undefined,
+        publish: () => ({ status: 1, stdout: "", stderr: forbidden }),
+        wait: () => {},
+      }),
+    /integrity was unavailable/,
+  );
   assert.throws(
     () =>
       npmTrunkPublish(input, {
         view: () => {
-          asked += 1;
-          return undefined;
+          throw new Error("registry unavailable");
         },
-        publish: () => ({ status: 1, stdout: "", stderr: forbidden }),
-        wait: () => {},
       }),
-    /already published but registry view got missing/,
+    /registry unavailable/,
   );
-  // One view before the publish, then a bounded number after it.
-  assert.equal(asked, 7);
-});
-
-test("a version already on the registry is never published again", () => {
-  let published = 0;
-  const result = npmTrunkPublish(input, {
-    view: () => version,
-    publish: () => {
-      published += 1;
-      return { status: 0, stdout: "", stderr: "" };
-    },
-    wait: () => {},
-  });
-  assert.equal(result.outcome, "already_published");
-  assert.equal(published, 0);
-});
-
-test("any other publish failure still fails", () => {
   assert.throws(
     () =>
       npmTrunkPublish(input, {
         view: () => undefined,
         publish: () => ({ status: 1, stdout: "", stderr: "npm error 401" }),
-        wait: () => {},
       }),
-    /npm error 401/,
+    /publish failed/,
   );
 });
 
-test("view and publish use the local CLI with scripts off and preserve auth", (t) => {
+function assertNpmCalls(calls, context) {
+  assert.equal(calls.length, 3);
+  assert.equal(calls[0].args[0], "view");
+  assert.equal(calls[0].env.token, null);
+  assert.equal(calls[0].env.oidc, null);
+  assert.equal(calls[0].env.userconfig, context.anonymous);
+  assert.equal(calls[1].env.token, "unit-token");
+  assert.equal(calls[1].env.oidc, "unit-oidc");
+  assert.equal(calls[1].env.userconfig, context.authenticated);
+  assert.equal(calls[2].env.token, null);
+  assert.equal(calls[2].env.oidc, "unit-oidc");
+  assert.equal(calls[2].env.userconfig, context.anonymous);
+  for (const call of calls) {
+    assert.equal(call.cwd, context.cwd);
+    assert.ok(call.args.includes("--ignore-scripts"));
+    assert.equal(call.args[call.args.indexOf("--prefix") + 1], context.cwd);
+    assert.equal(
+      call.args[call.args.indexOf("--registry") + 1],
+      "https://registry.npmjs.org/",
+    );
+    assert.equal(call.env.globalconfig, context.global);
+    assert.equal(call.env.ignore, "true");
+    assert.equal(call.env.registryOverride, null);
+    assert.equal(call.env.nodeOptions, null);
+    assert.equal(call.env.nodePath, null);
+    assert.equal(call.env.duplicateToken, null);
+  }
+  assert.equal(calls[1].args[0], "publish");
+  assert.equal(calls[1].args[1], input.tarball);
+  assert.ok(calls[1].args.includes("--provenance"));
+}
+
+test("view is anonymous and publish gets only explicitly scoped npm and OIDC settings", (t) => {
   const dir = mkdtempSync(join(tmpdir(), "opensesame-npm-command-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const cli = join(
     dir,
-    "opensesame-npm-AB12cd34",
-    "extracted/package/bin/npm-cli.js",
+    "opensesame-npm-AB12cd34/extracted/package/bin/npm-cli.js",
   );
   const log = join(dir, "calls.jsonl");
   mkdirSync(join(dir, "opensesame-npm-AB12cd34/extracted/package/bin"), {
@@ -133,43 +172,46 @@ test("view and publish use the local CLI with scripts off and preserve auth", (t
     cli,
     `const fs = require('node:fs');
 const args = process.argv.slice(2);
-fs.appendFileSync(process.env.OPENSESAME_TEST_NPM_LOG, JSON.stringify({
-  args,
-  token: process.env.NODE_AUTH_TOKEN === 'unit-token',
-  oidc: process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN === 'unit-oidc',
-  ignore: process.env.NPM_CONFIG_IGNORE_SCRIPTS,
-  nodeOptions: process.env.NODE_OPTIONS ?? null,
-  nodePath: process.env.NODE_PATH ?? null,
-  duplicateToken: process.env.NPM_TOKEN_INPUT ?? null,
-}) + '\\n');
-if (args[0] === 'view') process.stdout.write('0.0.0-alpha.23\\n');
+fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({args, cwd: process.cwd(), env: {
+ token: process.env.NODE_AUTH_TOKEN ?? null,
+ oidc: process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN ?? null,
+ userconfig: process.env.NPM_CONFIG_USERCONFIG,
+ globalconfig: process.env.NPM_CONFIG_GLOBALCONFIG,
+ ignore: process.env.NPM_CONFIG_IGNORE_SCRIPTS,
+ registryOverride: process.env.npm_config_registry ?? null,
+ nodeOptions: process.env.NODE_OPTIONS ?? null, nodePath: process.env.NODE_PATH ?? null,
+ duplicateToken: process.env.NPM_TOKEN_INPUT ?? null,
+}}) + '\\n');
+if (args[0] === 'view') process.stdout.write(JSON.stringify(${JSON.stringify(integrity)}) + '\\n');
 `,
   );
+  const context = createNpmContext(join(dir, "isolation"));
   const values = {
     OPENSESAME_NPM_CLI: cli,
     RUNNER_TEMP: dir,
-    OPENSESAME_TEST_NPM_LOG: log,
     NODE_AUTH_TOKEN: "unit-token",
     ACTIONS_ID_TOKEN_REQUEST_TOKEN: "unit-oidc",
+    NPM_TOKEN_INPUT: "duplicate-token",
     NODE_OPTIONS: "--require /does-not-exist",
     NODE_PATH: "/does-not-exist",
-    NPM_TOKEN_INPUT: "duplicate-token",
+    npm_config_registry: "https://attacker.example/",
   };
   const before = Object.fromEntries(
     Object.keys(values).map((key) => [key, process.env[key]]),
   );
   Object.assign(process.env, values);
   try {
-    assert.equal(npmViewVersion(input.packageName, version), version);
     assert.equal(
-      npmTrunkPublish({ ...input, cwd: dir }, { view: () => undefined })
-        .outcome,
+      npmViewIntegrity(input.packageName, version, context),
+      integrity,
+    );
+    assert.equal(
+      npmTrunkPublish({ ...input, context }, { view: () => undefined }).outcome,
       "published",
     );
     delete process.env.NODE_AUTH_TOKEN;
     assert.equal(
-      npmTrunkPublish({ ...input, cwd: dir }, { view: () => undefined })
-        .outcome,
+      npmTrunkPublish({ ...input, context }, { view: () => undefined }).outcome,
       "published",
     );
   } finally {
@@ -182,32 +224,13 @@ if (args[0] === 'view') process.stdout.write('0.0.0-alpha.23\\n');
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-  assert.equal(calls.length, 3);
-  assert.equal(calls[0].args[0], "view");
-  assert.deepEqual(calls[1].args, [
-    "publish",
-    "--ignore-scripts",
-    "--access",
-    "public",
-    "--tag",
-    "alpha",
-    "--provenance",
-  ]);
-  for (const call of calls) {
-    assert.ok(call.args.includes("--ignore-scripts"));
-    assert.equal(call.ignore, "true");
-    assert.equal(call.oidc, true);
-    assert.equal(call.nodeOptions, null);
-    assert.equal(call.nodePath, null);
-    assert.equal(call.duplicateToken, null);
-  }
-  assert.equal(calls[0].token, true);
-  assert.equal(calls[1].token, true);
-  assert.equal(calls[2].token, false);
-  assert.deepEqual(calls[2].args, calls[1].args);
+  assertNpmCalls(calls, context);
 });
 
-test("the publish path refuses an absent or unprepared CLI", () => {
+test("the publish path refuses an absent or unprepared CLI", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "opensesame-npm-missing-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const context = createNpmContext(dir);
   const original = process.env.OPENSESAME_NPM_CLI;
   const originalTemp = process.env.RUNNER_TEMP;
   try {
@@ -220,7 +243,7 @@ test("the publish path refuses an absent or unprepared CLI", () => {
       if (value === undefined) delete process.env.OPENSESAME_NPM_CLI;
       else process.env.OPENSESAME_NPM_CLI = value;
       assert.throws(
-        () => npmViewVersion(input.packageName, version),
+        () => npmViewIntegrity(input.packageName, version, context),
         /verified npm CLI/,
       );
     }

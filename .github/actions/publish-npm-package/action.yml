@@ -1,15 +1,17 @@
 name: Publish npm package
 description: >-
-  Publish a staged release directory to npm with provenance. A non-empty
-  npm-token is the only registry credential (NODE_AUTH_TOKEN). That path
-  does not attempt OIDC trusted publishing. An empty token leaves registry
-  auth to OIDC (id-token: write). Preview publishes 0.0.0-alpha.N on alpha.
+  Publish a staged release directory to npm with provenance. npm attempts
+  OIDC trusted publishing and can fall back to the supplied npm-token.
+  An empty token requires OIDC (id-token: write). Preview publishes 0.0.0-alpha.N on alpha.
   Production publishes the same staged payload as 0.0.0-next.N on next.
   Never prints tokens. Never publishes latest.
 
 inputs:
   working-directory:
     description: Directory that contains the publish package.json and payload files.
+    required: true
+  npm-package-name:
+    description: Expected npm package name from the calling workflow.
     required: true
   npm-dist-tag:
     description: >-
@@ -19,16 +21,20 @@ inputs:
     required: true
   npm-token:
     description: >-
-      npm token from the GitHub Environment. Non-empty values publish with
-      NODE_AUTH_TOKEN only. Leave empty for OIDC trusted publishing.
+      npm token from the GitHub Environment, used if OIDC does not succeed.
+      Leave empty to require OIDC trusted publishing.
     required: false
     default: ""
 
 runs:
   using: composite
   steps:
-    - name: Prepare integrity-pinned npm 11.21.1 without publication credentials
+    - name: Prepare pinned npm and freeze the package without publication credentials
       shell: bash
+      env:
+        NPM_PACKAGE_DIRECTORY: ${{ inputs.working-directory }}
+        NPM_DIST_TAG: ${{ inputs.npm-dist-tag }}
+        NPM_PACKAGE_NAME: ${{ inputs.npm-package-name }}
       run: |
         set -euo pipefail
         # GitHub makes OIDC request credentials available to every step in
@@ -43,13 +49,24 @@ runs:
           RUNNER_TEMP="$RUNNER_TEMP" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" \
           bash "${GITHUB_WORKSPACE}/scripts/release/fetch-pinned-npm.sh")"
         printf 'OPENSESAME_NPM_CLI=%s\n' "$npm_cli" >> "$GITHUB_ENV"
+        # Pack and validate while neither npm credentials nor GitHub OIDC
+        # authority are available to the package or the CLI.
+        publish_dir="$(env -i PATH="$PATH" HOME="$HOME" \
+          HTTP_PROXY="${HTTP_PROXY:-}" HTTPS_PROXY="${HTTPS_PROXY:-}" \
+          ALL_PROXY="${ALL_PROXY:-}" NO_PROXY="${NO_PROXY:-}" \
+          http_proxy="${http_proxy:-}" https_proxy="${https_proxy:-}" \
+          all_proxy="${all_proxy:-}" no_proxy="${no_proxy:-}" \
+          RUNNER_TEMP="$RUNNER_TEMP" OPENSESAME_NPM_CLI="$npm_cli" \
+          node "${GITHUB_WORKSPACE}/scripts/release/prepare-npm-publish.mjs" \
+          "$NPM_PACKAGE_DIRECTORY" "$NPM_DIST_TAG" "$NPM_PACKAGE_NAME")"
+        printf 'OPENSESAME_NPM_PUBLISH_DIR=%s\n' "$publish_dir" >> "$GITHUB_ENV"
 
     - name: Publish to npm
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
       env:
         NPM_TOKEN_INPUT: ${{ inputs.npm-token }}
         NPM_DIST_TAG: ${{ inputs.npm-dist-tag }}
+        NPM_PACKAGE_NAME: ${{ inputs.npm-package-name }}
       run: |
         set -euo pipefail
         unset NODE_OPTIONS NODE_PATH
@@ -58,28 +75,12 @@ runs:
           echo "Refusing dist-tag latest. Preview publishes alpha; Production publishes 0.0.0-next.N on next." >&2
           exit 1
         fi
-        version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-        test -n "$version"
-        case "$NPM_DIST_TAG:$version" in
-          alpha:0.0.0-alpha.[0-9]*|next:0.0.0-next.[0-9]*) ;;
-          *)
-            echo "Refusing ${NPM_DIST_TAG} for ${version}. Trunk CD publishes 0.0.0-alpha.N on alpha or 0.0.0-next.N on next." >&2
-            exit 1
-            ;;
-        esac
-        npmrc="${RUNNER_TEMP}/opensesame-npmjs.npmrc"
-        printf '%s\n' 'registry=https://registry.npmjs.org/' > "$npmrc"
-        export NPM_CONFIG_USERCONFIG="$npmrc"
-        printf 'NPM_CONFIG_USERCONFIG=%s\n' "$npmrc" >> "$GITHUB_ENV"
         export NPM_CONFIG_IGNORE_SCRIPTS=true
-        # Non-empty token: NODE_AUTH_TOKEN only. Do not try OIDC first.
-        # Empty token: OIDC trusted publishing (id-token: write) only.
-        # Each publish says which it is, so a stored token is never in quiet
-        # use. Only the kind of credential is printed, never a value.
+        # npm tries OIDC first and uses a supplied npm token as a fallback.
+        # Provenance also requires GitHub OIDC credentials in either mode.
         if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
-          printf '%s\n' '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' >> "$npmrc"
           export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
-          echo "::warning title=npm credential::This publish uses the stored NPM_TOKEN secret, which outlives the run. Configure the npm trusted publisher and delete the secret: docs/operators/publishing.md."
+          echo "::warning title=npm credential::This publish makes the stored NPM_TOKEN available as a fallback; npm also attempts OIDC. Configure the npm trusted publisher and delete the secret: docs/operators/publishing.md."
         else
           unset NODE_AUTH_TOKEN
           echo "::notice title=npm credential::This publish uses OIDC trusted publishing. No stored npm token is read."
