@@ -9,12 +9,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use chrono::Utc;
 use opensesame_agent_hooks::secrets;
 use opensesame_connection_broker::{RotationPolicy, RotationTarget, UpsertRotationPolicy};
 use opensesame_lifecycle::{ExpiryStage, ExpirySubject, LifecycleEvent, SubjectKind};
 use opensesame_storage::agent_hook_policy::{AgentHookPolicyAudit, AgentHookPolicyWrite};
 use opensesame_storage::web_login_runs::StoredAgentHookRecord;
+use opensesame_time::Utc;
 use serde_json::json;
 use sqlx::Row;
 

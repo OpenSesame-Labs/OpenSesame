@@ -6,7 +6,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
 use opensesame_domain::{
     BindingPurpose, BindingScope, PeerIdentitySelector, ServiceBinding, ServiceBindingSet,
     TransportError, TrustProfileRef,
@@ -14,6 +13,7 @@ use opensesame_domain::{
 use opensesame_spiffe_source::fake::{FakeTrustDomain, IssuedSvid};
 use opensesame_spiffe_source::sink::TransportGenerationsSink;
 use opensesame_spiffe_source::{SpiffeSourceConfig, SvidGeneration};
+use opensesame_time::Utc;
 use secrecy::ExposeSecret as _;
 use spiffe::{TrustDomain, X509Bundle, X509BundleSet, X509Context, X509Svid};
 

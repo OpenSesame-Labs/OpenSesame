@@ -8,7 +8,7 @@
 //! that keeps it that way, mirroring the connector world's
 //! `assert_wit_forbids_secrets_get`.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::stage::DEFAULT_RENEW_BEFORE_SECONDS;

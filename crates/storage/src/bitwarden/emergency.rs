@@ -6,7 +6,7 @@
 //! public key by the grantor's device. The server stores and hands it over;
 //! it cannot open it.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

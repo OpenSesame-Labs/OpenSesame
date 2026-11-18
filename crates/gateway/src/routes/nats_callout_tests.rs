@@ -44,7 +44,7 @@ fn identity(issuer: &str, subject: &str) -> NatsCalloutRequest {
 
 /// A signed request and the body a bridge would post for it.
 fn signed_body(parties: &Parties, token: &str) -> (HostDecisionRequest, i64) {
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let raw = parties.signed_request(now, token);
     let verified = decode_request(
         &raw,

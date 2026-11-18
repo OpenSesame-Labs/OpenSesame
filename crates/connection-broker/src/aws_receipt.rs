@@ -7,8 +7,8 @@
 //! scanner reads without opening a seal, so the credential's expiry is
 //! published on the `lifecycle.*` feed (ADR 0074).
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
+use opensesame_time::{DateTime, Utc};
 
 use crate::aws_mint::KIND;
 use crate::aws_sts::register::{self, MintDeadline};

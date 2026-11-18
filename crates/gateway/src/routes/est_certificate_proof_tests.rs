@@ -98,7 +98,7 @@ fn install_trust(state: &mut AppState, chain: &str) {
         peer_trust: [(profile, trust)].into(),
         ..GenerationCandidate::default()
     }
-    .into_generation(1, chrono::Utc::now())
+    .into_generation(1, opensesame_time::Utc::now())
     .unwrap();
     state.transport = Some(test_support::runtime_serving(
         TransportGenerations::new(generation),
@@ -205,8 +205,8 @@ async fn direct_client_certificates_work_but_expired_evidence_does_not() {
         .into_verified()
         .unwrap();
     let mut expired = attested(TransportPolicy::MtlsRequired);
-    expired.authenticated_at = chrono::Utc::now() - chrono::Duration::minutes(2);
-    expired.usable_until = chrono::Utc::now() - chrono::Duration::minutes(1);
+    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
+    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
     let expired = expired.into_verified().unwrap();
     for endpoint in ["simpleenroll", "simplereenroll"] {
         assert_eq!(
@@ -324,8 +324,8 @@ async fn renewal_inventory_never_turns_a_proxy_or_expired_peer_into_the_enrollee
         .unwrap();
     let origin = test_support::forwarded("enrollee.test", THUMB_A, &proxy);
     let mut expired = attested(TransportPolicy::MtlsRequired);
-    expired.authenticated_at = chrono::Utc::now() - chrono::Duration::minutes(2);
-    expired.usable_until = chrono::Utc::now() - chrono::Duration::minutes(1);
+    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
+    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
     let expired = expired.into_verified().unwrap();
     let unknown = test_support::peer("unknown.test", THUMB_B, 1);
     for (peer, origin) in [

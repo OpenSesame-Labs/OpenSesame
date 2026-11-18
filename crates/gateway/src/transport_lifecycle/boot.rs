@@ -23,7 +23,7 @@
 //! of the store, so replicas sharing one store converge on a revocation or a
 //! trust change the way they already converge on the binding set.
 
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use crate::app_state::AppState;
 use crate::transport_lifecycle::{crl, revocation_store, trust, HOST_LISTENER_TARGET};

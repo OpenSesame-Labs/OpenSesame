@@ -17,8 +17,8 @@
 //! or loses a key still matches on the keys we use; a source that changes
 //! shape should cost coverage, not raise.
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone as _, Utc};
 use opensesame_security_events::Severity;
+use opensesame_time::{DateTime, NaiveDate, NaiveDateTime, TimeZone as _, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The catalogue endpoint. Unauthenticated and tenant-blind.
@@ -84,13 +84,13 @@ pub fn parse_timestamp(raw: &str) -> Option<DateTime<Utc>> {
     }
     for format in ["%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ"] {
         if let Ok(naive) = NaiveDateTime::parse_from_str(raw, format) {
-            return Some(Utc.from_utc_datetime(&naive));
+            return Some(Utc.datetime_from_utc(&naive));
         }
     }
     NaiveDate::parse_from_str(raw, "%Y-%m-%d")
         .ok()
         .and_then(|date| date.and_hms_opt(0, 0, 0))
-        .map(|naive| Utc.from_utc_datetime(&naive))
+        .map(|naive| Utc.datetime_from_utc(&naive))
 }
 
 /// Whether `candidate` is `domain` or a subdomain of it.

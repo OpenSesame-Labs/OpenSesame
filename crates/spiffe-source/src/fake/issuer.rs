@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use rcgen::{
     BasicConstraints, CertificateParams, CustomExtension, DistinguishedName, DnType,
     ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair, KeyUsagePurpose, SanType,
@@ -66,8 +66,10 @@ impl SvidSpec {
             eku: Eku::Dual,
             unknown_critical_extension: false,
             non_critical_key_usage: false,
-            not_before: now - chrono::Duration::minutes(1),
-            not_after: now + chrono::Duration::from_std(ttl).unwrap_or(chrono::Duration::hours(1)),
+            not_before: now - opensesame_time::Duration::minutes(1),
+            not_after: now
+                + opensesame_time::Duration::from_std(ttl)
+                    .unwrap_or(opensesame_time::Duration::hours(1)),
         }
     }
 }
@@ -150,8 +152,8 @@ impl FakeTrustDomain {
         dn.push(DnType::CommonName, format!("fake-ca-{name}"));
         params.distinguished_name = dn;
         let now = Utc::now();
-        params.not_before = to_time(now - chrono::Duration::minutes(5));
-        params.not_after = to_time(now + chrono::Duration::days(1));
+        params.not_before = to_time(now - opensesame_time::Duration::minutes(5));
+        params.not_after = to_time(now + opensesame_time::Duration::days(1));
         let ca_key = KeyPair::generate().expect("keypair");
         let ca_der = params
             .self_signed(&ca_key)

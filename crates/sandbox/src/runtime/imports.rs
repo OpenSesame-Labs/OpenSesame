@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use wasmtime::{Caller, Extern, Linker, Memory};
 
 use crate::boundary::Refusal;

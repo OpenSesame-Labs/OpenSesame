@@ -170,8 +170,8 @@ pub(super) type Canary = (
 /// way every other canary comparison here is made, when they do not.
 fn not_before(failed_at: &str, attested_at: &str) -> bool {
     match (
-        chrono::DateTime::parse_from_rfc3339(failed_at),
-        chrono::DateTime::parse_from_rfc3339(attested_at),
+        opensesame_time::DateTime::parse_from_rfc3339(failed_at),
+        opensesame_time::DateTime::parse_from_rfc3339(attested_at),
     ) {
         (Ok(failed), Ok(attested)) => failed >= attested,
         _ => failed_at >= attested_at,

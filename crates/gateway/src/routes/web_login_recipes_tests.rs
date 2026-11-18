@@ -77,7 +77,7 @@ pub(super) fn stepped_up(st: &AppState, subject: &str, role: OrganizationRole) -
     );
     claims.assurance = crate::session_claims::Assurance::PhishingResistant;
     claims.amr = vec!["webauthn".into()];
-    claims.last_step_up_at = Some(chrono::Utc::now());
+    claims.last_step_up_at = Some(opensesame_time::Utc::now());
     st.sessions
         .lock()
         .unwrap()

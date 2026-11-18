@@ -5,7 +5,7 @@ use super::{
     MAX_DOMAIN_DEPTH,
 };
 use crate::{AccessDomainId, DomainError, ProjectId, VaultId};
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 
 fn now() -> DateTime<Utc> {
     DateTime::parse_from_rfc3339("2026-03-01T00:00:00Z")

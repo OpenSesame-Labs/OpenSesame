@@ -1,13 +1,44 @@
 #!/usr/bin/env bash
 # Idempotent, rootless personal-dotfiles bootstrap.
 #
-# Clones DOTFILES_REPO over anonymous HTTPS. The default is Tyler Kendrick's
-# public dotfiles. GitHub CLI, GitHub tokens, credential helpers, and global
-# git config (including url.insteadOf token rewrites) are not used. When the
-# clone fails, this script prints a notice and exits 1.
+# Clones one reviewed DOTFILES_REPO revision over anonymous HTTPS. The default
+# is Tyler Kendrick's public dotfiles at the commit and install.sh digest below.
+# A custom repository must supply its own immutable revision and digest.
+# GitHub CLI, GitHub tokens, credential helpers, and global git config
+# (including url.insteadOf token rewrites) are not used. When verification or
+# cloning fails, this script prints a notice and exits 1.
 set -euo pipefail
 
-repo="${DOTFILES_REPO:-https://github.com/Tyler-R-Kendrick/dotfiles.git}"
+default_repo="https://github.com/Tyler-R-Kendrick/dotfiles.git"
+default_ref="720ba701a41a3bd6cfc086141067d7a1003a0392"
+default_install_sha256="7d3c74db2b469c73de388957aeb52699998cfe3a89c874a3da83a6149cf3886e"
+repo="${DOTFILES_REPO:-${default_repo}}"
+
+if [[ "${repo}" == "${default_repo}" ]]; then
+  ref="${DOTFILES_REF:-${default_ref}}"
+  install_sha256="${DOTFILES_INSTALL_SHA256:-${default_install_sha256}}"
+else
+  ref="${DOTFILES_REF:-}"
+  install_sha256="${DOTFILES_INSTALL_SHA256:-}"
+fi
+
+if [[ ! "${ref}" =~ ^[0-9a-f]{40}$ ]]; then
+  printf 'dotfiles-bootstrap: DOTFILES_REF must be a full lowercase commit id\n' >&2
+  exit 1
+fi
+if [[ ! "${install_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'dotfiles-bootstrap: DOTFILES_INSTALL_SHA256 must be a lowercase SHA-256 digest\n' >&2
+  exit 1
+fi
+
+if [[ -x /usr/bin/sha256sum ]]; then
+  sha256_bin=/usr/bin/sha256sum
+elif [[ -x /bin/sha256sum ]]; then
+  sha256_bin=/bin/sha256sum
+else
+  printf 'dotfiles-bootstrap: a system sha256sum is required\n' >&2
+  exit 1
+fi
 
 if [[ -z "${HOME:-}" || ! -d "${HOME}" || ! -w "${HOME}" ]]; then
   printf 'dotfiles-bootstrap: HOME must be a writable directory\n' >&2
@@ -74,14 +105,26 @@ git_anonymous() {
     git -c credential.helper= -c core.askPass= "$@"
 }
 
+verify_tree() {
+  local checkout="$1"
+  local actual_ref actual_sha256
+  [[ -f "${checkout}/install.sh" ]] || return 1
+  actual_ref="$(git_anonymous -C "${checkout}" rev-parse HEAD 2>/dev/null)" || return 1
+  [[ "${actual_ref}" == "${ref}" ]] || return 1
+  actual_sha256="$("${sha256_bin}" "${checkout}/install.sh")" || return 1
+  actual_sha256="${actual_sha256%% *}"
+  [[ "${actual_sha256}" == "${install_sha256}" ]]
+}
+
 tree=""
 if command -v git >/dev/null 2>&1 && [[ -d "${dest}/.git" ]]; then
-  if git_anonymous -C "${dest}" fetch --depth 1 origin \
-    && git_anonymous -C "${dest}" reset --hard FETCH_HEAD \
-    && [[ -f "${dest}/install.sh" ]]; then
+  if git_anonymous -C "${dest}" fetch --depth 1 origin "${ref}" \
+    && [[ "$(git_anonymous -C "${dest}" rev-parse FETCH_HEAD)" == "${ref}" ]] \
+    && git_anonymous -C "${dest}" reset --hard "${ref}" \
+    && verify_tree "${dest}"; then
     tree="${dest}"
-  elif [[ -f "${dest}/install.sh" ]]; then
-    printf 'dotfiles-bootstrap: refresh failed; using existing checkout\n' >&2
+  elif verify_tree "${dest}"; then
+    printf 'dotfiles-bootstrap: refresh failed; using the verified pinned checkout\n' >&2
     tree="${dest}"
   fi
 fi
@@ -90,14 +133,18 @@ if [[ -z "${tree}" ]]; then
   rm -rf -- "${dest}"
   mkdir -p "$(dirname "${dest}")"
   if command -v git >/dev/null 2>&1 \
-    && git_anonymous clone --depth 1 -- "${repo}" "${dest}" \
-    && [[ -f "${dest}/install.sh" ]]; then
+    && git_anonymous init "${dest}" \
+    && git_anonymous -C "${dest}" remote add origin "${repo}" \
+    && git_anonymous -C "${dest}" fetch --depth 1 origin "${ref}" \
+    && [[ "$(git_anonymous -C "${dest}" rev-parse FETCH_HEAD)" == "${ref}" ]] \
+    && git_anonymous -C "${dest}" checkout --detach "${ref}" \
+    && verify_tree "${dest}"; then
     tree="${dest}"
   else
     rm -rf -- "${dest}"
-    printf 'dotfiles-bootstrap: clone of %s failed.\n' "${repo}" >&2
+    printf 'dotfiles-bootstrap: verified checkout of %s at %s failed.\n' "${repo}" "${ref}" >&2
     printf 'dotfiles-bootstrap: anonymous HTTPS only (GIT_TERMINAL_PROMPT=0; no gh, GitHub token, or credential helper).\n' >&2
-    printf 'dotfiles-bootstrap: publish that repository with install.sh at its root, or set DOTFILES_REPO to a reachable git URL.\n' >&2
+    printf 'dotfiles-bootstrap: custom repositories require DOTFILES_REPO, DOTFILES_REF, and DOTFILES_INSTALL_SHA256.\n' >&2
     exit 1
   fi
 fi

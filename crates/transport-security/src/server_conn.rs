@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
-use chrono::{DateTime, Utc};
 use hyper::body::Incoming;
 use hyper::Request;
 use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
@@ -14,6 +13,7 @@ use hyper_util::server::conn::auto::Builder;
 use hyper_util::server::graceful::Watcher;
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{EvidenceSource, TlsVersion, TransportError, VerifiedPeer};
+use opensesame_time::{DateTime, Utc};
 use rustls::server::ServerConnection;
 use rustls::ProtocolVersion;
 use tokio::net::TcpStream;
@@ -122,7 +122,7 @@ fn attest(
     };
     let remaining = (leaf.not_after - now).to_std().unwrap_or(Duration::ZERO);
     let usable_for = profile.limits.usable_for.min(remaining);
-    let usable_until = now + chrono::Duration::from_std(usable_for).unwrap_or_default();
+    let usable_until = now + opensesame_time::Duration::from_std(usable_for).unwrap_or_default();
     AttestedPeer {
         source: EvidenceSource::DirectTls,
         identities: leaf.selectors.clone(),

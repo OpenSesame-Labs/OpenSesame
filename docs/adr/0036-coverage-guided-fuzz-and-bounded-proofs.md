@@ -6,8 +6,8 @@ Accepted
 ## Context
 The authority plane already has unit tests, battle tests, `proptest` on
 capability algebra, and a local static-analysis gate suite. The remaining
-honest gap (`docs/archive/2026-08-07-baseline/battle-test-critique.md`) was persistent
-coverage-guided fuzzing, bounded model checks, UB detection, and
+honest gap recorded in the August 2026 baseline was persistent coverage-guided
+fuzzing, bounded model checks, UB detection, and
 schedule/network exploration.
 
 ClusterFuzzLite and Jazzer.js are usually hosted as GitHub Actions. This

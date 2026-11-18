@@ -20,8 +20,11 @@ if [[ ! -d "$WS/node_modules/deepsec" ]]; then
   npm ci --ignore-scripts --prefix "$WS"
 fi
 
+echo "==> deepsec-gate: verifying the local XML dependency and SDK behavior"
+(cd "$WS" && npm run test:aws-xml)
+
 echo "==> deepsec-gate: pattern scan (free, no AI)"
-(cd "$WS" && npm run deepsec scan --project-id opensesame)
+(cd "$WS" && npm run deepsec -- scan --project-id opensesame)
 
 echo "==> deepsec-gate: candidate summary"
 python3 - <<PY
@@ -57,26 +60,26 @@ if [[ "${DEEPSEC_PROCESS:-0}" == "1" ]]; then
       if [[ -n "${DEEPSEC_FILTER:-}" ]]; then
         filter_args=(--filter "${DEEPSEC_FILTER}")
       fi
-      npm run deepsec process --project-id opensesame \
+      npm run deepsec -- process --project-id opensesame \
         --agent pi --model "${DEEPSEC_MODEL:-zai/glm-5.2}" \
         --thinking-level "${DEEPSEC_THINKING:-medium}" \
         --concurrency "${DEEPSEC_CONCURRENCY:-2}" \
         "${limit_args[@]}" \
         "${filter_args[@]}"
     else
-      npm run deepsec process --project-id opensesame \
+      npm run deepsec -- process --project-id opensesame \
         --agent "${DEEPSEC_AGENT:-codex}" \
         --model "${DEEPSEC_MODEL:-zai/glm-5.2}" \
         --thinking-level "${DEEPSEC_THINKING:-medium}" \
         --concurrency "${DEEPSEC_CONCURRENCY:-2}"
     fi
-    npm run deepsec export --project-id opensesame --format md-dir --out ./findings
+    npm run deepsec -- export --project-id opensesame --format md-dir --out ./findings
   )
 else
   echo "==> deepsec-gate: skipping AI process (set DEEPSEC_PROCESS=1 after topping up AI Gateway / clearing rate limits)"
 fi
 
 echo "==> deepsec-gate: status"
-(cd "$WS" && npm run deepsec status --project-id opensesame) || true
+(cd "$WS" && npm run deepsec -- status --project-id opensesame) || true
 echo
 echo "deepsec-gate: OK (scan complete)"

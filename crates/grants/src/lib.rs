@@ -13,11 +13,11 @@ pub fn delegate(parent: &Grant, mut child: Grant) -> Result<Grant, DomainError> 
 
 #[cfg(test)]
 mod pact {
-    use chrono::{Duration, Utc};
     use opensesame_domain::{
         ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
         ProjectId,
     };
+    use opensesame_time::{Duration, Utc};
 
     fn sample_parent() -> Grant {
         let now = Utc::now();

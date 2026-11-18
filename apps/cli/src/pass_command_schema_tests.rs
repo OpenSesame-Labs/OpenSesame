@@ -77,3 +77,26 @@ fn attachment_arguments_reach_the_same_original_typed_command() {
         other => panic!("wrong genuine command: {other:?}"),
     }
 }
+
+#[test]
+fn rollback_anchor_migration_requires_an_explicit_typed_confirmation() {
+    let cmd = parse(&[
+        "pass",
+        "migrate-rollback-anchor",
+        "--accept-current-state",
+        "--path",
+        "store",
+    ]);
+    match cmd.into_inner() {
+        PassCmd::MigrateRollbackAnchor {
+            accept_current_state,
+            path,
+            tomb,
+        } => {
+            assert!(accept_current_state);
+            assert_eq!(path, Some(PathBuf::from("store")));
+            assert!(tomb.is_none());
+        }
+        other => panic!("wrong genuine command: {other:?}"),
+    }
+}

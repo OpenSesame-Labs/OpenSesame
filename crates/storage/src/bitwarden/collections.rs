@@ -2,7 +2,7 @@
 //! groups of an organization's ciphers (the name an `EncString` under the
 //! organization key), and which members reach each, how.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

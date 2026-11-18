@@ -16,9 +16,9 @@
 
 use crate::condition::{AssuranceLevel, Condition, ConditionKind};
 use crate::error::{DenyReason, PolicyFault};
-use chrono::{DateTime, Utc};
 use opensesame_domain::ValidatedGrantChain;
 use opensesame_domain::{grant_attenuation::resources_attenuate, Grant, InvokeLevel};
+use opensesame_time::{DateTime, Utc};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// What the request says about the resource it names.

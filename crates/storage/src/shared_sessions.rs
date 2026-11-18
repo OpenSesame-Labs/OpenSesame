@@ -15,11 +15,11 @@
 //! between the database and the process.
 
 use anyhow::{bail, Context};
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     GrantScope, JoinDecision, JoinRequest, JoinRequestId, PrincipalId, SessionGrant,
     SessionGrantId, SessionId, SessionRole, SessionVisibility, VaultId, VaultItemId,
 };
+use opensesame_time::{DateTime, Utc};
 use sqlx::{sqlite::SqliteRow, Row};
 use std::collections::BTreeSet;
 

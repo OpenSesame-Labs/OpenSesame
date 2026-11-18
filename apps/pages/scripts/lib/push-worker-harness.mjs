@@ -27,10 +27,12 @@ const MIME = {
  */
 export function serve(dist, base, runtimeConfig = null, hooks = null) {
   const server = http.createServer((request, response) => {
-    const { pathname } = new URL(request.url ?? "/", "http://localhost");
+    const requestUrl = new URL(request.url ?? "/", "http://localhost");
+    const { pathname } = requestUrl;
     const rel = pathname.startsWith(base)
       ? pathname.slice(base.length)
       : pathname.slice(1);
+    hooks?.request?.({ rel, url: requestUrl });
     if (rel === "sw.js" && hooks?.serviceWorker) {
       const file = path.join(dist, rel);
       const body = hooks.serviceWorker(fs.readFileSync(file));

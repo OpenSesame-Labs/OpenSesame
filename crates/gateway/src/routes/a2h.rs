@@ -18,11 +18,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_a2h::{
     authority_for, verify_callback, A2hResponse, ExpectedReply, ResponseAuthority,
 };
 use opensesame_storage::a2h_replies::{ReplyDecision, ReplyOutcome};
+use opensesame_time::Utc;
 use serde_json::json;
 
 use crate::app_state::AppState;

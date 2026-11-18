@@ -5,7 +5,7 @@
 
 use blake3::Hasher;
 use chacha20poly1305::{
-    aead::{Aead, KeyInit, Payload},
+    aead::{Aead, KeyInit},
     XChaCha20Poly1305, XNonce,
 };
 use rand::Rng;
@@ -97,7 +97,7 @@ pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, Cl
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
     let mut nonce_bytes = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce_bytes);
-    let nonce = XNonce::from_slice(&nonce_bytes);
+    let nonce: &XNonce = (&nonce_bytes).into();
     let mut out = nonce_bytes.to_vec();
     let ct = cipher
         .encrypt(
@@ -122,7 +122,7 @@ pub fn open(key: &DeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u8>, Clien
     }
     let (nonce_bytes, ct) = sealed.split_at(24);
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
-    let nonce = XNonce::from_slice(nonce_bytes);
+    let nonce = <&XNonce>::try_from(nonce_bytes).map_err(|_| ClientCoreError::Aead)?;
     cipher
         .decrypt(nonce, chacha20poly1305::aead::Payload { msg: ct, aad })
         .map_err(|_| ClientCoreError::Aead)
@@ -292,7 +292,7 @@ mod tests {
         let mut a = SyncStore::new("dev-a");
         let blob = a.put_local(&key, "note-1", b"hello").unwrap();
         let mut b = SyncStore::new("dev-b");
-        b.apply_remote(&[blob.clone()]);
+        b.apply_remote(std::slice::from_ref(&blob));
         assert_eq!(b.entries.get("note-1").unwrap().0, blob.epoch);
         let out = b.collect_outgoing(&SyncCursor {
             device_id: "x".into(),

@@ -26,6 +26,7 @@ mod piv_age;
 mod produce;
 mod recipients;
 mod retired_native;
+mod rollback_witness;
 mod root;
 mod root_protection;
 mod rotation;

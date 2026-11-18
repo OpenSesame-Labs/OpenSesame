@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::{TimeZone as _, Utc};
+use opensesame_time::{TimeZone as _, Utc};
 
 use super::{retention_deadline, stale_deadline, Backoff, ReconnectPolicy};
 
@@ -75,6 +75,6 @@ fn stale_deadline_is_the_earlier_bound_and_never_extends_not_after() {
     assert_eq!(retention_deadline(not_after, None), not_after);
     assert_eq!(
         retention_deadline(not_after, Some((outage, Duration::from_secs(1)))),
-        outage + chrono::Duration::seconds(1)
+        outage + opensesame_time::Duration::seconds(1)
     );
 }

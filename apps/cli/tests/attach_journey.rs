@@ -20,6 +20,15 @@ fn bin() -> &'static str {
     env!("CARGO_BIN_EXE_opensesame")
 }
 
+fn git_bin() -> PathBuf {
+    let path = std::env::var_os("PATH").expect("test PATH");
+    std::env::split_paths(&path)
+        .map(|directory| directory.join("git"))
+        .find(|candidate| candidate.is_file())
+        .and_then(|candidate| candidate.canonicalize().ok())
+        .expect("absolute git executable")
+}
+
 fn command(store: &Path, args: &[&str]) -> Command {
     let mut command = Command::new(bin());
     command
@@ -27,6 +36,11 @@ fn command(store: &Path, args: &[&str]) -> Command {
         .arg("--path")
         .arg(store)
         .env("OPENSESAME_STORE_PASSWORD", PASSPHRASE)
+        // The production CLI deliberately refuses an ambient PATH whose
+        // ancestry has foreign ownership. Pin the exact test dependency so
+        // user-namespace remapping of `/` cannot turn this journey into a
+        // test of the host sandbox instead of attachment behaviour.
+        .env("OPENSESAME_GIT", git_bin())
         // Keep the store's git identity local to the temp dir.
         .env("GIT_AUTHOR_NAME", "Test")
         .env("GIT_AUTHOR_EMAIL", "test@example.com")

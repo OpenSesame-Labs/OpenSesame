@@ -55,7 +55,7 @@ fn an_expired_code_approves_nothing() {
     let pairings = Pairings::load(None);
     let now = Utc::now();
     let code = code_of(pairings.request(EXT, TOKEN, now));
-    let later = now + chrono::Duration::seconds(PENDING_TTL_SECS + 1);
+    let later = now + opensesame_time::Duration::seconds(PENDING_TTL_SECS + 1);
     assert_eq!(pairings.approve(&code, later).unwrap(), None);
     assert!(!pairings.verify(EXT, TOKEN));
 }

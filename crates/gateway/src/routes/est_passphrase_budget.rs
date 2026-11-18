@@ -19,7 +19,7 @@ pub(super) async fn reserve(
     extensions: &Extensions,
 ) -> Result<(), Response> {
     let bucket = source::bucket(st, config, extensions)?;
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let reserved = st
         .db
         .admit_est_passphrase_attempt(

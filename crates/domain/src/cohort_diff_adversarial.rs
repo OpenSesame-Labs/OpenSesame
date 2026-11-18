@@ -10,7 +10,7 @@ mod tests {
         Cohort, CohortDiff, CohortGraph, CohortId, CohortResolution, CohortSnapshot,
         CohortSnapshotId, DomainError, OrganizationId, PrincipalId, TeamId,
     };
-    use chrono::Duration;
+    use opensesame_time::Duration;
     use std::collections::BTreeSet;
 
     /// A cohort that names Dana directly and two teams. Enough shapes to make

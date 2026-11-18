@@ -12,8 +12,8 @@
 use std::fmt;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
+use opensesame_time::{DateTime, Utc};
 use rustls::crypto::CryptoProvider;
 use rustls::sign::CertifiedKey;
 use rustls_pki_types::pem::PemObject;

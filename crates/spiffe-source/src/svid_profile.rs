@@ -25,7 +25,7 @@
 //! * no unknown critical extension;
 //! * the validity window contains `now`.
 
-use chrono::{DateTime, TimeZone as _, Utc};
+use opensesame_time::{DateTime, TimeZone as _, Utc};
 use sha2::{Digest as _, Sha256};
 use spiffe::SpiffeId;
 use x509_parser::extensions::{GeneralName, ParsedExtension};

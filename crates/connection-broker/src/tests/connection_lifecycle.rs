@@ -219,7 +219,7 @@ async fn authorize_returns_a_pkce_bound_url() {
     // The verifier itself must never appear in what the browser is handed.
     assert!(!start.authorization_url.contains("code_verifier"));
     let stored = sqlx::query(
-        "SELECT state, code_verifier, verifier_nonce FROM connection_authorizations WHERE connection_id = ?",
+        "SELECT state, code_verifier, verifier_nonce, verifier_aad_digest FROM connection_authorizations WHERE connection_id = ?",
     )
     .bind(&view.connection_id)
     .fetch_one(db.pool())
@@ -228,9 +228,9 @@ async fn authorize_returns_a_pkce_bound_url() {
     let stored_state: String = stored.get("state");
     assert_ne!(stored_state, start.state);
     assert_eq!(stored_state.len(), 64);
-    assert_eq!(stored.get::<Vec<u8>, _>("verifier_nonce").len(), 24);
-    assert!(!stored.get::<Vec<u8>, _>("code_verifier").is_empty());
-
+    let verifier = open_stored_pkce(&stored, &view.connection_id, &org.to_string());
+    assert_eq!(flow::Pkce::challenge_for(&verifier), q["code_challenge"]);
+    assert!(!start.authorization_url.contains(&verifier));
     let events = broker.events(&org, &view.connection_id).await.unwrap();
     assert_eq!(
         events.iter().map(|e| e.kind.as_str()).collect::<Vec<_>>(),

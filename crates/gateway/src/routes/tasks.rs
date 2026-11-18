@@ -6,13 +6,13 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     AuthorityContext, AuthorityContextId, AuthorityContextMode, Capability, CapabilitySet,
     CeilingInput, FrozenIntentV2, Grant, IntentId, OrganizationId, PrincipalId, ResourceSelector,
     TaskRunId, TaskTemplateId, FROZEN_INTENT_SCHEMA_VERSION,
 };
 use opensesame_task_access::{StartTaskParams, TaskAccessError, TaskStore};
+use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -68,7 +68,7 @@ const MAX_TASK_CAPABILITIES: usize = 64;
 
 /// A TTL is a number the caller chose. Unbounded, it is either authority that
 /// outlives any reason to trust it or, at the extremes of `i64`, arithmetic that
-/// `chrono` refuses by panicking — taking the request down instead of answering it.
+/// `opensesame_time` refuses by panicking — taking the request down instead of answering it.
 fn bounded_ttl(seconds: i64) -> Option<Duration> {
     if seconds <= 0 || seconds > MAX_TASK_TTL_SECS {
         return None;
@@ -336,7 +336,7 @@ fn claim_frozen_intent(
     digest: &str,
     caller: &crate::middleware::auth::Caller,
     execution_grant: &Grant,
-    now: chrono::DateTime<Utc>,
+    now: opensesame_time::DateTime<Utc>,
 ) -> Result<Option<FrozenIntentV2>, ()> {
     pending.retain(|_, i| i.expires_at > now);
     let Some(intent) = pending.get(digest) else {
@@ -497,11 +497,11 @@ mod tests {
     };
     use crate::middleware::auth::Caller;
     use axum::{extract::State, http::StatusCode, Json};
-    use chrono::{Duration, Utc};
     use opensesame_domain::{
         ActorId, FrozenIntentV2, Grant, GrantConstraints, GrantId, IntentId, OfflineUse,
         OrganizationId, PrincipalId, TaskRunId, FROZEN_INTENT_SCHEMA_VERSION,
     };
+    use opensesame_time::{Duration, Utc};
     use std::collections::{BTreeMap, HashMap};
 
     fn intent(
@@ -582,7 +582,7 @@ mod tests {
                 "{refused} should be refused"
             );
         }
-        // Why the bound is checked before the duration is built: chrono answers an
+        // Why the bound is checked before the duration is built: opensesame_time answers an
         // out-of-range second count with a panic, not an error.
         let hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));

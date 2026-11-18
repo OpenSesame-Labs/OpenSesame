@@ -196,17 +196,17 @@ mod tests {
     use std::process::Command;
 
     fn git_init(dir: &Path) {
-        assert!(Command::new("git")
+        assert!(Command::new(crate::git_exec::git_program_for_tests())
             .args(["init"])
             .current_dir(dir)
             .status()
             .unwrap()
             .success());
-        let _ = Command::new("git")
+        let _ = Command::new(crate::git_exec::git_program_for_tests())
             .args(["config", "user.email", "test@example.com"])
             .current_dir(dir)
             .status();
-        let _ = Command::new("git")
+        let _ = Command::new(crate::git_exec::git_program_for_tests())
             .args(["config", "user.name", "Test"])
             .current_dir(dir)
             .status();

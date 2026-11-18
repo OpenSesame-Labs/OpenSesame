@@ -1,7 +1,7 @@
 //! Bounded Arbitrary types. Algebra targets get structured ops, not raw bytes.
 
 use arbitrary::{Arbitrary, Result, Unstructured};
-use chrono::{TimeZone, Utc};
+use opensesame_time::{TimeZone, Utc};
 use opensesame_domain::{
     Capability, CapabilitySet, ConnectionId, EnvironmentId, Grant, GrantConstraints, GrantId,
     OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector,
@@ -175,9 +175,9 @@ impl<'a> Arbitrary<'a> for FuzzGrant {
 impl FuzzGrant {
     pub fn into_grant(self) -> Grant {
         let created = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-        let expires = created + chrono::Duration::seconds(self.exp_delta);
+        let expires = created + opensesame_time::Duration::seconds(self.exp_delta);
         let nbf = if self.nbf_delta > 0 {
-            Some(created + chrono::Duration::seconds(self.nbf_delta.min(1_000)))
+            Some(created + opensesame_time::Duration::seconds(self.nbf_delta.min(1_000)))
         } else {
             None
         };

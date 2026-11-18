@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
     use std::collections::BTreeSet;
 
     fn rows(vault_id: VaultId, items: &[VaultItemId]) -> GrantScope {
@@ -15,7 +15,7 @@ mod tests {
     /// a microsecond after the test's own reading is refused by
     /// `assert_active`, which is correct behaviour and a confusing test.
     fn grant(
-        now: chrono::DateTime<Utc>,
+        now: opensesame_time::DateTime<Utc>,
         scope: GrantScope,
         role: SessionRole,
         lifetime: Duration,
@@ -400,7 +400,7 @@ mod tests {
     // ——— Share links: two clocks, and the shorter one has to be the link's ———
 
     fn invite(
-        now: chrono::DateTime<Utc>,
+        now: opensesame_time::DateTime<Utc>,
         link: Duration,
         access: Duration,
     ) -> Result<SessionInvite, DomainError> {

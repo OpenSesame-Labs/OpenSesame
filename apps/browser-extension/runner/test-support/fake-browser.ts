@@ -11,6 +11,7 @@ import { vi } from "vitest";
 import type { Site } from "./site";
 
 type Listener = (id: number, info: { status?: string; url?: string }) => void;
+type ActivationListener = (info: { tabId: number; windowId: number }) => void;
 
 interface FakeTab {
   id: number;
@@ -19,11 +20,13 @@ interface FakeTab {
   url: string;
   dom: JSDOM;
   status: "loading" | "complete";
+  active: boolean;
 }
 
 export class FakeBrowser {
   readonly tabs = new Map<number, FakeTab>();
   readonly listeners = new Set<Listener>();
+  readonly activationListeners = new Set<ActivationListener>();
   readonly granted = {
     permissions: new Set<string>(),
     origins: new Set<string>(),
@@ -40,6 +43,8 @@ export class FakeBrowser {
   failNextInjection: Error | null = null;
   /** What a click on a control does to the tab, if anything. */
   onClick: ((tab: FakeTab) => void) | null = null;
+  /** A focus-race seam invoked while captureVisibleTab is in flight. */
+  onCapture: (() => void) | null = null;
 
   constructor(readonly site: Site) {}
 
@@ -72,7 +77,12 @@ export class FakeBrowser {
     }, 0);
   }
 
-  private open(url: string, incognito: boolean, windowId: number): FakeTab {
+  private open(
+    url: string,
+    incognito: boolean,
+    windowId: number,
+    active: boolean,
+  ): FakeTab {
     const tab: FakeTab = {
       id: this.nextId++,
       windowId,
@@ -82,9 +92,22 @@ export class FakeBrowser {
         url: url === "about:blank" ? "about:blank" : url,
       }),
       status: "complete",
+      active,
     };
     this.tabs.set(tab.id, tab);
     return tab;
+  }
+
+  activateTab(id: number): void {
+    const tab = this.tabs.get(id);
+    if (!tab) throw new Error("No tab with id");
+    for (const candidate of this.tabs.values()) {
+      if (candidate.windowId === tab.windowId) candidate.active = false;
+    }
+    tab.active = true;
+    for (const listener of [...this.activationListeners]) {
+      listener({ tabId: id, windowId: tab.windowId });
+    }
   }
 
   private hasHost(url: string): boolean {
@@ -99,10 +122,7 @@ export class FakeBrowser {
 
   private permissionsApi() {
     return {
-      contains: async (want: {
-        permissions?: string[];
-        origins?: string[];
-      }) =>
+      contains: async (want: { permissions?: string[]; origins?: string[] }) =>
         (want.permissions ?? []).every((p) =>
           this.granted.permissions.has(p),
         ) &&
@@ -116,18 +136,12 @@ export class FakeBrowser {
                 new URL(o.replace("/*", "/")).hostname,
             ),
         ),
-      request: async (want: {
-        permissions?: string[];
-        origins?: string[];
-      }) => {
+      request: async (want: { permissions?: string[]; origins?: string[] }) => {
         for (const p of want.permissions ?? []) this.granted.permissions.add(p);
         for (const o of want.origins ?? []) this.granted.origins.add(o);
         return true;
       },
-      remove: async (gone: {
-        permissions?: string[];
-        origins?: string[];
-      }) => {
+      remove: async (gone: { permissions?: string[]; origins?: string[] }) => {
         for (const o of gone.origins ?? []) {
           if (this.manifestHosts.includes(o))
             throw new Error("required permission");
@@ -150,6 +164,11 @@ export class FakeBrowser {
         addListener: (l: Listener) => this.listeners.add(l),
         removeListener: (l: Listener) => this.listeners.delete(l),
       },
+      onActivated: {
+        addListener: (l: ActivationListener) => this.activationListeners.add(l),
+        removeListener: (l: ActivationListener) =>
+          this.activationListeners.delete(l),
+      },
       get: async (id: number) => {
         const tab = this.tabs.get(id);
         if (!tab) throw new Error("No tab with id");
@@ -161,12 +180,21 @@ export class FakeBrowser {
         };
       },
       create: async (props: { url?: string }) => ({
-        id: this.open(props.url ?? "about:blank", false, 1).id,
+        id: this.open(props.url ?? "about:blank", false, 1, false).id,
       }),
       update: async (id: number, props: { url?: string; active?: boolean }) => {
         if (props.url) this.navigateTab(id, props.url);
+        if (props.active) this.activateTab(id);
         return { id };
       },
+      query: async (query: { active?: boolean; windowId?: number }) =>
+        [...this.tabs.values()]
+          .filter(
+            (tab) =>
+              (query.active === undefined || tab.active === query.active) &&
+              (query.windowId === undefined || tab.windowId === query.windowId),
+          )
+          .map((tab) => ({ id: tab.id, windowId: tab.windowId })),
       remove: async (id: number) => {
         if (!this.tabs.delete(id)) throw new Error("No tab with id");
       },
@@ -175,6 +203,7 @@ export class FakeBrowser {
         options: { quality: number },
       ) => {
         this.captures.push(options.quality);
+        this.onCapture?.();
         const text = "A".repeat(this.stillBytes(options.quality));
         return `data:image/jpeg;base64,${btoa(text)}`;
       },
@@ -185,7 +214,7 @@ export class FakeBrowser {
     return {
       create: async (props: { incognito: boolean; url: string }) => {
         const windowId = 100 + this.nextId;
-        const tab = this.open(props.url, props.incognito, windowId);
+        const tab = this.open(props.url, props.incognito, windowId, true);
         return { id: windowId, tabs: [{ id: tab.id }] };
       },
       remove: async (windowId: number) => {

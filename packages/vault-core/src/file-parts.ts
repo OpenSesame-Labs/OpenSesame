@@ -20,6 +20,9 @@ import { gcmOpen, gcmSeal } from "./gcm.js";
 
 export const FILE_PART_BYTES = 1_048_576;
 export const MAX_FILE_BYTES = 1_073_741_824;
+export const MAX_FILE_PARTS = 4_096;
+export const MAX_FILE_MANIFEST_CHARS = 1_048_576;
+export const MAX_ENCRYPTED_FILE_PART_BYTES = FILE_PART_BYTES + 16;
 
 export type ObjectStore = {
   putObject(key: string, body: Uint8Array): Promise<void>;
@@ -78,15 +81,17 @@ function wholeSize(value: JsonValue | undefined): number | undefined {
     : undefined;
 }
 
-export function readFileManifest(text: string): FileManifest | undefined {
-  let parsed: JsonValue;
-  try {
-    parsed = overlapCast(JSON.parse(text));
-  } catch {
+function manifestParts(value: JsonValue): JsonValue[] | undefined {
+  if (!isJsonObject(value) || value.v !== 1 || !Array.isArray(value.parts)) {
     return undefined;
   }
-  if (!isJsonObject(parsed) || parsed.v !== 1 || !Array.isArray(parsed.parts))
-    return undefined;
+  return value.parts.length <= MAX_FILE_PARTS ? value.parts : undefined;
+}
+
+function manifestHeader(
+  parsed: { [key: string]: JsonValue | undefined },
+  partLength: number,
+): Omit<FileManifest, "parts"> | undefined {
   const name = readString(parsed.name);
   const mediaType = readString(parsed.mediaType);
   const key = readString(parsed.key);
@@ -95,19 +100,54 @@ export function readFileManifest(text: string): FileManifest | undefined {
     name === undefined ||
     mediaType === undefined ||
     key === undefined ||
-    size === undefined
+    size === undefined ||
+    size > MAX_FILE_BYTES ||
+    name.length > 255 ||
+    mediaType.length > 255 ||
+    !/^[A-Za-z0-9+/]{43}=$/u.test(key) ||
+    (size === 0) !== (partLength === 0) ||
+    (size > 0 && partLength > size) ||
+    partLength < Math.ceil(size / FILE_PART_BYTES)
   ) {
     return undefined;
   }
-  const parts: FilePartRef[] = [];
-  for (const entry of parsed.parts) {
-    if (!isJsonObject(entry)) return undefined;
-    const partKey = readString(entry.key);
-    const nonce = readString(entry.nonce);
-    if (partKey === undefined || nonce === undefined) return undefined;
-    parts.push({ key: partKey, nonce });
+  return { v: 1, name, mediaType, size, key };
+}
+
+function filePartRef(value: JsonValue): FilePartRef | undefined {
+  if (!isJsonObject(value)) return undefined;
+  const key = readString(value.key);
+  const nonce = readString(value.nonce);
+  if (
+    key === undefined ||
+    nonce === undefined ||
+    !/^[A-Za-z0-9_-]{16}$/u.test(key) ||
+    !/^[A-Za-z0-9+/]{16}$/u.test(nonce)
+  ) {
+    return undefined;
   }
-  return { v: 1, name, mediaType, size, key, parts };
+  return { key, nonce };
+}
+
+export function readFileManifest(text: string): FileManifest | undefined {
+  if (text.length > MAX_FILE_MANIFEST_CHARS) return undefined;
+  let parsed: JsonValue;
+  try {
+    parsed = overlapCast(JSON.parse(text));
+  } catch {
+    return undefined;
+  }
+  const rawParts = manifestParts(parsed);
+  if (!rawParts || !isJsonObject(parsed)) return undefined;
+  const header = manifestHeader(parsed, rawParts.length);
+  if (!header) return undefined;
+  const parts: FilePartRef[] = [];
+  for (const value of rawParts) {
+    const part = filePartRef(value);
+    if (!part) return undefined;
+    parts.push(part);
+  }
+  return { ...header, parts };
 }
 
 /** Filename, media type and size. The part key stays inside the manifest. */
@@ -205,11 +245,13 @@ export async function sealFile(input: {
   if (input.stores.length === 0) throw new Error("file needs a store");
   const partBytes = input.partBytes ?? FILE_PART_BYTES;
   const maxBytes = input.maxBytes ?? MAX_FILE_BYTES;
-  if (partBytes < 1) throw new Error(MISSING);
-  if (input.bytes.byteLength > maxBytes)
+  if (partBytes < 1 || partBytes > FILE_PART_BYTES) throw new Error(MISSING);
+  if (input.bytes.byteLength > Math.min(maxBytes, MAX_FILE_BYTES))
     throw new Error("file exceeds the size limit");
-  const { key, encoded } = await freshKey();
   const count = partCount(input.bytes.byteLength, partBytes);
+  if (count > MAX_FILE_PARTS)
+    throw new Error("file exceeds the part count limit");
+  const { key, encoded } = await freshKey();
   const parts: FilePartRef[] = [];
   for (let index = 0; index < count; index += 1) {
     const sealed = await sealOne(key, input.bytes, index, count, partBytes);
@@ -234,6 +276,7 @@ async function openOne(
   stores: readonly ObjectStore[],
 ): Promise<Uint8Array> {
   const body = await getReplica(stores, ref.key);
+  if (body.byteLength > MAX_ENCRYPTED_FILE_PART_BYTES) throw new Error(MISSING);
   try {
     return await gcmOpen(
       key,
@@ -247,17 +290,6 @@ async function openOne(
   }
 }
 
-function joinParts(parts: readonly Uint8Array[], size: number): Uint8Array {
-  const out = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.byteLength;
-  }
-  if (offset !== size) throw new Error(MISSING);
-  return out;
-}
-
 export async function openFile(
   manifestText: string,
   stores: readonly ObjectStore[],
@@ -266,15 +298,34 @@ export async function openFile(
   if (manifest === undefined) throw new Error(MISSING);
   const key = await keyFromManifest(manifest.key);
   const count = manifest.parts.length;
-  const opened: Uint8Array[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const ref = manifest.parts[index];
-    if (ref === undefined) throw new Error(MISSING);
-    opened.push(await openOne(key, ref, index, count, stores));
+  const bytes = new Uint8Array(manifest.size);
+  let offset = 0;
+  try {
+    for (let index = 0; index < count; index += 1) {
+      const ref = manifest.parts[index];
+      if (ref === undefined) throw new Error(MISSING);
+      const opened = await openOne(key, ref, index, count, stores);
+      try {
+        if (
+          opened.byteLength === 0 ||
+          opened.byteLength > FILE_PART_BYTES ||
+          opened.byteLength > bytes.byteLength - offset
+        )
+          throw new Error(MISSING);
+        bytes.set(opened, offset);
+        offset += opened.byteLength;
+      } finally {
+        opened.fill(0);
+      }
+    }
+    if (offset !== bytes.byteLength) throw new Error(MISSING);
+  } catch (error) {
+    bytes.fill(0);
+    throw error;
   }
   return {
     name: manifest.name,
     mediaType: manifest.mediaType,
-    bytes: joinParts(opened, manifest.size),
+    bytes,
   };
 }

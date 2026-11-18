@@ -13,12 +13,12 @@
 //! observers delivered asynchronously and cannot influence any decision. A
 //! connector author never gets to choose which of those they are.
 
-use chrono::Utc;
 use opensesame_connection_broker::{
     execute_rotation, request_rotation, RotationPolicy, RotationTarget,
 };
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::{LifecycleEvent, SubjectKind};
+use opensesame_time::Utc;
 
 use crate::app_state::AppState;
 
@@ -198,7 +198,7 @@ pub(crate) async fn release_policy(
         let next_attempt_at = if attempt >= ROTATION_MAX_ATTEMPTS {
             None
         } else {
-            Some(now + chrono::Duration::seconds(rotation_backoff_seconds(attempt)))
+            Some(now + opensesame_time::Duration::seconds(rotation_backoff_seconds(attempt)))
         };
         broker
             .release_rotation_policy_failure(&policy.id, next_attempt_at, &outcome.detail)

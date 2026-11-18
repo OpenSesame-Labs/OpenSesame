@@ -3,7 +3,7 @@ use std::process::Command;
 
 use opensesame_trusted_exec::Lookup;
 
-use crate::git_exec::{git, git_in};
+use crate::git_exec::{captured_lookup, git, git_in};
 use crate::StoreError;
 
 /// Environment variable the push credential helper reads the token from, so
@@ -248,7 +248,7 @@ pub fn push_backup(root: &Path, token: Option<&str>) -> Result<(), StoreError> {
             "no backup remote configured; run `opensesame pass backup --remote <url>`".into(),
         ));
     }
-    let mut cmd = authenticated_git_in(&Lookup::capture(), token)?;
+    let mut cmd = authenticated_git_in(&captured_lookup(), token)?;
     let output = cmd
         .args(["push", "-u", REMOTE, "HEAD"])
         .current_dir(root)

@@ -9,12 +9,12 @@ use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{
     BindingPurpose, BindingScope, EvidenceSource, PeerIdentitySelector, ServiceBinding,
     ServiceBindingSet, TlsVersion, TransportPolicy, TrustProfileRef, VerifiedPeer,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 

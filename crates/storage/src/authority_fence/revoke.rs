@@ -42,7 +42,7 @@ pub async fn fence_grant(
     pool: &SqlitePool,
     grant_id: &str,
     reason: &str,
-    at: chrono::DateTime<chrono::Utc>,
+    at: opensesame_time::DateTime<opensesame_time::Utc>,
 ) -> anyhow::Result<FenceCommit> {
     let mut tx = begin_write(pool).await?;
 

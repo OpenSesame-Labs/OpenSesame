@@ -171,7 +171,7 @@ fn the_worked_example_runs_as_written() {
         .verify(&parse_public_key_hex(&public_key).unwrap())
         .expect("signed by the pinned key");
     stored
-        .check_window(chrono::Utc::now())
+        .check_window(opensesame_time::Utc::now())
         .expect("inside its window");
     let example = RecipeDocument::parse(EXAMPLE.as_bytes()).unwrap();
     assert_eq!(stored.change_password, example.change_password);

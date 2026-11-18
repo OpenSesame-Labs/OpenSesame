@@ -217,12 +217,10 @@ pub(crate) fn general_names_to_sans(names: &[GeneralName<'_>]) -> Result<Vec<San
             }
             GeneralName::RFC822Name(value) => SanEntry::Email((*value).to_owned()),
             GeneralName::URI(value) => SanEntry::Uri((*value).to_owned()),
-            GeneralName::OtherName(oid, bytes) => {
-                if oid.iter().is_some_and(|arcs| arcs.eq(UPN_OID)) {
-                    SanEntry::Upn(decode_upn_value(bytes)?)
-                } else {
-                    return Err(PkiError::InvalidName);
-                }
+            GeneralName::OtherName(oid, bytes)
+                if oid.iter().is_some_and(|arcs| arcs.eq(UPN_OID)) =>
+            {
+                SanEntry::Upn(decode_upn_value(bytes)?)
             }
             _ => return Err(PkiError::InvalidName),
         };

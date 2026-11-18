@@ -68,10 +68,11 @@ pub(crate) fn validate_node_at_rest_ciphertext(
         }
         let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| refused())?;
         let binding = format!("opensesame.at-rest.v1\0{}\0{name}", domain.store());
+        let nonce = <&XNonce>::try_from(&bytes[..NONCE]).map_err(|_| refused())?;
         Zeroizing::new(
             cipher
                 .decrypt(
-                    XNonce::from_slice(&bytes[..NONCE]),
+                    nonce,
                     Payload {
                         msg: &bytes[NONCE..],
                         aad: binding.as_bytes(),
@@ -91,10 +92,11 @@ pub(crate) fn validate_node_at_rest_ciphertext(
             .map_err(|_| refused())?;
         let wrapper =
             XChaCha20Poly1305::new_from_slice(&wrapping_secret[..]).map_err(|_| refused())?;
+        let wrap_nonce = <&XNonce>::try_from(&bytes[..NONCE]).map_err(|_| refused())?;
         let data_key = Zeroizing::new(
             wrapper
                 .decrypt(
-                    XNonce::from_slice(&bytes[..NONCE]),
+                    wrap_nonce,
                     Payload {
                         msg: &bytes[NONCE..NONCE + WRAPPED],
                         aad: &aad(&binding, "wrap")?,
@@ -106,10 +108,11 @@ pub(crate) fn validate_node_at_rest_ciphertext(
             return Err(refused());
         }
         let cipher = XChaCha20Poly1305::new_from_slice(&data_key).map_err(|_| refused())?;
+        let nonce = <&XNonce>::try_from(&bytes[NONCE + WRAPPED..HEADER]).map_err(|_| refused())?;
         Zeroizing::new(
             cipher
                 .decrypt(
-                    XNonce::from_slice(&bytes[NONCE + WRAPPED..HEADER]),
+                    nonce,
                     Payload {
                         msg: &bytes[HEADER..],
                         aad: &aad(&binding, "data")?,

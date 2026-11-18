@@ -11,10 +11,10 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_rotation::RotationState;
 use opensesame_task_bus::{BusEvent, TaskBus};
+use opensesame_time::{DateTime, Duration as TimeDuration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
@@ -289,7 +289,7 @@ pub fn policy_due_at(
     let interval = policy.interval_duration();
     match last_run {
         None => true,
-        Some(last) => now >= last + chrono::Duration::from_std(interval).unwrap_or_default(),
+        Some(last) => now >= last + TimeDuration::from_std(interval).unwrap_or_default(),
     }
 }
 
@@ -1383,13 +1383,13 @@ mod tests {
         // Last run long enough ago: due.
         assert!(policy_due_at(
             &policy(60, true),
-            Some(now - chrono::Duration::seconds(61)),
+            Some(now - TimeDuration::seconds(61)),
             now
         ));
         // Last run too recent: not due.
         assert!(!policy_due_at(
             &policy(60, true),
-            Some(now - chrono::Duration::seconds(30)),
+            Some(now - TimeDuration::seconds(30)),
             now
         ));
     }

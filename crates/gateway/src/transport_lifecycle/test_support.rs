@@ -14,12 +14,12 @@ use std::sync::Arc;
 
 use axum::routing::get;
 use axum::Router;
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{
     PeerIdentitySelector, TlsVersion, TransportError, TransportPolicy, TrustProfileKind,
     TrustProfileRef,
 };
 use opensesame_domain::OrganizationId;
+use opensesame_time::{DateTime, Utc};
 use opensesame_transport_security::testkit::{DisposableCa, IssuedLeaf, LeafSpec};
 use opensesame_transport_security::{
     client_config, enforce_current_generation, ClientProfile, Generation, GenerationCandidate,

@@ -14,6 +14,7 @@
 //! cert store, no reqwest, no cookie store — the ADR 0048 D5 budget), or the
 //! scoped profile the authority plane injects through [`Invoker::with_tls`].
 
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
@@ -26,9 +27,9 @@ use zeroize::Zeroizing;
 use crate::egress::{AuthStyle, EgressRule, EGRESS_RULES};
 use crate::error::InvokeError;
 use crate::fence::{EgressFence, PreparedRequest};
-use crate::scrub::Needles;
+use crate::scrub::{scrub_needles, scrub_needles_str, Needles};
 use crate::source::TokenSource;
-use crate::tls::{build_client, HttpsClient, TlsClientSpec};
+use crate::tls::{build_client, build_pinned_webpki_client, HttpsClient, TlsClientSpec};
 
 #[cfg(test)]
 #[path = "invoke_stub.rs"]
@@ -134,6 +135,19 @@ impl Invoker {
     #[must_use]
     pub fn with_rules(rules: Vec<EgressRule>) -> Self {
         Self::from_client(build_client(None), rules)
+    }
+
+    /// Broker over WebPKI and an address set an egress preflight already
+    /// approved. The URI hostname remains rustls' verification name; the
+    /// pinned resolver only prevents a second DNS lookup from rebinding the
+    /// credentialed dial to another address.
+    #[must_use]
+    pub fn with_pinned_webpki(
+        rules: Vec<EgressRule>,
+        authority_host: &str,
+        addresses: &[SocketAddr],
+    ) -> Self {
+        Self::from_client(build_pinned_webpki_client(authority_host, addresses), rules)
     }
 
     /// Broker over an explicit rule set and an injected, already-validated
@@ -308,12 +322,8 @@ impl Invoker {
             }
             Err(_) => return Err(InvokeError::Timeout),
         };
-        let mut body = body;
-        for needle in needles {
-            let (scrubbed, hit) = needle.scrub(body);
-            body = scrubbed;
-            credential_reflected |= hit;
-        }
+        let (body, body_reflected) = scrub_needles(body, needles);
+        credential_reflected |= body_reflected;
         Ok(InvokeResponse {
             status,
             headers,
@@ -353,10 +363,7 @@ impl Invoker {
 
 /// One header value through every needle in turn.
 fn scrub_all(needles: &[Needles], value: String) -> (String, bool) {
-    needles.iter().fold((value, false), |(value, hit), needle| {
-        let (value, found) = needle.scrub_str(value);
-        (value, hit || found)
-    })
+    scrub_needles_str(needles, value)
 }
 
 #[cfg(test)]

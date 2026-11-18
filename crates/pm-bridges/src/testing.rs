@@ -24,10 +24,10 @@ pub const FIXTURE_OTPAUTH: &str =
 /// # Panics
 ///
 /// Panics when the deterministic fixture store cannot be initialized.
-pub fn init_store_fixture(root: &Path) {
+pub fn init_store_fixture(root: &Path, witness_root: &Path) {
     init_store(root, &[]).expect("init store");
     let key = init_store_key(root, FIXTURE_PASSPHRASE).expect("init key");
-    let store = StoreRoot::open(root).expect("open store");
+    let store = StoreRoot::open_with_test_witness_root(root, witness_root).expect("open store");
 
     store
         .insert(

@@ -52,7 +52,7 @@ sqlx = { workspace = true }
 anyhow = { workspace = true }
 reqwest = { workspace = true }
 axum = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 jsonwebtoken = { workspace = true }

@@ -1,6 +1,7 @@
-import { type ReactElement, Suspense, lazy } from "react";
+import { type ReactElement, Suspense, lazy, useRef } from "react";
 import { createPortal } from "react-dom";
-import { IconHelp } from "../../components/Icons.js";
+import { IconHelp, IconX } from "../../components/Icons.js";
+import { useModalFocus } from "../../lib/modal-focus.js";
 import { FirstVisitOffer } from "../first-visit/FirstVisitOffer.js";
 import { useGateSeat } from "../gate-seat.js";
 import { useGuideTarget } from "../registry/react.jsx";
@@ -46,6 +47,53 @@ function markClass(chrome: boolean, guiding: boolean, open: boolean): string {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+/** The lazy panel's loading state is still a real modal keyboard surface. */
+export function SupportPanelFallback({
+  close,
+}: {
+  close: () => void;
+}): ReactElement {
+  const sheetRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useModalFocus(true, sheetRef, closeRef, close);
+  return (
+    <div className="sheet-layer">
+      <button
+        type="button"
+        className="scrim"
+        aria-label="Close"
+        onClick={close}
+      />
+      <section
+        ref={sheetRef}
+        className="sheet support"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Support"
+        aria-busy="true"
+      >
+        <div className="sheet__head">
+          <div className="sheet__grow">
+            <h2>Support</h2>
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className="icon-btn"
+            aria-label="Close"
+            onClick={close}
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+        <div className="sheet__body" role="status">
+          Loading support…
+        </div>
+      </section>
+    </div>
+  );
 }
 
 /**
@@ -96,16 +144,7 @@ export function SupportLauncher({
       ) : null}
       {view.open ? (
         <Suspense
-          fallback={
-            <div className="sheet-layer">
-              <button
-                type="button"
-                className="scrim"
-                aria-label="Close"
-                onClick={() => support.close()}
-              />
-            </div>
-          }
+          fallback={<SupportPanelFallback close={() => support.close()} />}
         >
           <SupportPanel gate={gate} />
         </Suspense>

@@ -701,7 +701,7 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
         .as_str()
         .map(str::to_string);
     let interval = auth["interval"].as_u64().unwrap_or(5).clamp(1, 60);
-    // The server chooses this number. Clamped, because chrono answers an
+    // The server chooses this number. Clamped, because opensesame_time answers an
     // out-of-range second count with a panic rather than an error.
     let expires_in = auth["expires_in"]
         .as_i64()
@@ -733,7 +733,7 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
         "(Or approve via: curl -s -X POST {server}/api/v1/device/approve -H 'content-type: application/json' -H \"x-opensesame-operator: $OPENSESAME_OPERATOR_TOKEN\" -d '{approve_body}')"
     );
 
-    let expires_at = chrono::Utc::now() + chrono::Duration::seconds(expires_in);
+    let expires_at = opensesame_time::Utc::now() + opensesame_time::Duration::seconds(expires_in);
     let mut state = DevicePollState {
         interval_seconds: interval,
         expires_at,
@@ -760,7 +760,7 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
                 "expired_token" => DeviceServerStatus::Expired,
                 other => anyhow::bail!("device token error: {other}"),
             };
-            match state.next_action(chrono::Utc::now(), status) {
+            match state.next_action(opensesame_time::Utc::now(), status) {
                 Err(
                     opensesame_authn::DeviceFlowError::AuthorizationPending
                     | opensesame_authn::DeviceFlowError::SlowDown,
@@ -770,7 +770,7 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
             }
         } else {
             complete_device_login(&body)?;
-            let _ = state.next_action(chrono::Utc::now(), DeviceServerStatus::Success);
+            let _ = state.next_action(opensesame_time::Utc::now(), DeviceServerStatus::Success);
             break;
         }
     }

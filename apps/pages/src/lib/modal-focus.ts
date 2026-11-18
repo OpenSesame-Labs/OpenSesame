@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { handlePaneEscape } from "./pane-escape.js";
 
 const FOCUSABLE =
@@ -23,7 +23,10 @@ export function useModalFocus(
   // pull focus back to `initial` — each time the sheet's state changed.
   const latestClose = useRef(close);
   latestClose.current = close;
-  useEffect(() => {
+  // The sheet is visible as soon as the commit paints. Install focus and the
+  // Escape/Tab boundary in that same commit so an immediate key cannot reach
+  // an unguarded modal between paint and a passive effect.
+  useLayoutEffect(() => {
     if (!open) return;
     const trigger = document.activeElement;
     (initial.current ?? fallback?.current)?.focus();

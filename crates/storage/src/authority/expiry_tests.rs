@@ -1,6 +1,6 @@
 //! Which authority sidecars one lifecycle pass reads (ADR 0120 §5, ADR 0074 §1).
 
-use chrono::Duration;
+use opensesame_time::Duration;
 
 use super::*;
 use crate::authority::tests::{entry, issue, seed_grant, seed_realm};

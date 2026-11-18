@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
+use opensesame_time::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::Row;
 

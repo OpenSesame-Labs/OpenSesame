@@ -19,6 +19,16 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+it("refuses to place a credential into a document from another origin", () => {
+  document.body.innerHTML = '<input id="field" value="unchanged">';
+  expect(pfFill("#field", "secret", "https://different.example")).toBe(
+    "off_origin",
+  );
+  expect(document.querySelector<HTMLInputElement>("#field")?.value).toBe(
+    "unchanged",
+  );
+});
+
 it("waits for actual attribute and child mutations, and rejects malformed or absent selectors", async () => {
   document.body.innerHTML = '<div id="later"></div>';
   expect(await pfWaitFor("#later", 50)).toBe("ok");
@@ -73,7 +83,9 @@ it("fills actual allowed input kinds and textarea through native setters and bub
       throw new Error("Expected actual field");
     const changed: string[] = [];
     field.addEventListener("change", () => changed.push(field.value));
-    expect(pfFill(`#${type}`, "public-fixture-value")).toBe("ok");
+    expect(
+      pfFill(`#${type}`, "public-fixture-value", window.location.origin),
+    ).toBe("ok");
     expect(field.value).toBe("public-fixture-value");
     expect(changed).toEqual(["public-fixture-value"]);
     expect(document.activeElement).toBe(field);
@@ -105,8 +117,10 @@ it("refuses noneditable, hidden, shadow-contained and nonfield nodes without cha
     "missing",
     "shadow-field",
   ])
-    expect(pfFill(`#${id}`, "replacement"), id).toBe("no_such_field");
-  expect(pfFill("[", "replacement")).toBe("invalid");
+    expect(pfFill(`#${id}`, "replacement", window.location.origin), id).toBe(
+      "no_such_field",
+    );
+  expect(pfFill("[", "replacement", window.location.origin)).toBe("invalid");
   expect(document.querySelector<HTMLInputElement>("#disabled")?.value).toBe(
     "unchanged",
   );
@@ -124,7 +138,9 @@ it("denies detached-document fields and non-HTMLElement submission without retur
   detached.body.innerHTML =
     '<input id="field" value="public-fixture"><svg id="vector"></svg>';
   vi.stubGlobal("document", detached);
-  expect(pfFill("#field", "other")).toBe("no_such_field");
+  expect(pfFill("#field", "other", window.location.origin)).toBe(
+    "no_such_field",
+  );
   expect(pfPresence("#field", "public-fixture")).toBe("absent");
   expect(pfSubmit("#field")).toBe("no_such_element");
   expect(pfLayout().split("|")[1]).toBe("0x0");
@@ -153,7 +169,7 @@ it("redacts actual fields and requested markup while preserving live DOM and pub
     '<input type="submit" value="Public submit"><div id="strip" value="remove-fixture">strip-fixture</div>' +
     "<script>script-fixture</script><style>style-fixture</style><template>template-fixture</template>" +
     '<noscript>noscript-fixture</noscript><link href="fixture.css"><!--comment-fixture-->';
-  expect(pfFill("#typed", "live-fixture")).toBe("ok");
+  expect(pfFill("#typed", "live-fixture", window.location.origin)).toBe("ok");
   const result = pfReadDom(["[", "#strip"]);
   for (const gone of [
     "attribute-fixture",

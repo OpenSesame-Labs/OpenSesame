@@ -22,12 +22,39 @@ fn enter<'a>(fixture: &Fixture, extra: &[(&str, &str)]) -> Entered<'a> {
     let lock = ENV
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut lookup = fixture.lookup(&[]);
+    if let Some(name) = override_name(&fixture.program) {
+        lookup.vars.push((
+            OsString::from(name),
+            fixture.trusted.join(&fixture.program).into_os_string(),
+        ));
+    }
+    for (name, value) in extra {
+        lookup
+            .vars
+            .push((OsString::from(name), OsString::from(value)));
+    }
     let mut saved = Vec::new();
-    for (name, value) in fixture.lookup(extra).vars {
+    for (name, value) in lookup.vars {
         saved.push((name.clone(), std::env::var_os(&name)));
         std::env::set_var(&name, value);
     }
     Entered { saved, _lock: lock }
+}
+
+/// These integration tests exercise the public, process-capturing entry
+/// points. Select their recorder explicitly: production capture must reject
+/// this sandbox's foreign-owned filesystem root. Trusted `PATH` selection and
+/// planted-program rejection stay covered by the crate's synthetic-Caller
+/// unit tests.
+fn override_name(program: &str) -> Option<&'static str> {
+    match program {
+        "git" => Some("OPENSESAME_GIT"),
+        "gpg" => Some("OPENSESAME_GPG"),
+        "sops" => Some("OPENSESAME_SOPS_BIN"),
+        "age-plugin-yubikey" => Some("OPENSESAME_AGE_PLUGIN_YUBIKEY"),
+        _ => None,
+    }
 }
 
 impl Drop for Entered<'_> {
@@ -79,7 +106,7 @@ fn a_backup_push_runs_the_trusted_git_with_its_token_its_proxy_and_nothing_else(
 }
 
 #[test]
-fn every_store_git_command_is_the_trusted_one() {
+fn every_store_git_command_uses_the_operator_selected_recorder() {
     let fixture = Fixture::new("git");
     fixture.stub_recorder_saying(&fixture.trusted.join("git"), URL);
     let root = store(&fixture);
@@ -113,8 +140,8 @@ fn opensesame_git_names_the_exact_git_even_where_anyone_can_write() {
 
 #[test]
 fn the_parents_secrets_and_git_redirections_never_reach_git() {
-    // Nothing planted: the only `git` is the trusted one, so what is under
-    // test is what it is handed.
+    // Nothing planted: what is under test is what the explicitly selected
+    // recorder is handed. Trusted PATH selection has separate unit coverage.
     let fixture = Fixture::new("git");
     std::fs::remove_file(fixture.planted.join("git")).unwrap();
     fixture.stub_recorder_saying(&fixture.trusted.join("git"), URL);
@@ -129,7 +156,7 @@ fn the_parents_secrets_and_git_redirections_never_reach_git() {
 }
 
 #[test]
-fn a_gpg_entry_is_opened_and_sealed_by_the_trusted_gpg_with_nothing_else() {
+fn a_gpg_entry_is_opened_and_sealed_by_the_operator_selected_gpg_with_nothing_else() {
     let fixture = Fixture::new("gpg");
     let reads_stdin = "/bin/cat > /dev/null";
     fixture.stub_recorder_with(&fixture.trusted.join("gpg"), reads_stdin, "sealed");
@@ -197,7 +224,7 @@ fn opensesame_sops_bin_must_name_a_file_that_can_run_and_sops_sees_only_its_own(
 }
 
 #[test]
-fn the_age_plugin_is_the_trusted_one_or_the_file_its_variable_names() {
+fn the_age_plugin_is_operator_selected_or_the_file_its_variable_names() {
     use opensesame_sealed_store::{discover_piv_age, PivAgeRuntime};
     let plugin = "age-plugin-yubikey";
     let fixture = Fixture::new(plugin);

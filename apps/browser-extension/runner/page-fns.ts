@@ -59,7 +59,8 @@ export function pfWaitFor(
 export function pfFill(
   selector: string,
   value: string,
-): "ok" | "no_such_field" | "invalid" {
+  expectedOrigin: string,
+): "ok" | "no_such_field" | "invalid" | "off_origin" {
   let element: Element | null;
   try {
     element = document.querySelector(selector);
@@ -68,6 +69,7 @@ export function pfFill(
   }
   const win = document.defaultView;
   if (!win || !element) return "no_such_field";
+  if (win.location.origin !== expectedOrigin) return "off_origin";
   const field =
     element instanceof win.HTMLInputElement ||
     element instanceof win.HTMLTextAreaElement

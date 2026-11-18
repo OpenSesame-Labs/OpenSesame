@@ -452,6 +452,16 @@ variants** built from one source tree, and the installation runs exactly one:
 | `core-only` | `sw.js` | — | always |
 | `push` | `sw-push.js` | `push` | `notifications.web-push` is distributed |
 
+Both registrations remain classic workers. `sw-push.js` is an isolated static
+wrapper: before evaluating any core listener it marks the `push` variant,
+installs the push-only listeners, and imports the already-built `sw.js` at a
+URL carrying that file's SHA-256. The wrapper IIFE keeps its minified bindings
+separate from the imported classic script's bindings. A direct `sw.js`
+registration has no marker and defaults to `core-only`. The two variants
+therefore share the exact eager core code and injected offline manifest; a
+core edit also changes the wrapper's pinned URL, and the browser's classic
+imported-script update check observes it.
+
 The plan names the variant (`requiredWorkerVariant`, `null` meaning core-only).
 Consequences an operator should expect:
 

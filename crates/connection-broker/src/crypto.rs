@@ -162,11 +162,13 @@ pub fn open_with_ad(key: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<Vec
     if blob.nonce.len() != 24 {
         return Err(BrokerError::SealUnavailable("nonce length".into()));
     }
+    let nonce = <&XNonce>::try_from(blob.nonce.as_slice())
+        .map_err(|_| BrokerError::SealUnavailable("nonce length".into()))?;
     let legacy = legacy_context(aad).unwrap_or_else(|| aad.to_vec());
     XChaCha20Poly1305::new_from_slice(key)
         .map_err(|_| BrokerError::SealUnavailable("credential could not be opened".into()))?
         .decrypt(
-            XNonce::from_slice(&blob.nonce),
+            nonce,
             Payload {
                 msg: &blob.ciphertext,
                 aad: &legacy,
@@ -210,10 +212,11 @@ mod tests {
         ] {
             let legacy = legacy_context(&aad).unwrap();
             let nonce = [3u8; 24];
+            let nonce_ref: &XNonce = (&nonce).into();
             let ciphertext = XChaCha20Poly1305::new_from_slice(&KEY)
                 .unwrap()
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    nonce_ref,
                     Payload {
                         msg: b"legacy",
                         aad: &legacy,

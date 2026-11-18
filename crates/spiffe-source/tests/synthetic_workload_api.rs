@@ -134,7 +134,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn at_spiffe_withdraw_when_own_bundle_is_removed() {
+async fn at_spiffe_empty_required_bundle_is_a_malformed_update_not_a_withdrawal() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_secs(600));
@@ -143,16 +143,27 @@ async fn at_spiffe_withdraw_when_own_bundle_is_removed() {
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
     streaming(&handle, 1).await;
 
+    // The Workload API makes every per-SVID bundle a required field, so an
+    // empty value is rejected before it can become a bundle-less context.
+    // Keep serving the last valid generation on that malformed update.
     api.push_snapshot(FakeWorkloadApi::snapshot(
         vec![gateway.to_proto(&[], "")],
         &[],
     ));
-    let status = withdrawn(&handle).await;
-    assert_eq!(status.last_error.as_deref(), Some("bundle_missing"));
-    assert_eq!(
+    let status = handle
+        .wait_for(WAIT, |s| {
+            s.last_error.as_deref() == Some("workload_api_message")
+        })
+        .await
+        .unwrap_or_else(|s| panic!("expected malformed update, got {s:?}"));
+    assert_eq!(status.phase, SourcePhase::Streaming);
+    assert_eq!(status.generation, Some(1));
+    assert_eq!(status.snapshots, 1);
+    assert_eq!(status.withdrawals, 0);
+    assert!(matches!(
         sink.last(),
-        Some(SinkEvent::Withdrawn(TransportError::TrustUnknown))
-    );
+        Some(SinkEvent::Activated { number: 1, .. })
+    ));
     handle.stop().await;
 }
 
@@ -297,7 +308,7 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
         .unwrap();
     let retain_until = status.retain_until.expect("bounded retention");
     let outage_since = status.outage_since.expect("outage start");
-    assert!(retain_until <= outage_since + chrono::Duration::milliseconds(400));
+    assert!(retain_until <= outage_since + opensesame_time::Duration::milliseconds(400));
     assert!(
         retain_until < status.not_after.unwrap(),
         "max_stale is shorter than not_after"
@@ -354,7 +365,7 @@ async fn no_identity_issued_means_no_generation_and_no_fallback() {
     assert_eq!(status.last_error.as_deref(), Some("workload_api_transport"));
     assert!(sink.events().is_empty(), "{:?}", sink.events());
     assert_eq!(
-        status.credential_status(chrono::Utc::now()),
+        status.credential_status(opensesame_time::Utc::now()),
         opensesame_domain::CredentialStatus::Unconfigured
     );
     handle.stop().await;

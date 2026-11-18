@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 441,
-    "violations": 700,
-    "oversizedLines": 213880
+    "files": 440,
+    "violations": 699,
+    "oversizedLines": 213357
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -209,7 +209,7 @@
     },
     "apps/pages/src/sections/settings/security/SecondStepCeremonies.tsx": {
       "complexity": 2,
-      "max-lines": 866,
+      "max-lines": 854,
       "max-lines-per-function": 3
     },
     "apps/pages/src/sections/vault/HealthPanel.tsx": {
@@ -270,16 +270,16 @@
       "max-lines": 1493
     },
     "crates/connection-broker/src/egress.rs": {
-      "max-lines": 518
+      "max-lines": 494
     },
     "crates/connection-broker/src/flow.rs": {
-      "max-lines": 604
+      "max-lines": 603
     },
     "crates/connection-broker/src/integration.rs": {
       "max-lines": 927
     },
     "crates/connection-broker/src/lib.rs": {
-      "max-lines": 2291
+      "max-lines": 2277
     },
     "crates/connection-broker/src/rotation.rs": {
       "max-lines": 1727
@@ -330,7 +330,7 @@
       "max-lines": 699
     },
     "crates/daemon/src/cli_probe.rs": {
-      "max-lines": 695
+      "max-lines": 675
     },
     "crates/daemon/src/invoke_through.rs": {
       "max-lines": 801
@@ -465,19 +465,19 @@
       "max-lines": 510
     },
     "crates/pki-core/src/ca.rs": {
-      "max-lines": 474
+      "max-lines": 471
     },
     "crates/pki-core/src/policy.rs": {
       "max-lines": 1606
     },
     "crates/pki-core/src/revocation.rs": {
-      "max-lines": 1131
+      "max-lines": 1129
     },
     "crates/pki-core/src/types.rs": {
-      "max-lines": 915
+      "max-lines": 903
     },
     "crates/pki-core/src/x509.rs": {
-      "max-lines": 553
+      "max-lines": 551
     },
     "crates/pm-bridges/src/keepassxc/actions.rs": {
       "max-lines": 646
@@ -488,11 +488,8 @@
     "crates/pm-bridges/src/pairing.rs": {
       "max-lines": 645
     },
-    "crates/pm-bridges/src/store.rs": {
-      "max-lines": 426
-    },
     "crates/pm-bridges/tests/keepassxc_handshake.rs": {
-      "max-lines": 656
+      "max-lines": 655
     },
     "crates/provider-bitwarden/src/crypto.rs": {
       "max-lines": 490
@@ -531,7 +528,7 @@
       "max-lines": 546
     },
     "crates/storage/src/tests.rs": {
-      "max-lines": 2996
+      "max-lines": 2995
     },
     "crates/storage/tests/session_coordination_store.rs": {
       "max-lines": 530
@@ -815,7 +812,7 @@
       "max-lines": 562
     },
     "packages/control-plane/src/__tests__/byo-upstream.test.ts": {
-      "max-lines": 996
+      "max-lines": 995
     },
     "packages/control-plane/src/__tests__/federated-interaction.test.ts": {
       "max-lines": 1612
@@ -1053,7 +1050,7 @@
     },
     "packages/control-plane/src/routes/organizations.ts": {
       "complexity": 1,
-      "max-lines": 974,
+      "max-lines": 970,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/routes/principals.ts": {

@@ -24,8 +24,8 @@
 //! grants still authorize.
 
 use anyhow::{bail, Context};
-use chrono::{DateTime, Utc};
 use opensesame_domain::{PrincipalId, SessionId, SessionMembership, SessionMode};
+use opensesame_time::{DateTime, Utc};
 use sqlx::{sqlite::SqliteRow, Row};
 
 use crate::Db;

@@ -5,8 +5,8 @@
 //! exactly as it did when this module was inline.
 
 use super::*;
-use chrono::{Duration, Utc};
 use opensesame_domain::*;
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
 async fn apply_migration(pool: &SqlitePool, migration: &str) {
@@ -751,20 +751,19 @@ async fn outbox_claim_publish_park_dead_letter_lifecycle() {
     assert!(db.claim_outbox_batch(10, 60).await.unwrap().is_empty());
 
     // Success path.
-    db.mark_outbox_published(&[first.clone()]).await.unwrap();
+    db.mark_outbox_published(&[first]).await.unwrap();
     assert_eq!(db.count_unpublished_outbox().await.unwrap(), 1);
 
     // Compensation path: park releases the claim after the backoff.
-    db.park_outbox(&[second.clone()], "github 502", 0)
-        .await
-        .unwrap();
+    let second_ref = std::slice::from_ref(&second);
+    db.park_outbox(second_ref, "github 502", 0).await.unwrap();
     let retried = db.claim_outbox_batch(10, 60).await.unwrap();
     assert_eq!(retried.len(), 1);
     assert_eq!(retried[0].id, second);
     assert_eq!(retried[0].attempts, 1);
 
     // Terminal compensation: dead-letter records the error and stops retries.
-    db.dead_letter_outbox(&[second.clone()], "poison payload")
+    db.dead_letter_outbox(second_ref, "poison payload")
         .await
         .unwrap();
     assert_eq!(db.count_unpublished_outbox().await.unwrap(), 0);

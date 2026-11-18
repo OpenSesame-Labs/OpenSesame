@@ -1,8 +1,8 @@
 //! Truthful status of the source: connection phase, current generation,
 //! outage bounds, and the custody the Workload API actually provides.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::{CredentialStatus, Custody, IdentitySourceKind};
+use opensesame_time::{DateTime, Utc};
 
 /// Where the source's connection loop is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,8 +99,8 @@ impl SourceStatus {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Utc};
     use opensesame_domain::{CredentialStatus, Custody};
+    use opensesame_time::{Duration, Utc};
 
     use super::{SourcePhase, SourceStatus};
 

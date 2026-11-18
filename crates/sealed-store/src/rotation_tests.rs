@@ -298,7 +298,7 @@ fn a_writer_is_refused_while_a_rotation_runs() {
                 .is_err(),
         );
         refused.push(attach_small(&store, "Dev/late-file", &old_key).is_err());
-        refused.push(store.rm("Dev/token").is_err());
+        refused.push(store.rm_with_key("Dev/token", &old_key).is_err());
         refused.push(protect_add_store_recovery(dir.path(), PW).is_err());
     })
     .unwrap();

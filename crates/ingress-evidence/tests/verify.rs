@@ -3,7 +3,6 @@
 
 mod support;
 
-use chrono::{Duration, Utc};
 use http::{HeaderMap, HeaderValue};
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{
@@ -13,6 +12,7 @@ use opensesame_domain::transport::{
 use opensesame_ingress_evidence::{
     parse_client_cert_fields, verify_originating, ForwardedChain, IngressLimits,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::{IssuedLeaf, LeafSpec, SanEntry};
 use opensesame_transport_security::TrustBundle;
 use support::{byte_sequence, client_cert, Pki, TRUSTED_LISTENER};

@@ -124,18 +124,18 @@ export interface ExternalIdentityRepository {
   ): Promise<ExternalIdentity | null>;
   deleteById(id: string, uow?: UnitOfWork): Promise<boolean>;
 }
-
-/**
- * Bring-your-own upstreams (ADR 0055). Durable so a returning visitor who
- * re-enters their issuer resumes the same registration; `findByIssuer` is the
- * anti-enumeration read — callers never reveal whether a record pre-existed.
- */
+/** Durable BYO upstreams and their anti-enumeration issuer lookup (ADR 0055). */
 export interface ByoUpstreamRepository {
   create(record: ByoUpstream): Promise<ByoUpstream>;
+  createWithinLimit(
+    record: ByoUpstream,
+    limit: number,
+  ): Promise<ByoUpstream | null>;
   getById(id: string): Promise<ByoUpstream | null>;
   /** Matches on the normalized issuer, whatever spelling the caller passes. */
   findByIssuer(issuer: string): Promise<ByoUpstream | null>;
   touchLastUsed(id: string, at: Date): Promise<void>;
+  count(): Promise<number>;
   /** Operator surface: every record, newest registration first. */
   list(): Promise<ByoUpstream[]>;
   /** Operator surface: disable or re-enable one record. */

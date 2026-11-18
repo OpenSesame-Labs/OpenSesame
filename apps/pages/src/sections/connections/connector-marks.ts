@@ -12,7 +12,9 @@
  * how those brands present their own marks on dark surfaces.
  */
 
-import {
+import SIMPLE_ICONS from "./connector-marks.generated.json";
+
+const {
   si1password,
   siAnthropic,
   siAsana,
@@ -58,7 +60,7 @@ import {
   siVaultwarden,
   siVercel,
   siZoom,
-} from "simple-icons";
+} = SIMPLE_ICONS;
 
 export type ConnectorMarkDef = {
   /** 24×24 single-color SVG path. */

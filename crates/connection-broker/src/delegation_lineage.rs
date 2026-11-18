@@ -1,7 +1,7 @@
 //! Ancestor-active checks for delegated grants (INV-REVOCATION dispatch path).
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::{Grant, GrantId};
+use opensesame_time::{DateTime, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::delegation::{parse_execution_mode, ResolvedDelegation};

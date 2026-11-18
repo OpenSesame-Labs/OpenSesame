@@ -71,7 +71,7 @@ async fn real_spire_issues_the_configured_svid_and_withdraws_it_when_the_entry_i
         "exact configured identity, not the first returned"
     );
     assert_eq!(activated[0].1, vec![spire::TRUST_DOMAIN.to_owned()]);
-    assert!(status.not_after.unwrap() > chrono::Utc::now());
+    assert!(status.not_after.unwrap() > opensesame_time::Utc::now());
     eprintln!(
         "real SPIRE: activated generation {:?} for {GW}, not_after {:?}",
         status.generation, status.not_after

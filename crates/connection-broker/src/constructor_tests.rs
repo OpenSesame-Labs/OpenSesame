@@ -31,39 +31,32 @@ async fn proxy_probe() {
     let config = BrokerConfig::in_memory(None, "http://127.0.0.1:1");
     let normal = ConnectionBroker::new(db.pool().clone(), config.clone()).unwrap();
     let isolated = ConnectionBroker::new_without_system_proxy(db.pool().clone(), config).unwrap();
-    for client in [&normal.http, &normal.http_bytes] {
-        assert_eq!(
-            client
-                .get(&target)
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap(),
-            "proxy"
-        );
-    }
-    for client in [&isolated.http, &isolated.http_bytes] {
-        assert_eq!(
-            client
-                .get(&target)
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap(),
-            "target"
-        );
-    }
+    assert_eq!(
+        normal
+            .http
+            .get(&target)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "proxy"
+    );
+    assert_eq!(
+        isolated
+            .http
+            .get(&target)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "target"
+    );
     let redirect = target.replace("/probe", "/redirect");
-    for client in [
-        &normal.http,
-        &normal.http_bytes,
-        &isolated.http,
-        &isolated.http_bytes,
-    ] {
+    for client in [&normal.http, &isolated.http] {
         assert_eq!(
             client.get(&redirect).send().await.unwrap().status(),
             StatusCode::TEMPORARY_REDIRECT

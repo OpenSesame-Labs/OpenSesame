@@ -37,7 +37,7 @@ pub struct DevicePending {
     pub user_code_hash: String,
     pub client_id: String,
     pub scope: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: opensesame_time::DateTime<opensesame_time::Utc>,
     pub approved: Option<ApprovedDevice>,
 }
 
@@ -81,7 +81,7 @@ pub struct AppState {
     /// Serializes device-token minting with principal/org session revocation.
     pub session_lifecycle: Arc<Mutex<()>>,
     /// Timestamps of failed `user_code` approval guesses (global cooldown fence).
-    pub device_approve_failures: Arc<Mutex<Vec<chrono::DateTime<chrono::Utc>>>>,
+    pub device_approve_failures: Arc<Mutex<Vec<opensesame_time::DateTime<opensesame_time::Utc>>>>,
     pub claims: Arc<Mutex<HashMap<String, ClaimSession>>>,
     pub(crate) public_enrollment: Arc<Mutex<crate::middleware::public_enrollment::Budgets>>,
     /// `claim_id` -> failed user-code attempts on completion (brute-force fence).

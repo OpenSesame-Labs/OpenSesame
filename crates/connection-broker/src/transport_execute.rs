@@ -30,7 +30,6 @@
 //! looked like locators, and are resolved only through
 //! [`ClientIdentityResolver`](crate::transport::ClientIdentityResolver).
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -41,7 +40,7 @@ use opensesame_invoke_through::{
 use opensesame_transport_security::{TlsIdentity, TrustBundle};
 use secrecy::SecretString;
 
-use super::client::{build_invoker, is_internal, PinnedAuthority};
+use super::client::{build_invoker, resolve_pinned_authority, PinnedAuthority};
 use super::pool::{ConnectorClientPool, ConnectorPoolKey};
 use super::{
     ConnectionTransport, ConnectorResolvers, IdentityScope, TrustScope, PURPOSE_CONNECTOR_INVOKE,
@@ -273,25 +272,9 @@ impl ConnectorTransportExecutor {
         &self,
         prepared: &PreparedRequest,
     ) -> Result<PinnedAuthority, TransportError> {
-        let host = prepared.host().to_ascii_lowercase();
+        let host = prepared.host();
         let port = prepared.port().unwrap_or(443);
-        let mut addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
-            .await
-            .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
-            .collect();
-        if !self.allow_loopback_for_tests {
-            addrs.retain(|addr| !is_internal(addr.ip()));
-        }
-        if addrs.is_empty() {
-            return Err(TransportError::malformed(
-                "connector authority resolved to no permitted address",
-            ));
-        }
-        Ok(PinnedAuthority {
-            label: format!("{host}:{port}"),
-            host,
-            addrs,
-        })
+        resolve_pinned_authority(host, port, self.allow_loopback_for_tests).await
     }
 }
 

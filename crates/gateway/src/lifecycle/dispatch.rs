@@ -10,12 +10,12 @@
 //! renewal whether or not our own rotation then succeeds. A responder that
 //! panicked or hung must not be able to swallow the notification.
 
-use chrono::DateTime;
-use chrono::Utc;
 use opensesame_lifecycle::{
     should_respond, LifecycleEvent, SubjectKind, Watermark, MAX_DETAIL_CHARS,
 };
 use opensesame_storage::StoredLifecycleWatermark;
+use opensesame_time::DateTime;
+use opensesame_time::Utc;
 
 use crate::app_state::AppState;
 use crate::lifecycle::responders::{self, Outcome};

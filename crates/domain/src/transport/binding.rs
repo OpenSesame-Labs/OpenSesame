@@ -9,7 +9,7 @@ use super::error::TransportError;
 use super::policy::TrustProfileRef;
 use super::selector::PeerIdentitySelector;
 use super::{timestamp, validate_id, validate_thumbprint};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

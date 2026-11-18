@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use spiffe::{TrustDomain, X509Bundle, X509BundleSet, X509Context, X509Svid};
 
 use super::SvidGeneration;

@@ -10,7 +10,10 @@ mod security;
 
 #[path = "windows_private_files/publish.rs"]
 mod publish;
-pub use publish::{atomic_create_with, atomic_write, atomic_write_with, write_new};
+pub use publish::{
+    atomic_create_with, atomic_write, atomic_write_with, remove_confined_file, remove_file,
+    write_new,
+};
 #[path = "windows_private_files/read.rs"]
 mod read;
 pub use read::HeldPrivateRead;
@@ -32,6 +35,7 @@ pub struct PrivateDirectory {
     identities: Vec<handles::Identity>,
     owner: String,
     private_start: usize,
+    require_private: bool,
 }
 
 impl PrivateDirectory {
@@ -40,7 +44,19 @@ impl PrivateDirectory {
     /// # Errors
     /// Refuses reparse paths, unsupported volumes, broad/foreign ACLs and IO errors.
     pub fn open(root: &Path) -> io::Result<Self> {
-        Self::pin(root, false, false)
+        Self::pin(root, false, false, true)
+    }
+
+    /// Pin an existing local NTFS directory chain without requiring a legacy
+    /// store root to already have OpenSesame's exact private ACL. Reparse
+    /// points, aliases and profile changes are still refused, and files made
+    /// beneath the retained handle receive private ACLs.
+    ///
+    /// # Errors
+    /// Refuses non-local filesystems, reparse/alias paths, unsafe components,
+    /// identity/profile changes and IO failures.
+    pub fn open_confined(root: &Path) -> io::Result<Self> {
+        Self::pin(root, false, false, false)
     }
 
     /// Create only missing directories with private ACLs, pinning every parent.
@@ -51,7 +67,18 @@ impl PrivateDirectory {
     /// path/volume/profile changes and creation/IO errors. Created private empty
     /// directories can remain if a later step fails; this is not a transaction.
     pub fn create_directories(root: &Path) -> io::Result<Self> {
-        Self::pin(root, true, false)
+        Self::pin(root, true, false, true)
+    }
+
+    /// Pin an existing local NTFS chain and create only missing descendants
+    /// with private ACLs. Existing ancestors may retain their reviewed legacy
+    /// ACLs; exact handles and no-delete sharing provide confinement.
+    ///
+    /// # Errors
+    /// Refuses unsafe existing paths, raced or non-private new descendants,
+    /// unsupported filesystems, identity/profile changes and IO failures.
+    pub fn create_confined_directories(root: &Path) -> io::Result<Self> {
+        Self::pin(root, true, false, false)
     }
 
     /// Create a new private final directory under existing pinned ancestors.
@@ -62,24 +89,36 @@ impl PrivateDirectory {
     /// Refuses existing destinations, missing ancestors, unsafe paths and IO failures.
     /// A newly created empty directory can remain after a later verification failure.
     pub fn create_new(root: &Path) -> io::Result<Self> {
-        Self::pin(root, false, true)
+        Self::pin(root, false, true, true)
     }
 
-    fn pin(root: &Path, create_missing: bool, new_leaf: bool) -> io::Result<Self> {
+    fn pin(
+        root: &Path,
+        create_missing: bool,
+        new_leaf: bool,
+        require_private: bool,
+    ) -> io::Result<Self> {
         let owner = security::owner_sid()?;
         let paths = handles::prefixes(root)?;
         let mut parents = Vec::new();
         let mut identities = Vec::new();
+        let mut first_created = None;
         for (index, path) in paths.iter().enumerate() {
             if new_leaf && index + 1 == paths.len() {
                 validate_creation_parent(&paths[..index], &parents, &identities, &owner)?;
                 create_private_directory_new(path, &owner)?;
+                if first_created.is_none() {
+                    first_created = Some(index);
+                }
             }
             let file = match handles::directory(path) {
                 Ok(file) => file,
                 Err(error) if create_missing && error.kind() == io::ErrorKind::NotFound => {
                     validate_creation_parent(&paths[..index], &parents, &identities, &owner)?;
                     create_private_directory(path, &owner)?;
+                    if first_created.is_none() {
+                        first_created = Some(index);
+                    }
                     let file = handles::directory(path)?;
                     security::verify(&file, &owner, true)?;
                     file
@@ -96,13 +135,18 @@ impl PrivateDirectory {
             }
             parents.push(file);
         }
-        let private_start = parents.len().checked_sub(1).ok_or_else(security::refused)?;
+        let private_start = if require_private {
+            parents.len().checked_sub(1).ok_or_else(security::refused)?
+        } else {
+            first_created.unwrap_or(parents.len())
+        };
         let opened = Self {
             parents,
             paths,
             identities,
             owner,
             private_start,
+            require_private,
         };
         opened.validate()?;
         Ok(opened)
@@ -119,7 +163,7 @@ impl PrivateDirectory {
             .parents
             .get(self.private_start..)
             .ok_or_else(security::refused)?;
-        if private.is_empty() {
+        if self.require_private && private.is_empty() {
             return Err(security::refused());
         }
         for directory in private {

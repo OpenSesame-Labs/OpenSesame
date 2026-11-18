@@ -4,14 +4,21 @@
 //! can list/create remotes after OAuth without seeing access tokens (ADR 0005/0032).
 
 use opensesame_domain::OrganizationId;
+use opensesame_invoke_through::scrub_credential_reflection;
 use serde_json::{json, Value};
+use std::time::Duration;
 
 use crate::catalog::AuthMethod;
 use crate::error::{BrokerError, Result};
 use crate::model::ConnectionStatus;
+use crate::response_guard::{read_bounded_body, ResponseBodyError};
 use crate::store;
 use crate::token::TokenSet;
 use crate::ConnectionBroker;
+
+#[path = "egress_client.rs"]
+mod client;
+use client::credentialed_client;
 
 #[path = "egress_github.rs"]
 mod github;
@@ -34,25 +41,6 @@ const RESERVED_HEADERS: &[&str] = &[
     "host",
     "transfer-encoding",
 ];
-
-/// Credentialed egress travels over https. The single exception is http to
-/// loopback, which the catalog already permits for the bundled `mock`
-/// provider (see `validate_egress`) and which never leaves this machine.
-/// The per-connection allowlist (`allows_url`) only proves the URL matches
-/// the configured scheme, so this transport floor is asserted again at the
-/// point the credential is attached.
-fn require_secure_egress_url(url: &str) -> Result<()> {
-    let parsed =
-        url::Url::parse(url).map_err(|_| BrokerError::Invalid("malformed egress url".into()))?;
-    let loopback = matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
-    match parsed.scheme() {
-        "https" => Ok(()),
-        "http" if loopback => Ok(()),
-        _ => Err(BrokerError::Invalid(
-            "credentialed egress requires https (http is loopback-only)".into(),
-        )),
-    }
-}
 
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {
     match auth {
@@ -229,6 +217,12 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client = credentialed_client(url, Duration::from_secs(20)).await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -241,10 +235,17 @@ impl ConnectionBroker {
             .resolve_provider(&row.organization_id, &row.provider_id)
             .await?;
 
-        let response = self
-            .http_authorized(&provider.id, &provider.auth, &tokens, method, url, body)
-            .await
-            .map_err(BrokerError::ExchangeFailed)?;
+        let response = Self::http_authorized(
+            &client,
+            &provider.id,
+            &provider.auth,
+            &tokens,
+            method,
+            url,
+            body,
+        )
+        .await
+        .map_err(BrokerError::ExchangeFailed)?;
 
         // Never echo Authorization headers or token fields from upstream.
         Ok(response)
@@ -259,10 +260,10 @@ impl ConnectionBroker {
     /// an origin the connection never authorized.
     ///
     /// Three things are deliberate. Redirects are not followed — a redirect
-    /// would replay the bearer token at an unapproved origin. The response body
-    /// is read only up to a cap, since a provider error page is not something
-    /// we need in full. And no part of the credential is ever returned or
-    /// logged: on failure the caller learns the status and a short snippet.
+    /// would replay the bearer token at an unapproved origin. Error bodies are
+    /// never read or returned because a hostile provider can reflect the
+    /// injected credential in one. And no part of the credential is ever
+    /// returned or logged: on failure the caller learns only the status.
     ///
     /// # Errors
     ///
@@ -291,6 +292,18 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        for (name, _) in extra_headers {
+            if RESERVED_HEADERS
+                .iter()
+                .any(|reserved| name.eq_ignore_ascii_case(reserved))
+            {
+                return Err(BrokerError::Invalid(format!(
+                    "caller may not set the {name} header on a credentialed upload"
+                )));
+            }
+        }
+        let client = credentialed_client(url, Duration::from_secs(60)).await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -300,27 +313,12 @@ impl ConnectionBroker {
             return Err(BrokerError::NeedsReauth("access token missing".into()));
         }
 
-        require_secure_egress_url(url)?;
-        let mut req = self
-            .http_bytes
+        let mut req = client
             .post(url)
             .header("Authorization", format!("Bearer {}", tokens.access_token))
             .header("Content-Type", "application/octet-stream")
             .header("User-Agent", "OpenSesame-Host/0.1");
         for (name, value) in extra_headers {
-            // Headers are appended, not set, so a caller passing `Authorization`
-            // would add a second one beside ours rather than replace it —
-            // leaving which credential the provider honours up to the provider.
-            // Today there is one caller passing one constant name; this is here
-            // so that stays safe when there are more.
-            if RESERVED_HEADERS
-                .iter()
-                .any(|reserved| name.eq_ignore_ascii_case(reserved))
-            {
-                return Err(BrokerError::Invalid(format!(
-                    "caller may not set the {name} header on a credentialed upload"
-                )));
-            }
             req = req.header(name.as_str(), value.as_str());
         }
 
@@ -328,7 +326,7 @@ impl ConnectionBroker {
             .body(body)
             .send()
             .await
-            .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
+            .map_err(|_| BrokerError::ExchangeFailed("upstream request failed".into()))?;
         let status = response.status();
         if status.is_redirection() {
             // Following this would hand the bearer token to wherever the
@@ -338,17 +336,13 @@ impl ConnectionBroker {
             )));
         }
         if !status.is_success() {
-            let text = response.text().await.unwrap_or_default();
-            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
-            return Err(BrokerError::ExchangeFailed(format!(
-                "upstream {status}: {snippet}"
-            )));
+            return Err(BrokerError::ExchangeFailed(format!("upstream {status}")));
         }
         Ok(())
     }
 
     async fn http_authorized(
-        &self,
+        client: &reqwest::Client,
         provider_id: &str,
         auth: &AuthMethod,
         tokens: &TokenSet,
@@ -356,12 +350,10 @@ impl ConnectionBroker {
         url: &str,
         body: Option<Value>,
     ) -> std::result::Result<Value, String> {
-        require_secure_egress_url(url).map_err(|error| error.to_string())?;
         let parsed_method = method
             .parse::<reqwest::Method>()
             .map_err(|_| format!("unsupported method {method}"))?;
-        let mut request = self
-            .http_bytes
+        let mut request = client
             .request(parsed_method, url)
             .header("Accept", "application/json")
             .header("User-Agent", "OpenSesame-Host/0.1");
@@ -376,34 +368,37 @@ impl ConnectionBroker {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let mut response = request.send().await.map_err(|e| e.to_string())?;
+        let mut response = request
+            .send()
+            .await
+            .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_JSON_RESPONSE_BYTES as u64)
-        {
-            return Err("upstream response exceeds the 1 MiB limit".into());
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            if bytes.len() + chunk.len() > MAX_JSON_RESPONSE_BYTES {
-                return Err("upstream response exceeds the 1 MiB limit".into());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+        let bytes = read_bounded_body(&mut response, MAX_JSON_RESPONSE_BYTES)
+            .await
+            .map_err(|error| match error {
+                ResponseBodyError::TooLarge { .. } => {
+                    "upstream response exceeds the 1 MiB limit".to_string()
+                }
+                ResponseBodyError::Read => "could not read upstream response".to_string(),
+            })?;
+        // Treat the response body as hostile at the one sink that can return
+        // it. The shared scrub covers raw, partially/mixed percent, JSON and
+        // HTML encodings plus standard/URL-safe base64 at every alignment.
+        let (safe_bytes, credential_reflected) =
+            scrub_credential_reflection(bytes, &tokens.access_token);
+        let text = String::from_utf8(safe_bytes.to_vec())
+            .map_err(|_| "upstream response was not valid UTF-8".to_string())?;
         if !(200..300).contains(&status.as_u16()) {
-            let safe = text.replace(&tokens.access_token, "[REDACTED]");
-            let snippet: String = safe.chars().take(MAX_ERROR_SNIPPET).collect();
+            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
             return Err(format!("upstream {status}: {snippet}"));
         }
-        if text.contains(&tokens.access_token) {
+        if credential_reflected {
             return Err("upstream response contained the injected credential".into());
         }
         if text.trim().is_empty() {
             return Ok(json!({}));
         }
-        serde_json::from_str(&text).map_err(|e| e.to_string())
+        serde_json::from_str(&text).map_err(|_| "upstream response was not valid JSON".to_string())
     }
 }
 
@@ -442,25 +437,6 @@ mod tests {
             ("X-Api-Key".into(), "Key do-not-return".into())
         );
         assert!(credential_header(&AuthMethod::Configuration, &token()).is_err());
-    }
-
-    #[test]
-    fn credentialed_egress_requires_https_except_loopback() {
-        assert!(require_secure_egress_url("https://api.github.com/user/repos").is_ok());
-        assert!(require_secure_egress_url("http://127.0.0.1:8080/upload").is_ok());
-        assert!(require_secure_egress_url("http://localhost:8080/upload").is_ok());
-        for refused in [
-            "http://api.github.com/user/repos",
-            "http://169.254.169.254/latest/meta-data/",
-            "http://127.0.0.1.evil.com/upload",
-            "ftp://127.0.0.1/upload",
-            "not a url",
-        ] {
-            assert!(
-                require_secure_egress_url(refused).is_err(),
-                "{refused} must be refused"
-            );
-        }
     }
 
     #[test]

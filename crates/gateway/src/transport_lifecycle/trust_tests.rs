@@ -3,11 +3,11 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{
     BindingPurpose, BindingScope, PeerIdentitySelector, ServiceBinding, ServiceBindingSet,
     TrustProfileKind,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 
 use crate::transport_lifecycle::test_support as support;

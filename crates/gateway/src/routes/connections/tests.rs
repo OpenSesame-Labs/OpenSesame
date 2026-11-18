@@ -958,7 +958,7 @@ async fn an_expired_state_is_refused_at_the_callback() {
             connection_id,
             redirect_uri: "http://127.0.0.1:8787/api/v1/oauth/callback/mock".into(),
             scopes: vec!["read".into()],
-            expires_at: chrono::Utc::now() - chrono::Duration::seconds(1),
+            expires_at: opensesame_time::Utc::now() - opensesame_time::Duration::seconds(1),
             credential_version: None,
         },
     )
@@ -1503,7 +1503,7 @@ async fn github_api_server() -> String {
             StatusCode::CREATED,
             AxumJson(json!({
                 "token": DERIVED_TOKEN,
-                "expires_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+                "expires_at": (opensesame_time::Utc::now() + opensesame_time::Duration::hours(1)).to_rfc3339(),
             })),
         )
             .into_response()

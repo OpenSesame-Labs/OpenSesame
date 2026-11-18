@@ -12,7 +12,7 @@
 
 use super::{AccessDomain, AccessDomainForest, Realm, MAX_DOMAIN_DEPTH};
 use crate::{AccessDomainId, DomainError, ProjectId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use proptest::prelude::*;
 use std::collections::BTreeSet;
 

@@ -12,8 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, RwLock};
 
 use arc_swap::ArcSwap;
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{TransportError, TrustProfileRef};
+use opensesame_time::{DateTime, Utc};
 use tokio::sync::watch;
 
 use crate::error::malformed;

@@ -147,7 +147,7 @@ async fn unknown_accounts_cannot_take_the_last_slot_from_login_reproof_or_send()
         .bearer_auth(&bearer)
         .json(
             &json!({"type":0,"name":ENC,"key":ENC,"text":{"text":ENC,"hidden":true},
-            "deletionDate": (chrono::Utc::now()+chrono::Duration::days(1)).to_rfc3339(),
+            "deletionDate": (opensesame_time::Utc::now()+opensesame_time::Duration::days(1)).to_rfc3339(),
             "password":"send-client-hash"}),
         )
         .send()
@@ -160,7 +160,7 @@ async fn unknown_accounts_cannot_take_the_last_slot_from_login_reproof_or_send()
         INSERT INTO bitwarden_attempt_budgets(namespace,bucket,expires_at,attempts)
         SELECT 'verification',printf('%064x',x),?,1 FROM n",
     )
-    .bind(chrono::Utc::now().timestamp_millis() + 900_000)
+    .bind(opensesame_time::Utc::now().timestamp_millis() + 900_000)
     .execute(harness.db.pool())
     .await
     .unwrap();

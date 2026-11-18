@@ -16,12 +16,12 @@
 
 use std::sync::{Arc, RwLock};
 
-use chrono::Utc;
 use opensesame_domain::transport::{
     CapabilityOutcome, CredentialStatus, Custody, EnforcementStatus, IdentitySourceKind,
     ObservedAuthentication, RuntimeStatus, TransportCapabilities, TransportPolicy,
     TransportStatusView, VerifiedPeer,
 };
+use opensesame_time::Utc;
 use opensesame_transport_security::env::NativeIdentitySpec;
 
 use crate::transport_lifecycle::{activation, LifecycleState};

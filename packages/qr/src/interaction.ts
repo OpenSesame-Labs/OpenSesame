@@ -8,7 +8,7 @@ import {
   type QrTerminalOptions,
   encodeQrSvg,
   encodeQrTerminal,
-} from "./index.js";
+} from "./encode.js";
 
 /**
  * QR codes for cross-device interaction links (ADR 0086).

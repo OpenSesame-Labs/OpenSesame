@@ -13,24 +13,46 @@
  * stored as the text it is.
  */
 import type { SealedBlob } from "@opensesame/vault-core";
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
+import { z } from "zod";
 
 export const CONFIG_FORMAT = "opensesame.config";
 
-const Languages = Schema.Literals(["json", "yaml", "toml"]);
-export type ConfigLanguage = typeof Languages.Type;
+const Languages = z.enum(["json", "yaml", "toml"]);
+export type ConfigLanguage = z.infer<typeof Languages>;
+const SealedConfig = z.object({ ivB64: z.string(), ctB64: z.string() });
 
 /** `spec/secret-files/config-file.schema.json` is generated from this. */
-export const ConfigDoc = Schema.Struct({
-  format: Schema.Literal(CONFIG_FORMAT),
-  version: Schema.Literal(1),
-  path: Schema.String,
+function makeConfigSchema() {
+  return Schema.Struct({
+    format: Schema.Literal(CONFIG_FORMAT),
+    version: Schema.Literal(1),
+    path: Schema.String,
+    language: Schema.Literals(["json", "yaml", "toml"]),
+    sealed: Schema.Struct({ ivB64: Schema.String, ctB64: Schema.String }),
+  });
+}
+
+// Keep the exported schema API while letting browser builds remove it when
+// only the runtime reader is imported. The two readers are checked for parity.
+export const ConfigDoc = /* @__PURE__ */ makeConfigSchema();
+
+const RuntimeConfigDoc = z.object({
+  format: z.literal(CONFIG_FORMAT),
+  version: z.literal(1),
+  path: z.string(),
   language: Languages,
-  sealed: Schema.Struct({ ivB64: Schema.String, ctB64: Schema.String }),
+  sealed: SealedConfig,
 });
 
-const configFile = Schema.fromJsonString(ConfigDoc);
-const sealedBlob = Schema.fromJsonString(ConfigDoc.fields.sealed);
+function parseJson<T>(value: string, schema: z.ZodType<T>): T | null {
+  try {
+    const result = schema.safeParse(JSON.parse(value));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
 
 /** VFS files whose text is read before the vault opens, and so is never sealed. */
 const PLAIN = new Set(["header", "migrated.v1", "seal-bound.v1"]);
@@ -63,13 +85,9 @@ export function configFileFor(path: string): string {
 
 /** The envelope for a sealed value, or `null` when the value is not one. */
 export function encodeConfig(path: string, value: string): Uint8Array | null {
-  const sealed = Effect.runSync(
-    Schema.decodeUnknownEffect(sealedBlob)(value).pipe(
-      Effect.match({ onFailure: () => null, onSuccess: (blob) => blob }),
-    ),
-  );
+  const sealed = parseJson(value, SealedConfig);
   if (sealed === null) return null;
-  const doc: typeof ConfigDoc.Type = {
+  const doc: z.infer<typeof RuntimeConfigDoc> = {
     format: CONFIG_FORMAT,
     version: 1,
     path,
@@ -83,17 +101,11 @@ export type DecodedConfig = Readonly<{ path: string; value: string }>;
 
 /** The VFS path and sealed text a config document holds, or `null` for any other file. */
 export function decodeConfig(bytes: Uint8Array): DecodedConfig | null {
-  return Effect.runSync(
-    Schema.decodeUnknownEffect(configFile)(
-      new TextDecoder().decode(bytes),
-    ).pipe(
-      Effect.match({
-        onFailure: () => null,
-        onSuccess: (doc) => ({
-          path: doc.path,
-          value: JSON.stringify(doc.sealed satisfies SealedBlob),
-        }),
-      }),
-    ),
-  );
+  const doc = parseJson(new TextDecoder().decode(bytes), RuntimeConfigDoc);
+  return doc === null
+    ? null
+    : {
+        path: doc.path,
+        value: JSON.stringify(doc.sealed satisfies SealedBlob),
+      };
 }

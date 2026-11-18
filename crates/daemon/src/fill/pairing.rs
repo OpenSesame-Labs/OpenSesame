@@ -13,8 +13,8 @@
 //! callers (origin, digest, time) to one owner-only file so a restart does
 //! not force a new ceremony. Pending requests live in memory and expire.
 
-use chrono::{DateTime, Utc};
 use opensesame_host_core::operator::constant_time_eq;
+use opensesame_time::{DateTime, Utc};
 use rand::{rand_core::UnwrapErr, rngs::SysRng, Rng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -201,7 +201,7 @@ impl Pairings {
             origin: origin.to_string(),
             token_sha256: digest,
             code: fresh_code(),
-            expires_at: now + chrono::Duration::seconds(PENDING_TTL_SECS),
+            expires_at: now + opensesame_time::Duration::seconds(PENDING_TTL_SECS),
         };
         let outcome = PairOutcome::Pending {
             code: pending.code.clone(),

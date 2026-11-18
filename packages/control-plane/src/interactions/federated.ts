@@ -6,7 +6,7 @@ import {
   verifyOrgIdToken,
 } from "../routes/org-assertion.js";
 import { mintAppleClientSecret } from "./apple-secret.js";
-import { siteOrigin, upstreamFetch } from "./federated-fetch.js";
+import { TtlLru, siteOrigin, upstreamFetch } from "./federated-fetch.js";
 import type { PendingFederatedAuth } from "./federated-pending.js";
 import {
   pendingProvenance,
@@ -400,25 +400,25 @@ export function interactionScopedState(uid: string): string {
  * visitor — and an `openid-client` Configuration binds the client id and its
  * authentication method, not just the server metadata. Keying on the issuer
  * alone would hand the second caller the first caller's credentials.
+ * Expiry bounds stale credentials; LRU order bounds the process-local cache
+ * without changing the promise shared by concurrent discovery callers.
  */
-const discoveryCache = new Map<string, Promise<client.Configuration>>();
+const discoveryCache = new TtlLru<Promise<client.Configuration>>(
+  256,
+  10 * 60_000,
+);
 
 /** Exposed for tests; discovery results are cached per issuer per process. */
-export function resetFederatedDiscoveryCache(): void {
-  discoveryCache.clear();
-}
-
-function discoveryCacheKey(issuer: string, clientId: string): string {
-  return `${issuer}|${clientId}`;
-}
+export const resetFederatedDiscoveryCache = () => discoveryCache.clear();
 
 async function upstreamConfiguration(
   ctx: AppContext,
   issuer: string,
   mode: FederatedClientMode,
 ): Promise<client.Configuration> {
-  const key = discoveryCacheKey(issuer, mode.clientId);
-  const cached = discoveryCache.get(key);
+  const key = `${issuer}|${mode.clientId}`;
+  const now = Date.now();
+  const cached = discoveryCache.get(key, now);
   if (cached) return cached;
 
   const options: client.DiscoveryRequestOptions = {
@@ -445,7 +445,7 @@ async function upstreamConfiguration(
         { cause },
       );
     });
-  discoveryCache.set(key, pending);
+  discoveryCache.set(key, pending, now);
   return pending;
 }
 

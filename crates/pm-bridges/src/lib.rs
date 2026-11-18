@@ -48,6 +48,7 @@ pub mod framing;
 pub mod manifest;
 pub mod pairing;
 pub mod store;
+#[cfg(any(test, feature = "testkit"))]
 pub mod testing;
 
 #[cfg(feature = "keepassxc")]

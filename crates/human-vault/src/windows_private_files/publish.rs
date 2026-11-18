@@ -79,9 +79,18 @@ pub(super) fn check_private(
     file: &File,
     name: &Path,
 ) -> io::Result<handles::Identity> {
+    let identity = check_confined(directory, file, name)?;
+    security::verify(file, &directory.owner, false)?;
+    Ok(identity)
+}
+
+fn check_confined(
+    directory: &PrivateDirectory,
+    file: &File,
+    name: &Path,
+) -> io::Result<handles::Identity> {
     directory.validate()?;
     let identity = handles::identity(file, false)?;
-    security::verify(file, &directory.owner, false)?;
     let name = name.to_str().ok_or_else(security::refused)?;
     handles::child_relation(directory.root_handle()?, file, name)?;
     Ok(identity)
@@ -170,6 +179,67 @@ pub fn write_new(directory: &PrivateDirectory, name: &Path, bytes: &[u8]) -> io:
         return Err(security::refused());
     }
     pending.published = true;
+    Ok(())
+}
+
+/// Remove one exact ordinary file beneath the retained directory without
+/// following a reparse point or reopening by name after validation.
+pub fn remove_file(directory: &PrivateDirectory, name: &Path) -> io::Result<()> {
+    remove_with_policy(directory, name, true)
+}
+
+/// Remove one exact legacy file without following a reparse point, while
+/// allowing an inherited ACL that predates private-file creation.
+///
+/// # Errors
+/// Refuses reparse/hardlinked nodes, unsafe names, changed parent relations,
+/// unsupported filesystems and IO failures.
+pub fn remove_confined_file(directory: &PrivateDirectory, name: &Path) -> io::Result<()> {
+    remove_with_policy(directory, name, false)
+}
+
+fn remove_with_policy(
+    directory: &PrivateDirectory,
+    name: &Path,
+    require_private: bool,
+) -> io::Result<()> {
+    directory.validate()?;
+    let path = handles::wide(&directory.path_for(name)?)?;
+    // SAFETY: the retained directory and terminated path remain live; the
+    // returned handle names the final node itself and denies replacement.
+    let handle = unsafe {
+        CreateFileW(
+            path.as_ptr(),
+            DELETE | READ_CONTROL | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            ptr::null(),
+            OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT,
+            ptr::null_mut(),
+        )
+    };
+    let file = handles::owned(handle)?;
+    if require_private {
+        check_private(directory, &file, name)?;
+    } else {
+        check_confined(directory, &file, name)?;
+    }
+    let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+    let size =
+        u32::try_from(mem::size_of::<FILE_DISPOSITION_INFO>()).map_err(|_| security::refused())?;
+    // SAFETY: the exact retained handle has DELETE access and the correctly
+    // sized disposition value remains live for the call.
+    if unsafe {
+        SetFileInformationByHandle(
+            file.as_raw_handle(),
+            FileDispositionInfo,
+            ptr::from_ref(&disposition).cast(),
+            size,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
     Ok(())
 }
 

@@ -173,7 +173,7 @@ async fn snapshot_row_group_projections() {
 async fn snapshot_dashboard_rollup_for_a_fixed_fixture() {
     let db = Db::connect_memory().await.expect("migrate");
     let (authority, ..) = seed_org(&db, ORG_ONE, "one").await;
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     for (suffix, status, algorithm, method, days) in [
         ("alpha", "active", "ecdsa-p256", "api", 3_i64),
         ("beta", "active", "rsa-2048", "acme", 20),
@@ -195,7 +195,7 @@ async fn snapshot_dashboard_rollup_for_a_fixed_fixture() {
         record.status = status.into();
         record.key_algorithm = Some(algorithm.into());
         record.enrollment_method = Some(method.into());
-        record.expires_at = (now + chrono::Duration::days(days)).to_rfc3339();
+        record.expires_at = (now + opensesame_time::Duration::days(days)).to_rfc3339();
         db.insert_managed_certificate(&record)
             .await
             .expect("certificate");
