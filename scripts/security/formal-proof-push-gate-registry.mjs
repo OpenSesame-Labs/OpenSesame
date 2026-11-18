@@ -2,6 +2,10 @@ import { lstatSync } from "node:fs";
 import { resolve } from "node:path";
 import { TextDecoder } from "node:util";
 import { isJsonObject, isString } from "../lib/json-boundary.mjs";
+import {
+  manifestAncestors,
+  manifestBuildScripts,
+} from "./formal-proof-manifest-set.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 export const hasControl = (value) =>
@@ -63,13 +67,40 @@ function validLockProjection(suite) {
   );
 }
 
+function validManifestSet(suite, projection) {
+  const manifests = projection.manifests;
+  return (
+    manifests === undefined ||
+    (Array.isArray(manifests) &&
+      manifests.length > 0 &&
+      manifests.length <= 512 &&
+      new Set(manifests).size === manifests.length &&
+      manifests.includes(projection.package) &&
+      manifests.every(
+        (path) =>
+          safePath(path) &&
+          path.endsWith("/Cargo.toml") &&
+          suite.implementation.includes(path),
+      ) &&
+      manifestAncestors(manifests).every((path) =>
+        suite.implementation.includes(path),
+      ) &&
+      manifestBuildScripts(manifests).every((path) =>
+        suite.implementation.includes(path),
+      ) &&
+      suite.lockProjection?.path === projection.lock &&
+      suite.lockProjection?.root === projection.root &&
+      suite.lockProjection?.dependency === undefined)
+  );
+}
+
 function validManifestProjection(suite) {
   const projection = suite.manifestProjection;
   if (projection === undefined) return true;
   if (!isJsonObject(projection)) return false;
   return (
     Object.keys(projection).every((key) =>
-      ["path", "package", "lock", "root"].includes(key),
+      ["path", "package", "lock", "root", "manifests"].includes(key),
     ) &&
     projection.path === "Cargo.toml" &&
     projection.lock === "Cargo.lock" &&
@@ -78,7 +109,8 @@ function validManifestProjection(suite) {
     isString(projection.root) &&
     /^[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(projection.root) &&
     !suite.implementation.includes(projection.path) &&
-    suite.implementation.includes(projection.package)
+    suite.implementation.includes(projection.package) &&
+    validManifestSet(suite, projection)
   );
 }
 

@@ -14,7 +14,7 @@ SCRIPT = Path(__file__).with_name("cargo-lock-projection.py")
 SPEC = importlib.util.spec_from_file_location("cargo_lock_projection", SCRIPT)
 projection = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = projection
-SPEC.loader.exec_module(projection)
+exec(compile(SCRIPT.read_bytes(), str(SCRIPT), "exec", dont_inherit=True), projection.__dict__)
 
 REGISTRY = "registry+https://github.com/rust-lang/crates.io-index"
 OTHER_REGISTRY = "registry+https://example.test/index"

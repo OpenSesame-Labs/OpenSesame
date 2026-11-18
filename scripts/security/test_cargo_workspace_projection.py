@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("workspace_projection_tested", ROOT / "scripts/security/cargo-workspace-projection.py")
 projection = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = projection
-SPEC.loader.exec_module(projection)
+exec(compile(Path(SPEC.origin).read_bytes(), SPEC.origin, "exec", dont_inherit=True), projection.__dict__)
 
 
 class WorkspaceProjectionTest(unittest.TestCase):
@@ -48,6 +48,24 @@ class WorkspaceProjectionTest(unittest.TestCase):
         self.assertEqual(selected["target-alias"]["package"], "uuid")
         workspace["workspace"]["dependencies"]["target-alias"]["version"] = "2"
         self.assertNotEqual(self.project(workspace, package), baseline)
+
+    def test_legacy_dependency_table_spellings_and_duplicates(self):
+        package = copy.deepcopy(self.package)
+        package["dev_dependencies"] = package.pop("dev-dependencies")
+        package["target"] = {"cfg(unix)": {"build_dependencies": {"serde": {"workspace": True}}}}
+        baseline = self.project(self.workspace, package)
+        self.assertIn("proptest", baseline["workspace"]["dependencies"])
+        self.assertIn("serde", baseline["workspace"]["dependencies"])
+        workspace = copy.deepcopy(self.workspace)
+        workspace["workspace"]["dependencies"]["serde"]["features"].append("rc")
+        self.assertNotEqual(self.project(workspace, package), baseline)
+        package["dev-dependencies"] = {}
+        with self.assertRaisesRegex(projection.ProjectionError, "duplicate dependency table"):
+            self.project(workspace, package)
+        del package["dev-dependencies"]
+        package["target"]["cfg(unix)"]["build-dependencies"] = {}
+        with self.assertRaisesRegex(projection.ProjectionError, "duplicate dependency table"):
+            self.project(workspace, package)
 
     def test_member_selection_and_unsupported_patterns(self):
         baseline = self.project()

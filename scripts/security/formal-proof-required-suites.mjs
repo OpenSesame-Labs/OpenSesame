@@ -31,6 +31,15 @@ function sameProjection(actual, expected, fields) {
   return fields.every((field) => actual[field] === expected[field]);
 }
 
+function sameManifestProjection(actual, expected) {
+  if (!sameProjection(actual, expected, ["path", "package", "lock", "root"]))
+    return false;
+  if (!actual || !expected) return true;
+  if (!actual.manifests || !expected.manifests)
+    return !actual.manifests && !expected.manifests;
+  return sameMembers(actual.manifests, expected.manifests);
+}
+
 export function sameProofContract(actual, expected) {
   return (
     sameMembers(actual.proofs, expected.proofs) &&
@@ -41,12 +50,10 @@ export function sameProofContract(actual, expected) {
       "root",
       "dependency",
     ]) &&
-    sameProjection(actual.manifestProjection, expected.manifestProjection, [
-      "path",
-      "package",
-      "lock",
-      "root",
-    ])
+    sameManifestProjection(
+      actual.manifestProjection,
+      expected.manifestProjection,
+    )
   );
 }
 

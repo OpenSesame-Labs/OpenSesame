@@ -15,18 +15,20 @@ import importlib.util
 import json
 from pathlib import Path, PurePosixPath
 import re
+import stat
 import sys
 import tomllib
 
 sys.dont_write_bytecode = True
-_LOCK_SPEC = importlib.util.spec_from_file_location(
-    "cargo_lock_projection", Path(__file__).with_name("cargo-lock-projection.py")
-)
+_LOCK_PATH = Path(__file__).with_name("cargo-lock-projection.py")
+if not stat.S_ISREG(_LOCK_PATH.lstat().st_mode):
+    raise RuntimeError("Cargo lock projection helper must be a regular file")
+_LOCK_SPEC = importlib.util.spec_from_file_location("cargo_lock_projection", _LOCK_PATH)
 if _LOCK_SPEC is None or _LOCK_SPEC.loader is None:
     raise RuntimeError("Cargo lock projection helper is unavailable")
 lock_projection = importlib.util.module_from_spec(_LOCK_SPEC)
 sys.modules[_LOCK_SPEC.name] = lock_projection
-_LOCK_SPEC.loader.exec_module(lock_projection)
+exec(compile(_LOCK_PATH.read_bytes(), str(_LOCK_PATH), "exec", dont_inherit=True), lock_projection.__dict__)
 
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*\Z")
 _PACKAGE_SPEC = re.compile(r"([A-Za-z0-9][A-Za-z0-9_-]*)(?:[@:][0-9][A-Za-z0-9.+-]*)?\Z")
@@ -37,7 +39,10 @@ _DEPENDENCY_FIELDS = {
 }
 _STRING_FIELDS = {"version", "registry", "registry-index", "path", "git", "branch", "tag", "rev", "package", "target"}
 _BOOL_FIELDS = {"default-features", "optional", "workspace", "public", "lib"}
-_DEP_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
+_DEP_TABLES = (
+    "dependencies", "dev-dependencies", "build-dependencies",
+    "dev_dependencies", "build_dependencies",
+)
 
 
 class ProjectionError(ValueError):
@@ -86,6 +91,10 @@ def _inherited_dependencies(package):
     for target, value in _table(targets, "target").items():
         sections.append((f"target.{target}", _table(value, f"target.{target}")))
     for label, section in sections:
+        for modern, legacy in (("dev-dependencies", "dev_dependencies"),
+                               ("build-dependencies", "build_dependencies")):
+            if modern in section and legacy in section:
+                raise ProjectionError(f"{label} has duplicate dependency table forms")
         for name in _DEP_TABLES:
             for key, value in _table(section.get(name, {}), f"{label}.{name}").items():
                 if not isinstance(key, str) or not _NAME.fullmatch(key):

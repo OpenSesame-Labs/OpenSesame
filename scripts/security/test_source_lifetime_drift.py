@@ -16,7 +16,7 @@ SCRIPT = ROOT / "spec/formal/source-lifetime/check-drift.py"
 def load_checker():
     spec = importlib.util.spec_from_file_location("source_lifetime_drift", SCRIPT)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(SCRIPT.read_bytes(), str(SCRIPT), "exec", dont_inherit=True), module.__dict__)
     return module
 
 
@@ -93,7 +93,7 @@ class SpiffePrecheckTest(unittest.TestCase):
         script = ROOT / "spec/formal/spiffe/check-drift.py"
         spec = importlib.util.spec_from_file_location("spiffe_drift_precheck", script)
         self.checker = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.checker)
+        exec(compile(script.read_bytes(), str(script), "exec", dont_inherit=True), self.checker.__dict__)
         self.checker.ROOT = self.root
         data = json.loads((ROOT / "spec/formal/spiffe/coverage.json").read_text())
         for name in [*(item["path"] for item in data["sources"]), "Cargo.lock",
