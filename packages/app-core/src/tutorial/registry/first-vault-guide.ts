@@ -5,7 +5,7 @@ const SIGN_IN_STEPS = [
   'focus "unlock.seal-pin" "Select PIN to protect this vault." side=bottom',
   'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
   'focus "unlock.seal-pin-entry" "Enter an 8–12 character PIN." side=bottom',
-  'focus "unlock.seal-pin-confirm" "Confirm your PIN, then select Next." side=bottom',
+  'focus "unlock.seal-pin-confirm" "Confirm PIN. Select Next." side=bottom',
   'focus "unlock.seal-ack" "Read the notice, select the checkbox, then select Next." side=bottom',
   'focus "unlock.seal" "Select Seal with PIN." side=bottom',
   'wait state "vault.unlocked" is=true timeout=60000',

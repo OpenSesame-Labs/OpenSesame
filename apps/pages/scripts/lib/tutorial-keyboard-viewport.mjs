@@ -50,7 +50,7 @@ export async function checkKeyboardViewport(
         path: `${process.env.TUTORIALS_OUT}/${original.width}-${name}-${shot}.png`,
       });
     }
-    await checkKeyboardCard(page, check, label, {
+    await checkKeyboardCard(page, check, `${label} · ${fieldLabel}`, {
       back: target === "unlock.seal-pin-confirm",
     });
   } finally {
