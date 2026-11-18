@@ -1,9 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mergedGuideTargets } from "./catalog.js";
 import { GATE_GOALS } from "./gate-goals.js";
 import { HELP_TOPICS, guideGoal } from "./goals.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
 import { GUIDE_OVERLAY_ROUTES, scopeApplies } from "./routes.js";
+import * as state from "./state.js";
 
 /**
  * The tutorials of the gates (ADR 0166). The registry cannot see a screen, so
@@ -93,6 +94,30 @@ describe("the gate tutorials", () => {
   it("give an instruction in every tutorial", () => {
     for (const goal of GATE_GOALS) {
       expect(goal.guide, goal.id).toMatch(/^(say|focus|hint|annotate) "/m);
+    }
+  });
+
+  it("keeps the typed unlock walkthrough on the method its next step describes", () => {
+    const known = vi
+      .spyOn(state, "isKnownGuidePredicate")
+      .mockReturnValue(true);
+    const read = vi.spyOn(state, "readGuidePredicate");
+    try {
+      const goal = GATE_GOALS.find((item) => item.id === "gate.unlock");
+      expect(goal).toBeDefined();
+      read.mockReturnValue(false);
+      expect(goal?.guide).toContain("Keep PIN selected for this walkthrough.");
+      expect(goal?.guide).toContain("Enter a PIN");
+      read.mockReturnValue(true);
+      expect(goal?.guide).toContain(
+        "Keep the selected method for this walkthrough.",
+      );
+      expect(goal?.guide).toContain(
+        "Enter the credential for the selected method.",
+      );
+    } finally {
+      known.mockRestore();
+      read.mockRestore();
     }
   });
 });

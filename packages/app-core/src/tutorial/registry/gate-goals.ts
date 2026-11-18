@@ -73,7 +73,9 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         creating
           ? 'say "Protect your new vault with a passkey or a PIN. Your vault is encrypted on this device."'
           : 'say "Use an enrolled key to unlock your vault."',
-        'focus "unlock.methods" "Choose the method you want to use." side=bottom',
+        creating
+          ? 'focus "unlock.methods" "Keep PIN selected for this walkthrough." side=bottom'
+          : 'focus "unlock.methods" "Keep the selected method for this walkthrough." side=bottom',
         creating
           ? 'focus "unlock.secret" "Enter a PIN, then enter it again in Confirm PIN. Read and accept the recovery notice below." side=bottom'
           : 'focus "unlock.secret" "Enter the credential for the selected method." side=bottom',
