@@ -184,3 +184,37 @@ async fn competing_approve_and_deny_publish_exactly_one_outcome() {
         approved == StatusCode::NO_CONTENT
     );
 }
+
+#[tokio::test]
+async fn membership_revision_fields_are_required_as_a_pair() {
+    let st = Box::pin(state()).await;
+    let router = crate::routes::router(st.clone());
+    let (org, person) = (OrganizationId::new(), PrincipalId::new());
+    let code = "BCDF-GHJK";
+    pending_pairing(&st, code, "synthetic-partial-revision-device").await;
+    let request = Request::builder()
+        .method("POST")
+        .uri("/api/v1/browser-pairings/decision")
+        .header("x-opensesame-operator", &st.operator_token)
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "user_code": code,
+                "decision": "approve",
+                "principal_id": person.to_string(),
+                "organization_id": org.to_string(),
+                "membership_incarnation": uuid::Uuid::new_v4().to_string(),
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = router.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", code);
+    assert!(st
+        .db
+        .inspect_browser_pairing(&digest, opensesame_time::Utc::now().timestamp())
+        .await
+        .unwrap()
+        .is_some());
+}
