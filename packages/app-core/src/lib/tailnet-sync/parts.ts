@@ -35,6 +35,7 @@ import {
   refused,
   slotBase,
 } from "./client.js";
+import { discardDriveBody } from "./drive-body.js";
 import type { DrivePairing } from "./pairing.js";
 import {
   MAX_DRIVE_PARTS,
@@ -89,7 +90,10 @@ export async function readDrivePart(
     credentials: "omit",
     cache: "no-store",
   });
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    discardDriveBody(response);
+    return null;
+  }
   if (!response.ok) throw refused(response);
   return readPartResponse(response, MAX_FILE_PART_CIPHERTEXT_BYTES);
 }
@@ -108,6 +112,7 @@ export async function writeDrivePart(
     body: asBufferSource(bytes),
   });
   if (!response.ok) throw refused(response);
+  discardDriveBody(response);
 }
 
 /**
