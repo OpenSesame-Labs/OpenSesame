@@ -295,6 +295,22 @@ describe("GHCR image proof workflow", () => {
     assertCargoChefDockerfile(dockerfile);
   });
 
+  it("loads capability-graph.mjs with plain node without packages/", () => {
+    // GHCR web-pwa-tailscale-wasm uses a sparse checkout without packages/
+    // and plain node for loadTailscaleAssets(). That import reaches
+    // capability-graph.mjs, which must not import os-domain TypeScript.
+    const loaded = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        'import "./apps/pages/scripts/lib/capability-graph.mjs"',
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
+    assert.equal(loaded.status, 0, loaded.stderr);
+  });
+
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
     assert.doesNotMatch(ci, /cd-ghcr-publish/);
     const retired = readFileSync(
