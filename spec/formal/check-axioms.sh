@@ -20,7 +20,7 @@ case "${model##*/}" in
   Authority.lean) suite=authority; required_count=10 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
   SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
-  SourceLifetime.lean) suite=source-lifetime; required_count=12 ;;
+  SourceLifetime.lean) suite=source-lifetime; required_count=13 ;;
   PendingIntegrity.lean) suite=oauth; required_count=9 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=9 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
