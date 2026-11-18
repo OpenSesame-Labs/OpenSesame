@@ -20,8 +20,10 @@ import { gcmOpen, gcmSeal } from "./gcm.js";
 
 export const FILE_PART_BYTES = 1_048_576;
 export const MAX_FILE_BYTES = 1_073_741_824;
+/** Legacy v1 readers accept the daemon's original encrypted-part limit. */
+export const MAX_FILE_PART_CIPHERTEXT_BYTES = FILE_PART_BYTES + 1024;
 /** The GCM authentication tag adds 16 bytes to each encrypted part. */
-export const MAX_FILE_PART_CIPHERTEXT_BYTES = FILE_PART_BYTES + 16;
+const MAX_READ_PART_BYTES = MAX_FILE_PART_CIPHERTEXT_BYTES - 16;
 export const MAX_FILE_PARTS = 16_384;
 const MAX_MANIFEST_CHARS = 2 * 1024 * 1024;
 
@@ -82,6 +84,37 @@ function wholeSize(value: JsonValue | undefined): number | undefined {
     : undefined;
 }
 
+function validManifestSize(size: number, count: number): boolean {
+  return (
+    size <= MAX_FILE_BYTES &&
+    (size === 0) === (count === 0) &&
+    count <= size &&
+    size <= count * MAX_READ_PART_BYTES
+  );
+}
+
+function validManifestMetadata(
+  name: string,
+  mediaType: string,
+  key: string,
+): boolean {
+  return name.length <= 4096 && mediaType.length <= 1024 && key.length <= 128;
+}
+
+function readPartRef(entry: JsonValue): FilePartRef | undefined {
+  if (!isJsonObject(entry)) return undefined;
+  const key = readString(entry.key);
+  const nonce = readString(entry.nonce);
+  if (
+    key === undefined ||
+    nonce === undefined ||
+    !/^[A-Za-z0-9_-]{16}$/.test(key) ||
+    !/^[A-Za-z0-9+/]{16}$/.test(nonce)
+  )
+    return undefined;
+  return { key, nonce };
+}
+
 export function readFileManifest(text: string): FileManifest | undefined {
   if (text.length > MAX_MANIFEST_CHARS) return undefined;
   let parsed: JsonValue;
@@ -106,29 +139,16 @@ export function readFileManifest(text: string): FileManifest | undefined {
     mediaType === undefined ||
     key === undefined ||
     size === undefined ||
-    size > MAX_FILE_BYTES ||
-    name.length > 4096 ||
-    mediaType.length > 1024 ||
-    key.length > 128 ||
-    (size === 0) !== (parsed.parts.length === 0) ||
-    parsed.parts.length > size ||
-    size > parsed.parts.length * FILE_PART_BYTES
+    !validManifestMetadata(name, mediaType, key) ||
+    !validManifestSize(size, parsed.parts.length)
   ) {
     return undefined;
   }
   const parts: FilePartRef[] = [];
   for (const entry of parsed.parts) {
-    if (!isJsonObject(entry)) return undefined;
-    const partKey = readString(entry.key);
-    const nonce = readString(entry.nonce);
-    if (
-      partKey === undefined ||
-      nonce === undefined ||
-      !/^[A-Za-z0-9_-]{16}$/.test(partKey) ||
-      !/^[A-Za-z0-9+/]{16}$/.test(nonce)
-    )
-      return undefined;
-    parts.push({ key: partKey, nonce });
+    const part = readPartRef(entry);
+    if (part === undefined) return undefined;
+    parts.push(part);
   }
   return { v: 1, name, mediaType, size, key, parts };
 }
