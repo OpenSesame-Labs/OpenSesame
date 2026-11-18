@@ -125,7 +125,8 @@ class ReportTests(unittest.TestCase):
         write_json(self.root / "package.json", {"devDependencies": {"alias": "file:package.tgz"},
             "overrides": {"picomatch@^2": "$alias"}})
         write_json(self.root / "package-lock.json", {"packages": {"node_modules/alias": {
-            "version": "2.3.2", "resolved": "file:package.tgz", "integrity": integrity}}})
+            "name": "picomatch", "version": "2.3.2",
+            "resolved": "file:package.tgz", "integrity": integrity}}})
         report = self.empty_overrides()
         report["findings"] = [{"ruleId": "OA002", "package": {"name": "picomatch"},
             "location": {"jsonPath": "/overrides/picomatch@^2"}}]
@@ -133,7 +134,59 @@ class ReportTests(unittest.TestCase):
         report["findings"][0]["package"]["name"] = "other"
         self.assertNotEqual(self.override(report).returncode, 0)
         report["findings"][0]["package"]["name"] = "picomatch"
+        write_json(self.root / "package.json", {"devDependencies": {"alias": "file:package.tgz"},
+            "overrides": {"picomatch": "$alias"}})
+        report["findings"] = [{"ruleId": "OA006", "package": {"name": "picomatch"},
+            "location": {"jsonPath": "/overrides/picomatch"}, "details": "exact alias"}]
+        self.assertEqual(self.override(report).returncode, 0)
         archive_path.write_bytes(b"tampered")
+        self.assertNotEqual(self.override(report).returncode, 0)
+
+    def test_parent_replacement_requires_every_occurrence_to_match_alias(self):
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data, mode="w:gz") as archive:
+            content = b'{"name":"parent","version":"1.2.3"}'
+            item = tarfile.TarInfo("package/package.json")
+            item.size = len(content)
+            archive.addfile(item, io.BytesIO(content))
+        archive_path = self.root / "parent.tgz"
+        archive_path.write_bytes(data.getvalue())
+        integrity = "sha512-" + base64.b64encode(hashlib.sha512(data.getvalue()).digest()).decode()
+        manifest = {"devDependencies": {"parent-patched": "file:parent.tgz"},
+                    "overrides": {"parent": {".": "$parent-patched"}}}
+        write_json(self.root / "package.json", manifest)
+        write_json(self.root / "node_modules/parent-patched/package.json",
+                   {"name": "parent", "version": "1.2.3"})
+        write_json(self.root / "node_modules/parent/package.json",
+                   {"name": "parent", "version": "1.2.3"})
+        entry = {"version": "1.2.3", "resolved": "file:parent.tgz", "integrity": integrity}
+        lock = {"packages": {"node_modules/parent-patched": {**entry, "name": "parent"},
+                             "node_modules/parent": entry}}
+        write_json(self.root / "package-lock.json", lock)
+        report = self.empty_overrides()
+        report["findings"] = [{"ruleId": "OA005", "subRuleId": "OA005.c",
+            "package": {"name": "parent"}, "location": {"jsonPath": "/overrides/parent"},
+            "details": "parent does not declare . as a dependency"}]
+        self.assertEqual(self.override(report).returncode, 0)
+        lock["packages"]["node_modules/parent"]["integrity"] = "sha512-drift"
+        write_json(self.root / "package-lock.json", lock)
+        self.assertNotEqual(self.override(report).returncode, 0)
+
+    def test_removed_optional_peer_must_be_absent(self):
+        parent = {"name": "parent", "version": "1.0.0",
+                  "peerDependencies": {"optional-child": "*"},
+                  "peerDependenciesMeta": {"optional-child": {"optional": True}}}
+        manifest = {"overrides": {"parent": {"optional-child": "-"}}}
+        write_json(self.root / "package.json", manifest)
+        write_json(self.root / "node_modules/parent/package.json", parent)
+        write_json(self.root / "package-lock.json", {"packages": {"node_modules/parent": parent}})
+        report = self.empty_overrides()
+        report["findings"] = [{"ruleId": "OA005", "subRuleId": "OA005.e",
+            "package": {"name": "parent"}, "location": {"jsonPath": "/overrides/parent"},
+            "details": "Nested override parent.optional-child is valid and effective. A flat top-level override could apply."}]
+        self.assertEqual(self.override(report).returncode, 0)
+        write_json(self.root / "node_modules/optional-child/package.json",
+                   {"name": "optional-child", "version": "1.0.0"})
         self.assertNotEqual(self.override(report).returncode, 0)
 
     def test_scoped_override_requires_every_edge_to_satisfy_the_parent(self):
@@ -142,7 +195,8 @@ class ReportTests(unittest.TestCase):
         write_json(parent, {"name": "parent", "version": "1.0.0", "dependencies": {"child": "^0.8.5"}})
         write_json(child, {"name": "child", "version": "0.8.15"})
         write_json(self.root / "package.json", {"overrides": {"parent": {"child": "0.8.15"}}})
-        lock = {"packages": {"node_modules/parent": {"version": "1.0.0"},
+        lock = {"packages": {"node_modules/parent": {
+                                 "version": "1.0.0", "dependencies": {"child": "^0.8.5"}},
                              "node_modules/child": {"version": "0.8.15"}}}
         write_json(self.root / "package-lock.json", lock)
         report = self.empty_overrides()

@@ -1,4 +1,5 @@
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -76,6 +77,50 @@ class ConsumerEdgeTests(unittest.TestCase):
         write_json(self.root / "node_modules/parent/package.json", parent)
         errors = consumer_edges(self.root, manifest, lock, self.executable)
         self.assertTrue(any("missing dependency" in error for error in errors))
+
+    def test_exact_root_override_may_normalize_only_the_lockfile_edge(self):
+        manifest = {"overrides": {"child": "4.6.7"}}
+        parent = {"name": "parent", "version": "1.0.0", "dependencies": {"child": "^4.6.7"}}
+        write_json(self.root / "package.json", manifest)
+        write_json(self.root / "node_modules/parent/package.json", parent)
+        write_json(self.root / "node_modules/child/package.json", {"name": "child", "version": "4.6.7"})
+        locked_parent = {**parent, "dependencies": {"child": "4.6.7"}}
+        lock = {"packages": {"": manifest, "node_modules/parent": locked_parent,
+                             "node_modules/child": {"version": "4.6.7"}}}
+        self.assertEqual(consumer_edges(self.root, manifest, lock, self.executable), [])
+        manifest["overrides"]["child"] = "4.6.8"
+        self.assertTrue(any("differs from lockfile" in error for error in
+                            consumer_edges(self.root, manifest, lock, self.executable)))
+
+    def test_promptfoo_hono_exception_is_bound_to_exact_provenance(self):
+        manifest = {"overrides": {"promptfoo": {"@hono/node-server": "2.1.6"}}}
+        parent = {"name": "promptfoo", "version": "0.125.1",
+                  "dependencies": {"@hono/node-server": "2.1.5"}}
+        child = {"name": "@hono/node-server", "version": "2.1.6"}
+        write_json(self.root / "package.json", manifest)
+        write_json(self.root / "node_modules/promptfoo/package.json", parent)
+        write_json(self.root / "node_modules/@hono/node-server/package.json", child)
+        regression = self.root / "scripts/security/dependency-override-upgrade.test.mjs"
+        regression.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / "scripts/security/dependency-override-upgrade.test.mjs", regression)
+        lock = {"packages": {
+            "": manifest,
+            "node_modules/promptfoo": {
+                "version": "0.125.1",
+                "resolved": "https://registry.npmjs.org/promptfoo/-/promptfoo-0.125.1.tgz",
+                "integrity": "sha512-nogBhixdp69icwkg1EI0syZ4zAmAjJyWeLcqxAkTldbHi0qirOslwHvkUQhQmg65lQLrIKyMOMLXlBlSc6LRrg==",
+                "dependencies": {"@hono/node-server": "2.1.5"},
+            },
+            "node_modules/@hono/node-server": {
+                "version": "2.1.6",
+                "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.6.tgz",
+                "integrity": "sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==",
+            },
+        }}
+        self.assertEqual(consumer_edges(self.root, manifest, lock, self.executable), [])
+        lock["packages"]["node_modules/@hono/node-server"]["integrity"] = "sha512-drift"
+        self.assertTrue(any("requires @hono/node-server" in error for error in
+                            consumer_edges(self.root, manifest, lock, self.executable)))
 
     def test_returning_future_pin_does_not_hide_other_consumer_errors(self):
         manifest = {"overrides": {"glob": "14.0.2", "future": "1.0.0"}}
