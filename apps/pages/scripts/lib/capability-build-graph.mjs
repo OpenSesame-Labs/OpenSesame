@@ -67,7 +67,12 @@ function chunkRecord(file, output, classify) {
     imports: [...new Set(output.imports)].sort(),
     dynamicImports: [...new Set(output.dynamicImports)].sort(),
     importedCss: [...(output.viteMetadata?.importedCss ?? [])].sort(),
-    importedAssets: [...(output.viteMetadata?.importedAssets ?? [])].sort(),
+    importedAssets: [
+      ...new Set([
+        ...(output.viteMetadata?.importedAssets ?? []),
+        ...(output.referencedFiles ?? []),
+      ]),
+    ].sort(),
     modules: Object.keys(output.modules)
       .map((id) => ({
         ...classify(id),
