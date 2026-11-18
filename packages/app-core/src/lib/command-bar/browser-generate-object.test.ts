@@ -45,9 +45,7 @@ function fixture(text: string, failure?: Error) {
   return { calls, model, reads };
 }
 
-type RejectionOutcome = Pick<Object, "toString">;
-
-async function rejection(promise: Promise<RejectionOutcome>): Promise<Error> {
+async function rejection(promise: Promise<unknown>): Promise<Error> {
   try {
     await promise;
   } catch (error) {
