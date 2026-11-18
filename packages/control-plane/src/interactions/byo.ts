@@ -321,7 +321,14 @@ async function persist(
 
   let created: ByoUpstream;
   try {
-    created = await ctx.repos.byoUpstreams.create(record);
+    const admitted = await ctx.repos.byoUpstreams.createWithinLimit(
+      record,
+      MAX_BYO_UPSTREAMS,
+    );
+    if (!admitted) {
+      throw new ByoRegistrationError("rate_limited", CAPACITY_REACHED_MESSAGE);
+    }
+    created = admitted;
   } catch (cause) {
     // Two tabs, one issuer: the unique index is the arbiter, and the loser of
     // that race gets the row the winner wrote rather than an error page.

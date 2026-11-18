@@ -35,6 +35,15 @@ export interface ScimTokenRecord {
 
 export interface ScimUserStore {
   create(user: ScimUserRecord): Promise<ScimUserRecord>;
+  /**
+   * Atomically creates a user only while the organization remains below its
+   * durable capacity. A duplicate userName still raises ConflictError, even
+   * when the organization is already full; null means capacity was reached.
+   */
+  createWithinLimit(
+    user: ScimUserRecord,
+    limit: number,
+  ): Promise<ScimUserRecord | null>;
   getById(orgId: string, id: string): Promise<ScimUserRecord | null>;
   findByUserName(
     orgId: string,
@@ -135,6 +144,20 @@ export function createMemoryScimStores(): ScimStores {
         if (clash) {
           throw new ConflictError(`scim user already exists: ${row.userName}`);
         }
+        users.set(row.id, row);
+        return cloneScimUser(row);
+      },
+
+      async createWithinLimit(user, limit) {
+        const row = normalizeScimUser(user);
+        const scoped = ofOrg(row.organizationId);
+        const clash = scoped.find(
+          (existing) => existing.userName === row.userName,
+        );
+        if (clash) {
+          throw new ConflictError(`scim user already exists: ${row.userName}`);
+        }
+        if (scoped.length >= limit) return null;
         users.set(row.id, row);
         return cloneScimUser(row);
       },
@@ -249,6 +272,79 @@ export function createPostgresScimStores(db: Database): ScimStores {
           if (isUniqueViolation(overlapCast(error))) {
             throw new ConflictError(
               `scim user already exists: ${row.userName}`,
+            );
+          }
+          throw error;
+        }
+      },
+
+      async createWithinLimit(user, limit) {
+        const normalized = normalizeScimUser(user);
+        try {
+          return await db.transaction(async (tx) => {
+            // The organization row is the per-tenant mutex. The lock is held
+            // through count and insert, so separate control-plane processes
+            // cannot both admit the last slot.
+            const [organization] = await tx
+              .select({ id: schema.organizations.id })
+              .from(schema.organizations)
+              .where(eq(schema.organizations.id, normalized.organizationId))
+              .for("update");
+            if (!organization) {
+              throw new Error(
+                `scim organization not found: ${normalized.organizationId}`,
+              );
+            }
+
+            const [duplicate] = await tx
+              .select({ id: schema.scimUsers.id })
+              .from(schema.scimUsers)
+              .where(
+                and(
+                  eq(
+                    schema.scimUsers.organizationId,
+                    normalized.organizationId,
+                  ),
+                  eq(schema.scimUsers.userName, normalized.userName),
+                ),
+              )
+              .limit(1);
+            if (duplicate) {
+              throw new ConflictError(
+                `scim user already exists: ${normalized.userName}`,
+              );
+            }
+
+            const [total] = await tx
+              .select({ value: count() })
+              .from(schema.scimUsers)
+              .where(
+                eq(schema.scimUsers.organizationId, normalized.organizationId),
+              );
+            if (Number(total?.value ?? 0) >= limit) return null;
+
+            const [inserted] = await tx
+              .insert(schema.scimUsers)
+              .values({
+                id: normalized.id,
+                organizationId: normalized.organizationId,
+                externalId: normalized.externalId ?? null,
+                userName: normalized.userName,
+                active: normalized.active,
+                displayName: normalized.displayName ?? null,
+                raw: normalized.raw,
+                createdAt: normalized.createdAt,
+                updatedAt: normalized.updatedAt,
+              })
+              .returning();
+            if (!inserted) throw new Error("insert scim user returned no row");
+            return mapScimUser(inserted);
+          });
+        } catch (error) {
+          if (error instanceof ConflictError) throw error;
+          if (isUniqueViolation(overlapCast(error))) {
+            throw new ConflictError(
+              `scim user already exists: ${normalized.userName}`,
             );
           }
           throw error;

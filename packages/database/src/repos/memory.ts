@@ -456,6 +456,24 @@ export class MemoryRepositories implements Repositories {
       return cloneByoUpstream(row);
     },
 
+    createWithinLimit: async (record, limit) => {
+      const issuer = normalizeIssuer(record.issuer);
+      if (this.#store.byoUpstreams.has(record.id)) {
+        throw new ConflictError(`byo upstream already exists: ${record.id}`);
+      }
+      for (const existing of this.#store.byoUpstreams.values()) {
+        if (existing.issuer === issuer) {
+          throw new ConflictError(
+            `byo upstream issuer already registered: ${issuer}`,
+          );
+        }
+      }
+      if (this.#store.byoUpstreams.size >= limit) return null;
+      const row: ByoUpstream = { ...record, issuer };
+      this.#store.byoUpstreams.set(row.id, cloneByoUpstream(row));
+      return cloneByoUpstream(row);
+    },
+
     getById: async (id) => {
       const row = this.#store.byoUpstreams.get(id);
       return row ? cloneByoUpstream(row) : null;

@@ -815,6 +815,59 @@ export class PostgresRepositories implements Repositories {
       }
     },
 
+    createWithinLimit: async (record, limit) => {
+      const issuer = normalizeIssuer(record.issuer);
+      try {
+        return await this.db.transaction(async (tx) => {
+          // No parent row exists for this deployment-wide collection. A
+          // self-exclusive table lock is the durable mutex shared by every
+          // API process and is held through duplicate check, count and insert.
+          await tx.execute(
+            sql`LOCK TABLE ${schema.byoUpstreams} IN SHARE ROW EXCLUSIVE MODE`,
+          );
+          const [duplicate] = await tx
+            .select({ id: schema.byoUpstreams.id })
+            .from(schema.byoUpstreams)
+            .where(eq(schema.byoUpstreams.issuer, issuer))
+            .limit(1);
+          if (duplicate) {
+            throw new ConflictError(
+              `byo upstream issuer already registered: ${issuer}`,
+            );
+          }
+          const [total] = await tx
+            .select({ value: sql<number>`count(*)` })
+            .from(schema.byoUpstreams);
+          if (Number(total?.value ?? 0) >= limit) return null;
+          const [row] = await tx
+            .insert(schema.byoUpstreams)
+            .values({
+              id: record.id,
+              issuer,
+              label: record.label,
+              clientId: record.clientId,
+              clientSecret: record.clientSecret ?? null,
+              clientAuth: record.clientAuth,
+              registrationSource: record.registrationSource,
+              state: record.state,
+              createdAt: record.createdAt,
+              lastUsedAt: record.lastUsedAt ?? null,
+            })
+            .returning();
+          if (!row) throw new Error("insert byo upstream returned no row");
+          return mapByoUpstream(row);
+        });
+      } catch (err) {
+        if (err instanceof ConflictError) throw err;
+        if (isUniqueViolation(overlapCast(err))) {
+          throw new ConflictError(
+            `byo upstream issuer already registered: ${issuer}`,
+          );
+        }
+        throw err;
+      }
+    },
+
     getById: async (id) => {
       const [row] = await this.db
         .select()

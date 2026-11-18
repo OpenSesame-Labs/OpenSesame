@@ -540,7 +540,12 @@ describe("bring-your-own upstream", () => {
     it("refuses a new durable issuer when the deployment capacity is full", async () => {
       const count = vi
         .spyOn(started.ctx.repos.byoUpstreams, "count")
-        .mockResolvedValue(1_000);
+        // The preflight is only an optimization. Simulate another process
+        // taking the last slot during discovery; durable admission must win.
+        .mockResolvedValue(999);
+      const createWithinLimit = vi
+        .spyOn(started.ctx.repos.byoUpstreams, "createWithinLimit")
+        .mockResolvedValue(null);
       try {
         expect(
           await registerByoUpstream(
@@ -557,6 +562,7 @@ describe("bring-your-own upstream", () => {
         });
       } finally {
         count.mockRestore();
+        createWithinLimit.mockRestore();
       }
     });
   });

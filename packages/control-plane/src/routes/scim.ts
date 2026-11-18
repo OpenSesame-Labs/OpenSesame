@@ -359,53 +359,36 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const now = ctx.clock();
     const externalId = boundedScimString(body.externalId, MAX_USER_NAME_LENGTH);
     const displayName = boundedScimString(body.displayName, MAX_DISPLAY_LENGTH);
-    const result = await serializeKeyed(
-      ctx.stores.principalMutations,
-      `scim-capacity:${organization.id}`,
-      async () => {
-        if (
-          await ctx.stores.scim.users.findByUserName(organization.id, userName)
-        ) {
-          return { error: "duplicate" as const };
-        }
-        if (
-          (await ctx.stores.scim.users.countByOrganization(organization.id)) >=
-          MAX_SCIM_USERS_PER_ORG
-        ) {
-          return { error: "capacity" as const };
-        }
-        try {
-          return {
-            created: await ctx.stores.scim.users.create({
-              id: randomUUID(),
-              organizationId: organization.id,
-              userName,
-              active: asActive(body.active) ?? true,
-              raw: sanitizeRaw(body),
-              createdAt: now,
-              updatedAt: now,
-              ...(externalId !== undefined ? { externalId } : undefined),
-              ...(displayName !== undefined ? { displayName } : undefined),
-            }),
-          };
-        } catch (error) {
-          if (error instanceof ConflictError)
-            return { error: "duplicate" as const };
-          throw error;
-        }
-      },
-    );
-    if ("error" in result) {
-      return result.error === "capacity"
-        ? scimError(c, 409, "Organization SCIM user capacity reached.")
-        : scimError(
-            c,
-            409,
-            "A user with that userName already exists.",
-            "uniqueness",
-          );
+    let created: ScimUserRecord | null;
+    try {
+      created = await ctx.stores.scim.users.createWithinLimit(
+        {
+          id: randomUUID(),
+          organizationId: organization.id,
+          userName,
+          active: asActive(body.active) ?? true,
+          raw: sanitizeRaw(body),
+          createdAt: now,
+          updatedAt: now,
+          ...(externalId !== undefined ? { externalId } : undefined),
+          ...(displayName !== undefined ? { displayName } : undefined),
+        },
+        MAX_SCIM_USERS_PER_ORG,
+      );
+    } catch (error) {
+      if (error instanceof ConflictError) {
+        return scimError(
+          c,
+          409,
+          "A user with that userName already exists.",
+          "uniqueness",
+        );
+      }
+      throw error;
     }
-    const created = result.created;
+    if (!created) {
+      return scimError(c, 409, "Organization SCIM user capacity reached.");
+    }
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.scim_user_provisioned",
       outcome: "succeeded",

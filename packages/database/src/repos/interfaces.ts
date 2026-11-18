@@ -132,6 +132,11 @@ export interface ExternalIdentityRepository {
  */
 export interface ByoUpstreamRepository {
   create(record: ByoUpstream): Promise<ByoUpstream>;
+  /** Atomic durable admission; null means the deployment is at capacity. */
+  createWithinLimit(
+    record: ByoUpstream,
+    limit: number,
+  ): Promise<ByoUpstream | null>;
   getById(id: string): Promise<ByoUpstream | null>;
   /** Matches on the normalized issuer, whatever spelling the caller passes. */
   findByIssuer(issuer: string): Promise<ByoUpstream | null>;

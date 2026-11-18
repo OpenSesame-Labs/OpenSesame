@@ -518,16 +518,21 @@ describe("SCIM Users surface", () => {
       ).status,
     ).toBe(400);
 
-    vi.spyOn(ctx.stores.scim.users, "countByOrganization").mockResolvedValue(
-      10_000,
-    );
-    const create = vi.spyOn(ctx.stores.scim.users, "create");
+    const createWithinLimit = vi
+      .spyOn(ctx.stores.scim.users, "createWithinLimit")
+      .mockResolvedValue(null);
     const refused = await provisionUser(app, org.id, token, {
       userName: "overflow@example.test",
     });
     expect(refused.status).toBe(409);
     expect(refused.body.detail).toContain("capacity");
-    expect(create).not.toHaveBeenCalled();
+    expect(createWithinLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: org.id,
+        userName: "overflow@example.test",
+      }),
+      10_000,
+    );
   });
 
   it("reads Entra's stringly-typed active flag", async () => {
