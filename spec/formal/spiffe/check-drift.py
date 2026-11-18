@@ -10,12 +10,15 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 HELPER = ROOT / "scripts/security/cargo-lock-projection.py"
+for path in (ROOT / "scripts", ROOT / "scripts/security", HELPER):
+    if not (stat.S_ISREG(path.lstat().st_mode) if path == HELPER else stat.S_ISDIR(path.lstat().st_mode)):
+        raise SystemExit("spiffe-formal: projection helper path is not regular")
 SPEC = importlib.util.spec_from_file_location("cargo_lock_projection", HELPER)
 if SPEC is None or SPEC.loader is None:
     raise SystemExit("spiffe-formal: lock projection helper is unavailable")
 projection = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = projection
-SPEC.loader.exec_module(projection)
+exec(compile(HELPER.read_bytes(), str(HELPER), "exec", dont_inherit=True), projection.__dict__)
 ROOT_PACKAGE = "opensesame-spiffe-source"
 ALGORITHM = "cargo-lock-projection-v1-sha256"
 MINIMUM_PATHS = {

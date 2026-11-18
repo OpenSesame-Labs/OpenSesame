@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { copyFileSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -194,6 +195,39 @@ test("a dirty or symlinked manifest helper cannot hide a relevant workspace chan
       /helper (differs|is missing or not a regular file)/i,
     );
     assert.deepEqual(f.commands(), []);
+  }
+});
+
+test("forged timestamp bytecode cannot replace verified projection helpers", (t) => {
+  for (const helperPath of [
+    "scripts/security/cargo-workspace-projection.py",
+    "scripts/security/cargo-lock-projection.py",
+  ]) {
+    const f = setup(t);
+    f.write(".git/info/exclude", "__pycache__/\n");
+    f.write(
+      "Cargo.toml",
+      '[workspace]\nmembers = ["crates/root", "crates/lib"]\n[workspace.dependencies]\nserde = { version = "1", features = ["derive"] }\n',
+    );
+    f.commit();
+    const forge = `import importlib.util,marshal,pathlib,struct,sys
+p=pathlib.Path(sys.argv[1]); s=p.stat()
+c=pathlib.Path(importlib.util.cache_from_source(str(p))); c.parent.mkdir(exist_ok=True)
+h=importlib.util.MAGIC_NUMBER+struct.pack('<III',0,int(s.st_mtime)&0xffffffff,s.st_size&0xffffffff)
+c.write_bytes(h+marshal.dumps(compile('raise SystemExit(71)',str(p),'exec')))
+spec=importlib.util.spec_from_file_location('probe',p)
+spec.loader.exec_module(importlib.util.module_from_spec(spec))`;
+    const probe = spawnSync(
+      "python3",
+      ["-I", "-B", "-c", forge, join(f.repo, helperPath)],
+      {
+        encoding: "utf8",
+      },
+    );
+    assert.equal(probe.status, 71, probe.stderr);
+    const result = push(f, "HEAD", "refs/heads/main");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(f.commands(), ["run verify:a"]);
   }
 });
 

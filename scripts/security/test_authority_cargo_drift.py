@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("authority_drift_tested", ROOT / "spec/formal/authority/check-drift.py")
 checker = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = checker
-SPEC.loader.exec_module(checker)
+exec(compile(Path(SPEC.origin).read_bytes(), SPEC.origin, "exec", dont_inherit=True), checker.__dict__)
 
 
 class AuthorityCargoDriftTest(unittest.TestCase):

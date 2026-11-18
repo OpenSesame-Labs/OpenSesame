@@ -17,14 +17,15 @@ import stat
 import sys
 
 sys.dont_write_bytecode = True
-_SPEC = importlib.util.spec_from_file_location(
-    "cargo_workspace_projection", Path(__file__).with_name("cargo-workspace-projection.py")
-)
+_PATH = Path(__file__).with_name("cargo-workspace-projection.py")
+if not stat.S_ISREG(_PATH.lstat().st_mode):
+    raise RuntimeError("Cargo workspace projection helper must be a regular file")
+_SPEC = importlib.util.spec_from_file_location("cargo_workspace_projection", _PATH)
 if _SPEC is None or _SPEC.loader is None:
     raise RuntimeError("Cargo workspace projection helper is unavailable")
 workspace_projection = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = workspace_projection
-_SPEC.loader.exec_module(workspace_projection)
+exec(compile(_PATH.read_bytes(), str(_PATH), "exec", dont_inherit=True), workspace_projection.__dict__)
 lock_projection = workspace_projection.lock_projection
 ProjectionError = workspace_projection.ProjectionError
 

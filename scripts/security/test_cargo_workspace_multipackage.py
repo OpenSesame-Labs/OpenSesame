@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("multipackage_projection_tested", ROOT / "scripts/security/cargo-workspace-multipackage.py")
 projection = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = projection
-SPEC.loader.exec_module(projection)
+exec(compile(Path(SPEC.origin).read_bytes(), SPEC.origin, "exec", dont_inherit=True), projection.__dict__)
 
 
 def fixture():

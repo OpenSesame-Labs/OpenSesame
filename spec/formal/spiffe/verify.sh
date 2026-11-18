@@ -18,7 +18,7 @@ correspondence_test="source::formal_tests::lean_vectors_match_the_sdk_classifier
 cd "$root/spec/formal/spiffe"
 bash "$checker" "$lean_bin" "$root/spec/formal/spiffe/SpiffePolicy.lean" > "$vectors"
 cd "$root"
-python3 spec/formal/spiffe/check-drift.py
+python3 -I spec/formal/spiffe/check-drift.py
 OPENSESAME_SPIFFE_VECTORS="$vectors" cargo test --locked -p opensesame-spiffe-source \
   --all-features --lib "$correspondence_test" -- --ignored --exact | tee "$test_output"
 if [[ "$(grep -Fxc "test $correspondence_test ... ok" "$test_output" || true)" != 1 ]] ||
@@ -28,4 +28,4 @@ if [[ "$(grep -Fxc "test $correspondence_test ... ok" "$test_output" || true)" !
 fi
 cargo test --locked -p opensesame-spiffe-source --all-features \
   --test synthetic_workload_api --test withdrawal_policy --test outage_policy --test trust_reduction_policy --test production_sink_policy
-python3 spec/formal/spiffe/check-drift.py
+python3 -I spec/formal/spiffe/check-drift.py
