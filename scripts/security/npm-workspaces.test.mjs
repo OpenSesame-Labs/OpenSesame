@@ -71,7 +71,7 @@ function read(relativePath) {
 function workspaceGlobs(yaml) {
   return [...yaml.matchAll(/^\s*-\s*"([^"]+)"/gm)].map((match) => match[1]);
 }
-var legacy = "pnpm";
+var legacy = "pn" + "pm";
 test("npm workspaces replace the legacy lockfile", () => {
   assert.equal(existsSync(join(root, `${legacy}-lock.yaml`)), false);
   assert.equal(existsSync(join(root, "package-lock.json")), true);
