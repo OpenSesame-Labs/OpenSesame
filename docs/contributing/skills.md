@@ -1,6 +1,6 @@
 # Skills index
 
-Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (8 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
+Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (10 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
 
 ## 7. Skills
 
@@ -23,6 +23,16 @@ mirrors; never stage installed trees.
 | `install-anti-slop` | `skills/install-anti-slop/SKILL.md` | Install and configure the vendored Oxlint anti-slop plugin |
 | `security-review` | `skills/security-review/SKILL.md` | Run repository security gates and targeted Codex Security reviews |
 | `visual-evidence` | `skills/visual-evidence/SKILL.md` | Compare two real builds for PR review; persist only approved current-state evidence in feature/project/platform slots |
+| `formal-verification` | `skills/formal-verification/SKILL.md` | Shared Pele theme and render script for `/statechart` TLC charts; referenced by `verify-formal-*` skills |
+| `verify-formal-vault` | `skills/verify-formal-vault/SKILL.md` | TLC check that the vault screen never says a second step is still waiting while the vault is open |
+| `verify-formal-proxy-lease` | `skills/verify-formal-proxy-lease/SKILL.md` | TLC check that vault tomb destroy waits for open leases and stale releases do not drop a new generation |
+| `verify-formal-pwa-shell` | `skills/verify-formal-pwa-shell/SKILL.md` | TLC check that the unlocked shell does not mount on a stale latch before plan activation |
+| `verify-formal-sync-manifest` | `skills/verify-formal-sync-manifest/SKILL.md` | TLC check that a tombstoned path is re-added, not updated in place |
+| `verify-formal-autofill-gesture` | `skills/verify-formal-autofill-gesture/SKILL.md` | TLC check that a page gesture cannot leave a fill authorized |
+| `verify-formal-release-promotion` | `skills/verify-formal-release-promotion/SKILL.md` | Replay of the production promotion validator |
+| `verify-formal-daemon-fill` | `skills/verify-formal-daemon-fill/SKILL.md` | Replay that an unpaired fill token is refused. Restart and mixed vault scope are not in this check |
+| `verify-formal-control-plane-session` | `skills/verify-formal-control-plane-session/SKILL.md` | TLC check that revoked and expired provisional sessions do not resolve |
+| `verify-formal-onboarding-recovery` | `skills/verify-formal-onboarding-recovery/SKILL.md` | Replay that the vault is not published unlocked while a second step is still pending |
 | `local-debug-session` | `skills/local-debug-session/SKILL.md` | Attach a live HMR debug session when asked to run the app locally; watch real console/page/network errors and patch the hot-reloaded process |
 | `impeccable` | `.agents/skills/impeccable/SKILL.md` | Third-party frontend design skill ([pbakaus/impeccable](https://github.com/pbakaus/impeccable), Apache 2.0), installed via `npx impeccable install` — lives in `.agents/skills/` (not `skills/`) so `npx impeccable update` can refresh it; design detector hook in `.codex/hooks.json` + `.claude/settings.local.json` (gitignored, machine-local) |
 | `scandinavian-design` | `.agents/skills/scandinavian-design/SKILL.md` | Third-party ([ericzakariasson/scandinavian-design](https://github.com/ericzakariasson/scandinavian-design)), installed via `npx skills add ericzakariasson/scandinavian-design` — the visual-restraint contract behind the Scandinavian retoken; its `scripts/*.js` verifiers are patched to launch the container's pinned Chromium (`<chromium-binary>`) instead of a system Chrome |
