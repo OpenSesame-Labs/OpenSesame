@@ -185,12 +185,12 @@ test("release qualification refuses to lose a required suite", (t) => {
     assert.deepEqual(f.commands(), []);
   }
 });
-test("the independently pinned auth, OAuth, WebAuthn and clock contracts survive coordinated JSON weakening", (t) => {
+test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"],
   );
-  for (const id of ["auth", "oauth", "webauthn", "interaction-clock"]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
