@@ -56,7 +56,10 @@ theorems and emits the cases; Vitest compares those cases to the real functions;
 finally the source-hash check fails on an unreviewed change to any covered file.
 The hashes detect drift. They do not prove the review or the model is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed, including changes later reverted. It
+files occur in the commits being pushed, including changes later reverted. For
+a suite with a registered Cargo.lock projection, it also selects changes to the
+reviewed dependency graph; lockfile-only graph selection conservatively includes
+inactive optional, development, and target-specific packages. It
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had
@@ -124,6 +127,7 @@ claim of exhaustive inventory or Lean coverage:
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
 | DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
 | Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
+| SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits

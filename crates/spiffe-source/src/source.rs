@@ -3,14 +3,15 @@
 //!
 //! Snapshot semantics: every message **replaces** the prior state. A message
 //! without the configured SVID, or without its trust domain's bundle, is an
-//! authoritative withdrawal and is applied at once. A message that parses but
-//! whose SVID fails the profile, or that the generation manager refuses, is a
-//! malformed update: the previous generation stays usable, but only until its
-//! own `not_after`. A stream error or disconnect starts an outage: the current
-//! generation is retained until `min(not_after, outage_since + max_stale)`,
-//! then withdrawn with `EvidenceExpired`; reconnection uses bounded, jittered
-//! backoff. There is no other identity input: a missing SVID never falls back
-//! to a PEM file or a managed certificate.
+//! authoritative withdrawal and is applied at once. An unparseable snapshot
+//! also withdraws because the SDK cannot tell us whether it omitted the
+//! configured identity or trust. A parsed candidate rejected by the profile or
+//! sink retains the previous generation only when every old anchor is present
+//! in the new trust view, and only within its existing time bounds. Explicit
+//! permission or authentication denial withdraws. A transport error or
+//! disconnect starts an outage: material is retained until the earlier of its
+//! expiry or the outage freshness limit. Reconnection uses bounded, jittered
+//! backoff; there is no fallback identity.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,10 +26,14 @@ use tokio::task::JoinHandle;
 
 use crate::config::SpiffeSourceConfig;
 use crate::error::SpiffeSourceError;
-use crate::outage::{retention_deadline, Backoff};
+use crate::outage::{bounded_deadline, retention_deadline, Backoff};
 use crate::sink::GenerationSink;
-use crate::snapshot::SvidGeneration;
+use crate::snapshot::{SvidGeneration, TrustDomainBundles};
 use crate::status::{SourcePhase, SourceStatus};
+
+#[path = "source_policy.rs"]
+mod source_policy;
+use source_policy::{classify_api_failure, ApiAction};
 
 /// A running source. Dropping the handle does not stop the task; call
 /// [`SpiffeSourceHandle::stop`].
@@ -112,11 +117,14 @@ struct Loop {
 /// The generation currently handed to the sink.
 struct Active {
     not_after: DateTime<Utc>,
+    bundles: TrustDomainBundles,
 }
 
 enum StreamEnd {
     Stop,
     Broken(SpiffeSourceError),
+    Withdrawn(TransportError, &'static str),
+    Expired,
 }
 
 impl Loop {
@@ -145,6 +153,8 @@ impl Loop {
             match self.connect_and_stream().await {
                 StreamEnd::Stop => break,
                 StreamEnd::Broken(err) => self.on_outage(&err),
+                StreamEnd::Withdrawn(reason, code) => self.withdraw(reason, Some(code)),
+                StreamEnd::Expired => self.withdraw(TransportError::EvidenceExpired, None),
             }
             let delay = self.backoff.next_delay();
             if !self.retain_through(delay).await {
@@ -157,22 +167,45 @@ impl Loop {
 
     async fn connect_and_stream(&mut self) -> StreamEnd {
         self.update(|s| {
-            if s.phase != SourcePhase::Outage {
+            if matches!(s.phase, SourcePhase::Connecting | SourcePhase::Streaming) {
                 s.phase = SourcePhase::Connecting;
             }
         });
         let endpoint = Endpoint::Unix(self.config.endpoint_socket().to_path_buf());
-        let Ok(client) = WorkloadApiClient::connect(endpoint).await else {
+        let expiry = self.active_deadline();
+        let connection = tokio::select! {
+            biased;
+            _ = self.stop.changed() => return StreamEnd::Stop,
+            () = sleep_until(expiry) => return StreamEnd::Expired,
+            connection = WorkloadApiClient::connect(endpoint) => connection,
+        };
+        let Ok(client) = connection else {
             return StreamEnd::Broken(SpiffeSourceError::Transport("connect".into()));
         };
-        let Ok(mut stream) = client.stream_x509_contexts().await else {
-            return StreamEnd::Broken(SpiffeSourceError::Transport("open_stream".into()));
+        let expiry = self.active_deadline();
+        let stream = tokio::select! {
+            biased;
+            _ = self.stop.changed() => return StreamEnd::Stop,
+            () = sleep_until(expiry) => return StreamEnd::Expired,
+            stream = client.stream_x509_contexts() => stream,
+        };
+        let mut stream = match stream {
+            Ok(stream) => stream,
+            Err(error) => match classify_api_failure(&error) {
+                ApiAction::Denied(code) => {
+                    return StreamEnd::Withdrawn(TransportError::IdentityMissing, code);
+                }
+                ApiAction::Withdraw(reason, code) => return StreamEnd::Withdrawn(reason, code),
+                ApiAction::Outage => {
+                    return StreamEnd::Broken(SpiffeSourceError::Transport("open_stream".into()));
+                }
+            },
         };
         self.update(|s| {
             s.connections = s.connections.saturating_add(1);
         });
         loop {
-            let expiry = self.active.as_ref().map(|a| a.not_after);
+            let expiry = self.active_deadline();
             tokio::select! {
                 biased;
                 _ = self.stop.changed() => return StreamEnd::Stop,
@@ -181,14 +214,25 @@ impl Loop {
                 }
                 item = stream.next() => match item {
                     Some(Ok(ctx)) => self.apply(&ctx),
-                    Some(Err(_)) => {
-                        // A message that could not be parsed: malformed update.
-                        self.update(|s| s.last_error = Some("workload_api_message".into()));
-                    }
+                    Some(Err(error)) => match classify_api_failure(&error) {
+                        ApiAction::Denied(code) => {
+                            return StreamEnd::Withdrawn(TransportError::IdentityMissing, code);
+                        }
+                        ApiAction::Withdraw(reason, code) => self.withdraw(reason, Some(code)),
+                        ApiAction::Outage => {
+                            return StreamEnd::Broken(SpiffeSourceError::Transport("stream".into()));
+                        }
+                    },
                     None => return StreamEnd::Broken(SpiffeSourceError::Transport("closed".into())),
                 },
             }
         }
+    }
+
+    fn active_deadline(&self) -> Option<DateTime<Utc>> {
+        self.active
+            .as_ref()
+            .map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))
     }
 
     fn apply(&mut self, ctx: &X509Context) {
@@ -199,6 +243,7 @@ impl Loop {
                     self.backoff.reset();
                     self.active = Some(Active {
                         not_after: generation.not_after,
+                        bundles: generation.bundles.clone(),
                     });
                     self.update(|s| {
                         s.phase = SourcePhase::Streaming;
@@ -212,11 +257,7 @@ impl Loop {
                     });
                 }
                 Err(refused) => {
-                    let code = refused.code().to_owned();
-                    self.update(|s| {
-                        s.last_error = Some(code);
-                        s.phase = SourcePhase::Streaming;
-                    });
+                    self.retain_or_withdraw(ctx, refused.code());
                 }
             },
             Err(err) if err.is_withdrawal() => {
@@ -224,12 +265,20 @@ impl Loop {
                 self.withdraw(err.to_transport_error(), Some(&code));
             }
             Err(err) => {
-                let code = err.code().to_owned();
-                self.update(|s| {
-                    s.last_error = Some(code);
-                    s.phase = SourcePhase::Streaming;
-                });
+                self.retain_or_withdraw(ctx, err.code());
             }
+        }
+    }
+
+    fn retain_or_withdraw(&mut self, ctx: &X509Context, code: &str) {
+        let safe_to_retain = self.active.as_ref().is_none_or(|active| {
+            TrustDomainBundles::from_context(ctx)
+                .is_ok_and(|incoming| incoming.contains_all(&active.bundles))
+        });
+        if safe_to_retain {
+            self.update(|s| s.last_error = Some(code.to_owned()));
+        } else {
+            self.withdraw(TransportError::TrustUnknown, Some("trust_reduced"));
         }
     }
 
@@ -327,3 +376,7 @@ async fn sleep_until(at: Option<DateTime<Utc>>) {
         None => std::future::pending().await,
     }
 }
+
+#[cfg(test)]
+#[path = "source_formal_tests.rs"]
+mod formal_tests;

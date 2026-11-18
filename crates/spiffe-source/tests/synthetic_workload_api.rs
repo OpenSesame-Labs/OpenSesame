@@ -351,7 +351,7 @@ async fn no_identity_issued_means_no_generation_and_no_fallback() {
     let status = handle.current();
     assert_ne!(status.phase, SourcePhase::Streaming);
     assert_eq!(status.generation, None);
-    assert_eq!(status.last_error.as_deref(), Some("workload_api_transport"));
+    assert_eq!(status.last_error.as_deref(), Some("svid_not_issued"));
     assert!(sink.events().is_empty(), "{:?}", sink.events());
     assert_eq!(
         status.credential_status(chrono::Utc::now()),

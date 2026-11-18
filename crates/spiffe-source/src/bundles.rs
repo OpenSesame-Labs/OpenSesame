@@ -106,6 +106,15 @@ impl TrustDomainBundles {
         self.domains.get(trust_domain).map(Vec::as_slice)
     }
 
+    /// Whether every previously trusted anchor is still present in its domain.
+    pub(crate) fn contains_all(&self, previous: &Self) -> bool {
+        previous.domains.iter().all(|(domain, anchors)| {
+            self.domains
+                .get(domain)
+                .is_some_and(|current| anchors.iter().all(|anchor| current.contains(anchor)))
+        })
+    }
+
     /// Trust domain names, sorted.
     pub fn trust_domains(&self) -> impl Iterator<Item = &str> {
         self.domains.keys().map(String::as_str)
