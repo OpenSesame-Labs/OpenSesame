@@ -123,8 +123,9 @@ impl ServerProfile {
     ///
     /// `MalformedConfiguration` for an `ExistingLocal` policy, a leaf that
     /// cannot authenticate a server, a missing or wrong-kind client bundle
-    /// on an authenticating policy, a client bundle on `ServerTls`, a bad
-    /// listener id or bad limits; `EvidenceExpired` for an expired identity.
+    /// or a SPIFFE bundle without an explicit domain on an authenticating
+    /// policy, a client bundle on `ServerTls`, a bad listener id or bad limits;
+    /// `EvidenceExpired` for an expired identity.
     pub fn validate(&self) -> Result<(), TransportError> {
         validate_id("listener_id", &self.listener_id)?;
         self.limits.validate()?;
@@ -146,6 +147,9 @@ impl ServerProfile {
             ))),
             (true, Some(trust)) if trust.kind() == TrustProfileKind::WebPkiDns => Err(malformed(
                 "the public web PKI cannot authenticate clients; use private_root or spiffe_trust_domain",
+            )),
+            (true, Some(trust)) if trust.kind() == TrustProfileKind::SpiffeTrustDomain && trust.spiffe_trust_domain().is_none() => Err(malformed(
+                "a spiffe_trust_domain bundle must name its trust domain",
             )),
             (false, Some(_)) => Err(malformed(
                 "server_tls verifies no client certificate; remove client_trust or choose mtls_required",
@@ -197,6 +201,7 @@ pub(crate) fn server_config_with_key(
                 .with_crls(trust.crls_owned())
                 .build()
                 .map_err(|e| malformed(format!("client verifier: {e}")))?,
+            trust.spiffe_trust_domain().map(str::to_owned),
         ),
         None => WebPkiClientVerifier::no_client_auth(),
     };

@@ -69,7 +69,13 @@ test("overlapping mapped suites all run, but an unrelated edit skips", (t) => {
   );
   assert.deepEqual(
     selected.map((entry) => entry.id),
-    ["authority", "spiffe", "source-lifetime", "source-trust-selection"],
+    [
+      "authority",
+      "spiffe",
+      "source-lifetime",
+      "source-trust-selection",
+      "spiffe-peer-domain",
+    ],
   );
   for (const changed of [path, "docs/unrelated.md"]) {
     const f = fixture(t);
@@ -113,7 +119,7 @@ test("signing implementation selects all mapped proofs without selecting proof-o
     if (implementation.includes(changed)) {
       assert.deepEqual(
         selected.map((entry) => entry.id),
-        ["source-lifetime", "source-trust-selection"],
+        ["source-lifetime", "source-trust-selection", "spiffe-peer-domain"],
       );
     }
     seedRequiredSuite(f, suite);
@@ -132,34 +138,37 @@ test("signing implementation selects all mapped proofs without selecting proof-o
   }
 });
 
-test("source selector changes select the lifetime and selector proofs only", (t) => {
-  const path = "crates/gateway/src/transport/source_trust_selection.rs";
-  const selected = requirements.suites.filter((entry) =>
-    entry.implementation.includes(path),
-  );
-  assert.deepEqual(
-    selected.map((entry) => entry.id),
-    ["source-lifetime", "source-trust-selection"],
-  );
-  for (const changed of [path, "docs/unrelated.md"]) {
-    const f = fixture(t);
-    seedRequiredSuite(f, selected[0]);
-    for (const entry of selected)
-      for (const proof of entry.proofs) f.write(proof, "proof\n");
-    f.write(path, "before\n");
-    const base = f.commit();
-    f.write(changed, "changed\n");
-    const target = f.commit();
-    const result = f.run(f.tuple(target, base));
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      f.commands(),
-      changed === path
-        ? selected.map((entry) => `run ${entry.command[2]}`)
-        : [],
+for (const path of [
+  "crates/gateway/src/transport/source_trust_selection.rs",
+  "crates/transport-security/src/provenance.rs",
+])
+  test(`source selector or provenance changes select their three proofs: ${path}`, (t) => {
+    const selected = requirements.suites.filter((entry) =>
+      entry.implementation.includes(path),
     );
-  }
-});
+    assert.deepEqual(
+      selected.map((entry) => entry.id),
+      ["source-lifetime", "source-trust-selection", "spiffe-peer-domain"],
+    );
+    for (const changed of [path, "docs/unrelated.md"]) {
+      const f = fixture(t);
+      seedRequiredSuite(f, selected[0]);
+      for (const entry of selected)
+        for (const proof of entry.proofs) f.write(proof, "proof\n");
+      f.write(path, "before\n");
+      const base = f.commit();
+      f.write(changed, "changed\n");
+      const target = f.commit();
+      const result = f.run(f.tuple(target, base));
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(
+        f.commands(),
+        changed === path
+          ? selected.map((entry) => `run ${entry.command[2]}`)
+          : [],
+      );
+    }
+  });
 
 test("a new or transient local build script selects its covered proof suites", (t) => {
   const path = "crates/domain/build.rs";

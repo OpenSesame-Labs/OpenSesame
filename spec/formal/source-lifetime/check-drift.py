@@ -21,6 +21,8 @@ PATHS = [
     "crates/transport-security/src/generations.rs",
     "crates/transport-security/src/source_lifetime.rs",
     "crates/transport-security/src/source_trust.rs",
+    "crates/transport-security/src/provenance.rs",
+    "crates/transport-security/src/svid_profile.rs",
     "crates/transport-security/src/guard.rs",
     "crates/transport-security/src/listener.rs",
     "crates/transport-security/src/client.rs",

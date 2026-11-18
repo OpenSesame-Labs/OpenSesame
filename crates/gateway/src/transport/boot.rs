@@ -97,7 +97,7 @@ async fn bind_secure_listener(
         .map_err(anyhow::Error::msg)?;
     let policy = runtime.policy;
     let client_profile = runtime.client_trust_profile.clone();
-    let source_only = match runtime
+    let source_domain = match runtime
         .config
         .listener
         .as_ref()
@@ -109,9 +109,9 @@ async fn bind_secure_listener(
                     "configured SPIFFE trust domain does not match its profile"
                 ));
             }
-            true
+            Some(trust_domain.clone())
         }
-        _ => false,
+        _ => None,
     };
     let generations = Arc::clone(&runtime.generations);
     let deny_thumbprint = deny_hook(state, runtime);
@@ -126,13 +126,14 @@ async fn bind_secure_listener(
             let mut profile = ServerProfile::new(policy, identity, super::HOST_TLS_LISTENER);
             profile.deny_thumbprint = Arc::clone(&deny_thumbprint);
             if policy.authenticates_client() {
-                let trust = if source_only {
+                let trust = if let Some(domain) = &source_domain {
                     // The source's current view is authoritative. A stored
                     // bundle with the same name cannot replace an absent
                     // Workload API domain, including after process restart.
                     source_trust_selection::select(
                         generations.source_trust(generation.number),
                         &client_profile,
+                        domain,
                     )?
                 } else {
                     generation.trust(&client_profile)?.clone()

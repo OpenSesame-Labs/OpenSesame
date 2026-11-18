@@ -9,7 +9,9 @@ complete unmodified selector suite before and after the controls.
 
 The controls deliberately select the first foreign source entry, ignore the
 kind check, ignore the profile-label check, and turn a stale source error into a
-missing result. The corresponding real-selector tests must fail. An empty Lean
+missing result. The corresponding production selector or its directly tested
+kind/profile/domain predicate must fail; the latter also receives abstract fact
+combinations that safe bundle constructors cannot produce. An empty Lean
 vector set and a Cargo command that reports zero successful tests must also be
 rejected. The script checks the expected test and diagnostic; a compiler error
 or an unrelated failure does not count as a caught mutant. It verifies the live

@@ -33,6 +33,8 @@ fn bundle(name: &str, ca: &DisposableCa) -> TrustBundle {
         &ca.root_pem(),
     )
     .unwrap()
+    .with_spiffe_trust_domain(name)
+    .unwrap()
 }
 
 fn source_manager(candidate: GenerationCandidate) -> (Arc<TransportGenerations>, SourceOwner, u64) {
@@ -298,4 +300,36 @@ async fn restart_cannot_use_a_stored_bundle_for_a_source_selected_domain() {
         assert_ne!(status(&mut attempted).await, Some(200));
     }
     task.abort();
+}
+
+#[tokio::test]
+async fn generic_source_owner_cannot_override_the_configured_trust_domain() {
+    let server = DisposableCa::new("server");
+    let source_ca = DisposableCa::new("source");
+    let mut state = crate::transport_lifecycle::test_support::state().await;
+    let wrong = bundle(FOREIGN, &source_ca)
+        .with_spiffe_trust_domain("other.test")
+        .unwrap();
+    let mut candidate = GenerationCandidate {
+        identity: Some(Arc::new(server.issue_server("localhost").identity())),
+        peer_trust: [(profile(FOREIGN), wrong)].into(),
+        own_trust: None,
+        identity_required: true,
+    };
+    let (manager, owner, epoch) = source_manager(candidate.clone());
+    attach(&mut state, &manager);
+    let address = "127.0.0.1:0".parse().unwrap();
+    let runtime = state.transport.as_ref().unwrap();
+    assert!(bind_secure_listener(&state, runtime, address)
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("trust_unknown"));
+    candidate
+        .peer_trust
+        .insert(profile(FOREIGN), bundle(FOREIGN, &source_ca));
+    manager
+        .activate_from_source(&owner, epoch, candidate)
+        .unwrap();
+    assert!(bind_secure_listener(&state, runtime, address).await.is_ok());
 }

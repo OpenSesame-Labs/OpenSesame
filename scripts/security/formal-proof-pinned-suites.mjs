@@ -1,4 +1,5 @@
 import { SOURCE_TRUST_SELECTION_SUITE } from "./formal-proof-source-selection.mjs";
+import { SPIFFE_PEER_DOMAIN_SUITE } from "./formal-proof-spiffe-peer-domain.mjs";
 
 // Independently reviewed minimum. Extend with each new formal suite or mapping.
 export const PINNED_FORMAL_SUITES = [
@@ -156,6 +157,8 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/src/generations.rs",
       "crates/transport-security/src/source_lifetime.rs",
       "crates/transport-security/src/source_trust.rs",
+      "crates/transport-security/Cargo.toml",
+      "crates/transport-security/src/svid_profile.rs",
     ],
     lockProjection: {
       path: "Cargo.lock",
@@ -234,6 +237,8 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/build.rs",
       "crates/gateway/build.rs",
       "crates/storage/build.rs",
+      "crates/transport-security/src/svid_profile.rs",
+      "crates/transport-security/src/provenance.rs",
     ],
     lockProjection: {
       path: "Cargo.lock",
@@ -249,4 +254,5 @@ export const PINNED_FORMAL_SUITES = [
     command: ["npm", "run", "verify:source-lifetime-formal"],
   },
   SOURCE_TRUST_SELECTION_SUITE,
+  SPIFFE_PEER_DOMAIN_SUITE,
 ];

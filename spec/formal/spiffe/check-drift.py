@@ -47,6 +47,8 @@ MINIMUM_PATHS = {
     'crates/spiffe-source/src/source_handle.rs',
     'crates/transport-security/src/source_lifetime.rs',
     'crates/transport-security/src/source_trust.rs',
+    'crates/transport-security/src/svid_profile.rs',
+    'crates/transport-security/Cargo.toml',
     'crates/domain/Cargo.toml',
     'crates/domain/src/lib.rs',
 }

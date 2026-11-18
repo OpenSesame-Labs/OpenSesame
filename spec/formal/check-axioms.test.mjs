@@ -44,6 +44,12 @@ const suites = [
     name: "source-trust-selection",
     model: "SourceTrustSelection.lean",
     first: "stale_view_is_refused",
+    vectors: 32,
+  },
+  {
+    name: "spiffe-peer-domain",
+    model: "SpiffePeerDomain.lean",
+    first: "untrusted_chain_refused",
     vectors: 16,
   },
   {

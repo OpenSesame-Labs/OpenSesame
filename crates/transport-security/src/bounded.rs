@@ -3,8 +3,9 @@
 //! `rustls-webpki` allows up to six sub-CAs on a path; this crate promises
 //! [`MAX_CHAIN_DEPTH`] certificates in total (leaf plus intermediates) on
 //! every verifier, so the built-in `WebPKI` verifiers are wrapped and a longer
-//! presented chain is refused before path building starts. Everything else
-//! is delegated untouched.
+//! presented chain is refused before path building starts. A SPIFFE client
+//! bundle also requires the verified leaf to satisfy its explicit domain and
+//! X.509-SVID profile; handshake signatures remain delegated to rustls.
 
 use std::sync::Arc;
 
@@ -14,6 +15,8 @@ use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::{DigitallySignedStruct, DistinguishedName, SignatureScheme};
 
 use crate::error::pki_error;
+use crate::svid_profile::SvidRole;
+use crate::svid_tls::verify_svid;
 use crate::MAX_CHAIN_DEPTH;
 
 fn check_depth(intermediates: &[CertificateDer<'_>]) -> Result<(), rustls::Error> {
@@ -28,11 +31,18 @@ fn check_depth(intermediates: &[CertificateDer<'_>]) -> Result<(), rustls::Error
 #[derive(Debug)]
 pub(crate) struct BoundedClientVerifier {
     inner: Arc<dyn ClientCertVerifier>,
+    spiffe_domain: Option<String>,
 }
 
 impl BoundedClientVerifier {
-    pub(crate) fn new(inner: Arc<dyn ClientCertVerifier>) -> Arc<Self> {
-        Arc::new(Self { inner })
+    pub(crate) fn new(
+        inner: Arc<dyn ClientCertVerifier>,
+        spiffe_domain: Option<String>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            inner,
+            spiffe_domain,
+        })
     }
 }
 
@@ -56,8 +66,13 @@ impl ClientCertVerifier for BoundedClientVerifier {
         now: UnixTime,
     ) -> Result<ClientCertVerified, rustls::Error> {
         check_depth(intermediates)?;
-        self.inner
-            .verify_client_cert(end_entity, intermediates, now)
+        let verified = self
+            .inner
+            .verify_client_cert(end_entity, intermediates, now)?;
+        if let Some(domain) = &self.spiffe_domain {
+            verify_svid(end_entity, domain, None, SvidRole::Client, now)?;
+        }
+        Ok(verified)
     }
 
     fn verify_tls12_signature(

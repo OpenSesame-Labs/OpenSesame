@@ -86,7 +86,8 @@ impl TransportGenerationsSink {
                 profile.clone(),
                 TrustProfileKind::SpiffeTrustDomain,
                 anchors,
-            )?;
+            )?
+            .with_spiffe_trust_domain(domain)?;
             peer_trust.insert(profile, bundle);
         }
         Ok(GenerationCandidate {
