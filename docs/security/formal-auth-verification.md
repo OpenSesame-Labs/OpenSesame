@@ -59,13 +59,33 @@ its source blobs must be present locally. Fetch the reviewed history if they
 are missing. The hashes detect drift. They do not prove the review or the model
 is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed. Selected suites require a clean
-worktree with no `assume-unchanged` or `skip-worktree` index flags, so Git cannot
-hide proof-input changes. Unrelated pushes do not run the proof suites. Release qualification
-runs every registered suite. The shared Lean checker rejects unapproved axiom
+files occur in the commits being pushed, including changes later reverted. It
+reads historical policy as data and checks each registry or requirements change
+against the requirements in that commit. Earlier registry history from before
+the requirements file existed is included in selection. If a changed path had
+an incoming mapping, the target must retain it and its proof files and command
+from the incoming history and the relevant destination and parent snapshots.
+Change a suite's proof-file mappings or command in a separate, metadata-only
+push before changing an implementation mapped to it. A changed target policy must include the requirements file; unrelated
+and proof-only changes do not run suites. Release qualification runs every
+registered suite and checks the same policy. When adding or expanding coverage,
+update [`proof-registry.json`](../../spec/formal/proof-registry.json),
+[`proof-requirements.json`](../../spec/formal/proof-requirements.json), and the
+independent trusted minimum in [`formal-proof-pinned-suites.mjs`](../../scripts/security/formal-proof-pinned-suites.mjs),
+together with the tests and this register. The registry and requirements must
+match each other and the trusted minimum on suite IDs, implementation paths,
+proof files, and commands. All three require review; their agreement alone does
+not establish that a proof covers an implementation. Pushes also compare changed
+paths with the advertised remote main policy so stale branches cannot silently
+omit its mappings. The remote must be reachable for this comparison.
+If main moves while its missing history is fetched, the gate rejects the push
+and asks for a retry. A local hook cannot make its last remote read atomic with
+the server's eventual ref update; server-side policy remains necessary.
+Selected suites require a clean worktree with no `assume-unchanged` or
+`skip-worktree` index flags, so Git cannot hide proof-input changes.
+The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
-Lean built-ins. See [the proof registry](../../spec/formal/proof-registry.json)
-and [the hook instructions](../../scripts/README.md).
+Lean built-ins. See [the hook instructions](../../scripts/README.md).
 
 Each suite maintains a separate `required-theorems.lean` file containing the
 required theorem names and their expected proposition types; the authentication

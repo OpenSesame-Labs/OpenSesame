@@ -131,6 +131,24 @@ export function gateFixture(t) {
   };
 }
 
+// The real pre-push hook also invokes the mandatory formal gate. Install its
+// actual selector and policy so this fixture exercises both gate entry points.
+export function installFormalGate(f) {
+  for (const name of [
+    "scripts/lib/json-boundary.mjs",
+    "scripts/security/formal-proof-pinned-suites.mjs",
+    "scripts/security/formal-proof-push-gate.mjs",
+    "scripts/security/formal-proof-push-gate-registry.mjs",
+    "scripts/security/formal-proof-push-history.mjs",
+    "scripts/security/formal-proof-remote-main.mjs",
+    "scripts/security/formal-proof-required-suites.mjs",
+    "spec/formal/proof-registry.json",
+    "spec/formal/proof-requirements.json",
+  ])
+    f.write(name, readFileSync(join(source, name)));
+  f.head = f.commit("install mandatory formal push gate");
+}
+
 export function assertClean(result) {
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   assert.match(result.stdout, /exposure matrix: CLEAN/);

@@ -7,6 +7,7 @@ import {
   sha,
   timestamp,
 } from "./candidate-policy.mjs";
+import { REQUIRED_SECURITY_POLICY_FILES } from "./candidate-security-files.mjs";
 
 // Security tools read these paths from the candidate checkout. Include both
 // present files and future additions so an older candidate cannot qualify under
@@ -26,41 +27,6 @@ const SCANNER_CONFIG_NAMES = new Set([
   "deny.toml",
   "osv-scanner.toml",
 ]);
-const REQUIRED_SECURITY_POLICY_FILES = [
-  "tools/pwa-tailscale-native-http/source.json",
-  "packages/app-core/scripts/sops-oracle/oracle.mjs",
-  "apps/android/scripts/build-core.sh",
-  "crates/authenticator-core/src/bin/uniffi-bindgen.rs",
-  "crates/authenticator-core/src/lib.rs",
-  "apps/android/android/settings.gradle.kts",
-  "apps/android/android/build.gradle.kts",
-  "apps/android/android/app/build.gradle.kts",
-  "apps/android/android/gradle.properties",
-  "scripts/test/live-turn/go.mod",
-  "scripts/test/live-turn/go.sum",
-  "Cargo.toml",
-  "Cargo.lock",
-  "rust-toolchain.toml",
-  "package-lock.json",
-  "pnpm-workspace.yaml",
-  ".github/codeql/codeql-config.yml",
-  ".gitleaks.toml",
-  ".cargo/audit.toml",
-  "deny.toml",
-  "osv-scanner.toml",
-  "scripts/lib/dependency-compatibility.test.mjs",
-  "scripts/fuzz/jazzer-gate.sh",
-  "scripts/lib/fuzz-directory.sh",
-  "spec/formal/proof-registry.json",
-  "spec/formal/check-axioms.sh",
-  "spec/formal/check-axioms.test.mjs",
-  "spec/formal/required-theorem-command.lean",
-  "spec/formal/auth/AuthPolicy.lean",
-  "spec/formal/auth/required-theorems.lean",
-  "scripts/test/auth-formal.sh",
-  "scripts/test/auth-formal-drift.mjs",
-  "scripts/security/formal-proof-release-gate.mjs",
-];
 
 function scannerHelper(path, prefix) {
   return (
@@ -116,7 +82,6 @@ function securityHelperPath(path) {
     (path.startsWith("scripts/security/") && !path.includes(".test."))
   );
 }
-
 function scannerPolicyPath(path) {
   const parts = path.split("/");
   const name = parts.at(-1);

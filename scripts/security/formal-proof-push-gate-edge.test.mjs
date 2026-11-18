@@ -218,6 +218,7 @@ function historicalPush(t, path) {
   const currentBranch = f.git("symbolic-ref", "--short", "HEAD");
   f.git("checkout", "-q", "--orphan", "legacy");
   rmSync(join(f.repo, "spec/formal/proof-registry.json"));
+  rmSync(join(f.repo, "spec/formal/proof-requirements.json"));
   const previous = f.commit();
   f.write(path, "historical change\n");
   f.commit();

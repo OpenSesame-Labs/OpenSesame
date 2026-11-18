@@ -3,11 +3,8 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import {
-  parsePushRefs,
-  parseRegistry,
-  planPush,
-} from "./formal-proof-push-gate.mjs";
+import { pathToFileURL } from "node:url";
+import { parsePushRefs, parseRegistry } from "./formal-proof-push-gate.mjs";
 import {
   fixture,
   nil,
@@ -159,8 +156,12 @@ test("selects all changed paths in pushed history, including changes subsequentl
   assert.deepEqual(f.commands(), ["run verify:a"]);
 });
 
-test("plans multiple refs and refuses to verify non-HEAD commits or dirty source", (t) => {
+test("plans multiple refs and refuses to verify non-HEAD commits or dirty source", async (t) => {
   const f = fixture(t);
+  const { planPush } = await import(
+    pathToFileURL(join(f.controller, "security/formal-proof-push-gate.mjs"))
+      .href
+  );
   f.write("src/a", "a1\n");
   const first = f.commit();
   f.write("src/b", "b1\n");
@@ -202,6 +203,6 @@ test("a dirty or removed registry cannot mask a previously mapped implementation
   const removed = f.git("rev-parse", "HEAD");
   const result = f.run(f.tuple(removed));
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /removes required formal proof suite a/);
+  assert.match(result.stderr, /required formal proof suite a is missing/i);
   assert.deepEqual(f.commands(), []);
 });
