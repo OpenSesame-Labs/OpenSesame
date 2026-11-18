@@ -1,8 +1,10 @@
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildSync, transformSync } from "esbuild";
+import { createGeneratedDataAssets } from "./lib/generated-data-plugin.mjs";
+import { readPackedGeneratedData } from "./lib/generated-data-read.mjs";
+import { renderGeneratedDataModule } from "./lib/generated-data-render.mjs";
+
+export { readPackedGeneratedData, renderGeneratedDataModule };
 
 const root = fileURLToPath(new URL("../../..", import.meta.url)).replace(
   /\/$/,
@@ -183,6 +185,53 @@ const generatedModules = Object.freeze([
     assetName: "generated-data/identity-presets.json",
   },
   {
+    kind: "literal-module",
+    path: `${root}/packages/app-core/src/lib/secret-backends/presets.generated.ts`,
+    hash: "3d7c42ac82c818f42a3cea8b0f0e913f98268041fe92190b081c27799791d447",
+    exportName: "SECRET_BACKEND_PRESETS",
+    exportNames: ["SECRET_BACKEND_PRESETS"],
+    assetName: "generated-data/secret-backend-presets.json",
+  },
+  {
+    kind: "literal-module",
+    path: `${root}/packages/app-core/src/lib/ai-model-provider-ids.generated.ts`,
+    hash: "cd6cd1bb05b1746300807dacdc0da00f97ff3f2bd32679592c72dbe99dacaa5d",
+    exportName: "AI_MODEL_PROVIDER_IDS",
+    exportNames: ["AI_MODEL_PROVIDER_IDS"],
+    assetName: "generated-data/ai-model-provider-ids.json",
+  },
+  {
+    kind: "packed-string",
+    path: `${root}/packages/app-core/src/lib/browser-dispositions.generated.ts`,
+    hash: "563ff8bc1dbad880c73a1459a7fa6392a38b3ee1f1a39839a7c6ba786392b8a5",
+    exportName: "BROWSER_DISPOSITIONS_JSON",
+    assetName: "generated-data/browser-dispositions.json",
+  },
+  {
+    kind: "literal-module",
+    path: `${root}/packages/app-core/src/lib/quorum/item-types.generated.ts`,
+    hash: "2267ea8c955e188464a09e91aee35522d00b2083fc6df8e238b9e75c95dac3ad",
+    exportName: "QUORUM_TYPES",
+    exportNames: ["QUORUM_TYPES"],
+    assetName: "generated-data/quorum-item-types.json",
+  },
+  {
+    kind: "literal-module",
+    path: `${root}/packages/app-core/src/lib/password-reset/mail-type.generated.ts`,
+    hash: "942059db34a2e17f36250dad8304c5e79dee820ba52f39243a39d7105ec92436",
+    exportName: "RESET_MAIL_TYPES",
+    exportNames: ["RESET_MAIL_TYPES"],
+    assetName: "generated-data/password-reset-mail-types.json",
+  },
+  {
+    kind: "literal-module",
+    path: `${root}/packages/app-core/src/lib/native-google-account-policy.generated.ts`,
+    hash: "d05244174888357bf4e93b02271bcb595e3040d674b32fb0e19e03109fd03b7d",
+    exportName: "GOOGLE_ACCOUNT_POLICY",
+    exportNames: ["GOOGLE_ACCOUNT_POLICY"],
+    assetName: "generated-data/native-google-account-policy.json",
+  },
+  {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/feature-catalog.ts`,
     hash: "938d09ad737d08b2a9386c7647814216dcce964f06b29c03622edd67f4f2b13a",
@@ -209,6 +258,34 @@ const generatedModules = Object.freeze([
     hash: "007329104a7117c7c113ac92762352fa177f1d3f07c30e88c0a11ab40064ec67",
     exportName: "SHELL_TARGETS",
     assetName: "generated-data/tutorial-shell-targets.json",
+  },
+  {
+    kind: "embedded-array",
+    path: `${root}/packages/app-core/src/lib/keymap/commands.ts`,
+    hash: "14dd939d6d698e216936c46347d4c4e0453c7985b4a67d969a99add80bd77fd3",
+    exportName: "COMMANDS",
+    assetName: "generated-data/keymap-commands.json",
+    declaration: "const COMMANDS: readonly KeymapCommand[] =",
+    expressionEnd: ";\n\n/** The two jumps",
+    bindingNames: ["REGISTER_PREFIX", "REGISTER_RECORD", "REGISTER_REPLAY"],
+  },
+  {
+    kind: "embedded-array",
+    path: `${root}/packages/app-core/src/tutorial/registry/areas.ts`,
+    hash: "c6860f333a80ca97198ac5c34eae922c384d51062aa169a012aad9765295ea2a",
+    exportName: "TUTORIAL_AREAS",
+    assetName: "generated-data/tutorial-areas.json",
+    declaration: "export const TUTORIAL_AREAS: readonly TutorialArea[] =",
+    expressionEnd: ";\n\n/** The directives",
+  },
+  {
+    kind: "embedded-array",
+    path: `${root}/packages/app-core/src/lib/field-guidance.ts`,
+    hash: "bf70dc3b5cd2b80e650d8ee48f368758dbd0d3caef9e1e2b6a50959fb41bc482",
+    exportName: "FIELD_GUIDANCE",
+    assetName: "generated-data/field-guidance.json",
+    declaration: "const FIELD_GUIDANCE = new Map<string, FieldGuidance>(",
+    expressionEnd: ");\n\nexport function fieldGuidance",
   },
   tutorialDataModule(
     "identity-goals",
@@ -303,523 +380,12 @@ const generatedModules = Object.freeze([
   ),
 ]);
 
-function normalizedId(id) {
-  return id.replaceAll("\\", "/");
-}
-
-function sourceHash(source) {
-  return createHash("sha256").update(source).digest("hex");
-}
-
-function assertPinnedSource(source, descriptor) {
-  const actualHash = sourceHash(source);
-  if (actualHash !== descriptor.hash) {
-    throw new Error(
-      `${descriptor.exportName} generated source pin mismatch: expected ${descriptor.hash}, received ${actualHash}`,
-    );
-  }
-}
-
-function exportExpression(source, descriptor) {
-  const exportStart = source.indexOf(`export const ${descriptor.exportName}`);
-  const assignment = source.indexOf("=", exportStart);
-  const end = source.lastIndexOf(";");
-  if (exportStart < 0 || assignment < 0 || end <= assignment) {
-    throw new Error(`${descriptor.exportName} static data boundary is missing`);
-  }
-  return {
-    exportStart,
-    assignment,
-    expression: source.slice(assignment + 1, end).trim(),
-  };
-}
-
-function unpackGeneratedJson(text, dictionary) {
-  return text.replace(/~([0-9a-f]+)~/g, (_match, index) => {
-    const value = dictionary[Number.parseInt(index, 16)];
-    if (value === undefined) throw new Error("Invalid generated JSON fragment");
-    return value;
-  });
-}
-
-function readLiteralModuleData(source, descriptor) {
-  const transpiled = transformSync(source, {
-    loader: "ts",
-    format: "esm",
-    target: "es2022",
-    legalComments: "none",
-  }).code;
-  if (/^import\s/m.test(transpiled)) {
-    throw new Error(
-      `${descriptor.exportName} static data unexpectedly imports runtime code`,
-    );
-  }
-  const executable = transpiled.replace(/export\s*\{[\s\S]*?\};\s*$/, "");
-  if (executable === transpiled) {
-    throw new Error(`${descriptor.exportName} static data exports are missing`);
-  }
-  const values = Function(
-    `"use strict";${executable};return {${descriptor.exportNames.join(",")}};`,
-  )();
-  const roundTrip = JSON.parse(JSON.stringify(values));
-  if (JSON.stringify(roundTrip) !== JSON.stringify(values)) {
-    throw new Error(`${descriptor.exportName} static data is not JSON-safe`);
-  }
-  if (
-    Object.keys(roundTrip).length !== descriptor.exportNames.length ||
-    !descriptor.exportNames.every((name) => Object.hasOwn(roundTrip, name))
-  ) {
-    throw new Error(`${descriptor.exportName} static data export set drifted`);
-  }
-  return Object.freeze({ values: Object.freeze(roundTrip) });
-}
-
-function readCapabilityCatalogData(descriptor) {
-  for (const input of descriptor.sources) {
-    const source = readFileSync(input.path, "utf8");
-    assertPinnedSource(source, {
-      ...descriptor,
-      exportName: input.path,
-      hash: input.hash,
-    });
-  }
-  const capabilityRoot = `${root}/packages/app-core/src/lib/capabilities`;
-  const entry = `
-import { CORE_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-core.ts`)};
-import { ALWAYS_ON_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-always-on.ts`)};
-import { BROWSER_LOCAL_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-always-on-local.ts`)};
-import { VAULT_FAMILY_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-optional-vault.ts`)};
-import { IDENTITY_FAMILY_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-optional-identity.ts`)};
-import { SERVICE_FAMILY_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-optional-services.ts`)};
-import { PLUGIN_FAMILY_DESCRIPTORS } from ${JSON.stringify(`${capabilityRoot}/catalog-optional-plugins.ts`)};
-export default [
-  ...CORE_DESCRIPTORS,
-  ...ALWAYS_ON_DESCRIPTORS,
-  ...BROWSER_LOCAL_DESCRIPTORS,
-  ...VAULT_FAMILY_DESCRIPTORS,
-  ...IDENTITY_FAMILY_DESCRIPTORS,
-  ...SERVICE_FAMILY_DESCRIPTORS,
-  ...PLUGIN_FAMILY_DESCRIPTORS,
-];`;
-  const bundled = buildSync({
-    stdin: { contents: entry, loader: "ts", resolveDir: root },
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    target: "node22",
-    write: false,
-    logLevel: "silent",
-  }).outputFiles[0]?.text;
-  if (!bundled)
-    throw new Error("Capability catalog extraction emitted no code");
-  const bundledModule = { exports: {} };
-  Function("module", "exports", bundled)(bundledModule, bundledModule.exports);
-  const descriptors = bundledModule.exports.default;
-  const json = JSON.stringify(descriptors);
-  if (
-    !Array.isArray(descriptors) ||
-    sourceHash(json) !== descriptor.valueHash
-  ) {
-    throw new Error(
-      `${descriptor.exportName} extracted value does not match its reviewed pin`,
-    );
-  }
-  return Object.freeze({ descriptors: Object.freeze(descriptors) });
-}
-
-function readBundledExportData(descriptor) {
-  for (const input of descriptor.sources) {
-    assertPinnedSource(readFileSync(input.path, "utf8"), {
-      ...descriptor,
-      exportName: input.path,
-      hash: input.hash,
-    });
-  }
-  const entry = `export { ${descriptor.exportName} as default } from ${JSON.stringify(descriptor.path)};`;
-  const bundled = buildSync({
-    stdin: { contents: entry, loader: "ts", resolveDir: root },
-    bundle: true,
-    platform: "node",
-    format: "cjs",
-    target: "node22",
-    write: false,
-    logLevel: "silent",
-  }).outputFiles[0]?.text;
-  if (!bundled)
-    throw new Error(`${descriptor.exportName} extraction emitted no code`);
-  const bundledModule = { exports: {} };
-  Function("module", "exports", bundled)(bundledModule, bundledModule.exports);
-  const value = bundledModule.exports.default;
-  const roundTrip = JSON.parse(JSON.stringify(value));
-  if (
-    JSON.stringify(roundTrip) !== JSON.stringify(value) ||
-    sourceHash(JSON.stringify(value)) !== descriptor.valueHash
-  ) {
-    throw new Error(
-      `${descriptor.exportName} extracted value does not match its reviewed pin`,
-    );
-  }
-  return Object.freeze({ value: Object.freeze(roundTrip) });
-}
-
-/** Read reviewed literals from a source-hash-pinned generated/static module. */
-export function readPackedGeneratedData(source, descriptor) {
-  assertPinnedSource(source, descriptor);
-  if (descriptor.kind === "capability-catalog") {
-    return readCapabilityCatalogData(descriptor);
-  }
-  if (descriptor.kind === "bundled-export") {
-    return readBundledExportData(descriptor);
-  }
-  if (descriptor.kind === "json-default") {
-    return Object.freeze({ value: Object.freeze(JSON.parse(source)) });
-  }
-  if (descriptor.kind === "pack-index") {
-    const tailStart = source.indexOf("/** One dynamic import per pack");
-    if (tailStart < 0) throw new Error("PACK_INDEX generated boundary drifted");
-    return readLiteralModuleData(source.slice(0, tailStart), {
-      ...descriptor,
-      exportNames: [descriptor.exportName],
-    });
-  }
-  if (descriptor.kind === "literal-module") {
-    return readLiteralModuleData(source, descriptor);
-  }
-  if (descriptor.kind === "literal-array") {
-    const { expression } = exportExpression(source, descriptor);
-    const value = Function(`"use strict";return (${expression});`)();
-    if (!Array.isArray(value)) {
-      throw new Error(`${descriptor.exportName} static data is not an array`);
-    }
-    const roundTrip = JSON.parse(JSON.stringify(value));
-    if (JSON.stringify(roundTrip) !== JSON.stringify(value)) {
-      throw new Error(`${descriptor.exportName} static data is not JSON-safe`);
-    }
-    return Object.freeze({ value: Object.freeze(roundTrip) });
-  }
-  if (descriptor.kind === "packed-string") {
-    const importLine =
-      'import { unpackGeneratedJson } from "./generated-json.js";';
-    const importStart = source.indexOf(importLine);
-    if (importStart < 0) {
-      throw new Error(`${descriptor.exportName} unpack import is missing`);
-    }
-    const executable = source
-      .slice(importStart + importLine.length)
-      .replace(
-        `export const ${descriptor.exportName}`,
-        `const ${descriptor.exportName}`,
-      );
-    const value = Function(
-      "unpackGeneratedJson",
-      `"use strict";${executable};return ${descriptor.exportName};`,
-    )(unpackGeneratedJson);
-    if (typeof value !== "string") {
-      throw new Error(
-        `${descriptor.exportName} generated data is not a string`,
-      );
-    }
-    JSON.parse(value);
-    return Object.freeze({ value });
-  }
-  const start = source.indexOf("const dictionary =");
-  const end = source.indexOf(`export const ${descriptor.exportName}`);
-  if (start < 0 || end < 0 || end <= start) {
-    throw new Error(
-      `${descriptor.exportName} generated data boundary is missing`,
-    );
-  }
-  const declaration = source
-    .slice(start, end)
-    .replace("const rows: readonly string[] =", "const rows =");
-  // The pinned generator emits only string and array literals in this slice.
-  // Evaluating that reviewed build input avoids parsing TypeScript by regex.
-  const data = Function(
-    `"use strict";${declaration};return { dictionary, rows };`,
-  )();
-  if (
-    !Array.isArray(data.dictionary) ||
-    !data.dictionary.every((value) => typeof value === "string") ||
-    !Array.isArray(data.rows) ||
-    !data.rows.every((value) => typeof value === "string")
-  ) {
-    throw new Error(
-      `${descriptor.exportName} generated data is not string arrays`,
-    );
-  }
-  return Object.freeze({
-    dictionary: Object.freeze(data.dictionary),
-    rows: Object.freeze(data.rows),
-  });
-}
-
-export function renderGeneratedDataModule(source, descriptor, referenceId) {
-  const data = readPackedGeneratedData(source, descriptor);
-  const reference = `import.meta.ROLLUP_FILE_URL_${referenceId}`;
-  if (descriptor.kind === "bundled-export") {
-    return {
-      code: `const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} static data (\${response.status})\`,
-  );
-}
-const { value } = await response.json();
-export const ${descriptor.exportName} = value;
-`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "json-default") {
-    return {
-      code: `const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.assetName} (\${response.status})\`,
-  );
-}
-const { value } = await response.json();
-export default value;
-`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "pack-index") {
-    const exportStart = source.indexOf(`export const ${descriptor.exportName}`);
-    const assignment = source.indexOf("=", exportStart);
-    const tailStart = source.indexOf(
-      "/** One dynamic import per pack",
-      assignment,
-    );
-    if (exportStart < 0 || assignment < 0 || tailStart < 0) {
-      throw new Error("PACK_INDEX generated boundary drifted");
-    }
-    const prefix = source.slice(0, exportStart).trimEnd();
-    const declaration = source.slice(exportStart, assignment + 1).trimEnd();
-    const tail = source.slice(tailStart);
-    return {
-      code: `${prefix}
-
-const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} generated data (\${response.status})\`,
-  );
-}
-const { values } = await response.json();
-${declaration} values.${descriptor.exportName};
-
-${tail}`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "capability-catalog") {
-    const authoredImport = source.indexOf(
-      'import { BROWSER_LOCAL_DESCRIPTORS } from "./catalog-always-on-local.js";',
-    );
-    const catalogStart = source.indexOf(
-      "export const CAPABILITY_CATALOG: CapabilityCatalog = buildCatalog(",
-    );
-    const catalogEnd = source.indexOf("\n);", catalogStart);
-    if (authoredImport < 0 || catalogStart < 0 || catalogEnd < 0) {
-      throw new Error("Capability catalog source boundary drifted");
-    }
-    const prefix = source.slice(0, authoredImport).trimEnd();
-    const versionStart = source.indexOf(
-      "export const CATALOG_VERSION",
-      authoredImport,
-    );
-    const versionEnd = source.indexOf(";", versionStart) + 1;
-    if (versionStart < 0 || versionEnd <= versionStart) {
-      throw new Error("Capability catalog version boundary drifted");
-    }
-    const version = source.slice(versionStart, versionEnd);
-    const tail = source.slice(catalogEnd + 3);
-    return {
-      code: `${prefix}
-
-const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} static data (\${response.status})\`,
-  );
-}
-const { descriptors } = await response.json();
-${version}
-export const CAPABILITY_CATALOG: CapabilityCatalog = buildCatalog(
-  descriptors,
-  CATALOG_VERSION,
-);${tail}`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "literal-module") {
-    const exports = descriptor.exportNames
-      .map((name) => `export const ${name} = values.${name};`)
-      .join("\n");
-    return {
-      code: `const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} static data (\${response.status})\`,
-  );
-}
-const { values } = await response.json();
-${exports}
-`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "literal-array") {
-    const { exportStart, assignment } = exportExpression(source, descriptor);
-    const prefix = source.slice(0, exportStart).trimEnd();
-    const declaration = source.slice(exportStart, assignment + 1).trimEnd();
-    return {
-      code: `${prefix}
-
-const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} static data (\${response.status})\`,
-  );
-}
-const { value } = await response.json();
-${declaration} value;
-`,
-      data,
-      map: null,
-    };
-  }
-  if (descriptor.kind === "packed-string") {
-    const importStart = source.indexOf(
-      'import { unpackGeneratedJson } from "./generated-json.js";',
-    );
-    if (importStart < 0) {
-      throw new Error(`${descriptor.exportName} unpack import is missing`);
-    }
-    const prefix = source.slice(0, importStart).trimEnd();
-    return {
-      code: `${prefix}
-
-const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} generated data (\${response.status})\`,
-  );
-}
-const { value } = await response.json();
-export const ${descriptor.exportName} = value;
-`,
-      data,
-      map: null,
-    };
-  }
-  const importStart = source.indexOf(
-    'import { unpackGeneratedJson } from "./generated-json.js";',
-  );
-  if (importStart < 0) {
-    throw new Error(`${descriptor.exportName} unpack import is missing`);
-  }
-  const prefix = source.slice(0, importStart).trimEnd();
-  return {
-    code: `${prefix}
-import { unpackGeneratedJson } from "./generated-json.js";
-
-const response = await fetch(${reference});
-if (!response.ok) {
-  throw new Error(
-    \`Unable to load ${descriptor.exportName} generated data (\${response.status})\`,
-  );
-}
-const { dictionary, rows } = await response.json();
-export const ${descriptor.exportName}: readonly string[] = rows.map((row) =>
-  unpackGeneratedJson(row, dictionary),
-);
-`,
-    data,
-    map: null,
-  };
-}
-
-/**
- * Large public generated/static tables remain byte-for-byte owned by their
- * checked-in sources, but ship as precached JSON instead of JavaScript syntax.
- * Top-level await preserves the existing synchronous exports for every caller.
- */
 export function generatedDataAssets() {
-  let transformed = new Set();
-  const jsonDescriptors = generatedModules.filter(
-    (descriptor) => descriptor.kind === "json-default",
+  return createGeneratedDataAssets(
+    generatedModules,
+    readPackedGeneratedData,
+    renderGeneratedDataModule,
   );
-  const jsonIds = new Map(
-    jsonDescriptors.map((descriptor, index) => [
-      `\0opensesame:generated-json:${index}`,
-      descriptor,
-    ]),
-  );
-  return {
-    name: "opensesame-generated-data-assets",
-    apply: "build",
-    enforce: "pre",
-    buildStart() {
-      transformed = new Set();
-    },
-    resolveId(source, importer) {
-      for (const [id, descriptor] of jsonIds) {
-        if (
-          source === descriptor.specifier ||
-          normalizedId(source) === descriptor.path
-        ) {
-          return id;
-        }
-        if (
-          importer &&
-          source.startsWith(".") &&
-          normalizedId(resolve(dirname(importer.split("?", 1)[0]), source)) ===
-            descriptor.path
-        ) {
-          return id;
-        }
-      }
-      return null;
-    },
-    load(id) {
-      const descriptor = jsonIds.get(id);
-      if (!descriptor) return null;
-      const source = readFileSync(descriptor.path, "utf8");
-      const data = readPackedGeneratedData(source, descriptor);
-      const referenceId = this.emitFile({
-        type: "asset",
-        name: descriptor.assetName,
-        source: JSON.stringify(data),
-      });
-      transformed.add(descriptor.path);
-      return renderGeneratedDataModule(source, descriptor, referenceId);
-    },
-    transform(source, id) {
-      const descriptor = generatedModules.find(
-        (candidate) => normalizedId(id) === candidate.path,
-      );
-      if (!descriptor) return null;
-      if (descriptor.kind === "json-default") return null;
-      if (transformed.has(descriptor.path)) {
-        throw new Error(`${descriptor.exportName} transformed more than once`);
-      }
-      const data = readPackedGeneratedData(source, descriptor);
-      const referenceId = this.emitFile({
-        type: "asset",
-        name: descriptor.assetName,
-        source: JSON.stringify(data),
-      });
-      transformed.add(descriptor.path);
-      return renderGeneratedDataModule(source, descriptor, referenceId);
-    },
-  };
 }
 
 export function generatedDataInputs() {
