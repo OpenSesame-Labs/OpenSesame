@@ -92,7 +92,12 @@ const LAZY_LEAVES = [
   [
     "/src/sections/access/HostedRequestsPanel",
     "access.authority",
-    "cap-access.authority",
+    "access-hosted-requests",
+  ],
+  [
+    "/src/modules/access.authority/AccessRailTree",
+    "access.authority",
+    "access-authority-rail",
   ],
   // Mailbox protocol/data leaves are optional password-reset code. Keep
   // their shared helpers with that capability when pure chunks coalesce.
@@ -150,7 +155,12 @@ const LAZY_LEAVES = [
   [
     "/packages/app-core/src/lib/vault/security-checks",
     "vault.security-checks",
-    "cap-vault.security-checks",
+    "vault-security-checks-panel",
+  ],
+  [
+    "/src/modules/vault.security-checks/SecurityChecksPanel",
+    "vault.security-checks",
+    "vault-security-checks-panel",
   ],
   ["/src/modules/sharing.live/carriers/nostr", "sharing.live", "live-nostr"],
   ["/node_modules/nostr-tools/", "sharing.live", "live-nostr"],
@@ -186,6 +196,21 @@ const LAZY_LEAVES = [
     "/src/modules/identity.local-iam/cli-authorize-panel",
     "identity.local-iam",
     "cli-app-integration-ui",
+  ],
+  [
+    "/src/modules/identity.local-iam/IdentityRailTree",
+    "identity.local-iam",
+    "identity-local-iam-rail",
+  ],
+  [
+    "/src/modules/identity.local-iam/lazy-routes",
+    "identity.local-iam",
+    "identity-local-iam-authorize-route",
+  ],
+  [
+    "/src/modules/identity.local-iam/AuthorizeConsentScreen",
+    "identity.local-iam",
+    "identity-local-iam-authorize-consent",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-pairing-form",
