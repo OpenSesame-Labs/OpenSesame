@@ -134,7 +134,7 @@ impl ServerProfile {
                 "listener identity leaf does not permit serverAuth",
             ));
         }
-        if !self.identity.is_valid_at(chrono::Utc::now()) {
+        if !self.identity.is_valid_at(opensesame_time::Utc::now()) {
             return Err(TransportError::EvidenceExpired);
         }
         match (self.policy.authenticates_client(), &self.client_trust) {

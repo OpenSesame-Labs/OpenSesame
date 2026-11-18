@@ -1,6 +1,6 @@
 //! Live grant-offer writer path (COH-LIVE) on the Host store.
 
-use chrono::Duration;
+use opensesame_time::Duration;
 
 use super::fix_support::{entry, issue, seed_grant, seed_realm};
 use super::{ActivationOutcome, NewGrantOffer, OfferActivation};

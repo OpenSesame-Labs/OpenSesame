@@ -4,7 +4,7 @@
 //! collection never opens a seal. The mint's receipt, with the role and STS's
 //! request id, is the connection event, sealed by the event path.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
 

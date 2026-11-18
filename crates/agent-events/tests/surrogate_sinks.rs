@@ -7,13 +7,13 @@
 //! the RFC 5424 line, the serialized notice or the subscriber payload carries
 //! a surrogate's text.
 
-use chrono::{DateTime, Utc};
 use opensesame_agent_events::surrogate::carries_surrogate;
 use opensesame_agent_events::{
     surrogate_refusal_notice, SurrogateRefusalReport, SURROGATE_EVENT_TYPES,
 };
 use opensesame_security_events::render::{alertmanager, pagerduty, syslog};
 use opensesame_security_events::SecurityNotice;
+use opensesame_time::{DateTime, Utc};
 
 const SURROGATE: &str = "osr_fedcba9876543210fedcba9876543210";
 const BODY: &str = "fedcba9876543210fedcba9876543210";

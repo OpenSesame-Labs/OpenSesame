@@ -1,8 +1,8 @@
 //! What the channel may carry, and who each thing reaches (ADR 0079 §2).
 
 use super::*;
-use chrono::Duration;
 use opensesame_domain::{GrantLink, GrantScope, NewSessionGrant, SessionGrant, SessionId};
+use opensesame_time::Duration;
 use serde_json::Value;
 use std::collections::BTreeSet;
 

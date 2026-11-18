@@ -5,6 +5,7 @@
  */
 import { asBufferSource, ownBytes } from "@opensesame/os-domain";
 import {
+  MAX_ENCRYPTED_FILE_PART_BYTES,
   type ObjectStore,
   type VaultItem,
   createItem,
@@ -17,10 +18,14 @@ import type { LocalNetworkFetchInit } from "../local-network-fetch.js";
 import { driveClientSeams } from "./client.js";
 import { PAIRING } from "./drive.fixture.js";
 import {
+  MAX_DRIVE_PART_LIST_BYTES,
+  MAX_DRIVE_PART_LIST_ENTRIES,
   driveFileStore,
   listDriveParts,
   putMissingParts,
+  readDrivePart,
   referencedParts,
+  writeDrivePart,
 } from "./parts.js";
 
 const original = driveClientSeams.fetch;
@@ -53,7 +58,9 @@ async function fakeDrive(
     return new Response(null, { status: 204 });
   }
   const bytes = held.get(key);
-  return bytes ? new Response(asBufferSource(bytes)) : new Response(null, { status: 404 });
+  return bytes
+    ? new Response(asBufferSource(bytes))
+    : new Response(null, { status: 404 });
 }
 
 const FILE = new TextEncoder().encode(
@@ -170,5 +177,71 @@ describe("referencedParts", () => {
     expect(referencedParts([typed]).size).toBe(3);
     expect(referencedParts([itemWith(manifest), typed]).size).toBe(3);
     expect(referencedParts([createItem("note", "{}")]).size).toBe(0);
+  });
+});
+
+describe("untrusted drive response bounds", () => {
+  it("rejects an oversized declared list without reading its body", async () => {
+    driveClientSeams.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          pull(controller) {
+            controller.enqueue(new Uint8Array([123]));
+            controller.close();
+          },
+        }),
+        {
+          headers: { "content-length": String(MAX_DRIVE_PART_LIST_BYTES + 1) },
+        },
+      );
+    await expect(listDriveParts(PAIRING)).rejects.toThrow("oversized body");
+  });
+
+  it("rejects streamed oversized parts and overlong part indexes", async () => {
+    driveClientSeams.fetch = async (url) => {
+      if (url.endsWith("/parts")) {
+        return Response.json({
+          parts: Array.from({ length: MAX_DRIVE_PART_LIST_ENTRIES + 1 }, () =>
+            "A".repeat(16),
+          ),
+        });
+      }
+      return new Response(new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1));
+    };
+    await expect(listDriveParts(PAIRING)).rejects.toThrow(
+      "too many file parts",
+    );
+    await expect(readDrivePart(PAIRING, "A".repeat(16))).rejects.toThrow(
+      "oversized body",
+    );
+  });
+
+  it("rejects invalid direct part keys before constructing a request", async () => {
+    await expect(readDrivePart(PAIRING, "../encoded/%2fkey")).rejects.toThrow(
+      "file part key is invalid",
+    );
+    await expect(
+      writeDrivePart(PAIRING, "A".repeat(17), new Uint8Array([1])),
+    ).rejects.toThrow("file part key is invalid");
+    expect(requests).toEqual([]);
+  });
+
+  it("preserves the bounded error when stream cancellation fails", async () => {
+    driveClientSeams.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1),
+            );
+          },
+          cancel() {
+            return Promise.reject(new Error("attacker-controlled cancel"));
+          },
+        }),
+      );
+    await expect(readDrivePart(PAIRING, "A".repeat(16))).rejects.toThrow(
+      "oversized body",
+    );
   });
 });

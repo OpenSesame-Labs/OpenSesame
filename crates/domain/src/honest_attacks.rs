@@ -1,7 +1,7 @@
 //! Honest AT-* regressions that stay on domain types (AT-PROMPT-INJECT).
 
 use crate::{JoinDecision, JoinRequest, JoinRequestId, PrincipalId, SessionId};
-use chrono::Utc;
+use opensesame_time::Utc;
 
 #[test]
 fn at_prompt_inject_join_note_cannot_authorize() {

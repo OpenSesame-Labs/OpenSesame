@@ -37,7 +37,10 @@ pub struct TempStore {
 /// A fresh, empty store.
 pub fn temp_store() -> TempStore {
     let dir = tempfile::tempdir().expect("tempdir");
-    let root = init_store(dir.path(), &[]).expect("init store");
+    let store = dir.path().join("store");
+    init_store(&store, &[]).expect("init store");
+    let root = StoreRoot::open_with_test_witness_root(&store, dir.path().join("witness"))
+        .expect("open fixture store");
     TempStore {
         dir,
         root,

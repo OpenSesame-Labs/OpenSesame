@@ -35,3 +35,13 @@ open OpenSesame.InteractionClock
   ∀ (interactionDeadline activationDeadline now : Instant),
     finalActivation interactionDeadline activationDeadline now = true ↔
       policy interactionDeadline now ∧ policy activationDeadline now
+
+#require_theorem OpenSesame.InteractionClock.settlement_requires_every_stage_live :
+  ∀ (deadline consumed reservation dispatched identity committed effect : Instant),
+    finalSettlement deadline consumed reservation dispatched identity committed effect = true ↔
+      policy deadline consumed ∧
+      policy deadline reservation ∧
+      policy deadline dispatched ∧
+      policy deadline identity ∧
+      policy deadline committed ∧
+      policy deadline effect

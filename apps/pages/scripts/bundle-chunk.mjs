@@ -1,3 +1,15 @@
+import { readFileSync } from "node:fs";
+
+/** Keep Vite's warning aligned with the hardened entry-asset budget. */
+export const entryChunkWarningKb = Math.ceil(
+  JSON.parse(
+    readFileSync(
+      new URL("../../../tools/quality/bundle-budgets.json", import.meta.url),
+      "utf8",
+    ),
+  ).profiles.builds["minimal-local-hardened"].budgets.largestAsset * 1.024,
+);
+
 /**
  * Keep the client renderer out of the entry chunk. A hardened profile's
  * largest asset is `main`, and react-dom is what puts it over the 693 KiB
@@ -15,7 +27,8 @@ export function bundleChunk(id) {
   if (
     path.includes("/node_modules/react-dom/") ||
     path.includes("/node_modules/react/") ||
-    path.includes("/node_modules/scheduler/")
+    path.includes("/node_modules/scheduler/") ||
+    path.includes("/node_modules/preact/")
   ) {
     return "react-dom";
   }

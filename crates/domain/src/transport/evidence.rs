@@ -12,7 +12,7 @@ use super::error::TransportError;
 use super::policy::{EvidenceSource, TlsVersion, TransportPolicy, TrustProfileRef};
 use super::selector::PeerIdentitySelector;
 use super::timestamp;
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Internal verified evidence about one authenticated peer.

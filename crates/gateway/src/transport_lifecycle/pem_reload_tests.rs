@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::ServiceBindingSet;
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 
 use crate::app_state::AppState;

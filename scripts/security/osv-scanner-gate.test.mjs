@@ -29,6 +29,14 @@ function fixture(t) {
   ])
     copyFileSync(join(root, file), join(repo, file));
   writeFileSync(join(repo, "osv-scanner.toml"), "IgnoredVulns = []\n");
+  writeFileSync(
+    join(repo, "scripts/security/check-sqlx-scanner-coverage.py"),
+    'import os, sys\nsys.exit(int(os.environ.get("OSV_TEST_SQLX_COVERAGE_STATUS", "0")))\n',
+  );
+  writeFileSync(
+    join(repo, "scripts/security/check-keepass-scanner-coverage.py"),
+    'import os, sys\nsys.exit(int(os.environ.get("OSV_TEST_KEEPASS_COVERAGE_STATUS", "0")))\n',
+  );
   mkdirSync(join(repo, "tools/pwa-tailscale-native-http"), { recursive: true });
   writeFileSync(
     join(repo, "tools/pwa-tailscale-native-http/source.json"),
@@ -55,7 +63,10 @@ function fixture(t) {
   );
   execFileSync("git", ["init", "-q"], { cwd: repo });
   execFileSync("git", ["add", "."], { cwd: repo });
-  for (const file of ["node_modules/tool/package-lock.json", "work/Cargo.lock"]) {
+  for (const file of [
+    "node_modules/tool/package-lock.json",
+    "work/Cargo.lock",
+  ]) {
     mkdirSync(dirname(join(repo, file)), { recursive: true });
     writeFileSync(join(repo, file), "untracked\n");
   }
@@ -164,6 +175,24 @@ test("native source requires a successful package-graph audit", (t) => {
   assert.doesNotMatch(missing.stdout, /CLEAN/);
 });
 
+test("the local SQLx replacement requires successful scanner coverage", (t) => {
+  const gate = fixture(t);
+  const failed = gate.run({ OSV_TEST_SQLX_COVERAGE_STATUS: "1" });
+  assert.notEqual(failed.status, 0);
+  assert.doesNotMatch(failed.stdout, /CLEAN/);
+  rmSync(join(gate.repo, "scripts/security/check-sqlx-scanner-coverage.py"));
+  assert.notEqual(gate.run().status, 0);
+});
+
+test("the local Keepass replacement requires successful scanner coverage", (t) => {
+  const gate = fixture(t);
+  const failed = gate.run({ OSV_TEST_KEEPASS_COVERAGE_STATUS: "1" });
+  assert.notEqual(failed.status, 0);
+  assert.doesNotMatch(failed.stdout, /CLEAN/);
+  rmSync(join(gate.repo, "scripts/security/check-keepass-scanner-coverage.py"));
+  assert.notEqual(gate.run().status, 0);
+});
+
 test("nested-workspace advisories fail even when scanner exits successfully", (t) => {
   const gate = fixture(t);
   const report = JSON.stringify({
@@ -187,6 +216,21 @@ test("nested-workspace advisories fail even when scanner exits successfully", (t
     assert.equal(result.status, 1);
     assert.match(result.stderr, /GHSA-fixture/);
     assert.match(result.stderr, /\.deepsec\/package-lock.json/);
+    assert.doesNotMatch(result.stdout, /CLEAN/);
+  }
+});
+
+test("scanner configuration cannot suppress an advisory before reporting", (t) => {
+  const gate = fixture(t);
+  for (const config of [
+    'IgnoredVulns = [{ id = "GHSA-fixture", reason = "hidden" }]\n',
+    'IgnoredVulns = "invalid"\n',
+    "IgnoredVulns = [\n",
+  ]) {
+    writeFileSync(join(gate.repo, "osv-scanner.toml"), config);
+    const result = gate.run();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /invalid config/);
     assert.doesNotMatch(result.stdout, /CLEAN/);
   }
 });

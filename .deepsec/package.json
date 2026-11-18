@@ -25,6 +25,14 @@
     "body-parser": "2.4.0",
     "qs": "6.16.1",
     "zod": "4.6.6",
-    "ip-address": "10.7.4"
+    "ip-address": "10.7.4",
+    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder"
+  },
+  "devDependencies": {
+    "@aws-sdk/xml-builder": "file:../patches/vendor/aws-sdk-xml-builder-3.972.42.tgz"
+  },
+  "scripts": {
+    "deepsec": "deepsec",
+    "test:aws-xml": "node --test aws-xml-compat.test.mjs"
   }
 }

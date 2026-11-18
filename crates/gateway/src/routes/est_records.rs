@@ -21,7 +21,7 @@ use crate::app_state::AppState;
 
 /// `time::OffsetDateTime` → RFC 3339, through the timestamp only.
 fn rfc3339(unix_seconds: i64) -> String {
-    chrono::DateTime::from_timestamp(unix_seconds, 0)
+    opensesame_time::DateTime::from_timestamp(unix_seconds, 0)
         .unwrap_or_default()
         .to_rfc3339()
 }
@@ -34,7 +34,7 @@ pub(super) async fn record_issued(
     common_name: &str,
     san_json: String,
 ) -> anyhow::Result<()> {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = opensesame_time::Utc::now().to_rfc3339();
     let request_id = format!("certificate-request:{}", uuid::Uuid::new_v4());
     let fingerprint = issued.fingerprint_sha256.clone();
     st.db

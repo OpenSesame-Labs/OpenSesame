@@ -271,7 +271,7 @@ async fn pair(Extension(fill): Extension<Arc<FillState>>, headers: HeaderMap) ->
     }
     match fill
         .pairings
-        .request(&caller.origin, &caller.token, chrono::Utc::now())
+        .request(&caller.origin, &caller.token, opensesame_time::Utc::now())
     {
         PairOutcome::Paired => Json(json!({ "state": "paired" })).into_response(),
         PairOutcome::Pending { code, expires_at } => (
@@ -304,7 +304,7 @@ async fn match_origin(
     };
     if !fill
         .approvals
-        .admit(&caller, &req.origin, None, chrono::Utc::now())
+        .admit(&caller, &req.origin, None, opensesame_time::Utc::now())
     {
         return no_store(refuse(StatusCode::FORBIDDEN, "approval_required"));
     }
@@ -338,7 +338,7 @@ async fn fill_value(
         &caller,
         &req.origin,
         Some((&req.reference, req.field)),
-        chrono::Utc::now(),
+        opensesame_time::Utc::now(),
         || {
             fill.fill_limiter
                 .check(RateKey::Extension(caller.origin.clone()))

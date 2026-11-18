@@ -15,7 +15,7 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use secrecy::SecretString;
 use serde_json::Value;
 
@@ -62,7 +62,7 @@ impl CertToken {
         if self.lease_duration.is_zero() {
             return None;
         }
-        chrono::Duration::from_std(self.lease_duration)
+        opensesame_time::Duration::from_std(self.lease_duration)
             .ok()
             .map(|lease| self.issued_at + lease)
     }
@@ -74,8 +74,8 @@ impl CertToken {
         match self.expires_at() {
             None => true,
             Some(expiry) => {
-                let headroom = chrono::Duration::from_std(RENEW_BEFORE)
-                    .unwrap_or_else(|_| chrono::Duration::zero());
+                let headroom = opensesame_time::Duration::from_std(RENEW_BEFORE)
+                    .unwrap_or_else(|_| opensesame_time::Duration::zero());
                 now + headroom < expiry
             }
         }

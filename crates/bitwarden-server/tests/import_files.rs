@@ -197,7 +197,7 @@ async fn a_live_accounts_attachments_and_text_sends_move() {
         .await
         .unwrap();
     assert!(uploaded.status().is_success());
-    let deletion = (chrono::Utc::now() + chrono::Duration::days(2)).to_rfc3339();
+    let deletion = (opensesame_time::Utc::now() + opensesame_time::Duration::days(2)).to_rfc3339();
     for extra in [json!({}), json!({"password": "locked"})] {
         let mut body = json!({"type": 0, "name": encrypt(&key, b"s"), "key": encrypt(&key, b"k"),
                               "text": {"text": encrypt(&key, b"t"), "hidden": false},

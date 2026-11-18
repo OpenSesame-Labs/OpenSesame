@@ -1,11 +1,13 @@
 /** Volatile, one-use SAML POST custody; never verifies identity or writes a cache. */
+import type {
+  SamlPostArmSchema,
+  SamlPostRecord,
+  SamlPostReply,
+} from "@opensesame/app-core/browser/saml/post-wire.js";
 import {
   SAML_POST_BYTES,
-  type SamlPostArmSchema,
-  SamlPostCommandSchema,
-  type SamlPostRecord,
-  type SamlPostReply,
-} from "@opensesame/app-core/browser/saml/post-wire.js";
+  parseSamlPostCommand,
+} from "./saml-command.generated.js";
 
 type Armed = Readonly<{
   ownerId: string;
@@ -343,11 +345,11 @@ class SamlPostIngress {
   }
   async command(event: ExtendableMessageEvent): Promise<SamlPostReply> {
     this.expire();
-    const parsed = SamlPostCommandSchema.safeParse(event.data);
+    const parsed = parseSamlPostCommand(event.data);
     const source = event.source;
-    if (this.closed || !parsed.success || !source || !("id" in source))
+    if (this.closed || !parsed || !source || !("id" in source))
       return { ok: false, reason: "malformed" };
-    const value = parsed.data;
+    const value = parsed;
     if (value.kind === "SAML_ARM") return this.arm(source.id, value);
     if (value.kind === "SAML_CANCEL")
       return this.cancel(source.id, value.nonce);
@@ -367,12 +369,8 @@ class SamlPostIngress {
     return this.receive(event);
   }
   async message(event: ExtendableMessageEvent): Promise<void> {
-    const parsed = SamlPostCommandSchema.safeParse(event.data);
-    if (
-      !parsed.success ||
-      (!event.ports[0] && parsed.data.kind !== "SAML_CANCEL")
-    )
-      return;
+    const parsed = parseSamlPostCommand(event.data);
+    if (!parsed || (!event.ports[0] && parsed.kind !== "SAML_CANCEL")) return;
     const result = await this.command(event);
     event.ports[0]?.postMessage(result);
   }

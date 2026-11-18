@@ -9,9 +9,9 @@
 //! alert track is what tells subscribers it lapsed (`lifecycle.expiry.expired`);
 //! a credential that lives under a day reaches `urgent` on its first pass.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::{ExpirySubject, SubjectKind};
+use opensesame_time::{DateTime, Duration, Utc};
 
 use crate::app_state::AppState;
 

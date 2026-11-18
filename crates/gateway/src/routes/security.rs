@@ -30,9 +30,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_breach_intel::{BreachEvent, BreachSource, BreachSubject, BreachSubjectKind};
 use opensesame_storage::StoredBreachFinding;
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use zeroize::Zeroize as _;

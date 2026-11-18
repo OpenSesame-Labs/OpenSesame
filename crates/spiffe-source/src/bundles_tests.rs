@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use super::{PeerVerifyError, TrustDomainBundles};
 use crate::fake::FakeTrustDomain;

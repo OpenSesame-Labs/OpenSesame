@@ -27,7 +27,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_agent_events::{AGENT_EVENT_TYPES, SURROGATE_EVENT_TYPES, SURROGATE_SUBJECT_KINDS};
 use opensesame_breach_intel::{BreachSubjectKind, BREACH_EVENT_TYPES};
 use opensesame_connection_broker::crypto::seal_scoped;
@@ -36,6 +35,7 @@ use opensesame_security_events::{filter, Delivery, Severity};
 use opensesame_storage::{
     SealedCertificateMaterial, StoredSecurityHook, SECURITY_HOOK_SECRET_SCOPE,
 };
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -121,7 +121,7 @@ fn hook_view(hook: &StoredSecurityHook) -> Value {
 }
 
 /// Public view of a tracked deadline, including where it sits on each ladder.
-fn subject_view(subject: &ExpirySubject, now: chrono::DateTime<Utc>) -> Value {
+fn subject_view(subject: &ExpirySubject, now: opensesame_time::DateTime<Utc>) -> Value {
     let renew_before = subject.renew_before();
     let remaining = subject.remaining_seconds(now);
     let mut next: Vec<Value> = Vec::new();
@@ -140,7 +140,7 @@ fn subject_view(subject: &ExpirySubject, now: chrono::DateTime<Utc>) -> Value {
                 // from, and an undated rung is better than a panicking route.
                 "fires_at": subject
                     .expires_at
-                    .checked_sub_signed(chrono::Duration::seconds(threshold))
+                    .checked_sub_signed(opensesame_time::Duration::seconds(threshold))
                     .map(|at| at.to_rfc3339()),
                 "crossed": remaining <= threshold,
             }));
@@ -1196,7 +1196,7 @@ mod custody_e2e {
     /// Slide a certificate's whole validity window `hours` into the past,
     /// keeping its span — an aged certificate, not a malformed one.
     async fn age_certificate(state: &AppState, certificate_id: &str, hours: i64) {
-        let shift = chrono::Duration::hours(hours);
+        let shift = opensesame_time::Duration::hours(hours);
         let stored = state
             .db
             .get_certificate(&state.connection_organization.to_string(), certificate_id)
@@ -1204,7 +1204,7 @@ mod custody_e2e {
             .unwrap()
             .expect("certificate");
         let slide = |raw: &str| {
-            (chrono::DateTime::parse_from_rfc3339(raw)
+            (opensesame_time::DateTime::parse_from_rfc3339(raw)
                 .expect("stored timestamps are RFC 3339")
                 .with_timezone(&Utc)
                 - shift)
@@ -1378,7 +1378,7 @@ mod custody_e2e {
             .unwrap()
             .len();
 
-        let now = chrono::Utc::now();
+        let now = opensesame_time::Utc::now();
         let (first, second) = tokio::join!(
             crate::lifecycle::scanner::scan_organization(&st, &org, now),
             crate::lifecycle::scanner::scan_organization(&st, &org, now)

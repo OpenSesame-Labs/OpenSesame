@@ -18,7 +18,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use super::{Balance, BudgetLedger};
 use crate::budget::{

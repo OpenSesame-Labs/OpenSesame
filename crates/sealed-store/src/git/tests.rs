@@ -3,24 +3,24 @@ use crate::{init_store, Entry, ItemDataKey};
 use std::process::Command;
 
 fn git_init(dir: &Path) {
-    let init = Command::new("git")
+    let init = Command::new(crate::git_exec::git_program_for_tests())
         .args(["init"])
         .current_dir(dir)
         .status()
         .unwrap();
     assert!(init.success());
-    let _ = Command::new("git")
+    let _ = Command::new(crate::git_exec::git_program_for_tests())
         .args(["config", "user.email", "test@example.com"])
         .current_dir(dir)
         .status();
-    let _ = Command::new("git")
+    let _ = Command::new(crate::git_exec::git_program_for_tests())
         .args(["config", "user.name", "Test"])
         .current_dir(dir)
         .status();
 }
 
 fn tracked_files(dir: &Path) -> String {
-    let tree = Command::new("git")
+    let tree = Command::new(crate::git_exec::git_program_for_tests())
         .args([
             "-C",
             dir.to_str().unwrap(),
@@ -52,7 +52,7 @@ fn auto_commit_records_insert() {
         &key,
     )
     .unwrap();
-    let log = Command::new("git")
+    let log = Command::new(crate::git_exec::git_program_for_tests())
         .args([
             "-C",
             dir.path().to_str().unwrap(),
@@ -125,7 +125,7 @@ fn remote_round_trip_and_autopush_flag() {
 fn push_backup_to_local_bare_remote() {
     let store = tempfile::tempdir().unwrap();
     let bare = tempfile::tempdir().unwrap();
-    assert!(Command::new("git")
+    assert!(Command::new(crate::git_exec::git_program_for_tests())
         .args(["init", "--bare"])
         .current_dir(bare.path())
         .status()
@@ -146,7 +146,7 @@ fn push_backup_to_local_bare_remote() {
     .unwrap();
     set_remote(store.path(), bare.path().to_str().unwrap()).unwrap();
     push_backup(store.path(), None).unwrap();
-    let log = Command::new("git")
+    let log = Command::new(crate::git_exec::git_program_for_tests())
         .args(["log", "-1", "--pretty=%s"])
         .current_dir(bare.path())
         .output()
@@ -160,6 +160,40 @@ fn push_backup_without_remote_names_the_fix() {
     git_init(dir.path());
     let err = push_backup(dir.path(), None).unwrap_err();
     assert!(err.to_string().contains("--remote"));
+}
+
+/// A backup remote carries the whole commit history. Entry names in subjects
+/// would publish the folder tree beside ciphertext that never opened.
+#[test]
+fn commit_subjects_never_name_the_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = init_store(dir.path(), &[]).unwrap();
+    ensure_git_repo(dir.path()).unwrap();
+    let key = ItemDataKey::generate();
+    let planted = "XZQPLANTED/api-token";
+    let entry = |secret: &str| Entry {
+        secret: secret.into(),
+        trailer: String::new(),
+        otp: None,
+    };
+
+    root.insert(planted, &entry("first"), &key).unwrap();
+    root.insert_or_replace(planted, &entry("second"), &key)
+        .unwrap();
+    root.rm_with_key(planted, &key).unwrap();
+
+    let log = Command::new("git")
+        .args(["log", "--format=%B"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    let subjects = String::from_utf8(log.stdout).unwrap();
+    assert!(!subjects.contains("XZQPLANTED"), "{subjects}");
+    assert!(!subjects.contains("api-token"), "{subjects}");
+    assert!(subjects.contains(crate::store::COMMIT_ADD));
+    assert!(subjects.contains(crate::store::COMMIT_EDIT));
+    assert!(subjects.contains(crate::store::COMMIT_REMOVE));
+    assert_eq!(crate::store::COMMIT_RESTORE, "seal: restore entry");
 }
 
 #[cfg(unix)]
@@ -177,7 +211,7 @@ fn the_push_token_never_reaches_the_persons_own_credential_helpers() {
         "[credential]\n\thelper = store\n",
     )
     .unwrap();
-    let mut lookup = Lookup::capture();
+    let mut lookup = crate::git_exec::captured_lookup();
     lookup.vars.retain(|(name, _)| name != "XDG_CONFIG_HOME");
     lookup.vars.retain(|(name, _)| name != "HOME");
     lookup.vars.push(("HOME".into(), home.path().into()));

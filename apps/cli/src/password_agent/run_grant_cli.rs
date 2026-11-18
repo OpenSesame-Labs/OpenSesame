@@ -41,9 +41,9 @@ fn receipt(value: &run_grant::RunGrant) -> anyhow::Result<serde_json::Value> {
     let mut receipt = value.receipt();
     let instant = |millis: i64| {
         Ok::<_, anyhow::Error>(
-            chrono::DateTime::from_timestamp_millis(millis)
+            opensesame_time::DateTime::from_timestamp_millis(millis)
                 .ok_or_else(|| anyhow::anyhow!("Invalid run grant timestamp"))?
-                .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                .to_rfc3339_opts(opensesame_time::SecondsFormat::Millis, true),
         )
     };
     receipt["createdAt"] = serde_json::json!(instant(value.created_at)?);

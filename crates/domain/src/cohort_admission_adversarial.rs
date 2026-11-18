@@ -9,7 +9,7 @@ mod tests {
         AdmissionBasis, AdmissionMode, CohortSnapshot, CohortSnapshotId, DomainError, PrincipalId,
         MAX_LIVE_RESOLUTION_AGE,
     };
-    use chrono::Duration;
+    use opensesame_time::Duration;
 
     #[test]
     fn a_removal_reaches_a_live_cohort_at_once_and_a_snapshot_only_when_retaken() {

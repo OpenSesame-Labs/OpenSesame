@@ -104,7 +104,7 @@ impl HttpMessageSignatureValidator for LocalHttpMessageSignatureValidator {
             )));
         }
 
-        let now = chrono::Utc::now().timestamp();
+        let now = opensesame_time::Utc::now().timestamp();
         if parsed.created + self.max_age_secs < now {
             return Err(ProofError::InvalidProof("signature expired".into()));
         }

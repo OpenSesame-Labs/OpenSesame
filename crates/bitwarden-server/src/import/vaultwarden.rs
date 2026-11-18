@@ -15,8 +15,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::Context as _;
-use chrono::Utc;
 use opensesame_storage::bitwarden::{BitwardenArrival, BitwardenKdf, BitwardenUser};
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
 

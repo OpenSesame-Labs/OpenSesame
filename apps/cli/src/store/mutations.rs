@@ -7,6 +7,42 @@ use opensesame_sealed_store::{
 use regex::Regex;
 use std::path::Path;
 
+pub fn cmd_migrate_rollback_anchor(
+    accept_current_state: bool,
+    path: Option<&Path>,
+    tomb: Option<&str>,
+) -> anyhow::Result<()> {
+    if !accept_current_state {
+        anyhow::bail!(
+            "refusing to establish a rollback high-water mark without --accept-current-state"
+        );
+    }
+    let (root, key) = open_unlocked(path, tomb)?;
+    root.migrate_rollback_anchor(&key)
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    println!("established outside rollback anchor");
+    Ok(())
+}
+
+pub(super) fn rm_with_fallback(
+    name: &str,
+    path: Option<&Path>,
+    tomb: Option<&str>,
+) -> anyhow::Result<()> {
+    let root_path = super::resolve_root(path, tomb)?;
+    let root = opensesame_sealed_store::StoreRoot::open(&root_path)
+        .map_err(|error| anyhow::anyhow!("{error}"))?;
+    match root.rm(name) {
+        Ok(()) => Ok(()),
+        Err(opensesame_sealed_store::StoreError::NotInitialized(_)) => {
+            let (root, key) = open_unlocked(path, tomb)?;
+            root.rm_with_key(name, &key)
+                .map_err(|error| anyhow::anyhow!("{error}"))
+        }
+        Err(error) => Err(anyhow::anyhow!("{error}")),
+    }
+}
+
 pub fn cmd_generate(
     name: &str,
     length: usize,

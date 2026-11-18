@@ -14,8 +14,8 @@ use axum::extract::{Path, Query, State};
 use axum::http::HeaderMap;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Duration, Utc};
 use opensesame_storage::bitwarden::{BitwardenAuthRequest, BitwardenUser};
+use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -46,12 +46,12 @@ pub(super) fn routes() -> Router<BitwardenServer> {
 }
 
 /// When the open window began: requests made before it are gone.
-pub(crate) fn window_start() -> chrono::DateTime<Utc> {
+pub(crate) fn window_start() -> opensesame_time::DateTime<Utc> {
     Utc::now() - Duration::minutes(WINDOW_MINUTES)
 }
 
 /// How much longer a request made at `created_at` stays open.
-pub(crate) fn time_left(created_at: chrono::DateTime<Utc>) -> std::time::Duration {
+pub(crate) fn time_left(created_at: opensesame_time::DateTime<Utc>) -> std::time::Duration {
     (created_at + Duration::minutes(WINDOW_MINUTES) - Utc::now())
         .to_std()
         .unwrap_or_default()

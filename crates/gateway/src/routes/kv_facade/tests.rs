@@ -56,7 +56,7 @@ async fn seed_connection(
     materialization: &str,
 ) -> String {
     let id = format!("conn_{}", uuid::Uuid::new_v4().simple());
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     store::insert_connection(
         state.db.pool(),
         &ConnectionRow {

@@ -124,7 +124,7 @@ impl MockHost {
             &Expectations {
                 server_public_keys: pins.server_public_keys.clone(),
                 callout_subject: Some(pins.callout_subject.clone()),
-                now: chrono::Utc::now().timestamp(),
+                now: opensesame_time::Utc::now().timestamp(),
             },
         ) {
             Ok(verified) => verified,
@@ -177,7 +177,9 @@ fn allow(req: &HostDecisionRequest, principal: &str, ttl: i64) -> HostDecisionRe
         user_nkey: Some(req.user_nkey.clone()),
         server_id: Some(req.server.id.clone()),
         request_digest: Some(req.request_digest.clone()),
-        exp: Some((chrono::Utc::now() + chrono::Duration::seconds(ttl)).to_rfc3339()),
+        exp: Some(
+            (opensesame_time::Utc::now() + opensesame_time::Duration::seconds(ttl)).to_rfc3339(),
+        ),
         enforcement: Some("verified".into()),
         ..HostDecisionResponse::default()
     }

@@ -5,6 +5,7 @@
  * Tests install it on `HTMLCanvasElement.prototype.getContext`.
  */
 export function stubCanvas2d(): void {
+  if (globalThis.HTMLCanvasElement === undefined) return;
   const noop = () => {};
   const make = (canvas: HTMLCanvasElement) => {
     const ctx = {

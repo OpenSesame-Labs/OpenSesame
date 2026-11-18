@@ -38,7 +38,6 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_agent_events::AgentRun;
 use opensesame_connection_broker::rotation::web_login::{
     reconcile_stranded_web_login_rotation, stranded_web_login_jobs, STRANDED_DETAIL,
@@ -46,6 +45,7 @@ use opensesame_connection_broker::rotation::web_login::{
 use opensesame_connection_broker::RotationJob;
 use opensesame_domain::OrganizationId;
 use opensesame_storage::web_login_runs::retention::StrandedRun;
+use opensesame_time::{DateTime, Utc};
 
 use super::RunTiming;
 use crate::app_state::AppState;
@@ -70,8 +70,8 @@ pub(crate) struct SweepReport {
 }
 
 /// How long a run may stay open before it is nobody's: the policy lease.
-pub(crate) fn horizon() -> chrono::Duration {
-    chrono::Duration::seconds(RunTiming::default().lease_seconds())
+pub(crate) fn horizon() -> opensesame_time::Duration {
+    opensesame_time::Duration::seconds(RunTiming::default().lease_seconds())
 }
 
 fn sweep_interval() -> Duration {
@@ -98,7 +98,7 @@ fn agent_was_driving(state: &str) -> bool {
 pub(crate) async fn sweep(
     state: &AppState,
     now: DateTime<Utc>,
-    horizon: chrono::Duration,
+    horizon: opensesame_time::Duration,
 ) -> anyhow::Result<SweepReport> {
     let cutoff = now - horizon;
     let stamp = now.to_rfc3339();

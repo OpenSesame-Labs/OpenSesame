@@ -9,12 +9,12 @@
 //! and, for authorities, from the public metadata document — so a scan needs
 //! no sealing key and a scanner running without one is still useful.
 
-use chrono::{DateTime, Utc};
 use opensesame_connection_broker::{RotationPolicy, RotationTarget};
 use opensesame_domain::OrganizationId;
 use opensesame_domain::SessionGrant;
 use opensesame_lifecycle::{ExpirySubject, SubjectKind};
 use opensesame_storage::{Db, StoredCertificateAuthority, StoredManagedCertificate, StoredSigner};
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 
@@ -141,7 +141,7 @@ async fn certificates(
     organization: &str,
     now: DateTime<Utc>,
 ) -> anyhow::Result<Vec<ExpirySubject>> {
-    let horizon = (now + chrono::Duration::days(CERTIFICATE_HORIZON_DAYS)).to_rfc3339();
+    let horizon = (now + opensesame_time::Duration::days(CERTIFICATE_HORIZON_DAYS)).to_rfc3339();
     let rows = db
         .list_certificates_expiring_before(organization, &horizon)
         .await?;
@@ -203,7 +203,7 @@ async fn signers(
     if signers.is_empty() {
         return Ok(Vec::new());
     }
-    let horizon = (now + chrono::Duration::days(CERTIFICATE_HORIZON_DAYS)).to_rfc3339();
+    let horizon = (now + opensesame_time::Duration::days(CERTIFICATE_HORIZON_DAYS)).to_rfc3339();
     let certificates = db
         .list_certificates_expiring_before(organization, &horizon)
         .await?;
@@ -357,7 +357,7 @@ const NEVER_ROTATED: DateTime<Utc> = DateTime::UNIX_EPOCH;
 /// [`opensesame_connection_broker::policy_due_at`] also says — expressed here
 /// as [`NEVER_ROTATED`], which lands on the actionable rung.
 pub fn policy_subject(policy: RotationPolicy) -> Option<ExpirySubject> {
-    let interval = chrono::Duration::from_std(policy.interval_duration()).ok()?;
+    let interval = opensesame_time::Duration::from_std(policy.interval_duration()).ok()?;
     let expires_at = match policy.last_rotated() {
         Some(last) => last.checked_add_signed(interval)?,
         None => NEVER_ROTATED,

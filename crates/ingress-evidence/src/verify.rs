@@ -7,9 +7,9 @@
 //! client authentication, and not be revoked — but the private-key proof
 //! happened in the ingress's handshake, not here, and nothing can recreate it.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{EvidenceSource, TransportError, TransportPolicy, VerifiedPeer};
+use opensesame_time::{DateTime, Utc};
 use opensesame_transport_security::{provider, ParsedLeaf, TrustBundle, MAX_CHAIN_DEPTH};
 use rustls_pki_types::{CertificateDer, UnixTime};
 

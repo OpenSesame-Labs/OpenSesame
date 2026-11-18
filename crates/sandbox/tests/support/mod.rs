@@ -8,11 +8,11 @@
 
 use std::sync::{Arc, Mutex};
 
-use chrono::Utc;
 use opensesame_sandbox::fixtures::single_chain;
 use opensesame_sandbox::{
     Broker, Refusal, RevocationFence, RevocationLedger, RunContext, Sandbox, SandboxProfile,
 };
+use opensesame_time::Utc;
 
 /// Compile WAT to a real wasm binary.
 ///

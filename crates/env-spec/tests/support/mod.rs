@@ -1,6 +1,6 @@
-//! The harness the bridge tests share: a sandbox of directories and recording
-//! `node` scripts, and a subject process that is this very test binary started
-//! again with exactly the process state a test wants.
+//! The harness the bridge tests share: a sandbox of directories, an owned copy
+//! of the machine's real Node, and a subject process that is this very test
+//! binary started again with exactly the process state a test wants.
 #![allow(dead_code)] // each test file uses a subset
 
 use std::collections::BTreeSet;
@@ -10,6 +10,7 @@ use std::process::Command;
 use std::sync::{Mutex, PoisonError};
 
 use opensesame_env_spec::parse_schema_file;
+use opensesame_trusted_exec::testkit::{copy_executable, Fixture};
 
 /// Set in the subject process only: the schema it parses.
 pub const SUBJECT_SCHEMA: &str = "OPENSESAME_TEST_SUBJECT_SCHEMA";
@@ -37,12 +38,14 @@ pub fn subject_body() {
 }
 
 pub struct Sandbox {
-    root: tempfile::TempDir,
+    _fixture: Fixture,
+    root: PathBuf,
 }
 
 impl Sandbox {
     pub fn new() -> Self {
-        let root = tempfile::tempdir().unwrap();
+        let fixture = Fixture::new("unused");
+        let root = fixture.scratch("env-spec-sandbox");
         for (dir, mode) in [
             ("work/bin", 0o700),
             ("safe", 0o700),
@@ -50,35 +53,55 @@ impl Sandbox {
             ("operator", 0o700),
             ("out", 0o700),
         ] {
-            let path = root.path().join(dir);
+            let path = root.join(dir);
             std::fs::create_dir_all(&path).unwrap();
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
         }
-        std::fs::write(root.path().join("work/x.env.schema"), "# stand-in\n").unwrap();
-        std::fs::write(root.path().join("work/parse.mjs"), "// stand-in\n").unwrap();
-        Self { root }
+        std::fs::write(root.join("work/x.env.schema"), "# stand-in\n").unwrap();
+        let out = serde_json::to_string(&root.join("out").display().to_string()).unwrap();
+        let document = serde_json::to_string(EMPTY_DOCUMENT).unwrap();
+        let parser = format!(
+            r#"import {{ dirname, join }} from "node:path";
+import {{ readFileSync, writeFileSync }} from "node:fs";
+const label = readFileSync(join(dirname(process.execPath), "label"), "utf8");
+const env = Object.entries(process.env)
+  .map(([name, value]) => `${{name}}=${{value}}`)
+  .join("\n") + "\n";
+writeFileSync(join({out}, `${{label}}.env`), env);
+writeFileSync(join({out}, `${{label}}.args`), process.argv.slice(1).join("\n") + "\n");
+process.stdout.write({document});
+"#
+        );
+        std::fs::write(root.join("work/parse.mjs"), parser).unwrap();
+        Self {
+            _fixture: fixture,
+            root,
+        }
     }
 
     pub fn path(&self, name: &str) -> PathBuf {
-        self.root.path().join(name)
+        self.root.join(name)
     }
 
-    /// A `node` that records the environment it was started with in
-    /// `out/<label>.env` and its arguments, one a line, in `out/<label>.args`,
-    /// then answers as the bridge would.
+    /// An owned exact copy of the machine's `node`, labelled so the parser
+    /// records its environment and arguments before answering.
     pub fn plant(&self, dir: &str, label: &str) {
-        let out = self.path("out");
-        let script = format!(
-            "#!/bin/sh\n/usr/bin/env > '{}'\nprintf '%s\\n' \"$@\" > '{}'\nprintf '%s' '{EMPTY_DOCUMENT}'\n",
-            out.join(format!("{label}.env")).display(),
-            out.join(format!("{label}.args")).display(),
-        );
         let node = self.path(dir).join("node");
         let _guard = WRITING_OR_FORKING
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        std::fs::write(&node, script).unwrap();
-        std::fs::set_permissions(&node, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let source = std::env::var_os(OPERATOR_NODE)
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("PATH").and_then(|path| {
+                    std::env::split_paths(&path)
+                        .map(|entry| entry.join("node"))
+                        .find(|candidate| candidate.is_file())
+                })
+            })
+            .expect("these tests need node on PATH or OPENSESAME_NODE");
+        copy_executable(&source, &node);
+        std::fs::write(self.path(dir).join("label"), label).unwrap();
     }
 
     /// What `label`'s `node` recorded, or `None` when it never ran.
@@ -160,19 +183,15 @@ impl Sandbox {
     }
 }
 
-/// What the shell a script `node` runs under adds to its environment.
-pub const SHELL_OWN: [&str; 4] = ["PWD", "OLDPWD", "SHLVL", "_"];
-
 pub fn names(recorded: &str) -> BTreeSet<String> {
     recorded
         .lines()
         .filter_map(|line| line.split_once('=').map(|(name, _)| name.to_owned()))
-        .filter(|name| !SHELL_OWN.contains(&name.as_str()))
         .collect()
 }
 
 pub fn allowlisted() -> BTreeSet<String> {
-    ["HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"]
+    ["HOME", "LANG", "LC_ALL", "TMPDIR"]
         .map(String::from)
         .into()
 }

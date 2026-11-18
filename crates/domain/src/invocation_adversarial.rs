@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::Utc;
+    use opensesame_time::Utc;
 
     #[test]
     fn illegal_transitions_rejected() {

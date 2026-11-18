@@ -153,7 +153,7 @@ async fn start_origin(
         number: 1,
         identity: Some(identity),
         peer_trust,
-        activated_at: chrono::Utc::now(),
+        activated_at: opensesame_time::Utc::now(),
         withdrawn: None,
     });
     let listener = SecureListener::bind(

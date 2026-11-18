@@ -171,7 +171,7 @@ pub async fn get_trust(State(state): State<AppState>, headers: HeaderMap) -> Res
     if let Err(response) = require_configurator(&state, &headers) {
         return response;
     }
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     match trust::load(&state).await {
         Ok(stored) => {
             let base: Vec<String> = state

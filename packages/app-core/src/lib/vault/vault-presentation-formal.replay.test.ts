@@ -1,4 +1,8 @@
-import { type VaultHeader, emptyBody } from "@opensesame/vault-core";
+import {
+  type VaultBody,
+  type VaultHeader,
+  emptyBody,
+} from "@opensesame/vault-core";
 import { describe, expect, it } from "vitest";
 import { defaultPrefs } from "./prefs.js";
 import { ProtectionSessionGuard } from "./protection/session-guard.js";
@@ -62,9 +66,15 @@ function unlockSessionModel(): SessionModel {
     loadBody: async () => emptyBody(),
     setBody: () => {},
     bodyPort: () => ({
+      tomb: () => "personal",
+      open: () => true,
+      carries: () => true,
+      header: () => header,
       body: () => emptyBody(),
-      mutate: (change: (body: typeof emptyBody) => void) => change(emptyBody()),
-      publishKey: () => {},
+      mutate: async (change: (body: VaultBody) => void) => {
+        change(emptyBody());
+      },
+      publishKey: async () => {},
     }),
     preferences: new StorePreferences(),
     protection: () => ({

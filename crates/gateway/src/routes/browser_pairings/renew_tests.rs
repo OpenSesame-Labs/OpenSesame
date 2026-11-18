@@ -9,7 +9,7 @@ const LIST: &str = "/api/v1/shared-sessions?visibility=public";
 /// Move every client's approval `seconds` into the past.
 async fn approved_ago(room: &Room, seconds: i64) {
     sqlx::query("UPDATE browser_clients SET approved_at=?")
-        .bind(chrono::Utc::now().timestamp() - seconds)
+        .bind(opensesame_time::Utc::now().timestamp() - seconds)
         .execute(room.state.db.pool())
         .await
         .unwrap();

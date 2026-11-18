@@ -232,6 +232,41 @@ it("refuses caller assurance, unknown audiences, wrong transaction, and removed 
   expect((await f.verify(f.assertion(one))).status).toBe(403);
 });
 
+it("refuses Host evidence when the organization is inactive at either stage", async () => {
+  const before = await fixture();
+  const firstOrganization = await before.ctx.stores.organizations.get(
+    before.challenge.organization_id,
+  );
+  if (!firstOrganization) throw new Error("Fixture organization missing");
+  await before.ctx.stores.organizations.set(firstOrganization.id, {
+    ...firstOrganization,
+    state: "suspended",
+    updatedAt: new Date(),
+  });
+  expect(
+    (
+      await before.app.request("/v1/host-authorizations/options", {
+        method: "POST",
+        headers: before.headers,
+        body: JSON.stringify(before.challenge),
+      })
+    ).status,
+  ).toBe(403);
+
+  const after = await fixture();
+  const pending = await after.begin();
+  const secondOrganization = await after.ctx.stores.organizations.get(
+    after.challenge.organization_id,
+  );
+  if (!secondOrganization) throw new Error("Fixture organization missing");
+  await after.ctx.stores.organizations.set(secondOrganization.id, {
+    ...secondOrganization,
+    state: "deleted",
+    updatedAt: new Date(),
+  });
+  expect((await after.verify(after.assertion(pending))).status).toBe(403);
+});
+
 it("verifies a real passkey on another app instance and consumes the pending grant atomically", async () => {
   const client = await migratedPGlite();
   try {

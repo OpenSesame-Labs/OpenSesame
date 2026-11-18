@@ -2,7 +2,8 @@
 
 Standing inventory of Host HTTP that participates in hierarchical authority
 evaluation / mutation. Storage writers and OpenFGA projection stay as named in
-[`storage.md`](storage.md) and [`api-surface.md`](api-surface.md).
+[`storage.md`](storage.md). Capability ids are the `authority.domain.*` entries
+in `packages/capability-registry`.
 
 ## Evaluation path (already landed)
 
@@ -14,7 +15,35 @@ evaluation / mutation. Storage writers and OpenFGA projection stay as named in
 
 ## Access-domain & offer HTTP
 
-See [`api-surface.md`](api-surface.md). Contract pin:
+Operator bearer/header or an owner/admin session may call these routes. The
+`{organization}` path must equal the caller's realm (`X-OpenSesame-Organization`
+for operators; the session's organization for humans). Realm mismatch returns
+`404 not_found` and ordinary members receive `403`.
+
+| Method | Path | Storage |
+|---|---|---|
+| `GET` | `/api/v1/organizations/{organization}/access-domains` | `list_access_domains` |
+| `POST` | `/api/v1/organizations/{organization}/access-domains` | `create_access_domain` |
+| `GET` | `/api/v1/organizations/{organization}/access-domains/{id}` | `access_domain` |
+| `POST` | `/api/v1/organizations/{organization}/access-domains/{id}/reparent` | `reparent_access_domain` |
+| `POST` | `/api/v1/organizations/{organization}/access-domains/{id}/terminate` | `terminate_access_domain` |
+| `POST` | `/api/v1/organizations/{organization}/grants/{grant_id}/authority` | `issue_authority` |
+| `POST` | `/api/v1/organizations/{organization}/grant-offers/{id}/activate` | `activate_grant_offer` |
+| `POST` | `/api/v1/organizations/{organization}/grant-offers/{id}/revoke` | `revoke_grant_offer` |
+
+Create accepts optional `id` (otherwise `adom:…`), `parent_id`, and
+same-realm `project_id`. Reparent and terminate require `expected_revision`
+(CAS); the schema rejects cross-realm parents and the route returns `422
+refused`. Issuing `credential.export`, `policy.edit`, or
+`raw_credential_export` authority requires an owner/operator rather than an
+admin, and `delegation_depth_remaining` must be 0–2.
+
+The access-domain and offer routes write no OpenFGA tuples. Their storage
+transaction emits the outbox event. Grant issue is the exception: after commit,
+and only when OpenFGA is configured, it calls `project_grant_live`; failed
+projection remains unmarked and is logged.
+
+Contract pins:
 
 ```bash
 cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::access_domains::tests
@@ -32,6 +61,11 @@ router); `contract.rs` includes all three sources so undocumented routes fail CI
 | `POST .../grants/{grant_id}/authority` | `cargo test -p opensesame-gateway --bin opensesame-gateway -- routes::local_authority_routes::authority_grants::tests` |
 
 Records sidecar authority on an existing `grants` row (`issue_authority`). Does not insert the legacy envelope.
+
+All routes above are documented in `spec/openapi/host-api.yaml`. The generated
+`packages/api-client` does not yet expose typed methods; add them when a
+consumer needs them. Offer create/list/get remain storage-ready but deliberately
+unexposed, while activate/revoke operate on an existing offer.
 
 ## Deliberately not on this inventory
 

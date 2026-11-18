@@ -5,8 +5,8 @@
 //! keeps the encrypted payload — name, notes, the type's own object, custom
 //! fields, password history, the per-cipher key — exactly as sent.
 
-use chrono::{DateTime, Utc};
 use opensesame_storage::bitwarden::{BitwardenCipher, BitwardenFolder};
+use opensesame_time::{DateTime, Utc};
 use serde_json::{json, Map, Value};
 
 use super::account::date;

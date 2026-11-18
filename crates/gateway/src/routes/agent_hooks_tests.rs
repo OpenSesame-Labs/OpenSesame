@@ -112,13 +112,13 @@ fn session_shaped(
 /// Claims that carry a passkey step-up taken `age_secs` ago (ADR 0084's
 /// evidence: phishing-resistant, `webauthn`, `last_step_up_at`).
 fn step_up_taken(claims: &mut crate::session_claims::HostSessionClaims, age_secs: i64) {
-    let at = chrono::Utc::now() - chrono::Duration::seconds(age_secs);
+    let at = opensesame_time::Utc::now() - opensesame_time::Duration::seconds(age_secs);
     claims.assurance = crate::session_claims::Assurance::PhishingResistant;
     claims.amr = vec!["webauthn".into()];
     claims.issued_at = at;
     claims.auth_time = at;
     claims.last_step_up_at = Some(at);
-    claims.expires_at = chrono::Utc::now() + chrono::Duration::minutes(5);
+    claims.expires_at = opensesame_time::Utc::now() + opensesame_time::Duration::minutes(5);
 }
 
 /// A session that has just stepped up: what may replace the policy.

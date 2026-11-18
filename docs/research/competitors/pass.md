@@ -114,7 +114,7 @@ read.
 
 Related: [ADR 0037](../../adr/0037-git-sealed-store.md),
 [ADR 0038](../../adr/0038-multi-tomb-sealed-store.md),
-[sealed-store design](../../archive/plans/specs/2026-08-15-git-sealed-store-design.md),
+[vault format](../../architecture/vault-format-v1.md),
 [AGENTS.md](../../../AGENTS.md) sealed-store crib sheet.
 
 ## Deliberate non-goals vs `pass`

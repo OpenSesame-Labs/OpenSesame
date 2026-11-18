@@ -40,4 +40,4 @@ Tests live in `src/__tests__/`, including PACT suites built on
 - [ADR 0046](../../docs/adr/0046-relayed-execution-and-authorization-inbox.md) — relayed execution; cites the high-risk action set
 - [ADR 0084](../../docs/adr/0084-external-authorization-notifications.md) and [ADR 0086](../../docs/adr/0086-wallet-native-interaction-layer.md) — assurance and approval proofs
 - [ADR 0125](../../docs/adr/0125-wallet-native-proof-admission.md) — wallet-native proof admission
-- [OpenFGA tuple backfill](../../docs/implementation/general-authority/openfga-tuple-backfill.md)
+- [ADR 0120](../../docs/adr/0120-generalized-hierarchical-authority.md) — generalized hierarchical authority and tuple compatibility

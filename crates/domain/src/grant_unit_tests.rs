@@ -1,5 +1,5 @@
 use super::*;
-use chrono::{Duration, TimeZone};
+use opensesame_time::{Duration, TimeZone};
 
 fn sample_parent() -> Grant {
     let now = Utc::now();

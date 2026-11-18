@@ -8,9 +8,9 @@ mod reject;
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
 use common::*;
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::client_config;
 use opensesame_transport_security::testkit::{DisposableCa, LeafSpec};
 use reject::*;

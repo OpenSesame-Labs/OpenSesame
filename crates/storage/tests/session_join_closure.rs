@@ -1,11 +1,11 @@
 //! Atomic admission and grant writes cannot outlive session closure.
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     GrantLink, GrantScope, JoinDecision, JoinRequest, JoinRequestId, NewSessionGrant, PrincipalId,
     SessionGrant, SessionGrantId, SessionId, SessionMembership, SessionMode, SessionRole,
     SessionVisibility, VaultId,
 };
 use opensesame_storage::{Db, StoredSession};
+use opensesame_time::{Duration, Utc};
 
 const ORG: &str = "org:one";
 

@@ -1,8 +1,5 @@
 use crate::ProofError;
-#[cfg(feature = "concurrency-test")]
-use shuttle::sync::Mutex;
 use std::collections::HashMap;
-#[cfg(not(feature = "concurrency-test"))]
 use std::sync::Mutex;
 
 /// Replay protection for `DPoP` `jti` values.
@@ -99,7 +96,7 @@ impl InMemoryReplayCache {
 
 impl ReplayCache for InMemoryReplayCache {
     fn check_and_record(&self, jti: &str) -> Result<(), ProofError> {
-        let now = chrono::Utc::now().timestamp();
+        let now = opensesame_time::Utc::now().timestamp();
         self.check_and_record_at(jti, now)
     }
 
@@ -113,32 +110,108 @@ impl ReplayCache for InMemoryReplayCache {
         now: i64,
         valid_until: i64,
     ) -> Result<(), ProofError> {
-        if jti.is_empty() {
-            return Err(ProofError::InvalidProof("empty jti".into()));
-        }
-        if jti.len() > MAX_JTI_LEN {
-            return Err(ProofError::InvalidProof("jti too long".into()));
-        }
         let mut guard = self
             .seen
             .lock()
             .map_err(|_| ProofError::InvalidProof("replay cache poisoned".into()))?;
+        check_and_record_in(
+            &mut guard,
+            self.ttl_secs,
+            self.capacity,
+            jti,
+            now,
+            valid_until,
+        )
+    }
+}
 
-        // Drop entries that can no longer be replayed: their proof is past both
-        // the cache TTL and its own acceptance window.
-        guard.retain(|_, retain_until| *retain_until >= now);
+fn check_and_record_in(
+    seen: &mut HashMap<String, i64>,
+    ttl_secs: i64,
+    capacity: usize,
+    jti: &str,
+    now: i64,
+    valid_until: i64,
+) -> Result<(), ProofError> {
+    if jti.is_empty() {
+        return Err(ProofError::InvalidProof("empty jti".into()));
+    }
+    if jti.len() > MAX_JTI_LEN {
+        return Err(ProofError::InvalidProof("jti too long".into()));
+    }
 
-        if guard.contains_key(jti) {
-            return Err(ProofError::Replay(jti.to_string()));
+    // Drop entries that can no longer be replayed: their proof is past both
+    // the cache TTL and its own acceptance window.
+    seen.retain(|_, retain_until| *retain_until >= now);
+
+    if seen.contains_key(jti) {
+        return Err(ProofError::Replay(jti.to_string()));
+    }
+    if seen.len() >= capacity {
+        return Err(ProofError::InvalidProof(
+            "replay cache at capacity; rejecting proof".into(),
+        ));
+    }
+    let retain_until = now.saturating_add(ttl_secs).max(valid_until);
+    seen.insert(jti.to_string(), retain_until);
+    Ok(())
+}
+
+/// Scheduler-instrumented replay cache used only by the Shuttle model test.
+///
+/// The production [`InMemoryReplayCache`] deliberately retains the standard
+/// mutex even when every Cargo feature is enabled. This separate type keeps
+/// Shuttle's runtime-bound primitive out of ordinary applications and tests.
+#[cfg(feature = "concurrency-test")]
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct ShuttleReplayCache {
+    seen: shuttle::sync::Mutex<HashMap<String, i64>>,
+    ttl_secs: i64,
+    capacity: usize,
+}
+
+#[cfg(feature = "concurrency-test")]
+impl ShuttleReplayCache {
+    #[must_use]
+    pub fn with_limits(ttl_secs: i64, capacity: usize) -> Self {
+        Self {
+            seen: shuttle::sync::Mutex::new(HashMap::new()),
+            ttl_secs,
+            capacity,
         }
-        if guard.len() >= self.capacity {
-            return Err(ProofError::InvalidProof(
-                "replay cache at capacity; rejecting proof".into(),
-            ));
-        }
-        let retain_until = now.saturating_add(self.ttl_secs).max(valid_until);
-        guard.insert(jti.to_string(), retain_until);
-        Ok(())
+    }
+}
+
+#[cfg(feature = "concurrency-test")]
+impl ReplayCache for ShuttleReplayCache {
+    fn check_and_record(&self, jti: &str) -> Result<(), ProofError> {
+        let now = opensesame_time::Utc::now().timestamp();
+        self.check_and_record_at(jti, now)
+    }
+
+    fn check_and_record_at(&self, jti: &str, now: i64) -> Result<(), ProofError> {
+        self.check_and_record_until(jti, now, now)
+    }
+
+    fn check_and_record_until(
+        &self,
+        jti: &str,
+        now: i64,
+        valid_until: i64,
+    ) -> Result<(), ProofError> {
+        let mut guard = self
+            .seen
+            .lock()
+            .map_err(|_| ProofError::InvalidProof("replay cache poisoned".into()))?;
+        check_and_record_in(
+            &mut guard,
+            self.ttl_secs,
+            self.capacity,
+            jti,
+            now,
+            valid_until,
+        )
     }
 }
 

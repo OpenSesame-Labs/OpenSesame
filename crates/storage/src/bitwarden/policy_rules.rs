@@ -13,7 +13,7 @@
 //! Owners and administrators are exempt from the policies of the organization
 //! they run — but not from a policy that binds them in another organization.
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use sqlx::{Row as _, SqliteConnection, SqlitePool};
 
 use super::accounts::bitwarden_timestamp;

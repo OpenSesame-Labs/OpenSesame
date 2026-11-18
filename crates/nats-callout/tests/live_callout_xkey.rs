@@ -56,7 +56,7 @@ async fn xkey_sealed_callout_end_to_end() {
     // The reply travels sealed too: re-handling the exact envelope the server
     // sent yields an `xkv1` box back to the server's key, never a bare JWT on
     // a subject a leaked subscription could read.
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let calls_before = stack.host.calls();
     let reply = match stack
         .bridge_core_with_xkey()
@@ -103,7 +103,7 @@ async fn a_live_sealed_envelope_opens_only_under_the_configured_xkey() {
         .server_xkey_header
         .as_deref()
         .expect("Nats-Server-Xkey header");
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let calls_before = stack.host.calls();
 
     // A bridge with no xkey must not read a sealed envelope as bare text.
@@ -221,7 +221,7 @@ async fn an_xkey_bridge_still_serves_a_bare_server() {
     assert!(!is_sealed(&envelope.payload), "this server seals nothing");
     assert!(envelope.server_xkey_header.is_none());
 
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let reply = match stack
         .bridge_core_with_fresh_xkey()
         .handle(&envelope.payload, None, now)

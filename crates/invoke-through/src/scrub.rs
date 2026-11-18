@@ -24,7 +24,7 @@
 
 mod dialect;
 
-use base64::engine::general_purpose::{STANDARD_NO_PAD, URL_SAFE_NO_PAD};
+use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use bytes::Bytes;
 use zeroize::Zeroizing;
@@ -32,9 +32,40 @@ use zeroize::Zeroizing;
 /// What replaces a reflected credential.
 pub(crate) const REDACTED: &[u8] = b"[redacted:credential]";
 
-/// Base64 needles shorter than this are not searched for: a short run of
-/// base64 characters matches ordinary text by chance.
+// Invalid UTF-8 bytes cannot occur in a string credential or its textual
+// encodings. Original 0xff bytes are escaped as `ff fe` while matching, and a
+// replacement is `ff fd`; the final pass reverses one and renders the other.
+const SCRUB_SENTINEL: &[u8] = &[0xff, 0xfd];
+const ESCAPED_FF: &[u8] = &[0xff, 0xfe];
+
+/// Aligned interior base64 needles shorter than this are not searched for: a
+/// short run of base64 characters matches ordinary text by chance. Exact
+/// whole-value encodings remain covered at every length.
 const MIN_ENCODED_NEEDLE: usize = 12;
+
+/// Remove a credential and its supported text/base64 encodings from bytes
+/// received from an upstream. This is the narrow response-sink API for
+/// credentialed adapters that do not otherwise use [`crate::Invoker`].
+///
+/// The returned flag is true when any representation was found. Callers may
+/// return the scrubbed bytes on an error path, but successful responses should
+/// normally fail closed when it is set instead of treating an echo as data.
+#[must_use]
+pub fn scrub_credential_reflection(bytes: Bytes, credential: &str) -> (Bytes, bool) {
+    Needles::new(credential).scrub(bytes)
+}
+
+/// Remove every supplied credential/secret representation from one response.
+/// All matches use one opaque internal marker, so one short credential cannot
+/// match the public redaction inserted for another credential.
+#[must_use]
+pub fn scrub_credential_reflections(bytes: Bytes, credentials: &[&str]) -> (Bytes, bool) {
+    let needles: Vec<Needles> = credentials
+        .iter()
+        .map(|credential| Needles::new(credential))
+        .collect();
+    scrub_needles(bytes, &needles)
+}
 
 /// Every byte form of one credential the scrub looks for. Held zeroized: the
 /// forms are the credential by another name.
@@ -52,6 +83,23 @@ impl Needles {
             return Self { token: held, forms };
         }
         forms.push(Zeroizing::new(token.as_bytes().to_vec()));
+        // Whole-value base64 is safe to match even for short credentials. The
+        // aligned needles below deliberately require a longer run because
+        // their edge groups are discarded and may sit inside arbitrary text.
+        for encoded in [
+            STANDARD.encode(token),
+            STANDARD_NO_PAD.encode(token),
+            URL_SAFE.encode(token),
+            URL_SAFE_NO_PAD.encode(token),
+        ] {
+            let encoded = Zeroizing::new(encoded.into_bytes());
+            if !forms
+                .iter()
+                .any(|known| known.as_slice() == encoded.as_slice())
+            {
+                forms.push(encoded);
+            }
+        }
         let encoded = (0..3).flat_map(|alignment| {
             [false, true]
                 .into_iter()
@@ -73,38 +121,51 @@ impl Needles {
     /// `bytes` with every form of the credential replaced, and whether any was
     /// found. Returns the input untouched when nothing matched.
     pub(crate) fn scrub(&self, bytes: Bytes) -> (Bytes, bool) {
-        let mut current: Option<Vec<u8>> = None;
-        for form in &self.forms {
-            let haystack = current.as_deref().unwrap_or(&bytes);
-            if let Some(replaced) = replace_all(haystack, form) {
+        scrub_needles(bytes, std::slice::from_ref(self))
+    }
+}
+
+pub(crate) fn scrub_needles(bytes: Bytes, needles: &[Needles]) -> (Bytes, bool) {
+    if needles.is_empty() {
+        return (bytes, false);
+    }
+    // Do not expose REDACTED to a later matching pass: a short credential
+    // such as `a` occurs inside the marker and would recursively expand it.
+    let protected = protect_original_ff(&bytes);
+    let source = protected.as_deref().unwrap_or(&bytes);
+    let mut current: Option<Vec<u8>> = None;
+    for needle in needles {
+        for form in &needle.forms {
+            let haystack = current.as_deref().unwrap_or(source);
+            if let Some(replaced) = replace_all(haystack, form, SCRUB_SENTINEL) {
                 current = Some(replaced);
             }
         }
         for each in dialect::ALL {
-            let haystack = current.as_deref().unwrap_or(&bytes);
-            if let Some(replaced) = dialect::replace(each, haystack, &self.token, REDACTED) {
+            let haystack = current.as_deref().unwrap_or(source);
+            if let Some(replaced) = dialect::replace(each, haystack, &needle.token, SCRUB_SENTINEL)
+            {
                 current = Some(replaced);
             }
         }
-        match current {
-            Some(scrubbed) => (Bytes::from(scrubbed), true),
-            None => (bytes, false),
-        }
     }
+    match current {
+        Some(scrubbed) => (Bytes::from(render_scrub_markers(&scrubbed)), true),
+        None => (bytes, false),
+    }
+}
 
-    /// A header value with every form replaced, and whether any was found.
-    pub(crate) fn scrub_str(&self, value: String) -> (String, bool) {
-        let (scrubbed, hit) = self.scrub(Bytes::from(value.clone()));
-        if !hit {
-            return (value, false);
-        }
-        // REDACTED is ASCII and every replaced form was a byte run of valid
-        // UTF-8 matched whole, so the result stays UTF-8; fall back to the
-        // bare marker rather than trust that silently.
-        let text = String::from_utf8(scrubbed.to_vec())
-            .unwrap_or_else(|_| String::from_utf8_lossy(REDACTED).into_owned());
-        (text, true)
+pub(crate) fn scrub_needles_str(needles: &[Needles], value: String) -> (String, bool) {
+    let (scrubbed, hit) = scrub_needles(Bytes::from(value.clone()), needles);
+    if !hit {
+        return (value, false);
     }
+    // REDACTED is ASCII and every replaced form was a byte run of valid
+    // UTF-8 matched whole, so the result stays UTF-8; fall back to the
+    // bare marker rather than trust that silently.
+    let text = String::from_utf8(scrubbed.to_vec())
+        .unwrap_or_else(|_| String::from_utf8_lossy(REDACTED).into_owned());
+    (text, true)
 }
 
 /// The base64 characters that depend on `token` alone when it sits `alignment`
@@ -128,9 +189,45 @@ fn aligned_base64(token: &[u8], alignment: usize, url_safe: bool) -> Option<Zero
     Some(Zeroizing::new(encoded.as_bytes()[skip..end].to_vec()))
 }
 
-/// `haystack` with every non-overlapping `needle` replaced by [`REDACTED`], or
+fn protect_original_ff(bytes: &[u8]) -> Option<Vec<u8>> {
+    bytes.contains(&0xff).then(|| {
+        let mut protected = Vec::with_capacity(bytes.len());
+        for byte in bytes {
+            if *byte == 0xff {
+                protected.extend_from_slice(ESCAPED_FF);
+            } else {
+                protected.push(*byte);
+            }
+        }
+        protected
+    })
+}
+
+fn render_scrub_markers(bytes: &[u8]) -> Vec<u8> {
+    let mut rendered = Vec::with_capacity(bytes.len());
+    let mut at = 0usize;
+    while at < bytes.len() {
+        match bytes.get(at..at + 2) {
+            Some(pair) if pair == SCRUB_SENTINEL => {
+                rendered.extend_from_slice(REDACTED);
+                at += 2;
+            }
+            Some(pair) if pair == ESCAPED_FF => {
+                rendered.push(0xff);
+                at += 2;
+            }
+            _ => {
+                rendered.push(bytes[at]);
+                at += 1;
+            }
+        }
+    }
+    rendered
+}
+
+/// `haystack` with every non-overlapping `needle` replaced by `marker`, or
 /// `None` when the needle does not occur.
-fn replace_all(haystack: &[u8], needle: &[u8]) -> Option<Vec<u8>> {
+fn replace_all(haystack: &[u8], needle: &[u8], marker: &[u8]) -> Option<Vec<u8>> {
     if needle.is_empty() || haystack.len() < needle.len() {
         return None;
     }
@@ -141,7 +238,7 @@ fn replace_all(haystack: &[u8], needle: &[u8]) -> Option<Vec<u8>> {
         if &haystack[at..at + needle.len()] == needle {
             let buf = out.get_or_insert_with(|| Vec::with_capacity(haystack.len()));
             buf.extend_from_slice(&haystack[copied..at]);
-            buf.extend_from_slice(REDACTED);
+            buf.extend_from_slice(marker);
             at += needle.len();
             copied = at;
         } else {
@@ -196,6 +293,32 @@ mod tests {
     }
 
     #[test]
+    fn a_short_whole_value_base64_echo_is_replaced() {
+        let (out, hit) = Needles::new("a").scrub(Bytes::from_static(b"echo=YQ=="));
+        assert!(hit);
+        assert_eq!(&out[..], b"echo=[redacted:credential]");
+    }
+
+    #[test]
+    fn binary_bytes_that_resemble_internal_markers_are_preserved() {
+        let input = Bytes::from_static(&[0xff, b'a', 0xff, 0xfd, 0xff, 0xfe]);
+        let (out, hit) = Needles::new("a").scrub(input);
+        assert!(hit);
+        let mut expected = vec![0xff];
+        expected.extend_from_slice(REDACTED);
+        expected.extend_from_slice(&[0xff, 0xfd, 0xff, 0xfe]);
+        assert_eq!(&out[..], expected.as_slice());
+    }
+
+    #[test]
+    fn multiple_credentials_share_one_marker_safe_pass() {
+        let (out, hit) =
+            scrub_credential_reflections(Bytes::from_static(b"token-one a"), &["token-one", "a"]);
+        assert!(hit);
+        assert_eq!(&out[..], b"[redacted:credential] [redacted:credential]");
+    }
+
+    #[test]
     fn percent_encoded_token_is_replaced() {
         let needles = Needles::new("tok/with+reserved=chars&more");
         let (out, hit) = needles.scrub(Bytes::from_static(
@@ -203,6 +326,15 @@ mod tests {
         ));
         assert!(hit);
         assert_eq!(&out[..], b"?t=[redacted:credential]");
+    }
+
+    #[test]
+    fn json_unicode_escapes_for_an_astral_character_are_replaced() {
+        let needles = Needles::new("tok-🔑-secret");
+        let (out, hit) =
+            needles.scrub(Bytes::from_static(br#"{"echo":"tok-\uD83D\uDD11-secret"}"#));
+        assert!(hit);
+        assert_eq!(&out[..], br#"{"echo":"[redacted:credential]"}"#);
     }
 
     #[test]
@@ -222,7 +354,8 @@ mod tests {
 
     #[test]
     fn header_values_are_scrubbed_as_text() {
-        let (out, hit) = Needles::new(TOKEN).scrub_str(format!("req {TOKEN}"));
+        let needles = Needles::new(TOKEN);
+        let (out, hit) = scrub_needles_str(std::slice::from_ref(&needles), format!("req {TOKEN}"));
         assert!(hit);
         assert_eq!(out, "req [redacted:credential]");
     }

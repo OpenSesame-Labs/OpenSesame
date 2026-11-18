@@ -3,10 +3,10 @@
 //! ordinary CI; `bw_cli_oracle_files.rs` drives the same flows with `bw`.
 mod common;
 
-use chrono::{Duration, Utc};
 use common::client::{encrypt, http, Account};
 use common::Harness;
 use opensesame_provider_bitwarden::Kdf;
+use opensesame_time::{Duration, Utc};
 use reqwest::multipart::{Form, Part};
 use serde_json::{json, Value};
 

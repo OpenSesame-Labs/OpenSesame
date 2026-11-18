@@ -6,7 +6,7 @@
 //! an address with no account yet waits (`Invited`) and is claimed when that
 //! address registers.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

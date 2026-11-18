@@ -9,8 +9,8 @@
 use std::fmt;
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
+use opensesame_time::Utc;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, CertificateRevocationListDer};

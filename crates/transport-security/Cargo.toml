@@ -45,7 +45,7 @@ testkit = ["dep:rcgen", "dep:time", "dep:tempfile"]
 opensesame-domain = { path = "../domain" }
 arc-swap = "1.9.2"
 axum = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true, features = ["server", "http1", "http2"] }

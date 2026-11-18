@@ -49,6 +49,7 @@ pub use invoke::{
     InvokeRequest, InvokeResponse, Invoker, ReceiptMeta, DEFAULT_REQUEST_BODY_CAP,
     DEFAULT_RESPONSE_BODY_CAP, DEFAULT_TIMEOUT,
 };
+pub use scrub::{scrub_credential_reflection, scrub_credential_reflections};
 pub use signed::{RequestSigner, SignableParts};
 pub use source::{source_tool, SourceToolSpec, TokenSource};
 pub use surrogate::{

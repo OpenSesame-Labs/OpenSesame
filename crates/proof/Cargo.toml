@@ -8,7 +8,7 @@ description = "RFC 9449 DPoP validation and key custody for OpenSesame"
 [dependencies]
 opensesame-domain = { path = "../domain" }
 base64 = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -138,7 +138,7 @@ fn same(a: &str, b: &str) -> bool {
 }
 
 fn now() -> String {
-    chrono::Utc::now().to_rfc3339()
+    opensesame_time::Utc::now().to_rfc3339()
 }
 
 pub(crate) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {

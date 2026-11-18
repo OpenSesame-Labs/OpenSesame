@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use chrono::{NaiveDateTime, Utc};
+use opensesame_time::{NaiveDateTime, Utc};
 use secrecy::SecretString;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -238,8 +238,8 @@ fn signature_matches(head: &str, body: &str, expect: &Expect) -> bool {
 }
 
 fn assume_xml(expires_in: i64) -> String {
-    let expiration = (Utc::now() + chrono::Duration::seconds(expires_in))
-        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let expiration = (Utc::now() + opensesame_time::Duration::seconds(expires_in))
+        .to_rfc3339_opts(opensesame_time::SecondsFormat::Secs, true);
     format!(
         r#"<AssumeRoleResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
   <AssumeRoleResult>

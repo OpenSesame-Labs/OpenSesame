@@ -7,9 +7,9 @@
 
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{ServiceBindingSet, TransportError, TrustProfileRef};
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::transport_lifecycle::trust::{

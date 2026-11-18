@@ -133,14 +133,7 @@ impl Service<Name> for Resolver {
 
 pub(crate) type HttpsClient = Client<HttpsConnector<HttpConnector<Resolver>>, Full<Bytes>>;
 
-/// The wire client. Without a spec: webpki roots, system DNS, https or
-/// loopback http. With one: the injected config only, https only, the
-/// pinned server name and addresses when given.
-pub(crate) fn build_client(tls: Option<&TlsClientSpec>) -> HttpsClient {
-    let resolver = match tls.and_then(|spec| spec.pinned.as_ref()) {
-        Some((host, addrs)) => Resolver::pinned(host, addrs),
-        None => Resolver::system(),
-    };
+fn build_client_with_resolver(tls: Option<&TlsClientSpec>, resolver: Resolver) -> HttpsClient {
     let mut http = HttpConnector::new_with_resolver(resolver);
     http.enforce_http(false);
     let connector = match tls {
@@ -162,6 +155,24 @@ pub(crate) fn build_client(tls: Option<&TlsClientSpec>) -> HttpsClient {
             .wrap_connector(http),
     };
     Client::builder(TokioExecutor::new()).build(connector)
+}
+
+/// The wire client. Without a spec: webpki roots, system DNS, https or
+/// loopback http. With one: the injected config only, https only, the
+/// pinned server name and addresses when given.
+pub(crate) fn build_client(tls: Option<&TlsClientSpec>) -> HttpsClient {
+    let resolver = match tls.and_then(|spec| spec.pinned.as_ref()) {
+        Some((host, addrs)) => Resolver::pinned(host, addrs),
+        None => Resolver::system(),
+    };
+    build_client_with_resolver(tls, resolver)
+}
+
+/// A WebPKI client whose resolver answers only with the addresses an egress
+/// preflight already approved. TLS still verifies the URI hostname against
+/// the public WebPKI; only the dial addresses are substituted.
+pub(crate) fn build_pinned_webpki_client(host: &str, addrs: &[SocketAddr]) -> HttpsClient {
+    build_client_with_resolver(None, Resolver::pinned(host, addrs))
 }
 
 #[cfg(test)]

@@ -36,7 +36,7 @@ opensesame-domain = { path = "../../crates/domain" }
 opensesame-ingress-evidence = { path = "../../crates/ingress-evidence" }
 opensesame-transport-security = { path = "../../crates/transport-security" }
 anyhow = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 

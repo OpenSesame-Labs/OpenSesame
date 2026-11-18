@@ -1,10 +1,10 @@
 //! Who owns a web-login job: one conditional claim, a runner that is never
 //! offered to the generic consumer, and a lease that recovery reads.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_storage::Db;
 use opensesame_task_bus::{InMemoryTaskBus, TaskBus};
+use opensesame_time::{DateTime, Duration, Utc};
 
 use super::super::super::{
     consume_rotation_events, execute_rotation, request_rotation, RotationTarget,

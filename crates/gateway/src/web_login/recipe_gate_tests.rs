@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 use super::prepare::{
@@ -53,7 +53,7 @@ async fn drive_answering(
                 continue;
             }
             let now = Utc::now();
-            let expires = now + chrono::Duration::seconds(30);
+            let expires = now + opensesame_time::Duration::seconds(30);
             let claimed = state
                 .db
                 .claim_runner_step(

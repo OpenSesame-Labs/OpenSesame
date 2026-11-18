@@ -94,11 +94,13 @@ pub(super) fn open(master: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<V
     }
     let key = kek(master, aad)?;
     let mut context = authenticated_context(aad, &blob.nonce);
+    let wrap_nonce = <&XNonce>::try_from(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET])
+        .map_err(|_| unavailable())?;
     let dek = Zeroizing::new(
         XChaCha20Poly1305::new_from_slice(key.as_ref())
             .map_err(|_| unavailable())?
             .decrypt(
-                XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
+                wrap_nonce,
                 Payload {
                     msg: &blob.ciphertext[KEY_OFFSET..HEADER_LEN],
                     aad: &context,
@@ -110,10 +112,11 @@ pub(super) fn open(master: &[u8; 32], aad: &[u8], blob: &SealedBlob) -> Result<V
         return Err(unavailable());
     }
     context.extend_from_slice(&blob.ciphertext[..HEADER_LEN]);
+    let nonce = <&XNonce>::try_from(blob.nonce.as_slice()).map_err(|_| unavailable())?;
     XChaCha20Poly1305::new_from_slice(&dek)
         .map_err(|_| unavailable())?
         .decrypt(
-            XNonce::from_slice(&blob.nonce),
+            nonce,
             Payload {
                 msg: &blob.ciphertext[HEADER_LEN..],
                 aad: &context,
@@ -134,10 +137,11 @@ mod tests {
         let second = seal(&master, aad, b"value").unwrap();
         let unwrap = |blob: &SealedBlob| {
             let key = kek(&master, aad).unwrap();
+            let nonce = <&XNonce>::try_from(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]).unwrap();
             XChaCha20Poly1305::new_from_slice(key.as_ref())
                 .unwrap()
                 .decrypt(
-                    XNonce::from_slice(&blob.ciphertext[WRAP_OFFSET..KEY_OFFSET]),
+                    nonce,
                     Payload {
                         msg: &blob.ciphertext[KEY_OFFSET..HEADER_LEN],
                         aad: &authenticated_context(aad, &blob.nonce),

@@ -4,7 +4,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{Duration, Utc};
 use opensesame_broker::InvokeInput;
 use opensesame_connector_host::{HostError, InvokeResult};
 use opensesame_domain::{
@@ -13,6 +12,7 @@ use opensesame_domain::{
 };
 #[cfg(test)]
 use opensesame_domain::{EgressBinding, OrganizationRole};
+use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 

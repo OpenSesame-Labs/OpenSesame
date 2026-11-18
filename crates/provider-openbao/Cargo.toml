@@ -15,7 +15,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 async-trait = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 url = { workspace = true }
@@ -26,4 +26,4 @@ tokio = { workspace = true }
 # fixture for the real (ignored by default) OpenBao run.
 opensesame-transport-security = { path = "../transport-security", features = ["testkit"] }
 tempfile = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }

@@ -1,9 +1,7 @@
 //! Worker transport and authorization tests.
 //!
-//! The mTLS cases run against a real [`SecureListener`] with a disposable CA
-//! from `opensesame_transport_security::testkit`: nothing is mocked at the
-//! transport boundary, so "no certificate is refused" is a handshake fact and
-//! not an assertion about a source string.
+//! The mTLS cases use a real [`SecureListener`] and disposable CA, so "no
+//! certificate is refused" is a handshake fact, not a source-string assertion.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;

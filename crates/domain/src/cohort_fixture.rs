@@ -9,7 +9,7 @@ use crate::{
     CohortId, CohortMember, DomainError, NewCohort, NewCohortActivation, OrganizationId,
     PrincipalId, TeamId,
 };
-use chrono::{DateTime, Duration, TimeZone, Utc};
+use opensesame_time::{DateTime, Duration, TimeZone, Utc};
 use std::collections::BTreeSet;
 
 /// The instant every fixture is built at.

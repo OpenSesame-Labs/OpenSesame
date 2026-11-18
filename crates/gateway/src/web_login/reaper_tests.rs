@@ -2,8 +2,8 @@
 //! run whose task is dropped mid-flight is reconciled after its lease, at
 //! startup and by the periodic sweep, and nothing alive is ever touched.
 
-use chrono::Utc;
 use opensesame_storage::StoredObservationRun;
+use opensesame_time::Utc;
 
 use super::reaper::{
     horizon, reconcile_at_startup, sweep, SweepReport, RUN_ORPHANED, RUN_PARKED_EXPIRED,
@@ -73,7 +73,7 @@ async fn a_run_killed_mid_flight_is_closed_and_its_job_parked_once_its_lease_has
     assert!(run_row(&world, &run.id).await.closed_at.is_none());
 
     // Once the lease has run out, the run is nobody's.
-    let later = Utc::now() + horizon() + chrono::Duration::minutes(1);
+    let later = Utc::now() + horizon() + opensesame_time::Duration::minutes(1);
     let report = sweep(&restarted, later, horizon()).await.unwrap();
     assert_eq!(
         report,
@@ -131,7 +131,7 @@ async fn startup_reconciliation_closes_what_the_last_process_left_before_the_sca
     world.state.web_login_runs.idle().await;
 
     // The gateway was down for an hour: back-date what it left.
-    let hour_ago = (Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
+    let hour_ago = (Utc::now() - opensesame_time::Duration::hours(1)).to_rfc3339();
     sqlx::query("UPDATE observation_runs SET created_at = ?")
         .bind(&hour_ago)
         .execute(world.state.db.pool())
@@ -192,7 +192,7 @@ async fn a_run_a_person_holds_under_a_live_lease_is_not_stranded() {
     .await
     .unwrap();
 
-    let later = Utc::now() + horizon() + chrono::Duration::minutes(1);
+    let later = Utc::now() + horizon() + opensesame_time::Duration::minutes(1);
     let report = sweep(&world.state, later, horizon()).await.unwrap();
     assert_eq!(
         report.runs_closed, 0,
@@ -215,7 +215,7 @@ async fn a_run_parked_for_a_person_is_closed_quietly_once_it_has_expired() {
         .await
         .unwrap();
 
-    let later = Utc::now() + horizon() + chrono::Duration::minutes(1);
+    let later = Utc::now() + horizon() + opensesame_time::Duration::minutes(1);
     let report = sweep(&world.state, later, horizon()).await.unwrap();
     assert_eq!(report.runs_closed, 1);
     let closed = run_row(&world, &run.id).await;
@@ -259,7 +259,7 @@ async fn a_job_stranded_before_its_run_opened_is_parked_too() {
     .await
     .unwrap();
 
-    let later = Utc::now() + horizon() + chrono::Duration::minutes(1);
+    let later = Utc::now() + horizon() + opensesame_time::Duration::minutes(1);
     let report = sweep(&world.state, later, horizon()).await.unwrap();
     assert_eq!(
         report,
@@ -277,7 +277,7 @@ async fn the_periodic_actor_closes_what_it_finds_on_its_own_clock() {
     let run = mid_flight(&world).await;
     world.state.web_login_runs.abort_all();
     world.state.web_login_runs.idle().await;
-    let hour_ago = (Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
+    let hour_ago = (Utc::now() - opensesame_time::Duration::hours(1)).to_rfc3339();
     sqlx::query("UPDATE observation_runs SET created_at = ?")
         .bind(&hour_ago)
         .execute(world.state.db.pool())

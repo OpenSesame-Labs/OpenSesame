@@ -1,10 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   type ReferenceIdp,
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import {
   SCIM_TOKEN_PREFIX,
@@ -12,7 +12,14 @@ import {
   roleForGroupName,
 } from "../routes/scim.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
-import { seedTenantWithIssuer } from "./scim-test-helpers.js";
+import {
+  DEFAULT_IDP_SUBJECT,
+  PAGES_ORIGIN,
+  mintOrgIdToken,
+  seedTenantWithIssuer,
+  testConfig,
+} from "./scim-test-helpers.js";
+
 /**
  * SCIM 2.0 provisioning, end to end (C15, D11).
  *
@@ -23,15 +30,6 @@ import { seedTenantWithIssuer } from "./scim-test-helpers.js";
  */
 
 type App = ReturnType<typeof createControlPlane>["app"];
-
-function testConfig(issuer: string) {
-  return {
-    port: 0,
-    publicUrl: "http://127.0.0.1:8788",
-    issuer: "http://127.0.0.1:8788",
-    trustedUpstreamIssuers: [issuer],
-  } as const;
-}
 
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
@@ -64,57 +62,6 @@ async function verified(app: App, subject: string) {
   expect(linked.status).toBe(201);
   return created;
 }
-
-/** The browser leg Pages runs, against the real IdP — see org-signin-flow. */
-async function mintOrgIdToken(idp: ReferenceIdp, origin: string) {
-  const clientId = `origin:${origin}`;
-  const redirectUri = `${origin}/opensesame/callback`;
-  const verifier = randomBytes(32).toString("base64url");
-  const authorize = new URL(`${idp.issuer}/authorize`);
-  authorize.searchParams.set("client_id", clientId);
-  authorize.searchParams.set("redirect_uri", redirectUri);
-  authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", "openid email profile");
-  authorize.searchParams.set(
-    "code_challenge",
-    createHash("sha256").update(verifier).digest("base64url"),
-  );
-  authorize.searchParams.set("code_challenge_method", "S256");
-  const redirected = await fetch(authorize, { redirect: "manual" });
-  expect(redirected.status).toBe(302);
-  const code =
-    new URL(redirected.headers.get("location") ?? "").searchParams.get(
-      "code",
-    ) ?? "";
-  const tokens = await fetch(`${idp.issuer}/token`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      origin,
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      code_verifier: verifier,
-    }),
-  });
-  expect(tokens.status).toBe(200);
-  const idToken = overlapCast(await tokens.json()).id_token;
-  if (!isString(idToken)) throw new Error("no id_token minted");
-  const [, payload] = idToken.split(".");
-  const claims = overlapCast(
-    JSON.parse(Buffer.from(payload ?? "", "base64url").toString("utf8")),
-  );
-  const subject = claims.pairwise_sub ?? claims.sub;
-  if (!isString(subject)) throw new Error("no subject in id_token");
-  return { idToken, subject };
-}
-
-const PAGES_ORIGIN = "http://localhost:5180";
-/** The reference IdP's seeded user, restored after a case varies it. */
-const DEFAULT_IDP_SUBJECT = "mock-user-1";
 
 let idp: ReferenceIdp;
 
@@ -479,6 +426,59 @@ describe("SCIM Users surface", () => {
       headers: scimHeaders(token),
     });
     expect(unknown.status).toBe(404);
+  });
+  it("bounds directory pages and refuses durable growth at the tenant cap", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const { owner, org } = await seedTenant(app, ctx, "bounded-users-org");
+    const { token } = await mintScimToken(app, org.id, owner.accessToken);
+    for (const userName of [
+      "a@example.test",
+      "b@example.test",
+      "c@example.test",
+    ]) {
+      expect(
+        (await provisionUser(app, org.id, token, { userName })).status,
+      ).toBe(201);
+    }
+    const page = await app.request(
+      `${usersPath(org.id)}?startIndex=2&count=2`,
+      { headers: scimHeaders(token) },
+    );
+    expect(page.status).toBe(200);
+    expect(overlapCast(await page.json())).toMatchObject({
+      totalResults: 3,
+      startIndex: 2,
+      itemsPerPage: 2,
+      Resources: [
+        { userName: "b@example.test" },
+        { userName: "c@example.test" },
+      ],
+    });
+    const countOnly = await app.request(`${usersPath(org.id)}?count=0`, {
+      headers: scimHeaders(token),
+    });
+    expect(countOnly.status).toBe(200);
+    expect(overlapCast(await countOnly.json())).toMatchObject({
+      totalResults: 3,
+      startIndex: 1,
+      itemsPerPage: 0,
+      Resources: [],
+    });
+    const createWithinLimit = vi
+      .spyOn(ctx.stores.scim.users, "createWithinLimit")
+      .mockResolvedValue(null);
+    const refused = await provisionUser(app, org.id, token, {
+      userName: "overflow@example.test",
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.body.detail).toContain("capacity");
+    expect(createWithinLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: org.id,
+        userName: "overflow@example.test",
+      }),
+      10_000,
+    );
   });
 
   it("reads Entra's stringly-typed active flag", async () => {

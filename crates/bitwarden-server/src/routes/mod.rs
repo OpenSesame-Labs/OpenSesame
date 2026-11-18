@@ -40,7 +40,7 @@ mod web_vault;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post, put};
 use axum::Router;
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use crate::error::ApiResult;
 use crate::BitwardenServer;

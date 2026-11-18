@@ -5,7 +5,7 @@
 //! error code). `binding_resolution` fixtures expect `binding_id` instead.
 
 use super::*;
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::fs;

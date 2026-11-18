@@ -9,11 +9,11 @@
 
 mod authority_support;
 
-use chrono::{Duration, Utc};
 use opensesame_storage::authority::{
     BudgetScope, DesiredEffect, EffectObservation, Reservation, ReserveOutcome, SettleOutcome,
 };
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 use std::sync::Arc;
 
 use authority_support::{entry, issue, seed_grant, seed_realm};

@@ -4,7 +4,7 @@
 //! live in `opensesame-domain::fix_raid`. Storage proves that ending the raid
 //! envelope fences derived authority while an independent grant survives.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::fix_support::{entry, issue, seed_grant, seed_realm};
 use crate::Db;

@@ -5,8 +5,8 @@
 //! alternative names that become [`PeerIdentitySelector`]s. It never decides
 //! whether a certificate is *trusted* — that is `rustls-webpki`'s job.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
+use opensesame_time::{DateTime, Utc};
 use rustls_pki_types::CertificateDer;
 use sha2::{Digest, Sha256};
 use x509_parser::prelude::{FromDer, GeneralName, ParsedExtension, X509Certificate};

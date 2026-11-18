@@ -80,7 +80,7 @@ fn check_policy(profile: &ClientProfile) -> Result<(), TransportError> {
         if !identity.usage().permits_client_auth() {
             return Err(malformed("client identity leaf does not permit clientAuth"));
         }
-        if !identity.is_valid_at(chrono::Utc::now()) {
+        if !identity.is_valid_at(opensesame_time::Utc::now()) {
             return Err(TransportError::EvidenceExpired);
         }
     }

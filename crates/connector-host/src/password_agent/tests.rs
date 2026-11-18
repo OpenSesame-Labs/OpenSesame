@@ -6,12 +6,16 @@ fn item() -> serde_json::Value {
 #[test]
 fn discovery_never_returns_field_values_or_url_credentials() {
     let item = item();
-    let output = discover::inventory(&[item.clone()]);
+    let output = discover::inventory(std::slice::from_ref(&item));
     let serialized = serde_json::to_string(&output).unwrap();
     assert!(!serialized.contains("DO-NOT-PRINT"));
     assert!(!serialized.contains("password"));
     assert!(!serialized.contains("token="));
-    let result = discover::find(&[item.clone()], &[item], &["databse".into()]);
+    let result = discover::find(
+        std::slice::from_ref(&item),
+        std::slice::from_ref(&item),
+        &["databse".into()],
+    );
     assert_eq!(result["suggestions"][0]["query"], "databse");
     assert!(!result.to_string().contains("DO-NOT-PRINT"));
 }
@@ -19,8 +23,8 @@ fn discovery_never_returns_field_values_or_url_credentials() {
 fn multiquery_deduplicates_refs_and_annotates_queries() {
     let item = item();
     let output = discover::find(
-        &[item.clone()],
-        &[item],
+        std::slice::from_ref(&item),
+        std::slice::from_ref(&item),
         &["database".into(), "token".into(), "token".into()],
     );
     assert_eq!(output["matches"].as_array().unwrap().len(), 1);

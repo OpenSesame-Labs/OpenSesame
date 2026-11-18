@@ -27,7 +27,7 @@
 //! whatever the grant layer decides, the ledger layer never ends up wider than
 //! the parent.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use super::{limits_from_grant_budgets, BudgetError, BudgetLedger, Limits, WindowSpec};
 use crate::GrantConstraints;
@@ -80,7 +80,7 @@ pub fn ledger_for_chain(
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     use super::*;
     use crate::budget::fixtures::{at, key};

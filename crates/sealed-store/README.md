@@ -37,6 +37,29 @@ use; reveal is a human CLI concern.
 | Pages bridge | `parse_manifest`, `seal_manifest` — seal a Pages path manifest into entries and one commit |
 | Paths | `logical_to_relative`, `relative_to_logical`, `ObjectStore`, `FsObjectStore`, `assert_confined_rel` |
 
+## Rollback checkpoint
+
+Native `.osseal` entries use an authenticated high-water checkpoint outside
+the Git-backed store root. The checkpoint is bound to the store's canonical
+path and stable identity, records every live revision and deletion tombstone,
+and is rekeyed with the vault root. Restoring only the Git checkout therefore
+cannot resurrect a deleted entry or make older genuine ciphertext current.
+
+The outside checkpoint lives in the platform local-data directory under
+`OpenSesame/sealed-store-rollback-witnesses`. Disaster-recovery backups must
+preserve it together with the key material. A missing checkpoint fails closed;
+it is never reconstructed from ciphertext or the rollbackable revision JSON.
+For a store created before checkpoints existed, first independently verify the
+current checkout, then run:
+
+```bash
+opensesame vault pass migrate-rollback-anchor --accept-current-state
+```
+
+That explicit ceremony makes the verified checkout the initial high-water
+state. Do not use it to bypass a missing checkpoint on a previously anchored
+store; restore the matching outside checkpoint instead.
+
 ## Develop
 
 ```bash

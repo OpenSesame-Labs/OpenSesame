@@ -6,11 +6,11 @@
 use crate::{
     AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject, AuthzError, PolicyEngine,
 };
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::{
     AvailabilityClass, ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId,
     PrincipalId, ValidatedGrantChain,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::json;
 
 fn engine_two_orgs() -> PolicyEngine {

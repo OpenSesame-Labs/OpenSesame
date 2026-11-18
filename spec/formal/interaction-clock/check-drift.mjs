@@ -13,6 +13,8 @@ const paths = [
   "packages/control-plane/src/routes/interaction-activation.ts",
   "packages/control-plane/src/routes/interaction-activation-totp.ts",
   "packages/control-plane/src/routes/interaction-handoff.ts",
+  "packages/control-plane/src/services/interaction-settlement.ts",
+  "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
   "packages/os-domain/src/machines/interaction.ts",
   "packages/os-domain/src/errors.ts",
 ];

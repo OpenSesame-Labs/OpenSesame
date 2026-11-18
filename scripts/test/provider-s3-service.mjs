@@ -98,11 +98,14 @@ function request(url, init, ca) {
     req.end(init.body);
   });
 }
-async function signer(root, out) {
-  const require = createRequire(path.join(root, "apps/pages/package.json"));
-  const esbuild = createRequire(require.resolve("vite/package.json"))(
-    "esbuild",
+export function providerS3Esbuild(root) {
+  const require = createRequire(
+    path.join(root, "packages/app-core/package.json"),
   );
+  return require("esbuild");
+}
+async function signer(root, out) {
+  const esbuild = providerS3Esbuild(root);
   const file = path.join(out, "fixture-signer.mjs");
   await esbuild.build({
     stdin: {

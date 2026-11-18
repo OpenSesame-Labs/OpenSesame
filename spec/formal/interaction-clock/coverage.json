@@ -24,7 +24,15 @@
     },
     {
       "path": "packages/control-plane/src/routes/interaction-handoff.ts",
-      "sha256": "f4b5e422fe08e08d3151317ec3f2341568fe90b819d08d150b00ae024781efe8"
+      "sha256": "9080ec00843dc862d552fc4e414f0eb7692856bee43ee95092fcb678e1ecaa47"
+    },
+    {
+      "path": "packages/control-plane/src/services/interaction-settlement.ts",
+      "sha256": "c999baa88636db324f2ce9d87b95f61ac1db2bf255776bf6095e139e018ebb26"
+    },
+    {
+      "path": "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
+      "sha256": "01e70f8041a78b26e99aaa248651ed8e52d8c34355955d04936404acb1881603"
     },
     {
       "path": "packages/os-domain/src/machines/interaction.ts",
@@ -35,5 +43,5 @@
       "sha256": "b53d0cec6685c2460faf554aabbcbbc420732982f9e3ff13c63201b578f63854"
     }
   ],
-  "reviewed_source_state": "The reviewed base precedes the activation completion repair; hashes identify the reviewed implementation bytes."
+  "reviewed_source_state": "Application samples are checked between awaited settlement stages. Hashes bind the reviewed route, settlement service, and controlled-clock regression; database commit-time clocks and rollback beyond the transaction boundary are not modeled."
 }

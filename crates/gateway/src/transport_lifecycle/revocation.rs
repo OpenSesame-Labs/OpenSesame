@@ -36,11 +36,11 @@
 //!
 //! CRL freshness lives beside this, in [`super::crl`].
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{validate_thumbprint, TransportError};
 use opensesame_domain::OrganizationId;
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
 use opensesame_storage::StoredCertificateRevocation;
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;

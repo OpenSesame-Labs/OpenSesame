@@ -205,7 +205,7 @@ impl Db {
     ) -> anyhow::Result<Option<WriterLease>> {
         anyhow::ensure!(lease_seconds > 0, "a lease must have a duration");
         let now = Utc::now();
-        let expires = now + chrono::Duration::seconds(lease_seconds);
+        let expires = now + opensesame_time::Duration::seconds(lease_seconds);
         let mut tx = self.pool().begin().await?;
         let current = sqlx::query(
             "SELECT writer_id, fence_token, expires_at FROM authority_writer_lease WHERE id = 1",
@@ -217,7 +217,7 @@ impl Db {
             Some(row) => {
                 let holder: String = row.try_get("writer_id")?;
                 let held_until: String = row.try_get("expires_at")?;
-                let live = chrono::DateTime::parse_from_rfc3339(&held_until)
+                let live = opensesame_time::DateTime::parse_from_rfc3339(&held_until)
                     .is_ok_and(|at| at.with_timezone(&Utc) > now);
                 if live && holder != writer_id {
                     return Ok(None);
@@ -266,7 +266,8 @@ impl Db {
             holder == lease.writer_id && token == lease.fence_token,
             "authority writer lease is held by {holder} at fence {token}"
         );
-        let held_until = chrono::DateTime::parse_from_rfc3339(&expires)?.with_timezone(&Utc);
+        let held_until =
+            opensesame_time::DateTime::parse_from_rfc3339(&expires)?.with_timezone(&Utc);
         anyhow::ensure!(held_until > Utc::now(), "authority writer lease expired");
         Ok(())
     }

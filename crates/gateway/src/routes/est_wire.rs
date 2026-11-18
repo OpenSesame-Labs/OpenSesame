@@ -85,7 +85,7 @@ pub(super) async fn authenticate(
         .filter(|verified| {
             verified.source() == EvidenceSource::DirectTls
                 && verified.policy() == TransportPolicy::MtlsRequired
-                && verified.is_usable_at(chrono::Utc::now())
+                && verified.is_usable_at(opensesame_time::Utc::now())
                 && st.transport.as_ref().is_none_or(|runtime| {
                     let generation = runtime.generations.current();
                     generation.withdrawn.is_none()

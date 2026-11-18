@@ -4,7 +4,6 @@
 //! escalation that outlives or underlives the run it is about, a reply that
 //! widens authority, and a suppressed message recorded as delivered.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_a2h::{
     authority_for, intent_for, message_for, verify_callback, A2hResponse, AssuranceLevel,
     AuthorityError, CallbackConfig, Decision, DeliveryOutcome, ErrorCode, ExpectedReply,
@@ -12,6 +11,7 @@ use opensesame_a2h::{
     TIMESTAMP_TOLERANCE_SECONDS,
 };
 use opensesame_agent_events::{AgentEvent, AgentPhase, AgentRun};
+use opensesame_time::{DateTime, Duration, Utc};
 
 const SECRET: &str = "whsec_YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnc=";
 
@@ -119,7 +119,7 @@ fn a_person_reads_prose_not_markup() {
                 run(),
                 phase,
                 now(),
-                now() + chrono::Duration::seconds(600),
+                now() + opensesame_time::Duration::seconds(600),
                 Some("step-up challenge"),
             )
             .unwrap()
