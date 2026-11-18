@@ -36,43 +36,11 @@ import {
   refused,
   slotBase,
 } from "./client.js";
+import { discardDriveBody, readDriveBody } from "./drive-body.js";
 import type { DrivePairing } from "./pairing.js";
 
 export const MAX_DRIVE_PART_LIST_BYTES = 4 * 1_048_576;
 export const MAX_DRIVE_PART_LIST_ENTRIES = MAX_FILE_PARTS * 16;
-
-async function boundedBody(
-  response: Response,
-  maxBytes: number,
-): Promise<Uint8Array> {
-  const declared = response.headers.get("content-length");
-  if (declared !== null) {
-    const length = Number(declared);
-    if (!Number.isSafeInteger(length) || length < 0 || length > maxBytes)
-      throw new DriveError("The drive answered with an oversized body.", 502);
-  }
-  if (response.body === null) return new Uint8Array();
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => undefined);
-      throw new DriveError("The drive answered with an oversized body.", 502);
-    }
-    chunks.push(value);
-  }
-  const joined = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    joined.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return joined;
-}
 
 function drivePartKey(key: string): string {
   if (!/^[A-Za-z0-9_-]{16}$/u.test(key)) {
@@ -97,7 +65,9 @@ export async function listDriveParts(
   if (!response.ok) throw refused(response);
   let json: JsonValue;
   try {
-    const body = await boundedBody(response, MAX_DRIVE_PART_LIST_BYTES);
+    const body = await readDriveBody(response, MAX_DRIVE_PART_LIST_BYTES, {
+      validateLength: true,
+    });
     json = overlapCast(
       JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)),
     );
@@ -127,9 +97,14 @@ export async function readDrivePart(
     credentials: "omit",
     cache: "no-store",
   });
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    discardDriveBody(response);
+    return null;
+  }
   if (!response.ok) throw refused(response);
-  return boundedBody(response, MAX_ENCRYPTED_FILE_PART_BYTES);
+  return readDriveBody(response, MAX_ENCRYPTED_FILE_PART_BYTES, {
+    validateLength: true,
+  });
 }
 
 export async function writeDrivePart(
@@ -146,6 +121,7 @@ export async function writeDrivePart(
     body: asBufferSource(bytes),
   });
   if (!response.ok) throw refused(response);
+  discardDriveBody(response);
 }
 
 /**
