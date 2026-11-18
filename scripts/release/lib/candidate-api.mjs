@@ -51,6 +51,15 @@ const REQUIRED_SECURITY_POLICY_FILES = [
   "scripts/lib/dependency-compatibility.test.mjs",
   "scripts/fuzz/jazzer-gate.sh",
   "scripts/lib/fuzz-directory.sh",
+  "spec/formal/proof-registry.json",
+  "spec/formal/check-axioms.sh",
+  "spec/formal/check-axioms.test.mjs",
+  "spec/formal/required-theorem-command.lean",
+  "spec/formal/auth/AuthPolicy.lean",
+  "spec/formal/auth/required-theorems.lean",
+  "scripts/test/auth-formal.sh",
+  "scripts/test/auth-formal-drift.mjs",
+  "scripts/security/formal-proof-release-gate.mjs",
 ];
 
 function scannerHelper(path, prefix) {
@@ -82,9 +91,11 @@ function extractionBuildInput(path) {
       ".npmrc",
       ".pnpmfile.cjs",
     ].includes(name) ||
-    ["rust-toolchain.toml", "package-lock.json", "pnpm-workspace.yaml"].includes(
-      path,
-    ) ||
+    [
+      "rust-toolchain.toml",
+      "package-lock.json",
+      "pnpm-workspace.yaml",
+    ].includes(path) ||
     /(?:^|\/)gradle\.properties$/.test(path) ||
     /\.gradle(?:\.kts)?$/.test(name) ||
     parts.includes("buildSrc") ||
@@ -125,6 +136,13 @@ function scannerPolicyPath(path) {
   );
 }
 
+function formalProofPolicyPath(path) {
+  return (
+    path.startsWith("spec/formal/") ||
+    (path.startsWith("scripts/test/auth-formal") && !path.includes(".test."))
+  );
+}
+
 function isPolicyPath(path) {
   return (
     (path.startsWith(".github/workflows/") && /\.ya?ml$/.test(path)) ||
@@ -133,6 +151,7 @@ function isPolicyPath(path) {
     (path.startsWith("scripts/audit/") && path.endsWith("-gate.sh")) ||
     path.startsWith("tools/mutation/") ||
     path.startsWith("tools/security/") ||
+    formalProofPolicyPath(path) ||
     scannerPolicyPath(path) ||
     path === "scripts/fuzz/fuzz-batch.sh" ||
     CI_RECIPE.includes(path)

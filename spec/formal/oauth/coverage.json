@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "reviewed_base_revision": "54152206997fac3831c27c13d4c18a3d48f7adee",
+  "reviewed_source_state": "Reviewed the v3 cookie and legacy-provider checks; hashes identify the reviewed source bytes.",
+  "sources": [
+    {
+      "path": "packages/control-plane/src/interactions/federated-leg.ts",
+      "sha256": "12e8a637a8ebb19ebb1d547980632c6d6c0fbf2c920bc87b792540d01554df72"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated-pending.ts",
+      "sha256": "ae0df9286b7d226643941aef995be3ce98c95944b3dcf333d3ab8e7debd1765d"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated-trust-binding.ts",
+      "sha256": "5fe277e927a1e39dfd3611aa9b43447bf036b7cd0148fa74500e90efb6a90840"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated.ts",
+      "sha256": "3c320d4188bac854c2ccdb862ccdba9f4fa785bf1bb864b13c332b3b0f828328"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/oauth2.ts",
+      "sha256": "0a407eef51967037537b1632f85c1bc050a28207ce16b84f999467f9394fc6a9"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/trust.ts",
+      "sha256": "9b2403a98d6b13e58c2645fc2ee3eb34010155224b63f61eb922faa67c6796b0"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interactions.ts",
+      "sha256": "96ede607117d115bcd61524e3d6cb67ff814dfd658e78b61f99c9e1c8a3d68d2"
+    }
+  ]
+}

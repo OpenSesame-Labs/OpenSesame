@@ -18,7 +18,7 @@
   "totals": {
     "files": 441,
     "violations": 700,
-    "oversizedLines": 213911
+    "oversizedLines": 213880
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -818,7 +818,7 @@
       "max-lines": 996
     },
     "packages/control-plane/src/__tests__/federated-interaction.test.ts": {
-      "max-lines": 1613
+      "max-lines": 1612
     },
     "packages/control-plane/src/__tests__/federated-leg.chaos.test.ts": {
       "complexity": 1,
@@ -987,7 +987,7 @@
     },
     "packages/control-plane/src/routes/interaction-handoff.ts": {
       "complexity": 2,
-      "max-lines": 1121,
+      "max-lines": 1120,
       "max-lines-per-function": 4
     },
     "packages/control-plane/src/routes/interactions-byo.ts": {
@@ -1009,7 +1009,7 @@
     "packages/control-plane/src/routes/interactions.ts": {
       "complexity": 2,
       "max-depth": 1,
-      "max-lines": 786,
+      "max-lines": 757,
       "max-lines-per-function": 2,
       "max-statements": 1
     },
