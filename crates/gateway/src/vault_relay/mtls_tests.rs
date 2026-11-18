@@ -1,5 +1,8 @@
 //! Relay `mtls_required` admission against a real [`SecureListener`].
 
+#[path = "directory_mtls_tests.rs"]
+mod directory_mtls_tests;
+
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;

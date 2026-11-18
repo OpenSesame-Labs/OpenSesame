@@ -66,6 +66,8 @@ pub mod operations {
     pub const CONNECTOR_INVOKE: &str = "connector.invoke";
     pub const VAULT_RELAY_SNAPSHOT_READ: &str = "vault.relay.snapshot.read";
     pub const VAULT_RELAY_SNAPSHOT_WRITE: &str = "vault.relay.snapshot.write";
+    pub const VAULT_RELAY_DIRECTORY_LIST: &str = "vault.relay.directory.list";
+    pub const VAULT_RELAY_DIRECTORY_CREATE: &str = "vault.relay.directory.create";
 
     // There is deliberately no `transport.probe`: see the note beside
     // [`super::BindingPurpose`]. The enforcement probe authorizes nothing,
@@ -84,6 +86,8 @@ pub mod operations {
         CONNECTOR_INVOKE,
         VAULT_RELAY_SNAPSHOT_READ,
         VAULT_RELAY_SNAPSHOT_WRITE,
+        VAULT_RELAY_DIRECTORY_LIST,
+        VAULT_RELAY_DIRECTORY_CREATE,
     ];
 }
 

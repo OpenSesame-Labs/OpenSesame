@@ -26,7 +26,7 @@ pub enum BindingPurpose {
     IdentityMappingClient,
     TrustedIngress,
     UpstreamConnector,
-    /// Vault-relay snapshot read and write (ADR 0181). Nothing else.
+    /// Vault-relay snapshot and directory operations (ADRs 0181 and 0226).
     VaultRelay,
     // There is deliberately no probe purpose. The enforcement probe
     // (`crates/gateway/src/transport/probe.rs`) is an outbound client only: it
@@ -153,7 +153,7 @@ fn validate_list(
 }
 
 /// Relay profile loads an empty set, or bindings whose only purpose is
-/// `vault_relay` and whose operations are the two snapshot calls.
+/// `vault_relay` and whose operations are the declared relay calls.
 ///
 /// # Errors
 ///
@@ -168,10 +168,12 @@ pub fn validate_relay_profile(set: &ServiceBindingSet) -> Result<(), TransportEr
         let allowed = binding.allowed_operations.iter().all(|op| {
             op == super::operations::VAULT_RELAY_SNAPSHOT_READ
                 || op == super::operations::VAULT_RELAY_SNAPSHOT_WRITE
+                || op == super::operations::VAULT_RELAY_DIRECTORY_LIST
+                || op == super::operations::VAULT_RELAY_DIRECTORY_CREATE
         });
         if !allowed {
             return Err(TransportError::malformed(
-                "relay profile accepts only vault.relay.snapshot.read and vault.relay.snapshot.write",
+                "relay profile accepts only declared vault relay operations",
             ));
         }
     }

@@ -84,8 +84,9 @@ carrier (ADR 0167).
 
 Service-binding resolution stays ADR 0132 §5: default deny, one exact peer
 selector, one purpose, no wildcard, no name join. Relay profile adds purpose
-`vault_relay`. Its operations are `vault.relay.snapshot.read` and
-`vault.relay.snapshot.write`, and nothing else.
+`vault_relay`. Its original operations were `vault.relay.snapshot.read` and
+`vault.relay.snapshot.write`. [ADR 0226](0226-vault-relay-directory-bindings.md)
+adds separate directory operations and requires them on mTLS directory calls.
 
 The binding document relay profile loads when the operator has not written
 one is empty. A certificated peer with no matching binding is

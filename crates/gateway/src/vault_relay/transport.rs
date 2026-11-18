@@ -1,7 +1,7 @@
 //! Relay profile transport (ADR 0181, ADR 0132).
 //!
 //! Default is plain TCP for browser slot-key admission. `mtls_required` is a
-//! separate profile: the listener demands a client certificate and snapshot
+//! separate profile: the listener demands a client certificate and relay
 //! routes admit through the relay-installed [`ServiceBindingSet`] only — not
 //! the full Host `TransportRuntime` or `SQLite`.
 
