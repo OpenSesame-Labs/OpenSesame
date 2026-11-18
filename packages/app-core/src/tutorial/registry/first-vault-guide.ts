@@ -34,7 +34,7 @@ const PASSWORD_STEPS = [
   'wait route "/vault/list" timeout=15000',
   'focus "vault.create" "Select New item (+) to add an account." side=bottom',
   'wait target "vault.create" event=activate timeout=60000',
-  'focus "item.editor.name" "Give this account a name, then select Next." side=bottom',
+  'focus "item.editor.name" "Name the account. Select Next." side=bottom',
   'focus "editor.password-options" "Open Password options." side=top',
   'wait target "editor.pepper" event=appear timeout=60000',
   'focus "editor.pepper" "Turn off Include pepper to copy the complete password." side=top',
