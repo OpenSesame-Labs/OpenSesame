@@ -3,7 +3,7 @@
 #   docker build -f ops/containers/cli/Dockerfile -t cli:local .
 # CI publishes linux/amd64. arm64: docker buildx build --platform linux/amd64,linux/arm64
 # The native host binary is ghcr.io/opensesame-labs/opensesame, not this image.
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates git python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
@@ -15,7 +15,7 @@ ENV CLI_RELEASE_PACK=1 \
   VERSION=${VERSION}
 RUN npm run build -w @opensesame/cli \
   && node scripts/release/prepare-cli-release.mjs
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
 RUN useradd -u 10001 -m app
 WORKDIR /opt/opensesame-cli
 COPY --from=build /src/packages/cli/release/ ./
