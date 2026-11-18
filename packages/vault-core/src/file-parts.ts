@@ -20,6 +20,10 @@ import { gcmOpen, gcmSeal } from "./gcm.js";
 
 export const FILE_PART_BYTES = 1_048_576;
 export const MAX_FILE_BYTES = 1_073_741_824;
+/** The GCM authentication tag adds 16 bytes to each encrypted part. */
+export const MAX_FILE_PART_CIPHERTEXT_BYTES = FILE_PART_BYTES + 16;
+export const MAX_FILE_PARTS = 16_384;
+const MAX_MANIFEST_CHARS = 2 * 1024 * 1024;
 
 export type ObjectStore = {
   putObject(key: string, body: Uint8Array): Promise<void>;
@@ -73,19 +77,25 @@ export function memoryObjectStore(): MemoryStore {
 }
 
 function wholeSize(value: JsonValue | undefined): number | undefined {
-  return isNumber(value) && Number.isInteger(value) && value >= 0
+  return isNumber(value) && Number.isSafeInteger(value) && value >= 0
     ? value
     : undefined;
 }
 
 export function readFileManifest(text: string): FileManifest | undefined {
+  if (text.length > MAX_MANIFEST_CHARS) return undefined;
   let parsed: JsonValue;
   try {
     parsed = overlapCast(JSON.parse(text));
   } catch {
     return undefined;
   }
-  if (!isJsonObject(parsed) || parsed.v !== 1 || !Array.isArray(parsed.parts))
+  if (
+    !isJsonObject(parsed) ||
+    parsed.v !== 1 ||
+    !Array.isArray(parsed.parts) ||
+    parsed.parts.length > MAX_FILE_PARTS
+  )
     return undefined;
   const name = readString(parsed.name);
   const mediaType = readString(parsed.mediaType);
@@ -95,7 +105,14 @@ export function readFileManifest(text: string): FileManifest | undefined {
     name === undefined ||
     mediaType === undefined ||
     key === undefined ||
-    size === undefined
+    size === undefined ||
+    size > MAX_FILE_BYTES ||
+    name.length > 4096 ||
+    mediaType.length > 1024 ||
+    key.length > 128 ||
+    (size === 0) !== (parsed.parts.length === 0) ||
+    parsed.parts.length > size ||
+    size > parsed.parts.length * FILE_PART_BYTES
   ) {
     return undefined;
   }
@@ -104,7 +121,13 @@ export function readFileManifest(text: string): FileManifest | undefined {
     if (!isJsonObject(entry)) return undefined;
     const partKey = readString(entry.key);
     const nonce = readString(entry.nonce);
-    if (partKey === undefined || nonce === undefined) return undefined;
+    if (
+      partKey === undefined ||
+      nonce === undefined ||
+      !/^[A-Za-z0-9_-]{16}$/.test(partKey) ||
+      !/^[A-Za-z0-9+/]{16}$/.test(nonce)
+    )
+      return undefined;
     parts.push({ key: partKey, nonce });
   }
   return { v: 1, name, mediaType, size, key, parts };
@@ -203,13 +226,27 @@ export async function sealFile(input: {
   maxBytes?: number;
 }): Promise<string> {
   if (input.stores.length === 0) throw new Error("file needs a store");
+  if (input.name.length > 4096 || input.mediaType.length > 1024)
+    throw new Error("file metadata exceeds the size limit");
   const partBytes = input.partBytes ?? FILE_PART_BYTES;
   const maxBytes = input.maxBytes ?? MAX_FILE_BYTES;
-  if (partBytes < 1) throw new Error(MISSING);
+  if (
+    !Number.isSafeInteger(partBytes) ||
+    partBytes < 1 ||
+    partBytes > FILE_PART_BYTES
+  )
+    throw new Error("invalid file part size");
+  if (
+    !Number.isSafeInteger(maxBytes) ||
+    maxBytes < 0 ||
+    maxBytes > MAX_FILE_BYTES
+  )
+    throw new Error("invalid file size limit");
   if (input.bytes.byteLength > maxBytes)
     throw new Error("file exceeds the size limit");
-  const { key, encoded } = await freshKey();
   const count = partCount(input.bytes.byteLength, partBytes);
+  if (count > MAX_FILE_PARTS) throw new Error("file has too many parts");
+  const { key, encoded } = await freshKey();
   const parts: FilePartRef[] = [];
   for (let index = 0; index < count; index += 1) {
     const sealed = await sealOne(key, input.bytes, index, count, partBytes);
@@ -234,6 +271,8 @@ async function openOne(
   stores: readonly ObjectStore[],
 ): Promise<Uint8Array> {
   const body = await getReplica(stores, ref.key);
+  if (body.byteLength > MAX_FILE_PART_CIPHERTEXT_BYTES)
+    throw new Error(MISSING);
   try {
     return await gcmOpen(
       key,
@@ -267,10 +306,15 @@ export async function openFile(
   const key = await keyFromManifest(manifest.key);
   const count = manifest.parts.length;
   const opened: Uint8Array[] = [];
+  let total = 0;
   for (let index = 0; index < count; index += 1) {
     const ref = manifest.parts[index];
     if (ref === undefined) throw new Error(MISSING);
-    opened.push(await openOne(key, ref, index, count, stores));
+    const part = await openOne(key, ref, index, count, stores);
+    total += part.byteLength;
+    if (part.byteLength === 0 || total > manifest.size)
+      throw new Error(MISSING);
+    opened.push(part);
   }
   return {
     name: manifest.name,
