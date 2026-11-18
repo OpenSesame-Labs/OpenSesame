@@ -1,217 +1,191 @@
-/**
- * npm trunk publish with idempotent success when the exact version already exists.
- * Used by .github/actions/publish-npm-package so Preview reruns do not fail on E403.
- */
+/** Publish a validated, frozen tarball; accept reruns only for identical bytes. */
 import { spawnSync } from "node:child_process";
-import { lstatSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  createNpmContext,
+  npmCli,
+  npmConfigArgs,
+  npmEnvironment,
+} from "./npm-publish-isolation.mjs";
+import { readPreparedPublish } from "./prepare-npm-publish.mjs";
 
-function npmCli() {
-  const cli = process.env.OPENSESAME_NPM_CLI;
-  const temp = process.env.RUNNER_TEMP;
-  if (!cli || !temp || !isAbsolute(cli) || !isAbsolute(temp)) {
-    throw new Error("verified npm CLI path is required");
-  }
-  const parts = relative(temp, cli).split(sep);
-  if (
-    parts.length !== 5 ||
-    !/^opensesame-npm-[A-Za-z0-9]{8}$/u.test(parts[0]) ||
-    parts.slice(1).join("/") !== "extracted/package/bin/npm-cli.js"
-  ) {
-    throw new Error("verified npm CLI path is required");
-  }
-  try {
-    if (!lstatSync(cli).isFile()) throw new Error();
-  } catch {
-    throw new Error("verified npm CLI path is required");
-  }
-  return cli;
-}
-
-function npmEnvironment() {
-  const env = {
-    ...process.env,
-    NPM_CONFIG_IGNORE_SCRIPTS: "true",
-    npm_config_ignore_scripts: "true",
-  };
-  delete env.NODE_OPTIONS;
-  delete env.NODE_PATH;
-  delete env.NPM_TOKEN;
-  delete env.NPM_TOKEN_INPUT;
-  return env;
-}
-
-/**
- * @param {string} stderr
- * @param {string} version
- */
 export function isForbiddenRepublishOfVersion(stderr, version) {
   const text = stderr ?? "";
-  if (!text.includes("403 Forbidden")) return false;
-  if (!/cannot publish over the previously published versions:/iu.test(text)) {
-    return false;
-  }
-  return text.includes(version);
+  return (
+    /cannot publish over the previously published versions:/iu.test(text) &&
+    text.includes(version)
+  );
 }
 
-/**
- * @param {{ status: number | null, stdout: string, stderr: string }} result
- * @param {string} version
- */
 export function classifyNpmPublishResult(result, version) {
   if (result.status === 0) return "published";
   if (
     isForbiddenRepublishOfVersion(`${result.stderr}\n${result.stdout}`, version)
-  ) {
+  )
     return "already_published";
-  }
   return "failed";
 }
 
-/**
- * @param {string} packageName
- * @param {string} version
- */
-export function npmViewVersion(packageName, version) {
+/** Public registry reads run anonymously and cannot inherit artifact npm configuration. */
+export function npmViewIntegrity(packageName, version, context) {
   const result = spawnSync(
     process.execPath,
     [
       npmCli(),
       "view",
       `${packageName}@${version}`,
-      "version",
-      "--ignore-scripts",
-      "--registry",
-      "https://registry.npmjs.org",
+      "dist.integrity",
+      "--json",
+      ...npmConfigArgs(context),
     ],
-    { encoding: "utf8", env: npmEnvironment() },
+    { cwd: context.cwd, encoding: "utf8", env: npmEnvironment(context) },
   );
-  if (result.status !== 0) return undefined;
-  const line = (result.stdout ?? "").trim();
-  return line.length > 0 ? line : undefined;
+  if (result.status !== 0) {
+    for (const text of [result.stdout, result.stderr]) {
+      try {
+        if (JSON.parse(text)?.error?.code === "E404") return undefined;
+      } catch {
+        // Only an explicit registry 404 means the version is absent.
+      }
+    }
+    throw new Error("npm registry lookup failed");
+  }
+  let integrity;
+  try {
+    integrity = JSON.parse(result.stdout);
+  } catch {
+    throw new Error("npm registry returned invalid integrity");
+  }
+  if (typeof integrity !== "string" || !integrity.trim())
+    throw new Error("npm registry returned no integrity");
+  return integrity;
 }
 
-/** How often, and how far apart, the registry is asked again after a 403. */
+function sameIntegrity(actual, expected) {
+  return (
+    typeof actual === "string" && actual.trim().split(/\s+/u).includes(expected)
+  );
+}
+
 const CONFIRM_ATTEMPTS = 6;
 const CONFIRM_WAIT_MS = 5_000;
-
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-/**
- * @param {string} cwd
- * @param {string} distTag
- */
-function runNpmPublish(cwd, distTag) {
+function runNpmPublish(tarball, distTag, context) {
   const result = spawnSync(
     process.execPath,
     [
       npmCli(),
       "publish",
-      "--ignore-scripts",
+      tarball,
+      ...npmConfigArgs(context),
       "--access",
       "public",
       "--tag",
       distTag,
       "--provenance",
     ],
-    { cwd, encoding: "utf8", env: npmEnvironment() },
+    { cwd: context.cwd, encoding: "utf8", env: npmEnvironment(context, true) },
   );
-  // Captured to be classified, then shown: the provenance statement and the
-  // transparency-log entry npm prints are the record of what was published.
+  // npm prints provenance and transparency-log details for the published artifact.
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   return result;
 }
 
-/**
- * The registry's read side trails its write side: the view that missed
- * before the publish can miss again right after the 403. Ask a few times
- * before deciding the version is not there.
- *
- * @param {(packageName: string, version: string) => string | undefined} view
- * @param {(ms: number) => void} wait
- * @param {string} packageName
- * @param {string} version
- */
-export function confirmPublishedVersion(view, wait, packageName, version) {
+/** Confirm duplicate responses despite registry read-side lag, without accepting different bytes. */
+export function confirmPublishedIntegrity(
+  view,
+  wait,
+  packageName,
+  version,
+  expected,
+) {
   for (let attempt = 1; attempt <= CONFIRM_ATTEMPTS; attempt += 1) {
-    const seen = view(packageName, version);
-    if (seen === version) return seen;
+    let seen;
+    try {
+      seen = view(packageName, version);
+    } catch {
+      /* transient lookup failure */
+    }
+    if (seen !== undefined) {
+      if (!sameIntegrity(seen, expected))
+        throw new Error(`Published ${version} has different integrity`);
+      return seen;
+    }
     if (attempt < CONFIRM_ATTEMPTS) wait(CONFIRM_WAIT_MS);
   }
   return undefined;
 }
 
-/**
- * @param {{
- *   packageName: string;
- *   version: string;
- *   distTag: string;
- *   cwd: string;
- * }} input
- * @param {{
- *   view?: (packageName: string, version: string) => string | undefined;
- *   publish?: (cwd: string, distTag: string) => { status: number | null, stdout: string, stderr: string };
- *   wait?: (ms: number) => void;
- * }} [seams]
- */
+/** The injected seams only replace I/O; production uses the isolated npm context. */
 export function npmTrunkPublish(input, seams = {}) {
-  const view = seams.view ?? npmViewVersion;
-  const publish = seams.publish ?? runNpmPublish;
+  const view =
+    seams.view ??
+    ((name, version) => npmViewIntegrity(name, version, input.context));
+  const publish =
+    seams.publish ??
+    ((tarball, tag) => runNpmPublish(tarball, tag, input.context));
   const wait = seams.wait ?? sleepSync;
   const viewFirst = view(input.packageName, input.version);
-  if (viewFirst === input.version) {
+  if (viewFirst !== undefined) {
+    if (!sameIntegrity(viewFirst, input.integrity))
+      throw new Error(`Published ${input.version} has different integrity`);
     return { outcome: "already_published", viewFirst };
   }
-  const result = publish(input.cwd, input.distTag);
+  const result = publish(input.tarball, input.distTag);
   const outcome = classifyNpmPublishResult(result, input.version);
   if (outcome === "already_published") {
-    const confirmed = confirmPublishedVersion(
+    const confirmed = confirmPublishedIntegrity(
       view,
       wait,
       input.packageName,
       input.version,
+      input.integrity,
     );
-    if (confirmed !== input.version) {
+    if (confirmed === undefined)
       throw new Error(
-        `npm reported ${input.version} already published but registry view got ${confirmed ?? "missing"}`,
+        `npm reported ${input.version} already published but registry integrity was unavailable`,
       );
-    }
     return { outcome, viewFirst, confirmAfter403: confirmed };
   }
-  if (outcome === "failed") {
-    throw new Error(
-      result.stderr?.trim() ||
-        result.stdout?.trim() ||
-        `npm publish failed with status ${result.status}`,
-    );
-  }
+  if (outcome === "failed")
+    throw new Error(`npm publish failed with status ${result.status}`);
   return { outcome, viewFirst };
 }
 
 function main() {
-  const cwd = process.cwd();
-  const manifest = JSON.parse(
-    readFileSync(resolve(cwd, "package.json"), "utf8"),
-  );
-  const version = manifest.version;
-  const packageName = manifest.name;
-  const distTag = process.env.NPM_DIST_TAG ?? "";
-  if (!distTag) throw new Error("NPM_DIST_TAG is required");
-  const result = npmTrunkPublish({
-    packageName,
-    version,
-    distTag,
-    cwd,
-  });
-  const line =
-    result.outcome === "already_published"
-      ? `${version} is already on the registry.`
-      : `Published ${version} on ${distTag}.`;
-  process.stdout.write(`${line}\n`);
+  const prepared = readPreparedPublish(process.env.OPENSESAME_NPM_PUBLISH_DIR);
+  try {
+    if (
+      process.env.NPM_DIST_TAG !== prepared.tag ||
+      process.env.NPM_PACKAGE_NAME !== prepared.name
+    ) {
+      throw new Error("Prepared npm package identity changed");
+    }
+    const context = createNpmContext(
+      mkdtempSync(join(prepared.root, "invoke-")),
+    );
+    const result = npmTrunkPublish({
+      packageName: prepared.name,
+      version: prepared.version,
+      distTag: prepared.tag,
+      tarball: prepared.tarball,
+      integrity: prepared.integrity,
+      context,
+    });
+    const line =
+      result.outcome === "already_published"
+        ? `${prepared.version} is already on the registry with identical integrity.`
+        : `Published ${prepared.version} on ${prepared.tag}.`;
+    process.stdout.write(`${line}\n`);
+  } finally {
+    rmSync(prepared.root, { recursive: true, force: true });
+  }
 }
 
 if (

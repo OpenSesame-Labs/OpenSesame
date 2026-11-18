@@ -241,6 +241,7 @@ jobs:
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
+          npm-package-name: '@opensesame-labs/cli'
           npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
       - name: Wait until the published version is visible
@@ -248,7 +249,6 @@ jobs:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
         run: |
           set -euo pipefail
-          # publish-npm-package leaves NPM_CONFIG_USERCONFIG on a token npmrc.
           # This view is anonymous, same as preview smoke.
           unset NPM_CONFIG_USERCONFIG NODE_AUTH_TOKEN
           node scripts/release/cd-registry-wait.mjs
@@ -348,6 +348,7 @@ jobs:
         uses: ./.github/actions/publish-npm-package
         with:
           working-directory: packages/cli/release
+          npm-package-name: '@opensesame-labs/cli'
           npm-dist-tag: next
           npm-token: ${{ secrets.NPM_TOKEN }}
 

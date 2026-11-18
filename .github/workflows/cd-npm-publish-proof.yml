@@ -25,6 +25,12 @@ on:
       - "scripts/release/prepare-npm-cli.test.mjs"
       - "scripts/release/npm-trunk-publish.mjs"
       - "scripts/release/npm-trunk-publish.test.mjs"
+      - "scripts/release/npm-publish-isolation.mjs"
+      - "scripts/release/npm-publish-isolation.test.mjs"
+      - "scripts/release/fixtures/npm-publish-isolation-runner.mjs"
+      - "scripts/release/fixtures/npm-publish-isolation-support.mjs"
+      - "scripts/release/prepare-npm-publish.mjs"
+      - "scripts/release/prepare-npm-publish.test.mjs"
       - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/archive-safe.py"
       - "scripts/release/npm-prerelease-version.mjs"
@@ -142,7 +148,7 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
-      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/prepare-npm-cli.test.mjs scripts/release/npm-trunk-publish.test.mjs
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/prepare-npm-cli.test.mjs scripts/release/prepare-npm-publish.test.mjs scripts/release/npm-trunk-publish.test.mjs
       - name: Prepare and exercise the integrity-pinned npm CLI
         run: |
           set -euo pipefail
@@ -155,6 +161,7 @@ jobs:
             RUNNER_TEMP="$RUNNER_TEMP" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" \
             bash scripts/release/fetch-pinned-npm.sh)"
           test "$(node "$npm_cli" --version)" = "11.21.1"
+          OPENSESAME_TEST_NPM_CLI="$npm_cli" node --test scripts/release/npm-publish-isolation.test.mjs
           proof_dir="$(mktemp -d "${RUNNER_TEMP}/npm-publish-proof-XXXXXXXX")"
           printf '%s\n' '{"name":"opensesame-publish-guard-proof","version":"0.0.0-test.1","scripts":{"prepublishOnly":"node -e \"process.exit(90)\""}}' > "${proof_dir}/package.json"
           node "$npm_cli" publish "$proof_dir" --dry-run --offline --ignore-scripts --access public --tag alpha

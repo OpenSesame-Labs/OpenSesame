@@ -108,9 +108,11 @@ test("npm is verified without credentials before direct script-free publication"
   const action = parse(read(".github/actions/publish-npm-package/action.yml"));
   const [prepare, publish] = action.runs.steps;
   assert.equal(action.runs.steps.length, 2);
-  assert.equal(prepare.env, undefined);
+  assert.match(prepare.env.NPM_PACKAGE_DIRECTORY, /inputs\.working-directory/);
+  assert.match(prepare.env.NPM_PACKAGE_NAME, /inputs\.npm-package-name/);
   assert.match(prepare.run, /env -i/);
   assert.match(prepare.run, /fetch-pinned-npm\.sh/);
+  assert.match(prepare.run, /prepare-npm-publish\.mjs/);
   assert.doesNotMatch(prepare.run, /inputs\.npm-token/);
   assert.match(publish.env.NPM_TOKEN_INPUT, /inputs\.npm-token/);
   assert.match(publish.run, /NPM_CONFIG_IGNORE_SCRIPTS=true/);
@@ -118,8 +120,9 @@ test("npm is verified without credentials before direct script-free publication"
   const program = read("scripts/release/npm-trunk-publish.mjs");
   assert.doesNotMatch(program, /\bnpx\b/);
   assert.match(program, /process\.execPath/);
-  assert.match(program, /OPENSESAME_NPM_CLI/);
-  assert.match(program, /--ignore-scripts/);
+  const isolation = read("scripts/release/npm-publish-isolation.mjs");
+  assert.match(isolation, /OPENSESAME_NPM_CLI/);
+  assert.match(isolation, /--ignore-scripts/);
   assert.match(program, /--provenance/);
 });
 
@@ -162,6 +165,8 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
     /node --test scripts\/release\/npm-cd-workflows\.test\.mjs/,
   );
   assert.match(proof, /scripts\/release\/cd-production-npm-version\.test\.mjs/);
+  assert.match(proof, /OPENSESAME_TEST_NPM_CLI/);
+  assert.match(proof, /npm-publish-isolation\.test\.mjs/);
   assert.match(
     proof,
     /node scripts\/release\/npm-cd-publish-dry-run-proof\.mjs/,

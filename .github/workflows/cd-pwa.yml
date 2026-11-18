@@ -435,6 +435,7 @@ jobs:
       - uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release
+          npm-package-name: '@opensesame-labs/web-pwa'
           npm-dist-tag: ${{ needs.build.outputs.npm_dist_tag }}
           npm-token: ${{ secrets.NPM_TOKEN }}
       - name: Confirm web-pwa on the registry
@@ -609,6 +610,7 @@ jobs:
         uses: ./.github/actions/publish-npm-package
         with:
           working-directory: apps/pages/release
+          npm-package-name: '@opensesame-labs/web-pwa'
           npm-dist-tag: next
           npm-token: ${{ secrets.NPM_TOKEN }}
 
