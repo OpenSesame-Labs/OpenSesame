@@ -1,12 +1,10 @@
 /**
  * Which build a worker belongs to.
  *
- * vite-plugin-pwa injects `self.__WB_MANIFEST` into `sw.js`; the push
- * variant's build (`scripts/build-workers.mjs`) defines the same expression
- * with the same content. Both hold the shell's `revision` — an md5 of the
- * emitted `index.html`, which references the hashed entry chunk, whose hash
- * changes whenever anything it imports changes — so the revision is a
- * fingerprint of the whole release, not only of the shell file.
+ * vite-plugin-pwa injects `self.__WB_MANIFEST` into `sw.js`. The classic push
+ * wrapper imports that exact script, so both variants read the same shell
+ * revision — an md5 of emitted `index.html`, which references the hashed entry
+ * chunk. It is therefore a fingerprint of the release, not only the shell.
  *
  * The id is a cache-name segment, so it may never contain a colon.
  */

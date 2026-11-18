@@ -121,11 +121,10 @@ describe("where a click lands", () => {
 });
 
 /**
- * The push worker is three files now, not one: `sw-push.ts` installs the core
- * worker (`sw/core.ts`, which owns install/activate/fetch/message) and then
- * the push handlers (`sw/push-handlers.ts`, the only place a notification is
- * rendered — `sw.ts`, the core-only variant, must not import them). The sweep
- * below is the same sweep, over the whole of what the push variant ships.
+ * The push worker is three runtime pieces: `sw-push.ts` marks the push variant
+ * and imports built `sw.js`; that shared core owns install/activate/fetch/
+ * message, then `sw/push-handlers.ts` adds the only notification listeners.
+ * The sweep below covers that complete runtime closure.
  */
 describe("the service worker's own listeners", () => {
   const source = (name: string) => readFileSync(join(here, "..", name), "utf8");
@@ -141,9 +140,15 @@ describe("the service worker's own listeners", () => {
 
   it("keeps the push handlers out of the core-only worker (PWA-01)", () => {
     const coreOnly = source("sw.ts");
+    const push = source("sw-push.ts");
     expect(coreOnly).not.toContain("push-handlers");
     expect(coreOnly).not.toContain("showNotification");
-    expect(source("sw-push.ts")).toContain("installPushHandlers(sw)");
+    expect(push).toContain('sw.__OPENSESAME_WORKER_VARIANT__ = "push"');
+    expect(push).toContain("sw.importScripts(__OPENSESAME_CORE_WORKER_URL__)");
+    expect(push).toContain("installPushHandlers(sw)");
+    expect(push.indexOf("installPushHandlers(sw)")).toBeLessThan(
+      push.indexOf("sw.importScripts(__OPENSESAME_CORE_WORKER_URL__)"),
+    );
   });
 
   it("ships none of the document's enrolment code", () => {
