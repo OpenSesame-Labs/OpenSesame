@@ -22,7 +22,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App, type AppSlots } from "./App.js";
-import { shellReadySeams } from "./bindings/shell-ready.js";
+import { shellReadySeams, useShellReady } from "./bindings/shell-ready.js";
 import { unlockCeremonyStore } from "./lib/unlock-ceremony-store.js";
 
 const realSeams = { ...shellReadySeams };
@@ -128,6 +128,63 @@ describe("shell after unlock", () => {
     Object.assign(shellReadySeams, realSeams);
   });
 
+  it("does not mount consent during the null-plan window before activation", () => {
+    renderConsent();
+    publish({
+      status: "unlocked",
+      snapshot: { ...INITIAL_SNAPSHOT, generation: 1 },
+      activated: 1,
+    });
+    expect(screen.queryByText("consent screen")).toBeNull();
+    expect(counts.mounts).toBe(0);
+
+    publish({ snapshot: snapshotAt(2, "personal"), activated: 1 });
+    expect(screen.queryByText("consent screen")).toBeNull();
+    expect(counts.unmounts).toBe(0);
+
+    publish({ activated: 2 });
+    expect(screen.getByText("consent screen")).toBeTruthy();
+    expect(counts.mounts).toBe(1);
+  });
+
+  it("closes the shell on the render where a null plan becomes the vault plan", () => {
+    const frames: Array<{
+      ready: boolean;
+      vaultId: string | null;
+      gen: number;
+      activated: number;
+    }> = [];
+    function Probe() {
+      const ready = useShellReady(env.status, "personal");
+      const plan = env.snapshot.plan;
+      frames.push({
+        ready,
+        vaultId: plan?.identity.vaultId ?? null,
+        gen: env.snapshot.generation,
+        activated: env.activated,
+      });
+      return <p>{ready ? "ready" : "waiting"}</p>;
+    }
+    render(<Probe />);
+    publish({
+      status: "unlocked",
+      snapshot: { ...INITIAL_SNAPSHOT, generation: 1 },
+      activated: 1,
+    });
+    expect(screen.getByText("waiting")).toBeTruthy();
+    frames.length = 0;
+    publish({ snapshot: snapshotAt(2, "personal"), activated: 1 });
+    expect(screen.getByText("waiting")).toBeTruthy();
+    expect(
+      frames.some(
+        (frame) =>
+          frame.vaultId === "personal" &&
+          frame.activated !== frame.gen &&
+          frame.ready,
+      ),
+    ).toBe(false);
+  });
+
   it("does not mount a contributed screen until the unlocked vault's generation has activated", () => {
     renderConsent();
     expect(screen.getByText("unlock screen stub")).toBeTruthy();
@@ -197,11 +254,14 @@ describe("shell after unlock", () => {
     expect(counts).toEqual({ mounts: 2, unmounts: 1 });
   });
 
-  it("has nothing to wait for when no plan has resolved", () => {
+  it("has nothing to wait for when no plan has resolved", async () => {
+    shellReadySeams.maxWaitMs = 20;
     env.snapshot = INITIAL_SNAPSHOT;
     env.status = "unlocked";
     renderConsent();
-    expect(screen.getByText("consent screen")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("consent screen")).toBeTruthy();
+    });
   });
 
   it("mounts anyway once the wait runs out, so a stalled module never blanks the vault", async () => {
