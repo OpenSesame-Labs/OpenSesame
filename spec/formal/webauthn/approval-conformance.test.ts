@@ -148,8 +148,9 @@ describe("Lean approval binding correspondence", () => {
     ).toBe(true);
   });
 
-  it("matches the actual approval and sequential-consume functions", () => {
-    for (const row of vectors) {
+  it.each(vectors)(
+    "approval %s %s %s %s %s %s %s",
+    (...row) => {
       const [
         _type,
         kindInput,
@@ -202,7 +203,14 @@ describe("Lean approval binding correspondence", () => {
         boundDigest,
         verifiedAt: now,
       });
-      const key = row.slice(1, 7).join("/");
+      const key = [
+        kindInput,
+        statusInput,
+        clockInput,
+        expiryInput,
+        requestInput,
+        proofInput,
+      ].join("/");
       let result: Interaction | undefined;
       try {
         result = approve(interaction, {
@@ -223,6 +231,6 @@ describe("Lean approval binding correspondence", () => {
         expect(consumed.status, key).toBe("consumed");
         expect(() => consume(consumed, sampledNow), key).toThrow();
       }
-    }
-  });
+    },
+  );
 });

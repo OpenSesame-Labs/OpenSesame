@@ -99,9 +99,10 @@ describe("Lean auth policy correspondence", () => {
     );
   });
 
-  it.each(sessions.map((row) => ({ row })))("session $row", async ({ row }) => {
-    const [
-      ,
+  it.each(sessions)(
+    "session %s %s %s %s %s %s %s",
+    async (...[
+      _kind,
       prefix,
       mapped,
       present,
@@ -109,53 +110,54 @@ describe("Lean auth policy correspondence", () => {
       unrevoked,
       principalValue,
       expected,
-    ] = row;
-    const expiry = choice(sessionExpiries, expiryValue);
-    const principalState = choice(sessionPrincipals, principalValue);
-    const session = {
-      id: "ps_formal",
-      principalId: "prn_formal",
-      expiresAt: {
-        past: new Date(-1),
-        equal: new Date(0),
-        future: new Date(1),
-      }[expiry],
-      revokedAt: unrevoked === "1" ? undefined : new Date(-1),
-    };
-    // This fixture supplies the stores, repository, and clock read by the resolver;
-    // unrelated AppContext services are intentionally absent.
-    const ctx: Parameters<typeof resolveProvisionalSession>[0] = overlapCast({
-      stores: {
-        provisionalTokens: {
-          get: async () => (mapped === "1" ? "ps_formal" : undefined),
-        },
-        provisionalSessions: {
-          get: async () => (present === "1" ? session : undefined),
-        },
-      },
-      repos: {
-        principals: {
-          getById: async () =>
-            principalState === "missing"
-              ? undefined
-              : { state: principalState },
-        },
-      },
-      clock: () => now,
-    });
-    const result = await resolveProvisionalSession(
-      ctx,
-      prefix === "1" ? "pst_formal" : "ps_formal",
-    );
-    if (expected === "1") {
-      expect(result).toEqual({
+    ]) => {
+      const expiry = choice(sessionExpiries, expiryValue);
+      const principalState = choice(sessionPrincipals, principalValue);
+      const session = {
+        id: "ps_formal",
         principalId: "prn_formal",
-        sessionId: "ps_formal",
+        expiresAt: {
+          past: new Date(-1),
+          equal: new Date(0),
+          future: new Date(1),
+        }[expiry],
+        revokedAt: unrevoked === "1" ? undefined : new Date(-1),
+      };
+      // This fixture supplies the stores, repository, and clock read by the resolver;
+      // unrelated AppContext services are intentionally absent.
+      const ctx: Parameters<typeof resolveProvisionalSession>[0] = overlapCast({
+        stores: {
+          provisionalTokens: {
+            get: async () => (mapped === "1" ? "ps_formal" : undefined),
+          },
+          provisionalSessions: {
+            get: async () => (present === "1" ? session : undefined),
+          },
+        },
+        repos: {
+          principals: {
+            getById: async () =>
+              principalState === "missing"
+                ? undefined
+                : { state: principalState },
+          },
+        },
+        clock: () => now,
       });
-    } else {
-      expect(result).toBeUndefined();
-    }
-  });
+      const result = await resolveProvisionalSession(
+        ctx,
+        prefix === "1" ? "pst_formal" : "ps_formal",
+      );
+      if (expected === "1") {
+        expect(result).toEqual({
+          principalId: "prn_formal",
+          sessionId: "ps_formal",
+        });
+      } else {
+        expect(result).toBeUndefined();
+      }
+    },
+  );
 
   it.each(principals)("principal %s %s", async (_kind, input, expected) => {
     const assurance = choice(assuranceCases, input);
@@ -181,9 +183,10 @@ describe("Lean auth policy correspondence", () => {
     if (verdict.ok) expect(verdict.proof.kind).toBe("VerifiedPrincipal");
   });
 
-  it.each(projects.map((row) => ({ row })))("project $row", async ({ row }) => {
-    const [
-      ,
+  it.each(projects)(
+    "project %s %s %s %s %s",
+    async (...[
+      _kind,
       present,
       stateValue,
       expiryValue,
@@ -192,61 +195,62 @@ describe("Lean auth policy correspondence", () => {
       expectedMember,
       expectedAdmin,
       expectedOwner,
-    ] = row;
-    const state = choice(states, stateValue);
-    const expiry = choice(expiries, expiryValue);
-    const role = choice(roles, roleValue);
-    const expiryDate = {
-      none: undefined,
-      past: new Date(-1),
-      equal: new Date(0),
-      future: new Date(1),
-    }[expiry];
-    const project = {
-      id: "prj_formal",
-      kind: "standard" as const,
-      state,
-      expiresAt: expiryDate,
-      slug: "formal",
-      displayName: "Formal",
-      createdAt: now,
-      updatedAt: now,
-    };
-    // projectAccess and roleFor read only these two stores and the clock.
-    const ctx: Parameters<typeof projectAccess>[0] = overlapCast({
-      stores: {
-        projects: {
-          get: async () => (present === "1" ? project : undefined),
+    ]) => {
+      const state = choice(states, stateValue);
+      const expiry = choice(expiries, expiryValue);
+      const role = choice(roles, roleValue);
+      const expiryDate = {
+        none: undefined,
+        past: new Date(-1),
+        equal: new Date(0),
+        future: new Date(1),
+      }[expiry];
+      const project = {
+        id: "prj_formal",
+        kind: "standard" as const,
+        state,
+        expiresAt: expiryDate,
+        slug: "formal",
+        displayName: "Formal",
+        createdAt: now,
+        updatedAt: now,
+      };
+      // projectAccess and roleFor read only these two stores and the clock.
+      const ctx: Parameters<typeof projectAccess>[0] = overlapCast({
+        stores: {
+          projects: {
+            get: async () => (present === "1" ? project : undefined),
+          },
+          projectMemberships: {
+            find: async () => (role === "none" ? undefined : { role }),
+          },
         },
-        projectMemberships: {
-          find: async () => (role === "none" ? undefined : { role }),
-        },
-      },
-      clock: () => now,
-    });
-    const verdict = await name(
-      actorId("prn_formal"),
-      projectId("prj_formal"),
-      (actor, namedProject) => projectAccess(ctx, actor, namedProject),
-    );
-    if (!verdict.ok) {
-      expect(verdict).toEqual({ ok: false, status: 404, error: "not_found" });
+        clock: () => now,
+      });
+      const verdict = await name(
+        actorId("prn_formal"),
+        projectId("prj_formal"),
+        (actor, namedProject) => projectAccess(ctx, actor, namedProject),
+      );
+      if (!verdict.ok) {
+        expect(verdict).toEqual({ ok: false, status: 404, error: "not_found" });
+        expect([
+          expectedRole,
+          expectedMember,
+          expectedAdmin,
+          expectedOwner,
+        ]).toEqual(["denied", "0", "0", "0"]);
+        return;
+      }
       expect([
-        expectedRole,
-        expectedMember,
-        expectedAdmin,
-        expectedOwner,
-      ]).toEqual(["denied", "0", "0", "0"]);
-      return;
-    }
-    expect([
-      verdict.role,
-      "1",
-      "admin" in verdict ? "1" : "0",
-      "owner" in verdict ? "1" : "0",
-    ]).toEqual([expectedRole, expectedMember, expectedAdmin, expectedOwner]);
-    expect(verdict.member.kind).toBe("ProjectMember");
-    if ("admin" in verdict) expect(verdict.admin.kind).toBe("ProjectAdmin");
-    if ("owner" in verdict) expect(verdict.owner.kind).toBe("ProjectOwner");
-  });
+        verdict.role,
+        "1",
+        "admin" in verdict ? "1" : "0",
+        "owner" in verdict ? "1" : "0",
+      ]).toEqual([expectedRole, expectedMember, expectedAdmin, expectedOwner]);
+      expect(verdict.member.kind).toBe("ProjectMember");
+      if ("admin" in verdict) expect(verdict.admin.kind).toBe("ProjectAdmin");
+      if ("owner" in verdict) expect(verdict.owner.kind).toBe("ProjectOwner");
+    },
+  );
 });
