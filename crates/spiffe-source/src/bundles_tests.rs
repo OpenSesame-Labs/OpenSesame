@@ -22,7 +22,7 @@ fn bundles(domains: &[&FakeTrustDomain]) -> TrustDomainBundles {
 #[test]
 fn peer_verifies_against_its_own_domain_and_the_allowed_set() {
     let a = FakeTrustDomain::new(A);
-    let leaf = a.issue_svid(PEER_A, Duration::from_secs(60));
+    let leaf = a.issue_svid(PEER_A, Duration::from_mins(1));
     let bundles = bundles(&[&a]);
     let chain: Vec<&[u8]> = leaf.chain_der.iter().map(Vec::as_slice).collect();
     let facts = bundles
@@ -53,7 +53,7 @@ fn peer_verifies_against_its_own_domain_and_the_allowed_set() {
 fn at_spiffe_federation_domain_a_bundle_never_vouches_for_a_domain_b_svid() {
     let a = FakeTrustDomain::new(A);
     let b = FakeTrustDomain::new(B);
-    let leaf_b = b.issue_svid(PEER_B, Duration::from_secs(60));
+    let leaf_b = b.issue_svid(PEER_B, Duration::from_mins(1));
     let chain: Vec<&[u8]> = leaf_b.chain_der.iter().map(Vec::as_slice).collect();
 
     // Only A's bundle known: B's SVID is unroutable, A's anchors are not tried.
@@ -88,7 +88,7 @@ fn at_spiffe_federation_domain_a_bundle_never_vouches_for_a_domain_b_svid() {
 fn a_rotated_ca_replaces_the_domain_and_old_leaves_stop_verifying() {
     let old = FakeTrustDomain::new(A);
     let new = FakeTrustDomain::new(A);
-    let leaf_old = old.issue_svid(PEER_A, Duration::from_secs(60));
+    let leaf_old = old.issue_svid(PEER_A, Duration::from_mins(1));
     let chain: Vec<&[u8]> = leaf_old.chain_der.iter().map(Vec::as_slice).collect();
     let mut b = bundles(&[&old]);
     assert!(b
@@ -104,7 +104,7 @@ fn a_rotated_ca_replaces_the_domain_and_old_leaves_stop_verifying() {
 #[test]
 fn at_tls_purpose_peer_role_is_checked_by_webpki_and_the_profile() {
     let a = FakeTrustDomain::new(A);
-    let mut spec = crate::fake::SvidSpec::conforming(PEER_A, Duration::from_secs(60));
+    let mut spec = crate::fake::SvidSpec::conforming(PEER_A, Duration::from_mins(1));
     spec.eku = crate::fake::Eku::ServerOnly;
     let leaf = a.issue(&spec);
     let chain: Vec<&[u8]> = leaf.chain_der.iter().map(Vec::as_slice).collect();
@@ -126,7 +126,7 @@ fn at_tls_purpose_peer_role_is_checked_by_webpki_and_the_profile() {
 #[test]
 fn a_ca_leaf_is_refused_as_a_peer_even_when_it_chains() {
     let a = FakeTrustDomain::new(A);
-    let mut spec = crate::fake::SvidSpec::conforming(PEER_A, Duration::from_secs(60));
+    let mut spec = crate::fake::SvidSpec::conforming(PEER_A, Duration::from_mins(1));
     spec.is_ca = true;
     spec.key_usages = vec![
         rcgen::KeyUsagePurpose::DigitalSignature,
@@ -148,7 +148,7 @@ fn bundle_insert_rejects_empty_garbage_and_non_ca_material() {
         b.insert(A, vec![vec![1, 2, 3]]).unwrap_err().code(),
         "bundle_malformed"
     );
-    let leaf = a.issue_svid(PEER_A, Duration::from_secs(60));
+    let leaf = a.issue_svid(PEER_A, Duration::from_mins(1));
     assert_eq!(
         b.insert(A, vec![leaf.leaf_der().to_vec()])
             .unwrap_err()

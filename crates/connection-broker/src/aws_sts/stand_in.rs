@@ -116,7 +116,7 @@ async fn serve(mut stream: TcpStream, expect: &Expect, reply: &Reply, record: &M
         .push(inspect(&raw, expect));
     let (status, extra, body) = match reply {
         Reply::Hang => {
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            tokio::time::sleep(Duration::from_mins(1)).await;
             return;
         }
         Reply::Assume { expires_in } => (200, "", assume_xml(*expires_in)),

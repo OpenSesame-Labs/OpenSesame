@@ -1366,9 +1366,9 @@ mod tests {
     #[test]
     fn interval_parsing() {
         assert_eq!(parse_interval("30s"), Some(Duration::from_secs(30)));
-        assert_eq!(parse_interval("2h"), Some(Duration::from_secs(7200)));
+        assert_eq!(parse_interval("2h"), Some(Duration::from_hours(2)));
         assert_eq!(parse_interval("90"), Some(Duration::from_secs(90)));
-        assert_eq!(parse_interval("1d"), Some(Duration::from_secs(86_400)));
+        assert_eq!(parse_interval("1d"), Some(Duration::from_hours(24)));
         assert_eq!(parse_interval("soon"), None);
         assert_eq!(parse_interval(""), None);
     }

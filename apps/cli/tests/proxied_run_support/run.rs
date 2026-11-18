@@ -159,7 +159,7 @@ impl Running<'_> {
     /// Block until the child has recorded itself and is holding. Fails if the
     /// run ended first, with what it said.
     pub fn wait_ready(&mut self) {
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + Duration::from_mins(1);
         while !self.out.join("ready").exists() {
             if let Some(status) = self.child.try_wait().unwrap() {
                 self.ended_before_ready(status);

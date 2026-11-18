@@ -16,8 +16,8 @@ use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use x509_parser::{pem::parse_x509_pem, prelude::parse_x509_certificate};
 
 pub const DEV_CA_CN: &str = "OpenSesame Dev CA";
-pub const MAX_TTL: StdDuration = StdDuration::from_secs(90 * 24 * 3600);
-pub const DEFAULT_TTL: StdDuration = StdDuration::from_secs(24 * 3600);
+pub const MAX_TTL: StdDuration = StdDuration::from_hours(90 * 24);
+pub const DEFAULT_TTL: StdDuration = StdDuration::from_hours(24);
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DevCa {
@@ -246,7 +246,7 @@ mod tests {
                 common_name: "localhost".into(),
                 dns_names: vec!["localhost".into(), "*.local".into()],
                 ip_addrs: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
-                ttl: StdDuration::from_secs(3600),
+                ttl: StdDuration::from_hours(1),
             },
         )
         .expect("leaf");

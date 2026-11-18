@@ -15,7 +15,7 @@
 use std::time::{Duration, SystemTime};
 
 use opensesame_provider_bitwarden::api::TokenResponse;
-use opensesame_provider_bitwarden::{MasterKey, Session, SymmetricKey, Vault};
+use opensesame_provider_bitwarden::{MasterKey, Session, SymmetricKey, Vault, DEFAULT_SESSION_TTL};
 
 // ---------------------------------------------------------------------------
 // Autoref-specialization probes: `Probe(&value).is_debug()` resolves to the
@@ -91,7 +91,7 @@ fn a_session_is_never_serializable_so_it_cannot_be_persisted() {
     let session = Session::new(
         &token(3600),
         key(),
-        Duration::from_secs(900),
+        Duration::from_mins(15),
         SystemTime::now(),
     );
     assert!(
@@ -109,7 +109,7 @@ fn session_debug_redacts_tokens_and_keys() {
     let session = Session::new(
         &token(3600),
         key(),
-        Duration::from_secs(900),
+        Duration::from_mins(15),
         SystemTime::now(),
     );
     let rendered = format!("{session:?}");
@@ -124,12 +124,13 @@ fn session_debug_redacts_tokens_and_keys() {
 fn the_ttl_is_a_hard_wall_even_for_a_long_lived_token() {
     let start = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
     // A token good for a day, inside a session capped at 15 minutes.
-    let session = Session::new(&token(86_400), key(), Duration::from_secs(900), start);
+    let session = Session::new(&token(86_400), key(), DEFAULT_SESSION_TTL, start);
     assert!(!session.is_expired_at(start));
     assert!(session.access_token_at(start).is_ok());
     assert!(session.user_key_at(start).is_ok());
 
-    let after = start + Duration::from_secs(901);
+    assert!(!session.is_expired_at(start + Duration::from_secs(899)));
+    let after = start + Duration::from_mins(15);
     assert!(session.is_expired_at(after));
     assert_eq!(
         session.access_token_at(after).unwrap_err().code(),
@@ -143,9 +144,17 @@ fn the_ttl_is_a_hard_wall_even_for_a_long_lived_token() {
 }
 
 #[test]
+fn refresh_skew_begins_exactly_one_minute_before_token_expiry() {
+    let start = SystemTime::UNIX_EPOCH;
+    let session = Session::new(&token(3_600), key(), DEFAULT_SESSION_TTL, start);
+    assert!(!session.needs_refresh_at(start + Duration::from_secs(3_539)));
+    assert!(session.needs_refresh_at(start + Duration::from_mins(59)));
+}
+
+#[test]
 fn refreshing_replaces_the_token_without_extending_the_session() {
     let start = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
-    let mut session = Session::new(&token(60), key(), Duration::from_secs(900), start);
+    let mut session = Session::new(&token(60), key(), Duration::from_mins(15), start);
     assert!(
         session.needs_refresh_at(start),
         "60s token is inside the skew"
@@ -173,7 +182,7 @@ fn refreshing_replaces_the_token_without_extending_the_session() {
 #[test]
 fn a_refresh_without_a_new_refresh_token_keeps_the_old_one() {
     let start = SystemTime::UNIX_EPOCH;
-    let mut session = Session::new(&token(60), key(), Duration::from_secs(900), start);
+    let mut session = Session::new(&token(60), key(), Duration::from_mins(15), start);
     let refreshed = serde_json::from_value::<TokenResponse>(serde_json::json!({
         "access_token": "rotated",
         "expires_in": 3600,
@@ -188,7 +197,7 @@ fn expire_now_drops_the_session_immediately() {
     let mut session = Session::new(
         &token(3600),
         key(),
-        Duration::from_secs(900),
+        Duration::from_mins(15),
         SystemTime::now(),
     );
     assert!(!session.is_expired());
@@ -205,11 +214,11 @@ fn a_token_without_an_expiry_gets_a_conservative_default() {
     let start = SystemTime::UNIX_EPOCH;
     let token: TokenResponse =
         serde_json::from_value(serde_json::json!({ "access_token": "t" })).unwrap();
-    let session = Session::new(&token, key(), Duration::from_secs(7200), start);
+    let session = Session::new(&token, key(), Duration::from_hours(2), start);
     assert!(session.refresh_token().is_none());
     assert!(!session.needs_refresh_at(start));
     assert!(
-        session.needs_refresh_at(start + Duration::from_secs(3600)),
+        session.needs_refresh_at(start + Duration::from_hours(1)),
         "the default assumed lifetime is one hour"
     );
 }

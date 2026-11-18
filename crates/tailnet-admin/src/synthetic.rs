@@ -30,22 +30,27 @@ fn mint(kind: &str) -> String {
     )
 }
 
+#[must_use]
 pub fn api_token() -> SecretString {
     SecretString::from(mint("api"))
 }
 
+#[must_use]
 pub fn api_token_plain() -> String {
     api_token().expose_secret().to_owned()
 }
 
+#[must_use]
 pub fn client_secret() -> SecretString {
     SecretString::from(mint("client"))
 }
 
+#[must_use]
 pub fn auth_control_id() -> String {
     format!("k{}", random_chars(11).to_uppercase())
 }
 
+#[must_use]
 pub fn auth_key_for_control_id(control_id: &str) -> String {
     format!(
         "{}{control_id}-{}",
@@ -54,11 +59,13 @@ pub fn auth_key_for_control_id(control_id: &str) -> String {
     )
 }
 
+#[must_use]
 pub fn auth_key() -> String {
     let id = auth_control_id();
     auth_key_for_control_id(&id)
 }
 
+#[must_use]
 pub fn client_id() -> String {
     random_chars(12)
 }

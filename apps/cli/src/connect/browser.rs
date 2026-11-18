@@ -36,11 +36,8 @@ fn is_nonproduction_loopback(url: &url::Url) -> bool {
     let host = url.host_str().unwrap_or_default();
     matches!(host, "127.0.0.1" | "localhost" | "[::1]")
         && !std::env::var("OPENSESAME_ENV")
-            .map(|value| value.eq_ignore_ascii_case("production"))
-            .unwrap_or(false)
-        && !std::env::var("NODE_ENV")
-            .map(|value| value.eq_ignore_ascii_case("production"))
-            .unwrap_or(false)
+            .is_ok_and(|value| value.eq_ignore_ascii_case("production"))
+        && !std::env::var("NODE_ENV").is_ok_and(|value| value.eq_ignore_ascii_case("production"))
 }
 
 /// The program that opens a URL in the person's browser here.

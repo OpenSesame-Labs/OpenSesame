@@ -142,7 +142,7 @@ pub(super) fn launcher(state: &AppState) -> WebLoginLauncher {
     WebLoginLauncher::new(state.clone(), None).with_timing(RunTiming {
         step_deadline: Duration::from_secs(20),
         poll: Duration::from_millis(5),
-        run_deadline: Duration::from_secs(60),
+        run_deadline: Duration::from_mins(1),
     })
 }
 

@@ -8,6 +8,7 @@ use super::*;
 use opensesame_domain::*;
 use opensesame_time::{Duration, Utc};
 use serde_json::json;
+use std::slice::from_ref;
 
 async fn apply_migration(pool: &SqlitePool, migration: &str) {
     for statement in split_statements(migration) {
@@ -749,13 +750,12 @@ async fn outbox_claim_publish_park_dead_letter_lifecycle() {
     assert_eq!(claimed.len(), 2);
     assert_eq!(claimed[0].id, first);
     assert!(db.claim_outbox_batch(10, 60).await.unwrap().is_empty());
-
     // Success path.
-    db.mark_outbox_published(&[first]).await.unwrap();
+    db.mark_outbox_published(from_ref(&first)).await.unwrap();
     assert_eq!(db.count_unpublished_outbox().await.unwrap(), 1);
 
     // Compensation path: park releases the claim after the backoff.
-    let second_ref = std::slice::from_ref(&second);
+    let second_ref = from_ref(&second);
     db.park_outbox(second_ref, "github 502", 0).await.unwrap();
     let retried = db.claim_outbox_batch(10, 60).await.unwrap();
     assert_eq!(retried.len(), 1);

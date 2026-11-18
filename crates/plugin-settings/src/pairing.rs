@@ -243,10 +243,13 @@ impl PluginPairings {
             return false;
         };
         let digest = digest_hex(token);
-        file.paired.iter().fold(false, |hit, paired| {
+        let mut hit = false;
+        // Do not stop scanning the token digests after a match.
+        for paired in &file.paired {
             let matches = same(&paired.token_sha256, &digest);
-            hit | (matches && paired.origin == origin)
-        })
+            hit |= matches && paired.origin == origin;
+        }
+        hit
     }
 
     /// Whether a browser at `origin` may be answered at all: it holds a

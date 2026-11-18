@@ -96,7 +96,7 @@ impl TokenBucket {
         };
         let now = Instant::now();
         if buckets.len() >= MAX_BUCKETS {
-            buckets.retain(|_, b| now.duration_since(b.last) < Duration::from_secs(3600));
+            buckets.retain(|_, b| now.duration_since(b.last) < Duration::from_hours(1));
         }
         // Idle buckets are gone; if a flood of distinct keys inside the hour
         // still fills the map, the least recently used one goes, so the bound

@@ -261,7 +261,7 @@ fn a_stored_profile_may_not_shadow_a_deployment_plane_one() {
         now,
     )
     .expect_err("shadowing is refused");
-    assert!(error.code() == "malformed_configuration");
+    assert_eq!(error.code(), "malformed_configuration");
 }
 
 #[test]

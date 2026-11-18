@@ -48,7 +48,7 @@ pub(crate) const ENV_POLL: &str = "OPENSESAME_AGENT_HOOKS_APPROVER_POLL_MS";
 pub(crate) const ENV_DEADLINE: &str = "OPENSESAME_AGENT_HOOKS_APPROVER_DEADLINE_SECONDS";
 
 /// How long an interaction stays answerable when the operator says nothing.
-const DEFAULT_TTL: Duration = Duration::from_secs(300);
+const DEFAULT_TTL: Duration = Duration::from_mins(5);
 
 /// Outbox event for a replaced approver. The payload carries the handle's
 /// digest, never the handle.
