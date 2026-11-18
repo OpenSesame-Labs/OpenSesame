@@ -45,7 +45,7 @@ const faultConfigs = {
   "onboarding-recovery/OnboardingRecovery": "OnboardingRecoveryBuggy.cfg",
 };
 
-function runTlc(dir, configFile, spec, logPath, metadata) {
+function runTlc(dir, configFile, spec, metadata) {
   return spawnSync(
     "java",
     [
@@ -68,7 +68,7 @@ for (const rel of models) {
   const spec = rel.split("/")[1];
   const metadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
   const log = join(logDir, `${rel.replace("/", "-")}.log`);
-  const result = runTlc(dir, `${spec}.cfg`, spec, log, metadata);
+  const result = runTlc(dir, `${spec}.cfg`, spec, metadata);
   writeFileSync(
     log,
     `${result.stdout ?? ""}\n${result.stderr ?? ""}\nexit=${result.status}\n`,
@@ -79,13 +79,15 @@ for (const rel of models) {
   if (faultCfg) {
     const faultMetadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
     const faultLog = join(logDir, `${rel.replace("/", "-")}-fault.log`);
-    const fault = runTlc(dir, faultCfg, spec, faultLog, faultMetadata);
+    const fault = runTlc(dir, faultCfg, spec, faultMetadata);
     writeFileSync(
       faultLog,
       `${fault.stdout ?? ""}\n${fault.stderr ?? ""}\nexit=${fault.status}\n`,
     );
     if (fault.status === 0) {
-      console.error(`${rel}: fault config ${faultCfg} passed but must fail TLC`);
+      console.error(
+        `${rel}: fault config ${faultCfg} passed but must fail TLC`,
+      );
       process.exitCode = 1;
     }
   }

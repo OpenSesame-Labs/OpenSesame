@@ -94,7 +94,9 @@ function buildDist(shellSource, distCopyTarget) {
         stdio: "inherit",
       });
       if (copied.status !== 0) {
-        throw new Error(`cp dist → ${distCopyTarget} failed: ${copied.status ?? 1}`);
+        throw new Error(
+          `cp dist → ${distCopyTarget} failed: ${copied.status ?? 1}`,
+        );
       }
     }
   } finally {
