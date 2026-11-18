@@ -97,7 +97,7 @@ the binding decision or reconciled finding. The reviewed removal map is:
 
 ## Retired completed working records
 
-The same stack later retired 26 completed implementation/proposal records after
+The same stack later retired 25 completed implementation/proposal records after
 checking every repository citation and preserving all active contract,
 security-audit, validation, and evidence files. Git history retains the source
 records. Binding decisions and executable coverage remain at these maintained
@@ -110,13 +110,11 @@ locations:
 | `docs/implementation/{wallet-consent-baseline.md,ceremonies-into-pages/README.md,browser-sessions/acceptance.md}` | Preimplementation or point-in-time records for completed programmes; ADRs 0123, 0140, 0150, and 0196 are canonical and the product tests remain. |
 | `docs/implementation/general-authority/{api-surface,openfga-tuple-backfill,repository-baseline}.md` | Completed working documents with no executable consumer; ADR 0120 and the retained ownership, storage, adversarial matrix, completion matrix, contract registry, and local-ledger inventory remain live. |
 | `docs/implementation/product-experience/{baseline,contracts}.md` and `{ownership,traceability}.json` | Programme baseline and ownership snapshots whose named journeys have landed; current architecture, ADRs, and executable experience journeys own the behavior. |
-| `docs/implementation/capability-composition/ownership.md` | Landed interface plan; ADR 0130, the operator runbook, validation record, and source contracts now carry the same live contract. |
-
 The Bitwarden provider also consolidates eight self-generated response files
 into two topology bundles (`cloud.json` and `vaultwarden.json`), a net reduction
 of six files. The generator still compares every named `prelogin`, `token`,
 `sync`, and `config` value at the JSON data boundary, and the real API-route
 tests replay each response from the bundles. The reviewed Gitleaks evidence is
 rebound to the exact new file hashes and match locations. Together these
-changes reduce the tracked checkout by 32 files without reducing test cases,
+changes reduce the tracked checkout by 31 files without reducing test cases,
 current documentation, or security evidence.

@@ -1,6 +1,6 @@
 /**
  * Vite plugin: operator-controlled capability composition at build time
- * (ADR 0130 §4 and §6).
+ * (docs/implementation/capability-composition/ownership.md §4.6).
  *
  *   OPENSESAME_CAPABILITY_PROFILE=<path>   profile JSON; absent → rich-explicit
  *   OPENSESAME_BUILD_MODE=selective|hardened   default selective

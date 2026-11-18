@@ -14,6 +14,7 @@ reads as current opens with a dated status line of its own.
 |---|---|---|
 | [Native host and self-issued identity](native-host/README.md) ([ADR 0138](../adr/0138-self-issued-identity-one-native-host.md), proposed) | [Plan](native-host/README.md): one native process per machine, identity self-issued by default, MCP in every app, `apps/` reduced to products | Live, partly landed |
 | [General authority](general-authority) ([ADR 0120](../adr/0120-generalized-hierarchical-authority.md)) | [Ownership](general-authority/ownership.md) · [storage](general-authority/storage.md) · [compatibility map](general-authority/compatibility-map.md) · [Host route inventory](general-authority/host-authority-route-inventory.md) · [panel gating](general-authority/panel-gating.md) · [cross-plane test plan](general-authority/cross-plane-test-plan.md) · [adversarial matrix](general-authority/adversarial-matrix.md) · `completion-matrix.json` · `contract-registry.json` · `local-ledger-inventory.json` | Landed; retained records are still consumed by gates or current source contracts |
+| [Capability composition](capability-composition) ([ADR 0130](../adr/0130-operator-controlled-capability-composition.md)) | [Ownership and interface contract](capability-composition/ownership.md) | Landed; retained because source and tests cite its section-level contract |
 
 Completed programme plans and point-in-time baselines are retired to Git
 history once their decisions have canonical ADR, architecture, operator, and
