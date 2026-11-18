@@ -45,7 +45,9 @@ function fixture(text: string, failure?: Error) {
   return { calls, model, reads };
 }
 
-async function rejection(promise: Promise<unknown>): Promise<Error> {
+type RejectionOutcome = { readonly object: { readonly action: "help" } };
+
+async function rejection(promise: Promise<RejectionOutcome>): Promise<Error> {
   try {
     await promise;
   } catch (error) {
