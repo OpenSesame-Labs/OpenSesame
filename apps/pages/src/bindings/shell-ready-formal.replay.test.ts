@@ -2,10 +2,7 @@
 import type { EffectivePlan } from "@opensesame/capability-composition";
 import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
-import {
-  type ShellReadyInput,
-  computeShellReady,
-} from "./shell-ready.js";
+import { type ShellReadyInput, computeShellReady } from "./shell-ready.js";
 
 function planFor(vaultId: string): EffectivePlan {
   return overlapCast({ identity: { vaultId } });
