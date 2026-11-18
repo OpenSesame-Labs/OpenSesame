@@ -60,11 +60,13 @@ mounts at `/bitwarden` only when `OPENSESAME_BITWARDEN_COMPAT=on`
 | Operator | `/api/v1/operator/*` (incl. `operator/transport/*`), `/api/v1/admin` |
 | KV v2 facade | `/v1/sys`, `/v1/{mount}`, only with `OPENSESAME_KV_FACADE` set to `true` or `1` |
 
-Relay execution is temporarily unavailable: submission, executable pending
-inbox delivery, and approval return `501 relay_execution_unavailable` until a
+Relay execution is temporarily unavailable: heartbeat, submission, executable
+pending inbox delivery, and approval return `501 relay_execution_unavailable` until a
 holder runtime independently re-authorizes at the effect boundary. Existing
 requests may still be inspected by ID or denied, and previously approved work
-may report its outcome. Inspection exposes only the ID, state and normalized
+may report its outcome. A relay-only delegation cannot instead use the broker
+invocation path, including a queued invocation or retry. Inspection exposes
+only the ID, state and normalized
 outcome; legacy summaries are withheld and new summaries are discarded. This
 cannot recall previously disclosed requests or cancel an external action
 already in progress.

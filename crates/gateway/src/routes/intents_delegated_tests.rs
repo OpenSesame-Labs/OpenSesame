@@ -54,6 +54,8 @@ async fn delegate_to_guest(
 
 #[path = "intents_budget_retry_tests.rs"]
 mod budget_retry_tests;
+#[path = "intents_relay_mode_tests.rs"]
+mod relay_mode_tests;
 
 fn invoke_body(connection_ref: &str, operation: &str) -> InvokeBody {
     InvokeBody {

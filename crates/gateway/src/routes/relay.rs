@@ -27,10 +27,6 @@ use crate::app_state::AppState;
 mod scope;
 use scope::caller_scope;
 
-/// A heartbeat older than this is an offline holder. Deliberately short: the
-/// whole model is "the holder's live runtime is the authority".
-const PRESENCE_FRESH_SECONDS: u64 = 30;
-
 fn relay_error(refusal: RelayRefusal) -> Response {
     let (status, code) = match refusal {
         RelayRefusal::NotRelayMode => (StatusCode::CONFLICT, "not_relay_mode"),
@@ -54,17 +50,12 @@ fn execution_unavailable() -> Response {
     error_response(StatusCode::NOT_IMPLEMENTED, "relay_execution_unavailable")
 }
 
-/// `POST /api/v1/relay/heartbeat` — a holder's runtime announcing liveness.
+/// Heartbeats are unavailable until a holder runtime can use them.
 pub async fn heartbeat(State(st): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let (organization, subject) = match caller_scope(&st, &headers) {
-        Ok(scope) => scope,
-        Err(resp) => return resp,
-    };
-    st.relay_presence
-        .lock()
-        .unwrap()
-        .insert((organization, subject), std::time::Instant::now());
-    Json(json!({"ok": true, "fresh_for_seconds": PRESENCE_FRESH_SECONDS})).into_response()
+    if let Err(response) = caller_scope(&st, &headers) {
+        return response;
+    }
+    execution_unavailable()
 }
 
 async fn resolve_submit_delegation(

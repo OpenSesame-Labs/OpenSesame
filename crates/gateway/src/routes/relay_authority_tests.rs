@@ -39,6 +39,12 @@ async fn new_submission_and_legacy_execution_paths_fail_closed_through_router() 
     let attempts = [
         (
             "POST",
+            "/api/v1/relay/heartbeat".to_string(),
+            &holder,
+            json!({}),
+        ),
+        (
+            "POST",
             "/api/v1/relay/requests".to_string(),
             &delegate,
             json!({"delegation_id": delegation, "operation":"repository.read", "resource":"repo:acme/catalog"}),
@@ -91,6 +97,15 @@ async fn new_submission_and_legacy_execution_paths_fail_closed_through_router() 
     )
     .await;
     assert_eq!(no_session.status(), StatusCode::UNAUTHORIZED);
+    let no_session_heartbeat = routed(
+        &state,
+        &axum::http::HeaderMap::new(),
+        "POST",
+        "/api/v1/relay/heartbeat",
+        json!({}),
+    )
+    .await;
+    assert_eq!(no_session_heartbeat.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

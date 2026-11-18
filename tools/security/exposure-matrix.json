@@ -396,7 +396,7 @@
         "crates/connection-broker/src/constructor_tests.rs",
         "crates/connection-broker/src/egress_http_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free. 2026-11-18: reviewed the invocation-budget module declaration; the synthetic testkit still exposes no invocation route. Delegation retry, migration and budget regressions passed; testkit behavior was not rerun for this declaration-only change."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free. 2026-11-18: reviewed the invocation-budget module declaration; the synthetic testkit still exposes no invocation route. Delegation retry, migration and budget regressions passed; testkit behavior was not rerun for this declaration-only change. 2026-11-18: reviewed removal of the unused relay presence map from Host state and its synthetic testkit initializer after heartbeat was disabled; testkit route admission is unchanged. Relay mode and routed heartbeat regressions passed before the unused-field removal; the feature-gated Host testkit admission/isolation regression passed after it, against the integrated local verification tree."
     },
     {
       "id": "host-listeners",
@@ -6592,14 +6592,14 @@
       "df73edff"
     ],
     "crates/gateway/src/app_state.rs": [
-      "982e3b26",
-      "8509ce92",
-      "b0bb5479",
-      "e7cc6ba7",
-      "e7a3d110",
-      "25fbd47e",
-      "0f54ae85",
-      "d23902e2"
+      "4eb6b898",
+      "95023ec2",
+      "a8007433",
+      "11461ba6",
+      "8bd1df9f",
+      "7593a786",
+      "4038e056",
+      "a0e90246"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "dd98ef36",
@@ -6612,14 +6612,14 @@
       "00166434"
     ],
     "crates/gateway/src/testkit/state.rs": [
-      "2a9df6e9",
-      "f30e3855",
-      "fea89b3a",
-      "49e7b4bc",
-      "2eefd248",
-      "9c51da61",
-      "248cc723",
-      "63f3a9e2"
+      "d9f16459",
+      "e1d76610",
+      "d7d59125",
+      "ba362cea",
+      "3bad673b",
+      "cd276a8e",
+      "019168ca",
+      "4aaf74ff"
     ],
     "crates/gateway/src/testkit/server.rs": [
       "1de97a97",

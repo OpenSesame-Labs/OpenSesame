@@ -6,6 +6,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use opensesame_broker::InvokeInput;
+use opensesame_connection_broker::store as broker_store;
 use opensesame_connector_host::{HostError, InvokeResult};
 use opensesame_domain::{
     ConnectionAuthorityBinding, ConnectionId, ConnectionRef, DetachedProof, Grant, GrantId, Intent,
@@ -15,8 +16,6 @@ use opensesame_domain::{
 use opensesame_domain::{EgressBinding, OrganizationRole};
 use serde::Deserialize;
 use serde_json::{json, Value};
-
-use opensesame_connection_broker::store as broker_store;
 
 use crate::app_state::AppState;
 use crate::middleware::auth::{require_demo_bootstrap, resolve_caller, resolve_caller_subject};
@@ -302,6 +301,7 @@ async fn delegate_invocation(
         // Knowing a connection reference must not confirm its existence.
         return Err(not_found());
     };
+    intents_queue::require_broker_mode(delegation.execution_mode)?;
     // Delegates exercise at L1 in v1 (ADR 0044 decision 6).
     if level > 1 {
         return Err((

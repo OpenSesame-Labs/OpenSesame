@@ -5,7 +5,7 @@ Date: 2026-08-19
 Amends: ADR 0044 (post-claim controls; delegation items gain an execution mode)
 Implementation: the Host has request storage and decision routes, but the
 holder runtime and its independent per-use authorization are not implemented.
-Submit, pending inbox delivery and approval return `501` with
+Heartbeat, submit, pending inbox delivery and approval return `501` with
 `relay_execution_unavailable`. Existing requests can be inspected or denied;
 previously approved work can report a result while its authority remains live.
 Inspection exposes only request ID, state and normalized outcome; it withholds
@@ -215,15 +215,45 @@ producer), `approval_id` on `InvocationReceipt` (`receipt.rs:37`, always
   (`crates/broker/src/lib.rs:73-133` is synchronous today). That is a
   substantial change to the most security-sensitive path in the system and
   lands behind the inbox slice, not with it.
-- **Relay execution is gated on two prerequisites that are still open**
-  (ADR 0044 §1.3): `crates/gateway/src/routes/intents.rs:88` discards the
-  submitted `connection_ref` in favor of a hard-coded `demo-conn`, and
-  `authorize_authority_use` (`crates/authz/src/authority_use.rs:36`) —
-  the real ADR 0005 fence — never runs on the invoke path. Until both are
-  fixed there is no correct place to enforce decision 3 or decision 4.
-  This ADR therefore ships a handshake **stub** that refuses execution
-  with a typed `501`, and says so rather than implying relay is close.
+- The regular gateway invoke path now resolves a submitted connection reference
+  and invokes the ADR 0005 authority check. Those gateway checks do not create
+  a holder-side executor or establish holder authorization. Relay submission,
+  executable inbox delivery and approval remain unavailable with a typed `501`.
+  A delegation marked `relay` cannot fall back to regular broker invocation,
+  including a queued or retried invocation.
 - Scaffolded in this slice: the inbox (schema, repository, CIBA-shaped
   endpoints, approve/deny/poll, audit events) and the relay handshake
   stub. Design-only: relay execution itself, the WSS and WebRTC tiers, the
   hook dispatcher, and agent-approver registration.
+
+## Requirements for enabling execution
+
+The daemon's existing invoke-through route accepts an operator request and a
+caller-supplied confirmation flag. It does not consume a relay request, verify
+a live delegation or establish a holder/delegate authority intersection; it
+cannot be exposed as the relay executor. The worker currently accepts no work.
+The legacy result-report route likewise cannot prove that an independent
+holder authorized an external effect. Heartbeats return `501` and retain no
+presence records while there is no holder runtime to consume them.
+
+Before removing the `501` gate, implement and verify all of the following:
+
+1. An authenticated, holder-bound transport and runtime which preserve request
+   confidentiality, reject replay, and stop when the holder or the authority
+   service is unavailable. Bind the runtime identity to the credential and
+   delegation, not merely to a principal-shaped caller claim.
+2. A canonical, bounded request whose digest covers the connection, delegate,
+   holder, action, resource, arguments, destination and relevant policy state.
+   The holder must display and approve those same bytes, and execution must use
+   them without accepting a second mutable request. Apply its own connector and
+   egress restrictions before acquiring the local credential.
+3. An independently enforced intersection of the holder's current authority
+   and the complete live delegated grant chain, including expiry, revocation,
+   operation, resource, approval and budget. Reserve single-use execution and
+   budget atomically at the effect boundary; a prior approval or a post-effect
+   result report is not sufficient. Define how revocation is ordered against
+   in-flight effects and disclose effects already accepted by an upstream.
+4. Holder-originated, non-secret receipts and result handling, with explicit
+   disclosure and retry rules. Exercise the real holder and gateway together
+   against an isolated upstream, including revocation, tampering, replay,
+   competing execution, unavailable authority, and lost acknowledgements.

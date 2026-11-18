@@ -111,6 +111,10 @@ impl ConnectionBroker {
         .await
         .map_err(internal)?;
         let Some(row) = row else { return Ok(None) };
+        let execution_mode: String = row.get("execution_mode");
+        if !matches!(execution_mode.as_str(), "broker" | "relay") {
+            return Ok(None);
+        }
         if now >= parse_time(&row.get::<String, _>("expires_at")) {
             return Ok(None);
         }
@@ -143,7 +147,7 @@ impl ConnectionBroker {
             connection_id: row.get("connection_id"),
             owner_subject: row.get("owner_subject"),
             claimant_subject: row.get("claimant_subject"),
-            execution_mode: parse_execution_mode(&row.get::<String, _>("execution_mode")),
+            execution_mode: parse_execution_mode(&execution_mode),
             grant,
             parent_grant,
             parent_grant_id,

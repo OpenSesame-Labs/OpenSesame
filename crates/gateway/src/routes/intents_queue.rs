@@ -13,6 +13,7 @@ use axum::{
 use chrono::Utc;
 use opensesame_broker::InvokeInput;
 use opensesame_domain::OrganizationId;
+use opensesame_relay::ExecutionMode;
 use serde_json::json;
 
 use super::super::intents_budget::{
@@ -21,6 +22,17 @@ use super::super::intents_budget::{
 };
 use super::{execute_invocation, not_found, ConstrainedHttpInput, ResolvedInvocation};
 use crate::app_state::AppState;
+
+pub(super) fn require_broker_mode(mode: ExecutionMode) -> Result<(), Response> {
+    if mode != ExecutionMode::Broker {
+        return Err((
+            StatusCode::NOT_IMPLEMENTED,
+            Json(json!({"error": "relay_execution_unavailable"})),
+        )
+            .into_response());
+    }
+    Ok(())
+}
 
 /// A permitted invoke parked by the test hold, replayed by [`drain`].
 #[cfg(test)]
@@ -118,6 +130,7 @@ async fn reauthorize(
         let Ok(Some(live)) = live else {
             return Err(not_found());
         };
+        require_broker_mode(live.execution_mode)?;
         if live.delegation_id != *delegation_id || live.grant.id != resolved.grant.id {
             return Err(not_found());
         }

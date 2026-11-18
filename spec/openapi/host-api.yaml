@@ -1673,20 +1673,12 @@ paths:
         "422": { $ref: "#/components/responses/ContractError" }
   /relay/heartbeat:
     post:
-      summary: A credential holder's runtime announcing liveness (ADR 0046)
+      summary: Holder liveness heartbeat (temporarily unavailable)
+      description: No holder runtime consumes liveness yet. Authenticated requests receive relay_execution_unavailable and do not retain a presence record.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       responses:
-        "200":
-          description: Acknowledged, with the freshness window
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [ok, fresh_for_seconds]
-                properties:
-                  ok: { type: boolean }
-                  fresh_for_seconds: { type: integer }
         "401": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests:
     post:
       summary: Submit a relayed request (temporarily unavailable)
