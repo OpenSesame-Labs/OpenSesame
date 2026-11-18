@@ -81,6 +81,7 @@ function SelectRow({
   options,
   onChange,
   selectRef,
+  descriptionId,
 }: {
   id: string;
   name: string;
@@ -89,6 +90,7 @@ function SelectRow({
   options: readonly { value: number; label: string }[];
   onChange: (value: number) => void;
   selectRef?: Ref<HTMLSelectElement>;
+  descriptionId?: string;
 }) {
   return (
     <div className="sw">
@@ -100,6 +102,7 @@ function SelectRow({
         ref={selectRef}
         className="sw__select"
         aria-label={label}
+        aria-describedby={descriptionId}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       >
@@ -151,11 +154,12 @@ function LockingPrefs(props: VisualPrefsProps) {
           id="settings-clipboard"
           name="Keep copied secrets"
           label="Clear copied secrets after"
+          descriptionId="settings-clipboard-help"
           value={prefs.clipboardClearSeconds}
           options={CLIPBOARD}
           onChange={(value) => props.onNumber("clipboardClearSeconds", value)}
         />
-        <p className="field__help">
+        <p id="settings-clipboard-help" className="field__help">
           Clearing is best effort: the browser may block clipboard access or
           keep a history. On lock, if reading is blocked, the app may replace
           whatever is currently on the clipboard.
