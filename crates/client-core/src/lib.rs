@@ -12,6 +12,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use thiserror::Error;
+use zeroize::Zeroizing;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub use opensesame_core as core;
@@ -20,7 +21,12 @@ pub use opensesame_human_vault as human_vault;
 #[cfg(feature = "wasm-bindgen")]
 pub mod wasm;
 
+mod legacy_migration;
+mod persist_auth;
 pub mod snapshot;
+mod sync_auth;
+
+pub use sync_auth::{open_sync_blob, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES};
 
 pub use snapshot::{
     assert_ciphertext_only_json, refuse_deployment_seal_as_wrap_key, CiphertextSyncSnapshot,
@@ -39,6 +45,12 @@ pub enum ClientCoreError {
     StaleEpoch { local: u64, remote: u64 },
     #[error("missing device key")]
     MissingKey,
+    #[error("sync store key does not match")]
+    WrongKey,
+    #[error("sync epoch exhausted")]
+    EpochExhausted,
+    #[error("invalid sync blob: {0}")]
+    InvalidBlob(&'static str),
     #[error("persist io: {0}")]
     Persist(String),
 }
@@ -59,9 +71,13 @@ pub struct SyncBlob {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct PersistedStore {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    version: Option<u32>,
     cursor: SyncCursor,
     /// Sealed entries only.
     blobs: Vec<SyncBlob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    integrity: Option<String>,
 }
 
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -132,7 +148,8 @@ pub fn open(key: &DeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u8>, Clien
 pub struct SyncStore {
     /// id -> (epoch, ciphertext)
     pub(crate) entries: BTreeMap<String, (u64, Vec<u8>)>,
-    pub cursor: SyncCursor,
+    pub(crate) cursor: SyncCursor,
+    key_guard: Option<Zeroizing<[u8; 32]>>,
 }
 
 impl SyncStore {
@@ -143,7 +160,30 @@ impl SyncStore {
                 device_id: device_id.into(),
                 epoch: 0,
             },
+            key_guard: None,
         }
+    }
+
+    /// Current local cursor. It can only advance through authenticated blobs.
+    #[must_use]
+    pub fn cursor(&self) -> &SyncCursor {
+        &self.cursor
+    }
+
+    fn checked_key(&self, key: &DeviceKey) -> Result<blake3::Hash, ClientCoreError> {
+        let guard = blake3::keyed_hash(key.as_bytes(), b"OpenSesame sync store key v2");
+        if self
+            .key_guard
+            .as_ref()
+            .is_some_and(|known| blake3::Hash::from(**known) != guard)
+        {
+            return Err(ClientCoreError::WrongKey);
+        }
+        Ok(guard)
+    }
+
+    fn remember_key(&mut self, guard: blake3::Hash) {
+        self.key_guard = Some(Zeroizing::new(*guard.as_bytes()));
     }
 
     ///
@@ -157,20 +197,47 @@ impl SyncStore {
         plaintext: &[u8],
     ) -> Result<SyncBlob, ClientCoreError> {
         let id = id.into();
-        self.cursor.epoch = self.cursor.epoch.saturating_add(1);
-        let aad = id.as_bytes();
-        let ciphertext = seal(key, plaintext, aad)?;
-        let epoch = self.cursor.epoch;
-        self.entries.insert(id.clone(), (epoch, ciphertext.clone()));
-        Ok(SyncBlob {
-            id,
-            epoch,
-            ciphertext,
-        })
+        let guard = self.checked_key(key)?;
+        let epoch = self
+            .cursor
+            .epoch
+            .checked_add(1)
+            .filter(|value| *value <= i64::MAX as u64)
+            .ok_or(ClientCoreError::EpochExhausted)?;
+        let blob = sync_auth::seal_blob(key, id, epoch, plaintext)?;
+        self.entries
+            .insert(blob.id.clone(), (epoch, blob.ciphertext.clone()));
+        self.cursor.epoch = epoch;
+        self.remember_key(guard);
+        Ok(blob)
     }
 
-    /// Apply remote blobs. Last-writer-wins by higher epoch.
-    pub fn apply_remote(&mut self, blobs: &[SyncBlob]) -> SyncCursor {
+    /// Authenticate every remote blob before applying any of them.
+    /// Last-writer-wins by higher authenticated epoch.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error without changing the store if any blob is invalid or
+    /// the key does not match the store.
+    pub fn apply_remote(
+        &mut self,
+        key: &DeviceKey,
+        blobs: &[SyncBlob],
+    ) -> Result<SyncCursor, ClientCoreError> {
+        self.apply_authenticated(key, blobs)?;
+        Ok(self.cursor.clone())
+    }
+
+    pub(crate) fn apply_authenticated(
+        &mut self,
+        key: &DeviceKey,
+        blobs: &[SyncBlob],
+    ) -> Result<usize, ClientCoreError> {
+        let guard = self.checked_key(key)?;
+        for blob in blobs {
+            sync_auth::verify_blob(key, blob)?;
+        }
+        let mut applied = 0;
         for b in blobs {
             match self.entries.get(&b.id) {
                 Some((ep, _)) if *ep > b.epoch => {}
@@ -179,10 +246,14 @@ impl SyncStore {
                     self.entries
                         .insert(b.id.clone(), (b.epoch, b.ciphertext.clone()));
                     self.cursor.epoch = self.cursor.epoch.max(b.epoch);
+                    applied += 1;
                 }
             }
         }
-        self.cursor.clone()
+        if !blobs.is_empty() {
+            self.remember_key(guard);
+        }
+        Ok(applied)
     }
 
     #[must_use]
@@ -210,7 +281,8 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&self) -> Result<String, ClientCoreError> {
+    pub fn to_persisted_json(&self, key: &DeviceKey) -> Result<String, ClientCoreError> {
+        self.checked_key(key)?;
         let blobs: Vec<SyncBlob> = self
             .entries
             .iter()
@@ -220,10 +292,13 @@ impl SyncStore {
                 ciphertext: ct.clone(),
             })
             .collect();
-        let p = PersistedStore {
+        let mut p = PersistedStore {
+            version: Some(persist_auth::VERSION),
             cursor: self.cursor.clone(),
             blobs,
+            integrity: None,
         };
+        p.integrity = Some(persist_auth::tag(key, &p)?);
         serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))
     }
 
@@ -231,14 +306,18 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn from_persisted_json(json: &str) -> Result<Self, ClientCoreError> {
+    pub fn from_persisted_json(key: &DeviceKey, json: &str) -> Result<Self, ClientCoreError> {
         let p: PersistedStore =
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        persist_auth::verify(key, &p)?;
         let mut store = Self::new(p.cursor.device_id.clone());
-        store.cursor = p.cursor;
-        for b in p.blobs {
-            store.entries.insert(b.id, (b.epoch, b.ciphertext));
+        store.apply_remote(key, &p.blobs)?;
+        if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
+            return Err(ClientCoreError::Persist(
+                "invalid authenticated cursor epoch".into(),
+            ));
         }
+        store.cursor.epoch = p.cursor.epoch;
         Ok(store)
     }
 
@@ -248,11 +327,15 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn save_path(&self, path: &std::path::Path) -> Result<(), ClientCoreError> {
+    pub fn save_path(
+        &self,
+        key: &DeviceKey,
+        path: &std::path::Path,
+    ) -> Result<(), ClientCoreError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         }
-        let json = self.to_persisted_json()?;
+        let json = self.to_persisted_json(key)?;
         // Refuse to write if plaintext-looking keys somehow appear (defense in depth).
         if json.contains("\"plaintext\"") {
             return Err(ClientCoreError::Persist(
@@ -267,116 +350,13 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn load_path(path: &std::path::Path) -> Result<Self, ClientCoreError> {
+    pub fn load_path(key: &DeviceKey, path: &std::path::Path) -> Result<Self, ClientCoreError> {
         let json =
             std::fs::read_to_string(path).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        Self::from_persisted_json(&json)
+        Self::from_persisted_json(key, &json)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn seal_open_roundtrip() {
-        let key = DeviceKey::generate();
-        let sealed = seal(&key, b"secret", b"item-1").unwrap();
-        assert_ne!(&sealed[24..], b"secret");
-        assert_eq!(open(&key, &sealed, b"item-1").unwrap(), b"secret");
-    }
-
-    #[test]
-    fn truncated_or_wrong_context_ciphertext_is_refused() {
-        let key = DeviceKey::generate();
-        let sealed = seal(&key, b"secret", b"item-1").unwrap();
-        for length in 0..sealed.len() {
-            assert!(open(&key, &sealed[..length], b"item-1").is_err());
-        }
-        assert!(open(&key, &sealed, b"item-2").is_err());
-    }
-
-    #[test]
-    fn sync_preserves_ids_and_epochs() {
-        let key = DeviceKey::generate();
-        let mut a = SyncStore::new("dev-a");
-        let blob = a.put_local(&key, "note-1", b"hello").unwrap();
-        let mut b = SyncStore::new("dev-b");
-        b.apply_remote(std::slice::from_ref(&blob));
-        assert_eq!(b.entries.get("note-1").unwrap().0, blob.epoch);
-        let out = b.collect_outgoing(&SyncCursor {
-            device_id: "x".into(),
-            epoch: 0,
-        });
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].id, "note-1");
-    }
-
-    #[test]
-    fn server_view_is_ciphertext_only() {
-        let key = DeviceKey::generate();
-        let mut store = SyncStore::new("d");
-        let blob = store
-            .put_local(&key, "x", b"plaintext-should-not-leak")
-            .unwrap();
-        let json = serde_json::to_string(&blob).unwrap();
-        assert!(!json.contains("plaintext-should-not-leak"));
-    }
-
-    #[test]
-    fn multi_device_cursor_monotonic() {
-        let key = DeviceKey::generate();
-        let mut a = SyncStore::new("dev-a");
-        let mut b = SyncStore::new("dev-b");
-        let b1 = a.put_local(&key, "n1", b"one").unwrap();
-        b.apply_remote(&[b1]);
-        let e1 = b.cursor.epoch;
-        let b2 = a.put_local(&key, "n2", b"two").unwrap();
-        b.apply_remote(&[b2]);
-        assert!(b.cursor.epoch >= e1);
-        let since = SyncCursor {
-            device_id: "dev-b".into(),
-            epoch: e1,
-        };
-        let out = b.collect_outgoing(&since);
-        assert!(out.iter().all(|x| x.epoch > e1));
-        for blob in &out {
-            let json = serde_json::to_string(blob).unwrap();
-            assert!(!json.contains("one"));
-            assert!(!json.contains("two"));
-        }
-    }
-
-    #[test]
-    fn persist_roundtrip_ciphertext_only() {
-        let key = DeviceKey::generate();
-        let mut store = SyncStore::new("persist-dev");
-        store.put_local(&key, "n1", b"secret-payload-xyz").unwrap();
-        let json = store.to_persisted_json().unwrap();
-        assert!(!json.contains("secret-payload-xyz"));
-        let loaded = SyncStore::from_persisted_json(&json).unwrap();
-        assert_eq!(loaded.cursor.device_id, "persist-dev");
-        assert_eq!(loaded.entries.len(), 1);
-
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("sync.json");
-        store.save_path(&path).unwrap();
-        let from_disk = SyncStore::load_path(&path).unwrap();
-        assert_eq!(from_disk.cursor.epoch, store.cursor.epoch);
-        let disk_json = std::fs::read_to_string(&path).unwrap();
-        assert!(!disk_json.contains("secret-payload-xyz"));
-    }
-
-    #[test]
-    fn opaque_blobs_match_server_view() {
-        let key = DeviceKey::generate();
-        let mut store = SyncStore::new("opaque-dev");
-        let blob = store.put_local(&key, "item-1", b"never-on-wire").unwrap();
-        let opaque = store.opaque_blobs();
-        assert_eq!(opaque.len(), 1);
-        assert_eq!(opaque[0].id, blob.id);
-        assert_eq!(opaque[0].ciphertext, blob.ciphertext);
-        let wire = serde_json::to_string(&opaque[0]).unwrap();
-        assert!(!wire.contains("never-on-wire"));
-    }
-}
+#[path = "sync_tests.rs"]
+mod tests;

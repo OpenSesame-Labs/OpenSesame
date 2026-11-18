@@ -2,9 +2,11 @@
 
 The client-core SDK facade for the Client plane: local end-to-end encryption and
 ciphertext sync cursors, built natively and, behind a feature, for Wasm. A
-device seals blobs under its own key (XChaCha20-Poly1305), and a `SyncStore`
+client seals blobs under its sync key (XChaCha20-Poly1305), and a `SyncStore`
 tracks what to push and what it has already applied by epoch. The server only
 ever stores ciphertext; persisted state is sealed blobs, never plaintext.
+Devices that exchange these blobs must have the same client-held sync key;
+how that key is delivered to authorized devices is outside this SDK.
 
 ## Where it fits
 
@@ -26,12 +28,38 @@ ever stores ciphertext; persisted state is sealed blobs, never plaintext.
 | Item | What it is |
 |---|---|
 | `DeviceKey` | `generate`, `from_bytes`, `as_bytes` |
-| `seal`, `open` | AEAD over a device key, with associated data |
-| `SyncStore` | `new(device_id)`, `put_local`, `apply_remote`, `collect_outgoing(since)`; sealed-blob persistence through `to_persisted_json` / `from_persisted_json` and, off `wasm32`, `save_path` / `load_path` |
+| `seal`, `open`, `open_sync_blob` | General AEAD and the versioned sync-blob opener |
+| `SyncStore` | `new(device_id)`, `put_local`, key-verified `apply_remote`, `collect_outgoing(since)`; authenticated persistence through `to_persisted_json` / `from_persisted_json` and, off `wasm32`, `save_path` / `load_path` |
 | `SyncCursor`, `SyncBlob` | The sync wire shapes |
 | `snapshot` | `CiphertextSyncSnapshot` (`validate`, `to_json`, `from_json`), `SyncStore::export_ciphertext_snapshot` / `import_ciphertext_snapshot`, `SNAPSHOT_FORMAT`, `SNAPSHOT_VERSION` |
 | `wit_contract::PACKAGE` | `opensesame:client@1.0.0` — the `spec/wit/client` world |
 | `wasm` (feature `wasm-bindgen`) | `WasmDeviceKey`, `WasmSyncStore`, `wasm_seal`, `wasm_open`, `wit_package` |
+
+## Sync format and migration
+
+Version 2 sync envelopes authenticate both the blob ID and epoch before a
+remote blob can alter a store. Persisted stores also authenticate their cursor
+and contents. The key is required when applying remote data, importing a
+snapshot, saving, or loading. Keep the client-held key available through the
+application's existing secure key custody; the SDK does not store it in the
+snapshot. Raw `seal`/`open` remain general-purpose APIs; use `open_sync_blob`
+for sync envelopes.
+
+Version 1 ciphertext and persisted stores cannot authenticate epochs. Normal
+loading and sync reject them. To retain existing data, stop sync on all devices,
+select a legacy persisted store or snapshot whose provenance and freshness you
+trust, and explicitly use `migrate_trusted_legacy_json` or
+`migrate_trusted_legacy_snapshot` with its key. These methods re-seal the
+selected entries at epochs above the source cursor and return a new store;
+retain the original until the migrated store is backed up and the devices and
+server have been coordinated. A server-provided or otherwise untrusted export
+is not a safe migration source. Migration cannot prove old epoch metadata or
+detect a rollback that occurred before migration.
+
+Authenticated blobs and persisted state detect metadata substitution, but an
+attacker who replaces an entire store with an older, valid copy can still roll
+it back without an independent freshness witness. A caller must likewise
+obtain `collect_outgoing`'s `since` cursor from trusted local sync state.
 
 | Cargo feature | Effect |
 |---|---|
