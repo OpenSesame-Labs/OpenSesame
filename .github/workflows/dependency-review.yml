@@ -54,31 +54,36 @@ jobs:
         with:
           cache: false
           install_args: node
-      # glob has not published versions beyond 10.5.0/11.1.0 with its abort
-      # fix. Before excluding that one version-only advisory, prove that every
-      # installed 10.5.0 copy is the integrity-pinned vendor tarball, that the
-      # tarball is exactly the published source plus the reviewed patch, and
-      # that real CJS/ESM promise and stream consumers stop reading on abort.
-      - name: Attest the glob cancellation backports
+      # Glob and Minimatch have not published the fixed 10/11 and 9/10 package
+      # lines. Before excluding their version-only advisories, prove that each
+      # installed copy is its integrity-pinned vendor tarball, each tarball is
+      # exactly the published source plus the reviewed patch, and real
+      # consumers retain cancellation and bounded-expansion behavior.
+      - name: Attest the Glob and Minimatch backports
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           node scripts/security/patched-dependencies.mjs verify glob@10.5.0
           node scripts/security/patched-dependencies.mjs verify glob@11.1.0
+          node scripts/security/patched-dependencies.mjs verify minimatch@9.0.9
+          node scripts/security/patched-dependencies.mjs verify minimatch@10.2.6
           node --test \
             --test-name-pattern="the lockfile installs every copy" \
             scripts/security/patched-dependencies.test.mjs
           node --test \
-            --test-name-pattern="glob 10, 11 and 13 stop" \
+            --test-name-pattern="glob 10, 11 and 13 stop|compatible minimatch 9 and 10" \
             scripts/security/removed-dependencies.test.mjs
+          node --test \
+            --test-name-pattern="backported glob and minimatch source maps" \
+            scripts/security/dependency-override-upgrade.test.mjs
       - name: Fail on any advisory in an added or changed dependency
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           # The local gates accept no advisory at any severity; neither does this.
           fail-on-severity: low
           fail-on-scopes: runtime, development, unknown
-          # GHSA-3g3m-2fjr-6pw4 is excluded only after the exact 10.5.0 source
-          # backport and its cancellation behavior are attested above. No
-          # package, scope or severity class is otherwise exempted.
-          allow-ghsas: GHSA-3g3m-2fjr-6pw4
+          # These two version-only findings are excluded only after their exact
+          # source backports and behavior are attested above. No package, scope
+          # or severity class is otherwise exempted.
+          allow-ghsas: GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249
           # The result stays in the job summary. No pull-request write access.
           comment-summary-in-pr: never
