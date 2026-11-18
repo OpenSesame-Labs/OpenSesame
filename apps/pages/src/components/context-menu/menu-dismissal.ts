@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect, useRef } from "react";
 import { type MenuItem, stepIndex, typeaheadIndex } from "./menu-model.js";
 
 export type MenuLive = {
@@ -43,7 +43,11 @@ export function useMenuDismissal(
   live: RefObject<MenuLive>,
   ignoreOutside: string | undefined,
 ): void {
-  useEffect(() => {
+  // The menu is keyboard-operable as soon as it is painted. A passive effect
+  // leaves a frame where a key pressed immediately after opening can leak to
+  // the page beneath it (Preact deliberately schedules passive effects after
+  // paint). Install ownership alongside the menu's focus layout work.
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const { onClose } = live.current;
       if (event.key === "Tab") {

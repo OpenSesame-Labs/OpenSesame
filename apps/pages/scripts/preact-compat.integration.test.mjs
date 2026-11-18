@@ -17,6 +17,7 @@ import {
 } from "react";
 import {createPortal} from "react-dom";
 import {createRoot} from "react-dom/client";
+import {byId, useFocusAfter} from "../src/lib/use-focus-after.ts";
 
 const Scope = createContext("missing");
 let external = 0;
@@ -40,6 +41,21 @@ const Imperative = forwardRef(function Imperative(_props, ref) {
 const ContextValue = memo(function ContextValue() {
   return createElement("span", {id: "context"}, useContext(Scope));
 });
+
+function FocusRecovery() {
+  const [victim, setVictim] = useState(true);
+  const recover = useFocusAfter(victim);
+  return createElement("section", null,
+    victim ? createElement("button", {
+      id: "remove-focused",
+      onClick: () => {
+        setVictim(false);
+        recover(byId("focus-target"));
+      },
+    }, "remove") : null,
+    createElement("button", {id: "focus-target", disabled: victim}, "target"),
+  );
+}
 
 function App() {
   const [count, setCount] = useState(0);
@@ -70,6 +86,7 @@ function App() {
     createElement("input", {id}),
     createElement(ContextValue),
     createElement(Imperative, {ref: handle}),
+    createElement(FocusRecovery),
     createPortal(createElement("span", {id: "portal"}, "portal-ready"), document.body),
     createElement(Boundary, null,
       breakIt ? createElement(Broken) : createElement("span", {id: "healthy"}, "healthy")),
@@ -94,6 +111,8 @@ export async function drive() {
   document.querySelector("#external").click();
   document.querySelector("#form button").click();
   document.querySelector("#error").click();
+  document.querySelector("#remove-focused").focus();
+  document.querySelector("#remove-focused").click();
   for (let index = 0; index < 100; index += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     if (document.querySelector("#increment").textContent === "1" &&
@@ -107,6 +126,8 @@ export async function drive() {
     count: document.querySelector("#increment")?.textContent,
     external: document.querySelector("#external")?.textContent,
     form: document.querySelector("#form button")?.textContent,
+    focusRecovered: document.activeElement?.id === "focus-target" &&
+      document.querySelector("#focus-target")?.disabled === false,
     imperative: document.querySelector("#imperative")?.textContent,
     labelBound: document.querySelector("label")?.htmlFor === document.querySelector("input")?.id,
     portal: document.querySelector("#portal")?.textContent,
@@ -184,6 +205,7 @@ test("the production compatibility renderer matches React's client contract", as
       count: "1",
       external: "1",
       form: "submitted",
+      focusRecovered: true,
       imperative: "imperative-mounted",
       labelBound: true,
       portal: "portal-ready",
