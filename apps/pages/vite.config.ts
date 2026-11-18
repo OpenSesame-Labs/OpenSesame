@@ -7,9 +7,12 @@ import { VitePWA } from "vite-plugin-pwa";
 import { configDefaults } from "vitest/config";
 import { crossOriginOpenerPolicy } from "../../packages/app-core/src/lib/opener-policy.ts";
 import { pwaManifest } from "./pwa-manifest.js";
+import { agUiBrowserEntry } from "./scripts/ag-ui-browser-entry.mjs";
+import { aiBrowserGenerateObject } from "./scripts/ai-browser-generate-object.mjs";
 import { aiBrowserModels } from "./scripts/ai-browser-models.mjs";
 import { bundleChunk } from "./scripts/bundle-chunk.mjs";
 import { capabilityCompose } from "./scripts/capability-compose-plugin.mjs";
+import { generatedDataAssets } from "./scripts/generated-data-assets.mjs";
 import { githubAppRelayPlugin } from "./scripts/github-app-relay-plugin.mjs";
 import { impeccableDevHtml } from "./scripts/impeccable-dev.mjs";
 import { kdbxNativeDOM } from "./scripts/kdbx-native-dom-plugin.mjs";
@@ -19,10 +22,13 @@ import { mcpBrowserValidator } from "./scripts/mcp-browser-validator.mjs";
 import { configuredMsalDedupe } from "./scripts/msal-dedupe.mjs";
 import { nativeClientMetadataPlugin } from "./scripts/native-client-metadata-plugin.mjs";
 import { nativeSamlCallbackPlugin } from "./scripts/native-saml-callback-plugin.mjs";
+import { natsBrowserEntry } from "./scripts/nats-browser-entry.mjs";
 import { onePasswordWasmAssets } from "./scripts/onepassword-wasm-assets.mjs";
+import { preactCompat } from "./scripts/preact-compat.mjs";
 import { samlBrowserCrypto } from "./scripts/saml-browser-crypto.mjs";
 import { securityProfile } from "./scripts/security-profile.mjs";
 import { sharedWorkerGraph } from "./scripts/shared-worker-graph.mjs";
+import { webAuthnBrowserEntry } from "./scripts/webauthn-browser-entry.mjs";
 import { shellBuildMetadata } from "./scripts/shell-build-metadata-plugin.mjs";
 import { siopMetadata } from "./scripts/siop-metadata-plugin.mjs";
 import {
@@ -276,6 +282,12 @@ export default defineConfig({
     },
   },
   plugins: [
+    preactCompat(),
+    agUiBrowserEntry(),
+    generatedDataAssets(),
+    webAuthnBrowserEntry(),
+    natsBrowserEntry(),
+    aiBrowserGenerateObject(),
     shellBuildMetadata(),
     zodCsp(),
     aiBrowserModels(fileURLToPath(new URL("../..", import.meta.url))),
