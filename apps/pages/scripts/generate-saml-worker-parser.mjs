@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { z } from "zod/mini";
-import { isString } from "../../../packages/os-domain/src/json.ts";
+import { isString } from "../../../scripts/lib/json-boundary.mjs";
 
 const output = fileURLToPath(
   new URL("../src/sw/saml-command.generated.ts", import.meta.url),
