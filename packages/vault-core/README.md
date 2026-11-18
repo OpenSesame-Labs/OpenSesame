@@ -39,9 +39,23 @@ Import from the root: `import { openVaultFile } from "@opensesame/vault-core"`.
 | `bytes.ts` | The one base64 / base64url implementation |
 
 File manifests accept at most 1 GiB, 16,384 parts and 2 MiB of manifest text;
-each encrypted part is at most 1 MiB plus its GCM tag. The tailnet drive client
-also bounds part responses and its part list (65,536 keys). Files or drive
-inventories above these limits are refused instead of being loaded partially.
+new files use parts of at most 1 MiB before the GCM tag. For v1 compatibility,
+reads and tailnet replication accept encrypted parts up to the daemon's former
+limit of 1 MiB + 1,024 bytes. The tailnet drive client also bounds part
+responses and its part list (65,536 keys). Files or drive inventories above
+these limits are refused instead of being loaded partially.
+
+An older custom integration could override the part size and file size above
+these limits. To recover such a file, first keep a backup of its encrypted
+vault, manifest and every associated object. In a trusted offline environment,
+use a trusted pre-bounds build to open the file from those objects, then use
+the current `sealFile` to reseal the plaintext with its default part size and
+save the new manifest and objects. Shorten any file name above 4,096 characters
+and media type above 1,024 characters before resealing. If the plaintext exceeds
+1 GiB, split it into files no larger than 1 GiB before resealing; the current
+format cannot open it as a single file. The old reader did not bound untrusted input, so use
+only a trusted copy and a machine with sufficient memory. Keep the original
+backup until the new files have been opened and checked.
 
 ## Develop
 

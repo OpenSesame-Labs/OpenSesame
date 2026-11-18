@@ -2,7 +2,7 @@ import { MAX_FILE_PART_CIPHERTEXT_BYTES } from "@opensesame/vault-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DRIVE_TIMEOUT_MS, driveClientSeams } from "./client.js";
 import { PAIRING } from "./drive.fixture.js";
-import { listDriveParts, readDrivePart } from "./parts.js";
+import { listDriveParts, readDrivePart, writeDrivePart } from "./parts.js";
 import { MAX_DRIVE_PARTS, readPartResponse } from "./parts-bounds.js";
 
 const originalFetch = driveClientSeams.fetch;
@@ -12,6 +12,37 @@ afterEach(() => {
 });
 
 describe("untrusted drive responses", () => {
+  it("reads and replicates a legacy part at the daemon's previous limit", async () => {
+    const bytes = new Uint8Array(MAX_FILE_PART_CIPHERTEXT_BYTES);
+    bytes[0] = 42;
+    bytes[bytes.length - 1] = 17;
+    const written: Uint8Array[] = [];
+    driveClientSeams.fetch = async (_url, init) => {
+      if (init.method === "PUT") {
+        if (init.body instanceof Uint8Array) written.push(init.body);
+        return new Response(null, { status: 204 });
+      }
+      return new Response(bytes);
+    };
+    await writeDrivePart(PAIRING, "AbCdEfGhIjKl-_09", bytes);
+    expect(written).toHaveLength(1);
+    expect(written[0]?.length).toBe(bytes.length);
+    expect(written[0]?.every((byte, index) => byte === bytes[index])).toBe(
+      true,
+    );
+    const received = await readDrivePart(PAIRING, "AbCdEfGhIjKl-_09");
+    expect(received?.length).toBe(bytes.length);
+    expect(received?.every((byte, index) => byte === bytes[index])).toBe(true);
+    await expect(
+      writeDrivePart(
+        PAIRING,
+        "AbCdEfGhIjKl-_09",
+        new Uint8Array(MAX_FILE_PART_CIPHERTEXT_BYTES + 1),
+      ),
+    ).rejects.toThrow("size limit");
+    expect(written).toHaveLength(1);
+  });
+
   it("rejects an oversized declared part without reading it", async () => {
     const cancel = vi.fn();
     const stream = new ReadableStream<Uint8Array>({ cancel });
