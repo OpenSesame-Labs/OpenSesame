@@ -16,7 +16,6 @@ const root = repoRootFromHere();
 const read = (name) =>
   readFileSync(join(root, ".github/workflows", name), "utf8");
 const release = read("ci-release-checks.yml");
-
 function job(text, id) {
   return (
     text.split(`\n  ${id}:\n`)[1]?.split(/\n {2}[a-z][a-z0-9-]*:\n/)[0] ?? ""
@@ -382,23 +381,23 @@ describe("CodeQL crypto compilation and publication boundaries", () => {
     );
     expect(compile).toBeGreaterThan(overlayVerify);
   });
-  it.each([
-    "deploy-pages.yml",
-    "release-kit.yml",
-    "publish-containers.yml",
-    "publish-npm.yml",
-  ])("%s cannot publish around qualification", (file) => {
-    const workflow = read(file);
-    expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
-    expect(workflow).not.toMatch(/(?:contents|pages|packages|id-token): write/);
-    expect(workflow).not.toContain("secrets.");
-    const result = spawnSync(
-      "bash",
-      ["-e", "-c", runBlock(job(workflow, "retired"))],
-      { encoding: "utf8" },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain("publisher is retired");
-  });
+});
+it.each([
+  "deploy-pages.yml",
+  "release-kit.yml",
+  "publish-containers.yml",
+  "publish-npm.yml",
+])("%s cannot publish around qualification", (file) => {
+  const workflow = read(file);
+  expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|schedule):/m);
+  expect(workflow).not.toMatch(/(?:contents|pages|packages|id-token): write/);
+  expect(workflow).not.toContain("secrets.");
+  const result = spawnSync(
+    "bash",
+    ["-e", "-c", runBlock(job(workflow, "retired"))],
+    { encoding: "utf8" },
+  );
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe(1);
+  expect(result.stdout).toContain("publisher is retired");
 });
