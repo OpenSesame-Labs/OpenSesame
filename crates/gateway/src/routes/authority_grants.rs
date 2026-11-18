@@ -10,9 +10,9 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_storage::authority::{AuthorityIssue, PermissionEntry};
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
 

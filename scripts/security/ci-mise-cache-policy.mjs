@@ -1,7 +1,7 @@
 /**
  * mise-action may write GitHub Actions cache in the default-branch scope. Jobs that
- * check out workflow_call inputs (candidate source_sha) or run release/CD pipelines
- * must not restore or save that cache after untrusted checkout — see CodeQL
+ * check out pull-request/workflow_call inputs or run release/CD pipelines must
+ * not restore or save that cache after untrusted checkout — see CodeQL
  * actions/cache-poisoning/poisonable-step and jdx/mise-action release guidance.
  *
  * cd-pwa.yml runs only on push to main and workflow_dispatch. cd-pwa-profile-proof.yml
@@ -28,6 +28,7 @@ export function miseCacheDisabledForWorkflow(name) {
     return false;
   }
   if (/^(?:cd-|release-|candidate-)/u.test(name)) return true;
+  if (name === "dependency-review.yml") return true;
   const text = readFileSync(join(workflowDir, name), "utf8");
   return text.includes("workflow_call:");
 }

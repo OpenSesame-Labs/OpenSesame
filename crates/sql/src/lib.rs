@@ -4,9 +4,9 @@
 //! are absent from the lockfile as well as the compiled feature graph.
 use sqlx_core::arguments::IntoArguments;
 use sqlx_core::database::Database;
-use sqlx_core::query::{Query, query_with as core_query_with};
-use sqlx_core::query_as::{QueryAs, query_as_with as core_query_as_with};
-use sqlx_core::query_scalar::{QueryScalar, query_scalar_with as core_query_scalar_with};
+use sqlx_core::query::{query_with as core_query_with, Query};
+use sqlx_core::query_as::{query_as_with as core_query_as_with, QueryAs};
+use sqlx_core::query_scalar::{query_scalar_with as core_query_scalar_with, QueryScalar};
 
 pub use sqlx_core::acquire::Acquire;
 pub use sqlx_core::connection::{ConnectOptions, Connection};
@@ -58,9 +58,7 @@ where
     core_query_as_with(sqlx_core::sql_str::AssertSqlSafe(sql), arguments)
 }
 
-pub fn query_scalar<'q, DB, O>(
-    sql: &str,
-) -> QueryScalar<'q, DB, O, <DB as Database>::Arguments>
+pub fn query_scalar<'q, DB, O>(sql: &str) -> QueryScalar<'q, DB, O, <DB as Database>::Arguments>
 where
     DB: Database,
     (O,): for<'r> FromRow<'r, DB::Row>,
@@ -68,10 +66,7 @@ where
     sqlx_core::query_scalar::query_scalar(sqlx_core::sql_str::AssertSqlSafe(sql))
 }
 
-pub fn query_scalar_with<'q, DB, O, A>(
-    sql: &str,
-    arguments: A,
-) -> QueryScalar<'q, DB, O, A>
+pub fn query_scalar_with<'q, DB, O, A>(sql: &str, arguments: A) -> QueryScalar<'q, DB, O, A>
 where
     DB: Database,
     A: IntoArguments<DB>,

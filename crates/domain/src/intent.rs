@@ -3,7 +3,7 @@ use crate::{
     DomainError, GrantId, IntentId, InvocationId, OperatorId, OrganizationId, PrincipalId,
     ProjectId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

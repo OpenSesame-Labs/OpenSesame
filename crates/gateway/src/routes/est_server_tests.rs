@@ -186,7 +186,7 @@ async fn seed_self_signed_profile(state: &crate::app_state::AppState, passphrase
         seal_scopes, SealedCertificateMaterial, StoredCertificatePolicy, StoredCertificateProfile,
         StoredEstConfig,
     };
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = opensesame_time::Utc::now().to_rfc3339();
     let organization = state.connection_organization.to_string();
     let policy_id = "policy-est-tests".to_owned();
     state

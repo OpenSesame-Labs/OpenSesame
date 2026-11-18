@@ -1,6 +1,5 @@
 //! Authorize-and-execute path that never accepts a second mutable parameter blob.
 
-use chrono::Utc;
 use opensesame_authz::{AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject};
 use opensesame_connector_host::InvokeRequest;
 use opensesame_domain::{
@@ -9,6 +8,7 @@ use opensesame_domain::{
     ReceiptOutcome, ValidatedGrantChain,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 use crate::{Broker, FinishReceiptParts};
@@ -345,7 +345,6 @@ impl Broker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
     use opensesame_audit::ReceiptSigner;
     use opensesame_authz::PolicyEngine;
     use opensesame_connector_host::HostRuntime;
@@ -357,6 +356,7 @@ mod tests {
     };
     use opensesame_storage::Db;
     use opensesame_task_access::{InMemoryTaskStore, StartTaskParams};
+    use opensesame_time::Duration;
 
     type Narrowing = (&'static str, fn(&mut Grant));
 

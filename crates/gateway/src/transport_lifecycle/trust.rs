@@ -33,8 +33,8 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
+use opensesame_time::{DateTime, Utc};
 use opensesame_transport_security::TrustBundle;
 use serde::{Deserialize, Serialize};
 

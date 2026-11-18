@@ -119,10 +119,11 @@ impl RecoveryBundle {
         if self.nonce.len() != NONCE_LENGTH {
             return Err(BundleError::Open);
         }
+        let nonce = <&XNonce>::try_from(self.nonce.as_slice()).map_err(|_| BundleError::Open)?;
         let aad = collection_aad(&self.signed_policy);
         let opened = cipher
             .decrypt(
-                XNonce::from_slice(&self.nonce),
+                nonce,
                 Payload {
                     msg: &self.ciphertext,
                     aad: &aad,
@@ -151,9 +152,10 @@ impl RecoveryBundle {
         let cipher =
             XChaCha20Poly1305::new_from_slice(key.as_slice()).map_err(|_| BundleError::Open)?;
         let aad = collection_aad(&signed_policy);
+        let nonce_ref: &XNonce = (&nonce).into();
         let ciphertext = cipher
             .encrypt(
-                XNonce::from_slice(&nonce),
+                nonce_ref,
                 Payload {
                     msg: payload,
                     aad: &aad,

@@ -132,9 +132,7 @@ pub fn build_crl(
         revoked_certs,
         key_identifier_method,
     };
-    let crl = params
-        .signed_by(&issuer)
-        .map_err(|_| PkiError::CrlBuild)?;
+    let crl = params.signed_by(&issuer).map_err(|_| PkiError::CrlBuild)?;
     Ok(crl.der().to_vec())
 }
 

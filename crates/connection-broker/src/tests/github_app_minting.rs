@@ -1,6 +1,108 @@
 //! GitHub App registration, rebinding and derived-token minting.
 
 use super::*;
+use axum::http::StatusCode;
+
+async fn conversion_server(
+    status: StatusCode,
+    body: String,
+) -> (String, tokio::task::JoinHandle<()>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move {
+        let router =
+            Router::new()
+                .route(
+                    "/app-manifests/{code}/conversions",
+                    post(
+                        |State((status, body)): State<(StatusCode, String)>| async move {
+                            (status, body)
+                        },
+                    ),
+                )
+                .with_state((status, body));
+        let _ = axum::serve(listener, router).await;
+    });
+    (format!("http://{address}/app-manifests"), task)
+}
+
+#[tokio::test]
+async fn manifest_conversion_transport_errors_hide_the_one_time_code() {
+    let code = "github-one-time-code-canary";
+    let error = crate::github_app::convert_manifest_code_at(
+        &reqwest::Client::new(),
+        "http://127.0.0.1:1/app-manifests",
+        code,
+    )
+    .await
+    .expect_err("closed port must fail");
+    let shown = error.to_string();
+    assert_eq!(
+        shown,
+        "token exchange failed: GitHub App manifest conversion request failed"
+    );
+    assert!(!shown.contains(code));
+    assert!(!shown.contains("127.0.0.1"));
+}
+
+#[tokio::test]
+async fn rejected_manifest_conversion_discards_a_reflected_code() {
+    let code = "github-one-time-code-canary";
+    let reflected = format!("provider reflected {code}");
+    let (endpoint, task) = conversion_server(StatusCode::BAD_REQUEST, reflected.clone()).await;
+    let error =
+        crate::github_app::convert_manifest_code_at(&reqwest::Client::new(), &endpoint, code)
+            .await
+            .expect_err("provider rejection");
+    task.abort();
+    let shown = error.to_string();
+    assert!(shown.contains("400 Bad Request"));
+    assert!(!shown.contains(code));
+    assert!(!shown.contains(&reflected));
+}
+
+#[tokio::test]
+async fn successful_manifest_conversion_still_parses_credentials() {
+    let body = r#"{"id":7,"name":"os","client_id":"Iv1.public","client_secret":"secret"}"#;
+    let (endpoint, task) = conversion_server(StatusCode::OK, body.into()).await;
+    let credentials = crate::github_app::convert_manifest_code_at(
+        &reqwest::Client::new(),
+        &endpoint,
+        "single-use",
+    )
+    .await
+    .expect("valid conversion");
+    task.abort();
+    assert_eq!(credentials.id, 7);
+    assert_eq!(credentials.client_id, "Iv1.public");
+    assert_eq!(credentials.client_secret, "secret");
+}
+
+#[tokio::test]
+async fn successful_manifest_conversion_reflecting_the_code_fails_closed() {
+    let code = "github-one-time-code-canary";
+    let encoded = code
+        .bytes()
+        .map(|byte| format!("%{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join("");
+    let body = format!(
+        r#"{{"id":7,"name":"{encoded}","client_id":"Iv1.public","client_secret":"secret"}}"#
+    );
+    let (endpoint, task) = conversion_server(StatusCode::OK, body).await;
+    let error =
+        crate::github_app::convert_manifest_code_at(&reqwest::Client::new(), &endpoint, code)
+            .await
+            .expect_err("a reflected conversion code must fail closed");
+    task.abort();
+    let shown = error.to_string();
+    assert_eq!(
+        shown,
+        "token exchange failed: GitHub App conversion response reflected the one-time code"
+    );
+    assert!(!shown.contains(code));
+    assert!(!shown.contains(&encoded));
+}
 
 #[tokio::test]
 async fn github_create_without_oauth_still_needs_a_sealing_key() {

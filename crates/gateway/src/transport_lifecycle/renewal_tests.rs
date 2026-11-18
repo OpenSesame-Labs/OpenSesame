@@ -1,6 +1,6 @@
 //! LIFE-RENEWAL: AT-ROTATE-WINDOW and the SPIFFE half of AT-SPIFFE-OUTAGE.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use crate::transport_lifecycle::renewal::{
     backoff_seconds, Claim, Scheduler, MAX_ATTEMPTS, MAX_QUEUE, RETRY_BASE_SECONDS,

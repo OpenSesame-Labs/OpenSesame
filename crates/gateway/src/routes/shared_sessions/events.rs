@@ -9,8 +9,8 @@ use axum::{
     extract::{Path, State},
     response::{sse, IntoResponse, Response, Sse},
 };
-use chrono::Utc;
 use opensesame_domain::{PrincipalId, SessionId, SessionMode};
+use opensesame_time::Utc;
 
 async fn current_recipient(
     st: &AppState,

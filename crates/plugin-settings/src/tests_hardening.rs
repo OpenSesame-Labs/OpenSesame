@@ -159,7 +159,7 @@ fn a_file_others_can_write_is_not_trusted() {
 }
 
 fn install_unless_full(settings: &mut PluginSettings, id: &str, i: usize) {
-    if settings.plugins.len() < 2 || i % 2 == 0 {
+    if settings.plugins.len() < 2 || i.is_multiple_of(2) {
         settings
             .record_install(id, "1", &"d".repeat(64), "/q")
             .unwrap();

@@ -3,10 +3,10 @@
 //! is signed, pinned, stored, proven by an attended run, and then rotated by
 //! the lifecycle scanner with nobody watching.
 
-use chrono::{Duration, Utc};
 use opensesame_connection_broker::{RotationTarget, UpsertRotationPolicy};
 use opensesame_lifecycle::{ExpiryStage, ExpirySubject, LifecycleEvent, SubjectKind};
 use opensesame_rotation_web::recipe_doc::RecipeDocument;
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
 use super::canary_tests::{allow_every_tool, owner_subject, until_the_run_ends};

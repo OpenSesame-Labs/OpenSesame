@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   type FileManifest,
+  MAX_ENCRYPTED_FILE_PART_BYTES,
+  MAX_FILE_BYTES,
+  MAX_FILE_MANIFEST_CHARS,
+  MAX_FILE_PARTS,
   type ObjectStore,
   fileSummary,
   memoryObjectStore,
@@ -104,6 +108,82 @@ describe("file parts", () => {
       }),
     ).rejects.toThrow("file exceeds the size limit");
     expect(await store.listObjects()).toEqual([]);
+  });
+
+  it("refuses attacker-sized manifests and part arrays before reading stores", async () => {
+    const never: ObjectStore = {
+      async putObject() {
+        throw new Error("not reached");
+      },
+      async getObject() {
+        throw new Error("not reached");
+      },
+    };
+    const base = {
+      v: 1,
+      name: "x",
+      mediaType: "application/octet-stream",
+      key: `${"A".repeat(43)}=`,
+      size: 1,
+    } as const;
+    expect(
+      readFileManifest(" ".repeat(MAX_FILE_MANIFEST_CHARS + 1)),
+    ).toBeUndefined();
+    expect(
+      readFileManifest(
+        JSON.stringify({ ...base, size: MAX_FILE_BYTES + 1, parts: [] }),
+      ),
+    ).toBeUndefined();
+    const ref = { key: "A".repeat(16), nonce: "A".repeat(16) };
+    const tooMany = JSON.stringify({
+      ...base,
+      size: MAX_FILE_PARTS + 1,
+      parts: Array.from({ length: MAX_FILE_PARTS + 1 }, () => ref),
+    });
+    expect(readFileManifest(tooMany)).toBeUndefined();
+    await expect(openFile(tooMany, [never])).rejects.toThrow(
+      "file part is missing",
+    );
+
+    const tooFewForClaimedSize = JSON.stringify({
+      ...base,
+      size: MAX_FILE_BYTES,
+      parts: [ref],
+    });
+    expect(readFileManifest(tooFewForClaimedSize)).toBeUndefined();
+    await expect(openFile(tooFewForClaimedSize, [never])).rejects.toThrow(
+      "file part is missing",
+    );
+  });
+
+  it("bounds generated part counts and retrieved ciphertext before decryption", async () => {
+    const store = memoryObjectStore();
+    await expect(
+      sealFile({
+        name: "many.bin",
+        mediaType: "application/octet-stream",
+        bytes: new Uint8Array(MAX_FILE_PARTS + 1),
+        stores: [store],
+        partBytes: 1,
+      }),
+    ).rejects.toThrow("file exceeds the part count limit");
+    expect(await store.listObjects()).toEqual([]);
+
+    const manifest = await sealFile({
+      name: "one.bin",
+      mediaType: "application/octet-stream",
+      bytes: new Uint8Array([1]),
+      stores: [store],
+    });
+    const oversized: ObjectStore = {
+      async putObject() {},
+      async getObject() {
+        return new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1);
+      },
+    };
+    await expect(openFile(manifest, [oversized])).rejects.toThrow(
+      "file part is missing",
+    );
   });
 
   it("seals an empty file with no parts", async () => {

@@ -201,7 +201,7 @@ async fn facts_and_renewals_stay_inside_the_callers_organization() {
     let (status, _) = call(&state, "GET", &facts, operator(&state), None).await;
     assert_eq!(status, StatusCode::OK);
 
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let tenant = owner.to_string();
     state.transport_lifecycle.with_scheduler(|scheduler| {
         for _ in 0..crate::transport_lifecycle::renewal::MAX_ATTEMPTS {

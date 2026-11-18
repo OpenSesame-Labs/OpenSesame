@@ -11,8 +11,8 @@
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
-use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
+use std::io::{Read, Seek, Write};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -36,6 +36,134 @@ pub const HOSTILE: [(&str, &str); 8] = [
 ];
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+/// A fresh private directory beside this test executable.
+///
+/// The system temporary directory is not necessarily a trusted ancestor. In
+/// sandboxed builds it can be a sticky directory owned by a remapped uid, and
+/// production must continue to reject that ownership. Cargo's test executable
+/// lives below its caller-owned target directory, so a directory created next
+/// to it has the same trusted ancestry as the executable being tested.
+fn private_root() -> PathBuf {
+    let executable = std::env::current_exe().expect("test executable");
+    let parent = executable.parent().expect("test executable directory");
+    loop {
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let root = parent.join(format!(".trusted-exec-{}-{n}", std::process::id()));
+        match std::fs::DirBuilder::new().mode(0o700).create(&root) {
+            Ok(()) => {
+                let owner = std::fs::metadata(&root).expect("fixture directory metadata");
+                // SAFETY: these calls take no arguments and cannot fail.
+                let (euid, egid) = unsafe { (libc::geteuid(), libc::getegid()) };
+                assert_eq!(owner.uid(), euid, "fixture directory owner");
+                assert_eq!(owner.gid(), egid, "fixture directory group");
+                return root;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => panic!("fixture directory: {error}"),
+        }
+    }
+}
+
+/// Copy exact bytes from a pinned canonical regular executable into a new
+/// caller-owned 0500 file, refusing a final-component link at open.
+pub fn copy_executable(source: &Path, destination: &Path) {
+    let source = source.canonicalize().expect("canonical executable");
+    let mut source = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(source)
+        .expect("open canonical executable without following links");
+    let source_meta = source.metadata().expect("executable metadata");
+    assert!(source_meta.is_file(), "source executable is a regular file");
+    assert_ne!(source_meta.mode() & 0o111, 0, "source is executable");
+    let mut prefix = [0_u8; 2];
+    source.read_exact(&mut prefix).expect("executable prefix");
+    assert_ne!(prefix, *b"#!", "source must not use an interpreter");
+    source.rewind().expect("rewind source executable");
+
+    let mut copy = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .mode(0o500)
+        .open(destination)
+        .expect("create executable copy");
+    assert_eq!(
+        std::io::copy(&mut source, &mut copy).expect("copy executable"),
+        source_meta.len()
+    );
+    copy.sync_all().expect("sync executable copy");
+    let copied = copy.metadata().expect("copied executable metadata");
+    // SAFETY: `geteuid` takes no arguments and cannot fail.
+    assert_eq!(copied.uid(), unsafe { libc::geteuid() });
+    assert!(copied.is_file(), "copy is a regular file");
+    assert_eq!(copied.nlink(), 1, "copy has one link");
+    assert_eq!(copied.mode() & 0o777, 0o500, "copy mode");
+    assert_eq!(copied.len(), source_meta.len(), "copy length");
+
+    source.rewind().expect("rewind source executable");
+    copy.rewind().expect("rewind executable copy");
+    let mut source_chunk = [0_u8; 64 * 1024];
+    let mut copy_chunk = [0_u8; 64 * 1024];
+    loop {
+        let source_read = source
+            .read(&mut source_chunk)
+            .expect("read source executable");
+        let copy_read = copy.read(&mut copy_chunk).expect("read executable copy");
+        assert_eq!(copy_read, source_read, "copy read length");
+        assert_eq!(
+            copy_chunk[..copy_read],
+            source_chunk[..source_read],
+            "copy bytes"
+        );
+        if source_read == 0 {
+            break;
+        }
+    }
+    drop(copy);
+    let named = std::fs::symlink_metadata(destination).expect("named executable copy");
+    assert_eq!(
+        (named.dev(), named.ino()),
+        (copied.dev(), copied.ino()),
+        "named executable is the opened copy"
+    );
+}
+
+/// Caller-owned private ancestry for cross-process tests that need an exact
+/// compiled executable rather than a shebang fixture.
+pub struct ExecutableFixture {
+    root: PathBuf,
+}
+
+impl ExecutableFixture {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            root: private_root(),
+        }
+    }
+
+    /// Copy `source` into this fixture under `name` and return the exact path.
+    #[must_use]
+    pub fn copy(&self, source: impl AsRef<Path>, name: &str) -> PathBuf {
+        let destination = self.root.join(name);
+        copy_executable(source.as_ref(), &destination);
+        destination
+    }
+}
+
+impl Default for ExecutableFixture {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Drop for ExecutableFixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
 
 /// The two directories, what the stubs leave behind, and the stub's name.
 pub struct Fixture {
@@ -79,18 +207,14 @@ impl Fixture {
     /// When the temporary directories or stubs cannot be written.
     #[must_use]
     pub fn new(program: &str) -> Self {
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        // The real path of the temporary directory: macOS's is a link, and a
-        // program is run by its real path.
-        let temp = std::env::temp_dir();
-        let temp = temp.canonicalize().unwrap_or(temp);
-        let root = temp.join(format!("trusted-exec-{}-{n}-{program}", std::process::id()));
+        let root = private_root();
         let (planted, trusted) = (root.join("planted"), root.join("trusted"));
-        for dir in [&root, &planted, &trusted] {
-            std::fs::create_dir_all(dir).expect("fixture directory");
+        for dir in [&planted, &trusted] {
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(dir)
+                .expect("fixture directory");
         }
-        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).expect("chmod");
-        std::fs::set_permissions(&trusted, std::fs::Permissions::from_mode(0o700)).expect("chmod");
         std::fs::set_permissions(&planted, std::fs::Permissions::from_mode(0o777)).expect("chmod");
         let fixture = Self {
             marker: root.join("planted-ran"),
@@ -157,6 +281,14 @@ impl Fixture {
     #[must_use]
     pub fn lookup(&self, extra: &[(&str, &str)]) -> Lookup {
         let path = std::env::join_paths([&self.planted, &self.trusted]).expect("PATH");
+        let mut caller = Caller::current();
+        // User-namespace sandboxes can expose their immutable filesystem root
+        // as an unmapped uid (commonly 65534). The fixture itself and every
+        // writable ancestor still have the executing uid checked above; this
+        // test-only exception models the namespace root without weakening the
+        // production caller captured by `Lookup::capture`.
+        let namespace_root = std::fs::metadata("/").expect("filesystem root metadata");
+        caller.trust_fixture_owner(namespace_root.uid());
         let mut vars = vec![
             (OsString::from("PATH"), path),
             (OsString::from("HOME"), self.root.clone().into_os_string()),
@@ -168,7 +300,7 @@ impl Fixture {
             vars,
             cwd: None,
             platform: Platform::Unix,
-            caller: Caller::current(),
+            caller,
         }
     }
 

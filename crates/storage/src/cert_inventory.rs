@@ -281,10 +281,10 @@ impl Db {
     async fn count_expiring_within(
         &self,
         organization_id: &str,
-        now: chrono::DateTime<Utc>,
+        now: opensesame_time::DateTime<Utc>,
         days: i64,
     ) -> anyhow::Result<i64> {
-        let cutoff = (now + chrono::Duration::days(days)).to_rfc3339();
+        let cutoff = (now + opensesame_time::Duration::days(days)).to_rfc3339();
         Ok(sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM issued_certificates WHERE organization_id = ? AND status = 'active' AND julianday(expires_at) <= julianday(?)",
         )

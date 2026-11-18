@@ -21,11 +21,11 @@
 //! not settle dead-letters visibly instead of disappearing.
 
 use base64::Engine as _;
-use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use opensesame_connection_broker::crypto::{open_scoped, SealedBlob};
 use opensesame_security_events::Delivery;
 use opensesame_storage::{StoredSecurityDelivery, StoredSecurityHook, SECURITY_HOOK_SECRET_SCOPE};
+use opensesame_time::{DateTime, Utc};
 use sha2::Sha256;
 use std::time::Duration;
 
@@ -130,7 +130,7 @@ pub fn retry_at(now: DateTime<Utc>, attempts: i64) -> DateTime<Utc> {
     let delay = BASE_BACKOFF_SECONDS
         .saturating_mul(2_i64.saturating_pow(exponent))
         .min(MAX_BACKOFF_SECONDS);
-    now + chrono::Duration::seconds(delay)
+    now + opensesame_time::Duration::seconds(delay)
 }
 
 /// Process-lifetime delivery worker, spawned beside the backup and scanner

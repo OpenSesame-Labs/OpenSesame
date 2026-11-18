@@ -49,7 +49,7 @@ fn allow_for(req: &HostDecisionRequest) -> HostDecisionResponse {
         server_id: Some(req.server.id.clone()),
         request_digest: Some(req.request_digest.clone()),
         exp: Some(
-            chrono::DateTime::from_timestamp(NOW + 120, 0)
+            opensesame_time::DateTime::from_timestamp(NOW + 120, 0)
                 .unwrap()
                 .to_rfc3339(),
         ),

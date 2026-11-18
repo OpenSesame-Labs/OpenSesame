@@ -23,7 +23,7 @@ use axum::extract::{Query, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::HeaderMap;
 use axum::response::Response;
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 

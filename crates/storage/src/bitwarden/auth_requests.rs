@@ -3,7 +3,7 @@
 //! devices gives it. The access code is held only as a digest; the answer
 //! is the user key wrapped under the asking device's public key.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

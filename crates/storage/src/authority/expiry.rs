@@ -3,7 +3,7 @@
 //! Value-blind: grant id, organization, and the interval only. No permission
 //! entries, digests, or secret-shaped columns leave this query.
 
-use chrono::{DateTime, Utc as ChronoUtc};
+use opensesame_time::{DateTime, Utc as ChronoUtc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row;
 

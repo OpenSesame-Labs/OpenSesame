@@ -225,7 +225,7 @@ pub async fn put_config(
             .as_ref()
             .and_then(|config| config.sealed_passphrase.clone()),
     };
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = opensesame_time::Utc::now().to_rfc3339();
     let config = StoredEstConfig {
         id,
         organization_id: organization,

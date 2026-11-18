@@ -39,6 +39,12 @@ const ALLOWED = [
       "the isolated layout, built in a temporary directory, is mirrored too",
   },
   {
+    path: "scripts/test/provider-s3-esbuild.test.mjs",
+    text: '"packages/app-core/node_modules/esbuild"',
+    reason:
+      "builds a temporary split workspace to prove app-core resolves its declared esbuild instead of a hoisted copy",
+  },
+  {
     path: "packages/agent-sandboxes/src/boat-agent.ts",
     text: "packages/cua-password-reset/node_modules/.bin/agent-browser",
     reason:

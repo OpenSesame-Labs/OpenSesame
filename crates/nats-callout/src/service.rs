@@ -140,7 +140,7 @@ async fn serve_one(core: &BridgeCore, stats: &CalloutStats, request: async_nats:
         .as_ref()
         .and_then(|h| h.get(SERVER_XKEY_HEADER))
         .map(|v| v.as_str().to_owned());
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let (outcome, verdict) = core
         .handle_with_verdict(&request.message.payload, header.as_deref(), now)
         .await;

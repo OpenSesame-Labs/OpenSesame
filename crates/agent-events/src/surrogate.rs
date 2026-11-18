@@ -34,8 +34,8 @@
 
 use std::fmt;
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use thiserror::Error;

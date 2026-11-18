@@ -31,4 +31,4 @@ serde_json = { workspace = true }
 opensesame-transport-security = { path = "../transport-security", features = ["testkit"] }
 opensesame-domain = { path = "../domain" }
 axum = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }

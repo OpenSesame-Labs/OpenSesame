@@ -3,7 +3,7 @@
 //! Kept small and local so the fabric scenarios under `--lib` do not depend on
 //! the integration-test helper crate at `crates/storage/tests/authority_support`.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::{AuthorityIssue, BudgetScope, NewAccessDomain, PermissionEntry};
 use crate::Db;

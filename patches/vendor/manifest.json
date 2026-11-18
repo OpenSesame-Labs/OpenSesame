@@ -15,6 +15,116 @@
       "patch": "patches/@levischuck__tiny-cbor@0.2.11.patch",
       "tarball": "patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
       "upstreamIntegrity": "sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow=="
+    },
+    "picomatch@2.3.2": {
+      "patch": "patches/picomatch@2.3.2.patch",
+      "tarball": "patches/vendor/picomatch-2.3.2.tgz",
+      "upstreamIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+      "upstreamFileMapSha256": "982a53e071734ab07133a11503b87330426d5e67610372a10a9b475bbcb5bdd1",
+      "rootDependency": "picomatch-v2-patched",
+      "override": "picomatch@^2"
+    },
+    "picomatch@4.0.7": {
+      "patch": "patches/picomatch@4.0.7.patch",
+      "tarball": "patches/vendor/picomatch-4.0.7.tgz",
+      "upstreamIntegrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+      "upstreamFileMapSha256": "f0935171c00b64fa6753c6ed10d7f32c635bb69baa09656517fb4cf9bcc366b9",
+      "rootDependency": "picomatch-v4-patched",
+      "override": "picomatch@^4"
+    },
+    "@levischuck/tiny-cbor@0.3.6": {
+      "patch": "patches/@levischuck__tiny-cbor@0.3.6.patch",
+      "tarball": "patches/vendor/levischuck-tiny-cbor-0.3.6.tgz",
+      "upstreamIntegrity": "sha512-uh1K62xhRZbEbnXEPUJ1WHd7uJTAKg65EX/7S/DDX3u2lexCvSjqrOOR3rb+5TDhCyGVHflu/HEtFjuEQ6y+qw==",
+      "rootDependency": "tiny-cbor-v3-patched",
+      "override": "@levischuck/tiny-cbor@^0.3"
+    },
+    "typed-rest-client@2.3.1": {
+      "patch": "patches/typed-rest-client@2.3.1.patch",
+      "tarball": "patches/vendor/typed-rest-client-2.3.1.tgz",
+      "upstreamIntegrity": "sha512-k4kX5Up6qA68D0Cby2AK+6+vM5k3qTxe+/3FqhnHRExjY5cfbOnzjQZbP/LXleF8hVoDvDqxlgk9KK83HoBZlQ=="
+    },
+    "@esbuild-kit/core-utils@3.3.2": {
+      "patch": "patches/@esbuild-kit__core-utils@3.3.2.patch",
+      "tarball": "patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
+      "upstreamIntegrity": "sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ=="
+    },
+    "nunjucks@3.2.4": {
+      "patch": "patches/nunjucks@3.2.4.patch",
+      "tarball": "patches/vendor/nunjucks-3.2.4.tgz",
+      "upstreamIntegrity": "sha512-26XRV6BhkgK0VOxfbU5cQI+ICFUtMLixv1noZn1tGU38kQH5A5nmmbk/O45xdyBhD1esk47nKrY0mvQpZIhRjQ=="
+    },
+    "kdbxweb@2.1.1": {
+      "patch": "patches/kdbxweb@2.1.1.patch",
+      "tarball": "patches/vendor/kdbxweb-2.1.1.tgz",
+      "upstreamIntegrity": "sha512-z+a2+BEzyK2kUh0xDekY7gwc9CkbzSetUyvc78NKVawxV06UG1KYbg9W9hZCJdQPYizIVePTvQsYUXIO1qtAhQ==",
+      "workspaceDependency": "packages/app-core/package.json",
+      "upstreamTarball": "https://registry.npmjs.org/kdbxweb/-/kdbxweb-2.1.1.tgz"
+    },
+    "@aws-sdk/xml-builder@3.972.42": {
+      "patch": "patches/@aws-sdk__xml-builder@3.972.42.patch",
+      "tarball": "patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
+      "upstreamIntegrity": "sha512-smX8/gNP8Kjq+CWTBMZQLQ912vOQjiWExzwzvMO+eujPB5RY8IbtF0AGdUUXHKN7KoDWK9dIcuW0WG269kiP6w==",
+      "upstreamTarball": "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz"
+    },
+    "glob@10.5.0": {
+      "patch": "patches/glob@10.5.0.patch",
+      "tarball": "patches/vendor/glob-10.5.0.tgz",
+      "upstreamIntegrity": "sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==",
+      "upstreamFileMapSha256": "c2a363194438a851d193a8a167702d51480e9547ae87bf30439875269cf1aeb2",
+      "rootDependency": "glob10-patched",
+      "override": "glob@^10.0.0"
+    },
+    "glob@11.1.0": {
+      "patch": "patches/glob@11.1.0.patch",
+      "tarball": "patches/vendor/glob-11.1.0.tgz",
+      "upstreamIntegrity": "sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==",
+      "upstreamFileMapSha256": "4816a93773653820c70e024a417ea6f26eb84c912a1a2e858fe5d614a28c63ab",
+      "rootDependency": "glob11-patched",
+      "override": "glob@^11.0.1"
+    },
+    "minimatch@9.0.9": {
+      "patch": "patches/minimatch@9.0.9.patch",
+      "tarball": "patches/vendor/minimatch-9.0.9.tgz",
+      "upstreamIntegrity": "sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==",
+      "upstreamFileMapSha256": "4b237892bc30463c10e867a0f053defd60feaf4d131fed9a85e4e6c04e0cc661",
+      "rootDependency": "minimatch9-patched",
+      "override": "minimatch@^9.0.4"
+    },
+    "minimatch@10.2.6": {
+      "patch": "patches/minimatch@10.2.6.patch",
+      "tarball": "patches/vendor/minimatch-10.2.6.tgz",
+      "upstreamIntegrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+      "upstreamFileMapSha256": "ec7dedd81a230e32846519e0d9eb00f9336ddafda12d003a471d396ed734e7e3",
+      "rootDependency": "minimatch10-patched",
+      "override": "minimatch@^10.0.0"
+    },
+    "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": {
+      "patch": "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
+      "tarball": "patches/vendor/joshwooding-vite-plugin-react-docgen-typescript-0.7.0.tgz",
+      "upstreamIntegrity": "sha512-qvsTEwEFefhdirGOPnu9Wp6ChfIwy2dBCRuETU3uE+4cC+PFoxMSiiEhxk4lOluA34eARHA0OxqsEUYDqRMgeQ==",
+      "rootDependency": "docgen-plugin-patched",
+      "override": "@joshwooding/vite-plugin-react-docgen-typescript"
+    },
+    "react-docgen-typescript@2.4.0": {
+      "patch": "patches/react-docgen-typescript@2.4.0.patch",
+      "tarball": "patches/vendor/react-docgen-typescript-2.4.0.tgz",
+      "upstreamIntegrity": "sha512-ZtAp5XTO5HRzQctjPU0ybY0RRCQO19X/8fxn3w7y2VVTUbGHDKULPTL4ky3vB05euSgG5NpALhEhDPvQ56wvXg==",
+      "rootDependency": "react-docgen-patched",
+      "override": "react-docgen-typescript"
+    },
+    "node-turn@0.0.6": {
+      "patch": "patches/node-turn@0.0.6.patch",
+      "tarball": "patches/vendor/node-turn-0.0.6.tgz",
+      "upstreamIntegrity": "sha512-HJRfWIADk5I61jZlrKHwx/A+IgusnN7Fs/M9wl0xuSxTynKnh4ZBLvvIeBH5w556bl2bFFkzHiCJFIZ3FR7fmA==",
+      "workspaceDependency": "apps/pages/package.json"
+    },
+    "@noble/post-quantum@0.5.4": {
+      "patch": "patches/@noble__post-quantum@0.5.4.patch",
+      "tarball": "patches/vendor/noble-post-quantum-0.5.4.tgz",
+      "upstreamIntegrity": "sha512-leww0zzIirrvwaYMPI9fj6aRIlA/c6Y0/lifQQ1YOOyHEr0MNH3yYpjXeiVG+tWdPps4XxGclFWX2INPO3Yo5w==",
+      "rootDependency": "noble-post-quantum-patched",
+      "override": "@noble/post-quantum"
     }
   },
   "notInstalled": {

@@ -1,13 +1,13 @@
 //! Strict RFC 3339 timestamps shared by every transport DTO.
 //!
 //! Both planes must read the same string the same way, so the accepted
-//! grammar is narrower than what `chrono` or V8 would tolerate on their own:
+//! grammar is narrower than what `opensesame_time` or V8 would tolerate on their own:
 //! `YYYY-MM-DDTHH:MM:SS[.fff](Z|±HH:MM)`, uppercase `T`/`Z`, at most three
 //! fractional digits, no leap second, and always an offset. The canonical
 //! form is UTC with millisecond precision, which is exactly what a JavaScript
 //! `Date` produces, so a round trip through either plane is byte-identical.
 
-use chrono::{DateTime, SecondsFormat, Utc};
+use opensesame_time::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Deserializer, Serializer};
 
 /// Parse a strict RFC 3339 timestamp.
@@ -116,7 +116,7 @@ pub fn serialize<S: Serializer>(value: &DateTime<Utc>, s: S) -> Result<S::Ok, S:
 /// `#[serde(with = "timestamp::option")]` for an `Option<DateTime<Utc>>`.
 pub mod option {
     use super::{canonical, parse};
-    use chrono::{DateTime, Utc};
+    use opensesame_time::{DateTime, Utc};
     use serde::{Deserialize, Deserializer, Serializer};
 
     /// # Errors

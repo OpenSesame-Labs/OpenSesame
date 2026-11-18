@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use chrono::Utc;
 use opensesame_agent_hooks::sdk::{AgentContext, Interceptor, Verdict};
 use opensesame_connection_broker::{RotationPolicy, RotationTarget, UpsertRotationPolicy};
 use opensesame_domain::OrganizationId;
@@ -17,6 +16,7 @@ use opensesame_session_observe::HandoffOutcome;
 use opensesame_storage::agent_hook_policy::{AgentHookPolicyAudit, AgentHookPolicyWrite};
 use opensesame_storage::{Db, ObservationControlUpdate};
 use opensesame_task_bus::{BusEvent, InMemoryTaskBus, TaskBus};
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
@@ -189,7 +189,7 @@ where
                 continue;
             }
             let now = Utc::now();
-            let expires = now + chrono::Duration::seconds(30);
+            let expires = now + opensesame_time::Duration::seconds(30);
             let Some(step) = state
                 .db
                 .claim_runner_step(

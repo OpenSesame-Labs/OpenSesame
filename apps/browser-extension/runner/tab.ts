@@ -132,28 +132,50 @@ export async function stillOf(
 ): Promise<Capture | null> {
   const { inject } = injector;
   const current = await browser.tabs.get(tabId);
-  await browser.tabs.update(tabId, { active: true });
-  const covered = await inject(pfMask, [maskSelectors], 0);
-  try {
-    const before = await inject(pfLayout, [], 0);
-    let image: Uint8Array | null = null;
-    for (const quality of QUALITIES) {
-      const url = await browser.tabs.captureVisibleTab(current.windowId, {
-        format: "jpeg",
-        quality,
-      });
-      const bytes = Uint8Array.from(atob(url.split(",")[1] ?? ""), (c) =>
-        c.charCodeAt(0),
-      );
-      if (bytes.length <= MAX_IMAGE_BYTES) {
-        image = bytes;
-        break;
-      }
+  const windowId = current.windowId;
+  let armed = false;
+  let switched = false;
+  const activated = (info: { tabId: number; windowId: number }) => {
+    if (armed && info.windowId === windowId && info.tabId !== tabId) {
+      switched = true;
     }
-    if (image === null) return null;
-    const after = await inject(pfLayout, [], 0);
-    return { image, covered, before, after };
+  };
+  const targetIsActive = async () => {
+    const active = await browser.tabs.query({ active: true, windowId });
+    return active.length === 1 && active[0]?.id === tabId;
+  };
+  browser.tabs.onActivated.addListener(activated);
+  try {
+    await browser.tabs.update(tabId, { active: true });
+    if (!(await targetIsActive())) return null;
+    armed = true;
+    const covered = await inject(pfMask, [maskSelectors], 0);
+    try {
+      const before = await inject(pfLayout, [], 0);
+      let image: Uint8Array | null = null;
+      for (const quality of QUALITIES) {
+        if (switched || !(await targetIsActive())) return null;
+        const url = await browser.tabs.captureVisibleTab(windowId, {
+          format: "jpeg",
+          quality,
+        });
+        if (switched || !(await targetIsActive())) return null;
+        const bytes = Uint8Array.from(atob(url.split(",")[1] ?? ""), (c) =>
+          c.charCodeAt(0),
+        );
+        if (bytes.length <= MAX_IMAGE_BYTES) {
+          image = bytes;
+          break;
+        }
+      }
+      if (image === null) return null;
+      const after = await inject(pfLayout, [], 0);
+      if (switched || !(await targetIsActive())) return null;
+      return { image, covered, before, after };
+    } finally {
+      await inject(pfUnmask, [], 0).catch(() => undefined);
+    }
   } finally {
-    await inject(pfUnmask, [], 0).catch(() => undefined);
+    browser.tabs.onActivated.removeListener(activated);
   }
 }

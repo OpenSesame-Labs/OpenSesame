@@ -67,7 +67,7 @@ function pagesForTab(tab: Tab, origin: string): StepPages {
     async waitFor(selector, timeoutMs = 15_000): Promise<Landed> {
       return inject(pfWaitFor, [selector, timeoutMs], 2);
     },
-    fill: (selector, value) => inject(pfFill, [selector, value], 2),
+    fill: (selector, value) => inject(pfFill, [selector, value, origin], 2),
     presence: (selector, expected) =>
       inject(pfPresence, [selector, expected], 2),
     submit: (selector) => press(tabId, injector, selector),

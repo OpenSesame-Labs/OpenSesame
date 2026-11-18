@@ -5,7 +5,7 @@
 //! the client chose, and a server-side hash of the client's master-password
 //! hash. None of it opens a vault.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 
 use crate::{Db, Row};
@@ -51,7 +51,7 @@ pub struct BitwardenCredentials {
 }
 
 pub(crate) fn bitwarden_timestamp(at: DateTime<Utc>) -> String {
-    at.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+    at.to_rfc3339_opts(opensesame_time::SecondsFormat::Millis, true)
 }
 
 pub(crate) fn parse_bitwarden_timestamp(raw: &str) -> anyhow::Result<DateTime<Utc>> {

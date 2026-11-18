@@ -2,7 +2,6 @@ mod frozen;
 
 pub use frozen::{assert_grant_covers_frozen_intent, FrozenInvokeInput};
 
-use chrono::Utc;
 use opensesame_audit::ReceiptSigner;
 use opensesame_authz::{
     AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject, PolicyEngine,
@@ -13,6 +12,7 @@ use opensesame_domain::{
     InvocationState, ReceiptId, ReceiptOutcome, ValidatedGrantChain,
 };
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 pub struct Broker {
@@ -58,7 +58,7 @@ impl Broker {
 
     fn begin_invocation(
         intent_id: opensesame_domain::IntentId,
-        now: chrono::DateTime<Utc>,
+        now: opensesame_time::DateTime<Utc>,
     ) -> anyhow::Result<Invocation> {
         let mut invocation = Invocation {
             id: InvocationId::new(),

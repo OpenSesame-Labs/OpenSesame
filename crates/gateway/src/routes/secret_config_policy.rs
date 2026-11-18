@@ -114,7 +114,7 @@ pub async fn set_role(
         &principal,
         body.role,
         body.expected_revision,
-        chrono::Utc::now().timestamp(),
+        opensesame_time::Utc::now().timestamp(),
     )
     .await
     {

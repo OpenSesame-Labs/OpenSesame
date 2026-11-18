@@ -83,7 +83,7 @@ async fn config_mode_callout_end_to_end() {
     //    decision (same digest, same permissions, same expiry).
     let raw = stack.host.raw_requests()[0].clone();
     let core = stack.bridge_core();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let a = reply_of(core.handle(raw.as_bytes(), None, now).await);
     let b = reply_of(core.handle(raw.as_bytes(), None, now + 1).await);
     assert_eq!(stack.host.calls(), 4);
@@ -152,7 +152,7 @@ async fn bridge_with_the_wrong_client_certificate_is_refused_by_the_host() {
         let (_c, _e) = stack.app_client(GOOD_TOKEN).await.expect("admitted");
         stack.host.raw_requests()[0].clone()
     };
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let resp = reply_of(core.handle(raw.as_bytes(), None, now).await);
     assert_eq!(
         resp.error(),
@@ -177,7 +177,7 @@ async fn a_self_signed_server_envelope_is_refused_by_the_host() {
     // server's key and refuses it. A forged envelope cannot become an allow
     // by being laundered through the bridge.
     let forger = Parties::generate();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let core = stack.bridge_core();
 
     // Addressed to some other deployment's callout account: the bridge does

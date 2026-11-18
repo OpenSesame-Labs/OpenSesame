@@ -27,10 +27,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use chrono::Utc;
 use opensesame_agent_hooks::secrets;
 use opensesame_rotation_web::{StepChannel, StepError, StepOutcome, StepRequest};
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 use serde_json::Value;
 
 use super::control::{ControlGate, Stop};

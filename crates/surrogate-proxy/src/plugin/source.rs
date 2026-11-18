@@ -80,7 +80,11 @@ pub fn scrubbed_env(env: &BTreeMap<String, String>) -> BTreeMap<String, String> 
 
 /// `spec`'s tool found by the trusted rule over `env`, with the built
 /// environment.
-fn command(spec: SourceToolSpec, env: &BTreeMap<String, String>) -> Result<Command, ResolveError> {
+fn command(
+    spec: SourceToolSpec,
+    env: &BTreeMap<String, String>,
+    caller: Caller,
+) -> Result<Command, ResolveError> {
     let lookup = Lookup {
         vars: env
             .iter()
@@ -88,7 +92,7 @@ fn command(spec: SourceToolSpec, env: &BTreeMap<String, String>) -> Result<Comma
             .collect(),
         cwd: None,
         platform: Platform::current(),
-        caller: Caller::current(),
+        caller,
     };
     let named = (spec.binary == "gh").then_some(GH_OVERRIDE);
     let mut command = command_in(spec.binary, named, &lookup)?;
@@ -101,6 +105,8 @@ fn command(spec: SourceToolSpec, env: &BTreeMap<String, String>) -> Result<Comma
 pub struct CliTokenSource {
     spec: SourceToolSpec,
     env: BTreeMap<String, String>,
+    #[cfg(test)]
+    test_caller: Option<Caller>,
 }
 
 impl std::fmt::Debug for CliTokenSource {
@@ -125,13 +131,25 @@ impl CliTokenSource {
         Self {
             spec,
             env: scrubbed_env(env),
+            #[cfg(test)]
+            test_caller: None,
         }
+    }
+
+    #[cfg(test)]
+    fn with_test_caller(mut self, caller: Caller) -> Self {
+        self.test_caller = Some(caller);
+        self
     }
 }
 
 impl TokenSource for CliTokenSource {
     fn acquire(&self) -> Result<SecretString, InvokeError> {
-        capture(self.spec, &self.env).map_err(InvokeError::TokenUnavailable)
+        #[cfg(test)]
+        let caller = self.test_caller.clone().unwrap_or_else(Caller::current);
+        #[cfg(not(test))]
+        let caller = Caller::current();
+        capture(self.spec, &self.env, caller).map_err(InvokeError::TokenUnavailable)
     }
 }
 
@@ -160,9 +178,13 @@ impl TokenSource for StaticCredential {
     }
 }
 
-fn capture(spec: SourceToolSpec, env: &BTreeMap<String, String>) -> Result<SecretString, String> {
+fn capture(
+    spec: SourceToolSpec,
+    env: &BTreeMap<String, String>,
+    caller: Caller,
+) -> Result<SecretString, String> {
     let program = spec.binary;
-    let mut child = command(spec, env)
+    let mut child = command(spec, env, caller)
         .map_err(|error| format!("{program} could not be started: {error}"))?
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -243,6 +265,7 @@ fn join_briefly<T>(thread: JoinHandle<T>) -> Option<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use opensesame_trusted_exec::testkit::Fixture;
     use secrecy::ExposeSecret;
 
     fn env() -> BTreeMap<String, String> {
@@ -257,7 +280,10 @@ mod tests {
 
     fn scripted(script: &'static str) -> CliTokenSource {
         let args: &'static [&'static str] = Box::leak(Box::new(["-c", script]));
+        let fixture = Fixture::new("caller");
+        let caller = fixture.lookup(&[]).caller;
         CliTokenSource::with_spec(SourceToolSpec { binary: "sh", args }, &env())
+            .with_test_caller(caller)
     }
 
     #[test]

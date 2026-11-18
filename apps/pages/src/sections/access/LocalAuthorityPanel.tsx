@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import "./local-authority.css";
 import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh, IconTrash, IconX } from "../../components/Icons.js";
@@ -23,7 +23,10 @@ import {
 export function LocalAuthorityPanel({
   tomb,
   records,
-}: { tomb: string; records: LocalAuthorityRow["kind"] }) {
+}: {
+  tomb: string;
+  records: LocalAuthorityRow["kind"];
+}) {
   const state = useLocalAuthority(tomb);
   const grantsOnly = records === "grant";
   const rows = state.rows?.filter((row) => row.kind === records);
@@ -128,7 +131,10 @@ function ConfirmRevocation({
   revoke: (row: LocalAuthorityRow) => Promise<boolean>;
 }) {
   const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
+  // Own focus in the same commit that draws the confirmation. With Preact a
+  // passive effect can run after the person's first Shift+Tab and move focus
+  // back to Cancel, undoing that keyboard input.
+  useLayoutEffect(() => {
     cancel.current?.focus();
   }, []);
   return (

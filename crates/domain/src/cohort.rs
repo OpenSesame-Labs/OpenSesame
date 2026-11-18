@@ -50,7 +50,7 @@
 //! the rename.
 
 use crate::{CohortId, DomainError, PrincipalId, TeamId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;

@@ -639,6 +639,17 @@ jobs:
           VITE_BASE: /OpenSesame/
           PAGES_VERIFY_OUT: ${{ runner.temp }}/self-hosted-connectors
         run: npm run verify:self-hosted-connectors -w @opensesame/pages
+      - name: MQTT broker debug logs contain no credentials or frames
+        if: matrix.shard == 'budgets'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          PAGES_MQTT_TEST_DIST: apps/pages/dist
+        run: node --test apps/pages/scripts/verify-mqtt-packet-debug.mjs
+      - name: SAML worker custody and replay protection
+        if: matrix.shard == 'budgets'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+        run: node --test apps/pages/scripts/verify-saml-worker.mjs
       - name: Preserve self-hosted provider evidence
         if: always() && matrix.shard == 'budgets'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

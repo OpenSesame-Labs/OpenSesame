@@ -15,6 +15,14 @@ export function isString(value) {
   return hasPrimitiveTag(value, "[object String]");
 }
 
+export function isNumber(value) {
+  return hasPrimitiveTag(value, "[object Number]");
+}
+
+export function isFunction(value) {
+  return Object.prototype.toString.call(value).endsWith("Function]");
+}
+
 /** A plain JSON object: not null, not an array, not a function. */
 export function isJsonObject(value) {
   return (

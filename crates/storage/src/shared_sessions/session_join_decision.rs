@@ -2,11 +2,11 @@
 use super::decision_str;
 use crate::Db;
 use anyhow::{bail, Context};
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     Admission, JoinDecision, JoinRequestId, PrincipalId, SessionGrant, SessionGrantId,
     SessionMembership,
 };
+use opensesame_time::{DateTime, Utc};
 
 #[derive(Debug)]
 pub struct ClosedOrDecided;

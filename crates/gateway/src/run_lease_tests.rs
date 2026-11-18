@@ -5,13 +5,13 @@
 
 use std::sync::{Arc, Mutex};
 
-use chrono::{DateTime, Utc};
 use opensesame_agent_events::{
     surrogate_refusal_notice, AgentEvent, AgentPhase, AgentRun, SurrogateRefusalReport,
 };
 use opensesame_security_events::SecurityNotice;
 use opensesame_session_observe::RunCredentials;
 use opensesame_storage::StoredObservationRun;
+use opensesame_time::{DateTime, Utc};
 
 use super::{lease_from, state_name};
 use crate::app_state::{test_demo_state, AppState};
@@ -106,7 +106,7 @@ fn phase(phase: AgentPhase, run_id: &str, organization: &str) -> SecurityNotice 
         tier: "t4".into(),
         control_state: "agent_driving".into(),
     };
-    let later = at() + chrono::Duration::seconds(600);
+    let later = at() + opensesame_time::Duration::seconds(600);
     if phase == AgentPhase::Blocked || phase == AgentPhase::AwaitingHuman {
         AgentEvent::waiting(run, phase, at(), later, None)
     } else {

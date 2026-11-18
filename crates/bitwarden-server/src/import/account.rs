@@ -9,13 +9,13 @@
 //! vault was sealed with; nothing in the vault is decrypted. The Host keeps a
 //! hash of the same login hash, so the same password opens the same vault.
 
-use chrono::{DateTime, Utc};
 use opensesame_provider_bitwarden::{
     Client, DeviceIdentity, EncString, Endpoints, Error, Kdf, MasterKey,
 };
 use opensesame_storage::bitwarden::{
     ArrivingSignIn, BitwardenArrival, BitwardenKdf, BitwardenTwoFactor, BitwardenUser,
 };
+use opensesame_time::{DateTime, Utc};
 use serde_json::Value;
 use zeroize::Zeroizing;
 

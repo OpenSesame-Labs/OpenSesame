@@ -12,7 +12,7 @@ use super::evidence::VerifiedPeer;
 use super::policy::{EvidenceSource, TlsVersion, TransportPolicy, TrustProfileRef};
 use super::selector::PeerIdentitySelector;
 use super::{validate_id, validate_thumbprint};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 /// Facts a verifier attests to before they become [`VerifiedPeer`].
 #[derive(Clone, Debug, PartialEq, Eq)]

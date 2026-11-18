@@ -6,8 +6,8 @@
 use std::collections::HashSet;
 use std::{fs::File, sync::Arc};
 
-use chrono::Utc;
 use opensesame_storage::bitwarden::{BitwardenAttachment, BitwardenSend};
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 use sqlx::sqlite::{SqlitePool, SqliteRow};
 

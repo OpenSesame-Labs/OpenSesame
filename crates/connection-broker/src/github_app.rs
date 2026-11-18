@@ -4,15 +4,18 @@
 //! GitHub creates the app under the operator's account, and the Host seals the
 //! resulting credentials as an organization integration (ADR 0035).
 
+use opensesame_invoke_through::scrub_credential_reflection;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use crate::config::BrokerConfig;
 use crate::error::BrokerError;
+use crate::response_guard::{read_bounded_body, ResponseBodyError};
 use crate::Result;
 
 pub const GITHUB_APP_REGISTER_URL: &str = "https://github.com/settings/apps/new";
 pub const GITHUB_APP_MANIFEST_CONVERSIONS: &str = "https://api.github.com/app-manifests";
+const MAX_CONVERSION_RESPONSE_BYTES: usize = 256 * 1024;
 
 /// GitHub App client ids are `Iv1.` / `Iv23`… Classic OAuth apps use other forms.
 #[must_use]
@@ -187,33 +190,59 @@ pub async fn convert_manifest_code(
     http: &reqwest::Client,
     code: &str,
 ) -> Result<GithubAppCredentials> {
+    convert_manifest_code_at(http, GITHUB_APP_MANIFEST_CONVERSIONS, code).await
+}
+
+pub(crate) async fn convert_manifest_code_at(
+    http: &reqwest::Client,
+    endpoint: &str,
+    code: &str,
+) -> Result<GithubAppCredentials> {
     let code = code.trim();
     if code.is_empty() {
         return Err(BrokerError::Invalid("manifest code is required".into()));
     }
-    let url = format!("{GITHUB_APP_MANIFEST_CONVERSIONS}/{code}/conversions");
-    let res = http
-        .post(&url)
+    let mut url = url::Url::parse(endpoint)
+        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?;
+    url.path_segments_mut()
+        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?
+        .pop_if_empty()
+        .push(code)
+        .push("conversions");
+    let mut res = http
+        .post(url)
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "OpenSesame-Host/0.1")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
+        .map_err(|_| {
+            BrokerError::ExchangeFailed("GitHub App manifest conversion request failed".into())
+        })?;
     let status = res.status();
-    let text = res
-        .text()
-        .await
-        .map_err(|e| BrokerError::ExchangeFailed(e.to_string()))?;
     if !(200..300).contains(&status.as_u16()) {
-        let snippet: String = text.chars().take(200).collect();
         return Err(BrokerError::ExchangeFailed(format!(
-            "GitHub App manifest conversion failed ({status}): {snippet}"
+            "GitHub App manifest conversion failed ({status})"
         )));
     }
-    serde_json::from_str(&text).map_err(|e| {
-        BrokerError::ExchangeFailed(format!("invalid GitHub App conversion response: {e}"))
-    })
+    let body = read_bounded_body(&mut res, MAX_CONVERSION_RESPONSE_BYTES)
+        .await
+        .map_err(|error| match error {
+            ResponseBodyError::TooLarge { .. } => BrokerError::ExchangeFailed(
+                "GitHub App conversion response exceeds size limit".into(),
+            ),
+            ResponseBodyError::Read => {
+                BrokerError::ExchangeFailed("could not read GitHub App conversion response".into())
+            }
+        })?;
+    let (body, reflected) = scrub_credential_reflection(body, code);
+    if reflected {
+        return Err(BrokerError::ExchangeFailed(
+            "GitHub App conversion response reflected the one-time code".into(),
+        ));
+    }
+    serde_json::from_slice(&body)
+        .map_err(|_| BrokerError::ExchangeFailed("invalid GitHub App conversion response".into()))
 }
 
 #[cfg(test)]

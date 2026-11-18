@@ -131,7 +131,8 @@ impl Context {
             }
             HpkeAead::ChaCha20Poly1305 => {
                 let payload = ChaPayload { msg: input, aad };
-                let nonce = ChaNonce::from_slice(&nonce);
+                let nonce =
+                    <&ChaNonce>::try_from(nonce.as_slice()).map_err(|_| HpkeError::Length)?;
                 let cipher = ChaCha20Poly1305::new_from_slice(self.key.expose())
                     .map_err(|_| HpkeError::Length)?;
                 let out = if encrypt {

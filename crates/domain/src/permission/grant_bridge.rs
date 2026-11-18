@@ -89,7 +89,7 @@ pub fn assert_flat_grant_matches_entry(
 mod tests {
     use super::*;
     use crate::{ConnectionId, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId};
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     fn grant(actions: &[&str], resources: &[&str]) -> Grant {
         let now = Utc::now();

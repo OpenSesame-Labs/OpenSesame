@@ -7,9 +7,9 @@ mod support;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{Duration as ChronoDuration, Utc};
 use opensesame_sandbox::fixtures::{chain, root_grant};
 use opensesame_sandbox::{RevocationLedger, SandboxError, SandboxProfile};
+use opensesame_time::{Duration as ChronoDuration, Utc};
 
 use support::{sandbox_on, RecordingBroker};
 

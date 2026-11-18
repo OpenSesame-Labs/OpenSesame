@@ -60,8 +60,7 @@ describe("classification", () => {
     assert.equal(entry.id, "node_modules/@vercel/connect/dist/index.js");
     assert.equal(entry.capability, "connectors.external");
     assert.equal(
-      classify("/repo/node_modules/zod/index.js")
-        .rationale,
+      classify("/repo/node_modules/zod/index.js").rationale,
       "unclassified dependency",
     );
   });
@@ -109,6 +108,23 @@ test("records individually switched type packs as on-demand cache resources", as
   assert.equal(
     graph.chunks.find((chunk) => chunk.name === "main").onDemand,
     false,
+  );
+});
+
+test("records Rollup file references as offline chunk assets", async () => {
+  const { main } = await compose(tree, { mode: "selective" });
+  const { ctx, bundle } = fakeBundle(tree.appRoot, "");
+  const output = bundle();
+  const generated = "assets/generated-data/capability-catalog.json";
+  const entry = output["assets/main-1.js"];
+  entry.referencedFiles = [generated, "assets/main.css"];
+  entry.viteMetadata.importedAssets.add("assets/main.css");
+  output[generated] = { type: "asset", source: "{}" };
+
+  const graph = buildGraph(ctx, output, main.__state(), "/OpenSesame/");
+  assert.deepEqual(
+    graph.chunks.find((chunk) => chunk.name === "main").importedAssets,
+    [generated, "assets/main.css"].sort(),
   );
 });
 

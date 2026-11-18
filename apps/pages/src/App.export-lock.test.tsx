@@ -26,6 +26,7 @@ const slots: Partial<AppSlots> = {
   }),
   useTheme: () => {},
   useSessionGuards: () => {},
+  useShellReady: () => true,
   useRouteContributions: () => [],
   useUnlockEffects: () => [],
   useShellWrappers: () => [],

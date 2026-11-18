@@ -23,13 +23,13 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_claims::{generate_claim_token, generate_user_code, hash_eq, hash_low_entropy};
 use opensesame_domain::{
     ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
     Shareability,
 };
 use opensesame_relay::ExecutionMode;
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqliteRow, Row, Sqlite, Transaction};

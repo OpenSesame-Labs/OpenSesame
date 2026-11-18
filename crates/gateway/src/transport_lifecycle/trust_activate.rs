@@ -10,8 +10,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
+use opensesame_time::{DateTime, Utc};
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations, TrustBundle};
 
 use crate::app_state::AppState;

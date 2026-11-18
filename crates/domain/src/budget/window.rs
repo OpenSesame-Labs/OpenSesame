@@ -12,7 +12,7 @@
 
 use std::num::NonZeroU32;
 
-use chrono::{DateTime, TimeZone, Utc};
+use opensesame_time::{DateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::BudgetError;

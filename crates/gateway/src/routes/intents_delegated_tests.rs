@@ -295,7 +295,7 @@ async fn family_expiry_stops_queued_fixture_work() {
     assert_eq!(queued.status(), StatusCode::ACCEPTED);
     assert_eq!(super::intents_queue::fixture_work(), 0);
 
-    let past = (Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
+    let past = (Utc::now() - opensesame_time::Duration::hours(1)).to_rfc3339();
     sqlx::query(
         "UPDATE connection_delegations SET expires_at = ? WHERE claimant_subject = ? AND connection_id = ?",
     )

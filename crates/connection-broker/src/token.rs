@@ -4,7 +4,7 @@
 //! storage and never crosses the API boundary (ADR 0032 §6), which is why its
 //! `Debug` says nothing.
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

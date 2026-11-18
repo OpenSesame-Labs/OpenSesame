@@ -28,7 +28,7 @@ pub async fn publish_backup_wake(st: &AppState, outbox_id: &str) {
         uuid::Uuid::now_v7().to_string(),
         "opensesame/gateway/backup",
         BACKUP_WAKE_TYPE,
-        chrono::Utc::now().to_rfc3339(),
+        opensesame_time::Utc::now().to_rfc3339(),
         json!({
             "outbox_id": outbox_id,
             "organization_id": st.connection_organization.to_string(),

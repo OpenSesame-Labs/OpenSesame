@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use rcgen::KeyUsagePurpose;
 
 use super::{validate_leaf, SvidExpectation, SvidProfileError, SvidRole};
@@ -236,15 +236,15 @@ fn unknown_critical_extension_and_validity_window_are_enforced() {
         Err(SvidProfileError::UnknownCriticalExtension)
     );
     let mut future = SvidSpec::conforming(ID, Duration::from_secs(60));
-    future.not_before = Utc::now() + chrono::Duration::hours(1);
-    future.not_after = Utc::now() + chrono::Duration::hours(2);
+    future.not_before = Utc::now() + opensesame_time::Duration::hours(1);
+    future.not_after = Utc::now() + opensesame_time::Duration::hours(2);
     assert_eq!(
         check(&future, &expect(None, SvidRole::Client)),
         Err(SvidProfileError::NotYetValid)
     );
     let mut past = SvidSpec::conforming(ID, Duration::from_secs(60));
-    past.not_before = Utc::now() - chrono::Duration::hours(2);
-    past.not_after = Utc::now() - chrono::Duration::hours(1);
+    past.not_before = Utc::now() - opensesame_time::Duration::hours(2);
+    past.not_after = Utc::now() - opensesame_time::Duration::hours(1);
     assert_eq!(
         check(&past, &expect(None, SvidRole::Client)),
         Err(SvidProfileError::Expired)

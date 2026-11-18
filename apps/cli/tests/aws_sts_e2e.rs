@@ -261,10 +261,12 @@ fn the_helper_prints_the_minted_credential_and_nothing_leaks() {
     assert_eq!(printed["AccessKeyId"], stand_in::MINTED_ACCESS_KEY_ID);
     assert_eq!(printed["SecretAccessKey"], stand_in::MINTED_SECRET);
     assert_eq!(printed["SessionToken"], stand_in::MINTED_SESSION_TOKEN);
-    let expiration =
-        chrono::DateTime::parse_from_rfc3339(printed["Expiration"].as_str().expect("expiration"))
-            .expect("RFC 3339");
-    let ahead = (expiration.with_timezone(&chrono::Utc) - chrono::Utc::now()).num_seconds();
+    let expiration = opensesame_time::DateTime::parse_from_rfc3339(
+        printed["Expiration"].as_str().expect("expiration"),
+    )
+    .expect("RFC 3339");
+    let ahead = (expiration.with_timezone(&opensesame_time::Utc) - opensesame_time::Utc::now())
+        .num_seconds();
     assert!((1500..=1900).contains(&ahead), "expires in {ahead}s");
 
     let hits = stack.stand_in.hits();

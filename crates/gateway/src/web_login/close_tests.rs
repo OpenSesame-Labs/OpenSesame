@@ -150,7 +150,7 @@ async fn the_reaper_closes_the_run_a_failed_close_left_open() {
         .execute(world.state.db.pool())
         .await
         .unwrap();
-    let later = chrono::Utc::now() + chrono::Duration::hours(2);
+    let later = opensesame_time::Utc::now() + opensesame_time::Duration::hours(2);
     let report = super::reaper::sweep(&world.state, later, super::reaper::horizon())
         .await
         .unwrap();

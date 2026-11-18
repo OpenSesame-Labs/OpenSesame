@@ -8,10 +8,11 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
         let cipher = XChaCha20Poly1305::new_from_slice(&key).unwrap();
         let binding = format!("opensesame.at-rest.v1\0origin-file\0{name}");
         let mut bytes = nonce.to_vec();
+        let nonce_ref: &XNonce = (&nonce).into();
         bytes.extend(
             cipher
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    nonce_ref,
                     Payload {
                         msg: payload,
                         aad: binding.as_bytes(),
@@ -37,10 +38,11 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
         let wrapper = XChaCha20Poly1305::new_from_slice(&wrapping_secret).unwrap();
         let cipher = XChaCha20Poly1305::new_from_slice(&dek).unwrap();
         let mut bytes = wrap_nonce.to_vec();
+        let wrap_nonce_ref: &XNonce = (&wrap_nonce).into();
         bytes.extend(
             wrapper
                 .encrypt(
-                    XNonce::from_slice(&wrap_nonce),
+                    wrap_nonce_ref,
                     Payload {
                         msg: &dek,
                         aad: &wrap_aad,
@@ -49,10 +51,11 @@ fn fixture(legacy: bool, payload: &[u8]) -> Vec<u8> {
                 .unwrap(),
         );
         bytes.extend(nonce);
+        let nonce_ref: &XNonce = (&nonce).into();
         bytes.extend(
             cipher
                 .encrypt(
-                    XNonce::from_slice(&nonce),
+                    nonce_ref,
                     Payload {
                         msg: payload,
                         aad: &data_aad,

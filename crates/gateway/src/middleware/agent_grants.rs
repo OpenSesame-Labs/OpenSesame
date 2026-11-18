@@ -8,8 +8,8 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use chrono::Utc;
 use opensesame_claims::hash_secret;
+use opensesame_time::Utc;
 
 /// The one spelling an agent capability is presented in. `require_session`
 /// accepts agent claims only under this exact prefix, so every agent request

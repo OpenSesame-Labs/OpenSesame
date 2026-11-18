@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     #[test]
     fn flow_matrix_ssh_codespaces_wsl_ci() {

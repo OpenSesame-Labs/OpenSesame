@@ -100,9 +100,9 @@ pub async fn verify(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Utc};
     use opensesame_broker::InvokeInput;
     use opensesame_domain::*;
+    use opensesame_time::{Duration, Utc};
     use serde_json::json;
 
     async fn state_with_receipt() -> (AppState, InvocationReceipt, String, OrganizationId) {

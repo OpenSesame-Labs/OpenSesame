@@ -5,9 +5,11 @@ import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
  * connection. A cached SDK account is a routing preference, not proof.
  */
 
-import { verifyBrowserIdTokenClaims } from "@opensesame/sdk-browser";
 import type { VerifiedIdTokenClaims } from "@opensesame/sdk-browser";
-import { randomString } from "@opensesame/sdk-browser";
+import {
+  randomString,
+  verifyBrowserIdTokenClaims,
+} from "@opensesame/sdk-browser";
 import type { UpstreamIdentity } from "../federation.js";
 import { rememberEntraInstance } from "./entra-instances.js";
 import { matchesAuthGeneration } from "./generation.js";
@@ -15,7 +17,7 @@ import type { ProviderConnection } from "./provider.js";
 import type { AmbientReasonCode, PassiveOutcome } from "./types.js";
 
 export const ENTRA_SCOPES = ["openid"] as const;
-export const MSAL_BROWSER_VERSION = "5.22.0";
+export const MSAL_BROWSER_VERSION = "5.28.0";
 
 export type EntraSilentRequest = {
   connection: ProviderConnection;

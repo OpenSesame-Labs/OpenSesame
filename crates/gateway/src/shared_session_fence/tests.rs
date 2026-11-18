@@ -1,8 +1,8 @@
 //! The fence, attacked (ADR 0079).
 
 use super::*;
-use chrono::Duration;
 use opensesame_domain::{GrantLink, GrantScope, NewSessionGrant, SessionId};
+use opensesame_time::Duration;
 use std::collections::BTreeSet;
 
 fn grant(

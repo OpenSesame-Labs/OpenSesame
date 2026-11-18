@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use rustls_pki_types::{CertificateDer, UnixTime};
 use spiffe::X509Context;
 use webpki::{EndEntityCert, KeyUsage};

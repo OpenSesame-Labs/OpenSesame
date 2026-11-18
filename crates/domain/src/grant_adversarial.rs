@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     fn parent() -> Grant {
         let now = Utc::now();

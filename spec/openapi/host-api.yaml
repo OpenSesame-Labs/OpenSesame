@@ -753,11 +753,14 @@ paths:
   /attachments/replicate/chunk:
     post:
       summary: Forward one sealed chunk to the configured target
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       description: >-
         Body is a raw `.oschunk` frame. The Host recomputes BLAKE3 over the body
         and refuses a mismatch: it cannot read the ciphertext either way, but an
         object filed under a digest that does not describe it would never
-        reassemble. Upload is idempotent by construction.
+        reassemble. A bearer must be an owner/admin session carrying the exact
+        `sealed_store.attach.replicate` operation grant. Upload is idempotent by
+        construction.
       parameters:
         - in: query
           name: digest
@@ -779,6 +782,8 @@ paths:
                   stored: { type: boolean }
         "400":
           description: digest_mismatch — the body does not hash to the claimed digest
+        "403":
+          description: The session lacks the required tenant role or exact operation grant
         "422":
           description: invalid_digest, empty_body, no_attachment_target, or attachment_target_disabled
         "502":
@@ -786,6 +791,10 @@ paths:
   /attachments/replicate/manifest:
     post:
       summary: Forward one sealed attachment manifest to the configured target
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
+      description: >-
+        A bearer must be an owner/admin session carrying the exact
+        `sealed_store.attach.replicate` operation grant.
       parameters:
         - in: query
           name: path
@@ -806,6 +815,8 @@ paths:
                 type: object
                 properties:
                   stored: { type: boolean }
+        "403":
+          description: The session lacks the required tenant role or exact operation grant
         "422":
           description: invalid_path, empty_body, no_attachment_target, or attachment_target_disabled
         "502":

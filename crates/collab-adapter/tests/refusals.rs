@@ -9,11 +9,11 @@
 
 mod support;
 
-use chrono::Duration;
 use opensesame_collab_adapter::{
     permissions, plan_apply, ApplicationId, BotToken, CredentialKind, GuildId, Permissions,
     Platform, Refusal, Registration, TargetSpec, Verb, ELEVATED,
 };
+use opensesame_time::Duration;
 use support::scenario::{now, owned_role_name, projection, Scenario, APPLICATION_ID};
 use support::{GuildState, OTHER_CHANNEL_ID, SUBJECT_ID};
 

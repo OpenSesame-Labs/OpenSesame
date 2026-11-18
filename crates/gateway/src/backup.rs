@@ -411,7 +411,7 @@ mod tests {
                             StatusCode::CREATED,
                             Json(serde_json::json!({
                                 "token": "installation-token",
-                                "expires_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+                                "expires_at": (opensesame_time::Utc::now() + opensesame_time::Duration::hours(1)).to_rfc3339(),
                             })),
                         )
                             .into_response()
@@ -529,7 +529,7 @@ mod tests {
             "INSERT OR IGNORE INTO organizations (id, name, created_at) VALUES (?, 'Org', ?)",
         )
         .bind(&organization)
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(opensesame_time::Utc::now().to_rfc3339())
         .execute(state.db.pool())
         .await
         .unwrap();

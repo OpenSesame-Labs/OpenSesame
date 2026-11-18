@@ -209,7 +209,7 @@ pub(crate) async fn decide(
     cfg: CalloutConfig,
     body: &HostDecisionRequest,
 ) -> Response {
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let verified = match verify::verify_request(
         body,
         &cfg.server_nkeys,
@@ -229,7 +229,7 @@ pub(crate) async fn decide(
             return answer(NatsCalloutResponse::deny(err.code()).bind(&claimed, None));
         }
     };
-    let exp = (now + chrono::Duration::seconds(DECISION_TTL_SECS)).to_rfc3339();
+    let exp = (now + opensesame_time::Duration::seconds(DECISION_TTL_SECS)).to_rfc3339();
     let to = Binding {
         digest: verified.digest.as_str(),
         user_nkey: &verified.user_nkey,
@@ -317,7 +317,7 @@ async fn resolve_identity(
     let token = match verified.evidence.upstream_token.as_deref() {
         Some(token) => Some(
             cfg.evidence
-                .verify(token, chrono::Utc::now().timestamp())
+                .verify(token, opensesame_time::Utc::now().timestamp())
                 .await
                 .map_err(|err| err.code().to_owned())?,
         ),
@@ -360,7 +360,7 @@ fn replay(stored: &str, now: i64) -> Response {
     let still_valid = value
         .get("exp")
         .and_then(serde_json::Value::as_str)
-        .and_then(|exp| chrono::DateTime::parse_from_rfc3339(exp).ok())
+        .and_then(|exp| opensesame_time::DateTime::parse_from_rfc3339(exp).ok())
         .is_some_and(|exp| exp.timestamp() > now);
     if value.get("decision").and_then(serde_json::Value::as_str) == Some("allow") && !still_valid {
         return answer(NatsCalloutResponse::deny("decision_expired"));

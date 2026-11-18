@@ -178,8 +178,11 @@ fn missing_native_keys_refuse_reads_search_totp_and_overwrites_without_mutation(
 
 fn fixture() -> (tempfile::TempDir, StoreAccess) {
     let dir = tempfile::tempdir().expect("tempdir");
-    crate::testing::init_store_fixture(dir.path());
-    let access = StoreAccess::open(dir.path(), Some(b"correct horse")).expect("open");
+    let store = dir.path().join("store");
+    let witness = dir.path().join("witness");
+    crate::testing::init_store_fixture(&store, &witness);
+    let access = StoreAccess::open_with_test_witness_root(&store, &witness, Some(b"correct horse"))
+        .expect("open");
     (dir, access)
 }
 
@@ -330,9 +333,10 @@ fn locking_refuses_every_later_read() {
 #[test]
 fn open_without_a_passphrase_on_a_keyed_store_is_unconfigured() {
     let dir = tempfile::tempdir().unwrap();
-    crate::testing::init_store_fixture(dir.path());
+    let store = dir.path().join("store");
+    crate::testing::init_store_fixture(&store, &dir.path().join("witness"));
     assert!(matches!(
-        StoreAccess::open(dir.path(), None),
+        StoreAccess::open(&store, None),
         Err(BridgeError::Unconfigured(_))
     ));
 }

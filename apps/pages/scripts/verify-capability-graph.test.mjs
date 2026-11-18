@@ -116,6 +116,13 @@ const defaultGraph = () => ({
   assets: [{ file: "assets/main-1.css", size: 6 }],
   workers: [{ variant: "core-only", file: "sw.js", capability: null }],
   publicFiles: [{ file: "icon.svg", capability: null }],
+  capabilitySourceClosures: [
+    {
+      module: "apps/pages/src/modules/sharing.drops/runtime.ts",
+      capability: "sharing.drops",
+      allowed: [],
+    },
+  ],
   moduleEdges: [
     {
       from: "virtual:opensesame-capability-modules",

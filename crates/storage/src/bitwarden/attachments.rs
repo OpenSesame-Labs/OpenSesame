@@ -4,7 +4,7 @@
 //! never reads them; they are written once, in the transaction that marks the
 //! upload done, and deleted by trigger with their owner.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

@@ -27,6 +27,10 @@ import type { VaultScope } from "./store-scope.js";
 import { hydrateAndMigrateTombOnUnlock } from "./tomb-migration.js";
 
 type Lease = { tomb: string; release: () => Promise<void> };
+type ProtectionProjection = Pick<
+  VaultProtectionBrowserService,
+  "ensureProtectionProjected"
+>;
 export type UnlockAttempt = Readonly<{
   scope: VaultScope;
   check: () => void;
@@ -47,7 +51,7 @@ type UnlockHost = Readonly<{
   setBody: (body: VaultBody, mark: string | null) => void;
   bodyPort: () => VaultBodyPort;
   preferences: StorePreferences;
-  protection: () => VaultProtectionBrowserService;
+  protection: () => ProtectionProjection;
   acquire: (tomb: string) => Promise<Lease | null>;
   commit: (lease: Lease | null) => void;
   emit: () => void;

@@ -15,18 +15,11 @@ import {
 } from "../interactions/federated.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const federatedSource = readFileSync(
-  join(here, "../interactions/federated.ts"),
-  "utf8",
-);
-const routesSource = readFileSync(
-  join(here, "../routes/interactions.ts"),
-  "utf8",
-);
-const callbackSource = readFileSync(
-  join(here, "../routes/federated-callback.ts"),
-  "utf8",
-);
+const source = (path: string) => readFileSync(join(here, path), "utf8");
+const federatedSource = source("../interactions/federated.ts");
+const cacheSource = source("../interactions/federated-fetch.ts");
+const routesSource = source("../routes/interactions.ts");
+const callbackSource = source("../routes/federated-callback.ts");
 
 /**
  * A source oracle reads the file as written, which stops being true the moment
@@ -43,7 +36,9 @@ const callbackSource = readFileSync(
  * is both mutated and covered by a source oracle will fail the dry run, which
  * is how this was found.
  */
-const INSTRUMENTED = federatedSource.includes("stryMutAct_");
+const INSTRUMENTED = [federatedSource, cacheSource].some((text) =>
+  text.includes("stryMutAct_"),
+);
 const describeSourceOracle = INSTRUMENTED ? describe.skip : describe;
 
 function config(overrides: Partial<ControlPlaneConfig> = {}) {
@@ -115,11 +110,18 @@ describeSourceOracle("PACT — federated leg fail-closed ordering", () => {
 
   it("keys the discovery cache by client id as well as issuer (T1)", () => {
     assertSourceOrder(federatedSource, [
-      "function discoveryCacheKey",
-      "${issuer}|${clientId}",
       "async function upstreamConfiguration",
-      "discoveryCacheKey(issuer, mode.clientId)",
-      "discoveryCache.get(key)",
+      "${issuer}|${mode.clientId}",
+      "discoveryCache.get(key, now)",
+    ]);
+  });
+  it("expires and evicts credential-bound discovery entries", () => {
+    assertSourceOrder(cacheSource, [
+      "export class TtlLru",
+      "entry.expiresAt <= now",
+      "this.#entries.set(key, entry)",
+      "while (this.#entries.size > this.maxEntries)",
+      "this.#entries.delete(oldest)",
     ]);
   });
 

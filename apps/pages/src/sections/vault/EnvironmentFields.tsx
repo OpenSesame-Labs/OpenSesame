@@ -20,7 +20,7 @@ import { FieldRow } from "../../components/FieldRow.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconCheck, IconCopy, IconDownload } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
-import { useVault } from "../../lib/vault/hooks.js";
+import { useCopySecret, useVault } from "../../lib/vault/hooks.js";
 import { downloadSeams } from "../../screens/capabilities/download.js";
 import "./environment-item.css";
 
@@ -78,6 +78,7 @@ function GeneratedFile({
   values: EnvironmentSchemaValues;
   id: string;
 }>) {
+  const copySecret = useCopySecret();
   const result = renderEnvironmentSchemaItem(itemName, values);
   const file = result.file;
   const [copied, setCopied] = useState(false);
@@ -95,7 +96,8 @@ function GeneratedFile({
   async function copy() {
     if (!file) return;
     try {
-      await navigator.clipboard.writeText(file.content);
+      const outcome = await copySecret(file.content);
+      if (outcome !== "copied") throw new Error("clipboard unavailable");
       setFailed("");
       setCopied(true);
     } catch {

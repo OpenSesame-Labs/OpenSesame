@@ -9,8 +9,8 @@
  * checked by `guard` against the step it answers before it leaves.
  */
 import type { RunnerStepRequest } from "@opensesame/api-client";
-import { WAIT_MS, ctxOf } from "./context";
 import type { DriverDeps, EpochState } from "./context";
+import { WAIT_MS, ctxOf } from "./context";
 import { withinOrigin } from "./origin";
 import type { StepPages } from "./ports";
 import { verifyByFreshLogin } from "./verify";
@@ -70,6 +70,7 @@ async function fill(
   const value = await d.vault.resolve(reference, ctxOf(d));
   if (value === null) return failed("transport");
   const landed = await d.pages.fill(selector, value);
+  if (landed === "off_origin") return failed("navigation");
   moved(d.epoch);
   return filled(landed === "ok");
 }

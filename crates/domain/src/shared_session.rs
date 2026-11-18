@@ -36,7 +36,7 @@ use crate::{
     Admission, DomainError, GrantLink, JoinRequestId, PrincipalId, SessionGrantId, SessionId,
     VaultId, VaultItemId,
 };
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 

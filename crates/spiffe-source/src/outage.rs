@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 /// Exponential backoff with bounded jitter for reconnecting to the Workload
 /// API. Every delay lies in `[base - jitter, base + jitter]` where `base` is
@@ -116,7 +116,7 @@ pub fn stale_deadline(
     outage_since: DateTime<Utc>,
     max_stale: Duration,
 ) -> DateTime<Utc> {
-    let by_staleness = chrono::Duration::from_std(max_stale)
+    let by_staleness = opensesame_time::Duration::from_std(max_stale)
         .ok()
         .and_then(|d| outage_since.checked_add_signed(d))
         .unwrap_or(not_after);

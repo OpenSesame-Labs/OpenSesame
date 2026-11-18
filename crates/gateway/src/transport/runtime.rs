@@ -150,8 +150,8 @@ impl TransportRuntime {
         &self,
     ) -> Option<(
         u64,
-        chrono::DateTime<chrono::Utc>,
-        Option<chrono::DateTime<chrono::Utc>>,
+        opensesame_time::DateTime<opensesame_time::Utc>,
+        Option<opensesame_time::DateTime<opensesame_time::Utc>>,
     )> {
         let current = self.generations.current();
         current.identity.as_ref().map(|identity| {
@@ -170,7 +170,7 @@ impl TransportRuntime {
     #[must_use]
     pub fn spiffe_credential(
         &self,
-        now: chrono::DateTime<chrono::Utc>,
+        now: opensesame_time::DateTime<opensesame_time::Utc>,
     ) -> Option<opensesame_domain::transport::CredentialStatus> {
         self.spiffe
             .as_ref()
@@ -203,7 +203,8 @@ impl TransportRuntime {
 /// A generation with no identity and no trust: the Host has bindings or an
 /// mTLS client mode but no secure listener of its own.
 fn empty_generations() -> Result<Arc<TransportGenerations>, TransportError> {
-    let generation = GenerationCandidate::default().into_generation(1, chrono::Utc::now())?;
+    let generation =
+        GenerationCandidate::default().into_generation(1, opensesame_time::Utc::now())?;
     Ok(TransportGenerations::new(generation))
 }
 
@@ -226,7 +227,7 @@ async fn build_generations(
             .peer_trust
             .insert(listener.client_trust_profile.clone(), bundle);
     }
-    let generation = candidate.into_generation(1, chrono::Utc::now())?;
+    let generation = candidate.into_generation(1, opensesame_time::Utc::now())?;
     Ok((TransportGenerations::new(generation), None))
 }
 

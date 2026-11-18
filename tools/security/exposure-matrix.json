@@ -794,7 +794,7 @@
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx",
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy. 2026-11-18: Biome reordered imports only; SentDropsPanel regressions passed (6/6) before refreshing the reviewed fingerprint."
     },
     {
       "id": "local-vault-activation",
@@ -1180,14 +1180,14 @@
       "5d19d45d"
     ],
     "crates/bitwarden-server/src/budget_subject_tests.rs": [
-      "77ed17a3",
-      "6bcba062",
-      "13aaf3c5",
-      "cb7c8ff4",
-      "52a02854",
-      "aff4fc3c",
-      "16279d85",
-      "a9da63d4"
+      "f7ad8271",
+      "d4e9d337",
+      "641879dc",
+      "b7151dd3",
+      "61ee2b71",
+      "1fe57a7a",
+      "bae460bd",
+      "3b3cea2a"
     ],
     "crates/bitwarden-server/src/hashing_work.rs": [
       "2d8248fd",
@@ -1210,34 +1210,34 @@
       "c31ea976"
     ],
     "crates/bitwarden-server/tests/attempt_budget_capacity.rs": [
-      "5b9f586c",
-      "266339a6",
-      "5854211e",
-      "1a1f9b79",
-      "93b5d911",
-      "5432a3ac",
-      "b2e99b59",
-      "c8d9d9b5"
+      "80f63ec6",
+      "c5c9c950",
+      "f11823d3",
+      "66064b63",
+      "298f1956",
+      "1a680335",
+      "570d063c",
+      "3cbdf810"
     ],
     "crates/bitwarden-server/tests/hardening.rs": [
-      "6c8501a8",
-      "854c43f4",
-      "9ee8c092",
-      "ac9ad170",
-      "bd4bd92f",
-      "ed923d7c",
-      "0beb09a6",
-      "0f84a70e"
+      "b98565c1",
+      "72a27951",
+      "a1873535",
+      "9219b238",
+      "76e57a49",
+      "85a9c66b",
+      "63bab09e",
+      "117bf82f"
     ],
     "crates/gateway/src/routes/est_budget_source.rs": [
-      "64ea0842",
-      "90f5e2ac",
-      "4e57605c",
-      "d7b6a6ce",
-      "e5f69818",
-      "734edb4a",
-      "7e8f2b97",
-      "2bb4f4eb"
+      "838bfedf",
+      "739d6113",
+      "53655e39",
+      "098edc6c",
+      "1b4c0362",
+      "405fbfdb",
+      "82fd4f6b",
+      "5b30c8ad"
     ],
     "crates/gateway/src/routes/est_budget_source_tests.rs": [
       "475afa22",
@@ -1290,14 +1290,14 @@
       "b3e2a57f"
     ],
     "packages/app-core/package.json": [
-      "3f0ba320",
-      "68f4e591",
-      "a2aa6cb8",
-      "bf40dd81",
-      "ef342624",
-      "3301fe9b",
-      "deb36ede",
-      "0cc398e2"
+      "7419b1b5",
+      "cb55ff8c",
+      "2167a9e6",
+      "a0fd763a",
+      "6b8adf43",
+      "b4e628c4",
+      "447555a0",
+      "81fcfaf3"
     ],
     "packages/app-core/src/lib/claims/arrival.ts": [
       "5e98e948",
@@ -1650,34 +1650,34 @@
       "f80a31be"
     ],
     "crates/gateway/src/routes/est_server_tests.rs": [
-      "d7383b14",
-      "7bdd6d3e",
-      "9e72653b",
-      "55a89cd7",
-      "cd736c97",
-      "2da52133",
-      "2fb27f71",
-      "27a58ee8"
+      "e284d9bb",
+      "6680bde0",
+      "0d64e618",
+      "fdca22f2",
+      "445ff6ce",
+      "fcf429fb",
+      "b502ff9b",
+      "642b9c5d"
     ],
     "crates/gateway/src/routes/est_certificate_proof_tests.rs": [
-      "dffc83d5",
-      "18d696ae",
-      "f0bdacae",
-      "2a56b2c5",
-      "951cbf4c",
-      "d5911467",
-      "531a50b6",
-      "b69d122a"
+      "fa524fae",
+      "fb174dc0",
+      "5995a737",
+      "fd884117",
+      "eb063d10",
+      "622556bc",
+      "0385967a",
+      "83b464b1"
     ],
     "crates/gateway/src/routes/est_certificate_tls_tests.rs": [
-      "ff673ff3",
-      "619bff5f",
-      "01c4fc47",
-      "0771c6f2",
-      "c11eccf1",
-      "0f7cc6db",
-      "9abdcc58",
-      "a6690cd4"
+      "419654a2",
+      "523cdf22",
+      "f4fbfd64",
+      "59a4ba27",
+      "4baf8fa2",
+      "b1e9399e",
+      "d1157d8c",
+      "717c457a"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
       "0d29cf94",
@@ -1710,14 +1710,14 @@
       "16a15c20"
     ],
     "crates/domain/src/transport/evidence.rs": [
-      "dd3f77cd",
-      "0cd6ed57",
-      "b34f52af",
-      "fae999e8",
-      "ef38fb8c",
-      "35657c98",
-      "5412294c",
-      "35815fd8"
+      "ea1cea5e",
+      "23594317",
+      "ada21388",
+      "78a53b31",
+      "727a1049",
+      "8ab5eb54",
+      "32a275cb",
+      "f7ef3624"
     ],
     "crates/domain/src/transport/policy.rs": [
       "dc84e64a",
@@ -1730,14 +1730,14 @@
       "e1d37bd6"
     ],
     "crates/domain/src/transport/attest.rs": [
-      "df10fd52",
-      "dab2dad0",
-      "0a518235",
-      "472039f5",
-      "e04fd5db",
-      "46f770b3",
-      "4883118d",
-      "5eeea36d"
+      "25fb174d",
+      "699fb20b",
+      "62906545",
+      "272f1dfc",
+      "843cc0ba",
+      "d9996276",
+      "d0e5cbdf",
+      "e6fd6ffb"
     ],
     "crates/domain/src/transport/evidence_tests.rs": [
       "8bc7c34e",
@@ -1860,34 +1860,34 @@
       "408f09c8"
     ],
     "crates/bitwarden-server/Cargo.toml": [
-      "35b1b88b",
-      "7ff9b6dc",
-      "db262df5",
-      "784a4641",
-      "4e20109d",
-      "82d89cbd",
-      "8458c120",
-      "9e4e741a"
+      "c6b1aefb",
+      "ac5a6c3c",
+      "16aeb8d4",
+      "753afe5a",
+      "dbbf3803",
+      "ddf03378",
+      "7ad7a3d6",
+      "9854732c"
     ],
     "crates/bitwarden-server/src/import/account.rs": [
-      "b536f643",
-      "97af2b6f",
-      "adfe2514",
-      "84744063",
-      "273e5187",
-      "614039a0",
-      "86c858f3",
-      "1fcbfd30"
+      "ba2a7b6e",
+      "0f0536a1",
+      "542b611e",
+      "c1541238",
+      "df31e321",
+      "2ea5081e",
+      "b802a5f6",
+      "8e19cf26"
     ],
     "crates/bitwarden-server/src/import/account_files.rs": [
-      "7498d9de",
-      "43cfa46a",
-      "2b990248",
-      "ee9b1926",
-      "aacf585e",
-      "eb51f017",
-      "c99b128f",
-      "431125e0"
+      "7027714e",
+      "92d9caa5",
+      "cbe2e138",
+      "ea0d5e4a",
+      "072762a0",
+      "df2cd639",
+      "a42bc8d8",
+      "9ace43be"
     ],
     "crates/bitwarden-server/src/import/files.rs": [
       "2b4a80bc",
@@ -1910,14 +1910,14 @@
       "f58f92b4"
     ],
     "crates/bitwarden-server/src/import/mod.rs": [
-      "aacad941",
-      "3dca16b8",
-      "2c1278f3",
-      "8142669b",
-      "b7ceccd8",
-      "f8d5027a",
-      "7937d814",
-      "b85463de"
+      "22495664",
+      "566be86c",
+      "2df84e6e",
+      "5da7ca12",
+      "df70f42d",
+      "919992a3",
+      "9f313a80",
+      "2d5e80cb"
     ],
     "crates/bitwarden-server/src/import/shared.rs": [
       "58fc1fdb",
@@ -1930,54 +1930,54 @@
       "d5081d8c"
     ],
     "crates/bitwarden-server/src/import/vaultwarden.rs": [
-      "47d9ea24",
-      "2fee65b3",
-      "ad8d7a40",
-      "ab3a6100",
-      "f527e418",
-      "92dbd75e",
-      "9f67d680",
-      "a69d85ed"
+      "78694b82",
+      "94dc7cb0",
+      "11b1ef88",
+      "4c90c2ce",
+      "56398893",
+      "530ec83a",
+      "921f9b3a",
+      "cdc3a23c"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/emergency.rs": [
-      "4b01984c",
-      "9ae946c0",
-      "77a93ae3",
-      "088c135b",
-      "45e2643f",
-      "c38cd9f8",
-      "504ba345",
-      "0ea5e3ea"
+      "3bcc468f",
+      "3117977a",
+      "a04a4f3d",
+      "8e769c22",
+      "6527a17f",
+      "3967be2e",
+      "744cd579",
+      "505cb240"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/files.rs": [
-      "4cf1c339",
-      "dd4e0ec7",
-      "a8782c8f",
-      "33451d25",
-      "ce9deff7",
-      "3affea25",
-      "e25d6574",
-      "79a8d1fb"
+      "0e35bfeb",
+      "366d0c85",
+      "8d4bbb4e",
+      "9af0ae50",
+      "e47c1100",
+      "38764651",
+      "d26aa93e",
+      "524785f8"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/orgs.rs": [
-      "09bbdd27",
-      "86bc149d",
-      "f64fbe7d",
-      "84f6924a",
-      "b223d2c6",
-      "8eca834d",
-      "6ae6a62f",
-      "1a5bf6a1"
+      "d636f32d",
+      "ba8b3196",
+      "11474e25",
+      "819f6357",
+      "dcd53006",
+      "af1a1838",
+      "e7f6953e",
+      "444fbea5"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/rows.rs": [
-      "5bf83ce6",
-      "927929d3",
-      "cfc22200",
-      "a5c9e6e6",
-      "57900bd3",
-      "6fe1eedd",
-      "e3ed1c28",
-      "b78265dd"
+      "4feb4e29",
+      "6cfa16a4",
+      "3864849f",
+      "2dab3f68",
+      "88fd5c8c",
+      "daa732af",
+      "efaf93bc",
+      "e837d0c1"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/sign_in.rs": [
       "503d2c6f",
@@ -1990,14 +1990,14 @@
       "3f3a2ad3"
     ],
     "crates/bitwarden-server/src/import/tests.rs": [
-      "b89dce4b",
-      "1bd3d3f3",
-      "62d304a3",
-      "7359c9e5",
-      "baede5dc",
-      "3f410135",
-      "ecc2a322",
-      "588de4bb"
+      "77641e12",
+      "4c75ba0c",
+      "42927b30",
+      "3b91b06a",
+      "de0945ec",
+      "dc625050",
+      "eb277cbd",
+      "aaabe63d"
     ],
     "crates/bitwarden-server/src/import/account_files_tests.rs": [
       "343d25a1",
@@ -2040,14 +2040,14 @@
       "5d79ffd1"
     ],
     "crates/bitwarden-server/tests/import_files.rs": [
-      "68a60af8",
-      "295b1d03",
-      "f1745ec0",
-      "f201af7f",
-      "a46084e4",
-      "dba40c84",
-      "6d9c38cd",
-      "02945a94"
+      "58152db6",
+      "3540dba7",
+      "8d430e90",
+      "05c3d306",
+      "d7e3d4d2",
+      "e0f91788",
+      "814496fe",
+      "cb54adc6"
     ],
     "crates/bitwarden-server/tests/import_orgs.rs": [
       "7f9feb59",
@@ -2060,14 +2060,14 @@
       "67e954fc"
     ],
     "crates/bitwarden-server/tests/import_sign_in.rs": [
-      "affc237a",
-      "d34c7b94",
-      "1e90ae15",
-      "ce2b4dfb",
-      "4c342f53",
-      "cdd0051f",
-      "80016299",
-      "5770a81b"
+      "ae633cf1",
+      "71d20872",
+      "3f0b8dc7",
+      "17d3f978",
+      "04dc9235",
+      "c7d56aed",
+      "233a6833",
+      "5b857d28"
     ],
     "crates/bitwarden-server/src/hashing/argon2id.rs": [
       "e717e809",
@@ -2100,14 +2100,14 @@
       "4252f58f"
     ],
     "crates/bitwarden-server/src/hashing/tests.rs": [
-      "e86c3b62",
-      "0a0ce1ff",
-      "a389cafa",
-      "3ce7c084",
-      "8da15053",
-      "88daf11a",
-      "5784bd2b",
-      "eeefb8f1"
+      "75b21066",
+      "9dfd328a",
+      "8d5ab3d7",
+      "21304c83",
+      "a771aa1d",
+      "4ef32f45",
+      "5af968df",
+      "ff7a677e"
     ],
     "crates/bitwarden-server/src/notifications/anonymous.rs": [
       "c68de20d",
@@ -2120,44 +2120,44 @@
       "8f7e15e7"
     ],
     "crates/bitwarden-server/src/notifications/frames.rs": [
-      "e8826731",
-      "40c0c7ab",
-      "92c95075",
-      "603fc473",
-      "69d3c8e6",
-      "22833359",
-      "9df9b8de",
-      "c05c62d0"
+      "96bffdec",
+      "e59c7c43",
+      "3c2d8877",
+      "9f2e12d4",
+      "374a4dd7",
+      "99183ee3",
+      "0be1eb41",
+      "018c8802"
     ],
     "crates/bitwarden-server/src/notifications/mod.rs": [
-      "1eb7e6fc",
-      "5ce7383c",
-      "3048886a",
-      "545e121a",
-      "46d240af",
-      "e6da81b1",
-      "754f698c",
-      "51ac7498"
+      "90057e7c",
+      "1176aaeb",
+      "597b013c",
+      "7db1f899",
+      "35b3a5c1",
+      "711449af",
+      "8a91b2bf",
+      "fa88a739"
     ],
     "crates/bitwarden-server/src/wire/account.rs": [
-      "4c421cfb",
-      "b36aa36b",
-      "62eec79e",
-      "2df66890",
-      "fd3aa30e",
-      "9d20c06d",
-      "3c9781b7",
-      "40750591"
+      "939fdb79",
+      "e4a463c5",
+      "cc47528e",
+      "cf673d84",
+      "91c611f8",
+      "8d1b0090",
+      "6b27fd33",
+      "44342c84"
     ],
     "crates/bitwarden-server/src/wire/cipher.rs": [
-      "6e195f30",
-      "2ba1bffb",
-      "e56a2f11",
-      "c12911c6",
-      "8141fde1",
-      "81881cb7",
-      "0aed88e3",
-      "38b95347"
+      "abbd910d",
+      "ae7d82de",
+      "5c9c4fe3",
+      "0a2f948d",
+      "d26009a0",
+      "c4e539cf",
+      "30dccf28",
+      "2987b0d9"
     ],
     "crates/bitwarden-server/src/wire/files.rs": [
       "183b582d",
@@ -2190,14 +2190,14 @@
       "bf78ed88"
     ],
     "crates/bitwarden-server/src/wire/send.rs": [
-      "8c011421",
-      "747dd98f",
-      "98ebe9dd",
-      "95a49ec9",
-      "82e91859",
-      "afed7e0f",
-      "1196f19d",
-      "98928225"
+      "c6e85143",
+      "7dab231d",
+      "a9a4b404",
+      "6784faa5",
+      "20fc7781",
+      "9d10c02d",
+      "916ada7a",
+      "81b4463d"
     ],
     "packages/app-core/src/lib/vault/drop.test.ts": [
       "636d01a2",
@@ -2230,14 +2230,14 @@
       "f08af2d5"
     ],
     "apps/pages/src/sections/access/SentDropsPanel.tsx": [
-      "0f78efa6",
-      "fe898881",
-      "e530ccfa",
-      "26026734",
-      "4caa75ca",
-      "b2f6729e",
-      "1affd5de",
-      "99dbd308"
+      "71d97286",
+      "7f953937",
+      "234d92e3",
+      "18e18704",
+      "27ca1810",
+      "d97785f6",
+      "d28853ba",
+      "9a535d8b"
     ],
     "apps/pages/src/sections/vault/DropTtl.tsx": [
       "41c68515",
@@ -2310,14 +2310,14 @@
       "dd38b5e4"
     ],
     "crates/bitwarden-server/src/limiter.rs": [
-      "f5504047",
-      "afaf0d3a",
-      "01bb4139",
-      "4e464eb1",
-      "e38a8099",
-      "acc0a5ff",
-      "a41bede1",
-      "78c5ac0a"
+      "440214af",
+      "7f1c0c00",
+      "b35903f4",
+      "1e9dcc15",
+      "2de0ff29",
+      "d5a28310",
+      "03af3414",
+      "9525d5bf"
     ],
     "crates/bitwarden-server/src/limiter_tests.rs": [
       "c21f9cb1",
@@ -2350,54 +2350,54 @@
       "c0633170"
     ],
     "crates/bitwarden-server/src/routes/attachments.rs": [
-      "646363c3",
-      "f7d2f15a",
-      "b69d1fb4",
-      "d449dda3",
-      "9aa10747",
-      "5eb510f8",
-      "129a365d",
-      "12cf6cd7"
+      "633edc3e",
+      "beaea881",
+      "0a038906",
+      "9dcc8056",
+      "99741bdb",
+      "4186dc0f",
+      "26811b96",
+      "46575ea4"
     ],
     "crates/bitwarden-server/src/routes/auth_requests.rs": [
-      "49b10801",
-      "03ec2b10",
-      "243ae29f",
-      "30cdf1c4",
-      "f171b49c",
-      "e3194e58",
-      "2a694fc7",
-      "2a55529d"
+      "1f91a0b5",
+      "8f491962",
+      "554a85cf",
+      "c19d98a0",
+      "98d1daf6",
+      "11ca950f",
+      "60795f02",
+      "478b5764"
     ],
     "crates/bitwarden-server/src/routes/cipher_bulk.rs": [
-      "165b280f",
-      "274ead3e",
-      "a89ac62f",
-      "30a5c9ff",
-      "e47e1b71",
-      "04a8f0d7",
-      "be976bdf",
-      "109ea033"
+      "86eccf48",
+      "78fff2f5",
+      "dbce773b",
+      "eae5732c",
+      "195bed9f",
+      "dc590bb3",
+      "5540c929",
+      "be42a18d"
     ],
     "crates/bitwarden-server/src/routes/ciphers.rs": [
-      "1aafa506",
-      "aa0bddd5",
-      "e763e401",
-      "a2c86f17",
-      "ab326e31",
-      "9ce33a70",
-      "fd486dd7",
-      "dcbcfc06"
+      "5bd0d4bd",
+      "0b23bfc6",
+      "173b930a",
+      "9a192920",
+      "a3ad00fc",
+      "a577d82e",
+      "020eefa9",
+      "88d96796"
     ],
     "crates/bitwarden-server/src/routes/collections.rs": [
-      "1fdf46d0",
-      "ac1af663",
-      "a14971c5",
-      "6b068d2d",
-      "d56998b0",
-      "143e42dc",
-      "2bf1736c",
-      "0d7f3c99"
+      "2cec74d7",
+      "5b2f9963",
+      "3097d7c2",
+      "446dc0ff",
+      "3760903c",
+      "23894d76",
+      "d1cef4f0",
+      "6ed7f4ae"
     ],
     "crates/bitwarden-server/src/routes/credentials.rs": [
       "4a748f5c",
@@ -2410,24 +2410,24 @@
       "041016c2"
     ],
     "crates/bitwarden-server/src/routes/emergency.rs": [
-      "d8e46090",
-      "0c6bc621",
-      "f090dbab",
-      "7aba3f1d",
-      "3d59e4af",
-      "f088027d",
-      "e518e4ad",
-      "aaa7993e"
+      "ec2ff123",
+      "0fee6251",
+      "b3aa4616",
+      "9c06fa07",
+      "4f71c468",
+      "32e69cda",
+      "1f66f7a5",
+      "66bfcd76"
     ],
     "crates/bitwarden-server/src/routes/emergency_steps.rs": [
-      "14973578",
-      "77431161",
-      "e290ca52",
-      "e2290aac",
-      "831cd942",
-      "2337bcb7",
-      "59006b42",
-      "12977e06"
+      "5877577c",
+      "e6c5edbb",
+      "df651a93",
+      "67cb1ee8",
+      "3d6d9c22",
+      "14bd06fe",
+      "672ba0b8",
+      "bfee98cf"
     ],
     "crates/bitwarden-server/src/routes/emergency_use.rs": [
       "fb9ad84c",
@@ -2450,74 +2450,74 @@
       "eec5335e"
     ],
     "crates/bitwarden-server/src/routes/folders.rs": [
-      "cc1f20fd",
-      "fbe5bec6",
-      "afa19237",
-      "bc2ee7b2",
-      "e03a1006",
-      "05e034bd",
-      "e8b3d704",
-      "5bcf31e4"
+      "eff5242a",
+      "27bfdc7d",
+      "7bf1696f",
+      "8cf25027",
+      "e34c4f6b",
+      "67f77c1a",
+      "6de603a0",
+      "f0202bd2"
     ],
     "crates/bitwarden-server/src/routes/identity.rs": [
-      "15c01c32",
-      "a9fd0f00",
-      "b3c150bf",
-      "9cc2268f",
-      "455ccfca",
-      "5d6debb4",
-      "218ab575",
-      "0599a559"
+      "3c6d5ad5",
+      "90f3f96e",
+      "bfbf5572",
+      "4221e6f4",
+      "f1ea23b2",
+      "ceee17c0",
+      "d86e93a0",
+      "cd3f8768"
     ],
     "crates/bitwarden-server/src/routes/meta.rs": [
-      "4b9990d0",
-      "bf65cfbb",
-      "e69d92a7",
-      "448d78a4",
-      "642f3d4d",
-      "90b3610c",
-      "a156e53c",
-      "78e773b9"
+      "397c8672",
+      "1fabdf46",
+      "dee12321",
+      "e894c706",
+      "489536be",
+      "cb1a41b6",
+      "cc2b8aeb",
+      "e300317d"
     ],
     "crates/bitwarden-server/src/routes/mod.rs": [
-      "db38d63e",
-      "a62ca756",
-      "ae9ce9a0",
-      "e3f6dcb0",
-      "5fd5f338",
-      "36aa521a",
-      "c2767597",
-      "7d58d26c"
+      "417a3d5f",
+      "ec374a92",
+      "15528512",
+      "11d93209",
+      "38e1cdae",
+      "634b2ce1",
+      "34084a10",
+      "97fdd796"
     ],
     "crates/bitwarden-server/src/routes/org_ciphers.rs": [
-      "479ee5e7",
-      "076fcc34",
-      "ff2f873b",
-      "d78ea816",
-      "59024dbb",
-      "f846746b",
-      "5f634a9c",
-      "4946375c"
+      "861d34fa",
+      "7b0d4691",
+      "ba88b7e4",
+      "47c690f2",
+      "07c830ad",
+      "269002e9",
+      "0a13bde4",
+      "7d27ecbf"
     ],
     "crates/bitwarden-server/src/routes/org_import.rs": [
-      "fd59b66b",
-      "40065e94",
-      "8c6aea63",
-      "d19807a6",
-      "ec32d8bb",
-      "c19776bc",
-      "43d4c40d",
-      "e8df3d57"
+      "f705ac87",
+      "4fb1dfb7",
+      "a3bc37bc",
+      "5235bdd8",
+      "0820110f",
+      "39f52f42",
+      "2c580576",
+      "9a53ad80"
     ],
     "crates/bitwarden-server/src/routes/org_joining.rs": [
-      "20c067d2",
-      "5c9f10b6",
-      "86c64c97",
-      "eaf29519",
-      "a99bf612",
-      "22397add",
-      "3b1d2bfa",
-      "373ad03f"
+      "13142fe9",
+      "c0635734",
+      "d7a773a5",
+      "db755fc0",
+      "fd6e9327",
+      "301a8ae6",
+      "51da4b47",
+      "ac26a599"
     ],
     "crates/bitwarden-server/src/routes/org_member_status.rs": [
       "6f4c79bd",
@@ -2540,34 +2540,34 @@
       "8d0fb33c"
     ],
     "crates/bitwarden-server/src/routes/org_share.rs": [
-      "375258db",
-      "40798a90",
-      "28a3b1da",
-      "22eaead0",
-      "37b5d2f6",
-      "e08f13f2",
-      "a2012b48",
-      "69091b82"
+      "e59f074c",
+      "80070a94",
+      "72da84b8",
+      "a176f6db",
+      "c4bb9f51",
+      "0854334e",
+      "80755e30",
+      "251c5604"
     ],
     "crates/bitwarden-server/src/routes/organizations.rs": [
-      "ae7ae68a",
-      "78d457b8",
-      "7baa8f6d",
-      "a1bab13f",
-      "d6e121e0",
-      "2b029e59",
-      "cab472ef",
-      "e5880c89"
+      "4c244833",
+      "91d72f77",
+      "28ef8216",
+      "5676c57e",
+      "6abcd0d7",
+      "3b70470e",
+      "4259d50d",
+      "d4435628"
     ],
     "crates/bitwarden-server/src/routes/policies.rs": [
-      "1d676200",
-      "654c1d32",
-      "65c4e5f7",
-      "9ea598ee",
-      "4522322e",
-      "11ba0f7e",
-      "e9d08f87",
-      "b3cf1bfa"
+      "2cb79444",
+      "1c155e8f",
+      "ad69c17b",
+      "b476cf59",
+      "de46f005",
+      "983aa49e",
+      "274dc0e7",
+      "379ede8b"
     ],
     "crates/bitwarden-server/src/routes/policy_rules.rs": [
       "28464507",
@@ -2580,64 +2580,64 @@
       "8dbfd81c"
     ],
     "crates/bitwarden-server/src/routes/register.rs": [
-      "c85ab427",
-      "3fb501c7",
-      "a91242bf",
-      "914a270a",
-      "bf0b7e97",
-      "4548eacf",
-      "147eccc2",
-      "555a9eb3"
+      "ed913963",
+      "dff19ad7",
+      "c8b430d4",
+      "eedecf03",
+      "dd20e343",
+      "8a17bbbf",
+      "6abc415e",
+      "5c2f063c"
     ],
     "crates/bitwarden-server/src/routes/rotation.rs": [
-      "42d4e965",
-      "e079d5dd",
-      "ba5d54c2",
-      "ecc6de47",
-      "6ff1b80f",
-      "209f1a72",
-      "f04354e2",
-      "94f2e0f6"
+      "f1adacb0",
+      "ee90bd55",
+      "a04cefca",
+      "ab8cf7c8",
+      "9767ac83",
+      "97eba12a",
+      "6f96d505",
+      "89b8bdc1"
     ],
     "crates/bitwarden-server/src/routes/second_step.rs": [
-      "f0eb30e1",
-      "3980ebf4",
-      "29e5531c",
-      "6c31ba19",
-      "c6796517",
-      "d3f79d18",
-      "ff30885e",
-      "8ce79365"
+      "be9e2e4e",
+      "b18f24a5",
+      "aca90e93",
+      "4daf4f4e",
+      "93c6fac3",
+      "e38f5394",
+      "2f106f1c",
+      "d9e0b10f"
     ],
     "crates/bitwarden-server/src/routes/send_access.rs": [
-      "d07c956e",
-      "d0cfd37c",
-      "5a6fcd74",
-      "05dea5cd",
-      "8b0e48df",
-      "430171e0",
-      "a4b2404e",
-      "9d45c775"
+      "1f740108",
+      "10c93c13",
+      "623ec23a",
+      "f2125338",
+      "29da967f",
+      "e640118c",
+      "4dc90855",
+      "6fdf96a6"
     ],
     "crates/bitwarden-server/src/routes/sends.rs": [
-      "d221b87e",
-      "bea5c8f5",
-      "3ccf648e",
-      "2af4c935",
-      "273cbdb0",
-      "257b0c29",
-      "77a64dd1",
-      "0e8fb1cc"
+      "bd7cda1d",
+      "bbd9b021",
+      "dfa02bec",
+      "db080e31",
+      "b681d437",
+      "d9879792",
+      "de5dd406",
+      "226409b5"
     ],
     "crates/bitwarden-server/src/routes/two_factor.rs": [
-      "8bfa7851",
-      "d0ea26cf",
-      "2463d274",
-      "855f0dfd",
-      "83c92d3c",
-      "9e6f2aa8",
-      "a41705b2",
-      "dfb3aa09"
+      "a8a9ceb6",
+      "20f3f39e",
+      "6e7bc5cb",
+      "53f8d7c3",
+      "fe314c6a",
+      "89a7a8ad",
+      "d5a3d3a3",
+      "02689d6f"
     ],
     "crates/bitwarden-server/src/routes/vault_view.rs": [
       "b9c1d183",
@@ -2670,14 +2670,14 @@
       "8563b1ce"
     ],
     "crates/bitwarden-server/src/tokens.rs": [
-      "47fa8d22",
-      "cf96b6f8",
-      "68a8418e",
-      "3e9d3523",
-      "d9de842e",
-      "599a2566",
-      "9c5d8ecd",
-      "0cea3cd1"
+      "ed36865d",
+      "c68677d1",
+      "4273cc48",
+      "fd158eeb",
+      "1af0d447",
+      "73ea09df",
+      "623f2954",
+      "036e18cd"
     ],
     "crates/bitwarden-server/tests/attempt_budgets.rs": [
       "65c969c9",
@@ -2700,34 +2700,34 @@
       "1bcf61e5"
     ],
     "crates/bitwarden-server/tests/files.rs": [
-      "814db4d2",
-      "12ee2250",
-      "91ed8817",
-      "c3fc192f",
-      "cdf3018e",
-      "1fb8c023",
-      "0504d780",
-      "5b7aed3f"
+      "db2942b4",
+      "f206be24",
+      "fcfd0858",
+      "171fdaaf",
+      "3bc2e0ff",
+      "d04b3069",
+      "40255f27",
+      "e118be1d"
     ],
     "crates/bitwarden-server/tests/sign_in_methods.rs": [
-      "35fd7fe9",
-      "ce2f8bec",
-      "910b4565",
-      "c0288c3f",
-      "65922fee",
-      "ef72d019",
-      "2cf097a8",
-      "8da5a177"
+      "359f291d",
+      "fb5d4aaf",
+      "4b7b0e9d",
+      "bb69b616",
+      "7f7b5bd5",
+      "d7761b8c",
+      "705075ab",
+      "6e0a7b14"
     ],
     "crates/gateway/src/bootstrap.rs": [
-      "6399dbe2",
-      "7ae21497",
-      "de0cb509",
-      "d721de2f",
-      "774386d3",
-      "1dc0688e",
-      "6dd5ee9a",
-      "821ba82d"
+      "907a4817",
+      "cc99e344",
+      "ecfd4772",
+      "caefc154",
+      "66362fb0",
+      "dc8d097d",
+      "9baa22a4",
+      "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
       "4c58e95b",
@@ -2790,34 +2790,34 @@
       "c7ef8a02"
     ],
     "crates/gateway/src/routes/est_passphrase_budget.rs": [
-      "5363ee4e",
-      "e7962f64",
-      "e805301c",
-      "d78a5920",
-      "da2dcf21",
-      "414b9b8d",
-      "5acc1e19",
-      "1328d041"
+      "fb28c695",
+      "d4bfcd61",
+      "685166fe",
+      "742b761a",
+      "2b0d5b0e",
+      "d0b93795",
+      "9ae2333a",
+      "b6ecebfc"
     ],
     "crates/gateway/src/routes/est_records.rs": [
-      "c1049a7d",
-      "a73170f8",
-      "df75ee84",
-      "ae0cbb42",
-      "496f7327",
-      "7b2ccd85",
-      "dddac17b",
-      "720da4bf"
+      "fd23afbc",
+      "d7f66ac0",
+      "f22add92",
+      "8e5ff7e2",
+      "5f834e38",
+      "72d8dae8",
+      "49752765",
+      "60cba2b0"
     ],
     "crates/gateway/src/routes/est_server.rs": [
-      "068e0712",
-      "20c88c1a",
-      "d0fdd176",
-      "598b04b6",
-      "c6fdbd21",
-      "396a5b7c",
-      "dc5339f9",
-      "926bccc7"
+      "a6ad6165",
+      "92398f94",
+      "30ce7a06",
+      "c2ab7e29",
+      "5b5aa678",
+      "f286e5cf",
+      "4fa14e63",
+      "da540501"
     ],
     "crates/gateway/src/routes/est_server_tests_budget.rs": [
       "2bd670d8",
@@ -2830,14 +2830,14 @@
       "4cdfc600"
     ],
     "crates/gateway/src/routes/est_wire.rs": [
-      "5c830b18",
-      "dd3e8241",
-      "abbfb91b",
-      "db71a4ab",
-      "53484209",
-      "19bcade6",
-      "728ea1ff",
-      "c9262dce"
+      "cee026e8",
+      "26912699",
+      "a186d65f",
+      "d4288d08",
+      "4a3af759",
+      "3ec09373",
+      "41c2a685",
+      "4bc4631b"
     ],
     "crates/gateway/src/routes/mod.rs": [
       "b34b6927",
@@ -2850,14 +2850,14 @@
       "45697cd4"
     ],
     "crates/gateway/src/transport/admission.rs": [
-      "38fd26bc",
-      "0317fc63",
-      "321c3306",
-      "1151ca35",
-      "44ec74f3",
-      "5c6ac7af",
-      "12ecdefa",
-      "17b4c637"
+      "5d023d5c",
+      "9668ab38",
+      "efa770d5",
+      "ae3816bf",
+      "f99d59e6",
+      "44d4ccfb",
+      "77430a7e",
+      "71e713f9"
     ],
     "crates/gateway/src/transport/bindings.rs": [
       "634cd253",
@@ -2880,14 +2880,14 @@
       "b5f8e1ab"
     ],
     "crates/gateway/src/transport/boot_tests.rs": [
-      "a6c90c3f",
-      "f5f84b0f",
-      "d5795b6d",
-      "f5ef23c2",
-      "7f484c84",
-      "c11e5138",
-      "4d6e2543",
-      "7c2d2415"
+      "30dd640f",
+      "f02e04f8",
+      "c6e19ef2",
+      "9802c0aa",
+      "07554c4c",
+      "4e00d21d",
+      "37b7355f",
+      "daf1ccc2"
     ],
     "crates/gateway/src/transport/config.rs": [
       "0ebd0b88",
@@ -2900,14 +2900,14 @@
       "d2241db3"
     ],
     "crates/gateway/src/transport/managed.rs": [
-      "7cbe63b1",
-      "95fa14e2",
-      "07314f54",
-      "43e613d3",
-      "917927da",
-      "174fe657",
-      "a1287468",
-      "daf74991"
+      "95f2f2f8",
+      "9c6792e8",
+      "e1809fdc",
+      "5b3e12bd",
+      "d508bad5",
+      "dc2758be",
+      "03797ca8",
+      "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
       "93083feb",
@@ -2920,14 +2920,14 @@
       "ebbe6614"
     ],
     "crates/gateway/src/transport/probe.rs": [
-      "226a1a8c",
-      "53473827",
-      "15541b35",
-      "c591fcf4",
-      "099f0680",
-      "3e7c8647",
-      "b3f64533",
-      "c85688a5"
+      "281791f2",
+      "b3714d96",
+      "9d87730d",
+      "64cf5cbb",
+      "012f4156",
+      "44ab4674",
+      "005fd693",
+      "8314523a"
     ],
     "crates/gateway/src/transport/proof.rs": [
       "0f0d77c6",
@@ -2960,34 +2960,34 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "86d1889c",
-      "6a5bed5e",
-      "ca61aad2",
-      "8924209f",
-      "f2668f5d",
-      "ffdd76a8",
-      "06732637",
-      "af67618d"
+      "87ae80d9",
+      "eb100f67",
+      "5519994a",
+      "b446a71a",
+      "f119f6fa",
+      "7615a89d",
+      "b0ba056a",
+      "1e40609d"
     ],
     "crates/gateway/src/transport/status.rs": [
-      "3b8c710f",
-      "0025850d",
-      "48c52a61",
-      "a67a5cb3",
-      "07dc0a24",
-      "2ae0349a",
-      "23e69ba1",
-      "ed91c016"
+      "3d6b1f62",
+      "b49decb3",
+      "37c022ab",
+      "4777c0c2",
+      "bc52f348",
+      "1c6da585",
+      "e41197d8",
+      "c9a0f2f6"
     ],
     "crates/gateway/src/transport/test_support.rs": [
-      "a602ba7e",
-      "12a06e83",
-      "c29791a4",
-      "d8330e47",
-      "2c3712a8",
-      "d1d442f2",
-      "58e1d705",
-      "12fe1c96"
+      "5fff0801",
+      "6ed11ba2",
+      "eb9f5381",
+      "54c59217",
+      "d83e00c6",
+      "2bfeb8f1",
+      "3b6d4486",
+      "0c2c016e"
     ],
     "crates/storage/migrations/0057_est_passphrase_budget.sql": [
       "9efda976",
@@ -3870,14 +3870,14 @@
       "6a40f178"
     ],
     "packages/app-core/src/lib/vault/store-unlock-session.ts": [
-      "50fbcb3f",
-      "cb0544ec",
-      "a300b0ca",
-      "7d43828c",
-      "08c7b499",
-      "d67eaaf6",
-      "9b7e4e1c",
-      "3d1dda2a"
+      "0adba9d4",
+      "008f58e8",
+      "817802ac",
+      "73fc502a",
+      "042c5485",
+      "22a47124",
+      "fe24fa7b",
+      "3f86c103"
     ],
     "packages/app-core/src/lib/vault/store-unlock-races.fixture.ts": [
       "add17b6d",
@@ -6580,24 +6580,24 @@
       "1c05799e"
     ],
     "crates/gateway/Cargo.toml": [
-      "8878317c",
-      "aaa15442",
-      "d8e5b4e2",
-      "a2037a8f",
-      "6cc37404",
-      "825b99a1",
-      "65facdab",
-      "df73edff"
+      "fd87242e",
+      "30a0403c",
+      "dbcee0ce",
+      "8ff36a60",
+      "d2de62be",
+      "83a77f94",
+      "c5f49f59",
+      "35655696"
     ],
     "crates/gateway/src/app_state.rs": [
-      "5e65277c",
-      "6b294ad0",
-      "cfbbf16b",
-      "4587091d",
-      "7bbf9246",
-      "6b435393",
-      "ec4b297c",
-      "893b4dc9"
+      "03898017",
+      "21b99da1",
+      "e58a2123",
+      "69f67c87",
+      "7c444bce",
+      "b59e002b",
+      "31efb856",
+      "4a9e1b54"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "dd98ef36",
@@ -6660,14 +6660,14 @@
       "a47984b2"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "fb21fcf9",
-      "25f9325b",
-      "20ebf11b",
-      "3140d228",
-      "4c7743eb",
-      "6f1af4be",
-      "f95ff7cd",
-      "b0379573"
+      "6868b567",
+      "4fbc695e",
+      "ac302078",
+      "225d09a8",
+      "f312b320",
+      "b33d0ef7",
+      "6d6509c0",
+      "86c52cfc"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6680,34 +6680,34 @@
       "3bec49e5"
     ],
     "crates/gateway/src/routes/agent_capabilities.rs": [
-      "909707b3",
-      "5db19178",
-      "b21aea0a",
-      "d2656d68",
-      "7004f0c5",
-      "70af4940",
-      "2994b76b",
-      "d1c5582d"
+      "488be129",
+      "ed31bd51",
+      "d78af310",
+      "ee695241",
+      "1bf4fd9a",
+      "1d8ac157",
+      "3a1b734a",
+      "b191baab"
     ],
     "crates/gateway/src/routes/browser_pairings.rs": [
-      "5af0623e",
-      "d9000778",
-      "fb4cde7c",
-      "b5d6ff97",
-      "d4354481",
-      "872e988a",
-      "919edaaf",
-      "d7a8c9d7"
+      "244bfdf9",
+      "957aefaf",
+      "63437504",
+      "cae79017",
+      "2214e3a2",
+      "fe81cee5",
+      "08ca38b5",
+      "a273adfa"
     ],
     "crates/gateway/src/browser_pairing_proof.rs": [
-      "a65e9ba0",
-      "97943595",
-      "51812ff0",
-      "71b6aaf1",
-      "53448ff8",
-      "491b832e",
-      "bdf3b03b",
-      "15c1d8f1"
+      "05ab8d32",
+      "96462043",
+      "30ce2876",
+      "f5752331",
+      "bce1aaf5",
+      "03236652",
+      "f8966d46",
+      "2feff855"
     ],
     "crates/gateway/src/middleware/mod.rs": [
       "2389fc92",
@@ -6720,34 +6720,34 @@
       "d40676bf"
     ],
     "crates/gateway/src/middleware/auth.rs": [
-      "e724e41e",
-      "469fa329",
-      "b25fe8f1",
-      "a18bc972",
-      "1bbf0c61",
-      "08ceee91",
-      "5dfe37a4",
-      "790fbdf1"
+      "79d3114a",
+      "f43df682",
+      "6c61a04a",
+      "4c64b044",
+      "b0e821ed",
+      "d99d657a",
+      "67b4681b",
+      "d51aea81"
     ],
     "crates/gateway/src/middleware/agent_grants.rs": [
-      "8044a6db",
-      "5a35e569",
-      "72232a4d",
-      "5a941de2",
-      "6dc62193",
-      "78a3281b",
-      "8941edc7",
-      "3a039eed"
+      "17a299e6",
+      "38c26761",
+      "58bd97d0",
+      "a24ce47e",
+      "17c1f5d7",
+      "d26454fb",
+      "6d5addd3",
+      "ad429a91"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
-      "86f969f0",
-      "b674fdbd",
-      "1dbe96bb",
-      "ad343f40",
-      "a4a82595",
-      "84b29ed0",
-      "27e70069",
-      "1be1bd41"
+      "cde1d0c9",
+      "b23d4793",
+      "169c886f",
+      "7582bc20",
+      "7722d233",
+      "6f80be3c",
+      "09b988bd",
+      "8e99e5c0"
     ],
     "crates/gateway/src/middleware/browser_user_routes.rs": [
       "634a2058",
@@ -6800,24 +6800,24 @@
       "a12f8558"
     ],
     "crates/connection-broker/Cargo.toml": [
-      "33e718d8",
-      "5e217361",
-      "f42b9e85",
-      "e6eba563",
-      "1aa64169",
-      "72991a5f",
-      "da3e2bca",
-      "4d04dd2f"
+      "1a17de82",
+      "7b2c45b1",
+      "bd00b6b1",
+      "8c88bb3e",
+      "93d0d6e1",
+      "eb67cff8",
+      "2c213124",
+      "d6917551"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "2639f1a7",
-      "24c7e8bb",
-      "134d999e",
-      "c7a64797",
-      "a12c0263",
-      "2057dcab",
-      "11e1b55b",
-      "8b3cf260"
+      "4ecee860",
+      "c38589dc",
+      "9818e4bd",
+      "e8c7c8b5",
+      "efe2f2eb",
+      "51dedbef",
+      "4df69e5e",
+      "18c93fdd"
     ],
     "crates/connection-broker/src/config.rs": [
       "4a23b693",
@@ -6830,34 +6830,34 @@
       "aecf1fac"
     ],
     "crates/connection-broker/src/constructor.rs": [
-      "3b76416e",
-      "82900de7",
-      "12f70dff",
-      "60c72aa9",
-      "e1d2b903",
-      "4cb855a3",
-      "b8a486c1",
-      "6abe5a78"
+      "c022fb07",
+      "6db5c77c",
+      "664b2c4e",
+      "860e43c5",
+      "eaad9ccd",
+      "31563d26",
+      "5414f2e7",
+      "3c570132"
     ],
     "crates/connection-broker/src/store.rs": [
-      "5ab48843",
-      "98cda7d2",
-      "b0051b99",
-      "266f9539",
-      "fe16e8ce",
-      "5baba841",
-      "fe6020ae",
-      "ad9510bf"
+      "46faaeb3",
+      "b765533f",
+      "dedebf8d",
+      "a150ad8c",
+      "e57d00cc",
+      "d1ef9187",
+      "8877a3ce",
+      "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "15e65cfa",
-      "77469c13",
-      "fc9ea0d9",
-      "26602828",
-      "67e519f0",
-      "03b45881",
-      "1e561c8d",
-      "a0589379"
+      "98e0b2b1",
+      "0bb691e0",
+      "3068f0cb",
+      "5b1a4f6f",
+      "71674d36",
+      "76cd6f7c",
+      "1b08dacc",
+      "95196856"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
@@ -6900,14 +6900,14 @@
       "99c1cc3f"
     ],
     "crates/connection-broker/src/constructor_tests.rs": [
-      "042e314f",
-      "d55b06df",
-      "8ec3f03d",
-      "17bb5706",
-      "2e39a6b2",
-      "632d7c38",
-      "8f4f4c91",
-      "f0cd7556"
+      "9102931f",
+      "a7f26119",
+      "d37a0baa",
+      "93d505d1",
+      "2ed98da0",
+      "e5201764",
+      "5dfa6c6e",
+      "95cc0ffe"
     ],
     "crates/audit/src/lib.rs": [
       "623075cb",
@@ -6920,14 +6920,14 @@
       "c91ac387"
     ],
     "crates/authz/src/engine.rs": [
-      "0d310e97",
-      "1f2070dd",
-      "5e70d219",
-      "2236d5fb",
-      "2fe9294b",
-      "99d677a0",
-      "dbfbda08",
-      "2497f909"
+      "45441f7f",
+      "4f3a39ad",
+      "a173bef5",
+      "60f4c0c8",
+      "9a9a7c3f",
+      "94b1fd6b",
+      "a37fef34",
+      "07b6b84b"
     ],
     "crates/connector-host/src/lib.rs": [
       "cc69443c",
@@ -6980,14 +6980,14 @@
       "54a5d375"
     ],
     "crates/task-access/src/engine.rs": [
-      "4d19f346",
-      "7cf303c5",
-      "219f4faf",
-      "78b4d179",
-      "cbfd5978",
-      "9982a8e6",
-      "1e5c3169",
-      "b5ae9e77"
+      "a673efca",
+      "26002f94",
+      "d8ec7063",
+      "3b0756ce",
+      "1d330c0d",
+      "27d129bf",
+      "400b657f",
+      "ca673196"
     ],
     "crates/gateway/src/task_engine.rs": [
       "1b395d0d",
@@ -7010,24 +7010,24 @@
       "e2cccc6d"
     ],
     "crates/gateway/src/transport_lifecycle/mod.rs": [
-      "8e439b18",
-      "aa670a0d",
-      "75f99740",
-      "55d8ca2f",
-      "0e61601b",
-      "f5963b13",
-      "79789ff7",
-      "6d89dcf5"
+      "105794dd",
+      "a13d2832",
+      "087586ba",
+      "431af6c1",
+      "1a2b820c",
+      "718320fa",
+      "67b904c4",
+      "7a67a462"
     ],
     "crates/gateway/src/transport_lifecycle/trust.rs": [
-      "d24c39e9",
-      "bbaf1629",
-      "01bfbafe",
-      "5ed381ae",
-      "f37244ab",
-      "c3b85587",
-      "7cf4e2e3",
-      "b90d6fe0"
+      "3f5b6d20",
+      "b8d2b369",
+      "e1f80961",
+      "14da2fd1",
+      "622873dd",
+      "96eda7c7",
+      "72297fe9",
+      "6704925e"
     ],
     "crates/connection-broker/src/catalog.rs": [
       "34fbc4b1",

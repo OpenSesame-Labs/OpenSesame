@@ -1,3 +1,4 @@
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::process::Command;
 use std::sync::Barrier;
 use std::thread;
@@ -6,6 +7,20 @@ use super::Fixture;
 
 const THREADS: usize = 8;
 const ROUNDS: usize = 40;
+
+#[test]
+fn fixtures_are_isolated_private_and_owned_by_the_executing_user() {
+    let first = Fixture::new("first");
+    let second = Fixture::new("second");
+    assert_ne!(first.root, second.root);
+
+    let metadata = std::fs::metadata(&first.root).expect("fixture metadata");
+    // SAFETY: these calls take no arguments and cannot fail.
+    let (euid, egid) = unsafe { (libc::geteuid(), libc::getegid()) };
+    assert_eq!(metadata.uid(), euid);
+    assert_eq!(metadata.gid(), egid);
+    assert_eq!(metadata.permissions().mode() & 0o777, 0o700);
+}
 
 /// Writes a stub and runs it at once, `ROUNDS` times.
 fn write_and_run(barrier: &Barrier) {

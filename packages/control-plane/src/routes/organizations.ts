@@ -71,12 +71,8 @@ export {
 export const organizationRoutes = new Hono<{ Variables: Variables }>();
 organizationRoutes.onError(organizationIssuerErrorHandler);
 
-/**
- * The member routes have never read the organization's state, only the
- * caller's membership, so an owner of a deleted organization still reaches
- * them. Recorded as `unchecked` instead of quietly changed (ADR 0178).
- */
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "unchecked" };
+/** Membership authority retires with the organization (ADR 0178). */
+const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "active" };
 
 /**
  * The public tenant lookup is unauthenticated and does a durable read plus an

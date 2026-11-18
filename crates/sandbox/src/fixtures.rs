@@ -10,11 +10,11 @@
 //! chain that `ValidatedGrantChain::try_validate` would reject, because it
 //! is the only way out of this module.
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     ConnectionId, DomainError, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId,
     PrincipalId, ProjectId, ValidatedGrantChain,
 };
+use opensesame_time::{Duration, Utc};
 
 /// A root grant naming `actions`, metering `budgets`, valid for `ttl`.
 #[must_use]

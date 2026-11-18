@@ -17,9 +17,9 @@
 //! times. It is this file: adding a variant to [`SubjectKind::ALL`] without
 //! widening the `CHECK` fails here, with a message naming the consequence.
 
-use chrono::{TimeZone as _, Utc};
 use opensesame_lifecycle::SubjectKind;
 use opensesame_storage::{Db, StoredLifecycleWatermark};
+use opensesame_time::{TimeZone as _, Utc};
 
 async fn db() -> Db {
     let db = Db::connect_memory().await.expect("in-memory database");

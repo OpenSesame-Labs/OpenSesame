@@ -96,7 +96,10 @@ impl PasswordHashScheme for Successor {
             .finalize();
         let encoded = argon2::password_hash::phc::Output::new(&digest)
             .map_err(|e| HashError(e.to_string()))?;
-        Ok(format!("$successor-test$v=1${}${encoded}", salt_string.as_ref()))
+        Ok(format!(
+            "$successor-test$v=1${}${encoded}",
+            salt_string.as_ref()
+        ))
     }
     fn verify(&self, stored: &PasswordHash, secret: &[u8]) -> bool {
         let (Some(salt), Some(hash)) = (stored.salt.as_ref(), stored.hash.as_ref()) else {

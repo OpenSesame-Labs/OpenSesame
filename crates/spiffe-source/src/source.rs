@@ -15,9 +15,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use futures::StreamExt as _;
 use opensesame_domain::TransportError;
+use opensesame_time::{DateTime, Utc};
 use spiffe::transport::Endpoint;
 use spiffe::{WorkloadApiClient, X509Context};
 use tokio::sync::watch;

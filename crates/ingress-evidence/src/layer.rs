@@ -30,8 +30,8 @@ use std::task::{Context, Poll};
 
 use axum::body::Body;
 use axum::http::{header, HeaderValue, Request, Response, StatusCode};
-use chrono::Utc;
 use opensesame_domain::transport::{TransportError, TransportPolicy, VerifiedPeer};
+use opensesame_time::Utc;
 use opensesame_transport_security::{
     DenyThumbprint, ListenerProvenance, PeerExtension, TrustBundle,
 };

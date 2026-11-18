@@ -107,7 +107,7 @@ export class JsdomPages implements StepPages {
     return await this.run(pfWaitFor, selector, timeoutMs);
   }
   fill(selector: string, value: string) {
-    return this.run(pfFill, selector, value);
+    return this.run(pfFill, selector, value, this.origin);
   }
   presence(selector: string, expected: string) {
     return this.run(pfPresence, selector, expected);

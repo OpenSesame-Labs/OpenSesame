@@ -3,8 +3,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::PeerIdentitySelector;
+use opensesame_time::{Duration, Utc};
 use rcgen::{
     CertificateParams, CertificateRevocationListParams, DnType, Issuer, KeyPair, KeyUsagePurpose,
     RevokedCertParams, SerialNumber,
@@ -110,8 +110,8 @@ impl DisposableCa {
     pub fn intermediate_with(
         &self,
         name: &str,
-        not_before: chrono::DateTime<Utc>,
-        not_after: chrono::DateTime<Utc>,
+        not_before: opensesame_time::DateTime<Utc>,
+        not_after: opensesame_time::DateTime<Utc>,
         is_ca: bool,
     ) -> DisposableCa {
         let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).expect("ca key");

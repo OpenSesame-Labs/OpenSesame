@@ -24,10 +24,10 @@ mod shared;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use opensesame_storage::bitwarden::{
     ArrivalOutcome, BitwardenArrival, BitwardenCipher, BitwardenFolder,
 };
+use opensesame_time::{DateTime, Utc};
 
 pub use files::{ArrivingAttachment, ArrivingSend, FileSource};
 use opensesame_storage::Db;
