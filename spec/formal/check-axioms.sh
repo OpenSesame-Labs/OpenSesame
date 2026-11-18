@@ -12,7 +12,7 @@ case "${model##*/}" in
   AuthPolicy.lean) suite=auth; required_count=19 ;;
   Authority.lean) suite=authority; required_count=10 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
-  PendingIntegrity.lean) suite=oauth; required_count=9 ;;
+  PendingIntegrity.lean) suite=oauth; required_count=14 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=9 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac
