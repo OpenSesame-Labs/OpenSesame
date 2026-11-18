@@ -20,6 +20,26 @@ import {
   walkSteps,
 } from "./tutorial-walk.mjs";
 
+/** The returned focus must be a rendered control, not the page or a hidden node. */
+function hasUsableFocus() {
+  const element = document.activeElement;
+  if (
+    !(element instanceof HTMLElement) ||
+    element === document.body ||
+    element === document.documentElement ||
+    !element.isConnected
+  )
+    return false;
+  const box = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  return (
+    box.width > 0 &&
+    box.height > 0 &&
+    style.display !== "none" &&
+    style.visibility !== "hidden"
+  );
+}
+
 /** Back goes back, and Replay begins again; then Done, and where focus went. */
 async function finishTour(ctx, page, id, phone, total, shot) {
   const { check, out } = ctx;
@@ -49,12 +69,18 @@ async function finishTour(ctx, page, id, phone, total, shot) {
     (await tutorialDialog(page).count()) === 0,
     `${id}: Done closes the tutorial`,
   );
+  // A framework's effect cleanup can restore focus just after the card is
+  // detached. Wait for that handoff instead of checking between the two.
+  await page
+    .waitForFunction(hasUsableFocus, null, { timeout: 5000 })
+    .catch(() => {});
+  const usableFocus = await page.evaluate(hasUsableFocus);
   const focus = await page.evaluate(
     () => document.activeElement?.tagName ?? "none",
   );
   check(
-    focus !== "BODY" && focus !== "none",
-    `${id}: focus is handed back, not dropped on the page (${focus})`,
+    usableFocus,
+    `${id}: focus is handed back to a visible control (${focus})`,
   );
 }
 
