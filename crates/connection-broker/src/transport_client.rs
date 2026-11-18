@@ -36,10 +36,14 @@ pub fn is_internal(ip: IpAddr) -> bool {
                 || v4.is_unspecified()
                 || v4.is_multicast()
                 || v4.is_broadcast()
+                || v4.is_documentation()
                 || v4.octets()[0] == 0
                 // 100.64.0.0/10 (RFC 6598 carrier NAT) and 169.254.0.0/16 are
                 // both routes to somebody else's internal network.
                 || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
+                || (v4.octets()[0..3] == [192, 0, 0])
+                || (v4.octets()[0] == 198 && (18..=19).contains(&v4.octets()[1]))
+                || v4.octets()[0] >= 240
         }
         IpAddr::V6(v6) => {
             v6.is_loopback()
@@ -47,10 +51,29 @@ pub fn is_internal(ip: IpAddr) -> bool {
                 || v6.is_multicast()
                 // fe80::/10 link-local and fc00::/7 unique-local.
                 || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // Deprecated site-local, local-use translation, discard-only,
+                // Teredo and documentation prefixes are not public services.
+                || (v6.segments()[0] & 0xffc0) == 0xfec0
                 || (v6.segments()[0] & 0xfe00) == 0xfc00
-                || v6.to_ipv4_mapped().is_some_and(is_internal_v4)
+                || v6.segments()[0..3] == [0x0064, 0xff9b, 1]
+                || v6.segments()[0..4] == [0x0100, 0, 0, 0]
+                || v6.segments()[0..2] == [0x2001, 0]
+                || v6.segments()[0..3] == [0x2001, 2, 0]
+                || (v6.segments()[0..2] == [0x2001, 0x0db8])
+                || (v6.segments()[0] == 0x3fff && (v6.segments()[1] & 0xf000) == 0)
+                || v6.to_ipv4().is_some_and(is_internal_v4)
+                || embedded_v4(v6.segments()).is_some_and(is_internal_v4)
         }
     }
+}
+
+fn embedded_v4(segments: [u16; 8]) -> Option<std::net::Ipv4Addr> {
+    let from_pair =
+        |hi: u16, lo: u16| std::net::Ipv4Addr::from((u32::from(hi) << 16) | u32::from(lo));
+    if segments[0] == 0x0064 && segments[1] == 0xff9b && segments[2..6] == [0, 0, 0, 0] {
+        return Some(from_pair(segments[6], segments[7]));
+    }
+    (segments[0] == 0x2002).then(|| from_pair(segments[1], segments[2]))
 }
 
 fn is_internal_v4(v4: std::net::Ipv4Addr) -> bool {
@@ -82,9 +105,9 @@ pub fn build_invoker(
 ) -> Result<Invoker, TransportError> {
     let Some(trust) = trust else {
         // No configured trust profile: the connection uses the Host's ordinary
-        // Web PKI client. `mtls_required` never reaches here — `resolve_trust`
-        // refuses it — so this is only the unchanged `server_tls` path.
-        let invoker = Invoker::with_rules(rules);
+        // Web PKI client. It must still dial the vetted addresses rather than
+        // resolve the host again. `mtls_required` never reaches this branch.
+        let invoker = Invoker::with_pinned(rules, &authority.host, &authority.addrs);
         return Ok(if allow_loopback {
             invoker.allow_http_for_tests()
         } else {
@@ -115,3 +138,7 @@ pub fn build_invoker(
         invoker
     })
 }
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "transport_client_tests.rs"]
+mod tests;

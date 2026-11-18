@@ -214,6 +214,7 @@ impl ConnectorTransportExecutor {
         })?;
 
         // 6. Only now is the sealed credential opened, for this one request.
+        invoker.ensure_pinned_destination(&prepared)?;
         let token = credential.open_bearer(ctx).await?;
 
         // 7. The wire.
@@ -274,17 +275,22 @@ impl ConnectorTransportExecutor {
         prepared: &PreparedRequest,
     ) -> Result<PinnedAuthority, TransportError> {
         let host = prepared.host().to_ascii_lowercase();
-        let port = prepared.port().unwrap_or(443);
-        let mut addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
-            .await
-            .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
-            .collect();
-        if !self.allow_loopback_for_tests {
-            addrs.retain(|addr| !is_internal(addr.ip()));
-        }
-        if addrs.is_empty() {
+        let port = prepared.effective_port();
+        let addrs: Vec<SocketAddr> = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::net::lookup_host((host.as_str(), port)),
+        )
+        .await
+        .map_err(|_| TransportError::malformed("connector authority resolution timed out"))?
+        .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
+        .take(33)
+        .collect();
+        if addrs.is_empty()
+            || addrs.len() > 32
+            || (!self.allow_loopback_for_tests && addrs.iter().any(|addr| is_internal(addr.ip())))
+        {
             return Err(TransportError::malformed(
-                "connector authority resolved to no permitted address",
+                "connector authority did not resolve exclusively to permitted addresses",
             ));
         }
         Ok(PinnedAuthority {

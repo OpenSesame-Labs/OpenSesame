@@ -14,6 +14,7 @@
 //! cert store, no reqwest, no cookie store — the ADR 0048 D5 budget), or the
 //! scoped profile the authority plane injects through [`Invoker::with_tls`].
 
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
@@ -29,6 +30,9 @@ use crate::fence::{EgressFence, PreparedRequest};
 use crate::scrub::Needles;
 use crate::source::TokenSource;
 use crate::tls::{build_client, HttpsClient, TlsClientSpec};
+
+#[path = "invoke_pinning.rs"]
+mod pinning;
 
 #[cfg(test)]
 #[path = "invoke_stub.rs"]
@@ -109,6 +113,7 @@ pub struct ReceiptMeta {
 /// The broker. Cheap to build; the daemon holds one in shared state.
 pub struct Invoker {
     client: HttpsClient,
+    pinned: Option<(String, Vec<SocketAddr>)>,
     /// Every pre-connect check, separable so a caller can run it before any
     /// identity is resolved or credential opened.
     fence: EgressFence,
@@ -143,12 +148,15 @@ impl Invoker {
     /// and body fences are exactly those of [`Invoker::with_rules`].
     #[must_use]
     pub fn with_tls(rules: Vec<EgressRule>, tls: &TlsClientSpec) -> Self {
-        Self::from_client(build_client(Some(tls)), rules)
+        let mut invoker = Self::from_client(build_client(Some(tls)), rules);
+        invoker.pinned.clone_from(&tls.pinned);
+        invoker
     }
 
     fn from_client(client: HttpsClient, rules: Vec<EgressRule>) -> Self {
         Self {
             client,
+            pinned: None,
             fence: EgressFence::new(rules, DEFAULT_REQUEST_BODY_CAP),
             response_body_cap: DEFAULT_RESPONSE_BODY_CAP,
             timeout: DEFAULT_TIMEOUT,
@@ -195,7 +203,9 @@ impl Invoker {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn preflight(&self, req: InvokeRequest) -> Result<PreparedRequest, InvokeError> {
-        self.fence.preflight(req)
+        let prepared = self.fence.preflight(req)?;
+        self.ensure_pinned_destination(&prepared)?;
+        Ok(prepared)
     }
 
     /// Execute a preflighted request with an acquired credential. The token
@@ -211,6 +221,7 @@ impl Invoker {
         token: &SecretString,
         prepared: PreparedRequest,
     ) -> Result<InvokeResponse, InvokeError> {
+        self.ensure_pinned_destination(&prepared)?;
         if prepared.auth != AuthStyle::Bearer {
             return Err(InvokeError::UnsupportedProvider(prepared.provider_id));
         }
@@ -362,3 +373,7 @@ fn scrub_all(needles: &[Needles], value: String) -> (String, bool) {
 #[cfg(test)]
 #[path = "invoke_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "invoke_pinned_tests.rs"]
+mod pinned_tests;

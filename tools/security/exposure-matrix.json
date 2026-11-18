@@ -367,6 +367,8 @@
         "crates/connection-broker/Cargo.toml",
         "crates/connection-broker/src/lib.rs",
         "crates/connection-broker/src/config.rs",
+        "crates/connection-broker/src/config_custom_egress.rs",
+        "crates/connection-broker/src/custom_egress.rs",
         "crates/connection-broker/src/constructor.rs",
         "crates/connection-broker/src/store.rs",
         "crates/storage/src/lib.rs",
@@ -391,7 +393,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment."
     },
     {
       "id": "host-listeners",
@@ -6777,24 +6779,44 @@
       "4d04dd2f"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "2639f1a7",
-      "24c7e8bb",
-      "134d999e",
-      "c7a64797",
-      "a12c0263",
-      "2057dcab",
-      "11e1b55b",
-      "8b3cf260"
+      "5c82ad95",
+      "3433cc91",
+      "bfea3798",
+      "e2ea9dfb",
+      "2f6155b8",
+      "59586757",
+      "c07021df",
+      "17022d99"
     ],
     "crates/connection-broker/src/config.rs": [
-      "4a23b693",
-      "85e8c2f6",
-      "6109ca98",
-      "3cda9b79",
-      "da1389df",
-      "420da1fa",
-      "443d975a",
-      "aecf1fac"
+      "4e2535ca",
+      "e9f2e1e2",
+      "46a34000",
+      "a1ec9d83",
+      "cda3e5c3",
+      "36283f29",
+      "1bf3b918",
+      "fe29509e"
+    ],
+    "crates/connection-broker/src/config_custom_egress.rs": [
+      "37d7b208",
+      "1a8e462b",
+      "461d97fc",
+      "2770b8ce",
+      "850a27db",
+      "c04fe588",
+      "6d2331f7",
+      "9fee3dbc"
+    ],
+    "crates/connection-broker/src/custom_egress.rs": [
+      "d306473c",
+      "9df60cca",
+      "5e795c49",
+      "2e9f112b",
+      "8f1fc2e4",
+      "1e252a31",
+      "4a03d641",
+      "97f7339a"
     ],
     "crates/connection-broker/src/constructor.rs": [
       "3b76416e",
@@ -6927,14 +6949,14 @@
       "fda1109a"
     ],
     "crates/invoke-through/src/fence.rs": [
-      "2ca8e6f1",
-      "72ce38d7",
-      "b3856c13",
-      "40423348",
-      "2bf1c659",
-      "a490ab9e",
-      "e25bc444",
-      "708efcd2"
+      "e64f295b",
+      "7b23a477",
+      "265d999a",
+      "32e5fe6d",
+      "d8364a07",
+      "eda3f328",
+      "432d2d2f",
+      "68459e28"
     ],
     "crates/task-bus/src/memory.rs": [
       "b7f0af77",

@@ -6,6 +6,10 @@ use std::collections::BTreeMap;
 use std::{env, fs, path::PathBuf};
 
 use crate::catalog::{self, AuthMethod, Provider};
+use crate::custom_egress::CustomEgressPolicy;
+
+#[path = "config_custom_egress.rs"]
+mod custom_egress_settings;
 use opensesame_connection_detect::{
     detected_file_value, env_aliases, is_aws_credential_field, is_aws_provider, non_empty,
 };
@@ -13,6 +17,8 @@ use opensesame_connection_detect::{
 pub const ENV_CONNECTION_KEY: &str = "OPENSESAME_CONNECTION_KEY";
 pub const ENV_PUBLIC_URL: &str = "OPENSESAME_PUBLIC_URL";
 pub const ENV_REDIRECT_ALLOWLIST: &str = "OPENSESAME_CONNECTION_REDIRECT_ALLOWLIST";
+pub const ENV_CUSTOM_PRIVATE_ORIGINS: &str = "OPENSESAME_CUSTOM_PROVIDER_PRIVATE_ORIGINS";
+pub const ENV_CUSTOM_TOKEN_ORIGINS: &str = "OPENSESAME_CUSTOM_PROVIDER_TOKEN_ORIGINS";
 /// Points every STS mint at a loopback stand-in. Read only by a build with the
 /// `sts-stand-in` feature (the tests' build, never a shipped one); the egress
 /// rule for such an endpoint admits loopback hosts alone (ADR 0217).
@@ -39,6 +45,7 @@ pub struct BrokerConfig {
     redirect_allowlist: Vec<String>,
     providers: BTreeMap<String, ProviderConfig>,
     detected_connections: BTreeMap<String, BTreeMap<String, String>>,
+    custom_egress: CustomEgressPolicy,
     /// Override for GitHub REST API (tests). Default `https://api.github.com`.
     github_api_base: Option<String>,
     /// Override for the STS endpoint (tests, loopback only; ADR 0217). Never
@@ -53,6 +60,7 @@ impl std::fmt::Debug for BrokerConfig {
             .field("public_url", &self.public_url)
             .field("redirect_allowlist", &self.redirect_allowlist)
             .field("providers", &self.providers.keys().collect::<Vec<_>>())
+            .field("custom_egress", &self.custom_egress)
             .field(
                 "detected_connections",
                 &self.detected_connections.keys().collect::<Vec<_>>(),
@@ -120,6 +128,7 @@ impl BrokerConfig {
                 .collect(),
             providers,
             detected_connections,
+            custom_egress: CustomEgressPolicy::from_env()?,
             github_api_base: None,
             aws_sts_endpoint: test_sts_endpoint(),
         })
@@ -134,15 +143,10 @@ impl BrokerConfig {
             redirect_allowlist: Vec::new(),
             providers: BTreeMap::new(),
             detected_connections: BTreeMap::new(),
+            custom_egress: CustomEgressPolicy::default(),
             github_api_base: None,
             aws_sts_endpoint: None,
         }
-    }
-
-    #[must_use]
-    pub fn with_github_api_base(mut self, base: impl Into<String>) -> Self {
-        self.github_api_base = Some(base.into());
-        self
     }
 
     /// Send every STS mint to a loopback stand-in instead of the regional
@@ -169,12 +173,6 @@ impl BrokerConfig {
     #[must_use]
     pub fn with_provider(mut self, id: &str, cfg: ProviderConfig) -> Self {
         self.providers.insert(id.to_string(), cfg);
-        self
-    }
-
-    #[must_use]
-    pub fn with_redirect_allowlist(mut self, origins: Vec<String>) -> Self {
-        self.redirect_allowlist = origins;
         self
     }
 

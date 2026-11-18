@@ -259,11 +259,9 @@ impl ConnectionBroker {
     /// an origin the connection never authorized.
     ///
     /// Three things are deliberate. Redirects are not followed — a redirect
-    /// would replay the bearer token at an unapproved origin. The response body
-    /// is read only up to a cap, since a provider error page is not something
-    /// we need in full. And no part of the credential is ever returned or
-    /// logged: on failure the caller learns the status, not the provider's
-    /// untrusted response body, which may contain the injected credential.
+    /// would replay the bearer token at an unapproved origin. The response
+    /// body is not read: on failure the caller learns the status, not the
+    /// provider's untrusted body, which may contain the injected credential.
     ///
     /// # Errors
     ///
@@ -302,8 +300,21 @@ impl ConnectionBroker {
         }
 
         require_secure_egress_url(url)?;
-        let mut req = self
-            .http_bytes
+        let guarded = if row.provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+            let endpoint = url::Url::parse(url)
+                .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
+            Some(
+                self.config
+                    .custom_egress()
+                    .client(&endpoint, std::time::Duration::from_secs(60))
+                    .await?,
+            )
+        } else {
+            None
+        };
+        let mut req = guarded
+            .as_ref()
+            .unwrap_or(&self.http_bytes)
             .post(url)
             .header("Authorization", format!("Bearer {}", tokens.access_token))
             .header("Content-Type", "application/octet-stream")
@@ -360,8 +371,22 @@ impl ConnectionBroker {
         let parsed_method = method
             .parse::<reqwest::Method>()
             .map_err(|_| format!("unsupported method {method}"))?;
-        let mut request = self
-            .http_bytes
+        let guarded = if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+            let endpoint =
+                url::Url::parse(url).map_err(|_| "malformed custom provider URL".to_string())?;
+            Some(
+                self.config
+                    .custom_egress()
+                    .client(&endpoint, std::time::Duration::from_secs(60))
+                    .await
+                    .map_err(|e| e.to_string())?,
+            )
+        } else {
+            None
+        };
+        let mut request = guarded
+            .as_ref()
+            .unwrap_or(&self.http_bytes)
             .request(parsed_method, url)
             .header("Accept", "application/json")
             .header("User-Agent", "OpenSesame-Host/0.1");
@@ -408,88 +433,8 @@ impl ConnectionBroker {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn token() -> TokenSet {
-        TokenSet {
-            access_token: "do-not-return".into(),
-            refresh_token: None,
-            token_type: "test".into(),
-            expires_at: None,
-            scopes: Vec::new(),
-            configuration: std::collections::BTreeMap::default(),
-        }
-    }
-
-    #[test]
-    fn places_oauth_and_api_key_credentials_from_catalog_auth() {
-        let oauth = AuthMethod::OpenRouterPkce {
-            authorize_url: "https://openrouter.ai/auth".into(),
-            exchange_url: "https://openrouter.ai/api/v1/auth/keys".into(),
-        };
-        assert_eq!(
-            credential_header(&oauth, &token()).unwrap(),
-            ("Authorization".into(), "Bearer do-not-return".into())
-        );
-
-        let api_key = AuthMethod::ApiKey {
-            header: "X-Api-Key".into(),
-            value_prefix: "Key ".into(),
-        };
-        assert_eq!(
-            credential_header(&api_key, &token()).unwrap(),
-            ("X-Api-Key".into(), "Key do-not-return".into())
-        );
-        assert!(credential_header(&AuthMethod::Configuration, &token()).is_err());
-    }
-
-    #[test]
-    fn credentialed_egress_requires_https_except_loopback() {
-        assert!(require_secure_egress_url("https://api.github.com/user/repos").is_ok());
-        assert!(require_secure_egress_url("http://127.0.0.1:8080/upload").is_ok());
-        assert!(require_secure_egress_url("http://localhost:8080/upload").is_ok());
-        for refused in [
-            "http://api.github.com/user/repos",
-            "http://169.254.169.254/latest/meta-data/",
-            "http://127.0.0.1.evil.com/upload",
-            "ftp://127.0.0.1/upload",
-            "not a url",
-        ] {
-            assert!(
-                require_secure_egress_url(refused).is_err(),
-                "{refused} must be refused"
-            );
-        }
-    }
-
-    #[test]
-    fn parses_private_repo() {
-        let v = json!({
-            "name": "opensesame-passwords",
-            "full_name": "alice/opensesame-passwords",
-            "private": true,
-            "clone_url": "https://github.com/alice/opensesame-passwords.git",
-            "html_url": "https://github.com/alice/opensesame-passwords",
-            "default_branch": "main"
-        });
-        let repo = parse_github_repo(&v).unwrap();
-        assert!(repo.private);
-        assert_eq!(repo.name, "opensesame-passwords");
-        assert!(repo.clone_url.to_ascii_lowercase().ends_with(".git"));
-    }
-
-    #[test]
-    fn maps_integration_forbidden_to_actionable_hint() {
-        let mapped = map_github_repo_create_error(BrokerError::ExchangeFailed(
-            "upstream 403 Forbidden: {\"message\":\"Resource not accessible by integration\"}"
-                .into(),
-        ));
-        assert_eq!(mapped.code(), "invalid_request");
-        assert!(mapped.hint().contains("Install the tenant GitHub App"));
-        assert!(mapped.hint().contains("Re-authorize"));
-    }
-}
+#[path = "egress_tests.rs"]
+mod tests;
 
 #[cfg(test)]
 mod reserved_header_tests {

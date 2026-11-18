@@ -141,6 +141,15 @@ pub(crate) fn build_client(tls: Option<&TlsClientSpec>) -> HttpsClient {
         Some((host, addrs)) => Resolver::pinned(host, addrs),
         None => Resolver::system(),
     };
+    build_with_resolver(tls, resolver)
+}
+
+/// Web PKI with the addresses already vetted by the authority plane.
+pub(crate) fn build_pinned_client(host: &str, addrs: &[SocketAddr]) -> HttpsClient {
+    build_with_resolver(None, Resolver::pinned(host, addrs))
+}
+
+fn build_with_resolver(tls: Option<&TlsClientSpec>, resolver: Resolver) -> HttpsClient {
     let mut http = HttpConnector::new_with_resolver(resolver);
     http.enforce_http(false);
     let connector = match tls {
