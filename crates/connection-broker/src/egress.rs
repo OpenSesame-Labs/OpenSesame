@@ -15,13 +15,9 @@ use crate::ConnectionBroker;
 
 #[path = "egress_github.rs"]
 mod github;
+#[path = "egress_http.rs"]
+mod http;
 use github::{map_github_repo_create_error, parse_github_repo, parse_github_repo_list};
-
-/// Characters of an upstream error body kept for diagnostics. A provider error
-/// page is not worth holding in full, and the cap keeps a hostile upstream from
-/// deciding how much of our memory its message occupies.
-const MAX_ERROR_SNIPPET: usize = 512;
-const MAX_JSON_RESPONSE_BYTES: usize = 1024 * 1024;
 
 /// Headers the broker owns on a credentialed upload. A caller supplying any of
 /// these would be competing with the injected credential or the framing of the
@@ -44,7 +40,12 @@ const RESERVED_HEADERS: &[&str] = &[
 fn require_secure_egress_url(url: &str) -> Result<()> {
     let parsed =
         url::Url::parse(url).map_err(|_| BrokerError::Invalid("malformed egress url".into()))?;
-    let loopback = matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
+    let loopback = match parsed.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(ip)) => ip == std::net::Ipv4Addr::LOCALHOST,
+        Some(url::Host::Ipv6(ip)) => ip == std::net::Ipv6Addr::LOCALHOST,
+        None => false,
+    };
     match parsed.scheme() {
         "https" => Ok(()),
         "http" if loopback => Ok(()),
@@ -300,21 +301,10 @@ impl ConnectionBroker {
         }
 
         require_secure_egress_url(url)?;
-        let guarded = if row.provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
-            let endpoint = url::Url::parse(url)
-                .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
-            Some(
-                self.config
-                    .custom_egress()
-                    .client(&endpoint, std::time::Duration::from_secs(60))
-                    .await?,
-            )
-        } else {
-            None
-        };
-        let mut req = guarded
-            .as_ref()
-            .unwrap_or(&self.http_bytes)
+        let client = self
+            .credentialed_egress_client(&row.provider_id, url)
+            .await?;
+        let mut req = client
             .post(url)
             .header("Authorization", format!("Bearer {}", tokens.access_token))
             .header("Content-Type", "application/octet-stream")
@@ -356,79 +346,6 @@ impl ConnectionBroker {
             return Err(BrokerError::ExchangeFailed(format!("upstream {status}")));
         }
         Ok(())
-    }
-
-    async fn http_authorized(
-        &self,
-        provider_id: &str,
-        auth: &AuthMethod,
-        tokens: &TokenSet,
-        method: &str,
-        url: &str,
-        body: Option<Value>,
-    ) -> std::result::Result<Value, String> {
-        require_secure_egress_url(url).map_err(|error| error.to_string())?;
-        let parsed_method = method
-            .parse::<reqwest::Method>()
-            .map_err(|_| format!("unsupported method {method}"))?;
-        let guarded = if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
-            let endpoint =
-                url::Url::parse(url).map_err(|_| "malformed custom provider URL".to_string())?;
-            Some(
-                self.config
-                    .custom_egress()
-                    .client(&endpoint, std::time::Duration::from_secs(60))
-                    .await
-                    .map_err(|e| e.to_string())?,
-            )
-        } else {
-            None
-        };
-        let mut request = guarded
-            .as_ref()
-            .unwrap_or(&self.http_bytes)
-            .request(parsed_method, url)
-            .header("Accept", "application/json")
-            .header("User-Agent", "OpenSesame-Host/0.1");
-        let (credential_name, credential_value) =
-            credential_header(auth, tokens).map_err(|error| error.to_string())?;
-        request = request.header(credential_name, credential_value);
-        if provider_id == "github" {
-            request = request
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28");
-        }
-        if let Some(body) = body {
-            request = request.json(&body);
-        }
-        let mut response = request.send().await.map_err(|e| e.to_string())?;
-        let status = response.status();
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_JSON_RESPONSE_BYTES as u64)
-        {
-            return Err("upstream response exceeds the 1 MiB limit".into());
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            if bytes.len() + chunk.len() > MAX_JSON_RESPONSE_BYTES {
-                return Err("upstream response exceeds the 1 MiB limit".into());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
-        if !(200..300).contains(&status.as_u16()) {
-            let safe = text.replace(&tokens.access_token, "[REDACTED]");
-            let snippet: String = safe.chars().take(MAX_ERROR_SNIPPET).collect();
-            return Err(format!("upstream {status}: {snippet}"));
-        }
-        if text.contains(&tokens.access_token) {
-            return Err("upstream response contained the injected credential".into());
-        }
-        if text.trim().is_empty() {
-            return Ok(json!({}));
-        }
-        serde_json::from_str(&text).map_err(|e| e.to_string())
     }
 }
 
