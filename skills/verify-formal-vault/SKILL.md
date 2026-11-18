@@ -43,7 +43,7 @@ Do not weaken `PresentationMatchesStore`, `NoStalePendingWhileOpen`, or `OpenSes
 
 ## Tell a real bug from a modeling error
 
-Replay the failing path one published snapshot at a time. The replay test is `packages/app-core/src/lib/vault/vault-presentation-formal.replay.test.ts`. It walks the counterexample on `VaultStore` (create, enroll a second step, lock, primary unlock, finish the second step) and drives `StoreUnlockSession.activate` from the parked-key state that `BuggyUnlockOpen` opens. It asserts each published snapshot and that the parked key is clear once the session is open. `buildVaultState` still keeps `awaitingSecondStep` false on an open vault.
+Replay the failing path one published snapshot at a time. The replay test is `packages/app-core/src/lib/vault/vault-presentation-formal.replay.test.ts`. It drives the real `StoreUnlockSession` through `begin()`, a modeled primary-unwrap snapshot (`pending` while not open, matching `#afterPrimaryUnwrap` when a second step is enrolled), and `activate`. It does not run the full `VaultStore` create, enroll, lock, or primary-unlock pipeline. It asserts each `buildVaultState` view and that the parked key is clear once the session is open.
 
 If that test fails, the screen formula or the unlock session has drifted and the model is reporting a product bug. If the test passes and TLC fails, the model and the code have diverged; read the diff of the covered files since the sync commit before changing a rule.
 

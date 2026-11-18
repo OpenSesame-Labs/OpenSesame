@@ -37,17 +37,17 @@ Init ==
 Acquire ==
   /\ live + releasing < MaxLive
   /\ live' = live + 1
-  /\ count' = live' + releasing - lockHeld
+  /\ lockHeld' = lockHeld + 1
+  /\ count' = live' + releasing - lockHeld'
   /\ exclusiveOk' = FALSE
-  /\ UNCHANGED <<gen, stale, releasing, lockHeld>>
+  /\ UNCHANGED <<gen, stale, releasing>>
 
 BeginReleaseCurrent ==
   /\ live > 0
   /\ live' = live - 1
   /\ releasing' = releasing + 1
-  /\ lockHeld' = lockHeld + 1
-  /\ count' = live' + releasing' - lockHeld'
-  /\ UNCHANGED <<gen, stale, exclusiveOk>>
+  /\ count' = live' + releasing' - lockHeld
+  /\ UNCHANGED <<gen, stale, lockHeld, exclusiveOk>>
 
 CompleteReleaseCurrent ==
   /\ releasing > 0

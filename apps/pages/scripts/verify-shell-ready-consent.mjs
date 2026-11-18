@@ -24,6 +24,9 @@ const outRoot =
   process.env.PAGES_VERIFY_OUT ??
   join(repoRoot, "artifacts/shell-ready-consent");
 const logDir = join(outRoot, "logs");
+const consentActivationDelayMs = Number(
+  process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS ?? 2_500,
+);
 mkdirSync(logDir, { recursive: true });
 
 function runVitest(relativeSpecs, logName) {
@@ -150,6 +153,7 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
       false,
       async (consentPopup) => {
         if (!expectEarlyConsent) {
+          await consentPopup.waitForTimeout(consentActivationDelayMs);
           await consentPopup
             .waitForFunction(
               () => Boolean(document.querySelector(".vault-skeleton")),
