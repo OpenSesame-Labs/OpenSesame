@@ -61,7 +61,7 @@ function assertCargoAndAndroidEnv(mise, ci) {
     asString(env.CARGO_TARGET_DIR, "CARGO_TARGET_DIR"),
     "{{env.HOME}}/.cache/packages/cargo-target",
   );
-  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.97.1");
+  assert.equal(asString(env.RUSTUP_TOOLCHAIN, "RUSTUP_TOOLCHAIN"), "1.99.0");
   assert.equal(
     asString(env.ANDROID_SDK_PLATFORM, "ANDROID_SDK_PLATFORM"),
     "android-36",
@@ -126,7 +126,7 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
         .RUSTUP_TOOLCHAIN,
       "RUSTUP_TOOLCHAIN",
     ),
-    "1.97.1",
+    "1.99.0",
   );
   assert.doesNotMatch(ci, /cargo install cargo-ndk/u);
 
