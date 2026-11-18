@@ -13,6 +13,14 @@ test("renderer and router keep their own chunks", () => {
   assert.equal(bundleChunk("/x/node_modules/react-dom/client.js"), "react-dom");
   assert.equal(bundleChunk("/x/node_modules/react/index.js"), "react-dom");
   assert.equal(
+    bundleChunk("/x/node_modules/preact/compat/dist/compat.mjs"),
+    "react-dom",
+  );
+  assert.equal(
+    bundleChunk("/x/node_modules/preact/hooks/dist/hooks.mjs"),
+    "react-dom",
+  );
+  assert.equal(
     bundleChunk("/x/node_modules/react-router/dist/index.js"),
     "react-router",
   );
