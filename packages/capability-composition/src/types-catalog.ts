@@ -7,8 +7,7 @@
  * loader, the service-worker controller, the OpenFeature projection, the
  * configuration editors) consume them and never redefine them.
  *
- * Four identifier universes, kept distinct on purpose (see
- * docs/implementation/capability-composition/ownership.md):
+ * Four identifier universes, kept distinct on purpose (see ADR 0130 §1):
  *
  * - **capability ID** — an installable product function a person selects.
  * - **operation ID** — an existing `@opensesame/capability-registry` action.

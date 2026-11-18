@@ -5,7 +5,7 @@
  * `src/lib/capabilities/{ownership,classification}.ts`.
  *
  * Everything here is a *guess recorded as a guess*: the catalog carries the
- * §5 identifiers of docs/implementation/capability-composition/ownership.md
+ * identifier universes of ADR 0130
  * with no modules and no exposure, and the classification maps the source
  * layout onto those identifiers so the forbidden-reachability gate can still
  * name what leaks into the bootstrap closure. It stands in for an authored

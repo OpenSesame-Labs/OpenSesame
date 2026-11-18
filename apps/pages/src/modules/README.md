@@ -4,8 +4,8 @@ One directory per optional capability, named by its capability id verbatim
 (`connectors.external/`, dots kept). The entry is `runtime.ts`, exporting
 `capabilityRuntime: CapabilityRuntime` from
 [`packages/app-core/src/lib/capabilities/runtime-contract.ts`](../../../../packages/app-core/src/lib/capabilities/runtime-contract.ts)
-([`ownership.md`](../../../../docs/implementation/capability-composition/ownership.md)
-§4.2–4.3).
+([ADR 0130](../../../../docs/adr/0130-operator-controlled-capability-composition.md)
+§4).
 
 ## Contract
 

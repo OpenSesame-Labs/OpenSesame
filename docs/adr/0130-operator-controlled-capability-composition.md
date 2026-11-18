@@ -11,7 +11,7 @@
   (the operation registry), [ADR 0114](0114-tabbed-setup-ceremony.md) (the
   setup ceremony — its tab list is now derived, see §5), [ADR 0115](0115-front-door-and-connector-directory.md)
   (the front door)
-- Implementation record: `docs/implementation/capability-composition/ownership.md`
+- Operations: [capability composition](../operators/capability-composition.md)
 - Evidence: [historical evidence](https://github.com/OpenSesame-Labs/OpenSesame/tree/fd554446241e32962e82763ddb772f9420096279/docs/evidence/capability-composition/)
 
 ## Context
