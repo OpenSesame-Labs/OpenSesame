@@ -27,13 +27,21 @@ const invalidBinArgs = [
   "--message-format=json-render-diagnostics",
 ];
 
-test("surfaces rustc errors on stderr when the bin name is invalid", {
-  skip: skipWithoutCargo,
-}, () => {
-  const build = spawnSync("cargo", invalidBinArgs, {
+// Cargo still plans the package for an unknown bin. Both cases share one run.
+let invalidBinBuild;
+
+function runInvalidBinBuild() {
+  invalidBinBuild ??= spawnSync("cargo", invalidBinArgs, {
     cwd: root,
     encoding: "utf8",
   });
+  return invalidBinBuild;
+}
+
+test("surfaces rustc errors on stderr when the bin name is invalid", {
+  skip: skipWithoutCargo,
+}, () => {
+  const build = runInvalidBinBuild();
   assert.notEqual(build.status, 0);
   const combined = `${build.stderr}\n${build.stdout}`;
   assert.match(combined, /error/i);
@@ -42,10 +50,7 @@ test("surfaces rustc errors on stderr when the bin name is invalid", {
 test("keeps stderr visible while piping stdout JSON through the resolver", {
   skip: skipWithoutCargo,
 }, () => {
-  const build = spawnSync("cargo", invalidBinArgs, {
-    cwd: root,
-    encoding: "utf8",
-  });
+  const build = runInvalidBinBuild();
   assert.notEqual(build.status, 0);
   assert.match(build.stderr, /error/i);
 
