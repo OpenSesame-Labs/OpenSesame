@@ -43,8 +43,8 @@ fn nothing_configured_is_no_approver_and_blank_values_are_nothing() {
 #[test]
 fn a_complete_configuration_reads_with_documented_defaults() {
     let settings = read(&complete()).unwrap().unwrap();
-    assert_eq!(settings.ttl, Duration::from_secs(300));
-    assert_eq!(settings.deadline, Duration::from_secs(300));
+    assert_eq!(settings.ttl, Duration::from_mins(5));
+    assert_eq!(settings.deadline, Duration::from_mins(5));
     assert_eq!(settings.poll_interval, DEFAULT_POLL_INTERVAL);
     assert_eq!(settings.default_ref(), None);
     let mut tuned = complete();
@@ -59,9 +59,9 @@ fn a_complete_configuration_reads_with_documented_defaults() {
     assert_eq!(
         (tuned.ttl, tuned.poll_interval, tuned.deadline),
         (
-            Duration::from_secs(600),
+            Duration::from_mins(10),
             Duration::from_millis(500),
-            Duration::from_secs(120)
+            Duration::from_mins(2)
         )
     );
     assert!(tuned.approver(DEFAULT_HANDLE).is_ok());

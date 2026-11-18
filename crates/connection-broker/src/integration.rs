@@ -117,9 +117,7 @@ fn supplied_credentials(
 }
 
 fn parse_time(raw: &str) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(raw)
-        .map(|t| t.with_timezone(&Utc))
-        .unwrap_or(DateTime::<Utc>::MIN_UTC)
+    DateTime::parse_from_rfc3339(raw).map_or(DateTime::<Utc>::MIN_UTC, |t| t.with_timezone(&Utc))
 }
 
 fn row_from_sql(row: &sqlx::sqlite::SqliteRow) -> IntegrationRow {
@@ -343,7 +341,7 @@ impl ConnectionBroker {
         Some(IntegrationView {
             id: format!("{DEPLOYMENT_PREFIX}{}", provider.id),
             key: format!("deployment-{}", provider.id),
-            provider_id: provider.id.to_string(),
+            provider_id: provider.id.clone(),
             display_name: format!("{} (deployment)", provider.display_name),
             source: if crate::flow::is_production_env() {
                 IntegrationSource::Deployment
@@ -853,7 +851,7 @@ impl ConnectionBroker {
                     let scopes: Vec<String> = provider
                         .scopes
                         .iter()
-                        .map(|scope| scope.name.to_string())
+                        .map(|scope| scope.name.clone())
                         .collect();
                     return Ok((
                         format!("{DEPLOYMENT_PREFIX}{provider_id}"),

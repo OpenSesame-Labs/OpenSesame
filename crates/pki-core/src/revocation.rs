@@ -66,7 +66,7 @@ pub struct CrlFacts {
 
 fn key_identifier_method_from_issuer_pem(issuer_cert_pem: &str) -> Result<KeyIdMethod, PkiError> {
     let blocks = x509::parse_pem_blocks(issuer_cert_pem, x509::LABEL_CERTIFICATE, 1)?;
-    let der = blocks.first().ok_or(PkiError::InvalidPem)?.to_vec();
+    let der = blocks.first().ok_or(PkiError::InvalidPem)?.clone();
     let (_, certificate) = parse_x509_certificate(&der).map_err(|_| PkiError::InvalidPem)?;
     let key_identifier_method = certificate
         .iter_extensions()

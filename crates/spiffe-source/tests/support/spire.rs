@@ -190,7 +190,7 @@ fn start_server(
     let ss = socket.to_string_lossy().into_owned();
     wait_until(
         "spire-server healthcheck",
-        Duration::from_secs(60),
+        Duration::from_mins(1),
         &mut child,
         &log,
         || run(server_bin, &["healthcheck", "-socketPath", &ss]).is_ok(),
@@ -234,7 +234,7 @@ fn start_agent(
     let as_ = socket.to_string_lossy().into_owned();
     wait_until(
         "spire-agent healthcheck",
-        Duration::from_secs(60),
+        Duration::from_mins(1),
         &mut child,
         &log,
         || run(agent_bin, &["healthcheck", "-socketPath", &as_]).is_ok(),

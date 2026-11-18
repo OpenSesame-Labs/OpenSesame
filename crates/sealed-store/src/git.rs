@@ -208,8 +208,7 @@ pub fn auto_push_enabled(root: &Path) -> bool {
         .args(["config", "--get", AUTOPUSH_KEY])
         .current_dir(root)
         .output()
-        .map(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
-        .unwrap_or(false)
+        .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "true")
 }
 
 /// Enable or disable automatic backup pushes for this repository.

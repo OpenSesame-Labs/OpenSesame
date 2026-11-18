@@ -319,7 +319,7 @@ async fn operator_responses_match_wire_contract() {
     assert_taskbus_contract(&body["taskbus"]);
 }
 
-/// Live JetStream: PUT nats + ping must apply when NATS_URL is reachable.
+/// Live `JetStream`: PUT nats + ping must apply when `NATS_URL` is reachable.
 #[tokio::test]
 #[ignore = "requires live NATS JetStream (NATS_URL)"]
 async fn live_nats_operator_put_and_ping_apply() {

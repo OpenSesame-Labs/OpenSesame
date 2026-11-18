@@ -393,6 +393,9 @@ pub(crate) fn serial_hex(bytes: &[u8]) -> String {
 }
 
 #[cfg(test)]
+mod other_name_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -511,21 +514,6 @@ mod tests {
             parse_pem_blocks(&nested, LABEL_CERTIFICATE, 2).unwrap_err(),
             PkiError::InvalidPem
         );
-    }
-
-    #[test]
-    fn upn_other_name_decoding_rejects_malformed_bodies() {
-        let good = write_tlv(0xA0, &write_tlv(0x0C, b"ops@corp.example"));
-        assert_eq!(decode_upn_value(&good).unwrap(), "ops@corp.example");
-        assert!(decode_upn_value(&write_tlv(0xA1, &write_tlv(0x0C, b"x"))).is_err());
-        assert!(decode_upn_value(&write_tlv(0xA0, &write_tlv(0x04, b"x"))).is_err());
-        assert!(decode_upn_value(&[]).is_err());
-        let trailing = {
-            let mut bytes = write_tlv(0xA0, &write_tlv(0x0C, b"x"));
-            bytes.push(0x00);
-            bytes
-        };
-        assert!(decode_upn_value(&trailing).is_err());
     }
 
     #[test]

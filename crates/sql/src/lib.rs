@@ -23,7 +23,7 @@ pub use sqlx_core::{error, migrate, pool, query_builder, types};
 pub use sqlx_postgres::{self as postgres, PgConnection, PgPool, Postgres};
 pub use sqlx_sqlite::{self as sqlite, Sqlite, SqliteConnection, SqlitePool};
 
-/// SQLx 0.9 accepts only `'static` SQL literals unless wrapped in [`AssertSqlSafe`].
+/// `SQLx` 0.9 accepts only `'static` SQL literals unless wrapped in [`AssertSqlSafe`].
 /// Host SQL in this repo is reviewed (see `tools/security/ast-grep-rules.yml`); the
 /// facade wraps dynamic `&str` the same way audited call sites would.
 pub fn query<DB>(sql: &str) -> Query<'_, DB, <DB as Database>::Arguments>
@@ -75,6 +75,7 @@ where
     core_query_scalar_with(sqlx_core::sql_str::AssertSqlSafe(sql), arguments)
 }
 
+#[must_use]
 pub fn raw_sql(sql: &str) -> RawSql {
     sqlx_core::raw_sql::raw_sql(sqlx_core::sql_str::AssertSqlSafe(sql))
 }

@@ -230,7 +230,7 @@ fn given_a_gced_dot_document() -> Fixture {
     add_document(&f, "Dev/.w2");
     // Age every chunk past the grace window, so GC would reclaim any chunk it
     // failed to account for.
-    let aged = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 3600);
+    let aged = std::time::SystemTime::now() - std::time::Duration::from_hours(2);
     let chunks: Vec<PathBuf> = walk(&f.store)
         .into_iter()
         .filter(|p| p.extension().is_some_and(|e| e == "oschunk"))

@@ -231,9 +231,8 @@ fn stored_public_policy_without_material_fails_closed() {
     let spec = NatsTransportSpec::from_public(public, NatsTransportSource::Stored)
         .normalized("tls://nats.internal.example:4222")
         .unwrap();
-    let err = match crate::nats_connect::load_material(&spec, &InjectedMaterial::default()) {
-        Ok(_) => panic!("material must not load without locators"),
-        Err(err) => err,
+    let Err(err) = crate::nats_connect::load_material(&spec, &InjectedMaterial::default()) else {
+        panic!("material must not load without locators");
     };
     assert_eq!(err.code(), "trust_unknown");
 }
