@@ -25,7 +25,7 @@ Invoke `/statechart` with `spec/formal-verification/open-vault-lease/OpenVaultLe
 npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-render/node_modules" node skills/formal-verification/scripts/render-pele-chart.mjs --mmd "$OUT/chart/chart.mmd" --out "$OUT/rendered" --mode both --png
 ```
 
-Committed config bounds: `MaxLive = 3`, `MaxStale = 6`, `MaxGen = 3` (209 states at last sync). The model includes concurrent tabs (`Acquire` up to `MaxLive`), a crash window split across `BeginReleaseCurrent` / `CompleteReleaseCurrent`, and invariants `DestroyOnlyAtZero`, `NoDestroyWhileCountedOpen`, `NoDestroyWhileReleasing`.
+Committed config bounds: `MaxLive = 3`, `MaxStale = 6`, `MaxGen = 3` (209 states at last sync). The model includes concurrent tabs (`Acquire` up to `MaxLive`), a crash window split across `BeginReleaseCurrent` / `CompleteReleaseCurrent`, and invariants `DestroyOnlyAtZero`, `NoDestroyWhileCountedOpen`, `NoExclusiveWhileLockHeld`.
 
 ## Coverage
 

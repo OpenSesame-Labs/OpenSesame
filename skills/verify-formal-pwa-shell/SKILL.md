@@ -25,6 +25,14 @@ npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-ren
 
 Replay tests: `apps/pages/src/bindings/shell-ready-formal.replay.test.ts` and `apps/pages/src/app-root.shell-ready.test.tsx`.
 
+```bash
+npx vitest run -C apps/pages src/bindings/shell-ready-formal.replay.test.ts src/app-root.shell-ready.test.tsx
+```
+
+## Evidence scope (this formal stack)
+
+The authoritative product repro is `app-root.shell-ready.test.tsx` (react-testing-library) plus the pure `computeShellReady` replay trace aligned with TLC. Consent-timing Playwright scripts were removed from this stack: they could not observe the activation window reliably and generated review churn without adding proof. Broader before/after browser evidence for unrelated Pages flows still follows the repository evidence contract; this skill does not add a parallel Playwright timing harness here.
+
 ## Product finding
 
 Stale `opened` after `snapshot.plan` resolves could mount the consent shell before activation. Fixed in `apps/pages/src/bindings/shell-ready.ts`: the null-to-plan render passes `awaitingPlanActivation` before the effect commits. `PwaShellReady.tla` mirrors `computeShellReady`; `shell-ready-formal.replay.test.ts` and `app-root.shell-ready.test.tsx` are the product oracles (no Playwright timing harness on this stack).
