@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import type { ParseInput, ParseResult } from "../types.js";
 import { hasKdbxMagic, keepassKdbx, sanitiseSegment } from "./kdbx.js";
+import { installKdbxTestWorker } from "./kdbx-argon2-worker.test-support.js";
 
 /**
  * The password the shared conformance fixture is sealed with. Frozen by the
@@ -235,6 +236,7 @@ describe("keepassKdbx against the shared conformance fixture", () => {
   let result: ParseResult;
 
   beforeAll(async () => {
+    installKdbxTestWorker();
     expect(
       existsSync(FIXTURE_KDBX),
       `missing shared fixture ${FIXTURE_KDBX}`,

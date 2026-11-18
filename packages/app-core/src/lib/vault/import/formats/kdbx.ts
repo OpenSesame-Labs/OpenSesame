@@ -51,7 +51,9 @@ import {
   normaliseTotp,
   passwordRequired,
 } from "../types.js";
+import { checkAesKdfBudget } from "./kdbx-aes-kdf-budget.js";
 import { KdbxImportError, cappedArgon2Impl } from "./kdbx-argon2.js";
+import { isolatedArgon2 } from "./kdbx-argon2-worker-client.js";
 
 export { KdbxImportError };
 
@@ -114,15 +116,9 @@ let codec: Promise<KdbxwebModule> | null = null;
 /** Lazily supply kdbxweb's missing Argon2 implementation, without other hashes. */
 async function loadCodec(): Promise<KdbxwebModule> {
   codec ??= (async () => {
-    const [module, hashWasm] = await Promise.all([
-      import("kdbxweb"),
-      import("hash-wasm").then(({ argon2d, argon2id }) => ({
-        argon2d,
-        argon2id,
-      })),
-    ]);
+    const module = await import("kdbxweb");
     module.CryptoEngine.setArgon2Impl(
-      cappedArgon2Impl(hashWasm, module.CryptoEngine.Argon2TypeArgon2id),
+      cappedArgon2Impl(isolatedArgon2, module.CryptoEngine.Argon2TypeArgon2id),
     );
     return module;
   })();
@@ -316,6 +312,7 @@ export const keepassKdbx: BinaryImportAdapter = {
       );
     }
 
+    checkAesKdfBudget(bytes);
     const kdbxweb = await loadCodec();
     const buffer = new Uint8Array(bytes).buffer;
     const credentials = new kdbxweb.Credentials(

@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { kdbxNativeDOM } from "./kdbx-native-dom-plugin.mjs";
+import { sharedWorkerGraph } from "./shared-worker-graph.mjs";
 
 const root =
   process.env.PAGES_KDBX_TEST_ROOT ??
@@ -19,7 +20,15 @@ const coreRequire = createRequire(
 );
 const entry = `
 import * as sdk from ${JSON.stringify(coreRequire.resolve("kdbxweb"))};
+import { configureHost } from ${JSON.stringify(resolve(root, "packages/app-core/src/host.ts"))};
 import { keepassKdbx } from ${JSON.stringify(resolve(root, "packages/app-core/src/lib/vault/import/formats/kdbx.ts"))};
+import { isolatedArgon2 } from ${JSON.stringify(resolve(root, "packages/app-core/src/lib/vault/import/formats/kdbx-argon2-worker-client.ts"))};
+let workersStarted = 0, workersStopped = 0;
+class TrackedWorker extends Worker {
+  constructor(url, options) { super(url, options); workersStarted++; }
+  terminate() { workersStopped++; super.terminate(); }
+}
+configureHost({ env: {}, worker: TrackedWorker });
 globalThis.kdbxSDK = sdk;
 globalThis.runKdbxProof = async (fixture) => {
   const pass = "browser-roundtrip";
@@ -39,7 +48,55 @@ globalThis.runKdbxProof = async (fixture) => {
   const rejected = async (operation) => {try {await operation();return false;}catch{return true;}};
   const corrupt = new Uint8Array(saved.slice(0));
   corrupt[corrupt.length - 1] ^= 1;
+  let heartbeats = 0;
+  const heartbeat = setInterval(() => heartbeats++, 0);
   const external = await keepassKdbx.parse(input(new Uint8Array(fixture).buffer, "correct horse battery staple"));
+  clearInterval(heartbeat);
+  const password = new TextEncoder().encode("  Pässe\u0301🔐  ");
+  const salt = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(" Mixed.Case+salt@Example.test ")));
+  const options = { password, salt, memorySize: 16384, iterations: 2, parallelism: 1, hashLength: 32, outputType: "binary" };
+  const hex = (bytes) => [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const argon2d = hex(await isolatedArgon2.argon2d(options));
+  const argon2id = hex(await isolatedArgon2.argon2id(options));
+  // Change only the unauthenticated outer header. A vulnerable reader starts
+  // the attacker-selected work before it can reject the invalid header MAC.
+  const hostileRounds = (source, major) => {
+    const bytes = new Uint8Array(source.slice(0));
+    const view = new DataView(bytes.buffer);
+    let cursor = 12;
+    while (cursor < bytes.length) {
+      const id = view.getUint8(cursor++);
+      const size = major === 3 ? view.getUint16(cursor, true) : view.getUint32(cursor, true);
+      cursor += major === 3 ? 2 : 4;
+      if (major === 3 && id === 6) { view.setBigUint64(cursor, 1n << 40n, true); return bytes; }
+      if (major === 4 && id === 11) {
+        let p = cursor + 2;
+        while (bytes[p] !== 0) {
+          p++;
+          const nameSize = view.getUint32(p, true); p += 4;
+          const name = new TextDecoder().decode(bytes.subarray(p, p + nameSize)); p += nameSize;
+          const valueSize = view.getUint32(p, true); p += 4;
+          if (name === "R") { view.setBigUint64(p, 1n << 40n, true); return bytes; }
+          p += valueSize;
+        }
+      }
+      cursor += size;
+    }
+    throw new Error("fixture lacks AES rounds");
+  };
+  const tooManyRounds = async (bytes) => {
+    try { await keepassKdbx.parse(input(bytes, pass)); return false; }
+    catch (error) { return String(error).includes("work budget"); }
+  };
+  const v4 = sdk.Kdbx.create(credentials(pass), "AES database");
+  v4.setKdf(sdk.Consts.KdfId.Aes);
+  v4.header.kdfParameters.set("R", sdk.VarDictionary.ValueType.UInt64, new sdk.Int64(10));
+  const savedV4 = await v4.save();
+  await keepassKdbx.parse(input(savedV4, pass));
+  const unsafeV3 = await tooManyRounds(hostileRounds(saved, 3));
+  const unsafeV4 = await tooManyRounds(hostileRounds(savedV4, 4));
+  configureHost({ env: {} });
+  const noWorker = await rejected(() => keepassKdbx.parse(input(new Uint8Array(fixture).buffer, "correct horse battery staple")));
   return {
     native: typeof DOMParser === "function" && typeof XMLSerializer === "function" && !!crypto.subtle,
     magic: new DataView(saved).getUint32(0,true),
@@ -54,16 +111,43 @@ globalThis.runKdbxProof = async (fixture) => {
     malformedXML: await rejected(() => sdk.XmlUtils.parse("<Root><missing></Root>")),
     externalCount: external.items.length,
     externalSecrets: external.items.filter((draft) => draft.kind === "account").map((draft) => draft.password),
+    workersStarted, workersStopped, heartbeats, noWorker, argon2d, argon2id, unsafeV3, unsafeV4,
   };
+};
+globalThis.kdbxDeadlineProof = async () => {
+  let terminated = 0, heartbeats = 0;
+  class HangingWorker extends Worker {
+    constructor(_url, options) { super("/hanging-worker.mjs", options); }
+    terminate() { terminated++; super.terminate(); }
+  }
+  configureHost({ env: {}, worker: HangingWorker });
+  const actualTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback, delay, ...args) =>
+    actualTimeout(callback, delay === 30000 ? 100 : delay, ...args);
+  const heartbeat = setInterval(() => heartbeats++, 10);
+  try {
+    await isolatedArgon2.argon2id({
+      password: new Uint8Array(32), salt: new Uint8Array(32),
+      memorySize: 1024, iterations: 1, parallelism: 1, hashLength: 32,
+      outputType: "binary",
+    });
+    return { error: "unexpected success", terminated, heartbeats };
+  } catch (error) {
+    return { error: String(error), terminated, heartbeats };
+  } finally {
+    globalThis.setTimeout = actualTimeout;
+    clearInterval(heartbeat);
+  }
 };
 `;
 
 async function buildProofChunks() {
   const built = await build({
-    root,
+    root: resolve(root, "apps/pages"),
     configFile: false,
     logLevel: "silent",
     plugins: [
+      sharedWorkerGraph(),
       kdbxNativeDOM(root),
       {
         name: "owned-kdbx-browser-entry",
@@ -77,108 +161,167 @@ async function buildProofChunks() {
       minify: false,
       rollupOptions: {
         input: "kdbx-proof",
-        output: { format: "es", inlineDynamicImports: true },
+        output: { format: "es" },
       },
     },
   });
   const chunks = built.output.filter((output) => output.type === "chunk");
-  assert.equal(chunks.length, 1);
-  const modules = Object.keys(chunks[0].modules);
+  const modules = chunks.flatMap((chunk) => Object.keys(chunk.modules));
   assert(modules.some((id) => id.endsWith("kdbx-native-dom.ts")));
   assert(modules.some((id) => id.includes("kdbxweb/dist/kdbxweb.js")));
   assert(!modules.some((id) => id.includes("@xmldom")));
-  return chunks;
+  const owner = chunks.find((chunk) =>
+    Object.keys(chunk.modules).some((id) =>
+      id.endsWith("kdbx-argon2-worker-client.ts"),
+    ),
+  );
+  const worker = built.output.find(
+    (output) =>
+      output.type === "asset" && /kdbx-argon2\.worker/.test(output.fileName),
+  );
+  const crypto = chunks.find((chunk) =>
+    Object.keys(chunk.modules).some((id) =>
+      id.includes("/node_modules/hash-wasm/"),
+    ),
+  );
+  assert(
+    worker &&
+      crypto &&
+      owner?.viteMetadata?.importedAssets?.has(worker.fileName),
+  );
+  assert(owner.viteMetadata.importedAssets.has(crypto.fileName));
+  return built.output;
 }
 
-test(
-  "real Chromium native XML preserves encrypted KDBX import and integrity",
-  { timeout: 20000 },
-  async () => {
-    let browser;
-    let server;
-    try {
-      const chunks = await buildProofChunks();
-      server = createServer((request, response) => {
-        if (request.url === "/proof.mjs") {
-          response.writeHead(200, { "content-type": "text/javascript" });
-          response.end(chunks[0].code);
-        } else {
-          response.writeHead(200, { "content-type": "text/html" });
-          response.end(
-            '<!doctype html><script type="module" src="/proof.mjs"></script>',
-          );
-        }
-      });
-      server.listen(0, "127.0.0.1");
-      await once(server, "listening");
-      const origin = `http://127.0.0.1:${server.address().port}`;
-      browser = await chromium.launch({
-        headless: true,
-        executablePath: process.env.PLAYWRIGHT_CHROMIUM || "/usr/bin/chromium",
-        args: ["--no-sandbox"],
-      });
-      const page = await browser.newPage();
-      await page.goto(origin);
-      const fixture = [
-        ...readFileSync(resolve(root, "tests/fixtures/kdbx/roundtrip.kdbx")),
-      ];
-      const result = await page.evaluate(
-        (bytes) => globalThis.runKdbxProof(bytes),
-        fixture,
+function proofServer(outputs) {
+  const chunk = outputs.find(
+    (output) => output.type === "chunk" && output.isEntry,
+  );
+  return createServer((request, response) => {
+    response.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; object-src 'none'",
+    );
+    if (request.url === "/hanging-worker.mjs") {
+      response.writeHead(200, { "content-type": "text/javascript" });
+      response.end("onmessage = () => { while (true) {} };");
+    } else {
+      const asset = outputs.find(
+        (output) => `/${output.fileName}` === request.url,
       );
-      assert.equal(result.native, true);
-      assert.equal(result.magic, 0x9aa2d903);
-      assert.equal(result.title, "Native <XML> & Unicode 雪");
-      assert.equal(result.protected, true);
-      assert.equal(result.secret, "protected-roundtrip");
-      assert.equal(result.parsed.items[0].name, result.title);
-      assert.equal(result.parsed.items[0].password, result.secret);
-      for (const key of [
-        "wrongPassword",
-        "corruption",
-        "importerWrongPassword",
-        "importerCorruption",
-        "malformedXML",
-      ])
-        assert.equal(result[key], true, key);
-      assert(result.externalCount >= 3);
-      assert(result.externalSecrets.includes("fixture-password-one"));
-      for (const missing of ["DOMParser", "XMLSerializer"]) {
-        const context = await browser.newContext();
-        try {
-          await context.addInitScript((name) => {
-            delete globalThis[name];
-          }, missing);
-          const unsupported = await context.newPage();
-          await unsupported.goto(origin);
-          await unsupported.waitForFunction(() => !!globalThis.kdbxSDK);
-          const message = await unsupported.evaluate((name) => {
-            try {
-              if (name === "DOMParser")
-                globalThis.kdbxSDK.XmlUtils.parse("<Root/>");
-              else
-                globalThis.kdbxSDK.XmlUtils.serialize(
-                  new DOMParser().parseFromString("<Root/>", "application/xml"),
-                );
-              return null;
-            } catch (error) {
-              return String(error);
-            }
-          }, missing);
-          assert.match(
-            message,
-            new RegExp(`requires a browser document with native ${missing}`),
-          );
-        } finally {
-          await context.close();
-        }
+      if (asset) {
+        response.writeHead(200, { "content-type": "text/javascript" });
+        response.end(asset.type === "asset" ? asset.source : asset.code);
+        return;
       }
-    } finally {
-      await browser?.close();
-      if (server) {
-        server.closeAllConnections();
-        await new Promise((done) => server.close(done));
-      }
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(
+        `<!doctype html><script type="module" src="/${chunk.fileName}"></script>`,
+      );
     }
-  },
-);
+  });
+}
+
+function assertProof(result) {
+  assert.equal(result.native, true);
+  assert.equal(result.magic, 0x9aa2d903);
+  assert.equal(result.title, "Native <XML> & Unicode 雪");
+  assert.equal(result.protected, true);
+  assert.equal(result.secret, "protected-roundtrip");
+  assert.equal(result.parsed.items[0].name, result.title);
+  assert.equal(result.parsed.items[0].password, result.secret);
+  for (const key of [
+    "wrongPassword",
+    "corruption",
+    "importerWrongPassword",
+    "importerCorruption",
+    "malformedXML",
+  ])
+    assert.equal(result[key], true, key);
+  assert(result.externalCount >= 3);
+  assert(result.externalSecrets.includes("fixture-password-one"));
+  assert(result.workersStarted >= 1);
+  assert.equal(result.workersStarted, result.workersStopped);
+  assert(result.heartbeats > 0);
+  assert.equal(result.noWorker, true);
+  assert.equal(result.unsafeV3, true);
+  assert.equal(result.unsafeV4, true);
+  assert.equal(
+    result.argon2d,
+    "795227f5a36af437371d33ab704dab8a9a03c1f810547c006c8d2b48e107babb",
+  );
+  assert.equal(
+    result.argon2id,
+    "1072b2ab89197fe4d3f045d8de896beca52daccc98b5d86be47bd6aa05975988",
+  );
+}
+
+async function assertMissingNativeDom(browser, origin) {
+  for (const missing of ["DOMParser", "XMLSerializer"]) {
+    const context = await browser.newContext();
+    try {
+      await context.addInitScript((name) => {
+        delete globalThis[name];
+      }, missing);
+      const unsupported = await context.newPage();
+      await unsupported.goto(origin);
+      await unsupported.waitForFunction(() => !!globalThis.kdbxSDK);
+      const message = await unsupported.evaluate((name) => {
+        try {
+          if (name === "DOMParser")
+            globalThis.kdbxSDK.XmlUtils.parse("<Root/>");
+          else
+            globalThis.kdbxSDK.XmlUtils.serialize(
+              new DOMParser().parseFromString("<Root/>", "application/xml"),
+            );
+          return null;
+        } catch (error) {
+          return String(error);
+        }
+      }, missing);
+      assert.match(
+        message,
+        new RegExp(`requires a browser document with native ${missing}`),
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+test("real Chromium native XML preserves encrypted KDBX import and integrity", {
+  timeout: 20000,
+}, async () => {
+  let browser;
+  let server;
+  try {
+    server = proofServer(await buildProofChunks());
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM || "/usr/bin/chromium",
+      args: ["--no-sandbox"],
+    });
+    const page = await browser.newPage();
+    await page.goto(origin);
+    const fixture = [
+      ...readFileSync(resolve(root, "tests/fixtures/kdbx/roundtrip.kdbx")),
+    ];
+    assertProof(
+      await page.evaluate((bytes) => globalThis.runKdbxProof(bytes), fixture),
+    );
+    const deadline = await page.evaluate(() => globalThis.kdbxDeadlineProof());
+    assert.match(deadline.error, /took too long/);
+    assert.equal(deadline.terminated, 1);
+    assert(deadline.heartbeats > 0);
+    await assertMissingNativeDom(browser, origin);
+  } finally {
+    await browser?.close();
+    if (server) {
+      server.closeAllConnections();
+      await new Promise((done) => server.close(done));
+    }
+  }
+});

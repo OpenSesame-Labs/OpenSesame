@@ -49,6 +49,10 @@ function original(id) {
 function privateSource(file, realm, sdk) {
   if (sdk?.owns(file, realm)) return true;
   const path = file.replaceAll("\\", "/");
+  if (realm === "kdbx-argon2.worker")
+    return /\/packages\/app-core\/src\/lib\/vault\/import\/formats\/kdbx-argon2\.worker\.ts$/.test(
+      path,
+    );
   if (/\/packages\/os-domain\/src\//.test(path)) return true;
   if (
     /\/packages\/(?:os-domain\/src\/json|vault-core\/src\/bytes|app-core\/src\/lib\/zod-jitless)\.ts$/.test(
