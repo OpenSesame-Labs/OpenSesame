@@ -124,7 +124,7 @@ fn a_stale_lock_does_not_wedge_the_file() {
     let path = dir.path().join("plugins.json");
     let lock = dir.path().join("plugins.json.lock");
     std::fs::write(&lock, b"").unwrap();
-    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(600);
+    let old = std::time::SystemTime::now() - std::time::Duration::from_mins(10);
     std::fs::File::options()
         .write(true)
         .open(&lock)

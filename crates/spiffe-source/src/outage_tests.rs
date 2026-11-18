@@ -60,11 +60,11 @@ fn stale_deadline_is_the_earlier_bound_and_never_extends_not_after() {
     let outage = Utc.with_ymd_and_hms(2026, 9, 22, 10, 0, 0).unwrap();
     let not_after = Utc.with_ymd_and_hms(2026, 9, 22, 11, 0, 0).unwrap();
     assert_eq!(
-        stale_deadline(not_after, outage, Duration::from_secs(600)),
+        stale_deadline(not_after, outage, Duration::from_mins(10)),
         Utc.with_ymd_and_hms(2026, 9, 22, 10, 10, 0).unwrap()
     );
     assert_eq!(
-        stale_deadline(not_after, outage, Duration::from_secs(7200)),
+        stale_deadline(not_after, outage, Duration::from_hours(2)),
         not_after
     );
     assert_eq!(

@@ -524,7 +524,7 @@ fn resync_allowed() -> bool {
         .get_or_init(|| Mutex::new(Vec::new()))
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let cutoff = Instant::now().checked_sub(Duration::from_secs(60)).unwrap();
+    let cutoff = Instant::now().checked_sub(Duration::from_mins(1)).unwrap();
     stamps.retain(|at| *at > cutoff);
     if stamps.len() >= 6 {
         return false;

@@ -287,6 +287,16 @@ mod tests {
     }
 
     #[test]
+    fn truncated_or_wrong_context_ciphertext_is_refused() {
+        let key = DeviceKey::generate();
+        let sealed = seal(&key, b"secret", b"item-1").unwrap();
+        for length in 0..sealed.len() {
+            assert!(open(&key, &sealed[..length], b"item-1").is_err());
+        }
+        assert!(open(&key, &sealed, b"item-2").is_err());
+    }
+
+    #[test]
     fn sync_preserves_ids_and_epochs() {
         let key = DeviceKey::generate();
         let mut a = SyncStore::new("dev-a");

@@ -230,7 +230,7 @@ pub async fn hub(
 }
 
 /// A connection with nothing to wait for lives as long as its client does.
-const FOREVER: Duration = Duration::from_secs(60 * 60 * 24 * 365);
+const FOREVER: Duration = Duration::from_hours(365 * 24);
 
 /// Serve one connection until the client leaves, its queue closes, or
 /// `lifetime` — when it has one — runs out.
@@ -271,6 +271,11 @@ pub(crate) async fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn open_ended_connections_keep_their_one_year_limit() {
+        assert_eq!(FOREVER.as_secs(), 31_536_000);
+    }
 
     #[tokio::test]
     async fn an_answer_reaches_a_device_that_joined_after_it_and_then_ends_the_wait() {

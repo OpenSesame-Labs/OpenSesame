@@ -195,6 +195,18 @@ fn malformed_envelopes_fail_closed() {
 }
 
 #[test]
+fn truncated_and_invalid_nonce_envelopes_fail_closed() {
+    let max_header_and_tag = NONCE_LEN + WRAPPED_KEY_LEN + NONCE_LEN + 16;
+    for length in 0..=max_header_and_tag {
+        let body = URL_SAFE_NO_PAD.encode(vec![0_u8; length]);
+        assert!(sealer().open("t.c", &format!("{PREFIX}{body}")).is_err());
+        assert!(sealer()
+            .open_legacy_for_migration("t.c", &format!("{LEGACY_PREFIX}{body}"))
+            .is_err());
+    }
+}
+
+#[test]
 fn unknown_envelope_versions_are_not_plaintext() {
     for stored in ["osev3.AA", "osev99.unknown", "osev2", "osev"] {
         assert!(is_sealed(stored));

@@ -42,7 +42,7 @@ pub struct Spire {
 
 fn cli(binary: &Path, args: &[&str]) -> Result<String> {
     let (code, stdout, stderr) =
-        run_bounded(Command::new(binary).args(args), Duration::from_secs(60))?;
+        run_bounded(Command::new(binary).args(args), Duration::from_mins(1))?;
     if code != Some(0) {
         bail!(
             "{} {} failed ({code:?}): {stderr}{stdout}",
@@ -312,9 +312,7 @@ impl Spire {
 
 fn current_uid() -> u32 {
     use std::os::unix::fs::MetadataExt as _;
-    std::fs::metadata("/proc/self")
-        .map(|m| m.uid())
-        .unwrap_or(0)
+    std::fs::metadata("/proc/self").map_or(0, |m| m.uid())
 }
 
 fn server_conf(port: u16, socket: &Path, root: &Path) -> String {

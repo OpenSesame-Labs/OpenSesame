@@ -21,7 +21,7 @@ fn limits() -> ListenerLimits {
         idle_timeout: Duration::from_millis(700),
         max_header_bytes: 8192,
         max_body_bytes: 1024,
-        usable_for: Duration::from_secs(60),
+        usable_for: Duration::from_mins(1),
     }
 }
 

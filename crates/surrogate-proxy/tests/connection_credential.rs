@@ -40,7 +40,7 @@ fn grant(env_var: &str, connection_ref: &str) -> SurrogateGrant {
         site: SurrogateSite::Authorization,
         methods: vec!["GET".into()],
         path_prefixes: vec!["/v2/user".into(), "/reflect".into()],
-        ttl: Duration::from_secs(600),
+        ttl: Duration::from_mins(10),
     }
 }
 

@@ -155,7 +155,7 @@ impl<'a> Wedged<'a> {
 
     /// Wait until `opensesame` has told the plugin the run is over.
     fn await_closing(&self) {
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + Duration::from_mins(1);
         while !self.closed.exists() {
             assert!(Instant::now() < deadline, "the plugin was never told");
             std::thread::sleep(Duration::from_millis(10));
@@ -193,7 +193,7 @@ fn a_signal_while_opensesame_waits_for_the_plugin_to_leave_is_not_swallowed() {
         "SIGTERM after the child had left did not end opensesame ({status:?} after {took:?})"
     );
     assert!(
-        took < PLUGIN_GRACE - Duration::from_secs(1),
+        took < PLUGIN_GRACE.checked_sub(Duration::from_secs(1)).unwrap(),
         "SIGTERM ended opensesame after {took:?}, not at once"
     );
 }
@@ -213,7 +213,7 @@ fn a_wedged_plugin_and_a_child_that_will_not_leave_make_the_worst_case_ten_secon
     // the two waits add up. This is the bound docs/operators/
     // proxied-run-quickstart.md gives; if it moves, move both.
     assert!(
-        took >= worst - Duration::from_millis(500),
+        took >= worst.checked_sub(Duration::from_millis(500)).unwrap(),
         "ended after {took:?}: the plugin's {PLUGIN_GRACE:?} and the child's {CHILD_GRACE:?} \
          are not both waited for"
     );

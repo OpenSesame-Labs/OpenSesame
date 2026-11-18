@@ -102,7 +102,7 @@ pub fn tls_client(vars: &BTreeMap<String, String>) -> Result<NodeResult> {
         command.env(name, value);
     }
     let (code, stdout, stderr) =
-        run_bounded(&mut command, Duration::from_secs(60)).context("node tls-client.mjs")?;
+        run_bounded(&mut command, Duration::from_mins(1)).context("node tls-client.mjs")?;
     if code != Some(0) {
         bail!("node tls-client.mjs exited {code:?}\nstdout: {stdout}\nstderr: {stderr}");
     }
