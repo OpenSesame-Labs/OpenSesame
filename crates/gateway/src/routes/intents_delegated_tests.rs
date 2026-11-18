@@ -49,47 +49,11 @@ async fn delegate_to_guest(
     org: OrganizationId,
     connection_id: &str,
 ) -> Vec<opensesame_connection_broker::delegation::DelegationView> {
-    let minted = state
-        .connection_broker
-        .mint_delegation_offer(
-            &org,
-            OWNER,
-            MintOfferRequest {
-                items: vec![OfferItemSpec {
-                    connection_id: connection_id.into(),
-                    actions: Some(vec!["repository.read".into()]),
-                    resources: None,
-                    expires_in_seconds: None,
-                    budgets: None,
-                    execution_mode: opensesame_relay::ExecutionMode::Broker,
-                    required: true,
-                    dependencies: vec![],
-                }],
-                ttl_seconds: None,
-            },
-            &state.claim_pepper,
-        )
-        .await
-        .expect("mint");
-    let manifest = state
-        .connection_broker
-        .present_delegation_offer(&minted.claim_token)
-        .await
-        .expect("present");
-    state
-        .connection_broker
-        .claim_delegation_offer(
-            ClaimOfferRequest {
-                claim_token: minted.claim_token.clone(),
-                user_code: minted.user_code.clone(),
-                accepted_item_ids: vec![manifest.items[0].id.clone()],
-            },
-            GUEST,
-            &state.claim_pepper,
-        )
-        .await
-        .expect("claim")
+    budget_retry_tests::delegate_to_guest_with_budget(state, org, connection_id, None).await
 }
+
+#[path = "intents_budget_retry_tests.rs"]
+mod budget_retry_tests;
 
 fn invoke_body(connection_ref: &str, operation: &str) -> InvokeBody {
     InvokeBody {

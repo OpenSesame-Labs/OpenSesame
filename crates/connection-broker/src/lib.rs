@@ -22,6 +22,7 @@ mod custom_egress;
 pub mod custom_provider;
 mod custom_provider_registration;
 pub mod delegation;
+pub mod delegation_invoke_budget;
 mod delegation_lineage;
 pub mod egress;
 pub mod error;

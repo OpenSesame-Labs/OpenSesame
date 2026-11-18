@@ -263,7 +263,7 @@
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the append-only invocation-budget migration and the migration sequence assertion; neither changes EST budget behavior. The migration contract regression passed."
     },
     {
       "id": "est-policy",
@@ -396,7 +396,7 @@
         "crates/connection-broker/src/constructor_tests.rs",
         "crates/connection-broker/src/egress_http_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free. 2026-11-18: reviewed the invocation-budget module declaration; the synthetic testkit still exposes no invocation route. Delegation retry, migration and budget regressions passed; testkit behavior was not rerun for this declaration-only change."
     },
     {
       "id": "host-listeners",
@@ -1312,14 +1312,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "817d04fa",
-      "0df8724d",
-      "a9648c39",
-      "a9c89c68",
-      "45e5ee2b",
-      "2051ffab",
-      "9b708231",
-      "b3e2a57f"
+      "d895e470",
+      "41c81946",
+      "afcfea05",
+      "0790b90d",
+      "0e666c75",
+      "9ee8719d",
+      "2aa7da24",
+      "873364d4"
     ],
     "packages/app-core/package.json": [
       "3f0ba320",
@@ -3062,14 +3062,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "5427e2a5",
-      "1adcce8b",
-      "9a30aa75",
-      "5be66679",
-      "31e52203",
-      "7bcc31f5",
-      "c4dbb582",
-      "89d9e17a"
+      "f88231ae",
+      "2e253b1b",
+      "08785ac5",
+      "054710a8",
+      "8175d80e",
+      "834066e2",
+      "a61f6643",
+      "ba76bcd3"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -6812,14 +6812,14 @@
       "4d04dd2f"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "fa2499a6",
-      "1cdafc31",
-      "654fac42",
-      "a9d0cbd8",
-      "ef2135ea",
-      "692b8a07",
-      "30c87d9f",
-      "206a5bd4"
+      "bfcbec0e",
+      "35cf7c32",
+      "ba121ece",
+      "3458ec95",
+      "0ffd0ebb",
+      "1c256def",
+      "0f4114bc",
+      "d106fee8"
     ],
     "crates/connection-broker/src/config.rs": [
       "4e2535ca",

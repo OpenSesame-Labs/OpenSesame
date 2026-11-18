@@ -2,6 +2,7 @@ mod frozen;
 mod idempotency;
 
 pub use frozen::{assert_grant_covers_frozen_intent, FrozenInvokeInput};
+pub use idempotency::legacy_fingerprint as invocation_fingerprint;
 
 use chrono::Utc;
 use opensesame_audit::ReceiptSigner;
@@ -101,6 +102,43 @@ impl Broker {
             >,
         >,
     {
+        self.invoke_with_mode(input, execute, false).await
+    }
+
+    /// Return a prior receipt only after checking the current authorization
+    /// and the exact request binding. Never start new provider work.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when authorization fails or no matching receipt exists.
+    pub async fn replay(&self, input: InvokeInput) -> anyhow::Result<InvocationReceipt> {
+        self.invoke_with_mode(
+            input,
+            || async {
+                Err(opensesame_connector_host::HostError::Connector(
+                    "replay cannot execute".into(),
+                ))
+            },
+            true,
+        )
+        .await
+    }
+
+    async fn invoke_with_mode<E, F>(
+        &self,
+        input: InvokeInput,
+        execute: E,
+        replay_only: bool,
+    ) -> anyhow::Result<InvocationReceipt>
+    where
+        E: FnOnce() -> F,
+        F: std::future::Future<
+            Output = Result<
+                opensesame_connector_host::InvokeResult,
+                opensesame_connector_host::HostError,
+            >,
+        >,
+    {
         let now = Utc::now();
         input.intent.assert_fresh(now)?;
         input.grant.assert_active(now)?;
@@ -157,6 +195,10 @@ impl Broker {
             );
             return Ok(receipt);
         }
+        anyhow::ensure!(
+            !replay_only,
+            "idempotency conflict: no prior invocation to replay"
+        );
         self.db
             .insert_bound_intent(&input.intent, &fingerprint)
             .await?;
