@@ -50,4 +50,5 @@ tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
 serde_json = { workspace = true }

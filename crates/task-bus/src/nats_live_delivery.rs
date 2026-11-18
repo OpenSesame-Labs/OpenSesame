@@ -194,3 +194,201 @@ async fn provisioning_converges_a_stream_an_older_release_created() {
         Redelivery::default().max_deliver
     );
 }
+
+#[cfg(feature = "live-tests")]
+pub(crate) fn material(
+    pki: &crate::nats::live_harness::Pki,
+    leaf: &opensesame_transport_security::testkit::IssuedLeaf,
+    extra_anchor: bool,
+) -> super::InjectedMaterial {
+    use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
+    use opensesame_transport_security::TrustBundle;
+    use std::sync::Arc;
+
+    let mut pem = pki.ca.ca_pem();
+    if extra_anchor {
+        pem.extend(pki.other_ca.ca_pem());
+    }
+    super::InjectedMaterial {
+        trust: Some(
+            TrustBundle::from_pem(
+                TrustProfileRef::new("nats-server-trust").unwrap(),
+                TrustProfileKind::SpiffeTrustDomain,
+                &pem,
+            )
+            .unwrap()
+            .with_spiffe_trust_domain("a.test")
+            .unwrap(),
+        ),
+        identity: Some(Arc::new(leaf.try_identity().unwrap())),
+    }
+}
+
+#[cfg(feature = "live-tests")]
+async fn assert_serialized_rotation(
+    bus: &std::sync::Arc<NatsJetStreamTaskBus>,
+    original_spec: NatsTransportSpec,
+    original: InjectedMaterial,
+    replacement_spec: &NatsTransportSpec,
+    replacement: &InjectedMaterial,
+    expected_identity_thumbprint: &str,
+) {
+    use super::open_session;
+    use std::sync::Arc;
+    use tokio::sync::oneshot;
+    let (entered_tx, entered_rx) = oneshot::channel();
+    let (release_tx, release_rx) = oneshot::channel();
+    let older_bus = Arc::clone(bus);
+    let older = tokio::spawn(async move {
+        older_bus
+            .rotate_using(
+                original_spec,
+                Some(original),
+                move |config, injected, health| async move {
+                    entered_tx.send(()).unwrap();
+                    release_rx.await.unwrap();
+                    open_session(&config, &injected, health).await
+                },
+            )
+            .await
+    });
+    entered_rx.await.expect("older opening started");
+    let (newer_entered_tx, mut newer_entered_rx) = oneshot::channel();
+    let latest_spec = NatsTransportSpec::clone(replacement_spec);
+    let latest_material = InjectedMaterial::clone(replacement);
+    let mut newer = Box::pin(bus.rotate_using(
+        latest_spec,
+        Some(latest_material),
+        move |config, injected, health| async move {
+            newer_entered_tx.send(()).unwrap();
+            open_session(&config, &injected, health).await
+        },
+    ));
+    let _ = futures::poll!(newer.as_mut());
+    assert!(
+        matches!(
+            newer_entered_rx.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty)
+        ),
+        "a later opening ran before the older rotation committed"
+    );
+    release_tx.send(()).unwrap();
+    let (newer_result, entered_result) = tokio::join!(newer, newer_entered_rx);
+    entered_result.expect("newer opening follows older commit");
+    older.await.unwrap().expect("older rotation");
+    newer_result.expect("newer rotation");
+    let latest = bus.accepted();
+    assert!(Arc::ptr_eq(&latest, &bus.session.read().await.accepted));
+    assert_eq!(bus.transport_view(), replacement_spec.view());
+    assert_eq!(
+        latest
+            .injected
+            .identity
+            .as_ref()
+            .unwrap()
+            .leaf_thumbprint_sha256(),
+        expected_identity_thumbprint
+    );
+    assert_eq!(
+        latest.injected.trust.as_ref().unwrap().anchor_thumbprints(),
+        replacement.trust.as_ref().unwrap().anchor_thumbprints()
+    );
+}
+
+#[cfg(feature = "live-tests")]
+#[tokio::test]
+#[ignore = "requires the pinned NATS fixture"]
+async fn accepted_material_and_view_follow_serialized_rotations() {
+    use super::NatsJetStreamTaskBus;
+    use crate::nats::live_harness::{enabled, Pki};
+    use crate::nats::live_mixed::{spiffe_server, spiffe_spec};
+    use crate::nats::live_tests::config;
+    use crate::nats_connect::NatsRole;
+    use opensesame_domain::transport::TlsVersion;
+    use std::sync::Arc;
+
+    assert!(enabled(), "set OPENSESAME_MTLS_FIXTURES=1");
+    let pki = Pki::new();
+    let (server, _) = spiffe_server(&pki);
+    let first = pki.client("first.nats.opensesame.test");
+    let second = pki.client("second.nats.opensesame.test");
+    let original = material(&pki, &first, false);
+    let replacement = material(&pki, &second, true);
+    let original_spec = spiffe_spec(None);
+    assert_eq!(
+        original_spec.transport.server_trust.as_ref().unwrap().kind,
+        opensesame_domain::transport::TrustProfileKind::SpiffeTrustDomain,
+        "SPIFFE trust kind must be represented accurately"
+    );
+    let mut replacement_spec = spiffe_spec(None);
+    replacement_spec.transport.min_version = TlsVersion::Tls12;
+    let bus = Arc::new(
+        NatsJetStreamTaskBus::connect_with(
+            config(
+                &server.url(),
+                original_spec.clone(),
+                NatsRole::Publisher,
+                false,
+            ),
+            original.clone(),
+        )
+        .await
+        .expect("initial NATS session"),
+    );
+    let observer = bus.health();
+    Box::pin(bus.rotate(replacement_spec.clone(), Some(replacement.clone())))
+        .await
+        .expect("explicit rotation");
+    Box::pin(bus.rotate(replacement_spec.clone(), None))
+        .await
+        .expect("implicit rotation");
+    let accepted = bus.accepted();
+    assert!(
+        accepted.injected.trust.is_some(),
+        "implicit rotation lost previously accepted trust"
+    );
+    assert_eq!(accepted.transport.view(), replacement_spec.view());
+    assert_eq!(
+        accepted
+            .injected
+            .trust
+            .as_ref()
+            .unwrap()
+            .anchor_thumbprints(),
+        replacement.trust.as_ref().unwrap().anchor_thumbprints()
+    );
+    assert_eq!(
+        accepted
+            .injected
+            .identity
+            .as_ref()
+            .unwrap()
+            .leaf_thumbprint_sha256(),
+        second.thumbprint
+    );
+    assert!(Arc::ptr_eq(&accepted, &bus.session.read().await.accepted));
+    assert!(Arc::ptr_eq(&observer, &bus.health()));
+
+    let mut invalid = original_spec.clone();
+    invalid.transport.server_trust.as_mut().unwrap().name = "different".into();
+    assert!(
+        Box::pin(bus.rotate(invalid, None)).await.is_err(),
+        "bad rotation must fail"
+    );
+    assert!(
+        Arc::ptr_eq(&accepted, &bus.accepted()),
+        "failed rotation changed accepted state"
+    );
+    assert!(Arc::ptr_eq(&accepted, &bus.session.read().await.accepted));
+    assert_eq!(bus.transport_view(), replacement_spec.view());
+
+    assert_serialized_rotation(
+        &bus,
+        original_spec,
+        original,
+        &replacement_spec,
+        &replacement,
+        &second.thumbprint,
+    )
+    .await;
+}

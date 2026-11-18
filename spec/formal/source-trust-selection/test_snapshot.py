@@ -28,8 +28,9 @@ def main() -> None:
         (suite / "coverage.json").write_text(json.dumps({
             "sources": [{"path": "covered.txt"}],
             "optional_sources": [{"path": "ignored-config.txt"}],
+            "nats": {"sources": [{"path": "nats-only.txt"}], "optional_sources": []},
         }))
-        (repo / ".gitignore").write_text("ignored-config.txt\n")
+        (repo / ".gitignore").write_text("ignored-config.txt\nnats-only.txt\n")
         for name in ("covered.txt", "deleted.txt", "rename-old.txt"):
             (repo / name).write_text("base\n")
         git(repo, "add", ".")
@@ -39,6 +40,7 @@ def main() -> None:
         (repo / "rename-old.txt").rename(repo / "rename-new.txt")
         (repo / "odd name.txt").write_text("untracked\n")
         (repo / "ignored-config.txt").write_text("covered configuration\n")
+        (repo / "nats-only.txt").write_text("covered NATS source\n")
         module["ROOT"] = repo
         target = base / "snapshot"
         target.mkdir()
@@ -49,6 +51,11 @@ def main() -> None:
         assert (target / "rename-new.txt").read_text() == "base\n"
         assert (target / "odd name.txt").read_text() == "untracked\n"
         assert (target / "ignored-config.txt").read_text() == "covered configuration\n"
+        assert not (target / "nats-only.txt").exists()
+        nats_target = base / "nats-snapshot"
+        nats_target.mkdir()
+        module["archive"](nats_target, nats=True)
+        assert (nats_target / "nats-only.txt").read_text() == "covered NATS source\n"
         coverage = suite / "coverage.json"
         original = coverage.read_text()
         (repo / "alias").symlink_to(base, target_is_directory=True)

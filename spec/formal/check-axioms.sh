@@ -21,7 +21,7 @@ case "${model##*/}" in
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
   SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
   SourceLifetime.lean) suite=source-lifetime; required_count=13 ;;
-  SourceTrustSelection.lean) suite=source-trust-selection; required_count=7 ;;
+  SourceTrustSelection.lean) suite=source-trust-selection; required_count=39 ;;
   SpiffePeerDomain.lean) suite=spiffe-peer-domain; required_count=12 ;;
   PendingIntegrity.lean) suite=oauth; required_count=9 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=9 ;;

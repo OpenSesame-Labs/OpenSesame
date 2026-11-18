@@ -17,9 +17,58 @@ ROOT = Path(__file__).resolve().parents[3]
 SUITE = Path("spec/formal/source-trust-selection")
 
 
-def copy_snapshot(target: Path) -> dict:
+def fixture_controls(scratch: Path, env: dict, runner: list, rows: list, run) -> None:
+    """Check the complete runner rejects missing/corrupt fixtures before Cargo."""
+    fake_bin = scratch / "fake-bin"
+    fake_bin.mkdir()
+    fake = fake_bin / "cargo"
+    fake.write_text('#!/bin/sh\nprintf invoked > "$OPENSESAME_NATS_CARGO_MARKER"\nexit 99\n')
+    fake.chmod(0o755)
+    cargo_marker = scratch / "unexpected-cargo"
+    no_cargo_env = env | {"PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+                          "OPENSESAME_NATS_CARGO_MARKER": str(cargo_marker)}
+    missing_env = no_cargo_env | {"OPENSESAME_MTLS_FIXTURE_DIR": str(scratch / "missing-fixture")}
+    missing = run(runner, scratch, missing_env)
+    if (missing.returncode == 0 or "install the pinned fixture separately" not in missing.stderr or
+            (scratch / "missing-fixture").exists() or cargo_marker.exists()):
+        raise RuntimeError(f"missing fixture not rejected\n{missing.stdout}\n{missing.stderr}")
+    print("missing NATS fixture without implicit fetch: rejected", flush=True)
+    bad_dir = scratch / "bad-fixture" / f"nats-server-{rows[0][1]}"
+    bad_dir.mkdir(parents=True)
+    bad_binary = bad_dir / Path(rows[0][2]).name
+    bad_archive = bad_dir / rows[0][5].rsplit("/", 1)[-1]
+    bad_binary.write_bytes(b"not a verified binary")
+    bad_binary.chmod(0o700)
+    bad_archive.write_bytes(b"not a verified archive")
+    bad_env = no_cargo_env | {"OPENSESAME_MTLS_FIXTURE_DIR": str(bad_dir.parent)}
+    bad = run(runner, scratch, bad_env)
+    if (bad.returncode == 0 or "install the pinned fixture separately" not in bad.stderr or
+            bad_binary.read_bytes() != b"not a verified binary" or
+            bad_archive.read_bytes() != b"not a verified archive" or cargo_marker.exists()):
+        raise RuntimeError(f"corrupt fixture not rejected\n{bad.stdout}\n{bad.stderr}")
+    print("corrupt NATS fixture without implicit fetch: rejected", flush=True)
+
+
+def retry_vector_controls(scratch: Path, env: dict, helper: dict, checker: Path,
+                          rows: list, vectors: Path, test: str, require_failure) -> None:
+    command = ["test", "--locked", "-p", "opensesame-task-bus", "--features", "live-tests", "--lib", test, "--", "--ignored", "--exact"]
+    cases = [
+        ("empty retry vectors", [], "incomplete retry vector matrix"),
+        ("missing retry vector", rows[:-1], "incomplete retry vector matrix"),
+        ("duplicate retry vector", [rows[0], *rows], "duplicate retry vector"),
+        ("malformed retry output", [rows[0].rsplit("\t", 1)[0] + "\tbogus", *rows[1:]], "invalid retry vector value"),
+    ]
+    for label, case, diagnostic in cases:
+        vectors.write_text("\n".join(case) + ("\n" if case else ""))
+        result = helper["checked_cargo"](scratch, env, ["opensesame-task-bus"], checker, command)
+        require_failure(result, test, diagnostic, label)
+    vectors.write_text("\n".join(rows) + "\n")
+
+
+def copy_snapshot(target: Path, nats: bool = False) -> dict:
     coverage = json.loads((ROOT / SUITE / "coverage.json").read_text())
-    names = [entry["path"] for entry in coverage["sources"] + coverage["optional_sources"]]
+    selected = coverage["nats"] if nats else coverage
+    names = [entry["path"] for entry in selected["sources"] + selected["optional_sources"]]
     names += ["Cargo.toml", "Cargo.lock", str(SUITE / "check-drift.py"), str(SUITE / "verify.sh")]
     for name in dict.fromkeys(names):
         source, destination = ROOT / name, target / name
@@ -30,6 +79,104 @@ def copy_snapshot(target: Path) -> dict:
             shutil.copy2(source, destination)
     (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
     return coverage
+
+
+def nats_controls() -> None:
+    env = os.environ.copy() | {"OPENSESAME_FORMAL_NATS": "1"}
+    with tempfile.TemporaryDirectory(prefix="opensesame-nats-drift-") as temporary:
+        target = Path(temporary)
+        coverage = copy_snapshot(target, nats=True)
+        nats = coverage["nats"]
+        check = ["python3", "-I", str(SUITE / "check-drift.py"), "--nats"]
+        require(invoke(target, check, env), True, "reviewed sources", "NATS reviewed baseline")
+        runner = target / SUITE / "verify.sh"
+        original_runner = runner.read_text()
+        required_test = "nats::live_tests::injected_spiffe_client_matches_locator_and_profile"
+        if original_runner.count(required_test) != 1:
+            raise RuntimeError("NATS client correspondence target is not unique")
+        runner.write_text(original_runner.replace(required_test, "nats::live_tests::renamed_client_test", 1))
+        require(invoke(target, check, env), False, "NATS exact test inventory drift", "renamed NATS test target")
+        runner.write_text(original_runner)
+        for name in ["crates/task-bus/src/nats_connect.rs", "ops/nats/local-dev.conf", "scripts/mtls/mtls-fixtures.sh",
+                     "rust-toolchain.toml", *[
+                         "crates/domain/Cargo.toml", "crates/task-bus/Cargo.toml",
+                         "crates/transport-security/Cargo.toml", "crates/xkeys/Cargo.toml"]]:
+            path = target / name
+            original = path.read_bytes()
+            path.write_bytes(original + b"\n# drift control\n")
+            require(invoke(target, check, env), False, "review source drift", f"NATS {name} drift")
+            path.write_bytes(original)
+        lockfile = target / "Cargo.lock"
+        original_lock = lockfile.read_text()
+        lockfile.write_text(original_lock + '\n[[package]]\nname = "nats-unrelated-control"\nversion = "1.0.0"\n')
+        require(invoke(target, check, env), True, "reviewed sources", "unrelated lock package")
+        import re
+        match = re.search(r'(?ms)^\[\[package\]\]\nname = "async-nats"\n(?:(?!^\[\[package\]\]).)*?^checksum = "([0-9a-f]{64})"', original_lock)
+        if match is None:
+            raise RuntimeError("async-nats checksum is unavailable")
+        before = match.group(1)
+        after = ("0" if before[0] != "0" else "1") + before[1:]
+        lockfile.write_text(original_lock[:match.start(1)] + after + original_lock[match.end(1):])
+        require(invoke(target, check, env), False, "dependency graph drift", "NATS dependency checksum")
+        lockfile.write_text(original_lock)
+        workspace = target / "Cargo.toml"
+        original_workspace = workspace.read_text()
+        workspace.write_text(original_workspace.replace('[workspace.dependencies]\n',
+                                                       '[workspace.dependencies]\nunrelated_nats_probe = "1"\n', 1))
+        require(invoke(target, check, env), True, "reviewed sources", "unrelated workspace dependency")
+        workspace.write_text(original_workspace.replace('\nserde = ', '\nserde = { version = "9.9.9" } # ', 1))
+        require(invoke(target, check, env), False, "workspace inputs drift", "NATS inherited dependency")
+        workspace.write_text(original_workspace)
+        for name in ["crates/domain/build.rs", "crates/task-bus/build.rs",
+                     "crates/transport-security/build.rs", "crates/xkeys/build.rs"]:
+            path = target / name
+            path.write_text("fn main() {}\n")
+            require(invoke(target, check, env), False, "optional source/build configuration drift", f"NATS {name}")
+            path.unlink()
+        for name in ["crates/domain/Cargo.toml", "crates/task-bus/Cargo.toml",
+                     "crates/transport-security/Cargo.toml", "crates/xkeys/Cargo.toml"]:
+            manifest = target / name
+            original = manifest.read_text()
+            if "[lib]\n" in original:
+                if original.count('path = "src/lib.rs"') != 1:
+                    raise RuntimeError(f"unexpected library target in {name}")
+                changed = original.replace('path = "src/lib.rs"', 'path = "src/unreviewed.rs"', 1)
+            else:
+                changed = original + '\n[lib]\npath = "src/unreviewed.rs"\n'
+            alternate = manifest.parent / "src/unreviewed.rs"
+            alternate.write_text("pub fn unreviewed_target() {}\n")
+            manifest.write_text(changed)
+            entry = next(item for item in nats["sources"] if item["path"] == name)
+            entry["sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+            (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
+            require(invoke(target, check, env), False, "reviewed Cargo lib target changed", f"NATS rehashed library redirect: {name}")
+            manifest.write_text(original)
+            entry["sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+            (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
+            alternate.unlink()
+        task_manifest = target / "crates/task-bus/Cargo.toml"
+        original = task_manifest.read_text()
+        entry = next(item for item in nats["sources"] if item["path"] == "crates/task-bus/Cargo.toml")
+        for attribute in ['name = "other"', 'test = false', 'harness = false', 'required-features = ["other"]']:
+            task_manifest.write_text(original + f"\n[lib]\n{attribute}\n")
+            entry["sha256"] = hashlib.sha256(task_manifest.read_bytes()).hexdigest()
+            (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
+            require(invoke(target, check, env), False, "reviewed Cargo lib target changed", f"NATS rehashed target attribute: {attribute}")
+        task_manifest.write_text(original)
+        entry["sha256"] = hashlib.sha256(task_manifest.read_bytes()).hexdigest()
+        (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
+        manifest = target / "crates/task-bus/Cargo.toml"
+        original_manifest = manifest.read_text()
+        manifest.write_text(original_manifest.replace("[package]\n", '[package]\nbuild = "custom.rs"\n', 1))
+        for entry in nats["sources"]:
+            if entry["path"] == "crates/task-bus/Cargo.toml":
+                entry["sha256"] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        (target / SUITE / "coverage.json").write_text(json.dumps(coverage))
+        require(invoke(target, check, env), False, "unreviewed Cargo build script or custom path", "NATS rehashed custom build path")
+        manifest.write_text(original_manifest)
+        selector_env = env | {"OPENSESAME_FORMAL_NATS": "0"}
+        require(invoke(target, ["python3", "-I", str(SUITE / "check-drift.py")], selector_env), False,
+                "missing covered path", "NATS snapshot excludes gateway sources")
 
 
 def invoke(target: Path, command: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -43,7 +190,7 @@ def require(result: subprocess.CompletedProcess[str], ok: bool, diagnostic: str,
 
 
 def main() -> None:
-    env = os.environ.copy()
+    env = os.environ.copy() | {"OPENSESAME_FORMAL_NATS": "0"}
     if shutil.which(env.get("OPENSESAME_LEAN_BIN", "lean")) is None:
         raise RuntimeError("activate the pinned Lean toolchain first")
     with tempfile.TemporaryDirectory(prefix="opensesame-selector-drift-") as temporary:
@@ -122,7 +269,12 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:] == ["--nats"]:
+            nats_controls()
+        elif not sys.argv[1:]:
+            main()
+        else:
+            raise RuntimeError("expected no arguments or --nats")
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"source-trust-selection-drift-controls: {error}", file=sys.stderr)
         sys.exit(1)

@@ -3,10 +3,186 @@
 //! route certificates), and discovery not widening egress.
 
 use super::live_harness::{free_port, secure_server, Pki, Roles, Server, SERVER_NAME};
-use super::live_routes::cluster_env;
 use super::*;
 use opensesame_domain::transport::PeerIdentitySelector;
 use std::time::Duration;
+
+pub(crate) fn cluster_env(
+    pki: &Pki,
+    roles: &Roles,
+    port: u16,
+    cluster_port: u16,
+    route_to: u16,
+    route: &(std::path::PathBuf, std::path::PathBuf),
+    route_ca: &std::path::Path,
+) -> Vec<(&'static str, String)> {
+    let mut env = roles.env(pki, port);
+    env.retain(|(k, _)| {
+        !k.starts_with("OPENSESAME_NATS_NKEY_") || *k == "OPENSESAME_NATS_NKEY_HOST"
+    });
+    env.extend([
+        (
+            "OPENSESAME_NATS_CLUSTER_LISTEN",
+            format!("127.0.0.1:{cluster_port}"),
+        ),
+        (
+            "OPENSESAME_NATS_ROUTE_URL",
+            format!("nats-route://127.0.0.1:{route_to}"),
+        ),
+        ("OPENSESAME_NATS_ROUTE_CERT", route.0.display().to_string()),
+        ("OPENSESAME_NATS_ROUTE_KEY", route.1.display().to_string()),
+        ("OPENSESAME_NATS_ROUTE_CA", route_ca.display().to_string()),
+    ]);
+    env
+}
+
+fn assert_crl_material(
+    pki: &Pki,
+    revoked: &opensesame_transport_security::testkit::IssuedLeaf,
+    spec: &NatsTransportSpec,
+    base: &NatsTransportSpec,
+    injected: &InjectedMaterial,
+) -> InjectedMaterial {
+    use crate::nats_connect::load_material;
+    let path = pki.dir.path().join("configured.crl");
+    let trust = injected.trust.as_ref().unwrap().clone();
+    let identity = Arc::clone(injected.identity.as_ref().unwrap());
+    assert!(
+        load_material(spec, injected).is_err(),
+        "missing CRL refused"
+    );
+    std::fs::write(&path, b"").unwrap();
+    assert!(load_material(spec, injected).is_err(), "empty CRL refused");
+    std::fs::write(
+        &path,
+        b"-----BEGIN X509 CRL-----\nAAAA\n-----END X509 CRL-----\n",
+    )
+    .unwrap();
+    assert!(
+        load_material(spec, injected).is_err(),
+        "malformed CRL refused"
+    );
+
+    let revoked_crl = pki.ca.crl_pem(&[revoked]);
+    std::fs::write(
+        &path,
+        [b"-----BEGIN X509 CRL-----\n".as_slice(), &revoked_crl].concat(),
+    )
+    .unwrap();
+    assert!(
+        load_material(spec, injected).is_err(),
+        "truncated CRL before another BEGIN must be refused"
+    );
+    std::fs::write(&path, [&revoked_crl[..], &revoked_crl[..]].concat()).unwrap();
+    assert!(
+        matches!(
+            load_material(spec, injected),
+            Err(opensesame_domain::transport::TransportError::EnforcementUnsupported)
+        ),
+        "multiple configured CRLs must be refused"
+    );
+    std::fs::write(&path, &revoked_crl).unwrap();
+    let preserved = InjectedMaterial {
+        trust: Some(trust.with_crls(&revoked_crl).unwrap()),
+        identity: Some(Arc::clone(&identity)),
+    };
+    assert!(
+        matches!(
+            load_material(spec, &preserved),
+            Err(opensesame_domain::transport::TransportError::EnforcementUnsupported)
+        ),
+        "configured and injected CRLs must not be combined"
+    );
+    let existing = load_material(base, &preserved).unwrap().trust.unwrap();
+    assert_eq!(existing.crls(), preserved.trust.as_ref().unwrap().crls());
+    let doubled = InjectedMaterial {
+        trust: Some(
+            preserved
+                .trust
+                .as_ref()
+                .unwrap()
+                .clone()
+                .with_crls(&revoked_crl)
+                .unwrap(),
+        ),
+        identity: Some(Arc::clone(&identity)),
+    };
+    assert!(
+        matches!(
+            load_material(base, &doubled),
+            Err(opensesame_domain::transport::TransportError::EnforcementUnsupported)
+        ),
+        "multiple injected CRLs must be refused"
+    );
+
+    preserved
+}
+
+/// A configured CRL must constrain injected trust on the actual NATS TLS
+/// handshake. Independently supplied CRL sets cannot safely be merged by
+/// webpki, which selects only the first authoritative CRL.
+#[tokio::test]
+#[ignore = "requires the pinned NATS fixture"]
+async fn injected_trust_enforces_configured_crls() {
+    use super::live_mixed::{spiffe_server, spiffe_spec};
+    use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
+    use opensesame_transport_security::TrustBundle;
+
+    assert!(
+        super::live_harness::enabled(),
+        "set OPENSESAME_MTLS_FIXTURES=1"
+    );
+    let pki = Pki::new();
+    let (server, revoked) = spiffe_server(&pki);
+    let leaf = pki.client("publisher.nats.opensesame.test");
+    let identity = Arc::new(leaf.try_identity().unwrap());
+    let base = spiffe_spec(None);
+    let trust = TrustBundle::from_pem(
+        TrustProfileRef::new("nats-server-trust").unwrap(),
+        TrustProfileKind::SpiffeTrustDomain,
+        &pki.ca.ca_pem(),
+    )
+    .unwrap()
+    .with_spiffe_trust_domain("a.test")
+    .unwrap();
+    let injected = InjectedMaterial {
+        trust: Some(trust),
+        identity: Some(identity),
+    };
+    let path = pki.dir.path().join("configured.crl");
+    let spec = spiffe_spec(Some(&path));
+    let preserved = assert_crl_material(&pki, &revoked, &spec, &base, &injected);
+    let connect = |policy, material| {
+        NatsJetStreamTaskBus::connect_with(
+            config(&server.url(), policy, NatsRole::Publisher, false),
+            material,
+        )
+    };
+    assert!(
+        connect(spec.clone(), injected.clone()).await.is_err(),
+        "configured CRL revokes server"
+    );
+    assert!(
+        connect(base.clone(), preserved).await.is_err(),
+        "injected CRL revokes server"
+    );
+    std::fs::write(&path, pki.ca.crl_pem(&[])).unwrap();
+    assert!(
+        connect(spec, injected).await.is_ok(),
+        "unrevoked server remains usable"
+    );
+
+    let crl_only = NatsTransportSpec::from_lookup("OPENSESAME_NATS", &|name| {
+        (name == "OPENSESAME_NATS_TLS_CRL_FILE").then(|| "/configured.crl".to_owned())
+    })
+    .unwrap()
+    .unwrap();
+    assert!(crl_only.is_secure(), "CRL alone implies TLS");
+    assert!(
+        crl_only.normalized("nats://localhost:4222").is_err(),
+        "trust is required"
+    );
+}
 
 pub(crate) fn config(
     url: &str,

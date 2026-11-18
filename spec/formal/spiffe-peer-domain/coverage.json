@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
-  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation helpers were reviewed separately.",
+  "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
+  "reviewed_source_state": "Source hashes identify the NATS rotation and shared TLS changes above the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "94aaf8769733ee5d12450f7e5c6da1bdff60451aa0f045a5c8edf740b25f3984"
+    "sha256": "b45a653ab351553ea656fd4232721dc2ba6135fe913553d8107c1637934cc580"
   },
   "sources": [
     {
@@ -58,15 +58,15 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "997baf73ab3c03f0244bc1fe0deae94a96d45df476229f2a0cc3cfdaa52b61c9"
+      "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
     },
     {
       "path": "crates/transport-security/src/bounded.rs",
-      "sha256": "86e61615b23bc7647cf3481535750727f3268af70c1b8b2e088cdefbe9aaa6b9"
+      "sha256": "c3d952c01f7096c294f238d6de12ed54b0b0037aca510921b254a4c8c86bbf22"
     },
     {
       "path": "crates/transport-security/src/client.rs",
-      "sha256": "ee29984a2936b3d0cd6f66ac9979ac85602bd967a8c1ac795008e988265d991f"
+      "sha256": "c45608121fed74de9422158f2742388ec11cef46dd765cb31df157f69072d9a3"
     },
     {
       "path": "crates/transport-security/src/error.rs",
@@ -526,7 +526,7 @@
     },
     {
       "path": "crates/task-bus/Cargo.toml",
-      "sha256": "04a2e4ea6903d60b3a6c43b7012e4322ecbf5d9a3263a9e5f5996e8bf2877ac7"
+      "sha256": "0790215c896314ca5bc988e5b748cd4e7f2052c8059226df336938ff24248633"
     },
     {
       "path": "crates/transport-security/Cargo.toml",

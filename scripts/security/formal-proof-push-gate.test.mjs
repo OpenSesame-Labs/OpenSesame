@@ -13,7 +13,9 @@ import { pathToFileURL } from "node:url";
 import { parsePushRefs, parseRegistry } from "./formal-proof-push-gate.mjs";
 import {
   fixture,
+  installHook,
   nil,
+  push,
   registry,
 } from "./formal-proof-push-gate.test.fixture.mjs";
 
@@ -185,15 +187,107 @@ test("fetches previously unknown remote tips to compare a new branch accurately"
   );
 });
 
-test("selects all changed paths in pushed history, including changes subsequently reverted", (t) => {
-  const f = fixture(t);
-  f.write("src/a", "intermediate\n");
-  f.commit();
-  f.write("src/a", "a0\n");
-  const target = f.commit();
-  const result = f.run(f.tuple(target));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:a"]);
+test("native push selects the independent NATS suite only for mapped history", (t) => {
+  const required = JSON.parse(
+    readFileSync(
+      new URL("../../spec/formal/proof-requirements.json", import.meta.url),
+    ),
+  );
+  const nats = "crates/task-bus/src/nats_connect.rs";
+  const gateway = "crates/gateway/src/transport/source_trust_selection.rs";
+  const bounded = "crates/transport-security/src/bounded.rs";
+  const client = "crates/transport-security/src/client.rs";
+  const lib = "crates/transport-security/src/lib.rs";
+  const proof = "spec/formal/source-trust-selection/SourceTrustSelection.lean";
+  for (const operation of [
+    "nats",
+    "gateway",
+    "shared-bounded",
+    "shared-client",
+    "shared-lib",
+    "unrelated",
+    "proof",
+    "test-only",
+    "reverted",
+  ]) {
+    const f = fixture(t);
+    f.pin(required);
+    f.write("spec/formal/proof-registry.json", JSON.stringify(required));
+    f.write("spec/formal/proof-requirements.json", JSON.stringify(required));
+    for (const suite of required.suites)
+      for (const path of suite.proofs) f.write(path, "proof\n");
+    f.write(nats, "before\n");
+    f.write(gateway, "before\n");
+    f.write(bounded, "before\n");
+    f.write(client, "before\n");
+    f.write(lib, "before\n");
+    installHook(f);
+    f.git(
+      "-c",
+      "core.hooksPath=/dev/null",
+      "push",
+      "-q",
+      "origin",
+      "HEAD:refs/heads/main",
+    );
+    const changed = {
+      nats,
+      gateway,
+      "shared-bounded": bounded,
+      "shared-client": client,
+      "shared-lib": lib,
+      proof,
+      unrelated: "docs/unrelated.md",
+      "test-only": "crates/task-bus/src/nats_live_roles.rs",
+      reverted: nats,
+    }[operation];
+    f.write(changed, "changed\n");
+    if (operation === "reverted") {
+      f.commit();
+      f.write(changed, "before\n");
+    }
+    f.commit();
+    const result = push(f, "HEAD", "refs/heads/main");
+    assert.equal(result.status, 0, `${operation}: ${result.stderr}`);
+    let selected = [];
+    if (operation === "gateway")
+      selected = [
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+      ];
+    if (operation === "shared-bounded")
+      selected = [
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+      ];
+    if (operation === "shared-client")
+      selected = [
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+      ];
+    if (operation === "shared-lib")
+      selected = [
+        "spiffe",
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+      ];
+    if (["nats", "reverted"].includes(operation))
+      selected = ["nats-trust-rotation"];
+    assert.deepEqual(
+      f.commands(),
+      selected.map(
+        (id) =>
+          `run ${required.suites.find((suite) => suite.id === id).command[2]}`,
+      ),
+      operation,
+    );
+  }
 });
 
 test("plans multiple refs and refuses to verify non-HEAD commits or dirty source", async (t) => {
@@ -265,6 +359,7 @@ test("transport lib changes select SPIFFE proofs while authority proof-only edit
       "source-lifetime",
       "source-trust-selection",
       "spiffe-peer-domain",
+      "nats-trust-rotation",
     ],
   );
   assert.ok(
