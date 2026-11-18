@@ -16,6 +16,8 @@ use crate::{age_fmt, gpg, Entry, StoreError, StoreRoot};
 
 #[path = "store_entry_operations.rs"]
 mod entry_operations;
+#[path = "store_legacy.rs"]
+mod legacy_migration;
 
 const KEY_FILE: &str = ".opensesame-key";
 const REVISION_FILE: &str = ".opensesame-revisions.json";
@@ -327,34 +329,27 @@ impl StoreRoot {
         let rel = path
             .strip_prefix(&self.path)
             .map_err(|_| StoreError::InvalidPath("path escapes store root".into()))?;
-        let (plaintext, rebind_key) = match hint {
+        let plaintext = match hint {
             FormatHint::Osseal => {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
                 let expected = self.revisions()?.get(name).copied();
                 let opened = open_osseal(&confined_read(&self.path, rel)?, key, name, expected)?;
-                if !opened.legacy && expected.is_none() {
+                if expected.is_none() {
                     self.record_revision(name, opened.revision)?;
                 }
-                (opened.plaintext, opened.legacy.then_some(key))
+                opened.plaintext
             }
-            FormatHint::Gpg => (gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?, None),
+            FormatHint::Gpg => gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?,
             FormatHint::Age => {
                 let id = age_identity.ok_or_else(|| {
                     StoreError::Age("OPENSESAME_AGE_IDENTITY required for .age entries".into())
                 })?;
-                (
-                    age_fmt::decrypt_age(&confined_read(&self.path, rel)?, id)?,
-                    None,
-                )
+                age_fmt::decrypt_age(&confined_read(&self.path, rel)?, id)?
             }
         };
         let text =
             String::from_utf8(plaintext).map_err(|e| StoreError::Crypto(format!("utf8: {e}")))?;
         let entry = Entry::parse(&text);
-        if let Some(key) = rebind_key {
-            self.write_entry(name, &entry, key, Some(FormatHint::Osseal))?;
-            auto_commit(&self.path, COMMIT_REBIND)?;
-        }
         Ok(entry)
     }
 }

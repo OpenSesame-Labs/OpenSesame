@@ -99,6 +99,7 @@ opensesame pass protect add age --recipient age1... --yes
 opensesame pass protect remove PROTECTOR_ID --yes [--no-rotate]
 opensesame pass protect rewrap --yes [--no-rotate]
 opensesame pass protect root-rotate --yes [--reissue-recovery --reveal]
+opensesame pass protect migrate-legacy NAME --trust-source [--path DIR] [--tomb NAME]
 opensesame pass protect piv-discover   # non-destructive
 ```
 
@@ -116,6 +117,26 @@ the unchanged root.
 terminal (or stdin when piped), and refuses an empty one or one equal to the
 current passphrase — otherwise the variable would answer every prompt and the
 store would be "rewrapped" to the passphrase it already had.
+
+## Legacy entries without authenticated names
+
+Old `.osseal` entry ciphertext did not authenticate its logical name. Normal
+reads, restores, and root rotation refuse these entries instead of silently
+binding whatever ciphertext appears at a path. Before migrating, preserve a
+separate backup and independently verify both the source file's intended name
+and its freshness. The ciphertext and its current location cannot prove either.
+Then run `opensesame pass protect migrate-legacy NAME --trust-source` for each
+verified entry. This binds that ciphertext to the selected name; repeating the
+command requires the same trust decision. If a migration is interrupted,
+verify the source again before retrying.
+
+An older name-bound entry literally named `sealed-store-entry` is ambiguous
+with this legacy format and also needs this explicit migration. New entries
+with that name use a separate encryption context and require updated clients.
+Update all devices before synchronizing migrated entries. This migration does
+not establish freshness of an entire restored store: the local revision file
+can be restored or edited with the store, so a verified independent witness is
+still needed to detect whole-store rollback.
 
 ## Offline recovery
 

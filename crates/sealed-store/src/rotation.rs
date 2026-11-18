@@ -207,14 +207,7 @@ fn stage_entries(
         let blob = confined_read(&store.path, &rel)?;
         let expected = revisions.get(name).copied();
         let mut opened = open_osseal(&blob, old_key, name, expected)?;
-        // Keep the revision the reader will expect: the recorded one, or for a
-        // legacy blob with no record, the first revision a rebind would give.
-        let revision = if opened.legacy {
-            expected.unwrap_or(1)
-        } else {
-            opened.revision
-        };
-        let sealed = seal_osseal(&opened.plaintext, new_key, name, revision);
+        let sealed = seal_osseal(&opened.plaintext, new_key, name, opened.revision);
         opened.plaintext.zeroize();
         plan.stage(staging, rel, &sealed?)?;
         plan.entries += 1;

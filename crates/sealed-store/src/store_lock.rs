@@ -142,6 +142,19 @@ impl StoreLock {
         Self::for_writing(root, name, Some(key))
     }
 
+    /// A trusted migration reads and rewrites one entry and its revision as
+    /// one protected operation, excluding other writers as well as rotation.
+    pub(crate) fn for_legacy_migration(
+        root: &Path,
+        name: &str,
+        key: &ItemDataKey,
+    ) -> Result<Self, StoreError> {
+        refuse_reserved_name(name)?;
+        let lock = Self::key_file_edit(root)?;
+        ensure_current_root(root, key)?;
+        Ok(lock)
+    }
+
     /// Foreign-format writes need the same path and rotation guards, but an
     /// unkeyed store has no native root to authenticate.
     pub(crate) fn for_writing(
