@@ -9,16 +9,6 @@ import stat
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-HELPER = ROOT / "scripts/security/cargo-lock-projection.py"
-for path in (ROOT / "scripts", ROOT / "scripts/security", HELPER):
-    if not (stat.S_ISREG(path.lstat().st_mode) if path == HELPER else stat.S_ISDIR(path.lstat().st_mode)):
-        raise SystemExit("spiffe-formal: projection helper path is not regular")
-SPEC = importlib.util.spec_from_file_location("cargo_lock_projection", HELPER)
-if SPEC is None or SPEC.loader is None:
-    raise SystemExit("spiffe-formal: lock projection helper is unavailable")
-projection = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = projection
-exec(compile(HELPER.read_bytes(), str(HELPER), "exec", dont_inherit=True), projection.__dict__)
 ROOT_PACKAGE = "opensesame-spiffe-source"
 ALGORITHM = "cargo-lock-projection-v1-sha256"
 TARGETS = {
@@ -66,6 +56,7 @@ MINIMUM_PATHS = {
     'crates/domain/src/lib.rs',
     'scripts/security/formal-cargo-isolation.py',
     'scripts/security/formal-cargo-freshness.py',
+    'scripts/security/cargo-lock-projection.py',
 }
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -120,7 +111,7 @@ def sdk_projection(graph):
     }
 
 
-def verify_lock(coverage, graph, sdk_source):
+def verify_lock(coverage, graph, sdk_source, projection):
     recorded = coverage.get("lock_projection")
     if not isinstance(recorded, dict) or recorded.get("root") != ROOT_PACKAGE or recorded.get("algorithm") != ALGORITHM:
         raise ValueError("reviewed lock projection is missing or malformed")
@@ -161,8 +152,16 @@ def main():
         scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
         exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
         scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
+        helper_name = "scripts/security/cargo-lock-projection.py"
+        helper = regular_path(helper_name)
+        spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
+        if spec is None or spec.loader is None:
+            raise ValueError("lock projection helper unavailable")
+        projection = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = projection
+        exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
         graph = projection.read_lock(ROOT / "Cargo.lock")
-        verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text())
+        verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text(), projection)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"spiffe-formal: {exc}") from exc
     print("spiffe-formal: reviewed source and resolved dependency graph match")

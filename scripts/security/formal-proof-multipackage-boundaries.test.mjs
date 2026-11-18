@@ -284,9 +284,9 @@ test("custom build paths fail closed during historical projection", (t) => {
   }
 });
 
-test("Rust proof drift checks reject rehashed Cargo target redirection before Cargo", () => {
+test("Rust proof drift checks verify Cargo targets and projection helpers before Cargo", () => {
   const root = fileURLToPath(new URL("../../", import.meta.url));
-  const driver = String.raw`import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
+  const driver = String.raw`import hashlib, importlib._bootstrap_external, importlib.util, json, os, pathlib, shutil, subprocess, sys, tempfile
 root = pathlib.Path(sys.argv[1])
 cases = [
     ("authority", "spec/formal/authority/Cargo.toml", "bin", "reviewed Cargo bin target"),
@@ -302,6 +302,11 @@ cases = [
     ("source-trust-selection", "crates/gateway/Cargo.toml", "inactive", None),
     ("spiffe-peer-domain", "crates/ingress-evidence/Cargo.toml", "test:verify", "reviewed Cargo test target"),
 ]
+for suite, helpers in [("authority", ("cargo-lock-projection.py", "cargo-workspace-projection.py")),
+                       ("spiffe", ("cargo-lock-projection.py",)), ("source-lifetime", ("cargo-lock-projection.py",))]:
+    for helper in helpers:
+        for mode, expected in (("helper-source", "source drift"), ("helper-pyc", None)):
+            cases.append((suite, "scripts/security/" + helper, mode, expected))
 with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
     for index, (suite, manifest, mode, expected) in enumerate(cases):
         target = pathlib.Path(temporary) / str(index)
@@ -319,7 +324,17 @@ with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
                 shutil.copy2(source, destination)
         file = target / manifest
         original = file.read_text()
-        if mode == "bin":
+        if mode == "helper-source":
+            file.write_text(original + '\nimport os\nopen(os.environ["CARGO_MARKER"], "w").write("executed")\n')
+            before = after = None
+        elif mode == "helper-pyc":
+            cache = pathlib.Path(importlib.util.cache_from_source(str(file)))
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            payload = compile('import os\nopen(os.environ["CARGO_MARKER"], "w").write("executed")\n', str(file), "exec")
+            stat = file.stat()
+            cache.write_bytes(importlib._bootstrap_external._code_to_timestamp_pyc(payload, int(stat.st_mtime), stat.st_size))
+            before = after = None
+        elif mode == "bin":
             before, after = 'path = "conformance.rs"', 'path = "other.rs"'
         elif mode == "lib":
             before, after = 'path = "src/lib.rs"', 'path = "src/other.rs"'
