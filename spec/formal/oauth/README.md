@@ -37,12 +37,19 @@ Run with Lean 4.24.0 and the repository's Node dependencies:
 ```sh
 npm run verify:oauth-formal
 python3 spec/formal/oauth/negative-controls.py
+node --test spec/formal/oauth/check-hosted-flow-report.test.mjs
+python3 spec/formal/oauth/hosted-flow-negative-controls.py
 ```
 
 Set `OPENSESAME_LEAN_BIN` to the Lean executable when it is not on `PATH`. The
 check rejects Lean warnings and theorem dependencies on unapproved axioms,
 compares model vectors with the actual TypeScript functions, runs the hosted
-flow regressions, and checks source hashes. The scratch negative controls remove
+flow regressions, requires both named hosted-flow tests to pass in Vitest's JSON
+report, and checks source hashes. A filtered run that skips or renames either
+test fails the gate, including a run that selects no tests. The hosted-flow
+negative controls rename and skip each case and exercise the complete gate from
+a scratch tree; unchanged source and dependencies are linked, while mutations
+are made only to a copied test file. The other scratch negative controls remove
 the current payload binding, allow legacy provenance or a missing signed
 provider, skip the legacy MAC, and remove the current organization-ID comparison; each must trigger a failing assertion. The normal
 gate refuses the mutation override.
