@@ -39,6 +39,51 @@ function digestFile(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+async function captureVaultShellWalk({ browser, walk, outDir }) {
+  const out = join(pagesRoot, "dist-profiles", "vault-shell", walk.buildKey);
+  buildDist({
+    appRoot: pagesRoot,
+    scriptsDir,
+    outDir: out,
+    capabilityProfile: walk.capabilityProfile,
+  });
+  const dist = out;
+  const server = await serveLoopbackDist({ dist, base: BASE });
+  const stepsDir = join(outDir, walk.name);
+  mkdirSync(stepsDir, { recursive: true });
+  const harness = createHarness({
+    dist,
+    origin: server.origin,
+    base: BASE,
+    out: stepsDir,
+  });
+  const { page } = await harness.newPage(browser, {
+    passthrough: [server.origin],
+  });
+  const record = emptyRecord(walk);
+  const texts = new Map();
+  const shot = proofShot(page, stepsDir, texts, record);
+  await openDoor(page, shot, record, server.href);
+  assertLocalPage(page, walk.name);
+  await captureChoice(page, walk, stepsDir);
+  const where = await applySetupChoice(page, shot, record, walk.setupChoice);
+  await enterVault(page, where);
+  await openSettingsCategory(page, "Features");
+  const panel = page.locator("[data-testid=features-panel]");
+  await panel.waitFor({ state: "visible", timeout: 30_000 });
+  await awaitCapabilitySections(page);
+  const vaultPng = join(outDir, `${walk.name}.png`);
+  await panel.screenshot({ path: vaultPng, animations: "disabled" });
+  const manifest = {
+    profile: walk.name,
+    path: vaultPng,
+    sha256: digestFile(vaultPng),
+  };
+  await page.close();
+  await server.close();
+  return manifest;
+}
+
 export async function captureVaultShellProfiles({ outDir }) {
   mkdirSync(outDir, { recursive: true });
   const discovery = findChromium();
@@ -49,51 +94,9 @@ export async function captureVaultShellProfiles({ outDir }) {
   const profilesDir = join(pagesRoot, "capability-profiles");
   const walks = resolveWalks(profilesDir);
   const manifests = [];
-  const pngPaths = [];
 
   for (const walk of walks) {
-    const out = join(pagesRoot, "dist-profiles", "vault-shell", walk.buildKey);
-    buildDist({
-      appRoot: pagesRoot,
-      scriptsDir,
-      outDir: out,
-      capabilityProfile: walk.capabilityProfile,
-    });
-    const dist = out;
-    const server = await serveLoopbackDist({ dist, base: BASE });
-    const stepsDir = join(outDir, walk.name);
-    mkdirSync(stepsDir, { recursive: true });
-    const harness = createHarness({
-      dist,
-      origin: server.origin,
-      base: BASE,
-      out: stepsDir,
-    });
-    const { page } = await harness.newPage(browser, {
-      passthrough: [server.origin],
-    });
-    const record = emptyRecord(walk);
-    const texts = new Map();
-    const shot = proofShot(page, stepsDir, texts, record);
-    await openDoor(page, shot, record, server.href);
-    assertLocalPage(page, walk.name);
-    await captureChoice(page, walk, stepsDir);
-    const where = await applySetupChoice(page, shot, record, walk.setupChoice);
-    await enterVault(page, where);
-    await openSettingsCategory(page, "Features");
-    const panel = page.locator("[data-testid=features-panel]");
-    await panel.waitFor({ state: "visible", timeout: 30_000 });
-    await awaitCapabilitySections(page);
-    const vaultPng = join(outDir, `${walk.name}.png`);
-    await panel.screenshot({ path: vaultPng, animations: "disabled" });
-    pngPaths.push(vaultPng);
-    manifests.push({
-      profile: walk.name,
-      path: vaultPng,
-      sha256: digestFile(vaultPng),
-    });
-    await page.close();
-    await server.close();
+    manifests.push(await captureVaultShellWalk({ browser, walk, outDir }));
   }
   await browser.close();
   const unique = new Set(manifests.map((m) => m.sha256));
