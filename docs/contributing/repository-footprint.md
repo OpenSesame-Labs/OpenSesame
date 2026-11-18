@@ -76,3 +76,21 @@ fuzz regressions and active fixtures that have consumers. Minimize fuzz corpora
 only after proving equivalent coverage. Preserve installer assets whose parity
 checks require physical copies. Avoid unnecessary report files and duplicate
 instructions: link this contract instead of copying it into every routine.
+
+## Retired historical archive
+
+The November 2026 dependency-hardening change removed the 23 files formerly
+under `docs/archive/`. Each was already marked as superseded, had no runtime or
+test consumer, and remains available in Git history. Live documentation
+citations now point to the maintained ADR, validation, or runbook that carries
+the binding decision or reconciled finding. The reviewed removal map is:
+
+| Removed files | Reason and maintained replacement |
+|---|---|
+| `2026-08-07-baseline/{battle-test-critique,host-plane-evidence,identity-plane-evidence,repository-assessment,summary,task-authority-audit}.md` | Point-in-time assessment output; current behavior is maintained by the validation strategy, coverage document and executable gates. |
+| `brief-implementation-status.md` | One-shot status snapshot; current implementation status is the code plus ADR implementation lines. |
+| `plans/plans/{2026-08-15-git-sealed-store,2026-08-16-tombs-pass-otp-update,2026-08-30-infisical-cert-manager-parity-swarm}.md` | Completed planning notes; ADRs 0037, 0038 and 0066–0072 record the binding decisions. |
+| `plans/specs/{2026-08-15-git-sealed-store-design,2026-08-16-tombs-pass-otp-update-design,2026-08-22-file-attachment-storage-implementation}.md` | Superseded design drafts; ADRs 0037, 0038 and 0054 are canonical. |
+| `prompts/{2026-08-22-security-program-agent-brief,one-shot-automation-prompt,one-shot-connector-auth-broker-prompt,one-shot-doppler-nats-prompt,one-shot-doppler-parity-prompt,one-shot-passkey-portability-prompt,spa-multi-forge-vault-backup-prompt,vault-key-protection-age-sops-prompt}.md` | Agent assignment inputs, not product guidance; landed behavior and ADRs 0032, 0041, 0042 and 0129 are maintained. |
+| `wallet-swarm-coordination.md` | Temporary coordination log; ADR 0123 owns the wallet spending decisions. |
+| `README.md` | Index for only the retired files above; empty after their reviewed removal. |

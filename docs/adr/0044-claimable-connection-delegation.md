@@ -172,8 +172,7 @@ attenuation (repo + permission subset, ≤ 1 h) that
 - RFC 8693 remains a semantic mapping, not a wire protocol: the "token
   exchange" happens inside the broker (subject = owner, actor = claimant,
   recorded in grant lineage and receipts), which is consistent with the
-  MCP spec's ban on token passthrough and with
-  `docs/archive/prompts/one-shot-connector-auth-broker-prompt.md` ("do not
-  add `/connections/{id}/token` for agents").
+  MCP spec's ban on token passthrough and with this ADR's prohibition on
+  adding `/connections/{id}/token` for agents.
 - Full analysis, API sketches, schema, threat table, and phasing:
   `docs/research/claimable-connection-delegation.md`.
