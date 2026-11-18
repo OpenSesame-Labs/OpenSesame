@@ -60,7 +60,7 @@ async function boundedBody(
     if (done) break;
     total += value.byteLength;
     if (total > maxBytes) {
-      await reader.cancel();
+      await reader.cancel().catch(() => undefined);
       throw new DriveError("The drive answered with an oversized body.", 502);
     }
     chunks.push(value);
@@ -74,8 +74,15 @@ async function boundedBody(
   return joined;
 }
 
+function drivePartKey(key: string): string {
+  if (!/^[A-Za-z0-9_-]{16}$/u.test(key)) {
+    throw new DriveError("The file part key is invalid.", 400);
+  }
+  return key;
+}
+
 function partUrl(pairing: DrivePairing, key: string): string {
-  return `${slotBase(pairing)}/parts/${encodeURIComponent(key)}`;
+  return `${slotBase(pairing)}/parts/${drivePartKey(key)}`;
 }
 
 export async function listDriveParts(

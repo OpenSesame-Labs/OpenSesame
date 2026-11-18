@@ -25,6 +25,7 @@ import {
   putMissingParts,
   readDrivePart,
   referencedParts,
+  writeDrivePart,
 } from "./parts.js";
 
 const original = driveClientSeams.fetch;
@@ -210,6 +211,35 @@ describe("untrusted drive response bounds", () => {
     await expect(listDriveParts(PAIRING)).rejects.toThrow(
       "too many file parts",
     );
+    await expect(readDrivePart(PAIRING, "A".repeat(16))).rejects.toThrow(
+      "oversized body",
+    );
+  });
+
+  it("rejects invalid direct part keys before constructing a request", async () => {
+    await expect(readDrivePart(PAIRING, "../encoded/%2fkey")).rejects.toThrow(
+      "file part key is invalid",
+    );
+    await expect(
+      writeDrivePart(PAIRING, "A".repeat(17), new Uint8Array([1])),
+    ).rejects.toThrow("file part key is invalid");
+    expect(requests).toEqual([]);
+  });
+
+  it("preserves the bounded error when stream cancellation fails", async () => {
+    driveClientSeams.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1),
+            );
+          },
+          cancel() {
+            return Promise.reject(new Error("attacker-controlled cancel"));
+          },
+        }),
+      );
     await expect(readDrivePart(PAIRING, "A".repeat(16))).rejects.toThrow(
       "oversized body",
     );

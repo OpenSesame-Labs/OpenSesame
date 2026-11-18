@@ -144,6 +144,16 @@ describe("file parts", () => {
     await expect(openFile(tooMany, [never])).rejects.toThrow(
       "file part is missing",
     );
+
+    const tooFewForClaimedSize = JSON.stringify({
+      ...base,
+      size: MAX_FILE_BYTES,
+      parts: [ref],
+    });
+    expect(readFileManifest(tooFewForClaimedSize)).toBeUndefined();
+    await expect(openFile(tooFewForClaimedSize, [never])).rejects.toThrow(
+      "file part is missing",
+    );
   });
 
   it("bounds generated part counts and retrieved ciphertext before decryption", async () => {

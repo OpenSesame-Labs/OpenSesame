@@ -110,7 +110,8 @@ export function readFileManifest(text: string): FileManifest | undefined {
     mediaType.length > 255 ||
     !/^[A-Za-z0-9+/]{43}=$/u.test(key) ||
     (size === 0) !== (parsed.parts.length === 0) ||
-    (size > 0 && parsed.parts.length > size)
+    (size > 0 && parsed.parts.length > size) ||
+    parsed.parts.length < Math.ceil(size / FILE_PART_BYTES)
   ) {
     return undefined;
   }
@@ -286,14 +287,18 @@ export async function openFile(
       const ref = manifest.parts[index];
       if (ref === undefined) throw new Error(MISSING);
       const opened = await openOne(key, ref, index, count, stores);
-      if (
-        opened.byteLength === 0 ||
-        opened.byteLength > FILE_PART_BYTES ||
-        opened.byteLength > bytes.byteLength - offset
-      )
-        throw new Error(MISSING);
-      bytes.set(opened, offset);
-      offset += opened.byteLength;
+      try {
+        if (
+          opened.byteLength === 0 ||
+          opened.byteLength > FILE_PART_BYTES ||
+          opened.byteLength > bytes.byteLength - offset
+        )
+          throw new Error(MISSING);
+        bytes.set(opened, offset);
+        offset += opened.byteLength;
+      } finally {
+        opened.fill(0);
+      }
     }
     if (offset !== bytes.byteLength) throw new Error(MISSING);
   } catch (error) {
