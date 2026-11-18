@@ -86,6 +86,31 @@ omit its mappings. The remote must be reachable for this comparison.
 If main moves while its missing history is fetched, the gate rejects the push
 and asks for a retry. A local hook cannot make its last remote read atomic with
 the server's eventual ref update; server-side policy remains necessary.
+
+A suite covering a local Cargo dependency graph can register a multi-package
+workspace projection. Its reviewed manifest paths, each sibling `build.rs`,
+and every intermediate `Cargo.toml` path must be mapped implementation
+inputs, and its lock projection must cover the entire root closure. The suite's
+runner must pin reviewed build-script contents or absence and reject unreviewed
+or nonregular scripts before invoking Cargo. The projector accepts only an
+absent `package.build`, `false`, or the canonical `"build.rs"` path; custom
+build paths fail closed. For each relevant commit and merge parent,
+the gate reads regular manifest blobs from that revision, resolves local path
+dependencies and aliases, and checks them against the lockfile's local closure.
+The workspace projection includes inherited package fields, dependencies and
+lints used by that closure, along with relevant patches and profile overrides.
+An approved manifest may be absent only while it is outside the closure;
+unmapped or ambiguous packages, alternate workspace roots, nested manifests,
+unsupported paths and malformed dependency tables fail closed. Both current
+and legacy Cargo build/dev dependency table spellings are included.
+
+The lock graph conservatively includes optional, development and target-specific
+dependencies but does not encode active features or target choice. These
+projections do not establish feature unification from packages outside the
+registered closure, toolchain or Cargo configuration integrity, or the behavior
+of dependencies and build scripts. Each suite must document and review those
+limits separately; the projection is a drift selector, not a Lean refinement
+proof.
 The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the hook instructions](../../scripts/README.md).

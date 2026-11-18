@@ -42,6 +42,7 @@ function setupController(controller) {
     "formal-proof-push-gate-registry.mjs",
     "formal-proof-push-history.mjs",
     "formal-proof-lock-history.mjs",
+    "formal-proof-manifest-set.mjs",
     "formal-proof-remote-main.mjs",
     "formal-proof-required-suites.mjs",
   ])
@@ -197,8 +198,10 @@ export function installHook(f) {
   );
   for (const name of [
     "formal-proof-lock-history.mjs",
+    "formal-proof-manifest-set.mjs",
     "cargo-lock-projection.py",
     "cargo-workspace-projection.py",
+    "cargo-workspace-multipackage.py",
   ])
     f.write(
       `scripts/security/${name}`,
