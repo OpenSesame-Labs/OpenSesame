@@ -35,6 +35,8 @@ fn execution_bootstrap_for_organization(
         || boot.grant.organization_id != *organization_id
         || boot.grant.beneficiary_principal_id != *principal_id
         || boot.grant.connection_id != Some(boot.connection)
+        || boot.grant.parent_grant_id.is_some()
+        || boot.grant.delegation_depth != 0
     {
         return Err(err_json(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -345,7 +347,10 @@ fn claim_frozen_intent(
     if !caller.owns(&intent.principal_id) || !caller.in_organization(&intent.organization_id) {
         return Ok(None);
     }
-    if opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_err() {
+    if execution_grant.parent_grant_id.is_some()
+        || execution_grant.delegation_depth != 0
+        || opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_err()
+    {
         return Err(());
     }
     Ok(pending.remove(digest))
@@ -490,10 +495,17 @@ fn internal(e: impl std::fmt::Display) -> Response {
 }
 
 #[cfg(test)]
+#[path = "tasks_bootstrap_tests.rs"]
+mod bootstrap_tests;
+
+#[cfg(test)]
+#[path = "tasks_delegation_fence_tests.rs"]
+mod delegation_fence_tests;
+
+#[cfg(test)]
 mod tests {
     use super::{
-        claim_frozen_intent, freeze_intent, invoke_task, start_task, CapabilityDto,
-        FreezeIntentBody, InvokeTaskBody, StartTaskBody,
+        claim_frozen_intent, invoke_task, start_task, CapabilityDto, InvokeTaskBody, StartTaskBody,
     };
     use crate::middleware::auth::Caller;
     use axum::{extract::State, http::StatusCode, Json};
@@ -504,7 +516,7 @@ mod tests {
     use opensesame_time::{Duration, Utc};
     use std::collections::{BTreeMap, HashMap};
 
-    fn intent(
+    pub(super) fn intent(
         principal: PrincipalId,
         organization_id: OrganizationId,
         expires_in_minutes: i64,
@@ -800,108 +812,6 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(response.status(), StatusCode::CREATED);
-    }
-
-    #[tokio::test]
-    async fn non_bootstrap_organization_cannot_freeze_an_unusable_intent() {
-        let state = crate::app_state::test_demo_state().await;
-        let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
-        let organization_id = OrganizationId::new();
-        let subject = bootstrap.principal.to_string();
-        let headers = crate::app_state::test_session_headers(
-            &state,
-            &subject,
-            organization_id,
-            opensesame_domain::OrganizationRole::Member,
-        );
-        let started = start_task(
-            State(state.clone()),
-            headers.clone(),
-            Json(StartTaskBody {
-                principal_id: subject,
-                organization_id: organization_id.to_string(),
-                capabilities: vec![CapabilityDto {
-                    action: "repository.read".into(),
-                    resource: "repo:acme/catalog".into(),
-                }],
-                ttl_seconds: 60,
-            }),
-        )
-        .await
-        .unwrap();
-        let started = axum::body::to_bytes(started.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        let started: serde_json::Value = serde_json::from_slice(&started).unwrap();
-
-        let response = freeze_intent(
-            State(state.clone()),
-            headers,
-            Json(FreezeIntentBody {
-                task_run_id: started["task_run_id"].as_str().unwrap().into(),
-                expected_state_version: started["state_version"].as_u64().unwrap(),
-                operation: "repository.read".into(),
-                resource: "repo:acme/catalog".into(),
-                audience: "https://api.example.com".into(),
-                arguments: serde_json::json!({}),
-                idempotency_key: "foreign-org".into(),
-            }),
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert!(state.frozen_intents.lock().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn operator_cannot_freeze_for_a_principal_the_grant_does_not_cover() {
-        let state = crate::app_state::test_demo_state().await;
-        let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
-        let principal = PrincipalId::new();
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert(
-            "x-opensesame-operator",
-            state.operator_token.parse().unwrap(),
-        );
-        let started = start_task(
-            State(state.clone()),
-            headers.clone(),
-            Json(StartTaskBody {
-                principal_id: principal.to_string(),
-                organization_id: bootstrap.org.to_string(),
-                capabilities: vec![CapabilityDto {
-                    action: "repository.read".into(),
-                    resource: "repo:acme/catalog".into(),
-                }],
-                ttl_seconds: 60,
-            }),
-        )
-        .await
-        .unwrap();
-        let started = axum::body::to_bytes(started.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        let started: serde_json::Value = serde_json::from_slice(&started).unwrap();
-
-        let response = freeze_intent(
-            State(state.clone()),
-            headers,
-            Json(FreezeIntentBody {
-                task_run_id: started["task_run_id"].as_str().unwrap().into(),
-                expected_state_version: started["state_version"].as_u64().unwrap(),
-                operation: "repository.read".into(),
-                resource: "repo:acme/catalog".into(),
-                audience: "https://api.github.com".into(),
-                arguments: serde_json::json!({}),
-                idempotency_key: "wrong-beneficiary".into(),
-            }),
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert!(state.frozen_intents.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

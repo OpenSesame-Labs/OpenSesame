@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 use opensesame_broker::InvokeInput;
+use opensesame_connection_broker::store as broker_store;
 use opensesame_connector_host::{HostError, InvokeResult};
 use opensesame_domain::{
     ConnectionAuthorityBinding, ConnectionId, ConnectionRef, DetachedProof, Grant, GrantId, Intent,
@@ -16,10 +17,12 @@ use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use opensesame_connection_broker::store as broker_store;
-
 use crate::app_state::AppState;
 use crate::middleware::auth::{require_demo_bootstrap, resolve_caller, resolve_caller_subject};
+
+#[path = "intents_bootstrap.rs"]
+mod intents_bootstrap;
+use intents_bootstrap::bootstrap_invocation;
 
 #[path = "intents_enforcement.rs"]
 mod intents_enforcement;
@@ -170,30 +173,6 @@ pub(super) fn not_found() -> Response {
     (StatusCode::NOT_FOUND, Json(json!({"error":"not_found"}))).into_response()
 }
 
-fn bootstrap_invocation(
-    st: &AppState,
-    boot: &crate::app_state::Bootstrap,
-) -> Result<ResolvedInvocation, Response> {
-    let Some(connection_ref) = st.connection_ref.clone() else {
-        return Err((
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({"error":"bootstrap_unavailable"})),
-        )
-            .into_response());
-    };
-    Ok(ResolvedInvocation {
-        grant: boot.grant.clone(),
-        lineage: None,
-        delegation_chain: vec![boot.grant.id],
-        connection_id: boot.connection,
-        principal_id: boot.principal,
-        binding: opensesame_authz::github_binding(connection_ref, "github/main"),
-        connection_policy_id: "demo-conn".into(),
-        spend_budget: None,
-        broker_connection: false,
-    })
-}
-
 async fn broker_connection(
     st: &AppState,
     boot: &crate::app_state::Bootstrap,
@@ -302,6 +281,7 @@ async fn delegate_invocation(
         // Knowing a connection reference must not confirm its existence.
         return Err(not_found());
     };
+    intents_queue::require_delegated_mode(delegation.execution_mode)?;
     // Delegates exercise at L1 in v1 (ADR 0044 decision 6).
     if level > 1 {
         return Err((

@@ -25,6 +25,7 @@ mod aws_sts_receipts;
 mod catalog_egress;
 mod connection_lifecycle;
 mod credential_minting;
+mod delegation_mode_tests;
 mod detected_import;
 mod github_app_minting;
 mod legacy_connections;
