@@ -36,6 +36,22 @@
         "spec/formal/check-axioms.sh"
       ],
       "command": ["npm", "run", "verify:oauth-formal"]
+    },
+    {
+      "id": "webauthn",
+      "implementation": [
+        "packages/os-domain/src/machines/interaction.ts",
+        "packages/os-domain/src/interaction.ts",
+        "packages/os-domain/src/proofs/approval-seal.ts",
+        "packages/os-domain/src/errors.ts"
+      ],
+      "proofs": [
+        "spec/formal/webauthn/ApprovalBinding.lean",
+        "spec/formal/webauthn/required-theorems.lean",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh"
+      ],
+      "command": ["npm", "run", "verify:webauthn-formal"]
     }
   ]
 }
