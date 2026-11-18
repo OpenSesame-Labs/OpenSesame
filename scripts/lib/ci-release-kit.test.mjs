@@ -73,6 +73,7 @@ describe("candidate producer workflow", () => {
     expect(build).toContain(
       'cargo build --locked --release -p "$1" --bin "$2"',
     );
+    expect(build).not.toMatch(/json-render-diagnostics[^\n]*2>\s*\/dev\/null/);
     expect(
       producer.jobs["native-untrusted"].strategy.matrix.include
         .map((item) => item.target)

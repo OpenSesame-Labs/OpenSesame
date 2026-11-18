@@ -344,7 +344,7 @@ jobs:
         mkdir -p bins
         resolve_bin() {
           cargo build --locked --release -p "$1" --bin "$2" \
-            --message-format=json-render-diagnostics 2>/dev/null \
+            --message-format=json-render-diagnostics \
             | node ../.ci-control/scripts/release/cargo-built-executable.mjs "$2"
         }
         OPENSEAME_BIN="$(resolve_bin opensesame-cli opensesame)"
@@ -355,7 +355,7 @@ jobs:
         echo "resolved opensesame-surrogate-proxy: ${SURROGATE_BIN}"
         cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy
         SURROGATE_TEST_BIN="$(cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy \
-          --message-format=json-render-diagnostics 2>/dev/null \
+          --message-format=json-render-diagnostics \
           | node ../.ci-control/scripts/release/cargo-built-executable.mjs opensesame-surrogate-proxy)"
         echo "resolved opensesame-surrogate-proxy (TEST): ${SURROGATE_TEST_BIN}"
         cp "${SURROGATE_TEST_BIN}" bins/opensesame-surrogate-proxy-TEST-upstream-override
