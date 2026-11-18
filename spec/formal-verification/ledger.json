@@ -884,7 +884,9 @@
     {
       "id": "formal-open-vault-lease",
       "claim": "Exclusive vault destroy is only allowed when no tab counts the tomb open and no shared lock is still held after a release.",
-      "implementation": ["packages/app-core/src/lib/vault/vault-shared-locks.ts"],
+      "implementation": [
+        "packages/app-core/src/lib/vault/vault-shared-locks.ts"
+      ],
       "evidence": [
         {
           "kind": "model",
@@ -957,9 +959,7 @@
     {
       "id": "formal-autofill-gesture",
       "claim": "Autofill never fills without an extension gesture and matching trusted frame and origin.",
-      "implementation": [
-        "apps/browser-extension-autofill/lib/fill/guard.ts"
-      ],
+      "implementation": ["apps/browser-extension-autofill/lib/fill/guard.ts"],
       "evidence": [
         {
           "kind": "model",

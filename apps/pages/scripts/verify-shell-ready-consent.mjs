@@ -24,9 +24,6 @@ const outRoot =
   process.env.PAGES_VERIFY_OUT ??
   join(repoRoot, "artifacts/shell-ready-consent");
 const logDir = join(outRoot, "logs");
-const consentActivationDelayMs = Number(
-  process.env.SHELL_READY_CONSENT_ACTIVATION_DELAY_MS ?? 2_500,
-);
 mkdirSync(logDir, { recursive: true });
 
 function runVitest(relativeSpecs, logName) {
@@ -152,17 +149,10 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
       1280,
       false,
       async (consentPopup) => {
-        if (!expectEarlyConsent) {
-          await consentPopup.waitForTimeout(consentActivationDelayMs);
-          await consentPopup
-            .waitForFunction(
-              () => Boolean(document.querySelector(".vault-skeleton")),
-              { timeout: 15_000 },
-            )
-            .catch(() => undefined);
-        }
+        const observeMs = 800;
         const started = Date.now();
-        while (Date.now() - started < 800) {
+        let sawSkeleton = false;
+        while (Date.now() - started < observeMs) {
           during = await consentPopup.evaluate(() => ({
             consentHeading: [...document.querySelectorAll("h1,h2")].some(
               (node) =>
@@ -172,10 +162,17 @@ async function playwrightConsent(distDir, label, expectEarlyConsent) {
           }));
           if (expectEarlyConsent) {
             if (during.consentHeading || during.vaultSkeleton) return;
-          } else if (during.vaultSkeleton) {
-            return;
+          } else {
+            if (during.consentHeading && !sawSkeleton) {
+              throw new Error("consent mounted before activation skeleton");
+            }
+            if (during.vaultSkeleton) sawSkeleton = true;
+            if (sawSkeleton && !during.consentHeading) return;
           }
           await consentPopup.waitForTimeout(50);
+        }
+        if (!expectEarlyConsent && !sawSkeleton) {
+          throw new Error("fixed build never showed vault skeleton during unlock");
         }
       },
     );

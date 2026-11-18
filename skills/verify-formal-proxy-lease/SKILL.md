@@ -35,7 +35,7 @@ Committed config bounds: `MaxLive = 3`, `MaxStale = 6`, `MaxGen = 3` (209 states
 | `store.ts` | `#acquireSessionLease`, `#commitSessionLease`, `#releaseSessionLease` |
 | `password-agent/lease.ts` | (inventoried; model next) `authorizeLease`, `claimLease` |
 
-Sync commit: set when this skill lands.
+Sync commit: `3ec3e6660a6bebd1451e4e2c0663136b02421d4e`
 
 Replay test: `packages/app-core/src/lib/vault/open-vault-lease-formal.replay.test.ts`.
 
