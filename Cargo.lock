@@ -4859,6 +4859,7 @@ dependencies = [
  "secrecy",
  "serde_json",
  "sha2 0.11.1",
+ "spiffe",
  "tempfile",
  "thiserror 2.0.21",
  "time",

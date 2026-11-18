@@ -316,3 +316,35 @@ async fn ordinary_tls_resumes_but_a_prepared_connection_cannot_resume_after_sour
         .await
         .is_err());
 }
+
+#[test]
+fn ordinary_activation_cannot_relabel_a_source_owned_spiffe_domain() {
+    let server = DisposableCa::new("server");
+    let root = DisposableCa::new("domain-root");
+    let gens = generations(server.issue_server("localhost").identity(), &root);
+    let owner = gens.source_owner();
+    let reserved = gens.claim_source(&owner).unwrap();
+    let profile = profile_ref("federated.test");
+    let authoritative = spiffe_bundle("federated.test", &root);
+    let mut source = candidate(&gens);
+    source
+        .peer_trust
+        .insert(profile.clone(), authoritative.clone());
+    gens.activate_from_source(&owner, reserved, source.clone())
+        .unwrap();
+    let generation = gens.current().number;
+    let relabeled = authoritative
+        .clone()
+        .with_spiffe_trust_domain("other.test")
+        .unwrap();
+    assert_eq!(relabeled.profile(), authoritative.profile());
+    assert_eq!(relabeled.anchors(), authoritative.anchors());
+    source.peer_trust.insert(profile.clone(), relabeled);
+    assert_eq!(gens.activate(source), Err(TransportError::GenerationStale));
+    let current = gens.current();
+    assert_eq!(current.number, generation);
+    assert_eq!(
+        current.trust(&profile).unwrap().spiffe_trust_domain(),
+        Some("federated.test")
+    );
+}

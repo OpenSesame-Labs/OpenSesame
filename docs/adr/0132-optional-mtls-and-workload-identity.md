@@ -156,6 +156,17 @@ or `spiffe_trust_domain`:
   of all known domains into one store; a bundle offered for a different
   domain's SVID is `TrustUnknown`.
 
+A native SPIFFE `TrustBundle` carries its canonical trust domain separately
+from its profile label; a stored profile may use a different label. Workload
+API and stored-profile loaders supply that domain. An embedder constructing a
+SPIFFE bundle must also set it explicitly before using the bundle for peer
+verification; a missing or invalid domain fails closed. Stored profiles with
+previously accepted noncanonical domain values must be corrected by an
+operator before they can be loaded; values are not silently rewritten. Native
+verifiers apply the shared X.509-SVID leaf profile after chain validation. A
+source-selected Host listener additionally requires the selected bundle's
+domain to equal the configured domain.
+
 Server-name checking is never disabled to make SPIFFE work. The SPIFFE
 verifier still validates the chain and the TLS signatures through rustls; it
 replaces the DNS reference identity with a URI-SAN reference identity.
@@ -204,6 +215,15 @@ exact-match only. There is no CN, email, IP, wildcard, subject-DN or
 or address (ADR 0042 §3 stands). There is no fleet-wide role: a binding
 authorizes one service principal for the operations it lists, and a bridge
 with a valid binding does not thereby hold operator authority.
+
+For a `spiffe_trust_domain` peer, the only authorizing selector in native
+verified evidence is the exact SPIFFE ID. The leaf thumbprint is still carried
+separately and checked against `denied_thumbprints`; it cannot stand in for a
+SPIFFE service binding. Forwarded assertions retain the original sealed
+ingress evidence. Native embedders that construct forwarded assertions must
+pass the already verified ingress to the sealed-ingress constructor; raw
+ingress facts are refused. The bound peer on that path is the ingress; the
+originating client's CRL and deny-hook checks are distinct controls.
 
 Binding sets are stored under the Host's `host_kv` key
 `transport.service_bindings`, may be overridden by

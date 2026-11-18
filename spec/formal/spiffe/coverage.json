@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "ac8236c9b2d1236fec5dc4593390724ff17e6f6d",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership and lifetime fix after the recorded base revision.",
+  "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
+  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -175,7 +175,7 @@
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",
-      "sha256": "e1fa72a9fd0d3975dc74cf01de71bd56c3a4e1c348689722826c1bcb0bc7e5f5"
+      "sha256": "ae5e6c1d83841ef1d7f81cbdaf85452ebe791d0c829524f1da6af1d6702bc288"
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
@@ -183,7 +183,7 @@
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "b233a7a2fe4d64de2951ea7f8c4f71d92808e6dd46c6ed83f6f7823aff8c274b"
+      "sha256": "62907c9e18c1e3fb33762e343a70e5e2b455c81c9abc2f1d741c37f1efb5e592"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
@@ -195,7 +195,7 @@
     },
     {
       "path": "crates/spiffe-source/tests/production_sink_policy.rs",
-      "sha256": "a71a1b5af029709e27e9fdf1de25c4abc8063930c4f5b0c05ba54d609ac46828"
+      "sha256": "4a4c467ad6bdd3b6a38fd7b8388d1cebdaa5bced806e651da2c4c82cbde92459"
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
@@ -203,7 +203,7 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "7c3005c107018eae6d958a824676dd8c2c644e93f60cded761fb679d95fe7c13"
+      "sha256": "1700fd98cc4d8dd6180324d9121a07810e7770c4b417228e2a14b631a5fbbe69"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
@@ -216,12 +216,20 @@
     {
       "path": "crates/domain/src/lib.rs",
       "sha256": "2db2ace5bf8abd4ac858d40a72caa704cd22508090f6d8605c12f30bdc7437ae"
+    },
+    {
+      "path": "crates/transport-security/Cargo.toml",
+      "sha256": "262f61facffbf5fda9315bdee9b87c8dc006ce805062009af6cea55ecfa46446"
+    },
+    {
+      "path": "crates/transport-security/src/svid_profile.rs",
+      "sha256": "f2acab8b2a78805fe3fb80b4406e826c5e15c441bea8c51a2fff19f9391d9bb2"
     }
   ],
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "909bfea3c0fe309444b51073bf6b768db63a166f54c7989528ffc0f1e1cccade"
+    "sha256": "ac21b33fb73648590d3c18fcc9b462de823e698baa450acff5a0586283aaa18d"
   },
   "optional_sources": [
     {

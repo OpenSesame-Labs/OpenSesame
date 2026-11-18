@@ -310,3 +310,28 @@ async fn reconcile_is_a_no_op_until_an_overlap_deadline_has_actually_passed() {
         Some(now + Duration::hours(1)),
     );
 }
+
+#[test]
+fn stored_spiffe_profile_keeps_its_explicit_canonical_domain() {
+    let ca = DisposableCa::new("peers");
+    let mut stored = profile("peers", &ca);
+    stored.kind = TrustProfileKind::SpiffeTrustDomain;
+    stored.trust_domain = Some("example.test".into());
+    let bundle = stored.bundle(Utc::now()).unwrap();
+    assert_eq!(bundle.profile().name, "peers");
+    assert_eq!(bundle.spiffe_trust_domain(), Some("example.test"));
+    for domain in [
+        "",
+        "EXAMPLE.test",
+        "spiffe://example.test/path",
+        "bad space",
+    ] {
+        stored.trust_domain = Some(domain.into());
+        stored.enabled = false;
+        let profiles = TrustProfileSet {
+            revision: 1,
+            profiles: vec![stored.clone()],
+        };
+        assert!(profiles.validate(Utc::now()).is_err(), "domain {domain:?}");
+    }
+}

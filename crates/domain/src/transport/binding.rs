@@ -6,6 +6,7 @@
 //! scope, or the peer is not bound.
 
 use super::error::TransportError;
+use super::evidence::VerifiedPeer;
 use super::policy::TrustProfileRef;
 use super::selector::PeerIdentitySelector;
 use super::{timestamp, validate_id, validate_thumbprint};
@@ -187,6 +188,12 @@ pub struct ServiceBindingSet {
     pub bindings: Vec<ServiceBinding>,
 }
 
+struct PresentedPeer<'a> {
+    profile: &'a TrustProfileRef,
+    identities: &'a [PeerIdentitySelector],
+    leaf_thumbprint: Option<&'a str>,
+}
+
 impl ServiceBindingSet {
     /// An empty set at revision 1: binds nobody.
     #[must_use]
@@ -276,23 +283,71 @@ impl ServiceBindingSet {
         purpose: BindingPurpose,
         now: DateTime<Utc>,
     ) -> Result<&ServiceBinding, TransportError> {
+        self.resolve_presented(
+            scope,
+            &PresentedPeer {
+                profile,
+                identities: presented,
+                leaf_thumbprint: None,
+            },
+            purpose,
+            now,
+        )
+    }
+
+    /// Resolve already verified peer evidence while checking its authenticated
+    /// leaf thumbprint separately from its allowed identity selectors.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::resolve_scoped`], including a denied leaf thumbprint.
+    pub fn resolve_verified_scoped(
+        &self,
+        scope: &BindingScope,
+        peer: &VerifiedPeer,
+        purpose: BindingPurpose,
+        now: DateTime<Utc>,
+    ) -> Result<&ServiceBinding, TransportError> {
+        self.resolve_presented(
+            scope,
+            &PresentedPeer {
+                profile: peer.trust_profile(),
+                identities: peer.identities(),
+                leaf_thumbprint: Some(peer.leaf_thumbprint_sha256()),
+            },
+            purpose,
+            now,
+        )
+    }
+
+    fn resolve_presented(
+        &self,
+        scope: &BindingScope,
+        presented: &PresentedPeer<'_>,
+        purpose: BindingPurpose,
+        now: DateTime<Utc>,
+    ) -> Result<&ServiceBinding, TransportError> {
         let matching: Vec<&ServiceBinding> = self
             .bindings
             .iter()
             .filter(|b| {
                 &b.scope == scope
-                    && &b.trust_profile == profile
+                    && &b.trust_profile == presented.profile
                     && b.purpose == purpose
-                    && presented.contains(&b.peer)
+                    && presented.identities.contains(&b.peer)
             })
             .collect();
         if matching.is_empty() {
             return Err(TransportError::PeerNotBound);
         }
-        let presented_thumbprints = presented.iter().filter_map(|s| match s {
-            PeerIdentitySelector::LeafThumbprintSha256(t) => Some(t.as_str()),
-            _ => None,
-        });
+        let presented_thumbprints = presented
+            .identities
+            .iter()
+            .filter_map(|s| match s {
+                PeerIdentitySelector::LeafThumbprintSha256(t) => Some(t.as_str()),
+                _ => None,
+            })
+            .chain(presented.leaf_thumbprint);
         for thumbprint in presented_thumbprints {
             if matching
                 .iter()

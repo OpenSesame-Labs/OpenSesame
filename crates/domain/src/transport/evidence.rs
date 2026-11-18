@@ -39,7 +39,7 @@ impl VerifiedPeer {
     pub const fn source(&self) -> EvidenceSource {
         self.source
     }
-    /// Every validated selector: SANs plus the leaf thumbprint.
+    /// Validated selectors allowed to identify this peer under its trust profile.
     #[must_use]
     pub fn identities(&self) -> &[PeerIdentitySelector] {
         &self.identities
@@ -217,7 +217,7 @@ impl ServiceCaller {
         }
         bound.require_generations(current_trust_generation, current_credential_generation)?;
         let binding = bindings
-            .resolve_scoped(scope, &bound.trust_profile, &bound.identities, purpose, now)?
+            .resolve_verified_scoped(scope, &bound, purpose, now)?
             .clone();
         Ok(Self {
             peer: bound,

@@ -44,6 +44,7 @@ function setupController(controller) {
     "formal-proof-lock-history.mjs",
     "formal-proof-manifest-set.mjs",
     "formal-proof-source-selection.mjs",
+    "formal-proof-spiffe-peer-domain.mjs",
     "formal-proof-remote-main.mjs",
     "formal-proof-required-suites.mjs",
   ])
@@ -201,6 +202,7 @@ export function installHook(f) {
     "formal-proof-lock-history.mjs",
     "formal-proof-manifest-set.mjs",
     "formal-proof-source-selection.mjs",
+    "formal-proof-spiffe-peer-domain.mjs",
     "cargo-lock-projection.py",
     "cargo-workspace-projection.py",
     "cargo-workspace-multipackage.py",

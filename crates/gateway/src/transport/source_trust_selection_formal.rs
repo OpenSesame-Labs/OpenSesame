@@ -5,7 +5,7 @@ use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfil
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{SourceTrust, TrustBundle};
 
-use super::select;
+use super::{bundle_matches, select};
 
 fn bit(input: &str) -> bool {
     match input {
@@ -26,28 +26,50 @@ fn lean_vectors_match_source_trust_selection() {
     let other = TrustProfileRef::new("other.test").unwrap();
     let mut seen = HashSet::new();
     assert!(matches!(
-        select(Ok(None), &selected),
+        select(Ok(None), &selected, "selected.test"),
         Err(TransportError::TrustUnknown)
     ));
     for line in vectors.lines() {
         let fields: Vec<_> = line.split('\t').collect();
-        let ["source", fresh, present, kind, label, expected] = fields.as_slice() else {
+        let ["source", fresh, present, kind, label, domain, expected] = fields.as_slice() else {
             panic!("invalid selector vector: {line}");
         };
-        let (fresh, present, kind, label, expected) = (
+        let (fresh, present, kind, label, domain, expected) = (
             bit(fresh),
             bit(present),
             bit(kind),
             bit(label),
+            bit(domain),
             bit(expected),
         );
         assert!(
-            seen.insert((fresh, present, kind, label)),
+            seen.insert((fresh, present, kind, label, domain)),
             "duplicate selector input"
         );
+        let actual_domain = if domain {
+            "selected.test"
+        } else {
+            "other.test"
+        };
+        // Compare the production predicate independently, even for abstract
+        // combinations that safe TrustBundle constructors cannot represent.
+        let facts_match = bundle_matches(
+            if label { &selected } else { &other },
+            if kind {
+                TrustProfileKind::SpiffeTrustDomain
+            } else {
+                TrustProfileKind::PrivateRoot
+            },
+            Some(actual_domain),
+            &selected,
+            "selected.test",
+        );
+        if fresh && present {
+            assert_eq!(facts_match, expected, "selector predicate {line}");
+        }
         let mut bundles = BTreeMap::new();
         if present {
-            let bundle = TrustBundle::from_pem(
+            let mut bundle = TrustBundle::from_pem(
                 if label {
                     selected.clone()
                 } else {
@@ -61,6 +83,9 @@ fn lean_vectors_match_source_trust_selection() {
                 &ca.root_pem(),
             )
             .unwrap();
+            if kind {
+                bundle = bundle.with_spiffe_trust_domain(actual_domain).unwrap();
+            }
             bundles.insert(selected.clone(), bundle);
         }
         let view = if fresh {
@@ -71,7 +96,7 @@ fn lean_vectors_match_source_trust_selection() {
         } else {
             Err(TransportError::GenerationStale)
         };
-        let actual = select(view, &selected);
+        let actual = select(view, &selected, "selected.test");
         assert_eq!(actual.is_ok(), expected, "selector vector {line}");
         if !fresh {
             assert!(matches!(actual, Err(TransportError::GenerationStale)));
@@ -79,7 +104,7 @@ fn lean_vectors_match_source_trust_selection() {
             assert!(matches!(actual, Err(TransportError::TrustUnknown)));
         }
     }
-    assert_eq!(seen.len(), 16, "incomplete selector vector matrix");
+    assert_eq!(seen.len(), 32, "incomplete selector vector matrix");
 }
 
 #[test]
@@ -89,8 +114,11 @@ fn returns_exact_requested_source_bundle() {
     let selected_ca = DisposableCa::new("requested-source");
     let earlier_ca = DisposableCa::new("earlier-source");
     let stored_ca = DisposableCa::new("stored-lookalike");
-    let make_bundle = |profile, ca: &DisposableCa, generation| {
+    let make_bundle = |profile: TrustProfileRef, ca: &DisposableCa, generation| {
+        let domain = profile.name.clone();
         TrustBundle::from_pem(profile, TrustProfileKind::SpiffeTrustDomain, &ca.root_pem())
+            .unwrap()
+            .with_spiffe_trust_domain(&domain)
             .unwrap()
             .with_crls(&ca.crl_pem(&[]))
             .unwrap()
@@ -108,9 +136,13 @@ fn returns_exact_requested_source_bundle() {
         .into(),
         reserved: BTreeSet::new(),
     };
-    let actual = select(Ok(Some(view)), &requested).unwrap();
+    let actual = select(Ok(Some(view)), &requested, "z-selected.test").unwrap();
     assert_eq!(actual.profile(), source_bundle.profile());
     assert_eq!(actual.kind(), source_bundle.kind());
+    assert_eq!(
+        actual.spiffe_trust_domain(),
+        source_bundle.spiffe_trust_domain()
+    );
     assert_eq!(actual.anchors(), source_bundle.anchors());
     assert_eq!(actual.crls(), source_bundle.crls());
     assert_eq!(actual.generation(), source_bundle.generation());
@@ -119,7 +151,7 @@ fn returns_exact_requested_source_bundle() {
         reserved: BTreeSet::new(),
     };
     assert!(matches!(
-        select(Ok(Some(missing)), &requested),
+        select(Ok(Some(missing)), &requested, "z-selected.test"),
         Err(TransportError::TrustUnknown)
     ));
 }

@@ -131,8 +131,8 @@ def main() -> None:
             original = target.read_text()
             mutations = [
                 ("wrong source entry", ".get(profile)", ".values().next()", EXACT, False, "TrustUnknown"),
-                ("wrong kind accepted", "bundle.kind() == TrustProfileKind::SpiffeTrustDomain", "true", CORRESPONDENCE, True, "selector vector"),
-                ("wrong profile accepted", "bundle.profile() == profile", "true", CORRESPONDENCE, True, "selector vector"),
+                ("wrong kind accepted", "kind == TrustProfileKind::SpiffeTrustDomain", "true", CORRESPONDENCE, True, "selector predicate"),
+                ("wrong profile accepted", "actual_profile == profile", "true", CORRESPONDENCE, True, "selector predicate"),
                 ("stale source hidden", "source?", "source.unwrap_or_default()", CORRESPONDENCE, True, "GenerationStale"),
             ]
             for label, before, after, name, ignored, diagnostic in mutations:
