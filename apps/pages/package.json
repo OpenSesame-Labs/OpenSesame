@@ -148,7 +148,7 @@
     "es-module-lexer": "2.3.2",
     "fast-check": "4.10.2",
     "jsdom": "26.1.0",
-    "node-turn": "0.0.6",
+    "node-turn": "file:../../patches/vendor/node-turn-0.0.6.tgz",
     "playwright-core": "1.65.0",
     "reflect-metadata": "0.2.2",
     "storybook": "10.6.6",
