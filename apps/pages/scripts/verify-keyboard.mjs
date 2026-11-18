@@ -18,7 +18,9 @@ const out =
   privateTempDir("opensesame-keyboard-verification-");
 console.log(`Evidence: ${out}`);
 const harness = createHarness({
-  dist: fileURLToPath(new URL("../dist", import.meta.url)),
+  dist:
+    process.env.PAGES_VERIFY_DIST ??
+    fileURLToPath(new URL("../dist", import.meta.url)),
   origin,
   base,
   out,
