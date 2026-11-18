@@ -216,6 +216,7 @@ pub fn claims(grant: &AgentGrant) -> Option<HostSessionClaims> {
         issued_at: DateTime::from_timestamp(grant.issued_at, 0)?,
         expires_at: DateTime::from_timestamp(grant.expires_at, 0)?,
         local_session: false,
+        membership_revision: None,
     };
     claims
         .valid_for(&grant.resource, Utc::now())
