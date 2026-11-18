@@ -10,20 +10,23 @@
  *      exports it), else `dist/capability-distribution.json`'s
  *      `workerVariants`, else every variant;
  *   2. builds `src/sw-push.ts` → `dist/sw-push.js` through
- *      `vite.sw-push.config.ts`, defining `self.__WB_MANIFEST` with the shell
- *      entry and its md5 — the same revision workbox injected into `sw.js`,
- *      so both variants of one build derive the same release id;
+ *      `vite.sw-push.config.ts`, binding its classic `importScripts()` URL to
+ *      the exact SHA-256 of `sw.js`; both variants execute one core body and
+ *      therefore derive the same release id and offline manifest;
  *   3. checks the truth of the split (P-TRUTH, PWA-01): `dist/sw.js` must
  *      register no `push` or `notificationclick` handler, and every emitted
  *      variant must exist.
  *
  * Usage: node scripts/build-workers.mjs        (from apps/pages)
  */
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build, loadConfigFromFile } from "vite";
+import {
+  assertPushWorkerCore,
+  coreWorkerImport,
+} from "./lib/push-worker-core.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // `PAGES_OUT_DIR` names another build's output (`build:push-verify`), relative
@@ -67,61 +70,6 @@ function distributedVariants(env) {
   return new Set(EXTRA_VARIANTS.keys());
 }
 
-/** The manifest entry vite-plugin-pwa gives the shell: url + md5 revision. */
-function shellManifest() {
-  const shell = join(dist, "index.html");
-  if (!existsSync(shell)) {
-    throw new Error(`build-workers: ${shell} is missing; run vite build first`);
-  }
-  const revision = createHash("md5").update(readFileSync(shell)).digest("hex");
-  const assets = join(dist, "assets");
-  const entries = existsSync(assets)
-    ? readdirSync(assets).filter((name) =>
-        /^main-[A-Za-z0-9_-]{8,64}\.js$/.test(name),
-      )
-    : [];
-  const callbacks = existsSync(assets)
-    ? readdirSync(assets).filter((name) =>
-        /^native-saml-[A-Za-z0-9_-]{8,64}\.js$/.test(name),
-      )
-    : [];
-  if (entries.length !== 1)
-    throw new Error("build-workers: expected exactly one page entry module");
-  if (callbacks.length > 1)
-    throw new Error("build-workers: ambiguous native SAML callbacks");
-  // Rolldown can emit a tiny HTML entry that imports the executing bootstrap
-  // as `pages-<hash>.js`. The proof uses that module's import.meta.url, so a
-  // push worker must recognize it just as the core worker's manifest does.
-  const entrySource = readFileSync(join(assets, entries[0]), "utf8");
-  const bootstrap = [
-    ...entrySource.matchAll(
-      /\b(?:from|import)\s*["']\.\/(pages-[A-Za-z0-9_-]{8,64}\.js)["']/gu,
-    ),
-  ].map((match) => match[1]);
-  for (const name of bootstrap) {
-    if (!existsSync(join(assets, name)))
-      throw new Error(`build-workers: missing bootstrap module ${name}`);
-  }
-  // The push worker also answers the first-entry proof. Its manifest must
-  // name the entry it is claiming, or every first claim by that variant falls
-  // back to a reload even though the page is already running.
-  return [
-    { url: "index.html", revision },
-    ...[...new Set([...entries, ...bootstrap])].map((name) => ({
-      url: `assets/${name}`,
-      revision: createHash("md5")
-        .update(readFileSync(join(assets, name)))
-        .digest("hex"),
-    })),
-    ...callbacks.map((name) => ({
-      url: `assets/${name}`,
-      revision: createHash("md5")
-        .update(readFileSync(join(assets, name)))
-        .digest("hex"),
-    })),
-  ];
-}
-
 function assertCoreWorkerHasNoPush() {
   const core = join(dist, "sw.js");
   if (!existsSync(core)) {
@@ -135,7 +83,7 @@ function assertCoreWorkerHasNoPush() {
   }
 }
 
-async function buildVariant(id, manifest) {
+async function buildVariant(id, coreImport) {
   const variant = EXTRA_VARIANTS.get(id);
   if (!variant) {
     console.log(
@@ -157,13 +105,14 @@ async function buildVariant(id, manifest) {
     logLevel: "warn",
     define: {
       ...(config.define ?? {}),
-      "self.__WB_MANIFEST": JSON.stringify(manifest),
+      __OPENSESAME_CORE_WORKER_URL__: JSON.stringify(coreImport.url),
     },
   });
   const out = join(dist, variant.output);
   if (!existsSync(out))
     throw new Error(`build-workers: ${out} was not emitted`);
   const source = readFileSync(out, "utf8");
+  assertPushWorkerCore(source, coreImport);
   if (!PUSH_HANDLER.test(source)) {
     throw new Error(`build-workers: ${variant.output} carries no push handler`);
   }
@@ -175,10 +124,10 @@ async function buildVariant(id, manifest) {
 async function main() {
   assertCoreWorkerHasNoPush();
   const wanted = distributedVariants(process.env);
-  const manifest = shellManifest();
+  const coreImport = coreWorkerImport(dist);
   for (const id of wanted) {
     if (id === "core-only") continue;
-    await buildVariant(id, manifest);
+    await buildVariant(id, coreImport);
   }
   const skipped = [...EXTRA_VARIANTS.keys()].filter((id) => !wanted.has(id));
   for (const id of skipped) {

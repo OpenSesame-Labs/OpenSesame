@@ -10,22 +10,26 @@
  * naming approved module ids, resolved through the release's
  * `capability-graph.json` (`src/sw/plan-assets.ts`).
  *
- * What this file does not do: push. A service worker cannot `import()` and
- * cannot load an unknown script after install, so the push handlers are a
- * second generated script, `sw-push.js` (`src/sw-push.ts`), registered only
- * when the plan requires that variant. Nothing here imports `lib/push.ts`.
+ * What this file does not do: push. The classic `sw-push.js` wrapper marks its
+ * variant, imports this exact built core with `importScripts()`, then installs
+ * its separately shipped handlers. Nothing in this core imports `lib/push.ts`.
  */
 
 import { overlapCast } from "@opensesame/os-domain";
 import { installCoreWorker } from "./sw/core.js";
 import { manifestFromBoundary } from "./sw/release.js";
+import { workerVariantFromBoundary } from "./sw/variant.js";
+
+type CoreWorkerGlobal = ServiceWorkerGlobalScope & {
+  __OPENSESAME_WORKER_VARIANT__?: unknown;
+};
 
 // SAFETY: this file is a service worker; globalThis is ServiceWorkerGlobalScope
 // at runtime, but the TS lib types do not overlap.
-const sw: ServiceWorkerGlobalScope = overlapCast(globalThis);
+const sw = overlapCast<typeof globalThis, CoreWorkerGlobal>(globalThis);
 
 installCoreWorker(sw, {
-  variant: "core-only",
+  variant: workerVariantFromBoundary(sw.__OPENSESAME_WORKER_VARIANT__),
   // vite-plugin-pwa replaces `self.__WB_MANIFEST` in the built script. Only
   // the shell entry is read from it (`src/sw/release.ts`): its revision is
   // the release id, and its URL is the one file precached at install.

@@ -1,12 +1,10 @@
 /**
  * Build config for the push-capable service worker, `dist/sw-push.js`.
  *
- * Driven by `scripts/build-workers.mjs`, which loads this file, adds the
- * `self.__WB_MANIFEST` define (the shell entry and its md5, the same values
- * vite-plugin-pwa injects into `sw.js`) and runs the build into the main
- * `dist/` without emptying it. One input, one ES output with dynamic imports
- * inlined: a service worker cannot `import()` at runtime, so the emitted file
- * must be self-contained.
+ * Driven by `scripts/build-workers.mjs`, which binds the classic wrapper's
+ * core import to the built `sw.js` SHA-256 and writes into the main `dist/`
+ * without emptying it. Its IIFE keeps minified wrapper bindings private when
+ * the imported classic core declares its own top-level bindings.
  */
 
 import { fileURLToPath } from "node:url";
@@ -37,7 +35,7 @@ export default defineConfig({
     rollupOptions: {
       input: fileURLToPath(new URL("./src/sw-push.ts", import.meta.url)),
       output: {
-        format: "es",
+        format: "iife",
         entryFileNames: "sw-push.js",
         inlineDynamicImports: true,
       },
