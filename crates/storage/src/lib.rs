@@ -1562,7 +1562,7 @@ mod est_scep;
 mod external_ca;
 mod grants;
 mod host_kv;
-mod invocations;
+pub mod invocations;
 mod outbox;
 pub use outbox::{append_outbox_event_in, append_outbox_tx};
 mod renewal;

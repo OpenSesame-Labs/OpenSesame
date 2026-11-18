@@ -393,7 +393,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed."
     },
     {
       "id": "host-listeners",
@@ -6839,14 +6839,14 @@
       "ad9510bf"
     ],
     "crates/storage/src/lib.rs": [
-      "15e65cfa",
-      "77469c13",
-      "fc9ea0d9",
-      "26602828",
-      "67e519f0",
-      "03b45881",
-      "1e561c8d",
-      "a0589379"
+      "2a9e7bcc",
+      "62fd04fb",
+      "979bb80d",
+      "1bd56ebc",
+      "ac58083c",
+      "c2a67867",
+      "3b9ec8b7",
+      "6487659b"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
