@@ -12,9 +12,8 @@
   "runArgs": ["--cap-drop=ALL", "--security-opt=no-new-privileges"],
   "forwardPorts": [8787, 8788, 18790],
   "onCreateCommand": "mise --version",
-  "updateContentCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps",
-  "postCreateCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && bash scripts/dev/dotfiles-bootstrap.sh && mise run deps && bash scripts/dev/setup-hooks.sh",
-  "postStartCommand": "bash scripts/dev/install-agent-skills.sh",
+  "updateContentCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && mise run deps",
+  "postCreateCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && mise run deps && bash scripts/dev/setup-hooks.sh",
   "customizations": {
     "vscode": {
       "extensions": [

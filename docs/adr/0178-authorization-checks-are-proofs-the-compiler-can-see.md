@@ -220,5 +220,6 @@ gdp-ts does not guarantee more than the type checker and the lint can see.
   `control-plane` (the packages that hold proofs), and a root dev dependency for
   the lint preset. It has no dependencies of its own. A package adds it when it
   gets its first proof, not before.
-- New authorization work in the TypeScript plane follows the skill bundled with
-  the library (`npx skills add rauchg/gdp-ts`) and the rules above.
+- New authorization work in the TypeScript plane follows the rules above. An
+  optional copy of the library's skill can be used after obtaining and reviewing
+  an immutable revision; `npm run skills:review` describes that process.

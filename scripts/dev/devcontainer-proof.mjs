@@ -6,7 +6,7 @@
 //
 // The container is started with the declared run arguments (every Linux
 // capability dropped, no new privileges), as the declared user, with the
-// declared environment, and runs the four lifecycle commands in the order an
+// declared environment, and runs the declared lifecycle commands in the order an
 // editor runs them. A command that needs a privilege the settings remove
 // fails here, before a person opens the container.
 //

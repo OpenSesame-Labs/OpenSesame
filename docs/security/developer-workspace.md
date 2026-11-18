@@ -22,6 +22,7 @@ The workspace is where code is written before anything reviews it. A compromised
 | Do not mount the Docker socket | Not mounted | Enforced |
 | Review dev container features | None are used; the comment in the Dockerfile says why | Enforced |
 | Pin extensions | Three extensions, each at an exact version | Enforced |
+| Keep unpinned personal setup optional | Devcontainer lifecycle commands do not run dotfiles bootstrap or refresh third-party skills; `npm run skills:review` only prints review guidance | Enforced |
 | No secrets in the configuration | None; configuration follows [`.env.schema`](../../.env.schema) | Enforced |
 | Restrict network access | Not restricted. Setup has to reach the package registries and tool releases, and an egress filter inside the container would need the network capability that is dropped. Cloud agents, which run unattended, have a network policy on their sandbox instead | Deviation |
 | Isolated volume instead of a bind mount | The workspace is bind-mounted so that edits land in the developer's own checkout. For an untrusted branch, the editor's "Clone Repository in Container Volume" gives the isolated volume with the same definition | Deviation |
