@@ -192,6 +192,37 @@ async function clipboardReadIsGranted(): Promise<boolean> {
   }
 }
 
+async function readClipboard(): Promise<
+  { ok: true; value: string } | { ok: false }
+> {
+  clipboardReadsInFlight += 1;
+  setStatusNotice(CLIPBOARD_READ_NOTICE);
+  try {
+    return { ok: true, value: await navigator.clipboard.readText() };
+  } catch {
+    return { ok: false };
+  } finally {
+    clipboardReadsInFlight -= 1;
+    if (clipboardReadsInFlight === 0) {
+      dismissNotice(CLIPBOARD_READ_NOTICE.id);
+    }
+  }
+}
+
+async function clearTrackedCopy(copied: CopiedSecret): Promise<boolean> {
+  const finishWrite = tryStartClipboardWrite();
+  if (!finishWrite) return false;
+  try {
+    await navigator.clipboard.writeText("");
+  } catch {
+    /* clipboard unavailable — nothing further we can do */
+  } finally {
+    if (lastCopied === copied) lastCopied = null;
+    finishWrite();
+  }
+  return true;
+}
+
 async function clearIfOurs(
   copied: CopiedSecret,
   mode: "timer" | "lock",
@@ -212,28 +243,15 @@ async function clearIfOurs(
 
     if (readGranted) {
       // The tray sentence is up before the read and leaves when it finishes.
-      let current: string | null = null;
-      let readFailed = false;
-      clipboardReadsInFlight += 1;
-      setStatusNotice(CLIPBOARD_READ_NOTICE);
-      try {
-        current = await navigator.clipboard.readText();
-      } catch {
-        readFailed = true;
-      } finally {
-        clipboardReadsInFlight -= 1;
-        if (clipboardReadsInFlight === 0) {
-          dismissNotice(CLIPBOARD_READ_NOTICE.id);
-        }
-      }
+      const current = await readClipboard();
       if (lastCopied !== copied) return;
       // A copy could have begun while readText was pending. Wait for it and
       // read again rather than acting on a snapshot from before that write.
       if (clipboardWriteInFlight !== null) continue;
       // A timed clear must not overwrite someone else's clipboard when we
       // cannot establish ownership. Keep tracking it for a later lock.
-      if (readFailed && mode === "timer") return;
-      if (!readFailed && current !== copied.value) {
+      if (!current.ok && mode === "timer") return;
+      if (current.ok && current.value !== copied.value) {
         lastCopied = null;
         return;
       }
@@ -242,17 +260,7 @@ async function clearIfOurs(
     // On lock, unavailable or failed reads result in a best-effort clear. If
     // another application changed the clipboard, this can overwrite it.
     // Don't race an in-app copy: browser clipboard writes cannot be cancelled.
-    const finishWrite = tryStartClipboardWrite();
-    if (!finishWrite) continue;
-    try {
-      await navigator.clipboard.writeText("");
-    } catch {
-      /* clipboard unavailable — nothing further we can do */
-    } finally {
-      if (lastCopied === copied) lastCopied = null;
-      finishWrite();
-    }
-    return;
+    if (await clearTrackedCopy(copied)) return;
   }
 }
 
