@@ -30,3 +30,8 @@ open OpenSesame.InteractionClock
   ∀ (interactionDeadline activationDeadline now : Instant)
     (_expired : activationDeadline.millis ≤ now.millis),
     finalApproval interactionDeadline activationDeadline now = false
+
+#require_theorem OpenSesame.InteractionClock.activation_completion_requires_both_live :
+  ∀ (interactionDeadline activationDeadline now : Instant),
+    finalActivation interactionDeadline activationDeadline now = true ↔
+      policy interactionDeadline now ∧ policy activationDeadline now

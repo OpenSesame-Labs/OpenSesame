@@ -200,6 +200,8 @@
       },
       "implementation": [
         "packages/control-plane/src/routes/interaction-activation-spend.ts",
+        "packages/control-plane/src/routes/interaction-activation-deadline.ts",
+        "packages/control-plane/src/routes/interaction-activation-budget.ts",
         "packages/control-plane/src/services/interaction-clock.ts",
         "packages/control-plane/src/routes/interaction-activation-totp.ts",
         "packages/control-plane/src/routes/interaction-activation.ts",
@@ -214,7 +216,8 @@
         "packages/control-plane/src/repos/security-maps.ts"
       ],
       "regressions": [
-        "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts"
+        "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts",
+        "packages/control-plane/src/__tests__/interaction-activation-clock.security.test.ts"
       ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
@@ -3306,6 +3309,36 @@
       "1922caf9",
       "109d1bcf"
     ],
+    "packages/control-plane/src/__tests__/interaction-activation-clock.security.test.ts": [
+      "f87c706e",
+      "b537dfb0",
+      "72833217",
+      "16255cd9",
+      "f050a30b",
+      "de42418f",
+      "7509993d",
+      "91bbc940"
+    ],
+    "packages/control-plane/src/routes/interaction-activation-deadline.ts": [
+      "5406681c",
+      "c0544c73",
+      "989d50ad",
+      "124ae69e",
+      "a68ca29b",
+      "8bfc3640",
+      "14d7520f",
+      "560842fc"
+    ],
+    "packages/control-plane/src/routes/interaction-activation-budget.ts": [
+      "ca465935",
+      "d62f80b5",
+      "c4ec77a5",
+      "bbaf3f45",
+      "bbe36683",
+      "cae965be",
+      "6e1af329",
+      "23565dcd"
+    ],
     "packages/control-plane/src/routes/interaction-activation-spend.ts": [
       "94bf40ba",
       "d7d5d6c9",
@@ -3317,34 +3350,34 @@
       "6c5837c5"
     ],
     "packages/control-plane/src/services/interaction-clock.ts": [
-      "5d7a8d35",
-      "a32b62b5",
-      "e8c35412",
-      "c9189ca3",
-      "35913dba",
-      "6991c24a",
-      "724096e5",
-      "4579b2b7"
+      "d3077e54",
+      "dde48e23",
+      "074a4605",
+      "3d24ff6d",
+      "1d52cf32",
+      "d3070c36",
+      "c1eb5d9c",
+      "704daeb6"
     ],
     "packages/control-plane/src/routes/interaction-activation-totp.ts": [
-      "2a3c0043",
-      "9fcb20fa",
-      "e70b5cad",
-      "18a11b7d",
-      "83e176ab",
-      "489f42aa",
-      "5089496f",
-      "7447fc2b"
+      "9fe3baff",
+      "7c8a025e",
+      "a95425d9",
+      "ec9e8135",
+      "5658cd59",
+      "00471c33",
+      "9ca26c60",
+      "7224ea7c"
     ],
     "packages/control-plane/src/routes/interaction-activation.ts": [
-      "1a1881c1",
-      "6fb978b8",
-      "eeac944b",
-      "08557a8b",
-      "6377642b",
-      "cafde87e",
-      "2cdc53e0",
-      "c8904d90"
+      "c1ae2023",
+      "6fdc7031",
+      "9bdd1fc3",
+      "b812816e",
+      "a29081f7",
+      "0b9bd10b",
+      "94eaeca0",
+      "c0cdfcf3"
     ],
     "packages/control-plane/src/routes/mfa-base32.ts": [
       "76ea6e72",

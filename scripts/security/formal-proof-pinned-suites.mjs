@@ -60,6 +60,9 @@ export const PINNED_FORMAL_SUITES = [
     implementation: [
       "packages/control-plane/src/services/interaction-clock.ts",
       "packages/control-plane/src/routes/interaction-activation-spend.ts",
+      "packages/control-plane/src/routes/interaction-activation-deadline.ts",
+      "packages/control-plane/src/routes/interaction-activation.ts",
+      "packages/control-plane/src/routes/interaction-activation-totp.ts",
       "packages/control-plane/src/routes/interaction-handoff.ts",
       "packages/os-domain/src/machines/interaction.ts",
       "packages/os-domain/src/errors.ts",

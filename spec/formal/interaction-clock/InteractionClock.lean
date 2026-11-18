@@ -40,6 +40,16 @@ theorem approval_requires_both_live (interactionDeadline activationDeadline now 
       policy interactionDeadline now ∧ policy activationDeadline now := by
   simp [finalApproval, live_refines_policy]
 
+/-- Activation completion uses the same pair of sampled deadline checks. -/
+def finalActivation (interactionDeadline activationDeadline now : Instant) : Bool :=
+  finalApproval interactionDeadline activationDeadline now
+
+theorem activation_completion_requires_both_live
+    (interactionDeadline activationDeadline now : Instant) :
+    finalActivation interactionDeadline activationDeadline now = true ↔
+      policy interactionDeadline now ∧ policy activationDeadline now := by
+  exact approval_requires_both_live interactionDeadline activationDeadline now
+
 theorem expired_interaction_blocks_final_approval
     (interactionDeadline activationDeadline now : Instant)
     (expired : interactionDeadline.millis ≤ now.millis) :
@@ -60,6 +70,10 @@ def printVectors : IO Unit := do
   for deadline in instants do
     for now in instants do
       IO.println s!"{deadline.valid}\t{deadline.millis}\t{now.valid}\t{now.millis}\t{liveAt deadline now}"
+  for interactionDeadline in instants do
+    for activationDeadline in instants do
+      for now in instants do
+        IO.println s!"activation\t{interactionDeadline.valid}\t{interactionDeadline.millis}\t{activationDeadline.valid}\t{activationDeadline.millis}\t{now.valid}\t{now.millis}\t{finalActivation interactionDeadline activationDeadline now}"
 
 end OpenSesame.InteractionClock
 
