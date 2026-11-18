@@ -7,7 +7,7 @@ import { RecordRows } from "./RecordRows.js";
 import {
   type RecordWorkspaceProps,
   countedWorkspaceRows,
-} from "./RecordWorkspace.js";
+} from "./record-workspace-contract.js";
 import { UpLink } from "./UpLink.js";
 import type { useRecordWorkspace } from "./record-workspace-state.js";
 type Props = RecordWorkspaceProps & {

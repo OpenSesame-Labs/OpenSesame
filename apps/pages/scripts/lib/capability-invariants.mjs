@@ -77,6 +77,102 @@ function chunkViolations(graph, distributed, mode, core, add) {
   }
 }
 
+// These leaves are awaited by activate(), so their emitted wrapper must not
+// lead back to the capability runtime whose initializer is awaiting them.
+const ACTIVATION_AWAITED_LEAVES = [
+  {
+    capability: "vault.security-checks",
+    leaf: "/src/modules/vault.security-checks/SecurityChecksPanel",
+  },
+];
+
+function reachesChunk(chunkByFile, from, target) {
+  const pending = [from];
+  const seen = new Set();
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === target) return true;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const chunk = chunkByFile.get(file);
+    if (!chunk) continue;
+    pending.push(...chunk.imports, ...chunk.dynamicImports);
+  }
+  return false;
+}
+
+// Access and local IAM register these React.lazy components from their
+// capability runtimes. If chunk classification folds a component back into
+// the capability chunk, the generated module initializer can regain a static
+// edge to the UI graph it was meant to defer. This is distinct from the
+// activate()-awaited Security Checks rule above.
+const REQUIRED_INITIALIZER_LAZY_BOUNDARIES = [
+  ["cap-access.authority", "access-authority-rail"],
+  ["cap-identity.local-iam", "identity-local-iam-rail"],
+  ["cap-identity.local-iam", "identity-local-iam-authorize-route"],
+];
+
+function reachesStaticChunk(chunkByFile, from, target) {
+  const pending = [from];
+  const seen = new Set();
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === target) return true;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const chunk = chunkByFile.get(file);
+    if (chunk) pending.push(...chunk.imports);
+  }
+  return false;
+}
+
+function initializerLazyBoundaryViolations(graph, chunkByFile, add) {
+  for (const [ownerName, leafName] of REQUIRED_INITIALIZER_LAZY_BOUNDARIES) {
+    const owner = graph.chunks.find((chunk) => chunk.name === ownerName);
+    if (!owner) continue;
+    const leaf = graph.chunks.find((chunk) => chunk.name === leafName);
+    if (leaf && !reachesStaticChunk(chunkByFile, owner.file, leaf.file))
+      continue;
+    add("error", "INITIALIZER_LAZY_BOUNDARY", {
+      capability: ownerName.slice(4),
+      chunk: owner.file,
+      message: leaf
+        ? `${leafName} is statically reachable from ${ownerName}`
+        : `${leafName} was folded out of its required lazy boundary`,
+    });
+  }
+}
+
+/** An activate()-awaited leaf and its owner may not share an emitted SCC. */
+function activationLazyCycleViolations(graph, chunkByFile, add) {
+  for (const awaited of ACTIVATION_AWAITED_LEAVES) {
+    const runtime = graph.chunks.find((chunk) =>
+      chunk.modules.some(
+        (module) =>
+          module.capability === awaited.capability &&
+          module.id.endsWith(`/src/modules/${awaited.capability}/runtime.ts`),
+      ),
+    );
+    const leaf = graph.chunks.find((chunk) =>
+      chunk.modules.some((module) => module.id.includes(awaited.leaf)),
+    );
+    if (
+      !runtime ||
+      !leaf ||
+      runtime.file === leaf.file ||
+      !reachesChunk(chunkByFile, runtime.file, leaf.file) ||
+      !reachesChunk(chunkByFile, leaf.file, runtime.file)
+    )
+      continue;
+    add("error", "ACTIVATION_LAZY_CYCLE", {
+      module: awaited.leaf,
+      capability: awaited.capability,
+      chunk: leaf.file,
+      message: `${awaited.capability} activate() awaits a lazy leaf in the same emitted cycle`,
+    });
+  }
+}
+
 /**
  * Walk one closure and report every optional module it reaches for which
  * `report` returns a violation code.
@@ -156,6 +252,8 @@ export function violations(graph, distributed, mode, options = {}) {
   const chunkByFile = new Map(graph.chunks.map((c) => [c.file, c]));
 
   chunkViolations(graph, distributed, mode, core, add);
+  initializerLazyBoundaryViolations(graph, chunkByFile, add);
+  activationLazyCycleViolations(graph, chunkByFile, add);
   capabilityClosureViolations(graph, add);
 
   reachViolations(

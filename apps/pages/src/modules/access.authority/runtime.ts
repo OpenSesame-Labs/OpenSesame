@@ -21,7 +21,10 @@
  * React components that read on mount.
  */
 
-import type { CapabilityRuntime } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
+import type {
+  CapabilityRuntime,
+  TreeProps,
+} from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { flushReceipts } from "@opensesame/app-core/lib/device-receipts.js";
 
 import {
@@ -32,17 +35,45 @@ import { ACCESS_GOALS } from "@opensesame/app-core/tutorial/registry/access-goal
 import { AUTHORITY_GOALS } from "@opensesame/app-core/tutorial/registry/authority-help.js";
 import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
 import { NAV_ACCESS_GOALS } from "@opensesame/app-core/tutorial/registry/section-nav-goals.js";
-import { AccessSection } from "../../sections/AccessSection.js";
+import { Suspense, createElement, lazy } from "react";
 import { createActivation } from "../activation.js";
 import { registerTutorial } from "../tutorial-contributions.js";
 import { pickById } from "../tutorial-pick-b.js";
-import { AccessRailTree } from "./AccessRailTree.js";
 import { AccessRedirect } from "./AccessRedirect.js";
 
 import {
   ACCESS_LABELS,
   ACCESS_VIEWS,
 } from "@opensesame/app-core/lib/section-view-names.js";
+
+const LazyAccessSection = lazy(() =>
+  import("../../sections/AccessSection.js").then((module) => ({
+    default: module.AccessSection,
+  })),
+);
+
+function AccessSection() {
+  return createElement(
+    Suspense,
+    { fallback: createElement("div", { "aria-busy": true, role: "status" }) },
+    createElement(LazyAccessSection),
+  );
+}
+
+const LazyAccessRailTree = lazy(() =>
+  import("./AccessRailTree.js").then((module) => ({
+    default: module.AccessRailTree,
+  })),
+);
+
+function AccessRailTree(props: TreeProps) {
+  return createElement(
+    Suspense,
+    { fallback: null },
+    createElement(LazyAccessRailTree, props),
+  );
+}
+
 export const CAPABILITY = "access.authority";
 
 /**

@@ -17,7 +17,10 @@
  * `lib/local-authorization.ts` are bound in `activate` (`lib/local-iam-lock-resets.ts`).
  */
 
-import type { CapabilityRuntime } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
+import type {
+  CapabilityRuntime,
+  TreeProps,
+} from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { LOCAL_IAM_DEVICE_ROUTES } from "@opensesame/app-core/lib/device-identity-local.js";
 import { registerDeviceRoutes } from "@opensesame/app-core/lib/device-identity-routes.js";
 import { flushReceipts } from "@opensesame/app-core/lib/device-receipts.js";
@@ -30,14 +33,38 @@ import {
 } from "@opensesame/app-core/tutorial/registry/identity-catalog.js";
 import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
 import { NAV_IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/section-nav-goals.js";
-import { IdentitySection } from "../../sections/IdentitySection.js";
+import { Suspense, createElement, lazy } from "react";
 import { contributeIdentityViews } from "../../sections/identity/identity-views.js";
 import { createActivation } from "../activation.js";
 import { registerIdentityViewPaths } from "../identity-view-paths.js";
 import { registerTutorial } from "../tutorial-contributions.js";
 import { pickById } from "../tutorial-pick-b.js";
-import { IdentityRailTree } from "./IdentityRailTree.js";
-import { LocalAuthorizeRoute } from "./lazy-routes.js";
+
+const IdentitySection = lazy(() =>
+  import("../../sections/IdentitySection.js").then((module) => ({
+    default: module.IdentitySection,
+  })),
+);
+
+const LazyIdentityRailTree = lazy(() =>
+  import("./IdentityRailTree.js").then((module) => ({
+    default: module.IdentityRailTree,
+  })),
+);
+
+function IdentityRailTree(props: TreeProps) {
+  return createElement(
+    Suspense,
+    { fallback: null },
+    createElement(LazyIdentityRailTree, props),
+  );
+}
+
+const LocalAuthorizeRoute = lazy(() =>
+  import("./lazy-routes.js").then((module) => ({
+    default: module.LocalAuthorizeRoute,
+  })),
+);
 
 export const CAPABILITY = "identity.local-iam";
 
