@@ -14,7 +14,8 @@
         "spec/formal/auth/AuthPolicy.lean",
         "spec/formal/auth/required-theorems.lean",
         "spec/formal/required-theorem-command.lean",
-        "spec/formal/check-axioms.sh"
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:auth-formal"]
     },
@@ -33,7 +34,8 @@
         "spec/formal/oauth/PendingIntegrity.lean",
         "spec/formal/oauth/required-theorems.lean",
         "spec/formal/required-theorem-command.lean",
-        "spec/formal/check-axioms.sh"
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:oauth-formal"]
     },
@@ -49,7 +51,8 @@
         "spec/formal/webauthn/ApprovalBinding.lean",
         "spec/formal/webauthn/required-theorems.lean",
         "spec/formal/required-theorem-command.lean",
-        "spec/formal/check-axioms.sh"
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:webauthn-formal"]
     },
@@ -73,7 +76,8 @@
         "spec/formal/interaction-clock/coverage.json",
         "spec/formal/interaction-clock/negative-controls.py",
         "spec/formal/required-theorem-command.lean",
-        "spec/formal/check-axioms.sh"
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:interaction-clock-formal"]
     }
