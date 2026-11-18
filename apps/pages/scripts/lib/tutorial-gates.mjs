@@ -19,6 +19,7 @@
 
 import { PIN } from "./pages-journey.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
+import { hasUsableFocus } from "./tutorial-walker.mjs";
 
 /** What the key is measured by, read in the page: its box, its name, and what it touches. */
 function measureKey() {
@@ -187,10 +188,14 @@ async function escapeOnTheDoor(check, page) {
       () => false,
     );
   check(gone, "door: Escape on the card ends the tutorial");
+  await page
+    .waitForFunction(hasUsableFocus, null, { timeout: 5000 })
+    .catch(() => {});
+  const usableFocus = await page.evaluate(hasUsableFocus);
   const held = await page.evaluate(
     () => document.activeElement?.tagName ?? "none",
   );
-  check(held !== "BODY", `door: focus is handed back after Escape (${held})`);
+  check(usableFocus, `door: focus is handed back after Escape (${held})`);
 }
 
 /** The door of a device with nothing on it, and its one help key. */

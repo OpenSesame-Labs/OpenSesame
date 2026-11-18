@@ -21,7 +21,7 @@ import {
 } from "./tutorial-walk.mjs";
 
 /** The returned focus must be a rendered control, not the page or a hidden node. */
-function hasUsableFocus() {
+export function hasUsableFocus() {
   function concealed(node) {
     const style = getComputedStyle(node);
     return (
