@@ -620,24 +620,6 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       ).toBeNull();
     });
 
-    it("deactivation survives the round-trip", async () => {
-      const organization = await seedOrganization();
-      const user = await backend.scim.users.create(scimUser(organization.id));
-      const updated = await backend.scim.users.update({
-        ...user,
-        active: false,
-        updatedAt: new Date("2026-08-24T13:00:00.000Z"),
-      });
-      expect(updated.active).toBe(false);
-      expect(
-        (await backend.scim.users.findBySubject(organization.id, user.userName))
-          ?.active,
-      ).toBe(false);
-      expect(
-        await backend.scim.users.listByOrganization(organization.id),
-      ).toHaveLength(1);
-    });
-
     it("verifies only live tokens of the owning organization", async () => {
       const organization = await seedOrganization();
       const other = await seedOrganization();

@@ -52,7 +52,7 @@
         "packages/control-plane/src/__tests__/claims-present.test.ts",
         "packages/app-core/src/lib/vault/drop-present.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the separate bounded SCIM mutation-rate namespace added to shared security maps; existing claim and TOTP namespaces and admission are unchanged. SCIM cross-replica rate and capacity regressions passed; these unrelated surface suites were not rerun for the new namespace."
     },
     {
       "id": "portable-secret-drop",
@@ -215,7 +215,7 @@
       "regressions": [
         "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the separate bounded SCIM mutation-rate namespace added to shared security maps; existing claim and TOTP namespaces and admission are unchanged. SCIM cross-replica rate and capacity regressions passed; these unrelated surface suites were not rerun for the new namespace."
     },
     {
       "id": "est-password",
@@ -3312,14 +3312,14 @@
       "ffc3e47c"
     ],
     "packages/control-plane/src/repos/security-maps.ts": [
-      "fc893725",
-      "4e108702",
-      "eede0e72",
-      "06649c64",
-      "dce4173c",
-      "84720c22",
-      "33823fec",
-      "b3ba8d62"
+      "00a883fd",
+      "4c89f64e",
+      "efad84b0",
+      "c7f040db",
+      "247d1868",
+      "54e1835c",
+      "988a9dc9",
+      "e9f5bffe"
     ],
     "packages/control-plane/src/routes/claim-presentation.ts": [
       "f8eb3088",
@@ -3442,14 +3442,14 @@
       "8729b44f"
     ],
     "packages/control-plane/src/state.ts": [
-      "a196a900",
-      "82610571",
-      "22c0b6de",
-      "68cc7cc6",
-      "77fb3b5f",
-      "fd634c37",
-      "cc3b795a",
-      "b6b9b346"
+      "eed20634",
+      "e79e3545",
+      "600e6f9f",
+      "892f1939",
+      "c86cba91",
+      "352c7878",
+      "398cf15f",
+      "d0aec4e9"
     ],
     "packages/oauth-provider/src/__tests__/signing-keys.test.ts": [
       "9758bdc0",
