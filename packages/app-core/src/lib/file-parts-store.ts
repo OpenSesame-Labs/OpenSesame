@@ -3,10 +3,13 @@
  * the directory name.
  */
 
-import type { ObjectStore } from "@opensesame/vault-core";
+import { asBufferSource } from "@opensesame/os-domain";
+import {
+  MAX_ENCRYPTED_FILE_PART_BYTES,
+  type ObjectStore,
+} from "@opensesame/vault-core";
 import { originFiles } from "../ports.js";
 import { FILE_PARTS_DIRECTORY } from "./storage-ownership.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 function partName(key: string): string {
   if (!/^[A-Za-z0-9_-]{16}$/.test(key)) throw new Error("file part is missing");
@@ -44,6 +47,8 @@ export async function localFileStore(): Promise<ObjectStore> {
   const dir = await directory();
   return {
     async putObject(key, body) {
+      if (body.byteLength > MAX_ENCRYPTED_FILE_PART_BYTES)
+        throw new Error("file part is missing");
       const handle = await dir.getFileHandle(partName(key), { create: true });
       const writable = await handle.createWritable();
       await writable.write(asBufferSource(body));
@@ -53,6 +58,8 @@ export async function localFileStore(): Promise<ObjectStore> {
       try {
         const handle = await dir.getFileHandle(partName(key));
         const file = await handle.getFile();
+        if (file.size > MAX_ENCRYPTED_FILE_PART_BYTES)
+          throw new Error("file part is missing");
         return new Uint8Array(await file.arrayBuffer());
       } catch (error) {
         if (error instanceof DOMException && error.name === "NotFoundError")
