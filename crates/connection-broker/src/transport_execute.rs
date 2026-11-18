@@ -110,6 +110,25 @@ pub struct ConnectorTransportExecutor {
     allow_loopback_for_tests: bool,
 }
 
+fn pool_key(
+    ctx: &ConnectorContext,
+    transport: &ConnectionTransport,
+    identity: Option<&Arc<TlsIdentity>>,
+    trust_generation: u64,
+    authority: &PinnedAuthority,
+) -> ConnectorPoolKey {
+    ConnectorPoolKey {
+        organization_id: ctx.organization_id.clone(),
+        connection_id: ctx.connection_id.clone(),
+        executor: transport.execution_target,
+        authority: authority.label.clone(),
+        credential_thumbprint: identity.map(|value| value.leaf_thumbprint_sha256()),
+        trust_profile: transport.trust.as_ref().map(|value| value.name.clone()),
+        trust_generation,
+        policy: transport.policy,
+    }
+}
+
 impl std::fmt::Debug for ConnectorTransportExecutor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConnectorTransportExecutor")
@@ -189,20 +208,15 @@ impl ConnectorTransportExecutor {
         let authority = self.pin_authority(&prepared).await?;
 
         // 5. The client for exactly this scope.
-        let key = ConnectorPoolKey {
-            organization_id: ctx.organization_id.clone(),
-            connection_id: ctx.connection_id.clone(),
-            executor: transport.execution_target,
-            authority: authority.label.clone(),
-            credential_thumbprint: identity
-                .as_ref()
-                .map(|value| value.leaf_thumbprint_sha256()),
-            trust_profile: transport.trust.as_ref().map(|value| value.name.clone()),
+        let key = pool_key(
+            ctx,
+            transport,
+            identity.as_ref(),
             trust_generation,
-            policy: transport.policy,
-        };
+            &authority,
+        );
         let allow_loopback = self.allow_loopback_for_tests;
-        let invoker = self.pool.get_or_build(&key, || {
+        let invoker = self.pool.get_or_build_pinned(&key, &authority.addrs, || {
             build_invoker(
                 transport,
                 identity.as_ref(),
@@ -308,7 +322,7 @@ pub const INVOKE_ORDER: &[&str] = &[
     "self.fence.preflight(",
     "self.resolve_identity(",
     "self.pin_authority(",
-    "self.pool.get_or_build(",
+    "self.pool.get_or_build_pinned(",
     "credential.open_bearer(",
     "invoker.execute(",
 ];
@@ -339,3 +353,7 @@ pub fn assert_invoke_order() {
 #[cfg(test)]
 #[path = "transport_execute_tests.rs"]
 mod tests;
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "transport_dns_pool_tests.rs"]
+mod dns_pool_tests;

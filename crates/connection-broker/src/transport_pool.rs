@@ -15,6 +15,7 @@
 //! | `connection_id` | one connection's authority is not another's |
 //! | `executor` | a Host-executed and a worker-executed call are different peers |
 //! | `authority` | `host:port`; a client pinned to one authority dials no other |
+//! | `pinned_addresses` | a changed DNS answer requires a new pinned client |
 //! | `credential` | the *leaf thumbprint* of the presented identity, so a rotation to a new key builds a new pool rather than reusing a connection authenticated with the old one (AT-ROTATE-VALID) |
 //! | `trust` | the trust profile *and* its generation, so a withdrawn anchor cannot keep serving through a cached client |
 //! | `policy` | `server_tls` and `mtls_required` are different security postures and never share a client |
@@ -24,6 +25,7 @@
 //! rebuilt on its next use. Eviction is **not** a revocation mechanism — see
 //! [`ConnectorClientPool::forget_connection`], which is.
 
+use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex};
 
@@ -78,7 +80,14 @@ impl ConnectorPoolKey {
 
 /// Bounded, scope-keyed pool of credential-bearing clients.
 pub struct ConnectorClientPool {
-    entries: Mutex<LruCache<ConnectorPoolKey, Arc<Invoker>>>,
+    entries: Mutex<LruCache<PoolScope, Arc<Invoker>>>,
+}
+
+/// DNS addresses extend a public transport key without changing its API.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct PoolScope {
+    key: ConnectorPoolKey,
+    pinned_addresses: Vec<SocketAddr>,
 }
 
 impl std::fmt::Debug for ConnectorClientPool {
@@ -110,7 +119,8 @@ impl ConnectorClientPool {
     ///
     /// `build` runs only on a miss, and only after the caller has already
     /// cleared its egress fence and resolved the identity this key names, so a
-    /// denied request never creates a client.
+    /// denied request never creates a client. Address-pinned clients must use
+    /// [`Self::get_or_build_pinned`] so DNS changes select the right client.
     ///
     /// # Errors
     ///
@@ -125,9 +135,35 @@ impl ConnectorClientPool {
     where
         F: FnOnce() -> Result<Invoker, TransportError>,
     {
+        self.get_or_build_pinned(key, &[], build)
+    }
+
+    /// Pool a client with the exact, already-vetted DNS addresses it will dial.
+    /// Ordering and duplicate answers do not change the scope. A different
+    /// set gets a different client, even if its hostname and TLS identity match.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::get_or_build`].
+    pub fn get_or_build_pinned<F>(
+        &self,
+        key: &ConnectorPoolKey,
+        addresses: &[SocketAddr],
+        build: F,
+    ) -> Result<Arc<Invoker>, TransportError>
+    where
+        F: FnOnce() -> Result<Invoker, TransportError>,
+    {
+        let mut pinned_addresses = addresses.to_vec();
+        pinned_addresses.sort_unstable();
+        pinned_addresses.dedup();
+        let scope = PoolScope {
+            key: key.clone(),
+            pinned_addresses,
+        };
         {
             let mut entries = self.lock()?;
-            if let Some(existing) = entries.get(key) {
+            if let Some(existing) = entries.get(&scope) {
                 return Ok(Arc::clone(existing));
             }
         }
@@ -136,10 +172,10 @@ impl ConnectorClientPool {
         // Another task may have built the same scope while this one was
         // building; either client is correct for the scope, so keep the one
         // already published rather than replacing a live pool.
-        if let Some(existing) = entries.get(key) {
+        if let Some(existing) = entries.get(&scope) {
             return Ok(Arc::clone(existing));
         }
-        entries.put(key.clone(), Arc::clone(&fresh));
+        entries.put(scope, Arc::clone(&fresh));
         Ok(fresh)
     }
 
@@ -154,10 +190,11 @@ impl ConnectorClientPool {
         let Ok(mut entries) = self.entries.lock() else {
             return;
         };
-        let doomed: Vec<ConnectorPoolKey> = entries
+        let doomed: Vec<PoolScope> = entries
             .iter()
-            .filter(|(key, _)| {
-                key.organization_id == organization_id && key.connection_id == connection_id
+            .filter(|(scope, _)| {
+                scope.key.organization_id == organization_id
+                    && scope.key.connection_id == connection_id
             })
             .map(|(key, _)| key.clone())
             .collect();
@@ -189,13 +226,12 @@ impl ConnectorClientPool {
     pub fn contains(&self, key: &ConnectorPoolKey) -> bool {
         self.entries
             .lock()
-            .is_ok_and(|entries| entries.contains(key))
+            .is_ok_and(|entries| entries.iter().any(|(scope, _)| &scope.key == key))
     }
 
     fn lock(
         &self,
-    ) -> Result<std::sync::MutexGuard<'_, LruCache<ConnectorPoolKey, Arc<Invoker>>>, TransportError>
-    {
+    ) -> Result<std::sync::MutexGuard<'_, LruCache<PoolScope, Arc<Invoker>>>, TransportError> {
         self.entries
             .lock()
             .map_err(|_| TransportError::malformed("connector client pool lock poisoned"))
