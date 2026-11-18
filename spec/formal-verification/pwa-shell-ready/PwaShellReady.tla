@@ -93,12 +93,14 @@ ActivationCatchUp ==
   /\ planVault = vault
   /\ actGen < compGen
   /\ actGen' = compGen
-  /\ UNCHANGED <<status, vault, planVault, compGen, opened, timedOut, fromNull>>
+  /\ fromNull' = FALSE
+  /\ UNCHANGED <<status, vault, planVault, compGen, opened, timedOut>>
 
 ReadyOpens ==
   /\ ComputeReady
   /\ opened' = 2
-  /\ UNCHANGED <<status, vault, planVault, compGen, actGen, timedOut, fromNull>>
+  /\ fromNull' = FALSE
+  /\ UNCHANGED <<status, vault, planVault, compGen, actGen, timedOut>>
 
 WaitTimeout ==
   /\ status = "unlocked"
@@ -114,6 +116,13 @@ NoShellBeforeActivationOrTimeout ==
   ShellMounted =>
     ComputeReady \/ timedOut \/
     (OpenedMatchesVault /\ actGen < compGen /\ ~fromNull)
+
+\* Once the shell has opened for this vault, later plan generations stay mounted.
+OpenShellStaysMounted ==
+  /\ status = "unlocked"
+  /\ OpenedMatchesVault
+  /\ planVault = vault
+  => ShellMounted
 
 Spec ==
   Init /\ [][UnlockPersonal \/ PlanForPersonal \/ ClearStaleLatch
