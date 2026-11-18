@@ -9,8 +9,7 @@ import {
 } from "./capability-lazy-leaves.mjs";
 
 test("keeps the NATS signer with its carrier instead of connector metadata", () => {
-  const file =
-    "/repo/node_modules/tweetnacl/nacl-fast.js";
+  const file = "/repo/node_modules/tweetnacl/nacl-fast.js";
   const owner = classifyModule(file, PACKAGE_RULES, { repoRoot: "/repo" });
   assert.equal(owner.classification, "optional");
   assert.equal(owner.capability, "sharing.live");
@@ -124,17 +123,60 @@ test("pins CLI app-integration crypto leaves on identity.local-iam", () => {
   );
 });
 
-test("pins optional vault.security-checks app-core leaf when Rollup classifies it shared", () => {
-  const file = "/workspace/packages/app-core/src/lib/vault/security-checks.ts";
+test("keeps local IAM rail and authorize screens outside the runtime initializer", () => {
   const entry = {
-    classification: "shared",
-    capability: null,
+    classification: "optional",
+    capability: "identity.local-iam",
   };
-  assert.equal(lazyLeafChunk(file, entry), "cap-vault.security-checks");
-  assert.equal(
-    lazyLeafChunk(file.replaceAll("/", "\\"), entry),
-    "cap-vault.security-checks",
-  );
+  for (const [file, chunk] of [
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/IdentityRailTree.tsx",
+      "identity-local-iam-rail",
+    ],
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/lazy-routes.tsx",
+      "identity-local-iam-authorize-route",
+    ],
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/AuthorizeConsentScreen.tsx",
+      "identity-local-iam-authorize-consent",
+    ],
+  ]) {
+    assert.equal(lazyLeafChunk(file, entry), chunk);
+  }
+});
+
+test("keeps the activation-awaited security checks panel outside its runtime chunk", () => {
+  const cases = [
+    [
+      "/workspace/packages/app-core/src/lib/vault/security-checks.ts",
+      { classification: "shared", capability: null },
+    ],
+    [
+      "/workspace/apps/pages/src/modules/vault.security-checks/SecurityChecksPanel.tsx",
+      {
+        classification: "optional",
+        capability: "vault.security-checks",
+      },
+    ],
+    [
+      "/workspace/apps/pages/src/modules/vault.security-checks/SecurityChecksPanelBody.tsx",
+      {
+        classification: "optional",
+        capability: "vault.security-checks",
+      },
+    ],
+  ];
+  for (const [file, entry] of cases) {
+    assert.equal(
+      lazyLeafChunk(file, entry),
+      "vault-security-checks-panel",
+    );
+    assert.equal(
+      lazyLeafChunk(file.replaceAll("/", "\\"), entry),
+      "vault-security-checks-panel",
+    );
+  }
 });
 
 test("keeps password-reset mailbox leaves within their matching optional capability", () => {
@@ -183,7 +225,12 @@ test("keeps backup SDKs and authority UI in separate lazy capability chunks", ()
     [
       "/src/sections/access/HostedRequestsPanel.tsx",
       "access.authority",
-      "cap-access.authority",
+      "access-hosted-requests",
+    ],
+    [
+      "/src/modules/access.authority/AccessRailTree.tsx",
+      "access.authority",
+      "access-authority-rail",
     ],
   ];
   for (const [path, capability, chunk] of paths) {

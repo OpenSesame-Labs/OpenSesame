@@ -7,12 +7,7 @@ import {
   landLocalRequestFocus,
   resolveLocalRequestSelection,
 } from "./local-requests-focus.js";
-
-export const GRANT_ROW_PREFIX = "grant:";
-
-export function grantRowId(grantId: string) {
-  return `${GRANT_ROW_PREFIX}${grantId}`;
-}
+export { GRANT_ROW_PREFIX, grantRowId } from "./local-request-row.js";
 
 export function useLocalRequestSelection(
   requests: LocalAccessRequest[] | undefined,
