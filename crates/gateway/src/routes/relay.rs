@@ -34,7 +34,9 @@ use sha2::{Digest, Sha256};
 use sqlx::Row;
 
 use crate::app_state::AppState;
-use crate::middleware::auth::{resolve_caller_subject, Caller};
+#[path = "relay_scope.rs"]
+mod scope;
+use scope::{caller_scope, holder_online};
 
 /// A heartbeat older than this is an offline holder. Deliberately short: the
 /// whole model is "the holder's live runtime is the authority".
@@ -59,35 +61,6 @@ fn error_response(status: StatusCode, code: &str) -> Response {
 
 fn not_found() -> Response {
     error_response(StatusCode::NOT_FOUND, "not_found")
-}
-
-fn bootstrap_organization(st: &AppState) -> Result<opensesame_domain::OrganizationId, Response> {
-    st.bootstrap
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|bootstrap| bootstrap.org)
-        .ok_or_else(|| error_response(StatusCode::SERVICE_UNAVAILABLE, "bootstrap_unavailable"))
-}
-
-fn caller_organization(
-    st: &AppState,
-    caller: &Caller,
-) -> Result<opensesame_domain::OrganizationId, Response> {
-    match caller {
-        Caller::Session {
-            organization_id, ..
-        } => Ok(*organization_id),
-        Caller::Operator => bootstrap_organization(st),
-    }
-}
-
-fn holder_online(st: &AppState, holder: &str) -> HolderLiveness {
-    let presence = st.relay_presence.lock().unwrap();
-    match presence.get(holder) {
-        Some(seen) if seen.elapsed().as_secs() <= PRESENCE_FRESH_SECONDS => HolderLiveness::Online,
-        _ => HolderLiveness::Offline,
-    }
 }
 
 /// The digest an approval binds to: what would run, canonically, nothing else.
@@ -122,14 +95,14 @@ fn request_digest(
 
 /// `POST /api/v1/relay/heartbeat` — a holder's runtime announcing liveness.
 pub async fn heartbeat(State(st): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let subject = match resolve_caller_subject(&st, &headers) {
-        Ok(s) => s,
+    let (organization, subject) = match caller_scope(&st, &headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
     st.relay_presence
         .lock()
         .unwrap()
-        .insert(subject, std::time::Instant::now());
+        .insert((organization, subject), std::time::Instant::now());
     Json(json!({"ok": true, "fresh_for_seconds": PRESENCE_FRESH_SECONDS})).into_response()
 }
 
@@ -189,12 +162,13 @@ fn authorize_relay_request(
 
 fn admit_submission(
     st: &AppState,
+    organization: opensesame_domain::OrganizationId,
     resolved: &ResolvedDelegation,
     digest: &str,
 ) -> Result<(), Response> {
     let admission = RelayAdmission {
         mode: resolved.execution_mode,
-        liveness: holder_online(st, &resolved.owner_subject),
+        liveness: holder_online(st, organization, &resolved.owner_subject),
         class: AvailabilityClass::A3ExternalSideEffect,
         offline_use: resolved.grant.constraints.offline_use.clone(),
         approved_digest: digest,
@@ -247,12 +221,8 @@ pub async fn submit(
     headers: axum::http::HeaderMap,
     Json(mut body): Json<SubmitRequest>,
 ) -> Response {
-    let subject = match resolve_caller_subject(&st, &headers) {
-        Ok(s) => s,
-        Err(resp) => return resp,
-    };
-    let caller = match crate::middleware::auth::resolve_caller(&st, &headers) {
-        Ok(caller) => caller,
+    let (organization, subject) = match caller_scope(&st, &headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
 
@@ -264,10 +234,6 @@ pub async fn submit(
 
     // The delegation must be the caller's own, live, and relay-mode. Lookup by
     // id via the caller's delegation list keeps the id space unenumerable.
-    let organization = match caller_organization(&st, &caller) {
-        Ok(organization) => organization,
-        Err(response) => return response,
-    };
     let resolved =
         match resolve_submit_delegation(&st, &organization, &subject, &body.delegation_id).await {
             Ok(resolved) => resolved,
@@ -295,7 +261,7 @@ pub async fn submit(
     // deliberately not required *yet* — it is what the holder's decision will
     // add — so it is presented to `admit` as not-required here and strictly
     // required at the result fence.
-    if let Err(response) = admit_submission(&st, &resolved, &digest) {
+    if let Err(response) = admit_submission(&st, organization, &resolved, &digest) {
         return response;
     }
 
@@ -331,22 +297,23 @@ fn expired(row_expires: &str, now: DateTime<Utc>) -> bool {
 
 /// `GET /api/v1/relay/requests/pending` — the holder drains its inbox.
 pub async fn pending(State(st): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let subject = match resolve_caller_subject(&st, &headers) {
-        Ok(s) => s,
+    let (organization, subject) = match caller_scope(&st, &headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
     // Draining is itself proof of liveness.
     st.relay_presence
         .lock()
         .unwrap()
-        .insert(subject.clone(), std::time::Instant::now());
+        .insert((organization, subject.clone()), std::time::Instant::now());
     let rows = sqlx::query(
         "SELECT id, delegation_id, connection_id, operation, resource, parameters_json,
                 request_digest, state, expires_at
          FROM relay_requests
-         WHERE holder_subject = ? AND state IN ('pending_approval', 'approved')
+         WHERE organization_id = ? AND holder_subject = ? AND state IN ('pending_approval', 'approved')
          ORDER BY created_at ASC LIMIT 20",
     )
+    .bind(organization.to_string())
     .bind(&subject)
     .fetch_all(st.connection_broker.pool())
     .await;
@@ -360,7 +327,10 @@ pub async fn pending(State(st): State<AppState>, headers: axum::http::HeaderMap)
             continue;
         }
         let id: String = row.get("id");
-        if current_authority(&st, &id, &subject).await.is_err() {
+        if current_authority(&st, &id, organization, &subject)
+            .await
+            .is_err()
+        {
             continue;
         }
         requests.push(json!({
@@ -391,25 +361,30 @@ async fn decide(
     body: DecideRequest,
     approve: bool,
 ) -> Response {
-    let subject = match resolve_caller_subject(st, headers) {
-        Ok(s) => s,
+    let (organization, subject) = match caller_scope(st, headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
     let now = Utc::now();
-    if approve && current_authority(st, id, &subject).await.is_err() {
+    if approve
+        && current_authority(st, id, organization, &subject)
+            .await
+            .is_err()
+    {
         return not_found();
     }
     let next = if approve { "approved" } else { "denied" };
     let updated = sqlx::query(
         "UPDATE relay_requests
          SET state = ?, approved_at = ?, decided_by = ?
-         WHERE id = ? AND holder_subject = ? AND state = 'pending_approval'
+         WHERE id = ? AND organization_id = ? AND holder_subject = ? AND state = 'pending_approval'
            AND request_digest = ? AND expires_at > ?",
     )
     .bind(next)
     .bind(now.to_rfc3339())
     .bind(&subject)
     .bind(id)
+    .bind(organization.to_string())
     .bind(&subject)
     .bind(&body.request_digest)
     .bind(now.to_rfc3339())
@@ -462,21 +437,21 @@ struct ResultContext {
 async fn load_result_context(
     st: &AppState,
     id: &str,
+    organization: opensesame_domain::OrganizationId,
     holder_subject: &str,
 ) -> Result<ResultContext, Response> {
     let row = sqlx::query(
         "SELECT delegation_id, holder_subject, delegate_subject, request_digest, state, expires_at
-         FROM relay_requests WHERE id = ?",
+         FROM relay_requests WHERE id = ? AND organization_id = ? AND holder_subject = ?",
     )
     .bind(id)
+    .bind(organization.to_string())
+    .bind(holder_subject)
     .fetch_optional(st.connection_broker.pool())
     .await;
     let Ok(Some(row)) = row else {
         return Err(not_found());
     };
-    if row.get::<String, _>("holder_subject") != holder_subject {
-        return Err(not_found());
-    }
     if expired(&row.get::<String, _>("expires_at"), Utc::now()) {
         return Err(error_response(StatusCode::GONE, "expired"));
     }
@@ -491,14 +466,16 @@ async fn load_result_context(
 async fn current_authority(
     st: &AppState,
     id: &str,
+    organization: opensesame_domain::OrganizationId,
     holder: &str,
 ) -> Result<ExecutionMode, Response> {
     let row = sqlx::query(
         "SELECT delegation_id, connection_id, organization_id, holder_subject,
                 delegate_subject, operation, resource, expires_at
-         FROM relay_requests WHERE id = ? AND holder_subject = ?",
+         FROM relay_requests WHERE id = ? AND organization_id = ? AND holder_subject = ?",
     )
     .bind(id)
+    .bind(organization.to_string())
     .bind(holder)
     .fetch_optional(st.connection_broker.pool())
     .await
@@ -507,9 +484,6 @@ async fn current_authority(
     if expired(&row.get::<String, _>("expires_at"), Utc::now()) {
         return Err(not_found());
     }
-    let organization =
-        opensesame_domain::OrganizationId::parse(&row.get::<String, _>("organization_id"))
-            .map_err(|_| not_found())?;
     let delegate: String = row.get("delegate_subject");
     let delegation_id: String = row.get("delegation_id");
     let resolved = resolve_submit_delegation(st, &organization, &delegate, &delegation_id).await?;
@@ -559,6 +533,8 @@ fn validate_result(
 async fn complete_result(
     st: &AppState,
     id: &str,
+    organization: opensesame_domain::OrganizationId,
+    holder: &str,
     summary: &Value,
     requested_outcome: &str,
 ) -> Response {
@@ -570,12 +546,14 @@ async fn complete_result(
     let updated = sqlx::query(
         "UPDATE relay_requests
          SET state = 'completed', result_json = ?, result_outcome = ?, completed_at = ?
-         WHERE id = ? AND state = 'approved'",
+         WHERE id = ? AND organization_id = ? AND holder_subject = ? AND state = 'approved'",
     )
     .bind(summary.to_string())
     .bind(outcome)
     .bind(Utc::now().to_rfc3339())
     .bind(id)
+    .bind(organization.to_string())
+    .bind(holder)
     .execute(st.connection_broker.pool())
     .await;
     match updated {
@@ -596,18 +574,18 @@ pub async fn result(
     Path(id): Path<String>,
     Json(body): Json<ResultRequest>,
 ) -> Response {
-    let subject = match resolve_caller_subject(&st, &headers) {
-        Ok(s) => s,
+    let (organization, subject) = match caller_scope(&st, &headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
-    let context = match load_result_context(&st, &id, &subject).await {
+    let context = match load_result_context(&st, &id, organization, &subject).await {
         Ok(context) => context,
         Err(response) => return response,
     };
 
     // The delegation may have been revoked or narrowed since approval; the
     // stored digest pins the request, but authority is re-read live.
-    let mode = match current_authority(&st, &id, &subject).await {
+    let mode = match current_authority(&st, &id, organization, &subject).await {
         Ok(mode) => mode,
         Err(response) => return response,
     };
@@ -618,7 +596,7 @@ pub async fn result(
         Ok(summary) => summary,
         Err(response) => return response,
     };
-    complete_result(&st, &id, &summary, &body.outcome).await
+    complete_result(&st, &id, organization, &subject, &summary, &body.outcome).await
 }
 
 /// `GET /api/v1/relay/requests/{id}` — delegate or holder polls.
@@ -627,16 +605,17 @@ pub async fn get(
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    let subject = match resolve_caller_subject(&st, &headers) {
-        Ok(s) => s,
+    let (organization, subject) = match caller_scope(&st, &headers) {
+        Ok(scope) => scope,
         Err(resp) => return resp,
     };
     let row = sqlx::query(
         "SELECT id, delegation_id, holder_subject, delegate_subject, operation, resource,
                 request_digest, state, result_json, result_outcome, expires_at
-         FROM relay_requests WHERE id = ?",
+         FROM relay_requests WHERE id = ? AND organization_id = ?",
     )
     .bind(&id)
+    .bind(organization.to_string())
     .fetch_optional(st.connection_broker.pool())
     .await;
     let Ok(Some(row)) = row else {
