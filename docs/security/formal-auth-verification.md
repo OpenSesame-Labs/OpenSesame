@@ -129,6 +129,26 @@ claim of exhaustive inventory or Lean coverage:
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
 | DPoP proof validation. RFC 9449. | [`validator.rs`](../../crates/proof/src/validator.rs). | Not modeled by this suite. |
 | Grant validity and delegation. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs). | A separate Kani harness checks a bounded interval case; this suite does not prove grant behavior. |
+| Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
+
+**RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
+re-authorize at the effect boundary, the Host must not accept new relay work,
+deliver executable bytes, or approve execution. A relay-only or malformed-mode
+delegation must not fall back to broker invocation. Previously approved result
+reports must also be refused until current authority and result recording share
+a durable transaction. Broker-mode offers, claims and delegated exercise are
+temporarily refused because the stored mode has no independent authenticated
+binding. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md)
+sets the intended contract. The gateway's `relay` and `intents_queue` routes and
+the broker's `delegation_mode` parser and `delegation_lineage` resolver enforce the temporary restriction;
+`relay_authority_tests.rs`, `relay_tenant_tests.rs`,
+`intents_relay_mode_tests.rs`, and `intents_legacy_queue_tests.rs` exercise
+selected boundaries, while
+`delegation_mode_tests.rs` checks malformed stored offers and delegations. The focused relay, delegated-invocation, task, and broker-mode regressions passed
+before the latest main integration; broker-mode regressions passed again on the
+updated base. No formal theorem proves the property.
+The restriction cannot recall previously disclosed requests or cancel effects
+already started. Restoring relay requires a separate holder-side authority fence.
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits
