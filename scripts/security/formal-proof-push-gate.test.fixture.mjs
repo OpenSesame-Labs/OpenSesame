@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -33,15 +34,51 @@ export const registry = {
   ],
 };
 
+function setupController(controller) {
+  mkdirSync(join(controller, "security"), { recursive: true });
+  mkdirSync(join(controller, "lib"));
+  for (const name of [
+    "formal-proof-push-gate.mjs",
+    "formal-proof-push-gate-registry.mjs",
+    "formal-proof-push-history.mjs",
+    "formal-proof-remote-main.mjs",
+    "formal-proof-required-suites.mjs",
+  ])
+    writeFileSync(
+      join(controller, "security", name),
+      readFileSync(new URL(`./${name}`, import.meta.url)),
+    );
+  writeFileSync(
+    join(controller, "lib/json-boundary.mjs"),
+    readFileSync(new URL("../lib/json-boundary.mjs", import.meta.url)),
+  );
+}
+
+function pinController(controller, repo, write) {
+  return (policy) => {
+    const contents = `export const PINNED_FORMAL_SUITES = ${JSON.stringify(policy.suites)};\n`;
+    writeFileSync(
+      join(controller, "security/formal-proof-pinned-suites.mjs"),
+      contents,
+    );
+    if (
+      existsSync(join(repo, "scripts/security/formal-proof-pinned-suites.mjs"))
+    )
+      write("scripts/security/formal-proof-pinned-suites.mjs", contents);
+  };
+}
+
 export function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), "formal-push-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const repo = join(dir, "repo"),
     remote = join(dir, "remote.git"),
+    controller = join(dir, "controller"),
     bin = join(dir, "bin"),
     log = join(dir, "commands");
   mkdirSync(repo);
   mkdirSync(bin);
+  setupController(controller);
   const git = (...args) =>
     execFileSync("git", args, {
       cwd: repo,
@@ -58,12 +95,17 @@ export function fixture(t) {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, contents);
   };
+  // Each fixture has its own trusted controller. Tests may explicitly update
+  // that controller when simulating a reviewed policy change.
+  const pin = pinController(controller, repo, write);
+  pin(registry);
   write("src/a", "a0\n");
   write("src/b", "b0\n");
   write("src/other", "other\n");
   write("spec/formal/a/proof", "a proof\n");
   write("spec/formal/b/proof", "b proof\n");
   write("spec/formal/proof-registry.json", JSON.stringify(registry));
+  write("spec/formal/proof-requirements.json", JSON.stringify(registry));
   const commit = () => {
     git("add", "-A");
     git("-c", "commit.gpgsign=false", "commit", "-qm", "change");
@@ -86,17 +128,21 @@ export function fixture(t) {
   const tuple = (target, previous = base, ref = "refs/heads/main") =>
     `${target === nil ? "(delete)" : "refs/heads/work"} ${target} ${ref} ${previous}\n`;
   const run = (input, extra = {}, remoteName = "origin") =>
-    spawnSync(process.execPath, [script, remoteName], {
-      cwd: repo,
-      input,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${bin}:${process.env.PATH}`,
-        FORMAL_TEST_LOG: log,
-        ...extra,
+    spawnSync(
+      process.execPath,
+      [join(controller, "security/formal-proof-push-gate.mjs"), remoteName],
+      {
+        cwd: repo,
+        input,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          FORMAL_TEST_LOG: log,
+          ...extra,
+        },
       },
-    });
+    );
   const commands = () => {
     try {
       return readFileSync(log, "utf8").trim().split("\n");
@@ -108,10 +154,12 @@ export function fixture(t) {
     dir,
     repo,
     remote,
+    controller,
     bin,
     log,
     git,
     write,
+    pin,
     commit,
     base,
     tuple,
@@ -135,6 +183,24 @@ export function installHook(f) {
         new URL("./formal-proof-push-gate-registry.mjs", import.meta.url),
       ),
     ),
+  );
+  f.write(
+    "scripts/security/formal-proof-required-suites.mjs",
+    readFileSync(
+      new URL("./formal-proof-required-suites.mjs", import.meta.url),
+    ),
+  );
+  f.write(
+    "scripts/security/formal-proof-push-history.mjs",
+    readFileSync(new URL("./formal-proof-push-history.mjs", import.meta.url)),
+  );
+  f.write(
+    "scripts/security/formal-proof-remote-main.mjs",
+    readFileSync(new URL("./formal-proof-remote-main.mjs", import.meta.url)),
+  );
+  f.write(
+    "scripts/security/formal-proof-pinned-suites.mjs",
+    readFileSync(join(f.controller, "security/formal-proof-pinned-suites.mjs")),
   );
   f.write(
     "scripts/lib/json-boundary.mjs",

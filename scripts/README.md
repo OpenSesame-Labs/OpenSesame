@@ -33,9 +33,15 @@ authorization verification](../docs/security/formal-auth-verification.md).
 Install the Git hooks with `npm run setup:hooks`. Before a push, the mandatory
 formal gate reads the actual ref updates and runs only suites whose registered
 implementation paths occur in the pushed changes. The mappings and commands are
-in [`proof-registry.json`](../spec/formal/proof-registry.json). Renames, deleted
-paths, and changes later reverted are included; deleting a remote ref alone
-does not run a suite. A proof-bearing push must use a clean worktree checked
+in [`proof-registry.json`](../spec/formal/proof-registry.json) and must match the
+declarative [`proof-requirements.json`](../spec/formal/proof-requirements.json).
+The gate inspects policy changes and their parent snapshots in the pushed
+history: a changed implementation cannot lose a mapping or an incoming proof
+and command by reverting policy metadata. Pre-policy registry history still
+participates in selection. Push changes to a suite's proof-file mappings or command
+separately from changes to its mapped implementation. Renames, deleted paths, and changes later reverted
+are included; deleting a remote ref alone does not run a suite. Metadata-only
+and proof-only changes also do not run suites. A proof-bearing push must use a clean worktree checked
 out at the target commit; push different target commits separately. The gate
 fails closed if history or proof files are unavailable. `OPENSESAME_PREPUSH=off`
 skips optional checks but does not skip this gate. Release qualification runs

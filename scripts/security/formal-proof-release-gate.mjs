@@ -4,12 +4,27 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { assertProofFiles, parseRegistry } from "./formal-proof-push-gate.mjs";
+import {
+  assertProofFiles,
+  parseRegistry,
+} from "./formal-proof-push-gate-registry.mjs";
+import {
+  assertPinnedRequirements,
+  assertRequiredRegistry,
+  readRequirements,
+  registryPath,
+  requirementsPath,
+} from "./formal-proof-required-suites.mjs";
 
 export function runReleaseProofs(root) {
-  const registry = parseRegistry(
-    readFileSync(resolve(root, "spec/formal/proof-registry.json")),
-  );
+  assertProofFiles(root, {
+    id: "policy",
+    proofs: [registryPath, requirementsPath],
+  });
+  const registry = parseRegistry(readFileSync(resolve(root, registryPath)));
+  const requirements = readRequirements(root);
+  assertPinnedRequirements(requirements);
+  assertRequiredRegistry(registry, requirements);
   assertProofFiles(root, {
     id: "axiom-controls",
     proofs: [
