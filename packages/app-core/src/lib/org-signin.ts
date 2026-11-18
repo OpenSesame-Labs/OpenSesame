@@ -116,6 +116,12 @@ const WORDS: Readonly<Record<string, string>> = {
   malformed:
     "The sign-in service answered in a shape this page cannot read. Nothing was assumed from it.",
   not_owner: "Only an owner of this organization can change these settings.",
+  pagination_required:
+    "This organization has too many provisioning tokens to show here. Use the paginated Identity API to review and revoke them.",
+  scim_token_capacity:
+    "The provisioning token limit was reached. Revoke an existing token or remove an old revoked-token record, then try again.",
+  rate_limited:
+    "Too many provisioning changes were requested. Wait a minute and try again.",
 };
 
 /** Codes whose server message names the exact problem, and is shown. */
