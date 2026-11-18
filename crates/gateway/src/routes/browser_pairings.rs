@@ -150,37 +150,49 @@ pub async fn decision(
             .into_response();
     }
     let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", &req.user_code);
-    // A pairing's capabilities are fixed when it is created; read them first.
-    let Ok(Some(pending)) = st.db.inspect_browser_pairing(&digest, now).await else {
-        return refusal("invalid_pairing_decision");
+    // Wait for the writer before reading the clock: a queued decision must not
+    // approve a code that expired while another transaction held the database.
+    let Ok(mut tx) = st.db.pool().begin_with("BEGIN IMMEDIATE").await else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    let requested: Vec<String> =
-        serde_json::from_value(pending["capabilities"].clone()).unwrap_or_default();
-    let changed = st
-        .db
-        .decide_browser_pairing(
+    let decision_now = Utc::now().timestamp();
+    // The pending-to-decided transition and any native role it establishes
+    // share one transaction. Neither can be observed if provisioning fails.
+    let capabilities = match opensesame_storage::browser_pairing::decide_browser_pairing_in_transaction(
+            &mut tx,
             &digest,
             &principal.to_string(),
             &org.to_string(),
             matches!(req.decision, Decision::Approve),
-            now,
+            decision_now,
         )
         .await
-        .unwrap_or(false);
-    if !changed {
-        return refusal("invalid_pairing_decision");
-    }
-    if matches!(req.decision, Decision::Approve)
-        && provisions_membership(&requested)
-        && opensesame_connection_broker::config_access::provision_native_role(
-            st.db.pool(),
-            &org,
-            &principal,
-            OrganizationRole::Member,
-        )
-        .await
-        .is_err()
     {
+        Ok(Some(capabilities)) => capabilities,
+        Ok(None) => return refusal("invalid_pairing_decision"),
+        Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+    };
+    if matches!(req.decision, Decision::Approve) {
+        let Ok(requested) = serde_json::from_str::<Vec<String>>(&capabilities) else {
+            return refusal("invalid_pairing_decision");
+        };
+        if !allowed_capabilities(&requested) {
+            return refusal("invalid_pairing_decision");
+        }
+        if provisions_membership(&requested)
+            && opensesame_connection_broker::config_access::provision_native_role_in_transaction(
+                &mut tx,
+                &org,
+                &principal,
+                OrganizationRole::Member,
+            )
+            .await
+            .is_err()
+        {
+            return StatusCode::SERVICE_UNAVAILABLE.into_response();
+        }
+    }
+    if tx.commit().await.is_err() {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     }
     StatusCode::NO_CONTENT.into_response()
