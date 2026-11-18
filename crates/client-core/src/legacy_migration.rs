@@ -96,5 +96,6 @@ fn migrate(
         let plaintext = Zeroizing::new(open(key, &blob.ciphertext, blob.id.as_bytes())?);
         store.put_local(key, blob.id, &plaintext)?;
     }
+    store.remember_key(store.checked_key(key)?)?;
     Ok(store)
 }
