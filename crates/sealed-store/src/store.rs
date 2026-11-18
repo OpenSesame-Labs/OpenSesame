@@ -89,7 +89,7 @@ impl StoreRoot {
             .map_err(|e| StoreError::Crypto(format!("invalid revision state: {e}")))
     }
 
-    fn record_revision(&self, name: &str, revision: u64) -> Result<(), StoreError> {
+    pub(crate) fn record_revision(&self, name: &str, revision: u64) -> Result<(), StoreError> {
         let mut revisions = self.revisions()?;
         revisions.insert(name.to_string(), revision);
         let bytes = serde_json::to_vec(&revisions)
@@ -98,27 +98,7 @@ impl StoreRoot {
         Ok(())
     }
 
-    fn next_revision(&self, name: &str, path: &Path, key: &ItemDataKey) -> Result<u64, StoreError> {
-        let current = match self.revisions()?.get(name).copied() {
-            Some(revision) => revision,
-            None if path.exists() => {
-                let rel = path
-                    .strip_prefix(&self.path)
-                    .map_err(|_| StoreError::InvalidPath("path escapes store root".into()))?;
-                open_osseal(&confined_read(&self.path, rel)?, key, name, None)?.revision
-            }
-            None => 0,
-        };
-        let next = current
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
-        // Advance trusted local state before replacing ciphertext: a crash may
-        // require rewriting the entry, but can never make an older blob valid.
-        self.record_revision(name, next)?;
-        Ok(next)
-    }
-
-    fn entry_path(&self, name: &str, ext: &str) -> Result<PathBuf, StoreError> {
+    pub(crate) fn entry_path(&self, name: &str, ext: &str) -> Result<PathBuf, StoreError> {
         Ok(self.path.join(Self::entry_relative(name, ext)?))
     }
 
@@ -262,7 +242,7 @@ impl StoreRoot {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
                 let rel = Self::entry_relative(name, "osseal")?;
                 let path = self.path.join(&rel);
-                let revision = self.next_revision(name, &path, key)?;
+                let revision = self.next_entry_revision(name, &path, key)?;
                 let blob = seal_osseal(&plaintext, key, name, revision)?;
                 confined_write(&self.path, &rel, &blob)?;
             }
@@ -330,11 +310,12 @@ impl StoreRoot {
         let (plaintext, rebind_key) = match hint {
             FormatHint::Osseal => {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
-                let expected = self.revisions()?.get(name).copied();
-                let opened = open_osseal(&confined_read(&self.path, rel)?, key, name, expected)?;
-                if !opened.legacy && expected.is_none() {
-                    self.record_revision(name, opened.revision)?;
+                let witness = self.entry_witness(name, key)?;
+                if witness.deleted {
+                    return Err(StoreError::NotFound(name.into()));
                 }
+                let expected = (witness.revision > 0).then_some(witness.revision);
+                let opened = open_osseal(&confined_read(&self.path, rel)?, key, name, expected)?;
                 (opened.plaintext, opened.legacy.then_some(key))
             }
             FormatHint::Gpg => (gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?, None),

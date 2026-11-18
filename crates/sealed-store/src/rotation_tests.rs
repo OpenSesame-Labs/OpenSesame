@@ -104,6 +104,52 @@ fn rotation_reencrypts_entries_and_attachments_under_the_new_root() {
 }
 
 #[test]
+fn either_key_recovers_if_rotation_rekeys_only_one_witness_slot() {
+    let (_dir, store, old_key) = seeded();
+    let new_key = ItemDataKey::generate();
+    let prepared = store.prepare_witness_rekey(&old_key).unwrap();
+
+    store
+        .write_first_rekeyed_witness_slot(&prepared, &new_key)
+        .unwrap();
+
+    assert_eq!(
+        store.entry_witness("Dev/token", &old_key).unwrap().revision,
+        store.entry_witness("Dev/token", &new_key).unwrap().revision
+    );
+}
+
+#[test]
+fn next_rotation_heals_a_prior_one_slot_rekey_before_overwriting_it() {
+    let (_dir, store, old_key) = seeded();
+    let current_key = ItemDataKey::generate();
+    let interrupted = store.prepare_witness_rekey(&old_key).unwrap();
+    store
+        .write_first_rekeyed_witness_slot(&interrupted, &current_key)
+        .unwrap();
+
+    // A later rotation starts after the new key file was committed but before
+    // the second pair was rekeyed. Preparation must restore both current-key
+    // recovery copies before either is overwritten with the next key.
+    let next = store.prepare_witness_rekey(&current_key).unwrap();
+    let future_key = ItemDataKey::generate();
+    store
+        .write_first_rekeyed_witness_slot(&next, &future_key)
+        .unwrap();
+
+    assert_eq!(
+        store
+            .entry_witness("Dev/token", &current_key)
+            .unwrap()
+            .revision,
+        store
+            .entry_witness("Dev/token", &future_key)
+            .unwrap()
+            .revision
+    );
+}
+
+#[test]
 fn rotating_rewrap_revokes_the_old_passphrase_and_old_key_file() {
     let (dir, store, _) = seeded();
     let old_file = fs::read(dir.path().join(KEY_FILE_NAME)).unwrap();
@@ -298,7 +344,7 @@ fn a_writer_is_refused_while_a_rotation_runs() {
                 .is_err(),
         );
         refused.push(attach_small(&store, "Dev/late-file", &old_key).is_err());
-        refused.push(store.rm("Dev/token").is_err());
+        refused.push(store.rm_with_key("Dev/token", &old_key).is_err());
         refused.push(protect_add_store_recovery(dir.path(), PW).is_err());
     })
     .unwrap();

@@ -52,6 +52,7 @@ use crate::envelope::{
 };
 use crate::git::auto_commit;
 use crate::path::{confined_read, confined_remove, confined_write};
+use crate::rollback_witness::WitnessRekey;
 use crate::rotation_walk::inventory;
 use crate::store_lock::StoreLock;
 use crate::{StoreError, StoreRoot};
@@ -127,10 +128,12 @@ pub(crate) fn rotate_store_root_observed(
     let new_key = ItemDataKey(prepared.new_vrk.0);
     let key_json = encode_key_file(&KeyFileContents::Manifest(prepared.manifest.clone()))?;
     let sealed = inventory(root)?;
+    let witness = store.prepare_witness_rekey(&old_key)?;
 
     create_private_dir(&staging)?;
     let mut plan = Plan {
         foreign_entries: sealed.foreign,
+        witness: Some(witness),
         ..Plan::default()
     };
     let mut stranded = false;
@@ -138,7 +141,16 @@ pub(crate) fn rotate_store_root_observed(
     let result = stage_entries(&store, &staging, &sealed.entries, keys, &mut plan)
         .and_then(|()| stage_attachments(&store, &staging, &sealed.attachments, keys, &mut plan))
         .map(|()| staged(root))
-        .and_then(|()| commit(root, &staging, &plan, key_json.as_bytes(), &mut stranded));
+        .and_then(|()| {
+            commit(
+                &store,
+                &staging,
+                &plan,
+                keys,
+                key_json.as_bytes(),
+                &mut stranded,
+            )
+        });
     if let Err(error) = result {
         // A rollback that could not finish keeps the staging directory and the
         // resealed chunks: they are the only copy of what did not make it back.
@@ -181,6 +193,7 @@ struct Plan {
     entries: usize,
     attachments: usize,
     foreign_entries: usize,
+    witness: Option<WitnessRekey>,
 }
 
 impl Plan {
@@ -201,16 +214,18 @@ fn stage_entries(
     (old_key, new_key): Keys<'_>,
     plan: &mut Plan,
 ) -> Result<(), StoreError> {
-    let revisions = store.revisions()?;
     for name in names {
         let rel = StoreRoot::entry_relative(name, "osseal")?;
         let blob = confined_read(&store.path, &rel)?;
-        let expected = revisions.get(name).copied();
-        let mut opened = open_osseal(&blob, old_key, name, expected)?;
+        let witness = store.entry_witness(name, old_key)?;
+        if witness.deleted {
+            return Err(StoreError::NotFound(name.clone()));
+        }
+        let mut opened = open_osseal(&blob, old_key, name, Some(witness.revision))?;
         // Keep the revision the reader will expect: the recorded one, or for a
         // legacy blob with no record, the first revision a rebind would give.
         let revision = if opened.legacy {
-            expected.unwrap_or(1)
+            witness.revision
         } else {
             opened.revision
         };
@@ -285,12 +300,14 @@ fn stage_attachments(
 }
 
 fn commit(
-    root: &Path,
+    store: &StoreRoot,
     staging: &Path,
     plan: &Plan,
+    (old_key, new_key): Keys<'_>,
     key_json: &[u8],
     stranded: &mut bool,
 ) -> Result<(), StoreError> {
+    let root = &store.path;
     let key_next = staging.join("key.next");
     write_synced(&key_next, key_json)?;
     let map: Vec<String> = plan
@@ -302,15 +319,34 @@ fn commit(
     write_synced(&staging.join("plan.json"), &map)?;
     create_private_dir(&staging.join("old"))?;
 
+    let mut witness_rekey_started = false;
     let result = swap_all(root, staging, plan).and_then(|()| {
         verify_nothing_left_behind(root, plan)?;
+        let witness = plan
+            .witness
+            .as_ref()
+            .ok_or_else(|| StoreError::Crypto("rotation witness plan missing".into()))?;
+        witness_rekey_started = true;
+        store.write_rekeyed_witness(witness, new_key)?;
         fs::rename(&key_next, root.join(KEY_FILE_NAME))?;
         sync_dir(root);
+        // Slot one is already sufficient for the committed key. Finishing the
+        // redundant slot is crash recovery hardening, not part of the atomic
+        // key/content commit; a later read can still authenticate slot one.
+        let _ = store.finish_rekeyed_witness(witness, new_key);
         Ok(())
     });
     let Err(error) = result else {
         return Ok(());
     };
+    if witness_rekey_started
+        && plan
+            .witness
+            .as_ref()
+            .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
+    {
+        *stranded = true;
+    }
     // Undo every swap, last first; the old key file is still in place, so
     // putting the old ciphertext back returns the store to its previous state.
     for (index, rel) in plan.swaps.iter().enumerate().rev() {

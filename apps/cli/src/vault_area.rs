@@ -96,6 +96,7 @@ pub(crate) async fn run(server: &str, output: &str, cmd: VaultArea) -> anyhow::R
 async fn run_pass(server: &str, cmd: super::PassCmd) -> anyhow::Result<()> {
     match cmd {
         cmd @ (PassCmd::Init { .. }
+        | PassCmd::MigrateRollbackAnchor { .. }
         | PassCmd::Insert { .. }
         | PassCmd::Generate { .. }
         | PassCmd::Show { .. }
@@ -133,6 +134,15 @@ fn pass_entries(cmd: super::PassCmd) -> anyhow::Result<()> {
             git,
             remote,
         } => store::cmd_init(path.as_deref(), &recipients, git, remote.as_deref())?,
+        PassCmd::MigrateRollbackAnchor {
+            accept_current_state,
+            path,
+            tomb,
+        } => store::cmd_migrate_rollback_anchor(
+            accept_current_state,
+            path.as_deref(),
+            tomb.as_deref(),
+        )?,
         PassCmd::Insert {
             name,
             echo,

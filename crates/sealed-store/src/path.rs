@@ -9,6 +9,7 @@ mod confined {
     use std::io::{Read, Write};
     use std::os::fd::{AsRawFd, FromRawFd};
     use std::os::unix::ffi::OsStrExt;
+    use std::os::unix::fs::OpenOptionsExt;
     use std::path::{Component, Path};
 
     use crate::StoreError;
@@ -39,12 +40,10 @@ mod confined {
     }
 
     fn open_parent(root: &Path, rel: &Path, create: bool) -> Result<(File, CString), StoreError> {
-        if std::fs::symlink_metadata(root)?.file_type().is_symlink() {
-            return Err(StoreError::InvalidPath(
-                "store root may not be a symlink".into(),
-            ));
-        }
-        let mut dir = File::open(root)?;
+        let mut dir = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(root)?;
         let file_name = rel
             .file_name()
             .ok_or_else(|| StoreError::InvalidPath("missing file name".into()))?;
@@ -74,6 +73,43 @@ mod confined {
         let mut file = unsafe { File::from_raw_fd(fd) };
         file.write_all(bytes)?;
         file.sync_all()?;
+        Ok(())
+    }
+
+    pub fn replace(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+        let (dir, name) = open_parent(root, rel, true)?;
+        let mut temporary = b".".to_vec();
+        temporary.extend_from_slice(name.as_bytes());
+        temporary.extend_from_slice(b".new");
+        let temporary = CString::new(temporary)
+            .map_err(|_| StoreError::InvalidPath("NUL in temporary file name".into()))?;
+        // A crash before rename may leave only this unpublished temporary.
+        unsafe { libc::unlinkat(dir.as_raw_fd(), temporary.as_ptr(), 0) };
+        let flags =
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+        // SAFETY: valid directory fd/component; O_EXCL and O_NOFOLLOW prevent replacement races.
+        let fd = unsafe { libc::openat(dir.as_raw_fd(), temporary.as_ptr(), flags, 0o600) };
+        if fd < 0 {
+            return Err(StoreError::Io(std::io::Error::last_os_error()));
+        }
+        // SAFETY: successful openat returns a new owned descriptor.
+        let mut file = unsafe { File::from_raw_fd(fd) };
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        // SAFETY: both names are confined to the same opened directory; rename is atomic.
+        if unsafe {
+            libc::renameat(
+                dir.as_raw_fd(),
+                temporary.as_ptr(),
+                dir.as_raw_fd(),
+                name.as_ptr(),
+            )
+        } < 0
+        {
+            return Err(StoreError::Io(std::io::Error::last_os_error()));
+        }
+        dir.sync_all()?;
         Ok(())
     }
 
@@ -109,39 +145,126 @@ mod confined {
 
 #[cfg(unix)]
 pub(crate) use confined::{
-    read as confined_read, remove as confined_remove, write as confined_write,
+    read as confined_read, remove as confined_remove, replace as confined_replace,
+    write as confined_write,
 };
 
-#[cfg(not(unix))]
-pub(crate) fn confined_write(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
-    let path = root.join(rel);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-        if std::fs::canonicalize(parent)?.starts_with(std::fs::canonicalize(root)?) {
-            std::fs::write(path, bytes)?;
-            return Ok(());
+#[cfg(windows)]
+mod confined_windows {
+    use std::path::{Component, Path, PathBuf};
+    use std::sync::Arc;
+
+    use opensesame_human_vault::root_protection::windows_private_files::{
+        atomic_write, remove_confined_file, HeldPrivateRead, PrivateDirectory,
+    };
+
+    use crate::StoreError;
+
+    const MAX_CONFINED_FILE_BYTES: usize = 16 * 1024 * 1024;
+
+    fn ordinary_absolute(root: &Path) -> Result<PathBuf, StoreError> {
+        let supplied = if root.is_absolute() {
+            root.to_path_buf()
+        } else {
+            std::env::current_dir()?.join(root)
+        };
+        let mut absolute = PathBuf::new();
+        for component in supplied.components() {
+            match component {
+                Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                    absolute.push(component.as_os_str());
+                }
+                Component::CurDir | Component::ParentDir => {
+                    return Err(StoreError::InvalidPath(
+                        "store root contains a dot component".into(),
+                    ));
+                }
+            }
         }
+        Ok(absolute)
     }
-    Err(StoreError::InvalidPath("path escapes store root".into()))
+
+    fn parent_and_name<'a>(
+        root: &Path,
+        rel: &'a Path,
+        create: bool,
+    ) -> Result<(PrivateDirectory, &'a Path), StoreError> {
+        if rel.is_absolute()
+            || rel
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_)))
+        {
+            return Err(StoreError::InvalidPath("invalid relative path".into()));
+        }
+        let name = rel
+            .file_name()
+            .map(Path::new)
+            .ok_or_else(|| StoreError::InvalidPath("missing file name".into()))?;
+        let absolute_root = ordinary_absolute(root)?;
+        let parent = absolute_root.join(rel.parent().unwrap_or_else(|| Path::new("")));
+        let directory = if create {
+            PrivateDirectory::create_confined_directories(&parent)
+        } else {
+            PrivateDirectory::open_confined(&parent)
+        }
+        .map_err(StoreError::Io)?;
+        Ok((directory, name))
+    }
+
+    pub fn write(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+        let (directory, name) = parent_and_name(root, rel, true)?;
+        atomic_write(&directory, name, bytes).map_err(StoreError::Io)
+    }
+
+    pub fn replace(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
+        write(root, rel, bytes)
+    }
+
+    pub fn read(root: &Path, rel: &Path) -> Result<Vec<u8>, StoreError> {
+        let (directory, name) = parent_and_name(root, rel, false)?;
+        let held =
+            HeldPrivateRead::open_confined(Arc::new(directory), name, MAX_CONFINED_FILE_BYTES)
+                .map_err(StoreError::Io)?;
+        Ok(held.bytes().to_vec())
+    }
+
+    pub fn remove(root: &Path, rel: &Path) -> Result<(), StoreError> {
+        let (directory, name) = parent_and_name(root, rel, false)?;
+        remove_confined_file(&directory, name).map_err(StoreError::Io)
+    }
 }
 
-#[cfg(not(unix))]
-pub(crate) fn confined_read(root: &Path, rel: &Path) -> Result<Vec<u8>, StoreError> {
-    let path = root.join(rel);
-    if std::fs::canonicalize(&path)?.starts_with(std::fs::canonicalize(root)?) {
-        return Ok(std::fs::read(path)?);
-    }
-    Err(StoreError::InvalidPath("path escapes store root".into()))
+#[cfg(windows)]
+pub(crate) use confined_windows::{
+    read as confined_read, remove as confined_remove, replace as confined_replace,
+    write as confined_write,
+};
+
+#[cfg(not(any(unix, windows)))]
+fn unsupported_confined<T>() -> Result<T, StoreError> {
+    Err(StoreError::InvalidPath(
+        "secure confined filesystem operations are unsupported on this platform".into(),
+    ))
 }
 
-#[cfg(not(unix))]
-pub(crate) fn confined_remove(root: &Path, rel: &Path) -> Result<(), StoreError> {
-    let path = root.join(rel);
-    if std::fs::canonicalize(&path)?.starts_with(std::fs::canonicalize(root)?) {
-        std::fs::remove_file(path)?;
-        return Ok(());
-    }
-    Err(StoreError::InvalidPath("path escapes store root".into()))
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn confined_write(_: &Path, _: &Path, _: &[u8]) -> Result<(), StoreError> {
+    unsupported_confined()
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn confined_replace(_: &Path, _: &Path, _: &[u8]) -> Result<(), StoreError> {
+    unsupported_confined()
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn confined_read(_: &Path, _: &Path) -> Result<Vec<u8>, StoreError> {
+    unsupported_confined()
+}
+
+#[cfg(not(any(unix, windows)))]
+pub(crate) fn confined_remove(_: &Path, _: &Path) -> Result<(), StoreError> {
+    unsupported_confined()
 }
 
 /// Map a logical `pass`-style name to a relative path (no extension).
