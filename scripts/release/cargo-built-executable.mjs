@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 /** Read `cargo build --message-format=json-render-diagnostics` from stdin; print the built bin path. */
 
+import { createInterface } from "node:readline";
+
 const binName = process.argv[2];
 if (!binName) {
   console.error("usage: cargo-built-executable.mjs <bin-name>");
   process.exit(2);
 }
 
-const lines = [];
-for await (const chunk of process.stdin) {
-  lines.push(...chunk.toString().split("\n"));
-}
-
 const artifacts = [];
-for (const line of lines) {
+const rl = createInterface({ input: process.stdin });
+for await (const line of rl) {
   const trimmed = line.trim();
   if (!trimmed) continue;
   let message;
