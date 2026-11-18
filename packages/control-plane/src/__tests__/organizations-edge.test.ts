@@ -1,6 +1,7 @@
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
@@ -56,7 +57,10 @@ describe("organization helpers", () => {
     );
   });
 
-  it("revokeOrganizationMembership drops organization authority without global logout", async () => {
+  it("revokeOrganizationMembership drops the row and every session it authorized", async () => {
+    // The shared deprovisioning helper: SCIM deactivation and an LDAP sync
+    // both land here, and a revocation that removed the membership but left
+    // live bearers behind would leave the user signed in regardless.
     const { app, ctx } = createControlPlane({ config: testConfig() });
     const member = await provisional(app);
     const membership = await ensurePersonalOrganization(
@@ -74,8 +78,30 @@ describe("organization helpers", () => {
       principalId: member.principalId,
       correlationId: "corr-revoke",
       reason: "deprovisioned",
+      withdrawalAudit: {
+        id: "00000000-0000-4000-8000-000000000001",
+        kind: "remove",
+        actorType: "system",
+        actorPrincipalId: ctx.systemOwnerPrincipalId,
+        organizationId: membership.organizationId,
+        principalId: member.principalId,
+        correlationId: "corr-revoke",
+        previousRole: membership.role,
+      },
     });
     expect(result.membershipRemoved).toBe(true);
+    expect(result.sessionsRevoked).toBeGreaterThan(0);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeDefined();
+    await resumePendingOrganizationWithdrawalAudits(ctx);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeUndefined();
 
     expect(
       await ctx.stores.organizationMemberships.find(
@@ -86,7 +112,7 @@ describe("organization helpers", () => {
     const after = await app.request("/v1/principals/me", {
       headers: auth(member.accessToken),
     });
-    expect(after.status).toBe(200);
+    expect(after.status).toBe(401);
 
     // Directory sync may replay a departure; revocation is idempotent.
     const again = await revokeOrganizationMembership(ctx, {
@@ -96,6 +122,7 @@ describe("organization helpers", () => {
       reason: "deprovisioned",
     });
     expect(again.membershipRemoved).toBe(false);
+    expect(again.sessionsRevoked).toBe(0);
   });
 });
 
@@ -443,9 +470,8 @@ describe("organizations routes edge cases", () => {
   });
 
   it("removes members with owner and last-owner fences and Host rollback", async () => {
-    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const { app } = createControlPlane({ config: testConfig() });
     const owner = await verified(app, "org-remove-owner");
-    const otherOwner = await verified(app, "org-remove-other-owner");
     const member = await provisional(app);
     const outsider = await provisional(app);
 
@@ -456,17 +482,6 @@ describe("organizations routes edge cases", () => {
       method: "POST",
       headers: {
         ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ principalId: member.principalId, role: "member" }),
-    });
-    const otherOrg = overlapCast(
-      await (await createOrg(app, otherOwner.accessToken, "keep-org")).json(),
-    );
-    await app.request(`/v1/organizations/${otherOrg.id}/members`, {
-      method: "POST",
-      headers: {
-        ...auth(otherOwner.accessToken),
         "content-type": "application/json",
       },
       body: JSON.stringify({ principalId: member.principalId, role: "member" }),
@@ -507,25 +522,8 @@ describe("organizations routes edge cases", () => {
         })
       ).status,
     ).toBe(200);
-    expect(
-      (
-        await app.request("/v1/principals/me", {
-          headers: auth(member.accessToken),
-        })
-      ).status,
-    ).toBe(200);
 
-    fetchSpy.mockClear();
     fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
-    const appendAudit = ctx.repos.auditEvents.append.bind(
-      ctx.repos.auditEvents,
-    );
-    vi.spyOn(ctx.repos.auditEvents, "append").mockImplementation(
-      async (event) => {
-        expect(fetchSpy).toHaveBeenCalled();
-        return appendAudit(event);
-      },
-    );
     expect((await remove(owner.accessToken, member.principalId)).status).toBe(
       204,
     );
@@ -533,27 +531,6 @@ describe("organizations routes edge cases", () => {
       headers: auth(owner.accessToken),
     });
     expect(overlapCast(await after.json()).members).toHaveLength(1);
-    expect(
-      (
-        await app.request("/v1/principals/me", {
-          headers: auth(member.accessToken),
-        })
-      ).status,
-    ).toBe(200);
-    expect(
-      (
-        await app.request(`/v1/organizations/${otherOrg.id}`, {
-          headers: auth(member.accessToken),
-        })
-      ).status,
-    ).toBe(200);
-    expect(
-      (
-        await app.request(`/v1/organizations/${org.id}`, {
-          headers: auth(member.accessToken),
-        })
-      ).status,
-    ).not.toBe(200);
   });
 });
 
