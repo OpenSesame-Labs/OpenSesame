@@ -41,6 +41,12 @@ const suites = [
     vectors: 6144,
   },
   {
+    name: "interaction-clock",
+    model: "InteractionClock.lean",
+    first: "live_refines_policy",
+    vectors: 36,
+  },
+  {
     name: "oauth",
     model: "PendingIntegrity.lean",
     first: "current_message_binds_payload",
