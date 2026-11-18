@@ -29,8 +29,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::envelope::{open_osseal_in, seal_osseal_in, COLLECTION_ATTACHMENTS};
 use crate::git::auto_commit;
-use crate::path::{confined_read, confined_remove, confined_write, logical_to_relative};
+use crate::path::{
+    confined_atomic_write, confined_read, confined_remove, confined_write, logical_to_relative,
+};
 use crate::{StoreError, StoreRoot};
+
+#[path = "attachment_recovery.rs"]
+mod recovery;
+use recovery::parse_attachment_manifest;
 
 /// Plaintext bytes per chunk. Sealed, a chunk costs 48 bytes more than this —
 /// far below the 100 MB per-file ceiling a git remote will accept.
@@ -39,7 +45,7 @@ pub const CHUNK_PLAINTEXT_BYTES: usize = 1_048_576;
 /// Hard ceiling on one attachment (1 GiB, so at most 1024 chunks).
 pub const MAX_ATTACHMENT_BYTES: u64 = 1 << 30;
 
-/// Local anti-rollback state for manifests. Kept separate from the entry
+/// Local revision state for manifests. Kept separate from the entry
 /// revision map so an attachment name can never collide with an entry name.
 pub const ATTACHMENT_REVISION_FILE: &str = ".opensesame-attachment-revisions.json";
 
@@ -201,46 +207,49 @@ impl StoreRoot {
         if !path.exists() {
             return Ok(BTreeMap::new());
         }
-        serde_json::from_slice(&confined_read(
+        let raw = serde_json::from_slice(&confined_read(
             &self.path,
             Path::new(ATTACHMENT_REVISION_FILE),
         )?)
-        .map_err(|e| StoreError::Crypto(format!("invalid attachment revision state: {e}")))
+        .map_err(|e| StoreError::Crypto(format!("invalid attachment revision state: {e}")))?;
+        Ok(crate::store::normalize_revisions(raw))
+    }
+
+    fn attachment_revision(&self, name: &str) -> Result<Option<u64>, StoreError> {
+        crate::store::revision_for(&self.attachment_revisions()?, name)
     }
 
     fn record_attachment_revision(&self, name: &str, revision: u64) -> Result<(), StoreError> {
         let mut revisions = self.attachment_revisions()?;
-        revisions.insert(name.to_string(), revision);
+        crate::store::set_revision(&mut revisions, name, revision)?;
         let bytes = serde_json::to_vec(&revisions)
             .map_err(|e| StoreError::Crypto(format!("attachment revision state: {e}")))?;
-        confined_write(&self.path, Path::new(ATTACHMENT_REVISION_FILE), &bytes)
+        confined_atomic_write(&self.path, Path::new(ATTACHMENT_REVISION_FILE), &bytes)
     }
 
     fn next_attachment_revision(&self, name: &str) -> Result<u64, StoreError> {
-        let current = self
-            .attachment_revisions()?
-            .get(name)
-            .copied()
-            .unwrap_or_else(|| {
-                // No local record. Fall back to what the stored manifest claims
-                // so a fresh clone keeps counting up rather than restarting.
-                self.stored_attachment_revision(name).unwrap_or(0)
-            });
+        let current = match self.attachment_revision(name)? {
+            Some(revision) => revision,
+            None => {
+                let rel = attach_relative(name)?;
+                if self.path.join(&rel).exists() {
+                    // No local record on a fresh clone: continue from the
+                    // existing header, but fail rather than silently treat a
+                    // malformed or unreadable manifest as revision zero.
+                    let blob = confined_read(&self.path, &rel)?;
+                    crate::envelope::envelope_revision(&blob)?
+                } else {
+                    0
+                }
+            }
+        };
         let next = current
             .checked_add(1)
             .ok_or_else(|| StoreError::Crypto("attachment revision exhausted".into()))?;
-        // Advance trusted local state before replacing ciphertext, so a crash
-        // can never leave an older manifest valid.
+        // Advance local state before replacing ciphertext. This counter is not
+        // independently witnessed and can itself be rolled back or removed.
         self.record_attachment_revision(name, next)?;
         Ok(next)
-    }
-
-    /// Revision recorded inside a stored manifest's associated data, read
-    /// without a key (the AD travels in cleartext beside the ciphertext).
-    fn stored_attachment_revision(&self, name: &str) -> Option<u64> {
-        let rel = attach_relative(name).ok()?;
-        let blob = confined_read(&self.path, &rel).ok()?;
-        crate::envelope::envelope_revision(&blob).ok()
     }
 
     /// Seal `source` into chunk objects plus a manifest filed at `name`.
@@ -358,7 +367,7 @@ impl StoreRoot {
         let plaintext = serde_json::to_vec(&manifest)
             .map_err(|e| StoreError::Crypto(format!("manifest encode: {e}")))?;
         let sealed = seal_osseal_in(COLLECTION_ATTACHMENTS, &plaintext, key, name, revision)?;
-        confined_write(&self.path, &rel, &sealed)?;
+        confined_atomic_write(&self.path, &rel, &sealed)?;
 
         auto_commit(&self.path, crate::store::COMMIT_ATTACH)?;
         Ok(summary_of(name, &manifest))
@@ -376,30 +385,9 @@ impl StoreRoot {
         let blob = confined_read(&self.path, &rel)?;
         // A locally recorded revision pins the expected value; without one we
         // accept what the blob claims, exactly as entries do on a fresh clone.
-        let expected = self.attachment_revisions()?.get(name).copied();
+        let expected = self.attachment_revision(name)?;
         let opened = open_osseal_in(COLLECTION_ATTACHMENTS, &blob, key, name, expected)?;
-        let manifest: AttachmentManifest = serde_json::from_slice(&opened.plaintext)
-            .map_err(|e| StoreError::Crypto(format!("invalid manifest: {e}")))?;
-        if manifest.format != MANIFEST_FORMAT {
-            return Err(StoreError::Crypto(format!(
-                "unsupported manifest format {}",
-                manifest.format
-            )));
-        }
-        let chunk_count = usize::try_from(manifest.chunk_count).map_err(|_| {
-            StoreError::Crypto("manifest chunk count exceeds platform capacity".into())
-        })?;
-        if manifest.chunks.len() != chunk_count {
-            return Err(StoreError::Crypto("manifest chunk count mismatch".into()));
-        }
-        if manifest.filename.len() > MAX_FILENAME_BYTES {
-            return Err(StoreError::Crypto("manifest filename too long".into()));
-        }
-        let declared: u64 = manifest.chunks.iter().map(|c| c.pt_bytes).sum();
-        if declared != manifest.total_bytes {
-            return Err(StoreError::Crypto("manifest size mismatch".into()));
-        }
-        Ok(manifest)
+        parse_attachment_manifest(&opened.plaintext)
     }
 
     /// Reassemble an attachment into `sink`.
@@ -506,20 +494,14 @@ impl StoreRoot {
     /// an object is orphaned, or the Git auto-commit fails.
     pub fn attach_rm(&self, name: &str, key: &ItemDataKey) -> Result<(), StoreError> {
         let rel = attach_relative(name)?;
+        let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
         if !self.path.join(&rel).exists() {
             return Err(StoreError::NotFound(name.into()));
         }
-        let _lock = crate::store_lock::StoreLock::shared(&self.path)?;
+        // Advance the local counter before unlink, including when this clone
+        // has no sidecar yet. Retrying is safe if unlink is interrupted.
+        self.next_attachment_revision(name)?;
         confined_remove(&self.path, &rel)?;
-        // Leave a tombstone revision so the manifest we just dropped cannot be
-        // restored from history and still validate.
-        let next = self
-            .attachment_revisions()?
-            .get(name)
-            .copied()
-            .unwrap_or(0)
-            .saturating_add(1);
-        self.record_attachment_revision(name, next)?;
         self.collect_garbage(key)?;
         auto_commit(&self.path, crate::store::COMMIT_DETACH)?;
         Ok(())
@@ -532,7 +514,7 @@ impl StoreRoot {
     /// Returns an error when any manifest cannot be authenticated, object
     /// discovery or removal fails, or the Git auto-commit fails.
     pub fn attach_gc(&self, key: &ItemDataKey) -> Result<GcOutcome, StoreError> {
-        let _lock = crate::store_lock::StoreLock::shared(&self.path)?;
+        let _lock = crate::store_lock::StoreLock::key_file_edit(&self.path)?;
         let outcome = self.collect_garbage(key)?;
         if outcome.removed > 0 {
             auto_commit(&self.path, "GC attachments")?;
@@ -735,6 +717,10 @@ pub(crate) fn hex_to_bytes(hex: &str, out: &mut [u8; 16]) -> Result<(), StoreErr
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "attachment_revision_tests.rs"]
+mod revision_tests;
 
 #[cfg(test)]
 #[path = "attachment_inventory_tests.rs"]

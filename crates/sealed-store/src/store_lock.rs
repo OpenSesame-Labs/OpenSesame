@@ -7,9 +7,10 @@
 //!
 //! - rotation holds an **exclusive** lock on `.opensesame-lock` for its whole
 //!   run, and refuses to start while any writer holds it;
-//! - every ordinary write holds a **shared** lock for its own duration, refuses
-//!   (never blocks) while a rotation holds the exclusive one, and refuses while
-//!   `.opensesame-rotation/` exists (a rotation is running or was interrupted);
+//! - mutations of the revision maps hold an **exclusive** lock for their own
+//!   duration. This serializes their read-modify-write operations with each
+//!   other, older shared-lock writers, and rotation; it refuses (never blocks)
+//!   while the lock is held or `.opensesame-rotation/` exists;
 //! - a write that seals under the root first proves its key is the store's
 //!   current root (the key file's manifest MAC), so a key unlocked before a
 //!   rotation cannot write under the old root after it.
@@ -132,7 +133,7 @@ impl StoreLock {
         Ok(lock)
     }
 
-    /// A write that seals `name` under `key`: [`Self::shared`], plus a refusal
+    /// A write that seals `name` under `key`: an exclusive mutation lock, plus a refusal
     /// of reserved locations and of a key that is not the store's current root.
     pub(crate) fn for_sealing(
         root: &Path,
@@ -163,7 +164,10 @@ impl StoreLock {
         key: Option<&ItemDataKey>,
     ) -> Result<Self, StoreError> {
         refuse_reserved_name(name)?;
-        let lock = Self::shared(root)?;
+        // Writers update a shared revision map as well as their individual
+        // files. Shared locks would permit two read-modify-write operations to
+        // overwrite each other's revisions.
+        let lock = Self::key_file_edit(root)?;
         if let Some(key) = key {
             ensure_current_root(root, key)?;
         } else if root.join(KEY_FILE_NAME).exists() {

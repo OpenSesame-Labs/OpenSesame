@@ -3,8 +3,8 @@
 use zeroize::Zeroizing;
 
 use super::{
-    auto_commit, confined_read, confined_write, ItemDataKey, StoreError, StoreLock, StoreRoot,
-    COMMIT_REBIND,
+    auto_commit, confined_atomic_write, confined_read, ItemDataKey, StoreError, StoreLock,
+    StoreRoot, COMMIT_REBIND,
 };
 use crate::envelope::{open_legacy_for_trusted_migration, seal_osseal};
 
@@ -29,9 +29,7 @@ impl StoreRoot {
         let original = confined_read(&self.path, &rel)?;
         let plaintext = Zeroizing::new(open_legacy_for_trusted_migration(&original, key)?);
         let revision = self
-            .revisions()?
-            .get(name)
-            .copied()
+            .revision(name)?
             .unwrap_or(0)
             .checked_add(1)
             .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
@@ -40,7 +38,7 @@ impl StoreRoot {
         // requires another explicitly trusted migration; it never opens
         // through the ordinary reader.
         self.record_revision(name, revision)?;
-        confined_write(&self.path, &rel, &sealed)?;
+        confined_atomic_write(&self.path, &rel, &sealed)?;
         auto_commit(&self.path, COMMIT_REBIND)?;
         Ok(())
     }
