@@ -1,7 +1,9 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import packageManifest from "../../../package.json";
 import {
   ENTRA_SCOPES,
+  MSAL_BROWSER_VERSION,
   acquireEntraSilent,
   entraJwksUri,
   entraSeams,
@@ -29,6 +31,12 @@ describe("entra adapter", () => {
     entraSeams.loadSdk = async () => {
       throw new Error("reset");
     };
+  });
+
+  it("reports the installed MSAL version pinned by the workspace", () => {
+    expect(MSAL_BROWSER_VERSION).toBe(
+      packageManifest.dependencies["@azure/msal-browser"],
+    );
   });
 
   it("PROVIDER-SCOPES: requests openid only, never Graph", () => {
