@@ -117,6 +117,23 @@ describe("KDBX AES work screen", () => {
     expect(() => checkAesKdfBudget(long)).toThrow(/header/);
   });
 
+  it("distinguishes unsupported database versions from malformed headers", async () => {
+    const unsupported = new Uint8Array([...magic, ...u16(1), ...u16(5)]);
+    await expect(
+      keepassKdbx.parse({
+        fileName: "future.kdbx",
+        bytes: unsupported,
+        password: "test",
+        text: "",
+        headers: null,
+        json: null,
+      }),
+    ).rejects.toThrow(/version is not supported/);
+    expect(() => checkAesKdfBudget(unsupported.subarray(0, 11))).toThrow(
+      /header/,
+    );
+  });
+
   it.each([v3(1n << 40n), v4(0x05, u64(1n << 40n))])(
     "rejects hostile rounds through the public importer before decryption",
     async (bytes) => {

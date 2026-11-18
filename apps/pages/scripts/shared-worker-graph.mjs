@@ -4,6 +4,10 @@ import { basename, dirname, extname, resolve } from "node:path";
 import ts from "typescript";
 import { searchForWorkspaceRoot, transformWithEsbuild } from "vite";
 import { bitwardenWorkerAssets } from "./bitwarden-worker-assets.mjs";
+import {
+  combineWorkerAssets,
+  kdbxWorkerAssets,
+} from "./kdbx-worker-assets.mjs";
 import { workerRealmSource } from "./lib/capability-graph.mjs";
 import { chunkName, installChunkName } from "./lib/code-splitting.mjs";
 import {
@@ -333,7 +337,10 @@ export function sharedWorkerGraph({ workers } = {}) {
       return emittedChunks.get(fileName);
     },
     buildStart() {
-      sdk = bitwardenWorkerAssets(plans);
+      sdk = combineWorkerAssets(
+        bitwardenWorkerAssets(plans),
+        kdbxWorkerAssets(plans),
+      );
       pureRoots.clear();
       minted.clear();
       refs.clear();

@@ -116,7 +116,10 @@ export function checkAesKdfBudget(bytes: Uint8Array): void {
   cursor.take(8);
   cursor.u16(); // minor version
   const major = cursor.u16();
-  if (major !== 3 && major !== 4) malformed();
+  if (major !== 3 && major !== 4)
+    throw new KdbxImportError(
+      "This KeePass database version is not supported.",
+    );
   let dictionarySeen = false;
   while (true) {
     const field = cursor.u8();

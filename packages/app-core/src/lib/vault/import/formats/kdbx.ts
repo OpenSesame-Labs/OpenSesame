@@ -53,7 +53,7 @@ import {
 } from "../types.js";
 import { checkAesKdfBudget } from "./kdbx-aes-kdf-budget.js";
 import { KdbxImportError, cappedArgon2Impl } from "./kdbx-argon2.js";
-import { isolatedArgon2 } from "./kdbx-argon2-worker-client.js";
+import { isolatedArgon2, withKdbxLoad } from "./kdbx-argon2-worker-client.js";
 
 export { KdbxImportError };
 
@@ -188,9 +188,7 @@ function wholeNumber(raw: string | undefined, fallback: number): number {
 }
 
 function isoOf(value: Date | undefined): string | null {
-  return value !== undefined && !Number.isNaN(value.getTime())
-    ? value.toISOString()
-    : null;
+  return value && !Number.isNaN(value.getTime()) ? value.toISOString() : null;
 }
 
 type MappedEntry = { item: DraftItem | null; skipped: SkippedRecord | null };
@@ -321,7 +319,9 @@ export const keepassKdbx: BinaryImportAdapter = {
 
     let db: Awaited<ReturnType<typeof kdbxweb.Kdbx.load>>;
     try {
-      db = await kdbxweb.Kdbx.load(buffer, credentials);
+      db = await withKdbxLoad(input.signal, () =>
+        kdbxweb.Kdbx.load(buffer, credentials),
+      );
     } catch (caught) {
       if (caught instanceof KdbxImportError) throw caught;
       if (
