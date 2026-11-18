@@ -5,15 +5,18 @@ import type {
 } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { actorId, organizationId } from "../lib/ids.js";
-import { type OrgLiveness, orgOwner } from "../proofs/org-owner.js";
+import {
+  type OrgLiveness,
+  activeOrgOwner,
+  orgOwner,
+} from "../proofs/org-owner.js";
 import { createAppStores } from "../state.js";
 
 const NOW = new Date("2026-01-01T00:00:00Z");
 
-async function verdictFor(
+async function ownerStores(
   state: OrganizationState,
   role: OrganizationRole | undefined,
-  liveness: OrgLiveness,
 ) {
   const stores = createAppStores();
   await stores.organizations.set("org:a", {
@@ -34,27 +37,45 @@ async function verdictFor(
       updatedAt: NOW,
     });
   }
+  return stores;
+}
+
+async function verdictFor(
+  state: OrganizationState,
+  role: OrganizationRole | undefined,
+  liveness: OrgLiveness,
+) {
+  const stores = await ownerStores(state, role);
   return name(actorId("prn_1"), organizationId("org:a"), (actor, org) =>
     orgOwner(stores, actor, org, liveness),
   );
 }
 
 /**
- * The three liveness readings are not one rule, and they must stay what each
- * call site always did: collapsing them would change who may manage a
- * suspended, provisional or deleted organization (ADR 0178).
+ * Administrative repair and provisioning authority deliberately have distinct
+ * liveness requirements (ADR 0178).
  */
 const MATRIX: ReadonlyArray<[OrganizationState, Record<OrgLiveness, boolean>]> =
   [
-    ["active", { not_deleted: true, active: true, unchecked: true }],
-    ["provisional", { not_deleted: true, active: false, unchecked: true }],
-    ["suspended", { not_deleted: true, active: false, unchecked: true }],
-    ["deleted", { not_deleted: false, active: false, unchecked: true }],
+    ["active", { not_deleted: true, active: true }],
+    ["provisional", { not_deleted: true, active: false }],
+    ["suspended", { not_deleted: true, active: false }],
+    ["deleted", { not_deleted: false, active: false }],
   ];
 
 describe("orgOwner proof", () => {
   for (const [state, expected] of MATRIX) {
-    for (const liveness of ["not_deleted", "active", "unchecked"] as const) {
+    it(`checks ${state} organizations when minting active-owner proof`, async () => {
+      const stores = await ownerStores(state, "owner");
+      const verdict = await name(
+        actorId("prn_1"),
+        organizationId("org:a"),
+        (actor, org) => activeOrgOwner(stores, actor, org),
+      );
+      expect(verdict.ok).toBe(expected.active);
+      if (verdict.ok) expect(verdict.proof.kind).toBe("ActiveOrgOwner");
+    });
+    for (const liveness of ["not_deleted", "active"] as const) {
       it(`an owner of a ${state} organization is ${
         expected[liveness] ? "proven" : "refused 404"
       } under '${liveness}'`, async () => {
@@ -96,7 +117,7 @@ describe("orgOwner proof", () => {
     const verdict = await name(
       actorId("prn_1"),
       organizationId("org:missing"),
-      (actor, org) => orgOwner(stores, actor, org, "unchecked"),
+      (actor, org) => orgOwner(stores, actor, org, "active"),
     );
     expect(verdict).toEqual({ ok: false, status: 404, error: "not_found" });
   });
