@@ -118,6 +118,7 @@ pub struct RevokeSessionsRequest {
     withdrawal_id: String,
 }
 
+#[cfg(test)]
 fn revoke_matching_sessions(
     sessions: &mut HashMap<String, HostSessionClaims>,
     principal_id: &str,
@@ -136,11 +137,10 @@ fn revision_matches(
     incarnation: &str,
     revision: &str,
 ) -> bool {
-    actual.is_some_and(|actual| {
-        actual.incarnation == incarnation && actual.revision == revision
-    })
+    actual.is_some_and(|actual| actual.incarnation == incarnation && actual.revision == revision)
 }
 
+#[cfg(test)]
 fn revoke_pending_authorizations(
     pending: &mut HashMap<String, crate::app_state::DevicePending>,
     principal_id: &str,
