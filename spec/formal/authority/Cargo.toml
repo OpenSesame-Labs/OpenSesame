@@ -1,0 +1,15 @@
+[package]
+name = "opensesame-formal-authority"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+chrono = "=0.4.45"
+opensesame-domain = { path = "../../../crates/domain" }
+
+[[bin]]
+name = "authority-conformance"
+path = "conformance.rs"

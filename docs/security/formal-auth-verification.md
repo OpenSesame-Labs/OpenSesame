@@ -1,7 +1,7 @@
 # Formal authentication and authorization verification
 
 This register connects security requirements to their implementation, formal
-model, and checks. The present Lean coverage consists of bounded slices of the Identity API. It is not a
+model, and checks. The present Lean coverage consists of bounded slices of the Identity API and Host. It is not a
 proof of OpenSesame's complete authentication or authorization system. Update this register whenever the covered behavior changes or a new
 formal property is introduced.
 
@@ -122,8 +122,8 @@ claim of exhaustive inventory or Lean coverage:
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance, and matching current trust. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
-| DPoP proof validation. RFC 9449. | [`validator.rs`](../../crates/proof/src/validator.rs). | Not modeled by this suite. |
-| Grant validity and delegation. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs). | A separate Kani harness checks a bounded interval case; this suite does not prove grant behavior. |
+| DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
+| Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits
