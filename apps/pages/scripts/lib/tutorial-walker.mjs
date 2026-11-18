@@ -31,13 +31,25 @@ function hasUsableFocus() {
   )
     return false;
   const box = element.getBoundingClientRect();
-  const style = getComputedStyle(element);
-  return (
-    box.width > 0 &&
-    box.height > 0 &&
-    style.display !== "none" &&
-    style.visibility !== "hidden"
-  );
+  if (box.width <= 0 || box.height <= 0) return false;
+  for (let node = element; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      style.opacity === "0" ||
+      node.hidden ||
+      node.hasAttribute("inert") ||
+      node.getAttribute("aria-hidden") === "true"
+    )
+      return false;
+  }
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
+  const hit = document.elementFromPoint(x, y);
+  return hit !== null && (element.contains(hit) || hit.contains(element));
 }
 
 /** Back goes back, and Replay begins again; then Done, and where focus went. */
