@@ -35,7 +35,7 @@ npm install pele@1.9.0 --prefix "$HOME/pele-render" && NODE_PATH="$HOME/pele-ren
 | `packages/app-core/src/lib/vault/store-unlock-session.ts` | `StoreUnlockSession.activate` (set the key, then clear the parked key, then publish), `requireTrusted` (clear the parked key, then open or publish the circle), `confirmTrusted`, `reset`, `cancel`, and `arm` (expiry calls `cancel`, which calls `lock`) |
 | `packages/app-core/src/lib/vault/store.ts` | `lock` and `#clearLockedSessionState`; `#afterPrimaryUnwrap`; `unlock`, `unlockWithPin`, and `#openWithRaw`; `confirmTotp` (through `finishSecondStepUnlock`); `createGuest` on an empty device; `#persistNewVault` |
 
-Sync commit: `0012a25d37f70ab5b1323e6ba68dd645466a5389`
+Sync commit: `ed4a8e61af81e227417b334a72329d49731feeca`
 
 That commit is the product code this model was checked against. The files above match it. Move the sync commit forward only after you have confirmed the model still describes those files. A later commit that does not touch them does not need a new sync. Use `/maintain-formal-verification-skill` when the code moves and this check was not rerun.
 

@@ -12,6 +12,7 @@ import {
   proofShot,
 } from "../../../scripts/ci/pwa-profile-proof-capture.mjs";
 import { findChromium } from "./duress/find-chromium.mjs";
+import { bundle } from "./lib/local-iam-rig.mjs";
 import { PIN, sealWithPin } from "./lib/pages-journey.mjs";
 import {
   createHarness,
@@ -71,6 +72,12 @@ export async function captureConsentActivationTiming({
     base: BASE,
     out: outDir,
   });
+  const timingFixture = await bundle(
+    fileURLToPath(
+      new URL("./fixtures/local-iam-consent-timing.ts", import.meta.url),
+    ),
+    "LocalIamConsentTiming",
+  );
   try {
     const { page } = await harness.newPage(browser, {
       passthrough: [server.origin],
@@ -87,23 +94,30 @@ export async function captureConsentActivationTiming({
     await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20_000 });
     await page.getByLabel("PIN", { exact: true }).fill(PIN);
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
+    const redirectUri = `${server.origin}/callback`;
+    await page.addScriptTag({ content: timingFixture });
+    const identities = await page.evaluate(async (redirect) => {
+      if (!globalThis.LocalIamConsentTiming)
+        throw new Error("consent timing fixture did not load");
+      return globalThis.LocalIamConsentTiming.registerConsentTimingApplication(
+        redirect,
+      );
+    }, redirectUri);
     const authorize = new URL(`${server.origin}${BASE}identity/authorize`);
     authorize.search = new URLSearchParams({
-      client_id: "local_00000000-0000-4000-8000-000000000001",
-      redirect_uri: `${server.origin}/callback`,
+      client_id: identities.app,
+      redirect_uri: redirectUri,
       scope: "openid",
       state: "s".repeat(43),
       nonce: "n".repeat(43),
       code_challenge: "c".repeat(43),
       code_challenge_method: "S256",
     }).toString();
-    await page.evaluate(async (next) => {
+    await page.evaluate((next) => {
       const url = new URL(next);
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
       window.dispatchEvent(new PopStateEvent("popstate"));
-      await new Promise((resolve) => setTimeout(resolve, 0));
     }, authorize.href);
-    await page.waitForTimeout(0);
     const pre = await sampleConsent(page);
     await page.screenshot({
       path: join(outDir, `${label}-pre-activation.png`),

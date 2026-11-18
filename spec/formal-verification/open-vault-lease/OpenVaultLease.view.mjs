@@ -2,6 +2,12 @@
 
 export const state = (v) => {
   if (v.exclusiveOk) return "destroy allowed";
+  if (v.lockHeld > 0) {
+    if (v.count === 0) {
+      return `${v.lockHeld} lock(s) still held after release`;
+    }
+    return `${v.count} tab(s) open, ${v.lockHeld} lock(s) held`;
+  }
   if (v.count > 0 && v.releasing > 0) {
     return `${v.live + v.releasing} tab(s) open, ${v.releasing} releasing`;
   }
