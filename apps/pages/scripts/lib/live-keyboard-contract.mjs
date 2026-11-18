@@ -118,7 +118,10 @@ async function ownerEnters(page, { origin, base, tabTo, width }) {
   await page.keyboard.press("Enter");
   await expect(page.locator("form.editor")).toHaveCount(0);
   // Escape returns to the listing; a phone also leaves the item's own route.
-  // Await that navigation before sending the Settings section chord.
+  // The editor can unmount before the saved detail finishes mounting. Wait
+  // for that pane's focus before sending a key, just as a person must wait
+  // for the destination to be ready, and verify the arrival along the way.
+  if (width < 600) await expect(page.locator(".vault__detail")).toBeFocused();
   await page.keyboard.press("Escape");
   if (width < 600) await expect(page).toHaveURL(/\/vault(?:\?[^#]*)?$/);
   await expect(
