@@ -62,6 +62,30 @@ theorem expired_activation_blocks_final_approval
     finalApproval interactionDeadline activationDeadline now = false := by
   simp [finalApproval, expired_at_sample_denied activationDeadline now expired]
 
+/--
+Settlement is admitted only when the interaction is live at every sample taken
+between awaited transactional stages. Database commit atomicity is outside this
+model; each argument is an application-clock observation.
+-/
+def finalSettlement
+    (deadline consumed reservation dispatched identity committed effect : Instant) : Bool :=
+  liveAt deadline consumed &&
+    (liveAt deadline reservation &&
+      (liveAt deadline dispatched &&
+        (liveAt deadline identity &&
+          (liveAt deadline committed && liveAt deadline effect))))
+
+theorem settlement_requires_every_stage_live
+    (deadline consumed reservation dispatched identity committed effect : Instant) :
+    finalSettlement deadline consumed reservation dispatched identity committed effect = true ↔
+      policy deadline consumed ∧
+      policy deadline reservation ∧
+      policy deadline dispatched ∧
+      policy deadline identity ∧
+      policy deadline committed ∧
+      policy deadline effect := by
+  simp [finalSettlement, live_refines_policy]
+
 def instants : List Instant :=
   [⟨false, 0⟩, ⟨true, -8640000000000000⟩, ⟨true, -1⟩,
    ⟨true, 0⟩, ⟨true, 1⟩, ⟨true, 8640000000000000⟩]

@@ -43,7 +43,7 @@ import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { claimPageSecurityHeaders } from "../middleware/security-headers.js";
 import { approverMayBeAsked } from "../services/interaction-approver-guard.js";
-import { decideAtLiveTime, liveNow } from "../services/interaction-clock.js";
+import { decideAtLiveTime } from "../services/interaction-clock.js";
 import {
   actorTypeFromProof,
   consumeAndSettle,
@@ -897,7 +897,7 @@ export function createInteractionHandoffRoutes(): Hono<{
 
     try {
       const saved = await ctx.repos.transaction(async (uow) =>
-        consumeAndSettle(ctx, row, liveNow(ctx, row), uow),
+        consumeAndSettle(ctx, row, uow),
       );
       await drainConsumedSettlement(ctx, saved, c.get("correlationId"));
       await ctx.repos.outbox.markPublished(saved.command.id);
