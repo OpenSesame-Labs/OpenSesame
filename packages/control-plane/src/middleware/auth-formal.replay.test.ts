@@ -34,4 +34,27 @@ describe("control plane session formal replay", () => {
     const resolved = await resolveProvisionalSession(ctx, body.accessToken);
     expect(resolved).toBeUndefined();
   });
+
+  it("does not resolve an expired provisional session", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const mint = await app.request("/v1/principals/provisional", {
+      method: "POST",
+      headers: { "user-agent": "formal-replay" },
+    });
+    expect(mint.status).toBe(201);
+    const body = (await mint.json()) as {
+      accessToken: string;
+      sessionId: string;
+    };
+    const session = await ctx.stores.provisionalSessions.get(body.sessionId);
+    expect(session).toBeDefined();
+    if (session) {
+      await ctx.stores.provisionalSessions.set(body.sessionId, {
+        ...session,
+        expiresAt: new Date(ctx.clock().getTime() - 1_000),
+      });
+    }
+    const resolved = await resolveProvisionalSession(ctx, body.accessToken);
+    expect(resolved).toBeUndefined();
+  });
 });

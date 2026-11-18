@@ -45,6 +45,11 @@ const faultConfigs = {
   "onboarding-recovery/OnboardingRecovery": "OnboardingRecoveryBuggy.cfg",
 };
 
+/** Fault TLC output must name the violated invariant or property. */
+const faultEvidence = {
+  "onboarding-recovery/OnboardingRecovery": "NoUnlockedWhilePending",
+};
+
 function runTlc(dir, configFile, spec, metadata) {
   return spawnSync(
     "java",
@@ -84,11 +89,20 @@ for (const rel of models) {
       faultLog,
       `${fault.stdout ?? ""}\n${fault.stderr ?? ""}\nexit=${fault.status}\n`,
     );
+    const faultOutput = `${fault.stdout ?? ""}${fault.stderr ?? ""}`;
     if (fault.status === 0) {
       console.error(
         `${rel}: fault config ${faultCfg} passed but must fail TLC`,
       );
       process.exitCode = 1;
+    } else {
+      const needle = faultEvidence[rel];
+      if (needle && !faultOutput.includes(needle)) {
+        console.error(
+          `${rel}: fault config ${faultCfg} failed TLC but output lacks ${needle}`,
+        );
+        process.exitCode = 1;
+      }
     }
   }
 }

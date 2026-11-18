@@ -105,8 +105,8 @@ section("control-plane-session", {
     const absolute = join(repo, path);
     const text = readFileSync(absolute, "utf8");
     const broken = text.replace(
-      "session.revokedAt",
-      "/*scratch*/ false && session.revokedAt",
+      "session.expiresAt <= ctx.clock() || session.revokedAt",
+      "/*scratch*/ false && session.expiresAt <= ctx.clock() || session.revokedAt",
     );
     writeFileSync(absolute, broken);
     try {

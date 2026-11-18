@@ -26,15 +26,21 @@ PageGesture ==
 
 NotTopFrame ==
   /\ topFrame' = FALSE
-  /\ UNCHANGED <<gesture, originOn, entryMatch, askValue, writeValue>>
+  /\ askValue' = FALSE
+  /\ writeValue' = FALSE
+  /\ UNCHANGED <<gesture, originOn, entryMatch>>
 
 OriginOff ==
   /\ originOn' = FALSE
-  /\ UNCHANGED <<gesture, topFrame, entryMatch, askValue, writeValue>>
+  /\ askValue' = FALSE
+  /\ writeValue' = FALSE
+  /\ UNCHANGED <<gesture, topFrame, entryMatch>>
 
 EntryMismatch ==
   /\ entryMatch' = FALSE
-  /\ UNCHANGED <<gesture, topFrame, originOn, askValue, writeValue>>
+  /\ askValue' = FALSE
+  /\ writeValue' = FALSE
+  /\ UNCHANGED <<gesture, topFrame, originOn>>
 
 DecideFill ==
   /\ IF /\ gesture /\ topFrame /\ originOn /\ entryMatch
