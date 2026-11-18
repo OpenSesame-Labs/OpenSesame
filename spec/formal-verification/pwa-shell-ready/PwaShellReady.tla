@@ -77,7 +77,7 @@ PlanForPersonal ==
   /\ planVault' = "personal"
   /\ compGen' = compGen + 1
   /\ actGen' = actGen
-  /\ fromNull' = (planVault = "none") \/ fromNull
+  /\ fromNull' = (planVault = "none")
   /\ opened' = opened
   /\ UNCHANGED <<status, vault, timedOut>>
 
@@ -117,11 +117,12 @@ NoShellBeforeActivationOrTimeout ==
     ComputeReady \/ timedOut \/
     (OpenedMatchesVault /\ actGen < compGen /\ ~fromNull)
 
-\* Once the shell has opened for this vault, later plan generations stay mounted.
+\* After the null-plan latch clears, an open shell stays mounted across later generations.
 OpenShellStaysMounted ==
   /\ status = "unlocked"
   /\ OpenedMatchesVault
   /\ planVault = vault
+  /\ ~fromNull
   => ShellMounted
 
 Spec ==
