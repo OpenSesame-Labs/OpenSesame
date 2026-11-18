@@ -10,10 +10,18 @@ import {
   hasControl,
   parseRegistry,
 } from "./formal-proof-push-gate-registry.mjs";
+import {
+  inspectPolicyHistory,
+  selectHistoricalSuites,
+} from "./formal-proof-push-history.mjs";
+import { remoteMain } from "./formal-proof-remote-main.mjs";
+import {
+  registryPath,
+  requirementsPath,
+} from "./formal-proof-required-suites.mjs";
 
 export { assertProofFiles, parseRegistry };
 
-const registryPath = "spec/formal/proof-registry.json";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const objectId = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const zero = (value) => /^0+$/u.test(value);
@@ -161,13 +169,25 @@ function remoteTips(root, remote) {
     ]);
   }
   const tips = new Set();
-  for (const { oid } of advertised) {
+  let main = null;
+  for (const { oid, ref } of advertised) {
     if (!hasObject(root, oid))
       throw new Error("A remote ref changed while inspecting the push; retry.");
     const target = commit(root, oid);
     if (target) tips.add(target);
+    if (ref === "refs/heads/main") {
+      if (!target) throw new Error("The remote main ref is not a commit");
+      main = target;
+    }
   }
-  return [...tips];
+  if (
+    unknown.length &&
+    remoteMain(root, remote, { git, hasObject, commit }) !== main
+  )
+    throw new Error(
+      "The remote main ref changed while inspecting the push; retry.",
+    );
+  return { tips: [...tips], main };
 }
 
 function nonCommitTag(root, remoteRef, oid) {
@@ -181,7 +201,7 @@ function nonCommitTag(root, remoteRef, oid) {
   return type === "blob" || type === "tree";
 }
 
-function changedForUpdate(root, ref, remote, getRemoteTips) {
+function changedForUpdate(root, ref, remote, getRemoteTips, getRemoteMain) {
   if (zero(ref.localOid)) return null;
   const target = commit(root, ref.localOid);
   if (!target) {
@@ -191,9 +211,13 @@ function changedForUpdate(root, ref, remote, getRemoteTips) {
     );
   }
   let bases;
+  let destination = null;
+  let policyBase = null;
   let changed = new Set();
   if (zero(ref.remoteOid)) {
-    bases = getRemoteTips();
+    const remoteState = getRemoteTips();
+    bases = remoteState.tips;
+    policyBase = remoteState.main;
   } else {
     let previous = commit(root, ref.remoteOid);
     if (!previous && !hasObject(root, ref.remoteOid)) {
@@ -216,6 +240,7 @@ function changedForUpdate(root, ref, remote, getRemoteTips) {
     }
     if (previous) {
       bases = [previous];
+      destination = previous;
       changed = pathSet(
         git(root, [
           "diff",
@@ -230,7 +255,9 @@ function changedForUpdate(root, ref, remote, getRemoteTips) {
     } else if (nonCommitTag(root, ref.remoteRef, ref.remoteOid)) {
       // A prior blob/tree tag has no commit history. As for a new ref, use
       // the remote's advertised commit tips to identify incoming commits.
-      bases = getRemoteTips();
+      const remoteState = getRemoteTips();
+      bases = remoteState.tips;
+      policyBase = remoteState.main;
     } else {
       throw new Error(
         `Previous commit for ${ref.remoteRef} is unavailable; fetch and retry`,
@@ -250,23 +277,13 @@ function changedForUpdate(root, ref, remote, getRemoteTips) {
     "--",
   ];
   for (const path of pathSet(git(root, args))) changed.add(path);
-  return { target, changed, bases };
-}
-
-function registryAt(root, revision, required = false) {
-  const entry = git(root, ["ls-tree", "-z", revision, "--", registryPath]);
-  if (!entry.length) {
-    if (required)
-      throw new Error(
-        `Formal proof registry is missing from pushed commit ${revision}`,
-      );
-    return null;
-  }
-  if (!/^100(?:644|755) blob [a-f0-9]+\t/u.test(decoder.decode(entry)))
-    throw new Error(
-      `Formal proof registry in ${revision} is not a regular file`,
-    );
-  return parseRegistry(git(root, ["show", `${revision}:${registryPath}`]));
+  return {
+    target,
+    changed,
+    bases,
+    destination,
+    policyBase: policyBase ?? getRemoteMain(),
+  };
 }
 
 export function planPush(root, refs, remote) {
@@ -280,50 +297,31 @@ export function planPush(root, refs, remote) {
       "A shallow checkout cannot establish all pushed changes. Fetch complete history and retry.",
     );
   let tips;
-  const getTips = () => (tips ??= remoteTips(root, remote));
-  const planned = new Map();
-  const cache = new Map();
-  const getRegistry = (revision, required = false) => {
-    if (!cache.has(revision))
-      cache.set(revision, registryAt(root, revision, required));
-    const registry = cache.get(revision);
-    if (!registry && required)
-      throw new Error(
-        `Formal proof registry is missing from pushed commit ${revision}`,
-      );
-    return registry;
+  let main;
+  let checkedMain = false;
+  const getTips = () => {
+    if (!tips) {
+      tips = remoteTips(root, remote);
+      main = tips.main;
+      checkedMain = true;
+    }
+    return tips;
   };
+  const getMain = () => {
+    if (!checkedMain) {
+      main = remoteMain(root, remote, { git, hasObject, commit });
+      checkedMain = true;
+    }
+    return main;
+  };
+  const planned = new Map();
   const head = commit(root, "HEAD");
-  const currentRegistry = head && getRegistry(head);
   for (const ref of refs) {
-    const change = changedForUpdate(root, ref, remote, getTips);
+    const change = changedForUpdate(root, ref, remote, getTips, getMain);
     if (!change) continue;
-    const targetRegistry = getRegistry(change.target);
-    // Previous mappings remain binding on a change that removes or moves a
-    // registry entry. The committed registries, never dirty files, select.
-    const registries = [
-      targetRegistry,
-      currentRegistry,
-      ...change.bases.map((base) => getRegistry(base)),
-    ].filter(Boolean);
-    const ids = new Set();
-    for (const registry of registries) {
-      for (const suite of registry.suites) {
-        if (suite.implementation.some((path) => change.changed.has(path)))
-          ids.add(suite.id);
-      }
-    }
-    if (!ids.size) continue;
-    const selectedRegistry = getRegistry(change.target, true);
-    const selected = [];
-    for (const id of ids) {
-      const suite = selectedRegistry.suites.find((entry) => entry.id === id);
-      if (!suite)
-        throw new Error(
-          `Pushed commit removes required formal proof suite ${id}; restore the reviewed registry entry`,
-        );
-      selected.push(suite);
-    }
+    const history = inspectPolicyHistory(root, change, head, git);
+    const selected = selectHistoricalSuites(change, history);
+    if (!selected.length) continue;
     const existing = planned.get(change.target) ?? new Map();
     for (const suite of selected) existing.set(suite.id, suite);
     planned.set(change.target, existing);
@@ -352,10 +350,14 @@ export function runPushGate(root, input, remote) {
     git,
     "Mapped implementation changes require a clean worktree matching the pushed commit. Commit or isolate local changes and retry.",
   );
-  const registryBytes = readFileSync(resolve(root, registryPath));
-  const pushedRegistry = git(root, ["show", `${head}:${registryPath}`]);
-  if (!registryBytes.equals(pushedRegistry))
-    throw new Error("The formal proof registry differs from the pushed commit");
+  for (const path of [registryPath, requirementsPath]) {
+    const worktree = readFileSync(resolve(root, path));
+    const pushed = git(root, ["show", `${head}:${path}`]);
+    if (!worktree.equals(pushed))
+      throw new Error(
+        `Formal proof policy ${path} differs from the pushed commit`,
+      );
+  }
   for (const { suites } of plan) {
     for (const suite of suites) {
       assertProofFiles(root, suite);
