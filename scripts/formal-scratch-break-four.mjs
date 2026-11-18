@@ -125,17 +125,15 @@ section("control-plane-session", {
   },
 });
 
+const pagesVitestFormal = () =>
+  run(
+    "npx",
+    ["vitest", "run", "src/bindings/shell-ready-formal.replay.test.ts"],
+    { cwd: join(repo, "apps/pages") },
+  );
+
 section("pwa-shell-ready", {
-  baseline: () =>
-    run("npm", [
-      "run",
-      "test",
-      "-w",
-      "@opensesame/pages",
-      "--",
-      "--run",
-      "shell-ready-formal",
-    ]),
+  baseline: () => pagesVitestFormal(),
   scratch: () => {
     const path = "apps/pages/src/bindings/shell-ready.ts";
     const absolute = join(repo, path);
@@ -146,15 +144,7 @@ section("pwa-shell-ready", {
     );
     writeFileSync(absolute, broken);
     try {
-      run("npm", [
-        "run",
-        "test",
-        "-w",
-        "@opensesame/pages",
-        "--",
-        "--run",
-        "shell-ready-formal",
-      ]);
+      pagesVitestFormal();
     } finally {
       writeFileSync(absolute, text);
     }

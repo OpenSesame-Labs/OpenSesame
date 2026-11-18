@@ -103,14 +103,12 @@ export async function captureConsentActivationTiming({
       window.dispatchEvent(new PopStateEvent("popstate"));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }, authorize.href);
-    await page.waitForTimeout(SAMPLE_MS);
+    await page.waitForTimeout(0);
     const pre = await sampleConsent(page);
     await page.screenshot({
       path: join(outDir, `${label}-pre-activation.png`),
     });
-    await page.waitForTimeout(
-      Math.max(200, ACTIVATION_DELAY_MS - SAMPLE_MS + 300),
-    );
+    await page.waitForTimeout(Math.max(ACTIVATION_DELAY_MS, SAMPLE_MS + 200));
     const post = await sampleConsent(page);
     await page.screenshot({
       path: join(outDir, `${label}-post-activation.png`),

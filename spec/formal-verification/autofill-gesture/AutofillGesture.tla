@@ -45,6 +45,9 @@ DecideFill ==
   /\ UNCHANGED <<gesture, topFrame, originOn, entryMatch>>
 
 NoFillWithoutGesture == ~gesture => ~askValue /\ ~writeValue
+NoFillWithoutTopFrame == ~topFrame => ~askValue /\ ~writeValue
+NoFillWithoutOrigin == ~originOn => ~askValue /\ ~writeValue
+NoFillWithoutEntryMatch == ~entryMatch => ~askValue /\ ~writeValue
 
 Spec == Init /\ [][ExtensionGesture \/ PageGesture \/ NotTopFrame \/ OriginOff \/ EntryMismatch \/ DecideFill]_vars
 
