@@ -20,6 +20,10 @@ on:
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-production-npm-version.test.mjs"
       - "scripts/release/npm-cd-publish-dry-run-proof.mjs"
+      - "scripts/release/npm-local-package-smoke.mjs"
+      - "scripts/release/npm-local-package-smoke.test.mjs"
+      - "scripts/release/plan-local-proof.test.mjs"
+      - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
@@ -135,7 +139,7 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
-      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/npm-local-package-smoke.test.mjs scripts/release/plan-local-proof.test.mjs
       - name: npm publish dry-run (alpha and production next)
         env:
           NPM_CD_DRY_RUN_LOG: ${{ runner.temp }}/npm-cd-dry-run-proof.log
