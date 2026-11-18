@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "suites": [
+    {
+      "id": "auth",
+      "implementation": [
+        "packages/control-plane/src/middleware/auth.ts",
+        "packages/control-plane/src/proofs/verified-principal.ts",
+        "packages/control-plane/src/proofs/project-role.ts",
+        "packages/control-plane/src/services/project-access.ts",
+        "packages/os-domain/src/types.ts"
+      ],
+      "proofs": [
+        "spec/formal/auth/AuthPolicy.lean",
+        "spec/formal/auth/required-theorems.lean",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh"
+      ],
+      "command": ["npm", "run", "verify:auth-formal"]
+    }
+  ]
+}

@@ -17,6 +17,7 @@
         "opensesame-clis",
         "opensesame-mcps",
         "security-review",
+        "verify-auth-formal",
         "visual-evidence",
         "formal-verification",
         "verify-formal-vault",

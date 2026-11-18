@@ -1,6 +1,6 @@
 # Skills index
 
-Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (10 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
+Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` (gitignored output, refreshed at container start). This page is a routing index only. Ownership tiers (19 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
 
 ## 7. Skills
 
@@ -22,6 +22,7 @@ mirrors; never stage installed trees.
 | `opensesame-mcps` | `skills/opensesame-mcps/SKILL.md` | Install, configure, initialize, and use OpenSesame MCP servers |
 | `install-anti-slop` | `skills/install-anti-slop/SKILL.md` | Install and configure the vendored Oxlint anti-slop plugin |
 | `security-review` | `skills/security-review/SKILL.md` | Run repository security gates and targeted Codex Security reviews |
+| `verify-auth-formal` | `skills/verify-auth-formal/SKILL.md` | Check and maintain authentication and authorization models, proofs, and implementation correspondence |
 | `visual-evidence` | `skills/visual-evidence/SKILL.md` | Compare two real builds for PR review; persist only approved current-state evidence in feature/project/platform slots |
 | `formal-verification` | `skills/formal-verification/SKILL.md` | Shared Pele theme and render script for `/statechart` TLC charts; referenced by `verify-formal-*` skills |
 | `verify-formal-vault` | `skills/verify-formal-vault/SKILL.md` | TLC check that the vault screen never says a second step is still waiting while the vault is open |

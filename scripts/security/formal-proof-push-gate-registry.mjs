@@ -1,0 +1,110 @@
+import { lstatSync } from "node:fs";
+import { resolve } from "node:path";
+import { TextDecoder } from "node:util";
+import { isString } from "../lib/json-boundary.mjs";
+
+const decoder = new TextDecoder("utf-8", { fatal: true });
+export function assertCleanWorktree(root, git, dirtyMessage) {
+  const entries = decoder.decode(git(root, ["ls-files", "-v", "-z"]));
+  if (entries.split("\0").some((entry) => /^[a-zS] /u.test(entry)))
+    throw new Error(
+      "Mapped implementation changes require clearing assume-unchanged and skip-worktree index flags before proof verification",
+    );
+  if (
+    git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"])
+      .length
+  )
+    throw new Error(dirtyMessage);
+}
+export const hasControl = (value) =>
+  [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
+
+function safePath(path) {
+  return (
+    isString(path) &&
+    path.length > 0 &&
+    !path.startsWith("/") &&
+    !path.includes("\\") &&
+    !hasControl(path) &&
+    path.split("/").every((part) => part && part !== "." && part !== "..")
+  );
+}
+
+function validSuitePaths(suite) {
+  return (
+    Array.isArray(suite.implementation) &&
+    suite.implementation.length > 0 &&
+    suite.implementation.every(safePath) &&
+    new Set(suite.implementation).size === suite.implementation.length &&
+    Array.isArray(suite.proofs) &&
+    suite.proofs.length > 0 &&
+    suite.proofs.every(
+      (path) => safePath(path) && path.startsWith("spec/formal/"),
+    )
+  );
+}
+
+function validSuiteCommand(command) {
+  return (
+    Array.isArray(command) &&
+    command.length === 3 &&
+    command[0] === "npm" &&
+    command[1] === "run" &&
+    isString(command[2]) &&
+    /^verify:[a-z0-9][a-z0-9:-]*$/u.test(command[2])
+  );
+}
+
+export function parseRegistry(bytes) {
+  let registry;
+  try {
+    registry = JSON.parse(decoder.decode(bytes));
+  } catch {
+    throw new Error("Invalid formal proof registry JSON");
+  }
+  if (
+    registry?.version !== 1 ||
+    !Array.isArray(registry.suites) ||
+    !registry.suites.length
+  )
+    throw new Error("Invalid formal proof registry");
+  const ids = new Set();
+  for (const suite of registry.suites) {
+    if (
+      !suite ||
+      !isString(suite.id) ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(suite.id) ||
+      ids.has(suite.id) ||
+      !validSuitePaths(suite) ||
+      !validSuiteCommand(suite.command)
+    )
+      throw new Error(`Invalid formal proof suite: ${suite?.id ?? "unknown"}`);
+    ids.add(suite.id);
+  }
+  return registry;
+}
+
+export function assertProofFiles(root, suite) {
+  for (const proof of suite.proofs) {
+    const segments = proof.split("/");
+    let current = root;
+    for (const [index, part] of segments.entries()) {
+      current = resolve(current, part);
+      let valid = false;
+      try {
+        const info = lstatSync(current);
+        valid =
+          index === segments.length - 1 ? info.isFile() : info.isDirectory();
+      } catch {
+        /* fail closed below */
+      }
+      if (!valid)
+        throw new Error(
+          `Formal proof ${proof} for ${suite.id} is missing or not a regular file`,
+        );
+    }
+  }
+}
