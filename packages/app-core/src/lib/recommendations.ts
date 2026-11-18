@@ -60,6 +60,8 @@ export type RecommendationAction =
 export type Recommendation = Readonly<{
   id: string;
   title: string;
+  /** A specific, short title for the narrow in-flow preview. */
+  compactTitle: string;
   /** What it does and what it costs, in two sentences at most. */
   body: string;
   /** The words on the key: the object of the choice. */
@@ -77,6 +79,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "password-reset",
     title: "Let the vault change passwords for you",
+    compactTitle: "Automatic password changes",
     body: "Password reset signs in to the site and changes the password there whenever you generate a new one. It needs a computer-use runtime, connected next.",
     label: "Turn on password reset",
     action: {
@@ -89,6 +92,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "password-reset-runtime",
     title: "Finish setting up password reset",
+    compactTitle: "Finish password reset",
     body: "Password reset is on but has nothing to drive a browser with yet. Connect a computer-use runtime and a generated password is changed on the site too.",
     label: "Connect a runtime",
     action: {
@@ -103,6 +107,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "password-reset-model",
     title: "Choose a model for password reset",
+    compactTitle: "Password reset model",
     body: "Password reset is on and has a runtime, but no model to drive it. Choose one and a generated password is changed on the site too.",
     label: "Choose a model",
     action: { kind: "open", to: "/settings/features#feature-ai" },
@@ -113,6 +118,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "breach-checks",
     title: "Check passwords against known breaches",
+    compactTitle: "Check password leaks",
     body: "Breach checks flag a password that has appeared in a leak. Only the first five characters of its hash ever leave this device.",
     label: "Turn on breach checks",
     action: { kind: "feature", feature: "security-checks" },
@@ -121,6 +127,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "backups",
     title: "Back this vault up automatically",
+    compactTitle: "Back up vault",
     body: "Everything here lives in this browser. A connected git forge keeps an encrypted copy current after every change, so a lost device is not a lost vault.",
     label: "Set up backups",
     action: { kind: "open", to: "/settings/integrations#integration-backups" },
@@ -129,6 +136,7 @@ export const RECOMMENDATIONS: readonly Recommendation[] = [
   {
     id: "autofill",
     title: "Fill passwords instead of copying them",
+    compactTitle: "Password autofill",
     body: "Browser autofill offers the matching login on the site's own sign-in form, so a password never passes through the clipboard.",
     label: "Turn on browser autofill",
     action: {

@@ -29,7 +29,8 @@ function chooseEntry(entry: AddEntry): void {
 
 /**
  * The other ways to add as a menu: the road for a keyboard, a screen reader
- * or a mouse, none of which can hold and slide. A held finger never opens it.
+ * or a mouse, none of which can hold and slide. Lifting a held finger without
+ * selecting a slide zone opens the same menu.
  */
 function openAddMenu(event: MenuOpening, anchor: Element | null): void {
   const entries = addEntries().map((entry) => ({

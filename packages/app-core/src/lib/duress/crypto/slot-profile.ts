@@ -2,6 +2,7 @@
  * Code-gated profile slot seal/open (KEYS-B/C).
  */
 
+import { asBufferSource } from "@opensesame/os-domain";
 import {
   DURESS_PIN_PBKDF2_ITERATIONS,
   DuressKdfError,
@@ -11,11 +12,10 @@ import {
   assertTriggerCodeLength,
   b64,
   fromB64,
-  importAes,
+  importOwnedAes,
   pbkdf2,
   te,
 } from "./slot-bytes.js";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export const MAX_SLOTS = 8;
 
@@ -88,8 +88,7 @@ export async function sealProfileSlot(input: {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const keyBytes = await pbkdf2(input.code, salt, iterations);
-  const key = await importAes(keyBytes);
-  keyBytes.fill(0);
+  const key = await importOwnedAes(keyBytes);
   const meta = {
     version: 1 as const,
     slotId: input.slotId,
@@ -133,14 +132,18 @@ export async function sealProfileSlot(input: {
   o += pres.length;
   if (payload.length > 0) body.set(payload, o + 1);
 
-  const ct = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv, additionalData: asBufferSource(aadFor(meta)) },
-      key,
-      body,
-    ),
-  );
-  return { ...meta, ivB64: b64(iv), ciphertextB64: b64(ct) };
+  try {
+    const ct = new Uint8Array(
+      await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv, additionalData: asBufferSource(aadFor(meta)) },
+        key,
+        body,
+      ),
+    );
+    return { ...meta, ivB64: b64(iv), ciphertextB64: b64(ct) };
+  } finally {
+    body.fill(0);
+  }
 }
 
 export async function openProfileSlot(
@@ -167,8 +170,7 @@ export async function openProfileSlot(
     const salt = fromB64(slot.saltB64);
     const iv = fromB64(slot.ivB64);
     const keyBytes = await pbkdf2(code, salt, slot.iterations);
-    const key = await importAes(keyBytes);
-    keyBytes.fill(0);
+    const key = await importOwnedAes(keyBytes);
     const meta = {
       version: 1 as const,
       slotId: slot.slotId,
@@ -182,30 +184,39 @@ export async function openProfileSlot(
     };
     const pt = new Uint8Array(
       await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: asBufferSource(iv), additionalData: asBufferSource(aadFor(meta)) },
+        {
+          name: "AES-GCM",
+          iv: asBufferSource(iv),
+          additionalData: asBufferSource(aadFor(meta)),
+        },
         key,
         asBufferSource(fromB64(slot.ciphertextB64)),
       ),
     );
-    const view = new DataView(pt.buffer);
-    let o = 0;
-    const klen = view.getUint32(o);
-    o += 4;
-    const compartmentKey = pt.slice(o, o + klen);
-    o += klen;
-    const clen = view.getUint32(o);
-    o += 4;
-    const actionCapability = clen > 0 ? pt.slice(o, o + clen) : null;
-    o += clen;
-    const rest = pt.slice(o);
-    const nul = rest.indexOf(0);
-    const presentation = new TextDecoder().decode(
-      nul < 0 ? rest : rest.slice(0, nul),
-    );
-    const payload = nul < 0 ? null : rest.slice(nul + 1);
-    return payload && payload.length > 0
-      ? { compartmentKey, actionCapability, presentation, payload }
-      : { compartmentKey, actionCapability, presentation };
+    try {
+      const view = new DataView(pt.buffer);
+      const keyStart = 4;
+      const keyEnd = keyStart + view.getUint32(0);
+      const capabilityStart = keyEnd + 4;
+      const capabilityEnd = capabilityStart + view.getUint32(keyEnd);
+      if (capabilityEnd > pt.length) throw new Error("Malformed slot body");
+      const compartmentKey = pt.slice(keyStart, keyEnd);
+      const actionCapability =
+        capabilityEnd > capabilityStart
+          ? pt.slice(capabilityStart, capabilityEnd)
+          : null;
+      const rest = pt.subarray(capabilityEnd);
+      const nul = rest.indexOf(0);
+      const presentation = new TextDecoder().decode(
+        nul < 0 ? rest : rest.subarray(0, nul),
+      );
+      const payload = nul < 0 ? null : rest.slice(nul + 1);
+      return payload && payload.length > 0
+        ? { compartmentKey, actionCapability, presentation, payload }
+        : { compartmentKey, actionCapability, presentation };
+    } finally {
+      pt.fill(0);
+    }
   } catch (error) {
     if (error instanceof DuressKdfError) throw error;
     return null;

@@ -15,16 +15,17 @@ import {
   makeNotificationDelivery,
   makePrincipal,
 } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 const secret = "event downgrade replay regression deployment root";
 const sealer = createEventSealer(secret);
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 });
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 function legacy(purpose: string, plain: JsonObject): JsonObject {

@@ -4,6 +4,8 @@ import { createServer } from "node:https";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { tsxLoader } from "./fixtures/password-agent/tsx-loader.js";
+
 interface SocketResult {
   stdout: string;
   code: number;
@@ -18,7 +20,7 @@ async function socketChild(
       process.execPath,
       [
         "--import",
-        resolve("node_modules/tsx/dist/loader.mjs"),
+        tsxLoader,
         resolve("src/fixtures/password-agent/request-socket.ts"),
         String(port),
         String(maxBytes),

@@ -21,6 +21,7 @@ import {
   resolveXmldsigjsPeerDependencies,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
+import { verifyFreshSamlRuntime } from "./saml-fresh-runtime.test-support.mjs";
 
 const root = existsSync(resolve(process.cwd(), "pnpm-workspace.yaml"))
   ? process.cwd()
@@ -52,12 +53,14 @@ let signed;
 
 async function compile(plugins, name, unowned = false) {
   const entry = "\0owned-saml-application-test";
-  const owned = ["xml-signature", "metadata", "authn-request"]
-    .map(
-      (file) =>
-        `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
-    )
-    .join("\n");
+  const owned =
+    ["xml-signature", "metadata", "authn-request"]
+      .map(
+        (file) =>
+          `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
+      )
+      .join("\n") +
+    `\nexport { verifyPasskeyRegistration, verifyPasskeyAuthentication } from ${JSON.stringify(resolve(root, "packages/auth-upstream/src/browser.ts"))};`;
   const code =
     unowned === "root"
       ? `export { SignedXml } from ${JSON.stringify(resolve(input.esm, "index.js"))};`
@@ -216,9 +219,9 @@ it("retains the official XML verifier/canonicalizer with one existing certificat
   expect(
     included.some((id) => id.endsWith("/xmldsigjs/build/canonicalizer.js")),
   ).toBe(true);
-  expect(
-    included.filter((id) => id.endsWith("/@peculiar/x509/build/index.js")),
-  ).toHaveLength(1);
+  expect(included.filter((id) => id === input.sharedCertificate)).toHaveLength(
+    1,
+  );
   expect(included.some((id) => /\/(pkijs|bytestreamjs)\//.test(id))).toBe(
     false,
   );
@@ -254,6 +257,14 @@ it("uses the same actual transformed certificate implementation for IdP metadata
   expect(result.signedRequests).toBe(true);
   expect(result.postUrl).toBe("https://idp.example/sso");
 });
+it("loads the split SAML bundle without preinstalled reflection metadata", async () => {
+  await verifyFreshSamlRuntime(
+    root,
+    directory,
+    metadata(),
+    Buffer.from(spki).toString("base64"),
+  );
+}, 30000);
 it("signs an SP request with the real transformed SDK and passes independent XMLDSIG verification", async () => {
   const request = pending();
   const parsed = await api.readSamlIdpMetadata(

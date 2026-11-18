@@ -153,11 +153,18 @@ jobs:
           cd scripts/test/live-turn
           go build -o "$RUNNER_TEMP/codeql-live-turn" .
           go test -c -o "$RUNNER_TEMP/codeql-live-turn.test" .
+          # The two vector tests stay in the pinned module. Download it, verify
+          # the bytes, and compile package tests with that checksum-checked -overlay.
+          version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' third_party/x-crypto/UPSTREAM.json)"
+          scratch="$(mktemp -d "${TMPDIR:-/tmp}/opensesame-turn-crypto.XXXXXXXX")"
+          trap 'rm -rf -- "$scratch"' EXIT
+          (cd "$scratch" && go mod download -json "golang.org/x/crypto@$version") > "$scratch/upstream.json"
+          python3 verify-crypto-subset.py --upstream-metadata "$scratch/upstream.json" --overlay "$scratch/overlay.json"
           cd third_party/x-crypto
           go list ./... > "$RUNNER_TEMP/codeql-xcrypto-packages"
           test -s "$RUNNER_TEMP/codeql-xcrypto-packages"
           while IFS= read -r package; do
-            go test -c -o "$RUNNER_TEMP/codeql-xcrypto.test" "$package"
+            go test -c -overlay "$scratch/overlay.json" -o "$RUNNER_TEMP/codeql-xcrypto.test" "$package"
           done < "$RUNNER_TEMP/codeql-xcrypto-packages"
       - name: Extract the pinned SOPS development oracle
         if: matrix.language == 'go'

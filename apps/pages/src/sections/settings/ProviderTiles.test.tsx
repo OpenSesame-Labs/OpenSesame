@@ -3,6 +3,7 @@ import {
   putBackupTarget,
 } from "@opensesame/app-core/lib/backup.js";
 import { clearLocalBackupTarget } from "@opensesame/app-core/lib/backup-target-local.js";
+import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import {
   connectRoadSeams,
   notifyConnectRoads,
@@ -29,6 +30,10 @@ import {
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderTiles } from "./ProviderTiles.js";
+import { installPanelFixture } from "./settings-panels.test-support.js";
+
+installDoublePorts();
+installPanelFixture();
 
 const originalBackup = { ...backupSeams };
 

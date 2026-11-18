@@ -1,46 +1,88 @@
 /**
- * One automatic reload per tab session when a lazy chunk 404s.
+ * One automatic reload per executing build when a lazy chunk fails.
  *
- * The old service worker can keep serving the index this page booted from, so
- * a reload that does not help must not run again. The shell clears the shot
- * once it has loaded, and a later miss may reload once more.
+ * A successful shell import does not prove that every lazy chunk is present.
+ * Keep the shot across reloads of the same build; a new immutable entry can
+ * try again. Without durable tab storage, do not start an unbounded loop.
  */
 
+import { type BoundaryValue, isString } from "@opensesame/os-domain";
+
 const KEY = "os-stale-asset-reload";
+const MAX_BUILDS = 4;
 
 /** This document's shot, for a host with no `sessionStorage`. */
 let memory = false;
+let build: string | null = null;
 
-function stored(): boolean | null {
+function storage(): Storage | null {
   const scope: { sessionStorage?: Storage } = globalThis;
   try {
-    const storage = scope.sessionStorage;
-    if (!storage) return null;
-    return storage.getItem(KEY) === "1";
+    return scope.sessionStorage ?? null;
   } catch {
     return null;
   }
 }
 
+/** The marker used to be one string; preserve it when upgrading an open tab. */
+function attempted(store: Storage): string[] {
+  const raw = store.getItem(KEY);
+  if (!raw) return [];
+  try {
+    const parsed: BoundaryValue = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const values: BoundaryValue[] = parsed;
+      if (values.every(isString)) return [...new Set(values)];
+    }
+  } catch {
+    // A marker from the previous version is a plain string.
+  }
+  return [raw];
+}
+
 export const staleAssetReload = {
-  /** A reload for a missing chunk already happened in this tab session. */
-  already(): boolean {
-    return memory || stored() === true;
-  },
-  mark(): void {
-    memory = true;
-    const scope: { sessionStorage?: Storage } = globalThis;
+  /** Bind the guard to the immutable module that is executing this document. */
+  beginBuild(moduleUrl: string): void {
     try {
-      scope.sessionStorage?.setItem(KEY, "1");
+      const url = new URL(moduleUrl);
+      const match = url.pathname.match(/\/assets\/([\w.-]+-[\w-]{8,64}\.js)$/u);
+      build = !url.search && !url.hash ? (match?.[1] ?? null) : null;
     } catch {
-      // Private mode. The in-memory shot still stops a loop in this document.
+      build = null;
+    }
+  },
+  /** A reload for a missing chunk already happened for this build. */
+  already(): boolean {
+    try {
+      if (memory) return true;
+      const store = storage();
+      if (!store) return false;
+      const builds = attempted(store);
+      return builds.includes(build ?? "1") || builds.length >= MAX_BUILDS;
+    } catch {
+      return memory;
+    }
+  },
+  /** Return false when the guard cannot survive a navigation. */
+  mark(): boolean {
+    memory = true;
+    try {
+      const store = storage();
+      if (!store) return false;
+      const builds = attempted(store);
+      if (builds.includes(build ?? "1") || builds.length >= MAX_BUILDS)
+        return false;
+      const value = JSON.stringify([...builds, build ?? "1"]);
+      store.setItem(KEY, value);
+      return store.getItem(KEY) === value;
+    } catch {
+      return false;
     }
   },
   clear(): void {
     memory = false;
-    const scope: { sessionStorage?: Storage } = globalThis;
     try {
-      scope.sessionStorage?.removeItem(KEY);
+      storage()?.removeItem(KEY);
     } catch {
       // The in-memory shot is already clear.
     }

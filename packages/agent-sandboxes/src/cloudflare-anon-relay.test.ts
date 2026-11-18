@@ -66,6 +66,37 @@ describe("anonymous Cloudflare relay deployment", () => {
     expect(fake.calls.some((c) => c.startsWith("DELETE "))).toBe(true);
   });
 
+  it.each(["worker subdomain", "readiness"])(
+    "deletes the worker and namespace after %s fails",
+    async (failure) => {
+      const fake = fakeCloudflareApi();
+      const fetchImpl: typeof fetch = async (input, init) => {
+        if (
+          failure === "worker subdomain" &&
+          String(input).includes("/workers/scripts/") &&
+          String(input).endsWith("/subdomain") &&
+          init?.method === "POST"
+        ) {
+          return Response.json({ success: false }, { status: 500 });
+        }
+        return fake.fetchImpl(input, init);
+      };
+      await expect(
+        deployAnonymousCloudflareRelay({
+          account: ACCOUNT,
+          fetchImpl,
+          readyTimeoutMs: failure === "readiness" ? 0 : 5_000,
+        }),
+      ).rejects.toThrow();
+      expect(fake.calls).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^DELETE .*\/workers\/scripts\/os-relay-/u),
+          expect.stringMatching(/^DELETE .*\/storage\/kv\/namespaces\/kv-1$/u),
+        ]),
+      );
+    },
+  );
+
   it("provider deploys anonymously and closes the deployment with the sandbox", async () => {
     let deployedCount = 0;
     let closed = false;

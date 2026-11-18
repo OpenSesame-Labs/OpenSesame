@@ -185,7 +185,12 @@ fn relay_profile_accepts_an_exact_vault_relay_binding_and_refuses_a_wildcard() {
     let exact = relay_binding(
         &json!({ "dns_name": "client.example" }),
         "vault_relay",
-        &json!(["vault.relay.snapshot.read", "vault.relay.snapshot.write"]),
+        &json!([
+            "vault.relay.snapshot.read",
+            "vault.relay.snapshot.write",
+            "vault.relay.directory.list",
+            "vault.relay.directory.create"
+        ]),
     );
     let set = ServiceBindingSet::parse_json(&exact).expect("exact vault_relay binding");
     assert!(validate_relay_profile(&set).is_ok());

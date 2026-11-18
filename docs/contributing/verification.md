@@ -16,6 +16,21 @@ npm run setup:hooks
 
 Authors still run focused local tests for behavior they change.
 
+The native SAML verifier and the passkey test infrastructure currently use
+different major versions of the Peculiar ASN.1 packages. The root ASN.1 pins
+keep the older passkey dependencies on a shared schema registry, while
+`@opensesame/app-core` owns the newer SAML peers and its nested `xmldsigjs`.
+When updating these dependencies, check the installed peer graph and run both
+`src/lib/local-passkeys.test.ts` and the SAML assertion and browser-crypto
+integration tests. A valid `npm ls` alone does not show whether two copies of
+the same schema registry can exchange certificate metadata.
+
+Guided support's fully activated registry currently contains 42 public route
+descriptions. Its bounded context allows 48 routes so the current destination
+and the rest of that registry are not silently omitted. The egress sanitizer
+still validates each identifier and title and rejects undeclared fields; the
+limit does not authorize page contents or vault data to enter the context.
+
 If the change is user-visible, also capture its evidence and put it in the PR
 body — see `skills/visual-evidence/SKILL.md`. The gates prove the contract
 holds; the images are the only thing that shows a reviewer what the change
@@ -74,7 +89,12 @@ channels do not have separate Git branches. The operating contract is
 - `ci-prerelease-checks.yml` retains the complete browser/profile/viewport/tutorial/
   live matrices, Android/Apple, mTLS, `npm run verify`, parity, native platforms,
   containers, native-Wasm, coverage, sync authorization, autofill and exact-artifact
-  smoke. Every declared result must succeed. These suites run for CD, not trunk.
+  smoke. Its unconditional behavior-verification job also checks the evidence
+  ledger, finite UI/authentication models, Lean model proofs and generated
+  implementation and browser properties. Those checks have the scoped limits
+  described in [formal verification](../../spec/formal-verification/README.md);
+  they do not prove the entire application or authentication standards. Every
+  declared result must succeed. These suites run for CD, not trunk.
 - `ci-release-checks.yml` retains scoped TS/duress/Rust mutation and full security:
   dependencies, structural/Semgrep SAST, secrets, six-language CodeQL, Kani, Miri,
   Shuttle and coverage-guided Rust/TS fuzzing. Missing tools, scanner errors,

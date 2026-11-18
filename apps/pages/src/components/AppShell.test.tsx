@@ -141,6 +141,19 @@ describe("AppShell", () => {
     expect(screen.getAllByTestId("notifications-bar").length).toBe(1);
     expect(screen.queryByTestId("backup-banner")).toBeNull();
   });
+  it("places guidance rows before the current task", () => {
+    const { container } = renderShell("/vault");
+    const main = container.querySelector(".main");
+    const guide = main?.querySelector('[data-first-visit-offer="shell"]');
+    const recommendations = main?.querySelector(".recommendation-seat");
+    const task = screen.getByText("content");
+    expect(guide?.compareDocumentPosition(task)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(recommendations?.compareDocumentPosition(task)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
   it("advertises the g-jump key on every section directory", () => {
     const { container } = renderShell("/vault");
     const jumps = [...container.querySelectorAll("kbd.railtree__jump")].map(

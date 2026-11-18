@@ -1,4 +1,5 @@
-import { DomainError } from "@opensesame/os-domain";
+import { randomUUID } from "node:crypto";
+import { DomainError, ownBytes } from "@opensesame/os-domain";
 
 /**
  * Passkey / WebAuthn seam. Production wires Better Auth + SimpleWebAuthn;
@@ -11,6 +12,8 @@ export interface PasskeyCredential {
   principalId: string;
   /** ISO 8601, stamped at registration; absent on records made before it was. */
   createdAt?: string;
+  /** Unique to a registration; absent on credentials stored before this field. */
+  generation?: string;
 }
 
 export interface PasskeyAssertion {
@@ -34,7 +37,7 @@ export interface PasskeyAssertion {
    * touch their key for something harmless-looking, and redeem the result as
    * a login.
    */
-  expectedPurpose?: string;
+  expectedPurpose?: "authentication" | "transaction";
 }
 
 /**
@@ -61,7 +64,7 @@ function isBooleanOutcome(
 export interface PasskeySeam {
   register(
     principalId: string,
-    credential: Omit<PasskeyCredential, "principalId">,
+    credential: Omit<PasskeyCredential, "principalId" | "generation">,
   ): Promise<PasskeyCredential>;
   verify(
     assertion: PasskeyAssertion,
@@ -75,33 +78,50 @@ export interface PasskeySeam {
 export interface PasskeyCredentialStore {
   get(id: string): Promise<PasskeyCredential | undefined>;
   create(record: PasskeyCredential): Promise<boolean>;
-  advance(id: string, counter: number): Promise<boolean>;
+  /** Atomically confirm this registration still exists and advance its counter. */
+  advance(
+    id: string,
+    generation: string | undefined,
+    counter: number | undefined,
+  ): Promise<boolean>;
   listByPrincipal(principalId: string): Promise<PasskeyCredential[]>;
-  remove(id: string): Promise<boolean>;
+  /** Atomically remove only a credential belonging to this principal. */
+  remove(id: string, principalId: string): Promise<boolean>;
+}
+
+function copyCredential(record: PasskeyCredential): PasskeyCredential {
+  return { ...record, publicKey: ownBytes(record.publicKey) };
 }
 
 export function createMemoryPasskeyCredentialStore(): PasskeyCredentialStore {
   const credentials = new Map<string, PasskeyCredential>();
   return {
-    get: async (id) => credentials.get(id),
+    get: async (id) => {
+      const record = credentials.get(id);
+      return record && copyCredential(record);
+    },
     create: async (record) => {
       if (credentials.has(record.credentialId)) return false;
-      credentials.set(record.credentialId, record);
+      credentials.set(record.credentialId, copyCredential(record));
       return true;
     },
-    advance: async (id, counter) => {
+    advance: async (id, generation, counter) => {
       const current = credentials.get(id);
-      if (!current) return false;
+      if (!current || current.generation !== generation) return false;
+      if (counter === undefined) return true;
       if (counter === 0) return current.counter === 0;
       if (counter <= current.counter) return false;
       credentials.set(id, { ...current, counter });
       return true;
     },
     listByPrincipal: async (principalId) =>
-      [...credentials.values()].filter(
-        (record) => record.principalId === principalId,
-      ),
-    remove: async (id) => credentials.delete(id),
+      [...credentials.values()]
+        .filter((record) => record.principalId === principalId)
+        .map(copyCredential),
+    remove: async (id, principalId) => {
+      if (credentials.get(id)?.principalId !== principalId) return false;
+      return credentials.delete(id);
+    },
   };
 }
 
@@ -123,8 +143,10 @@ export function createPasskeySeam(options?: {
     async register(principalId, credential) {
       const record: PasskeyCredential = {
         ...credential,
+        publicKey: ownBytes(credential.publicKey),
         principalId,
         createdAt: credential.createdAt ?? new Date().toISOString(),
+        generation: randomUUID(),
       };
       if (!(await credentials.create(record))) {
         throw new DomainError(
@@ -137,6 +159,7 @@ export function createPasskeySeam(options?: {
     async verify(assertion) {
       const credential = await credentials.get(assertion.credentialId);
       if (!credential) return { ok: false };
+      const { credentialId, generation, principalId } = credential;
       const outcome = await verifyAssertion(assertion, credential);
       const result: PasskeyVerifyResult =
         // The verifier contract returns either a boolean or its structured result.
@@ -146,20 +169,15 @@ export function createPasskeySeam(options?: {
       const next = result.newCounter;
       if (next !== undefined) {
         if (!Number.isSafeInteger(next) || next < 0) return { ok: false };
-        // A counter that fails to advance means the credential was cloned (or an
-        // assertion is being replayed): refuse and keep the stored value.
-        // The verifier awaited; another assertion may have advanced the counter.
-        if (!(await credentials.advance(credential.credentialId, next)))
-          return { ok: false };
       }
-      return { ok: true, principalId: credential.principalId };
+      // Verification awaited: atomically reject removal, re-registration, and
+      // counters already spent while the verifier was running.
+      if (!(await credentials.advance(credentialId, generation, next)))
+        return { ok: false };
+      return { ok: true, principalId };
     },
     list: (principalId) => credentials.listByPrincipal(principalId),
-    async remove(principalId, credentialId) {
-      const credential = await credentials.get(credentialId);
-      // Someone else's credential answers exactly like a missing one.
-      if (!credential || credential.principalId !== principalId) return false;
-      return credentials.remove(credentialId);
-    },
+    remove: (principalId, credentialId) =>
+      credentials.remove(credentialId, principalId),
   };
 }

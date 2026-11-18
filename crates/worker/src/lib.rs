@@ -13,6 +13,11 @@
 mod routes;
 mod transport;
 
+#[cfg(any(test, feature = "testkit"))]
+pub mod testkit;
+
+#[cfg(test)]
+mod local_bind_tests;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
@@ -74,12 +79,37 @@ async fn serve_local(args: &Args, configured: Vec<ProviderDefinition>) -> anyhow
     let operator_token = std::env::var("OPENSESAME_WORKER_TOKEN")
         .or_else(|_| std::env::var("OPENSESAME_OPERATOR_TOKEN"))
         .unwrap_or_default();
-    let state = WorkerState::new(configured, WorkerAuth::Token(operator_token));
-    let app = routes::router(state).layer(plain_provenance_layer(WORKER_PLAIN_LISTENER));
-    let listener = tokio::net::TcpListener::bind(&args.listen).await?;
-    tracing::info!(worker_id=%args.id, listen=%args.listen, profile="existing_local", "workload connector host ready");
+    let app = local_router(configured, operator_token);
+    let listener = bind_local(&args.listen).await?;
+    tracing::info!(worker_id=%args.id, listen=%listener.local_addr()?, profile="existing_local", "workload connector host ready");
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+/// Resolve once, reject any non-loopback result, and bind the checked addresses.
+/// The plaintext worker token must never be exposed by a DNS change between
+/// validation and bind, including when a hostname resolves to mixed addresses.
+async fn bind_local(listen: &str) -> anyhow::Result<tokio::net::TcpListener> {
+    let addresses: Vec<_> = tokio::net::lookup_host(listen).await?.collect();
+    validate_local_addresses(&addresses)?;
+    Ok(tokio::net::TcpListener::bind(addresses.as_slice()).await?)
+}
+
+fn validate_local_addresses(addresses: &[std::net::SocketAddr]) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        !addresses.is_empty(),
+        "worker listen address resolved to no addresses"
+    );
+    anyhow::ensure!(
+        addresses.iter().all(|address| address.ip().is_loopback()),
+        "worker existing_local requires loopback listen addresses"
+    );
+    Ok(())
+}
+
+fn local_router(configured: Vec<ProviderDefinition>, token: String) -> axum::Router {
+    let state = WorkerState::new(configured, WorkerAuth::Token(token));
+    routes::router(state).layer(plain_provenance_layer(WORKER_PLAIN_LISTENER))
 }
 
 /// The networked workload-identity profile. No token is read here, so a
@@ -92,6 +122,22 @@ async fn serve_mtls(args: &Args, configured: Vec<ProviderDefinition>) -> anyhow:
             error.code()
         )
     })?;
+    let listener = transport::bind(&profile).await.map_err(|error| {
+        anyhow::anyhow!(
+            "worker mtls_required refused to start: {error} [{}]",
+            error.code()
+        )
+    })?;
+    let app = secure_router(configured, &profile);
+    tracing::info!(worker_id=%args.id, listen=%listener.local_addr(), profile="mtls_required", "workload connector host ready");
+    listener.serve(app).await.map_err(anyhow::Error::new)?;
+    Ok(())
+}
+
+fn secure_router(
+    configured: Vec<ProviderDefinition>,
+    profile: &transport::SecureProfile,
+) -> axum::Router {
     let state = WorkerState::new(
         configured,
         WorkerAuth::Mtls {
@@ -99,19 +145,10 @@ async fn serve_mtls(args: &Args, configured: Vec<ProviderDefinition>) -> anyhow:
             generations: std::sync::Arc::clone(&profile.generations),
         },
     );
-    let listener = transport::bind(&profile).await.map_err(|error| {
-        anyhow::anyhow!(
-            "worker mtls_required refused to start: {error} [{}]",
-            error.code()
-        )
-    })?;
-    let app = routes::router(state).layer(axum::middleware::from_fn_with_state(
+    routes::router(state).layer(axum::middleware::from_fn_with_state(
         std::sync::Arc::clone(&profile.generations),
         opensesame_transport_security::enforce_current_generation,
-    ));
-    tracing::info!(worker_id=%args.id, listen=%listener.local_addr(), profile="mtls_required", "workload connector host ready");
-    listener.serve(app).await.map_err(anyhow::Error::new)?;
-    Ok(())
+    ))
 }
 
 fn configured_providers(ids: &[String]) -> anyhow::Result<Vec<ProviderDefinition>> {

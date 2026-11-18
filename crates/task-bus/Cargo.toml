@@ -6,6 +6,9 @@ license.workspace = true
 description = "TaskBus trait with in-memory and optional NATS JetStream adapters"
 
 [features]
+## Explicit opt-in for a scripted, in-memory test double; never selected by
+## runtime configuration.
+testkit = []
 ## JetStream adapter is on by default so the crate always compiles the NATS
 ## path; runtime still defaults to in-memory unless `NATS_URL` /
 ## `OPENSESAME_TASKBUS=nats` is set.

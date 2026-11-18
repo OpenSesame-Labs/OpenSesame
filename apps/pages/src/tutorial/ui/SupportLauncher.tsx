@@ -88,7 +88,7 @@ export function SupportLauncher({
   return (
     <>
       {slot ? createPortal(mark, slot) : gate ? null : mark}
-      <FirstVisitOffer />
+      <FirstVisitOffer gateScreen={gate} />
       {touring ? (
         <Suspense fallback={null}>
           <CoachHud />

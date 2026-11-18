@@ -20,7 +20,7 @@ import type {
 } from "@opensesame/app-core/lib/connections.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { HISTORY_BACKUP_GROUPS } from "@opensesame/app-core/lib/history-backups.js";
-import { connectorPath } from "@opensesame/app-core/sections/connections/shared.js";
+import { connectorPath } from "@opensesame/app-core/sections/connections/path.js";
 
 const INTEGRATION_CATEGORIES: ReadonlySet<ProviderCategory> = new Set(
   INTEGRATIONS.flatMap((integration) => integration.providerCategories),

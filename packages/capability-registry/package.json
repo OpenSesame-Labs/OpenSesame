@@ -9,6 +9,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./secret-names": {
+      "types": "./src/secret-names.ts",
+      "default": "./src/secret-names.ts"
+    },
     "./capabilities.json": "./capabilities.json",
     "./pwa-summaries.json": "./pwa-summaries.json"
   },

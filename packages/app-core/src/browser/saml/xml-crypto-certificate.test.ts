@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import "reflect-metadata";
 import { X509Certificate as NodeCertificate, webcrypto } from "node:crypto";
 import { X509CertificateGenerator } from "@peculiar/x509";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
@@ -77,6 +78,31 @@ it("accepts BufferSource slices without consuming unrelated surrounding bytes", 
   expect(
     Buffer.from(new X509Certificate(view).GetRaw()).equals(Buffer.from(raw)),
   ).toBe(true);
+});
+it("rejects a valid certificate followed by arbitrary or ASN.1 data", () => {
+  for (const suffix of [new Uint8Array([0]), raw]) {
+    const input = new Uint8Array(raw.length + suffix.length);
+    input.set(raw);
+    input.set(suffix, raw.length);
+    expect(() => new X509Certificate(input)).toThrow(
+      "Invalid SAML certificate encoding",
+    );
+  }
+});
+it("rejects an excessively nested ASN.1 value before certificate parsing", () => {
+  let value: Uint8Array<ArrayBuffer> = new Uint8Array([5, 0]);
+  for (let depth = 0; depth < 105; depth++) {
+    const length =
+      value.length < 128
+        ? [value.length]
+        : value.length < 256
+          ? [0x81, value.length]
+          : [0x82, value.length >> 8, value.length & 0xff];
+    value = new Uint8Array([0x30, ...length, ...value]);
+  }
+  expect(() => new X509Certificate(value)).toThrow(
+    "Invalid SAML certificate encoding",
+  );
 });
 it("uses native WebCrypto for the default certificate key and thumbprint", async () => {
   const certificate = new X509Certificate(raw);

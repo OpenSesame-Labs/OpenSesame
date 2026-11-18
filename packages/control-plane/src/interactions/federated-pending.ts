@@ -21,10 +21,10 @@ import { z } from "zod";
  * cannot be rewritten. The callback also checks the upstream's state. The
  * verifier is single-use and the cookie is deleted on the callback.
  *
- * Everything past `verifier` is v2 (C3) and OPTIONAL by contract: a cookie
- * written by the previous release is in flight in somebody's browser while a
- * new one boots, and a required field would strand them mid-sign-in. Absent
- * `kind` means `"oidc"`, which is exactly what those cookies are.
+ * Everything past `verifier` is optional by contract. Absent `kind` means
+ * `"oidc"`. Legacy signatures that did not bind an organization or BYO ID
+ * can continue only when neither ID is present; cookies carrying either ID
+ * must restart.
  */
 export type PendingFederatedAuth = {
   issuer: string;
@@ -110,6 +110,30 @@ function pendingSignature(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
+/** Bind the exact encoded payload as well as the existing verifier binding. */
+function authenticatedPayload(payload: string, legacyInput: string): string {
+  return `OpenSesame:federated-pending:v3\0${payload}\0${legacyInput}`;
+}
+
+function modernPendingSignature(
+  payload: string,
+  legacyInput: string,
+  secret: string,
+): string {
+  // A distinct key prevents an old-format field from imitating a v3 message.
+  const key = createHmac("sha256", secret)
+    .update("OpenSesame:federated-pending:v3:key")
+    .digest();
+  return createHmac("sha256", key)
+    .update(authenticatedPayload(payload, legacyInput))
+    .digest("base64url");
+}
+
+function signatureMatches(supplied: Buffer, expected: string): boolean {
+  const bytes = Buffer.from(expected, "base64url");
+  return supplied.length === bytes.length && timingSafeEqual(supplied, bytes);
+}
+
 export function encodePending(
   pending: PendingFederatedAuth,
   secret?: string,
@@ -117,9 +141,9 @@ export function encodePending(
   const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
     "base64url",
   );
-  return secret
-    ? `${payload}.${pendingSignature(pendingIntegrityPayload(pending, secret), secret)}`
-    : payload;
+  if (!secret) return payload;
+  const legacyInput = pendingIntegrityPayload(pending, secret);
+  return `${payload}.${modernPendingSignature(payload, legacyInput, secret)}`;
 }
 
 /**
@@ -139,6 +163,7 @@ function verifiedPendingPayload(
     PendingFederatedAuth,
     "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
   >;
+  let legacyEligible: boolean;
   try {
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
@@ -146,6 +171,7 @@ function verifiedPendingPayload(
     const macResult = pendingFederatedAuthSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
     const data = macResult.data;
+    legacyEligible = data.orgId === undefined && data.byoId === undefined;
     macPending = {
       issuer: data.issuer,
       state: data.state,
@@ -159,16 +185,15 @@ function verifiedPendingPayload(
   } catch {
     return undefined;
   }
-  const expected = Buffer.from(
-    pendingSignature(pendingIntegrityPayload(macPending, secret), secret),
-    "base64url",
-  );
+  const legacyInput = pendingIntegrityPayload(macPending, secret);
+  const expected = modernPendingSignature(payload, legacyInput, secret);
+  if (signatureMatches(supplied, expected)) return payload;
   if (
-    supplied.length !== expected.length ||
-    !timingSafeEqual(supplied, expected)
+    legacyEligible &&
+    signatureMatches(supplied, pendingSignature(legacyInput, secret))
   )
-    return undefined;
-  return payload;
+    return payload;
+  return undefined;
 }
 
 export function decodePending(

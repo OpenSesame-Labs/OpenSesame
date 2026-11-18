@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { envWithFakeCliAppIntegrationDaemon } from "../cli-app-integration-fake-daemon.js";
+import { tsxLoader } from "./tsx-loader.js";
 
 const InvocationSchema = z.object({
   args: z.array(z.string()),
@@ -22,12 +23,7 @@ export async function processFixture() {
     return new Promise((resolveResult, reject) => {
       const child = spawn(
         process.execPath,
-        [
-          "--import",
-          resolve("node_modules/tsx/dist/loader.mjs"),
-          "packages/cli/src/bin.ts",
-          ...args,
-        ],
+        ["--import", tsxLoader, "packages/cli/src/bin.ts", ...args],
         { cwd: ROOT, env, stdio: ["pipe", "pipe", "pipe"] },
       );
       let stdout = "";

@@ -1,6 +1,8 @@
 /** A genuine pseudo-terminal for the human approval integration ceremony. */
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
+import { tsxLoader } from "./tsx-loader.js";
+
 interface ApprovalTerminalResult {
   code: number;
   output: string;
@@ -13,7 +15,7 @@ export async function approvalTerminal(
   const args = [
     process.execPath,
     "--import",
-    resolve("node_modules/tsx/dist/loader.mjs"),
+    tsxLoader,
     resolve("src/bin.ts"),
     "lease",
     "approve",

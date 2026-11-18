@@ -79,11 +79,11 @@ function hasFreshFetchTime(report, startedAt) {
   );
 }
 
-export function inspectReport(
+function collectPageProblems(
   report,
-  { exitCode, targetUrl, startedAt, formFactor, expectApp = false },
+  { exitCode, targetUrl, formFactor },
+  problems,
 ) {
-  const problems = [];
   if (exitCode !== 0) problems.push(`Lighthouse exited ${exitCode}`);
   if (report.configSettings?.formFactor !== formFactor) {
     problems.push(
@@ -95,6 +95,9 @@ export function inspectReport(
       `ended at ${report.finalUrl ?? "an unknown URL"}, not ${targetUrl.href}`,
     );
   }
+}
+
+function collectRuntimeProblems(report, startedAt, problems) {
   if (report.runtimeError) {
     problems.push(
       `runtime error: ${report.runtimeError.message ?? report.runtimeError.code}`,
@@ -108,6 +111,9 @@ export function inspectReport(
       `Lighthouse reported warnings: ${report.runWarnings.join("; ")}`,
     );
   }
+}
+
+function collectAuditProblems(report, problems) {
   for (const id of requiredCategories) {
     const refs = report.categories?.[id]?.auditRefs;
     if (!Array.isArray(refs) || !refs.some((ref) => ref.weight > 0)) {
@@ -126,24 +132,34 @@ export function inspectReport(
       }
     }
   }
-  if (expectApp) {
-    const lcp = report.audits?.[
-      "largest-contentful-paint-element"
-    ]?.details?.items
-      ?.flatMap((group) => group.items ?? [])
-      .find((item) => item.node)?.node;
-    if (!lcp) {
-      problems.push("could not identify the largest painted element");
-    } else if (
-      /\b(?:boot(?:__[\w-]+)?|static-door(?:__[\w-]+)?)(?![\w-])/u.test(
-        `${lcp.selector} ${lcp.snippet}`,
-      )
-    ) {
-      problems.push(
-        "the largest paint was the startup placeholder, not the app",
-      );
-    }
+}
+
+function collectAppPaintProblems(report, problems) {
+  const lcp = report.audits?.[
+    "largest-contentful-paint-element"
+  ]?.details?.items
+    ?.flatMap((group) => group.items ?? [])
+    .find((item) => item.node)?.node;
+  if (!lcp) {
+    problems.push("could not identify the largest painted element");
+  } else if (
+    /\b(?:boot(?:__[\w-]+)?|static-door(?:__[\w-]+)?)(?![\w-])/u.test(
+      `${lcp.selector} ${lcp.snippet}`,
+    )
+  ) {
+    problems.push("the largest paint was the startup placeholder, not the app");
   }
+}
+
+export function inspectReport(
+  report,
+  { exitCode, targetUrl, startedAt, formFactor, expectApp = false },
+) {
+  const problems = [];
+  collectPageProblems(report, { exitCode, targetUrl, formFactor }, problems);
+  collectRuntimeProblems(report, startedAt, problems);
+  collectAuditProblems(report, problems);
+  if (expectApp) collectAppPaintProblems(report, problems);
   const categories = Object.fromEntries(
     Object.entries(report.categories ?? {}).map(([id, category]) => [
       id,

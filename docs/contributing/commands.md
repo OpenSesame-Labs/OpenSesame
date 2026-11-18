@@ -194,11 +194,13 @@ sign-in, setup, settings defaults or anything on the boot path:**
 VITE_BASE=/OpenSesame/ npm exec -- turbo run build --filter=@opensesame/pages
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   npm run verify:startup -w @opensesame/pages
+# Shell-ready gate (vitest oracle; TLC via skills/verify-formal-pwa-shell):
+(cd apps/pages && npx vitest run src/bindings/shell-ready-formal.replay.test.ts src/app-root.shell-ready.test.tsx)
 # Run after changing the Pages boot path, opening state, or front-door copy.
 # Exercises the built dist/ with JavaScript disabled or delayed, dark mode,
-# a failed entry (and an eager-module download when present), and real first
-# and returning visits on desktop and phone. PAGES_VERIFY_DIST selects another
-# built distribution;
+# a failed entry (and an eager-module download when present), a persistent
+# missing lazy chunk, an isolated first worker claim, and real first and
+# returning visits on desktop and phone. PAGES_VERIFY_DIST selects another built distribution;
 # PAGES_VERIFY_OUT optionally writes screenshots to an ignored scratch folder.
 PLAYWRIGHT_CHROMIUM=<chromium-binary> \
   npm run verify:static -w @opensesame/pages

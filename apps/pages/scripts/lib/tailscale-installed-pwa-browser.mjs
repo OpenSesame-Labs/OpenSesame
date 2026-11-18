@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect } from "@playwright/test";
 import ts from "typescript";
+import { decodeGraph } from "../../src/sw/graph-records.ts";
 import { allowLoopbackDevelopment } from "./local-network-permission.mjs";
 import { offlineAppRequests } from "./offline-app-requests.mjs";
 import {
@@ -131,9 +132,9 @@ export function emittedTailnetWorker(
   dist,
   deploymentBase = process.env.VITE_BASE ?? "/OpenSesame/",
 ) {
-  const graph = JSON.parse(
-    fs.readFileSync(path.join(dist, "capability-graph.json"), "utf8"),
-  );
+  const graphFile = path.join(dist, "capability-graph.json");
+  const graph = decodeGraph(JSON.parse(fs.readFileSync(graphFile, "utf8")));
+  if (!graph) throw new Error("Invalid capability graph encoding");
   const owners = graph.chunks.filter((chunk) =>
     chunk.modules.some((module) =>
       module.id.endsWith("networking.tailnet/browser/controller.ts"),

@@ -46,6 +46,42 @@ describe("toastOf", () => {
     });
     expect(toastOf({ ...notice, tone: "err" }).tone).toBe("err");
   });
+
+  it("carries a worded recommendation's compact preview without replacing its full words", () => {
+    const run = vi.fn();
+    const notice: Notice = {
+      id: "recommend.backups",
+      kind: "status",
+      title: "Back this vault up automatically",
+      body: "A connected forge keeps an encrypted copy current.",
+      createdAt: new Date(0).toISOString(),
+      act: {
+        label: "Set up backups",
+        worded: true,
+        compactTitle: "Back up vault",
+        run,
+      },
+    };
+    expect(toastOf(notice)).toMatchObject({
+      title: notice.title,
+      body: notice.body,
+      compactTitle: "Back up vault",
+      choice: { label: "Set up backups", run },
+    });
+    const fallback = toastOf({
+      ...notice,
+      act: { label: "Set up backups", worded: true, run },
+    });
+    expect(fallback.title).toBe(notice.title);
+    expect(fallback.body).toBe(notice.body);
+    expect(fallback.compactTitle).toBeUndefined();
+    const blank = toastOf({
+      ...notice,
+      act: { label: "Set up backups", worded: true, compactTitle: "  ", run },
+    });
+    expect(blank.title).toBe(notice.title);
+    expect(blank.compactTitle).toBeUndefined();
+  });
 });
 
 describe("the toast bus", () => {

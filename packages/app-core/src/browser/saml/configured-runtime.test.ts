@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import "reflect-metadata";
 import { X509Certificate, generateKeyPairSync, webcrypto } from "node:crypto";
 import { X509CertificateGenerator } from "@peculiar/x509";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";

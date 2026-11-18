@@ -287,3 +287,30 @@ malformed policy input and checker failures must produce a failing result.
 Behavioral regressions remain separate from these checker tests. Both are
 needed: one establishes the runtime boundary; the other establishes that
 repository policy notices when its reviewed assumptions change.
+
+## Synthetic Host testkit listener
+
+`host-testkit-listener` classifies the feature-gated fixture separately from
+production Host listeners. A network peer can reach its synthetic authority API.
+The listener classification claims no verification, enforcement, or lifecycle
+guarantees. Its fresh in-memory database, organization and operator token are
+synthetic. The real router retains admission guards, behind an outer fence that
+permits only GET health live/ready, whoami and connections. The no-proxy broker
+constructor does not itself prohibit direct network access; the route fence is
+part of this fixture's boundary. Neither a saved hash nor a different row may
+classify newly discovered files under the bounded Host testkit source lane.
+
+`start()` binds an ephemeral IPv4 loopback socket. `router()` returns a service
+that an embedder can mount elsewhere, outside that socket guarantee. Successful
+`close().await` confirms the server runtime has been torn down. A close timeout
+leaves shutdown unconfirmed; dropping a handle only signals shutdown and does
+not join. The 500 ms request-drain deadline is not a bound on Drop or thread
+teardown. The separate testkit control is restricted to this core row: production
+listeners still require their existing joined-lifetime control, and the synthetic
+row cannot claim that or any other unreviewed control.
+
+The fixture is not evidence for production TLS, listener settings, provider
+credentials or production CORS. The real router can read the KV-facade mount
+flag; browser-origin admission can read the pairable-origins environment setting.
+The outer fence still excludes KV routes, and fresh state has no browser grants.
+The TypeScript consumer regression is opt-in and must be run explicitly.

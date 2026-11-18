@@ -9,16 +9,17 @@ import { MemoryOrganizationStore } from "../src/repos/memory.js";
 import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import { organizations } from "../src/schema/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let owner: string;
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
   owner = (await ctx.repos.principals.create(makePrincipal())).id;
 }, 60_000);
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 function org(patch: Partial<Organization> = {}): Organization {

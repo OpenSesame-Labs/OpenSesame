@@ -1,14 +1,38 @@
 import { spawn } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { createServer } from "vite";
+import {
+  checkExploration,
+  switchCoverage,
+  tabsCoverage,
+} from "./lib/ui-property-trace.mjs";
 
 const pages = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(pages, "test/ui-properties/fixture");
-const spec = join(pages, "test/ui-properties/connector-modes.ts");
+const targets = [
+  {
+    name: "connector-modes",
+    path: "/",
+    spec: join(pages, "test/ui-properties/connector-modes.ts"),
+    mutantViolation: "named_group_has_one_matching_selection",
+  },
+  {
+    name: "capability-switch",
+    path: "/switch.html",
+    spec: join(pages, "test/ui-properties/capability-switch.ts"),
+    mutantViolation: "switch_requests_match_attempts",
+  },
+  {
+    name: "roving-tabs",
+    path: "/tabs.html",
+    spec: join(pages, "test/ui-properties/roving-tabs.ts"),
+    mutantViolation: "tabs_follow_intent",
+  },
+];
 const bombadil = resolve(
   pages,
   "../../node_modules/@antithesishq/bombadil/bin/bombadil.js",
@@ -22,7 +46,7 @@ const server = await createServer({
   logLevel: "error",
 });
 
-function argumentsFor(width, mutant, url) {
+function argumentsFor(target, width, mutant, url, trace) {
   const args = [
     bombadil,
     "browser",
@@ -33,7 +57,7 @@ function argumentsFor(width, mutant, url) {
     "--height",
     "800",
     "--output-path",
-    join(output, mutant ? "mutant" : String(width)),
+    trace,
   ];
   const replay = process.env.BOMBADIL_REPRODUCE;
   if (replay && !mutant) args.push("--reproduce", resolve(replay));
@@ -44,11 +68,11 @@ function argumentsFor(width, mutant, url) {
       process.env.BOMBADIL_TIME_LIMIT ?? "20s",
     );
   if (process.env.BOMBADIL_NO_SANDBOX === "1") args.push("--no-sandbox");
-  args.push(url, spec);
+  args.push(url, target.spec);
   return args;
 }
 
-async function explore(args) {
+async function explore(args, mutantViolation) {
   const child = spawn(process.execPath, args, {
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -62,9 +86,7 @@ async function explore(args) {
     stream.on("data", (chunk) => {
       const text = tail + chunk.toString();
       sawClick ||= text.includes("Clicking");
-      sawViolation ||= text.includes(
-        "named_group_has_one_matching_selection was violated",
-      );
+      sawViolation ||= text.includes(`${mutantViolation} was violated`);
       tail = text.slice(-100);
       destination.write(chunk);
     });
@@ -76,29 +98,70 @@ async function explore(args) {
   return { code, sawClick, sawViolation };
 }
 
-async function run(width, mutant = false) {
+async function run(target, width, mutant = false) {
   const origin = server.resolvedUrls?.local[0];
   if (!origin) throw new Error("No fixture origin");
-  const url = new URL(mutant ? "?mutant=1" : "", origin).href;
-  const { code, sawClick, sawViolation } = await explore(
-    argumentsFor(width, mutant, url),
+  const url = new URL(target.path, origin);
+  if (mutant) url.searchParams.set("mutant", "1");
+  const trace = join(
+    output,
+    target.name,
+    mutant ? `mutant-${width}` : String(width),
   );
-  if (mutant) {
-    if (code === 0 || !sawViolation)
-      throw new Error("The deliberate mutation was not detected");
-  } else if (code !== 0 || !sawClick) {
-    throw new Error(`Bombadil failed at ${width}px`);
+  console.log(
+    `Bombadil target ${target.name} at ${width}px${mutant ? " (self-check)" : ""}`,
+  );
+  const result = await explore(
+    argumentsFor(target, width, mutant, url.href, trace),
+    target.mutantViolation,
+  );
+  checkExploration(result, target.name, width, mutant);
+  if (
+    !mutant &&
+    target.name === "capability-switch" &&
+    !process.env.BOMBADIL_REPRODUCE
+  ) {
+    const coverage = switchCoverage(
+      await readFile(join(trace, "trace.jsonl"), "utf8"),
+    );
+    console.log(`Switch attempts: ${JSON.stringify(coverage)}`);
+  }
+  if (
+    !mutant &&
+    target.name === "roving-tabs" &&
+    !process.env.BOMBADIL_REPRODUCE
+  ) {
+    const coverage = tabsCoverage(
+      await readFile(join(trace, "trace.jsonl"), "utf8"),
+    );
+    console.log(`Tab keyboard actions: ${JSON.stringify(coverage)}`);
   }
 }
 
 try {
   await server.listen();
-  if (process.argv.includes("--self-check")) await run(390, true);
-  else if (process.env.BOMBADIL_REPRODUCE)
-    await run(Number(process.env.BOMBADIL_WIDTH ?? 390));
-  else {
-    await run(390);
-    await run(1365);
+  const requested = process.env.BOMBADIL_TARGET;
+  const chosen = requested
+    ? targets.filter((target) => target.name === requested)
+    : targets;
+  if (chosen.length === 0)
+    throw new Error(`Unknown Bombadil target: ${requested}`);
+  if (process.argv.includes("--self-check")) {
+    if (process.env.BOMBADIL_REPRODUCE)
+      throw new Error("Cannot replay a self-check");
+    for (const target of chosen) {
+      for (const width of [390, 1365]) await run(target, width, true);
+    }
+  } else if (process.env.BOMBADIL_REPRODUCE) {
+    const width = Number(process.env.BOMBADIL_WIDTH ?? 390);
+    if (!Number.isSafeInteger(width) || width < 1)
+      throw new Error("Invalid replay width");
+    // Preserve the original connector-only replay default.
+    await run(chosen[0], width);
+  } else {
+    for (const target of chosen) {
+      for (const width of [390, 1365]) await run(target, width);
+    }
   }
   console.log(`Bombadil traces: ${output}`);
 } finally {

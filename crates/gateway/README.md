@@ -14,7 +14,8 @@ Agent-facing routes deal in `ConnectionRef` and intents, never raw secrets.
 - **Used by:** [`apps/cli`](../../apps/cli), [`crates/daemon`](../daemon) (proxy, mint
   passthrough), [`packages/mcp-host`](../../packages/mcp-host), [`packages/mcp-client`](../../packages/mcp-client),
   and [`apps/browser-extension`](../../apps/browser-extension) over HTTP; [`tests/mtls-interop`](../../tests/mtls-interop) runs `opensesame host run` as a process.
-  The library exports `run`, `Args` and `cert_issuers`; nothing else is public.
+  The library exports `run`, `Args` and `cert_issuers`, plus an explicitly
+  enabled testkit described below.
 - **Builds on:** [`opensesame-host-core`](../../crates/host-core),
   [`opensesame-storage`](../../crates/storage) (SQLite),
   [`opensesame-connection-broker`](../../crates/connection-broker),
@@ -67,8 +68,51 @@ Source areas under `src/`: `routes/` (one module per group), `middleware/`
 
 ## Develop
 
+### Test consumers against the Host
+
+The `testkit` feature exposes `testkit::HostTestkit`: a fresh in-memory SQLite
+database and synthetic operator token using the real Host router, including its
+browser and agent admission middleware. No provider credentials, external
+databases, NATS configuration, proxy credentials, or production signing keys
+are loaded from the process. No background actors or outbound provider
+integrations are started.
+
+```toml
+opensesame-gateway = { path = "../gateway", features = ["testkit"] }
+```
+
+```rust,no_run
+use opensesame_gateway::testkit::HostTestkit;
+
+let host = HostTestkit::new().await?;
+let server = host.start().await?; // ephemeral 127.0.0.1 port
+let base = server.base_url();
+let operator = host.operator_token();
+// Point a client at `base` with bearer `operator:<operator>`.
+server.close().await?;
+# Ok::<(), anyhow::Error>(())
+```
+
+`router()` offers the same handlers as an Axum service. It admits only
+`GET /health/live`, `GET /health/ready`, `GET /api/v1/whoami`, and
+`GET /api/v1/connections`; other routes and methods return 404. Connections
+start empty, and no login or credential is fabricated. A new fixture provides
+fresh state and a distinct token. `close().await` gives active requests 500 ms
+to finish, cancels remaining connections, and returns an error if shutdown
+cannot be confirmed within three seconds. Dropping the server initiates the
+same shutdown without waiting; state lives until all fixture/router handles
+are dropped.
+
+This fixture does not test Host startup configuration, listener TLS, the
+production CORS/security-header wrapper, session issuance, provider invocation,
+durable storage, or background jobs. Run the real Host integration suites for
+those behaviors. The API-client consumer test below additionally needs Node and
+installed workspace dependencies.
+
 ```bash
 cargo test -p opensesame-gateway
+cargo test -p opensesame-gateway --features testkit --test testkit
+cargo test -p opensesame-gateway --features testkit --test testkit typescript_api_client_exercises_the_real_host -- --ignored
 cargo run -p opensesame-cli -- host run --listen 127.0.0.1:8787
 npm run test:live-stack    # live OpenFGA / OpenBao / gateway
 npm run test:mtls          # transport-security contract suites

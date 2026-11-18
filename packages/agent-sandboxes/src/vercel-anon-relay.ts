@@ -204,25 +204,31 @@ export async function deployAnonymousVercelApp(
   const deployment = deploymentSchema.parse(await created.json());
   // The public tmp.now alias is assigned asynchronously; the initial
   // vercel.app alias sits behind Vercel Authentication.
-  const deadline = Date.now() + readyTimeoutMs;
-  let host = (deployment.alias ?? []).find((a) => a.endsWith(".tmp.now"));
-  while (!host && Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const polled = await fetchImpl(`${API}/v13/deployments/${deployment.id}`, {
-      headers: { authorization: `Bearer ${project.token}` },
-    }).catch(() => null);
-    if (polled?.ok) {
-      const current = deploymentSchema.safeParse(await polled.json());
-      if (current.success)
-        host = (current.data.alias ?? []).find((a) => a.endsWith(".tmp.now"));
+  try {
+    const deadline = Date.now() + readyTimeoutMs;
+    let host = (deployment.alias ?? []).find((a) => a.endsWith(".tmp.now"));
+    while (!host && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const polled = await fetchImpl(
+        `${API}/v13/deployments/${deployment.id}`,
+        {
+          headers: { authorization: `Bearer ${project.token}` },
+        },
+      ).catch(() => null);
+      if (polled?.ok) {
+        const current = deploymentSchema.safeParse(await polled.json());
+        if (current.success)
+          host = (current.data.alias ?? []).find((a) => a.endsWith(".tmp.now"));
+      }
     }
-  }
-  if (!host) {
-    // Do not leak the deployment until the anonymous project expires.
+    if (!host)
+      throw new Error("anonymous vercel deployment never got a tmp.now alias");
+    return { baseUrl: `https://${host}`, deploymentId: deployment.id };
+  } catch (error) {
+    // Do not leave a partially initialized deployment until project expiry.
     await deleteVercelDeployment(fetchImpl, project.token, deployment.id);
-    throw new Error("anonymous vercel deployment never got a tmp.now alias");
+    throw error;
   }
-  return { baseUrl: `https://${host}`, deploymentId: deployment.id };
 }
 
 export async function deployAnonymousVercelRelay(

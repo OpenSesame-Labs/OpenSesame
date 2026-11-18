@@ -1,4 +1,4 @@
-import { assertsNoSecretNames } from "@opensesame/capability-registry";
+import { assertsNoSecretNames } from "@opensesame/capability-registry/secret-names";
 import {
   type BoundaryObject,
   type BoundaryValue,

@@ -1,7 +1,8 @@
-import type { JsonObject } from "@opensesame/os-domain";
+import { type JsonObject, isJsonObject, isString } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { cacheName, stagingCacheName } from "./cache-names.js";
 import { installCoreWorker } from "./core.js";
+import { encodeGraph } from "./graph-records.js";
 import { GRAPH_FILE } from "./plan-assets.js";
 import { type FakeClient, FakeWorkerEnv } from "./test-env.js";
 import {
@@ -62,7 +63,56 @@ function abs(env: FakeWorkerEnv, file: string): string {
   return new URL(file, env.scope).href;
 }
 
+function versionedFixture(): JsonObject {
+  const graph = structuredClone(FIXTURE_GRAPH);
+  if (!Array.isArray(graph.chunks)) throw new Error("fixture needs chunks");
+  for (const chunk of graph.chunks) {
+    if (!isJsonObject(chunk) || !Array.isArray(chunk.modules))
+      throw new Error("fixture needs module records");
+    const file = chunk.file;
+    if (!isString(file)) throw new Error("fixture needs a chunk name");
+    chunk.modules = chunk.modules.map((record, index) => {
+      if (!isJsonObject(record)) throw new Error("fixture needs a module");
+      return {
+        ...record,
+        id: `${file}-${index}`,
+        classification: record.capability === null ? "shared" : "optional",
+        rationale: "fixture owner",
+        size: 1,
+      };
+    });
+  }
+  return encodeGraph(graph);
+}
+
 describe("PLAN_ASSETS caches only the plan's chunks (PWA-05)", () => {
+  it("saves and reuses a version 2 graph without fetching denied or on-demand assets", async () => {
+    const { env, page } = await ready();
+    env.serve(GRAPH_FILE, JSON.stringify(versionedFixture()));
+    await env.message(page, plan([CONNECTORS_MODULE]));
+    expect(page.messages.at(-1)?.type).toBe("OFFLINE_READY");
+    expect(env.fetched).not.toContain(abs(env, EXCLUDED_JS));
+    expect(env.fetched).not.toContain(abs(env, ON_DEMAND_JS));
+    env.offline(GRAPH_FILE);
+    await env.message(page, plan([CONNECTORS_MODULE]));
+    expect(page.messages.at(-1)?.type).toBe("OFFLINE_READY");
+  });
+
+  it("rejects a damaged version 2 ownership projection before fetching plan assets", async () => {
+    const { env, page } = await ready();
+    const graph = versionedFixture();
+    const chunks = graph.chunks;
+    if (!Array.isArray(chunks) || !isJsonObject(chunks[0]))
+      throw new Error("fixture needs a chunk");
+    chunks[0].modules = [];
+    env.serve(GRAPH_FILE, JSON.stringify(graph));
+    await env.message(page, plan([CONNECTORS_MODULE]));
+    expect(page.messages).toEqual([
+      { type: "PLAN_REJECTED", reason: "graph-unavailable" },
+    ]);
+    expect(env.fetched).toEqual([abs(env, GRAPH_FILE)]);
+  });
+
   it("saves the module's static and shared lazy closure, assets, CSS and core entry", async () => {
     const { env, page, shell } = await ready();
     await env.message(page, plan([CONNECTORS_MODULE]));

@@ -1,7 +1,7 @@
 // Exercise the built entry before and after JavaScript, including a return
 // visit whose correct screen is different from a fresh device's front door.
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -90,6 +90,111 @@ try {
   } else {
     console.log("SKIP: the built entry has no static module dependency");
   }
+
+  const splitBootstrap = entrySource.match(
+    /\b(?:from|import)\s*["']\.\/(pages-[A-Za-z0-9_-]{8,64}\.js)["']/u,
+  )?.[1];
+  const pushWorker = join(dist, "sw-push.js");
+  if (splitBootstrap && existsSync(pushWorker)) {
+    assert.ok(
+      readFileSync(pushWorker, "utf8").includes(`assets/${splitBootstrap}`),
+      "the push worker must recognize the executing bootstrap chunk",
+    );
+  }
+
+  // When the host already supplies COOP/COEP, a first worker claim for this
+  // same build must not navigate away from the page the person is using.
+  const isolatedServer = await serveLoopbackDist({
+    dist,
+    base,
+    headers: {
+      "cross-origin-opener-policy": "same-origin",
+      "cross-origin-embedder-policy": "require-corp",
+      "cross-origin-resource-policy": "same-origin",
+    },
+  });
+  const isolated = await browser.newContext();
+  try {
+    await isolated.addInitScript(() => {
+      const key = "__startup_claim_check";
+      sessionStorage.setItem(
+        key,
+        String(Number(sessionStorage.getItem(key) ?? "0") + 1),
+      );
+    });
+    const isolatedPage = await isolated.newPage();
+    await isolatedPage.goto(isolatedServer.href, {
+      waitUntil: "domcontentloaded",
+    });
+    await isolatedPage.waitForFunction(
+      () => crossOriginIsolated && Boolean(navigator.serviceWorker?.controller),
+      null,
+      { timeout: 30_000 },
+    );
+    await isolatedPage
+      .getByRole("button", { name: "Set up your own", exact: true })
+      .waitFor({ timeout: 30_000 });
+    await isolatedPage.waitForTimeout(3_000);
+    assert.equal(
+      await isolatedPage.evaluate(() =>
+        Number(sessionStorage.getItem("__startup_claim_check")),
+      ),
+      1,
+      "a compatible first worker claim must not reload an isolated page",
+    );
+    console.log("PASS: an isolated first worker claim keeps the page");
+  } finally {
+    await isolated.close();
+    await isolatedServer.close();
+  }
+
+  // A lazy chunk can fail after the shell has already loaded. Keep the file
+  // unavailable across a real navigation and ensure the same build stops
+  // retrying instead of clearing its guard on every successful shell import.
+  const stale = await browser.newContext({ serviceWorkers: "block" });
+  await stale.addInitScript(() => {
+    const key = "__startup_reload_check";
+    sessionStorage.setItem(
+      key,
+      String(Number(sessionStorage.getItem(key) ?? "0") + 1),
+    );
+  });
+  const stalePage = await stale.newPage();
+  let failedChunks = 0;
+  await stalePage.route("**/assets/VaultSection-*.js", (route) => {
+    failedChunks += 1;
+    return route.abort();
+  });
+  await stalePage.goto(server.href, { waitUntil: "domcontentloaded" });
+  await stalePage.waitForFunction(
+    () => Number(sessionStorage.getItem("__startup_reload_check")) >= 2,
+    null,
+    { timeout: 30_000 },
+  );
+  await stalePage
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .waitFor({ timeout: 30_000 });
+  const stop = Date.now() + 15_000;
+  while (failedChunks < 2 && Date.now() < stop)
+    await stalePage.waitForTimeout(100);
+  assert.ok(failedChunks >= 2, "the same lazy chunk failed on both documents");
+  await stalePage.waitForTimeout(2_000);
+  assert.equal(
+    await stalePage.evaluate(() =>
+      Number(sessionStorage.getItem("__startup_reload_check")),
+    ),
+    2,
+    "an unavailable lazy chunk must not reload the same build repeatedly",
+  );
+  await stalePage
+    .getByRole("heading", { name: "Notification: Out of date" })
+    .waitFor({
+      state: "visible",
+      timeout: 15_000,
+    });
+  await screenshot(stalePage, "startup-stale-chunk");
+  await stale.close();
+  console.log("PASS: a missing lazy chunk gets one automatic retry");
 
   for (const device of [
     { name: "desktop", viewport: { width: 1365, height: 900 } },

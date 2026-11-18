@@ -27,6 +27,8 @@ mod nats_transport;
 #[cfg(feature = "jetstream")]
 mod nats_transport_env;
 mod process;
+#[cfg(any(test, feature = "testkit"))]
+pub mod testkit;
 
 pub use memory::{InMemoryTaskBus, UnavailableTaskBus};
 #[cfg(feature = "jetstream")]

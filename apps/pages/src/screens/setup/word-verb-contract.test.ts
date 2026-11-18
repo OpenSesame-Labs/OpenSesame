@@ -21,9 +21,12 @@ const lint = join(root, "scripts", "quality", "design-lint.mjs");
 /** What one lint run said: its exit code and everything it printed. */
 type LintRun = { code: number; output: string };
 
-function lintOne(contents: string): LintRun {
+function lintOne(
+  contents: string,
+  path = "apps/pages/src/sections/access/Broken.tsx",
+): LintRun {
   const dir = mkdtempSync(join(tmpdir(), "design-lint-verbs-"));
-  const file = join(dir, "apps/pages/src/sections/access/Broken.tsx");
+  const file = join(dir, path);
   execFileSync("mkdir", ["-p", dirname(file)]);
   writeFileSync(file, contents);
   try {
@@ -77,5 +80,47 @@ describe("word-verb buttons fail design lint", () => {
   ])("accepts %s", (_, source) => {
     const result = lintOne(`${source}\n`);
     expect(result.output).not.toContain("word-verb-button");
+  });
+});
+
+describe("the notification dismissal exception", () => {
+  const notice = "apps/pages/src/components/ToastStack.tsx";
+  const dismiss = `<button type="button" className="btn notice-dismiss" aria-label="Dismiss notification: Saved">Dismiss</button>`;
+
+  it("allows the labeled dismissal only in a notification surface", () => {
+    for (const home of [
+      notice,
+      "apps/pages/src/components/InlineRecommendations.tsx",
+      "apps/pages/src/components/StatusNoticeCard.tsx",
+    ]) {
+      expect(lintOne(`${dismiss}\n`, home).output).not.toContain(
+        "word-verb-button",
+      );
+    }
+    expect(lintOne(`${dismiss}\n`).output).toContain("word-verb-button");
+  });
+
+  it.each([
+    `<button type="button" className="btn notice-dismiss">Dismiss</button>`,
+    `<button type="button" className="btn notice-dismiss" aria-label="">Dismiss</button>`,
+    `<button type="button" className="btn notice-dismiss" aria-label="Delete account">Dismiss</button>`,
+    `<button type="button" className="btn notice-dismiss" aria-label="Dismiss notification: ">Dismiss</button>`,
+    `<button type="button" className="btn notice-dismiss" aria-label="Delete">Delete</button>`,
+    `<button type="button" className="btn" aria-label="Dismiss">Dismiss</button>`,
+  ])("does not exempt other verb buttons: %s", (source) => {
+    expect(lintOne(`${source}\n`, notice).output).toContain("word-verb-button");
+  });
+
+  it("accepts the contextual template-literal names used by notifications", () => {
+    const template =
+      '<button className="btn notice-dismiss" aria-label={`Dismiss ${kind}: ${toast.title}`}>Dismiss</button>';
+    const indexed =
+      '<button className="btn notice-dismiss" aria-label={`Dismiss recommendation: ${items[0].title}`}>Dismiss</button>';
+    expect(lintOne(`${template}\n`, notice).output).not.toContain(
+      "word-verb-button",
+    );
+    expect(lintOne(`${indexed}\n`, notice).output).not.toContain(
+      "word-verb-button",
+    );
   });
 });

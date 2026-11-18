@@ -8,7 +8,7 @@ import {
   createPostgresConsentStore,
 } from "../src/index.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
 function makeOriginClient(id: string, origin: string) {
   return {
@@ -109,12 +109,21 @@ consentSuite("createMemoryConsentStore", async () => ({
   ensurePrincipal: async () => {},
 }));
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 let clients: ClientRecordStore;
+let setup: Promise<void> | undefined;
+
+function ensurePostgres(): Promise<void> {
+  setup ??= (async () => {
+    ctx = await pgOwner.acquire();
+    clients = createPostgresClientRecordStore(ctx.db);
+  })();
+  return setup;
+}
 
 consentSuite("createPostgresConsentStore", async () => {
-  ctx = await createPgTestContext();
-  clients = createPostgresClientRecordStore(ctx.db);
+  await ensurePostgres();
   return {
     consents: createPostgresConsentStore(ctx.db),
     ensureClient: async (clientId, sector) => {
@@ -127,10 +136,12 @@ consentSuite("createPostgresConsentStore", async () => {
 });
 
 afterAll(async () => {
-  await ctx?.client.close();
+  await pgOwner.close();
 });
 
 describe("createPostgresConsentStore races", () => {
+  beforeAll(ensurePostgres);
+
   it("two concurrent first consents land one row with both scope sets", async () => {
     const principalId = `prn_${randomUUID()}`;
     const origin = `https://race-${randomUUID()}.example.com`;

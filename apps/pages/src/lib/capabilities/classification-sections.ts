@@ -54,6 +54,10 @@ export const SECTION_RULES = [
     "src/sections/connections",
     "stylesheet shared by Settings provider tiles and the Connections section",
   ),
+  shared(
+    "packages/app-core/src/sections/connections/path.ts",
+    "pure connector ceremony paths shared with Settings provider tiles",
+  ),
   optional(
     "src/sections/connections/",
     CONNECTORS,

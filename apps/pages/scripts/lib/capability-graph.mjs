@@ -6,7 +6,7 @@
  * (ownership.md §4.6) live in `capability-invariants.mjs`, which imports from
  * here — never the other way round.
  *
- * Graph shape (also `dist/capability-graph.json`):
+ * Decoded graph shape (see graph-records.ts for the versioned disk encoding):
  *   entries:  [{ html, capability, scripts: [file], preloads: [file], assets: [file] }]
  *   chunks:   [{ file, name, isEntry, isDynamicEntry, onDemand, imports, dynamicImports,
  *                importedCss, importedAssets, modules: [{ id, classification,
@@ -15,6 +15,11 @@
  *   publicFiles: [{ file, capability }]
  *   moduleEdges: [{ from, to, kind: "static"|"dynamic", viaTable }]
  */
+import {
+  isJsonObject,
+  isString,
+} from "../../../../packages/os-domain/src/json.ts";
+
 export {
   BUILD_MODES,
   IMPLICIT_PROFILE,
@@ -139,7 +144,7 @@ const MODULES_DIR_PATTERNS = new Set([
 function bestPrefixRule(rules, candidates, inModules) {
   let best = null;
   for (const rule of rules ?? []) {
-    if (typeof rule.pattern !== "string") continue;
+    if (!isString(rule.pattern)) continue;
     const pattern = toPosix(rule.pattern);
     if (inModules && MODULES_DIR_PATTERNS.has(pattern)) continue;
     if (!candidates.some((c) => ruleMatches(pattern, c))) continue;
@@ -278,7 +283,7 @@ export function canonicalJson(value, indent = 2) {
   const space = indent > 0 ? indent : undefined;
   const sort = (v) => {
     if (Array.isArray(v)) return v.map(sort);
-    if (v && typeof v === "object") {
+    if (isJsonObject(v)) {
       return Object.fromEntries(
         Object.keys(v)
           .sort()

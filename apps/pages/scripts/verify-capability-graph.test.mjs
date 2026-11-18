@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, test } from "vitest";
 import { PUBLIC_FILE_OWNERSHIP } from "../src/lib/capabilities/ownership.js";
+import { encodeGraph } from "../src/sw/graph-records.ts";
 import { canonicalJson } from "./lib/capability-graph.mjs";
 import { verifyDist } from "./verify-capability-graph.mjs";
 
@@ -178,6 +179,38 @@ test("the classic schema bootstrap is accounted for by authored core ownership",
   const { report } = await verifyDist({ dist });
   assert.equal(report.ok, true);
   assert.deepEqual(codes(report), []);
+});
+
+test("a version 2 graph retains independent edge and source exclusion checks", async () => {
+  const dist = scaffold({
+    graphPatch: encodeGraph,
+    filesPatch: (files) => ({
+      ...files,
+      "assets/main-1.js": `import{a}from"./vendor-1.js";import"./cap-sharing.drops-1.js";export{a};`,
+    }),
+  });
+  const { report } = await verifyDist({
+    dist,
+    mode: "hardened",
+    expectAbsent: ["sharing.drops/runtime"],
+  });
+  assert.deepEqual(codes(report), [
+    "DYNAMIC_EDGE_MISMATCH",
+    "ENTRY_STATIC_OPTIONAL",
+    "EXPECTED_ABSENT",
+    "STATIC_EDGE_MISMATCH",
+  ]);
+});
+
+test("a version 2 ownership projection cannot contradict its source records", async () => {
+  const dist = scaffold({
+    graphPatch: (graph) => {
+      const encoded = encodeGraph(graph);
+      encoded.chunks[2].modules[0].classification = "core";
+      return encoded;
+    },
+  });
+  await assert.rejects(verifyDist({ dist }), /invalid capability-graph/);
 });
 
 describe("verify-capability-graph", () => {

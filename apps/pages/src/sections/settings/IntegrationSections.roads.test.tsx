@@ -7,8 +7,8 @@ import {
 } from "@opensesame/app-core/lib/connect-roads.js";
 import { getBundledProviders } from "@opensesame/app-core/lib/embedded-catalog.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
+import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AI_LABS } from "./AiLabs.js";
@@ -215,9 +215,12 @@ describe("connector tiles once Connections routes its pages", () => {
     expect(screen.queryByRole("heading", { name: "Local storage" })).toBeNull();
     for (const name of ["OS Keychain", "KeePass", "S3-compatible bucket"])
       expect(screen.queryByRole("link", { name: new RegExp(name) })).toBeNull();
-    // No section here carries a switch: those are Features.
+    // Backup connectors have their own switches; feature switches stay in Features.
+    const github = screen.getByRole("switch", { name: "GitHub backup" });
+    expect(github).toHaveProperty("disabled", true);
+    expect(github.getAttribute("aria-checked")).toBe("false");
     expect(screen.queryAllByRole("switch")).toHaveLength(
-      screen.queryAllByRole("switch", { name: /vault history/ }).length,
+      screen.queryAllByRole("switch", { name: /vault history/ }).length + 1,
     );
   });
 

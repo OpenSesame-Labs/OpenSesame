@@ -19,8 +19,6 @@ import { readString } from "../lib/json-boundary.mjs";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const cliRoot = join(root, "packages/cli");
-const releaseDir = join(cliRoot, "release");
 
 /** Dependencies copied into the npm publish manifest (and CLI image shrinkwrap). */
 export function cliPublishDependencies(manifest) {
@@ -95,10 +93,12 @@ async function directoryBytes(directory) {
   return total;
 }
 
-export async function stageCliRelease(version) {
+export async function stageCliRelease(version, { repositoryRoot = root } = {}) {
   if (!/^[^\s+]+$/u.test(version)) {
     throw new Error("VERSION must be semver without +build metadata");
   }
+  const cliRoot = join(repositoryRoot, "packages/cli");
+  const releaseDir = join(cliRoot, "release");
   const manifest = JSON.parse(
     await readFile(join(cliRoot, "package.json"), "utf8"),
   );

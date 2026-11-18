@@ -286,3 +286,7 @@ looks arbitrary, the ADR it cites explains it.
 | [0220](0220-no-ai-harness-dotfiles-in-the-product-repo.md) | The product repository tracks no AI-harness dotfiles or dot folders | Accepted |
 | [0221](0221-first-run-guidance-and-recommendations.md) | First-run guidance: screens speak first, once, and an act earns one recommendation | Accepted |
 | [0222](0222-github-well-architected-and-ssdf.md) | The engineering system follows the NIST SSDF and the GitHub Well-Architected recommendations, and says where it does not | Accepted |
+| [0223](0223-service-test-doubles.md) | Test services at their real boundaries | Accepted |
+| [0224](0224-bounded-support-route-vocabulary.md) | Preserve the bounded support route vocabulary | Accepted |
+| [0225](0225-first-visit-offers-in-flow.md) | Guidance offers live in the current screen's flow | Accepted |
+| [0226](0226-vault-relay-directory-bindings.md) | Vault relay directory calls require their own service operations | Accepted |

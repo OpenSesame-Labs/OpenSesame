@@ -2,6 +2,8 @@
 
 What kinds of tests this repo runs, where each lives, and — for the kinds it
 does not run — why, so the absence is a decision rather than an oversight.
+For service counterparts and their fidelity limits, see
+[service test doubles](service-test-doubles.md).
 
 ## The kinds, and where they are
 

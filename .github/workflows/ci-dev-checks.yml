@@ -84,6 +84,38 @@ jobs:
     with:
       source_sha: ${{ inputs.source_sha }}
 
+  agent37-iac:
+    name: Agent37 allocation contract
+    needs: admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Validate Terraform against the local Agent37 API fixture
+        env:
+          TF_IN_AUTOMATION: '1'
+        run: |
+          # A previously built candidate may predate the Agent37 configuration.
+          if [ ! -e ops/agent37 ]; then
+            echo "Agent37 allocation is absent in this candidate."
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/agent37-terraform"
+          curl -fsSLo "$RUNNER_TEMP/agent37-terraform/terraform.zip" \
+            https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+          echo "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8  $RUNNER_TEMP/agent37-terraform/terraform.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/agent37-terraform/terraform.zip" -d "$RUNNER_TEMP/agent37-terraform"
+          export AGENT37_TERRAFORM_BIN="$RUNNER_TEMP/agent37-terraform/terraform"
+          bash ops/agent37/terraform.sh fmt -check -recursive ops/agent37
+          bash ops/agent37/terraform.sh -chdir=ops/agent37 init -backend=false -input=false -lockfile=readonly
+          bash ops/agent37/terraform.sh -chdir=ops/agent37 validate -no-color
+          TERRAFORM="$AGENT37_TERRAFORM_BIN" python3 ops/agent37/tests/test_terraform.py
+
   artifact-smoke:
     name: Dev artifact smoke (${{ matrix.target }})
     needs: admission
@@ -167,7 +199,7 @@ jobs:
 
   gate:
     name: Dev gate
-    needs: [admission, source-tests, artifact-smoke]
+    needs: [admission, source-tests, agent37-iac, artifact-smoke]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

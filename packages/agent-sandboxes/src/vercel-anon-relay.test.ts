@@ -91,6 +91,24 @@ describe("anonymous Vercel relay deployment", () => {
     ).toBe(true);
   });
 
+  it("deletes the deployment if a readiness response is malformed", async () => {
+    const fake = fakeVercelApi();
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (
+        String(input).endsWith("/v13/deployments/dpl_test") &&
+        init?.method !== "DELETE"
+      )
+        return new Response("{", { status: 200 });
+      return fake.fetchImpl(input, init);
+    };
+    await expect(
+      deployAnonymousVercelRelay({ fetchImpl, readyTimeoutMs: 5_000 }),
+    ).rejects.toThrow();
+    expect(
+      fake.calls.some((c) => c.startsWith("DELETE ") && c.includes("dpl_test")),
+    ).toBe(true);
+  });
+
   it("bootstraps an anonymous project and deploys the relay with no claim step", async () => {
     const fake = fakeVercelApi();
     const deployed = await deployAnonymousVercelRelay({
@@ -116,9 +134,7 @@ describe("anonymous Vercel relay deployment", () => {
     expect(body.env.RELAY_TOKEN).toBe(deployed.relayToken);
     await deployed.close();
     expect(
-      fake.calls.some(
-        (c) => c.startsWith("DELETE ") && c.includes("dpl_test"),
-      ),
+      fake.calls.some((c) => c.startsWith("DELETE ") && c.includes("dpl_test")),
     ).toBe(true);
   });
 

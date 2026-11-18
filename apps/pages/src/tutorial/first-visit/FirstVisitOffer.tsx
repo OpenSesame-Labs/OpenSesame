@@ -11,7 +11,8 @@
  * on a later session, one per session, until each has been answered.
  *
  * In `offer` mode the card takes no focus and dims nothing. Screens may place
- * it in their own flow; otherwise it is a toast. The offer goes away when the
+ * it in their own flow; otherwise the shell or gate supplies a row. The offer
+ * waits for that row if the screen is still mounting. It goes away when the
  * person moves on, opens Support or starts a tour. In `auto` mode, the default,
  * the tour starts itself instead; in `off` this component does nothing. It
  * rides in the support capability, so builds without guided help have no offer.
@@ -26,7 +27,6 @@ import {
   rememberTourAnswered,
   screenAnsweredThisSession,
 } from "@opensesame/app-core/lib/guidance.js";
-import { hideToast, showToast } from "@opensesame/app-core/lib/notice-toast.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
 import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
@@ -41,6 +41,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
+import { gateIsPresent, subscribeGatePresence } from "../gate-presence.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
 import {
@@ -76,7 +77,6 @@ export const firstVisitSeams = {
   useGate: useTutorialGate,
 };
 
-const offerId = (goal: string) => `first-visit:${goal}`;
 const githubSetupReady = () =>
   isMountedGuideTarget("connections.github.method");
 
@@ -101,6 +101,34 @@ type Asked = Readonly<{
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
   return `New here? This walkthrough takes ${length}, on the real controls. It only points — nothing changes unless you do it.`;
+}
+
+function compactOfferBody(steps: number): string {
+  const length = steps === 1 ? "1 step" : `${steps} steps`;
+  return `${length}. It only points; you make the changes.`;
+}
+
+function bodyForOffer(offer: InlineOffer): string {
+  return offer.host.dataset.firstVisitOffer === "gate" ||
+    offer.host.dataset.firstVisitOffer === "shell" ||
+    offer.host.closest(".gate-offer-frame") !== null
+    ? compactOfferBody(offer.steps)
+    : offerBody(offer.steps);
+}
+
+function offerHost(gateScreen: boolean): HTMLElement | null {
+  if (gateScreen)
+    return (
+      document.querySelector<HTMLElement>(
+        '.gate-offer-frame__body [data-first-visit-offer]:not([data-first-visit-offer="shell"]):not([data-first-visit-offer="gate"])',
+      ) ??
+      document.querySelector<HTMLElement>('[data-first-visit-offer="gate"]')
+    );
+  return (
+    document.querySelector<HTMLElement>(
+      '[data-first-visit-offer]:not([data-first-visit-offer="shell"]):not([data-first-visit-offer="gate"])',
+    ) ?? document.querySelector<HTMLElement>('[data-first-visit-offer="shell"]')
+  );
 }
 
 function usePendingFirstVisit(
@@ -134,29 +162,34 @@ function usePendingFirstVisit(
   return asked;
 }
 
-export function FirstVisitOffer() {
-  const { view, support } = useSupport();
-  const gate = firstVisitSeams.useGate();
-  const guidance = useGuidance();
-  const { route } = view;
-  const githubReady = useSyncExternalStore(
-    subscribeToGuideTargets,
-    githubSetupReady,
-    () => false,
-  );
-  const [inline, setInline] = useState<InlineOffer | null>(null);
-  const idle = !view.open && view.guide?.tour == null;
-  const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
-  const mode =
-    guidance.mode === "auto" && !guidance.chosen && firstVisitSeams.driven()
-      ? "offer"
-      : guidance.mode;
-  const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
-  const asked = usePendingFirstVisit(route, mode, running, support);
+type Placement = {
+  route: string;
+  idle: boolean;
+  mode: string;
+  answered: ReadonlySet<string>;
+  gate: ReturnType<typeof firstVisitSeams.useGate>;
+  gateScreen: boolean;
+  gatePresent: boolean;
+  support: ReturnType<typeof useSupport>["support"];
+  asked: { current: Asked | null };
+  githubReady: boolean;
+};
 
+function useFirstVisitPlacement({
+  route,
+  idle,
+  mode,
+  answered,
+  gate,
+  gateScreen,
+  gatePresent,
+  support,
+  asked,
+  githubReady,
+}: Placement) {
+  const [inline, setInline] = useState<InlineOffer | null>(null);
   useEffect(() => {
-    if (mode === "off" || !idle) return;
-    let shown: string | null = null;
+    if (mode === "off" || !idle || (!gateScreen && gatePresent)) return;
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
@@ -192,45 +225,91 @@ export function FirstVisitOffer() {
         });
         return;
       }
-      const host = document.querySelector<HTMLElement>(
-        "[data-first-visit-offer]",
-      );
-      if (host) {
-        setInline({
-          host,
-          route,
-          title: goal.title,
-          steps,
-          start,
-          dismiss: answer,
-        });
+      const host = offerHost(gateScreen);
+      if (
+        !host ||
+        (goal.id === "connection.github.setup" &&
+          host.dataset.firstVisitOffer === "shell")
+      ) {
+        timer = setTimeout(speak, firstVisitSeams.retryMs);
         return;
       }
-      shown = offerId(goal.id);
-      showToast({
-        id: shown,
-        tone: "info",
+      setInline({
+        host,
+        route,
         title: goal.title,
-        body: offerBody(steps),
-        sticky: true,
-        choice: { label: "Show me", run: start },
-        onDismiss: answer,
+        steps,
+        start,
+        dismiss: answer,
       });
     };
     timer = setTimeout(speak, firstVisitSeams.delayMs);
     return () => {
       clearTimeout(timer);
       // The screen it spoke about is gone, or a tour has begun.
-      if (shown !== null) hideToast(shown);
       setInline((current) => (current?.route === route ? null : current));
     };
-  }, [route, idle, mode, answered, gate, support, asked, githubReady]);
+  }, [
+    route,
+    idle,
+    mode,
+    answered,
+    gate,
+    gateScreen,
+    gatePresent,
+    support,
+    asked,
+    githubReady,
+  ]);
+  return { inline, close: () => setInline(null) };
+}
 
-  return inline ? (
+export function FirstVisitOffer({
+  gateScreen = false,
+}: {
+  gateScreen?: boolean;
+}) {
+  const { view, support } = useSupport();
+  const gate = firstVisitSeams.useGate();
+  const guidance = useGuidance();
+  const { route } = view;
+  const githubReady = useSyncExternalStore(
+    subscribeToGuideTargets,
+    githubSetupReady,
+    () => false,
+  );
+  const gatePresent = useSyncExternalStore(
+    subscribeGatePresence,
+    gateIsPresent,
+    () => false,
+  );
+  const idle = !view.open && view.guide?.tour == null;
+  const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
+  const mode =
+    guidance.mode === "auto" && !guidance.chosen && firstVisitSeams.driven()
+      ? "offer"
+      : guidance.mode;
+  const running = view.guide?.tour != null ? (view.guide?.goal ?? null) : null;
+  const asked = usePendingFirstVisit(route, mode, running, support);
+
+  const { inline, close } = useFirstVisitPlacement({
+    route,
+    idle,
+    mode,
+    answered,
+    gate,
+    gateScreen,
+    gatePresent,
+    support,
+    asked,
+    githubReady,
+  });
+
+  return inline && (gateScreen || !gatePresent) ? (
     <FirstVisitInlineOffer
       offer={inline}
-      body={offerBody(inline.steps)}
-      onClose={() => setInline(null)}
+      body={bodyForOffer(inline)}
+      onClose={close}
     />
   ) : null;
 }

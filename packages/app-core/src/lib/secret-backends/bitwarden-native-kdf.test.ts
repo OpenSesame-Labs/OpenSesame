@@ -256,6 +256,15 @@ it("snapshots caller salt and parameters before asynchronous work", async () => 
   expect(hex(await pending)).toBe(hex(expected));
 });
 
+it("uses only a salt view's bytes and leaves its whole backing array intact", async () => {
+  const backing = Uint8Array.from([17, ...salt, 23]);
+  const before = backing.slice();
+  const view = backing.subarray(1, backing.length - 1);
+  const actual = await deriveBitwardenMasterKey(password, view, pbkdf, limits);
+  expect(hex(actual)).toBe(hex(pbkdf2Sync(password, salt, 5000, 32, "sha256")));
+  expect(backing).toEqual(before);
+});
+
 it("wipes owned PBKDF2 inputs on real success without wiping caller salt", async () => {
   const imported = vi.spyOn(crypto.subtle, "importKey");
   const derived = vi.spyOn(crypto.subtle, "deriveBits");
@@ -286,5 +295,19 @@ it("wipes owned inputs and sanitizes primitive errors", async () => {
     new Uint8Array(Buffer.byteLength(password)),
   );
   expect(ownedSalt).toEqual(new Uint8Array(salt.length));
+  expect(salt).toEqual(before);
+});
+
+it("wipes the imported password when Web Crypto rejects the key", async () => {
+  const imported = vi
+    .spyOn(crypto.subtle, "importKey")
+    .mockRejectedValue(new Error(`primitive included ${password}`));
+  const derived = vi.spyOn(crypto.subtle, "deriveBits");
+  const before = salt.slice();
+  await expect(derive()).rejects.toThrow(/^Bitwarden key derivation failed\.$/);
+  expect(imported.mock.calls[0][1]).toEqual(
+    new Uint8Array(Buffer.byteLength(password)),
+  );
+  expect(derived).not.toHaveBeenCalled();
   expect(salt).toEqual(before);
 });

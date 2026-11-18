@@ -115,6 +115,7 @@ describe("MODULE_OWNERSHIP", () => {
     for (const file of publicHtml)
       expect(PUBLIC_FILE_OWNERSHIP[file], file).toBeNull();
     expect(PUBLIC_FILE_OWNERSHIP["icon.svg"]).toBeNull();
+    expect(PUBLIC_FILE_OWNERSHIP["boot-watch.js"]).toBeNull();
     expect(PUBLIC_FILE_OWNERSHIP["save-button.js"]).toBeNull();
     expect(PUBLIC_FILE_OWNERSHIP["os-runtime-config.json"]).toBeNull();
     expect(PUBLIC_FILE_OWNERSHIP["security-profile.json"]).toBeNull();

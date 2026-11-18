@@ -9,6 +9,9 @@ reads it rather than keeping a copy ([ADR 0139](../docs/adr/0139-one-definition-
 
 | Path | Contract | Consumed by |
 |---|---|---|
+| [`formal-verification/`](formal-verification) | Scoped evidence ledger, source inventory and remaining assurance obligations. | Verification inventory and prerelease qualification |
+| [`auth-verification/`](auth-verification) | Abstract authentication decision proofs and finite state models, with explicit implementation boundaries. | Lean, TLC and implementation conformance tests |
+| [`ui-behavior/`](ui-behavior) | Finite models of selected UI and vault interactions. | TLC and generated behavior tests |
 | [`wit/`](wit) | WebAssembly component (WIT) worlds: `core` (shared IR), `host` (host capabilities), `client` (vault and sync), `connector` (connector guests — no `secrets.get`), `task`, `proof`, `mediation`. | `crates/core`, `crates/host-core`, `crates/client-core`, `crates/connector-host`, `crates/connector-sdk`, `crates/sandbox` |
 | [`openapi/host-api.yaml`](openapi/host-api.yaml) | OpenAPI description of the Host API. The gateway's contract test checks its routes against it. (The Identity API's is generated: `packages/control-plane/openapi.json`.) | `crates/gateway` route contract test, control-plane host-client test |
 | [`openfga/`](openfga) | The OpenFGA authorization model (`model.fga`) and the baseline tuples (`baseline.fga`). | `crates/authz`, `packages/policy` additivity tests, the authority-fabric gate |

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { keyboardIsIdle, landFocus } from "../lib/focus.js";
@@ -20,6 +21,10 @@ import { useTabSwipe } from "../lib/tab-swipe-hook.js";
 import { useGestures } from "../lib/use-gestures.js";
 import { useNarrow } from "../lib/use-narrow.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
+import {
+  gateIsPresent,
+  subscribeGatePresence,
+} from "../tutorial/gate-presence.js";
 import { AppHeader } from "./AppHeader.js";
 import { Crumbs } from "./Crumbs.js";
 import { DuressPresentationOverlay } from "./duress/DuressPresentationOverlay.js";
@@ -80,6 +85,13 @@ const SHELL_CHORD = createChordState();
 function Shell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const narrow = useNarrow();
+  const [recommendationSeat, placeRecommendation] =
+    useState<HTMLDivElement | null>(null);
+  const gatePresent = useSyncExternalStore(
+    subscribeGatePresence,
+    gateIsPresent,
+    gateIsPresent,
+  );
   useDeniedRouteFallback(useSections());
   const [keymapOpen, setKeymapOpen] = useState(false);
   const showKeymap = useCallback(() => setKeymapOpen(true), []);
@@ -123,15 +135,22 @@ function Shell({ children }: { children?: ReactNode }) {
       </aside>
 
       <div className="main">
+        <section
+          className="first-visit-seat"
+          data-first-visit-offer="shell"
+          aria-label="Walkthrough offers"
+          aria-live="polite"
+        />
+        <div className="recommendation-seat" ref={placeRecommendation} />
         <Crumbs />
 
         <DuressPresentationOverlay />
         {children}
       </div>
 
-      {/* A fixed block over the frame: an arrival never takes a grid row or
-          resizes the pane behind it. */}
-      <ToastStack />
+      {/* Transient echoes float over the frame; recommendations use the row
+          above so an unanswered offer cannot cover the current task. */}
+      <ToastStack inlineSeat={recommendationSeat} active={!gatePresent} />
       {/* What the person just did may be worth one recommendation (ADR 0221). */}
       <Recommender />
       {/* After the toast stack, so its arrival subscription is already up. */}

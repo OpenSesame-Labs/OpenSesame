@@ -123,6 +123,7 @@ export const PUBLIC_FILE_OWNERSHIP: Readonly<
   "about.html": null,
   "contact.html": null,
   "privacy.html": null,
+  "boot-watch.js": null,
   "save-button.js": null,
   "browser-schema-config.js": null,
   "icon.svg": null,

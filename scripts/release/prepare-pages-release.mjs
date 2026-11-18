@@ -7,15 +7,20 @@ import { fileURLToPath } from "node:url";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const pagesRoot = join(root, "apps/pages");
-const distDir = join(pagesRoot, "dist");
-const releaseDir = join(pagesRoot, "release");
-const serveSource = join(root, "scripts/release/pages-pwa-serve.mjs");
-
-export async function stagePagesRelease(version) {
+export async function stagePagesRelease(
+  version,
+  { repositoryRoot = root } = {},
+) {
   if (!/^[^\s+]+$/u.test(version)) {
     throw new Error("VERSION must be semver without +build metadata");
   }
+  const pagesRoot = join(repositoryRoot, "apps/pages");
+  const distDir = join(pagesRoot, "dist");
+  const releaseDir = join(pagesRoot, "release");
+  const serveSource = join(
+    repositoryRoot,
+    "scripts/release/pages-pwa-serve.mjs",
+  );
   const manifest = JSON.parse(
     await readFile(join(pagesRoot, "package.json"), "utf8"),
   );

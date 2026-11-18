@@ -1,0 +1,111 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const ENTRY_A = "https://example.test/OpenSesame/assets/pages-AbCd1234.js";
+const ENTRY_B = "https://example.test/OpenSesame/assets/pages-EfGh5678.js";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.resetModules();
+});
+
+describe("stale asset reload guard", () => {
+  it("keeps a retry across the same build and permits a retry on a new build", async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const first = (await import("./stale-asset-reload.js")).staleAssetReload;
+    first.beginBuild(ENTRY_A);
+    expect(first.already()).toBe(false);
+    expect(first.mark()).toBe(true);
+
+    vi.resetModules();
+    const same = (await import("./stale-asset-reload.js")).staleAssetReload;
+    same.beginBuild(ENTRY_A);
+    expect(same.already()).toBe(true);
+
+    vi.resetModules();
+    const updated = (await import("./stale-asset-reload.js")).staleAssetReload;
+    updated.beginBuild(ENTRY_B);
+    expect(updated.already()).toBe(false);
+    expect(updated.mark()).toBe(true);
+
+    vi.resetModules();
+    const returned = (await import("./stale-asset-reload.js")).staleAssetReload;
+    returned.beginBuild(ENTRY_A);
+    expect(returned.already()).toBe(true);
+  });
+
+  it("bounds retries even when several different builds are served in one tab", async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    for (const name of ["AAAAAAAA", "BBBBBBBB", "CCCCCCCC", "DDDDDDDD"]) {
+      vi.resetModules();
+      const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+      guard.beginBuild(
+        `https://example.test/OpenSesame/assets/pages-${name}.js`,
+      );
+      expect(guard.already()).toBe(false);
+      expect(guard.mark()).toBe(true);
+    }
+    vi.resetModules();
+    const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+    guard.beginBuild(
+      "https://example.test/OpenSesame/assets/pages-EEEEEEEE.js",
+    );
+    expect(guard.already()).toBe(true);
+  });
+
+  it("preserves a retry recorded by the previous single-build guard", async () => {
+    const values = new Map([["os-stale-asset-reload", "pages-AbCd1234.js"]]);
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+    guard.beginBuild(ENTRY_A);
+    expect(guard.already()).toBe(true);
+    guard.beginBuild(ENTRY_B);
+    expect(guard.already()).toBe(false);
+    expect(guard.mark()).toBe(true);
+  });
+
+  it("treats a mixed saved array as a legacy marker, not as trusted build names", async () => {
+    const raw = '["pages-AbCd1234.js",42]';
+    const values = new Map([["os-stale-asset-reload", raw]]);
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+    guard.beginBuild(ENTRY_A);
+    expect(guard.already()).toBe(false);
+    expect(guard.mark()).toBe(true);
+    expect(JSON.parse(values.get("os-stale-asset-reload") ?? "null")).toEqual([
+      raw,
+      "pages-AbCd1234.js",
+    ]);
+  });
+
+  it("does not claim a reload can be guarded when tab storage is unavailable", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("storage unavailable");
+      },
+      removeItem: () => undefined,
+    });
+    const guard = (await import("./stale-asset-reload.js")).staleAssetReload;
+    guard.beginBuild(ENTRY_A);
+    expect(guard.mark()).toBe(false);
+    expect(guard.already()).toBe(true);
+  });
+});

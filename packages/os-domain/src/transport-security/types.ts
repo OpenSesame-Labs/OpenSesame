@@ -89,6 +89,8 @@ export const TRANSPORT_OPERATIONS = {
   connectorInvoke: "connector.invoke",
   vaultRelaySnapshotRead: "vault.relay.snapshot.read",
   vaultRelaySnapshotWrite: "vault.relay.snapshot.write",
+  vaultRelayDirectoryList: "vault.relay.directory.list",
+  vaultRelayDirectoryCreate: "vault.relay.directory.create",
 } as const;
 
 export interface TransportErrorView {

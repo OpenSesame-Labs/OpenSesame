@@ -4,7 +4,7 @@
 //! routes. Every other path is absent, including operator transport
 //! administration. The process does not open the Host database. A browser
 //! is admitted by the slot key; this slice checks that key and refuses a
-//! binding document that is not empty `vault_relay` snapshot authority.
+//! binding document that is not empty `vault_relay` authority.
 //! `GET /health/relay` advertises that authority: purpose `vault_relay`,
 //! the document (`empty` or `vault_relay`), and `durable: true`.
 //! Native `mtls_required` admits certificated peers through the installed
@@ -74,7 +74,7 @@ pub(crate) type Shared = Arc<Mutex<Store>>;
 /// # Errors
 ///
 /// The file cannot be read, or it is not an empty set and not entirely
-/// purpose `vault_relay` limited to the two snapshot operations.
+/// purpose `vault_relay` limited to declared snapshot and directory operations.
 pub fn install_relay_bindings(
     json: Option<&str>,
 ) -> Result<opensesame_domain::transport::ServiceBindingSet, String> {

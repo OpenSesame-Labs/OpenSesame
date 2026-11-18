@@ -120,7 +120,8 @@ Payment *authorization* only — no package here stores card data
 
 | Package | Purpose |
 |---|---|
-| [`testing`](testing) | Shared test utilities: sentinel values, PACT helpers, the `test:security` suite. |
+| [`testing`](testing) | Shared test utilities: service lifecycles, sentinel values, PACT helpers, the `test:security` suite. See the [service test doubles inventory](../docs/validation/service-test-doubles.md). |
+| [`identity-testkit`](identity-testkit) | Isolated loopback instance of the real Identity API, with disposable in-memory state. |
 
 Whole test suites that span packages live in [`tests/`](../tests/README.md).
 

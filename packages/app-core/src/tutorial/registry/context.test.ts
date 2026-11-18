@@ -1,6 +1,11 @@
 /** @vitest-environment jsdom */
-import { SUPPORT_LIMITS } from "@opensesame/support-agent";
+import {
+  SUPPORT_LIMITS,
+  sanitizeSupportRequest,
+  supportVocabulary,
+} from "@opensesame/support-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { registerContributionForTest } from "../../lib/contributions.js";
 import {
   noteWebMcpAccepted,
   noteWebMcpFailure,
@@ -10,7 +15,7 @@ import {
 import { buildSupportPageContext } from "./context.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
 import { GUIDE_PREDICATES } from "./predicates.js";
-import { GUIDE_ROUTES, guideRouteWithin } from "./routes.js";
+import { guideRouteWithin, mergedGuideRoutes } from "./routes.js";
 import { declareGuidePredicate, resetGuidePredicatesForTest } from "./state.js";
 
 // Connections, Identity and their routes are contributions; these facts
@@ -29,9 +34,10 @@ const BASE = {
 
 describe("the route a model is told it is on", () => {
   it("passes a registered route through unchanged", () => {
-    for (const route of GUIDE_ROUTES) {
+    for (const route of mergedGuideRoutes()) {
       const context = buildSupportPageContext({ ...BASE, route: route.id });
       expect(context.route).toBe(route.id);
+      expect(context.routes.map((entry) => entry.id)).toContain(route.id);
     }
   });
 
@@ -130,6 +136,38 @@ describe("an authored list that outgrows its model budget", () => {
     expect(() =>
       buildSupportPageContext({ ...BASE, route: "/vault" }),
     ).not.toThrow();
+  });
+
+  it("retains every contributed route through egress and guide validation", () => {
+    const context = buildSupportPageContext({ ...BASE, route: "/vault" });
+    const expected = mergedGuideRoutes().map((route) => route.id);
+    const sanitized = sanitizeSupportRequest({
+      question: "Where can I go?",
+      history: [],
+      context,
+    });
+    expect(context.routes.map((route) => route.id)).toEqual(expected);
+    expect(supportVocabulary(sanitized.context).routes).toEqual(expected);
+    expect(expected).toContain("/settings/notifications");
+    expect(expected).toContain("/wallet");
+  });
+
+  it("still stops a developer if contributed routes outgrow the budget", () => {
+    const count = SUPPORT_LIMITS.maxRoutes - mergedGuideRoutes().length + 1;
+    expect(count).toBeGreaterThan(0);
+    const revokes = Array.from({ length: count }, (_, index) =>
+      registerContributionForTest("tutorial-route", {
+        id: `/test-budget-${index}`,
+        title: "A synthetic route",
+      }),
+    );
+    try {
+      expect(() =>
+        buildSupportPageContext({ ...BASE, route: "/vault" }),
+      ).toThrowError(/support_context_budget_exceeded:routes/);
+    } finally {
+      for (const revoke of revokes) revoke();
+    }
   });
 });
 

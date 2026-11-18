@@ -44,6 +44,8 @@ mod task_engine;
 mod taskbus_config;
 #[cfg(test)]
 mod test_principals;
+#[cfg(feature = "testkit")]
+pub mod testkit;
 mod transport;
 mod transport_lifecycle;
 mod vault_relay;

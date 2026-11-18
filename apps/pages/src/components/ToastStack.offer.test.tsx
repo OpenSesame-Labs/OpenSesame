@@ -16,6 +16,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import fc from "fast-check";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOAST_MS, ToastStack, withinLimit } from "./ToastStack.js";
@@ -95,7 +96,9 @@ describe("an offer toast (ADR 0221)", () => {
         onDismiss,
       });
     });
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss offer: Export the vault" }),
+    );
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(run).not.toHaveBeenCalled();
     expect(screen.queryByText("Export the vault")).toBeNull();
@@ -170,9 +173,48 @@ describe("where the keyboard is left", () => {
     act(() => {
       showToast({ id: "echo", tone: "info", title: "Saved", body: "Done." });
     });
-    const dismiss = screen.getByRole("button", { name: "Dismiss" });
+    const dismiss = screen.getByRole("button", {
+      name: "Dismiss notification: Saved",
+    });
     dismiss.focus();
     fireEvent.click(dismiss);
+    expect(document.activeElement).toBe(page);
+  });
+
+  it.each(["hide", "tray"])(
+    "hands focus back when a focused toast is removed by %s",
+    (source) => {
+      stackBesideAKey();
+      const page = screen.getByRole("button", { name: "Save item" });
+      page.focus();
+      act(() => {
+        appendStatusNotice({
+          id: "echo",
+          tone: "info",
+          title: "Saved",
+          body: "Done.",
+        });
+      });
+      screen
+        .getByRole("button", { name: "Dismiss notification: Saved" })
+        .focus();
+      act(() => {
+        if (source === "hide") hideToast("echo");
+        else dismissNotice("echo");
+      });
+      expect(document.activeElement).toBe(page);
+    },
+  );
+
+  it("does not steal focus when a toast is removed after the person moves on", () => {
+    stackBesideAKey();
+    const page = screen.getByRole("button", { name: "Save item" });
+    act(() => {
+      showToast({ id: "echo", tone: "info", title: "Saved", body: "Done." });
+    });
+    screen.getByRole("button", { name: "Dismiss notification: Saved" }).focus();
+    page.focus();
+    act(() => hideToast("echo"));
     expect(document.activeElement).toBe(page);
   });
 
@@ -216,10 +258,10 @@ describe("the limit, with offers on screen", () => {
     ).toEqual(["tour", "recommend"]);
   });
 
-  it("a new offer over a full stack of offers replaces the oldest", () => {
+  it("keeps every unanswered offer when the usual stack limit is full", () => {
     expect(
       ids(withinLimit([offer("one"), offer("two")], offer("three"))),
-    ).toEqual(["two", "three"]);
+    ).toEqual(["one", "two", "three"]);
   });
 
   it("keeps an offer on screen while echoes come and go", () => {
@@ -232,6 +274,57 @@ describe("the limit, with offers on screen", () => {
     expect(screen.getByText("Tour Settings: General")).toBeTruthy();
     expect(screen.queryByText("first")).toBeNull();
     expect(screen.getByText("second")).toBeTruthy();
+  });
+
+  it("preserves read echoes, offers, and existing order through generated arrivals", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            id: fc.integer({ min: 0, max: 5 }),
+            sticky: fc.boolean(),
+            readFirst: fc.boolean(),
+            readSecond: fc.boolean(),
+          }),
+          { minLength: 1, maxLength: 30 },
+        ),
+        (arrivals) => {
+          let shown: ToastMessage[] = [];
+          for (const step of arrivals) {
+            const echoes = shown.filter((item) => !item.sticky);
+            const reading = new Set(
+              echoes
+                .filter((_, index) =>
+                  index === 0 ? step.readFirst : step.readSecond,
+                )
+                .map((item) => item.id),
+            );
+            const id = `${step.sticky ? "offer" : "echo"}-${step.id}`;
+            const next = withinLimit(
+              shown,
+              step.sticky ? offer(id) : echo(id),
+              {
+                reading,
+                inlineOffers: true,
+              },
+            );
+            const nextIds = ids(next);
+            expect(
+              next.filter((item) => !item.sticky).length,
+            ).toBeLessThanOrEqual(2);
+            for (const item of shown.filter(
+              (item) => item.sticky || reading.has(item.id),
+            ))
+              expect(nextIds).toContain(item.id);
+            expect(nextIds.filter((item) => ids(shown).includes(item))).toEqual(
+              ids(shown).filter((item) => nextIds.includes(item)),
+            );
+            shown = next;
+          }
+        },
+      ),
+      { seed: 221126, numRuns: 100 },
+    );
   });
 });
 

@@ -8,17 +8,18 @@ import { sealLegacySecrets } from "../src/repos/sealed-secrets-sweep.js";
 import { organizations } from "../src/schema/index.js";
 import { sealSecretText } from "../src/secret-seal.js";
 import { makePrincipal } from "./factories.js";
-import { type PgTestContext, createPgTestContext } from "./pg-harness-full.js";
+import { type PgTestContext, createPgOwner } from "./pg-harness-full.js";
 
+const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 const sealer = createEventSealer("organization sealing fixture");
 
 beforeAll(async () => {
-  ctx = await createPgTestContext();
+  ctx = await pgOwner.acquire();
 }, 60_000);
 
 afterAll(async () => {
-  await ctx.client.close();
+  await pgOwner.close();
 });
 
 async function organization(): Promise<Organization> {

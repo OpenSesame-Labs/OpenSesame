@@ -153,10 +153,10 @@ export function bakeOpenSesameTheme(svg, mode) {
     /\sstyle="fill:#[0-9a-fA-F]+(?:;stroke:#[0-9a-fA-F]+;stroke-width:[^"]*)?"/g,
     "",
   );
-  out = out.replace(
-    /<text class="pele-label"([^>]*)>/g,
-    `<text class="pele-label" fill="${t.ink}"$1>`,
-  );
+  out = out.replace(/<text class="pele-label"([^>]*)>/g, (_match, attrs) => {
+    const cleaned = attrs.replace(/\sfill="[^"]*"/g, "");
+    return `<text class="pele-label" fill="${t.ink}"${cleaned}>`;
+  });
   out = out.replace(
     /<g class="(pele-node pele-state[^"]*)"([^>]*)>\s*<rect([\s\S]*?)\/>\s*(<text[\s\S]*?<\/text>)\s*<\/g>/g,
     (_full, cls, tail, rectBody, textBlock) =>

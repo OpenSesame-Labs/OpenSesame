@@ -14,7 +14,10 @@
       "default": "./src/hono.ts"
     }
   },
-  "files": ["src", "dist"],
+  "files": [
+    "src",
+    "dist"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -33,6 +36,7 @@
     }
   },
   "devDependencies": {
+    "@opensesame/mock-upstream-idp": "*",
     "@opensesame/testing": "*",
     "@types/node": "26.6.6",
     "hono": "4.13.16",

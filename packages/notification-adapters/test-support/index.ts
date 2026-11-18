@@ -1,8 +1,7 @@
 /**
- * Test support for Web Push: a stand-in push service that verifies VAPID and
- * decrypts `aes128gcm` with independent libraries, and a minter for real
- * subscriptions. Imported as `@opensesame/notification-adapters/test-support`
- * by tests and by `verify:push`; never by production code.
+ * Test support for notification providers, imported by tests and verification
+ * tools as `@opensesame/notification-adapters/test-support`; never by
+ * production code.
  */
 export {
   type AcceptedPush,
@@ -14,6 +13,16 @@ export {
   startPushStandIn,
   wakePayloadViolation,
 } from "./push-standin.js";
+export {
+  SLACK_STANDIN_API_BASE,
+  type SlackStandIn,
+  type SlackStandInFault,
+  type SlackStandInInteraction,
+  type SlackStandInMessage,
+  type SlackStandInOptions,
+  type SlackStandInRequest,
+  createSlackStandIn,
+} from "./slack-standin.js";
 export {
   type MintOptions,
   type MintedPushSubscription,

@@ -45,16 +45,15 @@ import "./door.css";
 /** The door's hero: fitted to the card, at most 90px of em (DESIGN.md § Mark). */
 const HERO_FIT = { max: 90 };
 
-export function FrontDoor({
-  onOpenSetup,
-  onOpenJoin,
-}: {
+interface FrontDoorProps {
   /** The operator ceremony — every tab of it optional (ADR 0114). `join`
    *  lands on a managed instance's required roots to accept. */
   onOpenSetup: (join?: boolean) => void;
   /** Join a session: a live one browser to browser (ADR 0150), or a Host's. */
   onOpenJoin: () => void;
-}) {
+}
+
+export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
   useSupportRoute("/unlock/door");
   const setupRef = useGuideTarget<HTMLButtonElement>("unlock.setup");
   const firstRoad = useRef<HTMLButtonElement | null>(null);
@@ -126,10 +125,14 @@ export function FrontDoor({
               is sealed (ADR 0188). */}
           <ImportRoadButton />
         </fieldset>
-
         <div className="door__theme">
           <GateTools tabIndex={-1} />
         </div>
+        <div
+          className="first-visit-host"
+          data-first-visit-offer
+          data-first-visit-return="unlock.setup"
+        />
 
         {guestFailed ? <StatusMark tone="err" label={guestFailed} /> : null}
         <FailureNotice

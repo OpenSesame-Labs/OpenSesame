@@ -8,6 +8,7 @@ import {
   loadTailscaleAssets,
   tailscaleWorkerFileName,
 } from "./tailscale-wasm-assets.mjs";
+
 test.skipIf(process.arch !== "x64")(
   "ships exact source-built native WASM, isolated runtime, jitless bridge and complete notices",
   // A cold cache may wait on the 600s preparation lock, download two archives
@@ -15,7 +16,7 @@ test.skipIf(process.arch !== "x64")(
   { timeout: 1_500_000 },
   async () => {
     const assets = await loadTailscaleAssets();
-    assert.equal(assets.get(TAILSCALE_ASSETS.wasm).length, 6774176);
+    assert.equal(assets.get(TAILSCALE_ASSETS.wasm).length, 6776819);
     assert.equal(assets.get(TAILSCALE_ASSETS.runtime).length, 8078);
     assert.match(
       assets.get(TAILSCALE_ASSETS.runtime).toString(),
@@ -31,7 +32,7 @@ test.skipIf(process.arch !== "x64")(
       assets.get(TAILSCALE_ASSETS.license).toString(),
       /Zod4 runtime/,
     );
-    assert.equal(assets.get(TAILSCALE_ASSETS.nativeHTTP).length, 28377);
+    assert.equal(assets.get(TAILSCALE_ASSETS.nativeHTTP).length, 28350);
     assertTailscaleHash(
       assets.get(TAILSCALE_ASSETS.nativeHTTP),
       TAILSCALE_SDK.nativeHTTPHash,

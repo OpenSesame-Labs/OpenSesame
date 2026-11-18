@@ -35,7 +35,7 @@ async function showStaleNotice(): Promise<void> {
 
 async function fallbackReload(): Promise<boolean> {
   if (staleAssetReload.already()) return false;
-  staleAssetReload.mark();
+  if (!staleAssetReload.mark()) return false;
   try {
     const { anyDirtyEdit, hasDraftSaver, saveDirtyDrafts } = await import(
       "@opensesame/app-core/lib/dirty-edit.js"

@@ -22,6 +22,7 @@ const workflow = parse(yaml);
 
 const UNTRUSTED = [
   "changes",
+  "behavior-verification",
   "typescript-tests",
   "bundle",
   "ai-connections-e2e",
@@ -113,7 +114,7 @@ describe("ci-prerelease-checks untrusted checkout", () => {
     const checkoutsText = blocks.filter((block) =>
       /uses:\s*actions\/checkout@/.test(block),
     );
-    expect(checkoutsText.length).toBe(34);
+    expect(checkoutsText.length).toBe(36);
     for (const block of checkoutsText) {
       const step = block.split(/\n\s*- /)[0];
       expect(step).toContain("allow-unsafe-pr-checkout: false");

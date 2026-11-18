@@ -216,7 +216,7 @@ const buttonBaseline = readCountBaseline(BUTTON_BASELINE);
 
 function checkWordVerbs(file, source) {
   const path = relative(root, file).replaceAll("\\", "/");
-  const hits = wordVerbHits(source);
+  const hits = wordVerbHits(source, { path });
   const recorded = Object.hasOwn(buttonBaseline, path)
     ? buttonBaseline[path]
     : 0;

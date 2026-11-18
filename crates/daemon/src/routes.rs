@@ -32,19 +32,29 @@ async fn proxy_identity(State(st): State<App>, req: Request) -> Response {
     proxy_loopback(&st, &base, "/identity", req).await
 }
 
-pub(super) fn router(state: App) -> Router {
+/// Local routes shared by the real router and the isolated testkit.
+pub(super) fn local_routes() -> Router<App> {
     Router::new()
         .route("/health", get(daemon_health))
         .route("/health/live", get(daemon_health))
         .route("/v1/list_sessions", post(list_sessions))
+        .route("/v1/mint_capability", post(mint_capability))
+        .route("/v1/introspect_capability", post(introspect_capability))
+        .route("/v1/revoke", post(revoke))
+        .route("/v1/helper-mints", get(helper_mints::list))
+        .route(
+            "/v1/helper-mints/{connection_id}",
+            put(helper_mints::allow).delete(helper_mints::revoke),
+        )
+}
+
+pub(super) fn router(state: App) -> Router {
+    local_routes()
         .route(
             "/v1/agent-capabilities/token",
             post(agent_capability::exchange).layer(DefaultBodyLimit::max(2048)),
         )
         .route("/v1/get_access_token", post(get_access_token))
-        .route("/v1/mint_capability", post(mint_capability))
-        .route("/v1/introspect_capability", post(introspect_capability))
-        .route("/v1/revoke", post(revoke))
         .route("/v1/discover", post(discover))
         .route(
             "/v1/promote",
@@ -58,11 +68,6 @@ pub(super) fn router(state: App) -> Router {
         .route(
             "/v1/mint",
             post(mint::mint_via_daemon).layer(DefaultBodyLimit::max(mint::MAX_BODY_BYTES)),
-        )
-        .route("/v1/helper-mints", get(helper_mints::list))
-        .route(
-            "/v1/helper-mints/{connection_id}",
-            put(helper_mints::allow).delete(helper_mints::revoke),
         )
         .merge(cli_app_integration::routes(&state))
         .route("/v1/toolbar/status", get(toolbar::toolbar_status))

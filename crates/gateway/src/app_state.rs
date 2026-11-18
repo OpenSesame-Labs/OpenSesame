@@ -168,6 +168,8 @@ async fn build_with_security(
     args: Args,
     security: config::StartupSecurity,
 ) -> anyhow::Result<AppState> {
+    // Refuse an unusable configured PDP before opening persistent state.
+    let openfga = OpenFgaClient::from_env()?;
     let db = if args.database_url == "sqlite::memory:" {
         Db::connect_memory().await?
     } else {
@@ -182,7 +184,6 @@ async fn build_with_security(
         bootstrap::maybe_demo_bootstrap(&db, security.deployment, security.receipt_signer).await?;
     let receipt_verifier =
         config::resolve_receipt_verifier(&boot.broker.signer).map_err(anyhow::Error::msg)?;
-    let openfga = OpenFgaClient::from_env().ok().flatten();
     let openbao = OpenBaoHttpAuthority::from_env().ok().flatten();
     let distributed_task_authority =
         resolve_distributed_task_authority(&args.task_database_url).await;
@@ -385,14 +386,5 @@ pub fn test_session_headers(
 }
 
 #[cfg(test)]
-mod tests {
-    use opensesame_task_access::{task_authority_backend_from_url, TaskAuthorityBackend};
-
-    #[test]
-    fn non_postgres_task_db_is_not_distributed() {
-        assert_eq!(
-            task_authority_backend_from_url("sqlite::memory:"),
-            TaskAuthorityBackend::SqliteLocal
-        );
-    }
-}
+#[path = "app_state_tests.rs"]
+mod tests;

@@ -192,8 +192,19 @@ pub(crate) fn vault_json(entry: &DirEntry) -> Value {
 pub(crate) async fn list_org_vaults(
     State(state): State<RelayState>,
     headers: HeaderMap,
+    extensions: Extensions,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if state.mtls.is_some()
+        && super::service_admit::require_vault_relay_caller(
+            &state,
+            &extensions,
+            operations::VAULT_RELAY_DIRECTORY_LIST,
+        )
+        .is_err()
+    {
+        return Err(forbidden());
+    }
     let now = unix_now();
     let identity = resolve_identity(&headers, state.registration.as_ref(), now)?;
     let principal = query.principal.filter(|value| !value.is_empty());
@@ -249,8 +260,19 @@ pub(crate) async fn list_org_vaults(
 pub(crate) async fn create_org_vault(
     State(state): State<RelayState>,
     headers: HeaderMap,
+    extensions: Extensions,
     Json(body): Json<CreateBody>,
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    if state.mtls.is_some()
+        && super::service_admit::require_vault_relay_caller(
+            &state,
+            &extensions,
+            operations::VAULT_RELAY_DIRECTORY_CREATE,
+        )
+        .is_err()
+    {
+        return Err(forbidden());
+    }
     if body.owner_kind != "user" && body.owner_kind != "organization" {
         return Err((
             StatusCode::BAD_REQUEST,

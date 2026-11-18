@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { overlapCast } from "@opensesame/os-domain";
+import { TestResourceScope } from "@opensesame/testing";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { drizzle as drizzlePostgresJs } from "drizzle-orm/postgres-js";
@@ -17,7 +18,12 @@ const migrationsFolder = join(here, "..", "drizzle");
 export interface PgTestContext {
   repos: PostgresRepositories;
   db: Database;
-  /** Closes the connection and, on a real server, drops the context's database. */
+  /**
+   * Closes the connection and, on a real server, drops the context's database.
+   * Close is shared across callers; a failed drop is surfaced and is not retried,
+   * so a database may need manual cleanup on a long-lived server. A stalled
+   * DROP is not bounded and can delay the remaining cleanup indefinitely.
+   */
   client: { close(): Promise<void> };
   /** Which engine this context runs on. */
   engine: "pglite" | "postgres-js";
@@ -46,68 +52,194 @@ export async function createPgTestContext(): Promise<PgTestContext> {
   return url ? createRealPostgresContext(url) : createPgliteContext();
 }
 
-async function createPgliteContext(): Promise<PgTestContext> {
-  const client = new PGlite();
-  await client.waitReady;
-  const db = drizzle(client, { schema });
-  await migrate(db, { migrationsFolder });
-  // SAFETY: drizzle(PGlite) is the same schema-typed Database as postgres-js;
-  // the query-result HKT differs, so TypeScript requires the unknown step.
-  const database: Database = overlapCast(db);
+/**
+ * Own in-flight setup across hook timeouts. Create the owner before the hook,
+ * call acquire() within it, and close it in afterAll even if setup timed out.
+ * A late context is closed and never returned; late setup failures are reported
+ * by close. It cannot cancel or join work already using a returned context,
+ * which can race teardown. Stalled starts or cleanup can outlast the runner's
+ * hook timeout, and worker termination can interrupt cleanup.
+ */
+export function createPgOwner(
+  start: () => Promise<PgTestContext> = createPgTestContext,
+) {
+  const scope = new TestResourceScope();
+  const lateFailures: unknown[] = [];
+  let closing = false;
+  let closed: Promise<void> | undefined;
   return {
-    repos: new PostgresRepositories(database),
-    db: database,
-    client: { close: () => client.close() },
-    engine: "pglite",
+    acquire: async () => {
+      const owned = await scope.acquire(async () => {
+        if (closing) throw new Error("database test context owner is closing");
+        try {
+          const context = await start();
+          return { context, close: () => context.client.close() };
+        } catch (error) {
+          if (closing) lateFailures.push(error);
+          throw error;
+        }
+      });
+      if (closing) throw new Error("database test context owner is closing");
+      return owned.context;
+    },
+    close: () => {
+      if (!closed) {
+        closing = true;
+        closed = (async () => {
+          let cleanupFailed = false;
+          let cleanupError: unknown;
+          try {
+            await scope.close();
+          } catch (error) {
+            cleanupFailed = true;
+            cleanupError = error;
+          }
+          if (lateFailures.length) {
+            throw new AggregateError(
+              cleanupFailed ? [...lateFailures, cleanupError] : lateFailures,
+              "late database setup or cleanup failed",
+            );
+          }
+          if (cleanupFailed) throw cleanupError;
+        })();
+      }
+      return closed;
+    },
   };
+}
+
+async function failAfterCleanup(
+  cause: unknown,
+  scope: TestResourceScope,
+): Promise<never> {
+  try {
+    await scope.close();
+  } catch (cleanupError) {
+    throw new AggregateError(
+      [cause, cleanupError],
+      "database setup and cleanup failed",
+    );
+  }
+  throw cause;
+}
+
+export async function createPgliteContext(
+  client: PGlite = new PGlite(),
+  folder: string = migrationsFolder,
+): Promise<PgTestContext> {
+  const scope = new TestResourceScope();
+  try {
+    scope.use(client);
+    await client.waitReady;
+    const db = drizzle(client, { schema });
+    await migrate(db, { migrationsFolder: folder });
+    // SAFETY: drizzle(PGlite) is the same schema-typed Database as postgres-js;
+    // the query-result HKT differs, so TypeScript requires the unknown step.
+    const database: Database = overlapCast(db);
+    return {
+      repos: new PostgresRepositories(database),
+      db: database,
+      client: { close: () => scope.close() },
+      engine: "pglite",
+    };
+  } catch (error) {
+    return failAfterCleanup(error, scope);
+  }
 }
 
 /** The same server and credentials, another database name. */
 function withDatabase(url: string, name: string): string {
+  // postgres.js and WHATWG URLs disagree about a raw fragment in the
+  // authority. Reject it before either parser can select a different target.
+  if (url.includes("#")) {
+    throw new Error("DATABASE_URL must not contain a fragment");
+  }
   const next = new URL(url);
+  if (!["postgres:", "postgresql:"].includes(next.protocol)) {
+    throw new Error("DATABASE_URL must use the Postgres URL scheme");
+  }
+  // postgres.js forwards unknown query keys as startup parameters, which can
+  // override the path-derived database (including with an empty value).
+  for (const key of next.searchParams.keys()) {
+    if (["database", "dbname", "db"].includes(key.toLowerCase())) {
+      throw new Error(
+        "DATABASE_URL must not override the database in its query",
+      );
+    }
+  }
   next.pathname = `/${name}`;
   return next.toString();
 }
 
-async function createRealPostgresContext(url: string): Promise<PgTestContext> {
+/** Narrow, test-only seam for injecting deterministic driver failures. */
+export interface PostgresHarnessDriver {
+  admin(url: string): {
+    create(name: string): Promise<void>;
+    drop(name: string): Promise<void>;
+    close(): Promise<void>;
+  };
+  connect(url: string): {
+    database(): Database;
+    close(): Promise<void>;
+  };
+  migrate(database: Database): Promise<void>;
+}
+
+const realPostgresDriver: PostgresHarnessDriver = {
+  admin: (url) => {
+    const sql = postgres(url, { max: 1, onnotice: () => undefined });
+    return {
+      create: async (name) => {
+        await sql.unsafe(`create database "${name}"`);
+      },
+      drop: async (name) => {
+        await sql.unsafe(`drop database if exists "${name}" with (force)`);
+      },
+      close: () => sql.end({ timeout: 5 }),
+    };
+  },
+  connect: (url) => {
+    const sql = postgres(url, {
+      max: 4,
+      prepare: false,
+      onnotice: () => undefined,
+    });
+    return {
+      database: () => drizzlePostgresJs(sql, { schema }),
+      close: () => sql.end({ timeout: 5 }),
+    };
+  },
+  migrate: (database) => migratePostgresJs(database, { migrationsFolder }),
+};
+
+export async function createRealPostgresContext(
+  url: string,
+  driver: PostgresHarnessDriver = realPostgresDriver,
+): Promise<PgTestContext> {
   // A database of its own rather than a schema: the migrations name
   // `"public"."principals"` in their foreign keys, so a second schema would
   // point back at the first context's tables.
   const databaseName = `t_${randomUUID().replaceAll("-", "")}`;
-  const quiet = { onnotice: () => undefined };
-  const admin = postgres(url, { max: 1, ...quiet });
-  await admin.unsafe(`create database "${databaseName}"`);
-  const sql = postgres(withDatabase(url, databaseName), {
-    max: 4,
-    prepare: false,
-    ...quiet,
-  });
-  const dropDatabase = async () => {
-    await admin.unsafe(
-      `drop database if exists "${databaseName}" with (force)`,
-    );
-    await admin.end({ timeout: 5 });
-  };
-  const db = drizzlePostgresJs(sql, { schema });
+  // Validate before creating a client or issuing CREATE DATABASE.
+  const databaseUrl = withDatabase(url, databaseName);
+  const scope = new TestResourceScope();
   try {
-    await migratePostgresJs(db, { migrationsFolder });
+    const admin = scope.use(driver.admin(url));
+    await admin.create(databaseName);
+    // Do not drop a database unless CREATE returned successfully: a rejected
+    // CREATE could name a database this fixture did not create. If the server
+    // created it but the acknowledgement was lost, it may need manual cleanup.
+    scope.use({ close: () => admin.drop(databaseName) });
+    const connection = scope.use(driver.connect(databaseUrl));
+    const database = connection.database();
+    await driver.migrate(database);
+    return {
+      repos: new PostgresRepositories(database),
+      db: database,
+      engine: "postgres-js",
+      client: { close: () => scope.close() },
+    };
   } catch (error) {
-    await sql.end({ timeout: 5 });
-    await dropDatabase();
-    throw error;
+    return failAfterCleanup(error, scope);
   }
-  // SAFETY: the production driver's database, typed by the repositories'
-  // alias, which names the same shape through a different HKT.
-  const database: Database = overlapCast(db);
-  return {
-    repos: new PostgresRepositories(database),
-    db: database,
-    engine: "postgres-js",
-    client: {
-      close: async () => {
-        await sql.end({ timeout: 5 });
-        await dropDatabase();
-      },
-    },
-  };
 }

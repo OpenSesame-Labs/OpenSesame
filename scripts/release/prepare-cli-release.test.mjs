@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import {
+  copyFile,
   mkdir,
+  mkdtemp,
   readFile,
   readdir,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import {
@@ -39,7 +42,13 @@ async function assertPackDropsSourcemaps(releaseDir) {
   const { stdout } = await execFileAsync(
     "npm",
     ["pack", "--dry-run", "--json", "--ignore-scripts"],
-    { cwd: releaseDir },
+    {
+      cwd: releaseDir,
+      env: {
+        ...process.env,
+        npm_config_cache: join(dirname(releaseDir), ".npm-cache"),
+      },
+    },
   );
   const packed = JSON.parse(stdout);
   const entry = Array.isArray(packed)
@@ -60,21 +69,27 @@ async function assertPackDropsSourcemaps(releaseDir) {
 }
 
 test("stageCliRelease writes a public publish manifest at the planned version", async () => {
-  const dist = join(process.cwd(), "packages/cli/dist");
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "cli-release-test-"));
+  const cliRoot = join(repositoryRoot, "packages/cli");
+  const dist = join(cliRoot, "dist");
   const bin = join(dist, "bin.js");
   const probe = join(dist, "cd-release-pack-probe");
-  await mkdir(probe, { recursive: true });
-  let previous;
   try {
-    previous = await readFile(bin);
-  } catch (error) {
-    if (error.code !== "ENOENT") throw error;
-  }
-  await writeFile(bin, "// stub\n");
-  await writeFile(join(probe, "leaf.js"), "keep\n");
-  await writeFile(join(probe, "leaf.js.map"), "{}\n");
-  try {
-    const releaseDir = await stageCliRelease("0.1.0-nightly.20261102");
+    await mkdir(probe, { recursive: true });
+    await copyFile(
+      join(process.cwd(), "packages/cli/package.json"),
+      join(cliRoot, "package.json"),
+    );
+    await copyFile(
+      join(process.cwd(), "packages/cli/README.md"),
+      join(cliRoot, "README.md"),
+    );
+    await writeFile(bin, "// stub\n");
+    await writeFile(join(probe, "leaf.js"), "keep\n");
+    await writeFile(join(probe, "leaf.js.map"), "{}\n");
+    const releaseDir = await stageCliRelease("0.1.0-nightly.20261102", {
+      repositoryRoot,
+    });
     const manifest = JSON.parse(
       await readFile(join(releaseDir, "package.json"), "utf8"),
     );
@@ -109,8 +124,6 @@ test("stageCliRelease writes a public publish manifest at the planned version", 
 
     await assertPackDropsSourcemaps(releaseDir);
   } finally {
-    await rm(probe, { recursive: true, force: true });
-    if (previous === undefined) await rm(bin, { force: true });
-    else await writeFile(bin, previous);
+    await rm(repositoryRoot, { recursive: true, force: true });
   }
 });

@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo, Server } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { freePort, onFreePort } from "./free-port.js";
+import { freePort, listenOnLoopback, onFreePort } from "./free-port.js";
 
 const open: Server[] = [];
 
@@ -38,6 +38,19 @@ describe("binding a loopback port under contention", () => {
           runtime invariant that makes `address()` an AddressInfo, not null. */
       (server.address() as AddressInfo).port,
     ).toBe(port);
+  });
+
+  it("rejects when a probe cannot bind instead of hanging", async () => {
+    const occupied = await listen(0);
+    const port =
+      /* SAFETY: `listen` resolves only once the socket is up — the checked
+          runtime invariant that makes `address()` an AddressInfo, not null. */
+      (occupied.address() as AddressInfo).port;
+    const probe = createServer();
+    open.push(probe);
+    await expect(listenOnLoopback(probe, port)).rejects.toMatchObject({
+      code: "EADDRINUSE",
+    });
   });
 
   it("takes another port when the first is gone by the time we bind", async () => {

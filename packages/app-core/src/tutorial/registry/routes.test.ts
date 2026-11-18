@@ -38,6 +38,12 @@ describe("guide route registry", () => {
     for (const id of ids) expect(isKnownGuideRoute(id)).toBe(true);
   });
 
+  it("keeps the fully activated route registry within the model budget", () => {
+    expect(mergedGuideRoutes().length).toBeLessThanOrEqual(
+      SUPPORT_LIMITS.maxRoutes,
+    );
+  });
+
   it("maps a deep path to its longest declared prefix", () => {
     expect(guideRouteForPath("/vault/abc/edit")).toBe("/vault");
     expect(guideRouteForPath("/identity/authorize")).toBe(
@@ -161,9 +167,14 @@ describe("the gates are routes (ADR 0166)", () => {
   });
 
   it("keeps the authored routes inside the budget a model is told, with room to spare", () => {
-    expect(mergedGuideRoutes().length).toBeLessThanOrEqual(
-      SUPPORT_LIMITS.maxRoutes - 4,
-    );
+    const revoke = registerTutorialRealm();
+    try {
+      expect(mergedGuideRoutes().length).toBeLessThanOrEqual(
+        SUPPORT_LIMITS.maxRoutes - 4,
+      );
+    } finally {
+      revoke();
+    }
   });
 });
 

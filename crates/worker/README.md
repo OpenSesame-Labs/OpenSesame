@@ -28,12 +28,65 @@ accepts no work and has no invocation endpoint.
 | `OPENSESAME_WORKER_TRANSPORT` | `existing_local` (loopback plus `OPENSESAME_WORKER_TOKEN` or `OPENSESAME_OPERATOR_TOKEN`) or `mtls_required` |
 | `OPENSESAME_WORKER_TLS`, `OPENSESAME_WORKER_BINDINGS_FILE`, `OPENSESAME_WORKER_TLS_CLIENT_TRUST_PROFILE` | `mtls_required` material and service bindings |
 
+`existing_local` resolves the listen address once and refuses to start if any
+resolved address is not loopback. Use `mtls_required` for a network listener.
+
 Routes: `GET /health/live`, `GET /health/ready`, `GET /v1/providers`.
+
+## Integration-test workers
+
+Enable the `testkit` feature on the worker as a **dev dependency**. The
+testkit starts the same worker router and admission checks on an ephemeral
+loopback listener; it does not set process environment or use shared state.
+Every test should create its own instance and await `close()` so the port is
+released. Dropping the handle initiates bounded shutdown as a fallback.
+
+```toml
+[dev-dependencies]
+opensesame-worker = { path = "../worker", features = ["testkit"] }
+```
+
+```rust,no_run
+# async fn example() -> anyhow::Result<()> {
+use opensesame_worker::testkit::start_local;
+
+let mut worker = start_local(&["encrypted-remote"], "test-only-token".into()).await?;
+let client = reqwest::Client::builder().no_proxy().build()?;
+let response = client
+    .get(format!("{}/v1/providers", worker.base_url()))
+    .bearer_auth("test-only-token")
+    .send()
+    .await?;
+assert!(response.status().is_success());
+worker.close().await?;
+# Ok(())
+# }
+```
+
+`start_mtls` instead creates a fresh in-memory test CA, a real mTLS listener,
+and the caller's validated service bindings. It exposes `issue_client` and
+`client` to exercise bound, unbound, missing or untrusted certificates. A
+certificate alone grants nothing: the operation must appear in an explicit
+binding. An empty binding set denies all service operations. See
+[`tests/testkit.rs`](tests/testkit.rs) for examples including refusals and
+shutdown. Bindings use the `CLIENT_TRUST_PROFILE` testkit constant. The
+generated profiles do not test the CLI or the environment/file
+loading of deployed identities; the existing worker transport tests cover those
+paths separately.
+
+Readiness uses the real provider probe after admission. To keep tests offline,
+the fixtures accept only the built-in `encrypted-remote` provider: other
+providers are rejected before a listener starts because their probes can
+invoke locally installed CLIs or contact their services using ambient
+credentials. Tests of those providers need a separately controlled environment.
+The testkit creates no emulated task execution or provider service, because the
+worker itself only exposes readiness and provider listing.
 
 ## Develop
 
 ```bash
 cargo test -p opensesame-worker
+cargo test -p opensesame-worker --features testkit
 cargo run -p opensesame-cli -- worker run --help
 ```
 

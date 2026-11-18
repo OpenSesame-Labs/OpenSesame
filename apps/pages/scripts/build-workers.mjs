@@ -89,12 +89,25 @@ function shellManifest() {
     throw new Error("build-workers: expected exactly one page entry module");
   if (callbacks.length > 1)
     throw new Error("build-workers: ambiguous native SAML callbacks");
+  // Rolldown can emit a tiny HTML entry that imports the executing bootstrap
+  // as `pages-<hash>.js`. The proof uses that module's import.meta.url, so a
+  // push worker must recognize it just as the core worker's manifest does.
+  const entrySource = readFileSync(join(assets, entries[0]), "utf8");
+  const bootstrap = [
+    ...entrySource.matchAll(
+      /\b(?:from|import)\s*["']\.\/(pages-[A-Za-z0-9_-]{8,64}\.js)["']/gu,
+    ),
+  ].map((match) => match[1]);
+  for (const name of bootstrap) {
+    if (!existsSync(join(assets, name)))
+      throw new Error(`build-workers: missing bootstrap module ${name}`);
+  }
   // The push worker also answers the first-entry proof. Its manifest must
   // name the entry it is claiming, or every first claim by that variant falls
   // back to a reload even though the page is already running.
   return [
     { url: "index.html", revision },
-    ...entries.map((name) => ({
+    ...[...new Set([...entries, ...bootstrap])].map((name) => ({
       url: `assets/${name}`,
       revision: createHash("md5")
         .update(readFileSync(join(assets, name)))

@@ -217,6 +217,7 @@ function make(entry: Recommendation, navigate: (to: string) => void): void {
       // is not left over the page the key just opened.
       opens: action.kind === "open",
       worded: true,
+      compactTitle: entry.compactTitle,
       run,
     },
   });

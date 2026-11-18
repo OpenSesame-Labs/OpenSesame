@@ -31,6 +31,8 @@ describe("the recommendation registry", () => {
       expect(recommendationById(id), id).not.toBeNull();
     }
     for (const entry of RECOMMENDATIONS) {
+      expect(entry.compactTitle.trim().length, entry.id).toBeGreaterThan(0);
+      expect(entry.compactTitle.length, entry.id).toBeLessThanOrEqual(26);
       expect(named.has(entry.id), `${entry.id} has no act`).toBe(true);
     }
   });

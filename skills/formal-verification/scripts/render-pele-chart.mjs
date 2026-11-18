@@ -13,6 +13,7 @@ import {
 } from "./pele-theme-tokens.mjs";
 
 const require = createRequire(import.meta.url);
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const PELE_OPTS = {
   limit: 1_000_000,
@@ -73,11 +74,19 @@ function renderOne(pele, mmd, { theme, mode }) {
   return bakeOpenSesameTheme(svg, mode);
 }
 
-async function writePng(svgPath, pngPath) {
-  const { execFileSync } = await import("node:child_process");
-  execFileSync("npx", ["--yes", "@resvg/resvg-js-cli", svgPath, pngPath], {
-    stdio: "pipe",
-  });
+function writePng(svgPath, pngPath) {
+  let Resvg;
+  try {
+    ({ Resvg } = require(
+      require.resolve("@resvg/resvg-js", { paths: [repoRoot] }),
+    ));
+  } catch {
+    console.error("Install @resvg/resvg-js@2.6.2 at the repo root (npm ci).");
+    process.exit(1);
+  }
+  const svg = readFileSync(resolve(svgPath));
+  const png = new Resvg(svg).render().asPng();
+  writeFileSync(resolve(pngPath), png);
 }
 
 async function writePixelDiff(outDir, base) {
@@ -128,7 +137,8 @@ async function main() {
   mkdirSync(args.outDir, { recursive: true });
   let mmd = readFileSync(resolve(args.mmd), "utf8");
   if (args.stripLegend) mmd = stripChartLegend(mmd);
-  if (args.theme) mmd = stripMermaidMarks(mmd);
+  const defaultMmd = mmd;
+  const themedMmd = args.theme ? stripMermaidMarks(mmd) : mmd;
 
   const base = resolve(args.mmd)
     .replace(/\.mmd$/i, "")
@@ -142,19 +152,19 @@ async function main() {
 
   for (const mode of modes) {
     const svgPath = join(args.outDir, `${base}.${mode}.svg`);
-    const svg = renderOne(pele, mmd, { theme: args.theme, mode });
+    const svg = renderOne(pele, themedMmd, { theme: args.theme, mode });
     writeFileSync(svgPath, svg);
     if (args.png) {
-      await writePng(svgPath, svgPath.replace(/\.svg$/, ".png"));
+      writePng(svgPath, svgPath.replace(/\.svg$/, ".png"));
     }
   }
 
   if (args.theme && args.mode === "both") {
     const defPath = join(args.outDir, `${base}.default.svg`);
-    const defSvg = renderOne(pele, mmd, { theme: false, mode: "light" });
+    const defSvg = renderOne(pele, defaultMmd, { theme: false, mode: "light" });
     writeFileSync(defPath, defSvg);
     if (args.png) {
-      await writePng(defPath, defPath.replace(/\.svg$/, ".png"));
+      writePng(defPath, defPath.replace(/\.svg$/, ".png"));
       if (args.pixelDiff) await writePixelDiff(args.outDir, base);
     }
   }

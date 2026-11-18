@@ -2,7 +2,6 @@ import { expand } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { argon2id } from "hash-wasm";
 import { z } from "zod";
-import { asBufferSource } from "@opensesame/os-domain";
 
 export type BitwardenKdf =
   | { kdfType: 0; iterations: number }
@@ -65,7 +64,7 @@ function snapshotKdf(
 }
 
 /** Count UTF-8 before allocation; malformed scalar strings are rejected. */
-function boundedTextBytes(text: string): Uint8Array {
+function boundedTextBytes(text: string): Uint8Array<ArrayBuffer> {
   if (!inputText.safeParse(text).success)
     throw new Error("Invalid Bitwarden key derivation input.");
   let bytes = 0;
@@ -95,19 +94,19 @@ export function bitwardenLegacyEmailSalt(email: string): Uint8Array {
 }
 
 async function derivePbkdf2(
-  password: Uint8Array,
-  salt: Uint8Array,
+  password: Uint8Array<ArrayBuffer>,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number,
 ): Promise<Uint8Array> {
   const material = await crypto.subtle.importKey(
     "raw",
-    asBufferSource(password),
+    password,
     "PBKDF2",
     false,
     ["deriveBits"],
   );
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: asBufferSource(salt), iterations },
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
     material,
     256,
   );
@@ -133,9 +132,10 @@ export async function deriveBitwardenMasterKey(
   )
     throw new Error("Invalid Bitwarden key derivation input.");
   const ownPassword = boundedTextBytes(password);
-  const ownSalt = new Uint8Array(salt);
+  let ownSalt: Uint8Array<ArrayBuffer> | undefined;
   let saltDigest: Uint8Array | undefined;
   try {
+    ownSalt = new Uint8Array(salt);
     if (parameters.kdfType === 0)
       return await derivePbkdf2(ownPassword, ownSalt, parameters.iterations);
     saltDigest = sha256(ownSalt);
@@ -152,7 +152,7 @@ export async function deriveBitwardenMasterKey(
     throw new Error("Bitwarden key derivation failed.");
   } finally {
     ownPassword.fill(0);
-    ownSalt.fill(0);
+    ownSalt?.fill(0);
     saltDigest?.fill(0);
   }
 }

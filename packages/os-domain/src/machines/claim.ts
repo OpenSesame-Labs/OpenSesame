@@ -101,6 +101,13 @@ export function completeClaim(
   if (session.state !== "reviewed") {
     throw invalidTransition(session.state, "completed", "claim");
   }
+  if (!completedByPrincipalId) {
+    throw new DomainError(
+      "INVARIANT_VIOLATION",
+      "Claim completion requires a principal",
+      { id: session.id },
+    );
+  }
   return apply(session, "completed", {
     completedAt: now,
     completedByPrincipalId,
