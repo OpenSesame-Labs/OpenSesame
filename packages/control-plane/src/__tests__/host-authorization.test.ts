@@ -232,6 +232,96 @@ it("refuses caller assurance, unknown audiences, wrong transaction, and removed 
   expect((await f.verify(f.assertion(one))).status).toBe(403);
 });
 
+it.each(["provisional", "suspended", "deleted"] as const)(
+  "neither starts nor completes Host authorization for a %s organization",
+  async (state) => {
+    const f = await fixture();
+    const id = f.challenge.organization_id;
+    const original = await f.ctx.stores.organizations.get(id);
+    if (!original) throw new Error("Fixture organization missing");
+    const pending = await f.begin();
+    await f.ctx.stores.organizations.set(id, { ...original, state });
+    const options = await f.app.request("/v1/host-authorizations/options", {
+      method: "POST",
+      headers: f.headers,
+      body: JSON.stringify(f.challenge),
+    });
+    expect(options.status).toBe(403);
+    if (!(f.ctx.stores.hostAuthorizations instanceof Map))
+      throw new Error("Expected the in-memory test store");
+    expect(f.ctx.stores.hostAuthorizations.size).toBe(1);
+    expect((await f.verify(f.assertion(pending))).status).toBe(403);
+    expect(
+      await f.ctx.stores.hostAuthorizations.get(pending.authorization_id),
+    ).toBeUndefined();
+    expect(
+      (await f.ctx.repos.auditEvents.list({ limit: 100 })).some(
+        (event) => event.eventType === "host.authorization.issued",
+      ),
+    ).toBe(false);
+    expect(
+      await f.ctx.stores.organizationMemberships.find(id, f.minted.principalId),
+    ).toMatchObject({ role: "owner" });
+
+    if (state === "deleted") return;
+    await f.ctx.stores.organizations.set(id, original);
+    // A refused attempt consumed its challenge and cannot be replayed after
+    // reactivation, but a fresh ceremony is allowed.
+    expect((await f.verify(f.assertion(pending))).status).toBe(403);
+    const fresh = await f.begin();
+    expect((await f.verify(f.assertion(fresh, true, 2))).status).toBe(200);
+  },
+);
+
+it("rechecks liveness after the passkey verifier returns", async () => {
+  const f = await fixture();
+  const id = f.challenge.organization_id;
+  const organization = await f.ctx.stores.organizations.get(id);
+  if (!organization) throw new Error("Fixture organization missing");
+  const pending = await f.begin();
+  const verifier = f.ctx.hostAuthorizationPasskeys.verify.bind(
+    f.ctx.hostAuthorizationPasskeys,
+  );
+  vi.spyOn(f.ctx.hostAuthorizationPasskeys, "verify").mockImplementation(
+    async (input) => {
+      const result = await verifier(input);
+      await f.ctx.stores.organizations.set(id, {
+        ...organization,
+        state: "suspended",
+      });
+      return result;
+    },
+  );
+  expect((await f.verify(f.assertion(pending))).status).toBe(403);
+});
+
+it("refuses a stale membership whose organization no longer exists", async () => {
+  const f = await fixture();
+  const pending = await f.begin();
+  vi.spyOn(f.ctx.stores.organizations, "get").mockReturnValue(undefined);
+  const options = await f.app.request("/v1/host-authorizations/options", {
+    method: "POST",
+    headers: f.headers,
+    body: JSON.stringify(f.challenge),
+  });
+  expect(options.status).toBe(403);
+  expect((await f.verify(f.assertion(pending))).status).toBe(403);
+});
+
+it("allows an unspent ceremony after reinstatement when it remains unexpired", async () => {
+  const f = await fixture();
+  const id = f.challenge.organization_id;
+  const organization = await f.ctx.stores.organizations.get(id);
+  if (!organization) throw new Error("Fixture organization missing");
+  const pending = await f.begin();
+  await f.ctx.stores.organizations.set(id, {
+    ...organization,
+    state: "suspended",
+  });
+  await f.ctx.stores.organizations.set(id, organization);
+  expect((await f.verify(f.assertion(pending))).status).toBe(200);
+});
+
 it("verifies a real passkey on another app instance and consumes the pending grant atomically", async () => {
   const client = await migratedPGlite();
   try {
@@ -252,6 +342,20 @@ it("verifies a real passkey on another app instance and consumes the pending gra
     expect(
       await second.ctx.stores.hostAuthorizations.get(pending.authorization_id),
     ).toBeUndefined();
+
+    // A lifecycle change on one replica must fence completion on the other.
+    const later = await first.begin();
+    const organization = await second.ctx.stores.organizations.get(
+      first.challenge.organization_id,
+    );
+    if (!organization) throw new Error("Fixture organization missing");
+    await second.ctx.stores.organizations.set(organization.id, {
+      ...organization,
+      state: "suspended",
+    });
+    expect((await first.verify(first.assertion(later, true, 2))).status).toBe(
+      403,
+    );
   } finally {
     await client.close();
   }

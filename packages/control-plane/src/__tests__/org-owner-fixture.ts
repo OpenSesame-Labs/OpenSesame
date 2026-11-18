@@ -2,7 +2,7 @@ import { name } from "@gdp-ts/core";
 import type { OrganizationRole } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import { actorId, organizationId } from "../lib/ids.js";
-import { orgOwner } from "../proofs/org-owner.js";
+import { activeOrgOwner } from "../proofs/org-owner.js";
 import { putGroupRoleMapping } from "../routes/scim-groups.js";
 
 /**
@@ -24,7 +24,7 @@ export async function putGroupRoleMappingAsOwner(
     actorId(owner.principalId),
     organizationId(orgId),
     async (actor, org) => {
-      const verdict = await orgOwner(ctx.stores, actor, org, "not_deleted");
+      const verdict = await activeOrgOwner(ctx.stores, actor, org);
       if (!verdict.ok) throw new Error(`owner refused: ${verdict.error}`);
       return putGroupRoleMapping(ctx, org, verdict.proof, groupId, role);
     },

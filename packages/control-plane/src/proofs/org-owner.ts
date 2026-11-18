@@ -20,20 +20,21 @@ import type { AppStores } from "../state.js";
 const OrgOwner = defineProof("OrgOwner");
 export interface OrgOwner<A, O> extends Proof<"OrgOwner", [A, O]> {}
 
+// Membership and provisioning writes need evidence of the stricter active
+// state, not just the repair-oriented not-deleted owner proof.
+const ActiveOrgOwner = defineProof("ActiveOrgOwner");
+export interface ActiveOrgOwner<A, O> extends Proof<"ActiveOrgOwner", [A, O]> {}
+
 /**
  * Which organization states still let an owner act.
  *
  * `not_deleted` is what organizations, domains and LDAP have always accepted,
  * so a suspended organization's owner can still reach them to fix it.
- * `active` is the stricter reading SCIM provisioning has always used.
- * `unchecked` is what the membership routes in `routes/organizations.ts` have
- * always done: they never read the organization's state, so an owner of a
- * deleted organization can still list and edit members. That is recorded drift
- * (ADR 0178), kept so this change alters no behavior; it is not an endorsement.
- * They are named, not unified, because collapsing them would change who may
- * manage a suspended or deleted organization.
+ * `active` is required for membership and SCIM provisioning authority. The
+ * choices remain distinct because administrative repair may need access to a
+ * suspended organization without allowing its membership to be changed.
  */
-export type OrgLiveness = "not_deleted" | "active" | "unchecked";
+export type OrgLiveness = "not_deleted" | "active";
 
 export type OrgOwnerVerdict<A, O> =
   | {
@@ -59,10 +60,9 @@ export async function orgOwner<A, O>(
     : undefined;
   const live =
     organization !== undefined &&
-    (liveness === "unchecked" ||
-      (liveness === "active"
-        ? organization.state === "active"
-        : organization.state !== "deleted"));
+    (liveness === "active"
+      ? organization.state === "active"
+      : organization.state !== "deleted");
   if (!organization || !live || !membership) {
     return { ok: false, status: 404, error: "not_found" };
   }
@@ -70,4 +70,18 @@ export async function orgOwner<A, O>(
     return { ok: false, status: 403, error: "owner_required" };
   }
   return { ok: true, proof: OrgOwner.prove(actor, org), organization };
+}
+
+export async function activeOrgOwner<A, O>(
+  stores: Pick<AppStores, "organizations" | "organizationMemberships">,
+  actor: Named<A, ActorId>,
+  org: Named<O, OrganizationId>,
+) {
+  const verdict = await orgOwner(stores, actor, org, "active");
+  if (!verdict.ok) return verdict;
+  return {
+    ok: true as const,
+    proof: ActiveOrgOwner.prove(actor, org),
+    organization: verdict.organization,
+  };
 }
