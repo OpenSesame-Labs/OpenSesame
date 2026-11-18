@@ -53,10 +53,10 @@ impl Default for ListenerLimits {
         Self {
             max_concurrent_handshakes: 64,
             handshake_timeout: Duration::from_secs(10),
-            idle_timeout: Duration::from_secs(60),
+            idle_timeout: Duration::from_mins(1),
             max_header_bytes: 16 * 1024,
             max_body_bytes: 1024 * 1024,
-            usable_for: Duration::from_secs(300),
+            usable_for: Duration::from_mins(5),
         }
     }
 }

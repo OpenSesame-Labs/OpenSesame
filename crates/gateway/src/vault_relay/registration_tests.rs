@@ -37,8 +37,9 @@ fn fixture_verifier() -> (Verifier, EncodingKey, i64) {
     let signing = EncodingKey::from_rsa_pem(pair.private_key_pkcs8_pem().as_bytes()).unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| i64::try_from(duration.as_secs()).expect("test clock fits i64 seconds"))
-        .unwrap_or(0);
+        .map_or(0, |duration| {
+            i64::try_from(duration.as_secs()).expect("test clock fits i64 seconds")
+        });
     (verifier, signing, now)
 }
 

@@ -42,7 +42,7 @@ pub const MAX_JWKS_BYTES: usize = 64 * 1024;
 /// Keys accepted from one issuer.
 pub const MAX_KEYS: usize = 16;
 /// How long a fetched key set is reused.
-pub const CACHE_TTL: Duration = Duration::from_secs(300);
+pub const CACHE_TTL: Duration = Duration::from_mins(5);
 
 /// Why evidence was refused. Every value is a stable deny code.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -93,7 +93,7 @@ pub fn ciphertext_drive_cors_layer(origins: &[String]) -> CorsLayer {
     browser_cors_layer(origins)
         .allow_headers(AllowHeaders::mirror_request())
         .allow_private_network(true)
-        .max_age(std::time::Duration::from_secs(600))
+        .max_age(std::time::Duration::from_mins(10))
 }
 
 /// Credentialless public discovery; never mount this on authority routes.

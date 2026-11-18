@@ -71,8 +71,7 @@ impl DpopAdvertisement {
 
 fn dpop_env_enabled() -> bool {
     std::env::var("OPENSESAME_DPOP_ENABLED")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false)
+        .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 /// RFC 9449 `DPoP` proof validator.

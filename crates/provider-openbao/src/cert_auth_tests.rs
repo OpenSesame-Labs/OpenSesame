@@ -49,7 +49,7 @@ fn a_login_response_is_read_strictly() {
     let token = parse_login(&login_body(3600, &["connector-read"])).unwrap();
     assert!(token.has_policy("connector-read"));
     assert!(!token.has_policy("root"));
-    assert_eq!(token.lease_duration, Duration::from_secs(3600));
+    assert_eq!(token.lease_duration, Duration::from_hours(1));
     assert!(token.renewable);
     // Debug is a lifecycle summary, never the token.
     assert!(!format!("{token:?}").contains("NEVER-LOGGED"));

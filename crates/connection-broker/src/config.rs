@@ -89,9 +89,9 @@ impl BrokerConfig {
                 ),
                 token_url: non_empty(env::var(env_var_name(&provider.id, "TOKEN_URL")).ok()),
             };
-            providers.insert(provider.id.to_string(), cfg);
+            providers.insert(provider.id.clone(), cfg);
             if let Some(configuration) = detect_connection_configuration(provider) {
-                detected_connections.insert(provider.id.to_string(), configuration);
+                detected_connections.insert(provider.id.clone(), configuration);
             }
         }
 
@@ -214,10 +214,10 @@ impl BrokerConfig {
         let overridden = self.provider(&provider.id).authorize_url;
         match &provider.auth {
             AuthMethod::OAuth2AuthCode { authorize_url, .. } => {
-                Some(overridden.unwrap_or_else(|| authorize_url.to_string()))
+                Some(overridden.unwrap_or_else(|| authorize_url.clone()))
             }
             AuthMethod::OpenRouterPkce { authorize_url, .. } => {
-                Some(overridden.unwrap_or_else(|| authorize_url.to_string()))
+                Some(overridden.unwrap_or_else(|| authorize_url.clone()))
             }
             AuthMethod::ApiKey { .. } | AuthMethod::Configuration => None,
         }
@@ -228,10 +228,10 @@ impl BrokerConfig {
         let overridden = self.provider(&provider.id).token_url;
         match &provider.auth {
             AuthMethod::OAuth2AuthCode { token_url, .. } => {
-                Some(overridden.unwrap_or_else(|| token_url.to_string()))
+                Some(overridden.unwrap_or_else(|| token_url.clone()))
             }
             AuthMethod::OpenRouterPkce { exchange_url, .. } => {
-                Some(overridden.unwrap_or_else(|| exchange_url.to_string()))
+                Some(overridden.unwrap_or_else(|| exchange_url.clone()))
             }
             AuthMethod::ApiKey { .. } | AuthMethod::Configuration => None,
         }

@@ -790,7 +790,7 @@ mod tests {
         }
         assert_eq!(
             parse_host_ip("127.1"),
-            Some(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+            Some(IpAddr::V4(Ipv4Addr::LOCALHOST))
         );
     }
     #[test]
