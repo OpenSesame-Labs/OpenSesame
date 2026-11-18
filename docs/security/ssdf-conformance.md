@@ -34,7 +34,7 @@ node ops/github/security-settings.mjs --verify
 | Practice | Status | How |
 |---|---|---|
 | PS.1 Protect code from tampering | Declared | The [default-branch ruleset](../../ops/github/default-branch.json) requires a pull request, code-owner review, approval of the last push, dismissal of stale approvals, signed commits and linear history, and blocks force pushes and deletion. Every pull-request commit must be GitHub-verified and attributed ([check](../../.github/workflows/ci-grok-commits.yml)). **Owner setting:** two-factor authentication for the organization. **Not applicable:** SAML SSO, IP allow lists and enterprise-managed users (Enterprise only); push rulesets (not offered for public repositories). **Deviation:** agent commits are signed without a human gesture; the human decision is the merge. |
-| PS.2 Verify release integrity | Enforced | The candidate builder attests provenance binding source, controller and payload; promotion verifies it before publishing ([ci-promotion](../operators/ci-promotion.md)). npm packages publish with `--provenance` ([action](../../.github/actions/publish-npm-package/action.yml)). Immutable releases are declared. |
+| PS.2 Verify release integrity | Enforced for candidate releases; npm publication disabled | The candidate builder attests provenance binding source, controller and payload; promotion verifies it before publishing ([ci-promotion](../operators/ci-promotion.md)). npm publication is disabled until qualified candidate-bound promotion and independent publisher controls exist ([status](../operators/publishing.md#stored-publication-credentials)). Immutable releases are declared. |
 | PS.3 Archive and protect releases | Enforced and Declared | Two [tag rulesets](../../ops/github/release-tags.json) restrict who may create, move or delete `v*` tags (Declared). Every candidate build signs a CycloneDX inventory of the dependencies it was built from against the same artifact digests as its build provenance, and a candidate that cannot produce one does not build ([release kit](../operators/release-kit.md#dependency-inventory), [`sbom.mjs`](../../scripts/release/sbom.mjs)). |
 
 ## Produce well-secured software (PW)
@@ -75,7 +75,7 @@ The scenario's twenty items, in its order.
 | Dynamic and runtime security testing | Enforced in release qualification |
 | Least-privilege CI build environments | Enforced |
 | Required status checks for security scans | Deviation: scans gate promotion |
-| OIDC between CI and cloud providers | Not applicable to a cloud provider: there is none. GHCR publication is disabled pending qualified OCI promotion and independent Owner controls. npm publishing attempts OIDC and warns when a stored `NPM_TOKEN` remains available as a fallback ([steps](../operators/publishing.md#stored-publication-credentials)). `RELEASE_PUBLISH_TOKEN` is limited to 90 days and every release reports its expiry |
+| OIDC between CI and cloud providers | Not applicable to a cloud provider: there is none. npm publication is disabled pending qualified candidate-bound promotion and independent publisher controls ([status](../operators/publishing.md#stored-publication-credentials)); see [GHCR status](../operators/ghcr-images.md) for container publication. `RELEASE_PUBLISH_TOKEN` is limited to 90 days and every release reports its expiry |
 | Role-based access with teams and custom roles | Not applicable: one maintainer |
 | SAML SSO or OIDC for user authentication | Not applicable: Enterprise only |
 | Audit log streaming | Deviation: streaming needs GitHub Enterprise. In its place the weekly security run records the repository's settings and fails when one changed ([change alarm](../../ops/github/README.md#change-alarm)) |
@@ -89,9 +89,9 @@ The scenario's twenty items, in its order.
 
 ## What is left, and whose it is
 
-No row above is an open gap. Each is enforced by something checked in,
-declared for an administrator to apply, a setting only the owner holds, a
-recorded deviation, or not applicable.
+npm and OCI publication remain disabled until their artifacts have qualified
+candidate-bound promotion and independently protected publisher controls.
+Declared settings are live only once an administrator applies and verifies them.
 
 Four things can only be done by the repository owner, because they need the
 owner's account rather than a change to the repository:
@@ -101,8 +101,9 @@ owner's account rather than a change to the repository:
    and the same three for `node ops/github/security-settings.mjs`. Until then
    the weekly [change alarm](../../ops/github/README.md#change-alarm) lists
    where the live rulesets differ from the declared ones.
-2. Configure the npm trusted publishers and delete `NPM_TOKEN`
-   ([steps](../operators/publishing.md#stored-publication-credentials)). Every publish warns until this is done.
+2. Remove any unused `NPM_TOKEN` and review npm registry access. A future
+   publisher also requires the candidate and protection work described in the
+   [npm publication status](../operators/publishing.md#stored-publication-credentials).
 3. Keep `RELEASE_PUBLISH_TOKEN` within its 90 days. Every release reports the
    date and warns 14 days ahead.
 4. Keep a copy of the weekly `repository-records` artifact somewhere outside

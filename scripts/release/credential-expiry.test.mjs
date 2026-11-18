@@ -147,19 +147,16 @@ test("the release stage runs it in the step that already held the credential", (
   assert.equal(step["continue-on-error"], undefined);
 });
 
-test("every npm publish says which credential it uses", () => {
+test("the disabled npm action does not read a publication credential", () => {
   const action = readFileSync(
     join(root, ".github/actions/publish-npm-package/action.yml"),
     "utf8",
   );
-  const publish = parse(action).runs.steps.at(-1).run;
-  const branches = publish.split(/^else$/m);
-  assert.equal(branches.length, 2, "one token branch and one OIDC branch");
-  assert.match(branches[0], /export NODE_AUTH_TOKEN=/);
-  assert.match(branches[0], /::warning title=npm credential::/);
-  assert.match(branches[1], /unset NODE_AUTH_TOKEN/);
-  assert.match(branches[1], /::notice title=npm credential::/);
-  // The messages are fixed text: no variable is expanded into them.
-  for (const line of publish.split("\n").filter((l) => l.includes("::")))
-    assert.equal(line.includes("$"), false, line);
+  const steps = parse(action).runs.steps;
+  assert.equal(steps.length, 1);
+  assert.match(steps[0].run, /^\s*exit 1\s*$/m);
+  assert.doesNotMatch(
+    action,
+    /secrets\.|inputs\.npm-token|NODE_AUTH_TOKEN|ACTIONS_ID_TOKEN/,
+  );
 });

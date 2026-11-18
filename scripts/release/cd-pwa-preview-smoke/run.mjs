@@ -5,7 +5,8 @@
  *   node scripts/release/cd-pwa-preview-smoke/run.mjs
  *
  * Requires `hurl` on PATH (pinned in mise.toml). Writes a temp variables file,
- * runs registry.hurl then pages.hurl with bounded retries.
+ * runs pages.hurl with bounded retries. npm publication is disabled, so the
+ * staged npm package is checked locally in the preceding proof job.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -15,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertNotProofGateFail } from "../cd-preview-smoke.mjs";
 import { checkReleaseMeta } from "../cd-release-meta.mjs";
 import { buildHurlVariables, serializeHurlVariables } from "./prepare-vars.mjs";
-import { cdnRetryBudget, registryRetryBudget } from "./retry-budget.mjs";
+import { cdnRetryBudget } from "./retry-budget.mjs";
 import { captureLiveSmokeEvidence } from "./screenshot-evidence.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -57,10 +58,7 @@ async function main() {
   const varPath = join(varDir, "vars.properties");
   writeFileSync(varPath, serializeHurlVariables(variables));
 
-  const registry = registryRetryBudget(process.env);
   const hurlStarted = Date.now();
-  runHurl("registry.hurl", varPath, registry.attempts, registry.intervalMs);
-
   const cdn = cdnRetryBudget(process.env);
   runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
   const hurlMs = Date.now() - hurlStarted;
@@ -71,7 +69,7 @@ async function main() {
 
   const elapsedMs = Date.now() - started;
   console.log(
-    `pwa preview smoke passed for @opensesame-labs/web-pwa@${variables.expected_version} at ${variables.pages_base} (total ${elapsedMs}ms: hurl ${hurlMs}ms, screenshots ${evidenceMs}ms, captured ${evidence.captured_ms}ms)`,
+    `pwa preview smoke passed at ${variables.pages_base} (total ${elapsedMs}ms: hurl ${hurlMs}ms, screenshots ${evidenceMs}ms, captured ${evidence.captured_ms}ms)`,
   );
 }
 
