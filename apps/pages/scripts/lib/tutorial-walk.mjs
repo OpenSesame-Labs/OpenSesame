@@ -15,6 +15,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PIN, waitOpen } from "./pages-journey.mjs";
 import { measureStep, stepChecks } from "./tutorial-measure.mjs";
+import { measureButton } from "./tutorial-measure-button.mjs";
+import { readableInstruction } from "./tutorial-measure-text.mjs";
+import { measurementTools } from "./tutorial-measure-tools.mjs";
 
 export { stepChecks };
 
@@ -55,7 +58,8 @@ export async function listTutorials(page) {
   );
   await page.keyboard.press("Escape");
   await sheet.waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
-  return rows;
+  // Featured tutorials are also listed in their regular section.
+  return [...new Map(rows.map((row) => [row.id, row])).values()];
 }
 
 export const tutorialDialog = (page) =>
@@ -64,7 +68,7 @@ export const tutorialDialog = (page) =>
 /** Starts one tutorial from the library and waits for its first card. */
 export async function startTutorial(page, id) {
   const sheet = await openLibrary(page);
-  await sheet.locator(`[data-tutorial="${id}"]`).click();
+  await sheet.locator(`[data-tutorial="${id}"]`).first().click();
   const card = tutorialDialog(page);
   await card.waitFor({ timeout: 15000 });
   return card;
@@ -117,7 +121,7 @@ async function lit(page) {
   await page.waitForFunction(
     ({ finalMs }) => {
       const root = document.querySelector(".coach");
-      if (!root || !root.getAttribute("data-coach-target")) return true;
+      if (!root?.getAttribute("data-coach-target")) return true;
       const key = `${root.getAttribute("data-coach-step")}:${root.getAttribute("data-coach-kind")}`;
       if (root.getAttribute("data-coach-degraded") !== "true") {
         window.__walkMissing = null;
@@ -146,16 +150,29 @@ async function settled(page) {
       if (!card?.classList.contains("is-placed")) return false;
       if (root.querySelector(".is-gliding")) return false;
       const ring = root.querySelector(".coach__ring");
+      const target = root.getAttribute("data-coach-target") ?? "";
+      const controls = target
+        ? [
+            ...document.querySelectorAll(
+              `[data-guide-targets~="${CSS.escape(target)}"]`,
+            ),
+          ].map((control) => control.getBoundingClientRect())
+        : [];
       const sig = [
         root.getAttribute("data-coach-step"),
         root.getAttribute("data-coach-kind"),
         JSON.stringify(card.getBoundingClientRect()),
         ring ? JSON.stringify(ring.getBoundingClientRect()) : "-",
+        JSON.stringify(controls),
+        window.visualViewport?.height ?? window.innerHeight,
       ].join("|");
       const held = window.__walkSettled;
       if (held?.sig === sig) held.frames += 1;
-      else window.__walkSettled = { sig, frames: 0 };
-      return window.__walkSettled.frames >= 4;
+      else window.__walkSettled = { sig, frames: 0, since: performance.now() };
+      return (
+        window.__walkSettled.frames >= 4 &&
+        performance.now() - window.__walkSettled.since >= 200
+      );
     },
     undefined,
     { timeout: 10000, polling: "raf" },
@@ -204,10 +221,20 @@ export async function reachedStep(page, step, timeout = 6000) {
  * control lit (or given up on past the runtime's grace) and everything still.
  */
 export async function readStep(page) {
+  await page.waitForFunction(
+    () => {
+      const coach = document.querySelector(".coach");
+      return !coach || coach.getAttribute("data-coach-status") === "waiting";
+    },
+    undefined,
+    { timeout: 15000 },
+  );
   await placed(page);
   await lit(page);
   await settled(page);
-  return page.evaluate(measureStep);
+  return page.evaluate(
+    `(${measureStep})(() => (${measurementTools})(${readableInstruction}, ${measureButton}))`,
+  );
 }
 
 /** Re-enters the first screen of the shell without reloading (which locks). */
