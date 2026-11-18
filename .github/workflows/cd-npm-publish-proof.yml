@@ -27,6 +27,8 @@ on:
       - "scripts/release/npm-trunk-publish.test.mjs"
       - "scripts/release/npm-publish-isolation.mjs"
       - "scripts/release/npm-publish-isolation.test.mjs"
+      - "scripts/release/npm-local-package-smoke.mjs"
+      - "scripts/release/npm-local-package-smoke.test.mjs"
       - "scripts/release/fixtures/npm-publish-isolation-runner.mjs"
       - "scripts/release/fixtures/npm-publish-isolation-support.mjs"
       - "scripts/release/prepare-npm-publish.mjs"
@@ -148,7 +150,7 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
-      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/prepare-npm-cli.test.mjs scripts/release/prepare-npm-publish.test.mjs scripts/release/npm-trunk-publish.test.mjs
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/prepare-npm-cli.test.mjs scripts/release/prepare-npm-publish.test.mjs scripts/release/npm-trunk-publish.test.mjs scripts/release/npm-local-package-smoke.test.mjs
       - name: Prepare and exercise the integrity-pinned npm CLI
         run: |
           set -euo pipefail

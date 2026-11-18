@@ -52,7 +52,15 @@ async function ensurePagesDist() {
 function dryRun(releaseDir, distTag, label, expectVersion) {
   const result = spawnSync(
     "npm",
-    ["publish", "--dry-run", "--access", "public", "--tag", distTag],
+    [
+      "publish",
+      "--dry-run",
+      "--ignore-scripts",
+      "--access",
+      "public",
+      "--tag",
+      distTag,
+    ],
     { cwd: releaseDir, encoding: "utf8" },
   );
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;

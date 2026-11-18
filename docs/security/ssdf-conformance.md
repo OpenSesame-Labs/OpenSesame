@@ -75,7 +75,7 @@ The scenario's twenty items, in its order.
 | Dynamic and runtime security testing | Enforced in release qualification |
 | Least-privilege CI build environments | Enforced |
 | Required status checks for security scans | Deviation: scans gate promotion |
-| OIDC between CI and cloud providers | Not applicable to a cloud provider: there is none. GHCR publication is disabled pending qualified OCI promotion and independent Owner controls. npm publishing attempts OIDC and warns when a stored `NPM_TOKEN` remains available as a fallback ([steps](../operators/publishing.md#stored-publication-credentials)). `RELEASE_PUBLISH_TOKEN` is limited to 90 days and every release reports its expiry |
+| OIDC between CI and cloud providers | Not applicable to a cloud provider: there is none. GHCR and npm publication are disabled pending qualified candidate-bound promotion and independent Owner controls ([status](../operators/publishing.md#stored-publication-credentials)). `RELEASE_PUBLISH_TOKEN` is limited to 90 days and every release reports its expiry |
 | Role-based access with teams and custom roles | Not applicable: one maintainer |
 | SAML SSO or OIDC for user authentication | Not applicable: Enterprise only |
 | Audit log streaming | Deviation: streaming needs GitHub Enterprise. In its place the weekly security run records the repository's settings and fails when one changed ([change alarm](../../ops/github/README.md#change-alarm)) |

@@ -18,6 +18,8 @@ on:
       - "scripts/release/cd-*.mjs"
       - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-cd-workflows.promotion-gates.mjs"
+      - "scripts/release/npm-local-package-smoke.mjs"
+      - "scripts/release/npm-local-package-smoke.test.mjs"
       - "scripts/lib/workflow-script-paths.mjs"
       - "scripts/lib/workflow-script-paths.test.mjs"
       - "scripts/ci/ensure-chrome-headless-shell.mjs"
@@ -58,6 +60,7 @@ jobs:
           set -euo pipefail
           node --test \
             scripts/release/npm-cd-workflows.test.mjs \
+            scripts/release/npm-local-package-smoke.test.mjs \
             scripts/release/cd-main-ci-gate.test.mjs \
             scripts/release/cd-preview-smoke.test.mjs \
             scripts/release/cd-preview-smoke.run.test.mjs \
