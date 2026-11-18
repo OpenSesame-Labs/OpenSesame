@@ -32,6 +32,7 @@ export class Browser {
 }
 
 export class JsdomPages implements StepPages {
+  readonly captureSupported = true;
   dom: JSDOM;
   path = "about:blank";
   signedIn: boolean;
@@ -104,29 +105,33 @@ export class JsdomPages implements StepPages {
       : ("navigation" as const);
   }
   async waitFor(selector: string, timeoutMs = 50): Promise<Landed> {
-    return await this.run(pfWaitFor, selector, timeoutMs);
+    return await this.run(pfWaitFor, selector, timeoutMs, this.origin);
   }
   fill(selector: string, value: string) {
-    return this.run(pfFill, selector, value);
+    return this.run(pfFill, selector, value, this.origin);
   }
   presence(selector: string, expected: string) {
-    return this.run(pfPresence, selector, expected);
+    return this.run(pfPresence, selector, expected, this.origin);
   }
-  submit(selector: string) {
-    return this.run(pfSubmit, selector);
+  async submit(selector: string) {
+    const verdict = await this.run(pfSubmit, selector, this.origin);
+    if (verdict === "off_origin") throw new Error("off_origin");
+    return verdict;
   }
   readDom(strip: string[]) {
-    return this.run(pfReadDom, strip);
+    return this.run(pfReadDom, strip, this.origin);
   }
   layout() {
-    return this.run(pfLayout);
+    return this.run(pfLayout, this.origin);
   }
-  async capture(maskSelectors: string[]): Promise<Capture | null> {
-    const covered = await this.run(pfMask, maskSelectors);
-    const before = await this.run(pfLayout);
+  async capture(
+    maskSelectors: string[],
+  ): Promise<Capture | null | "unsupported"> {
+    const covered = await this.run(pfMask, maskSelectors, this.origin);
+    const before = await this.run(pfLayout, this.origin);
     this.moveBeforeStill?.();
-    const after = await this.run(pfLayout);
-    await this.run(pfUnmask);
+    const after = await this.run(pfLayout, this.origin);
+    await this.run(pfUnmask, this.origin);
     return { image: new Uint8Array([1, 2, 3]), covered, before, after };
   }
   async fresh() {

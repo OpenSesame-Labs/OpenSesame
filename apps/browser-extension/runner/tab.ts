@@ -2,11 +2,10 @@
  * One tab, and what the runner does inside it.
  *
  * Every injection goes through `injectorFor`, which refuses to run anything in a
- * tab that is not on the run's origin; a click is never retried; a still is
- * taken only with the selectors covered and the covers taken down after.
+ * tab that is not on the run's origin; a click is never retried.
  */
 import { originOf } from "./origin";
-import { pfLayout, pfMask, pfSubmit, pfUnmask } from "./page-fns";
+import { pfSubmit } from "./page-fns";
 import type { Capture } from "./ports";
 
 export interface Tab {
@@ -14,11 +13,6 @@ export interface Tab {
   /** Close whatever owns the tab: the tab itself, or its private window. */
   dispose: () => Promise<void>;
 }
-
-/** JPEG qualities tried, best first, until the still fits the Host's bound. */
-const QUALITIES = [60, 40, 25, 15];
-/** A JSON array of numbers costs about 3.6 bytes a byte; the Host stores 1 MiB. */
-const MAX_IMAGE_BYTES = 230_000;
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,6 +99,7 @@ export async function press(
   tabId: number,
   injector: Injector,
   selector: string,
+  origin: string,
 ) {
   let navigated = false;
   const listener = (id: number, info: { status?: string; url?: string }) => {
@@ -114,8 +109,12 @@ export async function press(
   };
   browser.tabs.onUpdated.addListener(listener);
   try {
-    return await injector.inject(pfSubmit, [selector], 0);
+    const verdict = await injector.inject(pfSubmit, [selector, origin], 0);
+    if (verdict === "off_origin") throw new Error("off_origin");
+    return verdict;
   } catch (error) {
+    // A navigation observed before the click is not proof that it occurred.
+    if (String(error).includes("off_origin")) throw error;
     await delay(500);
     if (navigated) return "ok" as const;
     throw error;
@@ -124,36 +123,15 @@ export async function press(
   }
 }
 
-/** A still with the selectors covered, at the best quality the Host can store. */
+/**
+ * Chromium's visible-tab capture cannot bind pixels to this tab or to the
+ * document where masks were installed. Refuse rather than export pixels that
+ * might belong to another tab or an unmasked navigation.
+ */
 export async function stillOf(
-  tabId: number,
-  injector: Injector,
-  maskSelectors: string[],
-): Promise<Capture | null> {
-  const { inject } = injector;
-  const current = await browser.tabs.get(tabId);
-  await browser.tabs.update(tabId, { active: true });
-  const covered = await inject(pfMask, [maskSelectors], 0);
-  try {
-    const before = await inject(pfLayout, [], 0);
-    let image: Uint8Array | null = null;
-    for (const quality of QUALITIES) {
-      const url = await browser.tabs.captureVisibleTab(current.windowId, {
-        format: "jpeg",
-        quality,
-      });
-      const bytes = Uint8Array.from(atob(url.split(",")[1] ?? ""), (c) =>
-        c.charCodeAt(0),
-      );
-      if (bytes.length <= MAX_IMAGE_BYTES) {
-        image = bytes;
-        break;
-      }
-    }
-    if (image === null) return null;
-    const after = await inject(pfLayout, [], 0);
-    return { image, covered, before, after };
-  } finally {
-    await inject(pfUnmask, [], 0).catch(() => undefined);
-  }
+  _tabId: number,
+  _injector: Injector,
+  _maskSelectors: string[],
+): Promise<Capture | null | "unsupported"> {
+  return "unsupported";
 }

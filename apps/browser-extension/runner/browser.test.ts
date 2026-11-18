@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { browserGrants, browserPages, closeRunTab } from "./browser";
+import { runStep } from "./driver";
 import { RunnerSettings } from "./settings";
 import { SealedKv } from "./store";
 import { FakeBrowser } from "./test-support/fake-browser";
 import { MemoryStore, useTestDeviceKey } from "./test-support/memory";
 import { RP, Site } from "./test-support/site";
+import { RunnerVault } from "./vault";
 
 let fake: FakeBrowser;
 let settings: RunnerSettings;
@@ -114,6 +116,64 @@ describe("the run's page", () => {
     expect(fake.injected).toHaveLength(before);
   });
 
+  it("refuses a cross-origin navigation between the tab check and credential injection", async () => {
+    const p = await pages();
+    await p.navigate(`${RP}/account/password`);
+    const [id] = [...fake.tabs.keys()];
+    if (id === undefined) throw new Error("no tab");
+    // Another armed run, or a manifest host, can make the new origin
+    // accessible to scripting even though it is not this run's origin.
+    fake.granted.origins.add("https://other.example/*");
+    fake.beforeNextInjection = () =>
+      fake.navigateTab(id, "https://other.example/account/password");
+    await expect(p.fill("#new", "credential-canary")).rejects.toThrow(
+      "off_origin",
+    );
+    const tab = fake.tabs.get(id);
+    expect(tab?.url).toBe("https://other.example/account/password");
+    expect(
+      tab?.dom.window.document.querySelector<HTMLInputElement>("#new")?.value,
+    ).toBe("");
+  });
+
+  it("also refuses an origin race before comparing a credential", async () => {
+    const p = await pages();
+    await p.navigate(`${RP}/account/password`);
+    const [id] = [...fake.tabs.keys()];
+    if (id === undefined) throw new Error("no tab");
+    fake.granted.origins.add("https://other.example/*");
+    fake.beforeNextInjection = () =>
+      fake.navigateTab(id, "https://other.example/account/password");
+    await expect(p.presence("#new", "credential-canary")).rejects.toThrow(
+      "off_origin",
+    );
+  });
+
+  it.each(["submit", "readDom", "layout", "waitFor"] as const)(
+    "refuses an origin race before %s",
+    async (operation) => {
+      const p = await pages();
+      await p.navigate(`${RP}/account/password`);
+      const [id] = [...fake.tabs.keys()];
+      if (id === undefined) throw new Error("no tab");
+      fake.granted.origins.add("https://other.example/*");
+      const clicked = vi.fn();
+      fake.onClick = clicked;
+      fake.beforeNextInjection = () =>
+        fake.navigateTab(id, "https://other.example/account/password");
+      const pending =
+        operation === "submit"
+          ? p.submit("#go")
+          : operation === "readDom"
+            ? p.readDom([])
+            : operation === "layout"
+              ? p.layout()
+              : p.waitFor("#new");
+      await expect(pending).rejects.toThrow("off_origin");
+      expect(clicked).not.toHaveBeenCalled();
+    },
+  );
+
   it("waits out a navigation and looks again, for a step that can be repeated", async () => {
     const p = await pages();
     await p.navigate(`${RP}/account/password`);
@@ -144,26 +204,32 @@ describe("the run's page", () => {
     await expect(p.submit("#go")).rejects.toThrow("boom");
   });
 
-  it("masks, stills at the best quality that fits, and unmasks", async () => {
+  it("refuses screenshots without capturing another tab or touching masks", async () => {
     const p = await pages();
     await p.navigate(`${RP}/account/password`);
-    fake.stillBytes = (quality) => (quality > 25 ? 400_000 : 100_000);
-    const taken = await p.capture(["#new", "#current"]);
-    expect(taken?.covered).toBe(2);
-    expect(taken?.image).toHaveLength(100_000);
-    expect(fake.captures).toEqual([60, 40, 25]);
-    expect(taken?.before).toBe(taken?.after);
-    expect(fake.injected.at(-1)).toBe("pfUnmask");
-    expect(fake.injected).toContain("pfMask");
+    const update = vi.spyOn(browser.tabs, "update");
+    expect(await p.capture(["#new", "#current"])).toBe("unsupported");
+    expect(fake.captures).toEqual([]);
+    expect(fake.injected).not.toContain("pfMask");
+    expect(update).not.toHaveBeenCalled();
   });
 
-  it("gives up on a still that is too big at every quality, and still unmasks", async () => {
+  it("settles an unsupported browser screenshot as refused, never as a frame", async () => {
     const p = await pages();
-    await p.navigate(`${RP}/account/password`);
-    fake.stillBytes = () => 900_000;
-    expect(await p.capture(["#new"])).toBeNull();
-    expect(fake.captures).toHaveLength(4);
-    expect(fake.injected.at(-1)).toBe("pfUnmask");
+    const vault = new RunnerVault(new SealedKv(new MemoryStore()));
+    const result = await runStep(
+      { step: "screenshot_redacted", epoch: 0, mask_selectors: ["#new"] },
+      {
+        run: { id: "run:1", origin: RP },
+        pages: p,
+        vault,
+        backup: null,
+        epoch: { epoch: 0, layout: null },
+      },
+    );
+    expect(result).toEqual({ outcome: "failed", error: "refused" });
+    expect(fake.captures).toEqual([]);
+    expect(fake.injected).toEqual([]);
   });
 
   it("opens a private window for a fresh login, drives it, and closes it", async () => {
