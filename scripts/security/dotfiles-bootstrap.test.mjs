@@ -341,7 +341,7 @@ function assertDevcontainerBootstrapOrder() {
   assert.doesNotMatch(dockerfile, /curl[^\n]*\|\s*(?:ba)?sh/);
   assert.match(
     dockerfile,
-    /mcr\.microsoft\.com\/devcontainers\/rust:1-1-bookworm@sha256:[a-f0-9]{64}/,
+    /mcr\.microsoft\.com\/devcontainers\/rust:2\.1-bookworm@sha256:[a-f0-9]{64}/,
   );
   for (const key of ["updateContentCommand", "postCreateCommand"]) {
     const text = devcontainer[key];
