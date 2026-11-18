@@ -147,7 +147,8 @@ revocation while retaining membership. Those fixes passed 136 identity tests,
 control-plane typechecking with misuse tests, six relay tests and four enrollment
 tests. Classic-script ownership and offline-plan regressions passed 52 tests.
 
-Container publication remains blocked until an operator configures the release
+Container publication remains blocked until a digest-bound OCI candidate and
+qualification path is implemented, and an operator configures the release
 environment to allow only branch `main` and tags `v*`, supplies its separate
 credential, and removes the source repository automatic token's write access to
 the official GHCR package. Workflow guards alone cannot constrain an actor who

@@ -35,37 +35,25 @@ That workflow does not publish.
 The headless browser benchmark on main is `workflow_dispatch` only, so the
 automatic workflow inventory omits it.
 
-## Tags
+## Publication status and proof builds
+
+GHCR publication is disabled. The existing qualified candidate inventory contains
+Pages and native kits but no OCI image artifacts. Rebuilding from `main` or a
+release tag and pushing directly would bypass candidate qualification. Existing
+registry tags, including `next`, version tags and `latest`, are historical and
+will not be updated by the repository until qualified OCI promotion is added.
 
 [`.github/workflows/cd-ghcr-publish.yml`](../../.github/workflows/cd-ghcr-publish.yml)
-pushes on `main` and on `v*` tags. It is not a job in `ci.yml`. There is no
-`pull_request` trigger and no `continue-on-error`.
+now runs image proof builds on relevant `main` pushes or manual dispatch. Every
+ref uses `push: false`, loads the image locally, and runs the image smoke test.
+It has no registry login, package write permission, publish credential or
+manifest-push job. A release-tag push does not trigger the proof workflow.
 
-| Git ref | Shared tags (manifest job) | Platform tags (one build job each) |
-|---|---|---|
-| `main` | `:next` and `:sha-<GITHUB_SHA>` | `:sha-<GITHUB_SHA>-amd64`, and `:sha-<GITHUB_SHA>-arm64` for `cli` and `control-plane` |
-| `v*` (for example `v1.2.3`) | `:<semver>` (`1.2.3`, the tag without `v`) and `:latest` | `:<semver>-amd64`, and `:<semver>-arm64` for `cli` and `control-plane` |
-
-Pull the shared tags. The platform tags exist so parallel jobs do not
-overwrite each other before the manifest job runs. `opensesame` and
-`web-pwa` publish the amd64 platform tag only.
-
-Every matrix job, build and manifest, sets `timeout-minutes: 10`. Cache on
-each build is `cache-from: type=gha` and `cache-to: type=gha,mode=max`, with
-`scope` set to the row id (`opensesame-amd64`, `web-pwa-amd64`, `cli-amd64`,
-`cli-arm64`, `control-plane-amd64` and `control-plane-arm64`).
-
-A matrix row whose Dockerfile is not in that revision is skipped, so the
-workflow can land before the Node Dockerfiles. The manifest job skips that
-image too. Login uses `GITHUB_TOKEN` against `ghcr.io`. `GHCR_PUBLISH_TOKEN`
-in the `container-release` environment is an optional override and is not
-wired in. Do not dispatch the retired
-[`.github/workflows/publish-containers.yml`](../../.github/workflows/publish-containers.yml).
-
-The first publish on a cold GitHub Actions cache may fail the 10 minute
-budget even though a warm cache fits. That failure is honest: the cap stays
-10 minutes. Run the workflow again from Actions (`workflow_dispatch` on
-`main`). The retry reuses the layer cache the first attempt wrote.
+A matrix row whose Dockerfile is absent on that revision is skipped. Builds and
+proof jobs have a ten-minute cap. The `cli` and `control-plane` matrix covers
+amd64 and arm64 on native runners; `opensesame` and `web-pwa` are amd64 only.
+Each build retains its per-image GitHub Actions layer cache. A cold run may miss
+the cap; a manual proof retry can reuse the cache.
 
 ## Vulnerability scanning
 
@@ -161,7 +149,7 @@ present. The image does not embed a pepper, a token, or a database URL.
 ## Local build
 
 `opensesame` compiles with `--target runtime`. The Dockerfile default is
-`runtime-from-prebuilt`, which GHCR publish builds from
+`runtime-from-prebuilt`, which the proof workflow builds from
 `ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
 
 ```bash
@@ -177,50 +165,30 @@ node scripts/ci/oci-image-smoke.mjs opensesame:local cli:local web-pwa:local
 CLI images and expects HTTP 200 from the PWA. The Identity API curl runs
 only when the container stays up; without the operator env it skips.
 
-## Tyler operator checklist
+## Restoring qualified publication
 
-Do these by hand. The change that adds the workflow does not create a `v*`
-tag, does not run `workflow_dispatch`, and does not open a GitHub release.
+The current weekly candidate inventory and promotion receipts do not include
+OCI artifacts, so there is no qualified image digest for this workflow to push.
+Adding a token or changing an environment setting alone must not re-enable the
+old direct build-and-push path. The missing integration must:
 
-1. **Actions permission.** On the repository, Settings → Actions → General →
-   Workflow permissions: allow GitHub Actions to create and approve pull
-   requests is unchanged. Under the same page, grant workflows `Read and
-   write` permissions, or set the `packages: write` permission this workflow
-   already requests and confirm the organization allows it. The workflow
-   token is `GITHUB_TOKEN`.
-2. **Package visibility.** After the first publish, open each
-   `ghcr.io/opensesame-labs/<name>` package (`opensesame`, `cli`, `web-pwa`,
-   `control-plane`) and set visibility to **public** or **internal**. A new
-   GHCR package is private until an owner changes it. Link each package to
-   the OpenSesame repository so the Actions token can keep publishing.
-3. **First manual run.** Actions → CD GHCR publish → Run workflow, on
-   `main`. That is the first `workflow_dispatch`. Confirm one job per image
-   and platform (`opensesame-amd64`, `web-pwa-amd64`, plus `cli` and
-   `control-plane` each as amd64 and arm64) and a manifest job per image.
-   A row whose Dockerfile is not on that commit is skipped. The run pushes
-   `:next` and `:sha-<commit>`. It does not push `:latest`. A cold cache
-   can fail the 10 minute cap; run the workflow again.
-4. **Version tags.** Create and push `v*` yourself when a release should
-   move `:latest`. The tag `v1.2.3` publishes `:1.2.3` and `:latest`. This
-   document does not create that tag.
-5. **Optional publish token.** To stop the default `GITHUB_TOKEN` from
-   writing the official packages, create `GHCR_PUBLISH_TOKEN` in the
-   `container-release` environment (limited to `main` and `v*` tags) and
-   point the login step at it. The workflow comments name that override.
-   Configuring the environment does not by itself publish.
-6. **Remove the duplicate publisher path.** Do not run
-   `.github/workflows/publish-containers.yml`. It stays a retired manual
-   failure so qualification tests still reject an ungated publisher. Do not
-   grant it `packages: write`, and delete any leftover GHCR package that an
-   older publish path created under a different name once the four packages
-   above are the ones you keep.
-7. **Arm64.** `cli` and `control-plane` build `linux/arm64` on
-   `ubuntu-24.04-arm` runners (native, no QEMU) with a separate GHA cache
-   scope. `opensesame` and `web-pwa` publish `linux/amd64` only. The manifest
-   job joins the platform tags into the shared tags. Do not fold amd64 and
-   arm64 back into one build to save a job: that build does not fit the 10
-   minute cap.
+1. Add the complete per-platform OCI artifacts and immutable manifest digests
+   to the exact candidate inventory and bind them to the original build
+   provenance and source revision.
+2. Run the required smoke, security and other qualification gates against those
+   exact image digests, and bind the results to the same candidate.
+3. Promote those verified artifacts and manifests by digest in the weekly
+   release flow without rebuilding or substituting source or platform images.
+4. Require a dedicated `GHCR_PUBLISH_TOKEN` and `GHCR_PUBLISH_USER` only in a
+   protected `container-release` environment limited to `main` and authorized
+   release tags. Keep the credential out of repository and organization scope,
+   and protect creation and movement of release tags.
+5. Independently grant the dedicated publisher the needed access to the four
+   official GHCR packages and remove the source repository's automatic Actions
+   token write access, including inherited access. Protect the package names
+   before allowing untrusted workflows to create packages in the namespace.
 
-Image size is not in this commit. The first successful CD run records it in
-the build log (`docker/build-push-action` output). Cloud agents without
-Docker skip `scripts/ci/oci-image-smoke.mjs`.
+The environment rules, credential scope and GHCR package ACL are live GitHub
+settings that this repository cannot configure or verify. They remain required
+even after a future candidate-bound publisher is implemented. No such publisher
+is enabled by the proof workflow.
