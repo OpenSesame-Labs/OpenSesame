@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-/** Run scratch-break replay tests for #2608 formal subsystems; writes logs under SCRATCH_LOG_DIR. */
+/** Run scratch-break replay tests for formal subsystems; writes logs under SCRATCH_LOG_DIR.
+ *  TLC models are registered in spec/formal-verification/ledger.json; pairing
+ *  inventory and TLC replay is scripts/formal-tlc-four.mjs (+ node scripts/formal/inventory.mjs --check). */
 
 import { execFileSync } from "node:child_process";
 import {

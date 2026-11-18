@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { validateLedger } from "./formal/ledger.mjs";
 
 const repo = resolve(import.meta.dirname, "..");
 const logDir =
@@ -106,4 +107,13 @@ for (const rel of models) {
     }
   }
 }
+const ledger = JSON.parse(
+  readFileSync(join(repo, "spec/formal-verification/ledger.json"), "utf8"),
+);
+const ledgerErrors = validateLedger(ledger, repo);
+if (ledgerErrors.length) {
+  for (const error of ledgerErrors) console.error(error);
+  process.exitCode = 1;
+}
+
 console.log(`TLC logs: ${logDir}`);

@@ -920,10 +920,10 @@
           "config": "spec/formal-verification/pwa-shell-ready/PwaShellReady.cfg",
           "invariants": [
             "TypeOK",
-            "NoShellBeforeActivationOrTimeout",
+            "NoAwaitingBeforeMount",
             "OpenShellStaysMounted"
           ],
-          "scope": "TLC checks a bounded composition-generation latch."
+          "scope": "TLC checks computeShellReady parity with awaitingPlanActivation."
         },
         {
           "kind": "example-test",
@@ -1030,7 +1030,7 @@
           "kind": "model",
           "path": "spec/formal-verification/daemon-fill-pairing/DaemonFillPairing.tla",
           "config": "spec/formal-verification/daemon-fill-pairing/DaemonFillPairing.cfg",
-          "invariants": ["NoFillWithoutPairing"],
+          "invariants": ["TypeOK", "NoFillWithoutPairing"],
           "scope": "TLC checks a pairing sketch for fill_value."
         }
       ],

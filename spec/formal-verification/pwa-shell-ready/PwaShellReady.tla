@@ -7,38 +7,33 @@ CONSTANT MaxGen
 VARIABLES
   status,          \* "locked" | "unlocked"
   vault,           \* tomb string when unlocked
-  planVault,       \* null or vault id
+  planVault,       \* "none" or vault id
   compGen,
   actGen,
   opened,          \* 0 = undefined, 1 = null, 2 = matches vault
-  timedOut,        \* bounded wait fired
-  fromNull         \* this plan replaced a null plan
+  timedOut,
+  awaitingPlanActivation
 
-vars == <<status, vault, planVault, compGen, actGen, opened, timedOut, fromNull>>
+vars == <<status, vault, planVault, compGen, actGen, opened, timedOut, awaitingPlanActivation>>
 
 OpenedMatchesVault == opened = 2
-OpenedUnset == opened = 0
 
+\* Mirrors computeShellReady "ready" branch.
 ComputeReady ==
   /\ status = "unlocked"
   /\ planVault = vault
   /\ actGen = compGen
 
-\* Latch from the null-plan window is not a mount once the vault plan is in
-\* and activation has not caught up. Later generations stay mounted.
-StaleOpenLatch ==
+\* Mirrors computeShellReady "waitedOpen" branch (openedVault === vault).
+WaitedOpen ==
   /\ status = "unlocked"
-  /\ planVault = vault
-  /\ opened = 2
-  /\ actGen < compGen
-  /\ ~timedOut
-  /\ fromNull
+  /\ OpenedMatchesVault
+  /\ \/ planVault = "none"
+     \/ timedOut
+     \/ /\ planVault = vault
+        /\ ~awaitingPlanActivation
 
-ShellMounted ==
-  \/ ComputeReady
-  \/ /\ status = "unlocked"
-     /\ OpenedMatchesVault
-     /\ ~StaleOpenLatch
+ShellMounted == ComputeReady \/ WaitedOpen
 
 TypeOK ==
   /\ status \in {"locked", "unlocked"}
@@ -48,7 +43,7 @@ TypeOK ==
   /\ actGen \in 0..MaxGen
   /\ opened \in {0, 1, 2}
   /\ timedOut \in BOOLEAN
-  /\ fromNull \in BOOLEAN
+  /\ awaitingPlanActivation \in BOOLEAN
 
 Init ==
   /\ status = "locked"
@@ -58,7 +53,7 @@ Init ==
   /\ actGen = 0
   /\ opened = 0
   /\ timedOut = FALSE
-  /\ fromNull = FALSE
+  /\ awaitingPlanActivation = FALSE
 
 UnlockPersonal ==
   /\ status = "locked"
@@ -66,7 +61,7 @@ UnlockPersonal ==
   /\ vault' = "personal"
   /\ opened' = 0
   /\ timedOut' = FALSE
-  /\ fromNull' = FALSE
+  /\ awaitingPlanActivation' = FALSE
   /\ UNCHANGED <<planVault, compGen, actGen>>
 
 PlanForPersonal ==
@@ -76,15 +71,20 @@ PlanForPersonal ==
   /\ planVault' = "personal"
   /\ compGen' = compGen + 1
   /\ actGen' = actGen
-  /\ fromNull' = IF planVault = "none" THEN TRUE ELSE fromNull
+  /\ awaitingPlanActivation' =
+       IF planVault = "none" THEN TRUE ELSE awaitingPlanActivation
   /\ opened' = opened
   /\ UNCHANGED <<status, vault, timedOut>>
 
-\* Effect after the render that closed the gate.
-ClearStaleLatch ==
-  /\ StaleOpenLatch
+\* Render after null-to-plan before activation catches up (useShellReady effect).
+ClearAwaitingLatch ==
+  /\ status = "unlocked"
+  /\ awaitingPlanActivation
+  /\ planVault = vault
+  /\ actGen < compGen
+  /\ ~timedOut
   /\ opened' = 0
-  /\ fromNull' = FALSE
+  /\ awaitingPlanActivation' = FALSE
   /\ UNCHANGED <<status, vault, planVault, compGen, actGen, timedOut>>
 
 ActivationCatchUp ==
@@ -92,13 +92,13 @@ ActivationCatchUp ==
   /\ planVault = vault
   /\ actGen < compGen
   /\ actGen' = compGen
-  /\ fromNull' = FALSE
+  /\ awaitingPlanActivation' = FALSE
   /\ UNCHANGED <<status, vault, planVault, compGen, opened, timedOut>>
 
 ReadyOpens ==
   /\ ComputeReady
   /\ opened' = 2
-  /\ fromNull' = FALSE
+  /\ awaitingPlanActivation' = FALSE
   /\ UNCHANGED <<status, vault, planVault, compGen, actGen, timedOut>>
 
 WaitTimeout ==
@@ -107,25 +107,22 @@ WaitTimeout ==
   /\ ~timedOut
   /\ timedOut' = TRUE
   /\ opened' = 2
-  /\ UNCHANGED <<status, vault, planVault, compGen, actGen, fromNull>>
+  /\ UNCHANGED <<status, vault, planVault, compGen, actGen, awaitingPlanActivation>>
 
-\* Consent must not mount on composition alone before activation or timeout.
-\* After the shell has opened once, later generations stay mounted (shell-ready.ts).
-NoShellBeforeActivationOrTimeout ==
-  ShellMounted =>
-    ComputeReady \/ timedOut \/
-    (OpenedMatchesVault /\ actGen < compGen /\ ~fromNull)
+NoAwaitingBeforeMount ==
+  awaitingPlanActivation /\ ~timedOut => ~ShellMounted
 
-\* After the null-plan latch clears, an open shell stays mounted across later generations.
+\* After the shell has opened once, later generations stay mounted across activation.
 OpenShellStaysMounted ==
   /\ status = "unlocked"
   /\ OpenedMatchesVault
   /\ planVault = vault
-  /\ ~fromNull
+  /\ ~awaitingPlanActivation
+  /\ actGen < compGen
   => ShellMounted
 
 Spec ==
-  Init /\ [][UnlockPersonal \/ PlanForPersonal \/ ClearStaleLatch
+  Init /\ [][UnlockPersonal \/ PlanForPersonal \/ ClearAwaitingLatch
             \/ ActivationCatchUp \/ ReadyOpens \/ WaitTimeout]_vars
 
 ====

@@ -6,6 +6,11 @@ VARIABLES paired, approved, released
 
 vars == <<paired, approved, released>>
 
+TypeOK ==
+  /\ paired \in BOOLEAN
+  /\ approved \in BOOLEAN
+  /\ released \in BOOLEAN
+
 Init ==
   /\ paired = FALSE
   /\ approved = FALSE

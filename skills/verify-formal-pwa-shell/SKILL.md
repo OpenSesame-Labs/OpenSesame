@@ -27,4 +27,4 @@ Replay tests: `apps/pages/src/bindings/shell-ready-formal.replay.test.ts` and `a
 
 ## Product finding
 
-Stale `opened` after `snapshot.plan` resolves could mount the consent shell before activation (TLC: `NoShellBeforeActivationOrTimeout`). Fixed in `apps/pages/src/bindings/shell-ready.ts`: the null-to-plan render passes `awaitingPlanActivation` before the effect commits. The model's `fromNull` latch is coarser than that render-time flag; `shell-ready-formal.replay.test.ts` is the product oracle for the gap.
+Stale `opened` after `snapshot.plan` resolves could mount the consent shell before activation. Fixed in `apps/pages/src/bindings/shell-ready.ts`: the null-to-plan render passes `awaitingPlanActivation` before the effect commits. `PwaShellReady.tla` mirrors `computeShellReady`; `shell-ready-formal.replay.test.ts` and `app-root.shell-ready.test.tsx` are the product oracles (no Playwright timing harness on this stack).

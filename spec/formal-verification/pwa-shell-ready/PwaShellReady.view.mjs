@@ -8,7 +8,7 @@ export const state = (v) => {
 export const step = (action) => {
   if (action === "UnlockPersonal") return "the vault unlocks";
   if (action === "PlanForPersonal") return "the vault plan loads";
-  if (action === "ClearStaleLatch") return "the stale open latch clears";
+  if (action === "ClearAwaitingLatch") return "awaiting plan activation clears";
   if (action === "ActivationCatchUp") return "modules finish activating";
   if (action === "ReadyOpens") return "the shell mounts";
   if (action === "WaitTimeout") return "the wait times out";
