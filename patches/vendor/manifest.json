@@ -20,6 +20,7 @@
       "patch": "patches/picomatch@2.3.2.patch",
       "tarball": "patches/vendor/picomatch-2.3.2.tgz",
       "upstreamIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+      "upstreamFileMapSha256": "982a53e071734ab07133a11503b87330426d5e67610372a10a9b475bbcb5bdd1",
       "rootDependency": "picomatch-v2-patched",
       "override": "picomatch@^2"
     },
@@ -27,6 +28,7 @@
       "patch": "patches/picomatch@4.0.7.patch",
       "tarball": "patches/vendor/picomatch-4.0.7.tgz",
       "upstreamIntegrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+      "upstreamFileMapSha256": "f0935171c00b64fa6753c6ed10d7f32c635bb69baa09656517fb4cf9bcc366b9",
       "rootDependency": "picomatch-v4-patched",
       "override": "picomatch@^4"
     },
@@ -69,6 +71,7 @@
       "patch": "patches/glob@10.5.0.patch",
       "tarball": "patches/vendor/glob-10.5.0.tgz",
       "upstreamIntegrity": "sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==",
+      "upstreamFileMapSha256": "c2a363194438a851d193a8a167702d51480e9547ae87bf30439875269cf1aeb2",
       "rootDependency": "glob10-patched",
       "override": "glob@^10.0.0"
     },
@@ -76,6 +79,7 @@
       "patch": "patches/glob@11.1.0.patch",
       "tarball": "patches/vendor/glob-11.1.0.tgz",
       "upstreamIntegrity": "sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==",
+      "upstreamFileMapSha256": "4816a93773653820c70e024a417ea6f26eb84c912a1a2e858fe5d614a28c63ab",
       "rootDependency": "glob11-patched",
       "override": "glob@^11.0.1"
     },
@@ -83,6 +87,7 @@
       "patch": "patches/minimatch@9.0.9.patch",
       "tarball": "patches/vendor/minimatch-9.0.9.tgz",
       "upstreamIntegrity": "sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==",
+      "upstreamFileMapSha256": "4b237892bc30463c10e867a0f053defd60feaf4d131fed9a85e4e6c04e0cc661",
       "rootDependency": "minimatch9-patched",
       "override": "minimatch@^9.0.4"
     },
@@ -90,6 +95,7 @@
       "patch": "patches/minimatch@10.2.6.patch",
       "tarball": "patches/vendor/minimatch-10.2.6.tgz",
       "upstreamIntegrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+      "upstreamFileMapSha256": "ec7dedd81a230e32846519e0d9eb00f9336ddafda12d003a471d396ed734e7e3",
       "rootDependency": "minimatch10-patched",
       "override": "minimatch@^10.0.0"
     },

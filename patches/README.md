@@ -119,10 +119,12 @@ The npm tarballs are pinned to these published versions and patched sources:
   ranges in the local advisory database.
 
 The published `glob` 13.0.7 already has the four cancellation returns. The
-local OSV data still lists releases before 14.0.2 as affected; keep that raw
-finding visible until the advisory data or a reviewed, artifact-bound evidence
-mechanism accounts for this exact release. The other backported versions also
-remain visible to version-only scanners until their patched bytes are verified.
+local OSV data still lists releases before 14.0.2 as affected. The audit gate
+keeps that raw finding, and the Glob, Minimatch, and Picomatch findings, in its
+artifact while a fail-closed attestation binds each exact tuple to every lock
+occurrence, published or reverse-reconstructed upstream source, patch and
+vendored tarball digest, and named behavior regression. It cannot classify a
+new advisory, version, range, occurrence, source, patch, tarball, or test.
 
 `removed-dependencies.test.mjs` exercises promise and stream cancellation
 through the installed CommonJS and ESM packages. Its consumer tests cover the
