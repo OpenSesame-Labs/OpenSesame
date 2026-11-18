@@ -3,12 +3,18 @@
 //! handle-then-ack with nak redelivery, poison messages terminated, and
 //! provisioning that converges a stream an older release created.
 
-use super::live_harness::{enabled, free_port, Server};
+use super::live_harness::{enabled, free_port, Pki, Server};
 use super::*;
+use crate::nats::live_mixed::{spiffe_server, spiffe_spec};
+use crate::nats::live_tests::config;
 use crate::process::{EventHandler, ProcessReport};
 use crate::{Redelivery, StreamLimits};
+use opensesame_domain::transport::{TlsVersion, TrustProfileKind, TrustProfileRef};
+use opensesame_transport_security::TrustBundle;
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tokio::sync::oneshot;
 
 fn local_server() -> Server {
     let port = free_port();
@@ -201,10 +207,6 @@ pub(crate) fn material(
     leaf: &opensesame_transport_security::testkit::IssuedLeaf,
     extra_anchor: bool,
 ) -> super::InjectedMaterial {
-    use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
-    use opensesame_transport_security::TrustBundle;
-    use std::sync::Arc;
-
     let mut pem = pki.ca.ca_pem();
     if extra_anchor {
         pem.extend(pki.other_ca.ca_pem());
@@ -233,9 +235,6 @@ async fn assert_serialized_rotation(
     replacement: &InjectedMaterial,
     expected_identity_thumbprint: &str,
 ) {
-    use super::open_session;
-    use std::sync::Arc;
-    use tokio::sync::oneshot;
     let (entered_tx, entered_rx) = oneshot::channel();
     let (release_tx, release_rx) = oneshot::channel();
     let older_bus = Arc::clone(bus);
@@ -299,14 +298,6 @@ async fn assert_serialized_rotation(
 #[tokio::test]
 #[ignore = "requires the pinned NATS fixture"]
 async fn accepted_material_and_view_follow_serialized_rotations() {
-    use super::NatsJetStreamTaskBus;
-    use crate::nats::live_harness::{enabled, Pki};
-    use crate::nats::live_mixed::{spiffe_server, spiffe_spec};
-    use crate::nats::live_tests::config;
-    use crate::nats_connect::NatsRole;
-    use opensesame_domain::transport::TlsVersion;
-    use std::sync::Arc;
-
     assert!(enabled(), "set OPENSESAME_MTLS_FIXTURES=1");
     let pki = Pki::new();
     let (server, _) = spiffe_server(&pki);

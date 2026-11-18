@@ -1,7 +1,15 @@
 //! Unit tests for the crate root (memory bus, subjects, backend selection).
 
 use super::*;
+#[cfg(feature = "jetstream")]
+use crate::nats_connect::BusHealth;
+#[cfg(feature = "jetstream")]
+use async_nats::Event;
+#[cfg(feature = "jetstream")]
+use opensesame_domain::transport::{TransportError, TrustProfileKind};
 use serde_json::json;
+#[cfg(feature = "jetstream")]
+use std::collections::HashMap;
 
 fn sample_event(id: &str) -> BusEvent {
     BusEvent::cloud_event(
@@ -79,8 +87,6 @@ fn backend_from_env_matrix() {
 #[cfg(feature = "jetstream")]
 #[test]
 fn failed_and_old_connections_cannot_change_active_health() {
-    use crate::nats_connect::BusHealth;
-    use async_nats::Event;
     let observer = BusHealth::default();
     let first = BusHealth::default();
     first.record(&Event::Connected);
@@ -111,7 +117,6 @@ fn failed_and_old_connections_cannot_change_active_health() {
 #[cfg(feature = "jetstream")]
 #[test]
 fn stored_tls_requirements_cannot_resolve_to_plaintext() {
-    use opensesame_domain::transport::{TransportError, TrustProfileKind};
     for transport in [
         NatsTransport {
             server_trust: Some(TrustRef {
@@ -146,9 +151,6 @@ fn stored_tls_requirements_cannot_resolve_to_plaintext() {
 #[cfg(feature = "jetstream")]
 #[test]
 fn contradictory_nats_security_sources_are_refused() {
-    use opensesame_domain::transport::TransportError;
-    use std::collections::HashMap;
-
     let cases: &[(&str, &[(&str, &str)])] = &[
         (
             "SPIFFE trust with file",
@@ -242,7 +244,6 @@ fn contradictory_nats_security_sources_are_refused() {
 
 #[cfg(feature = "jetstream")]
 fn assert_valid_nats_sources() {
-    use std::collections::HashMap;
     let compatible = HashMap::from([
         ("OPENSESAME_NATS_TLS_TRUST_KIND", "spiffe_trust_domain"),
         ("OPENSESAME_NATS_TLS_TRUST_DOMAIN", "a.test"),
@@ -282,9 +283,6 @@ fn assert_valid_nats_sources() {
 #[cfg(feature = "jetstream")]
 #[test]
 fn mutated_public_policy_cannot_ignore_security_locators() {
-    use opensesame_domain::transport::TransportError;
-    use std::collections::HashMap;
-
     let values = HashMap::from([
         ("OPENSESAME_NATS_AUTH", "nkey"),
         ("OPENSESAME_NATS_NKEY_SEED_FILE", "/seed"),

@@ -39,12 +39,15 @@ pub fn system_event_subject(event_type: &str) -> String {
 mod tests {
     use super::*;
     use crate::SYSTEM_SUBJECT_PREFIX;
+    #[cfg(feature = "jetstream")]
+    use opensesame_domain::transport::TransportError;
+    #[cfg(feature = "jetstream")]
+    use std::collections::{HashMap, HashSet};
 
     #[cfg(feature = "jetstream")]
     #[test]
     #[ignore = "requires Lean vectors; run spec/formal/source-trust-selection/verify.sh --nats"]
     fn lean_vectors_match_nats_reconnect_limit() {
-        use std::collections::HashSet;
         let path = std::env::var("OPENSESAME_NATS_RETRY_VECTORS").expect("Lean retry vectors");
         let text = std::fs::read_to_string(path).expect("read retry vectors");
         let value = |raw: &str| match raw {
@@ -127,6 +130,45 @@ mod tests {
             for value in ["0", "false", "no", "off"] {
                 assert_false_flag(flag, value);
             }
+        }
+    }
+
+    #[cfg(feature = "jetstream")]
+    fn assert_security_setting_requires_tls(entries: &[(&str, &str)]) {
+        let mut settings: HashMap<_, _> = entries.iter().copied().collect();
+        settings.insert("OPENSESAME_NATS_REQUIRE_TLS", "0");
+        let lookup = |name: &str| settings.get(name).map(|value| (*value).to_owned());
+        let spec = crate::NatsTransportSpec::from_lookup("OPENSESAME_NATS", &lookup)
+            .expect("security settings must resolve")
+            .expect("security settings must select a policy");
+        assert!(spec.is_secure(), "security setting must imply TLS");
+        assert!(
+            matches!(
+                spec.normalized("nats://localhost:4222"),
+                Err(TransportError::TrustUnknown)
+            ),
+            "security setting without trust must fail closed"
+        );
+    }
+
+    #[cfg(feature = "jetstream")]
+    #[test]
+    fn explicit_plaintext_flag_cannot_disable_security_settings() {
+        for settings in [
+            &[("OPENSESAME_NATS_TLS_SERVER_NAME", "localhost")][..],
+            &[(
+                "OPENSESAME_NATS_TLS_SERVER_SPIFFE_ID",
+                "spiffe://a.test/nats",
+            )][..],
+            &[("OPENSESAME_NATS_TLS_MIN_VERSION", "1.2")][..],
+            &[("OPENSESAME_NATS_TLS_MIN_VERSION", "1.3")][..],
+            &[("OPENSESAME_NATS_TLS_CRL_FILE", "/missing.crl")][..],
+            &[
+                ("OPENSESAME_NATS_PROVISION_AUTH", "nkey"),
+                ("OPENSESAME_NATS_PROVISION_NKEY_SEED_FILE", "/missing.seed"),
+            ][..],
+        ] {
+            assert_security_setting_requires_tls(settings);
         }
     }
 

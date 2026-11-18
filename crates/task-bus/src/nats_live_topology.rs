@@ -3,8 +3,11 @@
 //! route certificates), and discovery not widening egress.
 
 use super::live_harness::{free_port, secure_server, Pki, Roles, Server, SERVER_NAME};
+use super::live_mixed::{spiffe_server, spiffe_spec};
 use super::*;
-use opensesame_domain::transport::PeerIdentitySelector;
+use crate::nats_connect::load_material;
+use opensesame_domain::transport::{PeerIdentitySelector, TrustProfileKind, TrustProfileRef};
+use opensesame_transport_security::TrustBundle;
 use std::time::Duration;
 
 pub(crate) fn cluster_env(
@@ -43,7 +46,6 @@ fn assert_crl_material(
     base: &NatsTransportSpec,
     injected: &InjectedMaterial,
 ) -> InjectedMaterial {
-    use crate::nats_connect::load_material;
     let path = pki.dir.path().join("configured.crl");
     let trust = injected.trust.as_ref().unwrap().clone();
     let identity = Arc::clone(injected.identity.as_ref().unwrap());
@@ -124,10 +126,6 @@ fn assert_crl_material(
 #[tokio::test]
 #[ignore = "requires the pinned NATS fixture"]
 async fn injected_trust_enforces_configured_crls() {
-    use super::live_mixed::{spiffe_server, spiffe_spec};
-    use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
-    use opensesame_transport_security::TrustBundle;
-
     assert!(
         super::live_harness::enabled(),
         "set OPENSESAME_MTLS_FIXTURES=1"
