@@ -1,6 +1,7 @@
 /**
  * npm trunk publish with idempotent success when the exact version already exists.
- * Used by .github/actions/publish-npm-package so Preview reruns do not fail on E403.
+ * Legacy helper; the current action refuses publication. This helper is not a
+ * qualified publisher and must not be used to resume npm publication.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";

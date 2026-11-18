@@ -78,11 +78,10 @@ export const SPARSE_CD_PWA_SMOKE = Object.freeze([
   "/patches/vendor",
 ]);
 
-/** Composite npm publish action and the release scripts it sits beside. */
-export const SPARSE_CD_PWA_PUBLISH = Object.freeze([
+/** npm package proof and live Pages verification scripts. */
+export const SPARSE_CD_NPM_PROOF = Object.freeze([
   "scripts/release",
   "scripts/lib",
-  ".github/actions/publish-npm-package",
   "/mise.toml",
   "/mise.lock",
   "/package.json",
@@ -117,17 +116,16 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_PWA_SMOKE }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-npm-cli.yml": Object.freeze([
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-ghcr-publish.yml": Object.freeze([

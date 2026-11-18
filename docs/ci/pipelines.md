@@ -1,6 +1,6 @@
 # CI and CD pipelines
 
-Trunk integration stays in `.github/workflows/ci.yml` (merge queue + required checks `TypeScript`, `Rust`, `Bundle budgets`). Two **npm** deployables and one **Pages** deployable use path-filtered CD workflows after `main` moves.
+Trunk integration stays in `.github/workflows/ci.yml` (merge queue + required checks `TypeScript`, `Rust`, `Bundle budgets`). Path-filtered CD workflows prove two **npm** packages and deploy **Pages** after `main` moves.
 
 Machine-readable GitHub/npm setup: [`github-setup-spec.json`](github-setup-spec.json).
 
@@ -11,37 +11,49 @@ Machine-readable GitHub/npm setup: [`github-setup-spec.json`](github-setup-spec.
 | `@opensesame/cli` (`packages/cli`) | **`@opensesame-labs/cli`** | **`opensesame`** |
 | `@opensesame/pages` (`apps/pages`) | **`@opensesame-labs/web-pwa`** | **`opensesame-pages`** (serves bundled `dist/`) |
 
-The `@opensesame` npm scope is unrelated; only **`@opensesame-labs/*`** is published. Staging scripts in `scripts/release/prepare-*-release.mjs` and `scripts/release/npm-publish-names.mjs` set `publishConfig.access: public` and `provenance: true`.
+The `@opensesame` npm scope is unrelated; the intended public packages use **`@opensesame-labs/*`**. Staging scripts in `scripts/release/prepare-*-release.mjs` and `scripts/release/npm-publish-names.mjs` set `publishConfig.access: public` and `provenance: true`.
 
-## npm versioning (trunk CD)
+## npm package proofs
 
-Both packages publish at **`0.0.0-alpha.0`** on first release, then **`0.0.0-alpha.N+1`** by reading existing versions from the npm registry. **Preview** publishes **`0.0.0-alpha.N`** with dist-tag **`alpha`**. **Production** rewrites that staged `package.json` to **`0.0.0-next.N`** (same numeric suffix) and publishes it with **`--tag next --provenance`** using the Production **`NPM_TOKEN`** (OIDC only when that token is empty). Prereleases never receive **`latest`**. Production does not run `npm dist-tag add`.
+npm publication is disabled. The candidate inventory does not yet contain
+qualified npm tarballs, so `cd-npm-cli.yml` and `cd-pwa.yml` build and pack
+staged packages only for local proof. The CLI proof installs the local tarball
+with lifecycle scripts disabled and checks `opensesame --version`; the PWA
+proof checks its staged tarball and continues the existing Pages deployment,
+Hurl verification, and screenshots. No npm credential or OIDC publisher is
+used by those package jobs. Existing registry versions and tags are unchanged.
+Local proof plans use `0.0.0-alpha.0` without querying the registry, and the
+package dry runs use npm's offline mode. This version is for the local proof
+and is not a publication candidate. The CLI install proof may still fetch its
+declared dependencies.
 
-The build job uploads the npm tree, the Pages dist, and a release-metadata file. Preview and Production download those artifacts. They do not run `npm run build` again. The CLI stage build sets `CLI_RELEASE_PACK=1` so esbuild omits sourcemaps, and `prepare-cli-release.mjs` deletes `*.map` from the publish tree.
-
-Promotion is automated: **main CI** (TypeScript, Rust, Bundle budgets on the same commit). On PWA CD the gate overlaps **Build full install profile dist** (built in `cd-pwa.yml`, optionally reusing a legacy main CI artifact when present), the Pages/npm **build**, and the fast **Build install profile (full)** screenshot job (reuses the uploaded dist; no Vite rebuild). **Preview smoke** for PWA CD runs pinned **[Hurl](https://hurl.dev/)** HTTP checks plus headless screenshots via `playwright-core` and chrome-headless-shell (`scripts/release/cd-pwa-preview-smoke/`). CLI CD still uses `cd-preview-smoke.mjs`. PWA CD uses concurrency group `cd-pwa` with `cancel-in-progress: false`. Then **Production** publishes **`0.0.0-next.N`** on **`next`**. Any failure stops Production and posts a commit comment. No required reviewers on Preview or Production.
+Restoring publication requires the exact npm tarballs and their digests in the
+attested immutable candidate, qualification receipts for those bytes, and
+candidate-bound promotion without rebuilding. The shared publish action fails
+closed until that integration and its independent npm publisher controls are
+implemented. The CLI build still sets `CLI_RELEASE_PACK=1` and omits sourcemaps.
 
 ## Workflows
 
 | Workflow | Trigger | What runs |
 | --- | --- | --- |
-| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate and stage run together (stage does not wait). Preview **`alpha`** waits for both, then preview npm smoke and automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). The gate job polls every 5s (`CI_GATE_ATTEMPTS` 475) and still requires TypeScript, Rust, and Bundle budgets on the same SHA. |
-| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI gate, **full** install-profile proof overlapped with the one Pages/npm build, Preview **`alpha`** and **github-pages** deploy only after proof (reusing the staged artifacts), preview smoke, automatic Production publish of **`0.0.0-next.N`** on **`next`** (`NPM_TOKEN`, OIDC if empty). |
+| `cd-npm-cli.yml` | `push` to `main` (CLI paths) / `workflow_dispatch` | Main CI gate and stage run together. The staged CLI npm package is packed, installed locally, and checked without registry publication. The gate job polls every 5s (`CI_GATE_ATTEMPTS` 475) and still requires TypeScript, Rust, and Bundle budgets on the same SHA. |
+| `cd-pwa.yml` | `push` to `main` (Pages paths) / `workflow_dispatch` | Main CI, full install-profile proof, Pages build and deployment, live Pages smoke and verification, plus a local npm package proof; no npm publication. |
 | `cd-promotion-gates-proof.yml` | PR touching CD gate scripts / `workflow_dispatch` | Unit tests plus simulated smoke gate (`force_smoke_fail` proves a blocked promotion). |
 | `cd-headless-browser-benchmark.yml` | `workflow_dispatch` only | Capped loopback screenshot matrix (`HEADLESS_BENCH_BACKENDS`, wall clock limit). **Not** a required check and **not** triggered by CD/PWA path filters. |
 | `ci-advisory.yml` | PRs to `main` | none (advisory) |
 
-`github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. **Production** is not a human approval gate; workflow jobs enforce promotion. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before publish, Pages deploy, and Production. A live blocked promotion on `main` uses `workflow_dispatch` with `proof_gate_fail: true` on `cd-pwa.yml` or `cd-npm-cli.yml`. That sets `CD_PROOF_GATE_FAIL=1`, and `cd-preview-smoke.mjs` throws `intentional promotion gate proof failure` so Production is skipped. See [post-2400 CD failures](post-2400-cd-failures.md).
+`github-pages` is the live Pages deployment, not the **Preview** environment. `actions/deploy-pages` preview mode is not public, so there is no second Pages environment. `workflow_dispatch` input `dry_run: true` stops after staging or the PWA build, before Pages deploy and its final verification. Dispatching either CD workflow with `proof_gate_fail: true` makes its smoke step throw `intentional promotion gate proof failure` and skips the final job. In the PWA workflow the live Pages deployment already occurs before this smoke step; the proof does not prevent that deployment. See [post-2400 CD failures](post-2400-cd-failures.md).
 
-Environment protection uses main-only branch policies with No required reviewers on Preview, Production, or github-pages. Preview publish jobs select environment **Preview** and use that environment's `NPM_TOKEN` when set (via `publish-npm-package`), otherwise OIDC trusted publishing under the same environment. Production selects the **Production** environment and passes that environment's `NPM_TOKEN` into `publish-npm-package` (OIDC trusted publishing only when the token is empty). Publisher rows and the incident RCA: `github-setup-spec.json` → `npm_trusted_publishing` and [post-2400-cd-failures.md](post-2400-cd-failures.md).
+The npm proof jobs do not select publishing environments or read `NPM_TOKEN`. Future qualified npm promotion requires independently configured, protected publisher controls; do not remove environment protections to restore publication. Publisher rows and the incident RCA: `github-setup-spec.json` → `npm_trusted_publishing` and [post-2400-cd-failures.md](post-2400-cd-failures.md).
 
 ## OpenPacker mapping (abbreviated)
 
-OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` publish were adapted to OpenSesame’s existing affected CI, **`@opensesame-labs`** npm scope, Tyler’s **Preview / Production / github-pages / copilot** environments, CLI npm CD plus Pages CD (GitHub Pages + npm tarball of the same build). Weekly candidate promotion (`release-weekly.yml`) remains for Linux kits and qualified Pages bytes until cutover.
+OpenPacker’s `trunk-gate`, `promote-*`, and single-scope `@openpacker/cli` publish were adapted to OpenSesame’s existing affected CI, **`@opensesame-labs`** npm scope, Tyler’s **Preview / Production / github-pages / copilot** environments, local CLI npm proof plus Pages CD (GitHub Pages and a staged npm package). Weekly candidate promotion (`release-weekly.yml`) remains for Linux kits and qualified Pages bytes until cutover.
 
 ## Operator-owned
 
-Tyler configures environments, `NPM_TOKEN`, npm org **`@opensesame-labs`**, trusted publishers, merge-queue ruleset, and `PAGES_*` variables — see `github-setup-spec.json`.
+Operators configure environments, the merge-queue ruleset, and `PAGES_*` variables. Future qualified npm publication also needs protected npm publisher configuration for **`@opensesame-labs`** — see `github-setup-spec.json`.
 
 ## Install caches
 

@@ -8,8 +8,8 @@ Status words are defined in [SSDF conformance](ssdf-conformance.md). "Declared" 
 
 - A public repository in one organization, with one maintainer who holds the admin role.
 - Many commits are written by coding agents. Changes merge by squash through a merge queue.
-- GitHub Actions builds changes, qualifies candidates nightly and weekly, and publishes to npm and GitHub Pages. GHCR publication is currently disabled.
-- Secrets read by workflows include `NPM_TOKEN`, `RELEASE_PUBLISH_TOKEN`, `TURBO_TOKEN`, and `GITLEAKS_LICENSE`. Publishing credentials must be scoped to protected deployment environments. GHCR publication is disabled until qualified OCI promotion and independently restricted package access exist.
+- GitHub Actions builds changes, qualifies candidates nightly and weekly, and publishes GitHub Pages and native kits. npm publication is disabled pending qualified candidate promotion; see [GHCR status](../operators/ghcr-images.md) for container publication.
+- Secrets read by workflows include `RELEASE_PUBLISH_TOKEN`, `TURBO_TOKEN`, and `GITLEAKS_LICENSE`. Publishing credentials must be scoped to protected deployment environments; container publication also requires independently restricted package access.
 
 Trust boundaries: the maintainer's GitHub account; each agent harness and its signing key; the GitHub Actions app identity; third-party actions; package registries.
 
@@ -101,7 +101,7 @@ Adding a second maintainer removes the bypass. Until then a compromised maintain
 | Every external action pinned to a full commit SHA; checkout never persists credentials | Enforced |
 | The self-hosted runner is reachable only by the owner's own same-repository branches | Enforced |
 | CodeQL analyses the workflows themselves (`actions` language) | Enforced |
-| Publish tokens are read only in environment-bound jobs; the `release` environment requires approval | Declared |
+| The release publish token is read in an environment-bound job; the `release` environment requires approval. npm proof jobs read no publisher credential | Declared |
 | Dependabot keeps actions current after a seven-day cooldown | Enforced |
 
 ## Did we do a good enough job?
@@ -110,7 +110,7 @@ Open against this model:
 
 - A settings change is seen at the next weekly run, not when it happens, and without the actor (T-03). Accepted: closing that needs audit-log streaming, which this plan does not offer.
 - One account can merge (T-06). Accepted, with the publication approval as the compensating control.
-- Two stored publish credentials remain (TA-06), and every run that uses one says so. `NPM_TOKEN` goes when the owner configures npm trusted publishing; the workflows already use OIDC without it. `RELEASE_PUBLISH_TOKEN` is the admin's own token because only the admin role may create release tags; it is limited to 90 days and its expiry is reported on every release ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)).
+- A stored npm token may still exist (TA-06), although current npm proof jobs do not read it. Remove unused credentials and review registry access before configuring any future publisher. `RELEASE_PUBLISH_TOKEN` is the admin's own token because only the admin role may create release tags; it is limited to 90 days and its expiry is reported on every release ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)).
 - "Declared" controls are confirmed live only by an administrator's verify command. From inside the repository, the weekly run lists every live ruleset that differs from its declaration.
 
 Review this page when a maintainer is added, an app is installed, a secret is added, or a workflow gains a trigger.
