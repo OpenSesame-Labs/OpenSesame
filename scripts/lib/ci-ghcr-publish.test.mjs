@@ -16,54 +16,41 @@ const workflow = readFileSync(
 );
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
-/** Triggers, the 10 minute cap, concurrency, permissions and the publish switch. */
+/** Proof triggers, budget and absence of registry authority. */
 function assertTriggersAndPublishGuards() {
   assert.match(workflow, /branches: \[main\]/);
-  assert.match(workflow, /tags: \["v\*"\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /tags: \["v\*"\]/);
   assert.doesNotMatch(workflow, /pull_request/);
   assert.doesNotMatch(workflow, /continue-on-error/);
   const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map(
     (match) => match[1],
   );
   assert.deepEqual([...new Set(timeouts)], ["10"]);
-  assert.doesNotMatch(workflow, /timeout-minutes:\s*(?:45|120)/);
   assert.match(workflow, /ops\/containers\/\*\*/);
   assert.match(workflow, /ops\/compose\/Dockerfile/);
-  assert.match(workflow, /\.github\/workflows\/cd-ghcr-publish\.yml/);
-  assert.match(
-    workflow,
-    /github\.event_name == 'workflow_dispatch' && github\.ref != 'refs\/heads\/main' && format\('cd-ghcr-publish-dispatch-\{0\}', github\.ref\) \|\| format\('cd-ghcr-publish-prod-\{0\}', github\.ref\)/,
-  );
+  assert.match(workflow, /group: ghcr-image-proof-\$\{\{ github\.ref \}\}/);
   assert.match(workflow, /cancel-in-progress: true/);
-  assert.doesNotMatch(workflow, /cancel-in-progress: false/);
-  assert.doesNotMatch(workflow, /group: cd-ghcr-publish\s*$/m);
   assert.match(workflow, /contents: read/);
-  assert.match(workflow, /packages: write/);
-  assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /attestations: write/);
-  assert.match(workflow, /PUBLISH_GHCR:/);
-  assert.match(workflow, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(workflow, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
-  assert.match(workflow, /oci-image-smoke\.mjs/);
-  assert.match(
+  assert.doesNotMatch(workflow, /packages:\s*write/);
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
+  assert.doesNotMatch(
     workflow,
-    /if: needs\.images\.result == 'success' && needs\['opensesame-amd64'\]\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\)/,
+    /docker\/login-action|docker push|imagetools create/,
   );
-  assert.match(workflow, /provenance: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
-  assert.match(workflow, /GHCR_PUBLISH_TOKEN/);
-  assert.match(workflow, /container-release/);
-  assert.match(workflow, /ghcr\.io\/opensesame-labs/);
-  assert.match(workflow, /:next/);
-  assert.match(workflow, /:sha-/);
-  assert.match(workflow, /:latest/);
+  assert.match(workflow, /push: false/);
+  assert.match(workflow, /load: true/);
+  assert.match(workflow, /oci-image-smoke\.mjs/);
+  assert.match(workflow, /GHCR publication disabled/);
 }
 
 /** The image matrix: per-image caches, amd64-only native images, and their ids. */
 function assertImageMatrix() {
-  for (const name of ["opensesame", "cli", "web-pwa", "control-plane"]) {
+  for (const name of ["cli", "control-plane"]) {
     assert.match(workflow, new RegExp(`name: ${name}`));
   }
+  assert.match(workflow, /opensesame-amd64:/);
+  assert.match(workflow, /web-pwa-amd64:/);
   assert.match(workflow, /cache-from: type=gha,scope=\$\{\{ matrix\.id \}\}/);
   assert.match(
     workflow,
@@ -80,10 +67,6 @@ function assertImageMatrix() {
   );
   assert.doesNotMatch(images, /id: opensesame-amd64\b/);
   assert.doesNotMatch(images, /ops\/compose\/Dockerfile/);
-  assert.match(
-    workflow,
-    /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64\n/,
-  );
   assert.match(workflow, /web-pwa-tailscale-wasm:/);
   assert.match(workflow, /loadTailscaleAssets/);
   assert.match(workflow, /target: runtime-from-prebuilt\n/);
@@ -101,10 +84,6 @@ function assertImageMatrix() {
     workflow,
     /web-pwa-amd64:[\s\S]*?target: runtime\n[\s\S]*?platforms: linux\/amd64/,
   );
-  assert.match(
-    workflow,
-    /name: web-pwa\n {12}file: ops\/containers\/web-pwa\/Dockerfile\n {12}platforms: amd64\n/,
-  );
 }
 
 /** web-pwa builds its runtime target on amd64 from the tailscale artifact. */
@@ -119,7 +98,7 @@ function assertWebPwaAmd64Build() {
   );
   const webPwaAmd64 = workflow.slice(
     workflow.indexOf("  web-pwa-amd64:"),
-    workflow.indexOf("  manifests:"),
+    workflow.indexOf("  publication-disabled:"),
   );
   assert.match(webPwaAmd64, /needs: web-pwa-tailscale-wasm/);
   assert.match(webPwaAmd64, /web-pwa-tailscale-distributions/);
@@ -140,22 +119,6 @@ function assertWebPwaAmd64Build() {
     /ARG PREBUILT_IMAGE\nFROM --platform=linux\/amd64 \$\{PREBUILT_IMAGE\}/,
   );
   assert.match(webPwaDockerfile, /--target runtime -t web-pwa:local \./);
-}
-
-/** The manifest job waits for every image job and only runs on main or a tag. */
-function assertManifestJob() {
-  assert.match(workflow, /docker buildx imagetools create/);
-  assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
-  assert.match(
-    workflow,
-    /needs: \[images, opensesame-amd64, web-pwa-tailscale-wasm, web-pwa-amd64\]/,
-  );
-  assert.doesNotMatch(workflow, /needs\['web-pwa-arm64'\]/);
-  assert.match(
-    workflow,
-    /if: needs\.images\.result == 'success' && needs\['opensesame-amd64'\]\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\) && needs\['web-pwa-amd64'\]\.result == 'success'/,
-  );
-  assert.match(workflow, /if: needs\.images\.result == 'success'/);
 }
 
 /** The runner job that compiles the opensesame binary with pinned tools and caches. */
@@ -242,8 +205,8 @@ function assertPrebuiltImageJob(image) {
   assert.match(image, /cache-from: type=gha,scope=opensesame-amd64\n/);
   assert.match(image, /cache-to: type=gha,mode=max,scope=opensesame-amd64\n/);
   assert.doesNotMatch(image, /scope=\$\{\{ matrix\.id \}\}/);
-  assert.match(image, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(image, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
+  assert.match(image, /push: false/);
+  assert.match(image, /load: true/);
   assert.match(
     image,
     /node scripts\/ci\/oci-image-smoke\.mjs opensesame:local/,
@@ -279,34 +242,23 @@ function assertCargoChefDockerfile(dockerfile) {
   );
 }
 
-describe("GHCR publish workflow", () => {
-  it("publishes from main and version tags and does not run on pull request", () => {
+describe("GHCR image proof workflow", () => {
+  it("builds proofs on main and manual dispatch without publishing", () => {
     assertTriggersAndPublishGuards();
     assertImageMatrix();
     assertWebPwaAmd64Build();
-    assertManifestJob();
   });
 
-  it("does not push to ghcr.io from non-main refs", () => {
-    assert.match(
-      workflow,
-      /github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)/,
-    );
-    assert.match(
-      workflow,
-      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR != 'true'/,
-    );
-    assert.match(
-      workflow,
-      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR == 'true'/,
-    );
+  it("never pushes images on any ref", () => {
+    assert.doesNotMatch(workflow, /PUBLISH_GHCR|GHCR_PUBLISH_TOKEN/);
     assert.doesNotMatch(workflow, /\n\s*push: true\n/);
+    assert.match(workflow, /if: steps\.dockerfile\.outputs\.present == 'true'/);
   });
 
   it("keeps web-pwa on amd64 and the tailscale artifact without an arm64 proof", () => {
     const amd64 = workflow.slice(
       workflow.indexOf("  web-pwa-amd64:"),
-      workflow.indexOf("  manifests:"),
+      workflow.indexOf("  publication-disabled:"),
     );
     assert.ok(amd64.includes("needs: web-pwa-tailscale-wasm"));
     assert.match(amd64, /name: web-pwa-tailscale-distributions/);
@@ -321,7 +273,7 @@ describe("GHCR publish workflow", () => {
     assert.doesNotMatch(workflow, /docker load -i web-pwa/);
   });
 
-  it("builds the opensesame binary on the runner and publishes runtime-from-prebuilt", () => {
+  it("builds the opensesame binary on the runner and tests runtime-from-prebuilt", () => {
     const rust = workflow.slice(
       workflow.indexOf("\n  opensesame-amd64-rust:\n"),
       workflow.indexOf("\n  images:\n"),

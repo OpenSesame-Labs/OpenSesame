@@ -100,18 +100,33 @@ test("the image job cannot pass when the scanner did not run", () => {
     readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
   );
   const job = workflow.jobs["container-images"];
-  // Both moving tags of exactly what the publish workflow's manifest job
-  // publishes: the two lists cannot drift apart.
-  const published = parse(
+  // Continue scanning historical registry images for every platform covered by
+  // the proof workflow, even though publication is currently disabled.
+  const proof = parse(
     readFileSync(join(root, ".github/workflows/cd-ghcr-publish.yml"), "utf8"),
-  ).jobs.manifests.strategy.matrix.include.flatMap((row) =>
-    row.platforms.split(" ").map((arch) => ({ image: row.name, arch })),
-  );
-  assert.equal(published.length, 6);
-  assert.deepEqual(job.strategy.matrix, {
-    tag: ["next", "latest"],
-    target: published,
+  ).jobs;
+  const single = (id, image) => ({
+    image,
+    arch: proof[id].steps
+      .find((step) => step.name === "Build")
+      .with.platforms.replace("linux/", ""),
   });
+  const targets = [
+    single("opensesame-amd64", "opensesame"),
+    single("web-pwa-amd64", "web-pwa"),
+    ...proof.images.strategy.matrix.include.map((row) => ({
+      image: row.name,
+      arch: row.platform.replace("linux/", ""),
+    })),
+  ];
+  const sortTargets = (items) =>
+    items.map(({ image, arch }) => `${image}/${arch}`).sort();
+  assert.equal(targets.length, 6);
+  assert.deepEqual(job.strategy.matrix.tag, ["next", "latest"]);
+  assert.deepEqual(
+    sortTargets(job.strategy.matrix.target),
+    sortTargets(targets),
+  );
   assert.equal(job.strategy["fail-fast"], false);
   assert.deepEqual(job.permissions, {
     contents: "read",
