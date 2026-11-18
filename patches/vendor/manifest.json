@@ -64,6 +64,61 @@
       "tarball": "patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
       "upstreamIntegrity": "sha512-smX8/gNP8Kjq+CWTBMZQLQ912vOQjiWExzwzvMO+eujPB5RY8IbtF0AGdUUXHKN7KoDWK9dIcuW0WG269kiP6w==",
       "upstreamTarball": "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz"
+    },
+    "glob@10.5.0": {
+      "patch": "patches/glob@10.5.0.patch",
+      "tarball": "patches/vendor/glob-10.5.0.tgz",
+      "upstreamIntegrity": "sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==",
+      "rootDependency": "glob10-patched",
+      "override": "glob@^10.0.0"
+    },
+    "glob@11.1.0": {
+      "patch": "patches/glob@11.1.0.patch",
+      "tarball": "patches/vendor/glob-11.1.0.tgz",
+      "upstreamIntegrity": "sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==",
+      "rootDependency": "glob11-patched",
+      "override": "glob@^11.0.1"
+    },
+    "minimatch@9.0.9": {
+      "patch": "patches/minimatch@9.0.9.patch",
+      "tarball": "patches/vendor/minimatch-9.0.9.tgz",
+      "upstreamIntegrity": "sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==",
+      "rootDependency": "minimatch9-patched",
+      "override": "minimatch@^9.0.4"
+    },
+    "minimatch@10.2.6": {
+      "patch": "patches/minimatch@10.2.6.patch",
+      "tarball": "patches/vendor/minimatch-10.2.6.tgz",
+      "upstreamIntegrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
+      "rootDependency": "minimatch10-patched",
+      "override": "minimatch@^10.0.0"
+    },
+    "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": {
+      "patch": "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
+      "tarball": "patches/vendor/joshwooding-vite-plugin-react-docgen-typescript-0.7.0.tgz",
+      "upstreamIntegrity": "sha512-qvsTEwEFefhdirGOPnu9Wp6ChfIwy2dBCRuETU3uE+4cC+PFoxMSiiEhxk4lOluA34eARHA0OxqsEUYDqRMgeQ==",
+      "rootDependency": "docgen-plugin-patched",
+      "override": "@joshwooding/vite-plugin-react-docgen-typescript"
+    },
+    "react-docgen-typescript@2.4.0": {
+      "patch": "patches/react-docgen-typescript@2.4.0.patch",
+      "tarball": "patches/vendor/react-docgen-typescript-2.4.0.tgz",
+      "upstreamIntegrity": "sha512-ZtAp5XTO5HRzQctjPU0ybY0RRCQO19X/8fxn3w7y2VVTUbGHDKULPTL4ky3vB05euSgG5NpALhEhDPvQ56wvXg==",
+      "rootDependency": "react-docgen-patched",
+      "override": "react-docgen-typescript"
+    },
+    "node-turn@0.0.6": {
+      "patch": "patches/node-turn@0.0.6.patch",
+      "tarball": "patches/vendor/node-turn-0.0.6.tgz",
+      "upstreamIntegrity": "sha512-HJRfWIADk5I61jZlrKHwx/A+IgusnN7Fs/M9wl0xuSxTynKnh4ZBLvvIeBH5w556bl2bFFkzHiCJFIZ3FR7fmA==",
+      "workspaceDependency": "apps/pages/package.json"
+    },
+    "@noble/post-quantum@0.5.4": {
+      "patch": "patches/@noble__post-quantum@0.5.4.patch",
+      "tarball": "patches/vendor/noble-post-quantum-0.5.4.tgz",
+      "upstreamIntegrity": "sha512-leww0zzIirrvwaYMPI9fj6aRIlA/c6Y0/lifQQ1YOOyHEr0MNH3yYpjXeiVG+tWdPps4XxGclFWX2INPO3Yo5w==",
+      "rootDependency": "noble-post-quantum-patched",
+      "override": "@noble/post-quantum"
     }
   },
   "notInstalled": {

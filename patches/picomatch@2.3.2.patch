@@ -198,33 +198,126 @@ index 0000000..af27dbb
 +Atomics.store(ready, 0, 1);
 +Atomics.notify(ready, 0);
 diff --git a/lib/picomatch.js b/lib/picomatch.js
-index 782d809..0df41c5 100644
+index 782d809..c8a6f42 100644
 --- a/lib/picomatch.js
 +++ b/lib/picomatch.js
-@@ -6,6 +6,7 @@ const parse = require('./parse');
+@@ -6,6 +6,15 @@ const parse = require('./parse');
  const utils = require('./utils');
  const constants = require('./constants');
  const isObject = val => val && typeof val === 'object' && !Array.isArray(val);
 +const boundRegex = require('./bounded-regex');
- 
++const isBounded = regex => regex.constructor !== RegExp;
++const refuseUnsafeSource = (source, options, hasExtglob) => {
++  const opts = options || {};
++  const regex = new RegExp(source, opts.flags || (opts.nocase ? 'i' : ''));
++  if (isBounded(boundRegex(regex, hasExtglob))) {
++    throw new RangeError('picomatch refuses to expose a potentially unsafe regular expression');
++  }
++};
+
  /**
   * Creates a matcher function from one or more glob patterns. The
-@@ -256,7 +257,8 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
+@@ -51,10 +60,11 @@ const picomatch = (glob, options, returnState = false) => {
+   const opts = options || {};
+   const posix = utils.isWindows(options);
+   const regex = isState
+-    ? picomatch.compileRe(glob, options)
+-    : picomatch.makeRe(glob, options, false, true);
++    ? compileReInternal(glob, options, false, true, true)
++    : makeReInternal(glob, options, false, true, true);
+
+-  const state = regex.state;
++  const bounded = isBounded(regex);
++  const state = bounded ? undefined : regex.state;
+   delete regex.state;
+
+   let isIgnored = () => false;
+@@ -65,7 +75,7 @@ const picomatch = (glob, options, returnState = false) => {
+
+   const matcher = (input, returnObject = false) => {
+     const { isMatch, match, output } = picomatch.test(input, regex, options, { glob, posix });
+-    const result = { glob, state, regex, posix, input, output, match, isMatch };
++    const result = { glob, state, regex: bounded ? undefined : regex, posix, input, output, match, isMatch };
+
+     if (typeof opts.onResult === 'function') {
+       opts.onResult(result);
+@@ -198,7 +208,10 @@ picomatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str
+
+ picomatch.parse = (pattern, options) => {
+   if (Array.isArray(pattern)) return pattern.map(p => picomatch.parse(p, options));
+-  return parse(pattern, { ...options, fastpaths: false });
++  const state = parse(pattern, { ...options, fastpaths: false });
++  const hasExtglob = Boolean(state.tokens && state.tokens.some(token => token.extglob));
++  refuseUnsafeSource(state.output, options, hasExtglob);
++  return state;
+ };
+
+ /**
+@@ -242,11 +255,7 @@ picomatch.scan = (input, options) => scan(input, options);
+  * @api public
+  */
+
+-picomatch.compileRe = (state, options, returnOutput = false, returnState = false) => {
+-  if (returnOutput === true) {
+-    return state.output;
+-  }
+-
++const compileReInternal = (state, options, returnOutput = false, returnState = false, allowBounded = false) => {
+   const opts = options || {};
+   const prepend = opts.contains ? '' : '^';
+   const append = opts.contains ? '' : '$';
+@@ -256,7 +265,13 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
      source = `^(?!${source}).*$`;
    }
- 
+
 -  const regex = picomatch.toRegex(source, options);
 +  const hasExtglob = Boolean(state.tokens && state.tokens.some(token => token.extglob));
-+  const regex = picomatch.toRegex(source, options, hasExtglob);
++  if (returnOutput === true) {
++    refuseUnsafeSource(source, options, hasExtglob);
++    return state.output;
++  }
++
++  const regex = toRegexInternal(source, options, hasExtglob, allowBounded);
    if (returnState === true) {
      regex.state = state;
    }
-@@ -318,14 +320,16 @@ picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = fal
+@@ -264,6 +279,9 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
+   return regex;
+ };
+
++picomatch.compileRe = (state, options, returnOutput = false, returnState = false) =>
++  compileReInternal(state, options, returnOutput, returnState);
++
+ /**
+  * Create a regular expression from a parsed glob pattern.
+  *
+@@ -283,7 +301,7 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
   * @api public
   */
- 
+
+-picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = false) => {
++const makeReInternal = (input, options = {}, returnOutput = false, returnState = false, allowBounded = false) => {
+   if (!input || typeof input !== 'string') {
+     throw new TypeError('Expected a non-empty string');
+   }
+@@ -298,7 +316,10 @@ picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = fal
+     parsed = parse(input, options);
+   }
+
+-  return picomatch.compileRe(parsed, options, returnOutput, returnState);
++  return compileReInternal(parsed, options, returnOutput, returnState, allowBounded);
+ };
+
++picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = false) =>
++  makeReInternal(input, options, returnOutput, returnState);
++
+ /**
+@@ -318,14 +339,23 @@ picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = fal
+  * @api public
+  */
+
 -picomatch.toRegex = (source, options) => {
-+picomatch.toRegex = (source, options, hasExtglob) => {
++const toRegexInternal = (source, options, hasExtglob, allowBounded = false) => {
 +  let regex;
    try {
      const opts = options || {};
@@ -234,7 +327,14 @@ index 782d809..0df41c5 100644
      if (options && options.debug === true) throw err;
      return /$^/;
    }
-+  return boundRegex(regex, hasExtglob);
++  const bounded = boundRegex(regex, hasExtglob);
++  if (isBounded(bounded) && !allowBounded) {
++    throw new RangeError('picomatch refuses to expose a potentially unsafe regular expression');
++  }
++  return bounded;
  };
- 
+
++picomatch.toRegex = (source, options, hasExtglob) =>
++  toRegexInternal(source, options, hasExtglob);
++
  /**
