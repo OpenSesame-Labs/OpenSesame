@@ -44,14 +44,12 @@ with their tests, not in a screenshot history directory.
 ## Agent harnesses and installs
 
 Harness dot folders are never tracked (see [agent setup](agent-setup.md)).
-Third-party skills have one canonical local installation under the gitignored
-`.agents/skills/`. Identical mirrors in `.claude/skills/` and `.grok/skills/`
-use relative links;
-intentional harness-specific files remain separate. First-party skills remain
-in `skills/`. Install or update the canonical skill once, review it, then run
-`node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. The sync command
-compares file bytes and executable modes before replacing duplicate paths.
-Do not use multi-target copy installations or copy dependency trees to worktrees.
+First-party skills remain in `skills/`; third-party copies are optional and
+locally managed. Review an immutable revision before use; `npm run skills:review`
+prints guidance. Local workspace copies in `.agents/skills/` and harness
+mirrors are gitignored. `node scripts/dev/sync-agent-skills.mjs --check` checks
+their mirror shape, not provenance. Do not use multi-target copy installations
+or copy dependency trees to worktrees.
 
 Session startup is lightweight. Dependency bootstrap requires explicit opt-in;
 the installer fingerprints manifests, patches and lock/config inputs and reuses

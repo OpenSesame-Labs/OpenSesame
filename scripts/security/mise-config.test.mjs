@@ -154,29 +154,28 @@ test("mise.lock exists and names every install platform", () => {
   }
 });
 
-test("mise.toml pins the agent skill installer CLIs", () => {
+test("mise.lock covers exactly the configured tools without retired skill installers", () => {
   const mise = parseToml(readText("mise.toml"));
   const tools = asTable(mise.tools, "tools");
-  const script = readText("scripts/dev/install-agent-skills.sh");
-  const pins = [
-    ["npm:skills", "skills@1.7.4"],
-    ["npm:impeccable", "impeccable@4.8.0"],
-    ["npm:typeui.sh", "typeui.sh@0.7.1"],
-  ];
   const lock = readText("mise.lock");
-  for (const [tool, spec] of pins) {
-    const version = spec.slice(spec.indexOf("@") + 1);
-    const slug = tool.slice("npm:".length).replaceAll(".", "-");
-    const sidecar = `.mise/locks/npm-${slug}/${version}`;
-    assert.equal(asString(tools[tool], tool), version);
-    assert.ok(script.includes(spec), spec);
-    assert.ok(lock.includes(`path = "${sidecar}"`), sidecar);
-    assert.ok(readText(`${sidecar}/aube-lock.yaml`).includes(version), sidecar);
+  const entries = [
+    ...lock.matchAll(/^\[\[tools\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\]$/gmu),
+  ];
+  const names = entries.map((entry) => entry[1] ?? entry[2]);
+  assert.deepEqual(sorted(names), sorted(Object.keys(tools)));
+  for (let index = 0; index < entries.length; index += 1) {
+    const name = names[index];
+    const declaration = tools[name];
+    const spec =
+      typeof declaration === "string"
+        ? declaration
+        : asString(asTable(declaration, name).version, `${name}.version`);
+    const section = lock.slice(entries[index].index, entries[index + 1]?.index);
+    assert.ok(section.includes(`specifiers = [${JSON.stringify(spec)}]`), name);
   }
-  assert.match(
-    script,
-    /mise install npm:skills npm:impeccable npm:typeui\.sh/u,
-  );
+  for (const tool of ["npm:skills", "npm:impeccable", "npm:typeui.sh"]) {
+    assert.equal(Object.hasOwn(tools, tool), false, tool);
+  }
   for (const path of ["AGENTS.md", "docs/contributing/commands.md"]) {
     assert.doesNotMatch(readText(path), /\bpnpm\b/u, path);
   }

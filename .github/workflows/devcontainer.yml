@@ -3,7 +3,7 @@
 # .devcontainer/devcontainer.json starts the container with every Linux
 # capability dropped, no new privileges, and a non-root user. Those settings
 # only hold if the container's own setup still works under them. This builds
-# the image and runs the four lifecycle commands exactly as declared, then
+# the image and runs the lifecycle commands exactly as declared, then
 # checks the user, the capability set and the installed toolchain.
 #
 # It runs only when the container definition, the toolchain pins or a setup

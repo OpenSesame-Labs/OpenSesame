@@ -23,6 +23,10 @@ catalogue), `AGENTS.md`, and the repo tooling under `scripts/`.
 
 Your dotfiles are responsible for linking each `skills/<name>` into the
 discovery paths your harness reads (for example `~/.agents/skills`).
+Without those dotfiles, a fresh clone has no automatic discovery aliases;
+configure the harness to read `skills/`, or create user-scope links directly
+to the required first-party directories. The optional third-party installer
+is not needed for first-party skills.
 
 ## Personal setup (user scope)
 
@@ -46,11 +50,13 @@ native `.gitconfig` copy and SSH/GPG agent forwarding — never bind-mount
 
 ### Skills into `~/.agents/skills`
 
-Install personal/third-party skills once at user scope:
+Obtain an immutable revision of each optional personal/third-party skill
+through your approved source process. Review its instructions, references,
+executables, and dependencies before configuring it at user scope:
 
 ```bash
 mkdir -p ~/.agents/skills
-# install or clone each skill as ~/.agents/skills/<name>/SKILL.md
+# place each reviewed skill at ~/.agents/skills/<name>/SKILL.md
 ```
 
 For Claude, use a link adapter instead of copying (copies drift):
@@ -60,14 +66,17 @@ mkdir -p ~/.claude/skills
 ln -s ~/.agents/skills/<name> ~/.claude/skills/<name>   # per skill
 ```
 
-Project skills work differently in-repo: first-party source is `skills/`
-(tracked, aliased from `.agents/skills/`); third-party skills install into
-`.agents/skills/` with `.claude/skills/` and `.grok/skills/` mirrors, all
-gitignored and refreshed to latest at container start by
-`scripts/dev/install-agent-skills.sh`. Harness-specific variants an
-installer writes (e.g. impeccable's Claude copy) are install output too;
-`node scripts/dev/sync-agent-skills.mjs` collapses duplicate mirrors to
-links and `--check` verifies them.
+First-party source is tracked in `skills/` and can be aliased from
+`.agents/skills/`. Third-party skills and harness mirrors in the workspace
+are gitignored. `npm run skills:review` prints guidance without downloading
+content, running third-party tools, or modifying skills or settings. The
+retired `npm run skills:install`
+command prints the same guidance and exits unsuccessfully. The devcontainer
+does not install third-party skills. The command
+`node scripts/dev/sync-agent-skills.mjs --check` checks local mirror shape;
+it does not verify skill provenance.
+Previously installed copies may still be discoverable: disable any unreviewed
+copy in your harness until its origin and contents are reviewed.
 
 ### Claude permissions (auto-allow)
 
@@ -99,12 +108,9 @@ dotfiles, not in this repo.
 
 The `google-labs-code/stitch-skills` marketplace plugins
 (`stitch-design`, `stitch-build`, `stitch-utilities`) are **not**
-auto-enabled — the same skills install (latest,
-unpinned) into `.agents/skills/stitch-*` per the `skills-lock.json`
-catalogue at container start. To use the
-marketplace copies instead, enable them in your user Claude settings
-(`extraKnownMarketplaces` + `enabledPlugins` for
-`google-labs-code/stitch-skills`).
+auto-enabled or installed by this repository. `skills-lock.json` is a
+catalogue rather than a content pin. To use these skills, obtain and review
+an immutable revision before configuring your harness in user scope.
 
 ### Model routing (operator profiles)
 
@@ -138,16 +144,12 @@ for device-login setups (see the Grok config in the dotfiles repo).
   definitions. Nothing personal is assumed by the repo.
 - **Personal (user):** chezmoi dotfiles + `~/.agents/skills` + Claude link
   adapter + `settings.local.json` + your `STITCH_API_KEY`.
-- **Devcontainer:** `.devcontainer/devcontainer.json` — pinned Rust image,
-  Node 24 feature at build time, user-writable npm
-  (`--install-directory "$HOME/.local/bin"`, `COREPACK_HOME` under
-  `/home/vscode`), frozen-lockfile install in `updateContentCommand`,
-  hooks in `postCreateCommand`; only the npm cache is a named
-  (per-workspace) volume — executable caches (cargo target, npm)
-  stay container-local so no cache crosses checkouts.
-  `postStartCommand` runs `scripts/dev/install-agent-skills.sh` only
-  (latest third-party skills into gitignored roots; warns and continues
-  offline). No other `postAttach` work, no host paths, no dotfiles.
+- **Devcontainer:** `.devcontainer/devcontainer.json` — pinned Rust image and
+  checksum-pinned mise, with the locked toolchain and dependencies installed
+  in `updateContentCommand` and `postCreateCommand`; the latter also sets up
+  hooks. No repository lifecycle command installs dotfiles or third-party
+  skills. Those are explicit personal choices. There is no `postStart` or
+  `postAttach` command and no host path mount in the definition.
   In-container planes use `127.0.0.1` defaults (`scripts/dev/local-env.sh`).
 - **Host-agent (opt-in, not tracked):** if you run host planes, add your
   own devcontainer override with
@@ -162,16 +164,13 @@ for device-login setups (see the Grok config in the dotfiles repo).
   dotfiles revision (`git -C "$(chezmoi source-path)" checkout <rev>`).
 - Personal skills: update in `~/.agents/skills` only; links follow.
   Rollback = restore that directory; no repo change needed.
-- Project skills: third-party content floats to latest at every
-  container start (`skills-lock.json` is the catalogue, not a pin).
-  Catalogue changes are reviewed commits; check
-  `.agents/.skills-currency.json` for what the last start installed.
+- Project skills: `skills/` is reviewed with repository changes. Optional
+  third-party skill revisions are maintained by their user after review;
+  `skills-lock.json` is a catalogue, not a content pin or installation record.
 - Harness config changes: make them in the dotfiles repo, not here. Rollback
   is a revert there — this repo carries none of it.
 - Devcontainer: rebuild (`Dev Containers: Rebuild Container`) after image
-  or feature changes; the per-workspace npm-store volume survives
-  rebuilds, executable caches do not. Delete the `opensesame-*` volumes
-  to fully reset caches.
+  or toolchain changes. The definition does not declare named cache volumes.
 
 ## Acceptance checklist
 
@@ -180,8 +179,8 @@ for device-login setups (see the Grok config in the dotfiles repo).
 - [ ] `node scripts/dev/sync-agent-skills.mjs --check` exits 0; no broken
       symlinks under `.claude/skills`, `.grok/skills`, `.agents/skills`
       (when present locally)
-- [ ] Devcontainer: `postStart` runs only the skills install, no `postAttach`,
-      no `host.docker.internal`,
+- [ ] Devcontainer: no automatic dotfiles or third-party skills install, no
+      `postStart` or `postAttach`, no `host.docker.internal`,
       no `${localEnv:HOME}` mount; `id` in lifecycle is `vscode`;
       `node -v`, `npm -v`, `cargo -V` succeed after create
 - [ ] Personal layer works from a clean clone: chezmoi apply →

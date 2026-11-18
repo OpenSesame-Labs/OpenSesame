@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -15,8 +15,8 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-test("catalogue failure degrades currency, while a successful install remains ok", (t) => {
-  const root = mkdtempSync(join(tmpdir(), "skills-install-status-"));
+test("retired installer gives guidance without executing tools or changing files", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "skills-review-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const put = (path, value) => {
     mkdirSync(dirname(join(root, path)), { recursive: true });
@@ -27,86 +27,69 @@ test("catalogue failure degrades currency, while a successful install remains ok
     fileURLToPath(new URL("../dev/install-agent-skills.sh", import.meta.url)),
     join(root, "scripts/dev/install-agent-skills.sh"),
   );
-  put("scripts/dev/sync-agent-skills.mjs", "");
-  put(
-    "skills-lock.json",
-    JSON.stringify({ skills: { demo: { source: "example/demo" } } }),
-  );
-  put(".codex/hooks.json", "{}\n");
-  put(".claude/settings.json", "{}\n");
-  put(".gitignore", ".agents/\nbin/\nglobal.gitconfig\n");
-  put("bin/fail-sign", "#!/bin/sh\ntouch bin/sign-invoked\nexit 1\n");
-  chmodSync(join(root, "bin/fail-sign"), 0o755);
-  put(
-    "global.gitconfig",
-    `[commit]\n  gpgsign = true\n[gpg]\n  program = ${join(root, "bin/fail-sign")}\n`,
-  );
-  const gitEnv = {
-    ...process.env,
-    GIT_CONFIG_GLOBAL: join(root, "global.gitconfig"),
+  const existing = {
+    "skills-lock.json": '{"skills":{"demo":{"source":"example/demo"}}}\n',
+    ".codex/hooks.json": '{"user":"keep"}\n',
+    ".claude/settings.json": '{"user":"keep"}\n',
+    ".agents/skills/demo/SKILL.md": "# Reviewed copy\n",
+    ".agents/.skills-currency.json": '{"status":"old"}\n',
   };
-  assert.equal(
-    execFileSync("git", ["config", "--global", "--get", "commit.gpgsign"], {
-      env: gitEnv,
-      encoding: "utf8",
-    }).trim(),
-    "true",
-  );
-  execFileSync("git", ["init", "-q", root], { env: gitEnv });
-  execFileSync("git", ["-C", root, "add", "."], { env: gitEnv });
-  assert.throws(() =>
-    execFileSync(
-      "git",
-      [
-        "-C",
-        root,
-        "-c",
-        "user.name=test",
-        "-c",
-        "user.email=test@example.invalid",
-        "commit",
-        "-qm",
-        "fixture",
-      ],
-      { env: gitEnv, cwd: root, stdio: "pipe" },
-    ),
-  );
-  assert.equal(existsSync(join(root, "bin/sign-invoked")), true);
-  execFileSync(
+  for (const [path, value] of Object.entries(existing)) put(path, value);
+  const marker = join(root, "unexpected-tool");
+  for (const name of [
+    "npx",
+    "npm",
+    "node",
     "git",
-    [
-      "-C",
-      root,
-      "-c",
-      "user.name=test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "-qm",
-      "fixture",
-    ],
-    { env: gitEnv },
-  );
-  put(
-    "bin/npx",
-    '#!/bin/sh\nif [ "$2" = skills@1.7.4 ] && [ "$3" = add ]; then exit 1; fi\nexit 0\n',
-  );
-  chmodSync(join(root, "bin/npx"), 0o755);
-  const run = () =>
-    execFileSync("bash", ["scripts/dev/install-agent-skills.sh"], {
-      cwd: root,
-      env: { ...gitEnv, PATH: `${join(root, "bin")}:${process.env.PATH}` },
-      stdio: "pipe",
-    });
-  const status = () =>
-    JSON.parse(
-      readFileSync(join(root, ".agents/.skills-currency.json"), "utf8"),
-    ).status;
-  run();
-  assert.equal(status(), "degraded");
-  put(".agents/skills/demo/SKILL.md", "# Demo\n");
-  run();
-  assert.equal(status(), "ok");
+    "curl",
+    "wget",
+    "skills",
+    "impeccable",
+    "typeui.sh",
+    "timeout",
+    "perl",
+    "cat",
+    "mkdir",
+    "rm",
+  ]) {
+    const path = join(root, "bin", name);
+    put(
+      `bin/${name}`,
+      '#!/bin/sh\nprintf "%s\\n" "$0" >> "$OPENSESAME_SKILL_TOOL_MARKER"\nexit 91\n',
+    );
+    chmodSync(path, 0o755);
+  }
+  for (const [args, status] of [
+    [[], 1],
+    [["--instructions"], 0],
+    [["--unknown"], 2],
+  ]) {
+    const result = spawnSync(
+      "/bin/bash",
+      ["scripts/dev/install-agent-skills.sh", ...args],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          PATH: join(root, "bin"),
+          OPENSESAME_SKILL_TOOL_MARKER: marker,
+          NODE_AUTH_TOKEN: "synthetic-secret-never-print",
+        },
+      },
+    );
+    assert.equal(result.status, status, result.stderr);
+    assert.doesNotMatch(
+      result.stdout + result.stderr,
+      /synthetic-secret-never-print/,
+    );
+    if (args[0] !== "--unknown") {
+      assert.match(result.stdout, /No skills were installed or updated/);
+      assert.match(result.stdout, /immutable revision/);
+      assert.match(result.stdout, /disable unreviewed copies/);
+    }
+  }
+  assert.equal(existsSync(marker), false);
+  for (const [path, value] of Object.entries(existing)) {
+    assert.equal(readFileSync(join(root, path), "utf8"), value, path);
+  }
 });
