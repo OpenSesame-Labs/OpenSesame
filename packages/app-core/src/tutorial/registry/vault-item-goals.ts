@@ -102,7 +102,7 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "vault.item.copy"',
-      'say "Copying puts a value on the clipboard without showing it. The clipboard is cleared again when the vault locks, and after the delay set in Settings, if there is one."',
+      'say "Copying puts a value on the clipboard without showing it. The vault tries to clear it on lock and after the delay in Settings, if there is one. The browser may block clearing or keep clipboard history."',
       'navigate "/vault/item"',
       'wait route "/vault/item" timeout=15000',
       'focus "item.copy-username" "Copy username. In the list, press u on a row to copy the username of the row under the cursor." side=bottom',

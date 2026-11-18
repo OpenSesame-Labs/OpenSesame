@@ -155,6 +155,11 @@ function LockingPrefs(props: VisualPrefsProps) {
           options={CLIPBOARD}
           onChange={(value) => props.onNumber("clipboardClearSeconds", value)}
         />
+        <p className="field__help">
+          Clearing is best effort: the browser may block clipboard access or
+          keep a history. On lock, if reading is blocked, the app may replace
+          whatever is currently on the clipboard.
+        </p>
         <div className="sw">
           <span className="sw__name">
             Lock when this tab goes to the background
