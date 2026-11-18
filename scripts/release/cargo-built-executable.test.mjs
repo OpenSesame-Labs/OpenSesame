@@ -37,4 +37,31 @@ describe("cargo-built-executable.mjs", () => {
     }).trim();
     expect(path).toBe("/triple/aarch64-unknown-linux-gnu/release/opensesame");
   });
+
+  it("buffers artifact JSON split across stdin chunks", async () => {
+    const message = JSON.stringify({
+      reason: "compiler-artifact",
+      executable: "/cache/release/opensesame",
+      target: { name: "opensesame" },
+    });
+    const split = Math.floor(message.length / 2);
+    const child = spawn(process.execPath, [script, "opensesame"], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    const out = await new Promise((resolve, reject) => {
+      const chunks = [];
+      child.stdout.on("data", (data) => chunks.push(data));
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code !== 0) reject(new Error(`exit ${code}`));
+        else resolve(Buffer.concat(chunks).toString("utf8").trim());
+      });
+      child.stdin.write(message.slice(0, split));
+      setTimeout(() => {
+        child.stdin.write(`${message.slice(split)}\n`);
+        child.stdin.end();
+      }, 5);
+    });
+    expect(out).toBe("/cache/release/opensesame");
+  });
 });
