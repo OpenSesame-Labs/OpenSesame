@@ -71,15 +71,13 @@ mod tests {
         let principal_id = principal.to_string();
         second
             .db
-            .withdraw_host_membership(
-                &opensesame_storage::host_membership::MembershipWithdrawal {
+            .withdraw_host_membership(&opensesame_storage::host_membership::MembershipWithdrawal {
                 withdrawal_id: &withdrawal_id,
                 organization_id: &organization_id,
                 principal_id: &principal_id,
                 membership_incarnation: &revision.incarnation,
                 authority_revision: &revision.revision,
-                },
-            )
+            })
             .await
             .unwrap();
 
