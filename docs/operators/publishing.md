@@ -51,6 +51,14 @@ Neither message contains a credential's value. `scripts/release/credential-expir
 reads the kind from the token's public prefix and the date from GitHub's
 `github-authentication-token-expiration` response header.
 
+The npm publish action downloads npm 11.21.1 with a scrubbed environment,
+checks its tarball against the committed SHA-512 in
+`scripts/release/prepare-npm-cli.mjs`, and safely extracts it before exposing
+the registry token to the publish step. The same verified local CLI is used
+for registry queries and publication, with package lifecycle scripts disabled.
+The publish step still has the GitHub OIDC credentials needed for provenance
+and, when no npm token is configured, trusted publishing.
+
 ### Retire `NPM_TOKEN`
 
 The publish action already publishes with OIDC when the token is empty, the
