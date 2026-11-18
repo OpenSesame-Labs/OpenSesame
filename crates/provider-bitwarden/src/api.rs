@@ -276,17 +276,17 @@ impl Client {
         self.decode(&url, response).await
     }
 
-    /// Fetch a file's ciphertext from a download link the server issued
-    /// (an attachment's URL, which may sit on a storage host of its own). No
-    /// credential goes with it: the link carries its own authorization.
-    /// https only (loopback http for tests); redirects refused; at most
-    /// `limit` bytes.
+    /// Fetch a file's ciphertext from a download link the server issued.
+    /// Its origin must be the API origin or one the client owner explicitly
+    /// authorized with [`Endpoints::with_download_origin`]. No credential
+    /// goes with it: the link carries its own authorization. https only
+    /// (loopback http for tests); redirects refused; at most `limit` bytes.
     ///
     /// # Errors
     ///
     /// Returns a URL, transport, redirect, API, or size error.
     pub async fn download(&self, url: &str, limit: usize) -> Result<Vec<u8>> {
-        let url = endpoints::parse_download(url)?;
+        let url = self.endpoints.download_url(url)?;
         let response = self
             .http
             .get(url.clone())

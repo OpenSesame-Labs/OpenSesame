@@ -9,6 +9,7 @@ use crate::error::{Error, Result};
 pub struct Endpoints {
     api: Url,
     identity: Url,
+    download_origins: Vec<Url>,
 }
 
 impl Endpoints {
@@ -45,7 +46,28 @@ impl Endpoints {
         Ok(Self {
             api: parse_base(api)?,
             identity: parse_base(identity)?,
+            download_origins: Vec::new(),
         })
+    }
+
+    /// Authorize an additional attachment storage origin. This must come
+    /// from the person configuring the client, never from a server response.
+    /// The API origin is already authorized; separate storage hosts need an
+    /// explicit entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidServerUrl`] for an invalid URL or a URL with
+    /// a path, query, or fragment instead of an origin.
+    pub fn with_download_origin(mut self, raw: &str) -> Result<Self> {
+        let url = parse_base(raw)?;
+        if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
+            return Err(Error::InvalidServerUrl(
+                "download origin must not include a path, query, or fragment".into(),
+            ));
+        }
+        self.download_origins.push(url);
+        Ok(self)
     }
 
     #[must_use]
@@ -58,7 +80,8 @@ impl Endpoints {
         &self.identity
     }
 
-    /// The hosts this client is pinned to. Any other host is out of bounds.
+    /// The configured API and identity hosts. Attachment downloads may also
+    /// reach explicitly authorized storage origins.
     #[must_use]
     pub fn pinned_hosts(&self) -> Vec<String> {
         let mut hosts = vec![host_of(&self.api), host_of(&self.identity)];
@@ -72,6 +95,21 @@ impl Endpoints {
 
     pub(super) fn identity_url(&self, path: &str) -> Result<Url> {
         join(&self.identity, path)
+    }
+
+    pub(super) fn download_url(&self, raw: &str) -> Result<Url> {
+        let url = parse_base(raw)?;
+        if url.origin() != self.api.origin()
+            && !self
+                .download_origins
+                .iter()
+                .any(|allowed| allowed.origin() == url.origin())
+        {
+            return Err(Error::InvalidServerUrl(
+                "attachment download origin is not authorized".into(),
+            ));
+        }
+        Ok(url)
     }
 }
 
@@ -90,12 +128,6 @@ pub(super) fn host_of(url: &Url) -> String {
 
 /// https, or loopback http so offline tests can run against a stub. No
 /// embedded credentials, ever — same rule as `provider-openbao`.
-/// A download link: the same rules as a server URL (https, or loopback
-/// http; no embedded credentials).
-pub(super) fn parse_download(raw: &str) -> Result<Url> {
-    parse_base(raw)
-}
-
 fn parse_base(raw: &str) -> Result<Url> {
     let url = Url::parse(raw.trim()).map_err(|e| Error::InvalidServerUrl(e.to_string()))?;
     if !url.username().is_empty() || url.password().is_some() {

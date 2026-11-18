@@ -283,9 +283,29 @@ pub async fn read(
     hashes: &HashRegistry,
     ask: &mut dyn Ask,
 ) -> anyhow::Result<Source> {
+    read_with_download_origins(request, hashes, ask, &[]).await
+}
+
+/// Read an account, allowing attachment downloads from additional origins
+/// supplied by the person running the import. Server-provided links must not
+/// be used to populate this list.
+///
+/// # Errors
+///
+/// Returns the same errors as [`read`], or an error for an invalid origin.
+pub async fn read_with_download_origins(
+    request: &AccountRequest<'_>,
+    hashes: &HashRegistry,
+    ask: &mut dyn Ask,
+    download_origins: &[String],
+) -> anyhow::Result<Source> {
     let email = opensesame_provider_bitwarden::normalize_email(request.email);
     let device = DeviceIdentity::new(format!("opensesame-import-{}", uuid::Uuid::new_v4()));
-    let api = Client::new(Endpoints::from_server_url(request.server_url)?, device)?;
+    let mut endpoints = Endpoints::from_server_url(request.server_url)?;
+    for origin in download_origins {
+        endpoints = endpoints.with_download_origin(origin)?;
+    }
+    let api = Client::new(endpoints, device)?;
     let (stored_kdf, kdf) = kdf_of(&api, &email).await?;
     let master_key = MasterKey::derive(request.master_password, &email, &kdf)?;
     let login_hash = Zeroizing::new(master_key.password_hash_b64(request.master_password));
