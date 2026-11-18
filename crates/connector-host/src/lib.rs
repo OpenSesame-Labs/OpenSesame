@@ -3,10 +3,13 @@
 //! Host capabilities: authorized HTTP / sign / opaque token handles.
 //! There is no secrets.get path for guests.
 
+mod builtin_connector;
 mod constrained_http;
+pub use constrained_http::opaque_http_result;
 pub mod manifest;
 pub mod password_agent;
 pub mod providers;
+mod registry;
 #[cfg(feature = "wasm-connectors")]
 pub mod wasm;
 
@@ -314,68 +317,6 @@ const MOCK_CONNECTOR_ID: &str = "mock";
 const MOCK_CONNECTOR_VERSION: &str = "1.0.0";
 const MOCK_CONNECTOR_DIGEST: &str = "sha256:mock-connector";
 
-impl Connector for MockConnector {
-    fn id(&self) -> &str {
-        MOCK_CONNECTOR_ID
-    }
-    fn version(&self) -> &str {
-        MOCK_CONNECTOR_VERSION
-    }
-    fn component_digest(&self) -> &str {
-        MOCK_CONNECTOR_DIGEST
-    }
-    fn operations(&self) -> &[&str] {
-        &[
-            "repository.read",
-            "pull_request.create",
-            "error.transient",
-            "error.permanent",
-            "error.rate_limit",
-            "error.timeout",
-            "error.indeterminate",
-            "rotate.plan",
-            "credential.resolve",
-        ]
-    }
-    fn invoke(&self, req: &InvokeRequest) -> Result<InvokeResult, HostError> {
-        if req.operation != req.authorized_operation {
-            return Err(HostError::OperationMismatch);
-        }
-        let expected = opensesame_param_digest(&req.parameters);
-        if expected != req.parameters_digest {
-            return Err(HostError::ParameterDigestMismatch);
-        }
-        if req.operation == "credential.resolve"
-            || req.invoke_level == Some(InvokeLevel::Materialize.as_u8())
-        {
-            return Err(HostError::MaterializeDenied);
-        }
-        match req.operation.as_str() {
-            "error.transient" => Err(HostError::Connector("transient".into())),
-            "error.permanent" => Err(HostError::Connector("permanent".into())),
-            "error.rate_limit" => Err(HostError::Connector("rate_limited".into())),
-            "error.timeout" => Err(HostError::Connector("timeout".into())),
-            "error.indeterminate" => Err(HostError::Connector("indeterminate".into())),
-            "repository.read" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"resource": req.resource, "title": "README"}),
-                external_request_digest: Some("sha256:mock-read".into()),
-            }),
-            "pull_request.create" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"pr_number": 42, "resource": req.resource}),
-                external_request_digest: Some("sha256:mock-pr".into()),
-            }),
-            "rotate.plan" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"steps": ["generate", "install", "verify", "revoke"]}),
-                external_request_digest: None,
-            }),
-            other => Err(HostError::Connector(format!("unknown op {other}"))),
-        }
-    }
-}
-
 #[must_use]
 /// # Panics
 ///
@@ -427,7 +368,7 @@ pub fn follow_redirect_with_credential(
 
 pub struct HostRuntime {
     pub policy: HostPolicy,
-    connectors: HashMap<String, Arc<dyn Connector>>,
+    connectors: HashMap<String, RegisteredConnector>,
     connection_connectors: HashMap<String, String>,
     /// Provider id → connection-policy id (the `connection_connectors` key)
     /// that executes that provider's typed operations. Unbound providers
@@ -436,6 +377,14 @@ pub struct HostRuntime {
     /// L2 constrained HTTP: the connections this host holds a credential
     /// for, and the ledger their placeholders are admitted through.
     constrained: constrained_http::ConstrainedHttp,
+}
+
+struct RegisteredConnector {
+    connector: Arc<dyn Connector>,
+    // A connector's later result must not be able to change receipt metadata
+    // or the identity checked by host policy.
+    component_digest: String,
+    inert_builtin_mock: bool,
 }
 
 /// Counts only: the connection table holds credentials.
@@ -459,8 +408,15 @@ impl Default for HostRuntime {
         policy
             .trusted_digests
             .insert("sha256:mock-connector".into());
-        let mut connectors: HashMap<String, Arc<dyn Connector>> = HashMap::new();
-        connectors.insert("mock".into(), Arc::new(MockConnector));
+        let mut connectors = HashMap::new();
+        connectors.insert(
+            MOCK_CONNECTOR_ID.into(),
+            RegisteredConnector {
+                connector: Arc::new(MockConnector),
+                component_digest: MOCK_CONNECTOR_DIGEST.into(),
+                inert_builtin_mock: true,
+            },
+        );
         let connection_connectors = HashMap::from([("demo-conn".into(), "mock".into())]);
         Self {
             policy,
@@ -478,79 +434,6 @@ impl Default for HostRuntime {
 pub const FALLBACK_CONNECTION_POLICY_ID: &str = "demo-conn";
 
 impl HostRuntime {
-    /// # Errors
-    ///
-    /// Returns an error when a connector with the same identifier is registered.
-    pub fn register_connector(&mut self, connector: Arc<dyn Connector>) -> Result<(), HostError> {
-        let id = connector.id().to_owned();
-        if self.connectors.contains_key(&id) {
-            return Err(HostError::Connector(format!(
-                "connector {id} is already registered"
-            )));
-        }
-        self.connectors.insert(id, connector);
-        Ok(())
-    }
-
-    /// # Errors
-    ///
-    /// Returns an error when the connector identifier is not registered.
-    pub fn bind_connection(
-        &mut self,
-        connection_id: impl Into<String>,
-        connector_id: &str,
-    ) -> Result<(), HostError> {
-        if !self.connectors.contains_key(connector_id) {
-            return Err(HostError::Connector(format!(
-                "connector {connector_id} is not registered"
-            )));
-        }
-        self.connection_connectors
-            .insert(connection_id.into(), connector_id.into());
-        Ok(())
-    }
-
-    /// Route a provider's typed operations to a registered connection-policy
-    /// id. Refuses ids that nothing is bound to — a provider can never be
-    /// pointed at a connector that does not exist (ADR 0065 §5).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when `connection_policy_id` has no bound connector.
-    pub fn bind_provider(
-        &mut self,
-        provider_id: impl Into<String>,
-        connection_policy_id: &str,
-    ) -> Result<(), HostError> {
-        if !self
-            .connection_connectors
-            .contains_key(connection_policy_id)
-        {
-            return Err(HostError::Connector(format!(
-                "connection policy {connection_policy_id} has no connector"
-            )));
-        }
-        self.provider_connectors
-            .insert(provider_id.into(), connection_policy_id.into());
-        Ok(())
-    }
-
-    /// The connection-policy id that executes `provider_id`'s typed
-    /// operations. Unbound providers keep the historical mock fallback,
-    /// byte-for-byte: unknown operations there fail closed.
-    #[must_use]
-    pub fn connector_for_provider(&self, provider_id: &str) -> &str {
-        self.provider_connectors
-            .get(provider_id)
-            .map_or(FALLBACK_CONNECTION_POLICY_ID, String::as_str)
-    }
-
-    #[must_use]
-    pub fn component_digest(&self, connection_id: &str) -> Option<&str> {
-        self.connector(connection_id)
-            .map(Connector::component_digest)
-    }
-
     /// # Errors
     ///
     /// Returns an error when trust, destination, invoke-level, operation, or
@@ -594,7 +477,10 @@ impl HostRuntime {
         if let Some(url) = req.parameters.get("url").and_then(|v| v.as_str()) {
             assert_destination_allowed(&self.policy, url)?;
         }
-        assert_component_trusted(&self.policy, connector.component_digest(), true)?;
+        let digest = self
+            .component_digest(connection_id)
+            .ok_or(HostError::UntrustedComponent)?;
+        assert_component_trusted(&self.policy, digest, true)?;
         let level = req
             .invoke_level
             .map_or(InvokeLevel::TypedOperation, |n| match n {
@@ -616,7 +502,9 @@ impl HostRuntime {
 
     fn connector(&self, connection_id: &str) -> Option<&dyn Connector> {
         let connector_id = self.connection_connectors.get(connection_id)?;
-        self.connectors.get(connector_id).map(Arc::as_ref)
+        self.connectors
+            .get(connector_id)
+            .map(|registered| registered.connector.as_ref())
     }
 }
 

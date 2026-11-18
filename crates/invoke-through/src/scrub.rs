@@ -1,4 +1,4 @@
-//! Reflection scrub: the credential never rides back in a response.
+//! Reflection scrub for known representations of a credential.
 //!
 //! The broker places the token upstream and returns the upstream's answer.
 //! An upstream that echoes what it was sent — a debug or echo route, an error
@@ -6,7 +6,8 @@
 //! into an oracle: the caller could not read the credential from the broker,
 //! but could read it back from the host the broker is allowed to reach. That
 //! is the reflection attack every egress-substitution design shares (ADR 0150
-//! §4), and it is closed here rather than per provider.
+//! §4). This layer reduces direct reflection rather than relying on each
+//! provider, but cannot detect every reversible transform.
 //!
 //! What is matched: the raw token; the token under one layer of text
 //! encoding however the encoder spelled each character (`dialect.rs`) —
@@ -18,9 +19,10 @@
 //! alignment 2). The base64 needle is the run of characters that depends on
 //! token bytes alone, so it matches wherever the token was encoded, whatever
 //! surrounded it. What is not matched: two layers of encoding at once, or any
-//! other transform — a hash, a reversal, an encryption. Those do not return
-//! the credential; they return something derived from it, which is outside
-//! what a scrub can promise.
+//! other transform — a hash, a reversal, or an encryption. A reversal or an
+//! encryption with a known key can reveal the credential, and a hash can be
+//! guessed when a credential has low entropy. This scrub is defense in depth,
+//! not a confidentiality boundary for untrusted response data.
 
 mod dialect;
 

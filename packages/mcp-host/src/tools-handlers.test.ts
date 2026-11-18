@@ -520,14 +520,15 @@ describe("mcp-host tool handlers", () => {
           headers: new Headers(init?.headers),
           body: String(init?.body),
         });
-        return jsonResponse({ receipt_id: "rcpt-1", outcome: "succeeded" });
+        return jsonResponse({
+          receipt_schema_version: 5,
+          outcome: "succeeded",
+        });
       });
       const handlers = makeRegistrar();
-
       const result = await callTool(handlers, "task_invoke_l1", {
         connection_ref: "conn://demo",
       });
-
       expect(result.isError).toBe(false);
       expect(calls[0]?.url).toBe("http://127.0.0.1:8787/api/v1/tasks/invoke");
       expect(calls[0]?.headers.get("x-opensesame-task-run-id")).toBe("t-1");
@@ -553,14 +554,13 @@ describe("mcp-host tool handlers", () => {
         jsonResponse({ error: "materialize_denied" }, 200),
       );
       const handlers = makeRegistrar();
-
       const denied = await callTool(handlers, "task_invoke_l1", {
         connection_ref: "conn://demo",
       });
 
       // Even a 200 carrying the denial marker is surfaced as a refusal.
       expect(denied.isError).toBe(true);
-      expect(denied.content[0]?.text).toContain("materialize_denied");
+      expect(denied.content[0]?.text).toContain("indeterminate");
     });
 
     it("flags materialize_denied and daemon failures as tool errors", async () => {
@@ -573,15 +573,14 @@ describe("mcp-host tool handlers", () => {
         throw new Error("ECONNREFUSED");
       });
       const handlers = makeRegistrar();
-
       const result = await callTool(handlers, "task_invoke_l1", {
         connection_ref: "conn://demo",
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("operator_invoke_failed");
-      // A failed call never reaches the daemon, so the intent stays frozen.
-      expect(getTaskContext()?.frozenIntent?.intentDigest).toBe("sha256:abc");
+      expect(result.content[0]?.text).toContain("indeterminate");
+      // A transport failure does not prove the external effect was absent.
+      expect(getTaskContext()?.frozenIntent).toBeUndefined();
     });
   });
 });

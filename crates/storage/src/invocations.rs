@@ -15,6 +15,8 @@ use serde_json::{json, Value};
 
 #[path = "invocations_finish.rs"]
 mod finish;
+#[path = "invocations_integrity.rs"]
+mod integrity;
 
 /// Versioned digest of an invocation's authorization and operation context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,6 +27,10 @@ pub struct IdempotencyFingerprint {
 }
 
 impl IdempotencyFingerprint {
+    #[must_use]
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
     /// Hash a canonical request binding under a dedicated domain.
     ///
     /// # Errors
@@ -163,7 +169,9 @@ impl Db {
         let bare = id.as_uuid().to_string();
         let row = sqlx::query(
             r"
-            SELECT r.id, r.body_json, i.organization_id AS authoritative_organization_id
+            SELECT r.id AS receipt_id, r.body_json AS receipt_body_json,
+                   inv.id AS invocation_id, inv.body_json AS invocation_body_json,
+                   i.id AS intent_id, i.organization_id AS authoritative_organization_id
             FROM receipts r
             JOIN invocations inv ON inv.id = r.invocation_id
             JOIN intents i ON i.id = inv.intent_id
@@ -175,16 +183,7 @@ impl Db {
         .fetch_optional(&self.pool)
         .await?;
         Ok(match row {
-            Some(r) => {
-                let body = sealed::open_in(
-                    &r.get::<String, _>("authoritative_organization_id"),
-                    "receipts.body_json",
-                    &r.get::<String, _>("id"),
-                    &r.get::<String, _>("body_json"),
-                )?;
-                let organization_id: String = r.get("authoritative_organization_id");
-                Some(decode_receipt_for_organization(&body, &organization_id)?)
-            }
+            Some(r) => Some(integrity::linked_receipt(&r)?),
             None => None,
         })
     }
@@ -230,7 +229,9 @@ impl Db {
     ) -> anyhow::Result<Option<InvocationReceipt>> {
         let row = sqlx::query(
             r"
-            SELECT r.id, r.body_json, i.organization_id AS authoritative_organization_id
+            SELECT r.id AS receipt_id, r.body_json AS receipt_body_json,
+                   inv.id AS invocation_id, inv.body_json AS invocation_body_json,
+                   i.id AS intent_id, i.organization_id AS authoritative_organization_id
             FROM receipts r
             JOIN invocations inv ON inv.id = r.invocation_id
             JOIN intents i ON i.id = inv.intent_id
@@ -244,16 +245,7 @@ impl Db {
         .fetch_optional(&self.pool)
         .await?;
         Ok(match row {
-            Some(r) => {
-                let body = sealed::open_in(
-                    &r.get::<String, _>("authoritative_organization_id"),
-                    "receipts.body_json",
-                    &r.get::<String, _>("id"),
-                    &r.get::<String, _>("body_json"),
-                )?;
-                let organization_id: String = r.get("authoritative_organization_id");
-                Some(decode_receipt_for_organization(&body, &organization_id)?.receipt)
-            }
+            Some(r) => Some(integrity::linked_receipt(&r)?.receipt),
             None => None,
         })
     }

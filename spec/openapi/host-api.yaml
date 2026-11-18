@@ -4685,11 +4685,12 @@ components:
         external_response_digest: { type: [string, "null"] }
         started_at: { type: string, format: date-time }
         completed_at: { type: string, format: date-time }
-        outcome: { type: string, enum: [succeeded, failed, denied, cancelled] }
+        outcome: { type: string, enum: [succeeded, failed, denied, cancelled, indeterminate] }
         safe_result_summary: {}
         authority_key_id: { type: string }
         signature: { type: string }
         receipt_schema_version: { type: integer, minimum: 1 }
+        idempotency_binding: { type: string }
         task_run_id: { type: string }
         task_state_version: { type: integer, minimum: 0 }
         task_state_digest: { type: string }

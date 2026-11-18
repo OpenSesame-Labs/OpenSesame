@@ -207,12 +207,38 @@ fn loads_describes_and_invokes() {
 
     let result = connector.invoke(&request("echo.read")).expect("invoke ok");
     assert!(result.ok);
-    // Ok([]) from the guest: not JSON, so the summary reports size only.
-    assert_eq!(result.safe_summary["bytes"], 0);
-    assert!(result
-        .external_request_digest
-        .as_deref()
-        .is_some_and(|d| d.starts_with("sha256:")));
+    assert_eq!(
+        result.safe_summary,
+        serde_json::json!({"result":"completed"})
+    );
+    assert!(result.external_request_digest.is_none());
+}
+
+#[test]
+fn guest_json_cannot_enter_the_result_or_digest() {
+    // The old host accepted these bytes as a JSON summary. The string is a
+    // reversible encoding of a synthetic credential a provider could return.
+    let wat = ECHO_WAT.replace(
+        "(data (i32.const 16) \"echo1.0.0\")",
+        r#"(data (i32.const 16) "echo1.0.0")
+           (data (i32.const 128) "\00\00\00\00\00\01\00\00\1a\00\00\00")
+           (data (i32.const 256) "{\22result\22:\221-ssecca-ecar\22}")"#,
+    );
+    let bytes = wat.as_bytes();
+    let connector = WasmConnector::load(
+        manifest_for(bytes),
+        bytes,
+        &pinned_policy(&digest_of(bytes)),
+        Arc::new(RecordingEgress),
+        GuestLimits::default(),
+    )
+    .expect("guest loads");
+    let result = connector.invoke(&request("echo.read")).unwrap();
+    assert_eq!(
+        result.safe_summary,
+        serde_json::json!({"result":"completed"})
+    );
+    assert!(result.external_request_digest.is_none());
 }
 
 #[test]

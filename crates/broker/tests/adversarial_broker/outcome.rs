@@ -7,10 +7,7 @@ use std::sync::Arc;
 
 #[tokio::test]
 async fn connector_failure_is_signed_and_replayed_as_failure() {
-    for (ok, expected) in [
-        (false, ReceiptOutcome::Failed),
-        (true, ReceiptOutcome::Succeeded),
-    ] {
+    for ok in [false, true] {
         let (broker, org, principal, actor) = setup().await;
         let params = json!({});
         let intent = sample_intent(org, principal, actor, "repository.read", "outcome", &params);
@@ -30,22 +27,26 @@ async fn connector_failure_is_signed_and_replayed_as_failure() {
                 first_calls.fetch_add(1, Ordering::SeqCst);
                 Ok::<_, HostError>(InvokeResult {
                     ok,
-                    safe_summary: json!({"result": "provider complete"}),
-                    external_request_digest: Some("sha256:fixture".into()),
+                    safe_summary: json!({"result": "1-ssecca-ecar"}),
+                    external_request_digest: Some("1-ssecca-ecar".into()),
                 })
             })
             .await
             .unwrap();
-        assert_eq!(receipt.outcome, expected);
-        assert_eq!(
-            receipt.safe_result_summary,
-            Some(json!({"result": "provider complete"}))
-        );
-        assert_eq!(
-            receipt.external_request_digest.as_deref(),
-            Some("sha256:fixture")
-        );
+        assert_eq!(receipt.outcome, ReceiptOutcome::Indeterminate);
+        let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
+            .bind(receipt.invocation_id.to_string())
+            .fetch_one(broker.db.pool())
+            .await
+            .unwrap();
+        assert_eq!(state, if ok { "succeeded" } else { "failed" });
+        assert!(receipt.has_opaque_result());
+        assert!(!serde_json::to_string(&receipt)
+            .unwrap()
+            .contains("1-ssecca-ecar"));
         broker.signer.verify_receipt(&receipt).unwrap();
+        let stored = broker.db.get_receipt(&receipt.id).await.unwrap().unwrap();
+        assert_eq!(stored.receipt, receipt);
 
         let replay_calls = Arc::clone(&calls);
         let replay = broker
@@ -60,8 +61,162 @@ async fn connector_failure_is_signed_and_replayed_as_failure() {
             .await
             .unwrap();
         assert_eq!(replay.id, receipt.id);
-        assert_eq!(replay.outcome, expected);
+        assert_eq!(replay.outcome, ReceiptOutcome::Indeterminate);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[tokio::test]
+async fn connector_error_text_never_enters_the_receipt() {
+    let (broker, org, principal, actor) = setup().await;
+    let params = json!({});
+    let intent = sample_intent(org, principal, actor, "repository.read", "error", &params);
+    let receipt = broker
+        .invoke_with(
+            InvokeInput {
+                intent,
+                grant: sample_grant(org, principal),
+                subject: "user:demo".into(),
+                connection_policy_id: "demo-conn".into(),
+                parameters: params,
+                lineage: None,
+            },
+            || async { Err(HostError::Connector("1-ssecca-ecar".into())) },
+        )
+        .await
+        .unwrap();
+    assert_eq!(receipt.outcome, ReceiptOutcome::Indeterminate);
+    assert!(receipt.has_opaque_result());
+    assert!(!serde_json::to_string(&receipt)
+        .unwrap()
+        .contains("1-ssecca-ecar"));
+    broker.signer.verify_receipt(&receipt).unwrap();
+}
+
+#[tokio::test]
+async fn legacy_and_forged_receipts_are_not_replayed_or_executed_again() {
+    let (broker, org, principal, actor) = setup().await;
+    let params = json!({});
+    let intent = sample_intent(org, principal, actor, "repository.read", "legacy", &params);
+    let grant = sample_grant(org, principal);
+    let input = || InvokeInput {
+        intent: intent.clone(),
+        grant: grant.clone(),
+        subject: "user:demo".into(),
+        connection_policy_id: "demo-conn".into(),
+        parameters: params.clone(),
+        lineage: None,
+    };
+    let original = broker.invoke(input()).await.unwrap();
+    sqlx::query("DELETE FROM receipts WHERE id = ?")
+        .bind(original.id.to_string())
+        .execute(broker.db.pool())
+        .await
+        .unwrap();
+    let mut legacy = original.clone();
+    legacy.receipt_schema_version = 3;
+    legacy.idempotency_binding = None;
+    legacy.safe_result_summary = Some(json!({"result":"1-ssecca-ecar"}));
+    let legacy = broker.signer.sign_receipt(legacy).unwrap();
+    broker.db.insert_receipt(&legacy).await.unwrap();
+    assert!(broker
+        .replay(input())
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("not safely disclosable"));
+    broker.signer.verify_receipt(&legacy).unwrap();
+    assert_eq!(
+        broker
+            .db
+            .count_invocations_for_intent(&intent.id)
+            .await
+            .unwrap(),
+        1
+    );
+
+    // A storage attacker cannot make an old signed receipt safe merely by
+    // changing the version and hiding its result: the signature must match.
+    sqlx::query("DELETE FROM receipts WHERE id = ?")
+        .bind(legacy.id.to_string())
+        .execute(broker.db.pool())
+        .await
+        .unwrap();
+    let mut forged = legacy;
+    forged.receipt_schema_version = 5;
+    forged.safe_result_summary = None;
+    assert!(forged.has_opaque_result());
+    broker.db.insert_receipt(&forged).await.unwrap();
+    assert!(broker
+        .replay(input())
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("not safely disclosable"));
+    assert_eq!(
+        broker
+            .db
+            .count_invocations_for_intent(&intent.id)
+            .await
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn reparented_receipts_and_invocations_cannot_replay() {
+    for swap_receipts in [true, false] {
+        let (broker, org, principal, actor) = setup().await;
+        let params = json!({});
+        let grant = sample_grant(org, principal);
+        let first = sample_intent(org, principal, actor, "repository.read", "first", &params);
+        let second = sample_intent(org, principal, actor, "repository.read", "second", &params);
+        let input = |intent: &Intent| InvokeInput {
+            intent: intent.clone(),
+            grant: grant.clone(),
+            subject: "user:demo".into(),
+            connection_policy_id: "demo-conn".into(),
+            parameters: params.clone(),
+            lineage: None,
+        };
+        let a = broker.invoke(input(&first)).await.unwrap();
+        let b = broker.invoke(input(&second)).await.unwrap();
+        if swap_receipts {
+            for (receipt, invocation) in [(&a, &b), (&b, &a)] {
+                sqlx::query("UPDATE receipts SET invocation_id = ? WHERE id = ?")
+                    .bind(invocation.invocation_id.to_string())
+                    .bind(receipt.id.to_string())
+                    .execute(broker.db.pool())
+                    .await
+                    .unwrap();
+            }
+        } else {
+            for (receipt, intent) in [(&a, &second), (&b, &first)] {
+                sqlx::query("UPDATE invocations SET intent_id = ? WHERE id = ?")
+                    .bind(intent.id.to_string())
+                    .bind(receipt.invocation_id.to_string())
+                    .execute(broker.db.pool())
+                    .await
+                    .unwrap();
+            }
+        }
+        assert!(broker.replay(input(&first)).await.is_err());
+        assert_eq!(
+            broker
+                .db
+                .count_invocations_for_intent(&first.id)
+                .await
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            broker
+                .db
+                .count_invocations_for_intent(&second.id)
+                .await
+                .unwrap(),
+            1
+        );
     }
 }
 

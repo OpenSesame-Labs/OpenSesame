@@ -404,9 +404,9 @@ pub(super) async fn execute_invocation(
                     network.body,
                 )
                 .await
-                .map(|safe_summary| InvokeResult {
+                .map(|_| InvokeResult {
                     ok: true,
-                    safe_summary,
+                    safe_summary: json!({"result":"completed"}),
                     external_request_digest: None,
                 })
                 .map_err(|error| HostError::Connector(error.to_string()))

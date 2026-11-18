@@ -6,10 +6,10 @@ use opensesame_connector_host::InvokeRequest;
 use opensesame_domain::{
     receipt_delegation_chain, AvailabilityClass, Capability, DetachedProof, DomainError,
     FrozenIntentV2, Grant, Intent, Invocation, InvocationReceipt, InvocationState, ReceiptId,
-    ReceiptOutcome, ResourceSelector, ValidatedGrantChain,
+    ReceiptOutcome, ResourceSelector, ValidatedGrantChain, OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::{Broker, FinishReceiptParts};
 
@@ -187,7 +187,10 @@ impl Broker {
             input.lineage.as_ref(),
             AvailabilityClass::A3ExternalSideEffect,
         )?;
-        if let Some(receipt) = self.prior_receipt(&legacy, &fingerprint).await? {
+        if let Some(receipt) = self
+            .prior_receipt(&legacy, &fingerprint, Some(&intent.intent_digest))
+            .await?
+        {
             anyhow::ensure!(
                 decision.decision,
                 "idempotency conflict: current authorization denied"
@@ -205,8 +208,7 @@ impl Broker {
                     decision_id: &decision.decision_id,
                     policy_digest: &decision.policy_version_digest,
                     outcome: ReceiptOutcome::Denied,
-                    summary: json!({"reason": decision.context}),
-                    ext: None,
+                    binding: fingerprint.digest(),
                     connector_digest: self.host.component_digest(&input.connection_policy_id),
                     delegation_chain: receipt_delegation_chain(
                         &input.grant,
@@ -226,6 +228,7 @@ impl Broker {
             inv,
             &decision.decision_id,
             &decision.policy_version_digest,
+            fingerprint.digest(),
         )
         .await
     }
@@ -237,6 +240,7 @@ impl Broker {
         mut invocation: Invocation,
         decision_id: &str,
         policy_digest: &str,
+        binding: &str,
     ) -> anyhow::Result<InvocationReceipt> {
         invocation.transition(InvocationState::Authorized, Utc::now())?;
         invocation.transition(InvocationState::Leased, Utc::now())?;
@@ -260,7 +264,7 @@ impl Broker {
             },
         );
 
-        let (outcome, summary, ext) = match result {
+        let outcome = match result {
             Ok(r) => {
                 let (state, outcome) = if r.ok {
                     (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
@@ -268,13 +272,20 @@ impl Broker {
                     (InvocationState::Failed, ReceiptOutcome::Failed)
                 };
                 invocation.transition(state, Utc::now())?;
-                (outcome, r.safe_summary, r.external_request_digest)
+                outcome
             }
-            Err(e) => {
+            Err(_) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
-                let message = opensesame_redaction::redact_text(&e.to_string());
-                (ReceiptOutcome::Failed, json!({"error": message}), None)
+                ReceiptOutcome::Failed
             }
+        };
+        let outcome = if self
+            .host
+            .permits_outcome_disclosure(&input.connection_policy_id)
+        {
+            outcome
+        } else {
+            ReceiptOutcome::Indeterminate
         };
 
         let receipt = self.finish_frozen_receipt(
@@ -284,8 +295,7 @@ impl Broker {
                 decision_id,
                 policy_digest,
                 outcome,
-                summary,
-                ext,
+                binding,
                 connector_digest: self.host.component_digest(&input.connection_policy_id),
                 delegation_chain: receipt_delegation_chain(&input.grant, input.lineage.as_ref()),
             },
@@ -305,10 +315,11 @@ impl Broker {
         inv: &Invocation,
         parts: FinishReceiptParts<'_>,
     ) -> anyhow::Result<InvocationReceipt> {
-        let mut receipt = InvocationReceipt {
+        let receipt = InvocationReceipt {
             id: ReceiptId::new(),
             invocation_id: inv.id,
             intent_digest: intent.intent_digest.clone(),
+            idempotency_binding: Some(parts.binding.to_owned()),
             principal_id: intent.principal_id,
             organization_id: Some(intent.organization_id),
             actor_id: intent.actor_id,
@@ -324,31 +335,19 @@ impl Broker {
             approval_id: None,
             credential_handle_id: None,
             connector_component_digest: parts.connector_digest.map(str::to_owned),
-            external_request_digest: parts.ext,
+            external_request_digest: None,
             external_response_digest: None,
             started_at: inv.created_at,
             completed_at: Utc::now(),
             outcome: parts.outcome,
-            safe_result_summary: Some(parts.summary),
+            safe_result_summary: None,
             authority_key_id: String::new(),
             signature: String::new(),
-            receipt_schema_version: 3,
+            receipt_schema_version: OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
             task_run_id: Some(intent.task_run_id),
             task_state_version: Some(intent.task_state_version),
             task_state_digest: Some(intent.task_state_digest.clone()),
         };
-        if let Some(summary) = receipt.safe_result_summary.as_mut() {
-            if let Some(obj) = summary.as_object_mut() {
-                obj.insert(
-                    "task_run_id".into(),
-                    Value::String(intent.task_run_id.to_string()),
-                );
-                obj.insert(
-                    "task_state_version".into(),
-                    json!(intent.task_state_version),
-                );
-            }
-        }
         Ok(self.signer.sign_receipt(receipt)?)
     }
 }

@@ -32,8 +32,7 @@
 //!   [`InvocationReceipt`] before the body is returned, and returns its id in
 //!   `X-OpenSesame-Receipt`. If the receipt cannot be recorded the read is
 //!   refused (`503`) rather than served unaccountably — no receipt, no read.
-//!   Receipt summaries carry counts and a `ConnectionRef`, never key names or
-//!   values, so a receipt can never become the leak the read avoided.
+//!   Receipts carry host-owned outcome metadata without a result summary.
 //! * **Default off.** `OPENSESAME_KV_FACADE` gates the whole route group in
 //!   [`crate::routes::router`]; with it unset the routes are not mounted, so a
 //!   probe sees `404` (the surface does not exist) rather than `403` (it exists
@@ -317,7 +316,6 @@ async fn read_metadata(
         "kv.metadata.read",
         &resource,
         &view,
-        json!({ "versions": events.len().max(1) }),
     )
     .await
     {
@@ -573,28 +571,9 @@ async fn respond_read(
     events: &[EventView],
     data: Map<String, Value>,
 ) -> Response {
-    let summary = json!({
-        "mount": KV_MOUNT,
-        "family": parsed.family.as_str(),
-        "connection_ref": view.connection_ref,
-        // Counts, never names: a receipt is durable and readable, so it must
-        // not become the disclosure the read itself avoided.
-        "keys": data.len(),
-        "version": current_version(events),
-    });
     let resource = receipt_resource(parsed);
     let body = data_envelope(view, events, data);
-    match emit_receipt(
-        st,
-        caller,
-        organization_id,
-        "kv.read",
-        &resource,
-        view,
-        summary,
-    )
-    .await
-    {
+    match emit_receipt(st, caller, organization_id, "kv.read", &resource, view).await {
         Ok(receipt_id) => with_receipt(receipt_id, body),
         Err(response) => response,
     }
@@ -615,7 +594,6 @@ async fn emit_receipt(
     operation: &str,
     resource: &str,
     view: &ConnectionView,
-    summary: Value,
 ) -> Result<ReceiptId, Response> {
     let boot = st.bootstrap.lock().unwrap().clone();
     let principal_id = match caller {
@@ -675,6 +653,7 @@ async fn emit_receipt(
         id: ReceiptId::new(),
         invocation_id: invocation.id,
         intent_digest: intent.digest().map_err(|_| receipt_unavailable())?,
+        idempotency_binding: None,
         principal_id,
         organization_id: Some(*organization_id),
         actor_id,
@@ -695,10 +674,10 @@ async fn emit_receipt(
         started_at: now,
         completed_at: Utc::now(),
         outcome: ReceiptOutcome::Succeeded,
-        safe_result_summary: Some(summary),
+        safe_result_summary: None,
         authority_key_id: String::new(),
         signature: String::new(),
-        receipt_schema_version: 3,
+        receipt_schema_version: opensesame_domain::OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
         task_run_id: None,
         task_state_version: None,
         task_state_digest: None,

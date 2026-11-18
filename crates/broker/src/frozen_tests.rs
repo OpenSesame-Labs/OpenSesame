@@ -217,7 +217,7 @@ async fn frozen_receipts_bind_the_organization_across_idempotent_replay() {
     let replay = broker.invoke_frozen(&tasks, invoke()).await.unwrap();
     assert_eq!(first.id, replay.id);
     assert_eq!(first.organization_id, Some(org));
-    assert_eq!(first.receipt_schema_version, 3);
+    assert_eq!(first.receipt_schema_version, 5);
     assert_eq!(replay.organization_id, Some(org));
     let mut changed_actor = invoke();
     changed_actor.intent.actor_id = ActorId::new();
