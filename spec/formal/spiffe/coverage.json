@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
-  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
+  "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
+  "reviewed_source_state": "Source hashes identify the NATS rotation and shared TLS changes above the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -223,7 +223,7 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "997baf73ab3c03f0244bc1fe0deae94a96d45df476229f2a0cc3cfdaa52b61c9"
+      "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
     },
     {
       "path": "crates/transport-security/src/svid_profile.rs",

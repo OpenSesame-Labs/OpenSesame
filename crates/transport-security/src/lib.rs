@@ -55,7 +55,10 @@ mod svid_tls;
 #[cfg(feature = "testkit")]
 pub mod testkit;
 
-pub use client::{client_config, dial_name, reqwest_builder, ClientProfile, ServerNamePolicy};
+pub use client::{
+    client_config, client_config_single_handshake, dial_name, reqwest_builder, ClientProfile,
+    ServerNamePolicy,
+};
 pub use env::{NativeIdentitySpec, NativeTrustSpec, TransportEnv};
 pub use error::classify_tls_error;
 pub use generations::{

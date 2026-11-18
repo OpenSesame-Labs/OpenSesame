@@ -10,22 +10,28 @@
 //! server's INFO), to `ignore_discovered_servers` (an `INFO.connect_urls`
 //! entry can never add an egress destination the operator did not list) and
 //! to `retain_servers_order` (fail over only along the operator's list).
+//! Injected trust or identity makes the captured TLS config single-use, so
+//! another certificate-verification attempt needs a new session config.
 
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use async_nats::{ConnectOptions, Event};
-use opensesame_domain::transport::{TransportError, TrustProfileRef};
+use opensesame_domain::transport::{IdentitySourceKind, TransportError, TrustProfileRef};
 use opensesame_transport_security::env::read_pem_identity;
+use opensesame_transport_security::svid_profile::{
+    presented_spiffe_id, validate_leaf, SvidExpectation, SvidRole,
+};
 use opensesame_transport_security::{
-    client_config, ClientProfile, NativeIdentitySpec, NativeTrustSpec, ServerNamePolicy,
-    TlsIdentity, TrustBundle,
+    client_config, client_config_single_handshake, ClientProfile, NativeIdentitySpec,
+    NativeTrustSpec, ServerNamePolicy, TlsIdentity, TrustBundle,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::nats_policy::{NatsAuth, NatsServerName};
-use crate::nats_transport::NatsTransportSpec;
+use crate::nats_transport::{reconnect_limit, NatsTransportSpec};
+use crate::nats_transport_env::read_seed;
+
+pub use crate::nats::rotation::BusHealth;
 
 /// The least-privilege identity a client runs as. Decides the client name
 /// the server sees and which `JetStream` API calls the adapter makes.
@@ -77,62 +83,6 @@ impl NatsRole {
     }
 }
 
-/// Connection health as observed through the client's event callback.
-/// Reason codes only — never a credential, never a URL with userinfo.
-#[derive(Default)]
-pub struct BusHealth {
-    connected: AtomicBool,
-    disconnects: AtomicU64,
-    reconnects: AtomicU64,
-    last_event: Mutex<Option<String>>,
-}
-
-impl BusHealth {
-    #[must_use]
-    pub fn connected(&self) -> bool {
-        self.connected.load(Ordering::SeqCst)
-    }
-
-    #[must_use]
-    pub fn disconnects(&self) -> u64 {
-        self.disconnects.load(Ordering::SeqCst)
-    }
-
-    #[must_use]
-    pub fn reconnects(&self) -> u64 {
-        self.reconnects.load(Ordering::SeqCst)
-    }
-
-    /// The last reason code (`connected`, `disconnected`, `closed`,
-    /// `server_error:authorization_violation`, ...).
-    #[must_use]
-    pub fn last_event(&self) -> Option<String> {
-        self.last_event
-            .lock()
-            .map(|g| g.clone())
-            .unwrap_or_default()
-    }
-
-    pub(crate) fn record(&self, event: &Event) {
-        let code = event_code(event);
-        match event {
-            Event::Connected => {
-                if self.connected.swap(true, Ordering::SeqCst) || self.disconnects() > 0 {
-                    self.reconnects.fetch_add(1, Ordering::SeqCst);
-                }
-            }
-            Event::Disconnected | Event::Closed => {
-                self.connected.store(false, Ordering::SeqCst);
-                self.disconnects.fetch_add(1, Ordering::SeqCst);
-            }
-            _ => {}
-        }
-        if let Ok(mut guard) = self.last_event.lock() {
-            *guard = Some(code);
-        }
-    }
-}
-
 /// A stable, secret-free reason code for a client event.
 #[must_use]
 pub fn event_code(event: &Event) -> String {
@@ -167,7 +117,9 @@ pub(crate) struct Material {
 }
 
 /// Hook for callers that hold material the env resolver cannot load
-/// (managed certificates, SPIFFE SVIDs): supply it here instead.
+/// (managed certificates, SPIFFE SVIDs): supply it here instead. A PEM-file
+/// locator cannot be overridden by injection. For a policy without a locator,
+/// the caller is responsible for the material's source and provenance.
 #[derive(Clone, Default)]
 pub struct InjectedMaterial {
     pub identity: Option<Arc<TlsIdentity>>,
@@ -183,26 +135,60 @@ fn load_identity(spec: &NativeIdentitySpec) -> Result<Arc<TlsIdentity>, Transpor
     }
 }
 
-fn load_trust(
-    name: &str,
-    spec: &NativeTrustSpec,
-    crl: Option<&Path>,
-) -> Result<TrustBundle, TransportError> {
+fn check_spiffe_client(
+    identity: &TlsIdentity,
+    expected: Option<&str>,
+) -> Result<(), TransportError> {
+    let leaf = identity
+        .chain()
+        .first()
+        .ok_or(TransportError::IdentityMissing)?;
+    let id = presented_spiffe_id(leaf.as_ref()).map_err(|_| TransportError::IdentityMissing)?;
+    if expected.is_some_and(|expected| id.to_string() != expected) {
+        return Err(TransportError::IdentityMissing);
+    }
+    validate_leaf(
+        leaf.as_ref(),
+        &SvidExpectation {
+            trust_domain: id.trust_domain().as_str(),
+            spiffe_id: None,
+            role: SvidRole::Client,
+        },
+        std::time::SystemTime::now().into(),
+    )
+    .map_err(|_| TransportError::IdentityMissing)?;
+    Ok(())
+}
+
+fn check_crl_pem_envelopes(pem: &[u8]) -> Result<(), TransportError> {
+    let text = std::str::from_utf8(pem)
+        .map_err(|_| TransportError::malformed("invalid CRL PEM envelope"))?;
+    let mut inside = false;
+    let mut complete = false;
+    for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        match line {
+            "-----BEGIN X509 CRL-----" if !inside => inside = true,
+            "-----END X509 CRL-----" if inside => {
+                inside = false;
+                complete = true;
+            }
+            _ if inside && !line.starts_with("-----") => {}
+            _ => return Err(TransportError::malformed("invalid CRL PEM envelope")),
+        }
+    }
+    if inside || !complete {
+        return Err(TransportError::malformed("invalid CRL PEM envelope"));
+    }
+    Ok(())
+}
+
+fn load_trust(name: &str, spec: &NativeTrustSpec) -> Result<TrustBundle, TransportError> {
     match spec {
         NativeTrustSpec::PemFile { path, kind } => {
             let pem = std::fs::read(path).map_err(|e| {
                 TransportError::MalformedConfiguration(format!("trust bundle file: {e}"))
             })?;
-            let bundle = TrustBundle::from_pem(TrustProfileRef::new(name)?, *kind, &pem)?;
-            match crl {
-                Some(crl_path) => {
-                    let crl_pem = std::fs::read(crl_path).map_err(|e| {
-                        TransportError::MalformedConfiguration(format!("crl file: {e}"))
-                    })?;
-                    bundle.with_crls(&crl_pem)
-                }
-                None => Ok(bundle),
-            }
+            TrustBundle::from_pem(TrustProfileRef::new(name)?, *kind, &pem)
         }
         NativeTrustSpec::SpiffeTrustDomain { .. } => Err(TransportError::SourceUnsupported),
     }
@@ -213,7 +199,15 @@ pub(crate) fn load_material(
     spec: &NatsTransportSpec,
     injected: &InjectedMaterial,
 ) -> Result<Material, TransportError> {
+    if injected.identity.is_some() && spec.transport.client_identity.is_none() {
+        return Err(TransportError::malformed(
+            "injected client identity has no configured identity reference",
+        ));
+    }
     if !spec.is_secure() {
+        if injected.trust.is_some() {
+            return Err(TransportError::TrustUnknown);
+        }
         return Ok(Material {
             identity: None,
             trust: None,
@@ -224,17 +218,70 @@ pub(crate) fn load_material(
         &spec.locators.trust,
         &spec.transport.server_trust,
     ) {
-        (Some(bundle), _, _) => bundle.clone(),
-        (None, Some(locator), Some(reference)) => {
-            load_trust(&reference.name, locator, spec.locators.crl_file.as_deref())?
+        (Some(bundle), locator, Some(_)) => {
+            if matches!(locator, Some(NativeTrustSpec::PemFile { .. })) {
+                return Err(TransportError::EnforcementUnsupported);
+            }
+            if let Some(NativeTrustSpec::SpiffeTrustDomain { trust_domain, .. }) = locator {
+                if bundle.spiffe_trust_domain() != Some(trust_domain.as_str()) {
+                    return Err(TransportError::TrustUnknown);
+                }
+            }
+            bundle.clone()
         }
+        (None, Some(locator), Some(reference)) => load_trust(&reference.name, locator)?,
         _ => return Err(TransportError::TrustUnknown),
+    };
+    let reference = spec
+        .transport
+        .server_trust
+        .as_ref()
+        .ok_or(TransportError::TrustUnknown)?;
+    if trust.profile().name != reference.name || trust.kind() != reference.kind {
+        return Err(TransportError::TrustUnknown);
+    }
+    // The pinned verifier selects the first authoritative CRL. Refuse
+    // multiple supplied lists rather than silently ignore one of them.
+    if trust.crls().len() > 1 {
+        return Err(TransportError::EnforcementUnsupported);
+    }
+    let trust = match spec.locators.crl_file.as_deref() {
+        Some(path) => {
+            // webpki uses the first authoritative CRL; merging independent
+            // CRL sets can silently ignore a revocation from one of them.
+            let prior_count = trust.crls().len();
+            let pem = std::fs::read(path)
+                .map_err(|error| TransportError::malformed(format!("crl file: {error}")))?;
+            check_crl_pem_envelopes(&pem)?;
+            let with_crls = trust.with_crls(&pem)?;
+            if with_crls.crls().len() == prior_count {
+                return Err(TransportError::malformed("configured CRL file is empty"));
+            }
+            if with_crls.crls().len() > 1 {
+                return Err(TransportError::EnforcementUnsupported);
+            }
+            with_crls
+        }
+        None => trust,
     };
     let identity = match (
         &injected.identity,
         &spec.locators.identity,
         &spec.transport.client_identity,
     ) {
+        (Some(_), Some(NativeIdentitySpec::PemFiles { .. }), _) => {
+            return Err(TransportError::EnforcementUnsupported)
+        }
+        (Some(identity), Some(NativeIdentitySpec::Spiffe { spiffe_id, .. }), _) => {
+            check_spiffe_client(identity, Some(spiffe_id.as_str()))?;
+            Some(Arc::clone(identity))
+        }
+        (Some(identity), None, Some(reference))
+            if reference.kind == IdentitySourceKind::SpiffeWorkloadApi =>
+        {
+            check_spiffe_client(identity, None)?;
+            Some(Arc::clone(identity))
+        }
         (Some(identity), _, _) => Some(Arc::clone(identity)),
         (None, Some(locator), Some(_)) => Some(load_identity(locator)?),
         (None, None, Some(_)) => return Err(TransportError::IdentityMissing),
@@ -250,6 +297,7 @@ pub(crate) fn load_material(
 pub(crate) fn tls_config(
     spec: &NatsTransportSpec,
     material: &Material,
+    injected: bool,
 ) -> Result<async_nats::rustls::ClientConfig, TransportError> {
     let trust = material.trust.clone().ok_or(TransportError::TrustUnknown)?;
     let server_name = match &spec.transport.server_name {
@@ -261,24 +309,17 @@ pub(crate) fn tls_config(
             ))
         }
     };
-    client_config(&ClientProfile {
+    let profile = ClientProfile {
         server_trust: trust,
         server_name,
         identity: material.identity.clone(),
         min_version: spec.transport.min_version,
-    })
-}
-
-fn read_seed(path: &Path) -> Result<String, TransportError> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| TransportError::MalformedConfiguration(format!("nkey seed file: {e}")))?;
-    let seed = raw.trim().to_owned();
-    if !seed.starts_with('S') || seed.len() < 20 {
-        return Err(TransportError::MalformedConfiguration(
-            "nkey seed file does not hold a seed".into(),
-        ));
+    };
+    if injected {
+        client_config_single_handshake(&profile)
+    } else {
+        client_config(&profile)
     }
-    Ok(seed)
 }
 
 /// Build the connect options for a normalized spec.
@@ -294,9 +335,10 @@ pub async fn connect_options(
     health: Arc<BusHealth>,
 ) -> Result<ConnectOptions, TransportError> {
     let material = load_material(spec, injected)?;
+    let injected_session = injected.trust.is_some() || injected.identity.is_some();
     let mut options = ConnectOptions::new()
         .name(role.client_name())
-        .max_reconnects(spec.max_reconnects)
+        .max_reconnects(reconnect_limit(injected_session, spec.max_reconnects))
         .event_callback(move |event| {
             let health = Arc::clone(&health);
             async move {
@@ -305,7 +347,7 @@ pub async fn connect_options(
             }
         });
     if spec.is_secure() {
-        let config = tls_config(spec, &material)?;
+        let config = tls_config(spec, &material, injected_session)?;
         options = options
             .require_tls(true)
             .tls_client_config(config)

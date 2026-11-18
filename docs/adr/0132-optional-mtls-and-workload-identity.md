@@ -328,7 +328,7 @@ nothing older is offered.
 
 | Layer | What is enforced | Bound |
 |---|---|---|
-| New handshakes | Current trust generation, CRL (if `*_CRL_FILE` is set), `denied_thumbprints` | Next connection |
+| New handshakes | Activated trust generation, CRL (if `*_CRL_FILE` is set), `denied_thumbprints` | Next connection after activation; NATS reconnects have the exception below |
 | Existing native HTTP connections | Per-request recheck of binding revision, generation, `denied_thumbprints` and `usable_until` | The next protected request; at most `ListenerLimits.usable_for` |
 | NATS sessions | Server-side authorization expiry from the callout response; the server disconnects | The expiry the callout issued; a cooperative client timer is not relied on |
 | OpenBao tokens | Independent token TTL and explicit revoke | The token's own lifetime; a transport revocation does not revoke it |
@@ -338,7 +338,62 @@ nothing older is offered.
 A transport revocation therefore promises: no new admission after the next
 handshake, and no further protected operation on an existing connection after
 the next recheck. It does not promise that a fleet stops instantly, that a
-minted token dies, or that anything is erased from a browser.
+minted token dies, or that anything is erased from a browser. The standalone
+NATS client below does not provide this next-handshake freshness bound for a
+changed CRL or withdrawn source material.
+
+For an outbound NATS client, a configured CRL also applies when the trust
+bundle is injected. The current verifier uses the first authoritative CRL, so
+the client accepts at most one CRL in total and refuses to combine an injected
+CRL with a configured file. Missing, empty or malformed configured files fail
+closed; configured files permit only complete `X509 CRL` PEM blocks and
+surrounding whitespace. This restriction can deny deployments that require
+multiple CRLs; silently ignoring one would weaken the revocation promise.
+NATS does not let an injected bundle or client identity replace an explicit
+PEM-file locator. With a source-managed or locator-free public policy, the
+injecting caller remains responsible for the provenance of keys and anchors;
+certificate contents alone cannot establish that provenance.
+An injected identity referenced as SPIFFE must pass the client SVID profile at
+session construction; a SPIFFE client locator also requires its exact canonical
+SPIFFE ID. This check does not build a certificate chain, establish the
+supplying source or fence a key to its generation. Client-chain verification is
+the remote NATS server's responsibility when it requests and verifies client
+authentication. A stored
+public identity reference has no private SPIFFE-ID locator to compare.
+For a NATS session with injected trust or identity, the captured TLS config
+permits one server-certificate verification attempt across its clones and
+disables session resumption and early data. Automatic reconnects cannot reuse
+that config to complete another TLS handshake. The first verification attempt
+consumes the allowance even when validation or the rest of the handshake
+fails, so a failed initial attempt or later disconnect requires explicit
+rotation or recreation. Injected sessions use at most one async-nats server
+selection attempt per initial connection or reconnect cycle. A selection may
+try multiple resolved socket addresses; the limit can prevent initial failover
+to another configured server and shorten an operator's larger retry setting. A
+successful rotation builds a fresh config. Name resolution happens outside
+async-nats's per-address connection timeout, so this attempt cap is not a
+hard deadline for a stalled resolver or its background task.
+The injecting caller must select current material: an implicit rotation reuses
+the previously accepted injection, and neither the first handshake nor a
+rotation establishes source provenance or generation freshness. The fence
+does not terminate an existing connection or cancel a handshake already in
+progress. Dynamic per-handshake source checks and a source-generation signing
+fence for this standalone client remain outstanding integration boundaries.
+
+File-backed NATS sessions continue to reconnect with the TLS config captured
+when the session opened. Changing a CRL, trust file or identity file does not
+update that config or an existing session. Rotate to an accepted replacement,
+or close and recreate the task bus; a failed rotation leaves the old session in
+place. A reconnect limit by itself is refused. An environment-selected
+plaintext override requires an explicitly false `OPENSESAME_NATS_REQUIRE_TLS`;
+nonassertive settings such as `AUTH=none` or `TLS_FIRST=0` alone cannot
+silently replace a stored TLS policy.
+After publishing a replacement session, rotation makes a bounded attempt to
+enqueue the old connection's drain command, waiting at most two seconds subject
+to scheduling. A full command queue cannot block the rotation caller
+indefinitely. Neither enqueue success nor timeout proves that the prior
+connection or background task has closed, especially with a stalled resolver
+or other holders of client clones.
 
 ### 12. Rotation activates whole generations atomically
 
@@ -353,6 +408,13 @@ last valid generation only until its own `not_after` or the configured
 freshness bound, whichever is sooner. Managed-leaf renewal keeps ADR 0075's
 half-lifetime lead clamp; SPIFFE sources are not run through that renewal
 loop.
+
+A NATS client rotation serializes candidate openings and publishes the accepted
+session, injected material and public transport view together before draining
+the old connection. A failed candidate leaves the accepted state in place; an
+implicit later rotation uses the latest accepted injection. Concurrent callers
+are ordered by mutex acquisition. The public view and connection-health reads
+are separate snapshots and can briefly show the previous state during commit.
 
 ### 13. Dependency boundaries that must not move
 

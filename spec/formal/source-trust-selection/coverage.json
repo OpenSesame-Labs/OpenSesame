@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
-  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation helpers were reviewed separately.",
+  "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
+  "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "94aaf8769733ee5d12450f7e5c6da1bdff60451aa0f045a5c8edf740b25f3984"
+    "sha256": "b45a653ab351553ea656fd4232721dc2ba6135fe913553d8107c1637934cc580"
   },
   "sources": [
     {
@@ -46,7 +46,7 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "997baf73ab3c03f0244bc1fe0deae94a96d45df476229f2a0cc3cfdaa52b61c9"
+      "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
@@ -86,7 +86,7 @@
     },
     {
       "path": "crates/transport-security/src/client.rs",
-      "sha256": "ee29984a2936b3d0cd6f66ac9979ac85602bd967a8c1ac795008e988265d991f"
+      "sha256": "c45608121fed74de9422158f2742388ec11cef46dd765cb31df157f69072d9a3"
     },
     {
       "path": "crates/transport-security/src/server.rs",
@@ -98,7 +98,7 @@
     },
     {
       "path": "crates/transport-security/src/bounded.rs",
-      "sha256": "86e61615b23bc7647cf3481535750727f3268af70c1b8b2e088cdefbe9aaa6b9"
+      "sha256": "c3d952c01f7096c294f238d6de12ed54b0b0037aca510921b254a4c8c86bbf22"
     },
     {
       "path": "crates/transport-security/src/error.rs",
@@ -466,7 +466,7 @@
     },
     {
       "path": "crates/task-bus/Cargo.toml",
-      "sha256": "04a2e4ea6903d60b3a6c43b7012e4322ecbf5d9a3263a9e5f5996e8bf2877ac7"
+      "sha256": "434a9f857bd9ba12100d7f2c6708ec1087c4c7b95ac9d2a333bb50a643a767e5"
     },
     {
       "path": "crates/trusted-exec/Cargo.toml",
@@ -700,5 +700,261 @@
     "package": "crates/gateway/Cargo.toml",
     "algorithm": "cargo-workspace-projection-v1-sha256",
     "sha256": "bc0e4d070b573dcb6c456577225278f162e38ec57e4b6168ff104b0c37ca8822"
+  },
+  "nats": {
+    "version": 1,
+    "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
+    "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
+    "lock_projection": {
+      "root": "opensesame-task-bus",
+      "algorithm": "cargo-lock-projection-v1-sha256",
+      "sha256": "7dbeede576fe5b07c02e607a9556f6f321aa31674d160340422b80b6a058c900"
+    },
+    "sources": [
+      {
+        "path": "crates/domain/Cargo.toml",
+        "sha256": "cefbd1a56a9dd926480879fb37b9ef54b9c8679b1e91b87973507321f7d015ef"
+      },
+      {
+        "path": "crates/task-bus/Cargo.toml",
+        "sha256": "434a9f857bd9ba12100d7f2c6708ec1087c4c7b95ac9d2a333bb50a643a767e5"
+      },
+      {
+        "path": "crates/transport-security/Cargo.toml",
+        "sha256": "262f61facffbf5fda9315bdee9b87c8dc006ce805062009af6cea55ecfa46446"
+      },
+      {
+        "path": "crates/xkeys/Cargo.toml",
+        "sha256": "74f4b6768b17bcb1de63784e03d146bde6fbe0a2188d5da67cbba12da94bf260"
+      },
+      {
+        "path": "crates/domain/src/lib.rs",
+        "sha256": "2db2ace5bf8abd4ac858d40a72caa704cd22508090f6d8605c12f30bdc7437ae"
+      },
+      {
+        "path": "crates/domain/src/transport/mod.rs",
+        "sha256": "efc1ab3d26cf488dc64ceea2c6b24cf29b97a8df3e5c05ec269a7b735b146c14"
+      },
+      {
+        "path": "crates/domain/src/transport/policy.rs",
+        "sha256": "dc84e64a95946e1e0056c04a50bfeac32da60b5fa19c3b8f85c160d6e1d37bd6"
+      },
+      {
+        "path": "crates/domain/src/transport/selector.rs",
+        "sha256": "c040ef12c8e4dce18df2c2784d6150c61b44339395057a6ad325877bd89ef3b6"
+      },
+      {
+        "path": "crates/domain/src/transport/error.rs",
+        "sha256": "3b9174019633a55577e36f3e86dc884b580417ea7e87ab9b835e8348c3645a9d"
+      },
+      {
+        "path": "crates/task-bus/src/lib.rs",
+        "sha256": "bc59f0af4ffa7e90ad7cf1423686cc3c119ad258080bcaa98e356548c9e7c85c"
+      },
+      {
+        "path": "crates/task-bus/src/nats.rs",
+        "sha256": "59bbecc0feeffdea5adced319d376644312ac8bd3907fd0847b571071ee0ba80"
+      },
+      {
+        "path": "crates/task-bus/src/nats_connect.rs",
+        "sha256": "f18903d1b31bb919470ba862e233681926ff203e8dded3c9b26437889feae19a"
+      },
+      {
+        "path": "crates/task-bus/src/nats_delivery.rs",
+        "sha256": "9f78f0acc4f48ab8789b0c16e590605768917dd036736349c4cf960d0bb44f2e"
+      },
+      {
+        "path": "crates/task-bus/src/nats_policy.rs",
+        "sha256": "3074656f31f88d97a75c23ab5d574d01076479b4c585634f3979514d543eab75"
+      },
+      {
+        "path": "crates/task-bus/src/nats_rotation.rs",
+        "sha256": "9d671a4e5edd781787edc1ea5a0d1225b80b6d7c0bb0babf982d9cf428429d81"
+      },
+      {
+        "path": "crates/task-bus/src/nats_transport.rs",
+        "sha256": "9d5f6cdbc5709147d9e5c4c582700c341581602e82c0d62b8ce3e169aa1e40e2"
+      },
+      {
+        "path": "crates/task-bus/src/nats_transport_env.rs",
+        "sha256": "27de393af1060e7eb761f24a9aba2d03c5e350d38754d909e93ea5985e8165f7"
+      },
+      {
+        "path": "crates/task-bus/src/validate.rs",
+        "sha256": "69ca51216f76a2a71e5c1d4c464cb2a509fd2d79a951a921452eba2e6ece0f58"
+      },
+      {
+        "path": "crates/task-bus/src/lib_tests.rs",
+        "sha256": "9b9cf380a813edd9386a20dee2bf9e55bbeb06df4199c1177318e225961c9d57"
+      },
+      {
+        "path": "crates/task-bus/src/nats_tests.rs",
+        "sha256": "bffbc3fd13584f43860ac1227a1d3af78bc2be7f0a2c12b0d3ff57ef25a652de"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_delivery.rs",
+        "sha256": "cf5042827405cb22de6b9086b8942289b0e13a37181398a3c38aa456f5f5ab15"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_harness.rs",
+        "sha256": "ae2cc45e097e66d7a001e4e378da449c553ff06266823c62384a3d01264e9634"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_mixed.rs",
+        "sha256": "203aac7e7c7ac0e3d0a420aa7d2ef449a90cfabfe83e174b6ff4bbeaa46e4678"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_roles.rs",
+        "sha256": "b86d4a41b65e9d59c48404f5f6d1c87a197e80f74c20e79afd52aa4c5b22d70f"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_routes.rs",
+        "sha256": "12d75a3cceb8dfc1e85298cdf9278795ce071bdf9e65d44e1a7e902108ca3d48"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_callout.rs",
+        "sha256": "2e22722c38359e02f880e91eda3d94c16d04b09fa7650d84492593d4c2291e1d"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_tests.rs",
+        "sha256": "ca1b84e7749374c64f51800918af38632b05fd3b61def0a0398ce6e09d9a61e4"
+      },
+      {
+        "path": "crates/task-bus/src/nats_live_topology.rs",
+        "sha256": "1e18bdbba3244a425e9d26597906697ec04ab9b045e6e54c4d4ab57c73286f2c"
+      },
+      {
+        "path": "crates/transport-security/src/lib.rs",
+        "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
+      },
+      {
+        "path": "crates/transport-security/src/client.rs",
+        "sha256": "c45608121fed74de9422158f2742388ec11cef46dd765cb31df157f69072d9a3"
+      },
+      {
+        "path": "crates/transport-security/src/trust.rs",
+        "sha256": "73b46496143d70dcba806030b7128c426ed7e78350e00f72da0bb9dc091c2269"
+      },
+      {
+        "path": "crates/transport-security/src/verify_spiffe.rs",
+        "sha256": "db8765013b198c8807c6c94cd1c7011c8ee2650d6ed63c0b3c6f836a9f328adb"
+      },
+      {
+        "path": "crates/transport-security/src/svid_tls.rs",
+        "sha256": "940c045a2101f5e9369fa3229dcae14c11007ca360836be7816a20316405aeb4"
+      },
+      {
+        "path": "crates/transport-security/src/svid_profile.rs",
+        "sha256": "f2acab8b2a78805fe3fb80b4406e826c5e15c441bea8c51a2fff19f9391d9bb2"
+      },
+      {
+        "path": "crates/transport-security/src/bounded.rs",
+        "sha256": "c3d952c01f7096c294f238d6de12ed54b0b0037aca510921b254a4c8c86bbf22"
+      },
+      {
+        "path": "crates/transport-security/src/identity.rs",
+        "sha256": "8dc5e16c03570e0d091677061cd3f8ad6f34c7e068144655a24e9ecbbbd0d2be"
+      },
+      {
+        "path": "crates/transport-security/src/leaf.rs",
+        "sha256": "a2f40543e8d5267d2bb7d55f04713b937e4cd091523b74e279a3c5122e3bf957"
+      },
+      {
+        "path": "crates/transport-security/src/error.rs",
+        "sha256": "aee14849f02f98a7763d675d2b14160993530ef8a811a69efaf3b69e67b8d949"
+      },
+      {
+        "path": "crates/transport-security/src/env.rs",
+        "sha256": "8a54f73a3d0a96e71dc20ba25802ad2cefc668ba71d794f78df3564b50f3dc72"
+      },
+      {
+        "path": "crates/transport-security/src/testkit/mod.rs",
+        "sha256": "a0cd7bc3c5296c01cf276c6beff410215b35671b6854f87d677655a3d4c91ac6"
+      },
+      {
+        "path": "crates/transport-security/src/testkit/ca.rs",
+        "sha256": "f9ed4c6472bdb74b0970f9798896c48856351887feccc06df2e18f24eccc26e6"
+      },
+      {
+        "path": "crates/transport-security/src/testkit/leaf.rs",
+        "sha256": "176044fa2a3c88f3287dc80847f19ace30d6232b44bd37901aea9136790fc306"
+      },
+      {
+        "path": "crates/xkeys/src/lib.rs",
+        "sha256": "ff6808cab63db8589d6af51593c459a86a6a161550d5570e371c5ad2f2643e53"
+      },
+      {
+        "path": "rust-toolchain.toml",
+        "sha256": "c51c8084b6d455abcfbd2723cb3aaa55a2abfd8cba4a0deae629582d295c46c9"
+      },
+      {
+        "path": "ops/nats/local-dev.conf",
+        "sha256": "e5d4ac3bdf220af9c32747346a370483d2804ab58ace6b118af99283d75d2edf"
+      },
+      {
+        "path": "scripts/mtls/mtls-fixtures.sh",
+        "sha256": "91626d420ec528ea24cb1b866b6a2da5a7445ab3c56ae437c5029e1424dab026"
+      },
+      {
+        "path": "scripts/security/cargo-lock-projection.py",
+        "sha256": "85ebc3052f5be51de19f50af0b131d3e0a02496259ed5d59d209ed797ef79b6a"
+      },
+      {
+        "path": "scripts/security/cargo-workspace-projection.py",
+        "sha256": "4debbeddb6b4980b696fb23e17ba93159088cb62b05e42793d05be5341352381"
+      },
+      {
+        "path": "scripts/security/cargo-workspace-multipackage.py",
+        "sha256": "1515b332397956cb59038aa4595aec26afd6c82cb9fa71a07a7d9a0668007075"
+      },
+      {
+        "path": "scripts/security/formal-cargo-isolation.py",
+        "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda"
+      },
+      {
+        "path": "scripts/security/formal-cargo-freshness.py",
+        "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c"
+      },
+      {
+        "path": "spec/formal/source-trust-selection/test_drift.py",
+        "sha256": "3aa7d9d5af9a7d07ab9859e53187dc15fd59ac86f3028e0585f1d733c1eb8b2b"
+      }
+    ],
+    "optional_sources": [
+      {
+        "path": "crates/Cargo.toml",
+        "sha256": null
+      },
+      {
+        "path": "crates/domain/build.rs",
+        "sha256": null
+      },
+      {
+        "path": "crates/task-bus/build.rs",
+        "sha256": null
+      },
+      {
+        "path": "crates/transport-security/build.rs",
+        "sha256": null
+      },
+      {
+        "path": "crates/xkeys/build.rs",
+        "sha256": null
+      },
+      {
+        "path": ".cargo/config",
+        "sha256": null
+      },
+      {
+        "path": ".cargo/config.toml",
+        "sha256": null
+      }
+    ],
+    "workspace_projection": {
+      "root": "opensesame-task-bus",
+      "package": "crates/task-bus/Cargo.toml",
+      "algorithm": "cargo-workspace-projection-v1-sha256",
+      "sha256": "84dc3a46ed912bb31652c26472a987c0ff290e0279622be2a4226774ae73ed9e"
+    }
   }
 }

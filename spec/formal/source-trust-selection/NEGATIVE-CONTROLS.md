@@ -22,3 +22,24 @@ The negative-control command also runs `test_snapshot.py`, which checks scratch
 overlays, deletions, unsafe paths and staged-index refusal in an isolated
 temporary Git repository. It can be run independently with
 `python3 -I spec/formal/source-trust-selection/test_snapshot.py`.
+
+For the separate NATS suite, install the pinned server fixture first and run
+`python3 -I spec/formal/source-trust-selection/negative-controls.py --nats`.
+Its scratch mutants include bypassing the one-use verifier, enabling TLS
+resumption, omitting either injected-material selector, and ignoring a
+retry-only or nonassertive environment setting. The reconnect controls expect
+the live TLS-to-NATS test to fail for its named assertion or bounded-worker
+timeout, not merely for a compilation or unrelated failure. Empty, missing,
+duplicate and malformed handshake vectors must also
+fail. A no-resumption claim depends on the ordinary-client control first
+demonstrating actual TLS resumption with the same proxy and protocol version.
+Separate mutants remove the injected retry cap, alter an ordinary retry limit,
+ignore the selected cap in the NATS options, and extend the old-drain timeout.
+The eight retry vectors also reject missing, duplicate and malformed rows.
+These are selected mutation witnesses; they do not prove all Rust executions,
+network schedules, source freshness or cryptographic behavior.
+
+The fixture checks refuse a missing or corrupt cached server before Cargo and
+verify that the proof runner does not fetch it. They are shared with the
+source-only `test_drift.py` helper and run inside the scratch controls; the
+release tool setup is the separate, explicit download path.
