@@ -22,6 +22,27 @@ import {
 
 /** The returned focus must be a rendered control, not the page or a hidden node. */
 function hasUsableFocus() {
+  function concealed(node) {
+    const style = getComputedStyle(node);
+    return (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      style.opacity === "0" ||
+      node.hidden ||
+      node.hasAttribute("inert") ||
+      node.getAttribute("aria-hidden") === "true"
+    );
+  }
+  function centerHits(node) {
+    const box = node.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) return false;
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
+    const hit = document.elementFromPoint(x, y);
+    return hit !== null && (node.contains(hit) || hit.contains(node));
+  }
   const element = document.activeElement;
   if (
     !(element instanceof HTMLElement) ||
@@ -30,26 +51,10 @@ function hasUsableFocus() {
     !element.isConnected
   )
     return false;
-  const box = element.getBoundingClientRect();
-  if (box.width <= 0 || box.height <= 0) return false;
   for (let node = element; node; node = node.parentElement) {
-    const style = getComputedStyle(node);
-    if (
-      style.display === "none" ||
-      style.visibility === "hidden" ||
-      style.visibility === "collapse" ||
-      style.opacity === "0" ||
-      node.hidden ||
-      node.hasAttribute("inert") ||
-      node.getAttribute("aria-hidden") === "true"
-    )
-      return false;
+    if (concealed(node)) return false;
   }
-  const x = box.left + box.width / 2;
-  const y = box.top + box.height / 2;
-  if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
-  const hit = document.elementFromPoint(x, y);
-  return hit !== null && (element.contains(hit) || hit.contains(element));
+  return centerHits(element);
 }
 
 /** Back goes back, and Replay begins again; then Done, and where focus went. */
