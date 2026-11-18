@@ -156,8 +156,9 @@ joins nothing.
 Per-organization endpoints under `/v1/organizations/:organizationId/scim/v2`, authenticated by
 an org-scoped provisioning token. Users: POST create, GET by id, GET with `userName eq "…"`,
 PATCH (including `active`), DELETE (which SCIM treats as deactivation intent). Groups: a
-minimal PATCH that maps a configured group *name* to an org role; everything else in Groups is
-accepted and ignored, per SCIM's leniency norm. Errors use the
+minimal PATCH updates group membership; an owner-configured group ID mapping selects an org
+role, and a group name alone grants nothing. Unmodelled attributes are accepted and ignored,
+per SCIM's leniency norm. Errors use the
 `urn:ietf:params:scim:api:messages:2.0:Error` envelope, because a bare `{error}` is reported
 by Okta as an unknown failure with no detail.
 
@@ -183,6 +184,38 @@ before comparing. A read of the database therefore never yields a usable credent
 token material reaches a log or an audit row. An unknown organization, a suspended one, a
 missing bearer and a wrong bearer all answer the same 401 — anything else makes this an
 org-existence oracle.
+
+**Provisioning capacity and paging.** A deployment admits at most 10,000 SCIM
+user records per organization and 100,000 in total. Inactive records count:
+they remain the standing denial used by later sign-ins. A create that reaches a
+limit returns a SCIM `409`, while updates and deactivation remain possible at
+capacity. New directory-supplied attributes are limited to 32 KiB per user;
+the server refuses larger records, structures deeper than 32 levels, or more
+than 4,096 attribute values with a SCIM `413` rather than silently dropping
+attributes. Subject history is limited to 64 distinct identifiers; a
+rename beyond that limit returns `409`, while deactivation without a new
+identifier still works. Deprovisioning persists at most 64 new retry targets at
+a time, clears a batch after successful revocation, and retains unprocessed
+legacy retry targets across failures. Existing records are not truncated to
+satisfy a new limit.
+
+`GET /Users` uses database-backed `startIndex` and `count` pagination. Indices
+are one-based, `count=0` returns only the total, and a page contains at most
+100 users. `totalResults` is the full matching count, including when the page is
+empty or a `userName` filter is used. Clients must follow pages to read a large
+directory. Group PATCH admits at most 2,000 groups per organization and 20,000
+per deployment, 1,000 members per group, and 100 member changes per request;
+updates to existing groups remain possible at capacity. Existing over-limit
+groups can be reduced without discarding their members.
+
+Authenticated SCIM directory mutations also have fixed one-minute budgets of
+600 units per organization and 6,000 per deployment, shared across database
+replicas. A request costs one unit, with a group update charged for each member
+it may reconcile. A rate refusal returns SCIM `429` with `Retry-After`; no
+directory mutation was accepted, and a client must retry, including for
+deactivation. Local-only deployments use an in-memory budget. The resource
+ceilings are admission controls, not a migration: pre-existing over-limit rows
+are retained and prevent additional admissions until usage is below the limit.
 
 ### 8. Home-realm discovery, and email as routing only
 An organization owner claims an email domain, publishes a DNS TXT record

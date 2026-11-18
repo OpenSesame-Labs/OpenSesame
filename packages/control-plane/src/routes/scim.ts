@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
-import { ConflictError, type ScimUserRecord } from "@opensesame/database";
+import {
+  ConflictError,
+  ScimUserCapacityError,
+  ScimUserPayloadError,
+  type ScimUserRecord,
+} from "@opensesame/database";
 import {
   type BoundaryValue,
   type JsonObject,
@@ -19,13 +24,16 @@ import {
   SCIM_BOOKKEEPING_ATTRIBUTES as BOOKKEEPING,
   deprovision,
   provisionedRoleForSubject,
+  rememberedSubjects,
   withRememberedSubjects,
 } from "./scim-effects.js";
 import {
+  type ScimSession,
   patchScimGroup,
   putGroupRoleMapping,
   roleForGroupName,
 } from "./scim-groups.js";
+import { scimPage } from "./scim-pagination.js";
 import {
   type ScimPatchOperation,
   boundedScimString,
@@ -36,6 +44,7 @@ import {
   scimPatchOperations,
   scimUserUpdateAudit,
 } from "./scim-protocol.js";
+import { consumeScimMutation } from "./scim-rate-limit.js";
 import {
   SCIM_TOKEN_PREFIX,
   scimBase,
@@ -86,6 +95,21 @@ const NEVER_STORED = new Set(["password", "schemas", "meta", "id"]);
 
 const MAX_USER_NAME_LENGTH = 320;
 const MAX_DISPLAY_LENGTH = 512;
+const MAX_REMEMBERED_SUBJECTS = 64;
+
+async function budgetScimMutation(
+  c: Context<{ Variables: Variables }>,
+  session: ScimSession,
+): Promise<typeof session | Response> {
+  if (
+    c.req.method !== "GET" &&
+    !(await consumeScimMutation(session.ctx, session.organization.id))
+  ) {
+    c.header("Retry-After", "60");
+    return scimError(c, 429, "Provisioning rate limit reached.");
+  }
+  return session;
+}
 
 /** Attributes as the directory sent them, minus what we must never keep. */
 function sanitizeRaw(body: JsonObject): JsonObject {
@@ -154,10 +178,17 @@ async function authenticate(
   // The first-party directory uses the authenticated owner session, never a
   // provisioning secret copied into a browser. SCIM tokens keep their own path.
   if (c.get("principalId") && !header.slice(7).startsWith(SCIM_TOKEN_PREFIX)) {
-    return asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => ({
-      ctx,
-      organization,
-    }));
+    const session = await asActiveOrgOwner(
+      c,
+      OWNER,
+      async ({ ctx, organization }) => ({
+        ctx,
+        organization,
+      }),
+    );
+    return session instanceof Response
+      ? session
+      : budgetScimMutation(c, session);
   }
   if (!header.toLowerCase().startsWith("bearer ")) return unauthorized();
   const presented = header.slice(7).trim();
@@ -173,7 +204,7 @@ async function authenticate(
     scimTokenHash(presented),
   );
   if (!live) return unauthorized();
-  return { ctx, organization };
+  return budgetScimMutation(c, { ctx, organization });
 }
 
 /**
@@ -294,6 +325,10 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         ...(displayName !== undefined ? { displayName } : undefined),
       });
     } catch (error) {
+      if (error instanceof ScimUserCapacityError)
+        return scimError(c, 409, "Provisioned user capacity reached.");
+      if (error instanceof ScimUserPayloadError)
+        return scimError(c, 413, "User attributes exceed the storage limit.");
       if (error instanceof ConflictError) {
         return scimError(
           c,
@@ -328,11 +363,23 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const { ctx, organization } = session;
 
     const filter = c.req.query("filter");
-    let resources: ScimUserRecord[];
-    if (filter === undefined || filter.trim() === "") {
-      resources = await ctx.stores.scim.users.listByOrganization(
-        organization.id,
+    const page = scimPage(c);
+    if (!page)
+      return scimError(
+        c,
+        400,
+        "Invalid pagination parameters.",
+        "invalidValue",
       );
+    let resources: ScimUserRecord[];
+    let totalResults: number;
+    if (filter === undefined || filter.trim() === "") {
+      const result = await ctx.stores.scim.users.listByOrganization(
+        organization.id,
+        page,
+      );
+      resources = result.resources;
+      totalResults = result.totalResults;
     } else {
       const userName = userNameFilter(filter);
       if (userName === undefined) {
@@ -347,13 +394,15 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         organization.id,
         userName,
       );
-      resources = found ? [found] : [];
+      totalResults = found ? 1 : 0;
+      resources =
+        found && page.count > 0 && page.startIndex === 1 ? [found] : [];
     }
 
     return scimBody(c, 200, {
       schemas: [LIST_SCHEMA],
-      totalResults: resources.length,
-      startIndex: 1,
+      totalResults,
+      startIndex: page.startIndex,
       itemsPerPage: resources.length,
       Resources: resources.map((user) => userResource(ctx, user)),
     });
@@ -417,11 +466,15 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
             ? { externalId: patch.externalId }
             : undefined),
         };
+        const remembered = withRememberedSubjects(user, next);
+        const previousCount = rememberedSubjects(user).length;
+        const nextCount = rememberedSubjects(remembered).length;
+        if (nextCount > MAX_REMEMBERED_SUBJECTS && nextCount > previousCount) {
+          return scimError(c, 409, "User subject history limit reached.");
+        }
         let updated: ScimUserRecord;
         try {
-          updated = await ctx.stores.scim.users.update(
-            withRememberedSubjects(user, next),
-          );
+          updated = await ctx.stores.scim.users.update(remembered);
         } catch (error) {
           if (error instanceof ConflictError) {
             return scimError(
