@@ -1,4 +1,5 @@
 mod frozen;
+mod idempotency;
 
 pub use frozen::{assert_grant_covers_frozen_intent, FrozenInvokeInput};
 
@@ -34,28 +35,6 @@ pub struct InvokeInput {
 }
 
 impl Broker {
-    async fn prior_receipt(
-        &self,
-        intent: &Intent,
-        conflict_message: &str,
-    ) -> anyhow::Result<Option<InvocationReceipt>> {
-        let existing = self
-            .db
-            .find_intent_by_idempotency(&intent.organization_id, &intent.idempotency_key)
-            .await?;
-        if existing.is_none() {
-            return Ok(None);
-        }
-        if let Some(receipt) = self
-            .db
-            .find_receipt_by_idempotency(&intent.organization_id, &intent.idempotency_key)
-            .await?
-        {
-            return Ok(Some(receipt));
-        }
-        anyhow::bail!(conflict_message.to_string())
-    }
-
     fn begin_invocation(
         intent_id: opensesame_domain::IntentId,
         now: chrono::DateTime<Utc>,
@@ -136,23 +115,11 @@ impl Broker {
             );
         }
 
-        if let Some(receipt) = self
-            .prior_receipt(
-                &input.intent,
-                "idempotency conflict: prior intent has no receipt yet",
-            )
-            .await?
-        {
-            return Ok(receipt);
-        }
-        self.db.insert_intent(&input.intent).await?;
-
         let expected = Intent::parameters_hash(&input.parameters)?;
         if expected != input.intent.normalized_parameters_hash {
             anyhow::bail!("parameter digest mismatch");
         }
-
-        let mut inv = Self::begin_invocation(input.intent.id, now)?;
+        let fingerprint = idempotency::legacy_fingerprint(&input)?;
 
         let authz_req = AuthZenRequest {
             subject: AuthZenSubject {
@@ -183,6 +150,17 @@ impl Broker {
             input.lineage.as_ref(),
             AvailabilityClass::A3ExternalSideEffect,
         )?;
+        if let Some(receipt) = self.prior_receipt(&input.intent, &fingerprint).await? {
+            anyhow::ensure!(
+                decision.decision,
+                "idempotency conflict: current authorization denied"
+            );
+            return Ok(receipt);
+        }
+        self.db
+            .insert_bound_intent(&input.intent, &fingerprint)
+            .await?;
+        let mut inv = Self::begin_invocation(input.intent.id, now)?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
             self.db.insert_invocation(&inv).await?;
