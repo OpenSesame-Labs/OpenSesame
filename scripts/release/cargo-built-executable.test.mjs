@@ -35,8 +35,6 @@ describe("cargo-built-executable.mjs", () => {
       input: payload,
       encoding: "utf8",
     }).trim();
-    expect(path).toBe(
-      "/triple/aarch64-unknown-linux-gnu/release/opensesame",
-    );
+    expect(path).toBe("/triple/aarch64-unknown-linux-gnu/release/opensesame");
   });
 });

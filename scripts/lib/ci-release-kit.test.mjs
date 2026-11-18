@@ -66,12 +66,10 @@ describe("candidate producer workflow", () => {
     expect(build).toContain("cargo-built-executable.mjs");
     expect(build).toContain('echo "resolved opensesame:');
     expect(
-      build.indexOf(
-        'cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy\n',
-      ),
+      build.indexOf('cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy\n'),
     ).toBeLessThan(build.indexOf("--features upstream-override"));
     expect(build).toContain(`bins/${TEST_BUILD}`);
-    expect(build).toContain('resolve_bin opensesame-cli opensesame');
+    expect(build).toContain("resolve_bin opensesame-cli opensesame");
     expect(build).toContain(
       'cargo build --locked --release -p "$1" --bin "$2"',
     );
