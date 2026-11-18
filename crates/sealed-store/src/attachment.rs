@@ -34,6 +34,8 @@ use crate::path::{
 };
 use crate::{StoreError, StoreRoot};
 
+#[path = "attachment_manifest_read.rs"]
+mod manifest_read;
 #[path = "attachment_recovery.rs"]
 mod recovery;
 use recovery::parse_attachment_manifest;
@@ -383,8 +385,6 @@ impl StoreRoot {
             return Err(StoreError::NotFound(name.into()));
         }
         let blob = confined_read(&self.path, &rel)?;
-        // A locally recorded revision pins the expected value; without one we
-        // accept what the blob claims, exactly as entries do on a fresh clone.
         let expected = self.attachment_revision(name)?;
         let opened = open_osseal_in(COLLECTION_ATTACHMENTS, &blob, key, name, expected)?;
         parse_attachment_manifest(&opened.plaintext)
@@ -403,7 +403,7 @@ impl StoreRoot {
         sink: &mut dyn Write,
         key: &ItemDataKey,
     ) -> Result<AttachmentSummary, StoreError> {
-        let manifest = self.open_manifest(name, key)?;
+        let manifest = self.open_manifest_for_read(name, key)?;
         let mut id_bytes = [0u8; 16];
         hex_to_bytes(&manifest.attachment_id, &mut id_bytes)?;
         let attachment_key = derive_attachment_key(key, &id_bytes);
@@ -476,7 +476,7 @@ impl StoreRoot {
             if prefix.is_some_and(|prefix| !name.starts_with(prefix)) {
                 continue;
             }
-            let manifest = self.open_manifest(&name, key)?;
+            let manifest = self.open_manifest_for_read(&name, key)?;
             out.push(summary_of(&name, &manifest));
         }
         out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -528,7 +528,7 @@ impl StoreRoot {
         // nothing rather than risk deleting live chunks.
         let mut referenced: BTreeSet<String> = BTreeSet::new();
         for name in self.attachment_names()? {
-            let manifest = self.open_manifest(&name, key).map_err(|e| {
+            let manifest = self.open_manifest_locked(&name, key).map_err(|e| {
                 StoreError::Crypto(format!(
                     "refusing to collect garbage: manifest {name} could not be opened ({e})"
                 ))

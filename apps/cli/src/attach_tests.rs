@@ -304,6 +304,9 @@ async fn directory_command_replicates_a_real_store_without_unlocking() {
     }
 }
 
+#[path = "attach_replay_tests.rs"]
+mod replay;
+
 #[tokio::test]
 async fn target_redirect_does_not_forward_the_operator_credential() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
