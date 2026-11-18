@@ -40,12 +40,13 @@ const models = [
   "autofill-gesture/AutofillGesture",
 ];
 
-for (const rel of models) {
-  const dir = join(repo, "spec/formal-verification", rel.split("/")[0]);
-  const spec = rel.split("/")[1];
-  const metadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
-  const log = join(logDir, `${rel.replace("/", "-")}.log`);
-  const result = spawnSync(
+/** TLC must fail these fault configs (negative control). */
+const faultConfigs = {
+  "onboarding-recovery/OnboardingRecovery": "OnboardingRecoveryBuggy.cfg",
+};
+
+function runTlc(dir, configFile, spec, logPath, metadata) {
+  return spawnSync(
     "java",
     [
       "-XX:+UseParallelGC",
@@ -55,15 +56,38 @@ for (const rel of models) {
       "-metadir",
       metadata,
       "-config",
-      `${spec}.cfg`,
+      configFile,
       `${spec}.tla`,
     ],
     { cwd: dir, encoding: "utf8" },
   );
+}
+
+for (const rel of models) {
+  const dir = join(repo, "spec/formal-verification", rel.split("/")[0]);
+  const spec = rel.split("/")[1];
+  const metadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
+  const log = join(logDir, `${rel.replace("/", "-")}.log`);
+  const result = runTlc(dir, `${spec}.cfg`, spec, log, metadata);
   writeFileSync(
     log,
     `${result.stdout ?? ""}\n${result.stderr ?? ""}\nexit=${result.status}\n`,
   );
   if (result.status !== 0) process.exitCode = 1;
+
+  const faultCfg = faultConfigs[rel];
+  if (faultCfg) {
+    const faultMetadata = mkdtempSync(join(tmpdir(), "opensesame-tlc-"));
+    const faultLog = join(logDir, `${rel.replace("/", "-")}-fault.log`);
+    const fault = runTlc(dir, faultCfg, spec, faultLog, faultMetadata);
+    writeFileSync(
+      faultLog,
+      `${fault.stdout ?? ""}\n${fault.stderr ?? ""}\nexit=${fault.status}\n`,
+    );
+    if (fault.status === 0) {
+      console.error(`${rel}: fault config ${faultCfg} passed but must fail TLC`);
+      process.exitCode = 1;
+    }
+  }
 }
 console.log(`TLC logs: ${logDir}`);
