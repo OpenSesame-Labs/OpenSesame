@@ -94,3 +94,27 @@ the binding decision or reconciled finding. The reviewed removal map is:
 | `prompts/{2026-08-22-security-program-agent-brief,one-shot-automation-prompt,one-shot-connector-auth-broker-prompt,one-shot-doppler-nats-prompt,one-shot-doppler-parity-prompt,one-shot-passkey-portability-prompt,spa-multi-forge-vault-backup-prompt,vault-key-protection-age-sops-prompt}.md` | Agent assignment inputs, not product guidance; landed behavior and ADRs 0032, 0041, 0042 and 0129 are maintained. |
 | `wallet-swarm-coordination.md` | Temporary coordination log; ADR 0123 owns the wallet spending decisions. |
 | `README.md` | Index for only the retired files above; empty after their reviewed removal. |
+
+## Retired completed working records
+
+The same stack later retired 25 completed implementation/proposal records after
+checking every repository citation and preserving all active contract,
+security-audit, validation, and evidence files. Git history retains the source
+records. Binding decisions and executable coverage remain at these maintained
+locations:
+
+| Removed files | Reason and maintained replacement |
+|---|---|
+| `docs/proposals/ci-artifact-promotion/{README,artifact-builds,candidate-protocol,migration-map,validation}.md` and `workflows/{candidate-build,ci,dev-nightly,release-weekly}.yml` | Inert proposal drafts superseded by ADRs 0214–0215, the active pinned workflows, and `docs/operators/ci-promotion.md`. |
+| `docs/implementation/d7-2-{cross-model,device-key-trust-proposal,device-key-units-agent,pwa-peer-trust-audit,rubber-duck}.md` and `working-notes/2026-10-15-round7.md` | Branch-specific reviews and a temporary agent-run note; ADRs 0186 and 0196 plus the current CLI, peer-trust, and approval regressions carry the accepted behavior. |
+| `docs/implementation/{wallet-consent-baseline.md,ceremonies-into-pages/README.md,browser-sessions/acceptance.md}` | Preimplementation or point-in-time records for completed programmes; ADRs 0123, 0140, 0150, and 0196 are canonical and the product tests remain. |
+| `docs/implementation/general-authority/{api-surface,openfga-tuple-backfill,repository-baseline}.md` | Completed working documents with no executable consumer; ADR 0120 and the retained ownership, storage, adversarial matrix, completion matrix, contract registry, and local-ledger inventory remain live. |
+| `docs/implementation/product-experience/{baseline,contracts}.md` and `{ownership,traceability}.json` | Programme baseline and ownership snapshots whose named journeys have landed; current architecture, ADRs, and executable experience journeys own the behavior. |
+The Bitwarden provider also consolidates eight self-generated response files
+into two topology bundles (`cloud.json` and `vaultwarden.json`), a net reduction
+of six files. The generator still compares every named `prelogin`, `token`,
+`sync`, and `config` value at the JSON data boundary, and the real API-route
+tests replay each response from the bundles. The reviewed Gitleaks evidence is
+rebound to the exact new file hashes and match locations. Together these
+changes reduce the tracked checkout by 31 files without reducing test cases,
+current documentation, or security evidence.

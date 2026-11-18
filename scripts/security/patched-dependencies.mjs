@@ -3,15 +3,20 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   copyFileSync,
+  existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
+  realpathSync,
   readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { x as extractTar, t as listTar } from "tar";
 
@@ -33,6 +38,9 @@ function run(command, args, cwd) {
     // the extracted package as plain files, not as paths of that repository.
     env: { ...process.env, GIT_CEILING_DIRECTORIES: dirname(cwd) },
   });
+}
+function fail(selector, detail) {
+  throw new Error(`${selector}: ${detail}`);
 }
 function assertPackageEntries(tarball) {
   const entries = [];
@@ -72,6 +80,16 @@ function fileMap(directory) {
   walk(directory);
   return files;
 }
+function fileMapIntegrity(files) {
+  const canonical = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(files).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+  );
+  return createHash("sha256").update(canonical).digest("hex");
+}
 function patchApplies(packageDirectory, patch, reverse) {
   const args = ["apply", "--check", "-p1", "--whitespace=nowarn"];
   if (reverse) args.push("-R");
@@ -108,10 +126,13 @@ function buildPatched(selector, entry, work) {
     ),
   );
   if (integrity(upstream) !== entry.upstreamIntegrity)
-    throw new Error(
-      `${selector}: the registry tarball does not match the recorded upstream integrity`,
-    );
+    fail(selector, "upstream tarball integrity drift");
   const source = extract(upstream, join(work, "source"));
+  if (
+    entry.upstreamFileMapSha256 !== undefined &&
+    fileMapIntegrity(fileMap(source)) !== entry.upstreamFileMapSha256
+  )
+    fail(selector, "reviewed upstream source map drift");
   applyPatch(source, entry.patch);
   const pack = ["pack", "--ignore-scripts", "--silent"];
   const packed = run("npm", [...pack, "--pack-destination", output], source);
@@ -182,17 +203,31 @@ function verify(selector, entry, work) {
   );
   const differing = differingFiles(built, committed);
   if (differing.length > 0)
-    throw new Error(
-      `${selector}: ${entry.tarball} is not the published package plus ${entry.patch}; differing: ${differing.join(", ")}`,
-    );
+    fail(selector, `rebuilt files differ: ${differing.join(", ")}`);
   const count = Object.keys(committed).length;
   console.log(`${selector}: ${count} files equal upstream plus patch`);
 }
+function verifyOffline(selector, entry, work) {
+  const committed = join(root, entry.tarball);
+  const source = extract(committed, join(work, "source"));
+  const committedFiles = fileMap(source);
+  if (!patchApplies(source, entry.patch, true))
+    fail(selector, "the reviewed patch cannot be reversed");
+  applyPatch(source, entry.patch, true);
+  if (fileMapIntegrity(fileMap(source)) !== entry.upstreamFileMapSha256)
+    fail(selector, "reverse-patched source differs from reviewed upstream");
+  if (!patchApplies(source, entry.patch, false))
+    fail(selector, "the reviewed patch cannot be reapplied");
+  applyPatch(source, entry.patch);
+  if (fileMapIntegrity(fileMap(source)) !== fileMapIntegrity(committedFiles))
+    fail(selector, "upstream plus patch differs from committed source");
+  console.log(`${selector}: offline upstream and patched artifacts reproduced`);
+}
 function main(mode, selected) {
-  const action = { build, verify }[mode];
+  const action = { build, verify, "verify-offline": verifyOffline }[mode];
   if (!action) {
     console.error(
-      "Usage: node scripts/security/patched-dependencies.mjs build|verify [package@version]",
+      "Usage: node scripts/security/patched-dependencies.mjs build|verify|verify-offline [package@version]",
     );
     process.exit(2);
   }
@@ -200,7 +235,7 @@ function main(mode, selected) {
     ([selector]) => selected === undefined || selector === selected,
   );
   if (entries.length === 0) {
-    throw new Error(`${selected}: no vendored dependency manifest entry`);
+    fail(selected, "no vendored dependency manifest entry");
   }
   for (const [selector, entry] of entries) {
     const work = mkdtempSync(join(tmpdir(), "opensesame-patched-"));
@@ -214,46 +249,23 @@ function main(mode, selected) {
 if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))
   main(process.argv[2], process.argv[3]);
 
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync as mkdirSync2,
-  mkdtempSync as mkdtempSync2,
-  readFileSync as readFileSync2,
-  readlinkSync,
-  realpathSync,
-  rmSync as rmSync2,
-  writeFileSync as writeFileSync2,
-} from "node:fs";
-// scripts/security/npm-installed-bins.mjs
-import { createRequire } from "node:module";
-import { tmpdir as tmpdir2 } from "node:os";
-import {
-  dirname as dirname2,
-  isAbsolute,
-  join as join2,
-  relative as relative2,
-  resolve as resolve2,
-  sep,
-} from "node:path";
-
 function npmCommandShim() {
-  const bin = dirname2(process.execPath);
+  const bin = dirname(process.execPath);
   const paths = [
     process.env.npm_execpath,
-    join2(bin, "node_modules/npm/bin/npm-cli.js"),
-    resolve2(bin, "../lib/node_modules/npm/bin/npm-cli.js"),
+    join(bin, "node_modules/npm/bin/npm-cli.js"),
+    resolve(bin, "../lib/node_modules/npm/bin/npm-cli.js"),
     ...String(process.env.PATH ?? "")
       .split(process.platform === "win32" ? ";" : ":")
       .flatMap((dir) => [
-        join2(dir, "node_modules/npm/bin/npm-cli.js"),
-        resolve2(dir, "../lib/node_modules/npm/bin/npm-cli.js"),
+        join(dir, "node_modules/npm/bin/npm-cli.js"),
+        resolve(dir, "../lib/node_modules/npm/bin/npm-cli.js"),
       ]),
   ];
   for (const path of paths) {
     if (!path || !existsSync(path)) continue;
     const executable = realpathSync(path);
-    const shim = resolve2(dirname2(executable), "../node_modules/cmd-shim");
+    const shim = resolve(dirname(executable), "../node_modules/cmd-shim");
     if (existsSync(shim)) return createRequire(executable)(shim);
   }
   throw new Error(
@@ -282,9 +294,9 @@ function directChildren(packagePath, packages) {
 function validTarget(directory, child, bin, target) {
   if (!bin || bin === "." || bin === ".." || /[/\\\0]/.test(bin)) return null;
   if (typeof target !== "string" || isAbsolute(target)) return null;
-  const childRoot = resolve2(directory, "node_modules", child);
-  const file = resolve2(childRoot, target);
-  const inside = relative2(childRoot, file);
+  const childRoot = resolve(directory, "node_modules", child);
+  const file = resolve(childRoot, target);
+  const inside = relative(childRoot, file);
   if (
     !inside ||
     inside === ".." ||
@@ -296,31 +308,31 @@ function validTarget(directory, child, bin, target) {
 }
 function isCorrectLink(link, target) {
   if (!existsSync(link) || !lstatSync(link).isSymbolicLink()) return false;
-  return resolve2(dirname2(link), readlinkSync(link)) === target;
+  return resolve(dirname(link), readlinkSync(link)) === target;
 }
 async function matchingWindowsShims(directory, child, bin, target, shim) {
-  const scratch = mkdtempSync2(join2(tmpdir2(), "opensesame-npm-bin-"));
+  const scratch = mkdtempSync(join(tmpdir(), "opensesame-npm-bin-"));
   try {
-    const targetInPackage = relative2(
-      join2(directory, "node_modules", child),
+    const targetInPackage = relative(
+      join(directory, "node_modules", child),
       target,
     );
-    const source = join2(scratch, "node_modules", child, targetInPackage);
-    const generated = join2(scratch, "node_modules", ".bin", bin);
-    mkdirSync2(dirname2(source), { recursive: true });
-    writeFileSync2(source, readFileSync2(target));
+    const source = join(scratch, "node_modules", child, targetInPackage);
+    const generated = join(scratch, "node_modules", ".bin", bin);
+    mkdirSync(dirname(source), { recursive: true });
+    writeFileSync(source, readFileSync(target));
     await shim(source, generated);
-    const actual = join2(directory, "node_modules", ".bin", bin);
+    const actual = join(directory, "node_modules", ".bin", bin);
     return ["", ".cmd", ".ps1"].every((suffix) => {
       const path = `${actual}${suffix}`;
       return (
         existsSync(path) &&
         lstatSync(path).isFile() &&
-        readFileSync2(path).equals(readFileSync2(`${generated}${suffix}`))
+        readFileSync(path).equals(readFileSync(`${generated}${suffix}`))
       );
     });
   } finally {
-    rmSync2(scratch, { recursive: true, force: true });
+    rmSync(scratch, { recursive: true, force: true });
   }
 }
 async function installedNpmBins(
@@ -335,7 +347,7 @@ async function installedNpmBins(
     const file = validTarget(directory, name, bin, target);
     if (!file) continue;
     const base = `node_modules/.bin/${bin}`;
-    if (!existsSync(join2(directory, base))) continue;
+    if (!existsSync(join(directory, base))) continue;
     if (platform === "win32") {
       if (
         await matchingWindowsShims(
@@ -348,7 +360,7 @@ async function installedNpmBins(
       )
         for (const suffix of ["", ".cmd", ".ps1"])
           verified.add(`${base}${suffix}`);
-    } else if (isCorrectLink(join2(directory, base), file)) {
+    } else if (isCorrectLink(join(directory, base), file)) {
       verified.add(base);
     }
   }
@@ -371,6 +383,7 @@ export {
   differingFiles,
   extract,
   fileMap,
+  fileMapIntegrity,
   installedNpmBins,
   installedPackageDifferences,
   integrity,
@@ -378,5 +391,6 @@ export {
   patchApplies,
   readJson,
   root,
+  verifyOffline,
   withoutVerifiedNpmBins,
 };

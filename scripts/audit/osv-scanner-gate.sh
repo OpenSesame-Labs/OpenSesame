@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# OSV-Scanner gate — fails on every vulnerability reported by the scanner.
+# OSV-Scanner gate — retains every raw finding and accepts only exact,
+# source-attested repaired tuples.
 # Complements cargo-deny (RustSec) and cve-lite (npm-focused OSV) with Google OSV.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -177,4 +178,5 @@ if os.environ["OSV_SCAN_STATUS"] == "1" and not findings:
 output = Path(os.environ["OPENSESAME_AUDIT_DIR"]) / "osv-findings.json"
 output.write_text(json.dumps(findings))
 PY
-node scripts/security/assert-no-advisories.mjs "$OPENSESAME_AUDIT_DIR/osv-findings.json"
+node scripts/security/assert-no-advisories.mjs \
+  "$OPENSESAME_AUDIT_DIR/osv-findings.json" --attest-repaired "$ROOT"

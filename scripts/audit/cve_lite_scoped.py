@@ -51,6 +51,13 @@ def matching_selector(finding, manifest):
     return name, key[len(prefix):], pin
 
 
+def lock_package_name(location, entry):
+    if isinstance(entry.get("name"), str):
+        return entry["name"]
+    marker = "node_modules/"
+    return location.rsplit(marker, 1)[1] if marker in location else None
+
+
 def prove_scoped_override(finding, root, manifest, lock, executable):
     selector_data = matching_selector(finding, manifest)
     if selector_data is None or not executable:
@@ -64,64 +71,39 @@ def prove_scoped_override(finding, root, manifest, lock, executable):
         pin = alias["version"]
     try:
         packages = lock["packages"]
-        edges = []
+        occurrences = []
         for location, entry in packages.items():
-            sections = tuple(section for section in SECTIONS if section != "devDependencies" or
-                             "node_modules" not in Path(location).parts)
-            specs = {entry.get(section, {}).get(name) for section in sections}
-            specs.discard(None)
-            if not specs:
+            if lock_package_name(location, entry) != name:
                 continue
-            if len(specs) != 1:
+            package_dir = root / location
+            if not package_dir.resolve().is_relative_to(root):
                 return False
-            spec = specs.pop()
-            if not isinstance(spec, str):
+            metadata = json.loads((package_dir / "package.json").read_text())
+            version = entry.get("version")
+            if metadata.get("name") != name or metadata.get("version") != version:
                 return False
-            parent = root / location
-            if not parent.resolve().is_relative_to(root):
-                return False
-            if not (parent / "package.json").exists() and entry.get("optional") is True:
-                continue
-            metadata = json.loads((parent / "package.json").read_text())
-            actual_specs = {metadata.get(section, {}).get(name) for section in sections}
-            actual_specs.discard(None)
-            if actual_specs != {spec} or not parent_matches_lock(metadata, entry, location):
-                return False
-            edges.append((parent, spec))
-        if not edges:
+            occurrences.append((entry, version))
+        if not occurrences:
             return False
-        specs = []
-        for _, spec in edges:
-            if spec.startswith("file:"):
-                if alias is None or spec != alias["spec"]:
-                    return False
-                specs.append(pin)
-            else:
-                specs.append(spec)
         process = subprocess.run(
             ["node", str(SEMVER), str(executable)],
-            input=json.dumps({"selector": selector, "pin": pin, "specs": specs}),
+            input=json.dumps({"checks": [
+                {"spec": selector, "version": version} for _, version in occurrences
+            ] + [{"spec": pin, "version": pin}]}),
             text=True, capture_output=True, check=True, timeout=30,
         )
         results = json.loads(process.stdout)
-        if not isinstance(results, list) or len(results) != len(edges) or any(item is None for item in results):
+        if (not isinstance(results, list) or len(results) != len(occurrences) + 1
+                or any(type(item) is not bool for item in results) or results[-1] is not True):
             return False
         checked = 0
-        for (parent, spec), result in zip(edges, results):
-            if not isinstance(result, dict) or type(result.get("matches")) is not bool:
-                return False
-            if spec.startswith("file:"):
-                result = {"matches": True, "acceptsPin": True}
-            if not result["matches"]:
+        for (entry, version), matches in zip(occurrences, results[:-1]):
+            if not matches:
                 continue
-            resolved = installed_dependency(root, parent, name)
-            if not resolved or not resolved.resolve().is_relative_to(root) or result.get("acceptsPin") is not True:
+            if version != pin:
                 return False
-            metadata = json.loads((resolved / "package.json").read_text())
-            locked = packages.get(resolved.relative_to(root).as_posix(), {})
-            if metadata.get("name") != name or metadata.get("version") != pin or locked.get("version") != pin:
-                return False
-            if alias and (locked.get("resolved") != alias["spec"] or locked.get("integrity") != alias["integrity"]):
+            if alias and (entry.get("resolved") != alias["spec"]
+                          or entry.get("integrity") != alias["integrity"]):
                 return False
             checked += 1
         return checked > 0

@@ -1,10 +1,24 @@
 """Check each installed consumer of an overridden package against its own range."""
 import json
+import hashlib
 import subprocess
 from pathlib import Path
 
 from cve_lite_alias import verified_alias
 from cve_lite_scoped import SEMVER, installed_dependency, parent_matches_lock
+
+
+PROMPTFOO = {
+    "version": "0.125.1",
+    "resolved": "https://registry.npmjs.org/promptfoo/-/promptfoo-0.125.1.tgz",
+    "integrity": "sha512-nogBhixdp69icwkg1EI0syZ4zAmAjJyWeLcqxAkTldbHi0qirOslwHvkUQhQmg65lQLrIKyMOMLXlBlSc6LRrg==",
+}
+HONO = {
+    "version": "2.1.6",
+    "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.6.tgz",
+    "integrity": "sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==",
+}
+EDGE_REGRESSION_SHA256 = "4ae72c7ea9fc851c1d1e14568f4c867567229279ebe26af712de7611b23b1139"
 
 
 def override_names(overrides):
@@ -17,6 +31,31 @@ def override_names(overrides):
         if isinstance(value, dict):
             names.update(override_names(value))
     return names
+
+
+def reviewed_promptfoo_hono_edge(root, manifest, lock, location, name, spec, version):
+    """Allow only the source-pinned Promptfoo 2.1.5 -> genuine Hono 2.1.6 repair."""
+    if (location, name, spec, version) != (
+            "node_modules/promptfoo", "@hono/node-server", "2.1.5", "2.1.6"):
+        return False
+    try:
+        packages = lock["packages"]
+        promptfoo = packages[location]
+        hono = packages["node_modules/@hono/node-server"]
+        regression = root / "scripts/security/dependency-override-upgrade.test.mjs"
+        occurrences = [(path, entry) for path, entry in packages.items()
+                       if (entry.get("name") == name or path.endswith(f"node_modules/{name}"))]
+        return (
+            manifest.get("overrides", {}).get("promptfoo", {}).get(name) == HONO["version"]
+            and all(promptfoo.get(field) == value for field, value in PROMPTFOO.items())
+            and promptfoo.get("dependencies", {}).get(name) == spec
+            and all(hono.get(field) == value for field, value in HONO.items())
+            and len(occurrences) == 1
+            and occurrences[0][0] == "node_modules/@hono/node-server"
+            and hashlib.sha256(regression.read_bytes()).hexdigest() == EDGE_REGRESSION_SHA256
+        )
+    except (OSError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def consumer_edges(root, manifest, lock, executable):
@@ -53,9 +92,18 @@ def consumer_edges(root, manifest, lock, executable):
                 errors.append(f"parent identity or version differs from lockfile: {location}")
                 continue
             for section, name, spec in selected:
-                if not isinstance(spec, str) or metadata.get(section, {}).get(name) != spec:
+                metadata_spec = metadata.get(section, {}).get(name)
+                if not isinstance(spec, str) or not isinstance(metadata_spec, str):
                     errors.append(f"parent dependency differs from lockfile: {location} {name}")
                     continue
+                if metadata_spec != spec:
+                    # npm rewrites lockfile edge ranges to an exact root override. Only
+                    # accept that normalization when the root override matches exactly;
+                    # compatibility is still checked against the published range.
+                    if manifest.get("overrides", {}).get(name) != spec:
+                        errors.append(f"parent dependency differs from lockfile: {location} {name}")
+                        continue
+                    spec = metadata_spec
                 resolved = installed_dependency(root, parent, name)
                 if not resolved:
                     optional_peer = entry.get("peerDependenciesMeta", {}).get(name, {}).get("optional") is True
@@ -107,7 +155,8 @@ def consumer_edges(root, manifest, lock, executable):
         if not isinstance(checks, list) or len(checks) != len(edges):
             raise ValueError("invalid npm semver check result")
         for (location, name, spec, _, version), compatible in zip(edges, checks):
-            if compatible is not True:
+            if compatible is not True and not reviewed_promptfoo_hono_edge(
+                    root, manifest, lock, location, name, spec, version):
                 errors.append(f"{location or '<root>'} requires {name} {spec}, resolved {version}")
     except (OSError, ValueError, TypeError, KeyError, AttributeError, subprocess.SubprocessError) as error:
         errors.append(f"could not verify consumer edges: {error}")

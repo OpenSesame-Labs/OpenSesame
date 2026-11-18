@@ -1,4 +1,6 @@
 import json
+import base64
+import hashlib
 import shutil
 import sys
 import tempfile
@@ -106,6 +108,57 @@ findViolations(files, {});''')
         fixture.write_text(original)
         target.write_text(target.read_text() + "\n// changed analyzer\n")
         self.assertFalse(proven_indirect_import(self.root, self.lock, "@testing-library/react", path))
+
+    def test_kdbx_resolver_string_requires_reviewed_sources_and_dependency_edge(self):
+        app_core = json.loads((ROOT / "packages/app-core/package.json").read_text())
+        write_json(self.root / "packages/app-core/package.json", app_core)
+        self.lock["packages"]["packages/app-core"] = app_core
+        for path in (
+                "apps/pages/scripts/kdbx-native-dom-plugin.mjs",
+                "apps/pages/scripts/kdbx-native-dom-plugin.test.mjs"):
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / path, target)
+        kdbx = {"name": "kdbxweb", "version": "2.1.1",
+                "dependencies": {"@xmldom/xmldom": "0.8.15"}}
+        write_json(self.root / "node_modules/kdbxweb/package.json", kdbx)
+        write_json(self.root / "node_modules/kdbxweb/node_modules/@xmldom/xmldom/package.json",
+                   {"name": "@xmldom/xmldom", "version": "0.8.15"})
+        self.lock["packages"]["node_modules/kdbxweb"] = kdbx
+        self.lock["packages"]["node_modules/kdbxweb/node_modules/@xmldom/xmldom"] = {
+            "version": "0.8.15"}
+        for path in (
+                "apps/pages/scripts/kdbx-native-dom-plugin.mjs",
+                "apps/pages/scripts/kdbx-native-dom-plugin.test.mjs"):
+            self.assertTrue(proven_indirect_import(
+                self.root, self.lock, "@xmldom/xmldom", path))
+        self.lock["packages"]["node_modules/kdbxweb"]["dependencies"]["@xmldom/xmldom"] = "0.8.14"
+        self.assertFalse(proven_indirect_import(
+            self.root, self.lock, "@xmldom/xmldom",
+            "apps/pages/scripts/kdbx-native-dom-plugin.mjs"))
+
+    def test_patched_package_regression_requires_exact_source_and_tarball(self):
+        path = "scripts/security/dependency-override-upgrade.test.mjs"
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / path, target)
+        archive_relative = "patches/vendor/noble-post-quantum-0.5.4.tgz"
+        archive = self.root / archive_relative
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / archive_relative, archive)
+        integrity = "sha512-" + base64.b64encode(
+            hashlib.sha512(archive.read_bytes()).digest()).decode()
+        manifest = {"devDependencies": {
+            "noble-post-quantum-patched": f"file:{archive_relative}"}}
+        write_json(self.root / "package.json", manifest)
+        self.lock["packages"]["node_modules/noble-post-quantum-patched"] = {
+            "name": "@noble/post-quantum", "version": "0.5.4",
+            "resolved": f"file:{archive_relative}", "integrity": integrity}
+        self.assertTrue(proven_indirect_import(
+            self.root, self.lock, "@noble/post-quantum", path))
+        archive.write_bytes(b"drift")
+        self.assertFalse(proven_indirect_import(
+            self.root, self.lock, "@noble/post-quantum", path))
 
 
 if __name__ == "__main__":
