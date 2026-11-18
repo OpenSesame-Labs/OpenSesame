@@ -229,6 +229,14 @@ mod tests {
                 aad_digest: digest(&legacy),
             };
             assert_eq!(open_with_ad(&KEY, &aad, &blob).unwrap(), b"legacy");
+            for length in [0, 23, 25] {
+                let mut malformed = blob.clone();
+                malformed.nonce = vec![0; length];
+                assert!(matches!(
+                    open_with_ad(&KEY, &aad, &malformed),
+                    Err(BrokerError::SealUnavailable(message)) if message == "nonce length"
+                ));
+            }
         }
     }
 

@@ -33,7 +33,7 @@ use tokio::sync::Notify;
 use tokio::time::Instant;
 
 /// How long a person takes to answer.
-const HELD: Duration = Duration::from_secs(600);
+const HELD: Duration = Duration::from_mins(10);
 
 /// A person who answers after [`HELD`], and says when the question arrived.
 struct Slow {

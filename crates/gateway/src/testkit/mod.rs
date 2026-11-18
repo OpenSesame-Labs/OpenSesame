@@ -24,7 +24,7 @@ pub struct HostTestkit {
 }
 
 impl HostTestkit {
-    /// Build isolated SQLite state without loading process provider settings.
+    /// Build isolated `SQLite` state without loading process provider settings.
     ///
     /// # Errors
     ///

@@ -1,4 +1,4 @@
-import { isString } from "../../../../packages/os-domain/src/json.ts";
+import { isString } from "../../../../scripts/lib/json-boundary.mjs";
 import { VIRTUAL_MODULES, pathTo } from "./capability-graph.mjs";
 
 /** Record only foreign optional sources explicitly reached by each table root. */

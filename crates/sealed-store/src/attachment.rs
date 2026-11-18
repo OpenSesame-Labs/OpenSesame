@@ -119,8 +119,7 @@ pub struct GcOutcome {
 fn now_unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| saturating_millis(duration.as_millis()))
-        .unwrap_or(0)
+        .map_or(0, |duration| saturating_millis(duration.as_millis()))
 }
 
 fn saturating_millis(millis: u128) -> u64 {

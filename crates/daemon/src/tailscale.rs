@@ -90,8 +90,7 @@ pub fn resolve_tailscale_bin() -> Option<PathBuf> {
 
 fn is_wsl() -> bool {
     std::fs::read_to_string("/proc/version")
-        .map(|v| v.to_ascii_lowercase().contains("microsoft"))
-        .unwrap_or(false)
+        .is_ok_and(|v| v.to_ascii_lowercase().contains("microsoft"))
 }
 
 fn is_windows_tailscale(bin: &Path) -> bool {

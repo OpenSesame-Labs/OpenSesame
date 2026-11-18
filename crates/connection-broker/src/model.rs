@@ -169,8 +169,8 @@ pub struct ScopeView {
 impl From<&ScopeDef> for ScopeView {
     fn from(s: &ScopeDef) -> Self {
         Self {
-            name: s.name.to_string(),
-            description: s.description.to_string(),
+            name: s.name.clone(),
+            description: s.description.clone(),
             sensitive: s.sensitive,
             default: s.default,
         }
@@ -211,11 +211,11 @@ impl ProviderView {
         catalog_revision: &str,
     ) -> Self {
         Self {
-            id: provider.id.to_string(),
-            display_name: provider.display_name.to_string(),
+            id: provider.id.clone(),
+            display_name: provider.display_name.clone(),
             category: provider.category,
-            docs_url: provider.docs_url.to_string(),
-            provenance_url: provider.provenance_url.to_string(),
+            docs_url: provider.docs_url.clone(),
+            provenance_url: provider.provenance_url.clone(),
             catalog_revision: catalog_revision.to_string(),
             auth_kind: provider.auth.kind().to_string(),
             supports_refresh: provider.auth.supports_refresh(),

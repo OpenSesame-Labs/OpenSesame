@@ -186,7 +186,7 @@ pub fn config(base: &str, deadline: Duration) -> InteractionApproverConfig {
         identity_api_url: base.to_owned(),
         bearer: BEARER.to_owned().into(),
         approver_ref: APPROVER_REF.to_owned(),
-        ttl: Duration::from_secs(300),
+        ttl: Duration::from_mins(5),
         poll_interval: Duration::from_millis(10).min(DEFAULT_POLL_INTERVAL),
         deadline,
     }

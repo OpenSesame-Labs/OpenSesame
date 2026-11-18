@@ -1252,9 +1252,9 @@ async fn issue_acme(
 }
 
 fn cloudflare_origin_validity(ttl: StdDuration) -> CloudflareOriginValidity {
-    if ttl <= StdDuration::from_secs(7 * 24 * 60 * 60) {
+    if ttl <= StdDuration::from_hours(7 * 24) {
         CloudflareOriginValidity::Days7
-    } else if ttl <= StdDuration::from_secs(30 * 24 * 60 * 60) {
+    } else if ttl <= StdDuration::from_hours(30 * 24) {
         CloudflareOriginValidity::Days30
     } else {
         CloudflareOriginValidity::Days90

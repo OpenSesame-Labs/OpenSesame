@@ -50,6 +50,27 @@ fn type0_round_trips_under_a_mac_less_key() {
 }
 
 #[test]
+fn decryption_refuses_empty_and_unaligned_ciphertext() {
+    let key = key32();
+    for len in [0, 1, 15, 17, 31] {
+        let value = EncString {
+            enc_type: EncType::AesCbc256B64,
+            iv: vec![0; AES_BLOCK],
+            data: vec![0; len],
+            mac: None,
+        };
+        assert!(
+            matches!(key.decrypt_cbc(&value), Err(Error::MalformedEncString(_))),
+            "ciphertext length {len}"
+        );
+    }
+    for plaintext in [b"a".as_slice(), b"0123456789abcdef".as_slice()] {
+        let valid = key.encrypt_with_iv(plaintext, [1; AES_BLOCK]).unwrap();
+        assert_eq!(&*key.decrypt_cbc(&valid).unwrap(), plaintext);
+    }
+}
+
+#[test]
 fn type7_is_refused_by_name_never_best_effort() {
     let error = "7.T0NPU0VOQ1JZUFQwCg==".parse::<EncString>().unwrap_err();
     assert_eq!(error.code(), "cose_encrypt_unsupported");
