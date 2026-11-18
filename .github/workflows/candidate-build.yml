@@ -347,9 +347,9 @@ jobs:
             --message-format=json-render-diagnostics \
             | node ../.ci-control/scripts/release/cargo-built-executable.mjs "$2"
         }
-        OPENESAME_BIN="$(resolve_bin opensesame-cli opensesame)"
-        echo "resolved opensesame: ${OPENESAME_BIN}"
-        cp "${OPENESAME_BIN}" bins/opensesame
+        OPENSEAME_BIN="$(resolve_bin opensesame-cli opensesame)"
+        echo "resolved opensesame: ${OPENSEAME_BIN}"
+        cp "${OPENSEAME_BIN}" bins/opensesame
         [ "$(bins/opensesame --version)" = "opensesame ${TAG#v}" ]
         SURROGATE_BIN="$(resolve_bin opensesame-surrogate-proxy opensesame-surrogate-proxy)"
         echo "resolved opensesame-surrogate-proxy: ${SURROGATE_BIN}"
