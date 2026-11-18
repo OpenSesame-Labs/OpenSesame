@@ -72,7 +72,7 @@ export function SetupConfiguration({
   onChoose: (id: ConfigurationChoice) => void;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const targetRef = useGuideTarget<HTMLFieldSetElement>("setup.configurations");
+  const defaultRef = useGuideTarget<HTMLButtonElement>("setup.default");
   const move = (event: KeyboardEvent, at: number) => {
     const step =
       event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -95,16 +95,13 @@ export function SetupConfiguration({
         Choose what this vault holds. Any choice can be changed later in
         Settings, under Features.
       </p>
-      <fieldset
-        ref={targetRef}
-        className="capset__roads"
-        aria-label="Setup configuration"
-      >
+      <fieldset className="capset__roads" aria-label="Setup configuration">
         {CHOICES.map((choice, at) => (
           <button
             key={choice.id}
             ref={(node) => {
               refs.current[at] = node;
+              if (choice.id === "default") defaultRef(node);
             }}
             type="button"
             className={choice.recommended ? "road road--lead" : "road"}
@@ -128,7 +125,7 @@ export function SetupConfiguration({
       <div
         className="first-visit-host"
         data-first-visit-offer
-        data-first-visit-return="setup.configurations"
+        data-first-visit-return="setup.default"
       />
     </>
   );

@@ -20,8 +20,9 @@ import {
 import { readGuidePredicate } from "@opensesame/app-core/tutorial/registry/state.js";
 import { useMemo } from "react";
 import { useComposition } from "../../bindings/capabilities.js";
-import { installPanelDraws } from "../../lib/install-panel.js";
+import { isTouchPointer } from "../../lib/gestures.js";
 import { installState } from "../../lib/install.js";
+import { installPanelDraws } from "../../lib/install-panel.js";
 import { useIdentityConfigured } from "../../lib/use-configured.js";
 import { finePointerNow, narrowNow } from "../../lib/use-narrow.js";
 import { useIntegrationsDrawn } from "../../sections/settings/use-integrations-drawn.js";
@@ -39,6 +40,7 @@ export function useTutorialGate(): LibraryOptions {
     provideGuideDeviceForm(() => ({
       narrow: narrowNow(),
       keys: finePointerNow(),
+      touch: isTouchPointer(),
     }));
     // The model tour points at picks the on-device model contributes. The
     // AI section stays drawn for WebMCP after that model is turned off.

@@ -13,7 +13,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 
 export type VaultFixture = {
-  current: { items: VaultItem[]; folders: Folder[] };
+  current: { items: VaultItem[]; folders: Folder[]; guest?: boolean };
 };
 
 export const vault: VaultFixture = { current: { items: [], folders: [] } };
@@ -22,6 +22,7 @@ export const saveItems =
   vi.fn<(items: readonly VaultItem[]) => Promise<void>>();
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,

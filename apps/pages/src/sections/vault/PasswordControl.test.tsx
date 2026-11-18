@@ -28,7 +28,7 @@ function method(): PasswordMethod {
   };
 }
 
-function renderControl(onGenerate?: () => Promise<boolean>) {
+function renderControl() {
   const onEdit = vi.fn<(next: PasswordMethod) => void>();
   render(
     <PasswordControl
@@ -39,39 +39,18 @@ function renderControl(onGenerate?: () => Promise<boolean>) {
         controls: "m1-options",
         onToggle: () => undefined,
       }}
-      onGenerate={onGenerate}
     />,
   );
   return onEdit;
 }
 
 describe("PasswordControl generate key", () => {
-  it("lets the reset handoff handle the key without a local regenerate", async () => {
-    const onGenerate = vi.fn(async () => true);
-    const onEdit = renderControl(onGenerate);
+  it("generates a new local draft without queuing a provider reset", async () => {
+    const onEdit = renderControl();
     await userEvent.click(
       screen.getByRole("button", { name: "Generate another password" }),
     );
-    expect(onGenerate).toHaveBeenCalledTimes(1);
-    expect(onEdit).not.toHaveBeenCalled();
-  });
-
-  it("regenerates locally when the handoff declines", async () => {
-    const onGenerate = vi.fn(async () => false);
-    const onEdit = renderControl(onGenerate);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Generate another password" }),
-    );
-    expect(onGenerate).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit.mock.calls[0]?.[0].secret).not.toBe("current-secret-value");
-  });
-
-  it("regenerates locally when no handoff is wired", async () => {
-    const onEdit = renderControl(undefined);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Generate another password" }),
-    );
-    expect(onEdit).toHaveBeenCalledTimes(1);
   });
 });

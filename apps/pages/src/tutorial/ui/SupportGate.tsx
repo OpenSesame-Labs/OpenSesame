@@ -12,8 +12,14 @@
  * Nothing is written to storage; the transcript is memory, as everywhere.
  */
 
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
+import {
+  continueFirstVaultGuide,
+  preserveFirstVaultGate,
+  useFirstVaultGateHandoff,
+} from "../first-vault-handoff.js";
 import { useGateRoute } from "../gate-seat.js";
 import { createSupportController, supportSessionSeams } from "../session.js";
 import { SupportContext } from "../support-context.js";
@@ -41,7 +47,42 @@ export function SupportGate(): ReactElement {
     }),
   );
 
-  useEffect(() => () => controller.destroy(), [controller]);
+  useEffect(
+    () => () =>
+      preserveFirstVaultGate(
+        controller,
+        vaultStore.getSnapshot().status === "unlocked",
+      ),
+    [controller],
+  );
+  useFirstVaultGateHandoff(controller, route);
+
+  useEffect(() => {
+    let sealing = false;
+    const check = () => {
+      const guide = controller.view().guide;
+      const unlocked = vaultStore.getSnapshot().status === "unlocked";
+      if (
+        guide?.goal === "gate.front-door" &&
+        guide.tour?.target === "unlock.seal"
+      ) {
+        sealing = true;
+      } else if (!unlocked) {
+        sealing = false;
+      }
+      if (unlocked && sealing && guide?.goal === "gate.front-door") {
+        sealing = false;
+        continueFirstVaultGuide();
+      }
+    };
+    const stopGuide = controller.subscribe(check);
+    const stopVault = vaultStore.subscribe(check);
+    check();
+    return () => {
+      stopGuide();
+      stopVault();
+    };
+  }, [controller]);
 
   // Subscribed here rather than at construction, like the shell's provider, so
   // React discarding a controller in StrictMode leaves no handler behind.

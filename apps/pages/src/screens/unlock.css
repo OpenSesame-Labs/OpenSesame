@@ -763,6 +763,21 @@
   }
 }
 
+/* Keep utilities in reach while a phone scrolls its gate. In a short
+   keyboard viewport the form gets the whole scrollport. */
+@media (max-width: 900px) and (min-height: 320px) {
+  .unlock--lock-v5:not(.door) {
+    scroll-padding-block-start: calc(3rem + env(safe-area-inset-top, 0px));
+  }
+
+  :where(.unlock--lock-v5:not(.door)) .unlock__brand {
+    position: sticky;
+    z-index: 1;
+    top: max(0.25rem, env(safe-area-inset-top, 0px));
+    background: var(--canvas);
+  }
+}
+
 @media (pointer: coarse), (max-width: 900px) {
   .unlock__brand {
     container-type: inline-size;

@@ -1,0 +1,358 @@
+/** Walk the first-vault tutorial by doing what it asks, including the copy. */
+import { PIN } from "./pages-journey.mjs";
+import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
+import { stepChecks } from "./tutorial-measure.mjs";
+import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
+import { revisitIncompletePin } from "./tutorial-pin-recovery.mjs";
+import { readStep, startTutorial } from "./tutorial-walk.mjs";
+
+export async function runFirstVaultPass({ newPage, width, ...options }) {
+  const { page, context } = await newPage(width);
+  try {
+    await firstVaultPass({ page, context, width, ...options });
+  } catch (error) {
+    options.check(
+      false,
+      `first vault: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function firstVaultPass({
+  page,
+  context,
+  origin,
+  base,
+  check,
+  phone,
+  out,
+  width,
+  keepShots,
+}) {
+  // Test the same automatic first-run behavior a person sees, rather than
+  // the opt-in offer used by WebDriver-controlled browsers.
+  await context.addInitScript(() =>
+    Object.defineProperty(navigator, "webdriver", { get: () => false }),
+  );
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin,
+  });
+  await page.goto(`${origin}${base}`, { waitUntil: "networkidle" });
+  await page
+    .getByRole("button", { name: "Set up your own" })
+    .waitFor({ timeout: 30000 });
+  const step = stepChecker(page, check, phone, 16, "first vault", {
+    out,
+    width,
+    keepShots,
+  });
+  await enterVault(page, step, check, phone);
+  await makePassword(page, step, check, phone);
+}
+
+function stepChecker(
+  page,
+  check,
+  phone,
+  total,
+  label,
+  { out, width, keepShots } = {},
+) {
+  return async function step(target, number) {
+    await page
+      .locator(
+        `.coach[data-coach-target="${target}"][data-coach-status="waiting"]`,
+      )
+      .waitFor({ timeout: 30000 });
+    const info = await readStep(page);
+    check(
+      info?.target === target,
+      `${label}: step ${number} targets ${target}`,
+    );
+    check(
+      info?.counter === `Step ${number} of ${total}`,
+      `${label}: step ${number} keeps one progress count`,
+    );
+    if (info) {
+      for (const [ok, what] of stepChecks(info, { phone }))
+        check(ok, `${label} · ${target}: ${what}`);
+    }
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-${String(number).padStart(2, "0")}.png`,
+      });
+  };
+}
+
+async function enterVault(page, step, check, phone) {
+  await step("unlock.setup", 1);
+  await page.locator(".coach__btn--go").focus();
+  await page.keyboard.press("ArrowRight");
+  check(
+    (await page.locator('.coach[data-coach-target="unlock.setup"]').count()) ===
+      1,
+    "first vault: Next cannot skip a required action",
+  );
+  await page.getByRole("button", { name: "Set up your own" }).click();
+  await step("setup.default", 2);
+  await page.getByRole("button", { name: "Default", exact: true }).click();
+  await step("unlock.local-only", 3);
+  await page.getByRole("button", { name: "Use without an account" }).click();
+  await step("unlock.seal-pin", 4);
+  const pin = page.getByRole("tab", { name: "PIN", exact: true });
+  if ((await pin.getAttribute("aria-selected")) === "true") {
+    await page.locator(".coach__btn--go").click();
+  } else {
+    await pin.click();
+  }
+  await step("unlock.seal-pin-entry", 5);
+  await revisitIncompletePin(page, step, check);
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, "first vault", {
+      fieldLabel: "Device PIN",
+      target: "unlock.seal-pin-entry",
+      shot: "pin-keyboard",
+    });
+  }
+  await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-pin-confirm", 6);
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, "first vault", {
+      fieldLabel: "Confirm PIN",
+      target: "unlock.seal-pin-confirm",
+      shot: "confirm-pin-keyboard",
+    });
+  }
+  await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-ack", 7);
+  await page.getByLabel("I understand this vault cannot be recovered.").check();
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal", 8);
+  await page.getByRole("button", { name: "Seal with PIN" }).click();
+}
+
+async function makePassword(page, step, check, phone) {
+  await page.waitForFunction(
+    () =>
+      [
+        ...document.querySelectorAll('.coach[data-coach-status="waiting"]'),
+      ].some(
+        (node) =>
+          node.querySelector(".coach__count")?.textContent === "Step 9 of 16",
+      ),
+    undefined,
+    { timeout: 30000 },
+  );
+  const target = await page.evaluate(() =>
+    [...document.querySelectorAll('.coach[data-coach-status="waiting"]')]
+      .find(
+        (node) =>
+          node.querySelector(".coach__count")?.textContent === "Step 9 of 16",
+      )
+      ?.getAttribute("data-coach-target"),
+  );
+  if (target === "settings.account-pack") {
+    await step("settings.account-pack", 9);
+    await page.getByRole("switch", { name: "Account", exact: true }).click();
+  } else {
+    await step("", 9);
+    await page.locator(".coach__btn--go").click();
+  }
+  await passwordSteps(page, step, check, 10, "first vault", phone);
+}
+
+async function passwordSteps(page, step, check, first, label, phone) {
+  await openNewAccount(page, step, check, first, label, phone);
+  await configurePassword(page, step, check, first, label, phone);
+  const generated = await generatePassword(page, step, check, first, label);
+  await saveAndCopyPassword(page, step, check, first, label, generated);
+}
+
+async function openNewAccount(page, step, check, first, label, phone) {
+  await step("vault.create", first);
+  await page.locator(".coach__btn--go").focus();
+  await page.keyboard.press("ArrowRight");
+  check(
+    (await page.locator('.coach[data-coach-target="vault.create"]').count()) ===
+      1,
+    `${label}: Next cannot skip creating the item`,
+  );
+  await page
+    .locator('[data-guide-targets~="vault.create"]:visible')
+    .first()
+    .click();
+  await step("item.editor.name", first + 1);
+  check(
+    await page.locator(".coach__btn").filter({ hasText: "Back" }).isDisabled(),
+    `${label}: Back cannot leave an unsaved editor`,
+  );
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1")
+    await checkKeyboardViewport(page, check, label);
+  await page.getByLabel("Name", { exact: true }).fill("Tutorial example");
+}
+
+async function configurePassword(page, step, check, first, label, phone) {
+  // A person may open the next panel before advancing from the name step.
+  if (process.env.TUTORIALS_RECOVERY === "1") {
+    await page
+      .getByRole("button", { name: "Password options" })
+      .first()
+      .click();
+  }
+  await page.locator(".coach__btn--go").click();
+  await step("editor.password-options", first + 2);
+  if (process.env.TUTORIALS_RECOVERY === "1") {
+    check(
+      (await page.locator(".coach__btn--go").getAttribute("aria-disabled")) !==
+        "true",
+      `${label}: options opened early are recognized`,
+    );
+    check(
+      (await page.locator(".coach__text").innerText()).includes(
+        "Password options are open. Select Next.",
+      ),
+      `${label}: instructions acknowledge open password options`,
+    );
+    await page.locator(".coach__btn--go").click();
+  } else {
+    await page
+      .getByRole("button", { name: "Password options" })
+      .first()
+      .click();
+  }
+  await preparePepperStep(page, step, check, first, label);
+  const pepperLabel = page.locator(
+    'label[data-guide-targets~="editor.pepper"]',
+  );
+  if (phone) {
+    const bounds = await pepperLabel.boundingBox();
+    check(
+      Boolean(bounds && bounds.width >= 44 && bounds.height >= 44),
+      `${label}: the entire pepper label is a 44px touch target`,
+    );
+    await pepperLabel.tap();
+  } else {
+    await pepperLabel.click();
+  }
+  check(
+    !(await page.getByLabel("Include pepper").isChecked()),
+    `${label}: selecting the highlighted label turns pepper off`,
+  );
+}
+
+async function generatePassword(page, step, check, first, label) {
+  await step("editor.generate-password", first + 4);
+  if (process.env.TUTORIALS_PEPPER_BACK === "1") {
+    await revisitPepper(page, step, check, first, label);
+  }
+  const password = page.getByLabel("Password", { exact: true }).first();
+  const before = await password.inputValue();
+  await page
+    .getByRole("button", { name: "Generate another password" })
+    .first()
+    .click();
+  await step("item.editor.save", first + 5);
+  const generated = await password.inputValue();
+  check(
+    generated.length > 0 && generated !== before,
+    `${label}: a new password was generated`,
+  );
+  return generated;
+}
+
+async function saveAndCopyPassword(page, step, check, first, label, generated) {
+  await page.getByRole("button", { name: "Save item" }).click();
+  await step("item.copy-password", first + 6);
+  check(
+    await page.locator(".coach__btn").filter({ hasText: "Back" }).isDisabled(),
+    `${label}: Back does not return to the closed editor`,
+  );
+  await page.locator(".coach__btn--go").focus();
+  await page.keyboard.press("ArrowRight");
+  check(
+    (await page
+      .locator('.coach[data-coach-target="item.copy-password"]')
+      .count()) === 1,
+    `${label}: Next cannot skip copying the password`,
+  );
+  await page
+    .getByRole("button", { name: "Copy password", exact: true })
+    .first()
+    .click();
+  await page
+    .getByText("Password copied. Your account is saved in your vault.")
+    .waitFor({ timeout: 15000 });
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  check(
+    copied === generated,
+    `${label}: the complete generated password reached the clipboard`,
+  );
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page.waitForTimeout(1600);
+  check(
+    (await page.locator(".coach").count()) === 0,
+    `${label}: finishing does not immediately start another tutorial`,
+  );
+}
+
+/** Walk the empty-vault offer through the same password journey. */
+export async function firstItemPass({
+  page,
+  context,
+  origin,
+  check,
+  phone,
+  out,
+  width,
+  keepShots,
+}) {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin,
+  });
+  if (process.env.TUTORIALS_FILTERED_FIRST_ITEM === "1") {
+    // Set the existing list's route without a reload, which would lock its vault.
+    await page.evaluate(() => {
+      const url = new URL(window.location.href);
+      url.search = "?f=note";
+      window.history.pushState({}, "", url);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await page.waitForURL(/\?f=note/);
+  }
+  await startTutorial(page, "vault.item.first");
+  const step = stepChecker(page, check, phone, 8, "first item", {
+    out,
+    width,
+    keepShots,
+  });
+  await step("", 1);
+  await page.locator(".coach__btn--go").click();
+  await passwordSteps(page, step, check, 2, "first item", phone);
+}
+
+/** A separate vault keeps this action-based walk from changing other tours. */
+export async function walkFirstItem(entries, options) {
+  if (!entries.some((entry) => entry.id === "vault.item.first")) return;
+  const { width, phone, sealedShell, guarded, origin, check, out, keepShots } =
+    options;
+  const isolated = await sealedShell(width);
+  try {
+    await guarded(isolated.page, "first-item", () =>
+      firstItemPass({
+        ...isolated,
+        origin,
+        check,
+        phone,
+        out,
+        width,
+        keepShots,
+      }),
+    );
+  } finally {
+    await isolated.context.close();
+  }
+}
