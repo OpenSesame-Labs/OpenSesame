@@ -33,6 +33,7 @@ fn config_has_no_wire_constructor_and_no_public_fields() {
     // Everything observable goes through getters; the socket is only ever a path.
     assert!(cfg.endpoint_socket().is_absolute());
     assert_eq!(cfg.trust_domain(), "td.test");
+    assert_eq!(cfg.max_stale().as_secs(), 300);
 }
 
 #[test]

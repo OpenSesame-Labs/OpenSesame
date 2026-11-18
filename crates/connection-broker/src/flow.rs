@@ -111,7 +111,7 @@ pub fn build_authorize_url(
     if matches!(&provider.auth, AuthMethod::OpenRouterPkce { .. }) {
         let raw = config
             .authorize_url(provider)
-            .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.to_string()))?;
+            .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.clone()))?;
         let mut url = assert_transport_allowed(&raw)?;
         let mut callback = Url::parse(redirect_uri).map_err(|_| BrokerError::RedirectNotAllowed)?;
         callback.query_pairs_mut().append_pair("state", state);
@@ -126,11 +126,11 @@ pub fn build_authorize_url(
         ..
     } = &provider.auth
     else {
-        return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+        return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
     };
     let raw = config
         .authorize_url(provider)
-        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.to_string()))?;
+        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.clone()))?;
     let mut url = assert_transport_allowed(&raw)?;
     {
         let mut q = url.query_pairs_mut();
@@ -187,7 +187,7 @@ async fn exchange_openrouter_key(
 ) -> Result<TokenResponse> {
     let raw = config
         .token_url(provider)
-        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.to_string()))?;
+        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.clone()))?;
     let mut response = http
         .post(assert_transport_allowed(&raw)?)
         .header("Accept", "application/json")
@@ -253,18 +253,18 @@ pub async fn post_token_endpoint(
     mut form: Vec<(String, String)>,
 ) -> Result<TokenResponse> {
     let AuthMethod::OAuth2AuthCode { token_auth, .. } = &provider.auth else {
-        return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+        return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
     };
     let raw = config
         .token_url(provider)
-        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.to_string()))?;
+        .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.clone()))?;
     let url = assert_transport_allowed(&raw)?;
 
     let provider_config = config.provider(&provider.id);
     let missing = config.missing_config(provider);
     if !missing.is_empty() {
         return Err(BrokerError::ProviderUnconfigured {
-            provider: provider.id.to_string(),
+            provider: provider.id.clone(),
             missing,
         });
     }
@@ -272,7 +272,7 @@ pub async fn post_token_endpoint(
         (provider_config.client_id, provider_config.client_secret)
     else {
         return Err(BrokerError::ProviderUnconfigured {
-            provider: provider.id.to_string(),
+            provider: provider.id.clone(),
             missing: config.missing_config(provider),
         });
     };
@@ -344,7 +344,7 @@ pub async fn revoke_upstream(
         ..
     } = &provider.auth
     else {
-        return Err(BrokerError::UnsupportedCredential(provider.id.to_string()));
+        return Err(BrokerError::UnsupportedCredential(provider.id.clone()));
     };
     let url = assert_transport_allowed(revoke_url)?;
     let provider_config = config.provider(&provider.id);
@@ -364,7 +364,7 @@ pub async fn revoke_upstream(
         }
         _ => {
             return Err(BrokerError::ProviderUnconfigured {
-                provider: provider.id.to_string(),
+                provider: provider.id.clone(),
                 missing: config.missing_config(provider),
             })
         }

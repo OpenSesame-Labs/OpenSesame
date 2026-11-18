@@ -437,7 +437,7 @@
         "crates/gateway/src/config_listener_tests.rs",
         "crates/gateway/src/transport/boot_tests.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback."
     },
     {
       "id": "certificate-binding",
@@ -546,9 +546,10 @@
         "crates/bitwarden-server/tests/attempt_budget_capacity.rs",
         "crates/bitwarden-server/tests/hardening.rs",
         "crates/bitwarden-server/src/hashing/tests.rs",
-        "crates/bitwarden-server/tests/attempt_budgets.rs"
+        "crates/bitwarden-server/tests/attempt_budgets.rs",
+        "crates/bitwarden-server/tests/security_default_durations.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Hashing test formatting was reviewed with 10 passing hashing tests. Equivalent time constructors preserve token defaults, failure window and notification fallback; default-duration, 50 library, 2 attempt-budget and 4 live-sync tests passed. Test-only duration rewrites in limiter and auth requests retain the same values; 50 library and 4 device-login tests passed. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-send",
@@ -595,9 +596,10 @@
         "crates/bitwarden-server/tests/files.rs",
         "crates/bitwarden-server/tests/attempt_budget_capacity.rs",
         "crates/bitwarden-server/src/hashing/tests.rs",
-        "crates/bitwarden-server/tests/attempt_budgets.rs"
+        "crates/bitwarden-server/tests/attempt_budgets.rs",
+        "crates/bitwarden-server/tests/security_default_durations.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Hashing test formatting was reviewed with 10 passing hashing tests. Equivalent time constructors preserve token defaults and failure window; default-duration, 50 library and 2 attempt-budget tests passed. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-api-key",
@@ -639,7 +641,7 @@
         "crates/bitwarden-server/tests/sign_in_methods.rs",
         "crates/bitwarden-server/tests/attempt_budgets.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The notification fallback retains its one-year duration; 50 library and 4 live-sync tests passed. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-device-code",
@@ -682,7 +684,7 @@
         "crates/bitwarden-server/tests/device_login.rs",
         "crates/bitwarden-server/tests/attempt_budgets.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. The notification fallback retains its one-year duration; 50 library and 4 live-sync tests passed. The auth-request test duration retains its value; 50 library and 4 device-login tests passed. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-import",
@@ -2130,14 +2132,14 @@
       "018c8802"
     ],
     "crates/bitwarden-server/src/notifications/mod.rs": [
-      "90057e7c",
-      "1176aaeb",
-      "597b013c",
-      "7db1f899",
-      "35b3a5c1",
-      "711449af",
-      "8a91b2bf",
-      "fa88a739"
+      "2a3dcd0d",
+      "6c76ddb6",
+      "906f3102",
+      "15c7466c",
+      "b4152913",
+      "e83f1988",
+      "b10cd9da",
+      "92edf1ae"
     ],
     "crates/bitwarden-server/src/wire/account.rs": [
       "939fdb79",
@@ -2300,14 +2302,14 @@
       "5630460c"
     ],
     "crates/bitwarden-server/src/lib.rs": [
-      "4ccbcf18",
-      "8aa565a4",
-      "a6eaecbb",
-      "f0597753",
-      "b894001c",
-      "b1b9e00e",
-      "e505fc38",
-      "dd38b5e4"
+      "ff295b2b",
+      "eb271706",
+      "93791fbe",
+      "98111999",
+      "777926db",
+      "4ad3fe1d",
+      "927a9856",
+      "a783e918"
     ],
     "crates/bitwarden-server/src/limiter.rs": [
       "440214af",
@@ -2320,14 +2322,14 @@
       "9525d5bf"
     ],
     "crates/bitwarden-server/src/limiter_tests.rs": [
-      "c21f9cb1",
-      "08711322",
-      "bb4681c6",
-      "44dfe919",
-      "d4ad13b0",
-      "160244f9",
-      "725394d1",
-      "cc9f1c4c"
+      "33815046",
+      "af15f520",
+      "ae06756c",
+      "40d45817",
+      "b6ff0e6b",
+      "6b9ed3c5",
+      "3d05da33",
+      "449c9c9b"
     ],
     "crates/bitwarden-server/src/routes/account_extras.rs": [
       "b2178b51",
@@ -2360,14 +2362,14 @@
       "46575ea4"
     ],
     "crates/bitwarden-server/src/routes/auth_requests.rs": [
-      "1f91a0b5",
-      "8f491962",
-      "554a85cf",
-      "c19d98a0",
-      "98d1daf6",
-      "11ca950f",
-      "60795f02",
-      "478b5764"
+      "56c3d686",
+      "4c53abbd",
+      "6a313368",
+      "36e86e66",
+      "3ea2694c",
+      "c674191a",
+      "2125a8bd",
+      "f2de9f83"
     ],
     "crates/bitwarden-server/src/routes/cipher_bulk.rs": [
       "86eccf48",
@@ -2708,6 +2710,16 @@
       "d04b3069",
       "40255f27",
       "e118be1d"
+    ],
+    "crates/bitwarden-server/tests/security_default_durations.rs": [
+      "4e3ada1d",
+      "e61dbc3b",
+      "927e3b98",
+      "03bc7517",
+      "02f0cd02",
+      "d2e2b244",
+      "2a85036e",
+      "e6c600d7"
     ],
     "crates/bitwarden-server/tests/sign_in_methods.rs": [
       "359f291d",
@@ -6600,14 +6612,14 @@
       "4a9e1b54"
     ],
     "crates/gateway/src/testkit/mod.rs": [
-      "dd98ef36",
-      "395e30a7",
-      "d4f53cd8",
-      "9f010e0f",
-      "6af72a84",
-      "ec0ba531",
-      "af8551f8",
-      "00166434"
+      "18d8967d",
+      "01502152",
+      "537efa43",
+      "9021a598",
+      "54fc0e37",
+      "95655866",
+      "79387a2c",
+      "b83bd9ed"
     ],
     "crates/gateway/src/testkit/state.rs": [
       "2a9df6e9",
@@ -6760,14 +6772,14 @@
       "5e1e864a"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
-      "7d114ad7",
-      "ed1b58f8",
-      "920a21e6",
-      "e502d85b",
-      "c17cddfc",
-      "2d2218c3",
-      "b4c8b494",
-      "a7b0ff44"
+      "148b6c76",
+      "00e4b756",
+      "66c64ba8",
+      "2abac592",
+      "fd2003e8",
+      "96422249",
+      "98f55bef",
+      "9b88dc6f"
     ],
     "crates/host-core/src/operator.rs": [
       "6ff3fa9f",
@@ -6780,14 +6792,14 @@
       "0892cca1"
     ],
     "crates/host-core/src/http_security.rs": [
-      "3441643e",
-      "96e62003",
-      "8edaafd9",
-      "2d88e23d",
-      "41f0efa1",
-      "60ec2b70",
-      "c79b3a44",
-      "2f2ca4b3"
+      "a87f3f3c",
+      "334ecdca",
+      "322e44de",
+      "fadc5340",
+      "d237a267",
+      "b1aec9de",
+      "9e621b0b",
+      "7353c3f4"
     ],
     "crates/host-core/src/deployment_mode.rs": [
       "92a5648d",
@@ -6810,24 +6822,24 @@
       "d6917551"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "4ecee860",
-      "c38589dc",
-      "9818e4bd",
-      "e8c7c8b5",
-      "efe2f2eb",
-      "51dedbef",
-      "4df69e5e",
-      "18c93fdd"
+      "b1c269fd",
+      "937e0b2d",
+      "45c40cc9",
+      "9c1e2c22",
+      "324e61ce",
+      "d7fbd6f6",
+      "f1a4b65e",
+      "68c715a3"
     ],
     "crates/connection-broker/src/config.rs": [
-      "4a23b693",
-      "85e8c2f6",
-      "6109ca98",
-      "3cda9b79",
-      "da1389df",
-      "420da1fa",
-      "443d975a",
-      "aecf1fac"
+      "cf4e017e",
+      "72844f28",
+      "02ef30a3",
+      "c62c0f78",
+      "874d4dea",
+      "85199b5b",
+      "c01d3116",
+      "8da0135a"
     ],
     "crates/connection-broker/src/constructor.rs": [
       "c022fb07",
@@ -6880,14 +6892,14 @@
       "643cf881"
     ],
     "crates/gateway/tests/testkit.rs": [
-      "09035427",
-      "7eb651ca",
-      "65544b45",
-      "1d11df92",
-      "e880b4a3",
-      "87a66180",
-      "9efe592e",
-      "15f00296"
+      "9bb61d7b",
+      "1b39bfd6",
+      "92be9c37",
+      "958de9e2",
+      "185f1c01",
+      "49b9a9f0",
+      "67fcf6c8",
+      "4dfdc953"
     ],
     "crates/gateway/tests/host-consumer.test.ts": [
       "0731c186",
@@ -6930,14 +6942,14 @@
       "07b6b84b"
     ],
     "crates/connector-host/src/lib.rs": [
-      "cc69443c",
-      "e103d539",
-      "bb3bcc35",
-      "06b5112f",
-      "b2e90346",
-      "c53fa38b",
-      "8ffcbcfa",
-      "30e470c9"
+      "d7b555cc",
+      "28dda0ba",
+      "316ee3e4",
+      "819294e1",
+      "ee514c1c",
+      "aec78eac",
+      "a0e2bfb4",
+      "bf259842"
     ],
     "crates/connector-host/src/constrained_http.rs": [
       "1077414d",

@@ -193,3 +193,26 @@ fn collection_aad(signed: &SignedPolicy) -> Vec<u8> {
         &signed.policy.epoch.to_string(),
     ])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_bundle_rejects_each_invalid_nonce_length() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../spec/conformance/quorum-recovery-fixture.json"
+        ))
+        .unwrap();
+        let signed = RecoveryBundle::from_value(&fixture["bundle"], None)
+            .unwrap()
+            .signed_policy;
+        let secret = [7; 32];
+        let mut bundle = RecoveryBundle::seal(signed, &secret, [3; 24], br#"{"ok":true}"#).unwrap();
+        assert_eq!(bundle.open(&secret).unwrap().expose(), br#"{"ok":true}"#);
+        for length in [0, 23, 25] {
+            bundle.nonce = vec![0; length];
+            assert_eq!(bundle.open(&secret).unwrap_err(), BundleError::Open);
+        }
+    }
+}

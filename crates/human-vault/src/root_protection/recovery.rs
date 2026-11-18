@@ -125,4 +125,21 @@ mod tests {
             vrk.0
         );
     }
+
+    #[test]
+    fn recovery_wrap_rejects_each_invalid_nonce_length() {
+        let key = [7; 32];
+        let vrk = VaultRootKey::generate();
+        let (wrap, _) = wrap_vrk_with_recovery_key(&key, &vrk).unwrap();
+        assert_eq!(unwrap_vrk_with_recovery_key(&key, &wrap).unwrap().0, vrk.0);
+        for length in [0, 23, 25] {
+            let mut malformed = wrap.clone();
+            malformed.nonce_b64 = URL_SAFE_NO_PAD.encode(vec![0; length]);
+            assert!(matches!(
+                unwrap_vrk_with_recovery_key(&key, &malformed),
+                Err(ProtectionError::MalformedEncoding(message))
+                    if message == "recovery nonce length"
+            ));
+        }
+    }
 }
