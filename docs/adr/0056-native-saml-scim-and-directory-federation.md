@@ -217,6 +217,27 @@ deactivation. Local-only deployments use an in-memory budget. The resource
 ceilings are admission controls, not a migration: pre-existing over-limit rows
 are retained and prevent additional admissions until usage is below the limit.
 
+Owner-managed SCIM data is bounded separately: a tenant can retain 64 token
+records and 2,000 group-role mappings, with deployment ceilings of 20,000 each.
+Minting a replacement may discard the oldest revoked token records to make room;
+live credentials are never evicted, and the audit trail remains. If every slot
+holds a live credential, the owner can revoke one and then mint its replacement.
+An owner can also remove a revoked record explicitly with
+`DELETE /scim/tokens/:tokenId/record`; this never removes a live credential.
+Existing mappings can be updated at capacity. To retire one, set it to the
+neutral `member` role and then `DELETE /scim/mappings/:groupId`; deleting a
+non-neutral mapping is refused so the removal cannot grant authority.
+
+Token and mapping lists accept one-based `startIndex` and `count` with a
+maximum page of 100 and return the total alongside the existing array. For an
+older organization with more than 100 records, an unpaginated request returns
+`pagination_required` rather than silently hiding active tokens or mappings.
+Explicit pages remain available, and owners can revoke any listed token or
+purge its already-revoked record even while the organization exceeds a quota.
+Owner mint and mapping changes have a separate mutation budget; token revocation,
+revoked-record removal and neutral-mapping removal remain available when the
+budget is exhausted.
+
 ### 8. Home-realm discovery, and email as routing only
 An organization owner claims an email domain, publishes a DNS TXT record
 `opensesame-domain-verify=<token>`, and verifies it. Only **verified** domains route: a claim

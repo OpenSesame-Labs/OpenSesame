@@ -132,6 +132,14 @@ export * from "./schema/index.js";
 export * from "./schema/scim-groups.js";
 export * from "./schema/wallet-interactions.js";
 export {
+  SCIM_MAPPINGS_PER_DEPLOYMENT,
+  SCIM_MAPPINGS_PER_ORGANIZATION,
+  SCIM_TOKENS_PER_DEPLOYMENT,
+  SCIM_TOKENS_PER_ORGANIZATION,
+  ScimAdminCapacityError,
+  type ScimAdminLimits,
+} from "./scim-admin-limits.js";
+export {
   SCIM_GROUPS_PER_DEPLOYMENT,
   SCIM_GROUPS_PER_ORGANIZATION,
   SCIM_GROUP_CHANGES_MAX,

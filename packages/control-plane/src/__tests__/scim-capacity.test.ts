@@ -178,7 +178,7 @@ it("returns a retryable error for mutations when the tenant budget is exhausted"
   const f = await fixture();
   const rates = f.ctx.stores.scimMutationRates;
   if (!(rates instanceof Map)) throw new Error("Expected local security map");
-  rates.set(`tenant:${f.id}`, {
+  rates.set(`directory:tenant:${f.id}`, {
     count: 600,
     expiresAt: new Date(Date.now() + 60_000),
   });

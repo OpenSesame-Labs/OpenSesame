@@ -4,6 +4,7 @@ import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import type { ScimAdminLimits } from "./scim-admin-limits.js";
 import {
   createMemoryScimTokenStore,
   createPostgresScimTokenStore,
@@ -83,7 +84,10 @@ export interface ScimTokenStore {
   verify(orgId: string, hash: string): Promise<boolean>;
   revoke(orgId: string, id: string): Promise<boolean>;
   /** Owner surface: token ids and lifecycle stamps, never hashes. */
-  list(orgId: string): Promise<ScimTokenRecord[]>;
+  list(orgId: string, page?: ScimUserPageRequest): Promise<ScimTokenRecord[]>;
+  count(orgId: string): Promise<number>;
+  /** Remove retained metadata only after its credential has been revoked. */
+  purgeRevoked(orgId: string, id: string): Promise<boolean>;
 }
 
 export interface ScimStores {
@@ -128,6 +132,7 @@ function mapScimUser(
 
 export function createMemoryScimStores(
   options?: Partial<ScimUserLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
   const limits = scimUserLimits(options);
   const users = new Map<string, ScimUserRecord>();
@@ -199,13 +204,14 @@ export function createMemoryScimStores(
       },
     },
 
-    tokens: createMemoryScimTokenStore(),
+    tokens: createMemoryScimTokenStore(adminLimits),
   };
 }
 
 export function createPostgresScimStores(
   db: Database,
   options?: Partial<ScimUserLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
   const limits = scimUserLimits(options);
   return {
@@ -370,6 +376,6 @@ export function createPostgresScimStores(
       },
     },
 
-    tokens: createPostgresScimTokenStore(db),
+    tokens: createPostgresScimTokenStore(db, adminLimits),
   };
 }

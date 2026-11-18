@@ -83,6 +83,16 @@ export async function putGroupRoleMapping<A, O>(
   }
 }
 
+/** Removing only neutral mappings cannot confer new authority. */
+export function removeNeutralGroupRoleMapping<A, O>(
+  ctx: AppContext,
+  org: Named<O, OrganizationId>,
+  _proof: ActiveOrgOwner<A, O>,
+  groupId: string,
+) {
+  return ctx.stores.scim.mappings.removeIfNeutral(org.value, groupId);
+}
+
 export async function patchScimGroup(
   c: Context<{ Variables: Variables }>,
   session: ScimSession,
