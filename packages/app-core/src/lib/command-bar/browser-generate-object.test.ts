@@ -45,9 +45,7 @@ function fixture(text: string, failure?: Error) {
   return { calls, model, reads };
 }
 
-type RejectionOutcome = { readonly object: { readonly action: "help" } };
-
-async function rejection(promise: Promise<RejectionOutcome>): Promise<Error> {
+async function rejection(promise: Promise<void>): Promise<Error> {
   try {
     await promise;
   } catch (error) {
@@ -112,7 +110,7 @@ describe("the production Prompt API generateObject boundary", () => {
             schema,
             prompt: "Return command help",
             maxRetries: 0,
-          }),
+          }).then(() => undefined),
         ),
       );
     }
