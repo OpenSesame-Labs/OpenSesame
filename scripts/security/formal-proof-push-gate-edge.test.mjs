@@ -299,6 +299,49 @@ test("a suite that changes the source during verification fails the push", (t) =
   assert.match(result.stderr, /changed the source tree/);
 });
 
+test("fetch-side history cannot suppress proofs for a separate push URL", (t) => {
+  const f = fixture(t);
+  installHook(f);
+  const pushRemote = join(f.dir, "push.git");
+  f.git("init", "--bare", "-q", pushRemote);
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    pushRemote,
+    "HEAD:refs/heads/main",
+  );
+  f.write("src/a", "present on the fetch remote only\n");
+  f.commit();
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    f.remote,
+    "HEAD:refs/heads/already",
+  );
+  f.git("remote", "set-url", "--push", "origin", pushRemote);
+  const required = push(f, "HEAD", "refs/heads/new", "9");
+  assert.notEqual(required.status, 0);
+  assert.match(required.stderr, /suite a failed/);
+  assert.deepEqual(f.commands(), ["run verify:a"]);
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    pushRemote,
+    "HEAD:refs/heads/already",
+  );
+  rmSync(f.log, { force: true });
+  const covered = push(f, "HEAD", "refs/heads/other", "9");
+  assert.equal(covered.status, 0, covered.stderr);
+  assert.match(covered.stdout, /no mapped implementation changes/);
+  assert.deepEqual(f.commands(), []);
+});
+
 test("a native Git push invokes the hook with its actual ref stream and propagates proof failure", (t) => {
   const f = fixture(t);
   installHook(f);

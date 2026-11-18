@@ -107,11 +107,31 @@ function pathSet(output) {
   return new Set(text.split("\0").filter(Boolean));
 }
 
-function remoteTips(root, remote) {
+function pushDestination(root, remote) {
   if (!remote || hasControl(remote))
     throw new Error("A remote is required to inspect a newly created ref");
+  // `ls-remote <name>` reads the fetch URL. A configured pushurl, or the
+  // pre-push hook's destination URL, is the history that selects proofs.
+  const configured = spawnSync(
+    "git",
+    ["remote", "get-url", "--push", "--", remote],
+    {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  if (configured.status !== 0) return remote;
+  const url = configured.stdout.trim();
+  if (!url || hasControl(url))
+    throw new Error("A remote is required to inspect a newly created ref");
+  return url;
+}
+
+function remoteTips(root, remote) {
+  const destination = pushDestination(root, remote);
   const advertised = decoder
-    .decode(git(root, ["ls-remote", "--refs", "--", remote]))
+    .decode(git(root, ["ls-remote", "--refs", "--", destination]))
     .split("\n")
     .filter(Boolean)
     .map((line) => {
@@ -135,7 +155,7 @@ function remoteTips(root, remote) {
       "--no-recurse-submodules",
       "--filter=blob:none",
       "--",
-      remote,
+      destination,
       ...refs,
     ]);
   }
@@ -188,7 +208,7 @@ function changedForUpdate(root, ref, remote, getRemoteTips) {
         "--no-recurse-submodules",
         "--filter=blob:none",
         "--",
-        remote,
+        pushDestination(root, remote),
         ref.remoteRef,
       ]);
       previous = commit(root, ref.remoteOid);
@@ -369,7 +389,8 @@ if (
     const root = decoder
       .decode(git(process.cwd(), ["rev-parse", "--show-toplevel"]))
       .trim();
-    runPushGate(root, readFileSync(0), process.argv[2]);
+    // pre-push: argv[2] is the remote name, argv[3] is this push's URL.
+    runPushGate(root, readFileSync(0), process.argv[3] ?? process.argv[2]);
   } catch (error) {
     console.error(`formal proof push gate: ${error.message}`);
     process.exitCode = 1;
