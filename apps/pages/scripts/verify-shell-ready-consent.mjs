@@ -10,7 +10,7 @@
 
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "@playwright/test";
 import { createLocalIamRig } from "./lib/local-iam-rig.mjs";
@@ -79,14 +79,23 @@ function buildDist(shellSource, distCopyTarget) {
       throw new Error(`pages build failed: ${built.status ?? 1}`);
     }
     if (distCopyTarget) {
-      spawnSync("rm", ["-rf", distCopyTarget], {
+      mkdirSync(dirname(resolve(pagesRoot, distCopyTarget)), {
+        recursive: true,
+      });
+      const removed = spawnSync("rm", ["-rf", distCopyTarget], {
         cwd: pagesRoot,
         stdio: "inherit",
       });
-      spawnSync("cp", ["-a", "dist", distCopyTarget], {
+      if (removed.status !== 0) {
+        throw new Error(`rm ${distCopyTarget} failed: ${removed.status ?? 1}`);
+      }
+      const copied = spawnSync("cp", ["-a", "dist", distCopyTarget], {
         cwd: pagesRoot,
         stdio: "inherit",
       });
+      if (copied.status !== 0) {
+        throw new Error(`cp dist → ${distCopyTarget} failed: ${copied.status ?? 1}`);
+      }
     }
   } finally {
     writeFileSync(shellReadyPath, saved);

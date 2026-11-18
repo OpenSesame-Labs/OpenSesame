@@ -125,6 +125,42 @@ section("control-plane-session", {
   },
 });
 
+section("pwa-shell-ready", {
+  baseline: () =>
+    run("npm", [
+      "run",
+      "test",
+      "-w",
+      "@opensesame/pages",
+      "--",
+      "--run",
+      "shell-ready-formal",
+    ]),
+  scratch: () => {
+    const path = "apps/pages/src/bindings/shell-ready.ts";
+    const absolute = join(repo, path);
+    const text = readFileSync(absolute, "utf8");
+    const broken = text.replace(
+      "input.awaitingPlanActivation !== true))",
+      "false && input.awaitingPlanActivation !== true))",
+    );
+    writeFileSync(absolute, broken);
+    try {
+      run("npm", [
+        "run",
+        "test",
+        "-w",
+        "@opensesame/pages",
+        "--",
+        "--run",
+        "shell-ready-formal",
+      ]);
+    } finally {
+      writeFileSync(absolute, text);
+    }
+  },
+});
+
 section("onboarding-recovery", {
   baseline: () =>
     run("npm", [
