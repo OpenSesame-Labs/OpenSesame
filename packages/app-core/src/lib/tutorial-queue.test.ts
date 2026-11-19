@@ -96,6 +96,27 @@ describe("tutorial queue", () => {
     stop();
   });
 
+  it("drops an unbind without restoring a stale binder underneath", () => {
+    const outer: string[] = [];
+    const inner: string[] = [];
+    const unbindOuter = bindTutorialResume(() => {
+      outer.push("outer");
+      return false;
+    });
+    const unbindInner = bindTutorialResume(() => {
+      inner.push("inner");
+      return true;
+    });
+    queueTutorial("vault.lock", { title: "Lock the vault" });
+    expect(resumeTutorialFromNotice("vault.lock")).toBe(true);
+    expect(inner).toEqual(["inner"]);
+    unbindOuter();
+    expect(resumeTutorialFromNotice("vault.lock")).toBe(true);
+    expect(inner).toEqual(["inner", "inner"]);
+    unbindInner();
+    expect(resumeTutorialFromNotice("vault.lock")).toBe(false);
+  });
+
   it("resumes from the notice onto the tour's home route", () => {
     const started: string[] = [];
     const unbind = bindTutorialResume((goalId, guide, home) => {
