@@ -3,6 +3,8 @@
 import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlock-protector-methods.js";
 import type { VaultHeader } from "@opensesame/vault-core";
 import type { Ref } from "react";
+import { FailureNotice } from "../../components/FailureNotice.js";
+import { IconArrowRight, IconPasskey } from "../../components/Icons.js";
 
 /** A browser that keeps nothing across tabs. Said once, on the form, because it changes what is safe to store. */
 export function DurabilityNote({ durable }: { durable: boolean }) {
@@ -84,6 +86,62 @@ export function FormNotes({
       ) : null}
       <DurabilityNote durable={durable} />
     </>
+  );
+}
+
+/** The notice, failure state and one submit action form one tutorial surface. */
+export function SealActions({
+  guideRef,
+  buttonRef,
+  error,
+  lockedFor,
+  failedAttempts,
+  disabled,
+  busy,
+  goVerb,
+  ceremony,
+  showAction,
+  ...notes
+}: Parameters<typeof FormNotes>[0] & {
+  guideRef: Ref<HTMLDivElement> | undefined;
+  buttonRef: Ref<HTMLButtonElement>;
+  error: string | null;
+  lockedFor: number;
+  failedAttempts: number;
+  disabled: boolean;
+  busy: boolean;
+  goVerb: string;
+  ceremony: boolean;
+  showAction: boolean;
+}) {
+  return (
+    <div className="unlock__seal-actions" ref={guideRef}>
+      <FormNotes {...notes} />
+      <FailureNotice id="unlock:error" title="Unlock" message={error} />
+      <LockoutNote lockedFor={lockedFor} failedAttempts={failedAttempts} />
+      {showAction ? (
+        <div className="go-row">
+          <button
+            ref={buttonRef}
+            type="submit"
+            className="go"
+            disabled={disabled}
+            aria-busy={busy}
+            aria-label={goVerb}
+            title={goVerb}
+          >
+            {ceremony ? (
+              <IconPasskey size={18} />
+            ) : (
+              <IconArrowRight size={18} />
+            )}
+          </button>
+          <span className="go-verb" aria-hidden="true">
+            {goVerb}
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

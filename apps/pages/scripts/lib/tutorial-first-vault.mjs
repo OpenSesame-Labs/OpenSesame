@@ -55,13 +55,9 @@ async function firstVaultPass({
   );
   if (protection === "pin-only") {
     await context.addInitScript(() => {
-      function credential() {}
-      credential.getClientCapabilities = async () => ({
-        "extension:prf": false,
-      });
       Object.defineProperty(globalThis, "PublicKeyCredential", {
         configurable: true,
-        value: credential,
+        value: undefined,
       });
     });
   }

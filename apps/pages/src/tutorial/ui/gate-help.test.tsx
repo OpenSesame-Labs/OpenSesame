@@ -178,6 +178,7 @@ describe("what the key opens", () => {
 
 describe("the first-vault sealing handoff", () => {
   const guide = (status: "running" | "waiting" | "done", target?: string) =>
+    // SAFETY: this fixture supplies every field the sealing-state helper reads.
     ({
       status,
       goal: "gate.front-door",
