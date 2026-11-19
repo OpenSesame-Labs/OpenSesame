@@ -5,7 +5,15 @@ import {
 } from "@opensesame/mock-upstream-idp/ldap-server";
 import type { OrgLdapConfig } from "@opensesame/os-domain";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { syncLdapDirectory } from "../interactions/ldap.js";
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
@@ -222,7 +230,6 @@ describe("LDAP directory sync", () => {
     return { principalId: identity.principalId, accessToken };
   }
 
-
   it("regression review: inactive authoritative SCIM subject is not rejoined", async () => {
     const { principalId } = await signIn("carol", carolPassword);
     const ctx = started.ctx;
@@ -230,15 +237,25 @@ describe("LDAP directory sync", () => {
     if (!org) throw new Error("missing org");
     const now = ctx.clock();
     await ctx.stores.scim.users.create({
-      id: "inactive-ldap-regression-review", organizationId: ORG_ID,
-      userName: carolUuid, externalId: carolUuid, active: false,
-      raw: {}, createdAt: now, updatedAt: now,
+      id: "inactive-ldap-regression-review",
+      organizationId: ORG_ID,
+      userName: carolUuid,
+      externalId: carolUuid,
+      active: false,
+      raw: {},
+      createdAt: now,
+      updatedAt: now,
     });
-    await ctx.stores.organizations.set(ORG_ID, { ...org, provisioningEnabled: true });
+    await ctx.stores.organizations.set(ORG_ID, {
+      ...org,
+      provisioningEnabled: true,
+    });
     await ctx.stores.organizationMemberships.remove(ORG_ID, principalId);
     try {
       await syncLdapDirectory(ctx, config());
-      expect(await ctx.stores.organizationMemberships.find(ORG_ID, principalId)).toBeUndefined();
+      expect(
+        await ctx.stores.organizationMemberships.find(ORG_ID, principalId),
+      ).toBeUndefined();
     } finally {
       await ctx.stores.organizations.set(ORG_ID, org);
       await ctx.stores.organizationMemberships.remove(ORG_ID, principalId);
@@ -250,30 +267,53 @@ describe("LDAP directory sync", () => {
     const ctx = started.ctx;
     expect(directory.removeEntry(`uid=dan,${PEOPLE_DN}`)).toBe(true);
     const now = ctx.clock();
-    const membership = { organizationId: ORG_ID, principalId, role: "member" as const, createdAt: now, updatedAt: now };
-    const original = ctx.repos.externalIdentities.listByPrincipal.bind(ctx.repos.externalIdentities);
+    const membership = {
+      organizationId: ORG_ID,
+      principalId,
+      role: "member" as const,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const original = ctx.repos.externalIdentities.listByPrincipal.bind(
+      ctx.repos.externalIdentities,
+    );
     let replaced = false;
-    const spy = vi.spyOn(ctx.repos.externalIdentities, "listByPrincipal").mockImplementation(async (id) => {
-      if (id === principalId && !replaced) {
-        replaced = true;
-        await ctx.stores.organizationMemberships.remove(ORG_ID, id);
-        await ctx.stores.organizationMemberships.upsert(membership);
-      }
-      return original(id);
-    });
+    const spy = vi
+      .spyOn(ctx.repos.externalIdentities, "listByPrincipal")
+      .mockImplementation(async (id) => {
+        if (id === principalId && !replaced) {
+          replaced = true;
+          await ctx.stores.organizationMemberships.remove(ORG_ID, id);
+          await ctx.stores.organizationMemberships.upsert(membership);
+        }
+        return original(id);
+      });
     const realFetch = globalThis.fetch;
-    const host = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      if (String(input).endsWith("/api/v1/sessions/revoke")) {
-        const body = JSON.parse(String(init?.body));
-        return new Response(JSON.stringify({ durable: true, revoked: 1, withdrawal_id: body.withdrawal_id, membership_incarnation: body.membership_incarnation, authority_revision: body.authority_revision }), { status: 200 });
-      }
-      return realFetch(input, init);
-    });
+    const host = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input, init) => {
+        if (String(input).endsWith("/api/v1/sessions/revoke")) {
+          const body = JSON.parse(String(init?.body));
+          return new Response(
+            JSON.stringify({
+              durable: true,
+              revoked: 1,
+              withdrawal_id: body.withdrawal_id,
+              membership_incarnation: body.membership_incarnation,
+              authority_revision: body.authority_revision,
+            }),
+            { status: 200 },
+          );
+        }
+        return realFetch(input, init);
+      });
     try {
       const summary = await syncLdapDirectory(ctx, config());
       expect(replaced).toBe(true);
       expect(summary.deactivated).toBe(0);
-      expect(await ctx.stores.organizationMemberships.find(ORG_ID, principalId)).toBeDefined();
+      expect(
+        await ctx.stores.organizationMemberships.find(ORG_ID, principalId),
+      ).toBeDefined();
     } finally {
       host.mockRestore();
       spy.mockRestore();
@@ -283,25 +323,42 @@ describe("LDAP directory sync", () => {
 
   it("regression review: LDAP role demotion waits for Host withdrawal", async () => {
     const ctx = started.ctx;
-    const identity = await ctx.repos.externalIdentities.findByTuple({ kind: "ldap", issuer: directory.url, subject: carolUuid });
+    const identity = await ctx.repos.externalIdentities.findByTuple({
+      kind: "ldap",
+      issuer: directory.url,
+      subject: carolUuid,
+    });
     if (!identity) throw new Error("missing Carol identity");
     const now = ctx.clock();
-    await ctx.stores.organizationMemberships.upsert({ organizationId: ORG_ID, principalId: identity.principalId, role: "admin", createdAt: now, updatedAt: now });
+    await ctx.stores.organizationMemberships.upsert({
+      organizationId: ORG_ID,
+      principalId: identity.principalId,
+      role: "admin",
+      createdAt: now,
+      updatedAt: now,
+    });
     const realFetch = globalThis.fetch;
     let hostCalls = 0;
-    const host = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      if (String(input).endsWith("/api/v1/sessions/revoke")) {
-        hostCalls += 1;
-        return new Response("unavailable", { status: 503 });
-      }
-      return realFetch(input, init);
-    });
+    const host = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input, init) => {
+        if (String(input).endsWith("/api/v1/sessions/revoke")) {
+          hostCalls += 1;
+          return new Response("unavailable", { status: 503 });
+        }
+        return realFetch(input, init);
+      });
     try {
       await syncLdapDirectory(ctx, config()).catch(() => undefined);
-      const result = await ctx.stores.organizationMemberships.findVersioned(ORG_ID, identity.principalId);
+      const result = await ctx.stores.organizationMemberships.findVersioned(
+        ORG_ID,
+        identity.principalId,
+      );
       expect(hostCalls).toBe(1);
       expect(result?.membership.role).toBe("admin");
       expect(result?.withdrawalId).toBeTruthy();
-    } finally { host.mockRestore(); }
+    } finally {
+      host.mockRestore();
+    }
   });
 });
