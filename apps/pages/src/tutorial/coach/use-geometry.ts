@@ -90,6 +90,61 @@ function revealTarget(
   return true;
 }
 
+function refitAttempts(
+  element: HTMLElement,
+  box: VisibleTargetRect | null,
+  attempts: number,
+): number {
+  if (!needsRoom(element) && !needsReveal(element, box)) return 0;
+  return attempts + Number(attempts < 2 && revealTarget(element, box));
+}
+
+/** Stop correcting when the person scrolls, while allowing pinch zoom. */
+function observeScrollIntent(stop: () => void): () => void {
+  const onWheel = (event: WheelEvent): void => {
+    if (!event.ctrlKey) stop();
+  };
+  const onTouchMove = (event: TouchEvent): void => {
+    if (event.touches.length < 2) stop();
+  };
+  const onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType !== "touch" && event.buttons !== 0) stop();
+  };
+  const onKey = (event: KeyboardEvent): void => {
+    if (
+      [
+        "ArrowUp",
+        "ArrowDown",
+        "PageUp",
+        "PageDown",
+        "Home",
+        "End",
+        " ",
+      ].includes(event.key) &&
+      !(
+        event.target instanceof Element &&
+        event.target.closest(
+          ".coach, input, textarea, select, [contenteditable=true]",
+        )
+      )
+    )
+      stop();
+  };
+  window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+  window.addEventListener("touchmove", onTouchMove, {
+    capture: true,
+    passive: true,
+  });
+  window.addEventListener("pointermove", onPointerMove, true);
+  window.addEventListener("keydown", onKey, true);
+  return () => {
+    window.removeEventListener("wheel", onWheel, true);
+    window.removeEventListener("touchmove", onTouchMove, true);
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("keydown", onKey, true);
+  };
+}
+
 /**
  * The live rectangle of whatever `resolve` returns, one frame behind at most.
  *
@@ -113,14 +168,22 @@ export function useLiveRect(
     let frame = 0;
     let observedKey = "";
     let absent = false;
-    let revealFrames = 0;
+    let revealUntil = 0;
     let revealAttempts = 0;
+    let manuallyScrolled = false;
     const viewport = window.visualViewport;
     const refit = (): void => {
-      // Recheck briefly as the browser and the page settle after a resize.
-      revealFrames = 16;
+      if (manuallyScrolled) return;
+      // Layout and focus can settle after the initial scroll. Keep a brief
+      // correction window, but never pull the page against a person's scroll.
+      revealUntil = performance.now() + 2500;
       revealAttempts = 0;
     };
+    const stopReveal = (): void => {
+      manuallyScrolled = true;
+      revealUntil = 0;
+    };
+    const stopObservingScroll = observeScrollIntent(stopReveal);
     window.addEventListener("resize", refit);
     viewport?.addEventListener("resize", refit);
     const tick = (): void => {
@@ -129,29 +192,24 @@ export function useLiveRect(
       if (observedKey !== currentKey) {
         observedKey = currentKey;
         absent = false;
+        manuallyScrolled = false;
         refit();
       }
       if (!element) absent = true;
       else if (absent) {
         // A panel can close after a step starts and reopen with its target
         // below the viewport. Bring it back once; do not fight later scrolling.
-        element.scrollIntoView?.({
-          block: "center",
-          inline: "nearest",
-          behavior: "auto",
-        });
+        if (!manuallyScrolled)
+          element.scrollIntoView?.({
+            block: "center",
+            inline: "nearest",
+            behavior: "auto",
+          });
         absent = false;
       }
       const box = element ? visibleTargetRect(element) : null;
-      if (
-        element &&
-        revealFrames > 0 &&
-        revealAttempts < 2 &&
-        revealTarget(element, box)
-      ) {
-        revealAttempts += 1;
-      }
-      if (revealFrames > 0) revealFrames -= 1;
+      if (element && performance.now() < revealUntil)
+        revealAttempts = refitAttempts(element, box, revealAttempts);
       const next: Box | null =
         box && element && uncovered(element, box)
           ? {
@@ -173,6 +231,7 @@ export function useLiveRect(
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", refit);
       viewport?.removeEventListener("resize", refit);
+      stopObservingScroll();
     };
   }, []);
   return rect.key === key ? rect.box : null;

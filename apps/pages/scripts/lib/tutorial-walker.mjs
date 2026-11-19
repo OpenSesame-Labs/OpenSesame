@@ -191,7 +191,7 @@ async function walkOne(ctx, page, entry, { phone, width, reset = true }) {
     snap: shots,
   });
   const closed = seen.at(-1)?.kind === "close";
-  check(closed, `${id}: reaches its closing card with Next alone`);
+  check(closed, `${id}: reaches its closing card`);
   if (!closed) {
     await page.keyboard.press("Escape");
     return;

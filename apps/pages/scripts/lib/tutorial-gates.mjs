@@ -21,6 +21,50 @@ import { PIN } from "./pages-journey.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
 import { hasUsableFocus } from "./tutorial-walker.mjs";
 
+/** A late layout reset should be repaired, but a person's scroll should stay. */
+export async function checkLateSealScroll(page, step, check) {
+  const reset = await page.evaluate(() => {
+    const target = document.querySelector(
+      '[data-guide-targets~="unlock.seal"]',
+    );
+    let parent = target?.parentElement;
+    while (parent && parent.scrollTop === 0) parent = parent.parentElement;
+    if (!parent) return false;
+    parent.scrollTop = 0;
+    return true;
+  });
+  check(reset, "first vault: the seal step has a scroll container to test");
+  if (!reset) return;
+  const info = await step("unlock.seal", 8);
+  if (!info?.visibleControl) return;
+  const box = await page
+    .getByRole("button", { name: "Seal with PIN" })
+    .boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -1200);
+  const stayed = await page
+    .waitForFunction(
+      () => {
+        const target = document.querySelector(
+          '[data-guide-targets~="unlock.seal"]',
+        );
+        if (!target || target.getBoundingClientRect().top < innerHeight) {
+          window.__sealScrollSince = null;
+          return false;
+        }
+        window.__sealScrollSince ??= performance.now();
+        return performance.now() - window.__sealScrollSince >= 300;
+      },
+      undefined,
+      { timeout: 2000 },
+    )
+    .then(
+      () => true,
+      () => false,
+    );
+  check(stayed, "first vault: manual scrolling is not overridden");
+}
+
 /** What the key is measured by, read in the page: its box, its name, and what it touches. */
 function measureKey() {
   const keys = [...document.querySelectorAll("button")].filter(

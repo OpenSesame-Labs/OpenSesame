@@ -116,7 +116,49 @@ it("reveals a clipped target after a resize without following later scrolling", 
   frame();
   expect(scroll).toHaveBeenCalledOnce();
   for (let i = 0; i < 16; i += 1) frame();
+  act(() => window.dispatchEvent(new WheelEvent("wheel")));
   top = 100;
+  frame();
+  expect(scroll).toHaveBeenCalledOnce();
+  unmount();
+  button.remove();
+});
+
+it("repairs a late layout reset until the person scrolls", () => {
+  let nextFrame: FrameRequestCallback = () => {};
+  let now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    nextFrame = callback;
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  vi.stubGlobal("innerWidth", 320);
+  vi.stubGlobal("innerHeight", 568);
+  let top = 200;
+  const button = document.createElement("button");
+  button.getBoundingClientRect = () => new DOMRect(10, top, 100, 44);
+  const scroll = vi.fn(() => {
+    top = 200;
+  });
+  button.scrollIntoView = scroll;
+  document.body.append(button);
+  const { unmount } = renderHook(() => useLiveRect(() => button, "step"));
+  const frame = () => {
+    now += 20;
+    act(() => nextFrame(now));
+  };
+
+  for (let i = 0; i < 20; i += 1) frame();
+  const pinch = new Event("touchmove");
+  Object.defineProperty(pinch, "touches", { value: [{}, {}] });
+  act(() => window.dispatchEvent(pinch));
+  act(() => window.dispatchEvent(new WheelEvent("wheel", { ctrlKey: true })));
+  top = 600;
+  frame();
+  expect(scroll).toHaveBeenCalledOnce();
+  act(() => window.dispatchEvent(new TouchEvent("touchmove")));
+  top = 600;
   frame();
   expect(scroll).toHaveBeenCalledOnce();
   unmount();

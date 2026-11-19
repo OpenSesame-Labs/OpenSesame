@@ -80,6 +80,13 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     capabilityId: "vault.import",
   },
   {
+    id: "vault.filter",
+    description: "Open the filter menu on a narrow screen.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.search",
+  },
+  {
     id: "vault.filter.favorites",
     description: "Show items marked as favorites.",
     role: "filter",
