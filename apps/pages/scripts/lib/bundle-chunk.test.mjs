@@ -11,6 +11,8 @@ const matches = [
   ["/repo/node_modules/react/jsx-runtime.js", "react-dom"],
   ["/repo/node_modules/react-dom/client.js", "react-dom"],
   ["/repo/node_modules/scheduler/index.js", "react-dom"],
+  ["/repo/node_modules/preact/compat/dist/compat.mjs", "react-dom"],
+  ["/repo/node_modules/preact/hooks/dist/hooks.mjs", "react-dom"],
   ["/repo/node_modules/react-router/index.js", "react-router"],
   ["/repo/node_modules/react-router-dom/dist/index.js", "react-router"],
   ["/repo/node_modules/react/index.js", "react-dom"],

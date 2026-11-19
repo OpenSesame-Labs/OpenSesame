@@ -192,10 +192,13 @@ assertions that they passed on a particular commit or exercise every edge.
   is active; dismissal does not run the notice action; the remaining time is
   preserved across a pause; a notice remains identifiable and dismissible.
 - **Evidence and gap:** `ToastReading.tla` checks a finite abstraction of
-  reading, time and dismissal; `ToastStack.reading.test.tsx` exercises the
-  React timer with generated interaction sequences. Neither proves the
-  implementation, browser event delivery, screen-reader announcements,
-  notification-tray persistence, every layout, or liveness.
+  reading, time, same-card interval restart and dismissal;
+  `ToastStack.reading.test.tsx` exercises the React timer with generated
+  interaction sequences. A prerelease fault control checks that TLC rejects a
+  timer that runs while only one input is reading and an update that keeps the
+  old remaining time. Neither proves the implementation, browser event
+  delivery, screen-reader announcements, notification-tray persistence, every
+  layout, or liveness.
 
 ### P1: Gate notification arrival and attention
 
@@ -239,6 +242,9 @@ assertions that they passed on a particular commit or exercise every edge.
   restores a valid trigger, and a tablist has one reachable selected stop.
 - **Evidence and gap:** `apps/pages/src/lib/modal-focus.test.tsx` covers
   examples and `apps/pages/scripts/verify-keyboard.mjs` is a browser keyboard
-  gate. No paired formal model and generated sequence suite for nested modals
-  and dynamically changing tab sets are registered in the reviewed ledger.
-  Include removed or disabled triggers and focus targets in future checks.
+  gate. The reviewed ledger registers `RovingTabs.tla`, a generated React
+  sequence test and a Bombadil keyboard fixture (`tabsCoverage` requires Left,
+  Right, Home and End) for a stable, enabled tablist; they assume the parent
+  accepts selection. There is no paired formal model and generated sequence
+  suite for nested modals or dynamically changing tab sets. Include removed
+  or disabled triggers and focus targets in further checks.
