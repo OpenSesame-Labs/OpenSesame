@@ -20,6 +20,7 @@ import {
   tutorialCard,
   walkthrough,
 } from "../__tests__/a11y/harness.js";
+import { firstVaultTourProgress } from "./CoachHud.js";
 
 afterEach(disposeSupport);
 
@@ -56,6 +57,25 @@ const counter = (card: HTMLElement) =>
   card.querySelector(".coach__count")?.textContent ?? "";
 
 describe("the tutorial card", () => {
+  it("keeps passkey and PIN first-vault progress contiguous", () => {
+    expect(firstVaultTourProgress("unlock.methods", 8, 8)).toEqual({
+      offset: 0,
+      count: 12,
+    });
+    expect(firstVaultTourProgress("unlock.seal-pin-entry", 8, 8)).toEqual({
+      offset: 0,
+      count: 16,
+    });
+    expect(firstVaultTourProgress(null, 8, 4)).toEqual({
+      offset: 4,
+      count: 12,
+    });
+    expect(firstVaultTourProgress(null, 8, 8)).toEqual({
+      offset: 8,
+      count: 16,
+    });
+  });
+
   it("has Next on every step and Done on the closing card", async () => {
     const { user, card } = await startLock();
     expect(counter(card)).toBe("Step 1 of 2");

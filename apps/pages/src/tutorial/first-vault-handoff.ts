@@ -10,6 +10,8 @@ import type { SupportController } from "./session.js";
 /** In-memory handoff from the setup gate to the newly opened vault. */
 let pending = false;
 let pendingSignIn = false;
+let pendingGateSteps = 8;
+const gateStepsByController = new WeakMap<SupportController, number>();
 const listeners = new Set<() => void>();
 
 export function firstVaultSignInPending(route: string): boolean {
@@ -23,15 +25,27 @@ function firstVaultTarget(controller: SupportController): string | null {
     : null;
 }
 
-export function continueFirstVaultGuide(): void {
+export function continueFirstVaultGuide(gateSteps = 8): void {
   pending = true;
+  pendingGateSteps = gateSteps;
   for (const listener of [...listeners]) listener();
 }
 
-export function takeFirstVaultGuide(): boolean {
-  const result = pending;
+function takeFirstVaultSteps(): number | null {
+  if (!pending) return null;
   pending = false;
+  const result = pendingGateSteps;
+  pendingGateSteps = 8;
   return result;
+}
+
+export function takeFirstVaultGuide(): boolean {
+  return takeFirstVaultSteps() !== null;
+}
+
+/** Completed gate steps for the first-vault guide on this controller. */
+export function firstVaultGateSteps(controller: SupportController): number {
+  return gateStepsByController.get(controller) ?? 8;
 }
 
 function subscribeFirstVaultGuide(listener: () => void): () => void {
@@ -91,7 +105,10 @@ export function useFirstVaultHandoff(controller: SupportController): void {
     let active = true;
     const resume = () => {
       queueMicrotask(() => {
-        if (active && takeFirstVaultGuide()) {
+        if (!active) return;
+        const gateSteps = takeFirstVaultSteps();
+        if (gateSteps !== null) {
+          gateStepsByController.set(controller, gateSteps);
           void controller.startGuide(
             isCreatableItemKind("account")
               ? FIRST_VAULT_SHELL_GUIDE
@@ -102,10 +119,20 @@ export function useFirstVaultHandoff(controller: SupportController): void {
       });
     };
     const stop = subscribeFirstVaultGuide(resume);
+    const stopGuide = controller.subscribe(() => {
+      const guide = controller.view().guide;
+      if (
+        guide !== null &&
+        (guide.goal !== "gate.front-door" || guide.status === "done")
+      ) {
+        gateStepsByController.delete(controller);
+      }
+    });
     resume();
     return () => {
       active = false;
       stop();
+      stopGuide();
     };
   }, [controller]);
 }

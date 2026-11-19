@@ -15,7 +15,12 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { GateHelpSeat, GateHost } from "../gate-seat.js";
 import { supportSessionSeams, useSupportRoute } from "../session.js";
-import { SupportGate, supportGateSeams } from "./SupportGate.js";
+import {
+  SupportGate,
+  firstVaultDisplayedGateStep,
+  firstVaultSealingState,
+  supportGateSeams,
+} from "./SupportGate.js";
 import { buildEngine } from "./support-test-engine.js";
 
 const original = { ...supportSessionSeams };
@@ -168,5 +173,56 @@ describe("what the key opens", () => {
     expect(
       within(articleOf(written)).queryByRole("button", { name: "Show me" }),
     ).toBeNull();
+  });
+});
+
+describe("the first-vault sealing handoff", () => {
+  const guide = (status: "running" | "waiting" | "done", target?: string) =>
+    ({
+      status,
+      goal: "gate.front-door",
+      tour: target
+        ? { target, message: "Seal the vault.", step: 1, count: 8 }
+        : null,
+    }) as Parameters<typeof firstVaultSealingState>[1];
+
+  it("disarms when Exit finishes the guide before sealing", () => {
+    expect(
+      firstVaultSealingState(true, guide("done", "unlock.methods"), false),
+    ).toBe(false);
+  });
+
+  it("keeps the simultaneous successful-unlock handoff armed", () => {
+    expect(firstVaultSealingState(true, guide("done"), true)).toBe(true);
+  });
+
+  it("does not arm an unrelated unlock from an earlier guide step", () => {
+    expect(
+      firstVaultSealingState(
+        false,
+        guide("waiting", "unlock.local-only"),
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it("disarms when Back leaves the live sealing sequence", () => {
+    expect(
+      firstVaultSealingState(
+        true,
+        guide("waiting", "unlock.local-only"),
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("includes setup progress after the sign-in controller replacement", () => {
+    const resumed = guide("waiting", "unlock.methods");
+    expect(
+      firstVaultDisplayedGateStep({
+        ...resumed,
+        tour: resumed?.tour ? { ...resumed.tour, step: 2, count: 6 } : null,
+      }),
+    ).toBe(4);
   });
 });

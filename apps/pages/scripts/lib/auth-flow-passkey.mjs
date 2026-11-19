@@ -13,7 +13,132 @@
 // put. Walked on both ctap2 and ctap2_1 — neither virtual protocol emits
 // PRF results.
 import { passTheDoor } from "./front-door.mjs";
+import { PIN } from "./pages-journey.mjs";
 import { expect } from "./patient-expect.mjs";
+import { AUTHENTICATOR } from "./quorum-browser-rig.mjs";
+import { checkLateSealScroll } from "./tutorial-gates.mjs";
+import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
+
+export async function addTutorialAuthenticator(context, page, prf) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      ...AUTHENTICATOR,
+      transport: "internal",
+      hasResidentKey: true,
+      hasPrf: prf,
+    },
+  });
+}
+
+/** Seal through browser-backed PRF, or exercise every PIN fallback control. */
+export async function sealFirstVault(
+  page,
+  { step, check, phone, protection, label, out, width, keepShots },
+) {
+  check(
+    (await page
+      .getByRole("tab", { name: "Passkey" })
+      .getAttribute("aria-selected")) === "true",
+    `${protection} first vault: passkey leads the seal`,
+  );
+  const recovery = page.getByLabel(
+    "I understand this vault cannot be recovered.",
+  );
+  check(
+    await recovery.isVisible(),
+    `${protection} first vault: recovery acknowledgment is visible`,
+  );
+  check(
+    await page.getByRole("button", { name: "Seal with passkey" }).isVisible(),
+    `${protection} first vault: Seal with passkey is visible`,
+  );
+  await recovery.check();
+  if (protection === "passkey") {
+    await page.getByRole("button", { name: "Seal with passkey" }).click();
+    return;
+  }
+  await page.getByRole("button", { name: "Seal with passkey" }).click();
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('[role="tab"]')].some(
+      (tab) =>
+        tab.textContent?.trim() === "Security key" &&
+        tab.getAttribute("aria-selected") === "true",
+    ),
+  );
+  check(true, "first vault: PRF failure offers a security key");
+  await page.getByRole("button", { name: "Seal with passkey" }).click();
+  await page
+    .getByRole("tab", { name: "PIN", exact: true })
+    .waitFor({ state: "visible" });
+  await page.locator(".coach__btn--go").click();
+  await page
+    .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+    .waitFor();
+  await step("unlock.seal-pin-entry", 5);
+  await revisitIncompletePin(page, step, check);
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, label, {
+      fieldLabel: "Device PIN",
+      target: "unlock.seal-pin-entry",
+      shot: "pin-keyboard",
+    });
+  }
+  await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-pin-confirm", 6);
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, label, {
+      fieldLabel: "Confirm PIN",
+      target: "unlock.seal-pin-confirm",
+      shot: "confirm-pin-keyboard",
+    });
+  }
+  await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-ack", 7);
+  check(
+    await recovery.isChecked(),
+    "first vault: recovery acknowledgment remains selected",
+  );
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal", 8);
+  if (phone && page.viewportSize().width <= 320)
+    await checkLateSealScroll(page, step, check);
+  await page.locator(".coach__btn--go").click();
+  check(
+    await page.getByRole("heading", { name: "Seal this device" }).isVisible(),
+    "first vault: Next cannot skip sealing the PIN vault",
+  );
+  if (keepShots)
+    await page.screenshot({ path: `${out}/${width}-first-vault-fallback.png` });
+  await page.getByRole("button", { name: "Seal with PIN" }).click();
+}
+
+async function revisitIncompletePin(page, step, check) {
+  if (process.env.TUTORIALS_PIN_BACK !== "1") return;
+  for (const [target, number] of [
+    ["unlock.seal-pin-confirm", 6],
+    ["unlock.seal-ack", 7],
+    ["unlock.seal", 8],
+  ]) {
+    await page.locator(".coach__btn--go").click();
+    await step(target, number);
+  }
+  check(
+    await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
+    "first vault: incomplete PIN details cannot seal the vault",
+  );
+  for (const [target, number] of [
+    ["unlock.seal-ack", 7],
+    ["unlock.seal-pin-confirm", 6],
+    ["unlock.seal-pin-entry", 5],
+  ]) {
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await step(target, number);
+  }
+}
 
 async function addVirtualAuthenticator(context, page, protocol) {
   const cdp = await context.newCDPSession(page);

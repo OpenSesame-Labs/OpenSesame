@@ -27,6 +27,7 @@ import {
   useId,
   useRef,
 } from "react";
+import { firstVaultGateSteps } from "../first-vault-handoff.js";
 import { type SupportController, useSupport } from "../session.js";
 import "./coach.css";
 import {
@@ -68,21 +69,38 @@ function titleOf(guide: GuideRuntimeSnapshot): string {
   return (guide.goal ? guideGoal(guide.goal)?.title : undefined) ?? "Tutorial";
 }
 
+export function firstVaultTourProgress(
+  target: string | null,
+  count: number,
+  gateSteps: number,
+): { offset: number; count: number } {
+  const gateTarget =
+    target?.startsWith("unlock.") || target === "setup.default";
+  const pinTarget = [
+    "unlock.seal-pin-entry",
+    "unlock.seal-pin-confirm",
+    "unlock.seal-ack",
+    "unlock.seal",
+  ].includes(target ?? "");
+  if (count === 8 && !gateTarget) {
+    return { offset: gateSteps, count: gateSteps + count };
+  }
+  return {
+    offset: count === 6 ? 2 : 0,
+    count: pinTarget ? 16 : 12,
+  };
+}
+
 function displayedTour(
   tour: GuideTourView,
   firstVault: boolean,
   requiredAction: boolean,
   ready: boolean,
+  gateSteps: number,
 ): GuideTourView {
-  const gateTarget =
-    tour.target?.startsWith("unlock.") || tour.target === "setup.default";
-  const offset = firstVault
-    ? tour.count === 8 && !gateTarget
-      ? 8
-      : tour.count === 6
-        ? 2
-        : 0
-    : 0;
+  const progress = firstVault
+    ? firstVaultTourProgress(tour.target, tour.count, gateSteps)
+    : { offset: 0, count: tour.count };
   let message = tour.message;
   if (requiredAction && ready && !tour.action) {
     if (tour.target === "editor.password-options")
@@ -95,8 +113,8 @@ function displayedTour(
   return {
     ...tour,
     message,
-    step: tour.step + offset,
-    count: firstVault ? 16 : tour.count,
+    step: tour.step + progress.offset,
+    count: progress.count,
   };
 }
 
@@ -310,7 +328,13 @@ function Coach({
     requiredAction,
     ready,
     canBack,
-    displayTour: displayedTour(tour, firstVault, requiredAction, ready),
+    displayTour: displayedTour(
+      tour,
+      firstVault,
+      requiredAction,
+      ready,
+      firstVaultGateSteps(support),
+    ),
     constrained,
     narrow,
     short,

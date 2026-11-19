@@ -40,13 +40,12 @@ it("compiles every first-vault continuation against the live catalog", () => {
 });
 
 it("leads with a passkey and names PIN only as the PRF fallback", () => {
+  expect(FIRST_VAULT_GATE_GUIDE).toContain("With Passkey selected");
   expect(FIRST_VAULT_GATE_GUIDE).toContain(
-    "Keep Passkey selected when it is offered",
-  );
-  expect(FIRST_VAULT_GATE_GUIDE).toContain(
-    "enter a PIN only when the form falls back",
+    'wait target "unlock.seal-pin-entry" event=appear',
   );
   expect(FIRST_VAULT_GATE_GUIDE).not.toContain('focus "unlock.seal-pin"');
+  expect(FIRST_VAULT_GATE_GUIDE).toContain('focus "unlock.seal-pin-entry"');
   expect(FIRST_VAULT_GATE_GUIDE).toContain(
     'wait state "vault.unlocked" is=true',
   );
