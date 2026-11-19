@@ -23,8 +23,8 @@ import {
   peekEnrollmentTicket,
   storeEnrollmentTicket,
 } from "../repos/enrollment-tickets.js";
-import { saveProvisional } from "../repos/session-storage.js";
 import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
+import { saveProvisional } from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
 
 export const enrollmentRoutes = new Hono<{ Variables: Variables }>();

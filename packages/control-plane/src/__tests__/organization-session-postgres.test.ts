@@ -45,13 +45,15 @@ describe("memory membership revocation boundary", () => {
       release = resolve;
     });
     const original = MemoryOrganizationMembershipStore.prototype.remove;
-    vi.spyOn(MemoryOrganizationMembershipStore.prototype, "remove")
-      .mockImplementationOnce(async function (...args) {
-        const removed = original.apply(this, args);
-        reached();
-        await gate;
-        return removed;
-      });
+    vi.spyOn(
+      MemoryOrganizationMembershipStore.prototype,
+      "remove",
+    ).mockImplementationOnce(async function (...args) {
+      const removed = original.apply(this, args);
+      reached();
+      await gate;
+      return removed;
+    });
     const revoking = revokeOrganizationMembership(started.ctx, {
       organizationId: membership.organizationId,
       principalId: person.principalId,
@@ -237,11 +239,9 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     );
     const cleanupSpy = vi
       .spyOn(DurableMap.prototype, "entries")
-      .mockImplementationOnce(
-      async function () {
+      .mockImplementationOnce(async () => {
         throw new Error("session cleanup unavailable");
-      },
-      );
+      });
     await expect(
       revokeOrganizationMembership(first.ctx, {
         organizationId: rollbackMembership.organizationId,
@@ -258,7 +258,10 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       ),
     ).toBeDefined();
     expect(
-      await principalSessionEpoch(second.ctx.stores, rollbackPerson.principalId),
+      await principalSessionEpoch(
+        second.ctx.stores,
+        rollbackPerson.principalId,
+      ),
     ).toBe(rollbackEpoch);
 
     const orderingResponse = await first.app.request(

@@ -58,7 +58,8 @@ export async function revokeSessionsForIdentity(
         const sessionIds: string[] = [];
         const now = ctx.clock();
         for (const [, session] of await stores.provisionalSessions.entries()) {
-          if (session.principalId !== principalId || session.revokedAt) continue;
+          if (session.principalId !== principalId || session.revokedAt)
+            continue;
           await stores.provisionalSessions.set(session.id, {
             ...session,
             revokedAt: now,
