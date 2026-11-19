@@ -1,9 +1,32 @@
-name: Temporary release validation
-on: workflow_dispatch
+name: Temporary non-Pages validation
+on:
+  push:
+    branches: [codex/release-verification-20261118]
 permissions: {}
 jobs:
-  placeholder:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
     steps:
-      - run: 'true'
-# Signing probe.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 72fc2507187c97e58758881f486b44dd1821fd6c
+          path: candidate
+          persist-credentials: false
+      - name: Verify source and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "72fc2507187c97e58758881f486b44dd1821fd6c"
+          test "$(git rev-parse HEAD^{tree})" = "81baeb8faed39e1303e37e03af7b6eae45ace6f8"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - name: Run non-Pages test tasks
+        working-directory: candidate
+        run: npm run test -- --filter='!@opensesame/pages'
