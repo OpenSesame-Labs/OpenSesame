@@ -24,8 +24,10 @@ import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
+import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import {
+  removeOrganizationMembership,
   writeOrganization,
   writeOrganizationMembership,
 } from "../services/org-admin.js";
@@ -56,7 +58,6 @@ import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 import {
   getMembership,
   jitJoinOrganization,
-  revokeOrganizationMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 import { provisionedRoleForSubject } from "./scim.js";
@@ -65,7 +66,6 @@ import { asVerifiedPrincipal } from "./verified-principal-gate.js";
 export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 export {
   jitJoinOrganization,
-  revokeOrganizationMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 
@@ -266,6 +266,86 @@ function membershipResponse(membership: OrganizationMembership) {
     createdAt: membership.createdAt.toISOString(),
     updatedAt: membership.updatedAt.toISOString(),
   });
+}
+
+export type OrganizationRevocationInput = {
+  organizationId: string;
+  principalId: string;
+  correlationId: string;
+  /** Why authority was withdrawn — recorded on the audit row. */
+  reason: string;
+  /**
+   * Finish session revocation even when the membership row was already gone.
+   * A deprovisioning retry after a partial failure needs this: the first
+   * attempt removed the row and then failed before ending sessions.
+   */
+  revokeSessionsWithoutMembership?: boolean;
+};
+
+export type OrganizationRevocationResult = {
+  /** False when the membership was already gone (a repeated sync pass). */
+  membershipRemoved: boolean;
+  sessionsRevoked: number;
+};
+
+/**
+ * Drop a membership and every session it authorized (ADR 0056/0057).
+ *
+ * SCIM deactivation and an LDAP directory sync both have to do exactly this,
+ * and a deprovisioning that removed the row but left live provisional bearers
+ * behind would leave the user signed in for the rest of the session TTL.
+ */
+export async function revokeOrganizationMembership(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+): Promise<OrganizationRevocationResult> {
+  const { membershipRemoved, sessionsRevoked } =
+    await withPrincipalSessionBoundary(
+      ctx.stores,
+      input.principalId,
+      "revoke",
+      async (stores) => {
+        const membershipRemoved = await serializeMembershipMutation(
+          { ...ctx, stores },
+          input.organizationId,
+          async () =>
+            stores.organizationMemberships.remove(
+              input.organizationId,
+              input.principalId,
+            ),
+        );
+
+        // A membership that was already gone normally authorized nothing here,
+        // and the holder's sessions are not this tenant's to end. A SCIM retry
+        // is the exception: it named the principal through this tenant's tuple.
+        let sessionsRevoked = 0;
+        const sessions =
+          membershipRemoved || input.revokeSessionsWithoutMembership
+            ? await stores.provisionalSessions.entries()
+            : [];
+        for (const [, session] of sessions) {
+          if (session.principalId !== input.principalId) continue;
+          await stores.provisionalSessions.delete(session.id);
+          sessionsRevoked += 1;
+        }
+        await removeOrphanTokens(stores);
+        return { membershipRemoved, sessionsRevoked };
+      },
+    );
+
+  await appendAuditEvent(ctx.repos.auditEvents, {
+    eventType: "organization.member_revoked",
+    outcome: "succeeded",
+    principalId: input.principalId,
+    organizationId: input.organizationId,
+    correlationId: input.correlationId,
+    metadata: {
+      action: "organization.member.revoke",
+      reason: input.reason,
+      count: sessionsRevoked,
+    },
+  });
+  return { membershipRemoved, sessionsRevoked };
 }
 
 async function revokeHostSessions(
@@ -859,13 +939,7 @@ organizationRoutes.delete(
         }
         // Remove authority before yielding so no approval can mint a session in the
         // gap between revocation and this mutation. Restore it if Host fails closed.
-        await revokeOrganizationMembership(ctx, {
-          organizationId,
-          principalId: targetPrincipalId,
-          correlationId: c.get("correlationId"),
-          reason: "owner_removed",
-          membershipSerialized: true,
-        });
+        await removeOrganizationMembership(ctx, org, proof, targetPrincipalId);
         if (
           !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
         ) {
@@ -900,3 +974,5 @@ organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   }
   return c.json(toResponse(org, membership.role));
 });
+
+import { removeOrphanTokens } from "../repos/session-storage.js";

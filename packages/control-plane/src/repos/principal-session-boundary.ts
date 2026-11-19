@@ -1,15 +1,12 @@
 import {
   MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
-  type Database,
-  principals,
 } from "@opensesame/database";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
 
-type MemoryTurn = { tail: Promise<void>; pendingRevocations: number };
-const memoryTurns = new WeakMap<object, Map<string, MemoryTurn>>();
+const memoryTails = new WeakMap<object, Map<string, Promise<void>>>();
 
 export class PrincipalSessionBoundaryChangedError extends Error {
   override readonly name = "PrincipalSessionBoundaryChangedError";
@@ -33,37 +30,26 @@ function lockAcquired(result: unknown): boolean {
 async function memoryBoundary<T>(
   stores: AppStores,
   principalId: string,
-  mode: "authenticate" | "publish" | "revoke",
-  run: (stores: AppStores, database?: Database) => Promise<T>,
+  run: (stores: AppStores) => Promise<T>,
 ): Promise<T> {
-  let turns = memoryTurns.get(stores.provisionalSessions);
-  if (!turns) {
-    turns = new Map();
-    memoryTurns.set(stores.provisionalSessions, turns);
+  let tails = memoryTails.get(stores.provisionalSessions);
+  if (!tails) {
+    tails = new Map();
+    memoryTails.set(stores.provisionalSessions, tails);
   }
-  let turn = turns.get(principalId);
-  if (!turn) {
-    turn = { tail: Promise.resolve(), pendingRevocations: 0 };
-    turns.set(principalId, turn);
-  }
-  if (mode !== "revoke" && turn.pendingRevocations > 0)
-    throw new PrincipalSessionBoundaryChangedError();
-  if (mode === "revoke") turn.pendingRevocations += 1;
-  const previous = turn.tail;
+  const previous = tails.get(principalId) ?? Promise.resolve();
   let release = () => {};
   const current = new Promise<void>((resolve) => {
     release = resolve;
   });
   const tail = previous.then(() => current);
-  turn.tail = tail;
+  tails.set(principalId, tail);
   await previous;
   try {
     return await run(stores);
   } finally {
     release();
-    if (mode === "revoke") turn.pendingRevocations -= 1;
-    if (turn.tail === tail && turn.pendingRevocations === 0)
-      turns.delete(principalId);
+    if (tails.get(principalId) === tail) tails.delete(principalId);
   }
 }
 
@@ -76,7 +62,7 @@ export async function withPrincipalSessionBoundary<T>(
   stores: AppStores,
   principalId: string,
   mode: "authenticate" | "publish" | "revoke",
-  run: (stores: AppStores, database?: Database) => Promise<T>,
+  run: (stores: AppStores) => Promise<T>,
 ): Promise<T> {
   const sessions = stores.provisionalSessions;
   if (!(sessions instanceof DurableMap)) {
@@ -89,7 +75,7 @@ export async function withPrincipalSessionBoundary<T>(
     ) {
       throw new Error("Session and membership stores must use the same backend");
     }
-    return memoryBoundary(stores, principalId, mode, run);
+    return memoryBoundary(stores, principalId, run);
   }
   const tokens = stores.provisionalTokens;
   if (
@@ -123,59 +109,6 @@ export async function withPrincipalSessionBoundary<T>(
         PostgresOrganizationMembershipStore
           ? new PostgresOrganizationMembershipStore(db)
           : stores.organizationMemberships,
-    }, db);
+    });
   });
-}
-
-export async function principalSessionEpochOn(
-  db: Database,
-  principalId: string,
-): Promise<number> {
-  const [principal] = await db
-    .select({ version: principals.sessionAuthorityVersion })
-    .from(principals)
-    .where(eq(principals.id, principalId))
-    .limit(1);
-  return principal?.version ?? 0;
-}
-
-export async function principalSessionEpoch(
-  stores: AppStores,
-  principalId: string,
-): Promise<number> {
-  if (stores.provisionalSessions instanceof DurableMap) {
-    return stores.provisionalSessions.transaction((db) =>
-      principalSessionEpochOn(db, principalId),
-    );
-  }
-  return (await stores.principalSessionEpochs.get(principalId)) ?? 0;
-}
-
-export async function advancePrincipalSessionEpochOn(
-  db: Database,
-  principalId: string,
-): Promise<number> {
-  const [principal] = await db
-    .update(principals)
-    .set({
-      sessionAuthorityVersion: sql`${principals.sessionAuthorityVersion} + 1`,
-    })
-    .where(eq(principals.id, principalId))
-    .returning({ version: principals.sessionAuthorityVersion });
-  if (!principal) throw new Error("Principal session authority is missing");
-  return principal.version;
-}
-
-export async function advancePrincipalSessionEpoch(
-  stores: AppStores,
-  principalId: string,
-): Promise<number> {
-  if (stores.provisionalSessions instanceof DurableMap) {
-    return stores.provisionalSessions.transaction((db) =>
-      advancePrincipalSessionEpochOn(db, principalId),
-    );
-  }
-  const next = (await principalSessionEpoch(stores, principalId)) + 1;
-  await stores.principalSessionEpochs.set(principalId, next);
-  return next;
 }

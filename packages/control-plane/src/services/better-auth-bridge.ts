@@ -1,4 +1,4 @@
-import { createHash, hkdfSync, randomUUID } from "node:crypto";
+import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,
   type UpstreamAuthBundle,
@@ -6,22 +6,22 @@ import {
 } from "@opensesame/auth-upstream";
 import {
   type BoundaryValue,
+  type ProvisionalSession,
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { saveProvisional } from "../repos/session-storage.js";
 import {
   ProvisionalMintRefusedError,
   mintProvisionalForInteraction,
 } from "../interactions/handlers.js";
 import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeIssuer } from "../interactions/registry.js";
-import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
 import { normalizeEmail } from "./email-normalization.js";
 import { attachVerifiedExternalIdentity } from "./identity-link.js";
 import { settleVerifiedOwner } from "./identity-principal-fence.js";
-import { issueProvisionalBearer } from "./provisional-bearer.js";
 
 export { normalizeEmail } from "./email-normalization.js";
 
@@ -88,6 +88,16 @@ export class BetterAuthBridgeError extends Error {
  * link built in `sendMagicLink` can land back inside that interaction.
  */
 export const MAGIC_LINK_INTERACTION_KEY = "interactionUid";
+
+/** Session scope for an email-verified admission: identical to every other leg. */
+const PROVISIONAL_ACTIONS = [
+  "project.create",
+  "project.create_temporary",
+  "resource.create_temporary",
+  "claim.create",
+  "agent.register_ephemeral",
+  "session.continue_anonymous",
+] as const;
 
 /**
  * The issuer recorded on an email identity: this deployment.
@@ -254,6 +264,25 @@ export async function verifyMagicLinkToken(
   }
 }
 
+/** Mint a first-party bearer for a principal that already exists. */
+async function issueProvisionalBearer(
+  ctx: AppContext,
+  principalId: string,
+): Promise<string> {
+  const now = ctx.clock();
+  const session: ProvisionalSession = {
+    id: `ps_${randomBytes(16).toString("hex")}`,
+    principalId,
+    quotaProfile: "anonymous",
+    allowedActions: [...PROVISIONAL_ACTIONS],
+    createdAt: now,
+    expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
+  };
+  const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
+  await saveProvisional(ctx.stores, session, accessToken);
+  return accessToken;
+}
+
 /**
  * Resolve a Better Auth subject to a canonical principal and a session (C20).
  *
@@ -301,10 +330,6 @@ export async function principalForBetterAuthSubject(
 
   const knownPrincipalId = mapped?.principalId ?? existing?.principalId;
   if (knownPrincipalId) {
-    const expectedEpoch = await principalSessionEpoch(
-      ctx.stores,
-      knownPrincipalId,
-    );
     if (!(await settleVerifiedOwner(ctx, knownPrincipalId))) {
       throw new BetterAuthBridgeError(
         "principal_unavailable",
@@ -320,11 +345,7 @@ export async function principalForBetterAuthSubject(
     }
     return {
       principalId: knownPrincipalId,
-      accessToken: await issueProvisionalBearer(
-        ctx,
-        knownPrincipalId,
-        expectedEpoch,
-      ),
+      accessToken: await issueProvisionalBearer(ctx, knownPrincipalId),
     };
   }
 
@@ -371,7 +392,6 @@ export async function principalForBetterAuthSubject(
   // address to a principal that already owned it through another leg, and the
   // principal minted a moment ago is then not the account signing in.
   const principalId = attached.identity.principalId;
-  const expectedEpoch = await principalSessionEpoch(ctx.stores, principalId);
   if (!(await settleVerifiedOwner(ctx, principalId))) {
     throw new BetterAuthBridgeError(
       "principal_unavailable",
@@ -400,6 +420,6 @@ export async function principalForBetterAuthSubject(
         : // The minted session belongs to the minted principal and to nothing
           // else; when D15 redirected the identity, that bearer names an
           // account this sign-in did not complete as.
-          await issueProvisionalBearer(ctx, principalId, expectedEpoch),
+          await issueProvisionalBearer(ctx, principalId),
   };
 }

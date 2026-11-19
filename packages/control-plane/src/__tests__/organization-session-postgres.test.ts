@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
   createDrizzle,
   createSqlClient,
@@ -9,12 +8,6 @@ import { overlapCast } from "@opensesame/os-domain";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
-import { DurableMap } from "../repos/durable-map.js";
-import {
-  principalSessionEpoch,
-  withPrincipalSessionBoundary,
-} from "../repos/principal-session-boundary.js";
-import { saveProvisional } from "../repos/session-storage.js";
 import { adoptSessionWithinCapacity } from "../routes/federated-session.js";
 import {
   ensurePersonalOrganization,
@@ -22,57 +15,6 @@ import {
 } from "../routes/organizations.js";
 
 const databaseUrl = process.env.DATABASE_URL;
-
-describe("memory membership revocation boundary", () => {
-  it("refuses session publication while revocation is pending", async () => {
-    const started = createControlPlane({
-      processEnv: { ...process.env, DATABASE_URL: "" },
-    });
-    const response = await started.app.request("/v1/principals/provisional", {
-      method: "POST",
-    });
-    const person: { principalId: string } = overlapCast(await response.json());
-    const membership = await ensurePersonalOrganization(
-      started.ctx,
-      person.principalId,
-    );
-    let reached = () => {};
-    let release = () => {};
-    const paused = new Promise<void>((resolve) => {
-      reached = resolve;
-    });
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const original = MemoryOrganizationMembershipStore.prototype.remove;
-    vi.spyOn(MemoryOrganizationMembershipStore.prototype, "remove")
-      .mockImplementationOnce(async function (...args) {
-        const removed = original.apply(this, args);
-        reached();
-        await gate;
-        return removed;
-      });
-    const revoking = revokeOrganizationMembership(started.ctx, {
-      organizationId: membership.organizationId,
-      principalId: person.principalId,
-      correlationId: "memory-overlap",
-      reason: "deprovisioned",
-    });
-    await paused;
-    try {
-      await expect(
-        adoptSessionWithinCapacity(
-          started.ctx,
-          person.principalId,
-          "during-removal",
-        ),
-      ).rejects.toThrow(/session authority changed/i);
-    } finally {
-      release();
-    }
-    await revoking;
-  });
-});
 
 describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
   let admin: ReturnType<typeof createSqlClient>;
@@ -144,10 +86,6 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       first.ctx,
       person.principalId,
     );
-    const staleEpoch = await principalSessionEpoch(
-      second.ctx.stores,
-      person.principalId,
-    );
 
     let reached = () => {};
     let release = () => {};
@@ -195,23 +133,6 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     await revoking;
     spy.mockRestore();
 
-    const now = second.ctx.clock();
-    await expect(
-      saveProvisional(
-        second.ctx.stores,
-        {
-          id: `ps_${randomUUID()}`,
-          principalId: person.principalId,
-          quotaProfile: "anonymous",
-          allowedActions: ["session.continue_anonymous"],
-          createdAt: now,
-          expiresAt: new Date(now.getTime() + 60_000),
-        },
-        `pst_${randomUUID()}`,
-        staleEpoch,
-      ),
-    ).rejects.toThrow(/session authority changed/i);
-
     expect(
       (
         await second.app.request("/v1/principals/me", {
@@ -219,103 +140,5 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         })
       ).status,
     ).toBe(401);
-
-    const rollbackResponse = await first.app.request(
-      "/v1/principals/provisional",
-      { method: "POST" },
-    );
-    const rollbackPerson: { principalId: string } = overlapCast(
-      await rollbackResponse.json(),
-    );
-    const rollbackMembership = await ensurePersonalOrganization(
-      first.ctx,
-      rollbackPerson.principalId,
-    );
-    const rollbackEpoch = await principalSessionEpoch(
-      first.ctx.stores,
-      rollbackPerson.principalId,
-    );
-    const cleanupSpy = vi
-      .spyOn(DurableMap.prototype, "entries")
-      .mockImplementationOnce(
-      async function () {
-        throw new Error("session cleanup unavailable");
-      },
-      );
-    await expect(
-      revokeOrganizationMembership(first.ctx, {
-        organizationId: rollbackMembership.organizationId,
-        principalId: rollbackPerson.principalId,
-        correlationId: "rollback",
-        reason: "deprovisioned",
-      }),
-    ).rejects.toThrow("session cleanup unavailable");
-    cleanupSpy.mockRestore();
-    expect(
-      await second.ctx.stores.organizationMemberships.find(
-        rollbackMembership.organizationId,
-        rollbackPerson.principalId,
-      ),
-    ).toBeDefined();
-    expect(
-      await principalSessionEpoch(second.ctx.stores, rollbackPerson.principalId),
-    ).toBe(rollbackEpoch);
-
-    const orderingResponse = await first.app.request(
-      "/v1/principals/provisional",
-      { method: "POST" },
-    );
-    const orderingPerson: { principalId: string } = overlapCast(
-      await orderingResponse.json(),
-    );
-    const orderingMembership = await ensurePersonalOrganization(
-      first.ctx,
-      orderingPerson.principalId,
-    );
-    const orderingSessionId = `ps_${randomUUID()}`;
-    let publicationReached = () => {};
-    let releasePublication = () => {};
-    const publicationPaused = new Promise<void>((resolve) => {
-      publicationReached = resolve;
-    });
-    const publicationGate = new Promise<void>((resolve) => {
-      releasePublication = resolve;
-    });
-    const publishing = withPrincipalSessionBoundary(
-      first.ctx.stores,
-      orderingPerson.principalId,
-      "publish",
-      async (stores) => {
-        const createdAt = first.ctx.clock();
-        await stores.provisionalSessions.set(orderingSessionId, {
-          id: orderingSessionId,
-          principalId: orderingPerson.principalId,
-          quotaProfile: "anonymous",
-          allowedActions: ["session.continue_anonymous"],
-          createdAt,
-          expiresAt: new Date(createdAt.getTime() + 60_000),
-        });
-        publicationReached();
-        await publicationGate;
-      },
-    );
-    await publicationPaused;
-    let revocationSettled = false;
-    const orderedRevocation = revokeOrganizationMembership(second.ctx, {
-      organizationId: orderingMembership.organizationId,
-      principalId: orderingPerson.principalId,
-      correlationId: "publisher-first",
-      reason: "deprovisioned",
-    }).finally(() => {
-      revocationSettled = true;
-    });
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(revocationSettled).toBe(false);
-    releasePublication();
-    await publishing;
-    await orderedRevocation;
-    expect(
-      await first.ctx.stores.provisionalSessions.get(orderingSessionId),
-    ).toBeUndefined();
   }, 60_000);
 });

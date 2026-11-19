@@ -1,12 +1,7 @@
 import type { ProvisionalSession } from "@opensesame/os-domain";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
-import {
-  PrincipalSessionBoundaryChangedError,
-  principalSessionEpoch,
-  principalSessionEpochOn,
-  withPrincipalSessionBoundary,
-} from "./principal-session-boundary.js";
+import { withPrincipalSessionBoundary } from "./principal-session-boundary.js";
 
 async function deleteTokenEntry(stores: AppStores, key: string): Promise<void> {
   const tokens = stores.provisionalTokens;
@@ -18,36 +13,15 @@ export async function saveProvisional(
   stores: AppStores,
   session: ProvisionalSession,
   token: string,
-  expectedEpoch: number,
 ): Promise<void> {
   await withPrincipalSessionBoundary(
     stores,
     session.principalId,
     "publish",
-    async (bound, database) => {
-      if (
-        (database
-          ? await principalSessionEpochOn(database, session.principalId)
-          : await principalSessionEpoch(bound, session.principalId)) !==
-        expectedEpoch
-      )
-        throw new PrincipalSessionBoundaryChangedError();
+    async (bound) => {
       await bound.provisionalSessions.set(session.id, session);
       await bound.provisionalTokens.set(token, session.id);
     },
-  );
-}
-
-export async function saveCurrent(
-  stores: AppStores,
-  session: ProvisionalSession,
-  token: string,
-): Promise<void> {
-  await saveProvisional(
-    stores,
-    session,
-    token,
-    await principalSessionEpoch(stores, session.principalId),
   );
 }
 
