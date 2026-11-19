@@ -1,9 +1,4 @@
-import {
-  type BoundaryValue,
-  type JsonObject,
-  isString,
-  overlapCast,
-} from "@opensesame/os-domain";
+import type { JsonObject } from "@opensesame/os-domain";
 import { decodeJwtEnvelope, sha256Base64Url } from "@opensesame/sdk-browser";
 import { host } from "../host.js";
 import { page, pageOrigin } from "../ports.js";
@@ -16,20 +11,6 @@ import type {
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
-export type {
-  BeginSignInOptions,
-  CompletedSignIn,
-  OidcDiscovery,
-  TrustedUpstream,
-} from "./federation-contract.js";
-import {
-  consumeBrokeredPublication,
-  runOwnedFederationExchange,
-} from "./federation-publication.js";
-export {
-  federationExchangeSeams,
-  saveSession,
-} from "./federation-publication.js";
 import { FederationError } from "./federation-error.js";
 import {
   type FederationSessionGeneration,
@@ -45,28 +26,37 @@ import {
   redirectUri,
 } from "./federation-origin.js";
 import { takeMatchingPending } from "./federation-pending.js";
+import {
+  adoptBrokeredSessionDefault,
+  consumeBrokeredPublication,
+  runOwnedFederationExchange,
+} from "./federation-publication.js";
 import { clearFederationSession as clearSessionDefault } from "./federation-retirement.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
 import { readStoredSessionSync } from "./federation-stored-session.js";
-import {
-  type IdentitySession,
-  identitySessionEpoch,
-  remoteIdentityApi,
-  restoreSession,
-} from "./identity.js";
-import { localNetworkFetch } from "./local-network-fetch.js";
-import { signInMethods } from "./settings.js";
-export {
-  operatorUpstream,
-  isOperatorIdpIssuer,
-} from "./federation-operator.js";
+import { type IdentitySession, remoteIdentityApi } from "./identity.js";
+import { settingsEpoch, signInMethods } from "./settings.js";
 
+export type {
+  BeginSignInOptions,
+  CompletedSignIn,
+  OidcDiscovery,
+  TrustedUpstream,
+} from "./federation-contract.js";
 export { FederationError } from "./federation-error.js";
+export {
+  isOperatorIdpIssuer,
+  operatorUpstream,
+} from "./federation-operator.js";
 export {
   originCallbackUri,
   originClientId,
   redirectUri,
 } from "./federation-origin.js";
+export {
+  federationExchangeSeams,
+  saveSession,
+} from "./federation-publication.js";
 
 /**
  * Federated sign-in against a trusted upstream broker (ADR 0033).
@@ -222,6 +212,7 @@ function captureFederationAction() {
   const originalHost = host();
   const { search, origin, href } = page().location;
   const generation = federationSessionGeneration();
+  const settingsGeneration = settingsEpoch();
   const trust = callbackTrust();
   const originalFetch = fetch;
   let expectedHref = href;
@@ -231,6 +222,7 @@ function captureFederationAction() {
       pageOrigin() !== origin ||
       page().location.href !== expectedHref ||
       fetch !== originalFetch ||
+      settingsEpoch() !== settingsGeneration ||
       callbackTrust() !== trust
     )
       throw new FederationError(
@@ -366,92 +358,6 @@ async function completeSignInDefault(
   return runOwnedFederationExchange(context, captured);
 }
 
-/**
- * Trade the brokered access token for a first-party session (C13/D8).
- *
- * The Identity API looks the token up in its own store, reads the principal it
- * was issued for, and mints a provisional bearer for that same principal. No
- * identity row is written and no principal is minted — which is exactly why
- * this, and not `link-identities`, is the brokered adoption path (T23).
- */
-async function adoptBrokeredSessionDefault(
-  accessToken: string,
-  expectedGeneration?: FederationSessionGeneration,
-  assertOriginal: () => void = () => undefined,
-): Promise<IdentitySession> {
-  assertOriginal();
-  const generation = expectedGeneration ?? federationSessionGeneration();
-  const sessionEpoch = identitySessionEpoch();
-  if (federationSessionGeneration() !== generation)
-    throw new FederationError(
-      "sign_in_cancelled",
-      "That sign-in was ended by a sign-out. Start again.",
-    );
-  const base = remoteIdentityApi();
-  if (!base) {
-    throw new FederationError(
-      "no_identity_api",
-      "No sign-in service is connected, so this sign-in cannot be adopted.",
-    );
-  }
-  let response: Response;
-  try {
-    response = await localNetworkFetch(
-      `${base}/v1/principals/federated-session`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        // The token IS the credential here; a cookie beside it would let a
-        // surviving session answer in its place.
-        credentials: "omit",
-        body: JSON.stringify({ accessToken }),
-      },
-    );
-  } catch {
-    throw new FederationError(
-      "identity_unavailable",
-      `Could not reach the sign-in service at ${base} to finish signing in.`,
-    );
-  }
-  assertOriginal();
-  if (!response.ok) {
-    throw new FederationError(
-      "session_adoption_failed",
-      response.status === 401
-        ? "That sign-in expired before it could be adopted. Try again."
-        : `The sign-in service refused the sign-in (${response.status}).`,
-    );
-  }
-  const body: {
-    principalId?: BoundaryValue;
-    accessToken?: BoundaryValue;
-    expiresAt?: BoundaryValue;
-  } = overlapCast(await response.json());
-  assertOriginal();
-  if (!isString(body.principalId) || !isString(body.accessToken)) {
-    throw new FederationError(
-      "session_adoption_failed",
-      "The sign-in service returned an unusable session.",
-    );
-  }
-  const session: IdentitySession = {
-    principalId: body.principalId,
-    accessToken: body.accessToken,
-    issuerOrigin: new URL(base).origin,
-    ...(isString(body.expiresAt) ? { expiresAt: body.expiresAt } : undefined),
-  };
-  // The generation was checked before the request; check it again before the
-  // synchronous adoption so a sign-out during the exchange cannot be undone.
-  if (federationSessionGeneration() !== generation)
-    throw new FederationError(
-      "sign_in_cancelled",
-      "That sign-in was ended by a sign-out. Start again.",
-    );
-  assertOriginal();
-  restoreSession(session, sessionEpoch);
-  return session;
-}
-
 /** Strip the code out of the address bar so a reload cannot replay it. */
 export function clearAuthResponseFromUrl(): void {
   const url = new URL(page().location.href);
@@ -486,7 +392,7 @@ async function completeSignInWired(): Promise<CompletedSignIn | null> {
   const captured = captureFederationAction();
   const ambient = await ambientAuthSeams.completeIfPresent(captured.search);
   if (ambient) {
-    clearAuthResponseFromUrl();
+    captured.scrub();
     return ambient;
   }
   return completeSignInDefault(captured);

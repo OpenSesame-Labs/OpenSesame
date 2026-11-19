@@ -6,6 +6,10 @@
  */
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+} from "../guest-auth.js";
 import { OPEN_CLAIM, TOKEN, claimHarness, json } from "./ceremony.fixture.js";
 import { CLAIM_WORDS, type ClaimOpen } from "./ceremony.js";
 
@@ -145,6 +149,22 @@ describe("completing", () => {
 });
 
 describe("the guest path", () => {
+  it.each([FRESH_GUEST_SIGN_OUT_MESSAGE, FRESH_GUEST_STATUS_UNKNOWN_MESSAGE])(
+    "does not present through an existing or unknown session: %s",
+    async (message) => {
+      const h = claimHarness({
+        freshProvisional: () => Promise.reject(new Error(message)),
+      });
+
+      expect(await h.ceremony.continueAsGuest(TOKEN, false)).toMatchObject({
+        phase: { kind: "paused", reason: "identity" },
+        message,
+      });
+      expect(h.routes.provisional).not.toHaveBeenCalled();
+      expect(h.routes.present).not.toHaveBeenCalled();
+    },
+  );
+
   it("mints a provisional principal, then presents to it", async () => {
     const h = claimHarness();
     h.signIn(null);

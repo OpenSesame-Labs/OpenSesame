@@ -21,6 +21,8 @@ export type IdentitySession = {
   accessToken: string;
   /** Normalized scheme/host/port that issued this credential. */
   issuerOrigin: string;
+  /** Full Identity API base used to prevent cross-service credential reuse. */
+  issuerBase?: string;
   /**
    * Absent for a token the operator pasted in: only the API knows its horizon,
    * and guessing one would drop a working token. A 401 ends it instead.
@@ -31,6 +33,8 @@ export type IdentitySession = {
    * it. Requests must withhold cookies or a surviving one answers in its place.
    */
   adopted?: boolean;
+  /** A fresh guest bearer must never travel with an ambient browser cookie. */
+  bearerOnly?: boolean;
   /** Resumed from the HttpOnly cookie; no bearer is copied into JavaScript. */
   cookieOnly?: boolean;
 };

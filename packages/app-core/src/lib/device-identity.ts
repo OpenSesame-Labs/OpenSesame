@@ -70,6 +70,16 @@ export function deviceIdentityOrigin(): string {
   }
 }
 
+/** Bind an Identity credential to the origin that issued it. */
+export function identityIssuerOrigin(identityBase: () => string): string {
+  if (isDeviceIdentityMode()) return deviceIdentityOrigin();
+  try {
+    return new URL(identityBase()).origin;
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Every Identity-plane HTTP call goes here so device mode never hits the
  * network and remote mode keeps one timeout/credentials path.

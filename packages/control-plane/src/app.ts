@@ -35,8 +35,8 @@ import {
   createInteractionLinkRoutes,
 } from "./routes/interaction-handoff.js";
 import { createInteractionRoutes } from "./routes/interactions.js";
-import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { mfaRoutes } from "./routes/mfa.js";
+import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { notificationCallbackRoutes } from "./routes/notification-callbacks.js";
 import {
   notificationChannelRoutes,
@@ -104,6 +104,7 @@ export function createHonoApp(
       // Authorization, which names the principal. Omitting it fails the
       // preflight and takes the whole ceremony with it.
       "X-Claim-Token",
+      "X-OpenSesame-Fresh-Guest",
     ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
