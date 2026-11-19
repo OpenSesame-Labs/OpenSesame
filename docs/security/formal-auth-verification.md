@@ -45,8 +45,10 @@ or is replaced by the next sign-in.
 AUTH-C1 was independently reviewed against these exact Git blobs. A squash
 commit that contains the reviewed implementation retains these content-addressed
 objects, so the evidence does not depend on an intermediate commit remaining in
-history. This register does not mechanically check these paths for later drift;
-future changes require a new independent review and snapshot update:
+history. The auth-formal drift gate checks current bytes against these recorded
+Git blob IDs, but that consistency check does not establish that an independent
+review occurred or that AUTH-C1 is correct; future changes require a new
+independent review and snapshot update:
 
 - `packages/app-core/src/lib/identity.ts`: `43e35c6e66e62647e33711a5b8ca1af388aff1df`
 - `packages/app-core/src/lib/identity-probe.ts`: `eeff84e7fc64eccc07426cd49cf04aca60a76364`

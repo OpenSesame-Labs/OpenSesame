@@ -18,6 +18,26 @@ const paths = [
   "packages/control-plane/src/services/project-access.ts",
   "packages/os-domain/src/types.ts",
 ];
+const authC1Paths = [
+  "packages/app-core/src/lib/identity.ts",
+  "packages/app-core/src/lib/identity-probe.ts",
+  "packages/app-core/src/lib/identity-token-proof.ts",
+  "packages/app-core/src/lib/identity-session-types.ts",
+  "packages/app-core/src/lib/device-identity.ts",
+  "packages/app-core/src/lib/browser-pairing.ts",
+  "packages/app-core/src/lib/guest-auth.ts",
+  "packages/app-core/src/lib/federation.ts",
+  "packages/app-core/src/lib/claims/transport.ts",
+  "packages/app-core/src/lib/claims/ceremony.ts",
+  "packages/control-plane/src/app.ts",
+  "packages/control-plane/src/routes/principals.ts",
+  "apps/pages/src/components/IdentityCeremony.tsx",
+  "apps/pages/src/components/ConnectionCeremony.tsx",
+  "apps/pages/src/components/status-mark.css",
+  "apps/pages/src/screens/FrontDoor.tsx",
+  "apps/pages/src/screens/door.css",
+  "apps/pages/src/screens/unlock/GuestRoad.tsx",
+];
 const revisionEvidence =
   coverage.version === 1 && /^[0-9a-f]{40}$/.test(coverage.reviewed_revision);
 const blobEvidence =
@@ -29,7 +49,6 @@ const shallow =
     cwd: root,
     encoding: "utf8",
   }).trim() === "true";
-
 function gitJson(revision, path) {
   return JSON.parse(
     execFileSync("git", ["show", `${revision}:${path}`], {
@@ -38,20 +57,41 @@ function gitJson(revision, path) {
     }),
   );
 }
-
+function validateAuthC1Snapshot() {
+  const formalAuth = readFileSync(
+    `${root}/docs/security/formal-auth-verification.md`,
+    "utf8",
+  );
+  const snapshot = formalAuth.match(
+    /AUTH-C1 was independently reviewed[\s\S]*?future changes require a new\s+independent review and snapshot update:\n(?<rows>(?:\n- `[^`]+`: `[0-9a-f]{40}`)+)/,
+  );
+  if (!snapshot?.groups?.rows)
+    throw new Error("auth-formal: missing AUTH-C1 reviewed-source snapshot");
+  const sources = [
+    ...snapshot.groups.rows.matchAll(/^- `([^`]+)`: `([0-9a-f]{40})`$/gm),
+  ].map((match) => ({ path: match[1], blob: match[2] }));
+  if (
+    sources.length !== authC1Paths.length ||
+    authC1Paths.some((path, index) => sources[index]?.path !== path)
+  )
+    throw new Error("auth-formal: invalid AUTH-C1 source inventory");
+  for (const entry of sources) {
+    const bytes = readFileSync(`${root}/${entry.path}`);
+    const actual = createHash("sha1")
+      .update(`blob ${bytes.length}\0`)
+      .update(bytes)
+      .digest("hex");
+    if (actual !== entry.blob)
+      throw new Error("auth-formal: AUTH-C1 source drift");
+  }
+}
 function v2ExistsInHistory() {
   if (shallow) return false;
-  const commits = execFileSync(
-    "git",
-    [
-      "log",
-      "--full-history",
-      "--format=%H",
-      "--",
-      "spec/formal/auth/coverage.json",
-    ],
-    { cwd: root, encoding: "utf8" },
-  )
+  const args =
+    "log --full-history --format=%H -- spec/formal/auth/coverage.json".split(
+      " ",
+    );
+  const commits = execFileSync("git", args, { cwd: root, encoding: "utf8" })
     .trim()
     .split("\n")
     .filter(Boolean);
@@ -63,7 +103,6 @@ function v2ExistsInHistory() {
     }
   });
 }
-
 function validV2Manifest(manifest) {
   return (
     manifest?.version === 2 &&
@@ -79,7 +118,6 @@ function validV2Manifest(manifest) {
     )
   );
 }
-
 function validatePreviousCoverage(parent, previousCoverage, seen = new Set()) {
   if (previousCoverage.version !== 2) return;
   if (!validV2Manifest(previousCoverage))
@@ -128,7 +166,6 @@ function validatePreviousCoverage(parent, previousCoverage, seen = new Set()) {
   }
   validatePriorAttestationProvenance(parent, previousCoverage, seen);
 }
-
 function validatePriorAttestationProvenance(parent, previousCoverage, seen) {
   const reviewedCommit = execFileSync(
     "git",
@@ -191,7 +228,6 @@ function validatePriorAttestationProvenance(parent, previousCoverage, seen) {
       );
   }
 }
-
 function reviewedBlobBefore(attestationCommit, previousCoverage, entry) {
   const recorded = previousCoverage.sources?.find(
     (candidate) => candidate.path === entry.path,
@@ -320,6 +356,7 @@ if (blobEvidence) {
     }
   }
 }
+validateAuthC1Snapshot();
 for (const entry of coverage.sources) {
   let reviewed;
   try {
@@ -353,6 +390,6 @@ for (const entry of coverage.sources) {
 }
 console.log(
   blobEvidence
-    ? "auth-formal: covered sources match prior squash-safe reviewed-source attestation"
-    : `auth-formal: covered sources match reviewed revision ${coverage.reviewed_revision}`,
+    ? `auth-formal: covered sources match prior squash-safe reviewed-source attestation; AUTH-C1 snapshot matches ${authC1Paths.length} sources`
+    : `auth-formal: covered sources match reviewed revision ${coverage.reviewed_revision}; AUTH-C1 snapshot matches ${authC1Paths.length} sources`,
 );
