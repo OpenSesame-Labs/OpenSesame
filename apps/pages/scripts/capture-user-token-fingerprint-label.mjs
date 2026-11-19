@@ -42,7 +42,7 @@ function runBeforeLabelPatch() {
   const saved = fs.readFileSync(panelPath, "utf8");
   const old = execFileSync(
     "git",
-    ["show", "51b7c83969120aec0f35559984dfd280d1613d98:" + panelRel],
+    ["show", `51b7c83969120aec0f35559984dfd280d1613d98:${panelRel}`],
     { cwd: repoRoot, encoding: "utf8" },
   );
   fs.writeFileSync(panelPath, old);
