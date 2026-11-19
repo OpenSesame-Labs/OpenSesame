@@ -9,9 +9,9 @@ import type {
 import { isJsonObject } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { AppContext } from "../context.js";
-import type { OrganizationId } from "../lib/ids.js";
+import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import type { OrgOwner } from "../proofs/org-owner.js";
+import { type OrgOwner, orgOwner } from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   SCIM_ROLE_ATTRIBUTE,
@@ -65,19 +65,36 @@ export { memberIds, parseMemberSelector };
  */
 export async function putGroupRoleMapping<A, O>(
   ctx: AppContext,
+  actor: Named<A, ActorId>,
   org: Named<O, OrganizationId>,
   _proof: OrgOwner<A, O>,
   groupId: string,
   role: OrganizationRole,
-): Promise<void> {
+): Promise<
+  | { ok: true }
+  | { ok: false; status: 403 | 404; error: "not_found" | "owner_required" }
+> {
   const orgId = org.value;
-  await ctx.stores.scim.mappings.put(orgId, groupId, role);
-  const organization = await ctx.stores.organizations.get(orgId);
+  const decision = await withScimOrganizationBoundary(
+    ctx,
+    orgId,
+    async (tx) => {
+      // A proof obtained before the request body was read can be stale. The
+      // organization lock orders this check with membership withdrawal.
+      const owner = await orgOwner(tx.stores, actor, org, "unchecked");
+      if (!owner.ok) return owner;
+      await tx.stores.scim.mappings.put(orgId, groupId, role);
+      return { ok: true as const, organization: owner.organization };
+    },
+  );
+  if (!decision.ok) return decision;
   const group = await ctx.stores.scim.groups.getById(orgId, groupId);
-  if (!organization || !group) return;
-  for (const memberId of group.memberIds) {
-    await syncDerivedRole(ctx, organization, memberId);
+  if (group) {
+    for (const memberId of group.memberIds) {
+      await syncDerivedRole(ctx, decision.organization, memberId);
+    }
   }
+  return { ok: true };
 }
 
 export async function patchScimGroup(
