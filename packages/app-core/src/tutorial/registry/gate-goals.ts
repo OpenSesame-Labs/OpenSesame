@@ -74,13 +74,13 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
           ? 'say "Protect your new vault with a passkey or a PIN. Your vault is encrypted on this device."'
           : 'say "Use an enrolled key to unlock your vault."',
         creating
-          ? 'focus "unlock.methods" "Keep PIN selected for this walkthrough." side=bottom'
+          ? 'focus "unlock.methods" "Keep Passkey selected when it is offered. If this browser has no WebAuthn PRF, PIN is shown instead." side=bottom'
           : 'focus "unlock.methods" "Keep the selected method for this walkthrough." side=bottom',
         creating
-          ? 'focus "unlock.secret" "Enter a PIN, then enter it again in Confirm PIN. Read and accept the recovery notice below." side=bottom'
+          ? 'focus "unlock.seal-ack" "Read and accept the recovery notice. Enter and confirm a PIN only if the passkey road is unavailable or falls back." side=bottom'
           : 'focus "unlock.secret" "Enter the credential for the selected method." side=bottom',
         creating
-          ? 'focus "unlock.submit" "Select Seal with PIN to create the vault." side=top'
+          ? 'focus "unlock.submit" "Seal with the offered passkey. If an authenticator cannot use PRF, retry the offered key; use PIN only when the form falls back." side=top'
           : 'focus "unlock.submit" "Select Unlock. If you set up a second step, enter its code when asked." side=top',
         'success "You can review vault keys and second steps in Settings → Security."',
         "end",
