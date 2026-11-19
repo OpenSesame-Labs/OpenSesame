@@ -2,6 +2,7 @@ import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
+import { scheduleOrganizationWithdrawalRecovery } from "../services/organization-withdrawal-recovery.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
@@ -37,6 +38,29 @@ afterEach(() => {
 });
 
 describe("organization helpers", () => {
+  it("retries deferred withdrawal recovery until the pending set clears", async () => {
+    const { ctx } = createControlPlane({ config: testConfig() });
+    await ctx.systemPrincipalReady;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const pending = vi
+      .spyOn(ctx.stores.organizationMemberships, "listPendingWithdrawals")
+      .mockResolvedValueOnce([overlapCast({})])
+      .mockResolvedValueOnce([]);
+    let retry: (() => void) | undefined;
+    scheduleOrganizationWithdrawalRecovery(
+      ctx,
+      Promise.resolve(),
+      () => undefined,
+      (run, delayMs) => {
+        expect(delayMs).toBe(1_000);
+        retry = run;
+      },
+    );
+    await vi.waitFor(() => expect(retry).toBeDefined());
+    retry?.();
+    await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(2));
+  });
+
   it("authenticatedPrincipalId throws when the middleware contract broke", () => {
     expect(() => authenticatedPrincipalId(undefined)).toThrow(
       /invariant violated/,
@@ -69,10 +93,7 @@ describe("organization helpers", () => {
     );
   });
 
-  it("revokeOrganizationMembership drops the row and every session it authorized", async () => {
-    // The shared deprovisioning helper: SCIM deactivation and an LDAP sync
-    // both land here, and a revocation that removed the membership but left
-    // live bearers behind would leave the user signed in regardless.
+  it("revokeOrganizationMembership drops organization authority without global logout", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig() });
     const member = await provisional(app);
     const membership = await ensurePersonalOrganization(
@@ -102,12 +123,23 @@ describe("organization helpers", () => {
       },
     });
     expect(result.membershipRemoved).toBe(true);
-    expect(result.sessionsRevoked).toBeGreaterThan(0);
     expect(
       await ctx.stores.organizationWithdrawalAudits.get(
         "00000000-0000-4000-8000-000000000001",
       ),
     ).toBeDefined();
+    const auditFailure = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValueOnce(new Error("audit store unavailable"));
+    await expect(
+      resumePendingOrganizationWithdrawalAudits(ctx),
+    ).rejects.toThrow("audit store unavailable");
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeDefined();
+    auditFailure.mockRestore();
     await resumePendingOrganizationWithdrawalAudits(ctx);
     expect(
       await ctx.stores.organizationWithdrawalAudits.get(
@@ -124,7 +156,7 @@ describe("organization helpers", () => {
     const after = await app.request("/v1/principals/me", {
       headers: auth(member.accessToken),
     });
-    expect(after.status).toBe(401);
+    expect(after.status).toBe(200);
 
     // Directory sync may replay a departure; revocation is idempotent.
     const again = await revokeOrganizationMembership(ctx, {
@@ -134,7 +166,6 @@ describe("organization helpers", () => {
       reason: "deprovisioned",
     });
     expect(again.membershipRemoved).toBe(false);
-    expect(again.sessionsRevoked).toBe(0);
   });
 });
 

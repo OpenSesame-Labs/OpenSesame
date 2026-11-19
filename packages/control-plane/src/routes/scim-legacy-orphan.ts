@@ -1,5 +1,6 @@
 import type { AppContext } from "../context.js";
 import { hostApiEndpoint } from "../services/host-endpoint.js";
+import { confirmsDurableWithdrawal } from "../services/host-withdrawal-attestation.js";
 import { revokeOrganizationMembership } from "./organization-revocation.js";
 
 type LegacyOrphan = {
@@ -20,7 +21,7 @@ export async function finishLegacyOrphan(
     principalId: orphan.principalId,
     correlationId,
     reason: "scim_deactivated",
-    revokeSessionsWithoutMembership: true,
+    advanceEpochWithoutMembership: true,
   });
   const url = hostApiEndpoint(ctx.config.hostApiUrl, "api/v1/sessions/revoke");
   if (!url) throw new Error("Host session revocation is unavailable");
@@ -40,6 +41,12 @@ export async function finishLegacyOrphan(
     redirect: "error",
     signal: AbortSignal.timeout(5_000),
   });
-  await response.body?.cancel();
-  if (!response.ok) throw new Error("Host session revocation is unavailable");
+  if (
+    !(await confirmsDurableWithdrawal(response, {
+      withdrawalId: orphan.withdrawalId,
+      membershipIncarnation: orphan.incarnation,
+      authorityRevision: orphan.authorityRevision,
+    }))
+  )
+    throw new Error("Host session revocation is unavailable");
 }
