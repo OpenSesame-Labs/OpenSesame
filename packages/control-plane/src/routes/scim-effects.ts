@@ -231,7 +231,7 @@ export async function deprovision(
       principalId,
       correlationId,
       reason: "scim_deactivated",
-      revokeSessionsWithoutMembership: true,
+      advanceEpochWithoutMembership: true,
     });
   }
 }

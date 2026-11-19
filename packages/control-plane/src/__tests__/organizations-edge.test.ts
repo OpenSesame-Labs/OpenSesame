@@ -56,10 +56,7 @@ describe("organization helpers", () => {
     );
   });
 
-  it("revokeOrganizationMembership drops the row and every session it authorized", async () => {
-    // The shared deprovisioning helper: SCIM deactivation and an LDAP sync
-    // both land here, and a revocation that removed the membership but left
-    // live bearers behind would leave the user signed in regardless.
+  it("revokeOrganizationMembership drops organization authority without global logout", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig() });
     const member = await provisional(app);
     const membership = await ensurePersonalOrganization(
@@ -79,7 +76,6 @@ describe("organization helpers", () => {
       reason: "deprovisioned",
     });
     expect(result.membershipRemoved).toBe(true);
-    expect(result.sessionsRevoked).toBeGreaterThan(0);
 
     expect(
       await ctx.stores.organizationMemberships.find(
@@ -90,7 +86,7 @@ describe("organization helpers", () => {
     const after = await app.request("/v1/principals/me", {
       headers: auth(member.accessToken),
     });
-    expect(after.status).toBe(401);
+    expect(after.status).toBe(200);
 
     // Directory sync may replay a departure; revocation is idempotent.
     const again = await revokeOrganizationMembership(ctx, {
@@ -100,7 +96,6 @@ describe("organization helpers", () => {
       reason: "deprovisioned",
     });
     expect(again.membershipRemoved).toBe(false);
-    expect(again.sessionsRevoked).toBe(0);
   });
 });
 
@@ -450,6 +445,7 @@ describe("organizations routes edge cases", () => {
   it("removes members with owner and last-owner fences and Host rollback", async () => {
     const { app } = createControlPlane({ config: testConfig() });
     const owner = await verified(app, "org-remove-owner");
+    const otherOwner = await verified(app, "org-remove-other-owner");
     const member = await provisional(app);
     const outsider = await provisional(app);
 
@@ -460,6 +456,17 @@ describe("organizations routes edge cases", () => {
       method: "POST",
       headers: {
         ...auth(owner.accessToken),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ principalId: member.principalId, role: "member" }),
+    });
+    const otherOrg = overlapCast(
+      await (await createOrg(app, otherOwner.accessToken, "keep-org")).json(),
+    );
+    await app.request(`/v1/organizations/${otherOrg.id}/members`, {
+      method: "POST",
+      headers: {
+        ...auth(otherOwner.accessToken),
         "content-type": "application/json",
       },
       body: JSON.stringify({ principalId: member.principalId, role: "member" }),
@@ -500,6 +507,13 @@ describe("organizations routes edge cases", () => {
         })
       ).status,
     ).toBe(200);
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: auth(member.accessToken),
+        })
+      ).status,
+    ).toBe(200);
 
     fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
     expect((await remove(owner.accessToken, member.principalId)).status).toBe(
@@ -509,6 +523,27 @@ describe("organizations routes edge cases", () => {
       headers: auth(owner.accessToken),
     });
     expect(overlapCast(await after.json()).members).toHaveLength(1);
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: auth(member.accessToken),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/v1/organizations/${otherOrg.id}`, {
+          headers: auth(member.accessToken),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/v1/organizations/${org.id}`, {
+          headers: auth(member.accessToken),
+        })
+      ).status,
+    ).not.toBe(200);
   });
 });
 
