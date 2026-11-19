@@ -188,16 +188,9 @@ test("release qualification refuses to lose a required suite", (t) => {
 test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"],
   );
-  for (const id of [
-    "auth",
-    "oauth",
-    "webauthn",
-    "interaction-clock",
-    "authority",
-    "dpop",
-  ]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
@@ -207,6 +200,27 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
       if (kind === "mapping") suite.implementation.shift();
       if (kind === "proof") suite.proofs.shift();
       if (kind === "command") suite.command[2] = "verify:noop";
+      for (const name of ["proof-registry.json", "proof-requirements.json"])
+        writeFileSync(
+          join(f.dir, "spec/formal", name),
+          JSON.stringify(altered),
+        );
+      const result = f.run();
+      assert.notEqual(result.status, 0, `${id}: ${kind}`);
+      assert.match(result.stderr, /required|mapping|proof/i);
+      assert.deepEqual(f.commands(), []);
+    }
+  }
+});
+test("the pinned SPIFFE and source-lifetime lock projections cannot be weakened", (t) => {
+  for (const id of ["spiffe", "source-lifetime"]) {
+    for (const kind of ["remove", "root", "dependency"]) {
+      const f = fixture(t);
+      const altered = structuredClone(REQUIREMENTS);
+      const suite = altered.suites.find((entry) => entry.id === id);
+      if (kind === "remove") delete suite.lockProjection;
+      if (kind === "root") suite.lockProjection.root = "other";
+      if (kind === "dependency") suite.lockProjection.dependency = "spiffe";
       for (const name of ["proof-registry.json", "proof-requirements.json"])
         writeFileSync(
           join(f.dir, "spec/formal", name),
@@ -250,17 +264,4 @@ test("missing or failing axiom controls stop qualification before any suite", (t
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /axiom control tests failed/);
   assert.deepEqual(failing.commands(), []);
-});
-
-test("formal coverage pins use origin/main lineage and survive squash onto main", () => {
-  const root = fileURLToPath(new URL("../..", import.meta.url));
-  const env = { ...process.env };
-  delete env.NODE_TEST_CONTEXT;
-  delete env.NODE_OPTIONS;
-  const run = spawnSync(
-    process.execPath,
-    ["--test", "scripts/test/formal-coverage-squash.test.mjs"],
-    { cwd: root, encoding: "utf8", env },
-  );
-  assert.equal(run.status, 0, run.stderr || run.stdout);
 });

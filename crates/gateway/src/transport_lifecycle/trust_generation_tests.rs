@@ -211,7 +211,7 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         .expect("A adds");
     assert!(serves(&a_generations, "peers"));
     assert!(!serves(&b_generations, "peers"), "B has not refreshed yet");
-    assert!(trust::refresh(&b, opensesame_time::Utc::now())
+    assert!(trust::refresh(&b, chrono::Utc::now())
         .await
         .expect("B refresh"));
     assert!(serves(&b_generations, "peers"), "B adopts A's addition");
@@ -225,7 +225,7 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         .expect("A removes");
     assert!(!serves(&a_generations, "peers"));
     assert!(serves(&b_generations, "peers"), "B still on revision 1");
-    assert!(trust::refresh(&b, opensesame_time::Utc::now())
+    assert!(trust::refresh(&b, chrono::Utc::now())
         .await
         .expect("B refresh"));
     assert!(
@@ -233,9 +233,7 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         "B stops trusting the removed anchor without a restart",
     );
     assert!(
-        !trust::refresh(&b, opensesame_time::Utc::now())
-            .await
-            .expect("again"),
+        !trust::refresh(&b, chrono::Utc::now()).await.expect("again"),
         "nothing newer: a refresh is a no-op",
     );
 
@@ -307,3 +305,6 @@ async fn a_store_failure_leaves_the_running_generation_unchanged() {
     assert_eq!(generations.current().number, before, "nothing activated");
     assert!(!serves(&generations, "peers"));
 }
+
+#[path = "trust_source_tests.rs"]
+mod source_tests;

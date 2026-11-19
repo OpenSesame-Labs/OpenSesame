@@ -11,15 +11,17 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Instant;
 
+use chrono::{DateTime, Utc};
 use opensesame_domain::{TransportError, TrustProfileKind, TrustProfileRef};
 use opensesame_transport_security::{
-    GenerationCandidate, TlsIdentity, TransportGenerations, TrustBundle,
+    GenerationCandidate, SourceOwner, TlsIdentity, TransportGenerations, TrustBundle,
 };
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use secrecy::ExposeSecret as _;
 
-use super::GenerationSink;
+use super::{GenerationLease, GenerationSink};
 use crate::snapshot::SvidGeneration;
 
 /// Adapter from [`SvidGeneration`] to the native generation manager.
@@ -97,12 +99,58 @@ impl TransportGenerationsSink {
 }
 
 impl GenerationSink for TransportGenerationsSink {
-    fn activate(&self, generation: &SvidGeneration) -> Result<u64, TransportError> {
-        let candidate = Self::candidate(generation)?;
-        self.generations.activate(candidate)
+    fn claim(&self) -> Result<Box<dyn GenerationLease>, TransportError> {
+        let owner = self.generations.source_owner();
+        let epoch = self.generations.claim_source(&owner)?;
+        Ok(Box::new(TransportLease {
+            generations: Arc::clone(&self.generations),
+            owner,
+            epoch,
+            retired: false,
+        }))
+    }
+}
+
+struct TransportLease {
+    generations: Arc<TransportGenerations>,
+    owner: SourceOwner,
+    epoch: u64,
+    retired: bool,
+}
+
+impl GenerationLease for TransportLease {
+    fn activate(&mut self, generation: &SvidGeneration) -> Result<u64, TransportError> {
+        let candidate = TransportGenerationsSink::candidate(generation)?;
+        let epoch = self
+            .generations
+            .activate_from_source(&self.owner, self.epoch, candidate)?;
+        self.epoch = epoch;
+        Ok(epoch)
     }
 
-    fn withdraw(&self, reason: TransportError) {
-        self.generations.withdraw(reason);
+    fn tighten(
+        &mut self,
+        deadline: DateTime<Utc>,
+        monotonic_deadline: Instant,
+    ) -> Result<(), TransportError> {
+        self.generations.tighten_source_deadline_bounded(
+            &self.owner,
+            self.epoch,
+            deadline,
+            monotonic_deadline,
+        )
+    }
+
+    fn withdraw(&mut self, reason: TransportError) -> Result<(), TransportError> {
+        self.generations
+            .withdraw_from_source(&self.owner, self.epoch, reason)
+    }
+
+    fn retire(&mut self) -> Result<(), TransportError> {
+        if !self.retired {
+            self.generations.retire_source(&self.owner, self.epoch)?;
+            self.retired = true;
+        }
+        Ok(())
     }
 }
