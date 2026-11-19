@@ -16,14 +16,16 @@ test("cd-pwa.yml paths cover the Pages production workspace closure", () => {
   execFileSync(process.execPath, [gate], { cwd: root, stdio: "pipe" });
 });
 
-test("workflowPathFilters stops at the next top-level YAML key", () => {
+test("workflowPathFilters reads only push.paths", () => {
   const yaml = [
     "on:",
     "  push:",
     "    paths:",
     '      - "apps/pages/**"',
-    "  workflow_dispatch:",
+    "  pull_request:",
+    "    paths:",
     '      - "should-not-count/**"',
+    "  workflow_dispatch:",
     "jobs:",
     "  x:",
     "    steps: []",
@@ -32,9 +34,37 @@ test("workflowPathFilters stops at the next top-level YAML key", () => {
 });
 
 test("pathCovers accepts exact and parent globs only", () => {
+  assert.equal(pathCovers(["packages/foo/**"], "packages/foo/**"), true);
   assert.equal(pathCovers(["packages/**"], "packages/foo/**"), true);
   assert.equal(pathCovers(["packages/foo/src/**"], "packages/foo/**"), false);
   assert.equal(pathCovers(["packages/bar/**"], "packages/foo/**"), false);
+  assert.equal(pathCovers(["packages/foo/**"], "packages/foobar/**"), false);
+});
+
+test("pathCovers honors ordered negative exclusions", () => {
+  assert.equal(
+    pathCovers(["packages/**", "!packages/foo/**"], "packages/foo/**"),
+    false,
+  );
+  assert.equal(
+    pathCovers(["packages/**", "!packages/foo/src/**"], "packages/foo/**"),
+    true,
+  );
+  assert.equal(
+    pathCovers(
+      ["packages/**", "!packages/foo/**", "packages/foo/**"],
+      "packages/foo/**",
+    ),
+    true,
+  );
+  assert.equal(
+    pathCovers(["!packages/foo/**", "packages/**"], "packages/foo/**"),
+    true,
+  );
+  assert.equal(
+    pathCovers(["packages/foo/**", "!packages/**"], "packages/foo/**"),
+    false,
+  );
 });
 
 test("assertCdPwaPaths passes on the live repository", () => {
