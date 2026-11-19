@@ -301,7 +301,7 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "feature-goals",
-    "573e0bc591ba787efa0c3009a4f9f057316b9bc0ba420c6ce8a43570d8e86408",
+    "488d62db43b0326ef22777554e7a681623f2e4ebfcb39379e2613945a0c64bfd",
     ["FEATURE_GOALS", "FEATURE_TUTORIALS"],
   ),
   tutorialDataModule(
@@ -311,7 +311,7 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "integration-goals",
-    "7b6d8cd15b815b2acfe5172105d7fc27746a1dc3cff147fca3784e5a4763f7a0",
+    "3afecff986280b4316c932e4ff6be929e15a70c2541e98733e220890fc488191",
     ["INTEGRATION_GOALS", "INTEGRATION_TUTORIALS"],
   ),
   tutorialDataModule(
