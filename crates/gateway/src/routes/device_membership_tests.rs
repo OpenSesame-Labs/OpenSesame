@@ -72,9 +72,13 @@ async fn replica_withdrawal_blocks_late_approval_and_old_device_redemption() {
         authority_revision: Some(revision.into()),
     };
     assert_eq!(
-        approve(State(first.clone()), operator(&first), Json(approval(&old)))
-            .await
-            .status(),
+        approve_membership(
+            State(first.clone()),
+            operator(&first),
+            Json(approval(&old)),
+        )
+        .await
+        .status(),
         StatusCode::OK
     );
     assert_eq!(
@@ -84,9 +88,13 @@ async fn replica_withdrawal_blocks_late_approval_and_old_device_redemption() {
         StatusCode::OK
     );
     assert_eq!(
-        approve(State(first.clone()), operator(&first), Json(approval(&old)))
-            .await
-            .status(),
+        approve_membership(
+            State(first.clone()),
+            operator(&first),
+            Json(approval(&old)),
+        )
+        .await
+        .status(),
         StatusCode::CONFLICT
     );
     let token_request = || DeviceTokenRequest {
@@ -101,9 +109,13 @@ async fn replica_withdrawal_blocks_late_approval_and_old_device_redemption() {
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        approve(State(first.clone()), operator(&first), Json(approval(&new)))
-            .await
-            .status(),
+        approve_membership(
+            State(first.clone()),
+            operator(&first),
+            Json(approval(&new)),
+        )
+        .await
+        .status(),
         StatusCode::OK
     );
     let minted = response_json(token(State(first.clone()), Json(token_request())).await).await;
@@ -170,7 +182,7 @@ async fn remote_untagged_approval_is_rejected_while_local_bootstrap_is_kept() {
         .principal
         .to_string();
     let code = issued["user_code"].as_str().unwrap().to_owned();
-    let remote = DeviceApproveRequest {
+    let remote = || DeviceApproveRequest {
         user_code: code.clone(),
         principal: Some(principal.clone()),
         organization_id: Some(OrganizationId::new().to_string()),
@@ -179,21 +191,33 @@ async fn remote_untagged_approval_is_rejected_while_local_bootstrap_is_kept() {
         authority_revision: None,
     };
     assert_eq!(
-        approve(State(st.clone()), operator(&st), Json(remote))
+        approve(State(st.clone()), operator(&st), Json(remote()))
             .await
             .status(),
         StatusCode::BAD_REQUEST
     );
-    let local = DeviceApproveRequest {
-        user_code: code,
-        principal: Some(principal),
+    assert_eq!(
+        approve_membership(State(st.clone()), operator(&st), Json(remote()))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    let local = || DeviceApproveRequest {
+        user_code: code.clone(),
+        principal: Some(principal.clone()),
         organization_id: None,
         organization_role: None,
         membership_incarnation: None,
         authority_revision: None,
     };
     assert_eq!(
-        approve(State(st.clone()), operator(&st), Json(local))
+        approve_membership(State(st.clone()), operator(&st), Json(local()))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        approve(State(st.clone()), operator(&st), Json(local()))
             .await
             .status(),
         StatusCode::OK
@@ -244,7 +268,25 @@ async fn legacy_revision_withdrawal_is_scoped_to_one_principal_and_organization(
         .await;
         assert_eq!(issued.status(), StatusCode::OK);
         let issued = response_json(issued).await;
-        let approved = post(&router, &state, "/api/v1/device/approve", json!({
+        let without_revision = json!({
+            "user_code": issued["user_code"], "principal": principal,
+            "organization_id": organization, "organization_role":"member"
+        });
+        for (with_operator, expected) in [
+            (false, StatusCode::UNAUTHORIZED),
+            (true, StatusCode::BAD_REQUEST),
+        ] {
+            let refused = post(
+                &router,
+                &state,
+                "/api/v1/device/approve-membership",
+                without_revision.clone(),
+                with_operator,
+            )
+            .await;
+            assert_eq!(refused.status(), expected);
+        }
+        let approved = post(&router, &state, "/api/v1/device/approve-membership", json!({
             "user_code": issued["user_code"], "principal": principal, "organization_id": organization,
             "organization_role":"member", "membership_incarnation":INCARNATION, "authority_revision":REVISION
         }), true).await;
@@ -307,7 +349,7 @@ async fn legacy_revision_withdrawal_is_scoped_to_one_principal_and_organization(
         .await,
     )
     .await;
-    let stale = post(&router, &state, "/api/v1/device/approve", json!({
+    let stale = post(&router, &state, "/api/v1/device/approve-membership", json!({
         "user_code":issued["user_code"], "principal":p1, "organization_id":o1, "organization_role":"member",
         "membership_incarnation":INCARNATION, "authority_revision":REVISION
     }), true).await;
