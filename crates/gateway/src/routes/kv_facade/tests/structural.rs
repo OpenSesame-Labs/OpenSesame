@@ -1,13 +1,23 @@
 #[test]
 fn pact_auth_precedes_storage_and_the_receipt_precedes_the_body() {
-    let source = concat!(
-        include_str!("../../kv_facade.rs"),
+    // `assert_source_order` stops at the first `#[cfg(test)]`. Take each
+    // file's production prefix so the receipt module is visible and still
+    // precedes the facade.
+    let source = format!(
+        "{}{}",
         include_str!("../../kv_facade_receipt.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap(),
+        include_str!("../../kv_facade.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap(),
     );
     // A read authenticates, resolves inside the caller's organization, and only
     // then touches storage.
     opensesame_host_core::pact::assert_source_order(
-        source,
+        &source,
         &[
             "async fn read_data",
             "parse_kv_path(&mount, &raw_path)",
@@ -19,7 +29,7 @@ fn pact_auth_precedes_storage_and_the_receipt_precedes_the_body() {
     // The body is built, the receipt is emitted, and only a recorded receipt
     // produces a 200.
     opensesame_host_core::pact::assert_source_order(
-        source,
+        &source,
         &[
             "async fn respond_read",
             "let body = data_envelope(",
@@ -30,7 +40,7 @@ fn pact_auth_precedes_storage_and_the_receipt_precedes_the_body() {
     );
     // Signing happens before persistence, and the leak check before both.
     opensesame_host_core::pact::assert_source_order(
-        source,
+        &source,
         &[
             "async fn emit_receipt",
             ".sign_receipt(receipt)",
