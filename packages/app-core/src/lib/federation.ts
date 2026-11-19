@@ -16,20 +16,6 @@ import type {
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
-export type {
-  BeginSignInOptions,
-  CompletedSignIn,
-  OidcDiscovery,
-  TrustedUpstream,
-} from "./federation-contract.js";
-import {
-  consumeBrokeredPublication,
-  runOwnedFederationExchange,
-} from "./federation-publication.js";
-export {
-  federationExchangeSeams,
-  saveSession,
-} from "./federation-publication.js";
 import { FederationError } from "./federation-error.js";
 import {
   type FederationSessionGeneration,
@@ -45,6 +31,10 @@ import {
   redirectUri,
 } from "./federation-origin.js";
 import { takeMatchingPending } from "./federation-pending.js";
+import {
+  consumeBrokeredPublication,
+  runOwnedFederationExchange,
+} from "./federation-publication.js";
 import { clearFederationSession as clearSessionDefault } from "./federation-retirement.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
 import { readStoredSessionSync } from "./federation-stored-session.js";
@@ -56,17 +46,27 @@ import {
 } from "./identity.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
 import { signInMethods } from "./settings.js";
-export {
-  operatorUpstream,
-  isOperatorIdpIssuer,
-} from "./federation-operator.js";
 
+export type {
+  BeginSignInOptions,
+  CompletedSignIn,
+  OidcDiscovery,
+  TrustedUpstream,
+} from "./federation-contract.js";
 export { FederationError } from "./federation-error.js";
+export {
+  isOperatorIdpIssuer,
+  operatorUpstream,
+} from "./federation-operator.js";
 export {
   originCallbackUri,
   originClientId,
   redirectUri,
 } from "./federation-origin.js";
+export {
+  federationExchangeSeams,
+  saveSession,
+} from "./federation-publication.js";
 
 /**
  * Federated sign-in against a trusted upstream broker (ADR 0033).

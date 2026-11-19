@@ -55,7 +55,7 @@ future changes require a new independent review and snapshot update:
 - `packages/app-core/src/lib/device-identity.ts`: `5413ace0727f28634ac0455354b52cdb09a1ba98`
 - `packages/app-core/src/lib/browser-pairing.ts`: `9906a3699c68c654b9e0e2df010ad6ef6fc5ef9f`
 - `packages/app-core/src/lib/guest-auth.ts`: `2b87480a3cc08d6c83963d3ded7e52b2246db8c2`
-- `packages/app-core/src/lib/federation.ts`: `2732cd686f5daab808b5554f7d91673b9d90ce30`
+- `packages/app-core/src/lib/federation.ts`: `ee6cd1081c6d4759d77f24e0cf773619b6690fc3`
 - `packages/app-core/src/lib/claims/transport.ts`: `994e9de1fe080cf0c81e62c62cc4f93dd75b600f`
 - `packages/app-core/src/lib/claims/ceremony.ts`: `4a2206a3ddb5dbc33b12d80cbff87ba6c2b6b24a`
 - `packages/control-plane/src/app.ts`: `d467ad8513b50361446c5b4f93e755aa68e9b900`
