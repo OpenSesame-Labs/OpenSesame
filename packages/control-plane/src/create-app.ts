@@ -337,10 +337,6 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     eventSealer,
   );
 
-  let recoverSecurityState = async (): Promise<void> => {};
-  const securityRecoveryReady = systemPrincipalReady.then(() =>
-    recoverSecurityState(),
-  );
   const ctx: AppContext = {
     hostAuthorizationAudiences: hostAudiences,
     ...passkeyComponents,
@@ -362,12 +358,12 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     notificationCallbackAdapters:
       options.notificationCallbackAdapters ??
       createNotificationCallbackAdapters(config.notifications),
-    // The same pool everything else on this context uses, so a magic link
-    // written by one request is readable by the next — and by another replica.
     ...(betterAuthDatabase ? { betterAuthDatabase } : undefined),
     systemOwnerPrincipalId: SYSTEM_OWNER_PRINCIPAL_ID,
     systemPrincipalReady,
-    securityRecoveryReady,
+    securityRecoveryReady: systemPrincipalReady.then(() =>
+      resumePendingUpstreamLogouts(ctx),
+    ),
     securityStateReady: async () => {
       try {
         await systemPrincipalReady;
@@ -380,8 +376,6 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
-  recoverSecurityState = () => resumePendingUpstreamLogouts(ctx);
-
   const app = createHonoApp(
     scheduleOrganizationWithdrawalRecovery(ctx, systemPrincipalReady, () =>
       log.warn("Organization withdrawal recovery deferred"),

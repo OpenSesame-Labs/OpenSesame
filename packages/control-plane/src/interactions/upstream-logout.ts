@@ -11,7 +11,7 @@ import {
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
 import { revokeSessionTokens } from "../repos/session-storage.js";
-import type { UpstreamLogoutOperation } from "../state.js";
+import type { UpstreamLogoutOperation } from "../routes/backchannel-logout-journal.js";
 
 const REVOCABLE_IDENTITY_KINDS = [
   "oidc",
@@ -69,12 +69,10 @@ export async function revokePrincipalSessions(
         else await advancePrincipalSessionEpoch(stores, principalId);
         const changed: string[] = [];
         const revokedAt = ctx.clock();
-        for (const [
-          sessionId,
-          session,
-        ] of await stores.provisionalSessions.entries()) {
+        for (const [, session] of await stores.provisionalSessions.entries()) {
           if (session.principalId !== principalId || session.revokedAt)
             continue;
+          const sessionId = session.id;
           await stores.provisionalSessions.set(sessionId, {
             ...session,
             revokedAt,
@@ -189,14 +187,14 @@ export async function resumePendingUpstreamLogouts(
   ctx: AppContext,
 ): Promise<void> {
   for (const [
-    ,
+    entryKey,
     operation,
   ] of await ctx.stores.upstreamLogoutOperations.entries()) {
     if (operation.completed) {
       if (operation.retainUntil <= ctx.clock().getTime())
         await deleteSecurityMapEntry(
           ctx.stores.upstreamLogoutOperations,
-          operation.operationKey,
+          entryKey,
         );
       continue;
     }
