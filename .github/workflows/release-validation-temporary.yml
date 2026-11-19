@@ -17,15 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: c131638a37b722bd333d4dc44d6ea666e9ea5ef8
+          ref: 1d9f5a96555a955196e26d0dc68cef44e2b1287e
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and fetch its base
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "c131638a37b722bd333d4dc44d6ea666e9ea5ef8"
-          test "$(git rev-parse HEAD^{tree})" = "013adcf3b78353aa53089a0cf2df47ef987bdd09"
+          test "$(git rev-parse HEAD)" = "1d9f5a96555a955196e26d0dc68cef44e2b1287e"
+          test "$(git rev-parse HEAD^{tree})" = "8f0a6c8e26ea8d8b89087c6b0bd5db4cb5b9a463"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
           git merge-base HEAD origin/main > /dev/null
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
