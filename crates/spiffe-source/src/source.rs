@@ -17,18 +17,17 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use futures::StreamExt as _;
 use opensesame_domain::TransportError;
-use opensesame_time::{DateTime, Utc};
 use spiffe::transport::Endpoint;
 use spiffe::{WorkloadApiClient, X509Context};
 use tokio::sync::watch;
-use tokio::task::JoinHandle;
 
 use crate::config::SpiffeSourceConfig;
 use crate::error::SpiffeSourceError;
 use crate::outage::{bounded_deadline, retention_deadline, Backoff};
-use crate::sink::GenerationSink;
+use crate::sink::{ClaimedSink, GenerationSink, SharedLease};
 use crate::snapshot::{SvidGeneration, TrustDomainBundles};
 use crate::status::{SourcePhase, SourceStatus};
 
@@ -36,119 +35,42 @@ use crate::status::{SourcePhase, SourceStatus};
 mod source_policy;
 use source_policy::{classify_api_failure, ApiAction};
 
-/// A running source.
-///
-/// Dropping the handle signals the background loop to withdraw and stop.
-/// [`Drop`] does not join the task: it cannot await, and aborting the task
-/// would skip that terminal withdrawal. The detached task observes the flag
-/// and exits. Call [`SpiffeSourceHandle::stop`] to wait until it has finished.
-#[derive(Debug)]
-pub struct SpiffeSourceHandle {
-    status: watch::Receiver<SourceStatus>,
-    stop: watch::Sender<bool>,
-    /// `None` after [`SpiffeSourceHandle::stop`] has taken the task to join it.
-    /// `Drop` leaves it in place so the handle drop detaches rather than joins.
-    task: Option<JoinHandle<()>>,
-}
-
-/// Why [`SpiffeSourceHandle::wait_for`] returned before `pred` held.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WaitError {
-    /// `timeout` elapsed. The status is the last observation.
-    DeadlineElapsed(SourceStatus),
-    /// The status sender was dropped because the source task ended or the
-    /// channel closed. The status is the last observation.
-    StatusTaskGone(SourceStatus),
-}
-
-impl std::fmt::Display for WaitError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DeadlineElapsed(status) => write!(
-                f,
-                "deadline elapsed (phase {:?}, generation {:?})",
-                status.phase, status.generation
-            ),
-            Self::StatusTaskGone(status) => write!(
-                f,
-                "status task gone (phase {:?}, generation {:?})",
-                status.phase, status.generation
-            ),
-        }
-    }
-}
-
-impl std::error::Error for WaitError {}
-
-impl SpiffeSourceHandle {
-    /// Live status feed.
-    #[must_use]
-    pub fn status(&self) -> watch::Receiver<SourceStatus> {
-        self.status.clone()
-    }
-
-    /// Current status.
-    #[must_use]
-    pub fn current(&self) -> SourceStatus {
-        self.status.borrow().clone()
-    }
-
-    /// Wait until `pred` holds for the status, the timeout elapses, or the
-    /// status task is gone.
-    ///
-    /// # Errors
-    /// [`WaitError::DeadlineElapsed`] when `timeout` elapses first, or
-    /// [`WaitError::StatusTaskGone`] when the status sender is dropped.
-    pub async fn wait_for(
-        &self,
-        timeout: Duration,
-        pred: impl FnMut(&SourceStatus) -> bool,
-    ) -> Result<SourceStatus, WaitError> {
-        let mut rx = self.status.clone();
-        wait_for_status(&mut rx, timeout, pred).await
-    }
-
-    /// Stop the loop; the current generation is withdrawn.
-    pub async fn stop(mut self) {
-        let _ = self.stop.send(true);
-        if let Some(task) = self.task.take() {
-            let _ = task.await;
-        }
-    }
-}
-
-impl Drop for SpiffeSourceHandle {
-    fn drop(&mut self) {
-        // Signal only. Joining is intentionally skipped: `Drop` cannot await,
-        // and aborting `task` would skip the loop's terminal withdrawal.
-        // Dropping `JoinHandle` detaches the task; it keeps running until it
-        // observes this flag and exits.
-        let _ = self.stop.send(true);
-    }
-}
+#[path = "source_handle.rs"]
+mod source_handle;
+pub use source_handle::{SpiffeSourceHandle, WaitError};
 
 /// The source itself.
 #[derive(Debug)]
 pub struct SpiffeSource;
 
 impl SpiffeSource {
-    /// Start streaming from the configured socket into `sink`.
-    #[must_use]
-    pub fn start(config: SpiffeSourceConfig, sink: Arc<dyn GenerationSink>) -> SpiffeSourceHandle {
+    /// Claim and quarantine the sink, then start streaming from the configured socket.
+    ///
+    /// # Errors
+    /// The sink is already owned or cannot be claimed safely.
+    pub fn start(
+        config: SpiffeSourceConfig,
+        sink: Arc<dyn GenerationSink>,
+    ) -> Result<SpiffeSourceHandle, TransportError> {
+        let lease = SharedLease::new(sink.claim()?);
+        let claimed = ClaimedSink(lease.clone());
         let (status_tx, status_rx) = watch::channel(SourceStatus::initial(config.spiffe_id()));
         let (stop_tx, stop_rx) = watch::channel(false);
-        let task = tokio::spawn(Loop::new(config, sink, status_tx, stop_rx).run());
-        SpiffeSourceHandle {
+        let task = tokio::spawn(Loop::new(config, claimed, status_tx, stop_rx).run());
+        // The task owns the claimed lease; it does not retain the sink Arc.
+        drop(sink);
+        Ok(SpiffeSourceHandle {
             status: status_rx,
             stop: stop_tx,
             task: Some(task),
-        }
+            lease,
+        })
     }
 }
 
 struct Loop {
     config: SpiffeSourceConfig,
-    sink: Arc<dyn GenerationSink>,
+    sink: ClaimedSink,
     status: watch::Sender<SourceStatus>,
     stop: watch::Receiver<bool>,
     backoff: Backoff,
@@ -171,7 +93,7 @@ enum StreamEnd {
 impl Loop {
     fn new(
         config: SpiffeSourceConfig,
-        sink: Arc<dyn GenerationSink>,
+        sink: ClaimedSink,
         status: watch::Sender<SourceStatus>,
         stop: watch::Receiver<bool>,
     ) -> Self {
@@ -276,7 +198,7 @@ impl Loop {
     fn apply(&mut self, ctx: &X509Context) {
         let now = Utc::now();
         match SvidGeneration::select(ctx, &self.config, now) {
-            Ok(generation) => match self.sink.activate(&generation) {
+            Ok(generation) => match self.sink.0.activate(&generation) {
                 Ok(number) => {
                     self.backoff.reset();
                     self.active = Some(Active {
@@ -293,6 +215,12 @@ impl Loop {
                         s.last_error = None;
                         s.snapshots = s.snapshots.saturating_add(1);
                     });
+                }
+                Err(TransportError::GenerationStale | TransportError::SourceUnsupported) => {
+                    self.withdraw(
+                        TransportError::SourceUnsupported,
+                        Some("source_ownership_lost"),
+                    );
                 }
                 Err(refused) => {
                     self.retain_or_withdraw(ctx, refused.code());
@@ -321,12 +249,25 @@ impl Loop {
     }
 
     fn on_outage(&mut self, err: &SpiffeSourceError) {
+        let monotonic_now = std::time::Instant::now();
         let now = Utc::now();
         let max_stale = self.config.max_stale();
         let retain = self
             .active
             .as_ref()
             .map(|a| retention_deadline(a.not_after, Some((now, max_stale))));
+        if let Some(deadline) = retain {
+            if monotonic_now
+                .checked_add(max_stale)
+                .is_none_or(|bound| self.sink.0.tighten(deadline, bound).is_err())
+            {
+                self.withdraw(
+                    TransportError::SourceUnsupported,
+                    Some("source_ownership_lost"),
+                );
+                return;
+            }
+        }
         let code = err.code().to_owned();
         let phase = if retain.is_some() {
             SourcePhase::Outage
@@ -370,7 +311,7 @@ impl Loop {
     fn withdraw(&mut self, reason: TransportError, reported: Option<&str>) {
         let code = reported.map_or_else(|| reason.code().to_owned(), ToOwned::to_owned);
         if self.active.take().is_some() {
-            self.sink.withdraw(reason);
+            let _ = self.sink.0.withdraw(reason);
         }
         self.update(|s| {
             if s.generation.is_some() && s.phase != SourcePhase::Withdrawn {
@@ -437,30 +378,6 @@ async fn sleep_until(at: Option<DateTime<Utc>>) {
 #[path = "source_formal_tests.rs"]
 mod formal_tests;
 
-#[cfg(test)]
-mod wait_tests {
-    use std::time::Duration;
-
-    use super::{wait_for_status, WaitError};
-    use crate::status::SourceStatus;
-
-    #[tokio::test]
-    async fn wait_for_distinguishes_deadline_elapsed_from_status_task_gone() {
-        let initial = SourceStatus::initial("spiffe://example.test/workload");
-        let (tx, mut rx) = tokio::sync::watch::channel(initial);
-        let deadline = wait_for_status(&mut rx, Duration::from_millis(30), |_| false)
-            .await
-            .expect_err("predicate never holds");
-        assert!(matches!(deadline, WaitError::DeadlineElapsed(_)));
-
-        drop(tx);
-        let gone = wait_for_status(&mut rx, Duration::from_secs(5), |_| false)
-            .await
-            .expect_err("sender dropped");
-        assert!(matches!(gone, WaitError::StatusTaskGone(_)));
-        assert_ne!(
-            std::mem::discriminant(&deadline),
-            std::mem::discriminant(&gone)
-        );
-    }
-}
+#[cfg(all(test, feature = "fake-workload-api"))]
+#[path = "source_lease_tests.rs"]
+mod lease_tests;

@@ -35,6 +35,18 @@ const suites = [
     vectors: 9216,
   },
   {
+    name: "source-lifetime",
+    model: "SourceLifetime.lean",
+    first: "claim_quarantines",
+    vectors: 25,
+  },
+  {
+    name: "spiffe",
+    model: "SpiffePolicy.lean",
+    first: "no_identity_withdraws",
+    vectors: 473,
+  },
+  {
     name: "webauthn",
     model: "ApprovalBinding.lean",
     first: "approved_proof_matches_request",

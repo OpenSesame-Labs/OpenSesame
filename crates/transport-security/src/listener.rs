@@ -34,6 +34,7 @@ type ProfileFn = dyn Fn(&Generation) -> Result<ServerProfile, TransportError> + 
 /// Observable outcomes, for tests and status views.
 #[derive(Debug, Default)]
 pub struct ListenerCounters {
+    handshakes_started: AtomicU64,
     handshakes_ok: AtomicU64,
     handshakes_failed: AtomicU64,
     refused_withdrawn: AtomicU64,
@@ -42,6 +43,12 @@ pub struct ListenerCounters {
 }
 
 impl ListenerCounters {
+    /// Connections admitted to the bounded handshake path.
+    #[must_use]
+    pub fn handshakes_started(&self) -> u64 {
+        self.handshakes_started.load(Ordering::SeqCst)
+    }
+
     #[must_use]
     pub fn handshakes_ok(&self) -> u64 {
         self.handshakes_ok.load(Ordering::SeqCst)
@@ -130,7 +137,8 @@ impl SecureListener {
             + 'static,
     ) -> Result<Self, TransportError> {
         let profile_fn: Arc<ProfileFn> = Arc::new(profile_fn);
-        let prepared = prepare(profile_fn.as_ref(), &generations.current())?;
+        let current = generations.checked_current(None)?;
+        let prepared = prepare(profile_fn.as_ref(), &current)?;
         let tcp = TcpListener::bind(addr)
             .await
             .map_err(|e| malformed(format!("bind {addr}: {e}")))?;
@@ -171,10 +179,7 @@ impl SecureListener {
     }
 
     fn current_prepared(&self) -> Result<Arc<Prepared>, TransportError> {
-        let generation = self.generations.current();
-        if let Some(reason) = &generation.withdrawn {
-            return Err(reason.clone());
-        }
+        let generation = self.generations.checked_current(None)?;
         let prepared = self.prepared.load_full();
         if prepared.number == generation.number {
             return Ok(prepared);
@@ -233,6 +238,9 @@ impl SecureListener {
                     continue;
                 }
             };
+            self.counters
+                .handshakes_started
+                .fetch_add(1, Ordering::SeqCst);
             tokio::spawn(serve_connection(
                 prepared,
                 Arc::clone(&self.generations),

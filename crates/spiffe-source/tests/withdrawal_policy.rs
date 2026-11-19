@@ -20,7 +20,7 @@ async fn an_empty_snapshot_withdraws_the_only_identity_then_recovers() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.revoke_all();
@@ -42,7 +42,7 @@ async fn an_empty_snapshot_withdraws_the_only_identity_then_recovers() {
         .unwrap();
     assert_eq!(status.phase, SourcePhase::Withdrawn);
     assert_eq!(
-        status.credential_status(opensesame_time::Utc::now()),
+        status.credential_status(chrono::Utc::now()),
         opensesame_domain::CredentialStatus::Expired { generation: 1 }
     );
     assert_eq!(
@@ -61,7 +61,7 @@ async fn material_rpc_denial_withdraws_and_recovers(denial: Status) {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.deny_all(denial);
@@ -104,7 +104,7 @@ async fn denial_opening_a_reconnected_stream_withdraws(denial: Status, code: &st
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.deny_on_reconnect(denial);
@@ -155,7 +155,7 @@ async fn an_unattributed_missing_bundle_fails_closed_until_a_valid_snapshot() {
     let worker = td.issue_svid(WK, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.push_snapshot(FakeWorkloadApi::snapshot(
@@ -184,7 +184,7 @@ async fn unparseable_svid_withdraws(also_contains_gateway: bool) {
     let worker = td.issue_svid(WK, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let mut malformed_worker = worker.to_proto(&td.bundle_der(), "");
