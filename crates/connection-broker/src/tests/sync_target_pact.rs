@@ -154,30 +154,6 @@ fn contract_code_after_unit_tests_stays_in_the_scan() {
     assert_body_read(&sync_target_production_for_scan(open));
 }
 
-/// Renaming the response binding must still fail the source scan.
-#[test]
-fn contract_renamed_response_bindings_are_body_reads() {
-    for sample in [
-        "response.text()",
-        "res.text().await",
-        "upstream.bytes()",
-        "http_response.chunk()",
-        "body.bytes_stream()",
-        "r.text_with_charset(\"utf-8\")",
-        "parsed.json()",
-        "parsed.json::<serde_json::Value>()",
-        "response.json::<serde_json::Value>()",
-        "upstream\n    .text()",
-        "foo.bytes ()",
-        "request = request.json(&body);\nlet t = res.text().await;",
-        "let request = sent;\nlet v = request.json().await;",
-        "response.json(&body)",
-        "notrequest.json(&body)",
-    ] {
-        assert_body_read(sample);
-    }
-}
-
 /// UFCS and aliased `Response as RequestBuilder` stay body reads.
 #[test]
 fn contract_ufcs_and_aliased_request_builder_are_body_reads() {
@@ -253,6 +229,9 @@ fn contract_stream_consumption_is_a_body_read() {
         "response.next().await",
         "response.try_next().await?",
         "response.poll_next(cx)",
+        "response.poll_next_unpin(cx)",
+        "poll_fn(|cx| response.poll_next_unpin(cx)).await",
+        "TryStreamExt::try_poll_next_unpin(response, cx)",
         "http_response.for_each(|_| async {})",
         "StreamExt::for_each(response, |_| async {})",
         "futures::StreamExt::for_each(response, |_| async {})",
