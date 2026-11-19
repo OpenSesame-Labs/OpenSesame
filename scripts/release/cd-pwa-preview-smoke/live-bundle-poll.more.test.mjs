@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import {
-  dynamicImportRefsFromJs,
-  listStagedShellAssetPaths,
-  pollLiveShellAssets,
-  shellAssetRelative,
-  shellAssetRefs,
-} from "./live-bundle-poll.mjs";
 import {
   envFor,
   hrefOf,
@@ -16,6 +9,13 @@ import {
   pagesBase,
   stageDist,
 } from "./live-bundle-poll.harness.mjs";
+import {
+  dynamicImportRefsFromJs,
+  listStagedShellAssetPaths,
+  pollLiveShellAssets,
+  shellAssetRefs,
+  shellAssetRelative,
+} from "./live-bundle-poll.mjs";
 import { sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
 
 test("shellAssetRefs ignores data-src and reads tags past > inside quotes", () => {
@@ -59,7 +59,9 @@ test("listStagedShellAssetPaths follows dynamic import() from the entry chunk", 
       join(dist, "assets/app-root.js"),
     ]);
     assert.deepEqual(
-      dynamicImportRefsFromJs(readFileSync(join(dist, "assets/main.js"), "utf8")),
+      dynamicImportRefsFromJs(
+        readFileSync(join(dist, "assets/main.js"), "utf8"),
+      ),
       ["./app-root.js"],
     );
   } finally {
