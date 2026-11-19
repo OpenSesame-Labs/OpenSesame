@@ -13,9 +13,20 @@ controls, and state the bounds of each claim as the implementation evolves.
 
 ## Checked properties
 
-The reviewed source revision is recorded in
-[`coverage.json`](../../spec/formal/auth/coverage.json), together with hashes of
-the source files actually reviewed. Principal and project proof design is in
+The reviewed source Git blobs are recorded in the independently landed
+[`reviewed-sources.json`](../../spec/formal/auth/reviewed-sources.json)
+attestation and repeated in
+[`coverage.json`](../../spec/formal/auth/coverage.json), together with SHA-256
+hashes of the source files actually reviewed. Full-history verification rejects
+an attestation introduced in the same commit as a covered source change. The
+attestation records the previously reviewed base blob as well as the newly
+reviewed blob; full-history verification also rejects an attestation whose base
+does not match both its parent tree and the preceding active manifest. The
+blob IDs remain referenced by the later squash commit's tree, so a depth-one
+fresh clone can still verify exact byte correspondence without intermediate
+feature commits. In that shallow case, prior-review ordering comes from the
+separately merged attestation and signed-stack replay, not from history that the
+clone does not contain. Principal and project proof design is in
 [ADR 0178](../adr/0178-authorization-checks-are-proofs-the-compiler-can-see.md).
 The provisional token-prefix requirement is recorded in the
 [session ID audit](audits/2026-08-07-provisional-session-id.md). The model and
@@ -66,11 +77,13 @@ An existing Lean executable can be selected with
 `OPENSESAME_LEAN_BIN=/absolute/path/to/lean`. The command rejects another Lean
 version and treats Lean warnings, including a `sorry`, as errors. Lean checks
 theorems and emits the cases; Vitest compares those cases to the real functions;
-finally the source-hash check fails on an unreviewed change to any covered file.
-It also compares those hashes to the declared reviewed commit; the commit and
-its source blobs must be present locally. Fetch the reviewed history if they
-are missing. The hashes detect drift. They do not prove the review or the model
-is correct.
+finally the source-hash check fails when a covered file differs from its
+declared evidence. Version 1 manifests compare the hashes to a reviewed commit,
+which must be present locally. Version 2 manifests compare them to a prior
+reviewed-source attestation and reject same-commit self-attestation when full
+history is available. A shallow clone verifies the attestation, Git blobs, and
+current bytes but cannot independently reconstruct their ordering. The hashes
+detect drift. They do not prove that the review or model is correct.
 The pre-push hook selects registered suites when their mapped implementation
 files occur in the commits being pushed, including changes later reverted. The
 filter uses file paths: a test-only edit inside a mapped implementation file
