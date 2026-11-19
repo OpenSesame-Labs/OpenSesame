@@ -61,10 +61,16 @@ export async function assertRoads(page, check, expectAdvanced) {
   const leadClass = (await lead.getAttribute("class")) ?? "";
   const minimalClass = (await minimal.getAttribute("class")) ?? "";
   if (expectAdvanced) {
-    check(defaultKind.startsWith("Recommended."), `Default kind: ${defaultKind}`);
+    check(
+      defaultKind.startsWith("Recommended."),
+      `Default kind: ${defaultKind}`,
+    );
     check(leadClass.includes("road--lead"), "Default is the lead road");
     check(minimalKind.startsWith("Advanced."), `Minimal kind: ${minimalKind}`);
-    check(minimalClass.includes("road--advanced"), "Minimal is the advanced road");
+    check(
+      minimalClass.includes("road--advanced"),
+      "Minimal is the advanced road",
+    );
   } else {
     check(
       !minimalKind.startsWith("Advanced."),
