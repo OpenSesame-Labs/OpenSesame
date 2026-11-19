@@ -63,6 +63,7 @@ describe("identity trust rotation", () => {
       if (!original) throw new Error("request was not dispatched");
       const request: IncomingMessage = original;
       const saved = requestEvidenceOf(request);
+      // SAFETY: the replay fixture is only a WeakMap key; lookup uses object identity, the same contract as adoptRequestEvidence.
       const replay = {} as IncomingMessage;
       adoptRequestEvidence(replay, request);
       const oauth = identityMtlsTransport({
@@ -206,6 +207,7 @@ describe("identity trust rotation", () => {
           denied_thumbprints: [],
         },
         ...["edge.example", "user.example"].map((dns) => {
+          // SAFETY: mappingBindings returns the checked host-mapping fixture, and the first binding is the entry this test copies.
           const set = mappingBindings(dns) as { bindings: object[] };
           return { ...set.bindings[0], id: `mapping-${dns.split(".")[0]}` };
         }),
@@ -347,12 +349,16 @@ describe("identity trust rotation", () => {
       expect(first.kind).toBe("http");
       if (first.kind !== "http") throw new Error("handshake failed");
       expect(first.session).toBeDefined();
-      const second = await rawHandshake({
+      const handshake = {
         port,
         ca: pki.caCertPem,
         identity: client,
-        ...(first.session ? { session: first.session } : {}),
-      });
+      };
+      const second = await rawHandshake(
+        first.session === undefined
+          ? handshake
+          : { ...handshake, session: first.session },
+      );
       expect(second.kind).toBe("http");
       if (second.kind === "http") expect(second.reused).toBe(false);
     } finally {

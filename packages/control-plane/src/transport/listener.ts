@@ -49,18 +49,29 @@ export const PLAIN_LISTENER_ID = "identity-plain";
 export const DEFAULT_USABLE_FOR_MS = 60 * 60 * 1000;
 
 const peers = new WeakMap<
-  object,
+  Socket,
   { peer: VerifiedPeer; current: () => boolean }
 >();
 
-/** The verified peer of a socket, or none (plain listener, no client cert). */
-export function peerOf(socket: unknown): VerifiedPeer | undefined {
-  if (socket === null || typeof socket !== "object") return undefined;
+/**
+ * The verified peer of a Node socket, or none.
+ *
+ * Callers that receive an unparsed socket parse it to `Socket` at that
+ * boundary. A plain listener, a missing client certificate, and a socket
+ * this registry does not hold all resolve to none.
+ */
+export function peerOf(socket: Socket): VerifiedPeer | undefined {
   const entry = peers.get(socket);
   return entry?.current() ? entry.peer : undefined;
 }
 
 export type RawDispatcher = (req: IncomingMessage, res: ServerResponse) => void;
+
+/** Credential and trust generations after a reload. */
+export interface TransportGenerations {
+  credentialGeneration: number;
+  trustGeneration: number;
+}
 
 export interface TransportListener {
   server: https.Server;
@@ -76,10 +87,7 @@ export interface TransportListener {
    * binding change invalidates old evidence and closes existing connections,
    * including handshakes in progress. A rejected candidate changes nothing.
    */
-  restartTransport(): Promise<{
-    credentialGeneration: number;
-    trustGeneration: number;
-  }>;
+  restartTransport(): Promise<TransportGenerations>;
   credentialGeneration(): number;
   trustGeneration(): number;
   close(): Promise<void>;
@@ -177,8 +185,7 @@ function prepareRequest(
   state: ListenerState,
   req: IncomingMessage,
 ): RequestEvidence {
-  // SAFETY: requests on an https.Server arrive on the TLSSocket the
-  // handshake ran on; the registry lookup is by object identity.
+  // SAFETY: the https.Server contract delivers this request on the TLSSocket the handshake ran on.
   const socket: TLSSocket = req.socket as TLSSocket;
   const peer = peerOf(socket);
   const trustGeneration = state.trustGeneration;
@@ -230,7 +237,7 @@ function prepareRequest(
 function restart(
   state: ListenerState,
   server: https.Server,
-): { credentialGeneration: number; trustGeneration: number } {
+): TransportGenerations {
   const candidate = loadTransportMaterial(state.config, state.clock());
   const trustChanged =
     candidate.clientCaPem !== state.material.clientCaPem ||
@@ -259,7 +266,7 @@ function bind(server: https.Server, config: TransportListenerConfig) {
     server.once("error", reject);
     server.listen(config.port, config.host, () => {
       server.off("error", reject);
-      // SAFETY: a listening TCP server always reports an AddressInfo.
+      // SAFETY: Node's listening TCP server contract reports an AddressInfo.
       resolve(server.address() as AddressInfo);
     });
   });

@@ -46,7 +46,7 @@ export interface RequestEvidence {
   ): AdmissionResult;
 }
 
-const evidence = new WeakMap<object, RequestEvidence>();
+const evidence = new WeakMap<IncomingMessage, RequestEvidence>();
 
 export interface RecordEvidenceInput {
   provenance: ListenerProvenance;
@@ -128,7 +128,7 @@ export function recordRequestEvidence(
 
 /** The evidence recorded for a request, or none for one never dispatched. */
 export function requestEvidenceOf(
-  req: IncomingMessage | object | undefined,
+  req: IncomingMessage | undefined,
 ): RequestEvidence | undefined {
   return req ? evidence.get(req) : undefined;
 }
@@ -148,7 +148,7 @@ export function adoptRequestEvidence(
  * Never the ingress leaf when an originating identity exists (AT-OAUTH-PROXY).
  */
 export function bindingPeerOf(
-  req: IncomingMessage | object | undefined,
+  req: IncomingMessage | undefined,
 ): VerifiedPeer | undefined {
   const record = requestEvidenceOf(req);
   if (!record) return undefined;

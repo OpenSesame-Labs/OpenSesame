@@ -5,6 +5,7 @@
  * header claim all resolve to nothing — and the endpoint-alias base is the
  * listener's own public URL when it has one.
  */
+import { Socket } from "node:net";
 import type { MtlsPeer, MtlsTransport } from "@opensesame/oauth-provider";
 import type { TransportConfig } from "./config.js";
 import { peerOf } from "./listener.js";
@@ -34,6 +35,8 @@ export function identityMtlsTransport(
   if (!listener) return undefined;
   const result: MtlsTransport = {
     peerOf(socket) {
+      // The issuer hands over an unparsed request socket. Only a Node Socket is registered.
+      if (!(socket instanceof Socket)) return undefined;
       const peer = peerOf(socket);
       return peer ? mtlsPeerOf(peer) : undefined;
     },
