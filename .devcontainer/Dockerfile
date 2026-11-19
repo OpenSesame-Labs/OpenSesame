@@ -1,12 +1,14 @@
 # Devcontainer image for OpenSesame.
-# The Rust base matches the previous pinned devcontainer image. Node, npm,
-# Go, Java, and the locked Rust toolchain are not baked from a Node feature.
+# The base is the digest-pinned Debian trixie Rust devcontainer (2.1.6-trixie).
+# `apt-get -y upgrade --no-install-recommends` runs at image build so Debian
+# security fixes land here before the upstream tag is rebuilt. Node, npm, Go,
+# Java, and the locked Rust toolchain are not baked from a Node feature.
 # updateContentCommand runs `mise install --locked`, which installs the tools
 # pinned in the workspace mise.toml and mise.lock.
 #
 # ghcr.io/devcontainers-extra/features/mise is not used. Its gh-release asset
 # filter matches both the glibc and musl tarballs for one mise version.
-FROM mcr.microsoft.com/devcontainers/rust:2.1-bookworm@sha256:4d944fc913385b14c0507bc4636749a773543067c2f5fc885b6fd4a42e59f006
+FROM mcr.microsoft.com/devcontainers/rust:2.1.6-trixie@sha256:c2ef122297b39608e9db2181a355f9cda0cfb856405d14920c519c3200a2ff95
 
 USER root
 
@@ -42,6 +44,7 @@ ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/b
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
