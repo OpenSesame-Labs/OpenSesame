@@ -518,7 +518,9 @@ jobs:
           SMOKE_EVIDENCE_OUT: artifacts/cd-pwa-preview-smoke
           CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
         run: node scripts/release/cd-pwa-preview-smoke/run.mjs
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Upload preview smoke evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cd-pwa-preview-smoke-${{ github.run_id }}
           path: artifacts/cd-pwa-preview-smoke

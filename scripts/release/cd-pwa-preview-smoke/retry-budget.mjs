@@ -17,7 +17,8 @@ function readBoundedInt(value, fallback, label, min) {
   return parsed;
 }
 
-export function cdnRetryBudget(env) {
+/** Same Pages CDN window as `cdnRetryBudget`, as a deadline poll. */
+export function cdnPollBudget(env) {
   const deadlineMs = readBoundedInt(
     env.PWA_SMOKE_CDN_DEADLINE_MS,
     DEFAULT_CDN_DEADLINE_MS,
@@ -30,6 +31,11 @@ export function cdnRetryBudget(env) {
     "PWA_SMOKE_CDN_POLL_MS",
     1,
   );
+  return { deadlineMs, pollMs };
+}
+
+export function cdnRetryBudget(env) {
+  const { deadlineMs, pollMs } = cdnPollBudget(env);
   return { attempts: Math.floor(deadlineMs / pollMs) + 1, intervalMs: pollMs };
 }
 

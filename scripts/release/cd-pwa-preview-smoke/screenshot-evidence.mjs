@@ -1,8 +1,10 @@
-import { createHash } from "node:crypto";
 /**
  * Deterministic headless screenshots of the live Pages Preview deploy.
- * Single browser, single context, one page — no retry sleeps (Hurl already polled CDN).
+ * Single browser, single context, one page — no retry sleeps. Hurl and the
+ * shell-asset poll already ran. A failed step after the page exists still
+ * writes failure evidence for the CI artifact upload.
  */
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -110,6 +112,85 @@ async function captureFullSignInRoad(page, fullChoice, outRoot) {
   return guestPath;
 }
 
+const MAX_DIAGNOSTIC_ENTRIES = 200;
+
+function pushDiagnostic(entries, entry) {
+  if (entries.length < MAX_DIAGNOSTIC_ENTRIES) entries.push(entry);
+}
+
+function callMethod(target, name) {
+  if (typeof target?.[name] !== "function") return undefined;
+  try {
+    return target[name]();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Console and network events from the live page, for a failed capture. */
+function recordPageDiagnostics(page, consoleEntries, networkEntries) {
+  if (typeof page.on !== "function") return;
+  page.on("console", (message) => {
+    pushDiagnostic(consoleEntries, {
+      type: callMethod(message, "type") ?? "log",
+      text: String(callMethod(message, "text") ?? ""),
+    });
+  });
+  page.on("pageerror", (error) => {
+    const text =
+      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    pushDiagnostic(consoleEntries, {
+      type: "pageerror",
+      text: text.slice(0, 2_000),
+    });
+  });
+  page.on("response", (response) => {
+    const request = callMethod(response, "request");
+    pushDiagnostic(networkEntries, {
+      url: String(callMethod(response, "url") ?? ""),
+      status: callMethod(response, "status") ?? 0,
+      method: String(callMethod(request, "method") ?? "GET"),
+    });
+  });
+  page.on("requestfailed", (request) => {
+    const failure = callMethod(request, "failure");
+    pushDiagnostic(networkEntries, {
+      url: String(callMethod(request, "url") ?? ""),
+      method: String(callMethod(request, "method") ?? "GET"),
+      error: readString(failure?.errorText) ?? "failed",
+    });
+  });
+}
+
+async function writeFailureEvidence(
+  page,
+  outRoot,
+  consoleEntries,
+  networkEntries,
+  error,
+) {
+  const message =
+    error instanceof Error ? error.message : "preview smoke capture failed";
+  try {
+    if (typeof page.screenshot === "function") {
+      await page.screenshot({
+        path: join(outRoot, "failure-screenshot.png"),
+        animations: "disabled",
+      });
+    }
+  } catch (shotError) {
+    const text =
+      shotError instanceof Error
+        ? shotError.message
+        : "failure screenshot failed";
+    pushDiagnostic(consoleEntries, { type: "evidence", text });
+  }
+  const body = (entries) =>
+    `${JSON.stringify({ error: message, entries }, null, 2)}\n`;
+  await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));
+  await writeFile(join(outRoot, "failure-network.json"), body(networkEntries));
+}
+
 export async function captureLiveSmokeEvidence(env, deps = {}) {
   const { pagesBase, sha, outRoot, repoRoot } = readCaptureInputs(env);
   const findChromium = deps.findChromium ?? (await loadFindChromium(repoRoot));
@@ -130,13 +211,17 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
         args: ["--no-sandbox", "--disable-dev-shm-usage"],
       }));
   const { browser } = await launch();
+  let page;
+  const consoleEntries = [];
+  const networkEntries = [];
   try {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       reducedMotion: "reduce",
       serviceWorkers: "block",
     });
-    const page = await context.newPage();
+    page = await context.newPage();
+    recordPageDiagnostics(page, consoleEntries, networkEntries);
     const entryUrl = smokeBrowserEntryUrl(pagesBase, sha);
     await page.goto(entryUrl, {
       waitUntil: "load",
@@ -168,6 +253,25 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
       `${JSON.stringify(manifest, null, 2)}\n`,
     );
     return manifest;
+  } catch (error) {
+    if (page !== undefined) {
+      try {
+        await writeFailureEvidence(
+          page,
+          outRoot,
+          consoleEntries,
+          networkEntries,
+          error,
+        );
+      } catch (evidenceError) {
+        const text =
+          evidenceError instanceof Error
+            ? evidenceError.message
+            : "failure evidence was not written";
+        console.error(text);
+      }
+    }
+    throw error;
   } finally {
     await browser.close();
   }

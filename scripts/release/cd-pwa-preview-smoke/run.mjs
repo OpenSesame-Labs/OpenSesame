@@ -5,8 +5,14 @@
  *   node scripts/release/cd-pwa-preview-smoke/run.mjs
  *
  * Requires `hurl` on PATH (pinned in mise.toml). Writes a temp variables file,
- * runs pages.hurl with bounded retries. npm publication is disabled, so the
- * staged npm package is checked locally in the preceding proof job.
+ * runs pages.hurl with bounded retries, then polls the Vite shell chunks
+ * linked from staged index.html before a single Playwright capture.
+ *
+ * npm publication is disabled, so registry.hurl no longer runs and the smoke
+ * job starts seconds after Deploy GitHub Pages. pages.hurl proves index.html,
+ * release.json, os-runtime-config, the manifest, and sw.js — not those entry
+ * chunks. A matching index can still 404 /assets/main-*.js, and React never
+ * mounts. The shell poll closes that gap. Playwright is not retried.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -15,6 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertNotProofGateFail } from "../cd-preview-smoke.mjs";
 import { checkReleaseMeta } from "../cd-release-meta.mjs";
+import { pollLiveShellAssets } from "./live-bundle-poll.mjs";
 import { buildHurlVariables, serializeHurlVariables } from "./prepare-vars.mjs";
 import { cdnRetryBudget } from "./retry-budget.mjs";
 import { captureLiveSmokeEvidence } from "./screenshot-evidence.mjs";
@@ -63,13 +70,17 @@ async function main() {
   runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
   const hurlMs = Date.now() - hurlStarted;
 
+  const shellStarted = Date.now();
+  const shellAssets = await pollLiveShellAssets(process.env);
+  const shellMs = Date.now() - shellStarted;
+
   const evidenceStarted = Date.now();
   const evidence = await captureLiveSmokeEvidence(process.env);
   const evidenceMs = Date.now() - evidenceStarted;
 
   const elapsedMs = Date.now() - started;
   console.log(
-    `pwa preview smoke passed at ${variables.pages_base} (total ${elapsedMs}ms: hurl ${hurlMs}ms, screenshots ${evidenceMs}ms, captured ${evidence.captured_ms}ms)`,
+    `pwa preview smoke passed at ${variables.pages_base} (total ${elapsedMs}ms: hurl ${hurlMs}ms, shell ${shellAssets.length} assets ${shellMs}ms, screenshots ${evidenceMs}ms, captured ${evidence.captured_ms}ms)`,
   );
 }
 
