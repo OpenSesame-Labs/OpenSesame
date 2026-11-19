@@ -5,8 +5,8 @@
     {
       "path": "packages/control-plane/src/middleware/auth.ts",
       "base_blob": "b0faf205e3e807a673ae56ce96f68a1900692707",
-      "reviewed_blob": "74f517500a7397cf007bf5e5790516652031c41c",
-      "sha256": "8678e1f328ac65a6127a96a988dfa14246ce0c600204daa1a6f6757b6afaceb2"
+      "reviewed_blob": "fd5328b3065c87910c0249b7cb75d03bc83c4fad",
+      "sha256": "69037edfbf7f5d10f5503552ef86de6970afe37c9906d1ac4de764fce6af6754"
     },
     {
       "path": "packages/control-plane/src/proofs/verified-principal.ts",
