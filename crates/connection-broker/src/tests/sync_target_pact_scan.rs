@@ -7,6 +7,8 @@
 //! raw `r#` prefixes, and `use` items are normalized first; `as` aliases of
 //! `read_bounded_body` / `response_guard` are recorded before the `use` goes.
 
+mod ufcs;
+
 /// Body reads on the credentialed sync path. `request.json(&…)` builder calls
 /// are removed. `Response::json`, `copy_to`, UFCS, function items, and
 /// `response_guard` helpers (including `as` aliases) stay forbidden.
@@ -47,8 +49,8 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         .copied()
         .filter(|pattern| pattern_matches(&scanned, pattern))
         .collect();
-    if ufcs_body_function_items(&scanned)
-        || dot_body_function_items(&scanned)
+    if ufcs::ufcs_body_function_items(&scanned)
+        || ufcs::dot_body_function_items(&scanned)
         || stream_consumption_reads(&scanned)
         || delegated_body_reader(&scanned)
         || alias_reader(&scanned, &alias_calls, &alias_modules)
@@ -199,7 +201,7 @@ fn has_path_segment(haystack: &str, ident: &str) -> bool {
 /// site is an allowlisted `RequestBuilder::json` call.
 fn pattern_matches(scanned: &str, pattern: &str) -> bool {
     if pattern.starts_with("::json") {
-        return ufcs_json_body_read(scanned);
+        return ufcs::ufcs_json_body_read(scanned);
     }
     scanned.contains(pattern)
 }

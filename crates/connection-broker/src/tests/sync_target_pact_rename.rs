@@ -10,7 +10,7 @@ pub(crate) fn typed_let_name_before_path(source: &str, head: usize) -> Option<St
     let eq = last_single_eq(prefix)?;
     let bind = prefix[..eq].trim_end();
     let colon = bind.rfind(':')?;
-    if bind[colon + 1..].trim_start().starts_with(':') || bind[colon + 1..].contains("::") {
+    if bind[colon + 1..].trim_start().starts_with(':') {
         return None;
     }
     let name = trailing_ident(bind[..colon].trim_end())?;
@@ -105,7 +105,9 @@ fn let_bind_rhs(prefix: &str, name: &str) -> Option<String> {
                 while at < bytes.len() && bytes[at].is_ascii_whitespace() {
                     at += 1;
                 }
-                let Some(rhs) = read_ident_at(prefix, at) else {
+                let Some(rhs) = read_ident_at(prefix, at)
+                    .or_else(|| parenthesized_ident(prefix, at))
+                else {
                     index = at;
                     continue;
                 };
@@ -133,6 +135,16 @@ fn trailing_ident(source: &str) -> Option<String> {
     (!name.is_empty()).then(|| name.to_string())
 }
 
+fn parenthesized_ident(source: &str, at: usize) -> Option<String> {
+    let rest = source.get(at..)?.strip_prefix('(')?;
+    let name: String = rest
+        .chars()
+        .take_while(|ch| is_ident_char(*ch))
+        .collect();
+    let after = rest.get(name.len()..)?.trim_start();
+    after.starts_with(')').then_some(name).filter(|n| !n.is_empty())
+}
+
 fn read_ident_at(source: &str, at: usize) -> Option<String> {
     let rest = source.get(at..)?;
     let name: String = rest.chars().take_while(|ch| is_ident_char(*ch)).collect();
@@ -152,6 +164,7 @@ mod tests {
         for source in [
             "async fn f() { let dispatch: _ = reqwest::RequestBuilder::send; dispatch(r).await?; }",
             "async fn f() { let dispatch:_=reqwest::RequestBuilder::send; dispatch(r).await?; }",
+            "async fn f() { let dispatch: SendFn = reqwest::RequestBuilder::send; dispatch(r).await?; }",
         ] {
             assert_eq!(dispatch_alias_calls(source).len(), 1, "{source}");
         }
@@ -161,6 +174,7 @@ mod tests {
     fn renamed_bindings_still_chain_consume() {
         for sample in [
             "let reply = response; reply.count().await",
+            "let reply = (response); reply.count().await",
             "let mut reply = response; let again = reply; again.collect()",
         ] {
             assert!(
