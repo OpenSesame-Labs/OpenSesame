@@ -37,6 +37,17 @@ function commit(cwd, message, files = ["."]) {
   );
 }
 
+function writeAttestation(cwd, path, sources) {
+  writeFileSync(join(cwd, path), JSON.stringify({ version: 1, sources }));
+}
+
+function writeCoverage(cwd, reviewed_attestation, sources) {
+  writeFileSync(
+    join(cwd, "spec/formal/auth/coverage.json"),
+    JSON.stringify({ version: 2, reviewed_attestation, sources }),
+  );
+}
+
 function buildReviewedStack(t) {
   const parent = mkdtempSync(join(tmpdir(), "auth-formal-drift-"));
   const root = join(parent, "source");
@@ -294,23 +305,13 @@ function prepareSecondAttestation({ check, parent, root }) {
   const entries = reviewedSources(next, "second review");
   const sources = entries.map(({ content: _content, ...entry }) => entry);
   const nextAttestation = "spec/formal/auth/reviewed-sources-next.json";
-  writeFileSync(
-    join(next, nextAttestation),
-    JSON.stringify({ version: 1, sources }),
-  );
+  writeAttestation(next, nextAttestation, sources);
   commit(next, "prepare next review", [nextAttestation]);
   const pending = check(next);
   assert.equal(pending.status, 0, pending.stderr);
   for (const { content, path } of entries)
     writeFileSync(join(next, path), content);
-  writeFileSync(
-    join(next, "spec/formal/auth/coverage.json"),
-    JSON.stringify({
-      version: 2,
-      reviewed_attestation: nextAttestation,
-      sources,
-    }),
-  );
+  writeCoverage(next, nextAttestation, sources);
   commit(next, "activate next review");
   const activated = check(next);
   assert.equal(activated.status, 0, activated.stderr);
@@ -325,25 +326,32 @@ function rejectUnvalidatedParentManifest({ check, parent, root }) {
   const forgedAttestation = "spec/formal/auth/reviewed-sources-forged.json";
   for (const { content, path } of entries)
     writeFileSync(join(forged, path), content);
-  writeFileSync(
-    join(forged, "spec/formal/auth/coverage.json"),
-    JSON.stringify({
-      version: 2,
-      reviewed_attestation: forgedAttestation,
-      sources,
-    }),
-  );
+  writeCoverage(forged, forgedAttestation, sources);
   commit(forged, "forge parent manifest");
-  writeFileSync(
-    join(forged, forgedAttestation),
-    JSON.stringify({ version: 1, sources }),
-  );
+  writeAttestation(forged, forgedAttestation, sources);
   commit(forged, "post-hoc evidence", [forgedAttestation]);
+  execFileSync(
+    "git",
+    ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "-qm", "padding"],
+    { cwd: forged },
+  );
+  const successorEntries = reviewedSources(forged, "successor");
+  const successorSources = successorEntries.map(
+    ({ content: _content, ...entry }) => entry,
+  );
+  const successorAttestation =
+    "spec/formal/auth/reviewed-sources-successor.json";
+  writeAttestation(forged, successorAttestation, successorSources);
+  commit(forged, "prepare successor", [successorAttestation]);
+  for (const { content, path } of successorEntries)
+    writeFileSync(join(forged, path), content);
+  writeCoverage(forged, successorAttestation, successorSources);
+  commit(forged, "activate successor");
   const rejected = check(forged);
   assert.notEqual(rejected.status, 0);
   assert.match(
     rejected.stderr,
-    /prior reviewed-source attestation unavailable/,
+    /prior reviewed-source attestation unavailable|prior attestation base lacks reviewed provenance/,
   );
 }
 
@@ -366,19 +374,9 @@ function rejectAttestationMerge({ check, parent, root }) {
   });
   const sources = entries.map(({ content: _content, ...entry }) => entry);
   const mergeAttestation = "spec/formal/auth/reviewed-sources-merge.json";
-  writeFileSync(
-    join(merged, mergeAttestation),
-    JSON.stringify({ version: 1, sources }),
-  );
+  writeAttestation(merged, mergeAttestation, sources);
   commit(merged, "merge attestation", [mergeAttestation]);
-  writeFileSync(
-    join(merged, "spec/formal/auth/coverage.json"),
-    JSON.stringify({
-      version: 2,
-      reviewed_attestation: mergeAttestation,
-      sources,
-    }),
-  );
+  writeCoverage(merged, mergeAttestation, sources);
   commit(merged, "activate merge review", ["spec/formal/auth/coverage.json"]);
   const rejected = check(merged);
   assert.notEqual(rejected.status, 0);

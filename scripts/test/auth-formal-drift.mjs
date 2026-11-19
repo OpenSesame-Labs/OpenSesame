@@ -49,7 +49,7 @@ function validV2Manifest(manifest) {
   );
 }
 
-function validatePreviousCoverage(parent, previousCoverage) {
+function validatePreviousCoverage(parent, previousCoverage, seen = new Set()) {
   if (previousCoverage.version !== 2) return;
   if (!validV2Manifest(previousCoverage))
     throw new Error("auth-formal: invalid prior covered-source manifest");
@@ -93,6 +93,70 @@ function validatePreviousCoverage(parent, previousCoverage) {
     if (createHash("sha256").update(reviewed).digest("hex") !== entry.sha256)
       throw new Error(
         `auth-formal: prior reviewed source digest mismatch for ${entry.path}`,
+      );
+  }
+  validatePriorAttestationProvenance(parent, previousCoverage, seen);
+}
+
+function validatePriorAttestationProvenance(parent, previousCoverage, seen) {
+  const reviewedCommit = execFileSync(
+    "git",
+    [
+      "log",
+      "-1",
+      "--format=%H",
+      parent,
+      "--",
+      previousCoverage.reviewed_attestation,
+    ],
+    { cwd: root, encoding: "utf8" },
+  ).trim();
+  if (!reviewedCommit || seen.has(reviewedCommit))
+    throw new Error("auth-formal: invalid prior attestation provenance chain");
+  seen.add(reviewedCommit);
+  const changed = execFileSync(
+    "git",
+    [
+      "diff-tree",
+      "-m",
+      "--root",
+      "--no-commit-id",
+      "--name-only",
+      "-r",
+      reviewedCommit,
+    ],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n");
+  if (paths.some((path) => changed.includes(path)))
+    throw new Error(
+      "auth-formal: prior reviewed-source attestation did not predate covered source changes",
+    );
+  let predecessor;
+  try {
+    predecessor = gitJson(
+      `${reviewedCommit}^`,
+      "spec/formal/auth/coverage.json",
+    );
+  } catch {
+    throw new Error(
+      "auth-formal: prior attestation lacks predecessor evidence",
+    );
+  }
+  validatePreviousCoverage(`${reviewedCommit}^`, predecessor, seen);
+  for (const entry of previousCoverage.sources) {
+    const base = execFileSync(
+      "git",
+      ["rev-parse", `${reviewedCommit}^:${entry.path}`],
+      { cwd: root, encoding: "utf8" },
+    ).trim();
+    if (
+      base !== entry.base_blob ||
+      reviewedBlobBefore(reviewedCommit, predecessor, entry) !== entry.base_blob
+    )
+      throw new Error(
+        `auth-formal: prior attestation base lacks reviewed provenance for ${entry.path}`,
       );
   }
 }
