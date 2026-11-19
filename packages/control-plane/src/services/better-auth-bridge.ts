@@ -11,6 +11,7 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { saveProvisional } from "../repos/session-storage.js";
 import {
   ProvisionalMintRefusedError,
   mintProvisionalForInteraction,
@@ -278,8 +279,7 @@ async function issueProvisionalBearer(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await ctx.stores.provisionalSessions.set(session.id, session);
-  await ctx.stores.provisionalTokens.set(accessToken, session.id);
+  await saveProvisional(ctx.stores, session, accessToken);
   return accessToken;
 }
 
