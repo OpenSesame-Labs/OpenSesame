@@ -45,7 +45,8 @@ export type Notice = {
   act?: NoticeAct | undefined;
   /**
    * A second worded key, paired with `act`. Both are drawn as choice keys
-   * when each says `worded`. A single act stays the tray's icon key.
+   * when each says `worded`. A single worded act is one choice key. An act
+   * that is not worded stays an icon key.
    */
   alt?: NoticeAct | undefined;
   /** An in-app route the notice points at, opened from the tray. */
@@ -69,9 +70,9 @@ export type NoticeAct = {
   icon?: "power" | "export" | "settings";
   opens?: boolean;
   /**
-   * The toast that echoes this notice draws the act as a worded key — the
-   * object of a choice, as a recommendation's is (ADR 0221). The tray still
-   * draws its icon key.
+   * Drawn as a worded choice key on the toast and in the tray — the object
+   * of a choice, as a recommendation's is (ADR 0221). An act that is not
+   * worded stays an icon key in the tray.
    */
   worded?: boolean;
   /** A shorter preview of this act's recommendation, never the tray title. */
