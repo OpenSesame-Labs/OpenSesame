@@ -37,8 +37,6 @@ export function scheduleOrganizationWithdrawalRecovery(
   ready: Promise<void>,
   warn: () => void,
 ): AppContext {
-  void ready
-    .then(() => resumePendingOrganizationWithdrawals(ctx))
-    .catch(warn);
+  void ready.then(() => resumePendingOrganizationWithdrawals(ctx)).catch(warn);
   return ctx;
 }
