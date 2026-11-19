@@ -10,7 +10,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
-import { unlockWithPin } from "./lib/pages-journey.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import {
   applySetupChoice,
@@ -135,16 +134,11 @@ async function routeConnectRelay(page) {
 
 async function armConnectRelay(page, shot, origin, base) {
   const command = page.locator("#command-bar-input");
-  let onConnections = false;
   if (await command.isVisible().catch(() => false)) {
     await command.fill("connections");
     await page.keyboard.press("Enter");
-    onConnections = await page
-      .waitForURL(/\/connections/, { timeout: 20_000 })
-      .then(() => true)
-      .catch(() => false);
-  }
-  if (!onConnections) {
+    await page.waitForURL(/\/connections/, { timeout: 30_000 });
+  } else {
     await page.goto(`${origin}${base}connections`, {
       waitUntil: "domcontentloaded",
     });
@@ -189,22 +183,10 @@ async function captureTokenLabel(page, walk, origin, base) {
   await routeConnectRelay(page);
   await openDoor(page, shot, record, `${origin}${base}`);
   await captureChoices(page, shot, record);
-      const setup =
-        walk.name === "custom" || walk.name === "minimal-local"
-          ? "Default"
-          : walk.setupChoice;
-      const where = await applySetupChoice(page, shot, record, setup);
+  const where = await applySetupChoice(page, shot, record, walk.setupChoice);
   const entry = await enterVault(page, where);
   record.entry = entry;
   await shot(`vault-${entry}`);
-  const locked = await page
-    .getByLabel("PIN", { exact: true })
-    .isVisible()
-    .catch(() => false);
-  if (locked) {
-    await unlockWithPin(page);
-    await shot("vault-unlocked");
-  }
 
   await armConnectRelay(page, shot, origin, base);
 
@@ -246,30 +228,23 @@ async function main() {
         : process.argv[onlyArg + 1]?.split(",").map((name) => name.trim());
     const walks = resolveWalks(profilesDir, only);
     const dists = new Map();
-    function buildKeyFor(walk) {
-      return walk.buildKey;
-    }
-    function capabilityFor(walk) {
-      return walk.capabilityProfile;
-    }
     for (const walk of buildsNeeded(walks)) {
-      const key = buildKeyFor(walk);
       const outDir = path.join(
         appRoot,
         "dist-profiles",
-        `verification-${key === "stock" ? "stock" : key}`,
+        `verification-${walk.buildKey === "stock" ? "stock" : walk.buildKey}`,
       );
       buildDist({
         appRoot,
         scriptsDir,
         outDir,
-        capabilityProfile: capabilityFor(walk),
+        capabilityProfile: walk.capabilityProfile,
         viteEnv: CONNECT_VITE,
       });
-      dists.set(key, outDir);
+      dists.set(walk.buildKey, outDir);
     }
     for (const walk of walks) {
-      const dist = dists.get(buildKeyFor(walk));
+      const dist = dists.get(walk.buildKey);
       const harness = createHarness({
         dist,
         origin,
