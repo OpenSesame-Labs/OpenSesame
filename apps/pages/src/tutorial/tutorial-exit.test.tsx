@@ -124,6 +124,7 @@ describe("leaving a tour", () => {
     const navigated: string[] = [];
     controller.setNavigator((route) => {
       navigated.push(route);
+      return true;
     });
     const running = controller.startGuide("guide", "authored");
     await user.whenRunning;
@@ -171,6 +172,7 @@ describe("leaving a tour", () => {
     controller.setRoute("/vault");
     controller.setNavigator((route) => {
       navigated.push(route);
+      return true;
     });
     const { queueTutorial, resumeTutorialFromNotice } = await import(
       "@opensesame/app-core/lib/tutorial-queue.js"
@@ -182,6 +184,7 @@ describe("leaving a tour", () => {
     controller.open("tutorials");
     await Promise.resolve();
     expect(resumeTutorialFromNotice("settings.danger.review")).toBe(true);
+    controller.setRoute("/settings");
     unbind();
     await home.whenRunning;
     expect(navigated).toEqual(["/settings"]);

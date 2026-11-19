@@ -114,6 +114,13 @@ describe("tutorial queue", () => {
     unbind();
   });
 
+  it("does not queue gate tours declined away from their gate", () => {
+    expect(noteTutorialDeclined("gate.front-door", "The front door")).toBe(
+      false,
+    );
+    expect(listQueuedTutorials()).toEqual([]);
+  });
+
   it("queues a decline with a resume key and a pause prompt", () => {
     const unbind = bindTutorialResume((goalId) => {
       completeQueuedTutorial(goalId);

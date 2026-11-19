@@ -13,6 +13,7 @@ import {
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
   type GuideRouteId,
+  GUIDE_OVERLAY_ROUTES,
   guideRouteWithin,
 } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
@@ -140,7 +141,7 @@ export interface SupportController {
   open(tab?: SupportTab): void;
   close(): void;
   setRoute(route: GuideRouteId): void;
-  setNavigator(navigate: (route: GuideRouteId) => void): void;
+  setNavigator(navigate: (route: GuideRouteId) => boolean): void;
   ask(question: string): Promise<void>;
   /** Stops the question in flight. The panel stays open and keeps its history. */
   cancel(): void;
@@ -189,7 +190,12 @@ export function createSupportController(
   let engine: SupportEngine | null = null;
   let loading: Promise<SupportEngine | null> | null = null;
   let stopGuideFeed: (() => void) | null = null;
-  let navigator: ((route: GuideRouteId) => void) | null = null;
+  let navigator: ((route: GuideRouteId) => boolean) | null = null;
+  let pendingQueuedResume: {
+    goalId: string;
+    guide: string;
+    homeRoute: string;
+  } | null = null;
   let unbindResume: (() => void) | null = null;
   let entries = 0;
   let cancelled = false;
@@ -423,6 +429,40 @@ export function createSupportController(
     await runProgram(program, origin);
   }
 
+  function beginQueuedWalkthrough(goalId: string, guide: string): boolean {
+    const beginAuthored = (loaded: SupportEngine) => {
+      const program = loaded.compileAuthored(guide);
+      if (!program) {
+        notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
+        return false;
+      }
+      void runProgram(program, "authored");
+      return true;
+    };
+    if (engine) {
+      if (!beginAuthored(engine)) return false;
+      completeQueuedTutorial(goalId);
+      return true;
+    }
+    void ensureEngine().then((loaded) => {
+      if (!loaded) {
+        notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
+        return;
+      }
+      if (!beginAuthored(loaded)) return;
+      completeQueuedTutorial(goalId);
+    });
+    return true;
+  }
+
+  function flushPendingQueuedResume(): void {
+    if (!pendingQueuedResume) return;
+    const { goalId, guide, homeRoute } = pendingQueuedResume;
+    if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) return;
+    pendingQueuedResume = null;
+    beginQueuedWalkthrough(goalId, guide);
+  }
+
   function teardown(): void {
     generation += 1;
     stopGuideFeed?.();
@@ -435,6 +475,7 @@ export function createSupportController(
     loading = null;
     dependencies.clearTargets();
     unbindResume?.();
+    pendingQueuedResume = null;
     // Everything the person said, everything that answered, and every overlay
     // it drew goes with the keys.
     state = emptyView(state.route);
@@ -465,6 +506,7 @@ export function createSupportController(
       if (state.route === route) return;
       set({ route });
       for (const listener of [...routeListeners]) listener();
+      flushPendingQueuedResume();
     },
     setNavigator(next) {
       navigator = next;
@@ -481,33 +523,16 @@ export function createSupportController(
     },
     resumeQueuedWalkthrough(goalId: string, guide: string, homeRoute: string) {
       if (guideGoal(goalId) === null) return false;
-      if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) {
-        if (!navigator) return false;
-        navigator(homeRoute);
-      }
-      const beginAuthored = (loaded: SupportEngine) => {
-        const program = loaded.compileAuthored(guide);
-        if (!program) {
-          notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
-          return false;
-        }
-        void runProgram(program, "authored");
-        return true;
-      };
-      if (engine) {
-        if (!beginAuthored(engine)) return false;
-        completeQueuedTutorial(goalId);
+      if (GUIDE_OVERLAY_ROUTES.has(homeRoute)) return false;
+      const onHome =
+        homeRoute === "" || guideRouteWithin(state.route, homeRoute);
+      if (!onHome) {
+        if (!navigator?.(homeRoute)) return false;
+        pendingQueuedResume = { goalId, guide, homeRoute };
+        void ensureEngine();
         return true;
       }
-      void ensureEngine().then((loaded) => {
-        if (!loaded) {
-          notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-          return;
-        }
-        if (!beginAuthored(loaded)) return;
-        completeQueuedTutorial(goalId);
-      });
-      return true;
+      return beginQueuedWalkthrough(goalId, guide);
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);
