@@ -34,14 +34,60 @@ export function productionClosure(components) {
 export function workflowPathFilters(yaml) {
   const lines = yaml.split("\n");
   const paths = [];
+  let inOn = false;
+  let onIndent = 0;
+  let inPush = false;
+  let pushIndent = 0;
   let inPaths = false;
   let pathsIndent = 0;
   for (const line of lines) {
+    if (!inOn) {
+      const on = /^(\s*)on:\s*$/.exec(line);
+      if (on) {
+        inOn = true;
+        onIndent = on[1].length;
+      }
+      continue;
+    }
+    if (!inPush) {
+      const push = /^(\s*)push:\s*$/.exec(line);
+      if (push && push[1].length > onIndent) {
+        inPush = true;
+        pushIndent = push[1].length;
+        inPaths = false;
+        continue;
+      }
+      if (line.trim() && !/^\s*#/.test(line)) {
+        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+        if (indent <= onIndent) inOn = false;
+      }
+      continue;
+    }
+    if (line.trim() && !/^\s*#/.test(line)) {
+      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+      if (indent === pushIndent && !/^\s+push:\s*$/.test(line)) {
+        inPush = false;
+        inPaths = false;
+        continue;
+      }
+      if (indent <= onIndent) {
+        inOn = false;
+        inPush = false;
+        inPaths = false;
+        continue;
+      }
+    }
     if (!inPaths) {
       const header = /^(\s*)paths:\s*$/.exec(line);
-      if (header) {
+      if (header && header[1].length > pushIndent) {
         inPaths = true;
         pathsIndent = header[1].length;
+      } else if (line.trim() && !/^\s*#/.test(line)) {
+        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+        if (indent <= pushIndent) {
+          inPush = false;
+          inPaths = false;
+        }
       }
       continue;
     }
@@ -50,7 +96,10 @@ export function workflowPathFilters(yaml) {
       paths.push(match[2]);
       continue;
     }
-    if (line.trim() && !/^\s*#/.test(line)) inPaths = false;
+    if (line.trim() && !/^\s*#/.test(line)) {
+      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+      if (indent <= pathsIndent) inPaths = false;
+    }
   }
   return paths;
 }

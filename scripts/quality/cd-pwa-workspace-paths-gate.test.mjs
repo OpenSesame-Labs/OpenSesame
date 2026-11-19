@@ -16,14 +16,16 @@ test("cd-pwa.yml paths cover the Pages production workspace closure", () => {
   execFileSync(process.execPath, [gate], { cwd: root, stdio: "pipe" });
 });
 
-test("workflowPathFilters stops at the next top-level YAML key", () => {
+test("workflowPathFilters reads only push.paths", () => {
   const yaml = [
     "on:",
     "  push:",
     "    paths:",
     '      - "apps/pages/**"',
-    "  workflow_dispatch:",
+    "  pull_request:",
+    "    paths:",
     '      - "should-not-count/**"',
+    "  workflow_dispatch:",
     "jobs:",
     "  x:",
     "    steps: []",
