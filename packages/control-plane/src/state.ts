@@ -101,6 +101,20 @@ export interface MfaCodeSendWindow {
   expiresAt: number;
 }
 
+/** Crash-resumable effect set for one verified OIDC back-channel logout. */
+export interface UpstreamLogoutOperation {
+  operationKey: string;
+  issuer: string;
+  subject: string;
+  principalIds: string[];
+  /** Sessions live when the durable operation was prepared, for stable audit count. */
+  sessionIds: string[];
+  preparedSessionCount: number;
+  correlationId: string;
+  retainUntil: number;
+  completed: boolean;
+}
+
 export interface AppStores {
   hostAuthorizations: SecurityMap<
     import("./services/host-authorization.js").HostAuthorizationPending
@@ -110,6 +124,8 @@ export interface AppStores {
   principalSessionEpochs: SecurityMap<number>;
   /** session token → session id */
   provisionalTokens: SecurityMap<string>;
+  /** Verified upstream logout effects, persisted before replay is claimed. */
+  upstreamLogoutOperations: SecurityMap<UpstreamLogoutOperation>;
   /**
    * Durable project rows (WP-8). Memory-backed in tests/dev, Postgres when a
    * database is configured — same interface either way.
@@ -242,6 +258,7 @@ export function createAppStores(options?: {
     provisionalSessions: new Map(),
     principalSessionEpochs: new Map(),
     provisionalTokens: new Map(),
+    upstreamLogoutOperations: new Map(),
     projects: projectStores.projects,
     projectMemberships: projectStores.projectMemberships,
     authorityMembershipEdges:
