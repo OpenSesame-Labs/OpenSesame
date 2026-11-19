@@ -7,7 +7,19 @@ import { fileURLToPath } from "node:url";
 import { NPM_PUBLISH } from "./npm-publish-names.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-export async function stagePagesRelease(version, workspaceRoot = root) {
+
+function resolveWorkspaceRoot(workspaceRootOrOptions) {
+  if (
+    typeof workspaceRootOrOptions === "object" &&
+    workspaceRootOrOptions !== null
+  ) {
+    return workspaceRootOrOptions.repositoryRoot ?? root;
+  }
+  return workspaceRootOrOptions ?? root;
+}
+
+export async function stagePagesRelease(version, workspaceRootOrOptions = root) {
+  const workspaceRoot = resolveWorkspaceRoot(workspaceRootOrOptions);
   if (!/^[^\s+]+$/u.test(version)) {
     throw new Error("VERSION must be semver without +build metadata");
   }
