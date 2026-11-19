@@ -15,7 +15,7 @@ import {
 import { finishOrganizationWithdrawal } from "../services/organization-withdrawal.js";
 import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "unchecked" };
+const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "active" };
 export const organizationMemberWithdrawalRoutes = new Hono<{
   Variables: Variables;
 }>();

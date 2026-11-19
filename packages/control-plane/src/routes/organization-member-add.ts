@@ -18,7 +18,7 @@ import {
 } from "./organization-membership.js";
 import { membershipResponse } from "./organization-membership-response.js";
 
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "unchecked" };
+const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "active" };
 export const organizationMemberAddRoutes = new Hono<{ Variables: Variables }>();
 
 organizationMemberAddRoutes.post(

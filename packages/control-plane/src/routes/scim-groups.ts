@@ -80,7 +80,7 @@ export async function putGroupRoleMapping<A, O>(
     async (tx) => {
       // A proof obtained before the request body was read can be stale. The
       // organization lock orders this check with membership withdrawal.
-      const owner = await orgOwner(tx.stores, actor, org, "unchecked");
+      const owner = await orgOwner(tx.stores, actor, org, "active");
       if (!owner.ok) return owner;
       await tx.stores.scim.mappings.put(orgId, groupId, role);
       const group = await tx.stores.scim.groups.getById(orgId, groupId);
