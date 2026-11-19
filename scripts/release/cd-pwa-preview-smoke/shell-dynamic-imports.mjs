@@ -70,8 +70,9 @@ export function expandDynamicShellImports(
       if (ref.startsWith("/")) {
         distRel = assetRelative(ref, base);
       } else if (ref.startsWith(".") || ref.startsWith("assets/")) {
-        distRel =
-          ref.startsWith("assets/") ? ref : resolveDistImport(distRelative, ref);
+        distRel = ref.startsWith("assets/")
+          ? ref
+          : resolveDistImport(distRelative, ref);
       } else {
         continue;
       }

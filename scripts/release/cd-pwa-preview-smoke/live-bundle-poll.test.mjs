@@ -1,16 +1,7 @@
 import assert from "node:assert/strict";
-import {
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import {
-  listStagedShellAssetPaths,
-  pollLiveShellAssets,
-} from "./live-bundle-poll.mjs";
 import {
   envFor,
   hrefOf,
@@ -18,6 +9,10 @@ import {
   pagesBase,
   stageDist,
 } from "./live-bundle-poll.harness.mjs";
+import {
+  listStagedShellAssetPaths,
+  pollLiveShellAssets,
+} from "./live-bundle-poll.mjs";
 import { cdnPollBudget } from "./retry-budget.mjs";
 
 test("cdn poll budget is the deadline form of the hurl retry window", () => {

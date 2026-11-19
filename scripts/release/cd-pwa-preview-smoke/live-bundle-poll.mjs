@@ -88,7 +88,6 @@ export function listStagedShellAssetPaths(distDir, pagesBase) {
   const root = resolve(distDir);
   const base = normalizePagesBase(pagesBase);
   const seen = new Set();
-  const paths = [];
   const htmlPaths = [];
   for (const ref of shellAssetRefs(readIndexHtml(root))) {
     const distRelative = shellAssetRelative(ref, base);
