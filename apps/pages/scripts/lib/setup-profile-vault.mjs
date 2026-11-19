@@ -365,14 +365,16 @@ export async function captureProfileAppliedVault(
   } else if (profileId === "custom") {
     rail = await vaultRailMarkers(page);
     check(
-      rail.card === 0 && rail.note === 0,
-      `custom vault: derived types off before remediation (${JSON.stringify(rail)})`,
+      rail.passkey === 0 && rail.certificate === 0,
+      `custom vault: passkey/certificate filters off before core enable (${JSON.stringify(rail)})`,
     );
-    await enableCoreItemTypesIfOffered(page);
-    rail = await vaultRailMarkers(page);
+    if (rail.enableCore > 0) {
+      await enableCoreItemTypesIfOffered(page);
+      rail = await vaultRailMarkers(page);
+    }
     check(
-      rail.card > 0 && rail.note > 0,
-      `custom vault: card and note filters visible in rail (${JSON.stringify(rail)})`,
+      rail.account > 0 && rail.card > 0 && rail.note > 0,
+      `custom vault: account, card and note filters visible in rail (${JSON.stringify(rail)})`,
     );
   }
 
