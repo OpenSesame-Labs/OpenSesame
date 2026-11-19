@@ -4,8 +4,11 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { sealLocalOnly, waitOpen } from "./pages-journey.mjs";
-import { openSessionMenu } from "./session-section.mjs";
+import {
+  awaitCapabilitySections,
+  capabilityOnSwitch,
+} from "./always-on.mjs";
+import { openSettingsCategory, sealLocalOnly, waitOpen } from "./pages-journey.mjs";
 import { visibleClick } from "./verification-checklist-shot.mjs";
 async function openSetupChoices(page, href) {
   await page.goto(href, { waitUntil: "domcontentloaded" });
@@ -57,31 +60,30 @@ async function confirmMinimal(page, dir, check) {
   }
 }
 
-async function finishCustom(page) {
+async function finishCustom(page, check) {
   await page
     .getByRole("tab", { name: /^capabilities$/i })
     .waitFor({ timeout: 20_000 });
-  const customize = page.getByRole("button", {
-    name: /^Customize this installation/,
+  await page
+    .getByRole("button", { name: /^Customize this installation/ })
+    .click();
+  const personal = page.getByTestId("purpose-card-personal");
+  await personal.waitFor({ state: "visible", timeout: 12_000 });
+  await personal.click();
+  const review = page.getByRole("button", {
+    name: "Save on this device",
+    exact: true,
   });
-  if (
-    await customize
-      .waitFor({ state: "visible", timeout: 8_000 })
-      .then(() => true)
-      .catch(() => false)
-  ) {
-    await customize.click();
-    const personal = page.getByRole("button", { name: /^Personal/ });
-    if (
-      await personal
-        .waitFor({ state: "visible", timeout: 8_000 })
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      await personal.click();
-    }
-  }
-  const skipped = await visibleClick(page, "button", "Skip all", 8_000);
+  await review.waitFor({ state: "visible", timeout: 12_000 });
+  await review.click();
+  const apply = page.getByRole("button", { name: "Apply configuration" });
+  await apply.waitFor({ state: "visible", timeout: 15_000 });
+  await apply.click();
+  const outcome = page.getByTestId("capability-outcome");
+  await outcome.waitFor({ state: "visible", timeout: 25_000 });
+  const text = await outcome.innerText();
+  check(/applied|durable|session/i.test(text), `custom ceremony applied: ${text}`);
+  const skipped = await visibleClick(page, "button", "Skip all", 12_000);
   if (!skipped) await visibleClick(page, "button", "Close", 8_000);
 }
 
@@ -118,6 +120,33 @@ async function shotVault(page, file) {
   await vault.screenshot({ path: file, animations: "disabled" });
 }
 
+async function switchOn(page, title) {
+  return (await capabilityOnSwitch(page, title).count()) > 0;
+}
+
+export async function vaultFeatureMarkers(page) {
+  await openSettingsCategory(page, "Features");
+  await awaitCapabilitySections(page);
+  const onSwitches = page.locator(
+    '[role="switch"][aria-checked="true"][data-capability-title]',
+  );
+  const onSwitchCount = await onSwitches.count();
+  const markers = {
+    onSwitchCount,
+    externalConnectors: await switchOn(page, "External connectors"),
+    passkeyRecords: await switchOn(page, "Passkey records"),
+    certificateRecords: await switchOn(page, "Certificate records"),
+    derivedTypes: await switchOn(page, "Derived item types"),
+    liveSessions: await switchOn(page, "Live sessions"),
+    browserLocalIam: await switchOn(page, "Browser-local IAM"),
+    accessAuthority: await switchOn(page, "Access authority"),
+    identityFederation: await switchOn(page, "Operator identity providers"),
+  };
+  const back = page.getByRole("treeitem", { name: "Back to vault" });
+  if (await back.isVisible().catch(() => false)) await back.click();
+  return markers;
+}
+
 export async function vaultRailMarkers(page) {
   const enableCore = await page.getByRole("button", {
     name: "Turn on passwords, cards and notes",
@@ -130,23 +159,7 @@ export async function vaultRailMarkers(page) {
   const certificate = await page
     .locator('a[href$="/vault?f=certificate"]')
     .count();
-  const connections = await page
-    .locator(".railtree__row")
-    .filter({ hasText: /^Connections$/ })
-    .count();
-  const filters = await page
-    .locator('.railtree__kids a[href^="/vault?f="]')
-    .count();
-  let activityMenu = 0;
-  try {
-    await openSessionMenu(page);
-    activityMenu = await page
-      .getByRole("menuitem", { name: "Activity", exact: true })
-      .count();
-    await page.keyboard.press("Escape");
-  } catch {
-    activityMenu = 0;
-  }
+  const itemFilters = account + card + note + passkey + certificate;
   return {
     enableCore,
     account,
@@ -154,9 +167,7 @@ export async function vaultRailMarkers(page) {
     note,
     passkey,
     certificate,
-    connections,
-    filters,
-    activityMenu,
+    itemFilters,
   };
 }
 
@@ -169,67 +180,80 @@ export function assertProfileVaultDom(profileId, markers, check) {
   const {
     enableCore,
     account,
-    card,
-    note,
     passkey,
     certificate,
-    connections,
-    filters,
-    activityMenu,
+    itemFilters,
+    onSwitchCount,
+    externalConnectors,
+    passkeyRecords,
+    certificateRecords,
+    liveSessions,
+    browserLocalIam,
+    accessAuthority,
+    identityFederation,
+    derivedTypes,
   } = markers;
   if (profileId === "minimal") {
     check(
-      enableCore === 1 && account === 0 && card === 0 && note === 0,
-      `minimal vault: core item types not on (${JSON.stringify(markers)})`,
+      enableCore === 1 && itemFilters === 0,
+      `minimal vault: no item-type filters until enabled (${JSON.stringify(markers)})`,
     );
     check(
-      passkey === 0 && certificate === 0 && connections === 0,
-      `minimal vault: no passkey, certificate or Connections (${JSON.stringify(markers)})`,
+      !externalConnectors &&
+        !passkeyRecords &&
+        !certificateRecords &&
+        !liveSessions &&
+        onSwitchCount <= 1,
+      `minimal vault: no optional features on (${JSON.stringify(markers)})`,
     );
     return;
   }
   if (profileId === "default") {
     check(
-      account > 0 && passkey > 0,
-      `default vault: account + passkey filters (${JSON.stringify(markers)})`,
+      account > 0 && passkey > 0 && certificate > 0,
+      `default vault: password + passkey + certificate filters (${JSON.stringify(markers)})`,
     );
     check(
-      certificate > 0 && connections > 0,
-      `default vault: certificate filter and Connections (${JSON.stringify(markers)})`,
+      externalConnectors &&
+        passkeyRecords &&
+        certificateRecords &&
+        accessAuthority &&
+        browserLocalIam,
+      `default vault: Default extensions on in Features (${JSON.stringify(markers)})`,
     );
     check(
-      activityMenu === 0,
-      `default vault: Activity session root off (${JSON.stringify(markers)})`,
+      !liveSessions && onSwitchCount >= 5 && onSwitchCount <= 12,
+      `default vault: moderate feature count (${onSwitchCount})`,
     );
     return;
   }
   if (profileId === "full") {
     check(
-      account > 0 && passkey > 0 && certificate > 0 && connections > 0,
-      `full vault: core listings present (${JSON.stringify(markers)})`,
+      itemFilters >= 5,
+      `full vault: full item-type rail (${itemFilters})`,
     );
     check(
-      filters >= 6,
-      `full vault: broad filter rail (${filters} filters)`,
+      onSwitchCount >= 18,
+      `full vault: broad feature approval (${onSwitchCount} switches on)`,
     );
     check(
-      activityMenu === 1,
-      `full vault: Activity session root on (${JSON.stringify(markers)})`,
+      externalConnectors && liveSessions,
+      `full vault: connectors and live sessions on (${JSON.stringify(markers)})`,
     );
     return;
   }
   if (profileId === "custom") {
     check(
-      passkey === 0 && connections === 0 && certificate === 0,
-      `custom personal vault: no passkey, certificate or Connections (${JSON.stringify(markers)})`,
+      enableCore === 1 && passkey === 0 && certificate === 0,
+      `custom personal vault: secrets only in the rail (${JSON.stringify(markers)})`,
     );
     check(
-      enableCore === 1 || account > 0,
-      `custom personal vault: secrets-first posture (${JSON.stringify(markers)})`,
+      liveSessions && onSwitchCount <= 2,
+      `custom personal vault: Live sessions selected (${JSON.stringify(markers)})`,
     );
     check(
-      filters <= 3,
-      `custom personal vault: narrow filter rail (${filters})`,
+      !externalConnectors && !passkeyRecords && !derivedTypes,
+      `custom personal vault: no Default extension pack (${JSON.stringify(markers)})`,
     );
   }
 }
@@ -256,7 +280,7 @@ export async function captureProfileAppliedVault(
           : "Full";
   await page.getByRole("button", { name: choice, exact: true }).click();
   if (profileId === "minimal") await confirmMinimal(page, dir, check);
-  if (profileId === "custom") await finishCustom(page);
+  if (profileId === "custom") await finishCustom(page, check);
 
   const landed = await waitPastSetup(page);
   check(
@@ -276,7 +300,10 @@ export async function captureProfileAppliedVault(
     await enableCoreItemTypesIfOffered(page);
   }
 
-  const markers = await vaultRailMarkers(page);
+  const markers = {
+    ...(await vaultRailMarkers(page)),
+    ...(await vaultFeatureMarkers(page)),
+  };
   assertProfileVaultDom(profileId, markers, check);
 
   const applied = path.join(dir, "setup-profile-applied.png");
