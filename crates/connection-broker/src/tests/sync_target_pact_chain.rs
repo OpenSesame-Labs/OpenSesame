@@ -38,8 +38,9 @@ fn chain_method_on_response(scanned: &str, method: &str) -> bool {
 }
 
 fn chain_root_is_response(source: &str, dot: usize) -> bool {
-    root_ident(source, dot)
-        .is_some_and(|name| super::sync_target_pact_rename::tracks_response_receiver(source, dot, name))
+    root_ident(source, dot).is_some_and(|name| {
+        super::sync_target_pact_rename::tracks_response_receiver(source, dot, name)
+    })
 }
 
 fn root_ident(source: &str, mut end: usize) -> Option<String> {
@@ -255,20 +256,11 @@ fn function_item_head(source: &str, index: usize) -> Option<usize> {
 
 fn let_name_before_path(source: &str, head: usize) -> Option<String> {
     let path_start = path_prefix_start(source, head);
-    if path_start == 0 || source.as_bytes()[path_start - 1] != b'=' {
-        return super::sync_target_pact_rename::typed_let_name_before_path(source, head);
+    if path_start > 0 && source.as_bytes()[path_start - 1] == b'=' {
+        // Compacted `let name: Type =` — the type may itself contain `::`.
+        return super::sync_target_pact_let::let_binding_name(source[..path_start - 1].trim_end());
     }
-    let name = trailing_ident(&source[..path_start - 1]);
-    if name.is_empty() || name == "_" {
-        return super::sync_target_pact_rename::typed_let_name_before_path(source, head);
-    }
-    let before = source[..path_start - 1 - name.len()].trim_end();
-    let before = if ends_with_kw(before, "mut") {
-        before[..before.len() - 3].trim_end()
-    } else {
-        before
-    };
-    ends_with_kw(before, "let").then_some(name)
+    super::sync_target_pact_let::typed_let_name_before_path(source, head)
 }
 
 fn path_prefix_start(source: &str, head: usize) -> usize {
@@ -357,14 +349,6 @@ fn strip_turbofish(after: &str) -> Option<&str> {
     None
 }
 
-fn ends_with_kw(source: &str, keyword: &str) -> bool {
-    source
-        .strip_suffix(keyword)
-        .is_some_and(|rest| rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)))
-}
-
 fn leading_ident(source: &str) -> String {
     source.chars().take_while(|ch| is_ident_char(*ch)).collect()
 }
-
-
