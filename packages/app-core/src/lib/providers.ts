@@ -201,9 +201,9 @@ async function requestEmailMagicLinkDefault(email: string): Promise<void> {
   if (!base) {
     throw new Error("No sign-in service is connected.");
   }
-  const request = await beginMagicLink(email);
+  const transaction = await beginMagicLink(email);
   const res = await localNetworkFetch(`${base}/v1/auth/sign-in/magic-link`, {
-    ...request,
+    ...transaction.request,
     timeoutMs: PROVIDERS_FETCH_MS,
   });
   if (!res.ok) {
@@ -213,6 +213,7 @@ async function requestEmailMagicLinkDefault(email: string): Promise<void> {
         : `Could not send the sign-in link (${res.status}).`,
     );
   }
+  transaction.commit();
 }
 
 export const providersSeams = {

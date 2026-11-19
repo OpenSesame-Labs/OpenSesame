@@ -1248,24 +1248,24 @@
       "ab5b5ea9"
     ],
     "packages/app-core/src/lib/magic-link-client.test.ts": [
-      "9cb2ff45",
-      "81554519",
-      "702e7a0c",
-      "7472a6dd",
-      "83d15771",
-      "ee823b12",
-      "1b3c7637",
-      "7c5f1762"
+      "57675140",
+      "6a9264e1",
+      "6e23a80e",
+      "a4804027",
+      "3e195d4a",
+      "d2563e73",
+      "d542e39e",
+      "ad0e495e"
     ],
     "packages/app-core/src/lib/magic-link-client.ts": [
-      "49e27e20",
-      "e386890e",
-      "ea4f2d0e",
-      "03a6cb17",
-      "0ebf5ff4",
-      "80cf854a",
-      "c4b8b756",
-      "48ab3279"
+      "4f75ad2d",
+      "535368dd",
+      "386e7f20",
+      "671b8f39",
+      "e633a21f",
+      "033d0a60",
+      "24bb6770",
+      "7c70798a"
     ],
     "packages/app-core/src/lib/providers.test.ts": [
       "798df6d4",
@@ -1278,14 +1278,14 @@
       "ee016cde"
     ],
     "packages/app-core/src/lib/providers.ts": [
-      "5ff4f94e",
-      "cf2d1485",
-      "6c35276c",
-      "6799facf",
-      "5ef0b4c5",
-      "a1d8a576",
-      "66709562",
-      "c5b6b4f8"
+      "8947b37b",
+      "98495a16",
+      "d7bd6764",
+      "f085f7f3",
+      "79b16eb8",
+      "670ae1b2",
+      "49f10331",
+      "f5118496"
     ],
     "packages/control-plane/src/__tests__/auth-upstream.test.ts": [
       "46692147",
@@ -1298,14 +1298,14 @@
       "96f5f928"
     ],
     "packages/control-plane/src/__tests__/magic-link-exchange.test.ts": [
-      "9094edba",
-      "9e392bec",
-      "717121f5",
-      "0ae039b6",
-      "1d5af79c",
-      "bdaeb0be",
-      "c6fc09a7",
-      "b163ad6b"
+      "1481ca8d",
+      "9d06ae04",
+      "b9965353",
+      "33e077b0",
+      "12c907b0",
+      "b362ae05",
+      "68b5ecac",
+      "4346c2f5"
     ],
     "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
       "159709ab",
@@ -1358,14 +1358,14 @@
       "a4b58cc5"
     ],
     "packages/control-plane/src/services/magic-link-budget.ts": [
-      "f707c17e",
-      "0f3a3ac3",
-      "422ccb90",
-      "34db3a92",
-      "a344b4a7",
-      "aff4f256",
-      "64fcba8f",
-      "5b717699"
+      "83ba2e12",
+      "424f4406",
+      "d3531aaf",
+      "7466ae2a",
+      "f733a3b3",
+      "cc9bd625",
+      "4ac0c893",
+      "058bbb02"
     ],
     "packages/control-plane/src/services/magic-link-confirmation.ts": [
       "40c049c5",
@@ -3508,14 +3508,14 @@
       "ffc3e47c"
     ],
     "packages/control-plane/src/repos/security-maps.ts": [
-      "d493ecea",
-      "e096e175",
-      "40f5c2be",
-      "98f27bfe",
-      "b0314816",
-      "b16d271d",
-      "c843fd99",
-      "79e6cf06"
+      "43325b0a",
+      "fbb85666",
+      "2c74d753",
+      "9909cbb0",
+      "48131e23",
+      "e6709c68",
+      "4b725221",
+      "46bf77fe"
     ],
     "packages/control-plane/src/routes/claim-presentation.ts": [
       "f8eb3088",
@@ -3678,14 +3678,14 @@
       "8729b44f"
     ],
     "packages/control-plane/src/state.ts": [
-      "3a1c38cb",
-      "4d965dfa",
-      "ff78b05f",
-      "91a22bcd",
-      "84576307",
-      "4a4abf0a",
-      "abfc6086",
-      "1912f1ad"
+      "a87336d4",
+      "85278408",
+      "beaf1b88",
+      "eab6166d",
+      "ede45c43",
+      "56585581",
+      "35dbf376",
+      "def36af7"
     ],
     "packages/oauth-provider/src/__tests__/signing-keys.test.ts": [
       "9758bdc0",

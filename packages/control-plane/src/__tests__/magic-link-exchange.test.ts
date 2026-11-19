@@ -7,6 +7,7 @@ import { beforeAll, expect, it, vi } from "vitest";
 import type { AppContext } from "../context.js";
 import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
 import {
+  type MagicLinkBudgetLedger,
   chargeAuthenticationMagicLinkBudget,
   chargeMagicLinkBudget,
 } from "../services/magic-link-budget.js";
@@ -15,7 +16,6 @@ import {
   consumeMagicLinkExchange,
   issueMagicLinkExchange,
 } from "../services/magic-link-exchange.js";
-import type { MfaCodeSendWindow } from "../state.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -148,17 +148,17 @@ it("enforces a shared per-address send budget across replicas", async () => {
   try {
     const db = drizzle(client, { schema });
     const store = () =>
-      new DurableMap<MfaCodeSendWindow>(
+      new DurableMap<MagicLinkBudgetLedger>(
         overlapCast(db),
-        "OpenSesame:MfaCodeSend",
+        "OpenSesame:MagicLinkBudget",
         false,
         3_600_000,
-        10_000,
+        1,
         createEventSealer("magic-link-budget-fixture"),
       );
     const budgetContext = () =>
       overlapCast<unknown, AppContext>({
-        stores: { mfaCodeSends: store() },
+        stores: { magicLinkBudgets: store() },
         config: { claimPepper: "shared-budget-fixture-key" },
         clock: () => new Date(),
       });
@@ -183,7 +183,7 @@ it("enforces a shared per-address send budget across replicas", async () => {
 it("does not reset the send budget if the clock moves backward", async () => {
   let now = Date.now();
   const ctx = overlapCast<unknown, AppContext>({
-    stores: { mfaCodeSends: new Map() },
+    stores: { magicLinkBudgets: new Map() },
     config: { claimPepper: "budget-clock-fixture" },
     clock: () => new Date(now),
   });
@@ -199,7 +199,7 @@ it("does not reset the send budget if the clock moves backward", async () => {
 
 it("limits rotating recipients by source without draining global on refusal", async () => {
   const ctx = overlapCast<unknown, AppContext>({
-    stores: { mfaCodeSends: new Map() },
+    stores: { magicLinkBudgets: new Map() },
     config: { claimPepper: "source-budget-fixture" },
     clock: () => new Date(),
   });
@@ -238,7 +238,7 @@ it("limits rotating recipients by source without draining global on refusal", as
 
 it("bounds authenticated backend mail per application and recipient", async () => {
   const ctx = overlapCast<unknown, AppContext>({
-    stores: { mfaCodeSends: new Map() },
+    stores: { magicLinkBudgets: new Map() },
     config: { claimPepper: "backend-budget-fixture" },
     clock: () => new Date(),
   });
@@ -264,4 +264,62 @@ it("bounds authenticated backend mail per application and recipient", async () =
       "recipient@example.test",
     ),
   ).toBe(true);
+});
+
+it("does not charge recipient dimensions when global or application admission refuses", async () => {
+  const publicStore = new Map<string, MagicLinkBudgetLedger>();
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: publicStore },
+    config: { claimPepper: "atomic-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 200; attempt++)
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        `global-${attempt}@example.test`,
+        `192.0.2.${Math.floor(attempt / 20)}`,
+      ),
+    ).toBe("ok");
+  const beforeGlobal = Object.keys(
+    publicStore.get("deployment")?.recipients ?? {},
+  ).length;
+  expect(
+    await chargeMagicLinkBudget(
+      ctx,
+      "global-refused@example.test",
+      "198.51.100.1",
+    ),
+  ).toBe("global");
+  expect(
+    Object.keys(publicStore.get("deployment")?.recipients ?? {}),
+  ).toHaveLength(beforeGlobal);
+
+  const backendStore = new Map<string, MagicLinkBudgetLedger>();
+  const backend = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: backendStore },
+    config: { claimPepper: "atomic-backend-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 100; attempt++)
+    expect(
+      await chargeAuthenticationMagicLinkBudget(
+        backend,
+        "full_application",
+        `backend-${attempt}@example.test`,
+      ),
+    ).toBe(true);
+  const beforeApplication = Object.keys(
+    backendStore.get("deployment")?.backendRecipients ?? {},
+  ).length;
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      backend,
+      "full_application",
+      "backend-refused@example.test",
+    ),
+  ).toBe(false);
+  expect(
+    Object.keys(backendStore.get("deployment")?.backendRecipients ?? {}),
+  ).toHaveLength(beforeApplication);
 });

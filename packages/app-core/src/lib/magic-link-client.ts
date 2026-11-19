@@ -43,7 +43,10 @@ function readPending(): PendingMagicLink | undefined {
   }
 }
 
-export async function beginMagicLink(email: string): Promise<RequestInit> {
+export async function beginMagicLink(email: string): Promise<{
+  request: RequestInit;
+  commit: () => void;
+}> {
   const identityBase = remoteIdentityApi();
   if (!identityBase) throw new Error("No sign-in service is connected.");
   const verifier = randomString(32);
@@ -58,17 +61,19 @@ export async function beginMagicLink(email: string): Promise<RequestInit> {
     callback: callbackUrl.toString(),
     sessionEpoch: identitySessionEpoch(),
   };
-  sessionStore().setItem(PENDING_KEY, JSON.stringify(pending));
   return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "omit",
-    body: JSON.stringify({
-      email,
-      callbackURL: pending.callback,
-      codeChallenge: await sha256Base64Url(verifier),
-      state,
-    }),
+    request: {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "omit",
+      body: JSON.stringify({
+        email,
+        callbackURL: pending.callback,
+        codeChallenge: await sha256Base64Url(verifier),
+        state,
+      }),
+    },
+    commit: () => sessionStore().setItem(PENDING_KEY, JSON.stringify(pending)),
   };
 }
 
