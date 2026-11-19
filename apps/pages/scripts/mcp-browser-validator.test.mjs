@@ -103,7 +103,7 @@ it("is build-only and does not rewrite unrelated modules or alternate peer versi
   expect(plugin.transform("unrelated", input.appPath)).toBeNull();
   const alternate = input.clientPath.replace(
     "/node_modules/@modelcontextprotocol/sdk/",
-    "/node_modules/other-peer/node_modules/@modelcontextprotocol/sdk/",
+    "/node_modules/@modelcontextprotocol/sdk-alternate/",
   );
   expect(alternate).not.toBe(input.clientPath);
   expect(plugin.transform("unrelated", alternate)).toBeNull();

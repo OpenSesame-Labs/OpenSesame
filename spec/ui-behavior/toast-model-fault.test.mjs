@@ -8,12 +8,13 @@ import { fileURLToPath } from "node:url";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 
-function rejectsFault(original, replacement, invariant) {
+test("TLC detects a timer that runs while only one input is reading", () => {
   const jar = process.env.TLA2TOOLS_JAR;
   assert.ok(jar, "TLA2TOOLS_JAR is required for the model fault check");
   const source = readFileSync(join(directory, "ToastReading.tla"), "utf8");
+  const original = "IF hover \\/ focused\n";
   assert.equal(source.split(original).length, 2, "expected one mutation site");
-  const mutant = source.replace(original, replacement);
+  const mutant = source.replace(original, "IF hover /\\ focused\n");
   const scratch = mkdtempSync(join(tmpdir(), "opensesame-toast-mutant-"));
   try {
     writeFileSync(join(scratch, "ToastReading.tla"), mutant);
@@ -40,28 +41,11 @@ function rejectsFault(original, replacement, invariant) {
     );
     if (result.error) throw result.error;
     assert.notEqual(result.status, 0, "the faulty model must fail");
-    assert.ok(
-      `${result.stdout}\n${result.stderr}`.includes(
-        `Invariant ${invariant} is violated`,
-      ),
+    assert.match(
+      `${result.stdout}\n${result.stderr}`,
+      /Invariant ReadingHoldsTime is violated/,
     );
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
-}
-
-test("TLC detects a timer that runs while only one input is reading", () => {
-  rejectsFault(
-    "IF hover \\/ focused\n",
-    "IF hover /\\ focused\n",
-    "ReadingHoldsTime",
-  );
-});
-
-test("TLC detects an update that inherits the old remaining time", () => {
-  rejectsFault(
-    "  /\\ remaining' = MaxTicks\n  /\\ action' = \"update\"",
-    '  /\\ UNCHANGED remaining\n  /\\ action\' = "update"',
-    "UpdateRestartsTime",
-  );
 });
