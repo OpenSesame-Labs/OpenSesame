@@ -1,4 +1,4 @@
-import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
+import { createHash, hkdfSync, randomUUID } from "node:crypto";
 import {
   type MagicLinkMetadata,
   type UpstreamAuthBundle,
@@ -6,23 +6,22 @@ import {
 } from "@opensesame/auth-upstream";
 import {
   type BoundaryValue,
-  type ProvisionalSession,
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
-import { saveProvisional } from "../repos/session-storage.js";
 import {
   ProvisionalMintRefusedError,
   mintProvisionalForInteraction,
 } from "../interactions/handlers.js";
 import { stripTrailingSlashes } from "../interactions/issuer-normalization.js";
 import { normalizeIssuer } from "../interactions/registry.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
 import { normalizeEmail } from "./email-normalization.js";
 import { attachVerifiedExternalIdentity } from "./identity-link.js";
 import { settleVerifiedOwner } from "./identity-principal-fence.js";
+import { issueProvisionalBearer } from "./provisional-bearer.js";
 
 export { normalizeEmail } from "./email-normalization.js";
 
@@ -89,16 +88,6 @@ export class BetterAuthBridgeError extends Error {
  * link built in `sendMagicLink` can land back inside that interaction.
  */
 export const MAGIC_LINK_INTERACTION_KEY = "interactionUid";
-
-/** Session scope for an email-verified admission: identical to every other leg. */
-const PROVISIONAL_ACTIONS = [
-  "project.create",
-  "project.create_temporary",
-  "resource.create_temporary",
-  "claim.create",
-  "agent.register_ephemeral",
-  "session.continue_anonymous",
-] as const;
 
 /**
  * The issuer recorded on an email identity: this deployment.
@@ -263,26 +252,6 @@ export async function verifyMagicLinkToken(
     // an expired, unknown or already-spent token are one outcome here.
     return undefined;
   }
-}
-
-/** Mint a first-party bearer for a principal that already exists. */
-async function issueProvisionalBearer(
-  ctx: AppContext,
-  principalId: string,
-  expectedEpoch: number,
-): Promise<string> {
-  const now = ctx.clock();
-  const session: ProvisionalSession = {
-    id: `ps_${randomBytes(16).toString("hex")}`,
-    principalId,
-    quotaProfile: "anonymous",
-    allowedActions: [...PROVISIONAL_ACTIONS],
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
-  };
-  const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await saveProvisional(ctx.stores, session, accessToken, expectedEpoch);
-  return accessToken;
 }
 
 /**
