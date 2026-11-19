@@ -1,7 +1,7 @@
 import {
+  type Database,
   MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
-  type Database,
   principals,
 } from "@opensesame/database";
 import { eq, sql } from "drizzle-orm";
@@ -87,7 +87,9 @@ export async function withPrincipalSessionBoundary<T>(
         MemoryOrganizationMembershipStore
       )
     ) {
-      throw new Error("Session and membership stores must use the same backend");
+      throw new Error(
+        "Session and membership stores must use the same backend",
+      );
     }
     return memoryBoundary(stores, principalId, mode, run);
   }
@@ -114,16 +116,23 @@ export async function withPrincipalSessionBoundary<T>(
         sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:PrincipalSession'), hashtext(${principalId}))`,
       );
     }
-    return run({
-      ...stores,
-      provisionalSessions: sessions.onDatabase(db),
-      provisionalTokens: tokens.onDatabase(db),
-      organizationMemberships:
-        stores.organizationMemberships instanceof
-        PostgresOrganizationMembershipStore
-          ? new PostgresOrganizationMembershipStore(db)
-          : stores.organizationMemberships,
-    }, db);
+    return run(
+      {
+        ...stores,
+        provisionalSessions: sessions.onDatabase(db),
+        provisionalTokens: tokens.onDatabase(db),
+        organizationMemberships:
+          stores.organizationMemberships instanceof
+          PostgresOrganizationMembershipStore
+            ? new PostgresOrganizationMembershipStore(db)
+            : stores.organizationMemberships,
+        organizationWithdrawalAudits:
+          stores.organizationWithdrawalAudits instanceof DurableMap
+            ? stores.organizationWithdrawalAudits.onDatabase(db)
+            : stores.organizationWithdrawalAudits,
+      },
+      db,
+    );
   });
 }
 

@@ -14,7 +14,6 @@ export type OrganizationRevocationInput = {
   correlationId: string;
   reason: string;
   revokeSessionsWithoutMembership?: boolean;
-  membershipSerialized?: boolean;
   expectedIncarnation?: string;
   expectedWithdrawalId?: string;
   withdrawalAudit?: OrganizationWithdrawalAuditIntent;
@@ -58,6 +57,11 @@ export async function revokeOrganizationMembership(
           sessionsRevoked += 1;
         }
       }
+      if (membershipRemoved && input.withdrawalAudit)
+        await stores.organizationWithdrawalAudits.set(
+          input.withdrawalAudit.id,
+          input.withdrawalAudit,
+        );
       await removeOrphanTokens(stores);
       return { membershipRemoved, sessionsRevoked };
     },

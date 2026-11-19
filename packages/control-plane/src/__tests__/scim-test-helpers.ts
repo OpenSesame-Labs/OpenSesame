@@ -1,13 +1,28 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ReferenceIdp } from "@opensesame/mock-upstream-idp/testkit";
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import type { createControlPlane } from "../create-app.js";
 
 export type App = ReturnType<typeof createControlPlane>["app"];
 
 export const PAGES_ORIGIN = "http://localhost:5180";
 export const DEFAULT_IDP_SUBJECT = "mock-user-1";
+
+export function installHostRevocationMock() {
+  const realFetch = globalThis.fetch;
+  return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url.endsWith("/api/v1/sessions/revoke"))
+      return Promise.resolve(
+        new Response(JSON.stringify({ revoked: 1 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    return realFetch(input, init);
+  });
+}
 
 export function testConfig(issuer: string) {
   return {
