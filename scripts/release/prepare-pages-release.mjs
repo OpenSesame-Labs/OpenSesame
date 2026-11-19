@@ -18,7 +18,10 @@ function resolveWorkspaceRoot(workspaceRootOrOptions) {
   return workspaceRootOrOptions ?? root;
 }
 
-export async function stagePagesRelease(version, workspaceRootOrOptions = root) {
+export async function stagePagesRelease(
+  version,
+  workspaceRootOrOptions = root,
+) {
   const workspaceRoot = resolveWorkspaceRoot(workspaceRootOrOptions);
   if (!/^[^\s+]+$/u.test(version)) {
     throw new Error("VERSION must be semver without +build metadata");
