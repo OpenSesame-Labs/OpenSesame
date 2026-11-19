@@ -18,7 +18,7 @@
   "totals": {
     "files": 439,
     "violations": 698,
-    "oversizedLines": 212550
+    "oversizedLines": 212459
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -912,7 +912,7 @@
     },
     "packages/control-plane/src/interactions/handlers.ts": {
       "complexity": 3,
-      "max-lines": 671,
+      "max-lines": 669,
       "max-lines-per-function": 2,
       "max-statements": 1
     },
@@ -1047,7 +1047,7 @@
     },
     "packages/control-plane/src/routes/organizations.ts": {
       "complexity": 1,
-      "max-lines": 970,
+      "max-lines": 902,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/routes/principals.ts": {
@@ -1088,7 +1088,7 @@
     },
     "packages/control-plane/src/services/better-auth-bridge.ts": {
       "complexity": 1,
-      "max-lines": 425,
+      "max-lines": 405,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/identity-link.ts": {
@@ -1144,7 +1144,7 @@
       "complexity": 1
     },
     "packages/database/src/schema/index.ts": {
-      "max-lines": 2389
+      "max-lines": 2388
     },
     "packages/database/src/scim-store.ts": {
       "max-lines-per-function": 1
