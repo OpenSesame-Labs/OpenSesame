@@ -392,6 +392,8 @@ pub async fn invoke_task(
         .as_object_mut()
         .ok_or_else(|| internal("intent encoding"))?
         .remove("intent_digest");
+    let connection_policy_id =
+        super::intents_bootstrap::bootstrap_connection_policy_for(&st, &boot)?;
     let receipt = st
         .broker
         .invoke_frozen(
@@ -400,7 +402,7 @@ pub async fn invoke_task(
                 intent,
                 grant: boot.grant.clone(),
                 subject,
-                connection_policy_id: "demo-conn".into(),
+                connection_policy_id,
                 required_capability: required,
                 lineage: None,
             },

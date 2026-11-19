@@ -3,7 +3,7 @@ import { z } from "zod";
 import { hostFetch } from "./host-api.js";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
-  readInvocationResponse,
+  readFreezeIntentResponse,
 } from "./invocation-response.js";
 import {
   clearFrozenIntent,
@@ -66,7 +66,7 @@ export function registerFreezeTool(server: McpServer): void {
             idempotency_key: idempotency_key ?? crypto.randomUUID(),
           }),
         });
-        const body = await readInvocationResponse(res);
+        const body = await readFreezeIntentResponse(res);
         const intentResponse = intentResponseSchema.safeParse(body);
         if (!res.ok || !intentResponse.success)
           throw new Error("freeze_refused");
