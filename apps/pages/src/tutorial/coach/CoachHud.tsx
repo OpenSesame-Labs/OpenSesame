@@ -25,7 +25,9 @@ import {
   type ReactElement,
   type RefObject,
   useId,
+  useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { type SupportController, useSupport } from "../session.js";
 import "./coach.css";
@@ -114,8 +116,28 @@ function Narration({
 }): ReactElement {
   const closing = tour.kind === "close";
   const message = tour.message ?? (closing ? CLOSING_TEXT : "");
+  const prose = useRef<HTMLParagraphElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changed prose can overflow without a resize.
+  useLayoutEffect(() => {
+    const node = prose.current;
+    if (!node) return;
+    const measure = (): void =>
+      setScrollable(node.scrollHeight > node.clientHeight + 1);
+    measure();
+    if (!("ResizeObserver" in globalThis)) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [message, counter, compactMissing]);
   return (
-    <p className="coach__text" id={id} aria-live="polite">
+    <p
+      ref={prose}
+      className={`coach__text${scrollable ? " is-scrollable" : ""}`}
+      id={id}
+      aria-live="polite"
+    >
+      <span className="coach__scroll-cue" aria-hidden="true" />
       {counter && !closing ? (
         <span className="visually-hidden">{counter}. </span>
       ) : null}
