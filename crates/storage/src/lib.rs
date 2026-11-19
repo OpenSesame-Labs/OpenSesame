@@ -970,8 +970,7 @@ impl Db {
         .context("creating schema_migrations")?;
 
         for (version, sql) in MIGRATIONS {
-            // Replicas may start against the same new store. Serialize the
-            // version check with the migration so only one creates its tables.
+            // Serialize each replica's version check and migration on a new store.
             let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
             let applied = sqlx::query("SELECT 1 FROM schema_migrations WHERE version = ?")
                 .bind(version)
