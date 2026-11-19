@@ -98,7 +98,10 @@ test("mise.toml matches the Rust, Node, Go, Java, and cargo-ndk pins", () => {
   // floor matches jsdom 31. Turbo reads packageManager. The legacy
   // package manager stays out of mise.
   assert.equal(asString(tools.node, "node"), "24");
-  assert.equal(manifest.engines.node, ">=24.15.0");
+  assert.equal(
+    manifest.engines.node,
+    ">=24.15.0 <25.0.0 || >=26.0.0",
+  );
   assert.equal(manifest.packageManager, "npm@11.19.1");
   assert.equal(Object.hasOwn(tools, "pn" + "pm"), false);
   assert.ok(
