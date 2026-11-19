@@ -91,6 +91,16 @@ jobs:
               mkdir -p "$scratch"
               mounts+=(--mount "type=bind,source=$scratch,target=/$checkout/$target")
             done
+            target=apps/pages/dist
+            test "$(realpath -m "$GITHUB_WORKSPACE/$checkout/$target")" = "$GITHUB_WORKSPACE/$checkout/$target"
+            mkdir -p "$GITHUB_WORKSPACE/$checkout/$target" "$RUNNER_TEMP/guest-dist-$checkout"
+            mounts+=(--mount "type=bind,source=$RUNNER_TEMP/guest-dist-$checkout,target=/$checkout/$target")
+            port=5198
+            if [ "$checkout" = head ]; then port=5199; fi
+            profile="$RUNNER_TEMP/guest-profile-$checkout.json"
+            printf '{"version":1,"profile":"loopback_development","canonicalOrigin":"http://127.0.0.1:%s","headerSecurity":false}\n' "$port" > "$profile"
+            test ! -L "$GITHUB_WORKSPACE/$checkout/apps/pages/public/security-profile.json"
+            mounts+=(--mount "type=bind,source=$profile,target=/$checkout/apps/pages/public/security-profile.json,readonly")
           done
           docker run --rm --network none --user "$(id -u):$(id -g)" \
             --cap-drop ALL --security-opt no-new-privileges --read-only \
@@ -129,6 +139,7 @@ jobs:
             assert.equal(m[key].tree,execFileSync('git',['-C',path,'rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim());
           }
           assert.deepEqual(m.screens.map(s=>s.width),[320,390]);
+          assert.equal(m.build,'Vite production builds with minimal-local capability profiles');
           for(const screen of m.screens) {
             assert.ok(['guest-vault','sign-out-required'].includes(screen.baseline.outcome));
             assert.equal(screen.head.outcome,'sign-out-required');

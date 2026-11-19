@@ -2,12 +2,25 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 
 const baseRepo = resolve(process.env.BASE_REPO || "/baseline");
 const headRepo = resolve(process.env.HEAD_REPO || "/head");
+const baseDist = resolve(
+  process.env.BASE_DIST || join(baseRepo, "apps/pages/dist"),
+);
+const headDist = resolve(
+  process.env.HEAD_DIST || join(headRepo, "apps/pages/dist"),
+);
 const out = resolve(process.env.EVIDENCE_OUT || "/out");
 const identity = "http://127.0.0.1:18890";
 const baseOrigin = "http://127.0.0.1:5198";
@@ -43,26 +56,83 @@ async function ready(url, child) {
   }
   throw new Error(`Fixture did not start: ${child.log}`);
 }
-function pages(repo, port) {
-  return start(
+async function build(repo, origin, dist) {
+  const profile = JSON.parse(
+    readFileSync(join(repo, "apps/pages/public/security-profile.json"), "utf8"),
+  );
+  assert.equal(profile.profile, "loopback_development");
+  assert.equal(profile.canonicalOrigin, origin);
+  const child = start(
     join(repo, "node_modules/vite/bin/vite.js"),
-    [
-      "--host",
-      "127.0.0.1",
-      "--port",
-      String(port),
-      "--strictPort",
-      "--base",
-      "/OpenSesame/",
-    ],
+    ["build", "--outDir", dist, "--emptyOutDir"],
     join(repo, "apps/pages"),
     {
       OPENSESAME_BUILD_MODE: "hardened",
+      PAGES_DEPLOYMENT_PROFILE: "loopback_development",
+      PAGES_CANONICAL_ORIGIN: origin,
+      VITE_BASE: "/OpenSesame/",
       OPENSESAME_CAPABILITY_PROFILE: join(
         repo,
         "apps/pages/capability-profiles/minimal-local.json",
       ),
     },
+  );
+  await new Promise((done, fail) => {
+    child.once("error", fail);
+    child.once("exit", (code) =>
+      code === 0
+        ? done()
+        : fail(new Error(`Static build failed: ${child.log}`)),
+    );
+  });
+  console.log(`Built ${origin} from ${repo}`);
+}
+function serve(dist, port) {
+  const types = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".woff2": "font/woff2",
+  };
+  const server = createServer((request, response) => {
+    const path = new URL(request.url, `http://127.0.0.1:${port}`).pathname;
+    if (path === "/OpenSesame/os-runtime-config.json") {
+      response.writeHead(200, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      response.end(JSON.stringify({ identityApi: identity }));
+      return;
+    }
+    if (!path.startsWith("/OpenSesame/")) {
+      response.writeHead(404).end();
+      return;
+    }
+    let file = resolve(
+      dist,
+      `.${decodeURIComponent(path.slice("/OpenSesame".length))}`,
+    );
+    if (file === dist) file = join(dist, "index.html");
+    if (!file.startsWith(`${dist}${sep}`)) {
+      response.writeHead(403).end();
+      return;
+    }
+    const actual =
+      existsSync(file) && statSync(file).isFile()
+        ? file
+        : join(dist, "index.html");
+    response.writeHead(200, {
+      "content-type": types[extname(actual)] || "application/octet-stream",
+      "cache-control": "no-store",
+    });
+    response.end(readFileSync(actual));
+  });
+  return new Promise((done, fail) =>
+    server.once("error", fail).listen(port, "127.0.0.1", () => done(server)),
   );
 }
 const fixture = `
@@ -71,29 +141,13 @@ const fixture = `
   const {app}=createControlPlane({config:{port:18890,publicUrl:${JSON.stringify(identity)},issuer:${JSON.stringify(identity)},corsOrigins:[${JSON.stringify(baseOrigin)},${JSON.stringify(headOrigin)}]}});
   serve({fetch:app.fetch,port:18890,hostname:'127.0.0.1'});
 `;
-async function open(context, origin, repo) {
+async function open(context, origin) {
   const page = await context.newPage();
   await page.goto(`${origin}/OpenSesame/`, { waitUntil: "networkidle" });
   const skip = page.getByRole("button", {
     name: "Skip sign-in and continue as guest",
   });
   await skip.waitFor({ timeout: 30000 });
-  await page.evaluate(
-    async ({ repo, identity }) => {
-      const settings = await import(
-        `/OpenSesame/@fs${repo}/packages/app-core/src/lib/settings.ts`
-      );
-      const network = await import(
-        `/OpenSesame/@fs${repo}/packages/app-core/src/lib/local-network-fetch.ts`
-      );
-      network.localNetworkFetchSeams.eligible = () => true;
-      settings.saveSettings({
-        ...settings.loadSettings(),
-        identityApi: identity,
-      });
-    },
-    { repo, identity },
-  );
   return { page, skip };
 }
 async function measure(locator) {
@@ -127,21 +181,21 @@ const cookieStatus = (page) =>
     identity,
   );
 let browser;
+const servers = [];
 mkdirSync(out, { recursive: true });
 try {
+  if (process.env.EVIDENCE_SKIP_BUILD !== "1") {
+    await build(baseRepo, baseOrigin, baseDist);
+    await build(headRepo, headOrigin, headDist);
+  }
   const server = start(
     join(headRepo, "node_modules/tsx/dist/cli.mjs"),
     ["-e", fixture],
     headRepo,
     { OPENSESAME_ENV: "test", OPENSESAME_ALLOW_DEV_DEFAULTS: "1" },
   );
-  const before = pages(baseRepo, 5198),
-    after = pages(headRepo, 5199);
-  await Promise.all([
-    ready(`${identity}/v1/principals/me`, server),
-    ready(`${baseOrigin}/OpenSesame/`, before),
-    ready(`${headOrigin}/OpenSesame/`, after),
-  ]);
+  servers.push(await serve(baseDist, 5198), await serve(headDist, 5199));
+  await ready(`${identity}/v1/principals/me`, server);
   browser = await chromium.launch({
     ...(process.env.PLAYWRIGHT_CHROMIUM
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM }
@@ -156,9 +210,10 @@ try {
       deviceScaleFactor: 2,
       isMobile: true,
       hasTouch: true,
+      serviceWorkers: "block",
     });
-    const baseline = await open(context, baseOrigin, baseRepo),
-      head = await open(context, headOrigin, headRepo);
+    const baseline = await open(context, baseOrigin),
+      head = await open(context, headOrigin);
     const created = await head.page.evaluate(
       (base) =>
         fetch(`${base}/v1/principals/provisional`, {
@@ -268,8 +323,11 @@ try {
         },
         head: { source: process.env.HEAD_SHA, tree: process.env.HEAD_TREE },
         setup:
-          "One browser context and one disposable Identity cookie; the original cookie is restored before head.",
-        network: "Loopback eligibility seam",
+          "One browser context and one provisional Identity session cookie; the original cookie is restored before head.",
+        build: "Vite production builds with minimal-local capability profiles",
+        deployment:
+          "loopback_development; runtime Identity configured to the disposable local server",
+        serviceWorkers: "blocked for the isolated comparison",
         screens,
       },
       null,
@@ -278,6 +336,7 @@ try {
   );
 } finally {
   if (browser) await browser.close();
+  for (const server of servers) server.close();
   for (const child of children) {
     try {
       process.kill(-child.pid, "SIGTERM");
