@@ -97,7 +97,7 @@ describe("the gate tutorials", () => {
     }
   });
 
-  it("keeps the typed unlock walkthrough on the method its next step describes", () => {
+  it("leads a new vault to passkey and keeps PIN as the fallback", () => {
     const known = vi
       .spyOn(state, "isKnownGuidePredicate")
       .mockReturnValue(true);
@@ -106,8 +106,12 @@ describe("the gate tutorials", () => {
       const goal = GATE_GOALS.find((item) => item.id === "gate.unlock");
       expect(goal).toBeDefined();
       read.mockReturnValue(false);
-      expect(goal?.guide).toContain("Keep PIN selected for this walkthrough.");
-      expect(goal?.guide).toContain("Enter a PIN");
+      expect(goal?.guide).toContain(
+        "Keep Passkey selected when it is offered.",
+      );
+      expect(goal?.guide).toContain(
+        "Enter and confirm a PIN only if the passkey road is unavailable or falls back.",
+      );
       read.mockReturnValue(true);
       expect(goal?.guide).toContain(
         "Keep the selected method for this walkthrough.",

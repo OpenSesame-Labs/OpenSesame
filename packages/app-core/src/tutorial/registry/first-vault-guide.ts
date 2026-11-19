@@ -2,12 +2,9 @@
 const SIGN_IN_STEPS = [
   'focus "unlock.local-only" "Select Use without an account to keep this vault on this device." side=top',
   'wait target "unlock.local-only" event=activate timeout=60000',
-  'focus "unlock.seal-pin" "Select PIN to protect this vault." side=bottom',
-  'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-  'focus "unlock.seal-pin-entry" "Enter an 8–12 character PIN." side=bottom',
-  'focus "unlock.seal-pin-confirm" "Confirm PIN. Select Next." side=bottom',
-  'focus "unlock.seal-ack" "Read the notice, select the checkbox, then select Next." side=bottom',
-  'focus "unlock.seal" "Select Seal with PIN." side=bottom',
+  'wait target "unlock.methods" event=appear timeout=60000',
+  'focus "unlock.methods" "Keep Passkey selected when it is offered. If this browser has no WebAuthn PRF, PIN is shown instead." side=bottom',
+  'say "Read and accept the recovery notice, then seal with the offered passkey. If an authenticator cannot use PRF, retry the offered key; enter a PIN only when the form falls back."',
   'wait state "vault.unlocked" is=true timeout=60000',
 ] as const;
 
