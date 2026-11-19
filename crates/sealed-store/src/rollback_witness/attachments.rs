@@ -175,7 +175,7 @@ impl StoreRoot {
         ))
     }
 
-    fn attachment_entry_state(
+    pub(crate) fn attachment_entry_state(
         &self,
         name: &str,
         key: &ItemDataKey,

@@ -492,13 +492,15 @@ impl StoreRoot {
         if !self.path.join(&rel).exists() {
             return Err(StoreError::NotFound(name.into()));
         }
+        let state = self.attachment_entry_state(name, key)?;
         // Advance the local counter before unlink, including when this clone
         // has no sidecar yet. Retrying is safe if unlink is interrupted.
         let local = self.attachment_revision(name)?;
-        if local.is_none() && !self.attachment_witness(name, key)?.deleted {
+        let minimum = local.unwrap_or(0).max(state.revision);
+        if local.is_none() && !state.deleted {
             self.open_manifest_at_witness(name, key)?;
         }
-        let revision = self.tombstone_attachment_witness(name, key, local.unwrap_or(0))?;
+        let revision = self.tombstone_attachment_witness(name, key, minimum)?;
         self.record_attachment_revision(name, revision)?;
         confined_remove(&self.path, &rel)?;
         self.collect_garbage(key)?;

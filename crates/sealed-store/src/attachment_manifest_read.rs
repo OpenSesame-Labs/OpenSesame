@@ -35,15 +35,22 @@ impl StoreRoot {
         if !self.path.join(attach_relative(name)?).exists() {
             return Err(StoreError::NotFound(name.into()));
         }
+        let witness = self.attachment_witness(name, key)?;
+        if witness.deleted {
+            return Err(StoreError::NotFound(name.into()));
+        }
         let result = self.open_manifest_at_witness(name, key)?;
         if self.attachment_revision(name)?.is_some() {
             return Ok(result);
         }
         drop(lock);
         let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
+        let witness = self.attachment_witness(name, key)?;
+        if witness.deleted {
+            return Err(StoreError::NotFound(name.into()));
+        }
         let result = self.open_manifest_at_witness(name, key)?;
         if self.attachment_revision(name)?.is_none() {
-            let witness = self.attachment_witness(name, key)?;
             self.record_attachment_revision(name, witness.revision)?;
         }
         Ok(result)
