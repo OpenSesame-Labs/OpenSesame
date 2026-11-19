@@ -170,12 +170,14 @@ function mismatch(distRelative, detail) {
 }
 
 function declaredLength(response) {
-  const headers = response?.headers;
-  if (typeof headers?.get !== "function") return undefined;
-  const raw = headers.get("content-length");
-  if (raw === null || raw === undefined || raw === "") return undefined;
-  const size = Number(raw);
-  return Number.isFinite(size) ? size : undefined;
+  try {
+    const raw = response.headers.get("content-length");
+    if (raw === null || raw === "") return undefined;
+    const size = Number(raw);
+    return Number.isFinite(size) ? size : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function readBoundedBody(response, distRelative) {
@@ -184,11 +186,7 @@ async function readBoundedBody(response, distRelative) {
     throw mismatch(distRelative, `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`);
   }
   const stream = response.body;
-  if (
-    stream === null ||
-    stream === undefined ||
-    typeof stream.getReader !== "function"
-  ) {
+  if (stream === null) {
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > MAX_SHELL_ASSET_BYTES) {
       throw mismatch(
@@ -198,7 +196,19 @@ async function readBoundedBody(response, distRelative) {
     }
     return bytes;
   }
-  const reader = stream.getReader();
+  let reader;
+  try {
+    reader = stream.getReader();
+  } catch {
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length > MAX_SHELL_ASSET_BYTES) {
+      throw mismatch(
+        distRelative,
+        `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
+      );
+    }
+    return bytes;
+  }
   const chunks = [];
   let total = 0;
   try {

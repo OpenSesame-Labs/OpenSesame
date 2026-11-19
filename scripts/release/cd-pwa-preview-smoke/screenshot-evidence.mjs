@@ -119,9 +119,9 @@ function pushDiagnostic(entries, entry) {
 }
 
 function callMethod(target, name) {
-  if (typeof target?.[name] !== "function") return undefined;
   try {
-    return target[name]();
+    const method = target[name];
+    return method.call(target);
   } catch {
     return undefined;
   }
@@ -129,37 +129,40 @@ function callMethod(target, name) {
 
 /** Console and network events from the live page, for a failed capture. */
 function recordPageDiagnostics(page, consoleEntries, networkEntries) {
-  if (typeof page.on !== "function") return;
-  page.on("console", (message) => {
-    pushDiagnostic(consoleEntries, {
-      type: callMethod(message, "type") ?? "log",
-      text: String(callMethod(message, "text") ?? ""),
+  try {
+    page.on("console", (message) => {
+      pushDiagnostic(consoleEntries, {
+        type: callMethod(message, "type") ?? "log",
+        text: String(callMethod(message, "text") ?? ""),
+      });
     });
-  });
-  page.on("pageerror", (error) => {
-    const text =
-      error instanceof Error ? (error.stack ?? error.message) : String(error);
-    pushDiagnostic(consoleEntries, {
-      type: "pageerror",
-      text: text.slice(0, 2_000),
+    page.on("pageerror", (error) => {
+      const text =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
+      pushDiagnostic(consoleEntries, {
+        type: "pageerror",
+        text: text.slice(0, 2_000),
+      });
     });
-  });
-  page.on("response", (response) => {
-    const request = callMethod(response, "request");
-    pushDiagnostic(networkEntries, {
-      url: String(callMethod(response, "url") ?? ""),
-      status: callMethod(response, "status") ?? 0,
-      method: String(callMethod(request, "method") ?? "GET"),
+    page.on("response", (response) => {
+      const request = callMethod(response, "request");
+      pushDiagnostic(networkEntries, {
+        url: String(callMethod(response, "url") ?? ""),
+        status: callMethod(response, "status") ?? 0,
+        method: String(callMethod(request, "method") ?? "GET"),
+      });
     });
-  });
-  page.on("requestfailed", (request) => {
-    const failure = callMethod(request, "failure");
-    pushDiagnostic(networkEntries, {
-      url: String(callMethod(request, "url") ?? ""),
-      method: String(callMethod(request, "method") ?? "GET"),
-      error: readString(failure?.errorText) ?? "failed",
+    page.on("requestfailed", (request) => {
+      const failure = callMethod(request, "failure");
+      pushDiagnostic(networkEntries, {
+        url: String(callMethod(request, "url") ?? ""),
+        method: String(callMethod(request, "method") ?? "GET"),
+        error: readString(failure?.errorText) ?? "failed",
+      });
     });
-  });
+  } catch {
+    // Stub pages in unit tests do not implement Playwright event wiring.
+  }
 }
 
 async function writeFailureEvidence(
@@ -172,12 +175,10 @@ async function writeFailureEvidence(
   const message =
     error instanceof Error ? error.message : "preview smoke capture failed";
   try {
-    if (typeof page.screenshot === "function") {
-      await page.screenshot({
-        path: join(outRoot, "failure-screenshot.png"),
-        animations: "disabled",
-      });
-    }
+    await page.screenshot({
+      path: join(outRoot, "failure-screenshot.png"),
+      animations: "disabled",
+    });
   } catch (shotError) {
     const text =
       shotError instanceof Error
