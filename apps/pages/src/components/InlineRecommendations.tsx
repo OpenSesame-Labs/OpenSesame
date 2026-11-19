@@ -234,6 +234,15 @@ function RecommendationCard({
             {item.choice.label}
           </button>
         ) : null}
+        {item.alt ? (
+          <button
+            type="button"
+            className="btn btn--sm choice"
+            onClick={() => finish(() => item.alt?.run())}
+          >
+            {item.alt.label}
+          </button>
+        ) : null}
         {item.open ? (
           <button
             type="button"

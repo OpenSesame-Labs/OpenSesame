@@ -27,6 +27,12 @@ import {
   rememberTourAnswered,
   screenAnsweredThisSession,
 } from "@opensesame/app-core/lib/guidance.js";
+import {
+  sessionTutorialsPaused,
+  subscribeSessionTutorialsPaused,
+  tutorialsMaySpeak,
+} from "@opensesame/app-core/lib/tutorial-queue.js";
+import { noteTutorialDeclined } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
 import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
@@ -153,7 +159,7 @@ function usePendingFirstVisit(
       // It was started for a screen the person has left, or tours were
       // switched off meanwhile: it does not start over the wrong controls.
       // A tour's own first move (many begin by navigating) is not leaving.
-      support.stopGuide();
+      support.stopGuide("superseded");
       return;
     }
     noteScreenAnswered(pending.route);
@@ -173,6 +179,7 @@ type Placement = {
   support: ReturnType<typeof useSupport>["support"];
   asked: { current: Asked | null };
   githubReady: boolean;
+  paused: boolean;
 };
 
 function useFirstVisitPlacement({
@@ -186,10 +193,16 @@ function useFirstVisitPlacement({
   support,
   asked,
   githubReady,
+  paused,
 }: Placement) {
   const [inline, setInline] = useState<InlineOffer | null>(null);
   useEffect(() => {
-    if (mode === "off" || !idle || (!gateScreen && gatePresent)) return;
+    if (
+      !tutorialsMaySpeak(mode, paused) ||
+      !idle ||
+      (!gateScreen && gatePresent)
+    )
+      return;
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
@@ -240,7 +253,10 @@ function useFirstVisitPlacement({
         title: goal.title,
         steps,
         start,
-        dismiss: answer,
+        dismiss: () => {
+          answer();
+          noteTutorialDeclined(goal.id, goal.title);
+        },
       });
     };
     timer = setTimeout(speak, firstVisitSeams.delayMs);
@@ -260,6 +276,7 @@ function useFirstVisitPlacement({
     support,
     asked,
     githubReady,
+    paused,
   ]);
   return { inline, close: () => setInline(null) };
 }
@@ -283,6 +300,11 @@ export function FirstVisitOffer({
     gateIsPresent,
     () => false,
   );
+  const paused = useSyncExternalStore(
+    subscribeSessionTutorialsPaused,
+    sessionTutorialsPaused,
+    () => false,
+  );
   const idle = !view.open && view.guide?.tour == null;
   const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
   const mode =
@@ -303,6 +325,7 @@ export function FirstVisitOffer({
     support,
     asked,
     githubReady,
+    paused,
   });
 
   return inline && (gateScreen || !gatePresent) ? (

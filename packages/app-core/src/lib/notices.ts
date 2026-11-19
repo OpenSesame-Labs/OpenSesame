@@ -42,6 +42,11 @@ export type Notice = {
    * a reload keeps the words and the route, and this act is gone.
    */
   act?: NoticeAct | undefined;
+  /**
+   * A second worded key, paired with `act`. Both are drawn as choice keys
+   * when each says `worded`. A single act stays the tray's icon key.
+   */
+  alt?: NoticeAct | undefined;
   /** An in-app route the notice points at, opened from the tray. */
   open?: NoticeOpen;
   createdAt: string;
@@ -82,6 +87,7 @@ export type StatusNoticeInput = {
   retry?: (() => void) | undefined;
   retryLabel?: string;
   act?: NoticeAct;
+  alt?: NoticeAct;
   open?: NoticeOpen;
 };
 
@@ -137,6 +143,8 @@ function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
     existing.ceremony === input.ceremony &&
     existing.ceremonyLabel === input.ceremonyLabel &&
     existing.retryLabel === input.retryLabel &&
+    existing.act?.label === input.act?.label &&
+    existing.alt?.label === input.alt?.label &&
     existing.open?.to === input.open?.to &&
     existing.open?.label === input.open?.label
   );
@@ -150,6 +158,7 @@ function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
     // loop the effect that mirrors a page condition into this store.
     existing.retry = input.retry;
     existing.act = input.act;
+    existing.alt = input.alt;
     return existing;
   }
   const notice: Notice = {
