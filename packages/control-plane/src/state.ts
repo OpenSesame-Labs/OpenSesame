@@ -135,6 +135,10 @@ export interface AppStores {
   organizations: OrganizationStore;
   /** Durable organization memberships, keyed by (organizationId, principalId). */
   organizationMemberships: OrganizationMembershipStore;
+  /** Withdrawal id -> audit intent, retained until the chained audit is verified. */
+  organizationWithdrawalAudits: SecurityMap<
+    import("./repos/organization-withdrawal-audit.js").OrganizationWithdrawalAuditIntent
+  >;
   /** organization id → tail of serialized membership mutations */
   organizationMembershipMutations: Map<string, Promise<void>>;
   /**
@@ -250,6 +254,7 @@ export function createAppStores(options?: {
     activeProjects: new Map(),
     organizations: organizationStores.organizations,
     organizationMemberships: organizationStores.organizationMemberships,
+    organizationWithdrawalAudits: new Map(),
     organizationMembershipMutations: new Map(),
     scim: options?.scimStores ?? createMemoryScimStores(),
     orgFederation:
