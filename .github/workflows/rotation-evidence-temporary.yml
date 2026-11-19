@@ -1,0 +1,79 @@
+name: Temporary rotation comparison
+on:
+  push:
+    branches: [codex/rotation-evidence-20261119]
+permissions: {}
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      EVIDENCE_BASE_SHA: a98c08ab76fe530fe766eb89504ca1eb0b7fcb08
+      EVIDENCE_HEAD_SHA: c9942886a5a0375ee7be9f6b42493906653b641b
+      EVIDENCE_ROOT: ${{ runner.temp }}/rotation-comparison
+      PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+      VITE_BASE: /OpenSesame/
+    steps:
+      - name: Check out the disposable comparison controller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          path: controller
+          persist-credentials: false
+      - name: Check out the exact baseline
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: a98c08ab76fe530fe766eb89504ca1eb0b7fcb08
+          path: before
+          persist-credentials: false
+      - name: Check out the exact candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: c9942886a5a0375ee7be9f6b42493906653b641b
+          path: after
+          persist-credentials: false
+      - name: Verify both source revisions
+        run: |
+          test "$(git -C before rev-parse HEAD)" = "$EVIDENCE_BASE_SHA"
+          test "$(git -C after rev-parse HEAD)" = "$EVIDENCE_HEAD_SHA"
+          git -C before rev-parse 'HEAD^{tree}'
+          git -C after rev-parse 'HEAD^{tree}'
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          working_directory: after
+          cache: false
+          install_args: node@24
+      - name: Install and build the baseline
+        working-directory: before
+        run: |
+          npm ci --ignore-scripts
+          node scripts/lib/ci-pages-build.mjs
+      - name: Install and build the candidate
+        working-directory: after
+        run: |
+          npm ci --ignore-scripts
+          node scripts/lib/ci-pages-build.mjs
+      - name: Capture identical rotation journeys and browser measurements
+        run: |
+          for side in before after; do
+            cp controller/apps/pages/scripts/temporary-rotation-evidence.mjs "$side/apps/pages/scripts/temporary-rotation-evidence.mjs"
+            for theme in light dark; do
+              (cd "$side" && EVIDENCE_SIDE="$side" PAGES_VERIFY_COLOR_SCHEME="$theme" PAGES_VERIFY_OUT="$EVIDENCE_ROOT/$side/$theme" node apps/pages/scripts/temporary-rotation-evidence.mjs)
+            done
+          done
+      - name: Compose review sheets from the unmodified screenshots
+        run: |
+          cp controller/apps/pages/scripts/temporary-compose-rotation.mjs after/apps/pages/scripts/temporary-compose-rotation.mjs
+          cd after
+          node apps/pages/scripts/temporary-compose-rotation.mjs
+      - name: Retain screenshots, comparisons and measured boxes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rotation-comparison-${{ github.run_id }}
+          path: ${{ runner.temp }}/rotation-comparison/
+          retention-days: 14
+          if-no-files-found: warn
