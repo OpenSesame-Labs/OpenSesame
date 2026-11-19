@@ -36,6 +36,7 @@ import {
   Head,
   Meter,
   Ring,
+  canReturn,
   counterOf,
   viewportDockStyle,
 } from "./CoachParts.js";
@@ -97,34 +98,6 @@ function displayedTour(
     step: tour.step + offset,
     count: firstVault ? 16 : tour.count,
   };
-}
-
-/** Back is safe within the current PIN form or item editor. */
-function canReturn(guide: GuideRuntimeSnapshot, tour: GuideTourView): boolean {
-  if (!tour.canBack) return false;
-  if (guide.goal === "gate.front-door") {
-    if (
-      ["unlock.seal-pin-confirm", "unlock.seal-ack", "unlock.seal"].includes(
-        tour.target ?? "",
-      )
-    )
-      return true;
-    return (
-      tour.count === 8 &&
-      [
-        "editor.password-options",
-        "editor.pepper",
-        "editor.generate-password",
-        "item.editor.save",
-      ].includes(tour.target ?? "")
-    );
-  }
-  if (guide.goal === "vault.item.first") {
-    return !["item.editor.name", "item.copy-password"].includes(
-      tour.target ?? "",
-    );
-  }
-  return true;
 }
 
 /** The sentence, announced with its position for a listener who never sees the meter. */
@@ -309,7 +282,11 @@ function Coach({
   const cardRef = useRef<HTMLElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const firstVault = guide.goal === "gate.front-door";
-  const requiredAction = firstVault || guide.goal === "vault.item.first";
+  const requiredAction =
+    firstVault ||
+    ["vault.item.first", "vault.item.find", "vault.item.accounts"].includes(
+      guide.goal ?? "",
+    );
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
   const layout = useCoachLayout(guide.runId, tour, cardRef);

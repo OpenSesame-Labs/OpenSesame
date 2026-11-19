@@ -136,6 +136,9 @@ describe("instrumented screens", () => {
     expect(isMountedGuideTarget("vault.create")).toBe(true);
     expect(isMountedGuideTarget("vault.import")).toBe(true);
     expect(isMountedGuideTarget("vault.export")).toBe(true);
+    expect(resolveGuideTargetElement("vault.filter")).toBe(
+      screen.getByRole("button", { name: /^Filter — / }),
+    );
     // The filter options bind when the sheet opens and not before.
     expect(isMountedGuideTarget("vault.filter.favorites")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: /^Filter — / }));
