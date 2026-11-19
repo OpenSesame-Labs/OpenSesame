@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { describe, expect, it, vi } from "vitest";
 import type { CliAppIntegrationPort } from "./cli-app-integration-client.js";
 import { parseArgs } from "./parse.js";
@@ -102,14 +103,21 @@ describe("password-agent CLI", () => {
     const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     const invoke = vi.fn(async () => "secret-canary");
     try {
-      expect(
-        await withTerminal(() =>
-          runCli(["reveal", "op://v/i/f", "--desktop", "--reveal"], {
-            parityPort: { invoke },
-            appIntegration: approveAppIntegration,
-          }),
-        ),
-      ).toBe(0);
+      const code = await withTerminal(() =>
+        runCli(["reveal", "op://v/i/f", "--desktop", "--reveal"], {
+          parityPort: { invoke },
+          appIntegration: approveAppIntegration,
+        }),
+      );
+      if (isCliAppApprovalBlocked()) {
+        expect(code).toBe(1);
+        expect(invoke).not.toHaveBeenCalled();
+        expect(
+          stderr.mock.calls.map(([value]) => String(value)).join(""),
+        ).toContain("temporarily unavailable");
+        return;
+      }
+      expect(code).toBe(0);
       expect(invoke).toHaveBeenCalled();
       const err = stderr.mock.calls.map(([value]) => String(value)).join("");
       expect(err).toContain('"lane":"reveal"');

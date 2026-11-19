@@ -1,4 +1,5 @@
 import { cliAppIntegrationPolicyDocument } from "@opensesame/app-core/lib/cli-app-integration/policy.js";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import gate from "../../../spec/conformance/cli-reveal-gate.json" with {
   type: "json",
 };
@@ -64,6 +65,9 @@ export async function humanRevealAppIntegrationRefusal(
 ): Promise<string | undefined> {
   const staticRefusal = humanRevealRefusal(request);
   if (staticRefusal) return staticRefusal;
+  if (isCliAppApprovalBlocked()) {
+    return cliAppIntegrationPolicyDocument.messages.blockedApproval;
+  }
   const port = request.appIntegration ?? createCliAppIntegrationPort();
   const terminalSessionId =
     request.terminalSessionId ?? (await terminalSessionIdForReveal());
@@ -75,6 +79,9 @@ export async function humanRevealAppIntegrationRefusal(
   if (decision === "approve") return undefined;
   if (decision === "unavailable") {
     return cliAppIntegrationPolicyDocument.messages.appUnavailable;
+  }
+  if (decision === "blockedApproval") {
+    return cliAppIntegrationPolicyDocument.messages.blockedApproval;
   }
   if (decision === "deny") {
     return cliAppIntegrationPolicyDocument.messages.denied;
