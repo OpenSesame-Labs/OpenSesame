@@ -25,7 +25,7 @@ fn unknown_fields_are_rejected_during_deserialization() {
         "version": 2,
         "cursor": {"device_id": "device", "epoch": 0},
         "blobs": [{"id": "entry", "epoch": 1, "ciphertext": [1], "extra": 1}],
-        "integrity": "00".repeat(64),
+        "integrity": "00".repeat(32),
     });
     assert!(
         SyncStore::from_persisted_json(&DeviceKey::generate(), &persisted.to_string()).is_err()
