@@ -1,3 +1,4 @@
+import { PostgresRepositories } from "@opensesame/database";
 import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AppContext } from "../context.js";
@@ -13,17 +14,8 @@ import type { Variables } from "./context.js";
 async function principalStillAuthenticates(
   ctx: AppContext,
   principalId: string,
-  database?: Database,
 ): Promise<boolean> {
-  const principal = database
-    ? (
-        await database
-          .select()
-          .from(principals)
-          .where(eq(principals.id, principalId))
-          .limit(1)
-      )[0]
-    : await ctx.repos.principals.getById(principalId);
+  const principal = await ctx.repos.principals.getById(principalId);
   // A session is a lease on a principal, not a copy of it. Suspension or
   // closure must take effect on the next request, not when the lease expires.
   return (
@@ -62,11 +54,13 @@ export async function resolveProvisionalSession(
         ) {
           return undefined;
         }
+        const authenticationContext = database
+          ? { ...ctx, repos: new PostgresRepositories(database) }
+          : ctx;
         if (
           !(await principalStillAuthenticates(
-            ctx,
+            authenticationContext,
             standing.principalId,
-            database,
           ))
         )
           return undefined;
@@ -166,6 +160,3 @@ export function requirePrincipal() {
     await next();
   });
 }
-
-import { type Database, principals } from "@opensesame/database";
-import { eq } from "drizzle-orm";
