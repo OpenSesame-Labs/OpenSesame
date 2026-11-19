@@ -53,10 +53,15 @@ impl Db {
             .execute(&mut *tx)
             .await?;
         sqlx::query("DELETE FROM agent_launches WHERE expires_at<=? AND NOT EXISTS(SELECT 1 FROM agent_capabilities c WHERE c.launch_digest=agent_launches.handle_digest)").bind(launch.now).execute(&mut *tx).await?;
-        let inserted=sqlx::query("INSERT INTO agent_launches(handle_digest,principal_id,organization_id,client_id,audience,resource,capabilities_json,approved_at,expires_at)
-            SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM agent_launches)<4096 AND
+        let inserted=sqlx::query("INSERT INTO agent_launches(handle_digest,principal_id,organization_id,client_id,audience,resource,capabilities_json,approved_at,expires_at,membership_incarnation,authority_revision)
+            SELECT ?,?,?,?,?,?,?,?,?,m.membership_incarnation,m.authority_revision
+            FROM (SELECT 1) seed LEFT JOIN host_membership_current m
+              ON m.organization_id=? AND m.principal_id=?
+            WHERE (SELECT COUNT(*) FROM agent_launches)<4096 AND
             (SELECT COUNT(*) FROM agent_launches WHERE principal_id=? AND organization_id=?)<64")
-            .bind(launch.handle_digest).bind(launch.principal_id).bind(launch.organization_id).bind(launch.client_id).bind(launch.audience).bind(launch.resource).bind(launch.capabilities_json).bind(launch.now).bind(expiry).bind(launch.principal_id).bind(launch.organization_id).execute(&mut *tx).await?.rows_affected()==1;
+            .bind(launch.handle_digest).bind(launch.principal_id).bind(launch.organization_id).bind(launch.client_id).bind(launch.audience).bind(launch.resource).bind(launch.capabilities_json).bind(launch.now).bind(expiry)
+            .bind(launch.organization_id).bind(launch.principal_id)
+            .bind(launch.principal_id).bind(launch.organization_id).execute(&mut *tx).await?.rows_affected()==1;
         tx.commit().await?;
         Ok(inserted)
     }

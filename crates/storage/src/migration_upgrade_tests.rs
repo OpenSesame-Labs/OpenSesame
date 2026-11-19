@@ -79,3 +79,65 @@ async fn failed_append_rolls_back_schema_and_journal_then_retries() {
     db.migrate().await.unwrap();
     assert_eq!(db.applied_migrations().await.unwrap(), migration_versions());
 }
+
+#[tokio::test]
+async fn upgrade_from_pairing_revision_adds_agent_membership_authority() {
+    let upto_native = MIGRATIONS
+        .iter()
+        .position(|(version, _)| *version == "0062_host_native_authority")
+        .unwrap();
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap();
+    apply_migrations(&pool, &MIGRATIONS[..upto_native]).await;
+    sqlx::query(
+        "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    for (version, _) in &MIGRATIONS[..upto_native] {
+        sqlx::query("INSERT INTO schema_migrations VALUES (?, 'previous-boot')")
+            .bind(version)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    sqlx::query(
+        "INSERT INTO agent_launches
+         (handle_digest,principal_id,organization_id,client_id,audience,resource,
+          capabilities_json,approved_at,expires_at)
+         VALUES ('legacy','principal','org','client','audience','resource','[]',1,301)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let db = Db { pool };
+    db.migrate().await.unwrap();
+    let columns: Vec<String> = sqlx::query_scalar(
+        "SELECT name FROM pragma_table_info('agent_launches')
+         WHERE name IN ('membership_incarnation','authority_revision') ORDER BY name",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(columns, ["authority_revision", "membership_incarnation"]);
+    assert!(db
+        .withdraw_host_membership(&crate::host_membership::MembershipWithdrawal {
+            withdrawal_id: "withdrawal",
+            organization_id: "org",
+            principal_id: "principal",
+            membership_incarnation: "incarnation",
+            authority_revision: "revision",
+        })
+        .await
+        .unwrap());
+    let revoked: i64 =
+        sqlx::query_scalar("SELECT revoked FROM agent_launches WHERE handle_digest='legacy'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(revoked, 1);
+}

@@ -1,5 +1,11 @@
 -- Opaque credentials are indexed only by their digest. User-code digests are
 -- keyed and bound to each device code; neither code is stored in cleartext.
+-- Agent launches created before this migration remain unbound legacy grants;
+-- the first withdrawal for their subject revokes them. New launches capture
+-- the current membership authority in the same write transaction.
+ALTER TABLE agent_launches ADD COLUMN membership_incarnation TEXT;
+ALTER TABLE agent_launches ADD COLUMN authority_revision TEXT;
+
 CREATE TABLE host_native_security_binding (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   pepper_fingerprint TEXT NOT NULL,
