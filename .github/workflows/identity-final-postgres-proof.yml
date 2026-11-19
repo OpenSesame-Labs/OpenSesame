@@ -1,0 +1,42 @@
+name: Identity final PostgreSQL proof
+
+on:
+  push:
+    branches: [codex/identity-final-postgres-proof]
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - run: npm ci --ignore-scripts
+      - name: Run exact PostgreSQL regressions
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          test "$(git rev-parse HEAD^)" = 'fd811c8b60817fa0cd2e51fec862a41aab2c1719'
+          npm exec -w @opensesame/database -- vitest run tests/postgres-transaction-context.test.ts
+          npm exec -w @opensesame/control-plane -- vitest run src/__tests__/organization-session-postgres.test.ts
