@@ -108,7 +108,9 @@ export function PasswordControl({
         </IconKey>
       ) : null}
       {generationFailed ? (
-        <StatusMark tone="err" label={GENERATION_FAILURE} />
+        <span className="editor__generation-status">
+          <StatusMark tone="err" label={GENERATION_FAILURE} />
+        </span>
       ) : null}
       <IconKey
         label="Password options"

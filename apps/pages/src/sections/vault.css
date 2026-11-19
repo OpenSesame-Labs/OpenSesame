@@ -899,6 +899,15 @@
   border-bottom: 1px solid var(--line-strong);
 }
 
+.editor__generation-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
 .editor__inline--adorned > input {
   max-width: none;
   border-bottom: 0;

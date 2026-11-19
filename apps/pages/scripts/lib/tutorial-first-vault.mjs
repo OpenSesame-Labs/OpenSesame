@@ -66,14 +66,9 @@ function stepChecker(
       )
       .waitFor({ timeout: 30000 });
     const info = await readStep(page);
-    check(
-      info?.target === target,
-      `${label}: step ${number} targets ${target}`,
-    );
-    check(
-      info?.counter === `Step ${number} of ${total}`,
-      `${label}: step ${number} keeps one progress count`,
-    );
+    check(info?.target === target, `${label}: target ${target}`);
+    const expected = `Step ${number} of ${total}`;
+    check(info?.counter === expected, `${label}: progress ${expected}`);
     if (info) {
       for (const [ok, what] of stepChecks(info, { phone }))
         check(ok, `${label} · ${target}: ${what}`);
@@ -245,15 +240,38 @@ async function configurePassword(page, step, check, first, label, phone) {
 
 async function generatePassword(page, step, check, first, label) {
   await step("editor.generate-password", first + 4);
+  const generate = page
+    .getByRole("button", { name: "Generate another password" })
+    .first();
   if (process.env.TUTORIALS_PEPPER_BACK === "1") {
     await revisitPepper(page, step, check, first, label);
   }
+  if (process.env.TUTORIALS_GENERATION_FAILURE === "1") {
+    await page.getByLabel("Password generator").selectOption("rules");
+    for (const option of await page
+      .locator(".gen__checks input[type=checkbox]")
+      .all()) {
+      await option.uncheck();
+    }
+    await generate.click();
+    await step("editor.generate-password", first + 4);
+    const [errorBox, buttonBox] = await Promise.all([
+      page
+        .getByRole("img", { name: /Could not generate a password/ })
+        .boundingBox(),
+      generate.boundingBox(),
+    ]);
+    check(
+      Boolean(
+        errorBox && buttonBox && errorBox.x >= buttonBox.x + buttonBox.width,
+      ),
+      `${label}: generation failure stays clear of the retry button`,
+    );
+    await page.getByLabel("Capital letters", { exact: true }).check();
+  }
   const password = page.getByLabel("Password", { exact: true }).first();
   const before = await password.inputValue();
-  await page
-    .getByRole("button", { name: "Generate another password" })
-    .first()
-    .click();
+  await generate.click();
   await step("item.editor.save", first + 5);
   const generated = await password.inputValue();
   check(
