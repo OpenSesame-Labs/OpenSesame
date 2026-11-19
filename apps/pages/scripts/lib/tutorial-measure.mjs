@@ -322,3 +322,37 @@ export async function waitForSecurityKey(
     );
   }
 }
+
+/** Explain a stuck transition from the method group to the first PIN field. */
+export async function waitForPinTutorial(
+  page,
+  { out, width, label, keepShots },
+) {
+  try {
+    await page
+      .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+      .waitFor();
+  } catch (error) {
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-pin-transition-timeout.png`,
+        fullPage: true,
+      });
+    const state = await page.evaluate(() => ({
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((tab) => ({
+        text: tab.textContent?.trim(),
+        selected: tab.getAttribute("aria-selected"),
+      })),
+      targets: [...document.querySelectorAll("[data-guide-targets]")].map(
+        (target) => target.getAttribute("data-guide-targets"),
+      ),
+      coach: document
+        .querySelector(".coach")
+        ?.getAttribute("data-coach-target"),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(`PIN tutorial did not advance: ${JSON.stringify(state)}`, {
+      cause: error,
+    });
+  }
+}
