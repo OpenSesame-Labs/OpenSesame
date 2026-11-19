@@ -316,8 +316,9 @@ async fn a_pinned_client_dials_nothing_but_its_authority() {
         &clients,
     )
     .await;
-    // The allowlist names a second host and DNS would happily resolve
-    // 127.0.0.1 for it, but the client is pinned to HOST.
+    // The provider allowlist names a second host, but the client-specific pin
+    // is narrower. It must refuse that host during preflight, before a
+    // credential is exposed or DNS/transport is attempted.
     let invoker = Invoker::with_tls(
         rules(&[HOST, "localhost"]),
         &spec(bundle("servers", &servers), None, None, served.addr),
@@ -329,7 +330,7 @@ async fn a_pinned_client_dials_nothing_but_its_authority() {
     )
     .await
     .expect_err("not the pinned authority");
-    assert!(matches!(err, InvokeError::Transport(_)), "{err}");
+    assert!(matches!(err, InvokeError::EgressDenied { .. }), "{err}");
     assert_eq!(served.seen.hits.load(Ordering::SeqCst), 0);
 }
 
