@@ -259,8 +259,8 @@ fn let_name_before_path(source: &str, head: usize) -> Option<String> {
         return super::sync_target_pact_rename::typed_let_name_before_path(source, head);
     }
     let name = trailing_ident(&source[..path_start - 1]);
-    if name.is_empty() {
-        return None;
+    if name.is_empty() || name == "_" {
+        return super::sync_target_pact_rename::typed_let_name_before_path(source, head);
     }
     let before = source[..path_start - 1 - name.len()].trim_end();
     let before = if ends_with_kw(before, "mut") {
