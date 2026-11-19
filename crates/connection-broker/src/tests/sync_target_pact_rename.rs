@@ -41,7 +41,10 @@ fn last_single_eq(prefix: &str) -> Option<usize> {
         if bytes.get(index + 1) == Some(&b'=') {
             continue;
         }
-        if matches!(bytes.get(index.wrapping_sub(1)), Some(b'!' | b'=' | b'<' | b'>')) {
+        if matches!(
+            bytes.get(index.wrapping_sub(1)),
+            Some(b'!' | b'=' | b'<' | b'>')
+        ) {
             continue;
         }
         return Some(index);
@@ -52,7 +55,10 @@ fn last_single_eq(prefix: &str) -> Option<usize> {
 pub(crate) fn tracks_response_receiver(source: &str, before: usize, name: String) -> bool {
     let mut current = name;
     for _ in 0..8 {
-        if RESPONSE_RECEIVERS.iter().any(|receiver| receiver == &current) {
+        if RESPONSE_RECEIVERS
+            .iter()
+            .any(|receiver| receiver == &current)
+        {
             return true;
         }
         let Some(next) = let_bind_rhs(&source[..before], &current) else {
@@ -90,7 +96,10 @@ fn let_bind_rhs(prefix: &str, name: &str) -> Option<String> {
             }
             if bytes.get(at) == Some(&b'=')
                 && bytes.get(at + 1) != Some(&b'=')
-                && !matches!(bytes.get(at.wrapping_sub(1)), Some(b'=' | b'!' | b'<' | b'>'))
+                && !matches!(
+                    bytes.get(at.wrapping_sub(1)),
+                    Some(b'=' | b'!' | b'<' | b'>')
+                )
             {
                 at += 1;
                 while at < bytes.len() && bytes[at].is_ascii_whitespace() {
