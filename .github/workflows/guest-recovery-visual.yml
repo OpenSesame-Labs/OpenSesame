@@ -1,0 +1,117 @@
+# Disposable review evidence only. This workflow is not merged to production.
+name: Guest recovery phone evidence
+on:
+  push:
+    branches: [codex/guest-recovery-visual]
+permissions: {}
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      GUEST_SHA: 9a763225ba0dab7ebb5a4b9e6b671761399c0880
+      GUEST_TREE: 88970a0a384fb35b3677ae14160def15c5036bf6
+    steps:
+      - name: Check out the disposable evidence controller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: controller
+          persist-credentials: false
+      - name: Check out the exact guest PR revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ env.GUEST_SHA }}
+          path: guest
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          working_directory: guest
+          install_args: node@24
+          cache: false
+          cache_save: false
+          persist_github_token: false
+      - name: Install locked dependencies without lifecycle scripts
+        working-directory: guest
+        env:
+          NPM_CONFIG_USERCONFIG: /dev/null
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci --ignore-scripts
+      - name: Capture against disposable Identity in a restricted container
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C guest rev-parse HEAD)" = "$GUEST_SHA"
+          git -C guest diff --exit-code
+          tree="$(git -C guest rev-parse 'HEAD^{tree}')"
+          test "$tree" = "$GUEST_TREE"
+          node_binary="$(readlink -f "$(command -v node)")"
+          test "$("$node_binary" -p 'process.versions.node.split(".")[0]')" = 24
+          mkdir -p "$RUNNER_TEMP/guest-evidence"
+          mounts=()
+          for target in node_modules/.vite node_modules/.vite-temp apps/pages/node_modules/.vite apps/pages/node_modules/.vite-temp; do
+            test "$(realpath -m "$GITHUB_WORKSPACE/guest/$target")" = "$GITHUB_WORKSPACE/guest/$target"
+            mkdir -p "$GITHUB_WORKSPACE/guest/$target"
+            scratch="$RUNNER_TEMP/guest-cache-${#mounts[@]}"
+            mkdir -p "$scratch"
+            mounts+=(--mount "type=bind,source=$scratch,target=/repo/$target")
+          done
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            --cap-drop ALL --security-opt no-new-privileges --read-only \
+            --pids-limit 512 --memory 6g --cpus 2 --shm-size 512m \
+            --tmpfs /tmp:rw,exec,nosuid,nodev,size=768m,mode=1777 \
+            --mount "type=bind,source=$node_binary,target=/usr/bin/node,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/guest,target=/repo,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/controller/scripts/ci/guest-recovery-visual.mjs,target=/capture.mjs,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/guest-evidence,target=/out" \
+            "${mounts[@]}" --workdir /repo \
+            --env HOME=/tmp --env PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+            --env "EVIDENCE_PR_SHA=$GUEST_SHA" --env "EVIDENCE_TREE=$tree" \
+            --entrypoint /usr/bin/node \
+            mcr.microsoft.com/playwright@sha256:f6fe3cf9a493670b9a20f33597a807262abb25c40c31839ba4ac1dbc51fe7366 \
+            /capture.mjs
+      - name: Validate the synthetic output
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          import { lstatSync, readFileSync, readdirSync } from 'node:fs';
+          import { join } from 'node:path';
+          const dir = join(process.env.RUNNER_TEMP, 'guest-evidence');
+          const names = ['guest-sign-out-320.png', 'guest-sign-out-390.png', 'manifest.json'];
+          assert.deepEqual(readdirSync(dir).sort(), names);
+          for (const name of names) {
+            const stat = lstatSync(join(dir, name));
+            assert.ok(stat.isFile() && !stat.isSymbolicLink() && stat.size > 0 && stat.size < 1_000_000);
+          }
+          const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+          assert.equal(manifest.source, process.env.GUEST_SHA);
+          assert.equal(manifest.tree, process.env.GUEST_TREE);
+          assert.deepEqual(manifest.screens.map(screen => screen.width), [320, 390]);
+          for (const screen of manifest.screens) {
+            assert.equal(screen.file, `guest-sign-out-${screen.width}.png`);
+            assert.equal(screen.oldCookieStatus, 401);
+            assert.ok(screen.button.hit && screen.button.width >= 44 && screen.button.height >= 44);
+            const data = readFileSync(join(dir, screen.file));
+            assert.equal(data.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+            assert.equal(data.readUInt32BE(16), screen.width * 2);
+            assert.equal(data.readUInt32BE(20), screen.height * 2);
+            assert.equal(createHash('sha256').update(data).digest('hex'), screen.sha256);
+          }
+          NODE
+      - name: Retain phone captures for PR review
+        id: artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guest-recovery-phones-${{ env.GUEST_SHA }}
+          path: ${{ runner.temp }}/guest-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Link the artifact
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: |
+          printf 'Guest recovery phone captures: %s\n' "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
