@@ -105,12 +105,14 @@ function verifierSealKey(
     .update(nonce)
     .digest()
     .subarray(0, 16);
-  return hkdfSync(
-    "sha256",
-    secret,
-    salt,
-    "OpenSesame:federated-pending:verifier-seal",
-    32,
+  return Buffer.from(
+    hkdfSync(
+      "sha256",
+      secret,
+      salt,
+      "OpenSesame:federated-pending:verifier-seal",
+      32,
+    ),
   );
 }
 
