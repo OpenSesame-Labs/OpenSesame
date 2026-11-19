@@ -102,6 +102,13 @@ egress binding, and the Host injects the sealed credential after authorization.
 The request accepts only `url`, `method`, and an optional JSON `body`; callers
 cannot supply headers or credential placement.
 
+Generic credentialed invocations return an outcome in a signed opaque receipt;
+provider response bodies, connector results and free-form errors are not
+returned through that receipt. Internal Host adapters can still process the
+provider response for their specific workflows. Returning operation-specific
+data to an agent requires a separately reviewed, authorized disclosure policy
+for that provider and field; see [ADR 0150](../adr/0150-surrogate-credentials-at-the-last-hop.md#4-reflection-defense-and-untrusted-provider-responses).
+
 Hosted model providers are the `ai_model_provider` category. A row carries a
 `model_api` block naming its protocol (a closed list) and, unless the endpoint
 is the person's own, a `base_url` that must lie inside the row's own egress; a
