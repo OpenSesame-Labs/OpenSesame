@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "reviewed_revision": "606024f7324aa6b7f522b6cb1090956d0ebc235c",
+  "sources": [
+    {
+      "path": "spec/formal/authority/Cargo.toml",
+      "sha256": "c3e6f071eb4f2105bfd598ba14782a210e1a6a14273db1f6ddf8e396e0a5826a"
+    },
+    {
+      "path": "spec/formal/authority/Cargo.lock",
+      "sha256": "577e0c29fdb0dd65cf8da4eab723b568df91179f9f35d863ccb96fd5335c9552"
+    },
+    {
+      "path": "spec/formal/authority/conformance.rs",
+      "sha256": "5b4e0c4778699a3d1c2ae442d43d340131d70eaac137ad738e5ba3af33ec8876"
+    },
+    {
+      "path": "crates/domain/Cargo.toml",
+      "sha256": "7536b0b444451c252d92615250a06efb74e0c8c99edda244e1f0802c6a00de25"
+    },
+    {
+      "path": "crates/domain/src/grant.rs",
+      "sha256": "78244f5a120a304b766186e3933d124f90f2d4e59a977098e68e27d68164fcd6"
+    },
+    {
+      "path": "crates/domain/src/grant_attenuation.rs",
+      "sha256": "ed60af112adfd7d83d138e071f2e2ed6cb275dd6eec1563ed39f2be35fef6e80"
+    },
+    {
+      "path": "crates/domain/src/grant_budgets.rs",
+      "sha256": "5ab842cb404605af5ceda557253b75026510ee580f36c39a71971d731cc4cc5a"
+    },
+    {
+      "path": "crates/domain/src/grant_lineage.rs",
+      "sha256": "38788c9e166c81ccfd366f860c40eb033efd842fd7aca35c8c525bdaea2e5267"
+    },
+    {
+      "path": "crates/domain/src/ids.rs",
+      "sha256": "6ad2e7b2d2ca9c4dc0ef5b4247b3ac7725f375fdc3b3ab6109feaa5b4c2757db"
+    }
+  ]
+}
