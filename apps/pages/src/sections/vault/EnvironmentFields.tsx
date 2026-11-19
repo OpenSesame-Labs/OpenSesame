@@ -95,10 +95,12 @@ function GeneratedFile({
 
   async function copy() {
     if (!file) return;
-    if ((await copySecret(file.content)) === "copied") {
+    try {
+      const outcome = await copySecret(file.content);
+      if (outcome !== "copied") throw new Error("clipboard unavailable");
       setFailed("");
       setCopied(true);
-    } else {
+    } catch {
       setFailed(`The ${file.fileName} file could not be copied.`);
     }
   }
