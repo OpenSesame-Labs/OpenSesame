@@ -12,6 +12,7 @@ mod daemon_cmd;
 mod daemon_toolbar;
 mod dev_run;
 mod dev_surrogate;
+mod device_login_authorization;
 mod enroll_entry;
 mod entry;
 mod entry_dispatch;
@@ -679,14 +680,15 @@ async fn login(
 
 async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
     let client = reqwest::Client::new();
-    let auth: serde_json::Value = client
+    let response = client
         .post(format!("{server}/api/v1/device/authorize"))
         .json(&json!({"client_id":"opensesame-cli","scope":"opensesame.session"}))
         .send()
-        .await?
-        .error_for_status()?
-        .json()
         .await?;
+    if response.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE {
+        anyhow::bail!("Device approval is unavailable. Ask your administrator to check the OpenSesame app URL.");
+    }
+    let auth: serde_json::Value = response.error_for_status()?.json().await?;
 
     let field = |name: &str| -> anyhow::Result<String> {
         auth[name]
@@ -696,10 +698,8 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
     };
     let device_code = field("device_code")?;
     let user_code = field("user_code")?;
-    let verification_uri = field("verification_uri")?;
-    let verification_uri_complete = auth["verification_uri_complete"]
-        .as_str()
-        .map(str::to_string);
+    let (verification_uri, verification_uri_complete) =
+        device_login_authorization::validate(&auth, &user_code)?;
     let interval = auth["interval"].as_u64().unwrap_or(5).clamp(1, 60);
     // The server chooses this number. Clamped, because opensesame_time answers an
     // out-of-range second count with a panic rather than an error.
@@ -722,16 +722,7 @@ async fn device_login(server: &str, show_qr: bool) -> anyhow::Result<()> {
             eprintln!("(QR unavailable: {err})");
         }
     }
-    println!(
-        "If that page asks for a passkey, this terminal is not your phone or YubiKey. Use TOTP, email, or approve on your phone, then return here."
-    );
-    let approve_body = serde_json::json!({"user_code": user_code});
-    // The operator token is a shared secret for this machine. Printing it puts it in
-    // terminal scrollback, CI logs, and whatever collects those; name the variable
-    // instead and let the shell read it.
-    println!(
-        "(Or approve via: curl -s -X POST {server}/api/v1/device/approve -H 'content-type: application/json' -H \"x-opensesame-operator: $OPENSESAME_OPERATOR_TOKEN\" -d '{approve_body}')"
-    );
+    println!("Sign in and approve the code, then return here.");
 
     let expires_at = opensesame_time::Utc::now() + opensesame_time::Duration::seconds(expires_in);
     let mut state = DevicePollState {

@@ -18,6 +18,13 @@ assert.equal(
 const principal = `principal:${randomUUID()}`;
 const organizations = [`org:${randomUUID()}`, `org:${randomUUID()}`];
 const clientId = "opensesame-cli";
+const approvals: Array<{
+  principal_id: string;
+  organization_id: string;
+  membership_incarnation: string;
+  authority_revision: string;
+  withdrawal_id: string;
+}> = [];
 
 type HostRequest =
   | { client_id: string }
@@ -26,9 +33,11 @@ type HostRequest =
       principal: string;
       organization_id: string;
       organization_role: string;
+      membership_incarnation: string;
+      authority_revision: string;
     }
   | { client_id: string; device_code: string; grant_type: string }
-  | { principal_id: string; organization_id: string };
+  | (typeof approvals)[number];
 
 async function post(path: string, body: HostRequest, authorized = false) {
   const headers = new Headers({ "content-type": "application/json" });
@@ -51,6 +60,18 @@ async function session(organization: string, subject = principal) {
   assert(
     isString(authorization.user_code) && isString(authorization.device_code),
   );
+  const revision = {
+    membership_incarnation: randomUUID(),
+    authority_revision: randomUUID(),
+  };
+  // Record the cleanup identity before sending the approval: a lost response
+  // may still mean that the Host accepted the request.
+  approvals.push({
+    principal_id: subject,
+    organization_id: organization,
+    ...revision,
+    withdrawal_id: randomUUID(),
+  });
   await post(
     "/api/v1/device/approve",
     {
@@ -58,6 +79,7 @@ async function session(organization: string, subject = principal) {
       principal: subject,
       organization_id: organization,
       organization_role: "owner",
+      ...revision,
     },
     true,
   );
@@ -73,18 +95,19 @@ async function session(organization: string, subject = principal) {
   });
 }
 
-const firstOrganization = organizations[0];
-const secondOrganization = organizations[1];
-assert(firstOrganization && secondOrganization);
-const customerA = await session(firstOrganization);
-const customerB = await session(secondOrganization);
-const blobA = `customer-a-${randomUUID()}`;
-const blobB = blobA;
-const outsiderPrincipal = `principal:${randomUUID()}`;
-const outsider = await session(firstOrganization, outsiderPrincipal);
-const ciphertextA = randomBytes(48).toString("base64");
-const ciphertextB = randomBytes(48).toString("base64");
+let failure: unknown;
 try {
+  const firstOrganization = organizations[0];
+  const secondOrganization = organizations[1];
+  assert(firstOrganization && secondOrganization);
+  const customerA = await session(firstOrganization);
+  const customerB = await session(secondOrganization);
+  const blobA = `customer-a-${randomUUID()}`;
+  const blobB = blobA;
+  const outsiderPrincipal = `principal:${randomUUID()}`;
+  const outsider = await session(firstOrganization, outsiderPrincipal);
+  const ciphertextA = randomBytes(48).toString("base64");
+  const ciphertextB = randomBytes(48).toString("base64");
   const ownA = await customerA.syncPush([
     { id: blobA, epoch: 1, ciphertextB64: ciphertextA },
   ]);
@@ -130,19 +153,15 @@ try {
   console.log(
     "PASS: real Host public device approval + API SDK sync; same principal and same blob ID, two customer organizations; outsider overwrite refused; pages and device filters remain customer-scoped.",
   );
-} finally {
-  await post(
-    "/api/v1/sessions/revoke",
-    { principal_id: outsiderPrincipal, organization_id: firstOrganization },
-    true,
-  );
-  await Promise.all(
-    organizations.map((organization_id) =>
-      post(
-        "/api/v1/sessions/revoke",
-        { principal_id: principal, organization_id },
-        true,
-      ),
-    ),
-  );
+} catch (error) {
+  failure = error;
 }
+const cleanup = await Promise.allSettled(
+  approvals.map((approval) => post("/api/v1/sessions/revoke", approval, true)),
+);
+const errors = cleanup.flatMap((result) =>
+  result.status === "rejected" ? [result.reason] : [],
+);
+if (failure !== undefined) errors.unshift(failure);
+if (errors.length)
+  throw new AggregateError(errors, "Customer SDK regression failed");
