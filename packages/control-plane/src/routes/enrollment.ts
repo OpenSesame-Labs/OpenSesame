@@ -24,6 +24,7 @@ import {
   storeEnrollmentTicket,
 } from "../repos/enrollment-tickets.js";
 import { saveProvisional } from "../repos/session-storage.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 
 export const enrollmentRoutes = new Hono<{ Variables: Variables }>();
@@ -160,7 +161,12 @@ async function completeBootstrap(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await saveProvisional(ctx.stores, session, accessToken);
+  await saveProvisional(
+    ctx.stores,
+    session,
+    accessToken,
+    await principalSessionEpoch(ctx.stores, principal.id),
+  );
   const org: Organization = {
     id: `org:${randomUUID()}`,
     slug,
