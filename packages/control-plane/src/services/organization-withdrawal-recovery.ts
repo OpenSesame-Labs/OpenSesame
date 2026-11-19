@@ -32,11 +32,37 @@ export async function resumePendingOrganizationWithdrawals(
   return retry;
 }
 
+const WITHDRAWAL_RETRY_MS = 1_000;
+const WITHDRAWAL_RETRY_MAX_MS = 60_000;
+type ScheduleRetry = (run: () => void, delayMs: number) => void;
+
+const scheduleRetry: ScheduleRetry = (run, delayMs) => {
+  const timer = setTimeout(run, delayMs);
+  timer.unref();
+};
+
 export function scheduleOrganizationWithdrawalRecovery(
   ctx: AppContext,
   ready: Promise<void>,
   warn: () => void,
+  schedule: ScheduleRetry = scheduleRetry,
 ): AppContext {
-  void ready.then(() => resumePendingOrganizationWithdrawals(ctx)).catch(warn);
+  let delayMs = WITHDRAWAL_RETRY_MS;
+  const retry = () => {
+    schedule(recover, delayMs);
+    delayMs = Math.min(delayMs * 2, WITHDRAWAL_RETRY_MAX_MS);
+  };
+  const recover = () => {
+    void ready
+      .then(() => resumePendingOrganizationWithdrawals(ctx))
+      .then((pending) => {
+        if (pending) retry();
+      })
+      .catch(() => {
+        warn();
+        retry();
+      });
+  };
+  recover();
   return ctx;
 }

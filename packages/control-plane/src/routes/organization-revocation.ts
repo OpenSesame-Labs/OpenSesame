@@ -6,14 +6,13 @@ import {
   advancePrincipalSessionEpochOn,
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
-import { removeOrphanTokens } from "../repos/session-storage.js";
 
 export type OrganizationRevocationInput = {
   organizationId: string;
   principalId: string;
   correlationId: string;
   reason: string;
-  revokeSessionsWithoutMembership?: boolean;
+  advanceEpochWithoutMembership?: boolean;
   expectedIncarnation?: string;
   expectedWithdrawalId?: string;
   withdrawalAudit?: OrganizationWithdrawalAuditIntent;
@@ -21,7 +20,6 @@ export type OrganizationRevocationInput = {
 
 export type OrganizationRevocationResult = {
   membershipRemoved: boolean;
-  sessionsRevoked: number;
 };
 
 export async function revokeOrganizationMembership(
@@ -44,26 +42,17 @@ export async function revokeOrganizationMembership(
             input.organizationId,
             input.principalId,
           );
-      if (membershipRemoved || input.revokeSessionsWithoutMembership) {
+      if (membershipRemoved || input.advanceEpochWithoutMembership) {
         if (database)
           await advancePrincipalSessionEpochOn(database, input.principalId);
         else await advancePrincipalSessionEpoch(stores, input.principalId);
-      }
-      let sessionsRevoked = 0;
-      if (membershipRemoved || input.revokeSessionsWithoutMembership) {
-        for (const [, session] of await stores.provisionalSessions.entries()) {
-          if (session.principalId !== input.principalId) continue;
-          await stores.provisionalSessions.delete(session.id);
-          sessionsRevoked += 1;
-        }
       }
       if (membershipRemoved && input.withdrawalAudit)
         await stores.organizationWithdrawalAudits.set(
           input.withdrawalAudit.id,
           input.withdrawalAudit,
         );
-      await removeOrphanTokens(stores);
-      return { membershipRemoved, sessionsRevoked };
+      return { membershipRemoved };
     },
   );
   if (!input.withdrawalAudit) {
@@ -76,7 +65,6 @@ export async function revokeOrganizationMembership(
       metadata: {
         action: "organization.member.revoke",
         reason: input.reason,
-        count: result.sessionsRevoked,
       },
     });
   }

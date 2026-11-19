@@ -3,6 +3,7 @@ import {
   PostgresOrganizationMembershipStore,
   createDrizzle,
   createSqlClient,
+  principals,
 } from "@opensesame/database";
 import { overlapCast } from "@opensesame/os-domain";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -84,6 +85,34 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         );
       await admin.end();
     }
+  });
+
+  it("routes root repository reads through the DurableMap transaction", async () => {
+    const principalId = `prn_tx_${randomUUID()}`;
+    const sessions = first.ctx.stores.provisionalSessions;
+    if (!(sessions instanceof DurableMap))
+      throw new Error("Expected durable sessions");
+
+    await expect(
+      sessions.transaction(async (database) => {
+        await database.insert(principals).values({
+          id: principalId,
+          state: "active",
+          assurance: "verified",
+          version: 1,
+          sessionAuthorityVersion: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        await expect(
+          first.ctx.repos.principals.getById(principalId),
+        ).resolves.toMatchObject({ id: principalId, state: "active" });
+        throw new Error("rollback transaction context regression");
+      }),
+    ).rejects.toThrow("rollback transaction context regression");
+    await expect(
+      first.ctx.repos.principals.getById(principalId),
+    ).resolves.toBeNull();
   });
 
   it("refuses publication on another replica while revocation commits", async () => {
@@ -173,7 +202,7 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
           headers: { authorization: `Bearer ${person.accessToken}` },
         })
       ).status,
-    ).toBe(401);
+    ).toBe(200);
 
     const rollbackResponse = await first.app.request(
       "/v1/principals/provisional",
@@ -190,10 +219,12 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       first.ctx.stores,
       rollbackPerson.principalId,
     );
-    const cleanupSpy = vi
-      .spyOn(DurableMap.prototype, "entries")
-      .mockImplementationOnce(async () => {
-        throw new Error("session cleanup unavailable");
+    const originalRemove = PostgresOrganizationMembershipStore.prototype.remove;
+    const removalSpy = vi
+      .spyOn(PostgresOrganizationMembershipStore.prototype, "remove")
+      .mockImplementationOnce(async function (...args) {
+        await originalRemove.apply(this, args);
+        throw new Error("membership revocation interrupted");
       });
     await expect(
       revokeOrganizationMembership(first.ctx, {
@@ -202,8 +233,8 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         correlationId: "rollback",
         reason: "deprovisioned",
       }),
-    ).rejects.toThrow("session cleanup unavailable");
-    cleanupSpy.mockRestore();
+    ).rejects.toThrow("membership revocation interrupted");
+    removalSpy.mockRestore();
     expect(
       await second.ctx.stores.organizationMemberships.find(
         rollbackMembership.organizationId,
@@ -272,6 +303,12 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     await orderedRevocation;
     expect(
       await first.ctx.stores.provisionalSessions.get(orderingSessionId),
+    ).toMatchObject({ principalId: orderingPerson.principalId });
+    expect(
+      await first.ctx.stores.organizationMemberships.find(
+        orderingMembership.organizationId,
+        orderingPerson.principalId,
+      ),
     ).toBeUndefined();
   }, 60_000);
 
