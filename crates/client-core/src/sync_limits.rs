@@ -23,6 +23,7 @@ pub const MAX_SYNC_PROJECT_ID_BYTES: usize = 128;
 pub(crate) struct BoundedBlob {
     #[serde(deserialize_with = "deserialize_id")]
     id: String,
+    #[serde(deserialize_with = "deserialize_blob_epoch")]
     epoch: u64,
     #[serde(deserialize_with = "deserialize_ciphertext")]
     ciphertext: Vec<u8>,
@@ -141,6 +142,16 @@ pub(crate) fn deserialize_id<'de, D: Deserializer<'de>>(
     bounded_string(deserializer, MAX_SYNC_ID_BYTES)
 }
 
+/// Blob epochs share `validate_blobs`: reject 0 and values above `i64::MAX`.
+/// Cursor epochs are a different range and still allow 0.
+fn deserialize_blob_epoch<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+    let epoch = u64::deserialize(deserializer)?;
+    if epoch == 0 || epoch > i64::MAX as u64 {
+        return Err(de::Error::custom("invalid sync epoch"));
+    }
+    Ok(epoch)
+}
+
 pub(crate) fn deserialize_device_id<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<String, D::Error> {
@@ -236,23 +247,31 @@ impl<'de> Visitor<'de> for BytesVisitor {
         Ok(bytes)
     }
     fn visit_bytes<E: de::Error>(self, bytes: &[u8]) -> Result<Vec<u8>, E> {
-        if bytes.is_empty() || bytes.len() > MAX_SYNC_CIPHERTEXT_BYTES {
-            return Err(E::custom("sync ciphertext length is invalid"));
-        }
+        check_ciphertext_len(bytes.len())?;
         Ok(bytes.to_vec())
     }
     fn visit_byte_buf<E: de::Error>(self, bytes: Vec<u8>) -> Result<Vec<u8>, E> {
-        if bytes.is_empty() || bytes.len() > MAX_SYNC_CIPHERTEXT_BYTES {
-            return Err(E::custom("sync ciphertext length is invalid"));
-        }
+        check_ciphertext_len(bytes.len())?;
         Ok(bytes)
     }
+}
+
+fn check_ciphertext_len<E: de::Error>(len: usize) -> Result<(), E> {
+    if len == 0 {
+        return Err(E::custom("empty sync ciphertext"));
+    }
+    if len > MAX_SYNC_CIPHERTEXT_BYTES {
+        return Err(E::custom("sync ciphertext exceeds the byte limit"));
+    }
+    Ok(())
 }
 
 pub(crate) fn deserialize_ciphertext<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Vec<u8>, D::Error> {
-    deserializer.deserialize_seq(BytesVisitor)
+    // `deserialize_bytes` accepts a byte buffer (`visit_bytes` / `visit_byte_buf`)
+    // and still falls back to the integer-sequence path used by JSON arrays.
+    deserializer.deserialize_bytes(BytesVisitor)
 }
 
 struct BlobsVisitor;
