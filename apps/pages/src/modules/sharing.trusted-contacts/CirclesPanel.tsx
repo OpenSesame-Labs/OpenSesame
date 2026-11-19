@@ -124,7 +124,10 @@ function useCircleView(desk: Desk) {
     view.kind !== "new" &&
     !desk.owned.some((r) => r.signedPolicy.policy.circleId === view.circleId);
   useEffect(() => {
-    if (gone) setView(null);
+    if (gone) {
+      opener.current = HEAD_KEY;
+      setView(null);
+    }
   }, [gone]);
 
   // Closing the last sheet puts the keyboard back where the person came from,
