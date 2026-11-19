@@ -32,6 +32,7 @@ function stageDist() {
   const dist = join(root, "dist");
   mkdirSync(join(dist, "assets"), { recursive: true });
   writeFileSync(join(dist, "assets", "preload.js"), "export const pre = 1;\n");
+  writeFileSync(join(dist, "assets", "app.css"), "body{color:CanvasText}\n");
   writeFileSync(
     join(dist, "assets", "main.js"),
     "export const ready = true;\n",
@@ -69,10 +70,11 @@ test("cdn poll budget is the deadline form of the hurl retry window", () => {
   assert.deepEqual(cdnPollBudget({}), { deadlineMs: 120_000, pollMs: 2_000 });
 });
 
-test("listStagedShellAssetPaths keeps script and modulepreload files under dist", () => {
+test("listStagedShellAssetPaths keeps script, modulepreload, and stylesheet files under dist", () => {
   const { root, dist } = stageDist();
   try {
     assert.deepEqual(listStagedShellAssetPaths(dist, pagesBase), [
+      join(dist, "assets/app.css"),
       join(dist, "assets/preload.js"),
       join(dist, "assets/main.js"),
       join(dist, "boot.js"),
@@ -123,6 +125,9 @@ test("pollLiveShellAssets retries until each live body matches the staged digest
       fetch: async (url, init) => {
         const href = hrefOf(url);
         calls.push({ href, init });
+        if (href.endsWith("/assets/app.css")) {
+          return new Response(readFileSync(join(dist, "assets/app.css")));
+        }
         if (href.endsWith("/assets/preload.js")) {
           preloadTries += 1;
           if (preloadTries === 1)
@@ -141,6 +146,7 @@ test("pollLiveShellAssets retries until each live body matches the staged digest
       now: clock.now,
     });
     assert.deepEqual(matched, [
+      "assets/app.css",
       "assets/preload.js",
       "assets/main.js",
       "boot.js",
@@ -150,7 +156,7 @@ test("pollLiveShellAssets retries until each live body matches the staged digest
       calls.filter((call) => call.href.endsWith("/assets/main.js")).length,
       1,
     );
-    assert.equal(calls[0].href, `${pagesBase}assets/preload.js`);
+    assert.equal(calls[0].href, `${pagesBase}assets/app.css`);
     assert.equal(calls[0].init.cache, "no-store");
     assert.equal(calls[0].init.redirect, "error");
     assert.equal(clock.now(), 2_000);
@@ -180,12 +186,12 @@ test("pollLiveShellAssets names the first mismatched path when the deadline expi
             now: clock.now,
           },
         ),
-      /live shell asset mismatch: assets\/preload\.js \(sha256 /,
+      /live shell asset mismatch: assets\/app\.css \(sha256 /,
     );
     assert.deepEqual(calls, [
-      `${pagesBase}assets/preload.js`,
-      `${pagesBase}assets/preload.js`,
-      `${pagesBase}assets/preload.js`,
+      `${pagesBase}assets/app.css`,
+      `${pagesBase}assets/app.css`,
+      `${pagesBase}assets/app.css`,
     ]);
     assert.equal(clock.now(), 20);
   } finally {
@@ -212,6 +218,81 @@ test("pollLiveShellAssets does not retry a missing staged file", async () => {
       /staged shell asset missing: assets\/missing\.js/,
     );
     assert.equal(fetched, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("pollLiveShellAssets drains a non-OK body before retrying", async () => {
+  const { root, dist } = stageDist();
+  const clock = manualClock();
+  let bodyReleased = false;
+  let preloadTries = 0;
+  try {
+    const matched = await pollLiveShellAssets(envFor(dist), {
+      fetch: async (url) => {
+        const href = hrefOf(url);
+        if (href.endsWith("/assets/app.css")) {
+          return new Response(readFileSync(join(dist, "assets/app.css")));
+        }
+        if (href.endsWith("/assets/preload.js")) {
+          preloadTries += 1;
+          if (preloadTries === 1) {
+            const body = new ReadableStream({
+              cancel() {
+                bodyReleased = true;
+              },
+            });
+            return new Response(body, { status: 404 });
+          }
+          return new Response(readFileSync(join(dist, "assets/preload.js")));
+        }
+        if (href.endsWith("/assets/main.js")) {
+          return new Response(readFileSync(join(dist, "assets/main.js")));
+        }
+        if (href.endsWith("/boot.js")) {
+          return new Response(readFileSync(join(dist, "boot.js")));
+        }
+        throw new Error(`unexpected ${href}`);
+      },
+      sleep: clock.sleep,
+      now: clock.now,
+    });
+    assert.equal(bodyReleased, true);
+    assert.equal(preloadTries, 2);
+    assert.equal(matched.length, 4);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("pollLiveShellAssets names the asset path when a body read stalls", async () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/main.js"></script>',
+    );
+    await assert.rejects(
+      () =>
+        pollLiveShellAssets(
+          envFor(dist, {
+            PWA_SMOKE_CDN_DEADLINE_MS: "0",
+            PWA_SMOKE_CDN_POLL_MS: "10",
+          }),
+          {
+            fetch: async () =>
+              new Response(
+                new ReadableStream({
+                  pull() {},
+                }),
+                { status: 200 },
+              ),
+            readTimeoutMs: 25,
+          },
+        ),
+      /live shell asset mismatch: assets\/main\.js \(body read timed out\)/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
