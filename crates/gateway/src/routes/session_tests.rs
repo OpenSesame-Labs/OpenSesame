@@ -1,8 +1,11 @@
 use super::{local_mint, revoke_matching_sessions, revoke_pending_authorizations, whoami};
 use crate::app_state::{ApprovedDevice, DevicePending};
 use crate::session_claims::fixture;
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::{
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
+};
 use opensesame_domain::{OrganizationId, OrganizationRole, PrincipalId};
 use opensesame_time::{Duration, Utc};
 use serde_json::json;
@@ -11,6 +14,43 @@ use std::{
     sync::{mpsc, Arc, Barrier, Mutex},
     thread,
 };
+use tower::ServiceExt;
+
+#[tokio::test]
+async fn withdrawal_response_attests_the_exact_durable_fence() {
+    let state = crate::app_state::test_demo_state().await;
+    let organization_id = OrganizationId::new();
+    let principal_id = PrincipalId::new();
+    let membership_incarnation = uuid::Uuid::new_v4().to_string();
+    let authority_revision = uuid::Uuid::new_v4().to_string();
+    let withdrawal_id = uuid::Uuid::new_v4().to_string();
+    let request = Request::builder()
+        .method("POST")
+        .uri("/api/v1/sessions/revoke")
+        .header("x-opensesame-operator", &state.operator_token)
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "organization_id": organization_id.to_string(),
+                "principal_id": principal_id.to_string(),
+                "membership_incarnation": membership_incarnation,
+                "authority_revision": authority_revision,
+                "withdrawal_id": withdrawal_id,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = crate::routes::router(state).oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["durable"], true);
+    assert_eq!(body["withdrawal_id"], withdrawal_id);
+    assert_eq!(body["membership_incarnation"], membership_incarnation);
+    assert_eq!(body["authority_revision"], authority_revision);
+}
 
 #[test]
 fn revocation_is_scoped_to_principal_and_organization() {

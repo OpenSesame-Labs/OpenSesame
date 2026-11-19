@@ -61,6 +61,23 @@ the run at its next safe point — never between the presence assertion and the 
 ## Key rotation
 Overlap active/retiring signing keys in JWKS until max token lifetime elapses. Pairwise subjects must not change when signing keys rotate (ADR 0011).
 
+## Membership-withdrawal rollout
+
+Roll out the Identity API before the Host when introducing revision-bound
+membership withdrawal. The upgraded Identity sends the exact membership
+incarnation, authority revision, and stable withdrawal ID. Legacy Hosts ignore
+those extra request fields and may return `200`, but their response does not
+attest a durable replica-shared fence. Identity must therefore keep the
+membership mutation pending until the response contains `durable: true` and
+echoes all three exact values.
+
+Hosts may then be replaced gradually. A request routed to a legacy replica is
+treated as incomplete and retried with the same withdrawal ID; a request routed
+to an upgraded replica commits the shared tombstone and returns the attestation.
+Do not deploy a Host that requires the new request fields before Identity can
+send them: legacy Identity receives a non-success response and fails closed, but
+membership changes remain unavailable until Identity is upgraded.
+
 ## Compose
 ```bash
 docker compose -f ops/compose/docker-compose.yml up
