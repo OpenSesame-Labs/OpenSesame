@@ -1,4 +1,4 @@
-# ADR 0227 — Fail closed on ambiguous SPIFFE snapshots
+# ADR 0223 — Fail closed on ambiguous SPIFFE snapshots
 
 - **Status:** Accepted
 - **Date:** 2026-11-16
@@ -55,19 +55,27 @@ reviewed boundary. Tests exercise the fake gRPC Workload API, including errors
 at stream opening and during a stream. A real SPIRE reference test is separate
 and must be executed to support an interoperability claim.
 
-This policy does not enforce an empty sink at source startup. A pre-populated
-sink can retain its previous generation if the source never activates a new
-one. The current gateway creates an empty manager and waits for activation
-before binding its listener; callers of the public source API must not assume
-that it quarantines an existing generation.
+The source now claims its generation sink and quarantines prior material
+before starting its task. The manager binds updates and retirement to that
+owner and source epoch. It checks wall and monotonic bounds after the source
+observes an outage, at post-handshake and request-admission boundaries. Ordinary
+trust updates must preserve source-owned profiles, including profiles previously
+removed during the manager's lifetime; operators can remove a conflicting stored
+profile without replacing source trust. The separate
+[source-lifetime model](../../spec/formal/source-lifetime/README.md) records the
+modeled properties, implementation evidence, and limits.
 
-The source converts a UTC deadline to a relative Tokio sleep. Its prompt
-withdrawal claim assumes the wall clock does not jump forward across the
-deadline while that sleep is armed and that the task is scheduled in time.
-`SourceStatus::credential_status` independently checks the supplied current
-wall time, but the generation sink is not proven to recheck the source's
-freshness deadline on every use. This ADR does not claim a hard real-time or
-clock-jump-safe sink guarantee.
+The outage interval starts when the source task observes a failure, not when a
+physical disconnect that it has not yet observed occurred. Initial certificate
+deadline conversion assumes a correct wall clock. `std::time::Instant` need not
+advance while a machine is suspended, so rollback across suspend can extend
+real elapsed retention. A handshake started before expiry can still use or
+present the old TLS key before the post-handshake check rejects it. Operations
+already admitted cannot be rolled back. Source-owned trust tombstones live in
+the manager; they are not persisted across restart. A caller with an owner
+capability is trusted to provide fresh Workload API material. These checks do
+not claim hard real-time scheduling, every form of clock-jump safety, or
+unforgeable provenance for arbitrary callers of the public manager API.
 
 The Lean model proves properties of an abstract policy, not a refinement proof
 of the SDK, the concurrent Rust source, certificate verification, or sink
