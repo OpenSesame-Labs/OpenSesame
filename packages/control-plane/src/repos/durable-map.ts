@@ -8,6 +8,7 @@ import {
   oidcPayloads,
   openOidcRow,
   sealOidcRow,
+  withPostgresTransactionContext,
 } from "@opensesame/database";
 import {
   type BoundaryValue,
@@ -53,7 +54,12 @@ export class DurableMap<T> {
 
   /** Run work in one transaction on the database that owns this namespace. */
   transaction<TValue>(run: (db: Database) => Promise<TValue>): Promise<TValue> {
-    return this.db.transaction((tx) => run(overlapCast(tx)));
+    return this.db.transaction((tx) => {
+      const database: Database = overlapCast(tx);
+      return withPostgresTransactionContext(this.db, database, () =>
+        run(database),
+      );
+    });
   }
 
   private legacyId(key: string) {
