@@ -2,14 +2,18 @@
 //!
 //! A dispatch is `.send` / `::send` / `.execute` / `::execute`, or a later call
 //! through `let f = …::send`, including a binding forwarded from that alias
-//! (`let call = dispatch`) and a one-element tuple
+//! (`let call = dispatch`), a later reassignment (`call = dispatch`), a block
+//! expression (`let call = { dispatch }`), and a one-element tuple
 //! (`let (dispatch,) = (…::send,)`). The guarding `if` must `return` from that
 //! function (not from a closure) and must dominate the send: a scheme `if`
 //! nested in another `if`, and an `else if`, do not cover a send that still
 //! runs when that branch is skipped. A call on the bound URL after the check
-//! (`set_scheme`, `clone_from`, `push_str`, `mem::swap`, or any other call)
-//! voids the guard. `&&` / `||` split before unary `!`. A guard on a different
-//! URL does not count.
+//! (`set_scheme`, `clone_from`, `push_str`, `mem::swap`, `mem::replace`,
+//! UFCS `Url::set_scheme`, a rebinding `&mut` alias, a tuple assignment
+//! `(url,) = …`, or any other call) voids the guard. `&&` / `||` split before
+//! unary `!`. A guard on a different URL does not count. A tuple or
+//! destructured `let (request,) = …` is a real binding, so an unrelated
+//! scheme check is not a guard for that send.
 //!
 //! Unresolved destinations are an intentional exception. When the scanner
 //! cannot bind the sent URL — a free `request.send()` or `client.execute(request)`
@@ -19,7 +23,10 @@
 //! same `url`, so the production contract stays `sends >= 1` and `missing == 0`.
 
 mod bind;
+mod closure;
 mod guard;
+mod mutate;
+mod pattern;
 
 use super::sync_target_pact_norm::string_len;
 
