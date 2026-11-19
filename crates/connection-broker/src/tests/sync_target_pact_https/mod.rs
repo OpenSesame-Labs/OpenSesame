@@ -1,9 +1,22 @@
 //! HTTPS guard for credentialed sync dispatch.
 //!
 //! A dispatch is `.send` / `::send` / `.execute` / `::execute`, or a later call
-//! through `let f = …::send`. The guarding `if` must `return` from that
-//! function (not from a closure) when the dispatched URL is not https.
-//! `&&` / `||` split before unary `!`. A guard on a different URL does not count.
+//! through `let f = …::send`, including a binding forwarded from that alias
+//! (`let call = dispatch`) and a one-element tuple
+//! (`let (dispatch,) = (…::send,)`). The guarding `if` must `return` from that
+//! function (not from a closure) and must dominate the send: a scheme `if`
+//! nested in another `if`, and an `else if`, do not cover a send that still
+//! runs when that branch is skipped. A call on the bound URL after the check
+//! (`set_scheme`, `clone_from`, `push_str`, `mem::swap`, or any other call)
+//! voids the guard. `&&` / `||` split before unary `!`. A guard on a different
+//! URL does not count.
+//!
+//! Unresolved destinations are an intentional exception. When the scanner
+//! cannot bind the sent URL — a free `request.send()` or `client.execute(request)`
+//! with no local builder — tests accept a free-floating `parsed.scheme() != "https"`
+//! predicate in that function as the guard. `http_provider_json` does not use
+//! that exception: it parses `url`, checks `parsed.scheme()`, and sends that
+//! same `url`, so the production contract stays `sends >= 1` and `missing == 0`.
 
 mod bind;
 mod guard;

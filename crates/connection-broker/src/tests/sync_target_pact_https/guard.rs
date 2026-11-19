@@ -4,18 +4,40 @@ use super::{after_paren, ident_at, is_ident_byte, is_ident_char, strip_turbofish
 
 pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
     let bytes = prefix.as_bytes();
+    // `prefix` starts at the function's `{`, so statements in the body sit at
+    // depth 1. A scheme `if` nested in another block does not dominate a send
+    // that follows the outer block (`if ready { if url.scheme() … { return } }`).
     let mut index = 0usize;
+    let mut depth = 0i32;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, b"if") && if_guard(prefix, index, dest) {
+        match bytes[index] {
+            b'{' => depth += 1,
+            b'}' => depth -= 1,
+            _ => {}
+        }
+        if depth == 1
+            && is_keyword_at(bytes, index, b"if")
+            && !preceded_by_else(bytes, index)
+            && if_guard(prefix, index, dest)
+        {
             return true;
         }
         index += 1;
     }
     false
+}
+
+/// `else if` is still conditional: the send after the chain runs when `else` is skipped.
+fn preceded_by_else(bytes: &[u8], index: usize) -> bool {
+    let mut at = index;
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    at >= 4 && is_keyword_at(bytes, at - 4, b"else")
 }
 
 fn if_guard(prefix: &str, if_at: usize, dest: Option<&str>) -> bool {
