@@ -18,10 +18,33 @@
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
-import { isTouchGuide } from "./state.js";
+import {
+  isKnownGuidePredicate,
+  isTouchGuide,
+  readGuidePredicate,
+} from "./state.js";
+import { resolveGuideTargetElement } from "./targets.js";
 
 const NEEDS_ITEM = ["vault.has-items"] as const;
 const NEEDS_ACCOUNT = ["vault.has-items", "vault.has-account"] as const;
+
+function narrowFilters(): boolean {
+  return (
+    isKnownGuidePredicate("shell.narrow") && readGuidePredicate("shell.narrow")
+  );
+}
+
+function openFilters(target: string): readonly string[] {
+  if (
+    resolveGuideTargetElement("vault.filter") &&
+    resolveGuideTargetElement(target)
+  )
+    return [];
+  return [
+    'focus "vault.filter" "Select the current filter to see the options." side=bottom',
+    'wait target "vault.filter" event=activate timeout=30000',
+  ];
+}
 
 export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
   {
@@ -32,13 +55,24 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
     requires: NEEDS_ITEM,
     get guide() {
       const phone = isTouchGuide();
+      const narrow = narrowFilters();
       return [
         "guide/1",
         'goal "vault.item.find"',
         'say "Use a filter or search to find an item. Neither changes the items in your vault."',
-        'navigate "/vault"',
-        'wait route "/vault" timeout=15000',
-        'focus "vault.filter.favorites" "Choose a filter, such as Favorites, to narrow the item list." side=right',
+        narrow ? 'navigate "/vault/list"' : 'navigate "/vault"',
+        narrow
+          ? 'wait route "/vault/list" timeout=15000'
+          : 'wait route "/vault" timeout=15000',
+        ...(narrow ? openFilters("vault.filter.favorites") : []),
+        narrow
+          ? 'focus "vault.filter.favorites" "Select Favorites. If the menu closes, open the filter again." side=right'
+          : 'focus "vault.filter.favorites" "Choose a filter, such as Favorites, to narrow the item list." side=right',
+        ...(narrow
+          ? [
+              'wait target "vault.filter.favorites" event=activate timeout=30000',
+            ]
+          : []),
         phone
           ? 'focus "shell.command-bar" "Tap the command bar and type /? followed by a space and your search terms. The list narrows as you type." side=bottom'
           : 'focus "shell.command-bar" "Press / to start a search. Type your search terms after /?; the list narrows as you type. Enter moves focus to the list, and Esc clears the search." side=bottom',
@@ -53,16 +87,27 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
     routes: [],
     libraryOnly: true,
     requires: NEEDS_ACCOUNT,
-    guide: [
-      "guide/1",
-      'goal "vault.item.accounts"',
-      'say "A type is listed among the filters once the vault holds one. Accounts lists only accounts."',
-      'navigate "/vault"',
-      'wait route "/vault" timeout=15000',
-      'focus "vault.filter.logins" "Accounts lists only accounts." side=right',
-      'success "Search still narrows whichever list is on screen, so this filter searches inside accounts."',
-      "end",
-    ].join("\n"),
+    get guide() {
+      const narrow = narrowFilters();
+      return [
+        "guide/1",
+        'goal "vault.item.accounts"',
+        'say "A type is listed among the filters once the vault holds one. Accounts lists only accounts."',
+        narrow ? 'navigate "/vault/list"' : 'navigate "/vault"',
+        narrow
+          ? 'wait route "/vault/list" timeout=15000'
+          : 'wait route "/vault" timeout=15000',
+        ...(narrow ? openFilters("vault.filter.logins") : []),
+        narrow
+          ? 'focus "vault.filter.logins" "Select Accounts. If the menu closes, open the filter again." side=right'
+          : 'focus "vault.filter.logins" "Accounts lists only accounts." side=right',
+        ...(narrow
+          ? ['wait target "vault.filter.logins" event=activate timeout=30000']
+          : []),
+        'success "Search still narrows whichever list is on screen, so this filter searches inside accounts."',
+        "end",
+      ].join("\n");
+    },
   },
   {
     id: "vault.item.favorite",

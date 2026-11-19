@@ -11,6 +11,7 @@ import {
   registerGuidePredicates,
 } from "./predicates.js";
 import { isKnownGuidePredicate } from "./state.js";
+import { mountGuideTarget } from "./targets.js";
 import { VAULT_ITEM_GOALS } from "./vault-item-goals.js";
 
 const GOALS = [...VAULT_ITEM_GOALS, ...DROPS_GOALS, ...KEYBOARD_GOALS];
@@ -89,6 +90,48 @@ describe("the tutorials for what a person does with an item", () => {
   it("make no tutorial wait for the person to act on an item", () => {
     for (const goal of GOALS) {
       expect(goal.guide, goal.id).not.toContain("event=activate");
+    }
+  });
+
+  it("opens the phone filter sheet before asking for Favorites or Accounts", () => {
+    provideGuideDeviceForm(() => ({ narrow: true, keys: true, touch: false }));
+    for (const [id, target] of [
+      ["vault.item.find", "vault.filter.favorites"],
+      ["vault.item.accounts", "vault.filter.logins"],
+    ]) {
+      const guide = GOALS.find((goal) => goal.id === id)?.guide ?? "";
+      expect(guide).toContain('navigate "/vault/list"');
+      expect(guide).toContain('wait target "vault.filter" event=activate');
+      expect(guide).toContain(`wait target "${target}" event=activate`);
+      expect(guide.indexOf('focus "vault.filter"')).toBeLessThan(
+        guide.indexOf(`focus "${target}"`),
+      );
+    }
+    provideGuideDeviceForm(() => ({ narrow: false, keys: true, touch: true }));
+    expect(
+      GOALS.find((goal) => goal.id === "vault.item.find")?.guide,
+    ).not.toContain('focus "vault.filter"');
+  });
+
+  it("does not ask to open a filter sheet that is already open", () => {
+    provideGuideDeviceForm(() => ({ narrow: true, keys: true }));
+    const opener = document.createElement("button");
+    const favorite = document.createElement("a");
+    document.body.append(opener, favorite);
+    const unbindOpen = mountGuideTarget("vault.filter", opener);
+    const unbindFavorite = mountGuideTarget("vault.filter.favorites", favorite);
+    try {
+      const guide = () =>
+        GOALS.find((goal) => goal.id === "vault.item.find")?.guide ?? "";
+      expect(guide()).not.toContain('focus "vault.filter"');
+      opener.style.display = "none";
+      expect(guide()).toContain('focus "vault.filter"');
+    } finally {
+      unbindFavorite();
+      unbindOpen();
+      opener.remove();
+      favorite.remove();
+      provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
     }
   });
 

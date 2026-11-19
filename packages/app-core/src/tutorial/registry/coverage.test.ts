@@ -9,6 +9,10 @@ import {
 import { guideGoal, mergedGuideGoals } from "./goals.js";
 import { KEYMAP_TUTORIALS } from "./keymap-tutorials.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
+import {
+  provideGuideDeviceForm,
+  registerGuidePredicates,
+} from "./predicates.js";
 
 /**
  * Every control and every key is taught by a tutorial, or the debt ledger
@@ -16,19 +20,24 @@ import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
  */
 let revoke = () => {};
 beforeAll(() => {
+  registerGuidePredicates();
   revoke = registerTutorialRealm();
 });
 afterAll(() => revoke());
 
 function pointedAt(): ReadonlySet<string> {
   const pointed = new Set<string>();
-  for (const goal of mergedGuideGoals()) {
-    for (const match of goal.guide.matchAll(
-      /(?:focus|wait target) "([^"]+)"/g,
-    )) {
-      if (match[1]) pointed.add(match[1]);
+  for (const narrow of [false, true]) {
+    provideGuideDeviceForm(() => ({ narrow, keys: true }));
+    for (const goal of mergedGuideGoals()) {
+      for (const match of goal.guide.matchAll(
+        /(?:focus|wait target) "([^"]+)"/g,
+      )) {
+        if (match[1]) pointed.add(match[1]);
+      }
     }
   }
+  provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
   for (const match of `${FIRST_VAULT_SHELL_GUIDE}\n${FIRST_VAULT_PACK_GUIDE}`.matchAll(
     /(?:focus|wait target) "([^"]+)"/g,
   )) {

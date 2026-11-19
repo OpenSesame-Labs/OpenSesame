@@ -4,7 +4,14 @@
  * no state of its own.
  */
 
-import type { GuideTourView } from "@opensesame/guide-runtime";
+import {
+  isKnownGuidePredicate,
+  readGuidePredicate,
+} from "@opensesame/app-core/tutorial/registry/state.js";
+import type {
+  GuideRuntimeSnapshot,
+  GuideTourView,
+} from "@opensesame/guide-runtime";
 import type { CSSProperties, ReactElement } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import {
@@ -281,4 +288,46 @@ export function viewportDockStyle(
     ...horizontal,
     bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
   };
+}
+
+/** Keep Back from returning to controls removed by an earlier action. */
+export function canReturn(
+  guide: GuideRuntimeSnapshot,
+  tour: GuideTourView,
+): boolean {
+  if (!tour.canBack) return false;
+  if (
+    ["vault.item.find", "vault.item.accounts"].includes(guide.goal ?? "") &&
+    [
+      "vault.filter.favorites",
+      "vault.filter.logins",
+      "shell.command-bar",
+    ].includes(tour.target ?? "") &&
+    isKnownGuidePredicate("shell.narrow") &&
+    readGuidePredicate("shell.narrow")
+  )
+    return false;
+  if (guide.goal === "gate.front-door") {
+    if (
+      ["unlock.seal-pin-confirm", "unlock.seal-ack", "unlock.seal"].includes(
+        tour.target ?? "",
+      )
+    )
+      return true;
+    return (
+      tour.count === 8 &&
+      [
+        "editor.password-options",
+        "editor.pepper",
+        "editor.generate-password",
+        "item.editor.save",
+      ].includes(tour.target ?? "")
+    );
+  }
+  if (guide.goal === "vault.item.first") {
+    return !["item.editor.name", "item.copy-password"].includes(
+      tour.target ?? "",
+    );
+  }
+  return true;
 }
