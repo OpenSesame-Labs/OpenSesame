@@ -114,6 +114,13 @@
       "proofs": [
         "spec/formal/authority/Authority.lean",
         "spec/formal/authority/required-theorems.lean",
+        "spec/formal/authority/conformance.rs",
+        "spec/formal/authority/Cargo.toml",
+        "spec/formal/authority/Cargo.lock",
+        "spec/formal/authority/check.sh",
+        "spec/formal/authority/check-drift.py",
+        "spec/formal/authority/coverage.json",
+        "spec/formal/authority/negative-control.py",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
@@ -134,6 +141,11 @@
       "proofs": [
         "spec/formal/dpop/ReplayPolicy.lean",
         "spec/formal/dpop/required-theorems.lean",
+        "spec/formal/dpop/replay_conformance.rs",
+        "spec/formal/dpop/verify.sh",
+        "spec/formal/dpop/check_drift.py",
+        "spec/formal/dpop/coverage.json",
+        "spec/formal/dpop/mutate.py",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
@@ -147,9 +159,15 @@
     {
       "id": "spiffe",
       "implementation": [
+        "crates/domain/Cargo.toml",
+        "crates/domain/src/lib.rs",
+        "crates/domain/build.rs",
+        "crates/spiffe-source/build.rs",
+        "crates/transport-security/build.rs",
         "crates/spiffe-source/Cargo.toml",
         "crates/spiffe-source/src/lib.rs",
         "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_handle.rs",
         "crates/spiffe-source/src/source_policy.rs",
         "crates/spiffe-source/src/bundles.rs",
         "crates/spiffe-source/src/outage.rs",
@@ -161,12 +179,6 @@
         "crates/spiffe-source/src/sink.rs",
         "crates/spiffe-source/src/sink/transport.rs",
         "crates/transport-security/src/generations.rs",
-        "crates/domain/Cargo.toml",
-        "crates/domain/src/lib.rs",
-        "crates/domain/build.rs",
-        "crates/spiffe-source/build.rs",
-        "crates/transport-security/build.rs",
-        "crates/spiffe-source/src/source_handle.rs",
         "crates/transport-security/src/source_lifetime.rs",
         "crates/transport-security/src/source_trust.rs"
       ],
@@ -177,6 +189,12 @@
       "proofs": [
         "spec/formal/spiffe/SpiffePolicy.lean",
         "spec/formal/spiffe/required-theorems.lean",
+        "spec/formal/spiffe/verify.sh",
+        "spec/formal/spiffe/check-drift.py",
+        "spec/formal/spiffe/coverage.json",
+        "spec/formal/spiffe/reviewed-sources.json",
+        "spec/formal/spiffe/negative-controls.py",
+        "spec/formal/spiffe/NEGATIVE-CONTROLS.md",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
@@ -255,6 +273,11 @@
       "proofs": [
         "spec/formal/source-lifetime/SourceLifetime.lean",
         "spec/formal/source-lifetime/required-theorems.lean",
+        "spec/formal/source-lifetime/verify.sh",
+        "spec/formal/source-lifetime/check-drift.py",
+        "spec/formal/source-lifetime/coverage.json",
+        "spec/formal/source-lifetime/negative-controls.py",
+        "spec/formal/source-lifetime/NEGATIVE-CONTROLS.md",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"

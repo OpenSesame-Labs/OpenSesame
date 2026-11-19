@@ -4,12 +4,17 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "security"))
+from formal_coverage_drift import assert_reviewed_revision_on_main
 SCRIPT = ROOT / "spec/formal/source-lifetime/check-drift.py"
 
 
@@ -90,11 +95,31 @@ class SpiffePrecheckTest(unittest.TestCase):
         spec.loader.exec_module(self.checker)
         self.checker.ROOT = self.root
         data = json.loads((ROOT / "spec/formal/spiffe/coverage.json").read_text())
-        for name in [*(item["path"] for item in data["sources"]), "Cargo.lock",
-                     "spec/formal/spiffe/coverage.json"]:
+        paths = {
+            *(item["path"] for item in data["sources"]),
+            "Cargo.lock",
+            "spec/formal/spiffe/coverage.json",
+            data["reviewed_attestation"],
+        }
+        for name in paths:
             source, target = ROOT / name, self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+
+        def repo_git(*args: str):
+            return subprocess.run(
+                ["git", "-C", str(ROOT), *args],
+                capture_output=True,
+                env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
+                check=False,
+            )
+
+        self.checker.git = repo_git
+        self.checker.assert_reviewed_revision_on_main = (
+            lambda root, revision, label: assert_reviewed_revision_on_main(
+                ROOT, revision, label
+            )
+        )
 
     def check(self):
         with contextlib.redirect_stdout(io.StringIO()):
