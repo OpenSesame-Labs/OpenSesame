@@ -65,25 +65,26 @@ const NOTCH_INSET = 14;
 /** Below this height the whole phone card must be scrollable. */
 export const CONSTRAINED_CARD_HEIGHT = 200;
 
+const tightViewport = (viewport: Size): boolean =>
+  viewport.width < 230 && viewport.height < 220;
+
 /** Limit a phone card to the space beside a control; long text can scroll. */
 export function phoneCardHeightLimit(
   viewport: Size,
   target: Box | null,
   insets: SafeInsets,
 ): number {
+  const tight = tightViewport(viewport);
+  const margin = tight ? 0 : COACH_MARGIN;
+  const spacing = tight ? margin : margin + COACH_GAP;
   const screen = Math.max(
     0,
-    viewport.height - COACH_MARGIN * 2 - insets.top - insets.bottom,
+    viewport.height - margin * 2 - insets.top - insets.bottom,
   );
   if (target === null) return screen;
-  const above = target.top - insets.top - COACH_MARGIN - COACH_GAP;
+  const above = target.top - insets.top - spacing;
   const below =
-    viewport.height -
-    target.top -
-    target.height -
-    insets.bottom -
-    COACH_MARGIN -
-    COACH_GAP;
+    viewport.height - target.top - target.height - insets.bottom - spacing;
   return Math.min(screen, Math.max(0, above, below));
 }
 
@@ -187,7 +188,8 @@ export function clearOfDock(
 ): Box {
   // The card sits `0.5rem + inset` off its edge (coach.css), so the screen's
   // own inset at that edge is part of what it covers.
-  const dock = card.height + COACH_MARGIN * 2 + insets[edge];
+  const margin = tightViewport(viewport) ? 0 : COACH_MARGIN * 2;
+  const dock = card.height + margin + insets[edge];
   const top = edge === "top" ? Math.max(hole.top, dock) : hole.top;
   const bottom =
     edge === "top"
@@ -201,15 +203,16 @@ export function placeCoach(input: PlacementInput): CoachPlacement {
   const { viewport, card, target, prefer, phone, insets = NO_INSETS } = input;
   if (phone) {
     if (target === null) return { kind: "dock", edge: "bottom" };
+    const margin = tightViewport(viewport) ? 0 : COACH_MARGIN;
     const topCovered = Math.max(
       0,
-      card.height + COACH_MARGIN + insets.top - target.top,
+      card.height + margin + insets.top - target.top,
     );
     const bottomCovered = Math.max(
       0,
       target.top +
         target.height -
-        (viewport.height - card.height - COACH_MARGIN - insets.bottom),
+        (viewport.height - card.height - margin - insets.bottom),
     );
     return {
       kind: "dock",

@@ -56,6 +56,108 @@ export async function checkKeyboardViewport(
       { timeout: 5000 },
     );
   }
+  if (
+    original.width <= 390 &&
+    (target === "unlock.seal-pin-entry" || target === "item.editor.name")
+  ) {
+    await checkZoomedKeyboard(page, check, field, target, keyboardHeight);
+  }
+}
+
+/** Keep the active field, instruction, and navigation usable at 2× zoom. */
+async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
+  const original = page.viewportSize();
+  const session = await page.context().newCDPSession(page);
+  let advanced = false;
+  try {
+    await field.focus();
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+    await page.setViewportSize({
+      width: original.width,
+      height: keyboardHeight,
+    });
+    await page.waitForFunction((id) => {
+      const field = document.querySelector(`[data-guide-targets~="${id}"]`);
+      const card = document.querySelector(".coach__card");
+      const v = visualViewport;
+      if (!field || !card || v.scale < 1.9) return false;
+      const input = field.getBoundingClientRect();
+      const box = card.getBoundingClientRect();
+      return (
+        Math.abs(input.top - v.offsetTop) < 2 &&
+        box.top >= v.offsetTop &&
+        box.bottom <= v.offsetTop + v.height + 1 &&
+        box.height >= v.height - input.height - 15
+      );
+    }, target);
+    const result = await page.evaluate((id) => {
+      const v = visualViewport;
+      const field = document.querySelector(`[data-guide-targets~="${id}"]`);
+      const card = document.querySelector(".coach__card");
+      const text = card.querySelector(".coach__text");
+      const controls = [
+        card.querySelector('[aria-label="Exit tutorial"]'),
+        card.querySelector(".coach__btn--back"),
+        card.querySelector(".coach__btn--go"),
+      ];
+      const a = card.getBoundingClientRect();
+      const b = field.getBoundingClientRect();
+      const next = controls[2].getBoundingClientRect();
+      text.scrollTop = text.scrollHeight;
+      return {
+        clear: a.bottom <= b.top || a.top >= b.bottom,
+        readable:
+          text.clientHeight + 1 >=
+            parseFloat(getComputedStyle(text).lineHeight) &&
+          text.scrollTop + text.clientHeight >= text.scrollHeight - 1,
+        controls: controls.every((control) => {
+          const box = control.getBoundingClientRect();
+          return (
+            box.width * v.scale >= 44 &&
+            box.height * v.scale >= 44 &&
+            box.left >= a.left &&
+            box.right <= a.right &&
+            box.top >= a.top &&
+            box.bottom <= a.bottom
+          );
+        }),
+        point: {
+          x: next.left + next.width / 2 - v.offsetLeft,
+          y: next.top + next.height / 2 - v.offsetTop,
+        },
+      };
+    }, target);
+    check(result.clear, `first vault: zoomed keyboard leaves ${target} clear`);
+    check(
+      result.readable,
+      "first vault: zoomed keyboard instruction can be read",
+    );
+    check(
+      result.controls,
+      "first vault: zoomed keyboard controls fit and remain touch-sized",
+    );
+    if (target === "unlock.seal-pin-entry") {
+      await page.touchscreen.tap(result.point.x, result.point.y);
+      await page
+        .locator('.coach[data-coach-target="unlock.seal-pin-confirm"]')
+        .waitFor();
+      check(
+        true,
+        "first vault: Next works by touch with the zoomed keyboard open",
+      );
+      advanced = true;
+    }
+  } finally {
+    await page.setViewportSize(original);
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+    await session.detach();
+  }
+  if (advanced) {
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page
+      .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+      .waitFor();
+  }
 }
 
 /** Runs in the browser once the resized viewport and coach have settled. */

@@ -12,6 +12,7 @@ it("tracks the visual viewport when a mobile keyboard opens or shifts it", () =>
   const viewport = Object.assign(new EventTarget(), {
     width: 390,
     height: 844,
+    scale: 1,
     offsetLeft: 0,
     offsetTop: 0,
   });
@@ -44,11 +45,13 @@ it("tracks the visual viewport when a mobile keyboard opens or shifts it", () =>
   expect(result.current).toMatchObject({ offsetTop: 40, bottomOffset: 404 });
   act(() => {
     viewport.width = 195;
+    viewport.scale = 2;
     viewport.offsetLeft = 50;
     viewport.dispatchEvent(new Event("resize"));
   });
   expect(result.current).toMatchObject({
     width: 195,
+    scale: 2,
     offsetLeft: 50,
     rightOffset: 145,
   });
@@ -129,4 +132,50 @@ it("reveals a clipped target after a resize without following later scrolling", 
   expect(scroll).toHaveBeenCalledOnce();
   unmount();
   button.remove();
+});
+
+it("moves a focused field to the edge when zoom and the keyboard leave little room", () => {
+  let nextFrame: FrameRequestCallback = () => {};
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    nextFrame = callback;
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const viewport = Object.assign(new EventTarget(), {
+    width: 160,
+    height: 120,
+    offsetLeft: 0,
+    offsetTop: 0,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  let top = 38;
+  const field = document.createElement("input");
+  field.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      right: 280,
+      top,
+      bottom: top + 44,
+      width: 280,
+      height: 44,
+      x: 0,
+      y: top,
+      toJSON() {},
+    }) as DOMRect;
+  const scroll = vi.fn(() => {
+    top = 0;
+  });
+  field.scrollIntoView = scroll;
+  document.body.append(field);
+  field.focus();
+  const { unmount } = renderHook(() => useLiveRect(() => field, "step"));
+  expect(scroll).toHaveBeenCalledWith({
+    block: "start",
+    inline: "nearest",
+    behavior: "auto",
+  });
+  act(() => nextFrame(0));
+  expect(scroll).toHaveBeenCalledOnce();
+  unmount();
+  field.remove();
 });

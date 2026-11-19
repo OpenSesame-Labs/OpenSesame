@@ -52,12 +52,42 @@ function needsReveal(
   if (!view || box.width <= 0 || box.height <= 0) return false;
   const width = view.visualViewport?.width ?? view.innerWidth;
   const height = view.visualViewport?.height ?? view.innerHeight;
-  if (box.width > width || box.height > height) return false;
-  return (
-    visible === null ||
-    visible.width < box.width - 1 ||
-    visible.height < box.height - 1
-  );
+  const horizontal =
+    box.width <= width && (visible?.width ?? 0) < box.width - 1;
+  const vertical =
+    box.height <= height && (visible?.height ?? 0) < box.height - 1;
+  return horizontal || vertical;
+}
+
+/** Leave room for navigation when zoom and the keyboard leave a short screen. */
+function needsRoom(element: HTMLElement): boolean {
+  const view = element.ownerDocument.defaultView?.visualViewport;
+  if (
+    !view ||
+    view.width >= 230 ||
+    view.height >= 220 ||
+    element.ownerDocument.activeElement !== element ||
+    !element.matches("input, textarea, [contenteditable=true]")
+  )
+    return false;
+  const box = element.getBoundingClientRect();
+  const above = box.top - view.offsetTop;
+  const below = view.offsetTop + view.height - box.bottom;
+  return Math.max(above, below) < 70;
+}
+
+function revealTarget(
+  element: HTMLElement,
+  box: VisibleTargetRect | null,
+): boolean {
+  const makeRoom = needsRoom(element);
+  if (!makeRoom && !needsReveal(element, box)) return false;
+  element.scrollIntoView?.({
+    block: makeRoom ? "start" : "center",
+    inline: "nearest",
+    behavior: "auto",
+  });
+  return true;
 }
 
 /**
@@ -117,13 +147,8 @@ export function useLiveRect(
         element &&
         revealFrames > 0 &&
         revealAttempts < 2 &&
-        needsReveal(element, box)
+        revealTarget(element, box)
       ) {
-        element.scrollIntoView?.({
-          block: "center",
-          inline: "nearest",
-          behavior: "auto",
-        });
         revealAttempts += 1;
       }
       if (revealFrames > 0) revealFrames -= 1;
@@ -154,6 +179,7 @@ export function useLiveRect(
 }
 
 type VisualSize = Size & {
+  readonly scale: number;
   readonly offsetLeft: number;
   readonly rightOffset: number;
   readonly offsetTop: number;
@@ -170,6 +196,7 @@ const readViewport = (): VisualSize => {
   return {
     width,
     height,
+    scale: visual?.scale ?? 1,
     offsetLeft,
     offsetTop,
     rightOffset: Math.max(0, layoutWidth - offsetLeft - width),
@@ -186,6 +213,7 @@ export function useViewport(): VisualSize {
         const next = readViewport();
         return held.width === next.width &&
           held.height === next.height &&
+          held.scale === next.scale &&
           held.offsetLeft === next.offsetLeft &&
           held.rightOffset === next.rightOffset &&
           held.offsetTop === next.offsetTop &&

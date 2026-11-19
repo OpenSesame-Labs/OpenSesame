@@ -38,7 +38,7 @@ import {
   Ring,
   counterOf,
 } from "./CoachParts.js";
-import { CONSTRAINED_CARD_HEIGHT, type placeCoach } from "./placement.js";
+import type { placeCoach } from "./placement.js";
 import {
   cardKeys,
   useCoachFocus,
@@ -130,6 +130,7 @@ function viewportDockStyle(
   placement: ReturnType<typeof placeCoach> | null,
   viewport: {
     width: number;
+    height: number;
     offsetLeft: number;
     rightOffset: number;
     offsetTop: number;
@@ -143,15 +144,16 @@ function viewportDockStyle(
     left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
     right: `calc(0.5rem + ${viewport.rightOffset}px)`,
   };
+  const edge = viewport.width < 230 && viewport.height < 220 ? "0px" : "0.5rem";
   if (placement.edge === "top") {
     return {
       ...horizontal,
-      top: `calc(0.5rem + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
+      top: `calc(${edge} + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
     };
   }
   return {
     ...horizontal,
-    bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
+    bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
   };
 }
 
@@ -186,6 +188,8 @@ type CardPresentation = {
   canBack: boolean;
   displayTour: GuideTourView;
   constrained: boolean;
+  narrow: boolean;
+  short: boolean;
   awaitingAction: boolean;
   compactRow: boolean;
 };
@@ -201,6 +205,8 @@ function cardClassName(
     dock,
     `coach__card--${kind}`,
     view.constrained && "coach__card--constrained",
+    view.narrow && "coach__card--narrow",
+    view.short && "coach__card--short",
     view.awaitingAction && "coach__card--awaiting-action",
     view.compactRow && "coach__card--compact-row",
     placed && "is-placed",
@@ -242,6 +248,9 @@ function CoachCard({
   } = view;
   const { style, dock } = cardStyle(placement);
   const viewportDock = viewportDockStyle(placement, viewport);
+  const touchSize = view.short
+    ? { "--coach-touch-size": `${Math.max(24, 44 / viewport.scale)}px` }
+    : {};
   const facing = placement?.kind === "anchored" ? placement.facing : undefined;
   const notch = placement?.kind === "anchored" ? placement.notch : 0;
   const counter = counterOf(displayTour);
@@ -253,6 +262,7 @@ function CoachCard({
       style={{
         ...style,
         ...viewportDock,
+        ...touchSize,
         maxHeight,
         minHeight: awaitingAction ? Math.min(maxHeight ?? 52, 52) : undefined,
       }}
@@ -320,12 +330,15 @@ function Coach({
   const layout = useCoachLayout(guide.runId, tour, cardRef);
   const { stepKey, viewport, hole, placement, gliding, missing, maxHeight } =
     layout;
-  const constrained =
-    maxHeight !== undefined && maxHeight < CONSTRAINED_CARD_HEIGHT;
+  const { narrow, short, constrained } = layout;
   const awaitingAction =
     constrained && requiredAction && tour.action && !missing && !canBack;
   const compactRow =
-    constrained && !awaitingAction && maxHeight !== undefined && maxHeight < 90;
+    constrained &&
+    !narrow &&
+    !awaitingAction &&
+    maxHeight !== undefined &&
+    maxHeight < 90;
   useCoachFocus(
     placement !== null,
     stepKey,
@@ -341,6 +354,8 @@ function Coach({
     canBack,
     displayTour: displayedTour(tour, firstVault, requiredAction, ready),
     constrained,
+    narrow,
+    short,
     awaitingAction,
     compactRow,
   };

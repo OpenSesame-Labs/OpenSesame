@@ -2,7 +2,12 @@ import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registr
 import type { GuideTourView } from "@opensesame/guide-runtime";
 import { type RefObject, useCallback } from "react";
 import { padded } from "./CoachParts.js";
-import { clearOfDock, phoneCardHeightLimit, placeCoach } from "./placement.js";
+import {
+  CONSTRAINED_CARD_HEIGHT,
+  clearOfDock,
+  phoneCardHeightLimit,
+  placeCoach,
+} from "./placement.js";
 import { useGlide } from "./use-coach-behavior.js";
 import {
   useLiveRect,
@@ -11,6 +16,20 @@ import {
   useSafeInsets,
   useViewport,
 } from "./use-geometry.js";
+
+function sizeFlags(
+  viewport: { width: number; height: number; scale: number },
+  maxHeight: number | undefined,
+) {
+  const narrow = viewport.width < 230;
+  return {
+    narrow,
+    short: narrow && viewport.height < 110 && viewport.scale > 1,
+    constrained:
+      narrow ||
+      (maxHeight !== undefined && maxHeight < CONSTRAINED_CARD_HEIGHT),
+  };
+}
 
 /**
  * Where everything goes for one step: the aperture around the lit control,
@@ -78,14 +97,16 @@ export function useCoachLayout(
           left: relativeHole.left + viewport.offsetLeft,
           top: relativeHole.top + viewport.offsetTop,
         };
+  const maxHeight = phone
+    ? phoneCardHeightLimit(viewport, relativeBox, insets)
+    : undefined;
   return {
     stepKey,
     viewport,
     hole,
     placement,
-    maxHeight: phone
-      ? phoneCardHeightLimit(viewport, relativeBox, insets)
-      : undefined,
+    maxHeight,
+    ...sizeFlags(viewport, maxHeight),
     gliding: useGlide(stepKey),
     // A control that was on screen and is gone — the person navigated away —
     // is the same situation as one that never appeared.

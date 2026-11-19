@@ -446,6 +446,80 @@
   display: none;
 }
 
+/* A zoomed phone can leave room for only three touch targets side by side. */
+.coach__card--narrow .coach__text {
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.3;
+}
+
+.coach__card--narrow .coach__foot {
+  gap: 0;
+  padding: 0 0 0 3rem;
+}
+
+.coach__card--narrow .coach__keys {
+  gap: 0;
+}
+
+.coach__card--narrow .coach__btn {
+  min-width: 2.75rem;
+  padding: 0 0.25rem;
+}
+
+.coach__card--narrow .coach__btn--back span,
+.coach__card--narrow .coach__btn--go svg {
+  display: none;
+}
+
+/* At high zoom, keep controls at least 44 screen pixels while leaving text. */
+.coach__card--short .coach__meter {
+  display: none;
+}
+
+.coach__card--short .coach__text {
+  line-height: 1.2;
+}
+
+.coach__card--short .coach__head .icon-btn {
+  width: var(--coach-touch-size);
+  height: var(--coach-touch-size);
+}
+
+.coach__card--short .coach__foot {
+  padding-left: calc(var(--coach-touch-size) + 0.5rem);
+}
+
+.coach__card--short .coach__btn {
+  min-width: var(--coach-touch-size);
+  min-height: var(--coach-touch-size);
+}
+
+/* The longer replay label can wrap on its own row at the end of the tour. */
+.coach__card--narrow.coach__card--close .coach__head {
+  top: 0.25rem;
+  right: 0.25rem;
+  bottom: auto;
+  left: auto;
+}
+
+.coach__card--narrow.coach__card--close .coach__text {
+  padding-right: 3.25rem;
+}
+
+.coach__card--narrow.coach__card--close .coach__foot {
+  padding: 0 0.5rem 0.5rem;
+}
+
+.coach__card--narrow.coach__card--close .coach__keys {
+  flex-direction: column;
+  width: 100%;
+}
+
+.coach__card--narrow.coach__card--close .coach__btn {
+  white-space: normal;
+}
+
 .coach__btn--go {
   border-color: transparent;
   background: var(--ink);

@@ -193,6 +193,21 @@ describe("placeCoach", () => {
     );
   });
 
+  it("uses the available gap on a zoomed phone with the keyboard open", () => {
+    const viewport = { width: 160, height: 120 };
+    const target = { left: 0, top: -6, width: 160, height: 56 };
+    const card = {
+      width: 144,
+      height: phoneCardHeightLimit(viewport, target, { top: 0, bottom: 0 }),
+    };
+    expect(card.height).toBe(70);
+    expect(placeCoach(input({ viewport, target, card, phone: true }))).toEqual({
+      kind: "dock",
+      edge: "bottom",
+    });
+    expect(clearOfDock(target, viewport, card, "bottom")).toEqual(target);
+  });
+
   it("limits a long card to the space clear of a phone control", () => {
     const viewport = { width: 320, height: 568 };
     const target = { left: 20, top: 230, width: 44, height: 44 };
