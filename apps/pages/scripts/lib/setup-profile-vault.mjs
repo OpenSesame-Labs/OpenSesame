@@ -69,9 +69,21 @@ async function finishCustom(page, check) {
   await page
     .getByRole("button", { name: /^Customize this installation/ })
     .click();
-  const personal = page.getByTestId("purpose-card-personal");
-  await personal.waitFor({ state: "visible", timeout: 12_000 });
-  await personal.click();
+  const customPurpose = page.getByTestId("purpose-card-custom");
+  if (
+    await customPurpose
+      .waitFor({ state: "visible", timeout: 4_000 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    await customPurpose.click();
+  }
+  await page
+    .locator(".capcards")
+    .waitFor({ state: "visible", timeout: 20_000 });
+  const derivedCard = page.getByTestId("capability-card-vault.derived-records");
+  await derivedCard.waitFor({ state: "visible", timeout: 12_000 });
+  await derivedCard.locator(".capcard__pick").click();
   const review = page.getByRole("button", {
     name: "Save on this device",
     exact: true,
@@ -118,11 +130,20 @@ async function enableCoreItemTypesIfOffered(page) {
   if ((await enable.count()) === 1) await enable.click();
 }
 
-async function shotVault(page, file) {
+async function shotUnlockedApp(page, file) {
   await page.waitForTimeout(350);
-  const vault = page.locator(".vault").first();
-  await vault.waitFor({ state: "visible", timeout: 15_000 });
-  await vault.screenshot({ path: file, animations: "disabled" });
+  const shell = page.locator(".app").first();
+  await shell.waitFor({ state: "visible", timeout: 15_000 });
+  await shell.screenshot({ path: file, animations: "disabled" });
+}
+
+async function shotFeaturesPanel(page, file) {
+  await page.waitForTimeout(350);
+  const panel = page
+    .locator(".capsections, [data-testid=features-panel]")
+    .first();
+  await panel.waitFor({ state: "visible", timeout: 15_000 });
+  await panel.screenshot({ path: file, animations: "disabled" });
 }
 
 async function switchOn(page, title) {
@@ -147,9 +168,30 @@ export async function vaultFeatureMarkers(page) {
     accessAuthority: await switchOn(page, "Access authority"),
     identityFederation: await switchOn(page, "Operator identity providers"),
   };
+  return markers;
+}
+
+export async function captureFeaturesShot(page, dir) {
+  await openSettingsCategory(page, "Features");
+  await awaitCapabilitySections(page);
+  const markers = {
+    onSwitchCount: await page
+      .locator('[role="switch"][aria-checked="true"][data-capability-title]')
+      .count(),
+    externalConnectors: await switchOn(page, "External connectors"),
+    passkeyRecords: await switchOn(page, "Passkey records"),
+    certificateRecords: await switchOn(page, "Certificate records"),
+    derivedTypes: await switchOn(page, "Derived item types"),
+    liveSessions: await switchOn(page, "Live sessions"),
+    browserLocalIam: await switchOn(page, "Browser-local IAM"),
+    accessAuthority: await switchOn(page, "Access authority"),
+    identityFederation: await switchOn(page, "Operator identity providers"),
+  };
+  const features = path.join(dir, "setup-profile-features.png");
+  await shotFeaturesPanel(page, features);
   const back = page.getByRole("treeitem", { name: "Back to vault" });
   if (await back.isVisible().catch(() => false)) await back.click();
-  return markers;
+  return { features, markers };
 }
 
 export async function vaultRailMarkers(page) {
@@ -247,16 +289,16 @@ export function assertProfileVaultDom(profileId, markers, check) {
   }
   if (profileId === "custom") {
     check(
-      enableCore === 1 && passkey === 0 && certificate === 0,
-      `custom personal vault: secrets only in the rail (${JSON.stringify(markers)})`,
+      derivedTypes,
+      `custom vault: Derived item types on in Features (${JSON.stringify(markers)})`,
     );
     check(
-      liveSessions && onSwitchCount <= 2,
-      `custom personal vault: Live sessions selected (${JSON.stringify(markers)})`,
+      !externalConnectors && !passkeyRecords,
+      `custom vault: no Default connector pack (${JSON.stringify(markers)})`,
     );
     check(
-      !externalConnectors && !passkeyRecords && !derivedTypes,
-      `custom personal vault: no Default extension pack (${JSON.stringify(markers)})`,
+      passkey === 0 && certificate === 0,
+      `custom vault: passkey/certificate filters off before core enable (${JSON.stringify(markers)})`,
     );
   }
 }
@@ -299,18 +341,32 @@ export async function captureProfileAppliedVault(
     .first()
     .waitFor({ timeout: 25_000 });
 
-  if (profileId === "default" || profileId === "full") {
+  if (
+    profileId === "default" ||
+    profileId === "full" ||
+    profileId === "custom"
+  ) {
     await enableCoreItemTypesIfOffered(page);
   }
 
-  const markers = {
-    ...(await vaultRailMarkers(page)),
-    ...(await vaultFeatureMarkers(page)),
-  };
+  const rail = await vaultRailMarkers(page);
+  const { features, markers: featureMarkers } = await captureFeaturesShot(
+    page,
+    dir,
+  );
+  const markers = { ...rail, ...featureMarkers };
   assertProfileVaultDom(profileId, markers, check);
 
+  if (profileId === "custom") {
+    check(
+      markers.card > 0 && markers.note > 0,
+      `custom vault: card and note filters visible in rail (${JSON.stringify(rail)})`,
+    );
+  }
+
   const applied = path.join(dir, "setup-profile-applied.png");
-  await shotVault(page, applied);
+  await shotUnlockedApp(page, applied);
   check(existsSync(applied), `${profileId} setup-profile-applied.png`);
-  return { file: applied, picker, markers };
+  check(existsSync(features), `${profileId} setup-profile-features.png`);
+  return { file: applied, features, picker, markers };
 }
