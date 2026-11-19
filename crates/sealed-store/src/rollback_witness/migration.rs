@@ -1,6 +1,9 @@
 //! Explicit migration from an independently verified version-one checkpoint.
 
-use super::{attachments, commit_marker::CommitMarker, normalize, Witness, SLOT_ONE, SLOT_TWO};
+use super::{
+    attachments, commit_marker::CommitMarker, commitment_unbound, normalize, Witness, SLOT_ONE,
+    SLOT_TWO,
+};
 use crate::{ItemDataKey, StoreError, StoreRoot};
 
 impl StoreRoot {
@@ -78,6 +81,15 @@ impl StoreRoot {
         expected.entries = normalize::entries(expected.entries)?;
         if !attachments::marked(&expected) {
             self.anchor_attachments(&mut expected, key)?;
+        }
+        for (name, entry) in &mut expected.entries {
+            if name.starts_with(".attachments/")
+                || entry.deleted
+                || !commitment_unbound(&entry.commitment)
+            {
+                continue;
+            }
+            *entry = self.migration_entry_witness(name, entry.revision, key)?;
         }
         expected.version = 2;
         expected.epoch = expected
