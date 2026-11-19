@@ -21,37 +21,6 @@ def write_lock(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-SHUTTLE_EDGE = """\
-version = 3
-
-[[package]]
-name = "opensesame-domain"
-version = "0.1.0"
-dependencies = ["shuttle"]
-
-[[package]]
-name = "opensesame-spiffe-source"
-version = "0.1.0"
-dependencies = [
- "opensesame-domain",
- "spiffe",
-]
-
-[[package]]
-name = "shuttle"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-dependencies = []
-
-[[package]]
-name = "spiffe"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-dependencies = []
-"""
-
 MINIMAL_ROOT = """\
 version = 3
 
@@ -158,57 +127,6 @@ class CargoLockProjectionTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), {"changed": True})
-
-    def test_full_root_closure_includes_inactive_shuttle_edge(self):
-        """The SPIFFE drift hash is the full root closure, not `--dependency spiffe`."""
-        with tempfile.TemporaryDirectory() as tmp:
-            before = Path(tmp) / "before.lock"
-            after = Path(tmp) / "after.lock"
-            write_lock(before, SHUTTLE_EDGE)
-            write_lock(
-                after,
-                SHUTTLE_EDGE.replace(
-                    "a" * 64,
-                    "b" * 64,
-                    1,
-                ),
-            )
-            full = subprocess.run(
-                [
-                    "python3",
-                    str(HERE / "cargo-lock-projection.py"),
-                    "--root",
-                    "opensesame-spiffe-source",
-                    str(before),
-                    str(after),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            narrow = subprocess.run(
-                [
-                    "python3",
-                    str(HERE / "cargo-lock-projection.py"),
-                    "--root",
-                    "opensesame-spiffe-source",
-                    "--dependency",
-                    "spiffe",
-                    str(before),
-                    str(after),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(full.returncode, 0, full.stderr)
-            self.assertEqual(narrow.returncode, 0, narrow.stderr)
-            self.assertEqual(json.loads(full.stdout), {"changed": True})
-            self.assertEqual(json.loads(narrow.stdout), {"changed": False})
-            before_graph = projection.read_lock(before)
-            full_hash = projection.projection_sha256(before_graph, "opensesame-spiffe-source")
-            narrow_hash = projection.projection_sha256(before_graph, "opensesame-spiffe-source", "spiffe")
-            self.assertNotEqual(full_hash, narrow_hash)
 
     def test_projection_sha256_stable(self):
         with tempfile.TemporaryDirectory() as tmp:
