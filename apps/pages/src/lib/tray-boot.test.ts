@@ -15,7 +15,9 @@ describe("bootTrayNotices", () => {
     const listeners = new Set<() => void>();
     let status: VaultState["status"] = "locked";
     vi.spyOn(vaultStore, "getSnapshot").mockImplementation(
-      () => ({ status, guest: false, tomb: "personal" }) as VaultState,
+      () =>
+        // SAFETY: fixture matches the VaultState contract; boot only checks status.
+        ({ status, guest: false, tomb: "personal" }) as VaultState,
     );
     vi.spyOn(vaultStore, "subscribe").mockImplementation((listener) => {
       listeners.add(listener);
