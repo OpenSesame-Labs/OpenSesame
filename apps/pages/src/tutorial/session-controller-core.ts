@@ -2,11 +2,7 @@ import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
-import {
-  type GuideOrigin,
-  type SupportEngine,
-  type SupportHost,
-} from "./engine.js";
+import type { GuideOrigin, SupportEngine, SupportHost } from "./engine.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
 import type {
   SupportEntryExtras,
@@ -14,6 +10,10 @@ import type {
   SupportSessionDependencies,
   SupportView,
 } from "./session.js";
+import {
+  type PendingQueuedResume,
+  createQueuedResumeHandlers,
+} from "./session-queued-resume.js";
 import { emptyView } from "./session-view.js";
 import { queueTourExit } from "./tutorial-exit.js";
 import {
@@ -21,10 +21,6 @@ import {
   SUPPORT_ERROR_TEXT,
   UNEXPECTED_TEXT,
 } from "./ui/messages.js";
-import {
-  createQueuedResumeHandlers,
-  type PendingQueuedResume,
-} from "./session-queued-resume.js";
 
 export type SupportAskBinding = {
   ask: (question: string) => Promise<void>;
@@ -97,26 +93,25 @@ export class SupportControllerCore {
   }
 
   private createHost(): SupportHost {
-    const core = this;
     return {
-      navigate: (route) => core.navigator?.(route),
-      currentRoute: () => core.state.route,
+      navigate: (route) => this.navigator?.(route),
+      currentRoute: () => this.state.route,
       observeRoute: (route, signal) =>
         new Promise<void>((resolve, reject) => {
           if (signal.aborted) {
             reject(new DOMException("aborted", "AbortError"));
             return;
           }
-          if (core.state.route === route) {
+          if (this.state.route === route) {
             queueMicrotask(resolve);
             return;
           }
           const stop = () => {
-            core.routeListeners.delete(check);
+            this.routeListeners.delete(check);
             signal.removeEventListener("abort", onAbort);
           };
           const check = () => {
-            if (core.state.route !== route) return;
+            if (this.state.route !== route) return;
             stop();
             resolve();
           };
@@ -124,7 +119,7 @@ export class SupportControllerCore {
             stop();
             reject(new DOMException("aborted", "AbortError"));
           };
-          core.routeListeners.add(check);
+          this.routeListeners.add(check);
           signal.addEventListener("abort", onAbort, { once: true });
         }),
     };
