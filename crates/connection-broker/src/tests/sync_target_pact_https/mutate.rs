@@ -33,6 +33,10 @@ pub(super) fn shadows(source: &str, name: &str) -> bool {
     false
 }
 
+const READ_ONLY_METHODS: &[&str] = &[
+    "as_str", "as_ref", "scheme", "host_str", "host", "path", "clone", "parse",
+];
+
 /// `.set_scheme(…)`, `.clone_from(…)`, `.push_str(…)`, and any other call.
 fn mutates_name(source: &str, mut at: usize) -> bool {
     let bytes = source.as_bytes();
@@ -46,8 +50,12 @@ fn mutates_name(source: &str, mut at: usize) -> bool {
     if at >= bytes.len() || !super::is_ident_byte(bytes[at]) {
         return false;
     }
+    let start = at;
     while at < bytes.len() && super::is_ident_byte(bytes[at]) {
         at += 1;
+    }
+    if READ_ONLY_METHODS.contains(&&source[start..at]) {
+        return false;
     }
     while at < bytes.len() && bytes[at].is_ascii_whitespace() {
         at += 1;
