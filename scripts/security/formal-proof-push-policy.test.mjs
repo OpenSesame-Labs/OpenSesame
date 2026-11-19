@@ -41,6 +41,35 @@ test("every reviewed suite runs for its own implementation", (t) => {
   }
 });
 
+test("overlapping SPIFFE and lifetime mappings both run, but an unrelated edit skips", (t) => {
+  const path = "crates/domain/Cargo.toml";
+  const selected = requirements.suites.filter((entry) =>
+    entry.implementation.includes(path),
+  );
+  assert.deepEqual(
+    selected.map((entry) => entry.id),
+    ["spiffe", "source-lifetime"],
+  );
+  for (const changed of [path, "docs/unrelated.md"]) {
+    const f = fixture(t);
+    seedRequiredSuite(f, selected[0]);
+    for (const entry of selected)
+      for (const proof of entry.proofs) f.write(proof, "proof\n");
+    const base = f.commit();
+    f.write(changed, "changed\n");
+    const target = f.commit();
+    const result = f.run(f.tuple(target, base));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      f.commands(),
+      changed === path
+        ? selected.map((entry) => `run ${entry.command[2]}`)
+        : [],
+    );
+  }
+});
+
+
 test("a historical base may predate a newly registered suite", (t) => {
   const f = fixture(t);
   const suite = requirements.suites.find((entry) => entry.id === "oauth");

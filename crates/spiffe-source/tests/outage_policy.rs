@@ -17,7 +17,8 @@ async fn reconnect_with_rejected_snapshot_keeps_the_original_outage_deadline(pro
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_millis(800)), sink.clone());
+    let handle =
+        SpiffeSource::start(config(&api, Duration::from_millis(800)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let expected_error = if profile_error {
@@ -87,7 +88,8 @@ async fn stalled_reconnection_cannot_extend_the_outage_deadline() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_millis(1500)), sink.clone());
+    let handle =
+        SpiffeSource::start(config(&api, Duration::from_millis(1500)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
     api.shutdown().await;
 
@@ -121,7 +123,8 @@ async fn stalled_rpc_opening_cannot_extend_the_outage_deadline() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_millis(800)), sink.clone());
+    let handle =
+        SpiffeSource::start(config(&api, Duration::from_millis(800)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
     api.stall_on_reconnect();
     tokio::time::timeout(Duration::from_secs(2), async {
@@ -157,7 +160,7 @@ async fn stop_interrupts_a_stalled_initial_connection() {
         std::future::pending::<()>().await;
     });
     let config = SpiffeSourceConfig::deployment_plane(GW, &socket_path).unwrap();
-    let handle = SpiffeSource::start(config, RecordingSink::shared());
+    let handle = SpiffeSource::start(config, RecordingSink::shared()).unwrap();
     tokio::time::timeout(Duration::from_secs(2), accepted_rx)
         .await
         .expect("source must connect")
