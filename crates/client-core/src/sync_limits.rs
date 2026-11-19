@@ -19,6 +19,7 @@ pub const MAX_SYNC_DEVICE_ID_BYTES: usize = 128;
 pub const MAX_SYNC_PROJECT_ID_BYTES: usize = 128;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct BoundedBlob {
     #[serde(deserialize_with = "deserialize_id")]
     id: String,
