@@ -12,6 +12,20 @@ import { updateSecurityMap } from "../repos/durable-map.js";
 /** OIDC Back-Channel Logout 1.0 §2.6 requires a recent `iat`. */
 export const LOGOUT_TOKEN_MAX_AGE_SECONDS = 120;
 
+/** Crash-resumable effect set for one verified OIDC back-channel logout. */
+export interface UpstreamLogoutOperation {
+  operationKey: string;
+  issuer: string;
+  subject: string;
+  principalIds: string[];
+  /** Sessions live when the durable operation was prepared, for stable audit count. */
+  sessionIds: string[];
+  preparedSessionCount: number;
+  correlationId: string;
+  retainUntil: number;
+  completed: boolean;
+}
+
 export type VerifiedLogoutToken = { subject?: string; sessionId?: string };
 
 type VerifiedLogout = {
