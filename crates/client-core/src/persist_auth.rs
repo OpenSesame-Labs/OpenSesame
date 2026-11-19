@@ -30,16 +30,9 @@ fn digest(key: &DeviceKey, value: &PersistedStore) -> Result<blake3::Hash, Clien
 }
 
 pub(crate) fn tag(key: &DeviceKey, value: &PersistedStore) -> Result<String, ClientCoreError> {
-    validate_cursor(&value.cursor)?;
+    crate::sync_limits::validate_cursor(&value.cursor)?;
+    crate::sync_limits::validate_blobs(&value.blobs)?;
     Ok(digest(key, value)?.to_hex().to_string())
-}
-
-fn validate_cursor(cursor: &SyncCursor) -> Result<(), ClientCoreError> {
-    if cursor.device_id.is_empty() || cursor.device_id.len() > 128 || cursor.epoch > i64::MAX as u64
-    {
-        return Err(ClientCoreError::Persist("invalid sync cursor".into()));
-    }
-    Ok(())
 }
 
 pub(crate) fn verify(key: &DeviceKey, value: &PersistedStore) -> Result<(), ClientCoreError> {
@@ -48,7 +41,8 @@ pub(crate) fn verify(key: &DeviceKey, value: &PersistedStore) -> Result<(), Clie
             "legacy sync store requires explicit trusted offline migration".into(),
         ));
     }
-    validate_cursor(&value.cursor)?;
+    crate::sync_limits::validate_cursor(&value.cursor)?;
+    crate::sync_limits::validate_blobs(&value.blobs)?;
     let supplied = value
         .integrity
         .as_deref()

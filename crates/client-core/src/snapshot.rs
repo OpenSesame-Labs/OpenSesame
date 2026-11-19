@@ -18,14 +18,21 @@ use crate::{ClientCoreError, DeviceKey, SyncBlob, SyncCursor, SyncStore};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CiphertextSyncSnapshot {
     /// Stable format id — parsers reject anything else.
+    #[serde(deserialize_with = "crate::sync_limits::deserialize_format")]
     pub format: String,
     pub version: u32,
     /// Optional Host Project scope (metadata only; Host never sees VRK).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::sync_limits::deserialize_project"
+    )]
     pub project_id: Option<String>,
     pub exported_at_unix_ms: u64,
+    #[serde(deserialize_with = "crate::sync_limits::deserialize_cursor")]
     pub cursor: SyncCursor,
     /// Opaque `{ id, epoch, ciphertext }` only.
+    #[serde(deserialize_with = "crate::sync_limits::deserialize_blobs")]
     pub blobs: Vec<SyncBlob>,
 }
 
@@ -68,21 +75,16 @@ impl CiphertextSyncSnapshot {
                 self.version
             )));
         }
-        if self.cursor.device_id.is_empty() {
+        crate::sync_limits::validate_cursor(&self.cursor)?;
+        crate::sync_limits::validate_blobs(&self.blobs)?;
+        if self
+            .project_id
+            .as_ref()
+            .is_some_and(|value| value.is_empty() || value.len() > crate::MAX_SYNC_PROJECT_ID_BYTES)
+        {
             return Err(ClientCoreError::Persist(
-                "snapshot cursor missing device_id".into(),
+                "invalid snapshot project id".into(),
             ));
-        }
-        for blob in &self.blobs {
-            if blob.id.is_empty() {
-                return Err(ClientCoreError::Persist("blob id empty".into()));
-            }
-            if blob.ciphertext.is_empty() {
-                return Err(ClientCoreError::Persist(format!(
-                    "blob {} has empty ciphertext",
-                    blob.id
-                )));
-            }
         }
         Ok(())
     }
@@ -95,6 +97,7 @@ impl CiphertextSyncSnapshot {
         self.validate()?;
         let json =
             serde_json::to_string(self).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        crate::sync_limits::check_json_size(json.len())?;
         assert_ciphertext_only_json(&json)?;
         Ok(json)
     }
@@ -104,6 +107,7 @@ impl CiphertextSyncSnapshot {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn from_json(json: &str) -> Result<Self, ClientCoreError> {
+        crate::sync_limits::check_json_size(json.len())?;
         assert_ciphertext_only_json(json)?;
         let snap: Self =
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
