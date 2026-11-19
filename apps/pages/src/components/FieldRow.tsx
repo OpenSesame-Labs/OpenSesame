@@ -27,11 +27,21 @@ export function useCopyFeedback() {
   );
 
   const copy = useCallback(
-    async (key: string, value: string, guideActivation?: string) => {
+    async (
+      key: string,
+      value: string,
+      guideActivation?: string | string[],
+      onCopied?: () => void,
+    ) => {
       const result = await copySecret(value);
       if (timer.current) window.clearTimeout(timer.current);
       if (result === "copied") {
-        if (guideActivation) reportGuideActivation(guideActivation);
+        if (guideActivation) {
+          for (const target of [guideActivation].flat()) {
+            reportGuideActivation(target);
+          }
+        }
+        onCopied?.();
         setFailed(null);
         setCopied(key);
         timer.current = window.setTimeout(() => setCopied(null), 1800);
@@ -85,11 +95,11 @@ export function CopyButton({
   onCopy: (
     key: string,
     value: string,
-    guideActivation?: string,
+    guideActivation?: string | string[],
   ) => Promise<void>;
   /** Set by the one copy key a tutorial points at (`item.copy-password`). */
   guideRef?: Ref<HTMLButtonElement>;
-  guideActivation?: string | undefined;
+  guideActivation?: string | string[] | undefined;
 }) {
   const isCopied = copied === fieldKey;
   const isFailed = failed === fieldKey;

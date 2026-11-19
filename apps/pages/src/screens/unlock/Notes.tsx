@@ -64,7 +64,7 @@ export function FormNotes({
         <div className="unlock__terms">
           <p id="master-help">
             {activeMethod === "passkey"
-              ? "There is no recovery. Lose this device's authenticator and the encrypted items on this device are unreadable — by you and by us. An authenticator that cannot seal fails on Seal; the PIN tab works on any device."
+              ? "If you lose access to this passkey, you cannot recover items encrypted on this device. If the passkey cannot secure this vault, choose PIN instead."
               : "There is no recovery. Forget this PIN and the encrypted items on this device are unreadable — by you and by us."}
           </p>
           <label className="check" ref={ackGuideRef}>

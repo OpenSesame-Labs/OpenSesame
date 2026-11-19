@@ -1,3 +1,5 @@
+import { closeWithZoomCheck } from "./tutorial-interact.mjs";
+
 export async function preparePepperStep(page, step, check, first, label) {
   await step("editor.pepper-options", first + 3);
   if (process.env.TUTORIALS_PEPPER_BACK !== "1") return;
@@ -155,4 +157,102 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
   });
   await position.click();
   await position.fill("end");
+}
+
+export async function saveAndCopyPassword(
+  page,
+  step,
+  check,
+  first,
+  label,
+  generated,
+) {
+  await recoverEmptyPepper(page, step, check, first, label);
+  await page.getByRole("button", { name: "Save item" }).click();
+  await step("item.copy-generated", first + 6);
+  check(
+    await page.locator(".coach__btn").filter({ hasText: "Back" }).isDisabled(),
+    `${label}: Back does not return to the closed editor`,
+  );
+  await page.locator(".coach__btn--go").focus();
+  await page.keyboard.press("ArrowRight");
+  check(
+    (await page
+      .locator('.coach[data-coach-target="item.copy-generated"]')
+      .count()) === 1,
+    `${label}: Next cannot skip copying the password`,
+  );
+  const position = process.env.TUTORIALS_PEPPER_POSITION;
+  if (position === "3") {
+    await page.getByRole("button", { name: "Copy rest of password" }).click();
+    await page
+      .getByRole("button", { name: "Copied rest of password" })
+      .waitFor();
+    check(
+      (await page
+        .locator('.coach[data-coach-target="item.copy-generated"]')
+        .count()) === 1,
+      `${label}: copying the rest first does not finish the guide`,
+    );
+    await capturePepperRecovery(page, "pepper-copy-first");
+  }
+  await page.locator('[data-guide-targets~="item.copy-generated"]').click();
+  let firstPart = "";
+  if (position === "3") {
+    const rest = page.locator('[data-guide-targets~="item.copy-generated"]');
+    await page
+      .locator(
+        '[data-guide-targets~="item.copy-generated"][aria-label="Copy rest of password"]',
+      )
+      .waitFor({ state: "visible", timeout: 15000 });
+    await step("item.copy-generated", first + 6);
+    await capturePepperRecovery(page, "pepper-copy-rest");
+    check(
+      (await page
+        .locator('.coach[data-coach-target="item.copy-generated"]')
+        .count()) === 1,
+      `${label}: the guide waits for the remaining part`,
+    );
+    firstPart = await page.evaluate(() => navigator.clipboard.readText());
+    check(
+      firstPart === generated.slice(0, 3),
+      `${label}: the first part was copied`,
+    );
+    const origin = new URL(page.url()).origin;
+    await page.context().clearPermissions();
+    await page.context().grantPermissions(["clipboard-read"], { origin });
+    await rest.click();
+    await page
+      .getByRole("button", { name: "Could not copy rest of password" })
+      .waitFor();
+    check(
+      (await page
+        .locator('.coach[data-coach-target="item.copy-generated"]')
+        .count()) === 1,
+      `${label}: a failed second copy does not finish the guide`,
+    );
+    await page.context().clearPermissions();
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+    await rest.click();
+  }
+  await page
+    .getByText("Copied. Paste it into the password field.")
+    .waitFor({ timeout: 15000 });
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const pepper = "example-pepper";
+  check(
+    firstPart + copied === generated &&
+      (position !== "3" ||
+        `${firstPart}${pepper}${copied}` ===
+          `${generated.slice(0, 3)}${pepper}${generated.slice(3)}`),
+    `${label}: the copied parts reconstruct the generated password`,
+  );
+  await closeWithZoomCheck(page, check);
+  await page.waitForTimeout(1600);
+  check(
+    (await page.locator(".coach").count()) === 0,
+    `${label}: finishing does not immediately start another tutorial`,
+  );
 }

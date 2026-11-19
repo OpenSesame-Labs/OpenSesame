@@ -8,7 +8,7 @@ import {
   isAlgorithmic,
   producePassword,
 } from "@opensesame/vault-core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ConcealedValue,
   CopyButton,
@@ -23,26 +23,82 @@ import { StrengthBar } from "./StrengthBar.js";
 type Copying = {
   copied: string | null;
   failed: string | null;
-  copy: (key: string, value: string) => Promise<void>;
+  copy: (
+    key: string,
+    value: string,
+    guideActivation?: string | string[],
+    onCopied?: () => void,
+  ) => Promise<void>;
 };
 
-function PasswordActions({
-  out,
-  copyRef,
-  copying,
-  fieldKey,
-  guide,
-  revealed,
-  onToggle,
-}: {
+type PasswordActionsProps = {
   out: ReturnType<typeof handoff>;
   copyRef: (element: HTMLButtonElement | null) => void;
+  completeRef: (element: HTMLButtonElement | null) => void;
   copying: Copying;
   fieldKey: string;
+  revision: string;
   guide: boolean;
   revealed: boolean;
   onToggle: () => void;
-}) {
+};
+
+function usePasswordCopy({
+  out,
+  copyRef,
+  completeRef,
+  copying,
+  fieldKey,
+  revision,
+}: Pick<
+  PasswordActionsProps,
+  "out" | "copyRef" | "completeRef" | "copying" | "fieldKey" | "revision"
+>) {
+  const first = out?.now ?? "";
+  const rest = out?.later ?? "";
+  const split = first !== "" && rest !== "";
+  const scope = useMemo(
+    () => ({ fieldKey, revision, first, rest, active: true }),
+    [fieldKey, revision, first, rest],
+  );
+  const [copiedFirst, setCopiedFirst] = useState<typeof scope | null>(null);
+  const firstDone = copiedFirst === scope;
+  useEffect(() => {
+    scope.active = true;
+    return () => {
+      scope.active = false;
+    };
+  }, [scope]);
+  async function copyFirst(
+    key: string,
+    value: string,
+    activation?: string | string[],
+  ): Promise<void> {
+    await copying.copy(key, value, activation, () => {
+      if (scope.active) setCopiedFirst(scope);
+    });
+  }
+  const firstRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      copyRef(element);
+      if (!split || !firstDone) completeRef(element);
+    },
+    [copyRef, completeRef, split, firstDone],
+  );
+  const restRef = useCallback(
+    (element: HTMLButtonElement | null) => {
+      if (!first) copyRef(element);
+      if (!first || (split && firstDone)) completeRef(element);
+    },
+    [copyRef, completeRef, first, split, firstDone],
+  );
+  return { first, split, firstDone, firstRef, restRef, copyFirst };
+}
+
+function PasswordActions(props: PasswordActionsProps) {
+  const { out, copying, fieldKey, guide, revealed, onToggle } = props;
+  const { first, split, firstDone, firstRef, restRef, copyFirst } =
+    usePasswordCopy(props);
   return (
     <>
       <RevealButton revealed={revealed} label="password" onToggle={onToggle} />
@@ -53,9 +109,15 @@ function PasswordActions({
           fieldKey={fieldKey}
           copied={copying.copied}
           failed={copying.failed}
-          guideRef={guide ? copyRef : undefined}
-          guideActivation={guide ? "item.copy-password" : undefined}
-          onCopy={copying.copy}
+          guideRef={guide ? firstRef : undefined}
+          guideActivation={
+            guide
+              ? split
+                ? "item.copy-password"
+                : ["item.copy-password", "item.copy-generated"]
+              : undefined
+          }
+          onCopy={guide && split ? copyFirst : copying.copy}
         />
       ) : null}
       {out && out.later !== "" ? (
@@ -65,9 +127,13 @@ function PasswordActions({
           fieldKey={`${fieldKey}:rest`}
           copied={copying.copied}
           failed={copying.failed}
-          guideRef={guide && out.now === "" ? copyRef : undefined}
+          guideRef={guide ? restRef : undefined}
           guideActivation={
-            guide && out.now === "" ? "item.copy-password" : undefined
+            guide && !first
+              ? ["item.copy-password", "item.copy-generated"]
+              : guide && firstDone
+                ? "item.copy-generated"
+                : undefined
           }
           onCopy={copying.copy}
         />
@@ -113,9 +179,12 @@ export function AccountPasswordRow({
   const copyRef = useGuideTarget<HTMLButtonElement>("item.copy-password", {
     activation: "manual",
   });
+  const completeRef = useGuideTarget<HTMLButtonElement>("item.copy-generated", {
+    activation: "manual",
+  });
   const [revealed, setRevealed] = useState(false);
   const produced = producePassword(method);
-  const key = `password:${method.id}`;
+  const key = `password:${item.id}:${method.id}`;
   usePasswordCopiedSignal(copying.copied === key);
 
   // A computed password is rotated in the editor, never typed over here.
@@ -159,8 +228,10 @@ export function AccountPasswordRow({
           <PasswordActions
             out={out}
             copyRef={copyRef}
+            completeRef={completeRef}
             copying={copying}
             fieldKey={key}
+            revision={method.changedAt}
             guide={guide}
             revealed={revealed}
             onToggle={() => setRevealed((on) => !on)}

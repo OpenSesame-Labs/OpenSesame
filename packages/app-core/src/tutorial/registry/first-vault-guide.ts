@@ -1,13 +1,18 @@
 /** The parts of the first-vault walkthrough share one title and goal. */
+export const FIRST_VAULT_PIN_STEPS = [
+  'focus "unlock.seal-pin-entry" "Enter a PIN for this device." side=top',
+  'focus "unlock.seal-pin-confirm" "Enter the PIN again to confirm it." side=top',
+  'focus "unlock.seal-ack" "Confirm that this vault cannot be recovered if you lose the PIN." side=top',
+  'focus "unlock.seal" "Select Seal with PIN to create the vault." side=top',
+] as const;
+
 const SIGN_IN_STEPS = [
   'focus "unlock.local-only" "Select Use without an account to keep this vault on this device." side=top',
   'wait target "unlock.local-only" event=activate timeout=60000',
-  'focus "unlock.seal-pin" "Select PIN to protect this vault." side=bottom',
+  'wait target "unlock.methods" event=appear timeout=60000',
+  'focus "unlock.seal-actions" "If Passkey is available, accept the recovery notice and select Seal with passkey. To use PIN, select PIN, then Next." side=bottom',
   'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-  'focus "unlock.seal-pin-entry" "Enter an 8–12 character PIN." side=bottom',
-  'focus "unlock.seal-pin-confirm" "Confirm PIN. Select Next." side=bottom',
-  'focus "unlock.seal-ack" "Read the notice, select the checkbox, then select Next." side=bottom',
-  'focus "unlock.seal" "Select Seal with PIN." side=bottom',
+  ...FIRST_VAULT_PIN_STEPS,
   'wait state "vault.unlocked" is=true timeout=60000',
 ] as const;
 
@@ -37,14 +42,14 @@ const PASSWORD_STEPS = [
   'focus "item.editor.name" "Name the account. Select Next." side=bottom',
   'focus "editor.password-options" "Open Password options." side=top',
   'wait target "editor.pepper" event=appear timeout=60000',
-  'focus "editor.pepper-options" "Keep pepper on for extra protection; add your own secret when using the password. Turn it off to copy the whole password. Select Next." side=top',
+  'focus "editor.pepper-options" "Turn off Include pepper to copy the whole password. Keeping it on adds protection with your own secret; add it when using the password. Select Next." side=top',
   'focus "editor.generate-password" "Select Generate another password." side=top',
   'wait target "editor.generate-password" event=activate timeout=60000',
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
-  'wait target "item.copy-password" event=appear timeout=60000',
-  'focus "item.copy-password" "Select the highlighted copy button. If pepper is on, add your secret at its chosen position and copy the rest if needed." side=bottom',
-  'wait target "item.copy-password" event=activate timeout=60000',
-  'success "Copied. Pepper off: this is the full password. Pepper on: add your secret at its chosen position and copy the rest if needed."',
+  'wait target "item.copy-generated" event=appear timeout=60000',
+  'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add it at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
+  'wait target "item.copy-generated" event=activate timeout=60000',
+  'success "Copied. Paste it into the password field."',
   "end",
 ] as const;
 

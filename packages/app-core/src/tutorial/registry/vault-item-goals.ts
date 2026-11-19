@@ -169,8 +169,8 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
           ? 'focus "item.copy-username" "Select this copy button to copy the username." side=bottom'
           : 'focus "item.copy-username" "Select this copy button, or press u on a row to copy the username." side=bottom',
         phone
-          ? 'focus "item.copy-password" "Select this copy button to copy the password. If you use a personal pepper, add it where you use the password." side=bottom'
-          : 'focus "item.copy-password" "Select this copy button, or press y on a row to copy its password or secret value. If you use a personal pepper, add it where you use the password." side=bottom',
+          ? 'focus "item.copy-password" "Select this button to copy the generated password. If pepper is on, add your secret at its position and use Copy rest when shown." side=bottom'
+          : 'focus "item.copy-password" "Select this button, or press y on a row to copy its password or secret. If pepper is on, add your secret at its position and use Copy rest when shown." side=bottom',
         "end",
       ].join("\n");
     },

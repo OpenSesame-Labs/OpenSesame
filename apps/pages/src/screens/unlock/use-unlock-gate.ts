@@ -59,5 +59,6 @@ export function useUnlockTargets() {
       "unlock.seal-pin-confirm",
     ),
     sealAckRef: useGuideTarget<HTMLLabelElement>("unlock.seal-ack"),
+    sealActionsRef: useGuideTarget<HTMLDivElement>("unlock.seal-actions"),
   };
 }
