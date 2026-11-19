@@ -1,9 +1,8 @@
 /** A genuine pseudo-terminal for the human approval integration ceremony. */
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
+import { tsxLoader } from "./tsx-loader.js";
 
-const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 interface ApprovalTerminalResult {
   code: number;
   output: string;
