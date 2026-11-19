@@ -98,7 +98,6 @@ async function derivePbkdf2(
   salt: Uint8Array<ArrayBuffer>,
   iterations: number,
 ): Promise<Uint8Array> {
-  // The caller wipes these owned buffers; a boundary copy would survive it.
   const material = await crypto.subtle.importKey(
     "raw",
     password,

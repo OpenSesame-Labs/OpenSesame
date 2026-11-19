@@ -21,11 +21,7 @@ import {
   resolveXmldsigjsPeerDependencies,
   samlBrowserCrypto,
 } from "./saml-browser-crypto.mjs";
-import {
-  omitSamlReflection,
-  pendingSamlRequest,
-  verifyInCleanRuntime,
-} from "./saml-browser-crypto.test-support.mjs";
+import { verifyFreshSamlRuntime } from "./saml-fresh-runtime.test-support.mjs";
 
 const root = existsSync(resolve(process.cwd(), "pnpm-workspace.yaml"))
   ? process.cwd()
@@ -57,12 +53,14 @@ let signed;
 
 async function compile(plugins, name, unowned = false) {
   const entry = "\0owned-saml-application-test";
-  const owned = ["xml-signature", "metadata", "authn-request"]
-    .map(
-      (file) =>
-        `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
-    )
-    .join("\n");
+  const owned =
+    ["xml-signature", "metadata", "authn-request"]
+      .map(
+        (file) =>
+          `export * from ${JSON.stringify(resolve(core, `src/browser/saml/${file}.ts`))};`,
+      )
+      .join("\n") +
+    `\nexport { verifyPasskeyRegistration, verifyPasskeyAuthentication } from ${JSON.stringify(resolve(root, "packages/auth-upstream/src/browser.ts"))};`;
   const code =
     unowned === "root"
       ? `export { SignedXml } from ${JSON.stringify(resolve(input.esm, "index.js"))};`
@@ -113,6 +111,21 @@ async function compile(plugins, name, unowned = false) {
   const path = join(directory, `${name}.mjs`);
   writeFileSync(path, chunks[0].code);
   return { path, code: chunks[0].code, ids: Object.keys(chunks[0].modules) };
+}
+function pending() {
+  const now = Date.now();
+  return {
+    requestId: "_request",
+    issuedAt: now,
+    expiresAt: now + 60000,
+    issuer: "urn:adapter:idp",
+    audience: "urn:adapter:sp",
+    acsUrl: "https://app.example/callback",
+    nameIdFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+    forceAuthentication: true,
+    authnContext:
+      "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport",
+  };
 }
 function sign(xml) {
   const signer = new IndependentSigner({
@@ -199,20 +212,6 @@ afterAll(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 
-it("verifies signed SAML in a fresh runtime and detects a missing Reflect initializer", async () => {
-  verifyInCleanRuntime(root, optimized.path, signed, spki);
-  const faulty = await compile(
-    [
-      omitSamlReflection(input.replacements.get(input.certificate)),
-      samlBrowserCrypto(root),
-    ],
-    "no-reflect",
-  );
-  expect(() => verifyInCleanRuntime(root, faulty.path, signed, spki)).toThrow(
-    "tsyringe requires a reflect polyfill",
-  );
-});
-
 it("retains the official XML verifier/canonicalizer with one existing certificate parser and no PKIjs", () => {
   expect(
     included.some((id) => id.endsWith("/xmldsigjs/build/signed_xml.js")),
@@ -220,9 +219,9 @@ it("retains the official XML verifier/canonicalizer with one existing certificat
   expect(
     included.some((id) => id.endsWith("/xmldsigjs/build/canonicalizer.js")),
   ).toBe(true);
-  expect(
-    included.filter((id) => id.endsWith("/@peculiar/x509/build/index.js")),
-  ).toHaveLength(1);
+  expect(included.filter((id) => id === input.sharedCertificate)).toHaveLength(
+    1,
+  );
   expect(included.some((id) => /\/(pkijs|bytestreamjs)\//.test(id))).toBe(
     false,
   );
@@ -258,8 +257,16 @@ it("uses the same actual transformed certificate implementation for IdP metadata
   expect(result.signedRequests).toBe(true);
   expect(result.postUrl).toBe("https://idp.example/sso");
 });
+it("loads the split SAML bundle without preinstalled reflection metadata", async () => {
+  await verifyFreshSamlRuntime(
+    root,
+    directory,
+    metadata(),
+    Buffer.from(spki).toString("base64"),
+  );
+}, 30000);
 it("signs an SP request with the real transformed SDK and passes independent XMLDSIG verification", async () => {
-  const request = pendingSamlRequest();
+  const request = pending();
   const parsed = await api.readSamlIdpMetadata(
     metadata(),
     "urn:adapter:idp",
@@ -336,7 +343,7 @@ it("rejects malformed metadata certificates and a mismatched SP signing key", as
     owner(),
   );
   await expect(
-    api.createSamlAuthnPost(pendingSamlRequest(), parsed, owner(), {
+    api.createSamlAuthnPost(pending(), parsed, owner(), {
       privateKeyPkcs8: wrong,
       certificate,
     }),
