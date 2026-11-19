@@ -83,19 +83,22 @@ fn ends_with_kw(source: &str, keyword: &str) -> bool {
         .is_some_and(|rest| rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)))
 }
 
+/// Last assignment `=`. `==`, `!=`, `<=`, `>=`, and match `=>` are not assignments.
+/// `=` inside a string or character literal is not one either.
 fn last_single_eq(prefix: &str) -> Option<usize> {
     let bytes = prefix.as_bytes();
+    let code = eq_code(bytes);
     let mut index = prefix.len();
     while index > 0 {
         index -= 1;
-        if bytes[index] != b'=' {
+        if !code[index] || bytes[index] != b'=' {
             continue;
         }
-        if bytes.get(index + 1) == Some(&b'=') {
+        if matches!(bytes.get(index + 1), Some(b'=' | b'>')) {
             continue;
         }
         if matches!(
-            bytes.get(index.wrapping_sub(1)),
+            index.checked_sub(1).and_then(|prev| bytes.get(prev)),
             Some(b'!' | b'=' | b'<' | b'>')
         ) {
             continue;
@@ -103,6 +106,23 @@ fn last_single_eq(prefix: &str) -> Option<usize> {
         return Some(index);
     }
     None
+}
+
+fn eq_code(bytes: &[u8]) -> Vec<bool> {
+    let mut code = vec![true; bytes.len()];
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            let end = (index + len).min(bytes.len());
+            for slot in &mut code[index..end] {
+                *slot = false;
+            }
+            index = end.max(index + 1);
+        } else {
+            index += 1;
+        }
+    }
+    code
 }
 
 fn trailing_ident(source: &str) -> Option<String> {
@@ -119,4 +139,28 @@ fn trailing_ident(source: &str) -> Option<String> {
 
 fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::sync_target_pact_https::credentialed_send_https_gaps;
+    use super::typed_let_name_before_path;
+
+    #[test]
+    fn p5_match_arrow_is_not_let_eq() {
+        let source = "async fn f() { let dispatch: T = match { arm => Path::send }; dispatch(request).await?; }";
+        let head = source.find("Path::send").expect("path");
+        assert_eq!(
+            typed_let_name_before_path(source, head).as_deref(),
+            Some("dispatch"),
+            "{source}"
+        );
+        assert_eq!(credentialed_send_https_gaps(source), (1, 1), "{source}");
+        let compared = "let dispatch: T = if a >= b { Path::send };";
+        let head = compared.find("Path::send").expect("path");
+        assert_eq!(
+            typed_let_name_before_path(compared, head).as_deref(),
+            Some("dispatch")
+        );
+    }
 }
