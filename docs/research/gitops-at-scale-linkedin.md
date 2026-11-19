@@ -108,7 +108,7 @@ counts a container that restarts in the first 30 seconds as a failed deploy.
 | L5 deletion | **Gap (partial)** | Pages branch policies are pruned to the default branch. Rulesets and environments are never pruned, and a declaration removed from `ops/github/` leaves its live object running. |
 | L6 3-way diff | **Gap** | Apply/verify is 2-way (declared vs live). The alarm is 2-way in time (previous live vs current live), so it fails on every change, including an administrator's intended `--apply` ("one change fails one scheduled run"). That is LinkedIn's problem 7, false OutOfSync, in another form. |
 | L7 real errors | **Mixed** | `security-settings.mjs` reports the HTTP status and lists each drifted setting. `governance.mjs` replaces every failure with one generic message (no status) and fails `--verify` without saying which check drifted. Both rightly keep response bodies out of logs. |
-| L8 convergence | **Strong for releases, weak for settings** | Release: Pages is verified live, and npm waits for the published version (300 s deadline). Settings: `--apply` re-reads once and verifies. Detection runs **weekly** (cron `23 5 * * 1`), so a ruleset disabled on Monday afternoon goes unseen for about 7 days. LinkedIn's headline gain was cutting detection time. |
+| L8 convergence | **Strong for releases, weak for settings** | Release: Pages live verify remains strong. The npm publish job is currently disabled, so there is no active npm registry convergence. The 300 s registry wait in the [promotion docs](../operators/ci-promotion.md) is the legacy paused path. Settings: `--apply` re-reads once and verifies. Detection runs **weekly** (cron `23 5 * * 1`), so a ruleset disabled on Monday afternoon goes unseen for about 7 days. LinkedIn's headline gain was cutting detection time. |
 | L9 build vs adopt | **Consistent** | The governance scripts are small (about 200 lines each) and exist for semantics off-the-shelf tools don't promise: an HTTP 403 is never a success, and a checked-in proposal is never treated as live. |
 
 ## 4. Proposals
@@ -178,10 +178,19 @@ The fix is small and keeps the no-bodies-in-logs rule.
 The settings alarm runs weekly. Two options:
 
 - **Cheap:** give the `repository-settings` job its own daily schedule, split
-  from the heavy weekly scanners. It is a 10-minute read-only job.
+  from the heavy weekly scanners. It is a 10-minute read-only job. If that
+  job moves to its own workflow, baseline trust must change.
+  `settings-snapshot.mjs` hard-codes `WORKFLOW` to
+  `.github/workflows/security.yml`, and `trustedRun()` rejects other
+  producers unless that code is updated.
 - **Event-driven:** add a separate workflow triggered by `on:
   branch_protection_rule`. This covers classic branch protection only; GitHub
   has no Actions trigger for rulesets, so the scheduled snapshot stays.
+
+`settings-snapshot.mjs` today does not snapshot secret-scanning push
+protection, immutable-action-settings, or declared Actions permission
+restrictions. Faster scheduling alone would not alarm on those disables.
+Expanding the snapshot's scope would be a separate change.
 
 The baseline-trust rule in the alarm treats only scheduled runs as baselines.
 Event-triggered runs must keep that rule: they compare, but are never a
