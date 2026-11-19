@@ -5,12 +5,16 @@
 # The process stays stopped until the operator env in the README is set.
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
   && apt-get install -y --no-install-recommends ca-certificates git python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
 RUN npm ci --ignore-scripts
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
 RUN useradd -u 10001 -m app
 WORKDIR /src
 COPY --from=build --chown=10001:10001 /src/package.json /src/package-lock.json ./
