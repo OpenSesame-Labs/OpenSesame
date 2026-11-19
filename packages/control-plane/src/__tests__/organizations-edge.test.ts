@@ -1,6 +1,7 @@
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
@@ -77,9 +78,30 @@ describe("organization helpers", () => {
       principalId: member.principalId,
       correlationId: "corr-revoke",
       reason: "deprovisioned",
+      withdrawalAudit: {
+        id: "00000000-0000-4000-8000-000000000001",
+        kind: "remove",
+        actorType: "system",
+        actorPrincipalId: ctx.systemOwnerPrincipalId,
+        organizationId: membership.organizationId,
+        principalId: member.principalId,
+        correlationId: "corr-revoke",
+        previousRole: membership.role,
+      },
     });
     expect(result.membershipRemoved).toBe(true);
     expect(result.sessionsRevoked).toBeGreaterThan(0);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeDefined();
+    await resumePendingOrganizationWithdrawalAudits(ctx);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeUndefined();
 
     expect(
       await ctx.stores.organizationMemberships.find(

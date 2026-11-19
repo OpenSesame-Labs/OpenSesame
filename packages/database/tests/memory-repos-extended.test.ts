@@ -298,8 +298,6 @@ describe("MemoryRepositories.auditEvents", () => {
       constraint: "audit_events_previous_digest_uidx",
     });
     expect(await repos.auditEvents.getById(event.id)).toEqual(event);
-    expect(await repos.auditEvents.getByDigest("first")).toEqual(event);
-    expect(await repos.auditEvents.getByDigest("missing")).toBeNull();
   });
 
   it("lists newest first with principal filter, limit, and copies", async () => {

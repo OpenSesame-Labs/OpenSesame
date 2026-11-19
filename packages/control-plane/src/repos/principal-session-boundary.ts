@@ -126,6 +126,10 @@ export async function withPrincipalSessionBoundary<T>(
           PostgresOrganizationMembershipStore
             ? new PostgresOrganizationMembershipStore(db)
             : stores.organizationMemberships,
+        organizationWithdrawalAudits:
+          stores.organizationWithdrawalAudits instanceof DurableMap
+            ? stores.organizationWithdrawalAudits.onDatabase(db)
+            : stores.organizationWithdrawalAudits,
       },
       db,
     );
