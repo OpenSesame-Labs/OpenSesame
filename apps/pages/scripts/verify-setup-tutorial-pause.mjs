@@ -141,7 +141,11 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
       evidence.push({ build: label, step, sha256: digest(file) });
     }
   }
-  evidence.push({ build: label, step: "setup-choices.png", sha256: digest(choices) });
+  evidence.push({
+    build: label,
+    step: "setup-choices.png",
+    sha256: digest(choices),
+  });
   await context.close();
   return records;
 }
@@ -154,8 +158,7 @@ async function main() {
   }
   mkdirSync(outRoot, { recursive: true });
   const mainDist =
-    process.env.SETUP_PAUSE_MAIN_DIST ??
-    (devUrl ? "" : mainPagesDist());
+    process.env.SETUP_PAUSE_MAIN_DIST ?? (devUrl ? "" : mainPagesDist());
   const discovery = findChromium();
   if (!discovery.path) throw new Error("no chromium");
   const browser = await chromium.launch({
