@@ -155,7 +155,7 @@ impl TransportRuntime {
         opensesame_time::DateTime<opensesame_time::Utc>,
         Option<opensesame_time::DateTime<opensesame_time::Utc>>,
     )> {
-        let current = self.generations.current();
+        let current = self.generations.checked_current(None).ok()?;
         current.identity.as_ref().map(|identity| {
             (
                 current.number,
@@ -205,8 +205,7 @@ impl TransportRuntime {
 /// A generation with no identity and no trust: the Host has bindings or an
 /// mTLS client mode but no secure listener of its own.
 fn empty_generations() -> Result<Arc<TransportGenerations>, TransportError> {
-    let generation =
-        GenerationCandidate::default().into_generation(1, opensesame_time::Utc::now())?;
+    let generation = GenerationCandidate::default().into_generation(1, opensesame_time::Utc::now())?;
     Ok(TransportGenerations::new(generation))
 }
 
@@ -286,7 +285,7 @@ async fn start_spiffe(
         .ok_or(TransportError::SourceUnsupported)?;
     let generations = empty_generations()?;
     let sink = Arc::new(TransportGenerationsSink::new(Arc::clone(&generations)));
-    let handle = SpiffeSource::start(config, sink);
+    let handle = SpiffeSource::start(config, sink)?;
     let ready = handle
         .wait_for(SPIFFE_FIRST_SVID_TIMEOUT, |status| {
             status.generation.is_some() || status.phase == SourcePhase::Withdrawn
