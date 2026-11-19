@@ -11,6 +11,10 @@ import {
 
 export const MINIMAL_CONFIRM_ID = "setup.minimal.confirm";
 export const USE_MINIMAL_ANYWAY = "Use Minimal anyway";
+export const KEEP_DEFAULT_SETUP = "Keep Default";
+
+const MINIMAL_WARNING_BODY =
+  "You give up password, passkey, card, and note types until you turn them on in settings.";
 
 export function dismissMinimalConfirm(): void {
   hideToast(MINIMAL_CONFIRM_ID);
@@ -23,19 +27,24 @@ export function showMinimalConfirm(confirm: () => void): void {
     dismissMinimalConfirm();
     confirm();
   };
+  const stay = () => {
+    dismissMinimalConfirm();
+  };
   showToast({
     id: MINIMAL_CONFIRM_ID,
     tone: "warn",
     title: "Minimal",
-    body: "Advanced. Plain secrets and files only.",
+    body: MINIMAL_WARNING_BODY,
     sticky: true,
     choice: { label: USE_MINIMAL_ANYWAY, run },
+    alt: { label: KEEP_DEFAULT_SETUP, run: stay },
   });
   setStatusNotice({
     id: MINIMAL_CONFIRM_ID,
     tone: "warn",
     title: "Minimal",
-    body: "Advanced. Plain secrets and files only.",
+    body: MINIMAL_WARNING_BODY,
     act: { label: USE_MINIMAL_ANYWAY, worded: true, run },
+    alt: { label: KEEP_DEFAULT_SETUP, worded: true, run: stay },
   });
 }

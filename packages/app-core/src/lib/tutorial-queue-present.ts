@@ -6,13 +6,16 @@
  * here is a transcript.
  */
 
-import { guideGoal } from "../tutorial/registry/goals.js";
+import { loadGuidance } from "./guidance.js";
+import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
 import { hideToast, showToast } from "./notice-toast.js";
 import { dismissNotice, listNotices, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   listQueuedTutorials,
   queueTutorial,
+  setQueuedTutorials,
+  TUTORIAL_QUEUE_LIMIT,
   resumeTutorialFromNotice,
   sessionTutorialsPaused,
   setSessionTutorialsPaused,
@@ -26,6 +29,30 @@ export const ONLY_THIS_TUTORIAL = "Only this one";
 function dismissPausePrompt(): void {
   hideToast(TUTORIAL_PAUSE_NOTICE);
   dismissNotice(TUTORIAL_PAUSE_NOTICE);
+}
+
+/**
+ * Every walkthrough this device has not answered yet, except ones already
+ * queued. The tour just left is usually already in the queue.
+ */
+export function queueUnansweredWalkthroughs(): number {
+  const answered = new Set(loadGuidance().tours);
+  const existing = listQueuedTutorials().map((item) => item.goalId);
+  const existingSet = new Set(existing);
+  const pending: string[] = [];
+  for (const goalId of guideGoalIds()) {
+    if (answered.has(goalId) && !existingSet.has(goalId)) continue;
+    if (existingSet.has(goalId)) continue;
+    if (guideGoal(goalId) === null) continue;
+    pending.push(goalId);
+  }
+  const room = Math.max(0, TUTORIAL_QUEUE_LIMIT - existing.length);
+  const accepted = pending.slice(0, room);
+  setQueuedTutorials([...existing, ...accepted]);
+  for (const goalId of accepted) {
+    postQueuedTutorialNotice(goalId);
+  }
+  return accepted.length;
 }
 
 /** The tray row and the toast that resumes one queued tour. */
@@ -60,6 +87,7 @@ export function postQueuedTutorialNotice(goalId: string): void {
 export function postTutorialPausePrompt(): void {
   if (sessionTutorialsPaused()) return;
   const pauseAll = () => {
+    queueUnansweredWalkthroughs();
     setSessionTutorialsPaused(true);
     dismissPausePrompt();
   };
@@ -96,22 +124,10 @@ export function noteTutorialDeclined(goalId: string, title: string): boolean {
   return true;
 }
 
-const QUEUE_NOTICE = "tutorial.queue.";
-
 /** After tray restore, put resume keys back on the ids that survived. */
 export function rehydrateTutorialQueueNotices(): void {
   dismissPausePrompt();
-  const queued = new Set(listQueuedTutorials().map((item) => item.goalId));
-  for (const notice of listNotices()) {
-    if (!notice.id.startsWith(QUEUE_NOTICE)) continue;
-    const goalId = notice.id.slice(QUEUE_NOTICE.length);
-    if (guideGoal(goalId) === null) continue;
-    if (!queued.has(goalId)) {
-      queueTutorial(goalId, { title: notice.title });
-      queued.add(goalId);
-    }
-  }
-  for (const goalId of queued) {
-    postQueuedTutorialNotice(goalId);
+  for (const item of listQueuedTutorials()) {
+    postQueuedTutorialNotice(item.goalId);
   }
 }
