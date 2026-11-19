@@ -1,6 +1,7 @@
 import {
   FIRST_VAULT_GATE_GUIDE,
   FIRST_VAULT_PIN_STEPS,
+  FIRST_VAULT_SEAL_INSTRUCTION,
 } from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
@@ -104,7 +105,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
         'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
         creating
-          ? 'focus "unlock.seal-actions" "Accept the recovery notice and seal with Passkey. To use PIN, select PIN, then Next." side=bottom'
+          ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`
           : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
         ...(creating
           ? [
