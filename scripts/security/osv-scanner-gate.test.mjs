@@ -15,18 +15,21 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const fixtureFiles = [
+  "scripts/audit/osv-scanner-gate.sh",
+  "scripts/audit/native-toolchain-sbom.py",
+  "scripts/lib/audit-directory.sh",
+  "scripts/lib/json-boundary.mjs",
+  "scripts/security/assert-no-advisories.mjs",
+];
+
 function fixture(t) {
   const directory = mkdtempSync(join(tmpdir(), "opensesame-osv-gate-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const repo = join(directory, "repo");
   for (const folder of ["scripts/audit", "scripts/lib", "scripts/security"])
     mkdirSync(join(repo, folder), { recursive: true });
-  for (const file of [
-    "scripts/audit/osv-scanner-gate.sh",
-    "scripts/audit/native-toolchain-sbom.py",
-    "scripts/lib/audit-directory.sh",
-    "scripts/security/assert-no-advisories.mjs",
-  ])
+  for (const file of fixtureFiles)
     copyFileSync(join(root, file), join(repo, file));
   writeFileSync(join(repo, "osv-scanner.toml"), "IgnoredVulns = []\n");
   writeFileSync(

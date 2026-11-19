@@ -25,6 +25,7 @@ it("does not contact an old daemon that would approve any verb", async () => {
     "pass-reveal",
   ] as const) {
     const outcome = await port.ensureReveal({
+      // @ts-expect-error Exercise invalid verbs supplied by untyped callers.
       verb,
       terminalSessionId: "term-test",
     });
