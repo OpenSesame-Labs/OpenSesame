@@ -1,11 +1,14 @@
+import { randomUUID } from "node:crypto";
 import type { ScimUserRecord } from "@opensesame/database";
 import type { Organization, OrganizationRole } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
-  revokeOrganizationMembership,
-  serializeMembershipMutation,
-} from "./organizations.js";
+  prepareDirectoryRemoval,
+  removeDirectoryMembership,
+} from "./directory-removal.js";
+import { serializeMembershipMutation } from "./organizations.js";
 
 /**
  * Where a Groups PATCH records the derived role, on the SCIM row itself.
@@ -24,12 +27,50 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
  */
 const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
+export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
+  "urn:opensesame:params:scim:2.0:deprovision-journal";
+
+type DeprovisionTarget = {
+  principalId: string;
+  incarnation: string;
+  completed: boolean;
+};
+
+type DeprovisionJournal = { cycle: string; targets: DeprovisionTarget[] };
+
+export function deprovisionJournal(
+  user: ScimUserRecord,
+): DeprovisionJournal | undefined {
+  const value = user.raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE];
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const cycle = Reflect.get(value, "cycle");
+  const targets = Reflect.get(value, "targets");
+  if (typeof cycle !== "string" || !Array.isArray(targets)) return undefined;
+  const parsed: DeprovisionTarget[] = [];
+  for (const target of targets) {
+    if (!target || typeof target !== "object" || Array.isArray(target))
+      return undefined;
+    const principalId = Reflect.get(target, "principalId");
+    const incarnation = Reflect.get(target, "incarnation");
+    const completed = Reflect.get(target, "completed");
+    if (
+      typeof principalId !== "string" ||
+      typeof incarnation !== "string" ||
+      typeof completed !== "boolean"
+    )
+      return undefined;
+    parsed.push({ principalId, incarnation, completed });
+  }
+  return { cycle, targets: parsed };
+}
 
 /** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
   SCIM_ROLE_ATTRIBUTE,
   SCIM_SUBJECTS_ATTRIBUTE,
   SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE,
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
 ]);
 
 const ORG_IDENTITY_KINDS = ["oidc", "oauth2", "saml", "ldap", "email"] as const;
@@ -201,39 +242,98 @@ export async function deprovision(
   organization: Organization,
   user: ScimUserRecord,
   correlationId: string,
-  previous?: ScimUserRecord,
+  _previous?: ScimUserRecord,
 ): Promise<void> {
-  const record = previous ? withRememberedSubjects(previous, user) : user;
-  // Resolve members first. Only a principal that held a membership in THIS
-  // organization is in scope; the persisted marker carries that set into a
-  // retry after the membership rows are already gone.
-  const members = await principalsForUser(ctx, organization, record, true);
-  const prior = record.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
-  const recorded = Array.isArray(prior)
-    ? prior.filter(
-        (value): value is string => isString(value) && value.length > 0,
-      )
-    : [];
-  const targets = new Set<string>([...members, ...recorded]);
-  if (members.length > 0) {
-    await ctx.stores.scim.users.update({
-      ...record,
-      raw: {
-        ...record.raw,
-        [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: [...targets],
-      },
-      updatedAt: ctx.clock(),
-    });
-  }
-  for (const principalId of targets) {
-    await revokeOrganizationMembership(ctx, {
+  const journal = deprovisionJournal(user);
+  if (!journal)
+    throw new Error(
+      "Cannot safely resume a legacy SCIM deactivation without an incarnation journal",
+    );
+  for (const target of journal.targets) {
+    if (target.completed) continue;
+    await removeDirectoryMembership(ctx, {
       organizationId: organization.id,
-      principalId,
+      principalId: target.principalId,
+      incarnation: target.incarnation,
       correlationId,
       reason: "scim_deactivated",
       advanceEpochWithoutMembership: true,
     });
+    await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
+      const current = await tx.stores.scim.users.getVersioned(
+        organization.id,
+        user.id,
+      );
+      if (!current) return;
+      const latest = deprovisionJournal(current.user);
+      if (!latest || latest.cycle !== journal.cycle) return;
+      const next = {
+        ...current.user,
+        raw: {
+          ...current.user.raw,
+          [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: {
+            ...latest,
+            targets: latest.targets.map((entry) =>
+              entry.principalId === target.principalId &&
+              entry.incarnation === target.incarnation
+                ? { ...entry, completed: true }
+                : entry,
+            ),
+          },
+        },
+      };
+      await tx.stores.scim.users.replaceIfRevision(
+        organization.id,
+        user.id,
+        current.revision,
+        next,
+      );
+    });
   }
+}
+
+/** Persist exact membership incarnations before an inactive SCIM row commits. */
+export async function prepareDeprovision(
+  ctx: AppContext,
+  organization: Organization,
+  user: ScimUserRecord,
+  correlationId: string,
+): Promise<ScimUserRecord> {
+  const targets: DeprovisionTarget[] = [];
+  for (const principalId of await principalsForUser(
+    ctx,
+    organization,
+    user,
+    false,
+  )) {
+    const membership = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      principalId,
+    );
+    if (!membership) continue;
+    const prepared = await prepareDirectoryRemoval(ctx, {
+      organizationId: organization.id,
+      principalId,
+      incarnation: membership.incarnation,
+      correlationId,
+      reason: "scim_deactivated",
+    });
+    if (prepared.status !== "ready" && prepared.status !== "missing")
+      throw new Error("Directory removal could not be prepared");
+    if (prepared.status === "ready")
+      targets.push({
+        principalId,
+        incarnation: membership.incarnation,
+        completed: false,
+      });
+  }
+  return {
+    ...user,
+    raw: {
+      ...user.raw,
+      [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: { cycle: randomUUID(), targets },
+    },
+  };
 }
 
 /** Apply a Groups mapping to whoever already holds a membership here. */
