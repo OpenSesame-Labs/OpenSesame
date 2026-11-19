@@ -77,19 +77,26 @@ Overlap active/retiring signing keys in JWKS until max token lifetime elapses. P
 
 ## Membership-withdrawal rollout
 
-Roll out the Identity API before the Host when introducing revision-bound
-membership withdrawal. The upgraded Identity sends the exact membership
-incarnation, authority revision, and stable withdrawal ID. Legacy Hosts ignore
-those extra request fields and may return `200`, but their response does not
-attest a durable replica-shared fence. Identity must therefore keep the
-membership mutation pending until the response contains `durable: true` and
-echoes all three exact values.
+Pause membership removal and role-change traffic before this rollout. Roll out
+the Identity API first: it sends the exact membership incarnation, authority
+revision, and stable withdrawal ID. Legacy Hosts ignore those extra request
+fields and may return `200`, but their response does not attest a durable
+replica-shared fence, so upgraded Identity keeps the mutation pending.
 
-Hosts may then be replaced gradually. A request routed to a legacy replica is
-treated as incomplete and retried with the same withdrawal ID; a request routed
-to an upgraded replica commits the shared tombstone and returns the attestation.
-Do not deploy a Host that requires the new request fields before Identity can
-send them: legacy Identity receives a non-success response and fails closed, but
+Drain and replace **every** legacy Host while membership mutations remain
+paused. Query each load-balancer backend directly (never sample through the
+load balancer) and require `GET /health/ready` to return HTTP `200` with
+`membership_withdrawal_fence: 1`. A legacy replica omits that capability and
+can continue accepting a session cached before another replica committed the
+shared tombstone. One upgraded replica's durable withdrawal acknowledgement
+therefore proves protocol compatibility, not fleet readiness.
+
+Resume membership mutations only after the backend inventory and direct probes
+show no legacy target and the load balancer has stopped routing to every drained
+instance. After that barrier, a request routed to any replica commits or
+observes the shared tombstone and returns the exact durable attestation. Do not
+deploy a Host that requires the new request fields before Identity can send
+them: legacy Identity receives a non-success response and fails closed, but
 membership changes remain unavailable until Identity is upgraded.
 
 ## Compose
