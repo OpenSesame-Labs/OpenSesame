@@ -104,18 +104,6 @@ export function offerBody(steps: number): string {
   return `Follow ${length} to complete this task.`;
 }
 
-function compactOfferBody(steps: number): string {
-  return offerBody(steps);
-}
-
-function bodyForOffer(offer: InlineOffer): string {
-  return offer.host.dataset.firstVisitOffer === "gate" ||
-    offer.host.dataset.firstVisitOffer === "shell" ||
-    offer.host.closest(".gate-offer-frame") !== null
-    ? compactOfferBody(offer.steps)
-    : offerBody(offer.steps);
-}
-
 function offerHost(gateScreen: boolean): HTMLElement | null {
   if (gateScreen)
     return (
@@ -312,7 +300,7 @@ export function FirstVisitOffer({
   return inline && (gateScreen || !gatePresent) ? (
     <FirstVisitInlineOffer
       offer={inline}
-      body={bodyForOffer(inline)}
+      body={offerBody(inline.steps)}
       onClose={close}
     />
   ) : null;
