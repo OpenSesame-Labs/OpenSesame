@@ -286,6 +286,26 @@ export async function checkControlReachable(page, check, control, label) {
   );
 }
 
+/** Prove the method decision cannot advance before a usable PIN field exists. */
+export async function checkTutorialNextBlocked(
+  page,
+  check,
+  next,
+  target = "unlock.seal-actions",
+) {
+  const visible = await next.isVisible();
+  check(
+    !visible || (await next.getAttribute("aria-disabled")) === "true",
+    `first vault: Next cannot skip required action ${target}`,
+  );
+  if (!visible) return;
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator(`.coach[data-coach-target="${target}"]`).count()) === 1,
+    `first vault: disabled Next keeps ${target} active`,
+  );
+}
+
 /** Wait for PRF failure to select the cross-platform road, with useful state. */
 export async function waitForSecurityKey(
   page,
@@ -320,5 +340,39 @@ export async function waitForSecurityKey(
       `Security key fallback did not appear: ${JSON.stringify(state)}`,
       { cause: error },
     );
+  }
+}
+
+/** Explain a stuck transition from the method group to the first PIN field. */
+export async function waitForPinTutorial(
+  page,
+  { out, width, label, keepShots },
+) {
+  try {
+    await page
+      .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+      .waitFor();
+  } catch (error) {
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-pin-transition-timeout.png`,
+        fullPage: true,
+      });
+    const state = await page.evaluate(() => ({
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((tab) => ({
+        text: tab.textContent?.trim(),
+        selected: tab.getAttribute("aria-selected"),
+      })),
+      targets: [...document.querySelectorAll("[data-guide-targets]")].map(
+        (target) => target.getAttribute("data-guide-targets"),
+      ),
+      coach: document
+        .querySelector(".coach")
+        ?.getAttribute("data-coach-target"),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(`PIN tutorial did not advance: ${JSON.stringify(state)}`, {
+      cause: error,
+    });
   }
 }

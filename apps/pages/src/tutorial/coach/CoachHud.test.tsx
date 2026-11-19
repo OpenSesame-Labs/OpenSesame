@@ -9,6 +9,7 @@
  * meter, and what happens to a step whose control is not on screen.
  */
 
+import type { GuideTourView } from "@opensesame/guide-runtime";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -20,9 +21,27 @@ import {
   tutorialCard,
   walkthrough,
 } from "../__tests__/a11y/harness.js";
-import { firstVaultTourProgress } from "./CoachParts.js";
+import { coachMessage, firstVaultTourProgress } from "./CoachParts.js";
 
 afterEach(disposeSupport);
+
+it("tells an already-mounted PIN road how to leave the held wait", () => {
+  // SAFETY: coachMessage reads only these complete GuideTourView fields.
+  const tour = {
+    step: 4,
+    count: 8,
+    kind: "point",
+    message: "Seal with passkey.",
+    target: "unlock.seal-actions",
+    side: "bottom",
+    action: false,
+    degraded: false,
+    canBack: true,
+  } as GuideTourView;
+  expect(coachMessage(tour, true, true, "")).toBe(
+    "PIN is selected. Select Next.",
+  );
+});
 
 async function startLock(targets: readonly string[] = ["shell.lock"]) {
   const user = userEvent.setup();

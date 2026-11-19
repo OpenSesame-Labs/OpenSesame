@@ -311,9 +311,20 @@ function Coach({
   const { narrow, short, constrained } = layout;
   const awaitingAction =
     constrained && requiredAction && tour.action && !missing && !canBack;
-  const shortScroll = short && (canBack || tour.kind === "close");
+  const shortScroll =
+    short &&
+    (canBack ||
+      tour.kind === "close" ||
+      (!awaitingAction && layout.viewport.width < 200));
   const compactRow =
     !shortScroll && compactRowFor(layout, canBack, awaitingAction);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on a new step or layout mode.
+  useLayoutEffect(() => {
+    if (!cardRef.current) return;
+    cardRef.current.scrollTop = 0;
+    const text = cardRef.current.querySelector<HTMLElement>(".coach__text");
+    if (text) text.scrollTop = 0;
+  }, [stepKey, shortScroll]);
   useCoachFocus(
     placement !== null,
     stepKey,

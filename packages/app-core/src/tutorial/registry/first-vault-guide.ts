@@ -1,13 +1,13 @@
 /** The parts of the first-vault walkthrough share one title and goal. */
 export const FIRST_VAULT_PIN_STEPS = [
   'focus "unlock.seal-pin-entry" "Enter a PIN for this device." side=top',
-  'focus "unlock.seal-pin-confirm" "Enter the PIN again to confirm it." side=top',
+  'focus "unlock.seal-pin-confirm" "Confirm your PIN." side=top',
   'focus "unlock.seal-ack" "Confirm that this vault cannot be recovered if you lose the PIN." side=top',
   'focus "unlock.seal" "Select Seal with PIN to create the vault." side=top',
 ] as const;
 
 export const FIRST_VAULT_SEAL_INSTRUCTION =
-  "Accept the recovery notice and select Seal with passkey, if available. If it fails or is unavailable, select PIN, then Next.";
+  "Accept the recovery notice and select Seal with passkey, if available. If it fails or is unavailable, select PIN.";
 
 const SIGN_IN_STEPS = [
   'focus "unlock.local-only" "Select Use without an account to keep this vault on this device." side=top',

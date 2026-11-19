@@ -55,7 +55,10 @@ async function firstVaultPass({
   );
   if (protection === "pin-only") {
     await context.addInitScript(() => {
-      delete globalThis.PublicKeyCredential;
+      Object.defineProperty(globalThis, "PublicKeyCredential", {
+        configurable: true,
+        value: undefined,
+      });
     });
   }
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
