@@ -118,9 +118,7 @@ export function packageGlob(dir) {
  */
 function patternCovers(pattern, glob) {
   if (pattern === glob) return true;
-  return (
-    pattern.endsWith("/**") && glob.startsWith(`${pattern.slice(0, -3)}/`)
-  );
+  return pattern.endsWith("/**") && glob.startsWith(`${pattern.slice(0, -3)}/`);
 }
 
 /**
@@ -148,8 +146,17 @@ export function pathCovers(filters, glob) {
  * @param {string} repoRoot
  * @returns {{ ok: true } | { ok: false, missing: { name: string, glob: string }[] }}
  */
-export function assertCdPwaPaths(repoRoot = root) {
-  const components = typescriptComponents(repoRoot);
+export function assertCdPwaPaths(
+  repoRoot = root,
+  components = typescriptComponents(repoRoot),
+) {
+  const byName = new Map(components.map((c) => [c.name, c]));
+  if (!byName.has(PAGES)) {
+    return {
+      ok: false,
+      missing: [{ name: PAGES, glob: PAGES_APP_GLOB }],
+    };
+  }
   const closure = productionClosure(components);
   const workflow = readFileSync(
     join(repoRoot, ".github/workflows/cd-pwa.yml"),

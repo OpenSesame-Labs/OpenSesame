@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { typescriptComponents } from "../lib/workspace-graph.mjs";
 import {
   assertCdPwaPaths,
   pathCovers,
@@ -69,4 +70,14 @@ test("pathCovers honors ordered negative exclusions", () => {
 
 test("assertCdPwaPaths passes on the live repository", () => {
   assert.deepEqual(assertCdPwaPaths(root), { ok: true });
+});
+
+test("assertCdPwaPaths fails when @opensesame/pages is absent", () => {
+  const withoutPages = typescriptComponents(root).filter(
+    (c) => c.name !== "@opensesame/pages",
+  );
+  assert.deepEqual(assertCdPwaPaths(root, withoutPages), {
+    ok: false,
+    missing: [{ name: "@opensesame/pages", glob: "apps/pages/**" }],
+  });
 });
