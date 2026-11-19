@@ -3,6 +3,7 @@ import {
   createDecipheriv,
   createHash,
   createHmac,
+  hkdfSync,
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
@@ -104,7 +105,13 @@ function verifierSealKey(
     .update(nonce)
     .digest()
     .subarray(0, 16);
-  return scryptSync("\0seal-key\0", salt, 32, SCRYPT_PARAMS);
+  return hkdfSync(
+    "sha256",
+    secret,
+    salt,
+    "OpenSesame:federated-pending:verifier-seal",
+    32,
+  );
 }
 
 /** Seal the PKCE verifier for wire transport; the MAC never covers the raw verifier. */
