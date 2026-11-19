@@ -24,6 +24,11 @@ const blobEvidence =
   coverage.version === 2 &&
   isString(attestationPath) &&
   attestationPathPattern.test(attestationPath);
+const shallow =
+  execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim() === "true";
 
 function gitJson(revision, path) {
   return JSON.parse(
@@ -32,6 +37,31 @@ function gitJson(revision, path) {
       encoding: "utf8",
     }),
   );
+}
+
+function v2ExistsInHistory() {
+  if (shallow) return false;
+  const commits = execFileSync(
+    "git",
+    [
+      "log",
+      "--full-history",
+      "--format=%H",
+      "--",
+      "spec/formal/auth/coverage.json",
+    ],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  return commits.some((commit) => {
+    try {
+      return gitJson(commit, "spec/formal/auth/coverage.json").version === 2;
+    } catch {
+      return false;
+    }
+  });
 }
 
 function validV2Manifest(manifest) {
@@ -180,6 +210,10 @@ function reviewedBlobBefore(attestationCommit, previousCoverage, entry) {
     );
   }
 }
+if (revisionEvidence && v2ExistsInHistory())
+  throw new Error(
+    "auth-formal: v2 reviewed-source evidence cannot downgrade to v1",
+  );
 if (
   (!revisionEvidence && !blobEvidence) ||
   !Array.isArray(coverage.sources) ||
@@ -212,11 +246,6 @@ if (blobEvidence) {
       "auth-formal: manifest does not match reviewed-source attestation",
     );
   }
-  const shallow =
-    execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
-      cwd: root,
-      encoding: "utf8",
-    }).trim() === "true";
   if (!shallow) {
     const reviewedCommit = execFileSync(
       "git",

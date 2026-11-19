@@ -20,58 +20,53 @@ const paths = [
   "packages/os-domain/src/types.ts",
 ];
 const attestationPath = "spec/formal/auth/reviewed-sources.json";
+const git = (cwd, ...args) =>
+  execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
 function configureIdentity(cwd) {
-  execFileSync("git", ["config", "user.name", "Test"], { cwd });
-  execFileSync("git", ["config", "user.email", "test@example.invalid"], {
-    cwd,
-  });
+  git(cwd, "config", "user.name", "Test");
+  git(cwd, "config", "user.email", "test@example.invalid");
 }
 
 function commit(cwd, message, files = ["."], allowEmpty = false) {
-  if (files.length) execFileSync("git", ["add", ...files], { cwd });
+  if (files.length) git(cwd, "add", ...files);
   const empty = allowEmpty ? ["--allow-empty"] : [];
-  execFileSync(
-    "git",
-    ["-c", "commit.gpgsign=false", "commit", ...empty, "-qm", message],
-    { cwd },
-  );
+  git(cwd, "-c", "commit.gpgsign=false", "commit", ...empty, "-qm", message);
 }
-
+function assertRejected(result, pattern) {
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, pattern);
+}
 function writeAttestation(cwd, path, sources) {
   writeFileSync(join(cwd, path), JSON.stringify({ version: 1, sources }));
 }
-
 function writeCoverage(cwd, reviewed_attestation, sources) {
   writeFileSync(
     join(cwd, "spec/formal/auth/coverage.json"),
     JSON.stringify({ version: 2, reviewed_attestation, sources }),
   );
 }
-
 function copyFixtureFile(root, path, source) {
   const target = join(root, path);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, readFileSync(source));
 }
-
 function buildReviewedStack(t) {
   const parent = mkdtempSync(join(tmpdir(), "auth-formal-drift-"));
   const root = join(parent, "source");
   const clone = join(parent, "fresh");
   mkdirSync(root);
   t.after(() => rmSync(parent, { recursive: true, force: true }));
-  const git = (...args) =>
-    execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+  const rootGit = (...args) => git(root, ...args);
   const check = (cwd = root) =>
     spawnSync(
       process.execPath,
       [join(cwd, "scripts/test/auth-formal-drift.mjs")],
       { cwd, encoding: "utf8" },
     );
-  git("init", "-q");
-  git("config", "user.name", "Test");
-  git("config", "user.email", "test@example.invalid");
+  rootGit("init", "-q");
+  rootGit("config", "user.name", "Test");
+  rootGit("config", "user.email", "test@example.invalid");
   for (const path of paths) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), `original ${path}\n`);
@@ -86,9 +81,9 @@ function buildReviewedStack(t) {
     "scripts/lib/json-boundary.mjs",
     new URL("../lib/json-boundary.mjs", import.meta.url),
   );
-  git("add", ".");
-  git("-c", "commit.gpgsign=false", "commit", "-qm", "original sources");
-  const reviewedRevision = git("rev-parse", "HEAD");
+  rootGit("add", ".");
+  rootGit("-c", "commit.gpgsign=false", "commit", "-qm", "original sources");
+  const reviewedRevision = rootGit("rev-parse", "HEAD");
   const manifest = join(root, "spec/formal/auth/coverage.json");
   mkdirSync(dirname(manifest), { recursive: true });
   writeFileSync(
@@ -105,8 +100,8 @@ function buildReviewedStack(t) {
     }),
   );
   assert.equal(check().status, 0);
-  git("add", "spec/formal/auth/coverage.json");
-  git(
+  rootGit("add", "spec/formal/auth/coverage.json");
+  rootGit(
     "-c",
     "commit.gpgsign=false",
     "commit",
@@ -129,7 +124,7 @@ function buildReviewedStack(t) {
 }
 
 function verifyShallowClone({ check, clone, root, sources }) {
-  execFileSync("git", ["clone", "-q", "--depth=1", `file://${root}`, clone]);
+  git(root, "clone", "-q", "--depth=1", `file://${root}`, clone);
   const shallow = check(clone);
   assert.equal(shallow.status, 0, shallow.stderr);
   const clonedManifest = join(clone, "spec/formal/auth/coverage.json");
@@ -148,11 +143,7 @@ function verifyShallowClone({ check, clone, root, sources }) {
     { ...sources[0], reviewed_blob: "a".repeat(40) },
     ...sources.slice(1),
   ]);
-  assert.notEqual(wrong.status, 0);
-  assert.match(
-    wrong.stderr,
-    /manifest does not match reviewed-source attestation/,
-  );
+  assertRejected(wrong, /manifest does not match reviewed-source attestation/);
   const restored = setSources(sources);
   assert.equal(restored.status, 0, restored.stderr);
   const clonedAttestation = join(clone, attestationPath);
@@ -164,21 +155,19 @@ function verifyShallowClone({ check, clone, root, sources }) {
     }),
   );
   const attestationTamper = check(clone);
-  assert.notEqual(attestationTamper.status, 0);
-  assert.match(
-    attestationTamper.stderr,
+  assertRejected(
+    attestationTamper,
     /manifest does not match reviewed-source attestation/,
   );
   writeFileSync(clonedAttestation, JSON.stringify({ version: 1, sources }));
   writeFileSync(join(clone, paths[0]), "worktree drift\n");
   const drift = check(clone);
-  assert.notEqual(drift.status, 0);
-  assert.match(drift.stderr, /source drift/);
+  assertRejected(drift, /source drift/);
 }
 
 function rejectSameCommitAttestation({ check, parent, root }) {
   const self = join(parent, "self");
-  execFileSync("git", ["clone", "-q", `file://${root}`, self]);
+  git(root, "clone", "-q", `file://${root}`, self);
   configureIdentity(self);
   writeFileSync(join(self, paths[0]), "co-tampered\n");
   const coSources = JSON.parse(
@@ -214,17 +203,14 @@ function rejectSameCommitAttestation({ check, parent, root }) {
 
 function rejectPosthocAttestation({ check, parent, root }) {
   const posthoc = join(parent, "posthoc");
-  execFileSync("git", ["clone", "-q", `file://${root}`, posthoc]);
+  git(root, "clone", "-q", `file://${root}`, posthoc);
   configureIdentity(posthoc);
   writeFileSync(join(posthoc, paths[0]), "changed before review\n");
   commit(posthoc, "source first", [paths[0]]);
   const posthocSources = JSON.parse(
     readFileSync(join(posthoc, attestationPath), "utf8"),
   ).sources;
-  const posthocBlob = execFileSync("git", ["rev-parse", `HEAD:${paths[0]}`], {
-    cwd: posthoc,
-    encoding: "utf8",
-  }).trim();
+  const posthocBlob = git(posthoc, "rev-parse", `HEAD:${paths[0]}`);
   const posthocBytes = readFileSync(join(posthoc, paths[0]));
   posthocSources[0] = {
     ...posthocSources[0],
@@ -262,13 +248,14 @@ function reviewedSources(cwd, prefix) {
     const reviewed_blob = execFileSync(
       "git",
       ["hash-object", "-w", "--stdin"],
-      { cwd, input: content, encoding: "utf8" },
+      {
+        cwd,
+        input: content,
+        encoding: "utf8",
+      },
     ).trim();
     return {
-      base_blob: execFileSync("git", ["rev-parse", `HEAD:${path}`], {
-        cwd,
-        encoding: "utf8",
-      }).trim(),
+      base_blob: git(cwd, "rev-parse", `HEAD:${path}`),
       content,
       path,
       reviewed_blob,
@@ -279,7 +266,7 @@ function reviewedSources(cwd, prefix) {
 
 function prepareSecondAttestation({ check, parent, root }) {
   const next = join(parent, "next");
-  execFileSync("git", ["clone", "-q", `file://${root}`, next]);
+  git(root, "clone", "-q", `file://${root}`, next);
   configureIdentity(next);
   const entries = reviewedSources(next, "second review");
   const sources = entries.map(({ content: _content, ...entry }) => entry);
@@ -298,7 +285,7 @@ function prepareSecondAttestation({ check, parent, root }) {
 
 function rejectUnvalidatedParentManifest({ check, parent, root }) {
   const forged = join(parent, "forged-parent");
-  execFileSync("git", ["clone", "-q", `file://${root}`, forged]);
+  git(root, "clone", "-q", `file://${root}`, forged);
   configureIdentity(forged);
   const entries = reviewedSources(forged, "forged");
   const sources = entries.map(({ content: _content, ...entry }) => entry);
@@ -332,21 +319,16 @@ function rejectUnvalidatedParentManifest({ check, parent, root }) {
 
 function rejectAttestationMerge({ check, parent, root }) {
   const merged = join(parent, "merge-bypass");
-  execFileSync("git", ["clone", "-q", `file://${root}`, merged]);
+  git(root, "clone", "-q", `file://${root}`, merged);
   configureIdentity(merged);
-  const baseBranch = execFileSync("git", ["branch", "--show-current"], {
-    cwd: merged,
-    encoding: "utf8",
-  }).trim();
-  execFileSync("git", ["switch", "-qc", "protected-change"], { cwd: merged });
+  const baseBranch = git(merged, "branch", "--show-current");
+  git(merged, "switch", "-qc", "protected-change");
   const entries = reviewedSources(merged, "merged");
   for (const { content, path } of entries)
     writeFileSync(join(merged, path), content);
   commit(merged, "protected source");
-  execFileSync("git", ["switch", "-q", baseBranch], { cwd: merged });
-  execFileSync("git", ["merge", "--no-ff", "--no-commit", "protected-change"], {
-    cwd: merged,
-  });
+  git(merged, "switch", "-q", baseBranch);
+  git(merged, "merge", "--no-ff", "--no-commit", "protected-change");
   const sources = entries.map(({ content: _content, ...entry }) => entry);
   const mergeAttestation = "spec/formal/auth/reviewed-sources-merge.json";
   writeAttestation(merged, mergeAttestation, sources);
@@ -354,11 +336,53 @@ function rejectAttestationMerge({ check, parent, root }) {
   writeCoverage(merged, mergeAttestation, sources);
   commit(merged, "activate merge review", ["spec/formal/auth/coverage.json"]);
   const rejected = check(merged);
-  assert.notEqual(rejected.status, 0);
-  assert.match(
-    rejected.stderr,
-    /attestation must predate covered source changes/,
+  assertRejected(rejected, /attestation must predate covered source changes/);
+}
+
+function rejectV1Downgrade({ check, parent, root }) {
+  const downgrade = join(parent, "v1-downgrade");
+  git(root, "clone", "-q", `file://${root}`, downgrade);
+  configureIdentity(downgrade);
+  const reviewed_revision = execFileSync(
+    "git",
+    ["rev-list", "--max-parents=0", "HEAD"],
+    { cwd: downgrade, encoding: "utf8" },
+  ).trim();
+  const sources = paths.map((path) => {
+    const content = execFileSync(
+      "git",
+      ["show", `${reviewed_revision}:${path}`],
+      {
+        cwd: downgrade,
+      },
+    );
+    writeFileSync(join(downgrade, path), content);
+    return { path, sha256: createHash("sha256").update(content).digest("hex") };
+  });
+  writeFileSync(
+    join(downgrade, "spec/formal/auth/coverage.json"),
+    JSON.stringify({ version: 1, reviewed_revision, sources }),
   );
+  commit(downgrade, "downgrade evidence");
+  const rejected = check(downgrade);
+  assertRejected(rejected, /v2 reviewed-source evidence cannot downgrade/);
+
+  const merged = join(parent, "v1-merge-downgrade");
+  git(root, "clone", "-q", `file://${root}`, merged);
+  configureIdentity(merged);
+  const v2Side = git(merged, "rev-parse", "HEAD");
+  git(merged, "switch", "-qc", "v1-first-parent", "HEAD^");
+  git(merged, "merge", "--no-ff", "--no-commit", v2Side);
+  git(
+    merged,
+    "restore",
+    "--source=HEAD",
+    "spec/formal/auth/coverage.json",
+    ...paths,
+  );
+  commit(merged, "resolve merged evidence to v1");
+  const mergeRejected = check(merged);
+  assertRejected(mergeRejected, /v2 reviewed-source evidence cannot downgrade/);
 }
 
 test("a prior reviewed-source attestation survives squash and a shallow clone", (t) => {
@@ -369,4 +393,5 @@ test("a prior reviewed-source attestation survives squash and a shallow clone", 
   prepareSecondAttestation(fixture);
   rejectUnvalidatedParentManifest(fixture);
   rejectAttestationMerge(fixture);
+  rejectV1Downgrade(fixture);
 });
