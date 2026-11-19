@@ -3,6 +3,7 @@ import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-sea
 import type { GuideProgram } from "@opensesame/guide-lang";
 import { gateSupportAsk } from "./ask-guard.js";
 import type { SupportEngine } from "./engine.js";
+import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import type { SupportEntryExtras, SupportEntryKind } from "./session.js";
 import type { SupportView } from "./session.js";
 import { noteGrounding, walkthroughsFor } from "./session-grounding.js";
@@ -31,6 +32,64 @@ export type SessionAskDeps = {
   runProgram: (program: GuideProgram, origin: "model") => Promise<void>;
 };
 
+type AskSessionSnapshot = ReturnType<SupportEngine["session"]["snapshot"]>;
+
+function pushAuthoredAnswer(
+  deps: SessionAskDeps,
+  text: string,
+  route: GuideRouteId,
+): boolean {
+  const authored = rankHelpTopics(text, route).find((e) => e.strong)?.topic;
+  if (!authored) return false;
+  deps.push("answer", authored.answer, [], {
+    walkthroughs: walkthroughsFor([authored]),
+  });
+  return true;
+}
+
+function pushAssistantReply(
+  deps: SessionAskDeps,
+  route: GuideRouteId,
+  question: string,
+  snapshot: AskSessionSnapshot,
+): void {
+  const last = snapshot.messages.at(-1);
+  if (last?.role !== "assistant") return;
+  deps.push("answer", last.text, snapshot.suggestedQuestions, {
+    thoughts: snapshot.thoughts,
+    computer: snapshot.computer,
+  });
+  if (snapshot.guideError) deps.notifyFailure(GUIDE_REFUSED_TEXT);
+  noteGrounding(deps.push, route, question, snapshot.grounding);
+}
+
+async function handleAskSnapshot(
+  deps: SessionAskDeps,
+  text: string,
+  route: GuideRouteId,
+  snapshot: AskSessionSnapshot,
+): Promise<boolean> {
+  if (snapshot.status === "error") {
+    const authored = rankHelpTopics(text, route).find((entry) => entry.strong)
+      ?.topic;
+    if (authored && snapshot.error === "AGENT_UNAVAILABLE") {
+      deps.push("answer", authored.answer, [], {
+        walkthroughs: walkthroughsFor([authored]),
+      });
+      void deps.refreshAvailability();
+      return true;
+    }
+    deps.notifyFailure(
+      SUPPORT_ERROR_TEXT[snapshot.error ?? "AGENT_PROTOCOL_ERROR"],
+    );
+    void deps.refreshAvailability();
+    return true;
+  }
+  pushAssistantReply(deps, route, text, snapshot);
+  if (snapshot.program) await deps.runProgram(snapshot.program, "model");
+  return true;
+}
+
 export function createSessionAskMethods(deps: SessionAskDeps) {
   async function ask(question: string): Promise<void> {
     const state = deps.view();
@@ -40,15 +99,7 @@ export function createSessionAskMethods(deps: SessionAskDeps) {
     deps.push("question", text, []);
     const loaded = await deps.ensureEngine();
     if (!loaded) {
-      const authored = rankHelpTopics(text, state.route).find(
-        (e) => e.strong,
-      )?.topic;
-      if (authored) {
-        deps.push("answer", authored.answer, [], {
-          walkthroughs: walkthroughsFor([authored]),
-        });
-        return;
-      }
+      if (pushAuthoredAnswer(deps, text, state.route)) return;
       deps.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
       return;
     }
@@ -63,37 +114,7 @@ export function createSessionAskMethods(deps: SessionAskDeps) {
       return;
     }
     const snapshot = loaded.session.snapshot();
-    if (snapshot.status === "error") {
-      const authored = rankHelpTopics(text, state.route).find(
-        (entry) => entry.strong,
-      )?.topic;
-      if (authored && snapshot.error === "AGENT_UNAVAILABLE") {
-        deps.push("answer", authored.answer, [], {
-          walkthroughs: walkthroughsFor([authored]),
-        });
-        void deps.refreshAvailability();
-        return;
-      }
-      deps.notifyFailure(
-        SUPPORT_ERROR_TEXT[snapshot.error ?? "AGENT_PROTOCOL_ERROR"],
-      );
-      void deps.refreshAvailability();
-      return;
-    }
-    const last = snapshot.messages.at(-1);
-    if (last && last.role === "assistant") {
-      deps.push("answer", last.text, snapshot.suggestedQuestions, {
-        thoughts: snapshot.thoughts,
-        computer: snapshot.computer,
-      });
-    }
-    // A walkthrough the compiler rejected is reported as a walkthrough that
-    // did not run — never as the codes it failed with, and never as the text.
-    if (snapshot.guideError) deps.notifyFailure(GUIDE_REFUSED_TEXT);
-    if (last && last.role === "assistant") {
-      noteGrounding(deps.push, state.route, text, snapshot.grounding);
-    }
-    if (snapshot.program) await deps.runProgram(snapshot.program, "model");
+    await handleAskSnapshot(deps, text, state.route, snapshot);
   }
 
   function cancel(): void {
