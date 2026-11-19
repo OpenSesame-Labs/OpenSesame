@@ -38,15 +38,16 @@ storage or network implementations.
 | AUTH-Z1 | A missing project, an invisible project, or a caller without a resolved role gets no project proof. [`projectAccess`](../../packages/control-plane/src/proofs/project-role.ts) calls [`isVisible` and `roleFor`](../../packages/control-plane/src/services/project-access.ts). | `absent_project_denied`, `hidden_project_denied`, `no_role_denied` | The actual functions are compared with the model across project presence, every declared state, four expiry classes, and four role results. |
 | AUTH-Z2 | A member gets no admin proof; only a resolved owner can receive an owner proof. `projectAccess` creates the role-specific proof values. | `member_never_receives_admin`, `nonowner_never_receives_owner` | The same matrix checks the role and the actual proof fields and kinds. |
 | AUTH-Z3 | A project at or after its expiration instant is invisible; a deleted project is invisible. `isVisible` uses an inclusive expiry check. | `not_visible_at_expiry`, `not_visible_after_expiry`, `deleted_project_not_visible` | The matrix includes times before, exactly at, and after expiry for every project state and role. |
+| AUTH-Z4 | For an organization-owned project, [`roleFor`](../../packages/control-plane/src/services/project-access.ts) returns no role unless the principal has a current organization membership with no pending withdrawal. Removal and re-addition cannot revive the former project grant because withdrawal deletes the old project membership. | Unproved: the Lean model receives an already-resolved role and does not model organization membership, withdrawal state, or incarnation-bound cleanup. | Finite project-withdrawal and tenant-agent regressions cover pending withdrawal, completed removal, unrelated-organization retention, and remove/re-add denial. The prospective reviewed-source attestation binds the implementation bytes. Status: **unproved**. |
 
 AUTH-S3 core implementation snapshot (future changes require a new review and
 snapshot update):
 
-- `packages/control-plane/src/services/organization-withdrawal.ts`: `ab958d0157e7c2fee5716e85993f1f0023bd280b`
+- `packages/control-plane/src/services/organization-withdrawal.ts`: `6c9e7aad9506e5c4d7c1410270c0a90a6f0ac44b`
 - `packages/control-plane/src/services/host-withdrawal-attestation.ts`: `834f69e93d7ea53ace5d4485c3c7db7c2851e6e0`
-- `packages/control-plane/src/repos/scim-organization-boundary.ts`: `30b0aa3dccc037c8211ac8d8a13ace186b13ae63`
-- `packages/control-plane/src/routes/organization-revocation.ts`: `2e77ac871274c09c8a9a1eeb109fb8d1ba4b9772`
-- `packages/control-plane/src/services/organization-withdrawal-recovery.ts`: `cf8e3bb705184203945c2ab5dfd81a6590abf540`
+- `packages/control-plane/src/repos/scim-organization-boundary.ts`: `0308e1cc99dcf93dac4c10d72f2a9c84d0214d63`
+- `packages/control-plane/src/routes/organization-revocation.ts`: `75aa2ce80b0cfd04690c2ecb20906e3908d67ac8`
+- `packages/control-plane/src/services/organization-withdrawal-recovery.ts`: `76eafa00f6a63b538f3c663af578f2506471b563`
 - `packages/control-plane/src/routes/device.ts`: `38704bbd4da79c3588bd9fa4904e751b26bfa6e1`
 - `packages/database/src/repos/organization-membership-postgres.ts`: `0a5ea7d1a7c1a195e5f41cd1963ffbf62c148658`
 - `packages/database/src/schema/organization-withdrawal.ts`: `ceac79bd1fa20908812b767bc7d3067d4d84ce95`
