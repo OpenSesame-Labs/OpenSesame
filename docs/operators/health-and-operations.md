@@ -77,27 +77,29 @@ Overlap active/retiring signing keys in JWKS until max token lifetime elapses. P
 
 ## Membership-withdrawal rollout
 
-Pause membership removal and role-change traffic before this rollout. Roll out
-the Identity API first: it sends the exact membership incarnation, authority
-revision, and stable withdrawal ID. Legacy Hosts ignore those extra request
-fields and may return `200`, but their response does not attest a durable
-replica-shared fence, so upgraded Identity keeps the mutation pending.
+Pause all membership changes, SCIM user and group mutations, LDAP
+reconciliation, and device and browser approvals before this rollout. Drain
+in-flight requests and background workers as well as incoming traffic: a
+legacy Identity replica cannot bind an approval to a membership revision and
+some directory removals do not notify the Host. During this maintenance window,
+use no legacy path to claim a withdrawal completed.
 
-Drain and replace **every** legacy Host while membership mutations remain
-paused. Query each load-balancer backend directly (never sample through the
-load balancer) and require `GET /health/ready` to return HTTP `200` with
-`membership_withdrawal_fence: 1`. A legacy replica omits that capability and
-can continue accepting a session cached before another replica committed the
-shared tombstone. One upgraded replica's durable withdrawal acknowledgement
-therefore proves protocol compatibility, not fleet readiness.
+Drain and replace **every** legacy Host while these operations remain paused.
+Verify each load-balancer backend runs the reviewed build with the strict
+`/api/v1/device/approve-membership` route, and query each backend directly for
+`GET /health/ready` returning HTTP `200` with
+`membership_withdrawal_fence: 1`. The readiness flag alone does not prove the
+strict device route is present. A legacy replica can accept a stale approval or
+continue accepting a session cached before another replica committed the shared
+tombstone.
 
-Resume membership mutations only after the backend inventory and direct probes
-show no legacy target and the load balancer has stopped routing to every drained
-instance. After that barrier, a request routed to any replica commits or
-observes the shared tombstone and returns the exact durable attestation. Do not
-deploy a Host that requires the new request fields before Identity can send
-them: legacy Identity receives a non-success response and fails closed, but
-membership changes remain unavailable until Identity is upgraded.
+Deploy the revision-aware Identity build and drain all legacy Identity replicas
+and their in-flight work before resuming the paused operations. After that
+barrier, withdrawals use an exact incarnation, authority revision and stable
+withdrawal ID, and Identity requires the Host's matching durable attestation.
+The new device approval path fails on an old Host rather than falling back to
+unversioned approval. Membership changes and device approval are unavailable
+during the cutover; the repository does not enforce the fleet-wide pause.
 
 ## Compose
 ```bash

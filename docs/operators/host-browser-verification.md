@@ -32,6 +32,15 @@ the exact run and transition.
   passkey. An adopted bearer held only by Pages is not forwarded through the
   popup. A missing Identity session is a refusal, never an unverified success.
 
+Follow the [membership-withdrawal rollout](health-and-operations.md#membership-withdrawal-rollout)
+before enabling revision-bound approvals. It pauses membership mutations,
+directory reconciliation and approvals, drains old work, and verifies the
+entire Host and Identity fleet before resuming.
+
+A legacy Host rejects the new assertion rather than ignoring its authority
+binding, so browser authentication can be temporarily unavailable if phase 3
+starts early. Do not add a field-stripping or unbound compatibility fallback.
+
 ## Ceremony
 
 The Identity window displays the Host audience, requesting origin, operation,

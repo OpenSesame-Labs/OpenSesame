@@ -238,6 +238,28 @@ pub async fn approve(
     approval::approve_native(&st, &headers, &req, revision).await
 }
 
+/// Identity uses this distinct path so an older Host cannot ignore the tuple.
+pub async fn approve_membership(
+    State(st): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Json(req): Json<DeviceApproveRequest>,
+) -> Response {
+    if let Err(resp) = require_operator(&st, &headers) {
+        return resp;
+    }
+    let revision = match approval::membership_revision(&req) {
+        Ok(Some(revision)) => revision,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error":"membership_revision_required"})),
+            )
+                .into_response()
+        }
+    };
+    approval::approve_native(&st, &headers, &req, Some(revision)).await
+}
+
 #[path = "device_approval.rs"]
 mod approval;
 

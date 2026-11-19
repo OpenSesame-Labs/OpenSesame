@@ -125,6 +125,7 @@ mod tests {
             "/api/v1/agent/runs/control",
             "/api/v1/certs/1/key",
             "/api/v1/device/approve",
+            "/api/v1/device/approve-membership",
             "/api/v1/session/local",
             "/api/v1/operator/taskbus",
             "/api/v1/tasks/../device/approve",
