@@ -523,6 +523,7 @@ describe("mcp-host tool handlers", () => {
         return jsonResponse({
           receipt_schema_version: 6,
           outcome: "succeeded",
+          id: "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
         });
       });
       const handlers = makeRegistrar();
