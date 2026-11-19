@@ -396,7 +396,7 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         return scimError(
           c,
           400,
-          "startIndex and count must be valid SCIM pagination integers.",
+          "startIndex must be positive; count must be a non-negative integer.",
           "invalidValue",
         );
       }

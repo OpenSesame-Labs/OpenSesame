@@ -79,8 +79,6 @@ function GeneratedFile({
   id: string;
 }>) {
   const copySecret = useCopySecret();
-  const result = renderEnvironmentSchemaItem(itemName, values);
-  const file = result.file;
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [failed, setFailed] = useState("");
@@ -92,6 +90,8 @@ function GeneratedFile({
     }, SHOWN_MS);
     return () => clearTimeout(timer);
   }, [copied, downloaded]);
+  const result = renderEnvironmentSchemaItem(itemName, values);
+  const file = result.file;
 
   async function copy() {
     if (!file) return;

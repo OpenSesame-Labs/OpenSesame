@@ -127,7 +127,11 @@ export interface ExternalIdentityRepository {
 /** Durable BYO upstreams and their anti-enumeration issuer lookup (ADR 0055). */
 export interface ByoUpstreamRepository {
   create(record: ByoUpstream): Promise<ByoUpstream>;
-  /** Atomic durable admission; null means the deployment is at capacity. */
+  /**
+   * Atomically create only while the deployment remains below its durable limit.
+   * A duplicate issuer throws `ConflictError` before capacity is checked; null
+   * means at capacity for a new issuer.
+   */
   createWithinLimit(
     record: ByoUpstream,
     limit: number,

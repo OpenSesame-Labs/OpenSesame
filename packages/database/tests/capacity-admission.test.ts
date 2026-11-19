@@ -197,7 +197,7 @@ describe.each(engines)(
   },
 );
 
-describe("postgres cross-process capacity admission", () => {
+describe("@postgres-race postgres cross-process capacity admission", () => {
   it("admits only one concurrent SCIM creator", async () => {
     const principal = await pg.repos.principals.create(makePrincipal());
     const now = new Date("2026-08-24T09:00:00.000Z");
@@ -227,6 +227,7 @@ describe("postgres cross-process capacity admission", () => {
   it("admits only one concurrent BYO creator", async () => {
     const first = pg.repos.byoUpstreams;
     const second = new PostgresRepositories(pg.db).byoUpstreams;
+    // The suite database is shared. Admit one above the rows already present.
     const limit = (await first.count()) + 1;
     const results = await Promise.all([
       first.createWithinLimit(upstream("first"), limit),

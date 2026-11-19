@@ -19,10 +19,7 @@ import {
   MemoryRepositories,
   createMemoryOrganizationStores,
 } from "../src/repos/memory.js";
-import {
-  PostgresRepositories,
-  createPostgresOrganizationStores,
-} from "../src/repos/postgres.js";
+import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import {
   type SamlStores,
   createMemorySamlStores,
@@ -988,66 +985,4 @@ describe.each(backends)("$name federation storage", ({ create }) => {
   });
 });
 
-describe("postgres durable capacity admission", () => {
-  const pgOwner = createPgOwner();
-
-  afterAll(() => pgOwner.close());
-
-  it("admits only one concurrent SCIM creator across store instances", async () => {
-    const ctx = await pgOwner.acquire();
-    const organizations = createPostgresOrganizationStores(ctx.db);
-    const principal = await ctx.repos.principals.create(makePrincipal());
-    const now = new Date("2026-08-24T09:00:00.000Z");
-    const organization: Organization = {
-      id: `org_${randomUUID()}`,
-      slug: `capacity-${randomUUID().slice(0, 8)}`,
-      displayName: "Capacity",
-      state: "active",
-      createdBy: principal.id,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await organizations.organizations.set(organization.id, organization);
-    const first = createPostgresScimStores(ctx.db);
-    const second = createPostgresScimStores(ctx.db);
-    const user = (suffix: string): ScimUserRecord => ({
-      id: `scim_${randomUUID()}`,
-      organizationId: organization.id,
-      userName: `${suffix}-${randomUUID()}@example.test`,
-      active: true,
-      raw: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    const results = await Promise.all([
-      first.users.createWithinLimit(user("first"), 1),
-      second.users.createWithinLimit(user("second"), 1),
-    ]);
-    expect(results.filter(Boolean)).toHaveLength(1);
-    expect(await first.users.countByOrganization(organization.id)).toBe(1);
-  });
-
-  it("admits only one concurrent BYO creator across repository instances", async () => {
-    const ctx = await pgOwner.acquire();
-    const first = ctx.repos.byoUpstreams;
-    const second = new PostgresRepositories(ctx.db).byoUpstreams;
-    const upstream = (suffix: string): ByoUpstream => ({
-      id: `byo_${randomUUID()}`,
-      issuer: `https://${suffix}-${randomUUID()}.example`,
-      label: "Capacity",
-      clientId: `client-${suffix}`,
-      clientAuth: "none",
-      registrationSource: "manual",
-      state: "active",
-      createdAt: new Date("2026-08-24T09:00:00.000Z"),
-    });
-
-    const results = await Promise.all([
-      first.createWithinLimit(upstream("first"), 1),
-      second.createWithinLimit(upstream("second"), 1),
-    ]);
-    expect(results.filter(Boolean)).toHaveLength(1);
-    expect(await first.count()).toBe(1);
-  });
-});
+// Real-Postgres capacity races: `@postgres-race` in capacity-admission.test.ts (one shared 60s migration boot).

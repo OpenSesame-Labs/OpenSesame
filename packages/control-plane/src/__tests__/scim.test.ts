@@ -464,6 +464,22 @@ describe("SCIM Users surface", () => {
       itemsPerPage: 0,
       Resources: [],
     });
+    const badStart = await app.request(`${usersPath(org.id)}?startIndex=0`, {
+      headers: scimHeaders(token),
+    });
+    expect(badStart.status).toBe(400);
+    expect(overlapCast(await badStart.json())).toMatchObject({
+      scimType: "invalidValue",
+      detail:
+        "startIndex must be positive; count must be a non-negative integer.",
+    });
+    const badCount = await app.request(`${usersPath(org.id)}?count=-1`, {
+      headers: scimHeaders(token),
+    });
+    expect(badCount.status).toBe(400);
+    expect(overlapCast(await badCount.json()).detail).toBe(
+      "startIndex must be positive; count must be a non-negative integer.",
+    );
     const createWithinLimit = vi
       .spyOn(ctx.stores.scim.users, "createWithinLimit")
       .mockResolvedValue(null);
