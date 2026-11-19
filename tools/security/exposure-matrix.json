@@ -1283,14 +1283,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "2bbc3782",
-      "f26c56d5",
-      "4f358633",
-      "85f36793",
-      "f2e47850",
-      "2fec2e2d",
-      "63f1d9cd",
-      "6e788dd3"
+      "4c269210",
+      "6dc7b481",
+      "1297d593",
+      "869d0e4e",
+      "36fdd836",
+      "1b68fdaa",
+      "19fe38e1",
+      "54cc6dc6"
     ],
     "packages/app-core/package.json": [
       "7419b1b5",
@@ -2743,14 +2743,14 @@
       "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "4c58e95b",
-      "a3471dd0",
-      "2df38b07",
-      "16e6bf53",
-      "35e64b9e",
-      "e154936b",
-      "d1710188",
-      "4b81e7b6"
+      "4558a7cb",
+      "a913dd69",
+      "0d9ca94a",
+      "92a140ea",
+      "1a040f14",
+      "2aea8394",
+      "fa371d29",
+      "b0ab5922"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -2763,14 +2763,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "aad5d529",
-      "8f6ab859",
-      "540bb2bf",
-      "a1bd71c2",
-      "ef3207cb",
-      "543250d0",
-      "2aebeb8a",
-      "1b4e22d9"
+      "a4089ae5",
+      "056463f7",
+      "bd3261ae",
+      "ab34d382",
+      "b1a4813d",
+      "33cc0180",
+      "88ca27fa",
+      "b6d6ea75"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -3033,14 +3033,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "d735c33f",
-      "6b199fcd",
-      "a534ee1c",
-      "7def14b3",
-      "74827d89",
-      "f8dce057",
-      "87a5eae0",
-      "16415dc7"
+      "7578410c",
+      "5e21fdec",
+      "14b2aba6",
+      "66d4aa7f",
+      "7f28158f",
+      "69edbf4a",
+      "c661f98d",
+      "5f2c72aa"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -6603,14 +6603,14 @@
       "35655696"
     ],
     "crates/gateway/src/app_state.rs": [
-      "22db76ce",
-      "92ca162d",
-      "6953eece",
-      "f6e65763",
-      "4fdb4084",
-      "dbde5b10",
-      "bf9711aa",
-      "1e00c88e"
+      "6adebc90",
+      "545ec6e9",
+      "045777a3",
+      "7ed69905",
+      "3db77fff",
+      "b265e292",
+      "c9e4d355",
+      "757dbdb1"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -6623,14 +6623,14 @@
       "b83bd9ed"
     ],
     "crates/gateway/src/testkit/state.rs": [
-      "d9f16459",
-      "e1d76610",
-      "d7d59125",
-      "ba362cea",
-      "3bad673b",
-      "cd276a8e",
-      "019168ca",
-      "4aaf74ff"
+      "b5fbdc0e",
+      "2de589dc",
+      "74339cac",
+      "fd14be58",
+      "850961e0",
+      "980424d4",
+      "d9700477",
+      "53540d1a"
     ],
     "crates/gateway/src/testkit/server.rs": [
       "1de97a97",
@@ -6663,24 +6663,24 @@
       "facdff97"
     ],
     "crates/gateway/src/routes/health.rs": [
-      "77af0bd7",
-      "43ddb628",
-      "6e72bcba",
-      "f470e25b",
-      "e9fcdd49",
-      "282806f1",
-      "d56b81bc",
-      "a47984b2"
+      "e806e3b2",
+      "0f9f7b1b",
+      "c5794f22",
+      "39bd4c8e",
+      "c8194ddd",
+      "beddd696",
+      "61bdba44",
+      "e5122497"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "dbbaece4",
-      "1310a382",
-      "cf491a7d",
-      "ca88bd79",
-      "b4792302",
-      "700ffc46",
-      "468bac81",
-      "2ade490b"
+      "505f99e1",
+      "9d83b6aa",
+      "8ae8870b",
+      "b629cdce",
+      "8b1f4e7b",
+      "950e3d90",
+      "2a10452f",
+      "55fd8631"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6783,14 +6783,14 @@
       "5e1e864a"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
-      "148b6c76",
-      "00e4b756",
-      "66c64ba8",
-      "2abac592",
-      "fd2003e8",
-      "96422249",
-      "98f55bef",
-      "9b88dc6f"
+      "dad6bd68",
+      "146d716c",
+      "ffad89ab",
+      "116afaa8",
+      "4bf736b2",
+      "e3635792",
+      "d4fbc16b",
+      "b51f05b5"
     ],
     "crates/host-core/src/operator.rs": [
       "6ff3fa9f",
