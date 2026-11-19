@@ -84,6 +84,46 @@ async fn non_default_ports_off_loopback_are_denied() {
     assert!(matches!(err, InvokeError::EgressDenied { .. }));
 }
 
+#[test]
+fn pinned_clients_bind_the_uri_to_the_complete_socket_address() {
+    let matching = Invoker::with_pinned_webpki(
+        EGRESS_RULES.to_vec(),
+        "api.github.com",
+        &["127.0.0.1:443".parse().unwrap()],
+    );
+    matching
+        .preflight(request("https://api.github.com/zen".into()))
+        .expect("the implicit TLS port matches the pin");
+
+    let mismatched = Invoker::with_pinned_webpki(
+        EGRESS_RULES.to_vec(),
+        "api.github.com",
+        &["127.0.0.1:4443".parse().unwrap()],
+    );
+    let error = mismatched
+        .preflight(request("https://api.github.com/zen".into()))
+        .expect_err("the resolver must not rewrite an approved socket port");
+    assert!(matches!(error, InvokeError::EgressDenied { .. }));
+}
+
+#[tokio::test]
+async fn direct_fence_call_cannot_bypass_the_pinned_port_check() {
+    let invoker = Invoker::with_pinned_webpki(
+        EGRESS_RULES.to_vec(),
+        "api.github.com",
+        &["127.0.0.1:4443".parse().unwrap()],
+    );
+    let prepared = invoker
+        .fence()
+        .preflight(request("https://api.github.com/zen".into()))
+        .expect("the shared egress fence does not own client socket pins");
+    let error = invoker
+        .execute(&canary(), prepared)
+        .await
+        .expect_err("execution must repeat the client-specific pin check");
+    assert!(matches!(error, InvokeError::EgressDenied { .. }));
+}
+
 #[tokio::test]
 async fn userinfo_urls_are_refused() {
     let invoker = test_invoker(&["127.0.0.1"]);

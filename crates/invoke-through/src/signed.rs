@@ -67,6 +67,10 @@ impl Invoker {
         signer: &dyn RequestSigner,
         prepared: PreparedRequest,
     ) -> Result<InvokeResponse, InvokeError> {
+        // A caller may have prepared this through `fence()` rather than
+        // `Invoker::preflight`; enforce the client-specific socket pin before
+        // the signer sees the request or any credential-derived headers.
+        self.validate_pinned_destination(&prepared)?;
         if prepared.auth != AuthStyle::SigV4 {
             return Err(InvokeError::UnsupportedProvider(prepared.provider_id));
         }

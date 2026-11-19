@@ -121,6 +121,12 @@ pub struct Invoker {
     /// Every pre-connect check, separable so a caller can run it before any
     /// identity is resolved or credential opened.
     fence: EgressFence,
+    /// The authority and complete socket set approved before this client was
+    /// built. Hyper's resolver API is handed only a host name and may replace
+    /// the returned socket ports with the URI's port, so the request must
+    /// agree with every pinned socket before a credential is acquired or
+    /// materialized.
+    pinned: Option<(String, Vec<SocketAddr>)>,
     response_body_cap: usize,
     timeout: Duration,
 }
@@ -142,7 +148,7 @@ impl Invoker {
     /// [`Invoker::allow_http_for_tests`].
     #[must_use]
     pub fn with_rules(rules: Vec<EgressRule>) -> Self {
-        Self::from_client(build_client(None), rules)
+        Self::from_client(build_client(None), rules, None)
     }
 
     /// Broker over WebPKI and an address set an egress preflight already
@@ -155,7 +161,11 @@ impl Invoker {
         authority_host: &str,
         addresses: &[SocketAddr],
     ) -> Self {
-        Self::from_client(build_pinned_webpki_client(authority_host, addresses), rules)
+        Self::from_client(
+            build_pinned_webpki_client(authority_host, addresses),
+            rules,
+            Some((authority_host.to_ascii_lowercase(), addresses.to_vec())),
+        )
     }
 
     /// Broker over an explicit rule set and an injected, already-validated
@@ -165,13 +175,18 @@ impl Invoker {
     /// and body fences are exactly those of [`Invoker::with_rules`].
     #[must_use]
     pub fn with_tls(rules: Vec<EgressRule>, tls: &TlsClientSpec) -> Self {
-        Self::from_client(build_client(Some(tls)), rules)
+        Self::from_client(build_client(Some(tls)), rules, tls.pinned.clone())
     }
 
-    fn from_client(client: HttpsClient, rules: Vec<EgressRule>) -> Self {
+    fn from_client(
+        client: HttpsClient,
+        rules: Vec<EgressRule>,
+        pinned: Option<(String, Vec<SocketAddr>)>,
+    ) -> Self {
         Self {
             client,
             fence: EgressFence::new(rules, DEFAULT_REQUEST_BODY_CAP),
+            pinned: pinned.map(|(host, addresses)| (host.to_ascii_lowercase(), addresses)),
             response_body_cap: DEFAULT_RESPONSE_BODY_CAP,
             timeout: DEFAULT_TIMEOUT,
         }
@@ -217,7 +232,43 @@ impl Invoker {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn preflight(&self, req: InvokeRequest) -> Result<PreparedRequest, InvokeError> {
-        self.fence.preflight(req)
+        let prepared = self.fence.preflight(req)?;
+        self.validate_pinned_destination(&prepared)?;
+        Ok(prepared)
+    }
+
+    /// Pin the complete socket identity, not just its IP address. Hyper's
+    /// connector applies the URI port after resolution, so a resolver that
+    /// returns `127.0.0.1:4443` for an implicit `:443` request would otherwise
+    /// dial the approved IP on an unapproved port. Requiring every returned
+    /// socket to agree also prevents a mixed-port pin set from being widened
+    /// by that rewrite.
+    pub(crate) fn validate_pinned_destination(
+        &self,
+        prepared: &PreparedRequest,
+    ) -> Result<(), InvokeError> {
+        let Some((host, addresses)) = &self.pinned else {
+            return Ok(());
+        };
+        let requested_port = prepared.port().unwrap_or_else(|| {
+            if prepared.scheme.eq_ignore_ascii_case("https") {
+                443
+            } else {
+                80
+            }
+        });
+        if prepared.host != *host
+            || addresses.is_empty()
+            || addresses
+                .iter()
+                .any(|address| address.port() != requested_port)
+        {
+            return Err(InvokeError::EgressDenied {
+                provider: prepared.provider_id.clone(),
+                host: prepared.host.clone(),
+            });
+        }
+        Ok(())
     }
 
     /// Execute a preflighted request with an acquired credential. The token
@@ -233,6 +284,10 @@ impl Invoker {
         token: &SecretString,
         prepared: PreparedRequest,
     ) -> Result<InvokeResponse, InvokeError> {
+        // Callers may use `fence()` directly so they can clear a request
+        // before loading credentials. Preserve that API, but repeat the
+        // client-specific pin check here before the token is exposed.
+        self.validate_pinned_destination(&prepared)?;
         if prepared.auth != AuthStyle::Bearer {
             return Err(InvokeError::UnsupportedProvider(prepared.provider_id));
         }
