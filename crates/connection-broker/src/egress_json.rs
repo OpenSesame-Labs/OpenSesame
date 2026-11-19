@@ -25,6 +25,13 @@ pub struct OwnerConnectionExpectation<'a> {
 const MAX_ERROR_SNIPPET: usize = 512;
 const MAX_JSON_RESPONSE_BYTES: usize = 1024 * 1024;
 
+/// Upstream HTTP status and metadata with scrubbed JSON for owner egress.
+pub struct OwnerEgressHttpResult {
+    pub status: u16,
+    pub headers: Vec<(String, String)>,
+    pub json: Value,
+}
+
 impl ConnectionBroker {
     /// Perform an egress-constrained HTTP call with the connection's sealed
     /// bearer token. Response JSON is returned to the caller; tokens are not.
@@ -82,6 +89,42 @@ impl ConnectionBroker {
         self.authorized_json_for_row(row, method, url, body).await
     }
 
+    /// Owner-checked egress returning preserved upstream HTTP metadata.
+    ///
+    /// # Errors
+    /// Same as [`Self::authorized_json_for_owner`].
+    pub async fn authorized_http_for_owner(
+        &self,
+        expected: OwnerConnectionExpectation<'_>,
+        method: &str,
+        url: &str,
+        body: Option<Value>,
+    ) -> Result<OwnerEgressHttpResult> {
+        let row = self
+            .row_in_org(expected.organization_id, expected.connection_id)
+            .await?;
+        let grant_connection = expected.grant.connection_id.map(|id| id.to_string());
+        if expected.provider_id.is_empty()
+            || expected.owner_subject.is_empty()
+            || row.provider_id != expected.provider_id
+            || row.owner_subject.as_deref() != Some(expected.owner_subject)
+            || expected.grant.organization_id != *expected.organization_id
+            || grant_connection.as_deref() != Some(expected.connection_id)
+            || expected.grant.parent_grant_id.is_some()
+            || expected.grant.delegation_depth != 0
+            || expected.grant.assert_active(Utc::now()).is_err()
+        {
+            return Err(BrokerError::ConnectionNotFound);
+        }
+        let stored =
+            crate::delegation_lineage::load_grant(&self.pool, &expected.grant.id.to_string())
+                .await?;
+        if stored.as_ref() != Some(expected.grant) {
+            return Err(BrokerError::ConnectionNotFound);
+        }
+        self.authorized_http_for_row(row, method, url, body).await
+    }
+
     async fn authorized_json_for_row(
         &self,
         row: ConnectionRow,
@@ -89,6 +132,19 @@ impl ConnectionBroker {
         url: &str,
         body: Option<Value>,
     ) -> Result<Value> {
+        Ok(self
+            .authorized_http_for_row(row, method, url, body)
+            .await?
+            .json)
+    }
+
+    async fn authorized_http_for_row(
+        &self,
+        row: ConnectionRow,
+        method: &str,
+        url: &str,
+        body: Option<Value>,
+    ) -> Result<OwnerEgressHttpResult> {
         if row.status == ConnectionStatus::Revoked {
             return Err(BrokerError::Invalid("connection is revoked".into()));
         }
@@ -102,8 +158,6 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
-        // Resolve and pin before opening the credential; process proxies cannot
-        // redirect it and the connection row is not reloaded after validation.
         let client = credentialed_client(url, Duration::from_secs(20)).await?;
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
@@ -137,7 +191,7 @@ impl ConnectionBroker {
         method: &str,
         url: &str,
         body: Option<Value>,
-    ) -> std::result::Result<Value, String> {
+    ) -> std::result::Result<OwnerEgressHttpResult, String> {
         let parsed_method = method
             .parse::<reqwest::Method>()
             .map_err(|_| format!("unsupported method {method}"))?;
@@ -156,11 +210,27 @@ impl ConnectionBroker {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let mut response = request
+        let response = request
             .send()
             .await
             .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
+        let headers: Vec<(String, String)> = response
+            .headers()
+            .iter()
+            .filter_map(|(name, value)| {
+                let lower = name.as_str().to_ascii_lowercase();
+                if matches!(
+                    lower.as_str(),
+                    "set-cookie" | "authorization" | "www-authenticate"
+                ) {
+                    return None;
+                }
+                let value = value.to_str().ok()?.to_owned();
+                Some((name.to_string(), value))
+            })
+            .collect();
+        let mut response = response;
         let bytes = read_bounded_body(&mut response, MAX_JSON_RESPONSE_BYTES)
             .await
             .map_err(|error| match error {
@@ -183,9 +253,16 @@ impl ConnectionBroker {
         if credential_reflected {
             return Err("upstream response contained the injected credential".into());
         }
-        if text.trim().is_empty() {
-            return Ok(json!({}));
-        }
-        serde_json::from_str(&text).map_err(|_| "upstream response was not valid JSON".to_string())
+        let json = if text.trim().is_empty() {
+            json!({})
+        } else {
+            serde_json::from_str(&text)
+                .map_err(|_| "upstream response was not valid JSON".to_string())?
+        };
+        Ok(OwnerEgressHttpResult {
+            status: status.as_u16(),
+            headers,
+            json,
+        })
     }
 }

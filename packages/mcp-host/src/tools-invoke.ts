@@ -3,11 +3,13 @@ import { forAgent } from "./agent-payload.js";
 import { hostFetch } from "./host-api.js";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
-  readInvocationResponse,
+  readFreezeIntentResponse,
 } from "./invocation-response.js";
 import { projectInvocationResponse } from "./receipt-outcome.js";
 import {
   clearFrozenIntent,
+  noteReservedReceiptId,
+  recordPendingInvocationRecovery,
   requireFrozenIntent,
   requireTaskRunId,
 } from "./task-context.js";
@@ -28,6 +30,7 @@ export function registerInvokeTool(server: McpServer): void {
         const intent = requireFrozenIntent();
         // Once dispatch begins, a transport failure cannot prove whether an
         // external effect occurred. Never retain it for an automatic retry.
+        recordPendingInvocationRecovery(intent);
         clearFrozenIntent();
         dispatched = true;
         // Operation, resource, and arguments are whatever was frozen: letting the
@@ -45,8 +48,16 @@ export function registerInvokeTool(server: McpServer): void {
             intent_digest: intent.intentDigest,
           }),
         });
-        const body = await readInvocationResponse(res);
+        const body = await readFreezeIntentResponse(res);
         const projected = projectInvocationResponse(res.ok, body);
+        if (
+          typeof body === "object" &&
+          body !== null &&
+          "id" in body &&
+          typeof body.id === "string"
+        ) {
+          noteReservedReceiptId(body.id);
+        }
         return {
           content: textContent(forAgent(JSON.stringify(projected))),
           isError: projected.outcome !== "succeeded",

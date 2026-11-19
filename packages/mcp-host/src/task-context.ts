@@ -5,12 +5,24 @@ export interface FrozenIntentContext {
   resource: string;
   audience: string;
   canonicalArguments: unknown;
+  reservedReceiptId?: string;
+}
+
+/** Private recovery handles after uncertain delivery; never projected to agents. */
+export interface PendingInvocationRecovery {
+  intentId: string;
+  intentDigest: string;
+  operation: string;
+  resource: string;
+  audience: string;
+  reservedReceiptId?: string;
 }
 
 export interface TaskContext {
   taskRunId: string;
   stateVersion: number;
   frozenIntent?: FrozenIntentContext;
+  pendingInvocationRecovery?: PendingInvocationRecovery;
 }
 
 export interface TaskResponse {
@@ -51,6 +63,35 @@ export function clearFrozenIntent(): void {
   if (!current) return;
   const { frozenIntent: _spent, ...rest } = current;
   current = rest;
+}
+
+/** Keep recovery material for intent-opening after dispatch begins. */
+export function recordPendingInvocationRecovery(
+  intent: FrozenIntentContext,
+): void {
+  if (!current) return;
+  current = {
+    ...current,
+    pendingInvocationRecovery: {
+      intentId: intent.intentId,
+      intentDigest: intent.intentDigest,
+      operation: intent.operation,
+      resource: intent.resource,
+      audience: intent.audience,
+      reservedReceiptId: intent.reservedReceiptId,
+    },
+  };
+}
+
+export function noteReservedReceiptId(receiptId: string): void {
+  if (!current?.pendingInvocationRecovery) return;
+  current = {
+    ...current,
+    pendingInvocationRecovery: {
+      ...current.pendingInvocationRecovery,
+      reservedReceiptId: receiptId,
+    },
+  };
 }
 
 /**
