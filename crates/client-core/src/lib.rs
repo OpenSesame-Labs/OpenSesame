@@ -354,41 +354,6 @@ impl SyncStore {
         store.cursor.epoch = p.cursor.epoch;
         Ok(store)
     }
-
-    /// Native filesystem persistence (OPFS equivalent for browsers lives in packages/client-core).
-    #[cfg(not(target_arch = "wasm32"))]
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when validation or the underlying operation fails.
-    pub fn save_path(
-        &mut self,
-        key: &DeviceKey,
-        path: &std::path::Path,
-    ) -> Result<(), ClientCoreError> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        }
-        let json = self.to_persisted_json(key)?;
-        // Refuse to write if plaintext-looking keys somehow appear (defense in depth).
-        if json.contains("\"plaintext\"") {
-            return Err(ClientCoreError::Persist(
-                "refusing to persist structure with plaintext field".into(),
-            ));
-        }
-        std::fs::write(path, json).map_err(|e| ClientCoreError::Persist(e.to_string()))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when validation or the underlying operation fails.
-    pub fn load_path(key: &DeviceKey, path: &std::path::Path) -> Result<Self, ClientCoreError> {
-        let json =
-            std::fs::read_to_string(path).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
-        Self::from_persisted_json(key, &json)
-    }
 }
 
 #[cfg(test)]
