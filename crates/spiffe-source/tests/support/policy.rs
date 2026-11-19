@@ -42,7 +42,7 @@ pub async fn streaming(handle: &SpiffeSourceHandle, generation: u64) -> SourceSt
             s.phase == SourcePhase::Streaming && s.generation == Some(generation)
         })
         .await
-        .unwrap_or_else(|err| panic!("expected streaming generation {generation}: {err}"))
+        .unwrap_or_else(|s| panic!("expected streaming generation {generation}, got {s:?}"))
 }
 
 pub async fn withdrawn_promptly(handle: &SpiffeSourceHandle) -> SourceStatus {
@@ -51,5 +51,5 @@ pub async fn withdrawn_promptly(handle: &SpiffeSourceHandle) -> SourceStatus {
             s.phase == SourcePhase::Withdrawn
         })
         .await
-        .unwrap_or_else(|err| panic!("expected prompt withdrawal: {err}"))
+        .unwrap_or_else(|s| panic!("expected prompt withdrawal, got {s:?}"))
 }
