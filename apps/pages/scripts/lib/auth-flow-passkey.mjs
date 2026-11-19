@@ -1,15 +1,6 @@
-// Passkey seal over a CDP virtual WebAuthn authenticator, two walks.
-//
-// Happy path: Chrome's CTAP2.1 virtual authenticator emits a real PRF result.
-// Seal with passkey lands inside the app; lock; Unlock with passkey opens it
-// again. The older stubbed helper below remains for its separate fixture test.
-//
-// PRF off: no stub, so the platform ceremony ends prf_missing_output — and
-// the seal steps past it instead of failing: the Security key road is
-// selected and the tray says why in a plain line (info, not an error). No
-// error card, no sheet (the caret keeps its field), the seal screen stays
-// put. Walked on both ctap2 and ctap2_1 — neither virtual protocol emits
-// PRF results.
+// Native CTAP2.1 WebAuthn walks: real PRF success, unsupported-PRF fallback,
+// and a browser with WebAuthn absent. The older stub helper remains for its
+// separate fixture test.
 import { passTheDoor } from "./front-door.mjs";
 import { PIN } from "./pages-journey.mjs";
 import { expect } from "./patient-expect.mjs";
@@ -18,6 +9,8 @@ import { checkLateSealScroll } from "./tutorial-gates.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import {
   checkControlReachable,
+  checkTutorialNextBlocked,
+  waitForPinTutorial,
   waitForSecurityKey,
 } from "./tutorial-measure.mjs";
 
@@ -42,6 +35,7 @@ export async function sealFirstVault(
   const recovery = page.getByLabel(
     "I understand this vault cannot be recovered.",
   );
+  const next = page.locator(".coach__btn--go");
   check(
     await recovery.isVisible(),
     `${protection} first vault: recovery acknowledgment is visible`,
@@ -53,6 +47,7 @@ export async function sealFirstVault(
     `${protection} recovery notice`,
   );
   if (protection !== "pin-only") {
+    await checkTutorialNextBlocked(page, check, next);
     check(
       (await page
         .getByRole("tab", { name: "Passkey" })
@@ -103,7 +98,15 @@ export async function sealFirstVault(
     );
     await recovery.check();
   }
-  const next = page.locator(".coach__btn--go");
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="tab"][aria-selected="true"]')
+        ?.textContent?.trim() === "PIN",
+  );
+  await page
+    .locator('[data-guide-targets~="unlock.seal-pin-entry"]')
+    .waitFor({ state: "visible" });
   check(
     (await page
       .getByText(
@@ -113,29 +116,38 @@ export async function sealFirstVault(
       .count()) === 0,
     "first vault: PIN selection clears the stale passkey notice",
   );
-  check(
-    await next.isVisible(),
-    "first vault: selecting PIN reveals the tutorial Next action",
-  );
-  await checkControlReachable(page, check, next, `${protection} tutorial Next`);
-  await checkControlReachable(
-    page,
-    check,
-    recovery,
-    `${protection} recovery notice`,
-  );
-  await checkControlReachable(
-    page,
-    check,
-    page.getByRole("button", { name: "Seal with PIN" }),
-    `${protection} Seal with PIN`,
-  );
-  await next.click();
-  await page
-    .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
-    .waitFor();
+  if (
+    (await page
+      .locator('.coach[data-coach-target="unlock.seal-actions"]')
+      .count()) === 1
+  ) {
+    check(
+      await page
+        .getByText("PIN is selected. Select Next.", { exact: true })
+        .isVisible(),
+      "first vault: an already-mounted PIN has an accurate Next instruction",
+    );
+    await checkControlReachable(
+      page,
+      check,
+      next,
+      `${protection} tutorial Next`,
+    );
+    check(
+      (await next.getAttribute("aria-disabled")) !== "true",
+      "first vault: held PIN tutorial Next is enabled",
+    );
+    await next.click();
+  }
+  await waitForPinTutorial(page, { out, width, label, keepShots });
   await step("unlock.seal-pin-entry", 5, 16);
-  await revisitIncompletePin(page, step, check);
+  if (process.env.TUTORIALS_PIN_BACK === "1") {
+    await checkTutorialNextBlocked(page, check, next, "unlock.seal-pin-entry");
+    check(
+      await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
+      "first vault: incomplete PIN details cannot seal the vault",
+    );
+  }
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
     await checkKeyboardViewport(page, check, label, {
       fieldLabel: "Device PIN",
@@ -146,6 +158,18 @@ export async function sealFirstVault(
   await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
   await page.locator(".coach__btn--go").click();
   await step("unlock.seal-pin-confirm", 6, 16);
+  if (process.env.TUTORIALS_PIN_BACK === "1") {
+    await checkTutorialNextBlocked(
+      page,
+      check,
+      next,
+      "unlock.seal-pin-confirm",
+    );
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await step("unlock.seal-pin-entry", 5, 16);
+    await next.click();
+    await step("unlock.seal-pin-confirm", 6, 16);
+  }
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
     await checkKeyboardViewport(page, check, label, {
       fieldLabel: "Confirm PIN",
@@ -174,30 +198,6 @@ export async function sealFirstVault(
       path: `${out}/${width}-first-vault-${protection}.png`,
     });
   await page.getByRole("button", { name: "Seal with PIN" }).click();
-}
-
-async function revisitIncompletePin(page, step, check) {
-  if (process.env.TUTORIALS_PIN_BACK !== "1") return;
-  for (const [target, number] of [
-    ["unlock.seal-pin-confirm", 6],
-    ["unlock.seal-ack", 7],
-    ["unlock.seal", 8],
-  ]) {
-    await page.locator(".coach__btn--go").click();
-    await step(target, number, 16);
-  }
-  check(
-    await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
-    "first vault: incomplete PIN details cannot seal the vault",
-  );
-  for (const [target, number] of [
-    ["unlock.seal-ack", 7],
-    ["unlock.seal-pin-confirm", 6],
-    ["unlock.seal-pin-entry", 5],
-  ]) {
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await step(target, number, 16);
-  }
 }
 
 async function addVirtualAuthenticator(context, page, protocol) {

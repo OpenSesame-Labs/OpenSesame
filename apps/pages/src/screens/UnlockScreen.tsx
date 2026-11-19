@@ -29,13 +29,7 @@ import {
   useFileWaitingForVault,
   usePendingImport,
 } from "../bindings/pending-import.js";
-import { FailureNotice } from "../components/FailureNotice.js";
-import {
-  IconArrowRight,
-  IconEye,
-  IconEyeOff,
-  IconPasskey,
-} from "../components/Icons.js";
+import { IconEye, IconEyeOff } from "../components/Icons.js";
 import { checkForAppUpdate } from "../lib/pwa-update.js";
 import { useVault, useVaultStore } from "../lib/vault/hooks.js";
 import { GuideTarget } from "../tutorial/registry/react.jsx";
@@ -54,7 +48,7 @@ import {
 } from "./unlock/labels.js";
 import { MethodIcon } from "./unlock/MethodIcon.js";
 import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
-import { FormNotes, LockoutNote, UnlockSteps } from "./unlock/Notes.js";
+import { SealActions, UnlockSteps } from "./unlock/Notes.js";
 import { PasskeyChoice } from "./unlock/PasskeyChoice.js";
 import { ProtectorField } from "./unlock/ProtectorField.js";
 import { SecondStepFields } from "./unlock/SecondStepFields.js";
@@ -750,58 +744,35 @@ function UnlockForm({
             </div>
           ) : null}
 
-          <div
-            className="unlock__seal-actions"
-            ref={firstRun ? sealActionsRef : undefined}
-          >
-            <FormNotes
-              firstRun={firstRun}
-              activeMethod={activeMethod}
-              acceptRef={acceptRef}
-              ackGuideRef={sealAckRef}
-              accepted={accepted}
-              setAccepted={setAccepted}
-              header={header}
-              awaitingSecondStep={awaitingSecondStep}
-              durable={durable}
-            />
-
-            <FailureNotice id="unlock:error" title="Unlock" message={error} />
-
-            <LockoutNote
-              lockedFor={lockedFor}
-              failedAttempts={failedAttempts}
-            />
-
-            {noPrimary ? null : (
-              <div className="go-row">
-                <button
-                  ref={(element) => {
-                    goRef.current = element;
-                    submitRef(element);
-                    sealRef(firstRun ? element : null);
-                  }}
-                  type="submit"
-                  className="go"
-                  disabled={disabled}
-                  aria-busy={busy}
-                  aria-label={goVerb}
-                  title={goVerb}
-                >
-                  {isCeremonyMethod(activeMethod) &&
-                  !awaitingSecondStep &&
-                  !awaitingPasskeyDuressCode ? (
-                    <IconPasskey size={18} />
-                  ) : (
-                    <IconArrowRight size={18} />
-                  )}
-                </button>
-                <span className="go-verb" aria-hidden="true">
-                  {goVerb}
-                </span>
-              </div>
-            )}
-          </div>
+          <SealActions
+            guideRef={firstRun ? sealActionsRef : undefined}
+            buttonRef={(element) => {
+              goRef.current = element;
+              submitRef(element);
+              sealRef(firstRun ? element : null);
+            }}
+            firstRun={firstRun}
+            activeMethod={activeMethod}
+            acceptRef={acceptRef}
+            ackGuideRef={sealAckRef}
+            accepted={accepted}
+            setAccepted={setAccepted}
+            header={header}
+            awaitingSecondStep={awaitingSecondStep}
+            durable={durable}
+            error={error}
+            lockedFor={lockedFor}
+            failedAttempts={failedAttempts}
+            disabled={disabled}
+            busy={busy}
+            goVerb={goVerb}
+            ceremony={
+              isCeremonyMethod(activeMethod) &&
+              !awaitingSecondStep &&
+              !awaitingPasskeyDuressCode
+            }
+            showAction={!noPrimary}
+          />
         </form>
       )}
 

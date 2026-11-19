@@ -9,12 +9,14 @@ import { useEffect, useState } from "react";
  * no, the road stays and the seal steps past one that cannot (`sealUnsupported`).
  */
 export function usePasskeyRoad(hostOk: boolean): boolean {
-  const [prf, setPrf] = useState<boolean | "unknown">("unknown");
+  const [available, setAvailable] = useState<boolean | "unknown">("unknown");
   useEffect(() => {
     let live = true;
     webauthnPrfCapabilities().then(
       (report) => {
-        if (live) setPrf(report.details.extensionPrf);
+        if (live) {
+          setAvailable(report.availability.runtime === "available");
+        }
       },
       () => {},
     );
@@ -22,5 +24,5 @@ export function usePasskeyRoad(hostOk: boolean): boolean {
       live = false;
     };
   }, []);
-  return hostOk && prf !== false;
+  return hostOk && available !== false;
 }

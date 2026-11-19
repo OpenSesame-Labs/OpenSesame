@@ -34,11 +34,13 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     v.host = { ok: true };
     render(<UnlockScreen />);
     goLocalOnly();
+    const pinTab = screen.getByRole("tab", { name: "PIN" });
+    expect(pinTab.getAttribute("data-guide-targets")).toContain(
+      "unlock.seal-pin",
+    );
     expect(
-      screen
-        .getByRole("tab", { name: "PIN" })
-        .getAttribute("data-guide-targets"),
-    ).toContain("unlock.seal-pin");
+      pinTab.closest('[data-guide-targets~="unlock.methods"]'),
+    ).not.toBeNull();
     chooseSealMethod("PIN");
     expect(
       screen.getByLabelText("Device PIN").getAttribute("data-guide-targets"),

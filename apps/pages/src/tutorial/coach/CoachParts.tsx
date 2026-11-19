@@ -47,18 +47,20 @@ export function coachMessage(
   if (requiredAction && ready && !tour.action) {
     if (tour.target === "editor.password-options")
       return "Password options are open. Select Next.";
-    if (tour.target === "unlock.seal-pin")
+    if (tour.target === "unlock.seal-actions")
       return "PIN is selected. Select Next.";
   }
   return tour.message;
 }
+
+type TourProgress = { offset: number; count: number };
 
 /** Join the adaptive gate phase to its first-vault shell continuation. */
 export function firstVaultTourProgress(
   target: string | null,
   count: number,
   gateSteps: number,
-): { offset: number; count: number } {
+): TourProgress {
   const gateTarget =
     target?.startsWith("unlock.") || target === "setup.default";
   const pinTarget = [
