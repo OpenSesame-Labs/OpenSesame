@@ -10,7 +10,10 @@ import {
   advancePrincipalSessionEpochOn,
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
-import { revokeSessionTokens } from "../repos/session-storage.js";
+import {
+  beginProvisionalRevocation,
+  finishProvisionalRevocation,
+} from "../repos/provisional-revocation.js";
 import type { UpstreamLogoutOperation } from "../state.js";
 
 const REVOCABLE_IDENTITY_KINDS = [
@@ -57,7 +60,7 @@ export async function revokePrincipalSessions(
   principalIds: readonly string[],
   issuer: string,
 ): Promise<number> {
-  const transitioned: Array<{ principalId: string; sessionId: string }> = [];
+  const cleanup: Array<{ sessionId: string; newlyRevoked: boolean }> = [];
   for (const principalId of new Set(principalIds)) {
     const revoked = await withPrincipalSessionBoundary(
       ctx.stores,
@@ -67,40 +70,35 @@ export async function revokePrincipalSessions(
         if (database)
           await advancePrincipalSessionEpochOn(database, principalId);
         else await advancePrincipalSessionEpoch(stores, principalId);
-        const changed: string[] = [];
-        const revokedAt = ctx.clock();
+        const changed: Array<{ sessionId: string; newlyRevoked: boolean }> = [];
         for (const [, session] of await stores.provisionalSessions.entries()) {
-          if (session.principalId !== principalId || session.revokedAt)
+          if (
+            session.principalId !== principalId ||
+            (session.revokedAt && !session.revocationCleanupPending)
+          )
             continue;
-          await stores.provisionalSessions.set(session.id, {
-            ...session,
-            revokedAt,
+          const newlyRevoked = !session.revokedAt;
+          const txCtx = { ...ctx, stores };
+          const began = await beginProvisionalRevocation(txCtx, session.id, {
+            actorType: "system",
+            correlationId: `upstream-logout-${session.id}`,
+            metadata: {
+              action: "principal.provisional_revoke",
+              issuer,
+              via: "upstream_logout",
+            },
           });
-          await revokeSessionTokens(stores, session.id);
-          changed.push(session.id);
+          if (began) changed.push({ sessionId: session.id, newlyRevoked });
         }
         return changed;
       },
     );
-    for (const sessionId of revoked)
-      transitioned.push({ principalId, sessionId });
+    cleanup.push(...revoked);
   }
 
-  for (const { principalId, sessionId } of transitioned)
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.provisional_revoked",
-      outcome: "succeeded",
-      principalId,
-      sessionId,
-      correlationId: `upstream-logout-${sessionId}`,
-      actorType: "system",
-      metadata: {
-        action: "principal.provisional_revoke",
-        issuer,
-        via: "upstream_logout",
-      },
-    });
-  return transitioned.length;
+  for (const { sessionId } of cleanup)
+    await finishProvisionalRevocation(ctx, sessionId);
+  return cleanup.filter(({ newlyRevoked }) => newlyRevoked).length;
 }
 
 export async function revokeSessionsForIdentity(

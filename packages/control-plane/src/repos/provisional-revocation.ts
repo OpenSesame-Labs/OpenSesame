@@ -67,7 +67,10 @@ async function linkedAudit(
   return true;
 }
 
-async function finish(ctx: AppContext, sessionId: string): Promise<void> {
+export async function finishProvisionalRevocation(
+  ctx: AppContext,
+  sessionId: string,
+): Promise<void> {
   const session = await ctx.stores.provisionalSessions.get(sessionId);
   if (!session?.revokedAt || !session.revocationCleanupPending) return;
   await revokeSessionTokens(ctx.stores, sessionId);
@@ -118,26 +121,38 @@ export async function revokeProvisionalSession(
   sessionId: string,
   audit: ProvisionalRevocationAudit,
 ): Promise<void> {
+  await beginProvisionalRevocation(ctx, sessionId, audit);
+  await finishProvisionalRevocation(ctx, sessionId);
+}
+
+export async function beginProvisionalRevocation(
+  ctx: AppContext,
+  sessionId: string,
+  audit: ProvisionalRevocationAudit,
+): Promise<boolean> {
+  let found = false;
   await updateSecurityMap(
     ctx.stores.provisionalSessions,
     sessionId,
-    (session) =>
-      session
-        ? {
-            ...session,
-            revokedAt: session.revokedAt ?? ctx.clock(),
-            revocationCleanupPending: true,
-            revocationCleanup: session.revocationCleanup ?? audit,
-          }
-        : session,
+    (session) => {
+      if (!session) return session;
+      found = true;
+      return {
+        ...session,
+        revokedAt: session.revokedAt ?? ctx.clock(),
+        revocationCleanupPending: true,
+        revocationCleanup: session.revocationCleanup ?? audit,
+      };
+    },
   );
-  await finish(ctx, sessionId);
+  return found;
 }
 
 export async function resumePendingProvisionalRevocations(
   ctx: AppContext,
 ): Promise<void> {
   for (const [, session] of await ctx.stores.provisionalSessions.entries()) {
-    if (session.revocationCleanupPending) await finish(ctx, session.id);
+    if (session.revocationCleanupPending)
+      await finishProvisionalRevocation(ctx, session.id);
   }
 }

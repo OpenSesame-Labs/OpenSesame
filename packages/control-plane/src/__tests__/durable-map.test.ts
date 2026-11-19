@@ -52,7 +52,7 @@ it("commits caller-owned transaction writes without nesting", async () => {
       revocationCleanupPending: boolean;
     }>(
       overlapCast(db),
-      "OpenSesame:PendingCleanup",
+      "OpenSesame:ProvisionalSession",
       false,
       1,
       undefined,

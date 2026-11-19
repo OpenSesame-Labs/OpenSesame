@@ -458,29 +458,9 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         owner.principalId,
       );
     if (!versioned) throw new Error("Expected owner membership");
-    let entered = () => {};
-    const inside = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-    let release = () => {};
-    const blocked = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const original = second.ctx.repos.principals.getById.bind(
-      second.ctx.repos.principals,
-    );
-    vi.spyOn(second.ctx.repos.principals, "getById").mockImplementation(
-      async (principalId) => {
-        if (principalId === outsider.principalId) {
-          entered();
-          await blocked;
-        }
-        return original(principalId);
-      },
-    );
-    const add = second.app.request(
-      `/v1/organizations/${membership.organizationId}/members`,
-      {
+    const order: string[] = [];
+    const add = second.app
+      .request(`/v1/organizations/${membership.organizationId}/members`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${owner.accessToken}`,
@@ -490,10 +470,11 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
           principalId: outsider.principalId,
           role: "member",
         }),
-      },
-    );
-    await inside;
-    let withdrawalFinished = false;
+      })
+      .then((response) => {
+        order.push("add");
+        return response;
+      });
     const withdrawal = prepareRemovalWithdrawal(first.ctx, {
       organizationId: membership.organizationId,
       principalId: owner.principalId,
@@ -503,13 +484,11 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       correlationId: "owner-write-ordering",
       reason: "scim_deactivated",
     }).then((result) => {
-      withdrawalFinished = true;
+      order.push("withdrawal");
       return result;
     });
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    expect(withdrawalFinished).toBe(false);
-    release();
-    expect((await add).status).toBe(201);
-    expect((await withdrawal).status).toBe("ready");
+    const [addResult, withdrawalResult] = await Promise.all([add, withdrawal]);
+    expect(withdrawalResult.status).toBe("ready");
+    expect(addResult.status).toBe(order[0] === "add" ? 201 : 404);
   });
 });

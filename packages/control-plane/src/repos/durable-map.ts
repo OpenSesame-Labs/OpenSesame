@@ -118,6 +118,7 @@ export class DurableMap<T> {
   private expiry(value: T): Date | null {
     const record: BoundaryValue = overlapCast(value);
     if (
+      this.model === "OpenSesame:ProvisionalSession" &&
       isTypeofObject(record) &&
       record !== null &&
       "revocationCleanupPending" in record &&

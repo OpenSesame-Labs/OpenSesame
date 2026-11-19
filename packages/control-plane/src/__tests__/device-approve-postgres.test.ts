@@ -47,6 +47,7 @@ describe.skipIf(!databaseUrl)(
           publicUrl: "http://localhost",
           issuer: "http://localhost",
           claimPepper: "replica-session-test-pepper-32-chars",
+          operatorToken: "replica-device-test-operator-token",
         },
         processEnv: {
           ...process.env,
@@ -71,6 +72,10 @@ describe.skipIf(!databaseUrl)(
     });
 
     it("refuses a device approval on another replica after withdrawal is prepared", async () => {
+      await Promise.all([
+        first.ctx.securityRecoveryReady,
+        second.ctx.securityRecoveryReady,
+      ]);
       const created = await first.app.request("/v1/principals/provisional", {
         method: "POST",
       });
@@ -128,7 +133,8 @@ describe.skipIf(!databaseUrl)(
         release();
       }
       await withdrawal;
-      expect((await approval).status).toBe(403);
+      const response = await approval;
+      expect(response.status, await response.text()).toBe(403);
       expect(host).not.toHaveBeenCalled();
       host.mockRestore();
     }, 60_000);
