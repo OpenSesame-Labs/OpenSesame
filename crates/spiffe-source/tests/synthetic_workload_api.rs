@@ -82,7 +82,7 @@ async fn at_spiffe_select_exact_configured_identity_among_many() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&worker, &gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     let status = streaming(&handle, 1).await;
     assert_eq!(
         status.custody,
@@ -107,7 +107,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
     let worker = td.issue_svid(WK, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.push_snapshot(snapshot(&td, &[&worker]));
@@ -134,13 +134,13 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn at_spiffe_empty_required_bundle_withdraws_the_last_generation() {
+async fn at_spiffe_withdraw_when_own_bundle_is_removed() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.push_snapshot(FakeWorkloadApi::snapshot(
@@ -167,7 +167,7 @@ async fn at_spiffe_federation_removed_foreign_bundle_leaves_the_next_generation(
         &[("partner.test", foreign.bundle_der())],
     ));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
     assert!(matches!(
         sink.last(),
@@ -190,7 +190,7 @@ async fn malformed_update_keeps_current_generation_only_until_its_not_after() {
     let gateway = td.issue_svid(GW, Duration::from_secs(3));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_mins(1)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_mins(1)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let mut spec =
@@ -227,7 +227,7 @@ async fn sink_refusal_keeps_the_previous_generation() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
     sink.reject_activations(Some(TransportError::KeyPairMismatch));
     api.push_snapshot(snapshot(
@@ -252,7 +252,7 @@ async fn at_spiffe_outage_stream_error_is_survived_within_bounds_and_reconnects(
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.push_error(opensesame_spiffe_source::fake::Status::unavailable(
@@ -287,7 +287,7 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
     let cfg = config(&api, Duration::from_millis(400));
-    let handle = SpiffeSource::start(cfg, sink.clone());
+    let handle = SpiffeSource::start(cfg, sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     api.shutdown().await;
@@ -297,7 +297,7 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
         .unwrap();
     let retain_until = status.retain_until.expect("bounded retention");
     let outage_since = status.outage_since.expect("outage start");
-    assert!(retain_until <= outage_since + opensesame_time::Duration::milliseconds(400));
+    assert!(retain_until <= outage_since + chrono::Duration::milliseconds(400));
     assert!(
         retain_until < status.not_after.unwrap(),
         "max_stale is shorter than not_after"
@@ -326,7 +326,7 @@ async fn rotation_same_identity_new_key_is_a_new_generation_without_withdrawal()
     let v1 = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&v1]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
     let v2 = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&v2]));
@@ -346,7 +346,7 @@ async fn rotation_same_identity_new_key_is_a_new_generation_without_withdrawal()
 async fn no_identity_issued_means_no_generation_and_no_fallback() {
     let api = FakeWorkloadApi::start();
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     tokio::time::sleep(Duration::from_millis(400)).await;
     let status = handle.current();
     assert_ne!(status.phase, SourcePhase::Streaming);
@@ -354,7 +354,7 @@ async fn no_identity_issued_means_no_generation_and_no_fallback() {
     assert_eq!(status.last_error.as_deref(), Some("svid_not_issued"));
     assert!(sink.events().is_empty(), "{:?}", sink.events());
     assert_eq!(
-        status.credential_status(opensesame_time::Utc::now()),
+        status.credential_status(chrono::Utc::now()),
         opensesame_domain::CredentialStatus::Unconfigured
     );
     handle.stop().await;

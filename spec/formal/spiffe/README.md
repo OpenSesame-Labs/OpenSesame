@@ -7,7 +7,7 @@ This suite records the decisions in
 [`outage.rs`](../../../crates/spiffe-source/src/outage.rs), and
 [`status.rs`](../../../crates/spiffe-source/src/status.rs). The governing
 contract is [ADR 0132 §12](../../../docs/adr/0132-optional-mtls-and-workload-identity.md),
-as refined by [ADR 0227](../../../docs/adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md).
+as refined by [ADR 0223](../../../docs/adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md).
 
 | Requirement | Lean theorem | Implementation evidence |
 |---|---|---|
@@ -57,17 +57,11 @@ the implementation-to-model boundary and rerunning the suite.
 
 These checks do not prove that the SDK parses or authenticates every possible
 Workload API response, that arbitrary Rust execution refines the Lean machine,
-or that concurrent scheduling meets a hard real-time bound. The public source
-API does not quarantine a pre-populated sink before its first activation; an
-initial denial or outage can leave that previous generation in place. The
-current gateway starts with an empty manager and waits for a source generation
-before binding its listener. This suite does not prove that startup precondition
-or listener and request-guard enforcement. The sink's prompt
-withdrawal claim assumes stable wall time while a relative sleep is armed and
-that the source task is scheduled in time. A forward wall-clock jump across a
-deadline can delay sink withdrawal; status checks the supplied current time but
-the sink is not proven to enforce the source deadline at every use. The finite
-time cases do not cover Rust clock/duration overflow. The model does not verify
-certificate signatures, trust bundles, endpoints, sink internals, or real SPIRE
-behavior. The separately gated real-SPIRE reference test is not evidence of
-interoperability unless executed.
+or that concurrent scheduling meets a hard real-time bound. The separate
+[source-lifetime suite](../source-lifetime/README.md) covers selected source
+ownership and post-handshake/request-admission decisions; its clock, TLS key-use,
+caller-provenance, and restart assumptions apply here too. The finite time cases
+do not cover Rust clock/duration overflow. This model does not verify certificate
+signatures, trust bundles, endpoints, sink internals, or real SPIRE behavior.
+The separately gated real-SPIRE reference test is not evidence of interoperability
+unless executed.
