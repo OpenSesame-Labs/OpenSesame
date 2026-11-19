@@ -55,6 +55,7 @@ import {
   sealExistingEvents,
   sealPostgresEvents,
 } from "./event-sealing.js";
+import { resumePendingUpstreamLogouts } from "./interactions/upstream-logout.js";
 import {
   type AccountLookupSlot,
   lookupHostedAccount,
@@ -336,6 +337,10 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     eventSealer,
   );
 
+  let recoverSecurityState = async (): Promise<void> => {};
+  const securityRecoveryReady = systemPrincipalReady.then(() =>
+    recoverSecurityState(),
+  );
   const ctx: AppContext = {
     hostAuthorizationAudiences: hostAudiences,
     ...passkeyComponents,
@@ -362,6 +367,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     ...(betterAuthDatabase ? { betterAuthDatabase } : undefined),
     systemOwnerPrincipalId: SYSTEM_OWNER_PRINCIPAL_ID,
     systemPrincipalReady,
+    securityRecoveryReady,
     securityStateReady: async () => {
       try {
         await systemPrincipalReady;
@@ -374,6 +380,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
+  recoverSecurityState = () => resumePendingUpstreamLogouts(ctx);
 
   const app = createHonoApp(
     scheduleOrganizationWithdrawalRecovery(ctx, systemPrincipalReady, () =>

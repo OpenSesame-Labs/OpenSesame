@@ -74,7 +74,7 @@ export function createHonoApp(
   app.use("*", async (c, next) => {
     if (c.req.path !== "/v1/health/live") {
       try {
-        await ctx.systemPrincipalReady;
+        await ctx.securityRecoveryReady;
       } catch {
         return c.json({ error: "security_state_unavailable" }, 503);
       }
