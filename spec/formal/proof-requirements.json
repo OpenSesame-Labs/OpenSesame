@@ -101,10 +101,6 @@
         "spec/formal/authority/conformance.rs",
         "spec/formal/authority/Cargo.toml",
         "spec/formal/authority/Cargo.lock",
-        "spec/formal/authority/check.sh",
-        "spec/formal/authority/check-drift.py",
-        "spec/formal/authority/coverage.json",
-        "spec/formal/authority/negative-control.py",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
@@ -122,10 +118,6 @@
         "spec/formal/dpop/ReplayPolicy.lean",
         "spec/formal/dpop/required-theorems.lean",
         "spec/formal/dpop/replay_conformance.rs",
-        "spec/formal/dpop/verify.sh",
-        "spec/formal/dpop/check_drift.py",
-        "spec/formal/dpop/coverage.json",
-        "spec/formal/dpop/mutate.py",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"

@@ -190,14 +190,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
     ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"],
   );
-  for (const id of [
-    "auth",
-    "oauth",
-    "webauthn",
-    "interaction-clock",
-    "authority",
-    "dpop",
-  ]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);

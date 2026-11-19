@@ -18,7 +18,7 @@ proof's `iat.saturating_add(max_age_secs)` as `valid_until`, after
 [`decode_dpop_proof`](../../../crates/proof/src/jwk.rs) checks the proof's age.
 The reviewed revision and source hashes are in [coverage.json](coverage.json).
 See [ADR 0023](../../../docs/adr/0023-mcp-bearer-vs-dpop.md) and the existing
-[replay-cache audit](../../../docs/security/audits/2026-08-08-security-audit-compendium.md#original-report-2026-08-08-dpop-replay-cachemd).
+[replay-cache audit](../../../docs/security/audits/2026-08-08-dpop-replay-cache.md).
 
 ## Formal properties
 
