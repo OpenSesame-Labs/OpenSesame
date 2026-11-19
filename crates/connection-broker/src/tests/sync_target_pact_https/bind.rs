@@ -29,7 +29,8 @@ fn request_expr<'a>(source: &'a str, fn_start: usize, at: usize) -> Option<&'a s
     if !arg.is_empty() {
         return Some(arg);
     }
-    rest.starts_with('.').then(|| receiver_expr(source, fn_start, at))
+    rest.starts_with('.')
+        .then(|| receiver_expr(source, fn_start, at))
 }
 
 fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
@@ -102,7 +103,11 @@ fn builder_url(expr: &str) -> Option<&str> {
             index += len;
             continue;
         }
-        if let Some(mark) = MARKS.iter().copied().find(|mark| expr[index..].starts_with(mark)) {
+        if let Some(mark) = MARKS
+            .iter()
+            .copied()
+            .find(|mark| expr[index..].starts_with(mark))
+        {
             let at_paren = index + mark.len() - 1;
             if let Some(inner) = call_inside(&expr[at_paren..]) {
                 if let Some(url) = plain_ident(strip_ref(split_arg(inner, false))) {
@@ -177,7 +182,10 @@ pub(super) fn plain_ident(expr: &str) -> Option<&str> {
 
 fn plain_receiver(expr: &str) -> Option<&str> {
     let mut expr = expr.trim();
-    while let Some(inner) = expr.strip_prefix('(').and_then(|rest| rest.strip_suffix(')')) {
+    while let Some(inner) = expr
+        .strip_prefix('(')
+        .and_then(|rest| rest.strip_suffix(')'))
+    {
         expr = inner.trim();
     }
     let expr = expr.strip_prefix("&mut ").unwrap_or(expr);
@@ -220,7 +228,9 @@ pub(super) fn call_tail(source: &str, at: usize) -> Option<&str> {
         return Some(tail);
     }
     loop {
-        let Some(stripped) = tail.strip_prefix(')') else { break };
+        let Some(stripped) = tail.strip_prefix(')') else {
+            break;
+        };
         tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
         if tail.starts_with('(') {
             return Some(tail);
