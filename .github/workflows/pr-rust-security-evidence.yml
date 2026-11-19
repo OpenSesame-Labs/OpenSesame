@@ -19,27 +19,24 @@ on:
 permissions: {}
 
 jobs:
-  evidence:
+  resolve:
     if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
+    outputs:
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
     env:
       PR_VISUAL_NUMBER: ${{ inputs.pull_request }}
       PR_VISUAL_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       PR_VISUAL_BASE_SHA: ${{ github.sha }}
-      CARGO_BUILD_JOBS: 2
-      CARGO_INCREMENTAL: 0
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_PROFILE_TEST_DEBUG: 0
     steps:
       - name: Check out the trusted controller
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.sha }}
-          path: base
           persist-credentials: false
           fetch-depth: 1
       - name: Resolve a current same-repository PR
@@ -51,40 +48,96 @@ jobs:
           [[ "$PR_VISUAL_DEFAULT_BRANCH" =~ ^[A-Za-z0-9._-]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_VISUAL_NUMBER" > "$RUNNER_TEMP/pr-rust-pull.json"
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PR_VISUAL_DEFAULT_BRANCH" > "$RUNNER_TEMP/pr-rust-branch.json"
-          node base/scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-rust-pull.json" "$RUNNER_TEMP/pr-rust-branch.json"
+          node scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-rust-pull.json" "$RUNNER_TEMP/pr-rust-branch.json"
+
+  evidence:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
       - name: Check out the exact PR head without credentials
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ steps.resolve.outputs.head_sha }}
+          ref: ${{ needs.resolve.outputs.head_sha }}
           path: head
           persist-credentials: false
           fetch-depth: 1
-      - name: Install the trusted pinned Rust toolchain
+      - name: Install the explicit pinned Rust toolchain
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          working_directory: base
-          install_args: rust
+          working_directory: ${{ runner.temp }}
+          install_args: rust@1.99.0
           cache: false
           cache_save: false
           persist_github_token: false
       - name: Run the hardcoded exact-head security matrix
         working-directory: head
         env:
-          PR_RUST_EVIDENCE_LOG_DIR: ${{ runner.temp }}/pr-rust-security-evidence
-        run: bash ../base/scripts/ci/pr-rust-security-evidence.sh "${{ inputs.suite }}"
-      - name: Recheck both revisions before retaining evidence
+          PR_RUST_EVIDENCE_SUITE: ${{ inputs.suite }}
+        run: |
+          exec bash -c '
+            set -euo pipefail
+            if [[ "$PR_RUST_EVIDENCE_SUITE" != receipt-owner-mapping ]]; then
+              echo "unsupported Rust security evidence suite" >&2
+              exit 2
+            fi
+            rustc --version
+            rustc --version | grep -Eq "^rustc 1\\.99\\.0([[:space:]]|$)"
+            run_case() {
+              local label="$1"
+              shift
+              echo "::group::$label"
+              local output
+              output="$(mktemp)"
+              cargo test --locked "$@" -- --nocapture 2>&1 | tee "$output"
+              grep -Eq "test result: ok\\. [1-9][0-9]* passed;" "$output"
+              rm -f "$output"
+              echo "::endgroup::"
+            }
+            run_case domain -p opensesame-domain --lib
+            run_case audit -p opensesame-audit --lib
+            run_case storage-lib -p opensesame-storage --lib
+            run_case storage-certmgr -p opensesame-storage --test certmgr_pact
+            run_case storage-est-budget -p opensesame-storage --test est_passphrase_budget
+            run_case broker-lib -p opensesame-broker --lib
+            run_case broker-adversarial -p opensesame-broker --test adversarial_broker
+            run_case connection-broker -p opensesame-connection-broker --lib
+            run_case connector-host -p opensesame-connector-host --features wasm-connectors
+            run_case invoke-through -p opensesame-invoke-through
+            run_case gateway-lib -p opensesame-gateway --lib --features wasm-connectors,testkit
+            run_case gateway-testkit -p opensesame-gateway --test testkit --features testkit
+          '
+
+  confirm:
+    needs: [resolve, evidence]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PR_VISUAL_NUMBER: ${{ inputs.pull_request }}
+      PR_VISUAL_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      PR_VISUAL_BASE_SHA: ${{ github.sha }}
+      PR_VISUAL_EXPECTED_HEAD: ${{ needs.resolve.outputs.head_sha }}
+    steps:
+      - name: Check out a fresh trusted controller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Recheck both revisions after candidate execution
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_VISUAL_EXPECTED_HEAD: ${{ steps.resolve.outputs.head_sha }}
         run: |
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_VISUAL_NUMBER" > "$RUNNER_TEMP/pr-rust-pull-current.json"
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PR_VISUAL_DEFAULT_BRANCH" > "$RUNNER_TEMP/pr-rust-branch-current.json"
-          node base/scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-rust-pull-current.json" "$RUNNER_TEMP/pr-rust-branch-current.json"
-      - name: Retain exact-head test logs
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pr-rust-security-${{ inputs.pull_request }}-${{ inputs.suite }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/pr-rust-security-evidence/
-          retention-days: 14
-          if-no-files-found: error
+          node scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-rust-pull-current.json" "$RUNNER_TEMP/pr-rust-branch-current.json"

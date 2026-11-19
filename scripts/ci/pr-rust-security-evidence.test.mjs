@@ -15,16 +15,18 @@ import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const script = join(here, "pr-rust-security-evidence.sh");
 const workflowFile = resolve(
   here,
   "../../.github/workflows/pr-rust-security-evidence.yml",
 );
 
+async function workflow() {
+  return parse(await readFile(workflowFile, "utf8"));
+}
+
 async function fixture(zeroAudit = false) {
   const root = await mkdtemp(join(tmpdir(), "pr-rust-evidence-test-"));
   const bin = join(root, "bin");
-  const logs = join(root, "logs");
   const calls = join(root, "calls");
   await mkdir(bin);
   await writeFile(
@@ -37,16 +39,22 @@ async function fixture(zeroAudit = false) {
   );
   await chmod(join(bin, "rustc"), 0o700);
   await chmod(join(bin, "cargo"), 0o700);
-  return { root, logs, calls, bin };
+  return { root, calls, bin };
 }
 
-function run(item, suite = "receipt-owner-mapping") {
-  return spawnSync("bash", [script, suite], {
+async function matrix() {
+  const definition = await workflow();
+  return definition.jobs.evidence.steps.at(-1).run;
+}
+
+async function run(item, suite = "receipt-owner-mapping") {
+  return spawnSync("bash", ["-c", await matrix()], {
+    cwd: item.root,
     encoding: "utf8",
     env: {
       ...process.env,
       PATH: `${item.bin}:${process.env.PATH}`,
-      PR_RUST_EVIDENCE_LOG_DIR: item.logs,
+      PR_RUST_EVIDENCE_SUITE: suite,
     },
   });
 }
@@ -54,7 +62,7 @@ function run(item, suite = "receipt-owner-mapping") {
 test("runs only the reviewed matrix and requires discovered tests", async () => {
   const item = await fixture();
   try {
-    const result = run(item);
+    const result = await run(item);
     assert.equal(result.status, 0, result.stderr);
     const calls = (await readFile(item.calls, "utf8")).trim().split("\n");
     assert.equal(calls.length, 12);
@@ -79,7 +87,7 @@ test("runs only the reviewed matrix and requires discovered tests", async () => 
 test("fails when a selected command discovers no tests", async () => {
   const item = await fixture(true);
   try {
-    const result = run(item);
+    const result = await run(item);
     assert.notEqual(result.status, 0);
     const calls = (await readFile(item.calls, "utf8")).trim().split("\n");
     assert.equal(calls.length, 2);
@@ -91,68 +99,75 @@ test("fails when a selected command discovers no tests", async () => {
 test("refuses arbitrary suites", async () => {
   const item = await fixture();
   try {
-    const result = run(item, "arbitrary-command");
+    const result = await run(item, "arbitrary-command");
     assert.equal(result.status, 2);
-    assert.match(result.stderr, /unsupported Rust security evidence suite/);
+    assert.match(result.stderr, /unsupported Rust security evidence suite/u);
   } finally {
     await rm(item.root, { recursive: true, force: true });
   }
 });
 
-test("the trusted controller isolates the candidate from credentials", async () => {
-  const workflow = parse(await readFile(workflowFile, "utf8"));
-  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
-  assert.deepEqual(workflow.permissions, {});
-  assert.deepEqual(Object.keys(workflow.jobs), ["evidence"]);
+test("candidate execution is isolated from token-bearing jobs", async () => {
+  const definition = await workflow();
+  assert.deepEqual(Object.keys(definition.on), ["workflow_dispatch"]);
+  assert.deepEqual(definition.permissions, {});
+  assert.deepEqual(Object.keys(definition.jobs), [
+    "resolve",
+    "evidence",
+    "confirm",
+  ]);
 
-  const job = workflow.jobs.evidence;
-  assert.deepEqual(job.permissions, {
+  const { resolve: select, evidence, confirm } = definition.jobs;
+  assert.deepEqual(select.permissions, {
     contents: "read",
     "pull-requests": "read",
   });
-  assert.equal(job["runs-on"], "ubuntu-24.04");
-  assert.match(job.if, /github\.ref.*default_branch/u);
-  assert.equal(job.env.PR_VISUAL_BASE_SHA, "${{ github.sha }}");
-
-  const checkouts = job.steps.filter((step) =>
-    step.uses?.startsWith("actions/checkout@"),
-  );
-  assert.deepEqual(
-    checkouts.map((step) => [
-      step.with.path,
-      step.with.ref,
-      step.with["persist-credentials"],
-    ]),
-    [
-      ["base", "${{ github.sha }}", false],
-      ["head", "${{ steps.resolve.outputs.head_sha }}", false],
-    ],
-  );
-
-  const tokenSteps = job.steps.filter((step) => step.env?.GH_TOKEN);
-  assert.deepEqual(
-    tokenSteps.map((step) => step.name),
-    [
-      "Resolve a current same-repository PR",
-      "Recheck both revisions before retaining evidence",
-    ],
-  );
-  assert.ok(tokenSteps.every((step) => !step.run.includes("head/")));
-  const candidate = job.steps.find(
-    (step) => step.name === "Run the hardcoded exact-head security matrix",
-  );
-  assert.equal(candidate.env.GH_TOKEN, undefined);
-  assert.equal(candidate["working-directory"], "head");
-  assert.match(candidate.run, /pr-rust-security-evidence\.sh/u);
-  assert.doesNotMatch(candidate.run, /\$\{\{ inputs\.pull_request \}\}/u);
-
-  const upload = job.steps.find((step) =>
-    step.uses?.startsWith("actions/upload-artifact@"),
-  );
+  assert.equal(select.env.PR_VISUAL_BASE_SHA, "${{ github.sha }}");
+  assert.equal(select.steps.filter((step) => step.env?.GH_TOKEN).length, 1);
   assert.equal(
-    upload.with.path,
-    "${{ runner.temp }}/pr-rust-security-evidence/",
+    select.steps.some((step) => step.with?.path === "head"),
+    false,
   );
-  assert.equal(upload.with["if-no-files-found"], "error");
-  assert.equal(upload.with["retention-days"], 14);
+
+  assert.equal(evidence.needs, "resolve");
+  assert.deepEqual(evidence.permissions, { contents: "read" });
+  assert.equal(evidence.steps.filter((step) => step.env?.GH_TOKEN).length, 0);
+  const evidenceCheckout = evidence.steps[0];
+  assert.equal(
+    evidenceCheckout.with.ref,
+    "${{ needs.resolve.outputs.head_sha }}",
+  );
+  assert.equal(evidenceCheckout.with.path, "head");
+  assert.equal(evidenceCheckout.with["persist-credentials"], false);
+  const mise = evidence.steps[1];
+  assert.equal(mise.with.working_directory, "${{ runner.temp }}");
+  assert.equal(mise.with.install_args, "rust@1.99.0");
+  assert.equal(mise.with.persist_github_token, false);
+  const candidate = evidence.steps.at(-1);
+  assert.equal(candidate.name, "Run the hardcoded exact-head security matrix");
+  assert.equal(candidate["working-directory"], "head");
+  assert.match(candidate.run, /^exec bash -c '/u);
+  assert.doesNotMatch(candidate.run, /(?:^|\/)base(?:\/|\s|$)/u);
+  assert.doesNotMatch(candidate.run, /\bgh\b/u);
+
+  assert.deepEqual(confirm.needs, ["resolve", "evidence"]);
+  assert.deepEqual(confirm.permissions, {
+    contents: "read",
+    "pull-requests": "read",
+  });
+  assert.equal(
+    confirm.env.PR_VISUAL_EXPECTED_HEAD,
+    "${{ needs.resolve.outputs.head_sha }}",
+  );
+  assert.equal(confirm.steps.filter((step) => step.env?.GH_TOKEN).length, 1);
+  assert.equal(
+    confirm.steps.some((step) => step.with?.path === "head"),
+    false,
+  );
+
+  const allSteps = Object.values(definition.jobs).flatMap((job) => job.steps);
+  assert.equal(
+    allSteps.some((step) => step.uses?.startsWith("actions/upload-artifact@")),
+    false,
+  );
 });
