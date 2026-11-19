@@ -1,8 +1,10 @@
 import {
   MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
+  type Database,
+  principals,
 } from "@opensesame/database";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
 
@@ -32,7 +34,7 @@ async function memoryBoundary<T>(
   stores: AppStores,
   principalId: string,
   mode: "authenticate" | "publish" | "revoke",
-  run: (stores: AppStores) => Promise<T>,
+  run: (stores: AppStores, database?: Database) => Promise<T>,
 ): Promise<T> {
   let turns = memoryTurns.get(stores.provisionalSessions);
   if (!turns) {
@@ -74,7 +76,7 @@ export async function withPrincipalSessionBoundary<T>(
   stores: AppStores,
   principalId: string,
   mode: "authenticate" | "publish" | "revoke",
-  run: (stores: AppStores) => Promise<T>,
+  run: (stores: AppStores, database?: Database) => Promise<T>,
 ): Promise<T> {
   const sessions = stores.provisionalSessions;
   if (!(sessions instanceof DurableMap)) {
@@ -121,6 +123,59 @@ export async function withPrincipalSessionBoundary<T>(
         PostgresOrganizationMembershipStore
           ? new PostgresOrganizationMembershipStore(db)
           : stores.organizationMemberships,
-    });
+    }, db);
   });
+}
+
+export async function principalSessionEpochOn(
+  db: Database,
+  principalId: string,
+): Promise<number> {
+  const [principal] = await db
+    .select({ version: principals.sessionAuthorityVersion })
+    .from(principals)
+    .where(eq(principals.id, principalId))
+    .limit(1);
+  return principal?.version ?? 0;
+}
+
+export async function principalSessionEpoch(
+  stores: AppStores,
+  principalId: string,
+): Promise<number> {
+  if (stores.provisionalSessions instanceof DurableMap) {
+    return stores.provisionalSessions.transaction((db) =>
+      principalSessionEpochOn(db, principalId),
+    );
+  }
+  return (await stores.principalSessionEpochs.get(principalId)) ?? 0;
+}
+
+export async function advancePrincipalSessionEpochOn(
+  db: Database,
+  principalId: string,
+): Promise<number> {
+  const [principal] = await db
+    .update(principals)
+    .set({
+      sessionAuthorityVersion: sql`${principals.sessionAuthorityVersion} + 1`,
+    })
+    .where(eq(principals.id, principalId))
+    .returning({ version: principals.sessionAuthorityVersion });
+  if (!principal) throw new Error("Principal session authority is missing");
+  return principal.version;
+}
+
+export async function advancePrincipalSessionEpoch(
+  stores: AppStores,
+  principalId: string,
+): Promise<number> {
+  if (stores.provisionalSessions instanceof DurableMap) {
+    return stores.provisionalSessions.transaction((db) =>
+      advancePrincipalSessionEpochOn(db, principalId),
+    );
+  }
+  const next = (await principalSessionEpoch(stores, principalId)) + 1;
+  await stores.principalSessionEpochs.set(principalId, next);
+  return next;
 }
