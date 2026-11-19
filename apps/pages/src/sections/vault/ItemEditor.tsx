@@ -16,7 +16,14 @@ import {
   itemTypeRegistry,
 } from "@opensesame/vault-core";
 import type { FieldValue } from "@opensesame/vault-item-types";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type FormEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useWebMcpLoginDraft } from "../../bindings/webmcp-login-draft.js";
 import { EmptyTip } from "../../components/EmptyTip.js";
@@ -87,7 +94,8 @@ function EditorForm({ mode }: { mode: "new" | "edit" }) {
   const [pendingDeliveryId, setPendingDeliveryId] = useState<string>();
   const [issuanceKey, setIssuanceKey] = useState(() => crypto.randomUUID());
 
-  useEffect(() => {
+  // Reset before paint: a passive reset can erase input made on arrival.
+  useLayoutEffect(() => {
     setDraft(initial.item);
     setError(initial.error);
     setReveal(false);
