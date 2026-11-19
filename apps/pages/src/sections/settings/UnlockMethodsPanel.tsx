@@ -55,14 +55,6 @@ const NOTICE_ID = "unlock-methods";
  * step 1 rather than drawing a second one (docs/design/canvases/auth-flow, ADR 0091).
  */
 export function UnlockMethodsPanel() {
-  return (
-    <>
-      <UnlockMethodsBody />
-    </>
-  );
-}
-
-function UnlockMethodsBody() {
   const { header, guest, decoy } = useVault();
   const store = useVaultStore();
   const enrolled = listAvailableUnlockMethods(header);
