@@ -24,6 +24,7 @@ test("candidate and release workflows disable mise cache", () => {
     "candidate-build.yml",
     "release-publish.yml",
     "full-suite.yml",
+    "pr-rust-security-evidence.yml",
   ]) {
     assert.equal(miseCacheDisabledForWorkflow(name), true, name);
   }
