@@ -280,12 +280,23 @@ export async function pollLiveShellAssets(env, deps = {}) {
   const sleep = deps.sleep ?? delay;
   const now = deps.now ?? Date.now;
   const fetcher = deps.fetch ?? fetch;
+  const started = now();
   await pollUntilDeadline(
     deadlineMs,
     pollMs,
     sleep,
     () => assertLiveShellAssets(assets, pagesBase, fetcher, FETCH_TIMEOUT_MS),
     now,
+  );
+  const elapsedMs = now() - started;
+  const digestPreview = assets
+    .slice(0, 3)
+    .map((asset) => `${asset.relative} sha256=${asset.sha256.slice(0, 12)}…`)
+    .join(", ");
+  const more =
+    assets.length > 3 ? ` (+${assets.length - 3} more)` : "";
+  console.log(
+    `live shell poll matched ${assets.length} assets in ${elapsedMs}ms: ${digestPreview}${more}`,
   );
   return assets.map((asset) => asset.relative);
 }
