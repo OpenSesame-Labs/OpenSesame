@@ -1,6 +1,6 @@
 {
-  "id": "3714ba39-b2b5-4a00-976e-f2dba8acee6e",
-  "prevId": "cca3b1a3-04ef-4a87-867c-d9a699f00836",
+  "id": "c826dfed-2329-4f3e-a6ae-75988a9493af",
+  "prevId": "2100ef46-8922-4efc-a313-ecfdc5a72bcf",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6074,6 +6074,55 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "authority_revision": {
+          "name": "authority_revision",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "withdrawal_id": {
+          "name": "withdrawal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_kind": {
+          "name": "withdrawal_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_role": {
+          "name": "withdrawal_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_reason": {
+          "name": "withdrawal_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_actor_type": {
+          "name": "withdrawal_actor_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_actor_principal_id": {
+          "name": "withdrawal_actor_principal_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawal_correlation_id": {
+          "name": "withdrawal_correlation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6125,6 +6174,38 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "organization_memberships_withdrawal_pending_idx": {
+          "name": "organization_memberships_withdrawal_pending_idx",
+          "columns": [
+            {
+              "expression": "withdrawal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"organization_memberships\".\"withdrawal_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "organization_memberships_withdrawal_principal_idx": {
+          "name": "organization_memberships_withdrawal_principal_idx",
+          "columns": [
+            {
+              "expression": "principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"organization_memberships\".\"withdrawal_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -6162,6 +6243,10 @@
         "organization_memberships_role_check": {
           "name": "organization_memberships_role_check",
           "value": "\"organization_memberships\".\"role\" in ('owner','admin','member')"
+        },
+        "organization_memberships_withdrawal_check": {
+          "name": "organization_memberships_withdrawal_check",
+          "value": "(\n      \"organization_memberships\".\"withdrawal_id\" is null and \"organization_memberships\".\"withdrawal_kind\" is null and\n      \"organization_memberships\".\"withdrawal_role\" is null and \"organization_memberships\".\"withdrawal_reason\" is null and \"organization_memberships\".\"withdrawal_actor_type\" is null and\n      \"organization_memberships\".\"withdrawal_actor_principal_id\" is null and\n      \"organization_memberships\".\"withdrawal_correlation_id\" is null\n    ) or (\n      \"organization_memberships\".\"withdrawal_id\" is not null and \"organization_memberships\".\"withdrawal_kind\" is not null and\n      \"organization_memberships\".\"withdrawal_actor_type\" is not null and \"organization_memberships\".\"withdrawal_actor_type\" in ('human','system') and\n      \"organization_memberships\".\"withdrawal_actor_principal_id\" is not null and \"organization_memberships\".\"withdrawal_correlation_id\" is not null and\n      ((\"organization_memberships\".\"withdrawal_kind\" = 'remove' and \"organization_memberships\".\"withdrawal_role\" is null and\n        (\"organization_memberships\".\"withdrawal_reason\" is null or \"organization_memberships\".\"withdrawal_reason\" in ('organization_owner_removed','scim_deactivated','ldap_directory_sync'))) or\n       (\"organization_memberships\".\"withdrawal_kind\" = 'change_role' and \"organization_memberships\".\"withdrawal_role\" is not null and\n        \"organization_memberships\".\"withdrawal_role\" in ('owner','admin','member') and \"organization_memberships\".\"withdrawal_reason\" is null))\n    )"
         }
       },
       "isRLSEnabled": false
