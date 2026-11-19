@@ -114,10 +114,11 @@ fn last_single_eq(prefix: &str) -> Option<usize> {
 }
 
 fn eq_code(bytes: &[u8]) -> Vec<bool> {
+    use super::sync_target_pact_norm::non_code_len;
     let mut code = vec![true; bytes.len()];
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             let end = (index + len).min(bytes.len());
             for slot in &mut code[index..end] {
                 *slot = false;

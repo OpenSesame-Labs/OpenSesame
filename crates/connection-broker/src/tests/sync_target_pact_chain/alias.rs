@@ -1,5 +1,7 @@
 //! Dispatch aliases: function items, reassignment, blocks, and calls.
-use super::super::sync_target_pact_norm::{function_spans, is_keyword_at, string_len};
+use super::super::sync_target_pact_norm::{
+    function_spans, is_keyword_at, non_code_len, skip_until_semi, string_len,
+};
 
 /// `(call_index, ident_len)` for `let name = Path::{send,execute}` function items.
 /// The binding is not a dispatch; only a later `name(…)` in that function is.
@@ -260,16 +262,19 @@ fn alias_call_len(
 fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -> bool {
     let bytes = source.as_bytes();
     let mut index = alias.at;
+    if is_keyword_at(bytes, index, b"let") {
+        index = skip_until_semi(bytes, index);
+    }
     while index < call {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, b"let") && let_rebinds_name(source, bytes, index, &alias.name) {
-            return true;
-        } else if is_keyword_at(bytes, index, alias.name.as_bytes())
-            && super::peel::eq_before(bytes, index + alias.name.len()).is_some()
+        if is_keyword_at(bytes, index, b"let")
+            && let_rebinds_name(source, bytes, index, &alias.name)
         {
+            return true;
+        } else if ident_then_single_eq(bytes, index, &alias.name) {
             return true;
         }
         index += 1;
@@ -289,13 +294,56 @@ fn let_rebinds_name(source: &str, bytes: &[u8], index: usize, name: &str) -> boo
         }
     }
     if bytes.get(at) == Some(&b'(') {
-        return pattern_contains_name(&source[at..], name);
+        let Some(close) = let_pattern_close(bytes, at) else {
+            return false;
+        };
+        return pattern_contains_name(&source[at..=close], name);
     }
     let start = at;
     while at < bytes.len() && super::is_ident_byte(bytes[at]) {
         at += 1;
     }
     &source[start..at] == name
+}
+
+fn ident_then_single_eq(bytes: &[u8], index: usize, name: &str) -> bool {
+    if !is_keyword_at(bytes, index, name.as_bytes()) {
+        return false;
+    }
+    let mut at = index + name.len();
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    if bytes.get(at) != Some(&b'=') {
+        return false;
+    }
+    !matches!(bytes.get(at + 1), Some(b'=' | b'>'))
+}
+
+fn let_pattern_close(bytes: &[u8], open: usize) -> Option<usize> {
+    if bytes.get(open) != Some(&b'(') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut index = open;
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 fn pattern_contains_name(pattern: &str, name: &str) -> bool {
@@ -335,4 +383,20 @@ fn leading_ident(source: &str) -> String {
         .chars()
         .take_while(|ch| super::is_ident_char(*ch))
         .collect()
+}
+
+#[cfg(test)]
+mod shadow_probes {
+    use super::dispatch_alias_calls;
+
+    #[test]
+    fn dispatch_assign_rebind_shadows_call() {
+        let sample =
+            "async fn f() { let dispatch = RequestBuilder::send; dispatch = other_fn; dispatch(request).await?; }";
+        assert!(
+            dispatch_alias_calls(sample).is_empty(),
+            "rebound alias call must not count: {:?}",
+            dispatch_alias_calls(sample)
+        );
+    }
 }

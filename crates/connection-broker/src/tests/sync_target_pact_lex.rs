@@ -52,10 +52,6 @@ fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
 pub(crate) fn skip_block_comment_flat(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
     while index + 1 < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
         if bytes[index] == b'*' && bytes[index + 1] == b'/' {
             return index + 2;
         }
@@ -70,10 +66,6 @@ pub(crate) fn skip_block_comment_nested(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
     let mut depth = 1i32;
     while index + 1 < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
         if bytes[index] == b'/' && bytes[index + 1] == b'*' {
             depth += 1;
             index += 2;
@@ -260,6 +252,13 @@ mod probes {
         assert_eq!(&bytes[flat..], b" still */.text()");
         let nested = skip_block_comment_nested(bytes, 0);
         assert_eq!(&bytes[nested..], b".text()");
+    }
+
+    #[test]
+    fn p5_block_comment_string_literal_is_not_code() {
+        let bytes = br#"/* " */ response.text().await"#;
+        let end = skip_block_comment_flat(bytes, 0);
+        assert_eq!(&bytes[end..], br#" response.text().await"#);
     }
 
     #[test]

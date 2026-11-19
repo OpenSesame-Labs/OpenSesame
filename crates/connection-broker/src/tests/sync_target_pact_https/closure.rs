@@ -22,12 +22,20 @@ pub(super) fn closure_owns(before: &str) -> bool {
 }
 
 fn pipe_is_closure(body: &str, pipe: usize) -> bool {
+    let bytes = body.as_bytes();
     if pipe == 0 {
         return true;
     }
-    let prev = body.as_bytes()[pipe - 1];
+    let mut prev_idx = pipe;
+    while prev_idx > 0 && bytes[prev_idx - 1].is_ascii_whitespace() {
+        prev_idx -= 1;
+    }
+    if prev_idx == 0 {
+        return true;
+    }
+    let prev = bytes[prev_idx - 1];
     matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
-        || matches!(trailing_name(&body[..pipe]), "move" | "async")
+        || matches!(trailing_name(&body[..prev_idx]), "move" | "async")
 }
 
 fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {

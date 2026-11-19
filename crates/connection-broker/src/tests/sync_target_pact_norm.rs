@@ -132,8 +132,22 @@ pub(crate) fn response_reader_aliases(source: &str) -> (Vec<String>, Vec<String>
 }
 
 fn walk_use_tree(tree: &str, prefix: &str, calls: &mut Vec<String>, modules: &mut Vec<String>) {
-    let tree = tree.trim();
-    if tree.is_empty() || tree == "*" {
+    let mut tree = tree.trim();
+    if tree.is_empty() {
+        return;
+    }
+    if let Some(base) = tree.strip_suffix("::*") {
+        walk_use_tree("*", base.trim_end_matches(':'), calls, modules);
+        return;
+    }
+    if tree == "*" {
+        if prefix.split("::").any(|seg| seg == "response_guard") {
+            for sym in ["read_bounded_body", "safe_oauth_error_detail"] {
+                if !calls.iter().any(|c| c == sym) {
+                    calls.push(sym.to_string());
+                }
+            }
+        }
         return;
     }
     if let Some((base, inner)) = split_use_group(tree) {
@@ -290,6 +304,9 @@ mod probes {
         assert!(!reads("use serde_json::json;"));
         assert!(!reads(
             "use foo::safe_oauth_error_detail; safe_oauth_error_detail(&err)"
+        ));
+        assert!(reads(
+            "use crate::response_guard::*; safe_oauth_error_detail(&err)"
         ));
     }
 }

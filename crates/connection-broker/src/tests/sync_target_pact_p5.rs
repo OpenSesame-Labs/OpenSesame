@@ -254,6 +254,24 @@ fn p5_dispatch_alias_shadowing_is_not_a_send() {
 }
 
 #[test]
+fn p5_unrelated_let_tuple_does_not_shadow_dispatch_alias() {
+    let sample = r#"async fn f() { let dispatch = RequestBuilder::send; let (n,) = (1,); dispatch(request).await?; }"#;
+    assert_gaps(sample, (1, 1));
+}
+
+#[test]
+fn p5_dispatch_rebind_without_let_shadows_alias() {
+    let sample = r#"async fn f() { let dispatch = RequestBuilder::send; dispatch = other_fn; dispatch(request).await?; }"#;
+    assert_gaps(sample, (0, 0));
+}
+
+#[test]
+fn p5_closure_whitespace_before_pipe_is_not_https_guard() {
+    let sample = r#"async fn f() { if evil.scheme() != "https" { let _ = || return Err("x".into()); } client.get(evil).send().await?; }"#;
+    assert_gaps(sample, (1, 1));
+}
+
+#[test]
 fn p5_as_str_before_send_stays_guarded() {
     let sample = r#"async fn f() { let _ = url.as_str(); if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
     assert_gaps(sample, (1, 0));
@@ -291,8 +309,7 @@ fn p5_host_str_authority_pin_precedes_send() {
     let send = code_find(&production, ".send()").expect("production must send");
     assert!(host < send, "host_str authority pin must precede .send()");
     assert!(
-        code_find(&production, "!= Some(authority)")
-            .is_some_and(|eq| eq > host && eq < send),
+        code_find(&production, "!= Some(authority)").is_some_and(|eq| eq > host && eq < send),
         "host_str must be compared to authority before send"
     );
     let (sends, missing) = credentialed_send_https_gaps(&production);
