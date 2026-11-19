@@ -25,7 +25,9 @@ import {
   type ReactElement,
   type RefObject,
   useId,
+  useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { type SupportController, useSupport } from "../session.js";
 import "./coach.css";
@@ -37,6 +39,7 @@ import {
   Meter,
   Ring,
   canReturn,
+  coachMessage,
   counterOf,
   viewportDockStyle,
 } from "./CoachParts.js";
@@ -73,6 +76,7 @@ function displayedTour(
   firstVault: boolean,
   requiredAction: boolean,
   ready: boolean,
+  recovery: "edit" | "options" | "pepper" | "",
 ): GuideTourView {
   const gateTarget =
     tour.target?.startsWith("unlock.") || tour.target === "setup.default";
@@ -83,18 +87,9 @@ function displayedTour(
         ? 2
         : 0
     : 0;
-  let message = tour.message;
-  if (requiredAction && ready && !tour.action) {
-    if (tour.target === "editor.password-options")
-      message = "Password options are open. Select Next.";
-    else if (tour.target === "editor.pepper")
-      message = "Pepper is off. Select Next.";
-    else if (tour.target === "unlock.seal-pin")
-      message = "PIN is selected. Select Next.";
-  }
   return {
     ...tour,
-    message,
+    message: coachMessage(tour, requiredAction, ready, recovery),
     step: tour.step + offset,
     count: firstVault ? 16 : tour.count,
   };
@@ -114,8 +109,28 @@ function Narration({
 }): ReactElement {
   const closing = tour.kind === "close";
   const message = tour.message ?? (closing ? CLOSING_TEXT : "");
+  const prose = useRef<HTMLParagraphElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changed prose can overflow without a resize.
+  useLayoutEffect(() => {
+    const node = prose.current;
+    if (!node) return;
+    const measure = (): void =>
+      setScrollable(node.scrollHeight > node.clientHeight + 1);
+    measure();
+    if (!("ResizeObserver" in globalThis)) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [message, counter, compactMissing]);
   return (
-    <p className="coach__text" id={id} aria-live="polite">
+    <p
+      ref={prose}
+      className={`coach__text${scrollable ? " is-scrollable" : ""}`}
+      id={id}
+      aria-live="polite"
+    >
+      <span className="coach__scroll-cue" aria-hidden="true" />
       {counter && !closing ? (
         <span className="visually-hidden">{counter}. </span>
       ) : null}
@@ -289,7 +304,12 @@ function Coach({
     );
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
-  const layout = useCoachLayout(guide.runId, tour, cardRef);
+  const layout = useCoachLayout(
+    guide.runId,
+    tour,
+    cardRef,
+    firstVault || guide.goal === "vault.item.first",
+  );
   const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
   const awaitingAction =
@@ -310,7 +330,13 @@ function Coach({
     requiredAction,
     ready,
     canBack,
-    displayTour: displayedTour(tour, firstVault, requiredAction, ready),
+    displayTour: displayedTour(
+      tour,
+      firstVault,
+      requiredAction,
+      ready,
+      layout.recovery,
+    ),
     constrained,
     narrow,
     short,
@@ -324,7 +350,7 @@ function Coach({
       data-coach-step={tour.step}
       data-coach-kind={tour.kind}
       data-coach-status={guide.status}
-      data-coach-target={tour.target ?? ""}
+      data-coach-target={layout.target ?? ""}
       data-coach-degraded={missing ? "true" : "false"}
     >
       <Dim hole={hole} viewport={viewport} gliding={gliding} />

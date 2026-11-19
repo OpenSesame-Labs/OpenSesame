@@ -1,5 +1,9 @@
 import { checkShortKeyboardCard } from "./tutorial-interact.mjs";
-import { measureZoomedKeyboard } from "./tutorial-measure-tools.mjs";
+import {
+  keyboardGeometry,
+  measureZoomedKeyboard,
+} from "./tutorial-measure-tools.mjs";
+import { captureZoomedInstruction } from "./tutorial-page.mjs";
 import { readStep } from "./tutorial-walk.mjs";
 
 export async function checkKeyboardViewport(
@@ -96,11 +100,14 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
         box.height >= v.height - input.height - 15
       );
     }, target);
-    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT) {
-      await page.screenshot({
-        path: `${process.env.TUTORIALS_OUT}/${original.width}-${target}-${keyboardHeight}-zoomed-instruction.png`,
-      });
-    }
+    await captureZoomedInstruction(
+      page,
+      session,
+      check,
+      original.width,
+      target,
+      keyboardHeight,
+    );
     if (target === "unlock.seal-pin-confirm" && keyboardHeight === 190)
       await checkShortKeyboardCard(page, session, check);
     const result = await page.evaluate(measureZoomedKeyboard, target);
@@ -187,50 +194,6 @@ function keyboardTargetReady(targetId) {
       a.bottom > b.top
     )
   );
-}
-
-function keyboardGeometry(page, target) {
-  return page.evaluate((targetId) => {
-    const card = document.querySelector(".coach__card");
-    const field = document.querySelector(`[data-guide-targets~="${targetId}"]`);
-    const rect = (node) => {
-      const box = node?.getBoundingClientRect();
-      return box && { top: box.top, bottom: box.bottom, height: box.height };
-    };
-    const bounds = field?.getBoundingClientRect();
-    const hits = bounds
-      ? document
-          .elementsFromPoint(
-            bounds.left + bounds.width / 2,
-            bounds.top + bounds.height / 2,
-          )
-          .map((node) => `${node.tagName}.${node.className}`)
-          .slice(0, 12)
-      : [];
-    const ancestors = [];
-    for (let node = field?.parentElement; node; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      if (/^(auto|scroll|hidden|clip)$/.test(style.overflowY)) {
-        ancestors.push({
-          className: node.className,
-          overflow: style.overflowY,
-          ...rect(node),
-          clientHeight: node.clientHeight,
-        });
-      }
-    }
-    return {
-      innerHeight: window.innerHeight,
-      visualHeight: window.visualViewport?.height,
-      visualTop: window.visualViewport?.offsetTop,
-      card: rect(card),
-      field: rect(field),
-      cardClass: card?.className,
-      maxHeight: card instanceof HTMLElement ? card.style.maxHeight : null,
-      hits,
-      ancestors,
-    };
-  }, target);
 }
 
 async function checkKeyboardTarget(

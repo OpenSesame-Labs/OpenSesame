@@ -11,7 +11,11 @@ import type {
 } from "@opensesame/vault-core";
 import { useState } from "react";
 import { GeneratorOptions } from "../../components/GeneratorOptions.js";
-import { regenerate, switchGenerator } from "./account-secrets.js";
+import {
+  hasNoGeneratedPassword,
+  regenerate,
+  switchGenerator,
+} from "./account-secrets.js";
 import { CredentialLine } from "./CredentialLine.js";
 import { LegacyConvert } from "./LegacyConvert.js";
 import { PasswordControl } from "./PasswordControl.js";
@@ -47,7 +51,7 @@ export function PasswordMethodEditor({
   /** The line's remove key, at its end like a website's. */
   onRemove?: (() => void) | undefined;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => hasNoGeneratedPassword(method));
   if (isLegacyMethod(method)) {
     return (
       <LegacyConvert

@@ -377,7 +377,12 @@ function EditorForm({ mode }: { mode: "new" | "edit" }) {
           title="Item"
           message={error}
         />
-        <EditorActions busy={saving} label={saveVerb} closeTo={closeTo} />
+        <EditorActions
+          busy={saving}
+          label={saveVerb}
+          closeTo={closeTo}
+          item={draft}
+        />
       </form>
     </div>
   );

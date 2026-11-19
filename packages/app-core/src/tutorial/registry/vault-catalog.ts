@@ -41,12 +41,12 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     capabilityId: "vault.items.write_meta",
   },
   {
-    id: "editor.pepper-enabled",
-    description: "An open password option still has pepper enabled.",
-    role: "status",
+    id: "editor.pepper-options",
+    description:
+      "Choose whether to include a personal pepper and where it goes.",
+    role: "surface",
     routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
-    authoredOnly: true,
   },
   {
     id: "editor.generate-password",

@@ -7,7 +7,13 @@ import {
 import { checkZoomViewport, closeWithZoomCheck } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
-import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
+import {
+  choosePepper,
+  preparePepperStep,
+  recoverEmptyGeneration,
+  recoverEmptyPepper,
+  revisitPepper,
+} from "./tutorial-pepper.mjs";
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
 export async function runFirstVaultPass({ newPage, width, ...options }) {
@@ -226,23 +232,7 @@ async function configurePassword(page, step, check, first, label, phone) {
       .click();
   }
   await preparePepperStep(page, step, check, first, label);
-  const pepperLabel = page.locator(
-    'label[data-guide-targets~="editor.pepper"]',
-  );
-  if (phone) {
-    const bounds = await pepperLabel.boundingBox();
-    check(
-      Boolean(bounds && bounds.width >= 44 && bounds.height >= 44),
-      `${label}: the entire pepper label is a 44px touch target`,
-    );
-    await pepperLabel.tap();
-  } else {
-    await pepperLabel.click();
-  }
-  check(
-    !(await page.getByLabel("Include pepper").isChecked()),
-    `${label}: selecting the highlighted label turns pepper off`,
-  );
+  await choosePepper(page, check, label, phone);
 }
 
 async function generatePassword(page, step, check, first, label) {
@@ -276,6 +266,7 @@ async function generatePassword(page, step, check, first, label) {
     );
     await page.getByLabel("Capital letters", { exact: true }).check();
   }
+  await recoverEmptyGeneration(page, step, check, first, label, generate);
   const password = page.getByLabel("Password", { exact: true }).first();
   const before = await password.inputValue();
   await generate.click();
@@ -289,6 +280,7 @@ async function generatePassword(page, step, check, first, label) {
 }
 
 async function saveAndCopyPassword(page, step, check, first, label, generated) {
+  await recoverEmptyPepper(page, step, check, first, label);
   await page.getByRole("button", { name: "Save item" }).click();
   await step("item.copy-password", first + 6);
   check(
@@ -303,19 +295,28 @@ async function saveAndCopyPassword(page, step, check, first, label, generated) {
       .count()) === 1,
     `${label}: Next cannot skip copying the password`,
   );
+  await page.locator('[data-guide-targets~="item.copy-password"]').click();
   await page
-    .getByRole("button", { name: "Copy password", exact: true })
-    .first()
-    .click();
-  await page
-    .getByText("Password copied. Your account is saved in your vault.")
+    .getByText(
+      "Copied. Pepper off: this is the full password. Pepper on: add your secret at its chosen position and copy the rest if needed.",
+    )
     .waitFor({ timeout: 15000 });
   const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const position = process.env.TUTORIALS_PEPPER_POSITION;
+  const expected = position === "3" ? generated.slice(0, 3) : generated;
   check(
-    copied === generated,
-    `${label}: the complete generated password reached the clipboard`,
+    copied === expected,
+    `${label}: the generated portion reached the clipboard`,
   );
   await closeWithZoomCheck(page, check);
+  if (position === "3") {
+    await page.getByRole("button", { name: "Copy rest of password" }).click();
+    check(
+      (await page.evaluate(() => navigator.clipboard.readText())) ===
+        generated.slice(3),
+      `${label}: the remaining generated portion can be copied`,
+    );
+  }
   await page.waitForTimeout(1600);
   check(
     (await page.locator(".coach").count()) === 0,

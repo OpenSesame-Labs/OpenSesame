@@ -257,6 +257,14 @@
   overflow-y: auto;
 }
 
+.coach__scroll-cue {
+  display: none;
+}
+
+.coach__scroll-cue::before {
+  content: "↕";
+}
+
 .coach__foot {
   display: flex;
   flex: none;
@@ -460,6 +468,18 @@
   line-height: 1.3;
 }
 
+.coach__card--short-scroll .coach__text .coach__scroll-cue,
+.coach__card--narrow .coach__text.is-scrollable .coach__scroll-cue {
+  display: block;
+  position: sticky;
+  top: 0;
+  float: right;
+  margin-left: 0.25rem;
+  background: var(--surface);
+  color: var(--ink);
+  pointer-events: none;
+}
+
 .coach__card--narrow .coach__foot {
   gap: 0;
   padding: 0 0 0 3rem;
@@ -550,12 +570,6 @@
   padding: 0 0.5rem 0 3.25rem;
   overflow: visible;
   scroll-snap-align: start;
-}
-
-.coach__card--short.coach__card--short-scroll .coach__text::before {
-  content: "↓";
-  float: right;
-  color: var(--ink-3);
 }
 
 .coach__card--short.coach__card--short-scroll .coach__foot {
