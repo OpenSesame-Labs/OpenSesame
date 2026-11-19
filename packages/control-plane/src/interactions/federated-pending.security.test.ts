@@ -101,6 +101,10 @@ function existingV3Cookie(value: PendingFederatedAuth): string {
   return `${payload}.${tag}`;
 }
 
+function existingSealedCookie(value: PendingFederatedAuth): string {
+  return encodePending(value, secret);
+}
+
 describe("signed federated state integrity", () => {
   it("round-trips a signed state with its organization and upstream context", () => {
     expect(decodePending(encodePending(pending, secret), secret)).toEqual(
@@ -108,10 +112,15 @@ describe("signed federated state integrity", () => {
     );
   });
 
-  it("preserves the v3 cookie format already emitted by main", () => {
-    const cookie = existingV3Cookie(pending);
+  it("preserves the sealed cookie bytes for a known pending payload", () => {
+    const cookie = existingSealedCookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);
     expect(encodePending(pending, secret)).toBe(cookie);
+  });
+
+  it("still decodes legacy v3 cookies that carry a plaintext verifier", () => {
+    const cookie = existingV3Cookie(pending);
+    expect(decodePending(cookie, secret)).toEqual(pending);
   });
 
   it.each([
