@@ -1,0 +1,40 @@
+name: Identity combined formal proof
+
+on:
+  push:
+    branches: [codex/identity-combined-formal-proof]
+
+permissions:
+  contents: read
+
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - run: npm ci --ignore-scripts
+      - name: Obtain the reviewed Lean release
+        run: |
+          test "$(git rev-parse HEAD^)" = 'caf1a00688f27f6d9213b6979a86284a573ad32d'
+          curl --fail --show-error --location --retry 3 --max-time 600 \
+            --proto '=https' --proto-redir '=https' --max-filesize 524288000 \
+            https://github.com/leanprover/lean4/releases/download/v4.24.0/lean-4.24.0-linux.tar.zst \
+            --output "$RUNNER_TEMP/lean.tar.zst"
+          printf '%s  %s\n' 'b14f5e5159219dd1a1956c3b806813319f5e94ccd5bdfd56f54520609a5bb5ec' "$RUNNER_TEMP/lean.tar.zst" | sha256sum --check
+          mkdir "$RUNNER_TEMP/lean"
+          tar --zstd --extract --file "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 \
+            --no-same-owner --no-same-permissions --directory "$RUNNER_TEMP/lean"
+      - name: Verify authentication source and proofs
+        env:
+          LEAN_BIN: ${{ runner.temp }}/lean/bin/lean
+        run: |
+          npm run verify:auth-source
+          npm run verify:auth-formal
