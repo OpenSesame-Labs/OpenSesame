@@ -68,7 +68,7 @@ import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
-import { resumePendingOrganizationWithdrawals } from "./services/organization-withdrawal-recovery.js";
+import { scheduleOrganizationWithdrawalRecovery } from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
 import { createAppStores } from "./state.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
@@ -375,12 +375,10 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     },
   };
 
-  void systemPrincipalReady
-    .then(() => resumePendingOrganizationWithdrawals(ctx))
-    .catch(() => log.warn("Organization withdrawal recovery deferred"));
-
   const app = createHonoApp(
-    ctx,
+    scheduleOrganizationWithdrawalRecovery(ctx, systemPrincipalReady, () =>
+      log.warn("Organization withdrawal recovery deferred"),
+    ),
     resolveWalletNativeMounts({
       config,
       sealer: eventSealer,
