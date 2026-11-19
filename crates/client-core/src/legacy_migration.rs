@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 use crate::{
-    open, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore, SyncBlob, SyncCursor,
-    SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
+    open, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore,
+    SyncBlob, SyncCursor, SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
@@ -21,6 +21,7 @@ impl SyncStore {
         key: &DeviceKey,
         json: &str,
     ) -> Result<Self, ClientCoreError> {
+        crate::sync_limits::check_json_size(json.len())?;
         let legacy: PersistedStore = serde_json::from_str(json)
             .map_err(|error| ClientCoreError::Persist(error.to_string()))?;
         if legacy.version.is_some() || legacy.integrity.is_some() {
@@ -55,6 +56,8 @@ fn migrate(
     cursor: SyncCursor,
     blobs: Vec<SyncBlob>,
 ) -> Result<SyncStore, ClientCoreError> {
+    crate::sync_limits::validate_cursor(&cursor)?;
+    crate::sync_limits::validate_blobs(&blobs)?;
     if cursor.device_id.is_empty() || cursor.device_id.len() > 128 || cursor.epoch > i64::MAX as u64
     {
         return Err(ClientCoreError::Persist(
@@ -100,5 +103,15 @@ fn migrate(
             b"OpenSesame sync store key v2",
         ));
     }
+    let migrated: Vec<SyncBlob> = store
+        .entries
+        .iter()
+        .map(|(id, (epoch, ciphertext))| SyncBlob {
+            id: id.clone(),
+            epoch: *epoch,
+            ciphertext: ciphertext.clone(),
+        })
+        .collect();
+    sync_limits::validate_blobs(&migrated)?;
     Ok(store)
 }
