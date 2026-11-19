@@ -16,6 +16,7 @@ import {
 import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import { revokeOrganizationMembership } from "../routes/organization-revocation.js";
 import { hostApiEndpoint } from "./host-endpoint.js";
+import { confirmsDurableWithdrawal } from "./host-withdrawal-attestation.js";
 
 export type PreparedWithdrawal = PendingOrganizationMembershipWithdrawal;
 export type PrepareWithdrawalResult =
@@ -215,8 +216,11 @@ async function revokeHost(
       redirect: "error",
       signal: AbortSignal.timeout(5_000),
     });
-    await response.body?.cancel();
-    return response.ok;
+    return confirmsDurableWithdrawal(response, {
+      withdrawalId: prepared.withdrawal.id,
+      membershipIncarnation: prepared.incarnation,
+      authorityRevision: prepared.authorityRevision,
+    });
   } catch {
     ctx.log.warn("Host session revocation failed");
     return false;
