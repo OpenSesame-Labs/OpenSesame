@@ -134,7 +134,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn at_spiffe_empty_required_bundle_is_a_malformed_update_not_a_withdrawal() {
+async fn at_spiffe_empty_required_bundle_withdraws_the_last_generation() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
@@ -143,27 +143,16 @@ async fn at_spiffe_empty_required_bundle_is_a_malformed_update_not_a_withdrawal(
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
     streaming(&handle, 1).await;
 
-    // The Workload API makes every per-SVID bundle a required field, so an
-    // empty value is rejected before it can become a bundle-less context.
-    // Keep serving the last valid generation on that malformed update.
     api.push_snapshot(FakeWorkloadApi::snapshot(
         vec![gateway.to_proto(&[], "")],
         &[],
     ));
-    let status = handle
-        .wait_for(WAIT, |s| {
-            s.last_error.as_deref() == Some("workload_api_message")
-        })
-        .await
-        .unwrap_or_else(|s| panic!("expected malformed update, got {s:?}"));
-    assert_eq!(status.phase, SourcePhase::Streaming);
-    assert_eq!(status.generation, Some(1));
-    assert_eq!(status.snapshots, 1);
-    assert_eq!(status.withdrawals, 0);
-    assert!(matches!(
+    let status = withdrawn(&handle).await;
+    assert_eq!(status.last_error.as_deref(), Some("bundle_missing"));
+    assert_eq!(
         sink.last(),
-        Some(SinkEvent::Activated { number: 1, .. })
-    ));
+        Some(SinkEvent::Withdrawn(TransportError::TrustUnknown))
+    );
     handle.stop().await;
 }
 
@@ -362,7 +351,7 @@ async fn no_identity_issued_means_no_generation_and_no_fallback() {
     let status = handle.current();
     assert_ne!(status.phase, SourcePhase::Streaming);
     assert_eq!(status.generation, None);
-    assert_eq!(status.last_error.as_deref(), Some("workload_api_transport"));
+    assert_eq!(status.last_error.as_deref(), Some("svid_not_issued"));
     assert!(sink.events().is_empty(), "{:?}", sink.events());
     assert_eq!(
         status.credential_status(opensesame_time::Utc::now()),
