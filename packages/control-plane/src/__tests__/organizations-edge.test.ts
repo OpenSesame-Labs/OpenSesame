@@ -16,8 +16,33 @@ import {
   verified,
 } from "./organization-tenant-fixture.js";
 
-function mockHostFetch(impl: () => Promise<Response>) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(impl);
+function durableHostAck(init?: RequestInit): Response {
+  const request = overlapCast(JSON.parse(String(init?.body)));
+  return new Response(
+    JSON.stringify({
+      revoked: 1,
+      durable: true,
+      withdrawal_id: request.withdrawal_id,
+      membership_incarnation: request.membership_incarnation,
+      authority_revision: request.authority_revision,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}
+
+function mockHostFetch(
+  impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  attest = true,
+) {
+  return vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (input, init) => {
+      const response = await impl(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (!attest || !response.ok || !url.endsWith("/api/v1/sessions/revoke"))
+        return response;
+      return durableHostAck(init);
+    });
 }
 
 afterEach(() => {
@@ -523,7 +548,14 @@ describe("organizations routes edge cases", () => {
       ).status,
     ).toBe(200);
 
-    fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
+    fetchSpy.mockResolvedValue(new Response('{"revoked":1}', { status: 200 }));
+    const legacy = await remove(owner.accessToken, member.principalId);
+    expect(legacy.status).toBe(502);
+    expect(overlapCast(await legacy.json()).error).toBe(
+      "session_revocation_failed",
+    );
+
+    fetchSpy.mockImplementation(async (_input, init) => durableHostAck(init));
     expect((await remove(owner.accessToken, member.principalId)).status).toBe(
       204,
     );

@@ -1196,6 +1196,17 @@ describe("control-plane API", () => {
               )
             )?.role,
           );
+          const request = requests.at(-1)?.body ?? {};
+          return new Response(
+            JSON.stringify({
+              revoked: 1,
+              durable: true,
+              withdrawal_id: request.withdrawal_id,
+              membership_incarnation: request.membership_incarnation,
+              authority_revision: request.authority_revision,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
