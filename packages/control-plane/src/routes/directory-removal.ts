@@ -55,3 +55,22 @@ export async function removeDirectoryMembership(
   }
   throw new Error("Directory membership removal is pending; retry the request");
 }
+
+export async function removeLdapMembership(
+  ctx: AppContext,
+  organizationId: string,
+  principalId: string,
+): Promise<boolean> {
+  const current = await ctx.stores.organizationMemberships.findVersioned(
+    organizationId,
+    principalId,
+  );
+  if (!current) return false;
+  return removeDirectoryMembership(ctx, {
+    organizationId,
+    principalId,
+    incarnation: current.incarnation,
+    correlationId: `ldap-sync-${organizationId}`,
+    reason: "ldap_directory_sync",
+  });
+}

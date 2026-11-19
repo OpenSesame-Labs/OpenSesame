@@ -37,6 +37,32 @@ type DeprovisionTarget = {
 
 type DeprovisionJournal = { cycle: string; targets: DeprovisionTarget[] };
 
+function deprovisionTarget(value: unknown): DeprovisionTarget | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  const principalId = Reflect.get(value, "principalId");
+  const incarnation = Reflect.get(value, "incarnation");
+  const completed = Reflect.get(value, "completed");
+  if (
+    typeof principalId !== "string" ||
+    typeof incarnation !== "string" ||
+    typeof completed !== "boolean"
+  )
+    return;
+  const legacy = Reflect.get(value, "legacyOrphan");
+  if (legacy === undefined) return { principalId, incarnation, completed };
+  if (!legacy || typeof legacy !== "object" || Array.isArray(legacy)) return;
+  const authorityRevision = Reflect.get(legacy, "authorityRevision");
+  const withdrawalId = Reflect.get(legacy, "withdrawalId");
+  if (typeof authorityRevision !== "string" || typeof withdrawalId !== "string")
+    return;
+  return {
+    principalId,
+    incarnation,
+    completed,
+    legacyOrphan: { authorityRevision, withdrawalId },
+  };
+}
+
 export function deprovisionJournal(
   user: ScimUserRecord,
 ): DeprovisionJournal | undefined {
@@ -48,39 +74,9 @@ export function deprovisionJournal(
   if (typeof cycle !== "string" || !Array.isArray(targets)) return undefined;
   const parsed: DeprovisionTarget[] = [];
   for (const target of targets) {
-    if (!target || typeof target !== "object" || Array.isArray(target))
-      return undefined;
-    const principalId = Reflect.get(target, "principalId");
-    const incarnation = Reflect.get(target, "incarnation");
-    const completed = Reflect.get(target, "completed");
-    if (
-      typeof principalId !== "string" ||
-      typeof incarnation !== "string" ||
-      typeof completed !== "boolean"
-    )
-      return undefined;
-    const legacyOrphan = Reflect.get(target, "legacyOrphan");
-    if (legacyOrphan !== undefined) {
-      if (
-        !legacyOrphan ||
-        typeof legacyOrphan !== "object" ||
-        Array.isArray(legacyOrphan)
-      )
-        return undefined;
-      const authorityRevision = Reflect.get(legacyOrphan, "authorityRevision");
-      const withdrawalId = Reflect.get(legacyOrphan, "withdrawalId");
-      if (
-        typeof authorityRevision !== "string" ||
-        typeof withdrawalId !== "string"
-      )
-        return undefined;
-      parsed.push({
-        principalId,
-        incarnation,
-        completed,
-        legacyOrphan: { authorityRevision, withdrawalId },
-      });
-    } else parsed.push({ principalId, incarnation, completed });
+    const value = deprovisionTarget(target);
+    if (!value) return undefined;
+    parsed.push(value);
   }
   return { cycle, targets: parsed };
 }

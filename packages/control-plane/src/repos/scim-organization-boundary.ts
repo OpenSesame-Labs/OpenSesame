@@ -72,8 +72,6 @@ export async function withScimOrganizationBoundary<T>(
       const forks = [memberships, users, groups, mappings];
       if (forks.some((fork) => !fork.validate()))
         throw new Error("SCIM transaction changed concurrently; retry");
-      // Validation and every commit execute without yielding, so another
-      // in-memory worker cannot observe a partially committed transaction.
       for (const fork of forks) fork.commit();
       return result;
     } finally {
@@ -93,13 +91,9 @@ export async function withScimOrganizationBoundary<T>(
     await db.execute(
       sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:ScimOrganization'), hashtext(${organizationId}))`,
     );
-    // Order directory admission against organization policy updates too.
     await db.execute(
       sql`SELECT id FROM organizations WHERE id = ${organizationId} FOR SHARE`,
     );
-    // All reads and writes needed to decide admission or persist its journal
-    // use this very transaction. A dead connection cannot leave work running
-    // on another connection after its advisory lock has been released.
     const boundScim = createPostgresScimStores(db);
     return run({
       ...ctx,
@@ -115,7 +109,6 @@ export async function withScimOrganizationBoundary<T>(
         },
         organizations: new PostgresOrganizationStore(db),
         organizationMemberships: new PostgresOrganizationMembershipStore(db),
-        // This boundary reads only the LDAP URL, not the sealed bind secret.
         orgFederation: createPostgresOrgFederationStores(db),
       },
     });
