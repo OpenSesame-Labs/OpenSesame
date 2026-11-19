@@ -75,31 +75,32 @@ function actualPreload(output) {
     ts.ScriptTarget.Latest,
     true,
   );
-  const declares = (statement, name) =>
-    ts.isVariableStatement(statement) &&
-    statement.declarationList.declarations.some(
-      (node) => ts.isIdentifier(node.name) && node.name.text === name,
-    );
-  const first = source.statements.findIndex((node) =>
-    declares(node, "scriptRel"),
+  const names = new Set([
+    "scriptRel",
+    "assetsURL",
+    "seen",
+    "isCssPreloadUrl",
+    "preloadOnce",
+    "__vitePreload",
+  ]);
+  const declarations = source.statements.filter(
+    (statement) =>
+      ts.isVariableStatement(statement) &&
+      statement.declarationList.declarations.some(
+        (node) => ts.isIdentifier(node.name) && names.has(node.name.text),
+      ),
   );
-  const last = source.statements.findIndex((node) =>
-    declares(node, "__vitePreload"),
-  );
-  assert.ok(first >= 0 && last >= first);
-  const declarations = source.statements.slice(first, last + 1);
-  assert.ok(declarations.every(ts.isVariableStatement));
+  assert.equal(declarations.length, names.size);
   const links = [];
   const events = [];
+  const moduleUrl = "https://example.test/OpenSesame/assets/entry.js";
   const context = {
     Promise,
     Event,
     URL,
-    __fixtureImportMeta: {
-      url: "https://app.example.test/OpenSesame/assets/main.js",
-      resolve: (specifier) =>
-        new URL(specifier, "https://app.example.test/OpenSesame/assets/main.js")
-          .href,
+    importMeta: {
+      url: moduleUrl,
+      resolve: (specifier) => new URL(specifier, moduleUrl).href,
     },
     document: {
       getElementsByTagName: () => links,
@@ -116,20 +117,18 @@ function actualPreload(output) {
     },
     window: { dispatchEvent: (event) => events.push(event) },
   };
+  const generated = declarations.map((node) => node.getText(source)).join("\n");
+  // vm scripts have no import.meta; supply the module URL and resolver the
+  // emitted ESM helper would receive, while executing the real helper code.
+  assert.match(generated, /import\.meta/);
   runInNewContext(
-    `${declarations
-      .map((node) => node.getText(source))
-      .join("\n")
-      .replaceAll(
-        "import.meta",
-        "__fixtureImportMeta",
-      )}\nglobalThis.invoke = __vitePreload;`,
+    `${generated.replaceAll("import.meta", "importMeta")}\nglobalThis.invoke = __vitePreload;`,
     context,
   );
-  return { invoke: context.invoke, links, events };
+  return { invoke: context.invoke, links, events, moduleUrl };
 }
 async function cssReadiness(output) {
-  const { invoke, links, events } = actualPreload(output);
+  const { invoke, links, events, moduleUrl } = actualPreload(output);
   let imported = 0;
   const load = invoke(async () => {
     imported++;
@@ -145,7 +144,8 @@ async function cssReadiness(output) {
   assert.equal(links[0].rel, "stylesheet");
   assert.equal(
     links[0].href,
-    "https://app.example.test/OpenSesame/assets/lazy.css",
+    new URL("lazy.css", new URL("./", moduleUrl)).href,
+    "stylesheet href resolves relative to import.meta.url",
   );
   links[0].listeners.get("load")({ type: "load" });
   assert.equal(await load, 8);
