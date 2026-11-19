@@ -5,7 +5,7 @@
  * writes failure evidence for the CI artifact upload.
  */
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { launchHeadlessPlaywright } from "../../../apps/pages/scripts/duress/headless-playwright.mjs";

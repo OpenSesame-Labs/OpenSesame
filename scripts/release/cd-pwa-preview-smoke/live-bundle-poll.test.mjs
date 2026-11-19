@@ -12,8 +12,8 @@ import { test } from "node:test";
 import {
   listStagedShellAssetPaths,
   pollLiveShellAssets,
-  shellAssetRelative,
   shellAssetRefs,
+  shellAssetRelative,
 } from "./live-bundle-poll.mjs";
 import { cdnPollBudget, sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
 
