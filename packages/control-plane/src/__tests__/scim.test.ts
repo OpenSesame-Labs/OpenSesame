@@ -15,6 +15,7 @@ import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
+  installHostRevocationMock,
   mintOrgIdToken,
   seedTenantWithIssuer,
   testConfig,
@@ -64,12 +65,16 @@ async function verified(app: App, subject: string) {
 }
 
 let idp: ReferenceIdp;
+let restoreHost: () => void;
 
 beforeAll(async () => {
   idp = await startReferenceIdp();
+  const mock = installHostRevocationMock();
+  restoreHost = () => mock.mockRestore();
 }, 30_000);
 
 afterAll(async () => {
+  restoreHost();
   await idp.close();
 });
 
@@ -161,20 +166,6 @@ describe("SCIM provisioning lifecycle", () => {
     ).toBeTruthy();
 
     // The leaver signal.
-    const realFetch = globalThis.fetch;
-    const hostRevoke = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation((input, init) => {
-        const url = input instanceof Request ? input.url : String(input);
-        if (url.endsWith("/api/v1/sessions/revoke"))
-          return Promise.resolve(
-            new Response(JSON.stringify({ revoked: 1 }), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        return realFetch(input, init);
-      });
     const deactivated = await app.request(
       usersPath(org.id, `/${created.body.id}`),
       {
@@ -187,7 +178,6 @@ describe("SCIM provisioning lifecycle", () => {
       },
     );
     expect(deactivated.status).toBe(200);
-    hostRevoke.mockRestore();
     expect(overlapCast(await deactivated.json()).active).toBe(false);
 
     // Membership gone, and the session it authorised with it.

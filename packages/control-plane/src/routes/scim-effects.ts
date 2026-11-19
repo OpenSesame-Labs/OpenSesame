@@ -5,10 +5,13 @@ import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
+  finishOrganizationWithdrawal,
+  prepareRoleWithdrawal,
+} from "../services/organization-withdrawal.js";
+import {
   prepareDirectoryRemoval,
   removeDirectoryMembership,
 } from "./directory-removal.js";
-import { serializeMembershipMutation } from "./organizations.js";
 import { finishLegacyOrphan } from "./scim-legacy-orphan.js";
 
 export const SCIM_ROLE_ATTRIBUTE = "urn:opensesame:params:scim:2.0:role";
@@ -139,26 +142,7 @@ export async function provisionedRoleForSubject(
   return roleOf(user);
 }
 
-/**
- * The principals of THIS organization a directory subject names.
- *
- * The `(kind, issuer, subject)` tuple is only as tenant-scoped as the issuer,
- * and an organization's issuer is a string its owner typed: it can be a
- * public IdP other tenants' members also sign in with. Whatever the tuple
- * resolves to, SCIM acts only on a principal that holds a membership here —
- * a push from one tenant's directory must never sign out anybody else.
- */
-/**
- * Issuers this organization actually admits people under.
- *
- * SSO and SAML issuer strings are not the whole set. LDAP sign-in stores
- * `ldapIssuer` of the directory URL, and native SAML with no `samlIssuer`
- * stores the metadata entityID. Both have to be searched or deprovision
- * reports success while the membership stays.
- *
- * Imports are dynamic: the LDAP and SAML modules call back into organization
- * routes, which load this file.
- */
+/** Issuers this organization actually admits people under. */
 async function issuersForOrganization(
   ctx: AppContext,
   organization: Organization,
@@ -383,17 +367,27 @@ export async function applyRole(
   role: OrganizationRole,
 ): Promise<void> {
   for (const principalId of await principalsForUser(ctx, organization, user)) {
-    await serializeMembershipMutation(ctx, organization.id, async () => {
-      const existing = await ctx.stores.organizationMemberships.find(
-        organization.id,
-        principalId,
+    const prepared = await withScimOrganizationBoundary(
+      ctx,
+      organization.id,
+      (tx) =>
+        prepareRoleWithdrawal(tx, {
+          organizationId: organization.id,
+          principalId,
+          role,
+          actorPrincipalId: ctx.systemOwnerPrincipalId,
+          actorType: "system",
+          correlationId: `scim-role-${organization.id}`,
+        }),
+    );
+    if (prepared.status === "missing" || prepared.status === "unchanged")
+      continue;
+    if (prepared.status !== "ready")
+      throw new Error("Directory role withdrawal could not be prepared");
+    const finished = await finishOrganizationWithdrawal(ctx, prepared.prepared);
+    if (finished.status !== "changed")
+      throw new Error(
+        "Directory role withdrawal is pending; retry the request",
       );
-      if (!existing || existing.role === role) return;
-      await ctx.stores.organizationMemberships.upsert({
-        ...existing,
-        role,
-        updatedAt: ctx.clock(),
-      });
-    });
   }
 }

@@ -1,10 +1,12 @@
 import type { AppContext } from "../context.js";
+import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
 import { finishOrganizationWithdrawal } from "./organization-withdrawal.js";
 
 /** Retry persisted transitions after restart; unavailable Host leaves them fenced. */
 export async function resumePendingOrganizationWithdrawals(
   ctx: AppContext,
 ): Promise<boolean> {
+  await resumePendingOrganizationWithdrawalAudits(ctx);
   const pending =
     await ctx.stores.organizationMemberships.listPendingWithdrawals();
   let next = 0;
