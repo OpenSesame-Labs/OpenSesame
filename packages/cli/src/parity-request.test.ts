@@ -7,7 +7,6 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, parse, resolve } from "node:path";
 import { createLease } from "@opensesame/app-core/lib/password-agent/lease.js";
@@ -15,6 +14,7 @@ import { describeRequest } from "@opensesame/app-core/lib/password-agent/request
 import { afterEach, describe, expect, it } from "vitest";
 import { approvalTerminal } from "./fixtures/password-agent/approval-terminal.js";
 import { processFixture } from "./fixtures/password-agent/process.js";
+import { tsxLoader } from "./fixtures/password-agent/tsx-loader.js";
 import { openLeaseStore } from "./parity-lease-node.js";
 import {
   clipboardEnvironment,
@@ -23,7 +23,6 @@ import {
   resolveCredentialHelper,
 } from "./parity-node.js";
 
-const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 const directories: string[] = [];
 afterEach(async () => {
   Reflect.deleteProperty(process.env, "OPENSESAME_STATE_DIR");
