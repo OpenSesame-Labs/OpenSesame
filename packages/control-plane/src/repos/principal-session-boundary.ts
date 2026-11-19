@@ -5,6 +5,7 @@ import {
   principals,
 } from "@opensesame/database";
 import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
 
@@ -18,17 +19,11 @@ export class PrincipalSessionBoundaryChangedError extends Error {
   }
 }
 
-function lockAcquired(result: unknown): boolean {
-  const rows = Array.isArray(result)
-    ? result
-    : result && typeof result === "object" && "rows" in result
-      ? result.rows
-      : undefined;
-  const row = Array.isArray(rows) ? rows[0] : undefined;
-  if (!row || typeof row !== "object" || !("acquired" in row))
-    throw new Error("Could not verify the principal session lock");
-  return row.acquired === true;
-}
+const lockRowSchema = z.object({ acquired: z.boolean() });
+const lockResultSchema = z.union([
+  z.array(lockRowSchema),
+  z.object({ rows: z.array(lockRowSchema) }),
+]);
 
 async function memoryBoundary<T>(
   stores: AppStores,
@@ -106,10 +101,15 @@ export async function withPrincipalSessionBoundary<T>(
   }
   return sessions.transaction(async (db) => {
     if (mode !== "revoke") {
-      const result = await db.execute(
-        sql`SELECT pg_try_advisory_xact_lock_shared(hashtext('OpenSesame:PrincipalSession'), hashtext(${principalId})) AS acquired`,
+      const result = lockResultSchema.safeParse(
+        await db.execute(
+          sql`SELECT pg_try_advisory_xact_lock_shared(hashtext('OpenSesame:PrincipalSession'), hashtext(${principalId})) AS acquired`,
+        ),
       );
-      if (!lockAcquired(result))
+      if (!result.success)
+        throw new Error("Could not verify the principal session lock");
+      const rows = Array.isArray(result.data) ? result.data : result.data.rows;
+      if (rows[0]?.acquired !== true)
         throw new PrincipalSessionBoundaryChangedError();
     } else {
       await db.execute(
