@@ -137,7 +137,7 @@ async function armConnectRelay(page, shot, origin, base) {
   if (await command.isVisible().catch(() => false)) {
     await command.fill("connections");
     await page.keyboard.press("Enter");
-    await page.waitForURL(/\/connections/, { timeout: 30_000 });
+    await page.waitForURL(/\/connections/, { timeout: 90_000 });
   } else {
     await page.goto(`${origin}${base}connections`, {
       waitUntil: "domcontentloaded",
@@ -228,23 +228,30 @@ async function main() {
         : process.argv[onlyArg + 1]?.split(",").map((name) => name.trim());
     const walks = resolveWalks(profilesDir, only);
     const dists = new Map();
+    function buildKeyFor(walk) {
+      // minimal-local omits connectors.external; stock build keeps the walk
+      // reachable while setup choice stays Minimal (checklist matrix).
+      return walk.name === "minimal-local" ? "stock" : walk.buildKey;
+    }
     for (const walk of buildsNeeded(walks)) {
+      const key = buildKeyFor(walk);
       const outDir = path.join(
         appRoot,
         "dist-profiles",
-        `verification-${walk.buildKey === "stock" ? "stock" : walk.buildKey}`,
+        `verification-${key === "stock" ? "stock" : key}`,
       );
       buildDist({
         appRoot,
         scriptsDir,
         outDir,
-        capabilityProfile: walk.capabilityProfile,
+        capabilityProfile:
+          walk.name === "minimal-local" ? null : walk.capabilityProfile,
         viteEnv: CONNECT_VITE,
       });
-      dists.set(walk.buildKey, outDir);
+      dists.set(key, outDir);
     }
     for (const walk of walks) {
-      const dist = dists.get(walk.buildKey);
+      const dist = dists.get(buildKeyFor(walk));
       const harness = createHarness({
         dist,
         origin,
