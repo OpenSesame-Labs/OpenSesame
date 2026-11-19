@@ -93,6 +93,9 @@ test("artifact guard requires the exact four images, SHA-bound receipt and no li
   receipt.measurements.clipboard.after[0] = "<img src=x>";
   save();
   assert.throws(() => validateArtifact(root, base, head), /measurement/u);
+  receipt.measurements.clipboard.after[0] = 42;
+  save();
+  assert.throws(() => validateArtifact(root, base, head), /measurement/u);
   receipt.measurements.clipboard.after[0] = "1x1 @0,0";
   receipt.extra = "unexpected data";
   save();

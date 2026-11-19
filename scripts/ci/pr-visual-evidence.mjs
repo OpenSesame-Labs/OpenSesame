@@ -13,7 +13,9 @@ const capture = path.join(root, "apps/pages/scripts/capture-evidence.mjs");
 const versionFixture = "work/evidence/pr-visual/unsupported-version.kdbx";
 
 function screen(width, height, steps) {
-  return { ...(width > 600 ? { desktop: true } : {}), width, height, steps };
+  const spec = { width, height, steps };
+  if (width > 600) spec.desktop = true;
+  return spec;
 }
 
 function clipboardSteps(shot) {

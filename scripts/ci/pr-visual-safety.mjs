@@ -133,11 +133,17 @@ function validateMeasuredJourney(observed, selectors) {
 }
 
 function validateMeasurement(value, selector) {
+  let text;
+  try {
+    text = String.prototype.valueOf.call(value);
+  } catch {
+    throw new Error("review artifact measurement is invalid");
+  }
   if (
-    typeof value !== "string" ||
-    value.length > 512 ||
-    (value === "none" && selector !== "#settings-locking .field__help") ||
-    !/^(?:none|\d+x\d+ @-?\d+,-?\d+(?: \| \d+x\d+ @-?\d+,-?\d+)*)$/u.test(value)
+    text !== value ||
+    text.length > 512 ||
+    (text === "none" && selector !== "#settings-locking .field__help") ||
+    !/^(?:none|\d+x\d+ @-?\d+,-?\d+(?: \| \d+x\d+ @-?\d+,-?\d+)*)$/u.test(text)
   )
     throw new Error("review artifact measurement is invalid");
 }
