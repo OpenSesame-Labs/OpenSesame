@@ -3,8 +3,9 @@
  * Pages CDN before Playwright runs.
  *
  * pages.hurl matches index.html, release.json, os-runtime-config, the
- * manifest, and sw.js. Those can be fresh while /assets/main-*.js is still
- * 404 or stale, so React never mounts and the front door never appears.
+ * manifest, and sw.js. Those can be fresh while /assets/main-*.js or a
+ * linked stylesheet is still 404 or stale, so React never mounts and the
+ * front door never appears.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -40,11 +41,10 @@ function shellAssetRefs(html) {
     }
     const rel = htmlAttribute(tag, "rel");
     if (rel === undefined) continue;
-    const isModulePreload = rel
-      .toLowerCase()
-      .split(/\s+/u)
-      .includes("modulepreload");
-    if (!isModulePreload) continue;
+    const relTokens = rel.toLowerCase().split(/\s+/u);
+    const isModulePreload = relTokens.includes("modulepreload");
+    const isStylesheet = relTokens.includes("stylesheet");
+    if (!isModulePreload && !isStylesheet) continue;
     const href = htmlAttribute(tag, "href");
     if (href !== undefined && href.length > 0) refs.push(href);
   }
@@ -118,8 +118,9 @@ function stagedFilePath(distDir, distRelative) {
 }
 
 /**
- * Absolute paths of `script[src]` and `link[rel=modulepreload][href]` in
- * staged index.html. Root-absolute `/OpenSesame/...` URLs drop the Pages
+ * Absolute paths of `script[src]`, `link[rel=modulepreload][href]`, and
+ * `link[rel=stylesheet][href]` in staged index.html. Root-absolute
+ * `/OpenSesame/...` URLs drop the Pages
  * base pathname. External origins are skipped. Document order, de-duplicated.
  */
 export function listStagedShellAssetPaths(distDir, pagesBase) {
@@ -144,7 +145,7 @@ function readStagedShellAssets(distDir, pagesBase) {
   const paths = listStagedShellAssetPaths(distDir, pagesBase);
   if (paths.length === 0) {
     throw new Error(
-      "staged index.html has no shell script or modulepreload assets",
+      "staged index.html has no shell script, modulepreload, or stylesheet assets",
     );
   }
   return paths.map((abs) => {
@@ -180,7 +181,47 @@ function declaredLength(response) {
   }
 }
 
-async function readBoundedBody(response, distRelative) {
+/** Drop a response body so a retry does not hold fetch sockets open. */
+async function releaseResponseBody(response) {
+  if (response === null || response === undefined) return;
+  const stream = response.body;
+  if (stream === null || stream === undefined) {
+    await response.arrayBuffer().catch(() => undefined);
+    return;
+  }
+  try {
+    const reader = stream.getReader();
+    await reader.cancel().catch(() => undefined);
+  } catch {
+    await response.arrayBuffer().catch(() => undefined);
+  }
+}
+
+async function readStreamChunk(reader, distRelative, timeoutMs) {
+  let timer;
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("body read timed out")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "body read failed";
+    throw mismatch(distRelative, detail);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readBoundedBody(
+  response,
+  distRelative,
+  readTimeoutMs = FETCH_TIMEOUT_MS,
+) {
   const declared = declaredLength(response);
   if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
     throw mismatch(distRelative, `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`);
@@ -213,7 +254,11 @@ async function readBoundedBody(response, distRelative) {
   let total = 0;
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readStreamChunk(
+        reader,
+        distRelative,
+        readTimeoutMs,
+      );
       if (done) break;
       const size = value?.byteLength ?? 0;
       total += size;
@@ -225,13 +270,25 @@ async function readBoundedBody(response, distRelative) {
       }
       chunks.push(Buffer.from(value));
     }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("live shell asset")) {
+      throw error;
+    }
+    const detail = error instanceof Error ? error.message : "body read failed";
+    throw mismatch(distRelative, detail);
   } finally {
     await reader.cancel().catch(() => undefined);
   }
   return Buffer.concat(chunks, total);
 }
 
-async function assertLiveAsset(asset, pagesBase, fetcher, timeoutMs) {
+async function assertLiveAsset(
+  asset,
+  pagesBase,
+  fetcher,
+  timeoutMs,
+  readTimeoutMs,
+) {
   const url = new URL(asset.relative, pagesBase);
   let response;
   try {
@@ -245,10 +302,11 @@ async function assertLiveAsset(asset, pagesBase, fetcher, timeoutMs) {
     throw mismatch(asset.relative, detail);
   }
   if (!response?.ok) {
+    await releaseResponseBody(response);
     const status = response?.status ?? "error";
     throw mismatch(asset.relative, `HTTP ${status}`);
   }
-  const body = await readBoundedBody(response, asset.relative);
+  const body = await readBoundedBody(response, asset.relative, readTimeoutMs);
   const live = createHash("sha256").update(body).digest("hex");
   if (live !== asset.sha256) {
     throw mismatch(
@@ -258,9 +316,15 @@ async function assertLiveAsset(asset, pagesBase, fetcher, timeoutMs) {
   }
 }
 
-async function assertLiveShellAssets(assets, pagesBase, fetcher, timeoutMs) {
+async function assertLiveShellAssets(
+  assets,
+  pagesBase,
+  fetcher,
+  timeoutMs,
+  readTimeoutMs,
+) {
   for (const asset of assets) {
-    await assertLiveAsset(asset, pagesBase, fetcher, timeoutMs);
+    await assertLiveAsset(asset, pagesBase, fetcher, timeoutMs, readTimeoutMs);
   }
 }
 
@@ -280,12 +344,21 @@ export async function pollLiveShellAssets(env, deps = {}) {
   const sleep = deps.sleep ?? delay;
   const now = deps.now ?? Date.now;
   const fetcher = deps.fetch ?? fetch;
+  const fetchTimeoutMs = deps.fetchTimeoutMs ?? FETCH_TIMEOUT_MS;
+  const readTimeoutMs = deps.readTimeoutMs ?? FETCH_TIMEOUT_MS;
   const started = now();
   await pollUntilDeadline(
     deadlineMs,
     pollMs,
     sleep,
-    () => assertLiveShellAssets(assets, pagesBase, fetcher, FETCH_TIMEOUT_MS),
+    () =>
+      assertLiveShellAssets(
+        assets,
+        pagesBase,
+        fetcher,
+        fetchTimeoutMs,
+        readTimeoutMs,
+      ),
     now,
   );
   const elapsedMs = now() - started;

@@ -16,6 +16,7 @@ on:
       - "scripts/ci/headless-browser-benchmark-support.mjs"
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
+      - "scripts/release/cd-pwa-preview-smoke/**"
       - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-cd-workflows.promotion-gates.mjs"
       - "scripts/release/npm-local-package-smoke.mjs"
