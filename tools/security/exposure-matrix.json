@@ -2,6 +2,28 @@
   "version": 1,
   "surfaces": [
     {
+      "id": "identity-host-authorization-membership",
+      "kind": "artifact",
+      "area": "host-admission",
+      "flow": "host-authorization-membership",
+      "observer": "authenticated",
+      "artifacts": ["authority-api"],
+      "verification": "signature",
+      "controls": ["mandatory-proof", "recipient-bound", "step-up"],
+      "guarantees": ["single-use", "expiry", "revocation"],
+      "enforcement": "authoritative",
+      "entropyBits": 0,
+      "minSecretBytes": 0,
+      "budget": null,
+      "implementation": [
+        "packages/control-plane/src/services/host-authorization.ts"
+      ],
+      "regressions": [
+        "packages/control-plane/src/__tests__/host-authorization.test.ts"
+      ],
+      "review": "Identity captures the live membership incarnation and authority revision before issuing the WebAuthn transaction challenge, requires the same active revision after verification, and signs both into the purpose-bound Host assertion. A stale ceremony is spent and refused. This row does not claim that TypeScript refines a mechanized model or that Identity alone enforces Host storage atomicity."
+    },
+    {
       "id": "hosted-secret-drop",
       "kind": "online",
       "area": "hosted-drop",
@@ -1281,6 +1303,26 @@
     }
   ],
   "sources": {
+    "packages/control-plane/src/__tests__/host-authorization.test.ts": [
+      "2403af19",
+      "c5a0ea5b",
+      "b93731f4",
+      "59aff8d0",
+      "a007a9dc",
+      "a5561fb1",
+      "75fa080c",
+      "85ae61e9"
+    ],
+    "packages/control-plane/src/services/host-authorization.ts": [
+      "5b773487",
+      "8d8d334b",
+      "19416c32",
+      "6c432ed8",
+      "bcbb442e",
+      "688efdc4",
+      "98f7956d",
+      "adb0ea15"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",

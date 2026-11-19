@@ -463,3 +463,20 @@ identity, the temporary-project owner fallback, concurrent changes between a
 check and a write, database consistency, malformed runtime values, and the
 correctness of external libraries. Existing browser, integration, adversarial,
 compiler, fuzz, and Kani checks remain necessary in their own scopes.
+
+**HOST-M1 — Host authorization retains membership authority (unproved).**
+Identity captures the organization-membership incarnation and authority
+revision before issuing its WebAuthn transaction challenge, re-reads the active
+membership after the assertion, refuses any changed or withdrawing revision,
+and signs the captured pair into the purpose-bound Host evidence. The Host is
+required to canonical-validate the pair, require it to match an already
+revision-bound session outside browser-authentication bootstrap, and bind
+bootstrap evidence to the browser client in the same transaction that consumes
+the challenge, provided no matching withdrawal tombstone exists. That Host side
+is not part of this revision: the in-repository gateway's `HostEvidence`
+denies unknown claims, so it refuses this evidence until the revision-aware
+Host is deployed. The Identity focused regressions exercise stale ceremonies,
+withdrawal, and single-use behavior. There is no Lean or Kani model
+for this cross-plane protocol, its SQL transaction, WebAuthn cryptography, or
+JWT implementation; those claims remain **unproved** beyond source review and
+executable tests.
