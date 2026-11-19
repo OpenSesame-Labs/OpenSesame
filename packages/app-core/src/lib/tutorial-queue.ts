@@ -213,15 +213,21 @@ export function listQueuedTutorials(): readonly QueuedTutorial[] {
   return loadGoals().map((goalId) => ({ goalId }));
 }
 
-/** Replace the queue with validated registry ids, capped at {@link LIMIT}. */
+/** Durable ids in storage, including optional goals not currently registered. */
+export function storedQueuedGoalIds(): readonly string[] {
+  return loadStoredGoalIds();
+}
+
+/** Replace or extend the queue; keeps stored ids when contributions are unloaded. */
 export function setQueuedTutorials(goalIds: readonly string[]): void {
-  const cleaned: string[] = [];
+  const prior = loadStoredGoalIds();
+  const merged = new Set(prior);
   for (const goalId of goalIds) {
-    if (!ID.test(goalId) || guideGoal(goalId) === null) continue;
-    if (cleaned.includes(goalId)) continue;
-    cleaned.push(goalId);
+    if (!ID.test(goalId)) continue;
+    if (guideGoal(goalId) === null && !prior.includes(goalId)) continue;
+    merged.add(goalId);
   }
-  store(cleaned.slice(-LIMIT));
+  store([...merged].slice(-LIMIT));
 }
 
 export function sessionTutorialsPaused(): boolean {

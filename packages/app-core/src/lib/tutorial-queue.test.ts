@@ -10,7 +10,9 @@ import {
   queueTutorial,
   resumeTutorialFromNotice,
   sessionTutorialsPaused,
+  setQueuedTutorials,
   setSessionTutorialsPaused,
+  storedQueuedGoalIds,
   subscribeSessionTutorialsPaused,
   tutorialQueueSeams,
   tutorialsMaySpeak,
@@ -199,6 +201,20 @@ describe("tutorial queue", () => {
     expect(listQueuedTutorials().length).toBeGreaterThan(1);
   });
 
+  it("setQueuedTutorials keeps stored ids when the goal is not in the registry", () => {
+    tutorialQueueSeams.write(
+      JSON.stringify({ goals: ["feature.unloaded", "vault.lock"] }),
+    );
+    setQueuedTutorials(["settings.danger.review", "vault.lock"]);
+    expect(storedQueuedGoalIds()).toEqual(
+      expect.arrayContaining([
+        "feature.unloaded",
+        "vault.lock",
+        "settings.danger.review",
+      ]),
+    );
+  });
+
   it("does not repost resume when live queueableGoal fails on refresh", () => {
     expect(queueTutorial("vault.item.accounts", { title: "Accounts" })).toBe(
       true,
@@ -211,6 +227,7 @@ describe("tutorial queue", () => {
       ),
     ).toBe(false);
     expect(listQueuedTutorials()).toEqual([{ goalId: "vault.item.accounts" }]);
+    expect(JSON.parse(raw ?? "{}").goals).toContain("vault.item.accounts");
     clearNotices();
     installTutorialQueueLibraryOptions({});
   });
