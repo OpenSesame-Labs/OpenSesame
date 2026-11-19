@@ -1368,3 +1368,20 @@
     margin-top: 0;
   }
 }
+
+/* Keep the failure detail and rotation action as separate touch targets. */
+.rotation-panel__actions > [data-touch-twin] {
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  /* Reserve the target before the status mark's touch handler is installed. */
+  .rotation-panel__actions > .status-mark {
+    box-sizing: border-box;
+    width: 2.75rem;
+    min-width: 44px;
+    height: 2.75rem;
+    min-height: 44px;
+    padding: 0;
+  }
+}
