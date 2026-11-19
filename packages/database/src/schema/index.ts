@@ -48,6 +48,9 @@ export const principals = pgTable(
       mode: "date",
     }),
     version: integer("version").notNull().default(1),
+    sessionAuthorityVersion: integer("session_authority_version")
+      .notNull()
+      .default(0),
     ...timestamps,
   },
   (t) => [
