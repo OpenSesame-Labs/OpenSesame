@@ -1,5 +1,4 @@
 import {
-  AUDIT_CHAIN_GENESIS,
   appendAuditEvent,
   auditEventDigest,
   redactAuditMetadata,
@@ -87,20 +86,6 @@ async function linkedAudit(
     event.digest !== auditEventDigest(event, event.previousDigest)
   )
     return false;
-  let previous = event.previousDigest;
-  const visited = new Set<string>([event.digest ?? ""]);
-  while (previous !== AUDIT_CHAIN_GENESIS) {
-    if (visited.has(previous)) return false;
-    visited.add(previous);
-    const predecessor = await ctx.repos.auditEvents.getByDigest(previous);
-    if (
-      !predecessor?.previousDigest ||
-      predecessor.digest !==
-        auditEventDigest(predecessor, predecessor.previousDigest)
-    )
-      return false;
-    previous = predecessor.previousDigest;
-  }
   return true;
 }
 

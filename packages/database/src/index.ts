@@ -49,7 +49,6 @@ export {
   createEventSealer,
   eventSealSecret,
 } from "./event-seal.js";
-export type { MemoryStoreFork } from "./memory-transaction.js";
 export { runMigrations } from "./migrate.js";
 export { internalSecurityPrincipal } from "./oidc-internal-scope.js";
 export { oidcLookup, openOidcRow, sealOidcRow } from "./oidc-seal.js";

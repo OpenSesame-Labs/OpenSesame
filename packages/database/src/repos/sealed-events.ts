@@ -149,10 +149,6 @@ function sealedAudit(
       const event = await base.getById(id);
       return event ? open(event) : null;
     },
-    getByDigest: async (digest) => {
-      const event = await base.getByDigest(digest);
-      return event ? open(event) : null;
-    },
     list: async (filter) => (await base.list(filter)).map(open),
   });
 }
