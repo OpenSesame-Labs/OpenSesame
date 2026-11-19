@@ -9,7 +9,6 @@ import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
 import { useRotationPanel } from "./use-rotation-panel.js";
-import "./rotation-panel.css";
 
 function date(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
