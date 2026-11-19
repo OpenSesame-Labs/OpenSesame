@@ -46,7 +46,9 @@ it("leads with a passkey and names PIN only as the PRF fallback", () => {
   );
   expect(FIRST_VAULT_GATE_GUIDE).not.toContain('focus "unlock.seal-pin"');
   expect(FIRST_VAULT_GATE_GUIDE).toContain('focus "unlock.seal-actions"');
-  expect(FIRST_VAULT_GATE_GUIDE).toContain("If Passkey is available");
+  expect(FIRST_VAULT_GATE_GUIDE).toContain(
+    "If it fails or is unavailable, select PIN, then Next.",
+  );
   expect(FIRST_VAULT_GATE_GUIDE).toContain('focus "unlock.seal-pin-entry"');
   expect(FIRST_VAULT_GATE_GUIDE).toContain(
     'wait state "vault.unlocked" is=true',
