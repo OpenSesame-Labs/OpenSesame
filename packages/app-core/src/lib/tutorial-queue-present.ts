@@ -180,7 +180,12 @@ export function noteTutorialDeclined(goalId: string, title: string): boolean {
 /** Tray rows for queued goals only — does not touch the session pause question. */
 export function refreshQueuedTutorialTrayNotices(): void {
   for (const item of listQueuedTutorials()) {
-    if (guideGoal(item.goalId) === null) continue;
+    const goal = guideGoal(item.goalId);
+    if (goal === null) continue;
+    if (!queueableGoal(item.goalId)) {
+      dropQueueNotice(item.goalId);
+      continue;
+    }
     postQueuedTutorialNotice(item.goalId, TRAY_ONLY_NOTICE);
   }
 }
