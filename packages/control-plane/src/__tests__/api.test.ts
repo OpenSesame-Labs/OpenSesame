@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
 import { hostRevocationResponseFor } from "./scim-test-helpers.js";
+
 interface DeviceApprovalHeaders {
   origin?: string;
 }
