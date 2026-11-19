@@ -177,9 +177,15 @@ function resolveVerifier(
   data: z.infer<typeof wirePendingSchema>,
   secret?: string,
 ): string | undefined {
-  if (data.verifier !== undefined) return data.verifier;
-  if (data.verifierEnc === undefined || secret === undefined) return undefined;
-  return unsealVerifier(data.verifierEnc, secret, data.state, data.nonce);
+  const hasPlain = data.verifier !== undefined;
+  const hasSealed = data.verifierEnc !== undefined;
+  if (hasPlain && hasSealed) return undefined;
+  if (hasSealed) {
+    if (secret === undefined) return undefined;
+    return unsealVerifier(data.verifierEnc, secret, data.state, data.nonce);
+  }
+  if (hasPlain) return data.verifier;
+  return undefined;
 }
 
 function pendingFromWire(
