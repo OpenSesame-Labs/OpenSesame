@@ -1190,7 +1190,7 @@ fn session_for(
     organization_id: opensesame_domain::OrganizationId,
     role: opensesame_domain::OrganizationRole,
 ) -> String {
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = format!("fixture_{}", uuid::Uuid::new_v4());
     state.sessions.lock().expect("lock").insert(
         opensesame_claims::hash_secret(&id),
         crate::session_claims::fixture(

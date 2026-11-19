@@ -37,7 +37,7 @@ pub struct DevicePending {
     pub user_code_hash: String,
     pub client_id: String,
     pub scope: String,
-    pub expires_at: opensesame_time::DateTime<opensesame_time::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
     pub approved: Option<ApprovedDevice>,
 }
 
@@ -77,13 +77,8 @@ pub struct AppState {
     /// kept as a leak with a name on it. A slow reader lags and is told so; it
     /// never grows the buffer for everybody else.
     pub session_channels: Arc<Mutex<HashMap<opensesame_domain::SessionId, SessionChannel>>>,
-    pub device_codes: Arc<Mutex<HashMap<String, DevicePending>>>,
     /// Pending GitHub App Manifest handshakes (state → org + `return_to`).
     pub github_app_pending: Arc<Mutex<HashMap<String, GithubAppPending>>>,
-    /// Serializes device-token minting with principal/org session revocation.
-    pub session_lifecycle: Arc<Mutex<()>>,
-    /// Timestamps of failed `user_code` approval guesses (global cooldown fence).
-    pub device_approve_failures: Arc<Mutex<Vec<opensesame_time::DateTime<opensesame_time::Utc>>>>,
     pub claims: Arc<Mutex<HashMap<String, ClaimSession>>>,
     pub(crate) public_enrollment: Arc<Mutex<crate::middleware::public_enrollment::Budgets>>,
     /// `claim_id` -> failed user-code attempts on completion (brute-force fence).
@@ -94,6 +89,10 @@ pub struct AppState {
     pub connection_ref: Option<ConnectionRef>,
     /// Third-party service authorizations (ADR 0032).
     pub connection_broker: Arc<ConnectionBroker>,
+    /// Relay holder liveness: subject -> last heartbeat. Process-local on
+    /// purpose — a restart forgets everyone, and an unknown holder is
+    /// *offline*, which is the fail-closed direction (ADR 0046 decision 5).
+    pub relay_presence: Arc<Mutex<std::collections::HashMap<String, std::time::Instant>>>,
     /// Development-only process-local CA when no sealing key is configured.
     /// Production and persisted CAs never use this fallback.
     pub ephemeral_certificate_ca: Arc<Mutex<Option<crate::dev_pki::DevCa>>>,
@@ -189,6 +188,8 @@ async fn build_with_security(
     } else {
         Db::connect_sqlite(&args.database_url).await?
     };
+    crate::native_authority::bind_configuration(db.pool(), &args.resource, &security.claim_pepper)
+        .await?;
     // Before anything writes an event: they rest sealed (ADR 0157).
     let broker_config = BrokerConfig::from_env()?;
     let production = security.deployment.production_safeguards();
@@ -232,10 +233,7 @@ async fn build_with_security(
         broker: Arc::new(boot.broker),
         sessions: Arc::new(Mutex::new(HashMap::new())),
         session_channels: Arc::new(Mutex::new(HashMap::new())),
-        device_codes: Arc::new(Mutex::new(HashMap::new())),
         github_app_pending: Arc::new(Mutex::new(HashMap::new())),
-        session_lifecycle: Arc::new(Mutex::new(())),
-        device_approve_failures: Arc::new(Mutex::new(Vec::new())),
         claims: Arc::new(Mutex::new(HashMap::new())),
         public_enrollment: Arc::new(Mutex::new(
             crate::middleware::public_enrollment::Budgets::default(),
@@ -246,6 +244,7 @@ async fn build_with_security(
         openbao,
         connection_ref: boot.connection_ref,
         connection_broker,
+        relay_presence: Arc::new(Mutex::new(std::collections::HashMap::new())),
         ephemeral_certificate_ca: Arc::new(Mutex::new(None)),
         connection_organization,
         operator_token: security.operator_token,
@@ -363,7 +362,7 @@ pub fn test_session_headers(
     organization_id: OrganizationId,
     organization_role: OrganizationRole,
 ) -> axum::http::HeaderMap {
-    let token = uuid::Uuid::new_v4().to_string();
+    let token = format!("fixture_{}", uuid::Uuid::new_v4());
     state.sessions.lock().unwrap().insert(
         opensesame_claims::hash_secret(&token),
         crate::session_claims::fixture(
