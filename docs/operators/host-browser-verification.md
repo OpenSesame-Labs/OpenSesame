@@ -32,14 +32,10 @@ the exact run and transition.
   passkey. An adopted bearer held only by Pages is not forwarded through the
   popup. A missing Identity session is a refusal, never an unverified success.
 
-Roll out the membership protocol in three phases:
-
-1. Deploy Identity's revision-bound withdrawal support first.
-2. Pause membership mutations, then drain or upgrade every Host backend to a
-   build that understands revision-bearing WebAuth assertions. Keep mutations
-   paused while any legacy Host remains in the serving fleet.
-3. Only after the Host fleet is homogeneous, enable Identity's new WebAuth
-   assertion fields and resume mutations.
+Follow the [membership-withdrawal rollout](health-and-operations.md#membership-withdrawal-rollout)
+before enabling revision-bound approvals. It pauses membership mutations,
+directory reconciliation and approvals, drains old work, and verifies the
+entire Host and Identity fleet before resuming.
 
 A legacy Host rejects the new assertion rather than ignoring its authority
 binding, so browser authentication can be temporarily unavailable if phase 3
