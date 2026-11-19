@@ -68,7 +68,7 @@ import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
-import { resumePendingOrganizationWithdrawals } from "./services/organization-withdrawal.js";
+import { resumePendingOrganizationWithdrawals } from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
 import { createAppStores } from "./state.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
