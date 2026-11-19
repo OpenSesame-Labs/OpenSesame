@@ -11,8 +11,8 @@
  * the trunk mise tool cache (GHCR: node and rust keys; PWA and npm CLI: the node
  * key) and must not save it.
  *
- * pr-visual-evidence.yml checks out an untrusted pull-request head in the same
- * job before mise-action, so that install keeps the Actions cache off.
+ * The PR visual and Rust evidence workflows check out an untrusted pull-request
+ * head before mise-action, so those installs keep the Actions cache off.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -31,7 +31,11 @@ export function miseCacheDisabledForWorkflow(name) {
     return false;
   }
   if (/^(?:cd-|release-|candidate-)/u.test(name)) return true;
-  if (name === "dependency-review.yml" || name === "pr-visual-evidence.yml") {
+  if (
+    name === "dependency-review.yml" ||
+    name === "pr-visual-evidence.yml" ||
+    name === "pr-rust-security-evidence.yml"
+  ) {
     return true;
   }
   const text = readFileSync(join(workflowDir, name), "utf8");
