@@ -20,10 +20,18 @@ const SLOT_TWO: &str = "two.witness";
 const IDENTITY_ONE: &str = "one.identity";
 const IDENTITY_TWO: &str = "two.identity";
 
+fn commitment_unbound(commitment: &[u8; 32]) -> bool {
+    *commitment == [0; 32]
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub(crate) struct EntryWitness {
     pub revision: u64,
     pub deleted: bool,
+    /// BLAKE3 of the exact attachment-manifest plaintext. Unbound for entries,
+    /// tombstones, and the attachment namespace marker.
+    #[serde(default, skip_serializing_if = "commitment_unbound")]
+    pub commitment: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -87,6 +95,7 @@ impl StoreRoot {
             return Ok(EntryWitness {
                 revision,
                 deleted: true,
+                commitment: [0; 32],
             });
         }
         let opened = open_osseal_for_path(
@@ -103,6 +112,7 @@ impl StoreRoot {
         Ok(EntryWitness {
             revision,
             deleted: false,
+            commitment: [0; 32],
         })
     }
 
@@ -134,6 +144,7 @@ impl StoreRoot {
                 EntryWitness {
                     revision: 1,
                     deleted: false,
+                    commitment: [0; 32],
                 },
             );
         }
@@ -290,6 +301,7 @@ impl StoreRoot {
             EntryWitness {
                 revision: next,
                 deleted: false,
+                commitment: [0; 32],
             },
         );
         witness.epoch = witness

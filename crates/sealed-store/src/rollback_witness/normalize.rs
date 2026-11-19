@@ -10,16 +10,26 @@ pub(super) fn entries(
     let mut normalized: BTreeMap<String, EntryWitness> = BTreeMap::new();
     for (name, candidate) in original {
         let identity = crate::store::revision_identity(&name)?;
-        normalized
-            .entry(identity)
-            .and_modify(|current| {
-                if candidate.revision > current.revision {
-                    *current = candidate;
-                } else if candidate.revision == current.revision {
-                    current.deleted |= candidate.deleted;
+        if let Some(current) = normalized.get_mut(&identity) {
+            if candidate.revision > current.revision {
+                *current = candidate;
+            } else if candidate.revision == current.revision {
+                if current.commitment != candidate.commitment
+                    && current.commitment != [0; 32]
+                    && candidate.commitment != [0; 32]
+                {
+                    return Err(StoreError::Crypto(
+                        "rollback witness bindings disagree at the same revision".into(),
+                    ));
                 }
-            })
-            .or_insert(candidate);
+                if current.commitment == [0; 32] {
+                    current.commitment = candidate.commitment;
+                }
+                current.deleted |= candidate.deleted;
+            }
+        } else {
+            normalized.insert(identity, candidate);
+        }
     }
     Ok(normalized)
 }

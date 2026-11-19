@@ -168,7 +168,11 @@ fn removal_tombstone_survives_fresh_clone_and_interrupted_unlink() {
     // Model a clone, where the local map is not tracked in Git.
     std::fs::remove_file(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap();
     // Model a stop after the tombstone but before the manifest unlink.
-    assert_eq!(root.next_attachment_revision("One/scan", &key).unwrap(), 2);
+    assert_eq!(
+        root.next_attachment_revision("One/scan", &key, None)
+            .unwrap(),
+        2
+    );
     assert!(get(&root, &key, "One/scan").is_err());
     root.attach_rm("One/scan", &key).unwrap();
     assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 3);
@@ -222,7 +226,8 @@ fn explicit_recovery_preserves_an_interrupted_non_git_attachment() {
     add(&root, &key, "One/scan", b"first");
     let rel = attach_relative("One/scan").unwrap();
     let old = confined_read(&root.path, &rel).unwrap();
-    root.next_attachment_revision("One/scan", &key).unwrap();
+    root.next_attachment_revision("One/scan", &key, None)
+        .unwrap();
     assert!(get(&root, &key, "One/scan").is_err());
     assert!(root
         .recover_attachment_trusting_ciphertext("One/scan", &ItemDataKey::generate())
@@ -243,7 +248,7 @@ fn interrupted_new_attachment_can_be_replaced_from_its_source() {
     let (_dir, root, key) = store();
     root.attachment_witness_ready(&key).unwrap();
     let path = root.path.join(attach_relative("One/scan").unwrap());
-    root.advance_attachment_witness("One/scan", &path, &key, 0)
+    root.advance_attachment_witness("One/scan", &path, &key, 0, None)
         .unwrap();
     assert!(root.attach_ls(None, &key).is_err());
     assert!(root.attach_gc(&key).is_err());

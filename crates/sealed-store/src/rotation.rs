@@ -184,9 +184,11 @@ pub(crate) fn rotate_store_root_with_callbacks(
     // lock and staging guard still exclude ordinary store operations.
     outcome.delivery_error = committed(&outcome).err();
 
-    // Slot one and its marker already authenticate the committed key. Restore
-    // redundancy only after delivery so this I/O cannot hold the keys back.
-    if let Some(witness) = &plan.witness {
+    // Slot one and its marker already authenticate the committed key. Bind
+    // resealed manifests, then restore redundancy. This I/O stays after
+    // delivery so it cannot hold one-time keys back.
+    if let Some(witness) = plan.witness.as_mut() {
+        store.rebind_rotated_attachments(witness, &new_key)?;
         let _ = store.finish_rekeyed_witness(witness, &new_key);
     }
 
