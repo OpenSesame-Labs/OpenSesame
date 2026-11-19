@@ -6,13 +6,13 @@ import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, expect, it, vi } from "vitest";
 import type { AppContext } from "../context.js";
 import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
-import type { MfaCodeSendWindow } from "../state.js";
 import { chargeMagicLinkBudget } from "../services/magic-link-budget.js";
 import {
   type MagicLinkExchange,
   consumeMagicLinkExchange,
   issueMagicLinkExchange,
 } from "../services/magic-link-exchange.js";
+import type { MfaCodeSendWindow } from "../state.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 
 vi.setConfig({ testTimeout: 60_000 });

@@ -29,6 +29,7 @@ import {
 } from "../services/magic-link-return.js";
 
 type NodeEnv = { Bindings: HttpBindings };
+type AuthRouter = Hono<{ Variables: Variables } & NodeEnv>;
 
 /**
  * The Better Auth mount (C20 / D16 / ADR 0057).
@@ -86,23 +87,7 @@ const proofSchema = z.object({
  */
 const MINT_REFUSALS = new Set(["rate_limited", "provisional_capacity"]);
 
-export function createUpstreamAuthRoutes(
-  ctx: AppContext,
-): Hono<{ Variables: Variables } & NodeEnv> {
-  const routes = new Hono<{ Variables: Variables } & NodeEnv>();
-  // The handlers use the `ctx` this router was built with rather than
-  // `c.get("ctx")`: the middleware puts the same object on every request, and
-  // reading it from the closure is what binds the Better Auth instance and the
-  // mailer seam to one control plane.
-  //
-  // `upstreamAuthFor` is deliberately NOT called here. It is memoized per
-  // context, so the mount and the interaction sub-router already share one
-  // instance; building it at mount time would only mean every deployment that
-  // never sends a magic link still pays for a Better Auth init, and fails at
-  // boot on a configuration Better Auth dislikes but this API never consults.
-
-  // Rebuild the allowed request with server-validated metadata. A caller cannot
-  // attach its own hosted-interaction id or change the signed return target.
+function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
   routes.post("/sign-in/magic-link", async (c) => {
     const parsed = requestSchema.safeParse(
       await c.req.json().catch(() => null),
@@ -131,32 +116,32 @@ export function createUpstreamAuthRoutes(
     };
     const headers = new Headers(c.req.raw.headers);
     headers.delete("content-length");
-    const request = new Request(c.req.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email, metadata }),
-    });
-    return upstreamAuthFor(ctx).auth.handler(request);
+    return upstreamAuthFor(ctx).auth.handler(
+      new Request(c.req.url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email, metadata }),
+      }),
+    );
   });
+}
 
-  /** Opening a link alone cannot consume it; the person confirms the sign-in. */
+function installMagicLinkConfirmation(
+  routes: AuthRouter,
+  ctx: AppContext,
+): void {
   routes.get("/magic-link/complete", (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
     c.header("content-security-policy", magicLinkConfirmationCsp(ctx));
     return c.html(magicLinkConfirmationHtml);
   });
-
-  /** Verify the email proof and return only a verifier-bound one-use code. */
   routes.post("/magic-link/complete", async (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
     const form = await c.req.formData().catch(() => undefined);
     const tokens = form?.getAll("token") ?? [];
     const returns = form?.getAll("return") ?? [];
-    // One answer for a token that never existed, one that expired, and one that
-    // was already spent: distinguishing them tells a holder of a random string
-    // which part of it was nearly right.
     const invalid = () =>
       c.json({ error: "invalid_token" } as const, 401 as const);
     if (tokens.length !== 1 || returns.length !== 1) return invalid();
@@ -168,10 +153,8 @@ export function createUpstreamAuthRoutes(
     const { token } = proof.data;
     const continuation = openMagicLinkReturn(ctx, token, proof.data.return);
     if (!continuation) return invalid();
-
     const subject = await verifyMagicLinkToken(ctx, token);
     if (!subject) return invalid();
-
     const callback = approvedMagicCallback(ctx, continuation.callback);
     if (!callback) return invalid();
     const code = await issueMagicLinkExchange(
@@ -185,7 +168,9 @@ export function createUpstreamAuthRoutes(
     callback.searchParams.set("magic_state", continuation.state);
     return c.redirect(callback.toString(), 303);
   });
+}
 
+function installMagicLinkExchange(routes: AuthRouter, ctx: AppContext): void {
   routes.post("/magic-link/exchange", async (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
@@ -220,6 +205,26 @@ export function createUpstreamAuthRoutes(
       throw error;
     }
   });
+}
+
+export function createUpstreamAuthRoutes(
+  ctx: AppContext,
+): Hono<{ Variables: Variables } & NodeEnv> {
+  const routes = new Hono<{ Variables: Variables } & NodeEnv>();
+  // The handlers use the `ctx` this router was built with rather than
+  // `c.get("ctx")`: the middleware puts the same object on every request, and
+  // reading it from the closure is what binds the Better Auth instance and the
+  // mailer seam to one control plane.
+  //
+  // `upstreamAuthFor` is deliberately NOT called here. It is memoized per
+  // context, so the mount and the interaction sub-router already share one
+  // instance; building it at mount time would only mean every deployment that
+  // never sends a magic link still pays for a Better Auth init, and fails at
+  // boot on a configuration Better Auth dislikes but this API never consults.
+
+  installMagicLinkRequest(routes, ctx);
+  installMagicLinkConfirmation(routes, ctx);
+  installMagicLinkExchange(routes, ctx);
 
   routes.all("/*", async (c) => {
     const url = new URL(c.req.url);
