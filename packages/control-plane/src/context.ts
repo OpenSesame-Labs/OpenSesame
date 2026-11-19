@@ -22,7 +22,7 @@ import type { AppStores } from "./state.js";
 
 export type ControlPlaneRepositories = Omit<Repositories, "auditEvents"> & {
   auditEvents: AuditSink &
-    Pick<Repositories["auditEvents"], "getByDigest" | "getById" | "list">;
+    Pick<Repositories["auditEvents"], "getById" | "list">;
 };
 
 export interface AppContext {
