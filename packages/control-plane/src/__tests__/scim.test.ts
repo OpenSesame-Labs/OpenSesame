@@ -64,28 +64,23 @@ async function verified(app: App, subject: string) {
   expect(linked.status).toBe(201);
   return created;
 }
-
 let idp: ReferenceIdp;
 let restoreHost: () => void;
-
 beforeAll(async () => {
   idp = await startReferenceIdp();
   const mock = installHostRevocationMock();
   restoreHost = () => mock.mockRestore();
 }, 30_000);
-
 afterAll(async () => {
   restoreHost();
   await idp.close();
 });
-
 const seedTenant = (
   app: App,
   ctx: ReturnType<typeof createControlPlane>["ctx"],
   slug: string,
   issuer: string | null = idp.issuer,
 ) => seedTenantWithIssuer(app, ctx, slug, issuer);
-
 async function mintScimToken(app: App, orgId: string, ownerToken: string) {
   const res = await app.request(`/v1/organizations/${orgId}/scim/tokens`, {
     method: "POST",
