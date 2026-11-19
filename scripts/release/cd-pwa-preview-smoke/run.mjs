@@ -20,12 +20,14 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-function runHurl(name, variablesPath, retry, intervalMs) {
+function runHurl(name, variablesPath, retry, intervalMs, maxTimeSec) {
   const hurlBin = process.env.HURL_BIN ?? "hurl";
   const args = [
     "--test",
     "--variables-file",
     variablesPath,
+    "--max-time",
+    String(maxTimeSec),
     "--retry",
     String(retry),
     "--retry-interval",
@@ -63,7 +65,7 @@ async function main() {
   const cdn = cdnRetryBudget(process.env);
   const hurlStarted = Date.now();
   try {
-    runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
+    runHurl("pages.hurl", varPath, cdn.retries, cdn.intervalMs, cdn.maxTimeSec);
   } catch (error) {
     await writeSmokePhaseFailure(process.env, "hurl", error);
     if (error instanceof Error) error.phaseWritten = true;

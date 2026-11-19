@@ -50,9 +50,15 @@ export function cdnPollBudget(env) {
   return { deadlineMs, pollMs };
 }
 
+/** Hurl `--retry` is per request; keep retries inside one wall-clock CDN window. */
 export function cdnRetryBudget(env) {
   const { deadlineMs, pollMs } = cdnPollBudget(env);
-  return { attempts: Math.floor(deadlineMs / pollMs) + 1, intervalMs: pollMs };
+  const retries = Math.floor(deadlineMs / pollMs);
+  return {
+    retries,
+    intervalMs: pollMs,
+    maxTimeSec: Math.max(1, Math.ceil(deadlineMs / 1000)),
+  };
 }
 
 export function registryRetryBudget(env) {
