@@ -51,20 +51,17 @@ mod enabled {
     /// posture, not a stub to quietly widen later.
     struct GatewayEgress {
         broker: Arc<ConnectionBroker>,
-        organization: OrganizationId,
         registered_provider: String,
         handle: tokio::runtime::Handle,
     }
 
     pub(super) fn accepts_binding(
         binding: &InvocationBinding,
-        organization: OrganizationId,
         connection_ref: &str,
         registered_provider: &str,
     ) -> Option<ConnectionId> {
         let connection = binding.connection_id()?;
         if binding.is_delegated()
-            || binding.organization_id() != organization
             || binding.connection_policy_id() != connection_ref
             || registered_provider != connection_ref
             || binding.grant().connection_id != Some(connection)
@@ -78,24 +75,22 @@ mod enabled {
     #[cfg(test)]
     pub(super) fn bridge_for_test(
         broker: Arc<ConnectionBroker>,
-        organization: OrganizationId,
         registered_provider: &str,
     ) -> impl HostEgress {
         GatewayEgress {
             broker,
-            organization,
             registered_provider: registered_provider.to_owned(),
             handle: tokio::runtime::Handle::current(),
         }
     }
 
     impl GatewayEgress {
-        fn run_json(
+        fn run_egress(
             &self,
             connection_id: &str,
             binding: &InvocationBinding,
             req: &EgressRequest,
-        ) -> Result<serde_json::Value, String> {
+        ) -> Result<opensesame_connection_broker::OwnerEgressHttpResult, String> {
             let body = if req.body.is_empty() {
                 None
             } else {
@@ -104,10 +99,11 @@ mod enabled {
                         .map_err(|_| "request body must be JSON".to_owned())?,
                 )
             };
+            let organization = binding.organization_id();
             tokio::task::block_in_place(|| {
-                self.handle.block_on(self.broker.authorized_json_for_owner(
+                self.handle.block_on(self.broker.authorized_http_for_owner(
                     OwnerConnectionExpectation {
-                        organization_id: &self.organization,
+                        organization_id: &organization,
                         connection_id,
                         provider_id: &self.registered_provider,
                         owner_subject: binding.subject(),
@@ -131,18 +127,13 @@ mod enabled {
         ) -> Result<EgressResponse, String> {
             // The connector and provider share the registered manifest ID;
             // the durable connection is a separate, invocation-bound UUID.
-            let connection = accepts_binding(
-                binding,
-                self.organization,
-                connection_ref,
-                &self.registered_provider,
-            )
-            .ok_or_else(|| "invocation binding denied".to_owned())?;
-            let value = self.run_json(&connection.to_string(), binding, &req)?;
+            let connection = accepts_binding(binding, connection_ref, &self.registered_provider)
+                .ok_or_else(|| "invocation binding denied".to_owned())?;
+            let upstream = self.run_egress(&connection.to_string(), binding, &req)?;
             Ok(EgressResponse {
-                status: 200,
-                headers: vec![],
-                body: serde_json::to_vec(&value).unwrap_or_default(),
+                status: upstream.status,
+                headers: upstream.headers,
+                body: serde_json::to_vec(&upstream.json).unwrap_or_default(),
             })
         }
 
@@ -228,9 +219,9 @@ mod enabled {
             let manifest = ConnectorManifest::from_yaml(&manifest_text)
                 .with_context(|| format!("parse {}", manifest_path.display()))?;
             let registered_provider = manifest.metadata.id.clone();
+            let _ = organization;
             let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
                 broker: Arc::clone(broker),
-                organization,
                 registered_provider: registered_provider.clone(),
                 handle: tokio::runtime::Handle::current(),
             });

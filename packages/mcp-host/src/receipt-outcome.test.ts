@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { mockAgentHeaders } from "./agent-headers-fixture.js";
 import { resetFetchForTests, setFetchForTests } from "./host-api.js";
+import { projectInvocationResponse } from "./receipt-outcome.js";
 import { getTaskContext, setTaskContext } from "./task-context.js";
 import { registerHostTools } from "./tools.js";
 
@@ -45,6 +46,20 @@ function invokeHandler(): Handler {
   return toolHandler("task_invoke_l1");
 }
 
+describe("projectInvocationResponse", () => {
+  it.each(["failed", "denied", "cancelled"] as const)(
+    "refuses terminal %s without a receipt id",
+    (outcome) => {
+      expect(
+        projectInvocationResponse(true, {
+          outcome,
+          receipt_schema_version: 6,
+        }),
+      ).toEqual({ outcome: "indeterminate" });
+    },
+  );
+});
+
 describe("task_invoke_l1 receipt outcomes", () => {
   const originalHost = process.env.OPENSESAME_HOST_API;
 
@@ -71,6 +86,19 @@ describe("task_invoke_l1 receipt outcomes", () => {
     setTaskContext(null);
     if (originalHost === undefined) delete process.env.OPENSESAME_HOST_API;
     else process.env.OPENSESAME_HOST_API = originalHost;
+  });
+
+  it("preserves recovery material after uncertain delivery", async () => {
+    setFetchForTests(async () => new Response("not json", { status: 502 }));
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+    expect(getTaskContext()?.pendingInvocationRecovery).toMatchObject({
+      intentId: "i-1",
+      intentDigest: "sha256:abc",
+      operation: "read",
+      resource: "r1",
+    });
+    expect(getTaskContext()?.frozenIntent).toBeUndefined();
   });
 
   it("refuses success without a receipt id", async () => {
@@ -232,6 +260,9 @@ describe("task_invoke_l1 receipt outcomes", () => {
     expect(JSON.stringify(getTaskContext())).not.toContain(
       "private-frozen-nonce",
     );
+    expect(getTaskContext()?.frozenIntent?.reservedReceiptId).toBe(
+      "receipt:018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+    );
   });
 
   it("does not expose malformed frozen response bytes in an exception", async () => {
@@ -307,6 +338,27 @@ describe("task_invoke_l1 receipt outcomes", () => {
     expect(result.content[0]?.text).not.toContain("1-ssecca-ecar");
     expect(result.content[0]?.text).toContain("indeterminate");
     expect(getTaskContext()?.frozenIntent).toBeUndefined();
+  });
+
+  it("stores reserved receipt id on the task context after invoke", async () => {
+    const id = "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb";
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id,
+            outcome: "succeeded",
+            receipt_schema_version: 6,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(false);
+    expect(getTaskContext()?.pendingInvocationRecovery?.reservedReceiptId).toBe(
+      id,
+    );
+    expect(result.isError).toBe(false);
   });
 
   it("refuses a malformed receipt id without claiming success", async () => {
