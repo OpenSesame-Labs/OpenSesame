@@ -728,5 +728,11 @@ mod revision_tests;
 mod inventory_tests;
 
 #[cfg(test)]
-#[path = "attachment_pact_tests.rs"]
-mod pact;
+#[path = "attachment_pact_fixture.rs"]
+mod pact_fixture;
+#[cfg(test)]
+#[path = "attachment_pact_property_tests.rs"]
+mod pact_property;
+#[cfg(test)]
+#[path = "attachment_pact_stress_tests.rs"]
+mod pact_stress;

@@ -53,9 +53,9 @@ fn old_anchor_requires_explicit_whole_inventory_migration() {
     root.insert("entry", &Entry::parse("value"), &key).unwrap();
     add(&root, &key, b"one", false);
     let (id, mut witness) = root.current_witness(&key).unwrap();
-    witness.entries.retain(|name, _| {
-        name != ATTACHMENT_MARKER && !name.starts_with(ATTACHMENT_PREFIX)
-    });
+    witness
+        .entries
+        .retain(|name, _| name != ATTACHMENT_MARKER && !name.starts_with(ATTACHMENT_PREFIX));
     witness.epoch += 1;
     root.write_witness(&id, &key, &witness).unwrap();
     assert!(root.attach_get("Docs/file", &mut Vec::new(), &key).is_err());
@@ -296,7 +296,9 @@ fn rebind_failure_before_key_commit_leaves_the_old_key_file() {
         Ok(_) => panic!("rebind must fail before the key file is replaced"),
     };
     assert!(
-        error.to_string().contains("rollback witness epoch exhausted"),
+        error
+            .to_string()
+            .contains("rollback witness epoch exhausted"),
         "{error}"
     );
     assert_eq!(std::fs::read(&key_path).unwrap(), before);

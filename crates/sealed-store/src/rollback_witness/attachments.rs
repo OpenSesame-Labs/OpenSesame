@@ -346,15 +346,8 @@ impl StoreRoot {
         if !marked(&witness) {
             return Ok(None);
         }
-        self.advance_attachment_witness(
-            name,
-            path,
-            key,
-            minimum,
-            Some(manifest_plaintext),
-            true,
-        )
-        .map(Some)
+        self.advance_attachment_witness(name, path, key, minimum, Some(manifest_plaintext), true)
+            .map(Some)
     }
 
     /// Update `prepared` for resealed manifests. The caller publishes that witness

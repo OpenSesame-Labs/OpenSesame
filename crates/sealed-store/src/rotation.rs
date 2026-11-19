@@ -33,7 +33,7 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use opensesame_human_vault::root_protection::{
