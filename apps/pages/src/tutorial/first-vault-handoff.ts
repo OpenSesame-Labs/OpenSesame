@@ -34,7 +34,7 @@ export function takeFirstVaultGuide(): boolean {
   return result;
 }
 
-export function subscribeFirstVaultGuide(listener: () => void): () => void {
+function subscribeFirstVaultGuide(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
