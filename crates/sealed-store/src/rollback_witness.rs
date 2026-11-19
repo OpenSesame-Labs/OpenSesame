@@ -41,9 +41,17 @@ struct Witness {
     entries: BTreeMap<String, EntryWitness>,
 }
 
+#[derive(Clone)]
 pub(crate) struct WitnessRekey {
     store_id: String,
     witness: Witness,
+}
+
+impl WitnessRekey {
+    pub(crate) fn restore_from(&mut self, other: &Self) {
+        self.store_id.clone_from(&other.store_id);
+        self.witness = other.witness.clone();
+    }
 }
 
 fn hex(bytes: &[u8]) -> String {

@@ -321,7 +321,9 @@ fn commit(
     write_synced(&staging.join("plan.json"), &map)?;
     create_private_dir(&staging.join("old"))?;
 
-    let mut witness_rekey_started = false;
+    let pre_rebind_witness = plan.witness.clone();
+    let mut witness_rebind_started = false;
+    let mut witness_published_new_key = false;
     let result = swap_staged(root, staging, &plan.swaps).and_then(|()| {
         verify_nothing_left_behind(root, plan)?;
         let witness = plan
@@ -331,8 +333,9 @@ fn commit(
         store.rebind_rotated_attachments_prepared(witness, new_key, false)?;
         #[cfg(test)]
         ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.store(true, Ordering::Relaxed);
-        witness_rekey_started = true;
+        witness_rebind_started = true;
         store.write_rekeyed_witness(witness, new_key)?;
+        witness_published_new_key = true;
         // Revoke the old marker before committing the new key file. A crash
         // in this window requires explicitly verified recovery of the old key.
         store.mark_rotation_pending(witness, old_key)?;
@@ -343,13 +346,18 @@ fn commit(
     let Err(error) = result else {
         return Ok(());
     };
-    if witness_rekey_started
-        && plan
-            .witness
-            .as_ref()
-            .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
-    {
-        *stranded = true;
+    if witness_rebind_started {
+        if let (Some(prepared), Some(snapshot)) = (plan.witness.as_mut(), pre_rebind_witness.as_ref()) {
+            prepared.restore_from(snapshot);
+        }
+        if witness_published_new_key
+            && plan
+                .witness
+                .as_ref()
+                .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
+        {
+            *stranded = true;
+        }
     }
     // Undo every swap, last first; the old key file is still in place, so
     // putting the old ciphertext back returns the store to its previous state.
