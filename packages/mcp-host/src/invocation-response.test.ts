@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
-  MAX_FREEZE_INTENT_RESPONSE_BYTES,
   MAX_INVOCATION_RESPONSE_BYTES,
   readFreezeIntentResponse,
   readInvocationResponse,
