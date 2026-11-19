@@ -271,7 +271,10 @@ async function readBoundedBody(
       chunks.push(Buffer.from(value));
     }
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("live shell asset")) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("live shell asset")
+    ) {
       throw error;
     }
     const detail = error instanceof Error ? error.message : "body read failed";
