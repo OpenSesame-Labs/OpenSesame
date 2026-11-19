@@ -10,6 +10,7 @@ import {
   sealLocalOnly,
   waitOpen,
 } from "./pages-journey.mjs";
+import { customProfileEvidenceSteps } from "./setup-profile-evidence-order.mjs";
 import { assertProfileVaultDom } from "./setup-profile-vault-dom.mjs";
 import { visibleClick } from "./verification-checklist-shot.mjs";
 
@@ -225,6 +226,28 @@ export function profileMarkerKey(markers) {
   return JSON.stringify(markers);
 }
 
+/** Applied and Features shots, then the core-type repair when that button is up. */
+async function captureCustomProfileEvidence(page, dir, enableCoreCount) {
+  let applied = "";
+  let features = "";
+  let featureMarkers = null;
+  let rail = null;
+  for (const step of customProfileEvidenceSteps(enableCoreCount)) {
+    if (step === "applied") {
+      applied = path.join(dir, "setup-profile-applied.png");
+      await shotUnlockedApp(page, applied);
+    } else if (step === "features") {
+      const shot = await captureFeaturesShot(page, dir);
+      features = shot.features;
+      featureMarkers = shot.markers;
+    } else if (step === "enable-core") {
+      await enableCoreItemTypesIfOffered(page);
+      rail = await vaultRailMarkers(page);
+    }
+  }
+  return { applied, features, featureMarkers, rail };
+}
+
 async function commitSetupRoadChoice(page, profileId, check, dir) {
   const choice =
     profileId === "minimal"
@@ -285,30 +308,37 @@ export async function captureProfileAppliedVault(
       `${profileId} vault: core item types active without remediation (${JSON.stringify(rail)})`,
     );
   } else if (profileId === "custom") {
-    rail = await vaultRailMarkers(page);
     check(
       rail.passkey === 0 && rail.certificate === 0,
       `custom vault: passkey/certificate filters off before core enable (${JSON.stringify(rail)})`,
     );
-    if (rail.enableCore > 0) {
-      await enableCoreItemTypesIfOffered(page);
-      rail = await vaultRailMarkers(page);
-    }
+  }
+
+  const applied = path.join(dir, "setup-profile-applied.png");
+  let features;
+  let featureMarkers;
+  if (profileId === "custom") {
+    const evidence = await captureCustomProfileEvidence(
+      page,
+      dir,
+      rail.enableCore,
+    );
+    features = evidence.features;
+    featureMarkers = evidence.featureMarkers;
+    if (evidence.rail) rail = evidence.rail;
     check(
       rail.account > 0 && rail.card > 0 && rail.note > 0,
       `custom vault: account, card and note filters visible in rail (${JSON.stringify(rail)})`,
     );
+  } else {
+    const shot = await captureFeaturesShot(page, dir);
+    features = shot.features;
+    featureMarkers = shot.markers;
+    await shotUnlockedApp(page, applied);
   }
 
-  const { features, markers: featureMarkers } = await captureFeaturesShot(
-    page,
-    dir,
-  );
   const markers = { ...rail, ...featureMarkers };
   assertProfileVaultDom(profileId, markers, check);
-
-  const applied = path.join(dir, "setup-profile-applied.png");
-  await shotUnlockedApp(page, applied);
   check(existsSync(applied), `${profileId} setup-profile-applied.png`);
   check(existsSync(features), `${profileId} setup-profile-features.png`);
   return { file: applied, features, picker, markers };

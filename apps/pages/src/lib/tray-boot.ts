@@ -18,6 +18,7 @@ import {
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { dismissMinimalConfirm } from "../screens/setup/minimal-confirm.js";
 import { buildTutorialGateOptions } from "./tutorial-gate-options.js";
+import { FINE_POINTER_QUERY, NARROW_QUERY } from "./use-narrow.js";
 
 function syncTutorialQueueGate(): void {
   installTutorialQueueLibraryOptions(buildTutorialGateOptions());
@@ -41,6 +42,17 @@ function publishQueuedTutorialTray(): void {
     return;
   }
   refreshQueuedTutorialTrayNotices();
+}
+
+function listenForDeviceForm(query: string, onChange: () => void): void {
+  if (globalThis.window === undefined) return;
+  let list: MediaQueryList | null = null;
+  try {
+    list = window.matchMedia?.(query) ?? null;
+  } catch {
+    list = null;
+  }
+  list?.addEventListener("change", onChange);
 }
 
 /** Seal tray history and restore it once the at-rest key is ready (ADR 0163). */
@@ -76,4 +88,11 @@ export function bootTrayNotices(): void {
     syncTutorialQueueGate();
     refreshQueuedTutorialTrayNotices();
   });
+  // shell.narrow and shell.keys follow the viewport and the pointer.
+  const onDeviceForm = () => {
+    syncTutorialQueueGate();
+    publishQueuedTutorialTray();
+  };
+  listenForDeviceForm(NARROW_QUERY, onDeviceForm);
+  listenForDeviceForm(FINE_POINTER_QUERY, onDeviceForm);
 }
