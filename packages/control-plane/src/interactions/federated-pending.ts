@@ -291,9 +291,7 @@ export function encodePending(
 ): string {
   const sealVerifierOnWire = options?.sealVerifierOnWire === true;
   const body =
-    secret && sealVerifierOnWire
-      ? wirePendingBody(pending, secret)
-      : pending;
+    secret && sealVerifierOnWire ? wirePendingBody(pending, secret) : pending;
   const payload = Buffer.from(JSON.stringify(body), "utf8").toString(
     "base64url",
   );
