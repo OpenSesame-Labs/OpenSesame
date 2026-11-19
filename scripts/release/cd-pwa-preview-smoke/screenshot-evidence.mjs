@@ -191,8 +191,9 @@ async function writeFailureFiles(
   networkEntries,
   error,
 ) {
-  const message =
+  const raw =
     error instanceof Error ? error.message : "preview smoke capture failed";
+  const message = redactDiagnosticText(raw);
   const body = (entries) =>
     `${JSON.stringify({ error: message, entries }, null, 2)}\n`;
   await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));

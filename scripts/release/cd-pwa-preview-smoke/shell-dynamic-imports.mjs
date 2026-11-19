@@ -8,8 +8,9 @@ const STATIC_MODULE_FROM =
   /(?:^|[;,])import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
 const STATIC_EXPORT_FROM =
   /(?:^|[;,])export[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
-/** Side-effect-only `import"./chunk.js"`. */
-const STATIC_SIDE_EFFECT = /(?:^|[;,])import\s*["'](\.[^"']+\.m?js)["']/giu;
+/** Side-effect-only `import"./chunk.js"` / `import"./chunk.css"`. */
+const STATIC_SIDE_EFFECT =
+  /(?:^|[;,])import\s*["'](\.[^"']+\.(?:m?js|css))["']/giu;
 const CSS_URL = /url\(\s*(?:'([^']*)'|"([^"]*)"|([^"')]+))\s*\)/giu;
 
 function normalizeDistRelative(pathPart, ref) {
