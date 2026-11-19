@@ -678,7 +678,10 @@ paths:
   /sessions/revoke:
     post:
       summary: Revoke live and approved sessions for one principal in one organization
-      description: Internal Identity-to-Host operation used before a membership mutation completes.
+      description: >-
+        Internal Identity-to-Host operation used before a membership mutation completes.
+        Identity must verify the response's durable attestation and exact withdrawal tuple;
+        a legacy 200 response without that attestation is not a completed withdrawal.
       security: [{ HostOperatorBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -4501,15 +4504,22 @@ components:
         status: { type: string, const: approved }
     RevokeSessionsRequest:
       type: object
-      required: [principal_id, organization_id]
+      required: [principal_id, organization_id, membership_incarnation, authority_revision, withdrawal_id]
       properties:
         principal_id: { type: string }
         organization_id: { type: string }
+        membership_incarnation: { type: string, format: uuid }
+        authority_revision: { type: string, format: uuid }
+        withdrawal_id: { type: string, format: uuid }
     RevokeSessionsResponse:
       type: object
-      required: [revoked]
+      required: [revoked, durable, membership_incarnation, authority_revision, withdrawal_id]
       properties:
         revoked: { type: integer, minimum: 0 }
+        durable: { type: boolean, const: true }
+        membership_incarnation: { type: string, format: uuid }
+        authority_revision: { type: string, format: uuid }
+        withdrawal_id: { type: string, format: uuid }
     WhoAmI:
       type: object
       required: [principal_id, actor_id, client_id, issuer, assurance, organization_id, organization_role, context]

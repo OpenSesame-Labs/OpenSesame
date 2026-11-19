@@ -235,7 +235,14 @@ pub async fn revoke(
         }
     }
 
-    Json(json!({"revoked": revoked})).into_response()
+    Json(json!({
+        "revoked": revoked,
+        "durable": true,
+        "withdrawal_id": req.withdrawal_id,
+        "membership_incarnation": req.membership_incarnation,
+        "authority_revision": req.authority_revision,
+    }))
+    .into_response()
 }
 
 #[cfg(test)]
