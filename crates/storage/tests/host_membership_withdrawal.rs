@@ -12,6 +12,19 @@ fn withdrawal<'a>(id: &'a str, revision: &'a str) -> MembershipWithdrawal<'a> {
     }
 }
 
+fn agent_launch(handle: &str, now: i64) -> AgentLaunch<'_> {
+    AgentLaunch {
+        handle_digest: handle,
+        principal_id: "principal",
+        organization_id: "org",
+        client_id: "client",
+        audience: "audience",
+        resource: "resource",
+        capabilities_json: "[]",
+        now,
+    }
+}
+
 #[tokio::test]
 async fn withdrawal_is_idempotent_and_survives_reconnect() {
     let directory = tempfile::tempdir().unwrap();
@@ -77,17 +90,10 @@ async fn stale_withdrawal_does_not_revoke_a_rejoined_members_agent_launch() {
     db.activate_host_membership("org", "principal", "incarnation", "first")
         .await
         .unwrap();
-    let launch = |handle: &str, now| AgentLaunch {
-        handle_digest: handle,
-        principal_id: "principal",
-        organization_id: "org",
-        client_id: "client",
-        audience: "audience",
-        resource: "resource",
-        capabilities_json: "[]",
-        now,
-    };
-    assert!(db.create_agent_launch(&launch("old", 1)).await.unwrap());
+    assert!(db
+        .create_agent_launch(&agent_launch("old", 1))
+        .await
+        .unwrap());
     assert!(db
         .withdraw_host_membership(&withdrawal("withdrawal", "first"))
         .await
@@ -96,7 +102,10 @@ async fn stale_withdrawal_does_not_revoke_a_rejoined_members_agent_launch() {
     db.activate_host_membership("org", "principal", "incarnation", "second")
         .await
         .unwrap();
-    assert!(db.create_agent_launch(&launch("new", 2)).await.unwrap());
+    assert!(db
+        .create_agent_launch(&agent_launch("new", 2))
+        .await
+        .unwrap());
     assert!(!db
         .withdraw_host_membership(&withdrawal("withdrawal", "first"))
         .await
