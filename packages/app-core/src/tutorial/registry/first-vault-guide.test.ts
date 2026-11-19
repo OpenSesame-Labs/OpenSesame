@@ -2,6 +2,7 @@
 import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import { expect, it } from "vitest";
 import {
+  FIRST_VAULT_GATE_GUIDE,
   FIRST_VAULT_PACK_GUIDE,
   FIRST_VAULT_SHELL_GUIDE,
   FIRST_VAULT_SIGNIN_GUIDE,
@@ -24,6 +25,7 @@ it("compiles every first-vault continuation against the live catalog", () => {
       predicates: guidePredicateIds(),
     };
     for (const source of [
+      FIRST_VAULT_GATE_GUIDE,
       FIRST_VAULT_SHELL_GUIDE,
       FIRST_VAULT_PACK_GUIDE,
       FIRST_VAULT_SIGNIN_GUIDE,
@@ -35,4 +37,20 @@ it("compiles every first-vault continuation against the live catalog", () => {
   } finally {
     revoke();
   }
+});
+
+it("leads with a passkey and names PIN only as the PRF fallback", () => {
+  expect(FIRST_VAULT_GATE_GUIDE).toContain("Seal with passkey");
+  expect(FIRST_VAULT_GATE_GUIDE).toContain(
+    'wait target "unlock.seal-pin-entry" event=appear',
+  );
+  expect(FIRST_VAULT_GATE_GUIDE).not.toContain('focus "unlock.seal-pin"');
+  expect(FIRST_VAULT_GATE_GUIDE).toContain('focus "unlock.seal-actions"');
+  expect(FIRST_VAULT_GATE_GUIDE).toContain("If Passkey is available");
+  expect(FIRST_VAULT_GATE_GUIDE).toContain('focus "unlock.seal-pin-entry"');
+  expect(FIRST_VAULT_GATE_GUIDE).toContain(
+    'wait state "vault.unlocked" is=true',
+  );
+  expect(FIRST_VAULT_SHELL_GUIDE).toContain('focus "editor.generate-password"');
+  expect(FIRST_VAULT_SHELL_GUIDE).toContain('focus "item.copy-generated"');
 });

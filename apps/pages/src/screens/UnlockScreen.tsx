@@ -3,6 +3,7 @@ import {
   readAuthOutcome,
 } from "@opensesame/app-core/lib/auth-outcome.js";
 import { currentSession } from "@opensesame/app-core/lib/identity.js";
+import { dismissNotice } from "@opensesame/app-core/lib/notices.js";
 import { PERSONAL_PROJECT_ID } from "@opensesame/app-core/lib/projects.js";
 import type { FederatedProviderSummary } from "@opensesame/app-core/lib/providers.js";
 import { noWayIn } from "@opensesame/app-core/lib/settings.js";
@@ -177,6 +178,7 @@ function UnlockForm({
     sealPinEntryRef,
     sealPinConfirmRef,
     sealAckRef,
+    sealActionsRef,
   } = useUnlockTargets();
   const {
     status,
@@ -577,6 +579,7 @@ function UnlockForm({
                   disabled={lockedFor > 0}
                   onClick={() => {
                     cancelPasskeyCeremony();
+                    if (id === "pin") dismissNotice("unlock:authenticator");
                     setMethod(id);
                     setError(null);
                     setConfirm("");
@@ -747,50 +750,58 @@ function UnlockForm({
             </div>
           ) : null}
 
-          <FormNotes
-            firstRun={firstRun}
-            activeMethod={activeMethod}
-            acceptRef={acceptRef}
-            ackGuideRef={sealAckRef}
-            accepted={accepted}
-            setAccepted={setAccepted}
-            header={header}
-            awaitingSecondStep={awaitingSecondStep}
-            durable={durable}
-          />
+          <div
+            className="unlock__seal-actions"
+            ref={firstRun ? sealActionsRef : undefined}
+          >
+            <FormNotes
+              firstRun={firstRun}
+              activeMethod={activeMethod}
+              acceptRef={acceptRef}
+              ackGuideRef={sealAckRef}
+              accepted={accepted}
+              setAccepted={setAccepted}
+              header={header}
+              awaitingSecondStep={awaitingSecondStep}
+              durable={durable}
+            />
 
-          <FailureNotice id="unlock:error" title="Unlock" message={error} />
+            <FailureNotice id="unlock:error" title="Unlock" message={error} />
 
-          <LockoutNote lockedFor={lockedFor} failedAttempts={failedAttempts} />
+            <LockoutNote
+              lockedFor={lockedFor}
+              failedAttempts={failedAttempts}
+            />
 
-          {noPrimary ? null : (
-            <div className="go-row">
-              <button
-                ref={(element) => {
-                  goRef.current = element;
-                  submitRef(element);
-                  sealRef(firstRun ? element : null);
-                }}
-                type="submit"
-                className="go"
-                disabled={disabled}
-                aria-busy={busy}
-                aria-label={goVerb}
-                title={goVerb}
-              >
-                {isCeremonyMethod(activeMethod) &&
-                !awaitingSecondStep &&
-                !awaitingPasskeyDuressCode ? (
-                  <IconPasskey size={18} />
-                ) : (
-                  <IconArrowRight size={18} />
-                )}
-              </button>
-              <span className="go-verb" aria-hidden="true">
-                {goVerb}
-              </span>
-            </div>
-          )}
+            {noPrimary ? null : (
+              <div className="go-row">
+                <button
+                  ref={(element) => {
+                    goRef.current = element;
+                    submitRef(element);
+                    sealRef(firstRun ? element : null);
+                  }}
+                  type="submit"
+                  className="go"
+                  disabled={disabled}
+                  aria-busy={busy}
+                  aria-label={goVerb}
+                  title={goVerb}
+                >
+                  {isCeremonyMethod(activeMethod) &&
+                  !awaitingSecondStep &&
+                  !awaitingPasskeyDuressCode ? (
+                    <IconPasskey size={18} />
+                  ) : (
+                    <IconArrowRight size={18} />
+                  )}
+                </button>
+                <span className="go-verb" aria-hidden="true">
+                  {goVerb}
+                </span>
+              </div>
+            )}
+          </div>
         </form>
       )}
 

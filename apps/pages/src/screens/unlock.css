@@ -497,6 +497,17 @@
   gap: 0.85rem;
 }
 
+.unlock__seal-actions {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .unlock--lock-v5:not(.door) .unlock__seal-actions {
+    gap: 1.25rem;
+  }
+}
+
 .unlock__methods {
   display: flex;
   flex-wrap: wrap;

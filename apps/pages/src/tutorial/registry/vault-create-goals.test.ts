@@ -39,16 +39,16 @@ describe("the guided first item", () => {
     expect(saveBeat?.until).toMatchObject({
       kind: "wait",
       subject: "target",
-      target: "item.copy-password",
+      target: "item.copy-generated",
       event: "appear",
     });
     const copyBeat = plan.beats.find(
-      (beat) => beat.target === "item.copy-password",
+      (beat) => beat.target === "item.copy-generated",
     );
     expect(copyBeat?.until).toMatchObject({
       kind: "wait",
       subject: "target",
-      target: "item.copy-password",
+      target: "item.copy-generated",
       event: "activate",
     });
     expect(copyBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);

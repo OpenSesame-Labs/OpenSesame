@@ -141,6 +141,63 @@ describe("UnlockScreen — first run, which authenticator", () => {
     ).toMatch(/PIN instead/);
   });
 
+  it("clears the fallback notice when PIN cancels a pending security key", async () => {
+    v.store.createWithPasskey
+      .mockRejectedValueOnce(
+        new PrfCeremonyError("prf_missing_output", "no PRF"),
+      )
+      .mockImplementationOnce(() => new Promise(() => {}));
+    render(<UnlockScreen />);
+    goLocalOnly();
+    fireEvent.click(
+      screen.getByLabelText("I understand this vault cannot be recovered."),
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("tab", { name: "Security key" })
+          .getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    sealOnce();
+    fireEvent.click(screen.getByRole("tab", { name: "PIN" }));
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+  });
+
+  it("clears the fallback notice on another attachment and on unmount", async () => {
+    v.store.createWithPasskey.mockRejectedValue(
+      new PrfCeremonyError("prf_missing_output", "no PRF"),
+    );
+    const view = render(<UnlockScreen />);
+    goLocalOnly();
+    fireEvent.click(
+      screen.getByLabelText("I understand this vault cannot be recovered."),
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        listNotices().some((entry) => entry.id === "unlock:authenticator"),
+      ).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "This device" }));
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        listNotices().some((entry) => entry.id === "unlock:authenticator"),
+      ).toBe(true),
+    );
+    view.unmount();
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+  });
+
   it("does not offer a passkey where the browser has no PRF at all", async () => {
     vi.stubGlobal(
       "PublicKeyCredential",

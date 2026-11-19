@@ -13,6 +13,7 @@
  */
 
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
 import {
@@ -32,6 +33,38 @@ export const supportGateSeams = {
 
 /** The route a gate reports until its screen has said which one it is. */
 const GATE_ROUTE = "/unlock";
+const FIRST_VAULT_SEAL_TARGETS = new Set([
+  "unlock.methods",
+  "unlock.submit",
+  "unlock.seal-actions",
+  "unlock.seal-pin-entry",
+  "unlock.seal-pin-confirm",
+  "unlock.seal-ack",
+  "unlock.seal",
+]);
+
+/** Keep the handoff armed only inside the live sealing sequence. */
+export function firstVaultSealingState(
+  armed: boolean,
+  guide: GuideRuntimeSnapshot | null,
+  unlocked: boolean,
+): boolean {
+  if (guide?.goal !== "gate.front-door") return false;
+  if (unlocked) return armed;
+  if (guide.status === "done") return false;
+  const target = guide.tour?.target;
+  if (target != null) return FIRST_VAULT_SEAL_TARGETS.has(target);
+  return armed && guide.status === "waiting";
+}
+
+/** Gate setup owns two steps before the replacement sign-in controller. */
+export function firstVaultDisplayedGateStep(
+  guide: GuideRuntimeSnapshot | null,
+): number {
+  const tour = guide?.tour;
+  if (!tour) return 0;
+  return tour.step + (tour.count === 6 ? 2 : 0);
+}
 
 export function SupportGate(): ReactElement {
   const route = useGateRoute();
@@ -59,20 +92,15 @@ export function SupportGate(): ReactElement {
 
   useEffect(() => {
     let sealing = false;
+    let sealingStep = 0;
     const check = () => {
       const guide = controller.view().guide;
       const unlocked = vaultStore.getSnapshot().status === "unlocked";
-      if (
-        guide?.goal === "gate.front-door" &&
-        guide.tour?.target === "unlock.seal"
-      ) {
-        sealing = true;
-      } else if (!unlocked) {
-        sealing = false;
-      }
+      sealing = firstVaultSealingState(sealing, guide, unlocked);
+      if (sealing) sealingStep = firstVaultDisplayedGateStep(guide);
       if (unlocked && sealing && guide?.goal === "gate.front-door") {
         sealing = false;
-        continueFirstVaultGuide();
+        continueFirstVaultGuide(sealingStep || 8);
       }
     };
     const stopGuide = controller.subscribe(check);
