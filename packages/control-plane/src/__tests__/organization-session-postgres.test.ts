@@ -10,7 +10,10 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { DurableMap } from "../repos/durable-map.js";
-import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
+import {
+  principalSessionEpoch,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
 import { saveProvisional } from "../repos/session-storage.js";
 import { adoptSessionWithinCapacity } from "../routes/federated-session.js";
 import {
@@ -257,5 +260,62 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     expect(
       await principalSessionEpoch(second.ctx.stores, rollbackPerson.principalId),
     ).toBe(rollbackEpoch);
+
+    const orderingResponse = await first.app.request(
+      "/v1/principals/provisional",
+      { method: "POST" },
+    );
+    const orderingPerson: { principalId: string } = overlapCast(
+      await orderingResponse.json(),
+    );
+    const orderingMembership = await ensurePersonalOrganization(
+      first.ctx,
+      orderingPerson.principalId,
+    );
+    const orderingSessionId = `ps_${randomUUID()}`;
+    let publicationReached = () => {};
+    let releasePublication = () => {};
+    const publicationPaused = new Promise<void>((resolve) => {
+      publicationReached = resolve;
+    });
+    const publicationGate = new Promise<void>((resolve) => {
+      releasePublication = resolve;
+    });
+    const publishing = withPrincipalSessionBoundary(
+      first.ctx.stores,
+      orderingPerson.principalId,
+      "publish",
+      async (stores) => {
+        const createdAt = first.ctx.clock();
+        await stores.provisionalSessions.set(orderingSessionId, {
+          id: orderingSessionId,
+          principalId: orderingPerson.principalId,
+          quotaProfile: "anonymous",
+          allowedActions: ["session.continue_anonymous"],
+          createdAt,
+          expiresAt: new Date(createdAt.getTime() + 60_000),
+        });
+        publicationReached();
+        await publicationGate;
+      },
+    );
+    await publicationPaused;
+    let revocationSettled = false;
+    const orderedRevocation = revokeOrganizationMembership(second.ctx, {
+      organizationId: orderingMembership.organizationId,
+      principalId: orderingPerson.principalId,
+      correlationId: "publisher-first",
+      reason: "deprovisioned",
+    }).finally(() => {
+      revocationSettled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(revocationSettled).toBe(false);
+    releasePublication();
+    await publishing;
+    await orderedRevocation;
+    expect(
+      await first.ctx.stores.provisionalSessions.get(orderingSessionId),
+    ).toBeUndefined();
   }, 60_000);
 });
