@@ -2,6 +2,7 @@ import { rememberTourAnswered } from "@opensesame/app-core/lib/guidance.js";
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
+import { subscribeGuideActivation } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
 import type { GuideOrigin, SupportEngine, SupportHost } from "./engine.js";
 import { guideSnapshotActive } from "./guide-snapshot-active.js";
@@ -46,11 +47,35 @@ export class SupportControllerCore {
   cancelled = false;
   /** Bumped by teardown, so a load in flight cannot install a stale engine. */
   generation = 0;
+  /**
+   * The lock tour was waiting on `shell.lock` and that control activated.
+   * An idle timer, background policy, or another tab locks without this.
+   */
+  lockWalkthroughDrove = false;
+  unwatchLockActivation: () => void;
 
   readonly host: SupportHost;
 
   constructor(readonly dependencies: SupportSessionDependencies) {
     this.host = this.createHost();
+    this.unwatchLockActivation = subscribeGuideActivation("shell.lock", () => {
+      this.noteLockWalkthroughDrove();
+    });
+  }
+
+  /** The guide saw its lock button. A lock from anywhere else does not count. */
+  noteLockWalkthroughDrove(): void {
+    const guide = this.state.guide;
+    const tour = guide?.tour;
+    if (
+      guide?.goal !== "vault.lock" ||
+      guide.status !== "waiting" ||
+      tour?.target !== "shell.lock" ||
+      tour.action !== true
+    ) {
+      return;
+    }
+    this.lockWalkthroughDrove = true;
   }
 
   emit(): void {
@@ -175,9 +200,14 @@ export class SupportControllerCore {
     this.set({ open: false });
     const outcome = await loaded.runGuide(program, origin);
     // Lock teardown nulls `this.engine` before this await resumes. Record a
-    // finished tour first — including the lock walkthrough, whose outcome is
-    // the lock cancel itself — or the Resume row comes back after unlock.
+    // finished tour first — including the lock walkthrough, when its own
+    // button drove the lock — or the Resume row comes back after unlock.
+    // Idle, background, and other-tab locks cancel with the same reason
+    // without that activation, and those keep the queue.
+    const droveLock = this.lockWalkthroughDrove;
+    this.lockWalkthroughDrove = false;
     const lockWalkthrough =
+      droveLock &&
       outcome.kind === "cancelled" &&
       outcome.reason === "lock" &&
       outcome.goal === "vault.lock";
@@ -240,6 +270,7 @@ export class SupportControllerCore {
 
   teardown(): void {
     this.clearSessionForLock();
+    this.unwatchLockActivation();
     this.unbindResume?.();
     this.unbindResume = null;
   }
