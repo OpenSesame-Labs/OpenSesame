@@ -46,10 +46,7 @@ async fn reconnect_with_rejected_snapshot_keeps_the_original_outage_deadline(pro
         .unwrap();
     assert_eq!(reconnected.phase, SourcePhase::Outage);
     let deadline = reconnected.retain_until.expect("outage deadline");
-    assert!(
-        deadline
-            <= reconnected.outage_since.unwrap() + opensesame_time::Duration::milliseconds(800)
-    );
+    assert!(deadline <= reconnected.outage_since.unwrap() + opensesame_time::Duration::milliseconds(800));
     assert!(deadline < reconnected.not_after.unwrap());
 
     let status = withdrawn_promptly(&handle).await;

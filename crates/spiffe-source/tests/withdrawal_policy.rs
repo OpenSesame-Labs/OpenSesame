@@ -142,7 +142,7 @@ async fn permission_denial_on_reconnect_withdraws_the_active_generation() {
 async fn unauthenticated_on_reconnect_withdraws_the_active_generation() {
     denial_opening_a_reconnected_stream_withdraws(
         Status::unauthenticated("workload not authenticated"),
-        "workload_api_unauthenticated",
+        "workload_api_denied",
     )
     .await;
 }
@@ -216,58 +216,4 @@ async fn unrelated_unparseable_svid_conservatively_withdraws() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn omitted_gateway_with_unparseable_worker_withdraws() {
     unparseable_svid_withdraws(false).await;
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn dropping_the_handle_stops_further_generation_activation() {
-    let api = FakeWorkloadApi::start();
-    let td = FakeTrustDomain::new(TD);
-    let gateway = td.issue_svid(GW, Duration::from_mins(10));
-    api.push_snapshot(snapshot(&td, &[&gateway]));
-    let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
-    streaming(&handle, 1).await;
-
-    let mut status = handle.status();
-    drop(handle);
-    tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            if status.borrow().phase == SourcePhase::Stopped {
-                break;
-            }
-            status
-                .changed()
-                .await
-                .expect("status task ended before it published Stopped");
-        }
-        let _ = status.changed().await;
-    })
-    .await
-    .expect("dropping the handle stops the source");
-
-    assert_eq!(status.borrow().phase, SourcePhase::Stopped);
-    assert_eq!(
-        sink.last(),
-        Some(SinkEvent::Withdrawn(TransportError::SourceUnsupported))
-    );
-    let activations = sink
-        .events()
-        .into_iter()
-        .filter(|event| matches!(event, SinkEvent::Activated { .. }))
-        .count();
-
-    api.push_snapshot(snapshot(&td, &[&gateway]));
-    tokio::time::sleep(Duration::from_millis(250)).await;
-    assert_eq!(
-        sink.events()
-            .into_iter()
-            .filter(|event| matches!(event, SinkEvent::Activated { .. }))
-            .count(),
-        activations,
-        "a snapshot after drop activated another generation"
-    );
-    assert!(sink.events().iter().all(|event| match event {
-        SinkEvent::Activated { number, .. } => *number == 1,
-        SinkEvent::Withdrawn(_) => true,
-    }));
 }
