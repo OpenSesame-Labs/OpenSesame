@@ -73,7 +73,10 @@ impl StoreRoot {
             if let Some(state) = witness.entries.get(&identity).copied() {
                 if !state.deleted && path.exists() {
                     match self.open_entry_plaintext_at_revision(name, key, state.revision) {
-                        Ok(bytes) if !entry_matches(&state, &bytes) => {
+                        Ok(bytes)
+                            if !commitment_unbound(&state.commitment)
+                                && !entry_matches(&state, &bytes) =>
+                        {
                             return Err(StoreError::Crypto(
                                 "entry plaintext does not match its rollback witness".into(),
                             ));

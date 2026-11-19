@@ -45,12 +45,26 @@ fn remove_marker(store: &StoreRoot, id: &str, key: &ItemDataKey) {
     std::fs::remove_file(root.join(StoreRoot::commit_marker_relative(id, key))).unwrap();
 }
 
+fn backfill_v1_entry_commitments(store: &StoreRoot, witness: &mut Witness, key: &ItemDataKey) {
+    for (name, entry) in witness.entries.iter_mut() {
+        if name.starts_with(".attachments/") || entry.deleted || entry.commitment != [0; 32] {
+            continue;
+        }
+        *entry = store
+            .migration_entry_witness(name, entry.revision, key)
+            .expect("backfill v1 entry commitment");
+    }
+}
+
 fn make_legacy(store: &StoreRoot, key: &ItemDataKey) -> (String, Witness) {
     let (id, mut legacy) = store.current_witness(key).unwrap();
     legacy.version = 1;
     legacy
         .entries
         .retain(|name, _| !name.starts_with(".attachments/.rollback-"));
+    for entry in legacy.entries.values_mut() {
+        entry.commitment = [0; 32];
+    }
     stage_witness(store, &id, key, &legacy, SLOT_ONE);
     stage_witness(store, &id, key, &legacy, SLOT_TWO);
     remove_marker(store, &id, key);
@@ -169,6 +183,7 @@ fn interrupted_legacy_migration_resumes_only_its_exact_prepared_witness() {
     let (id, legacy) = make_legacy(&store, &key);
     let mut prepared = legacy.clone();
     store.anchor_attachments(&mut prepared, &key).unwrap();
+    backfill_v1_entry_commitments(&store, &mut prepared, &key);
     prepared.version = 2;
     prepared.epoch += 1;
     stage_witness(&store, &id, &key, &prepared, slot_for(prepared.epoch));
@@ -184,6 +199,7 @@ fn changed_legacy_inventory_does_not_replace_a_prepared_migration() {
     let (id, legacy) = make_legacy(&store, &key);
     let mut prepared = legacy.clone();
     store.anchor_attachments(&mut prepared, &key).unwrap();
+    backfill_v1_entry_commitments(&store, &mut prepared, &key);
     prepared.version = 2;
     prepared.epoch += 1;
     stage_witness(&store, &id, &key, &prepared, slot_for(prepared.epoch));
@@ -208,6 +224,7 @@ fn migration_preserves_a_sole_legacy_slot_even_when_parity_disagrees() {
     std::fs::remove_file(root.join(directory).join(other_slot)).unwrap();
     let mut prepared = legacy.clone();
     store.anchor_attachments(&mut prepared, &key).unwrap();
+    backfill_v1_entry_commitments(&store, &mut prepared, &key);
     prepared.version = 2;
     prepared.epoch += 1;
     let slot = store
