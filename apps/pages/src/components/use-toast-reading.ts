@@ -13,11 +13,6 @@ export function useToastReading(
   const left = useRef(duration);
   const since = useRef(0);
   const { sticky } = toast;
-  // A replacement with the same id is a new message, even while it is read.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when the message object is replaced
-  useEffect(() => {
-    left.current = duration;
-  }, [toast, duration]);
   useEffect(() => {
     if (hovered || focused || sticky) return;
     since.current = Date.now();
@@ -26,7 +21,7 @@ export function useToastReading(
       clearTimeout(timer);
       left.current -= Date.now() - since.current;
     };
-  }, [hovered, focused, sticky, onDone, toast]);
+  }, [hovered, focused, sticky, onDone, toast.id]);
 
   return {
     enter: () => {

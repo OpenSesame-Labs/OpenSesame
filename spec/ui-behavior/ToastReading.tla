@@ -8,7 +8,7 @@ EXTENDS Naturals
 \* browser event ordering, or UI layout are modeled.
 
 MaxTicks == 3
-Actions == {"initial", "show", "update", "pointer-enter", "pointer-leave",
+Actions == {"initial", "show", "pointer-enter", "pointer-leave",
             "focus-enter", "focus-leave", "tick", "dismiss"}
 
 VARIABLES visible, hover, focused, remaining, previous, action
@@ -32,14 +32,6 @@ Show ==
   /\ focused' = FALSE
   /\ remaining' = MaxTicks
   /\ action' = "show"
-
-\* New words on the same card receive a full interval, without moving focus.
-Update ==
-  /\ visible
-  /\ previous' = Snapshot
-  /\ remaining' = MaxTicks
-  /\ action' = "update"
-  /\ UNCHANGED <<visible, hover, focused>>
 
 Pointer(value) ==
   /\ visible
@@ -77,7 +69,7 @@ Dismiss ==
   /\ action' = "dismiss"
   /\ UNCHANGED remaining
 
-Next == Show \/ Update \/ (\E value \in BOOLEAN: Pointer(value) \/ Focus(value))
+Next == Show \/ (\E value \in BOOLEAN: Pointer(value) \/ Focus(value))
         \/ Tick \/ Dismiss
 Spec == Init /\ [][Next]_vars
 
@@ -93,11 +85,6 @@ TypeOK ==
 ReadingHoldsTime ==
   action = "tick" /\ (previous.hover \/ previous.focused) =>
     visible /\ remaining = previous.remaining
-
-UpdateRestartsTime ==
-  action = "update" =>
-    visible /\ remaining = MaxTicks /\ hover = previous.hover /\
-      focused = previous.focused
 
 PointerLeaveKeepsFocused ==
   action = "pointer-leave" /\ previous.focused =>

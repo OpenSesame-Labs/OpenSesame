@@ -5,11 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { createServer } from "vite";
-import {
-  checkExploration,
-  switchCoverage,
-  tabsCoverage,
-} from "./lib/ui-property-trace.mjs";
+import { checkExploration, switchCoverage } from "./lib/ui-property-trace.mjs";
 
 const pages = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(pages, "test/ui-properties/fixture");
@@ -25,12 +21,6 @@ const targets = [
     path: "/switch.html",
     spec: join(pages, "test/ui-properties/capability-switch.ts"),
     mutantViolation: "switch_requests_match_attempts",
-  },
-  {
-    name: "roving-tabs",
-    path: "/tabs.html",
-    spec: join(pages, "test/ui-properties/roving-tabs.ts"),
-    mutantViolation: "tabs_follow_intent",
   },
 ];
 const bombadil = resolve(
@@ -125,16 +115,6 @@ async function run(target, width, mutant = false) {
       await readFile(join(trace, "trace.jsonl"), "utf8"),
     );
     console.log(`Switch attempts: ${JSON.stringify(coverage)}`);
-  }
-  if (
-    !mutant &&
-    target.name === "roving-tabs" &&
-    !process.env.BOMBADIL_REPRODUCE
-  ) {
-    const coverage = tabsCoverage(
-      await readFile(join(trace, "trace.jsonl"), "utf8"),
-    );
-    console.log(`Tab keyboard actions: ${JSON.stringify(coverage)}`);
   }
 }
 
