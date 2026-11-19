@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Simulate squash-merging the auth formal stack onto origin/main and rerun drift (+ optional verify).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+git fetch origin main >/dev/null 2>&1 || true
+MAIN="$(git rev-parse origin/main)"
+SCRATCH="$(mktemp -d)"
+trap 'git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
+git worktree add -f -B formal-squash-sim "$SCRATCH" "$MAIN" >/dev/null
+for rel in \
+  scripts/security/formal_coverage_drift.py \
+  spec/formal/authority \
+  spec/formal/dpop; do
+  rm -rf "$SCRATCH/$rel"
+  cp -a "$ROOT/$rel" "$SCRATCH/$rel"
+done
+(
+  cd "$SCRATCH"
+  git config user.name "formal-squash-verify"
+  git config user.email "formal-squash-verify@example.invalid"
+  git add scripts/security/formal_coverage_drift.py spec/formal/authority spec/formal/dpop
+  git commit -qm "squash-sim: auth formal stack on origin/main"
+)
+python3 "$SCRATCH/spec/formal/authority/check-drift.py"
+python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
+if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
+  (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal)
+fi
+echo "formal-squash-merge-verify: ok (base origin/main $MAIN)"
