@@ -1,4 +1,4 @@
-# ADR 0223 — Fail closed on ambiguous SPIFFE snapshots
+# ADR 0227 — Fail closed on ambiguous SPIFFE snapshots
 
 - **Status:** Accepted
 - **Date:** 2026-11-16
