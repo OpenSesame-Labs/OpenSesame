@@ -1,6 +1,7 @@
 function queued(queue) {
   if (queue == null) return 0;
-  if (typeof queue.size === "number") return queue.size;
+  const size = Number(queue.size);
+  if (Number.isFinite(size) && size >= 0) return size;
   return [...queue].length;
 }
 
