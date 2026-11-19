@@ -24,6 +24,7 @@ test("startup verifies offline and quarantines content changed since review", (t
     writeFileSync(join(root, path), value);
   };
   mkdirSync(join(root, "scripts/dev"), { recursive: true });
+  mkdirSync(join(root, "scripts/lib"), { recursive: true });
   copyFileSync(
     fileURLToPath(new URL("../dev/install-agent-skills.sh", import.meta.url)),
     join(root, "scripts/dev/install-agent-skills.sh"),
@@ -31,6 +32,10 @@ test("startup verifies offline and quarantines content changed since review", (t
   copyFileSync(
     fileURLToPath(new URL("../dev/verify-agent-skills.mjs", import.meta.url)),
     join(root, "scripts/dev/verify-agent-skills.mjs"),
+  );
+  copyFileSync(
+    fileURLToPath(new URL("../lib/json-boundary.mjs", import.meta.url)),
+    join(root, "scripts/lib/json-boundary.mjs"),
   );
   put("scripts/dev/sync-agent-skills.mjs", "");
   put("skills/core/SKILL.md", "# Core\n");
