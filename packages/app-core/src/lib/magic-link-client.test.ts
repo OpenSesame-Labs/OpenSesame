@@ -18,7 +18,6 @@ const originalRestore = identitySeams.restoreSession;
 beforeEach(() => {
   configureHost(
     createTestHost({
-      page: window,
       storage: { session: createMemoryStorage() },
     }),
   );
@@ -38,7 +37,7 @@ it("keeps the verifier tab-local and adopts only a matching callback", async () 
   expect(sent.codeChallenge).not.toBe(sent.state);
   const restored = vi.fn();
   identitySeams.restoreSession = restored;
-  const fetchMock = vi.fn(() =>
+  const fetchMock = vi.fn((_url: RequestInfo | URL, _init?: RequestInit) =>
     Promise.resolve(
       Response.json({ principalId: "prn_person", accessToken: "pst_secret" }),
     ),

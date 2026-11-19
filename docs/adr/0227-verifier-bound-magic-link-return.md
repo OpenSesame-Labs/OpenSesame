@@ -36,10 +36,25 @@ separate application/recipient budget so it cannot consume public capacity.
 
 ### Rollout
 
-Deploy Pages with `magic-link-pkce-v1` support before deploying the Identity
-route that requires it. Keep that Pages release live for at least the configured
-HTML/service-worker cache lifetime, then deploy Identity. A cached older Pages
-client sends neither challenge nor state and uses its historical
+Deploy Pages with `magic-link-pkce-v1` support before switching Identity to
+the new protocol. Pages sends the verifier-bound request to
+`/v1/auth/magic-link/v1/sign-in`. Older Identity releases return 404 for that
+route without sending mail; on that response only, Pages starts the existing
+hosted OAuth/PKCE sign-in, where the person chooses email and enters the
+address again. Pages does not say a link was sent for this redirect. It never
+uses the legacy first-party bearer-returning endpoint.
+Other failures do not trigger a fallback. The older hosted email route retains
+its existing interaction-cookie binding, but a mail scanner can consume its
+link before the person opens it; that limitation lasts until Identity is
+upgraded.
+
+Keep that Pages release live for at least the configured HTML/service-worker
+cache lifetime and the lifetime of any earlier sign-in links. Switch all
+Identity traffic to the new release atomically, for example with a blue/green
+cutover; do not send new-protocol links to old replicas during a rolling
+deployment. Hosted links already issued by the old release remain usable on
+the new release, which asks for confirmation before consuming them. A cached
+older Pages client sends neither challenge nor state and uses its historical
 `callbackURL: pageOrigin()` shape. Identity recognizes that root callback only
 for an allowlisted matching `Origin` and only for this refusal; a modern request
 cannot use it as a callback. Identity answers `426` with
@@ -49,12 +64,12 @@ event, sends no email, and does not charge a send budget. The response is
 `Cache-Control: no-store`. The event is emitted only after origin and callback
 validation, at most once per process per minute; the next emitted event includes
 the number suppressed in the preceding window. This limiter is deliberately
-separate from mail admission. Operators should watch that sampled signal through
-the cache drain and pause the Identity rollout if it remains material. Cached
-legacy Pages does not understand the JSON reload hint and shows its existing
-generic HTTP 426 error, so deployment order—not the hint—is the user-facing
-compatibility control. Rollback restores the newer Pages build first; it must
-never restore the bearer-returning legacy exchange.
+separate from mail admission. After the Identity cutover, operators should
+watch that sampled signal for clients that missed the cache drain. Cached legacy
+Pages does not understand the JSON reload hint and shows its existing generic
+HTTP 426 error, so deployment order—not the hint—is the user-facing compatibility
+control. Rollback must retain an Identity release that refuses the old
+bearer-returning exchange; restore a compatible Pages release first.
 
 ## Consequences
 

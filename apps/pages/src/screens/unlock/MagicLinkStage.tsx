@@ -26,8 +26,8 @@ export function MagicLinkStage({
     setLinkError(null);
     setBusy(true);
     try {
-      await requestEmailMagicLink(linkEmail.trim());
-      setLinkSent(true);
+      const outcome = await requestEmailMagicLink(linkEmail.trim());
+      if (outcome === "sent") setLinkSent(true);
     } catch (caught) {
       setLinkError(
         caught instanceof Error

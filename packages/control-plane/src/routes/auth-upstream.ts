@@ -1,5 +1,5 @@
 import type { HttpBindings } from "@hono/node-server";
-import { Hono } from "hono";
+import { type Handler, Hono } from "hono";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
@@ -155,7 +155,7 @@ function classifyMagicRequest(
 }
 
 function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
-  routes.post("/sign-in/magic-link", async (c) => {
+  const request: Handler<{ Variables: Variables } & NodeEnv> = async (c) => {
     const parsed = requestSchema.safeParse(
       await c.req.json().catch(() => null),
     );
@@ -198,14 +198,21 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
     };
     const headers = new Headers(c.req.raw.headers);
     headers.delete("content-length");
+    const upstreamUrl = new URL(c.req.url);
+    upstreamUrl.pathname = upstreamUrl.pathname.replace(
+      /\/magic-link\/v1\/sign-in$/u,
+      "/sign-in/magic-link",
+    );
     return upstreamAuthFor(ctx).auth.handler(
-      new Request(c.req.url, {
+      new Request(upstreamUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({ email, metadata }),
       }),
     );
-  });
+  };
+  routes.post("/sign-in/magic-link", request);
+  routes.post("/magic-link/v1/sign-in", request);
 }
 
 function installMagicLinkConfirmation(

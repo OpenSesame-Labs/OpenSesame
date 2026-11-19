@@ -45,7 +45,7 @@
         "packages/app-core/src/lib/magic-link-client.test.ts",
         "packages/app-core/src/lib/providers.test.ts"
       ],
-      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects; deploy Pages and drain its cache before enforcing the Identity protocol. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent."
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects. New Pages uses a versioned send route: an older Identity returns 404 before mail and Pages uses the existing hosted OAuth/PKCE email interaction, never the legacy first-party bearer route. A composed old-Identity check completes hosted email and OAuth return through first-party session adoption; both Pages entry points avoid a sent confirmation when redirecting. Drain the Pages cache and in-flight links, then switch Identity traffic atomically to avoid routing new links to old replicas. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent."
     },
     {
       "id": "hosted-secret-drop",
@@ -1248,14 +1248,14 @@
       "ab5b5ea9"
     ],
     "packages/app-core/src/lib/magic-link-client.test.ts": [
-      "57675140",
-      "6a9264e1",
-      "6e23a80e",
-      "a4804027",
-      "3e195d4a",
-      "d2563e73",
-      "d542e39e",
-      "ad0e495e"
+      "5cdda0ad",
+      "c52effc7",
+      "11444a7b",
+      "f9d165e8",
+      "d3ce74d8",
+      "9ca72f5d",
+      "0667476f",
+      "8a6e1fab"
     ],
     "packages/app-core/src/lib/magic-link-client.ts": [
       "4f75ad2d",
@@ -1268,24 +1268,24 @@
       "7c70798a"
     ],
     "packages/app-core/src/lib/providers.test.ts": [
-      "798df6d4",
-      "4dc02471",
-      "08676434",
-      "9d55be99",
-      "5ac136e3",
-      "37808943",
-      "02181d97",
-      "ee016cde"
+      "76c2bddf",
+      "ef6678e7",
+      "ac128b9b",
+      "b261c100",
+      "dda55256",
+      "0b951a5e",
+      "9530a63e",
+      "a9830a54"
     ],
     "packages/app-core/src/lib/providers.ts": [
-      "8947b37b",
-      "98495a16",
-      "d7bd6764",
-      "f085f7f3",
-      "79b16eb8",
-      "670ae1b2",
-      "49f10331",
-      "f5118496"
+      "392ef7cd",
+      "293e707d",
+      "6b50dbbf",
+      "0f76cf0c",
+      "fab4e758",
+      "abf34dcd",
+      "c34cb671",
+      "f1aceb23"
     ],
     "packages/control-plane/src/__tests__/auth-upstream.test.ts": [
       "46692147",
@@ -1308,24 +1308,24 @@
       "69f6ff0a"
     ],
     "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
-      "6ba59564",
-      "bfedd453",
-      "92346ec4",
-      "e4863848",
-      "08361a5a",
-      "45ae6aa4",
-      "ea3d4f6e",
-      "395e17ec"
+      "e5cf3922",
+      "e970fbdd",
+      "186c6b83",
+      "0a2a2378",
+      "48840da4",
+      "3eb09037",
+      "3152e3e4",
+      "f1f43ecc"
     ],
     "packages/control-plane/src/routes/auth-upstream.ts": [
-      "810ef4c4",
-      "944244fd",
-      "ea8fe223",
-      "d63b96db",
-      "7b9fef11",
-      "db1d29cd",
-      "39287c8a",
-      "7cc7cb3b"
+      "bd15a04b",
+      "8ceeab0c",
+      "5823db20",
+      "cb2ed5f6",
+      "9260e83b",
+      "81f7425a",
+      "b16170f4",
+      "5ac2e96e"
     ],
     "packages/control-plane/src/routes/authentication-service.ts": [
       "910d896d",

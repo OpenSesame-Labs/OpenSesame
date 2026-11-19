@@ -39,7 +39,7 @@ async function requestedLink(email: string) {
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const state = randomBytes(24).toString("base64url");
-  const response = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
+  const response = await fetch(`${base}/v1/auth/magic-link/v1/sign-in`, {
     method: "POST",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
@@ -217,7 +217,7 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     },
     "legacy magic-link request refused",
   );
-  const sampled = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
+  const sampled = await fetch(`${base}/v1/auth/magic-link/v1/sign-in`, {
     method: "POST",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
@@ -226,6 +226,9 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     }),
   });
   expect(sampled.status).toBe(426);
+  expect(started.ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    budgetBefore,
+  );
   expect(logged).toHaveBeenCalledTimes(1);
   logged.mockRestore();
   expect(started.ctx.mailer.outbox).toHaveLength(before);

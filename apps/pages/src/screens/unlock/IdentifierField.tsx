@@ -127,8 +127,9 @@ export function IdentifierField({
     setError(null);
     setBusy(true);
     try {
-      await identifierFieldDependencies.requestEmailMagicLink(fallbackEmail);
-      setLinkSent(true);
+      const outcome =
+        await identifierFieldDependencies.requestEmailMagicLink(fallbackEmail);
+      if (outcome === "sent") setLinkSent(true);
     } catch (caught) {
       setError(
         caught instanceof Error

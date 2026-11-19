@@ -27,9 +27,16 @@ import {
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
-import { TRUSTED_UPSTREAMS, type TrustedUpstream } from "./federation.js";
+import { page } from "../ports.js";
+import {
+  TRUSTED_UPSTREAMS,
+  type TrustedUpstream,
+  beginSignIn,
+} from "./federation.js";
+import { federationSessionGeneration } from "./federation-native-session.js";
 import {
   identityBase,
+  identitySessionEpoch,
   isRemoteIdentityConfigured,
   remoteIdentityApi,
 } from "./identity.js";
@@ -193,27 +200,44 @@ export function workEmailDomain(email: string): string {
  * is the whole sign-in, and the verified address becomes an identity on the
  * principal. It is sent, never stored here.
  *
- * INTEGRATOR: the Better Auth mount (S11) serves this path. Until it lands the
- * request 404s and the caller surfaces "Email sign-in is not available".
+ * Older Identity releases lack the versioned route; their 404 starts the
+ * existing hosted OAuth/PKCE flow without sending a legacy first-party link.
  */
-async function requestEmailMagicLinkDefault(email: string): Promise<void> {
+async function requestEmailMagicLinkDefault(
+  email: string,
+): Promise<"sent" | "redirecting"> {
   const base = remoteIdentityApi();
   if (!base) {
     throw new Error("No sign-in service is connected.");
   }
+  const epoch = identitySessionEpoch();
+  const generation = federationSessionGeneration();
+  const href = page().location.href;
+  const assertCurrent = () => {
+    if (
+      remoteIdentityApi() !== base ||
+      identitySessionEpoch() !== epoch ||
+      federationSessionGeneration() !== generation ||
+      page().location.href !== href
+    )
+      throw new Error("Sign-in changed. Start again.");
+  };
   const transaction = await beginMagicLink(email);
-  const res = await localNetworkFetch(`${base}/v1/auth/sign-in/magic-link`, {
+  assertCurrent();
+  const res = await localNetworkFetch(`${base}/v1/auth/magic-link/v1/sign-in`, {
     ...transaction.request,
     timeoutMs: PROVIDERS_FETCH_MS,
   });
+  assertCurrent();
+  if (res.status === 404) {
+    await beginSignIn(brokeredRealmUpstream());
+    return "redirecting";
+  }
   if (!res.ok) {
-    throw new Error(
-      res.status === 404
-        ? "Email sign-in is not available on this sign-in service."
-        : `Could not send the sign-in link (${res.status}).`,
-    );
+    throw new Error(`Could not send the sign-in link (${res.status}).`);
   }
   transaction.commit();
+  return "sent";
 }
 
 export const providersSeams = {
@@ -227,6 +251,8 @@ export async function listFederatedProviders(): Promise<
   return providersSeams.listFederatedProviders();
 }
 
-export async function requestEmailMagicLink(email: string): Promise<void> {
+export async function requestEmailMagicLink(
+  email: string,
+): Promise<"sent" | "redirecting"> {
   return providersSeams.requestEmailMagicLink(email);
 }
