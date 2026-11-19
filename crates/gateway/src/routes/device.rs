@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -30,7 +30,7 @@ fn admitted_client(client_id: &str) -> bool {
 
 /// Drops failures older than the window and reports how many remain.
 #[cfg(test)]
-fn prune_failures(failures: &mut Vec<chrono::DateTime<Utc>>, now: chrono::DateTime<Utc>) -> usize {
+fn prune_failures(failures: &mut Vec<DateTime<Utc>>, now: DateTime<Utc>) -> usize {
     let cutoff = now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS);
     failures.retain(|at| *at > cutoff);
     failures.len()

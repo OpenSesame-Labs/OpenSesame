@@ -90,7 +90,7 @@ fn wrong_guesses_never_invalidate_pending_authorizations() {
     let mut map: HashMap<String, DevicePending> = HashMap::new();
     let digest = hash_secret("dc_1");
     map.insert(digest.clone(), pending(&digest, "BCDF-GHJK"));
-    let mut failures: Vec<chrono::DateTime<Utc>> = Vec::new();
+    let mut failures: Vec<DateTime<Utc>> = Vec::new();
 
     for _ in 0..(MAX_APPROVE_FAILURES * 3) {
         let now = Utc::now();
@@ -137,7 +137,7 @@ fn session_bearer_is_never_retained() {
 #[test]
 fn failure_window_prunes_and_caps() {
     let now = Utc::now();
-    let mut failures: Vec<chrono::DateTime<Utc>> = vec![
+    let mut failures: Vec<DateTime<Utc>> = vec![
         now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS + 5),
         now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS + 1),
     ];

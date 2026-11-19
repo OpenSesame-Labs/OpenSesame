@@ -4,8 +4,8 @@ use crate::{
     middleware::auth::same_principal_subject,
     session_claims::HostSessionClaims,
 };
-use chrono::Utc;
 use opensesame_claims::{hash_eq, hash_low_entropy, hash_secret};
+use opensesame_time::Utc;
 use sqlx::Row;
 
 const MAX_PENDING_DEVICE_CODES: i64 = 512;

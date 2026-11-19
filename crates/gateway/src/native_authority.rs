@@ -3,7 +3,7 @@
 //! Cache entries support synchronous route authenticators, but never establish
 //! native authority: the request guard reloads this store on every request.
 use crate::session_claims::{CredentialKind, HostSessionClaims};
-use chrono::Utc;
+use opensesame_time::Utc;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
 const MAX_NATIVE_SESSIONS: i64 = 1024;
