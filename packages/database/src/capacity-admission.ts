@@ -1,5 +1,5 @@
 import type { ByoUpstream, JsonObject } from "@opensesame/os-domain";
-import { overlapCast } from "@opensesame/os-domain";
+import { overlapCast, readJsonObject } from "@opensesame/os-domain";
 import { and, count, eq, sql } from "drizzle-orm";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError, normalizeIssuer } from "./repos/interfaces.js";
@@ -16,6 +16,18 @@ export interface ScimUserRecord {
   raw: JsonObject;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
+  "urn:opensesame:params:scim:2.0:deprovision-journal";
+
+export function hasPendingScimDeprovision(raw: JsonObject): boolean {
+  const journal = readJsonObject(raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]);
+  const targets = journal?.targets;
+  return (
+    Array.isArray(targets) &&
+    targets.some((target) => readJsonObject(target)?.completed === false)
+  );
 }
 
 export interface ScimUserStore {
@@ -50,6 +62,11 @@ export interface ScimUserStore {
   listByOrganization(
     orgId: string,
     page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]>;
+  /** Bounded durable recovery scan for incomplete deprovision journals. */
+  listPendingDeprovisions(
+    limit: number,
+    afterId?: string,
   ): Promise<ScimUserRecord[]>;
 }
 
@@ -241,6 +258,14 @@ export function createMemoryScimUserStore(): ScimUserStore {
       return page
         ? ordered.slice(page.offset, page.offset + page.limit)
         : ordered;
+    },
+    async listPendingDeprovisions(limit, afterId) {
+      return [...users.values()]
+        .filter((user) => hasPendingScimDeprovision(user.raw))
+        .filter((user) => afterId === undefined || user.id > afterId)
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .slice(0, limit)
+        .map(normalizeScimUser);
     },
   };
 }

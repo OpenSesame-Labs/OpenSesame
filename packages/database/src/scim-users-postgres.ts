@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { and, asc, count, eq } from "drizzle-orm";
-import { createPostgresScimWithinLimit } from "./capacity-admission.js";
+import { and, asc, count, eq, gt, sql } from "drizzle-orm";
+import {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  createPostgresScimWithinLimit,
+} from "./capacity-admission.js";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
@@ -189,6 +192,24 @@ export class PostgresScimUserStore implements ScimUserStore {
     const rows = page
       ? await query.limit(page.limit).offset(page.offset)
       : await query;
+    return rows.map(mapScimUser);
+  }
+
+  async listPendingDeprovisions(
+    limit: number,
+    afterId?: string,
+  ): Promise<ScimUserRecord[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.scimUsers)
+      .where(
+        and(
+          sql`(${schema.scimUsers.raw} -> ${SCIM_DEPROVISION_JOURNAL_ATTRIBUTE} -> 'targets') @> '[{"completed": false}]'::jsonb`,
+          afterId === undefined ? undefined : gt(schema.scimUsers.id, afterId),
+        ),
+      )
+      .orderBy(asc(schema.scimUsers.id))
+      .limit(limit);
     return rows.map(mapScimUser);
   }
 }

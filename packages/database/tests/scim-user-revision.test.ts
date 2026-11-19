@@ -10,6 +10,7 @@ import {
 import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import { scimUsers } from "../src/schema/index.js";
 import {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
   type ScimUserRecord,
   type ScimUserStore,
   createMemoryScimStores,
@@ -119,6 +120,40 @@ describe.each([
     ]) {
       expect(publicUser).not.toHaveProperty("revision");
     }
+  });
+
+  it("discovers only incomplete deprovision journals within the batch limit", async () => {
+    const { store, row } = await fixture();
+    const journal = (completed: boolean) => ({
+      cycle: randomUUID(),
+      targets: [
+        {
+          principalId: `prn_${randomUUID()}`,
+          incarnation: randomUUID(),
+          completed,
+        },
+      ],
+    });
+    const pending = Array.from({ length: 101 }, (_, index) => ({
+      ...row,
+      id: `scim_pending_${String(index).padStart(3, "0")}`,
+      userName: `pending-${index}@example.com`,
+      raw: { [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: journal(false) },
+    }));
+    const complete = {
+      ...row,
+      id: `scim_${randomUUID()}`,
+      userName: "complete@example.com",
+      raw: { [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: journal(true) },
+    };
+    for (const user of pending) await store.create(user);
+    await store.create(complete);
+
+    const first = await store.listPendingDeprovisions(100);
+    expect(first).toEqual(pending.slice(0, 100));
+    expect(await store.listPendingDeprovisions(100, first.at(-1)?.id)).toEqual([
+      pending[100],
+    ]);
   });
 
   it("lets exactly one concurrent replacement win and invalidates revisions on legacy updates", async () => {

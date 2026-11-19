@@ -14,7 +14,11 @@ import { PostgresScimUserStore } from "./scim-users-postgres.js";
  * `raw` keeps the attributes the IdP sent — SCIM's leniency norm is to accept
  * and echo what we do not model.
  */
-export type { ScimUserRecord, ScimUserStore } from "./capacity-admission.js";
+export {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  type ScimUserRecord,
+  type ScimUserStore,
+} from "./capacity-admission.js";
 
 /** Internal concurrency metadata; it is not part of a SCIM user response. */
 export interface VersionedScimUser {

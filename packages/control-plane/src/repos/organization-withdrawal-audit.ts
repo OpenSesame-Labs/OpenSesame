@@ -1,10 +1,16 @@
 import {
+  AUDIT_CHAIN_GENESIS,
   appendAuditEvent,
   auditEventDigest,
   redactAuditMetadata,
 } from "@opensesame/audit";
 import { scrubText } from "@opensesame/log-scrub";
-import type { OrganizationRole } from "@opensesame/os-domain";
+import {
+  type BoundaryValue,
+  type JsonObject,
+  type OrganizationRole,
+  isString,
+} from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 
 /** Written in the transaction that completes the membership transition. */
@@ -18,7 +24,7 @@ export type OrganizationWithdrawalAuditIntent = {
   previousRole: OrganizationRole;
 } & ({ kind: "remove" } | { kind: "change_role"; role: OrganizationRole });
 
-function validRole(role: unknown): role is OrganizationRole {
+function validRole(role: BoundaryValue): role is OrganizationRole {
   return role === "owner" || role === "admin" || role === "member";
 }
 
@@ -31,7 +37,7 @@ function validate(intent: OrganizationWithdrawalAuditIntent): void {
       intent.organizationId,
       intent.principalId,
       intent.correlationId,
-    ].every((value) => typeof value === "string" && value.length > 0) ||
+    ].every((value) => isString(value) && value.length > 0) ||
     (intent.actorType !== "human" && intent.actorType !== "system") ||
     !validRole(intent.previousRole) ||
     (intent.kind !== "remove" && intent.kind !== "change_role") ||
@@ -41,7 +47,16 @@ function validate(intent: OrganizationWithdrawalAuditIntent): void {
 }
 
 function eventInput(intent: OrganizationWithdrawalAuditIntent) {
-  return {
+  const metadata: JsonObject = {
+    action:
+      intent.kind === "remove"
+        ? "organization.member.remove"
+        : "organization.member.role.change",
+    targetId: intent.principalId,
+    fromState: intent.previousRole,
+  };
+  if (intent.kind === "change_role") metadata.toState = intent.role;
+  const input = {
     id: `organization-withdrawal:${intent.id}`,
     eventType:
       intent.kind === "remove"
@@ -52,16 +67,38 @@ function eventInput(intent: OrganizationWithdrawalAuditIntent) {
     principalId: intent.actorPrincipalId,
     organizationId: intent.organizationId,
     correlationId: intent.correlationId,
-    metadata: {
-      action:
-        intent.kind === "remove"
-          ? "organization.member.remove"
-          : "organization.member.role.change",
-      targetId: intent.principalId,
-      fromState: intent.previousRole,
-      ...(intent.kind === "change_role" ? { toState: intent.role } : {}),
-    },
+    metadata,
   };
+  return input;
+}
+
+async function belongsToAuditChain(
+  ctx: AppContext,
+  event: NonNullable<
+    Awaited<ReturnType<AppContext["repos"]["auditEvents"]["getById"]>>
+  >,
+): Promise<boolean> {
+  const visited = new Set<string>();
+  let cursor = event;
+  while (cursor.previousDigest !== AUDIT_CHAIN_GENESIS) {
+    if (
+      !cursor.previousDigest ||
+      !cursor.digest ||
+      cursor.digest !== auditEventDigest(cursor, cursor.previousDigest) ||
+      visited.has(cursor.digest)
+    )
+      return false;
+    visited.add(cursor.digest);
+    const predecessor = await ctx.repos.auditEvents.findByDigest(
+      cursor.previousDigest,
+    );
+    if (!predecessor) return false;
+    cursor = predecessor;
+  }
+  return Boolean(
+    cursor.digest &&
+      cursor.digest === auditEventDigest(cursor, AUDIT_CHAIN_GENESIS),
+  );
 }
 
 async function linkedAudit(
@@ -86,7 +123,7 @@ async function linkedAudit(
     event.digest !== auditEventDigest(event, event.previousDigest)
   )
     return false;
-  return true;
+  return belongsToAuditChain(ctx, event);
 }
 
 /** Append exactly once and discard the intent only after its chain is verified. */

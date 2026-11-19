@@ -9,11 +9,12 @@ import {
   bindProofOfPossession,
   spawnWorkloadIdentity,
 } from "@opensesame/os-domain";
-import { Hono } from "hono";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { z } from "zod";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 import { authenticatedPrincipalId } from "./organizations.js";
 
 export const authorityRoutes = new Hono<{ Variables: Variables }>();
@@ -58,9 +59,11 @@ async function assertRealmAdmin(
   realmId: string,
   principalId: string,
 ): Promise<Response | undefined> {
-  const membership = await c
-    .get("ctx")
-    .stores.organizationMemberships.find(realmId, principalId);
+  const membership = await authorizedOrganizationMembership(
+    c.get("ctx").stores,
+    realmId,
+    principalId,
+  );
   if (
     !membership ||
     (membership.role !== "owner" && membership.role !== "admin")

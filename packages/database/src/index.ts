@@ -150,6 +150,7 @@ export {
   MemoryScimGroupMappingStore,
   MemoryScimGroupStore,
 } from "./scim-groups-memory.js";
+export { SCIM_DEPROVISION_JOURNAL_ATTRIBUTE } from "./scim-store.js";
 export { MemoryScimUserStore } from "./scim-users-memory.js";
 export { PostgresScimUserStore } from "./scim-users-postgres.js";
 export { openSecretText, sealSecretText } from "./secret-seal.js";

@@ -5,6 +5,8 @@ import {
   MemoryScimUserStore,
   PostgresOrganizationMembershipStore,
   PostgresOrganizationStore,
+  PostgresProjectMembershipStore,
+  PostgresProjectStore,
   PostgresScimUserStore,
   createPostgresOrgFederationStores,
   createPostgresRepositories,
@@ -109,6 +111,8 @@ export async function withScimOrganizationBoundary<T>(
         },
         organizations: new PostgresOrganizationStore(db),
         organizationMemberships: new PostgresOrganizationMembershipStore(db),
+        projects: new PostgresProjectStore(db),
+        projectMemberships: new PostgresProjectMembershipStore(db),
         orgFederation: createPostgresOrgFederationStores(db),
       },
     });

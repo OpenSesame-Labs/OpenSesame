@@ -5,6 +5,8 @@ import {
 } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { revokeOrganizationMembership } from "../routes/organization-revocation.js";
+import { prepareRemovalWithdrawal } from "../services/organization-withdrawal.js";
 
 type App = ReturnType<typeof createControlPlane>["app"];
 
@@ -122,7 +124,7 @@ describe("projects routes edge cases", () => {
   });
 
   it("scopes standard projects to organizations the caller belongs to", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
+    const { app, ctx } = createControlPlane({ config: testConfig() });
     const owner = await verified(app, "org-proj-owner");
 
     const unknownOrg = await createProject(app, owner.accessToken, {
@@ -150,7 +152,65 @@ describe("projects routes edge cases", () => {
       organizationId: org.id,
     });
     expect(inOrg.status).toBe(201);
-    expect(overlapCast(await inOrg.json()).organizationId).toBe(org.id);
+    const grouped = overlapCast(await inOrg.json());
+    expect(grouped.organizationId).toBe(org.id);
+
+    const versioned = await ctx.stores.organizationMemberships.findVersioned(
+      org.id,
+      owner.principalId,
+    );
+    if (!versioned) throw new Error("Expected organization membership");
+    const prepared = await prepareRemovalWithdrawal(ctx, {
+      organizationId: org.id,
+      principalId: owner.principalId,
+      expectedIncarnation: versioned.incarnation,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId: "project-membership-withdrawal",
+      reason: "scim_deactivated",
+    });
+    if (prepared.status !== "ready")
+      throw new Error("Expected prepared membership withdrawal");
+    const pendingList = overlapCast(
+      await (
+        await app.request("/v1/projects", {
+          headers: auth(owner.accessToken),
+        })
+      ).json(),
+    ).projects;
+    expect(pendingList.some((project) => project.id === grouped.id)).toBe(
+      false,
+    );
+
+    await revokeOrganizationMembership(ctx, {
+      organizationId: org.id,
+      principalId: owner.principalId,
+      correlationId: "project-membership-removed",
+      reason: "test",
+      expectedIncarnation: prepared.prepared.incarnation,
+      expectedWithdrawalId: prepared.prepared.withdrawal.id,
+    });
+    expect(
+      (
+        await app.request(`/v1/projects/${grouped.id}`, {
+          headers: auth(owner.accessToken),
+        })
+      ).status,
+    ).toBe(404);
+    await ctx.stores.organizationMemberships.upsert({
+      organizationId: org.id,
+      principalId: owner.principalId,
+      role: "owner",
+      createdAt: ctx.clock(),
+      updatedAt: ctx.clock(),
+    });
+    expect(
+      (
+        await app.request(`/v1/projects/${grouped.id}`, {
+          headers: auth(owner.accessToken),
+        })
+      ).status,
+    ).toBe(404);
   });
 
   it("lets provisional principals create a standard project", async () => {

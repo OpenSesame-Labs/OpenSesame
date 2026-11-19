@@ -16,6 +16,7 @@ export type OrganizationRevocationInput = {
   expectedIncarnation?: string;
   expectedWithdrawalId?: string;
   withdrawalAudit?: OrganizationWithdrawalAuditIntent;
+  appendAudit?: boolean;
 };
 
 export type OrganizationRevocationResult = {
@@ -43,6 +44,20 @@ export async function revokeOrganizationMembership(
             input.principalId,
           );
       if (membershipRemoved || input.advanceEpochWithoutMembership) {
+        const projectMemberships =
+          await stores.projectMemberships.listByPrincipal(input.principalId);
+        for (const projectMembership of projectMemberships) {
+          const project = await stores.projects.get(
+            projectMembership.projectId,
+          );
+          if (project?.organizationId === input.organizationId)
+            await stores.projectMemberships.remove(
+              projectMembership.projectId,
+              input.principalId,
+            );
+        }
+      }
+      if (membershipRemoved || input.advanceEpochWithoutMembership) {
         if (database)
           await advancePrincipalSessionEpochOn(database, input.principalId);
         else await advancePrincipalSessionEpoch(stores, input.principalId);
@@ -55,7 +70,7 @@ export async function revokeOrganizationMembership(
       return { membershipRemoved };
     },
   );
-  if (!input.withdrawalAudit) {
+  if (!input.withdrawalAudit && input.appendAudit !== false) {
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.member_revoked",
       outcome: "succeeded",

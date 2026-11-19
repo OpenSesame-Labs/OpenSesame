@@ -1,14 +1,17 @@
+import { auditEventDigest } from "@opensesame/audit";
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
-import { scheduleOrganizationWithdrawalRecovery } from "../services/organization-withdrawal-recovery.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
   hostApiEndpoint,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
+import { finishLegacyOrphan } from "../routes/scim-legacy-orphan.js";
+import { prepareRemovalWithdrawal } from "../services/organization-withdrawal.js";
+import { scheduleOrganizationWithdrawalRecovery } from "../services/organization-withdrawal-recovery.js";
 import {
   auth,
   createOrg,
@@ -39,26 +42,95 @@ afterEach(() => {
 
 describe("organization helpers", () => {
   it("retries deferred withdrawal recovery until the pending set clears", async () => {
-    const { ctx } = createControlPlane({ config: testConfig() });
+    const { app, ctx } = createControlPlane({ config: testConfig() });
     await ctx.systemPrincipalReady;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const pending = vi
-      .spyOn(ctx.stores.organizationMemberships, "listPendingWithdrawals")
-      .mockResolvedValueOnce([overlapCast({})])
-      .mockResolvedValueOnce([]);
+    const member = await provisional(app);
+    const outsider = await provisional(app);
+    const [plainMembership] =
+      await ctx.stores.organizationMemberships.listByPrincipal(
+        member.principalId,
+      );
+    const membership = plainMembership
+      ? await ctx.stores.organizationMemberships.findVersioned(
+          plainMembership.organizationId,
+          member.principalId,
+        )
+      : undefined;
+    if (!membership) throw new Error("Expected personal membership");
+    const prepared = await prepareRemovalWithdrawal(ctx, {
+      organizationId: membership.membership.organizationId,
+      principalId: member.principalId,
+      expectedIncarnation: membership.incarnation,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId: "host-retry",
+      reason: "scim_deactivated",
+    });
+    expect(prepared.status).toBe("ready");
+    const pendingOwnerMutation = await app.request(
+      `/v1/organizations/${membership.membership.organizationId}/members`,
+      {
+        method: "POST",
+        headers: {
+          ...auth(member.accessToken),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          principalId: outsider.principalId,
+          role: "member",
+        }),
+      },
+    );
+    expect(pendingOwnerMutation.status).toBe(404);
+    await ctx.stores.organizationWithdrawalAudits.set("audit-retry", {
+      id: "audit-retry",
+      kind: "remove",
+      actorType: "system",
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:audit-retry",
+      principalId: "prn_audit_retry",
+      correlationId: "audit-retry",
+      previousRole: "member",
+    });
+    const audit = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValue(new Error("audit sink unavailable"));
+    const host = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
+    const pending = vi.spyOn(
+      ctx.stores.organizationMemberships,
+      "listPendingWithdrawals",
+    );
     let retry: (() => void) | undefined;
+    const delays: number[] = [];
     scheduleOrganizationWithdrawalRecovery(
       ctx,
       Promise.resolve(),
       () => undefined,
       (run, delayMs) => {
-        expect(delayMs).toBe(1_000);
+        delays.push(delayMs);
         retry = run;
       },
     );
-    await vi.waitFor(() => expect(retry).toBeDefined());
-    retry?.();
-    await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(2));
+    for (let expected = 1; expected <= 8; expected += 1) {
+      await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(expected));
+      retry?.();
+    }
+    expect(audit).toHaveBeenCalled();
+    audit.mockRestore();
+    await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(9));
+    expect(host).toHaveBeenCalledOnce();
+    expect(
+      await ctx.stores.organizationMemberships.find(
+        membership.membership.organizationId,
+        member.principalId,
+      ),
+    ).toBeUndefined();
+    expect(delays).toEqual([
+      1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000, 60_000, 60_000,
+    ]);
   });
 
   it("authenticatedPrincipalId throws when the middleware contract broke", () => {
@@ -66,6 +138,104 @@ describe("organization helpers", () => {
       /invariant violated/,
     );
     expect(authenticatedPrincipalId("prn_1")).toBe("prn_1");
+  });
+
+  it("contacts Host before a legacy-orphan audit can fail", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const fetchSpy = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
+    vi.spyOn(ctx.repos.auditEvents, "append").mockRejectedValueOnce(
+      new Error("audit sink unavailable"),
+    );
+
+    await expect(
+      finishLegacyOrphan(
+        ctx,
+        "org:legacy-orphan",
+        {
+          principalId: member.principalId,
+          incarnation: "00000000-0000-4000-8000-000000000010",
+          authorityRevision: "00000000-0000-4000-8000-000000000011",
+          withdrawalId: "00000000-0000-4000-8000-000000000012",
+        },
+        "legacy-orphan-audit",
+      ),
+    ).rejects.toThrow("audit sink unavailable");
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("does not remove a membership recreated before legacy-orphan recovery", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const organizationId = "org:legacy-orphan-recreated";
+    const now = ctx.clock();
+    await ctx.stores.organizationMemberships.upsert({
+      organizationId,
+      principalId: member.principalId,
+      role: "member",
+      createdAt: now,
+      updatedAt: now,
+    });
+    mockHostFetch(() => Promise.resolve(new Response("{}", { status: 200 })));
+
+    await finishLegacyOrphan(
+      ctx,
+      organizationId,
+      {
+        principalId: member.principalId,
+        incarnation: "00000000-0000-4000-8000-000000000020",
+        authorityRevision: "00000000-0000-4000-8000-000000000021",
+        withdrawalId: "00000000-0000-4000-8000-000000000022",
+      },
+      "legacy-orphan-recreated",
+    );
+    expect(
+      await ctx.stores.organizationMemberships.find(
+        organizationId,
+        member.principalId,
+      ),
+    ).toBeDefined();
+  });
+
+  it("retains an audit intent when its apparent event is detached", async () => {
+    const { ctx } = createControlPlane({ config: testConfig() });
+    const id = "00000000-0000-4000-8000-000000000013";
+    await ctx.stores.organizationWithdrawalAudits.set(id, {
+      id,
+      kind: "remove",
+      actorType: "system",
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:detached-audit",
+      principalId: "prn_detached_audit",
+      correlationId: "detached-audit",
+      previousRole: "member",
+    });
+    const previousDigest = "a".repeat(64);
+    const detached = overlapCast({
+      id: `organization-withdrawal:${id}`,
+      occurredAt: new Date(),
+      eventType: "organization.member_removed",
+      outcome: "succeeded",
+      actorType: "system",
+      principalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:detached-audit",
+      correlationId: "detached-audit",
+      metadata: {
+        action: "organization.member.remove",
+        targetId: "prn_detached_audit",
+        fromState: "member",
+      },
+      previousDigest,
+    });
+    detached.digest = auditEventDigest(detached, previousDigest);
+    vi.spyOn(ctx.repos.auditEvents, "getById").mockResolvedValue(detached);
+
+    await expect(
+      resumePendingOrganizationWithdrawalAudits(ctx),
+    ).rejects.toThrow("Conflicting organization withdrawal audit event");
+    expect(await ctx.stores.organizationWithdrawalAudits.get(id)).toBeDefined();
   });
 
   it("hostApiEndpoint rejects non-HTTP, credentialed, and invalid URLs", () => {

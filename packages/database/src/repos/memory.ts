@@ -768,6 +768,12 @@ export class MemoryRepositories implements Repositories {
       const row = this.#store.audit.get(id);
       return row ? { ...row, metadata: { ...row.metadata } } : null;
     },
+    findByDigest: async (digest) => {
+      const row = [...this.#store.audit.values()].find(
+        (event) => event.digest === digest,
+      );
+      return row ? { ...row, metadata: { ...row.metadata } } : null;
+    },
     list: async (filter) => {
       // Insertion order is append order, which is the order the hash chain was
       // built in. Sorting by `occurredAt` here put ties in arbitrary order and so

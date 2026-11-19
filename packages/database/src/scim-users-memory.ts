@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { hasPendingScimDeprovision } from "./capacity-admission.js";
 import type { MemoryStoreFork } from "./memory-transaction.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type {
@@ -149,6 +150,22 @@ export class MemoryScimUserStore implements ScimUserStore {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(normalizeScimUser);
     return page ? rows.slice(page.offset, page.offset + page.limit) : rows;
+  }
+
+  async listPendingDeprovisions(
+    limit: number,
+    afterId?: string,
+  ): Promise<ScimUserRecord[]> {
+    const rows = [...this.#users.values()]
+      .map(({ user }) => user)
+      .filter((user) => {
+        if (this.#scope !== undefined && user.organizationId !== this.#scope)
+          return false;
+        if (afterId !== undefined && user.id <= afterId) return false;
+        return hasPendingScimDeprovision(user.raw);
+      })
+      .sort((a, b) => a.id.localeCompare(b.id));
+    return rows.slice(0, limit).map(normalizeScimUser);
   }
 
   forkForTransaction(orgId: string): MemoryStoreFork<MemoryScimUserStore> {

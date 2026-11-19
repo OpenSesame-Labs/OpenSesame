@@ -8,6 +8,7 @@
 
 import type { Project, ProjectRole } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 
 /** States a caller can still see and act on. */
 const VISIBLE_PROJECT_STATES = new Set(["provisional", "active"]);
@@ -30,6 +31,14 @@ export async function roleFor(
   project: Project,
   principalId: string,
 ): Promise<ProjectRole | undefined> {
+  if (project.organizationId) {
+    const organizationMembership = await authorizedOrganizationMembership(
+      ctx.stores,
+      project.organizationId,
+      principalId,
+    );
+    if (!organizationMembership) return undefined;
+  }
   const membership = await ctx.stores.projectMemberships.find(
     project.id,
     principalId,

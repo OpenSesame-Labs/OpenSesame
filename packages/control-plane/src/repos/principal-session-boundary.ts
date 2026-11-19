@@ -2,6 +2,8 @@ import {
   type Database,
   MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
+  PostgresProjectMembershipStore,
+  PostgresProjectStore,
   principals,
 } from "@opensesame/database";
 import { eq, sql } from "drizzle-orm";
@@ -130,6 +132,14 @@ export async function withPrincipalSessionBoundary<T>(
           stores.organizationWithdrawalAudits instanceof DurableMap
             ? stores.organizationWithdrawalAudits.onDatabase(db)
             : stores.organizationWithdrawalAudits,
+        projects:
+          stores.projects instanceof PostgresProjectStore
+            ? new PostgresProjectStore(db)
+            : stores.projects,
+        projectMemberships:
+          stores.projectMemberships instanceof PostgresProjectMembershipStore
+            ? new PostgresProjectMembershipStore(db)
+            : stores.projectMemberships,
       },
       db,
     );

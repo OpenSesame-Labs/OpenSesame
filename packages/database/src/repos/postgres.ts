@@ -1393,6 +1393,14 @@ export class PostgresRepositories implements Repositories {
         .limit(1);
       return row ? mapAuditEvent(row) : null;
     },
+    findByDigest: async (digest) => {
+      const [row] = await this.db
+        .select()
+        .from(schema.auditEvents)
+        .where(eq(schema.auditEvents.digest, digest))
+        .limit(1);
+      return row ? mapAuditEvent(row) : null;
+    },
     list: async (filter) => {
       const limit = filter?.limit ?? 50;
       let query = this.db

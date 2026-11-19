@@ -25,6 +25,8 @@ import { claimLinks } from "../interactions/rendezvous.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import { isVisible, roleFor } from "../services/project-access.js";
 import {
@@ -192,7 +194,8 @@ async function visibleProjects(
   )) {
     const project = await ctx.stores.projects.get(membership.projectId);
     if (!project || !isVisible(project, now)) continue;
-    seen.set(project.id, { project, role: membership.role });
+    const role = await roleFor(ctx, project, principalId);
+    if (role) seen.set(project.id, { project, role });
   }
   for (const project of await ctx.stores.projects.listByOwner(principalId)) {
     if (project.kind !== "temporary") continue;
@@ -259,77 +262,85 @@ projectRoutes.post(
           return c.json({ error: "forbidden", reasons: decision.reasons }, 403);
         }
 
-        if (parsed.data.organizationId) {
-          const membership = await ctx.stores.organizationMemberships.find(
-            parsed.data.organizationId,
-            principalId,
-          );
-          const organization = await ctx.stores.organizations.get(
-            parsed.data.organizationId,
-          );
-          if (
-            !organization ||
-            organization.state === "deleted" ||
-            !membership
-          ) {
-            return c.json({ error: "organization_not_found" }, 404);
+        const create = async (tx: AppContext) => {
+          if (parsed.data.organizationId) {
+            const membership = await authorizedOrganizationMembership(
+              tx.stores,
+              parsed.data.organizationId,
+              principalId,
+            );
+            const organization = await tx.stores.organizations.get(
+              parsed.data.organizationId,
+            );
+            if (
+              !organization ||
+              organization.state === "deleted" ||
+              !membership
+            )
+              return {
+                response: c.json({ error: "organization_not_found" }, 404),
+              };
           }
-        }
-
-        const now = ctx.clock();
-        const derivedSlug = slugify(parsed.data.displayName);
-        const slug =
-          parsed.data.slug ??
-          (derivedSlug.length > 0
-            ? derivedSlug
-            : `project-${randomUUID().slice(0, 8)}`);
-        if (slug === PERSONAL_PROJECT_SLUG) {
-          return c.json(
-            {
-              error: "validation_error",
-              message:
-                "Use POST /v1/projects/personal/ensure for the personal project",
-            },
-            400,
+          const now = tx.clock();
+          const derivedSlug = slugify(parsed.data.displayName);
+          const slug =
+            parsed.data.slug ??
+            (derivedSlug.length > 0
+              ? derivedSlug
+              : `project-${randomUUID().slice(0, 8)}`);
+          if (slug === PERSONAL_PROJECT_SLUG)
+            return {
+              response: c.json(
+                {
+                  error: "validation_error",
+                  message:
+                    "Use POST /v1/projects/personal/ensure for the personal project",
+                },
+                400,
+              ),
+            };
+          const slugTaken = (await visibleProjects(tx, principalId, now)).some(
+            ({ project }) => project.slug === slug,
           );
-        }
-        const slugTaken = (await visibleProjects(ctx, principalId, now)).some(
-          ({ project }) => project.slug === slug,
-        );
-        if (slugTaken) {
-          return c.json({ error: "slug_taken" }, 409);
-        }
-
-        const project: Project = {
-          id: `prj_${randomUUID()}`,
-          kind: "standard",
-          slug,
-          displayName: parsed.data.displayName,
-          state: "active",
-          ownerPrincipalId: principalId,
-          createdAt: now,
-          updatedAt: now,
-          ...(parsed.data.organizationId !== undefined
-            ? { organizationId: parsed.data.organizationId }
-            : undefined),
+          if (slugTaken)
+            return { response: c.json({ error: "slug_taken" }, 409) };
+          const project: Project = {
+            id: `prj_${randomUUID()}`,
+            kind: "standard",
+            slug,
+            displayName: parsed.data.displayName,
+            state: "active",
+            ownerPrincipalId: principalId,
+            createdAt: now,
+            updatedAt: now,
+            ...(parsed.data.organizationId !== undefined
+              ? { organizationId: parsed.data.organizationId }
+              : undefined),
+          };
+          const tomb = isString(rawBody.sealedStoreTombName)
+            ? rawBody.sealedStoreTombName.trim()
+            : "";
+          if (tomb) project.sealedStoreTombName = tomb;
+          const folder = isString(rawBody.pagesVaultFolderId)
+            ? rawBody.pagesVaultFolderId.trim()
+            : "";
+          if (folder) project.pagesVaultFolderId = folder;
+          await tx.stores.projects.set(project.id, project);
+          await tx.stores.projectMemberships.upsert({
+            projectId: project.id,
+            principalId,
+            role: "owner",
+            createdAt: now,
+            updatedAt: now,
+          });
+          return { project };
         };
-        const tomb = isString(rawBody.sealedStoreTombName)
-          ? rawBody.sealedStoreTombName.trim()
-          : "";
-        if (tomb) project.sealedStoreTombName = tomb;
-        const folder = isString(rawBody.pagesVaultFolderId)
-          ? rawBody.pagesVaultFolderId.trim()
-          : "";
-        if (folder) project.pagesVaultFolderId = folder;
-
-        await ctx.stores.projects.set(project.id, project);
-        await ctx.stores.projectMemberships.upsert({
-          projectId: project.id,
-          principalId,
-          role: "owner",
-          createdAt: now,
-          updatedAt: now,
-        });
+        const organizationId = parsed.data.organizationId;
+        const created = organizationId
+          ? await withScimOrganizationBoundary(ctx, organizationId, create)
+          : await create(ctx);
+        if ("response" in created) return created.response;
+        const { project } = created;
         await reconcileProjectAuthorityMembership(ctx, project.id, {
           actorPrincipalId: principalId,
           correlationId: c.get("correlationId"),

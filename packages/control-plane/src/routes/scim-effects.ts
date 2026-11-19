@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { ScimUserRecord } from "@opensesame/database";
+import {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  type ScimUserRecord,
+} from "@opensesame/database";
 import type { Organization, OrganizationRole } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
@@ -22,8 +25,8 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
 
 const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
-export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
-  "urn:opensesame:params:scim:2.0:deprovision-journal";
+
+export { SCIM_DEPROVISION_JOURNAL_ATTRIBUTE };
 
 type DeprovisionTarget = {
   principalId: string;
@@ -231,7 +234,7 @@ async function principalsForUser(
 /** Withdraw a deactivated subject's membership and live sessions (D11). */
 export async function deprovision(
   ctx: AppContext,
-  organization: Organization,
+  organization: Pick<Organization, "id">,
   user: ScimUserRecord,
   correlationId: string,
   _previous?: ScimUserRecord,

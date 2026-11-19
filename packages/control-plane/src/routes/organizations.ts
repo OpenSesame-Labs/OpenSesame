@@ -21,7 +21,12 @@ import { organizationId } from "../lib/ids.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
+import {
+  authorizedOrganizationMembership,
+  orgOwner,
+} from "../proofs/org-owner.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import {
   writeOrganization,
@@ -261,6 +266,14 @@ organizationRoutes.get("/", requirePrincipal(), async (c) => {
   for (const membership of await ctx.stores.organizationMemberships.listByPrincipal(
     principalId,
   )) {
+    if (
+      !(await authorizedOrganizationMembership(
+        ctx.stores,
+        membership.organizationId,
+        principalId,
+      ))
+    )
+      continue;
     const org = await ctx.stores.organizations.get(membership.organizationId);
     if (!org || org.state === "deleted") continue;
     organizations.push(toResponse(org, membership.role));
@@ -674,7 +687,7 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const organizationId = c.req.param("id");
   return serializeMembershipMutation(ctx, organizationId, () =>
-    asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
+    asOrgOwner(c, MEMBER_ADMIN, async ({ org, actor }) => {
       const principalId = actor.value;
       const parsed = AddOrganizationMemberRequestSchema.safeParse(
         await c.req.json(),
@@ -685,24 +698,50 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
           400,
         );
       }
-      const principal = await ctx.repos.principals.getById(
-        parsed.data.principalId,
-      );
-      if (!principal) return c.json({ error: "principal_not_found" }, 404);
-      if (principal.state === "suspended" || principal.state === "closed") {
-        return c.json({ error: "principal_inactive" }, 409);
-      }
-      if (await getMembership(ctx, organizationId, principal.id)) {
-        return c.json({ error: "membership_exists" }, 409);
-      }
-      const now = ctx.clock();
-      const membership = await writeOrganizationMembership(ctx, org, proof, {
+      const mutation = await withScimOrganizationBoundary(
+        ctx,
         organizationId,
-        principalId: principal.id,
-        role: parsed.data.role,
-        createdAt: now,
-        updatedAt: now,
-      });
+        async (tx) => {
+          const owner = await orgOwner(
+            tx.stores,
+            actor,
+            org,
+            MEMBER_ADMIN.liveness,
+          );
+          if (!owner.ok) return { status: "unauthorized" as const, owner };
+          const principal = await tx.repos.principals.getById(
+            parsed.data.principalId,
+          );
+          if (!principal) return { status: "principal_not_found" as const };
+          if (principal.state === "suspended" || principal.state === "closed")
+            return { status: "principal_inactive" as const };
+          if (await getMembership(tx, organizationId, principal.id))
+            return { status: "membership_exists" as const };
+          const now = tx.clock();
+          const membership = await writeOrganizationMembership(
+            tx,
+            org,
+            owner.proof,
+            {
+              organizationId,
+              principalId: principal.id,
+              role: parsed.data.role,
+              createdAt: now,
+              updatedAt: now,
+            },
+          );
+          return { status: "created" as const, membership };
+        },
+      );
+      if (mutation.status === "unauthorized")
+        return c.json({ error: mutation.owner.error }, mutation.owner.status);
+      if (mutation.status === "principal_not_found")
+        return c.json({ error: "principal_not_found" }, 404);
+      if (mutation.status === "principal_inactive")
+        return c.json({ error: "principal_inactive" }, 409);
+      if (mutation.status === "membership_exists")
+        return c.json({ error: "membership_exists" }, 409);
+      const membership = mutation.membership;
       await appendAuditEvent(ctx.repos.auditEvents, {
         eventType: "organization.member_added",
         outcome: "succeeded",
@@ -711,7 +750,7 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
         correlationId: c.get("correlationId"),
         metadata: {
           action: "organization.member.add",
-          memberPrincipalId: principal.id,
+          memberPrincipalId: membership.principalId,
           role: membership.role,
         },
       });

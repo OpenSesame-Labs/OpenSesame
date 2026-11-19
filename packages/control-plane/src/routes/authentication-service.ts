@@ -31,6 +31,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 import { serializeKeyed } from "../serialize.js";
 import { createAuthenticationApplication } from "../services/verified-admin.js";
 import { consumePublicBudget } from "./authentication-budget.js";
@@ -70,9 +71,10 @@ async function canManage(
   application: AuthenticationApplication,
   principalId: string,
 ): Promise<boolean> {
-  if (application.ownerPrincipalId === principalId) return true;
-  if (!application.organizationId) return false;
-  const membership = await ctx.stores.organizationMemberships.find(
+  if (!application.organizationId)
+    return application.ownerPrincipalId === principalId;
+  const membership = await authorizedOrganizationMembership(
+    ctx.stores,
     application.organizationId,
     principalId,
   );
@@ -160,7 +162,8 @@ async function assertOrganizationAdmin(
 ): Promise<boolean> {
   const organization = await ctx.stores.organizations.get(organizationId);
   if (!organization || organization.state !== "active") return false;
-  const membership = await ctx.stores.organizationMemberships.find(
+  const membership = await authorizedOrganizationMembership(
+    ctx.stores,
     organizationId,
     principalId,
   );
@@ -177,7 +180,8 @@ authenticationServiceRoutes.get(
     for (const application of await ctx.authenticationStores.applications.listByOwner(
       principalId,
     )) {
-      applications.set(application.id, application);
+      if (await canManage(ctx, application, principalId))
+        applications.set(application.id, application);
     }
     for (const membership of await ctx.stores.organizationMemberships.listByPrincipal(
       principalId,
@@ -186,7 +190,8 @@ authenticationServiceRoutes.get(
       for (const application of await ctx.authenticationStores.applications.listByOrganization(
         membership.organizationId,
       )) {
-        applications.set(application.id, application);
+        if (await canManage(ctx, application, principalId))
+          applications.set(application.id, application);
       }
     }
     return c.json({

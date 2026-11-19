@@ -5,6 +5,7 @@ import type {
   OrganizationRole,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   type PreparedWithdrawal,
@@ -18,7 +19,11 @@ export async function getMembership(
   organizationId: string,
   principalId: string,
 ): Promise<OrganizationMembership | undefined> {
-  return ctx.stores.organizationMemberships.find(organizationId, principalId);
+  return authorizedOrganizationMembership(
+    ctx.stores,
+    organizationId,
+    principalId,
+  );
 }
 
 export async function serializeMembershipMutation<T>(
