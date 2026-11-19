@@ -13,8 +13,17 @@ import type { Variables } from "./context.js";
 async function principalStillAuthenticates(
   ctx: AppContext,
   principalId: string,
+  database?: Database,
 ): Promise<boolean> {
-  const principal = await ctx.repos.principals.getById(principalId);
+  const principal = database
+    ? (
+        await database
+          .select()
+          .from(principals)
+          .where(eq(principals.id, principalId))
+          .limit(1)
+      )[0]
+    : await ctx.repos.principals.getById(principalId);
   // A session is a lease on a principal, not a copy of it. Suspension or
   // closure must take effect on the next request, not when the lease expires.
   return (
@@ -39,7 +48,7 @@ export async function resolveProvisionalSession(
       ctx.stores,
       session.principalId,
       "authenticate",
-      async (stores) => {
+      async (stores, database) => {
         // Re-read after taking the shared boundary: a revocation may have
         // committed between the initial token lookup and lock acquisition.
         const standingId = await stores.provisionalTokens.get(token);
@@ -53,7 +62,13 @@ export async function resolveProvisionalSession(
         ) {
           return undefined;
         }
-        if (!(await principalStillAuthenticates(ctx, standing.principalId)))
+        if (
+          !(await principalStillAuthenticates(
+            ctx,
+            standing.principalId,
+            database,
+          ))
+        )
           return undefined;
         return { principalId: standing.principalId, sessionId: standing.id };
       },
@@ -151,3 +166,6 @@ export function requirePrincipal() {
     await next();
   });
 }
+
+import { type Database, principals } from "@opensesame/database";
+import { eq } from "drizzle-orm";
