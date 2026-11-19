@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::path::confined_write;
 use crate::rollback_witness::WitnessRekey;
+use crate::rotation_walk::inventory;
 use crate::StoreError;
 
 #[derive(Default)]
@@ -28,4 +29,22 @@ impl Plan {
         self.swaps.push(rel);
         Ok(())
     }
+}
+
+/// Fail closed if any root-sealed file in the tree was not re-encrypted: the
+/// key swap would strand it under the old root.
+pub(super) fn verify_nothing_left_behind(root: &Path, plan: &Plan) -> Result<(), StoreError> {
+    let swapped: BTreeSet<&PathBuf> = plan.swaps.iter().collect();
+    let missed = inventory(root)?
+        .relative_paths()
+        .into_iter()
+        .filter(|rel| !swapped.contains(rel))
+        .count();
+    if missed > 0 {
+        return Err(StoreError::Crypto(format!(
+            "{missed} sealed file(s) appeared that were not re-encrypted; the rotation was \
+             rolled back so none of them is left under the old root"
+        )));
+    }
+    Ok(())
 }

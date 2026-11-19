@@ -84,7 +84,7 @@ fn interrupted_mutation_requires_explicit_recovery() {
     add(&root, &key, b"one", false);
     let path = dir.path().join("Docs/file.osattach");
     let old = std::fs::read(&path).unwrap();
-    root.advance_attachment_witness("Docs/file", &path, &key, 1, None)
+    root.advance_attachment_witness("Docs/file", &path, &key, 1, None, false)
         .unwrap();
     assert!(root.attach_get("Docs/file", &mut Vec::new(), &key).is_err());
     root.recover_attachment_trusting_ciphertext("Docs/file", &key)
@@ -182,8 +182,19 @@ fn same_revision_forked_manifest_fails_witness_check() {
 
     assert!(root.attachment_witness("Docs/file", &key).is_err());
     assert!(root
-        .advance_attachment_witness("Docs/file", &path, &key, witnessed.revision, None)
+        .advance_attachment_witness("Docs/file", &path, &key, witnessed.revision, None, false)
         .is_err());
+    assert!(root
+        .advance_attachment_witness(
+            "Docs/file",
+            &path,
+            &key,
+            witnessed.revision,
+            Some(&plaintext),
+            false,
+        )
+        .is_err());
+    assert!(root.attach_get("Docs/file", &mut Vec::new(), &key).is_err());
 
     std::fs::write(&path, original).unwrap();
     let restored = root.attachment_witness("Docs/file", &key).unwrap();
@@ -195,25 +206,7 @@ fn same_revision_forked_manifest_fails_witness_check() {
 }
 
 #[test]
-fn rotation_rebinds_attachment_commitments_before_key_commit() {
-    crate::rotation::ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.store(false, std::sync::atomic::Ordering::Relaxed);
-    let dir = tempfile::tempdir().unwrap();
-    let root = init_store(dir.path(), &[]).unwrap();
-    let password = b"correct horse";
-    let key = init_store_key(dir.path(), password).unwrap();
-    add(&root, &key, b"payload", false);
-    let before = root.attachment_witness("Docs/file", &key).unwrap();
-    crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default()).unwrap();
-  assert!(crate::rotation::ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.load(
-        std::sync::atomic::Ordering::Relaxed,
-    ));
-    let new_key = crate::unlock_store_key(dir.path(), password).unwrap();
-    let after = root.attachment_witness("Docs/file", &new_key).unwrap();
-    assert_ne!(after.commitment, before.commitment);
-}
-
-#[test]
-fn trusted_recovery_rebinds_owner_verified_fork() {
+fn trusted_recovery_rebinds_forked_manifest() {
     let dir = tempfile::tempdir().unwrap();
     let root = init_store(dir.path(), &[]).unwrap();
     let key = init_store_key(dir.path(), b"correct horse").unwrap();
@@ -242,9 +235,77 @@ fn trusted_recovery_rebinds_owner_verified_fork() {
     .unwrap();
     std::fs::write(&path, &forked).unwrap();
     assert!(root.attachment_witness("Docs/file", &key).is_err());
+    assert!(root
+        .advance_attachment_witness("Docs/file", &path, &key, witnessed.revision, None, false)
+        .is_err());
     root.recover_attachment_trusting_ciphertext("Docs/file", &key)
         .unwrap();
     let rebound = root.attachment_witness("Docs/file", &key).unwrap();
     assert!(rebound.revision > witnessed.revision);
     assert_eq!(rebound.commitment, *blake3::hash(&plaintext).as_bytes());
+    let mut out = Vec::new();
+    let summary = root.attach_get("Docs/file", &mut out, &key).unwrap();
+    assert_eq!(out, b"alpha");
+    assert_eq!(summary.filename, "other-file");
+}
+
+#[test]
+fn commitment_checked_bytes_reject_a_swapped_fork() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = init_store(dir.path(), &[]).unwrap();
+    let key = init_store_key(dir.path(), b"correct horse").unwrap();
+    add(&root, &key, b"alpha", false);
+    let witnessed = root.attachment_witness("Docs/file", &key).unwrap();
+    let blob = std::fs::read(dir.path().join("Docs/file.osattach")).unwrap();
+    let (opened, _) = open_osseal_in_for_path(
+        COLLECTION_ATTACHMENTS,
+        &blob,
+        &key,
+        "Docs/file",
+        Some(witnessed.revision),
+    )
+    .unwrap();
+    let manifest =
+        super::attachments::manifest_from_commitment(&witnessed, &opened.plaintext).unwrap();
+    assert_eq!(manifest.filename, "file");
+
+    let mut forked = parse_attachment_manifest(&opened.plaintext).unwrap();
+    forked.filename = "swapped-fork".into();
+    let swapped = serde_json::to_vec(&forked).unwrap();
+    assert!(super::attachments::manifest_from_commitment(&witnessed, &swapped).is_err());
+    let again =
+        super::attachments::manifest_from_commitment(&witnessed, &opened.plaintext).unwrap();
+    assert_eq!(again.filename, "file");
+}
+
+#[test]
+fn rebind_failure_before_key_commit_leaves_the_old_key_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = init_store(dir.path(), &[]).unwrap();
+    let password = b"correct horse";
+    let key = init_store_key(dir.path(), password).unwrap();
+    add(&root, &key, b"one", false);
+    let (id, mut witness) = root.current_witness(&key).unwrap();
+    witness.epoch = u64::MAX;
+    root.write_witness(&id, &key, &witness).unwrap();
+    let key_path = dir.path().join(crate::KEY_FILE_NAME);
+    let before = std::fs::read(&key_path).unwrap();
+    let error = match crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default())
+    {
+        Err(error) => error,
+        Ok(_) => panic!("rebind must fail before the key file is replaced"),
+    };
+    assert!(
+        error.to_string().contains("rollback witness epoch exhausted"),
+        "{error}"
+    );
+    assert_eq!(std::fs::read(&key_path).unwrap(), before);
+    assert_eq!(
+        crate::unlock_store_key(dir.path(), password).unwrap().0,
+        key.0
+    );
+    let mut out = Vec::new();
+    root.attach_get("Docs/file", &mut out, &key).unwrap();
+    assert_eq!(out, b"one");
+    assert!(!dir.path().join(crate::ROTATION_STAGING_DIR).exists());
 }

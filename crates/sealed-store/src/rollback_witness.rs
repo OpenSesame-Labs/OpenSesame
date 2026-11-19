@@ -24,7 +24,7 @@ fn commitment_unbound(commitment: &[u8; 32]) -> bool {
     *commitment == [0; 32]
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub(crate) struct EntryWitness {
     pub revision: u64,
     pub deleted: bool,
@@ -47,13 +47,6 @@ pub(crate) struct WitnessRekey {
     witness: Witness,
 }
 
-impl WitnessRekey {
-    pub(crate) fn restore_from(&mut self, other: &Self) {
-        self.store_id.clone_from(&other.store_id);
-        self.witness = other.witness.clone();
-    }
-}
-
 fn hex(bytes: &[u8]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -66,8 +59,6 @@ fn hex(bytes: &[u8]) -> String {
 
 #[path = "rollback_witness/attachments.rs"]
 mod attachments;
-#[path = "rollback_witness/attachments_rotation.rs"]
-mod attachments_rotation;
 #[cfg(test)]
 #[path = "rollback_witness/attachments_tests.rs"]
 mod attachments_tests;

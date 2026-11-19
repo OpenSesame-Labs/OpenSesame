@@ -248,7 +248,7 @@ fn interrupted_new_attachment_can_be_replaced_from_its_source() {
     let (_dir, root, key) = store();
     root.attachment_witness_ready(&key).unwrap();
     let path = root.path.join(attach_relative("One/scan").unwrap());
-    root.advance_attachment_witness("One/scan", &path, &key, 0, None)
+    root.advance_attachment_witness("One/scan", &path, &key, 0, None, false)
         .unwrap();
     assert!(root.attach_ls(None, &key).is_err());
     assert!(root.attach_gc(&key).is_err());

@@ -14,8 +14,8 @@
 //!    crash in the next step never loses the root the swapped files need.
 //! 3. **Swap** each staged file into place, keeping the previous ciphertext in
 //!    `.opensesame-rotation/old/`. An error rolls every swap back.
-//! 4. **Commit** — rename the new key file over `.opensesame-key` (atomic),
-//!    then drop the staging directory and the old chunk objects.
+//! 4. **Commit** — rebind attachment commitments, publish the witness, then
+//!    rename the new key file over `.opensesame-key`. Rebind failure rolls back.
 //!
 //! A crash between 2 and 4 leaves both key files and both ciphertext sets on
 //! disk; nothing is deleted before the commit rename. The staging directory is
@@ -34,8 +34,6 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-#[cfg(test)]
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use opensesame_human_vault::root_protection::{
@@ -60,9 +58,6 @@ use crate::{StoreError, StoreRoot};
 pub const ROTATION_STAGING_DIR: &str = ".opensesame-rotation";
 
 const COMMIT_ROTATE: &str = "seal: rotate vault root key";
-
-#[cfg(test)]
-pub(crate) static ATTACHMENT_REBIND_BEFORE_KEY_COMMIT: AtomicBool = AtomicBool::new(false);
 
 #[path = "rotation_observer.rs"]
 mod observer;
@@ -321,43 +316,42 @@ fn commit(
     write_synced(&staging.join("plan.json"), &map)?;
     create_private_dir(&staging.join("old"))?;
 
-    let pre_rebind_witness = plan.witness.clone();
-    let mut witness_rebind_started = false;
-    let mut witness_published_new_key = false;
+    let mut witness_rekey_started = false;
     let result = swap_staged(root, staging, &plan.swaps).and_then(|()| {
-        verify_nothing_left_behind(root, plan)?;
+        plan::verify_nothing_left_behind(root, plan)?;
         let witness = plan
             .witness
             .as_mut()
             .ok_or_else(|| StoreError::Crypto("rotation witness plan missing".into()))?;
-        store.rebind_rotated_attachments_prepared(witness, new_key, false)?;
-        #[cfg(test)]
-        ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.store(true, Ordering::Relaxed);
-        witness_rebind_started = true;
-        store.write_rekeyed_witness(witness, new_key)?;
-        witness_published_new_key = true;
-        // Revoke the old marker before committing the new key file. A crash
-        // in this window requires explicitly verified recovery of the old key.
-        store.mark_rotation_pending(witness, old_key)?;
-        fs::rename(&key_next, root.join(KEY_FILE_NAME))?;
-        sync_dir(root);
+        // The old marker still authenticates this snapshot. Publishing the
+        // rebound witness must not replace it.
+        let retired = witness.clone();
+        store.rebind_rotated_attachments(witness, new_key)?;
+        witness_rekey_started = true;
+        let published = store
+            .write_rekeyed_witness(witness, new_key)
+            .and_then(|()| store.mark_rotation_pending(&retired, old_key))
+            .and_then(|()| {
+                fs::rename(&key_next, root.join(KEY_FILE_NAME))?;
+                sync_dir(root);
+                Ok(())
+            });
+        if let Err(error) = published {
+            *witness = retired;
+            return Err(error);
+        }
         Ok(())
     });
     let Err(error) = result else {
         return Ok(());
     };
-    if witness_rebind_started {
-        if let (Some(prepared), Some(snapshot)) = (plan.witness.as_mut(), pre_rebind_witness.as_ref()) {
-            prepared.restore_from(snapshot);
-        }
-        if witness_published_new_key
-            && plan
-                .witness
-                .as_ref()
-                .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
-        {
-            *stranded = true;
-        }
+    if witness_rekey_started
+        && plan
+            .witness
+            .as_ref()
+            .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
+    {
+        *stranded = true;
     }
     // Undo every swap, last first; the old key file is still in place, so
     // putting the old ciphertext back returns the store to its previous state.
@@ -376,24 +370,6 @@ fn commit(
         )));
     }
     Err(error)
-}
-
-/// Fail closed if any root-sealed file in the tree was not re-encrypted: the
-/// key swap would strand it under the old root.
-fn verify_nothing_left_behind(root: &Path, plan: &Plan) -> Result<(), StoreError> {
-    let swapped: BTreeSet<&PathBuf> = plan.swaps.iter().collect();
-    let missed = inventory(root)?
-        .relative_paths()
-        .into_iter()
-        .filter(|rel| !swapped.contains(rel))
-        .count();
-    if missed > 0 {
-        return Err(StoreError::Crypto(format!(
-            "{missed} sealed file(s) appeared that were not re-encrypted; the rotation was \
-             rolled back so none of them is left under the old root"
-        )));
-    }
-    Ok(())
 }
 
 #[cfg(test)]

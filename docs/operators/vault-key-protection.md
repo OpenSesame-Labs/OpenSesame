@@ -99,8 +99,8 @@ opensesame pass protect add age --recipient age1... --yes
 opensesame pass protect remove PROTECTOR_ID --yes [--no-rotate]
 opensesame pass protect rewrap --yes [--no-rotate]
 opensesame pass protect root-rotate --yes [--reissue-recovery --reveal]
-opensesame pass protect migrate-legacy NAME --trust-source [--path DIR] [--tomb NAME]
-opensesame pass migrate-rollback-anchor --accept-current-state [--path DIR] [--tomb NAME]
+opensesame vault pass protect migrate-legacy NAME --trust-source [--path DIR] [--tomb NAME]
+opensesame vault pass migrate-rollback-anchor --accept-current-state [--path DIR] [--tomb NAME]
 opensesame pass protect piv-discover   # non-destructive
 ```
 

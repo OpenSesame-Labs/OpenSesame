@@ -1,5 +1,5 @@
 //! Authenticate an attachment manifest against its outside rollback witness.
-use super::{attach_relative, parse_attachment_manifest, AttachmentManifest};
+use super::{attach_relative, AttachmentManifest};
 use crate::{ItemDataKey, StoreError, StoreRoot};
 
 impl StoreRoot {
@@ -8,8 +8,8 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
     ) -> Result<(AttachmentManifest, String), StoreError> {
-        let (plaintext, bound_name) = self.open_manifest_plaintext_verified(name, key)?;
-        Ok((parse_attachment_manifest(&plaintext)?, bound_name))
+        // Parsed from the single commitment-checked read.
+        self.open_committed_attachment_manifest(name, key)
     }
 
     /// Caller already holds the store's exclusive lock.

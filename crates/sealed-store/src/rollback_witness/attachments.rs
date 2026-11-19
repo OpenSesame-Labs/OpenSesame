@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use super::{EntryWitness, Witness};
-use crate::attachment::{attach_relative, parse_attachment_manifest};
+use crate::attachment::{attach_relative, parse_attachment_manifest, AttachmentManifest};
 use crate::envelope::{open_osseal_in_for_path, COLLECTION_ATTACHMENTS};
 use crate::path::confined_read;
 use crate::{ItemDataKey, StoreError, StoreRoot};
@@ -28,6 +28,19 @@ fn manifest_commitment(plaintext: &[u8]) -> [u8; 32] {
 
 fn manifest_matches(state: &EntryWitness, plaintext: &[u8]) -> bool {
     state.commitment != [0; 32] && state.commitment == manifest_commitment(plaintext)
+}
+
+/// Parse `plaintext` only when those bytes match the witness commitment.
+pub(super) fn manifest_from_commitment(
+    state: &EntryWitness,
+    plaintext: &[u8],
+) -> Result<AttachmentManifest, StoreError> {
+    if !manifest_matches(state, plaintext) {
+        return Err(StoreError::Crypto(
+            "attachment manifest does not match its rollback witness".into(),
+        ));
+    }
+    parse_attachment_manifest(plaintext)
 }
 
 pub(super) fn marked(witness: &Witness) -> bool {
@@ -146,17 +159,20 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
         state: &EntryWitness,
-    ) -> Result<(Vec<u8>, String), StoreError> {
+    ) -> Result<(AttachmentManifest, String), StoreError> {
         let relative = attach_relative(name)?;
         let blob = confined_read(&self.path, &relative)?;
-        let (opened, bound_name) =
-            open_osseal_in_for_path(COLLECTION_ATTACHMENTS, &blob, key, name, Some(state.revision))?;
-        if !manifest_matches(state, &opened.plaintext) {
-            return Err(StoreError::Crypto(
-                "attachment manifest does not match its rollback witness".into(),
-            ));
-        }
-        Ok((opened.plaintext, bound_name))
+        let (opened, bound_name) = open_osseal_in_for_path(
+            COLLECTION_ATTACHMENTS,
+            &blob,
+            key,
+            name,
+            Some(state.revision),
+        )?;
+        Ok((
+            manifest_from_commitment(state, &opened.plaintext)?,
+            bound_name,
+        ))
     }
 
     fn attachment_entry_state(
@@ -187,11 +203,11 @@ impl StoreRoot {
         Ok(state)
     }
 
-    pub(crate) fn open_manifest_plaintext_verified(
+    pub(crate) fn open_committed_attachment_manifest(
         &self,
         name: &str,
         key: &ItemDataKey,
-    ) -> Result<(Vec<u8>, String), StoreError> {
+    ) -> Result<(AttachmentManifest, String), StoreError> {
         let state = self.attachment_entry_state(name, key)?;
         if state.deleted {
             return Err(StoreError::NotFound(name.into()));
@@ -206,6 +222,7 @@ impl StoreRoot {
         key: &ItemDataKey,
         minimum: u64,
         manifest_plaintext: Option<&[u8]>,
+        trust_manifest: bool,
     ) -> Result<u64, StoreError> {
         let (store_id, mut witness) = self.current_witness(key)?;
         require_marker(&witness)?;
@@ -215,10 +232,10 @@ impl StoreRoot {
                 "missing attachment anti-rollback state for {name}"
             )));
         }
-        if manifest_plaintext.is_none() {
+        if !trust_manifest {
             if let Some(state) = witness.entries.get(&name_key).copied() {
                 // A same-revision fork authenticates under the witnessed revision.
-                // An interrupted write does not; explicit recovery supplies plaintext.
+                // Owner-trusted recovery may replace one; other callers may not.
                 if !state.deleted && path.exists() {
                     match self.open_manifest_plaintext(name, key, state.revision) {
                         Ok(plaintext) if !manifest_matches(&state, &plaintext) => {
@@ -227,6 +244,7 @@ impl StoreRoot {
                             ));
                         }
                         Ok(_) => {}
+                        // An unreadable blob is an interrupted write, not a verified fork.
                         Err(StoreError::Crypto(_)) => {}
                         Err(error) => return Err(error),
                     }
@@ -328,29 +346,23 @@ impl StoreRoot {
         if !marked(&witness) {
             return Ok(None);
         }
-        self.advance_attachment_witness(name, path, key, minimum, Some(manifest_plaintext))
-            .map(Some)
+        self.advance_attachment_witness(
+            name,
+            path,
+            key,
+            minimum,
+            Some(manifest_plaintext),
+            true,
+        )
+        .map(Some)
     }
 
-    /// Rotation reseals manifests under the new root, which changes chunk
-    /// ciphertext digests and therefore the manifest plaintext. Publish that
-    /// new commitment before the redundant witness slot is restored.
+    /// Update `prepared` for resealed manifests. The caller publishes that witness
+    /// before replacing the key file; this function does not write it.
     pub(crate) fn rebind_rotated_attachments(
         &self,
         prepared: &mut super::WitnessRekey,
         key: &ItemDataKey,
-    ) -> Result<(), StoreError> {
-        self.rebind_rotated_attachments_prepared(prepared, key, true)
-    }
-
-    /// Update witness commitments for resealed manifests. When `persist` is
-    /// false the caller must publish the witness through the rotation commit
-    /// path before the root key file is replaced.
-    pub(crate) fn rebind_rotated_attachments_prepared(
-        &self,
-        prepared: &mut super::WitnessRekey,
-        key: &ItemDataKey,
-        persist: bool,
     ) -> Result<(), StoreError> {
         let names: Vec<String> = prepared
             .witness
@@ -381,14 +393,11 @@ impl StoreRoot {
         if !changed {
             return Ok(());
         }
-        if persist {
-            prepared.witness.epoch = prepared
-                .witness
-                .epoch
-                .checked_add(1)
-                .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
-            self.write_witness(&prepared.store_id, key, &prepared.witness)?;
-        }
+        prepared.witness.epoch = prepared
+            .witness
+            .epoch
+            .checked_add(1)
+            .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
         Ok(())
     }
 }
