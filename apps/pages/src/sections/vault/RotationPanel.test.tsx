@@ -8,8 +8,10 @@ import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { installPasswordResetVaultUi } from "@opensesame/app-core/lib/password-reset/vault-ui-seam.js";
 import {
   clearRotationQueue,
+  enqueueManualRotation,
   loadRotationEvents,
 } from "@opensesame/app-core/lib/vault/rotation-queue.js";
+import * as rotationRelay from "@opensesame/app-core/lib/vault/rotation-relay.js";
 import { rotationSeams } from "@opensesame/app-core/lib/vault/rotation-relay.js";
 import { type VaultItem, createItem } from "@opensesame/vault-core";
 import { cleanup, render, screen } from "@testing-library/react";
@@ -108,7 +110,7 @@ describe("RotationPanel", () => {
 
   it("warns on a generator-backed type with no provider path", () => {
     renderPanel(createItem("card", "Test card"));
-    expect(screen.getByText(/couldn't verify this item type/u)).toBeTruthy();
+    expect(screen.getByText(/does not generate a new value/u)).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Automatic rotation" }),
     ).toBeNull();
@@ -129,6 +131,20 @@ describe("RotationPanel", () => {
     expect(item).toEqual(original);
   });
 
+  it("does not say a relay is missing when a configured relay rejects a request", async () => {
+    rotationSeams.relay = async () => ({ ok: false, detail: "Not accepted" });
+    renderPanel(createItem("card", "Test card"));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Request rotation" }),
+    );
+    expect(
+      await screen.findByText(
+        "Out of sync — rotation is pending and may retry.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/no relay is configured/iu)).toBeNull();
+  });
+
   it("offers to add a website instead of requesting an unavailable rotation", () => {
     const item = createItem("account", "Private mail");
     renderPanel(item);
@@ -144,6 +160,113 @@ describe("RotationPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Request password rotation" }),
     ).toBeNull();
+  });
+
+  it("clears its failed request notice when the vault panel unmounts", async () => {
+    const item = createItem("card", "Test card");
+    const failQueue = vi
+      .spyOn(rotationRelay, "processRotationQueue")
+      .mockRejectedValueOnce(new Error("Test queue failure"));
+    try {
+      const panel = renderPanel(item);
+      await userEvent.click(
+        screen.getByRole("button", { name: "Request rotation" }),
+      );
+      expect(listNotices().map((notice) => notice.body)).toContain(
+        "Rotation is queued and may retry. Its status could not be confirmed.",
+      );
+      expect(
+        screen.getByRole("img", {
+          name: "Rotation is queued and may retry. Its status could not be confirmed.",
+        }),
+      ).toBeTruthy();
+      expect(loadRotationEvents()).toHaveLength(1);
+      expect(screen.queryByText(/Rotation queued/u)).toBeNull();
+      panel.unmount();
+      expect(listNotices()).toHaveLength(0);
+    } finally {
+      failQueue.mockRestore();
+    }
+  });
+
+  it("reports a request that failed before it was queued", async () => {
+    const ready = snapshotApproving(["ai.password-reset"]);
+    Object.assign(capabilityPorts, {
+      compositionStore: { ...double, getSnapshot: () => ready },
+    });
+    const restore = installPasswordResetVaultUi({
+      subscribeRuns: () => () => undefined,
+      runPhaseFor: () => null,
+      evaluateReadiness: async () => {
+        throw new Error("Test readiness failure");
+      },
+    });
+    try {
+      renderPanel(account());
+      await userEvent.click(
+        screen.getByRole("button", { name: "Request password rotation" }),
+      );
+      expect(
+        await screen.findByRole("img", {
+          name: "Could not start rotation. Try again.",
+        }),
+      ).toBeTruthy();
+      expect(loadRotationEvents()).toHaveLength(0);
+    } finally {
+      restore();
+    }
+  });
+
+  it("distinguishes an earlier pending rotation from a failed new request", async () => {
+    const item = account();
+    enqueueManualRotation(item, "personal");
+    const ready = snapshotApproving(["ai.password-reset"]);
+    Object.assign(capabilityPorts, {
+      compositionStore: { ...double, getSnapshot: () => ready },
+    });
+    const restore = installPasswordResetVaultUi({
+      subscribeRuns: () => () => undefined,
+      runPhaseFor: () => null,
+      evaluateReadiness: async () => {
+        throw new Error("Test readiness failure");
+      },
+    });
+    try {
+      renderPanel(item);
+      await userEvent.click(
+        screen.getByRole("button", { name: "Request password rotation" }),
+      );
+      expect(
+        await screen.findByRole("img", {
+          name: "Could not start this request. An earlier rotation is still pending.",
+        }),
+      ).toBeTruthy();
+      expect(loadRotationEvents()).toHaveLength(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not claim a rotation failed to start after its queue status is lost", async () => {
+    const failAfterQueue = vi
+      .spyOn(rotationRelay, "processRotationQueue")
+      .mockImplementationOnce(async () => {
+        clearRotationQueue();
+        throw new Error("Test queue failure");
+      });
+    try {
+      renderPanel(createItem("card", "Test card"));
+      await userEvent.click(
+        screen.getByRole("button", { name: "Request rotation" }),
+      );
+      expect(
+        await screen.findByRole("img", {
+          name: "Could not confirm the rotation status. Check before trying again.",
+        }),
+      ).toBeTruthy();
+    } finally {
+      failAfterQueue.mockRestore();
+    }
   });
 
   it("draws nothing for a type without a generator", () => {
