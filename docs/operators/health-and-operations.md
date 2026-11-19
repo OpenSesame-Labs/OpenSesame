@@ -32,6 +32,20 @@ Host API:
 - Claim bearer secrets cannot be reconstructed from digests after catastrophic loss; in-flight claims must be re-issued.
 - Issuer URL changes break RP trust; treat issuer as sticky.
 
+## Host replicas
+Replicas serving the same Host authority must use the same durable SQLite
+database and resource URL. The database filesystem must support SQLite's
+locking and durability requirements for every replica; separate local files
+do not form a shared authority. Each replica must also use the same provisioned
+`OPENSESAME_CLAIM_PEPPER`. A replica refuses to start when its resource or
+pepper differs from the database's binding. Device approvals, failed-guess
+limits, native sessions, and membership withdrawals are stored in that database,
+so these device and native-session operations need no load-balancer affinity.
+
+Back up the database together with its associated keys, using an SQLite-aware
+backup procedure. The claim pepper also protects other data; see
+[logs and event sealing](log-and-event-sealing.md) before changing it.
+
 ## Agent-hooks and web-login housekeeping (ADR 0159)
 The Host runs background actors for these, none of which need configuring:
 
