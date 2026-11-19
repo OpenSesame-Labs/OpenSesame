@@ -125,10 +125,10 @@ function actualPreload(output) {
     `${generated.replaceAll("import.meta", "importMeta")}\nglobalThis.invoke = __vitePreload;`,
     context,
   );
-  return { invoke: context.invoke, links, events };
+  return { invoke: context.invoke, links, events, moduleUrl };
 }
 async function cssReadiness(output) {
-  const { invoke, links, events } = actualPreload(output);
+  const { invoke, links, events, moduleUrl } = actualPreload(output);
   let imported = 0;
   const load = invoke(async () => {
     imported++;
@@ -144,7 +144,8 @@ async function cssReadiness(output) {
   assert.equal(links[0].rel, "stylesheet");
   assert.equal(
     links[0].href,
-    "https://example.test/OpenSesame/assets/lazy.css",
+    new URL("lazy.css", new URL("./", moduleUrl)).href,
+    "stylesheet href resolves relative to import.meta.url",
   );
   links[0].listeners.get("load")({ type: "load" });
   assert.equal(await load, 8);
