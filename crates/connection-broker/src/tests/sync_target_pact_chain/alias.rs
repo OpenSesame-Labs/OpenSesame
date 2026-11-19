@@ -201,6 +201,11 @@ pub(super) fn path_prefix_start(source: &str, head: usize) -> usize {
             continue;
         }
         if ch == '>' {
+            // `=>` ends a match arm. It is not a generic closer (`Vec<T>::send`).
+            let gt = index - ch.len_utf8();
+            if gt > 0 && source.as_bytes()[gt - 1] == b'=' {
+                break;
+            }
             angle = 1;
             index -= ch.len_utf8();
             continue;
