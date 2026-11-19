@@ -14,6 +14,11 @@ pub(crate) fn typed_let_name_before_path(source: &str, head: usize) -> Option<St
     ascription_colon(statement_tail(bind)).map(|_| name)
 }
 
+pub(crate) fn binding_name_before(source: &str) -> Option<String> {
+    let eq = last_single_eq(source)?;
+    let_binding_name(source[..eq].trim_end())
+}
+
 /// Name in `let [mut] name[: Type]`.
 pub(crate) fn let_binding_name(lhs: &str) -> Option<String> {
     let tail = statement_tail(lhs);
@@ -99,7 +104,7 @@ fn last_single_eq(prefix: &str) -> Option<usize> {
         }
         if matches!(
             index.checked_sub(1).and_then(|prev| bytes.get(prev)),
-            Some(b'!' | b'=' | b'<' | b'>')
+            Some(b'!' | b'=' | b'<' | b'>' | b'+' | b'-' | b'*' | b'/' | b'%' | b'&' | b'|' | b'^')
         ) {
             continue;
         }
