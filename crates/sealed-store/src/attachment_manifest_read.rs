@@ -18,10 +18,13 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
     ) -> Result<AttachmentManifest, StoreError> {
+        let state = self.attachment_entry_state(name, key)?;
+        if state.deleted {
+            return Err(StoreError::NotFound(name.into()));
+        }
         let (manifest, _) = self.open_manifest_at_witness(name, key)?;
         if self.attachment_revision(name)?.is_none() {
-            let witness = self.attachment_witness(name, key)?;
-            self.record_attachment_revision(name, witness.revision)?;
+            self.record_attachment_revision(name, state.revision)?;
         }
         Ok(manifest)
     }

@@ -470,7 +470,11 @@ impl StoreRoot {
             if prefix.is_some_and(|prefix| !name.starts_with(prefix)) {
                 continue;
             }
-            let manifest = self.open_manifest_locked(&name, key)?;
+            let manifest = match self.open_manifest_locked(&name, key) {
+                Ok(manifest) => manifest,
+                Err(StoreError::NotFound(_)) => continue,
+                Err(error) => return Err(error),
+            };
             out.push(summary_of(&name, &manifest));
         }
         out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -490,6 +494,13 @@ impl StoreRoot {
         let rel = attach_relative(name)?;
         let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
         if !self.path.join(&rel).exists() {
+            if let Ok(state) = self.attachment_entry_state(name, key) {
+                if state.deleted {
+                    self.collect_garbage(key)?;
+                    auto_commit(&self.path, crate::store::COMMIT_DETACH)?;
+                    return Ok(());
+                }
+            }
             return Err(StoreError::NotFound(name.into()));
         }
         let state = self.attachment_entry_state(name, key)?;
@@ -531,6 +542,12 @@ impl StoreRoot {
         let names = self.attachment_names()?;
         self.verify_attachment_inventory(key, &names.iter().cloned().collect())?;
         for name in names {
+            if self
+                .attachment_entry_state(&name, key)
+                .is_ok_and(|state| state.deleted)
+            {
+                continue;
+            }
             let manifest = self.open_manifest_locked(&name, key).map_err(|e| {
                 StoreError::Crypto(format!(
                     "refusing to collect garbage: manifest {name} could not be opened ({e})"
