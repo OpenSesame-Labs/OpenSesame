@@ -13,7 +13,7 @@
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
-import { isTouchGuide } from "./touch-guide.js";
+import { isTouchGuide } from "./state.js";
 
 export const SHELL_TOUR_GOALS: readonly GuideGoalDescriptor[] = [
   {

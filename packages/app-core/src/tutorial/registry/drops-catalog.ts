@@ -6,8 +6,8 @@
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
+import { isTouchGuide } from "./state.js";
 import type { GuideTargetDescriptor } from "./targets.js";
-import { isTouchGuide } from "./touch-guide.js";
 
 export const DROPS_TARGETS: readonly GuideTargetDescriptor[] = [
   {

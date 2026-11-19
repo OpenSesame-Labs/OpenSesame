@@ -35,7 +35,7 @@ import {
   isCopyableAccount,
   isEditableTutorialItem,
   isShareableTutorialItem,
-} from "./tutorial-items.js";
+} from "./vault-routes.js";
 
 /**
  * Whether the Connections area is currently showing at least one live

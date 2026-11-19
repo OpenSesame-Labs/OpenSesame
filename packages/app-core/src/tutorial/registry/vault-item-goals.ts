@@ -18,7 +18,7 @@
  */
 
 import type { GuideGoalDescriptor } from "./goal-types.js";
-import { isTouchGuide } from "./touch-guide.js";
+import { isTouchGuide } from "./state.js";
 
 const NEEDS_ITEM = ["vault.has-items"] as const;
 const NEEDS_ACCOUNT = ["vault.has-items", "vault.has-account"] as const;

@@ -8,14 +8,15 @@
  * not in the trash — never a name, a field or a value.
  */
 
-import { sortItems } from "@opensesame/vault-core";
-import { vaultStore } from "../../lib/vault/store.js";
-import { type GuideRouteId, guideRouteForLocation } from "./routes.js";
 import {
-  isCopyableAccount,
-  isEditableTutorialItem,
-  isShareableTutorialItem,
-} from "./tutorial-items.js";
+  type AccountItem,
+  type VaultItem,
+  producePassword,
+  sortItems,
+} from "@opensesame/vault-core";
+import { vaultStore } from "../../lib/vault/store.js";
+import { shareText } from "../../sections/vault-share-text.js";
+import { type GuideRouteId, guideRouteForLocation } from "./routes.js";
 
 export const VAULT_LIST_ROUTE = "/vault/list";
 export const VAULT_ITEM_ROUTE = "/vault/item";
@@ -76,4 +77,25 @@ export function guideNavigationPath(
     vaultStore.getSnapshot().items.filter((item) => item.deletedAt === null),
   );
   return first ? `/vault/${first.id}` : null;
+}
+
+export function isEditableTutorialItem(item: VaultItem): boolean {
+  return item.deletedAt === null && item.kind !== "drop";
+}
+
+export function isShareableTutorialItem(item: VaultItem): boolean {
+  return isEditableTutorialItem(item) && shareText(item) !== null;
+}
+
+/** Whether an account has both copy controls taught by the copy tutorial. */
+export function isCopyableAccount(item: VaultItem): item is AccountItem {
+  if (item.deletedAt !== null || item.kind !== "account" || !item.username)
+    return false;
+  const password = item.methods.find((method) => method.type === "password");
+  if (password?.type !== "password") return false;
+  const result = producePassword(password);
+  return (
+    result.status === "ok" ||
+    (result.status === "slotted" && result.head !== "" && result.tail === "")
+  );
 }
