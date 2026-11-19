@@ -13,6 +13,20 @@ fn snapshot(blobs: Vec<Value>) -> Value {
 }
 
 #[test]
+fn unknown_fields_are_rejected_during_deserialization() {
+    let mut item = json!({"id": "entry", "epoch": 1, "ciphertext": [1]});
+    item["extra"] = json!(1);
+    assert!(CiphertextSyncSnapshot::from_json(&snapshot(vec![item]).to_string()).is_err());
+    let persisted = json!({
+        "version": 2,
+        "cursor": {"device_id": "device", "epoch": 0},
+        "blobs": [{"id": "entry", "epoch": 1, "ciphertext": [1], "extra": 1}],
+        "integrity": "00".repeat(64),
+    });
+    assert!(SyncStore::from_persisted_json(&DeviceKey::generate(), &persisted.to_string()).is_err());
+}
+
+#[test]
 fn json_parsers_reject_excess_counts_and_bounded_strings() {
     let item = json!({"id": "entry", "epoch": 1, "ciphertext": [1]});
     let too_many = snapshot(vec![item.clone(); MAX_SYNC_BLOBS + 1]).to_string();
