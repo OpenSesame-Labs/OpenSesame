@@ -64,12 +64,16 @@ import { IndexedClaimStore } from "./repos/claim-store.js";
 import { DurableClaimStore } from "./repos/durable-claim-store.js";
 import { createDurableJwtReplayCache } from "./repos/durable-jwt-replay.js";
 import { DurablePrincipalMappingStore } from "./repos/durable-mapping-store.js";
+import { resumePendingProvisionalRevocations } from "./repos/provisional-revocation.js";
 import { installDurableSecurityMaps } from "./repos/security-maps.js";
 import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
-import { scheduleOrganizationWithdrawalRecovery } from "./services/organization-withdrawal-recovery.js";
+import {
+  resumePendingOrganizationWithdrawals,
+  scheduleOrganizationWithdrawalRecovery,
+} from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
 import { createAppStores } from "./state.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
@@ -380,11 +384,19 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
-  recoverSecurityState = () => resumePendingUpstreamLogouts(ctx);
+  recoverSecurityState = async () => {
+    await resumePendingUpstreamLogouts(ctx);
+    await resumePendingProvisionalRevocations(ctx);
+    await resumePendingOrganizationWithdrawals(ctx);
+  };
 
   const app = createHonoApp(
-    scheduleOrganizationWithdrawalRecovery(ctx, systemPrincipalReady, () =>
-      log.warn("Organization withdrawal recovery deferred"),
+    scheduleOrganizationWithdrawalRecovery(
+      ctx,
+      securityRecoveryReady,
+      () => log.warn("Organization withdrawal recovery deferred"),
+      undefined,
+      false,
     ),
     resolveWalletNativeMounts({
       config,

@@ -24,7 +24,12 @@ export async function withScimOrganizationBoundary<T>(
   organizationId: string,
   run: (ctx: AppContext) => Promise<T>,
 ): Promise<T> {
-  const { provisionalSessions, organizationMemberships, scim } = ctx.stores;
+  const {
+    provisionalSessions,
+    provisionalTokens,
+    organizationMemberships,
+    scim,
+  } = ctx.stores;
   if (!(provisionalSessions instanceof DurableMap)) {
     if (
       !(organizationMemberships instanceof MemoryOrganizationMembershipStore) ||
@@ -105,6 +110,11 @@ export async function withScimOrganizationBoundary<T>(
       },
       stores: {
         ...ctx.stores,
+        provisionalSessions: provisionalSessions.onDatabase(db),
+        provisionalTokens:
+          provisionalTokens instanceof DurableMap
+            ? provisionalTokens.onDatabase(db)
+            : provisionalTokens,
         scim: {
           ...boundScim,
           tokens: readOnlyTokens(boundScim.tokens),

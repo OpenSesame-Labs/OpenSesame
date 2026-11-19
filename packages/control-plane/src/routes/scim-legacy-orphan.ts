@@ -1,3 +1,4 @@
+import { appendAuditEvent } from "@opensesame/audit";
 import type { AppContext } from "../context.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { hostApiEndpoint } from "../services/host-endpoint.js";
@@ -19,33 +20,6 @@ export async function finishLegacyOrphan(
 ): Promise<void> {
   const url = hostApiEndpoint(ctx.config.hostApiUrl, "api/v1/sessions/revoke");
   if (!url) throw new Error("Host session revocation is unavailable");
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-opensesame-operator": ctx.config.operatorToken,
-    },
-    body: JSON.stringify({
-      organization_id: organizationId,
-      principal_id: orphan.principalId,
-      membership_incarnation: orphan.incarnation,
-      authority_revision: orphan.authorityRevision,
-      withdrawal_id: orphan.withdrawalId,
-    }),
-    redirect: "error",
-    signal: AbortSignal.timeout(5_000),
-  });
-  if (
-    !(await confirmsDurableWithdrawal(response, {
-      withdrawalId: orphan.withdrawalId,
-      membershipIncarnation: orphan.incarnation,
-      authorityRevision: orphan.authorityRevision,
-    }))
-  )
-    throw new Error("Host session revocation is unavailable");
-  // The SCIM deprovision journal is the durable retry marker. Contact Host
-  // before the audit-bearing Identity transition so an audit outage cannot
-  // strand organization-scoped Host authority.
   const cleaned = await withScimOrganizationBoundary(
     ctx,
     organizationId,
@@ -55,6 +29,30 @@ export async function finishLegacyOrphan(
         orphan.principalId,
       );
       if (recreated) return false;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-opensesame-operator": tx.config.operatorToken,
+        },
+        body: JSON.stringify({
+          organization_id: organizationId,
+          principal_id: orphan.principalId,
+          membership_incarnation: orphan.incarnation,
+          authority_revision: orphan.authorityRevision,
+          withdrawal_id: orphan.withdrawalId,
+        }),
+        redirect: "error",
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (
+        !(await confirmsDurableWithdrawal(response, {
+          withdrawalId: orphan.withdrawalId,
+          membershipIncarnation: orphan.incarnation,
+          authorityRevision: orphan.authorityRevision,
+        }))
+      )
+        throw new Error("Host session revocation is unavailable");
       await revokeOrganizationMembership(tx, {
         organizationId,
         principalId: orphan.principalId,
@@ -79,5 +77,3 @@ export async function finishLegacyOrphan(
     },
   });
 }
-
-import { appendAuditEvent } from "@opensesame/audit";

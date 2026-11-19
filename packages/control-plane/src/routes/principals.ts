@@ -21,6 +21,7 @@ import { cookieAuthAllowed, requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
+import { revokeProvisionalSession } from "../repos/provisional-revocation.js";
 import { serializeKeyed } from "../serialize.js";
 import { authorizeMappingResolve } from "../transport/mapping-auth.js";
 import {
@@ -258,7 +259,6 @@ principalRoutes.post(
  */
 principalRoutes.post("/provisional/revoke", async (c) => {
   const ctx = c.get("ctx");
-  const principalId = c.get("principalId");
   const cookie = getCookie(c, ctx.config.provisionalCookieName);
 
   // A bearer takes precedence over a cookie for authentication, so a request
@@ -277,23 +277,7 @@ principalRoutes.post("/provisional/revoke", async (c) => {
   }
 
   for (const sessionId of revoking) {
-    const session = await ctx.stores.provisionalSessions.get(sessionId);
-    if (session) {
-      await ctx.stores.provisionalSessions.set(sessionId, {
-        ...session,
-        revokedAt: ctx.clock(),
-      });
-    }
-    await revokeSessionTokens(ctx.stores, sessionId);
-    // Attribute to whoever owned the session that ended, not to whichever
-    // credential authenticated the request: with two sessions in play those are
-    // different principals, and each trail should show its own session going.
-    const owner = session?.principalId ?? principalId;
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.provisional_revoked",
-      outcome: "succeeded",
-      ...(owner !== undefined ? { principalId: owner } : undefined),
-      sessionId,
+    await revokeProvisionalSession(ctx, sessionId, {
       correlationId: c.get("correlationId"),
       actorType: "human",
       metadata: { action: "principal.provisional_revoke" },
@@ -660,8 +644,4 @@ principalRoutes.get("/mapping/resolve", async (c) => {
   });
 });
 
-import {
-  removeOrphanTokens,
-  revokeSessionTokens,
-  saveCurrent,
-} from "../repos/session-storage.js";
+import { removeOrphanTokens, saveCurrent } from "../repos/session-storage.js";

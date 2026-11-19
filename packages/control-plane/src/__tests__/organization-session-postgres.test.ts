@@ -20,6 +20,7 @@ import {
   ensurePersonalOrganization,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
+import { prepareRemovalWithdrawal } from "../services/organization-withdrawal.js";
 import {
   groupsPath,
   mintScimToken,
@@ -430,5 +431,85 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         person.principalId,
       ),
     ).toBeUndefined();
+  });
+
+  it("serializes owner-authorized member writes before withdrawal across replicas", async () => {
+    const owner: { principalId: string; accessToken: string } = overlapCast(
+      await (
+        await first.app.request("/v1/principals/provisional", {
+          method: "POST",
+        })
+      ).json(),
+    );
+    const outsider: { principalId: string } = overlapCast(
+      await (
+        await first.app.request("/v1/principals/provisional", {
+          method: "POST",
+        })
+      ).json(),
+    );
+    const membership = await ensurePersonalOrganization(
+      first.ctx,
+      owner.principalId,
+    );
+    const versioned =
+      await first.ctx.stores.organizationMemberships.findVersioned(
+        membership.organizationId,
+        owner.principalId,
+      );
+    if (!versioned) throw new Error("Expected owner membership");
+    let entered = () => {};
+    const inside = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const original = second.ctx.repos.principals.getById.bind(
+      second.ctx.repos.principals,
+    );
+    vi.spyOn(second.ctx.repos.principals, "getById").mockImplementation(
+      async (principalId) => {
+        if (principalId === outsider.principalId) {
+          entered();
+          await blocked;
+        }
+        return original(principalId);
+      },
+    );
+    const add = second.app.request(
+      `/v1/organizations/${membership.organizationId}/members`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${owner.accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          principalId: outsider.principalId,
+          role: "member",
+        }),
+      },
+    );
+    await inside;
+    let withdrawalFinished = false;
+    const withdrawal = prepareRemovalWithdrawal(first.ctx, {
+      organizationId: membership.organizationId,
+      principalId: owner.principalId,
+      expectedIncarnation: versioned.incarnation,
+      actorPrincipalId: first.ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId: "owner-write-ordering",
+      reason: "scim_deactivated",
+    }).then((result) => {
+      withdrawalFinished = true;
+      return result;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(withdrawalFinished).toBe(false);
+    release();
+    expect((await add).status).toBe(201);
+    expect((await withdrawal).status).toBe("ready");
   });
 });

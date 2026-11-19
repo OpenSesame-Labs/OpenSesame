@@ -104,6 +104,7 @@ export function scheduleOrganizationWithdrawalRecovery(
   ready: Promise<void>,
   warn: () => void,
   schedule: ScheduleRetry = scheduleRetry,
+  initialSweep = true,
 ): AppContext {
   let retryDelayMs = WITHDRAWAL_RETRY_MS;
   const retry = () => {
@@ -125,6 +126,10 @@ export function scheduleOrganizationWithdrawalRecovery(
         retry();
       });
   };
-  recover();
+  if (initialSweep) recover();
+  else
+    void ready
+      .then(() => schedule(recover, WITHDRAWAL_RETRY_MAX_MS))
+      .catch(warn);
   return ctx;
 }

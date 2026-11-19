@@ -30,6 +30,7 @@ export class DurableMap<T> {
     private readonly ttlMs: number | null = 86_400_000,
     private readonly capacity = 10_000,
     sealer?: EventSealer,
+    private readonly transactionBound = false,
   ) {
     if (!sealer)
       throw new Error("A durable sealing key is required for security state");
@@ -49,17 +50,23 @@ export class DurableMap<T> {
       this.ttlMs,
       this.capacity,
       this.sealer,
+      true,
     );
   }
 
   /** Run work in one transaction on the database that owns this namespace. */
   transaction<TValue>(run: (db: Database) => Promise<TValue>): Promise<TValue> {
+    if (this.transactionBound) return run(this.db);
     return this.db.transaction((tx) => {
       const database: Database = overlapCast(tx);
       return withPostgresTransactionContext(this.db, database, () =>
         run(database),
       );
     });
+  }
+
+  private atomic<TValue>(run: (db: Database) => Promise<TValue>) {
+    return this.transactionBound ? run(this.db) : this.db.transaction(run);
   }
 
   private legacyId(key: string) {
@@ -110,6 +117,13 @@ export class DurableMap<T> {
   }
   private expiry(value: T): Date | null {
     const record: BoundaryValue = overlapCast(value);
+    if (
+      isTypeofObject(record) &&
+      record !== null &&
+      "revocationCleanupPending" in record &&
+      record.revocationCleanupPending === true
+    )
+      return null;
     const explicit =
       isTypeofObject(record) && record !== null && "expiresAt" in record
         ? record.expiresAt
@@ -130,7 +144,7 @@ export class DurableMap<T> {
       this.legacyId(key),
       this.encode(key, value),
     );
-    return this.db.transaction(async (tx) => {
+    return this.atomic(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
       );
@@ -186,7 +200,7 @@ export class DurableMap<T> {
   }
   /** Only keys obtained by entries(); ordinary credential keys always use delete(). */
   async deleteEntry(storedKey: string): Promise<boolean> {
-    return this.db.transaction(async (tx) => {
+    return this.atomic(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
       );
@@ -204,7 +218,7 @@ export class DurableMap<T> {
   }
   /** Atomic single-use consumption, shared by every replica. */
   async take(key: string): Promise<T | undefined> {
-    return this.db.transaction(async (tx) => {
+    return this.atomic(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
       );
@@ -242,7 +256,7 @@ export class DurableMap<T> {
     key: string,
     change: (current: T | undefined) => T | undefined,
   ): Promise<T | undefined> {
-    return this.db.transaction(async (tx) => {
+    return this.atomic(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
       );
@@ -253,6 +267,7 @@ export class DurableMap<T> {
         this.ttlMs,
         this.capacity,
         this.sealer,
+        true,
       );
       const next = change(await store.get(key));
       if (next === undefined) await store.delete(key);

@@ -178,7 +178,9 @@ describe("organization helpers", () => {
       createdAt: now,
       updatedAt: now,
     });
-    mockHostFetch(() => Promise.resolve(new Response("{}", { status: 200 })));
+    const host = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
 
     await finishLegacyOrphan(
       ctx,
@@ -197,6 +199,7 @@ describe("organization helpers", () => {
         member.principalId,
       ),
     ).toBeDefined();
+    expect(host).not.toHaveBeenCalled();
   });
 
   it("retains an audit intent when its apparent event is detached", async () => {
