@@ -11,8 +11,8 @@ jobs:
     permissions:
       contents: read
     env:
-      EVIDENCE_BASE_SHA: 7273d65a31abf684438c8467749f937e519aa3d5
-      EVIDENCE_HEAD_SHA: bcecacaca19a01b8d5db0818ec013dd89cabb6f8
+      EVIDENCE_BASE_SHA: 3262e228850bbdc4d3d8191d3151712bdf2c654c
+      EVIDENCE_HEAD_SHA: 3b93b9b60d3ac98e0fd6e26f0a99c11367144c89
       EVIDENCE_ROOT: /tmp/rotation-comparison
       EVIDENCE_WIDTHS: "320,390"
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
@@ -27,13 +27,13 @@ jobs:
       - name: Check out the exact baseline
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: 7273d65a31abf684438c8467749f937e519aa3d5
+          ref: 3262e228850bbdc4d3d8191d3151712bdf2c654c
           path: before
           persist-credentials: false
       - name: Check out the exact candidate
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: bcecacaca19a01b8d5db0818ec013dd89cabb6f8
+          ref: 3b93b9b60d3ac98e0fd6e26f0a99c11367144c89
           path: after
           persist-credentials: false
       - name: Verify both source revisions
