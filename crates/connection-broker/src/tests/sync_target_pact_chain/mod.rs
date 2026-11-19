@@ -1,7 +1,9 @@
 //! Response-receiver stream chains for the credentialed sync pact.
 //!
-//! `response.map(...).collect()` and `(&mut response).count()` consume the
-//! body even though the terminator's immediate receiver is not `response`.
+//! `response.map(...).collect()`, `response.map(...)?.collect()`,
+//! `StreamExt::map(response, ...).collect()`, and `(&mut response).count()`
+//! consume the body even though the terminator's immediate receiver is not
+//! `response`.
 
 use super::sync_target_pact_norm::string_len;
 
@@ -45,6 +47,7 @@ fn chain_root_is_response(source: &str, dot: usize) -> bool {
 
 fn root_ident(source: &str, mut end: usize) -> Option<String> {
     loop {
+        end = skip_chain_postfix(source, end);
         if end == 0 {
             return None;
         }
@@ -61,6 +64,9 @@ fn root_ident(source: &str, mut end: usize) -> Option<String> {
                 end = name_start - 1;
                 continue;
             }
+            if let Some(name) = ufcs_chain_receiver(source, name_start, open) {
+                return Some(name);
+            }
             return None;
         }
         let inner = &source[open + 1..end - 1];
@@ -70,6 +76,73 @@ fn root_ident(source: &str, mut end: usize) -> Option<String> {
         let name = trailing_ident(inner);
         return (!name.is_empty()).then_some(name);
     }
+}
+
+/// `?` and `.await` sit between the receiver and the next chain method.
+fn skip_chain_postfix(source: &str, mut end: usize) -> usize {
+    let bytes = source.as_bytes();
+    loop {
+        while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+            end -= 1;
+        }
+        if end > 0 && bytes[end - 1] == b'?' {
+            end -= 1;
+            continue;
+        }
+        if end >= 6 && &source[end - 6..end] == ".await" {
+            end -= 6;
+            continue;
+        }
+        return end;
+    }
+}
+
+/// `StreamExt::map(response, …)` — the receiver is the first argument.
+fn ufcs_chain_receiver(source: &str, name_start: usize, open: usize) -> Option<String> {
+    if name_start < 2 || &source.as_bytes()[name_start - 2..name_start] != b"::" {
+        return None;
+    }
+    place_ident(first_arg(source, open)?)
+}
+
+fn first_arg(source: &str, open: usize) -> Option<&str> {
+    let bytes = source.as_bytes();
+    let mut depth = 0i32;
+    let start = open + 1;
+    let mut index = start;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth > 0 => depth -= 1,
+            b',' | b')' if depth == 0 => return Some(source[start..index].trim()),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn place_ident(mut expr: &str) -> Option<String> {
+    loop {
+        expr = expr.trim();
+        if let Some(rest) = expr.strip_prefix("&mut") {
+            if rest.chars().next().is_none_or(|ch| !is_ident_char(ch)) {
+                expr = rest.trim_start();
+                continue;
+            }
+        }
+        if expr.starts_with(['&', '*']) {
+            expr = expr[1..].trim_start();
+            continue;
+        }
+        if expr.starts_with('(') && expr.ends_with(')') && expr.len() >= 2 {
+            expr = expr[1..expr.len() - 1].trim();
+            continue;
+        }
+        break;
+    }
+    let name: String = expr.chars().take_while(|ch| is_ident_char(*ch)).collect();
+    (!name.is_empty() && name.len() == expr.len()).then_some(name)
 }
 
 fn matching_open_paren(source: &str, close: usize) -> Option<usize> {
@@ -181,6 +254,7 @@ pub(super) fn is_ident_char(ch: char) -> bool {
 }
 
 mod alias;
+mod peel;
 mod tuple;
 
 pub(crate) use alias::dispatch_alias_calls;
