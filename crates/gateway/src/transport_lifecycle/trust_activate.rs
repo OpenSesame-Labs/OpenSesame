@@ -10,8 +10,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
 use opensesame_time::{DateTime, Utc};
+use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations, TrustBundle};
 
 use crate::app_state::AppState;
@@ -68,7 +68,21 @@ pub(crate) fn prepare(
     if let Some(reason) = &current.withdrawn {
         return Err(TrustError::Withdrawn(reason.clone()));
     }
-    let base = deployment_plane_trust(state, &current, stored_names);
+    let source = generations
+        .source_trust(current.number)
+        .map_err(TrustError::Invalid)?;
+    let mut base = deployment_plane_trust(state, &current, stored_names);
+    if let Some(source) = source {
+        for profile in &stored.profiles {
+            if profile.enabled && source.reserved.contains(&profile.profile) {
+                return Err(TrustError::Invalid(TransportError::malformed(format!(
+                    "trust profile {} is reserved by the deployment source",
+                    profile.profile
+                ))));
+            }
+        }
+        base.extend(source.bundles);
+    }
     let peer_trust = bundles(&base, stored, now).map_err(TrustError::Invalid)?;
     let candidate = GenerationCandidate {
         identity: current.identity.clone(),
