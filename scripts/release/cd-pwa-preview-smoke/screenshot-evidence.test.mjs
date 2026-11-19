@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -161,6 +161,101 @@ test("capture walks the cache-busted shell through Minimal then Full sign-in", a
     );
     assert.equal(manifest.browser_entry_url, goto.url);
     assert.equal(Object.keys(manifest.shots).length, 3);
+    assert.equal(existsSync(join(out, "failure-screenshot.png")), false);
+    assert.equal(existsSync(join(out, "failure-console.json")), false);
+    assert.equal(existsSync(join(out, "failure-network.json")), false);
+  });
+});
+
+test("capture writes failure evidence without lengthening the front-door wait", async () => {
+  await withEvidence(async (out) => {
+    const handlers = {};
+    let frontDoorTimeout;
+    const page = {
+      on(event, handler) {
+        handlers[event] = handler;
+      },
+      async goto() {
+        handlers.console?.({
+          type: () => "error",
+          text: () => "chunk 404",
+        });
+        handlers.response?.({
+          url: () => "https://example.github.io/OpenSesame/assets/main-abc.js",
+          status: () => 404,
+          request: () => ({ method: () => "GET" }),
+        });
+        handlers.requestfailed?.({
+          url: () => "https://example.github.io/OpenSesame/assets/vendor.js",
+          method: () => "GET",
+          failure: () => ({ errorText: "net::ERR_FAILED" }),
+        });
+      },
+      getByRole() {
+        return {
+          async waitFor(opts) {
+            frontDoorTimeout = opts.timeout;
+            throw new Error("button missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    assert.equal(frontDoorTimeout, 20_000);
+    assert.equal(
+      readFileSync(join(out, "failure-screenshot.png"), "utf8"),
+      "png",
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "button missing");
+    assert.deepEqual(consoleLog.entries, [
+      { type: "error", text: "chunk 404" },
+    ]);
+    const networkLog = JSON.parse(
+      readFileSync(join(out, "failure-network.json"), "utf8"),
+    );
+    assert.equal(networkLog.error, "button missing");
+    assert.deepEqual(networkLog.entries, [
+      {
+        url: "https://example.github.io/OpenSesame/assets/main-abc.js",
+        status: 404,
+        method: "GET",
+      },
+      {
+        url: "https://example.github.io/OpenSesame/assets/vendor.js",
+        method: "GET",
+        error: "net::ERR_FAILED",
+      },
+    ]);
   });
 });
 
