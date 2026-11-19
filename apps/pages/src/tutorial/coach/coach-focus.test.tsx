@@ -25,7 +25,9 @@ function Card({ actionOnly = false }: { actionOnly?: boolean }): ReactElement {
   );
 }
 
-function outside(tag: "input" | "button"): HTMLElement {
+function outside<K extends "input" | "button">(
+  tag: K,
+): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
   document.body.appendChild(element);
   element.focus();
@@ -108,7 +110,7 @@ describe("returning focus when the tutorial closes", () => {
 
   it("returns to Support when the original control can no longer be focused", () => {
     const launcher = outside("button");
-    const trigger = outside("button") as HTMLButtonElement;
+    const trigger = outside("button");
     vi.spyOn(targets, "resolveGuideTargetElement").mockReturnValue(launcher);
     const { unmount } = render(<Card />);
     trigger.disabled = true;

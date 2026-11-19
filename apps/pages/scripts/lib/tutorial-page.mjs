@@ -36,12 +36,10 @@ export function createTutorialPageFactory({ browser, devUrl, harness }) {
           },
         };
     const colorScheme = process.env.TUTORIALS_COLOR_SCHEME;
-    const device = {
-      ...screen,
-      ...(colorScheme === "dark" || colorScheme === "light"
-        ? { colorScheme }
-        : {}),
-    };
+    const device = { ...screen };
+    if (colorScheme === "dark" || colorScheme === "light") {
+      device.colorScheme = colorScheme;
+    }
     if (!devUrl) {
       const result = await harness.newPage(browser, { device });
       await observeResizeErrors(result.page, result.context, harness);

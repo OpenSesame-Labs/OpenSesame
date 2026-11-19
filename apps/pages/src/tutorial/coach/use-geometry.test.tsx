@@ -102,18 +102,7 @@ it("reveals a clipped target after a resize without following later scrolling", 
   vi.stubGlobal("innerHeight", 300);
   let top = 100;
   const button = document.createElement("button");
-  button.getBoundingClientRect = () =>
-    ({
-      left: 10,
-      right: 110,
-      top,
-      bottom: top + 60,
-      width: 100,
-      height: 60,
-      x: 10,
-      y: top,
-      toJSON() {},
-    }) as DOMRect;
+  button.getBoundingClientRect = () => new DOMRect(10, top, 100, 60);
   const scroll = vi.fn(() => {
     top = 20;
   });
@@ -150,18 +139,7 @@ it("moves a focused field to the edge when zoom and the keyboard leave little ro
   vi.stubGlobal("visualViewport", viewport);
   let top = 38;
   const field = document.createElement("input");
-  field.getBoundingClientRect = () =>
-    ({
-      left: 0,
-      right: 280,
-      top,
-      bottom: top + 44,
-      width: 280,
-      height: 44,
-      x: 0,
-      y: top,
-      toJSON() {},
-    }) as DOMRect;
+  field.getBoundingClientRect = () => new DOMRect(0, top, 280, 44);
   const scroll = vi.fn(() => {
     top = 0;
   });
