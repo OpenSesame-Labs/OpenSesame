@@ -65,7 +65,7 @@ PY
   git commit -qm "squash-sim: formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
-python3 "$SCRATCH/spec/formal/dpop/check-drift.py"
+python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
 if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
   (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal && npm run verify:spiffe-formal)
