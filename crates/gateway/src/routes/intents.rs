@@ -21,6 +21,7 @@ use crate::middleware::auth::{require_demo_bootstrap, resolve_caller, resolve_ca
 
 #[path = "intents_bootstrap.rs"]
 mod intents_bootstrap;
+pub(crate) use intents_bootstrap::bootstrap_connection_policy_for;
 use intents_bootstrap::bootstrap_invocation;
 
 #[path = "intents_enforcement.rs"]

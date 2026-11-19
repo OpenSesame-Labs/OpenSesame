@@ -93,7 +93,7 @@ pub async fn recover(State(st): State<AppState>, headers: HeaderMap, request: Re
         ResourceSelector::exact(intent.resource.clone()),
     );
     let connection_policy_id =
-        match super::intents_bootstrap::bootstrap_connection_policy_for(&st, &boot) {
+        match crate::routes::intents::bootstrap_connection_policy_for(&st, &boot) {
             Ok(id) => id,
             Err(response) => return response,
         };
