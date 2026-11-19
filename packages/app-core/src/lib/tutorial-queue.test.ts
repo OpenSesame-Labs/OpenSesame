@@ -77,6 +77,26 @@ describe("tutorial queue", () => {
     expect(JSON.parse(raw ?? "{}").goals).toEqual(["vault.lock"]);
   });
 
+  it("completes a stored id after its contribution unloads", () => {
+    tutorialQueueSeams.write(
+      JSON.stringify({ goals: ["feature.unloaded", "vault.lock"] }),
+    );
+    setStatusNotice({
+      id: "tutorial.queue.feature.unloaded",
+      tone: "info",
+      title: "Unloaded",
+      body: "Queued.",
+    });
+    completeQueuedTutorial("feature.unloaded");
+    expect(JSON.parse(raw ?? "{}").goals).toEqual(["vault.lock"]);
+    expect(
+      listNotices().some(
+        (notice) => notice.id === "tutorial.queue.feature.unloaded",
+      ),
+    ).toBe(false);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+  });
+
   it("drops a corrupt record and unknown ids", () => {
     tutorialQueueSeams.write(
       JSON.stringify({ goals: ["nope.not.a.goal", "vault.lock", 3] }),
