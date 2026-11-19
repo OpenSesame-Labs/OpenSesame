@@ -89,7 +89,7 @@ impl StoreRoot {
             {
                 continue;
             }
-            *entry = self.migration_entry_witness(name, entry.revision, key)?;
+            *entry = self.migration_entry_witness_v1_upgrade(name, entry.revision, key)?;
         }
         expected.version = 2;
         expected.epoch = expected

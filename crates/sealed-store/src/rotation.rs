@@ -226,8 +226,7 @@ fn stage_entries(
         }
         let mut opened =
             crate::envelope::open_osseal_for_path(&blob, old_key, name, Some(witness.revision))?;
-        // Legacy unbound ciphertext is refused by open_osseal and must be
-        // explicitly migrated before rotation.
+        StoreRoot::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
         let sealed = seal_osseal(&opened.plaintext, new_key, name, opened.revision);
         opened.plaintext.zeroize();
         plan.stage(staging, rel, &sealed?)?;

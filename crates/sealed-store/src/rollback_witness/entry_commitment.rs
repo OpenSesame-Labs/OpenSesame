@@ -13,6 +13,21 @@ pub(super) fn entry_matches(state: &EntryWitness, plaintext: &[u8]) -> bool {
 }
 
 impl StoreRoot {
+    pub(crate) fn verify_entry_plaintext_opened(
+        state: &EntryWitness,
+        plaintext: &[u8],
+    ) -> Result<(), StoreError> {
+        if state.deleted || commitment_unbound(&state.commitment) {
+            return Ok(());
+        }
+        if !entry_matches(state, plaintext) {
+            return Err(StoreError::Crypto(
+                "entry plaintext does not match its rollback witness".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn verify_entry_plaintext(
         &self,
         name: &str,
@@ -29,12 +44,7 @@ impl StoreRoot {
             name,
             Some(state.revision),
         )?;
-        if !entry_matches(state, &opened.plaintext) {
-            return Err(StoreError::Crypto(
-                "entry plaintext does not match its rollback witness".into(),
-            ));
-        }
-        Ok(())
+        Self::verify_entry_plaintext_opened(state, &opened.plaintext)
     }
 
     fn open_entry_plaintext_at_revision(

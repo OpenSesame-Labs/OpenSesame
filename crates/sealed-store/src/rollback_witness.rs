@@ -7,7 +7,7 @@ use opensesame_human_vault::ItemDataKey;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::envelope::open_osseal_for_path;
+use crate::envelope::{open_legacy_for_trusted_migration, open_osseal_for_path};
 use crate::path::{confined_read, confined_replace};
 use crate::store_lock::StoreLock;
 use crate::{StoreError, StoreRoot};
@@ -94,6 +94,36 @@ mod entry_commitment;
 mod entry_commitment_tests;
 
 impl StoreRoot {
+    pub(super) fn migration_entry_witness_v1_upgrade(
+        &self,
+        name: &str,
+        revision: u64,
+        key: &ItemDataKey,
+    ) -> Result<EntryWitness, StoreError> {
+        if revision == 0 {
+            return Err(StoreError::Crypto("invalid zero revision state".into()));
+        }
+        let relative = Self::entry_relative(name, "osseal")?;
+        let path = self.path.join(&relative);
+        if !path.exists() {
+            return Ok(EntryWitness {
+                revision,
+                deleted: true,
+                commitment: [0; 32],
+            });
+        }
+        let blob = confined_read(&self.path, &relative)?;
+        let plaintext = match open_osseal_for_path(&blob, key, name, Some(revision)) {
+            Ok(opened) => opened.plaintext,
+            Err(_) => open_legacy_for_trusted_migration(&blob, key)?,
+        };
+        Ok(EntryWitness {
+            revision,
+            deleted: false,
+            commitment: entry_plaintext_commitment(&plaintext),
+        })
+    }
+
     pub(super) fn migration_entry_witness(
         &self,
         name: &str,

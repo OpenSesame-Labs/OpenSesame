@@ -349,7 +349,7 @@ impl StoreRoot {
                     name,
                     Some(witness.revision),
                 )?;
-                self.verify_entry_plaintext(name, key, &witness)?;
+                Self::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
                 if self.revision(name)?.is_some() {
                     opened.plaintext
                 } else {
@@ -365,7 +365,7 @@ impl StoreRoot {
                         name,
                         Some(witness.revision),
                     )?;
-                    self.verify_entry_plaintext(name, key, &witness)?;
+                    Self::verify_entry_plaintext_opened(&witness, &reopened.plaintext)?;
                     if self.revision(name)?.is_none() {
                         self.record_revision(name, witness.revision)?;
                     }
