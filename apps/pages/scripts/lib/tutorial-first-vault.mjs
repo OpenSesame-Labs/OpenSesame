@@ -1,10 +1,15 @@
 /** Walk the first-vault tutorial by doing what it asks, including the copy. */
 import { PIN } from "./pages-journey.mjs";
+import { checkLateSealScroll } from "./tutorial-gates.mjs";
 import { checkZoomViewport, closeWithZoomCheck } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
 import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
-import { readStep, startTutorial } from "./tutorial-walk.mjs";
+import {
+  readStep,
+  revisitIncompletePin,
+  startTutorial,
+} from "./tutorial-walk.mjs";
 
 export async function runFirstVaultPass({ newPage, width, ...options }) {
   const { page, context } = await newPage(width);
@@ -76,6 +81,7 @@ function stepChecker(
       await page.screenshot({
         path: `${out}/${width}-${label.replaceAll(" ", "-")}-${String(number).padStart(2, "0")}.png`,
       });
+    return info;
   };
 }
 
@@ -127,6 +133,8 @@ async function enterVault(page, step, check, phone) {
   await page.getByLabel("I understand this vault cannot be recovered.").check();
   await page.locator(".coach__btn--go").click();
   await step("unlock.seal", 8);
+  if (page.viewportSize().width <= 320)
+    await checkLateSealScroll(page, step, check);
   await page.getByRole("button", { name: "Seal with PIN" }).click();
 }
 
@@ -371,30 +379,5 @@ export async function walkFirstItem(entries, options) {
     );
   } finally {
     await isolated.context.close();
-  }
-}
-
-/** Check that a person can correct skipped PIN fields before sealing. */
-async function revisitIncompletePin(page, step, check) {
-  if (process.env.TUTORIALS_PIN_BACK !== "1") return;
-  for (const [target, number] of [
-    ["unlock.seal-pin-confirm", 6],
-    ["unlock.seal-ack", 7],
-    ["unlock.seal", 8],
-  ]) {
-    await page.locator(".coach__btn--go").click();
-    await step(target, number);
-  }
-  check(
-    await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
-    "first vault: incomplete PIN details cannot seal the vault",
-  );
-  for (const [target, number] of [
-    ["unlock.seal-ack", 7],
-    ["unlock.seal-pin-confirm", 6],
-    ["unlock.seal-pin-entry", 5],
-  ]) {
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await step(target, number);
   }
 }

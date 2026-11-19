@@ -80,6 +80,7 @@ export function VaultFilterMenu({
   sharedItems?: SharedItemMarks;
 }) {
   const [open, setOpen] = useState(false);
+  const openRef = useGuideTarget<HTMLButtonElement>("vault.filter");
   const closeRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   // Stable: `useModalFocus` keeps this in its effect deps, and a fresh
@@ -105,6 +106,7 @@ export function VaultFilterMenu({
   return (
     <div className="vfilter">
       <button
+        ref={openRef}
         type="button"
         className={`choice vfilter__open${narrowed ? " is-narrowed" : ""}`}
         aria-label={label}
@@ -154,7 +156,6 @@ function FilterSheet({
       <div
         ref={sheetRef}
         className="sheet"
-        // biome-ignore lint/a11y/useSemanticElements: native <dialog open> inerts the page and paints a blank top-layer surface
         role="dialog"
         aria-label="Filter items"
         aria-modal="true"

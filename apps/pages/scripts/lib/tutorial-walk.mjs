@@ -3,8 +3,8 @@
  *
  * The unit tests prove the runtime and the card; this proves the product: a
  * tutorial is started from the Support sheet's library, every step is read
- * off the page that is actually showing it, and the person gets through it
- * with nothing but Next. A step that points at a control is only a pass if
+ * off the page that is actually showing it, and follows Next and required
+ * actions. A step that points at a control is only a pass if
  * the control is lit, on screen, not covered by the card, and reachable
  * through the aperture. A step that cannot find its control is a failure
  * here, though it degrades to text for a person — a tutorial that points at
@@ -20,6 +20,7 @@ import {
   measurementTools,
   readableInstruction,
 } from "./tutorial-measure-tools.mjs";
+import { isFilterAction, pressFilterAction } from "./tutorial-page.mjs";
 
 export { stepChecks };
 
@@ -66,6 +67,31 @@ export async function listTutorials(page) {
 
 export const tutorialDialog = (page) =>
   page.getByRole("dialog", { name: /^Tutorial:/ });
+
+/** Check that a person can correct skipped PIN fields before sealing. */
+export async function revisitIncompletePin(page, step, check) {
+  if (process.env.TUTORIALS_PIN_BACK !== "1") return;
+  for (const [target, number] of [
+    ["unlock.seal-pin-confirm", 6],
+    ["unlock.seal-ack", 7],
+    ["unlock.seal", 8],
+  ]) {
+    await page.locator(".coach__btn--go").click();
+    await step(target, number);
+  }
+  check(
+    await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
+    "first vault: incomplete PIN details cannot seal the vault",
+  );
+  for (const [target, number] of [
+    ["unlock.seal-ack", 7],
+    ["unlock.seal-pin-confirm", 6],
+    ["unlock.seal-pin-entry", 5],
+  ]) {
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await step(target, number);
+  }
+}
 
 /** Starts one tutorial from the library and waits for its first card. */
 export async function startTutorial(page, id) {
@@ -281,17 +307,37 @@ export async function unlockIfLocked(page) {
 }
 
 /** Presses Next by mouse or by keyboard, whichever this step is owed. */
-async function pressNext(page, { info, byKeyboard, check, label }) {
+async function pressNext(
+  page,
+  { info, byKeyboard, check, label, phone, afterFilter },
+) {
   const next = page.locator(".coach__btn--go");
+  if (isFilterAction(info)) {
+    await pressFilterAction(page, { info, check, label, phone });
+    return;
+  }
   if (!byKeyboard) {
     await next.click();
     return;
   }
-  check(
-    info.focusInCard,
-    `${label}: focus is on the card, so Enter reaches Next`,
-  );
-  if (!info.focusInCard) await next.focus();
+  if (afterFilter)
+    check(
+      info.backDisabled,
+      `${label}: Back cannot return to a closed filter sheet`,
+    );
+  if (afterFilter && !info.focusInCard) {
+    await next.focus();
+    check(
+      await next.evaluate((node) => document.activeElement === node),
+      `${label}: Next can take focus after choosing a filter`,
+    );
+  } else {
+    check(
+      info.focusInCard,
+      `${label}: focus is on the card, so Enter reaches Next`,
+    );
+    if (!info.focusInCard) await next.focus();
+  }
   await page.keyboard.press("Enter");
 }
 
@@ -305,7 +351,7 @@ function checkDeclaredTotal({ id, check, shown, total }) {
 }
 
 /**
- * Press Next through a whole tutorial, checking every step. Returns the
+ * Walk the whole tutorial, checking every step. Returns the
  * ordered list of steps seen. `press` alternates mouse and keyboard so both
  * roads are walked on every tutorial. Steps are numbered 1..N with none
  * skipped, and N is what the tutorial declared (`total`, when known).
@@ -341,7 +387,15 @@ export async function walkSteps(
 
     const byKeyboard =
       press === "keyboard" || (press === "alternate" && guard % 2 === 1);
-    await pressNext(page, { info, byKeyboard, check, label });
+    const afterFilter = isFilterAction(seen.at(-2));
+    await pressNext(page, {
+      info,
+      byKeyboard,
+      check,
+      label,
+      phone,
+      afterFilter,
+    });
     if (!(await advancedFrom(page, info))) {
       check(false, `${label}: Next did not move the tutorial on`);
       return seen;
