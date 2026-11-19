@@ -308,10 +308,8 @@ fn pact_migrations_are_append_only_and_end_with_0040() {
             "0059_est_source_budgets",
             "0060_host_membership_withdrawals",
             "0061_pairing_membership_revision",
+            "0062_host_native_authority",
         ]
     );
-    assert_eq!(
-        versions.last().copied(),
-        Some("0061_pairing_membership_revision")
-    );
+    assert_eq!(versions.last().copied(), Some("0062_host_native_authority"));
 }

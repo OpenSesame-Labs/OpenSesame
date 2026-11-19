@@ -19,9 +19,8 @@ impl Db {
     pub async fn withdraw_host_membership(
         &self,
         input: &MembershipWithdrawal<'_>,
-        now: i64,
     ) -> anyhow::Result<bool> {
-        self.withdraw_host_membership_with_count(input, now)
+        self.withdraw_host_membership_with_count(input, opensesame_time::Utc::now().timestamp())
             .await
             .map(|(inserted, _)| inserted)
     }
@@ -174,24 +173,19 @@ impl Db {
         Ok(changed == 1)
     }
 
-    /// A missing revision denotes a legacy/local grant. Once a withdrawal exists,
-    /// it cannot stand in for a particular Identity revision.
     /// # Errors
     /// Storage failures must be treated as denial.
     pub async fn host_membership_live(
         &self,
         organization: &str,
         principal: &str,
-        revision: Option<(&str, &str)>,
+        incarnation: &str,
+        revision: &str,
     ) -> anyhow::Result<bool> {
-        let row: i64 = match revision {
-            Some((incarnation, revision)) => sqlx::query_scalar("SELECT COUNT(*) FROM host_membership_withdrawals
-                WHERE organization_id=? AND principal_id=? AND membership_incarnation=? AND authority_revision=?")
-                .bind(organization).bind(principal).bind(incarnation).bind(revision).fetch_one(self.pool()).await?,
-            None => sqlx::query_scalar("SELECT COUNT(*) FROM host_membership_withdrawals
-                WHERE organization_id=? AND principal_id=?")
-                .bind(organization).bind(principal).fetch_one(self.pool()).await?,
-        };
+        let row: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_membership_withdrawals
+            WHERE organization_id=? AND principal_id=? AND membership_incarnation=? AND authority_revision=?")
+            .bind(organization).bind(principal).bind(incarnation).bind(revision)
+            .fetch_one(self.pool()).await?;
         Ok(row == 0)
     }
 }
