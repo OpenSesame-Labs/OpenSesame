@@ -5,6 +5,7 @@ import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
+  type PreparedWithdrawal,
   finishOrganizationWithdrawal,
   prepareRoleWithdrawal,
 } from "../services/organization-withdrawal.js";
@@ -16,7 +17,6 @@ import { finishLegacyOrphan } from "./scim-legacy-orphan.js";
 
 export const SCIM_ROLE_ATTRIBUTE = "urn:opensesame:params:scim:2.0:role";
 
-/** Prior userName/externalId values, so a rename still deprovisions. */
 export const SCIM_SUBJECTS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:subjects";
 
@@ -85,7 +85,6 @@ export function deprovisionJournal(
   return { cycle, targets: parsed };
 }
 
-/** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
   SCIM_ROLE_ATTRIBUTE,
   SCIM_SUBJECTS_ATTRIBUTE,
@@ -360,32 +359,39 @@ export async function prepareDeprovision(
   };
 }
 
-/** Apply a Groups mapping to whoever already holds a membership here. */
-export async function applyRole(
-  ctx: AppContext,
+/** Prepare every membership role transition inside the caller's org transaction. */
+export async function prepareRoleWithdrawals(
+  tx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   role: OrganizationRole,
-): Promise<void> {
-  for (const principalId of await principalsForUser(ctx, organization, user)) {
-    const prepared = await withScimOrganizationBoundary(
-      ctx,
-      organization.id,
-      (tx) =>
-        prepareRoleWithdrawal(tx, {
-          organizationId: organization.id,
-          principalId,
-          role,
-          actorPrincipalId: ctx.systemOwnerPrincipalId,
-          actorType: "system",
-          correlationId: `scim-role-${organization.id}`,
-        }),
-    );
+  correlationId: string,
+): Promise<PreparedWithdrawal[]> {
+  const pending: PreparedWithdrawal[] = [];
+  for (const principalId of await principalsForUser(tx, organization, user)) {
+    const prepared = await prepareRoleWithdrawal(tx, {
+      organizationId: organization.id,
+      principalId,
+      role,
+      actorPrincipalId: tx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId,
+    });
     if (prepared.status === "missing" || prepared.status === "unchanged")
       continue;
     if (prepared.status !== "ready")
       throw new Error("Directory role withdrawal could not be prepared");
-    const finished = await finishOrganizationWithdrawal(ctx, prepared.prepared);
+    pending.push(prepared.prepared);
+  }
+  return pending;
+}
+
+export async function finishRoleWithdrawals(
+  ctx: AppContext,
+  pending: PreparedWithdrawal[],
+): Promise<void> {
+  for (const prepared of pending) {
+    const finished = await finishOrganizationWithdrawal(ctx, prepared);
     if (finished.status !== "changed")
       throw new Error(
         "Directory role withdrawal is pending; retry the request",
