@@ -1,4 +1,4 @@
-/** Disposable guest recovery screenshots, exercised against a local Identity. */
+/** Compare guest admission using the same synthetic Identity cookie. */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -6,20 +6,20 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 
-const repo = resolve(process.env.REPO_ROOT || "/repo");
+const baseRepo = resolve(process.env.BASE_REPO || "/baseline");
+const headRepo = resolve(process.env.HEAD_REPO || "/head");
 const out = resolve(process.env.EVIDENCE_OUT || "/out");
-const identityPort = Number(process.env.IDENTITY_PORT || 18890);
-const pagesPort = Number(process.env.PAGES_PORT || 5199);
-const identity = `http://127.0.0.1:${identityPort}`;
-const origin = `http://127.0.0.1:${pagesPort}`;
-const pages = `${origin}/OpenSesame/`;
-const require = createRequire(join(repo, "package.json"));
-const { chromium } = require("@playwright/test");
+const identity = "http://127.0.0.1:18890";
+const baseOrigin = "http://127.0.0.1:5198";
+const headOrigin = "http://127.0.0.1:5199";
+const { chromium } = createRequire(join(headRepo, "package.json"))(
+  "@playwright/test",
+);
 const children = [];
-function start(script, args, cwd, extraEnv = {}) {
+function start(script, args, cwd, env = {}) {
   const child = spawn(process.execPath, [script, ...args], {
     cwd,
-    env: { ...process.env, ...extraEnv },
+    env: { ...process.env, ...env },
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -32,8 +32,8 @@ function start(script, args, cwd, extraEnv = {}) {
   return child;
 }
 async function ready(url, child) {
-  const deadline = Date.now() + 60000;
-  while (Date.now() < deadline) {
+  const until = Date.now() + 60000;
+  while (Date.now() < until) {
     if (child.exitCode !== null)
       throw new Error(`Fixture exited: ${child.log}`);
     try {
@@ -43,34 +43,14 @@ async function ready(url, child) {
   }
   throw new Error(`Fixture did not start: ${child.log}`);
 }
-const fixture = `
-  import { serve } from '@hono/node-server';
-  import { createControlPlane } from './packages/control-plane/src/create-app.ts';
-  const { app } = createControlPlane({config: {
-    port: ${identityPort}, publicUrl: ${JSON.stringify(identity)},
-    issuer: ${JSON.stringify(identity)}, corsOrigins: [${JSON.stringify(origin)}],
-  }});
-  serve({fetch: app.fetch, port: ${identityPort}, hostname: '127.0.0.1'});
-`;
-let browser;
-mkdirSync(out, { recursive: true });
-try {
-  const server = start(
-    join(repo, "node_modules/tsx/dist/cli.mjs"),
-    ["-e", fixture],
-    repo,
-    {
-      OPENSESAME_ENV: "test",
-      OPENSESAME_ALLOW_DEV_DEFAULTS: "1",
-    },
-  );
-  const vite = start(
+function pages(repo, port) {
+  return start(
     join(repo, "node_modules/vite/bin/vite.js"),
     [
       "--host",
       "127.0.0.1",
       "--port",
-      String(pagesPort),
+      String(port),
       "--strictPort",
       "--base",
       "/OpenSesame/",
@@ -84,9 +64,83 @@ try {
       ),
     },
   );
+}
+const fixture = `
+  import { serve } from '@hono/node-server';
+  import { createControlPlane } from './packages/control-plane/src/create-app.ts';
+  const {app}=createControlPlane({config:{port:18890,publicUrl:${JSON.stringify(identity)},issuer:${JSON.stringify(identity)},corsOrigins:[${JSON.stringify(baseOrigin)},${JSON.stringify(headOrigin)}]}});
+  serve({fetch:app.fetch,port:18890,hostname:'127.0.0.1'});
+`;
+async function open(context, origin, repo) {
+  const page = await context.newPage();
+  await page.goto(`${origin}/OpenSesame/`, { waitUntil: "networkidle" });
+  const skip = page.getByRole("button", {
+    name: "Skip sign-in and continue as guest",
+  });
+  await skip.waitFor({ timeout: 30000 });
+  await page.evaluate(
+    async ({ repo, identity }) => {
+      const settings = await import(
+        `/OpenSesame/@fs${repo}/packages/app-core/src/lib/settings.ts`
+      );
+      const network = await import(
+        `/OpenSesame/@fs${repo}/packages/app-core/src/lib/local-network-fetch.ts`
+      );
+      network.localNetworkFetchSeams.eligible = () => true;
+      settings.saveSettings({
+        ...settings.loadSettings(),
+        identityApi: identity,
+      });
+    },
+    { repo, identity },
+  );
+  return { page, skip };
+}
+async function measure(locator) {
+  return locator.evaluate((element) => {
+    const r = element.getBoundingClientRect(),
+      hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return {
+      x: r.x,
+      y: r.y,
+      width: r.width,
+      height: r.height,
+      hit: !!hit && element.contains(hit),
+    };
+  });
+}
+async function capture(page, file) {
+  await page.screenshot({ path: join(out, file) });
+  return {
+    file,
+    sha256: createHash("sha256")
+      .update(readFileSync(join(out, file)))
+      .digest("hex"),
+  };
+}
+const cookieStatus = (page) =>
+  page.evaluate(
+    (base) =>
+      fetch(`${base}/v1/principals/me`, { credentials: "include" }).then(
+        (r) => r.status,
+      ),
+    identity,
+  );
+let browser;
+mkdirSync(out, { recursive: true });
+try {
+  const server = start(
+    join(headRepo, "node_modules/tsx/dist/cli.mjs"),
+    ["-e", fixture],
+    headRepo,
+    { OPENSESAME_ENV: "test", OPENSESAME_ALLOW_DEV_DEFAULTS: "1" },
+  );
+  const before = pages(baseRepo, 5198),
+    after = pages(headRepo, 5199);
   await Promise.all([
     ready(`${identity}/v1/principals/me`, server),
-    ready(pages, vite),
+    ready(`${baseOrigin}/OpenSesame/`, before),
+    ready(`${headOrigin}/OpenSesame/`, after),
   ]);
   browser = await chromium.launch({
     ...(process.env.PLAYWRIGHT_CHROMIUM
@@ -103,66 +157,70 @@ try {
       isMobile: true,
       hasTouch: true,
     });
-    const page = await context.newPage();
-    await page.goto(pages, { waitUntil: "networkidle" });
-    const skip = page.getByRole("button", {
-      name: "Skip sign-in and continue as guest",
-    });
-    await skip.waitFor({ timeout: 30000 });
-    await page.evaluate(
-      async ({ repo, identity }) => {
-        const settings = await import(
-          `/OpenSesame/@fs${repo}/packages/app-core/src/lib/settings.ts`
-        );
-        const network = await import(
-          `/OpenSesame/@fs${repo}/packages/app-core/src/lib/local-network-fetch.ts`
-        );
-        network.localNetworkFetchSeams.eligible = () => true;
-        settings.saveSettings({
-          ...settings.loadSettings(),
-          identityApi: identity,
-        });
-      },
-      { repo, identity },
-    );
-    const created = await page.evaluate(
+    const baseline = await open(context, baseOrigin, baseRepo),
+      head = await open(context, headOrigin, headRepo);
+    const created = await head.page.evaluate(
       (base) =>
         fetch(`${base}/v1/principals/provisional`, {
           method: "POST",
           credentials: "include",
           headers: { "content-type": "application/json" },
           body: "{}",
-        }).then((response) => response.status),
+        }).then((r) => r.status),
       identity,
     );
     assert.equal(created, 201, "fixture sign-in failed");
-    assert.ok(
-      (await context.cookies(identity)).length,
-      "fixture cookie missing",
+    const originalCookie = await context.cookies(identity);
+    assert.ok(originalCookie.length, "fixture cookie missing");
+    assert.equal(
+      await cookieStatus(baseline.page),
+      200,
+      "baseline did not receive the signed-in cookie",
     );
-    await skip.tap();
-    await page
+    const baseSkip = await measure(baseline.skip);
+    await baseline.skip.tap();
+    const baseSignOut = baseline.page.getByRole("button", {
+      name: "Sign out",
+      exact: true,
+    });
+    const outcome = await Promise.race([
+      baseline.page
+        .waitForURL(/\/vault(?:\/|$)/, { timeout: 30000 })
+        .then(() => "guest-vault"),
+      baseSignOut
+        .waitFor({ state: "visible", timeout: 30000 })
+        .then(() => "sign-out-required"),
+    ]);
+    if (outcome === "guest-vault")
+      await baseline.page
+        .getByRole("button", { name: "Lock vault" })
+        .locator("visible=true")
+        .first()
+        .waitFor({ timeout: 30000 });
+    const baseButton =
+      outcome === "sign-out-required" ? await measure(baseSignOut) : null;
+    const baseImage = await capture(baseline.page, `baseline-${width}.png`);
+    await context.clearCookies();
+    await context.addCookies(originalCookie);
+    assert.equal(
+      await cookieStatus(head.page),
+      200,
+      "original cookie could not be restored for head comparison",
+    );
+    const headSkip = await measure(head.skip);
+    await head.skip.tap();
+    await head.page
       .getByText(
         "Sign out of the current account first, then continue as a fresh guest.",
         { exact: true },
       )
       .waitFor({ state: "visible", timeout: 15000 });
-    const signOut = page.getByRole("button", { name: "Sign out", exact: true });
-    await signOut.waitFor({ state: "visible", timeout: 15000 });
-    const button = await signOut.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        rect.x + rect.width / 2,
-        rect.y + rect.height / 2,
-      );
-      return {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-        hit: !!hit && element.contains(hit),
-      };
+    const signOut = head.page.getByRole("button", {
+      name: "Sign out",
+      exact: true,
     });
+    await signOut.waitFor({ state: "visible", timeout: 15000 });
+    const button = await measure(signOut);
     assert.ok(
       button.hit &&
         button.width >= 44 &&
@@ -171,20 +229,13 @@ try {
         button.y >= 0 &&
         button.x + button.width <= width &&
         button.y + button.height <= height,
-      "sign-out is covered, too small or outside the viewport",
+      "head sign-out control is not fully usable",
     );
-    const file = `guest-sign-out-${width}.png`;
-    await page.screenshot({ path: join(out, file) });
+    const headImage = await capture(head.page, `head-${width}.png`);
     await signOut.tap();
-    await skip.tap();
-    await page.waitForURL(/\/vault(?:\/|$)/, { timeout: 30000 });
-    const oldCookieStatus = await page.evaluate(
-      (base) =>
-        fetch(`${base}/v1/principals/me`, { credentials: "include" }).then(
-          (response) => response.status,
-        ),
-      identity,
-    );
+    await head.skip.tap();
+    await head.page.waitForURL(/\/vault(?:\/|$)/, { timeout: 30000 });
+    const oldCookieStatus = await cookieStatus(head.page);
     assert.equal(
       oldCookieStatus,
       401,
@@ -193,26 +244,32 @@ try {
     screens.push({
       width,
       height,
-      button,
-      oldCookieStatus,
-      file,
-      sha256: createHash("sha256")
-        .update(readFileSync(join(out, file)))
-        .digest("hex"),
+      baseline: { outcome, skip: baseSkip, signOut: baseButton, ...baseImage },
+      head: {
+        outcome: "sign-out-required",
+        skip: headSkip,
+        signOut: button,
+        oldCookieStatus,
+        ...headImage,
+      },
     });
     await context.close();
     console.log(
-      `PASS ${width}px: sign-out is visible and tappable; guest retry succeeds`,
+      `PASS ${width}px: baseline ${outcome}; head requires sign-out and retry succeeds`,
     );
   }
   writeFileSync(
     join(out, "manifest.json"),
     `${JSON.stringify(
       {
-        source: process.env.EVIDENCE_PR_SHA,
-        tree: process.env.EVIDENCE_TREE,
-        identity: "disposable local Identity",
-        network: "loopback eligibility seam",
+        baseline: {
+          source: process.env.BASELINE_SHA,
+          tree: process.env.BASELINE_TREE,
+        },
+        head: { source: process.env.HEAD_SHA, tree: process.env.HEAD_TREE },
+        setup:
+          "One browser context and one disposable Identity cookie; the original cookie is restored before head.",
+        network: "Loopback eligibility seam",
         screens,
       },
       null,
