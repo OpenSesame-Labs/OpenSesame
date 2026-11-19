@@ -9,14 +9,14 @@ export type App = ReturnType<typeof createControlPlane>["app"];
 export const PAGES_ORIGIN = "http://localhost:5180";
 export const DEFAULT_IDP_SUBJECT = "mock-user-1";
 
-export function installHostRevocationMock() {
+export function installHostRevocationMock(status: () => number = () => 200) {
   const realFetch = globalThis.fetch;
   return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url.endsWith("/api/v1/sessions/revoke"))
       return Promise.resolve(
         new Response(JSON.stringify({ revoked: 1 }), {
-          status: 200,
+          status: status(),
           headers: { "content-type": "application/json" },
         }),
       );
