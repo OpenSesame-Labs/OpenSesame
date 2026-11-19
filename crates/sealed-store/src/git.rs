@@ -1,5 +1,7 @@
+use std::collections::HashSet;
+use std::io::Write;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus, Stdio};
 
 use opensesame_trusted_exec::Lookup;
 
@@ -13,9 +15,72 @@ const REMOTE: &str = "origin";
 /// Git config key gating best-effort push after every auto-commit.
 const AUTOPUSH_KEY: &str = "opensesame.autopush";
 
-/// Most `git add` invocations we will hand paths to at once. One attachment can
-/// contribute a thousand chunk objects, which would overrun the argument limit.
-const ADD_BATCH: usize = 100;
+/// Non-fatal backup state after a root rotation's automatic Git step.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RotationGitNotice {
+    NoRepository,
+    NoRemote,
+    AutoPushDisabled,
+    AutoPushFailed,
+}
+
+fn status(command: &mut Command, silent: bool) -> Result<ExitStatus, StoreError> {
+    if silent {
+        command.stdout(Stdio::null()).stderr(Stdio::null());
+    }
+    command
+        .status()
+        .map_err(|error| StoreError::Git(error.to_string()))
+}
+
+fn git_with_paths(
+    root: &Path,
+    arguments: &[&str],
+    paths: &[&str],
+    silent: bool,
+) -> Result<ExitStatus, StoreError> {
+    let mut command = git()?;
+    command
+        .arg("--literal-pathspecs")
+        .args(arguments)
+        .args(["--pathspec-from-file=-", "--pathspec-file-nul"])
+        .current_dir(root)
+        .stdin(Stdio::piped());
+    if silent {
+        command.stdout(Stdio::null()).stderr(Stdio::null());
+    }
+    let mut child = command
+        .spawn()
+        .map_err(|error| StoreError::Git(error.to_string()))?;
+    let written = match child.stdin.take() {
+        Some(mut input) => paths.iter().try_for_each(|path| {
+            input.write_all(path.as_bytes())?;
+            input.write_all(b"\0")
+        }),
+        None => Err(std::io::Error::other("git path input unavailable")),
+    };
+    let status = child
+        .wait()
+        .map_err(|error| StoreError::Git(error.to_string()))?;
+    written.map_err(|error| StoreError::Git(error.to_string()))?;
+    Ok(status)
+}
+
+fn selected_staged_changes(root: &Path, paths: &[&str]) -> Result<bool, StoreError> {
+    let output = git()?
+        .args(["diff", "--cached", "--name-only", "--no-renames", "-z"])
+        .current_dir(root)
+        .output()
+        .map_err(|error| StoreError::Git(error.to_string()))?;
+    if !output.status.success() {
+        return Err(StoreError::Git("git diff failed".into()));
+    }
+    let allowed: HashSet<&[u8]> = paths.iter().map(|path| path.as_bytes()).collect();
+    Ok(output
+        .stdout
+        .split(|byte| *byte == 0)
+        .any(|path| allowed.contains(path)))
+}
 
 /// Initialize `root` as a Git repository when necessary and configure its
 /// repository-local commit identity.
@@ -25,25 +90,27 @@ const ADD_BATCH: usize = 100;
 /// Returns an error when Git cannot be launched or repository initialization
 /// fails.
 pub fn ensure_git_repo(root: &Path) -> Result<(), StoreError> {
+    ensure_git_repo_inner(root, false)
+}
+
+fn ensure_git_repo_inner(root: &Path, silent: bool) -> Result<(), StoreError> {
     if !root.join(".git").exists() {
-        let status = git()?
-            .args(["init"])
-            .current_dir(root)
-            .status()
-            .map_err(|e| StoreError::Git(e.to_string()))?;
-        if !status.success() {
+        let mut init = git()?;
+        init.args(["init"]).current_dir(root);
+        if !status(&mut init, silent)?.success() {
             return Err(StoreError::Git("git init failed".into()));
         }
     }
     // Local identity for the store repo only (not the OpenSesame project).
-    let _ = git()?
+    let mut email = git()?;
+    email
         .args(["config", "user.email", "opensesame-store@localhost"])
-        .current_dir(root)
-        .status();
-    let _ = git()?
-        .args(["config", "user.name", "OpenSesame Store"])
-        .current_dir(root)
-        .status();
+        .current_dir(root);
+    let _ = status(&mut email, silent);
+    let mut name = git()?;
+    name.args(["config", "user.name", "OpenSesame Store"])
+        .current_dir(root);
+    let _ = status(&mut name, silent);
     Ok(())
 }
 
@@ -53,15 +120,34 @@ pub fn ensure_git_repo(root: &Path) -> Result<(), StoreError> {
 ///
 /// Returns an error when Git cannot enumerate or stage the allowed files.
 pub fn auto_commit(root: &Path, message: &str) -> Result<(), StoreError> {
+    auto_commit_inner(root, message, false).map(|_| ())
+}
+
+/// Rotation must report a failed commit after returning its one-time keys.
+pub(crate) fn auto_commit_for_rotation(
+    root: &Path,
+    message: &str,
+) -> Result<Option<RotationGitNotice>, StoreError> {
+    auto_commit_inner(root, message, true)
+}
+
+fn auto_commit_inner(
+    root: &Path,
+    message: &str,
+    strict: bool,
+) -> Result<Option<RotationGitNotice>, StoreError> {
     if !root.join(".git").exists() {
+        if strict {
+            return Ok(Some(RotationGitNotice::NoRepository));
+        }
         eprintln!(
             "note: {} is not a git repository — the entry was written but not committed; \
              run `opensesame pass git init` to start tracking ciphertext history",
             root.display()
         );
-        return Ok(());
+        return Ok(None);
     }
-    let _ = ensure_git_repo(root);
+    let _ = ensure_git_repo_inner(root, strict);
     let listed = git()?
         .args(["ls-files", "-co", "--exclude-standard", "-z"])
         .current_dir(root)
@@ -88,41 +174,31 @@ pub fn auto_commit(root: &Path, message: &str) -> Result<(), StoreError> {
         })
         .collect();
     if paths.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
-    for batch in paths.chunks(ADD_BATCH) {
-        let add = git()?
-            .args(["add", "-A", "--"])
-            .args(batch)
-            .current_dir(root)
-            .status()
-            .map_err(|e| StoreError::Git(e.to_string()))?;
-        if !add.success() {
-            return Err(StoreError::Git("git add failed".into()));
+    if !git_with_paths(root, &["add", "-A"], &paths, strict)?.success() {
+        return Err(StoreError::Git("git add failed".into()));
+    }
+    if !selected_staged_changes(root, &paths)? {
+        return Ok(None);
+    }
+    // --only preserves unrelated staged files. Strict rotation suppresses
+    // hook output, which may contain private data.
+    let success =
+        git_with_paths(root, &["commit", "--only", "-m", message], &paths, strict)?.success();
+    if !success {
+        if strict {
+            return Err(StoreError::Git("git commit failed".into()));
         }
-    }
-    // Empty commit is fine to skip when nothing staged changes.
-    let status = git()?
-        .args(["diff", "--cached", "--quiet"])
-        .current_dir(root)
-        .status()
-        .map_err(|e| StoreError::Git(e.to_string()))?;
-    if status.success() {
-        // exit 0 => no diff
-        return Ok(());
-    }
-    let commit = git()?
-        .args(["commit", "-m", message])
-        .current_dir(root)
-        .status()
-        .map_err(|e| StoreError::Git(e.to_string()))?;
-    if !commit.success() {
         // Non-fatal: store mutation already succeeded; caller can `opensesame pass git` later.
         eprintln!("warning: git commit failed for sealed store (is user.email configured?)");
-        return Ok(());
+        return Ok(None);
     }
     match remote_url(root) {
         None => {
+            if strict {
+                return Ok(Some(RotationGitNotice::NoRemote));
+            }
             eprintln!(
                 "warning: sealed store has no git remote — ciphertext is local-only and not recoverable if this machine is lost; \
                  run `opensesame pass remote set <url>` then `opensesame pass backup`, or enable autopush"
@@ -131,17 +207,23 @@ pub fn auto_commit(root: &Path, message: &str) -> Result<(), StoreError> {
         Some(_) if auto_push_enabled(root) => {
             // Best-effort: a backup that lags is recoverable, a blocked insert is not.
             if let Err(e) = push_backup(root, None) {
+                if strict {
+                    return Ok(Some(RotationGitNotice::AutoPushFailed));
+                }
                 eprintln!("warning: auto-push failed ({e}); run `opensesame pass backup` to retry");
             }
         }
         Some(_) => {
+            if strict {
+                return Ok(Some(RotationGitNotice::AutoPushDisabled));
+            }
             eprintln!(
                 "warning: sealed store has a remote but autopush is off — run `opensesame pass backup` \
                  or `git config opensesame.autopush true` so regenerations reach GitHub"
             );
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 /// Run an explicitly supplied Git command in the sealed-store repository.

@@ -1,8 +1,8 @@
 //! Entry removal, listing, search, and copy/move operations.
 
 use super::{
-    auto_commit, confined_remove, fs, ItemDataKey, Path, StoreError, StoreLock, StoreRoot,
-    COMMIT_REMOVE,
+    auto_commit, confined_remove, fs, FormatHint, ItemDataKey, Path, StoreError, StoreLock,
+    StoreRoot, COMMIT_REMOVE,
 };
 use crate::path::relative_to_logical;
 
@@ -65,12 +65,12 @@ impl StoreRoot {
         name: &str,
         key: Option<&ItemDataKey>,
     ) -> Result<(), StoreError> {
+        let _lock = StoreLock::for_writing(&self.path, name, key)?;
         let (path, hint) = self.find_existing(name)?;
         let rel = path
             .strip_prefix(&self.path)
             .map_err(|_| StoreError::InvalidPath("path escapes store root".into()))?;
-        let _lock = StoreLock::for_writing(&self.path, name, key)?;
-        if hint == super::FormatHint::Osseal {
+        if hint == FormatHint::Osseal {
             let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
             self.tombstone_entry(name, key)?;
         }
