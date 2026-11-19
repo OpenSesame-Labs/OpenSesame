@@ -205,7 +205,7 @@ function NotificationsBarDefault({
                     key={notice.id}
                     notice={notice}
                     onOpen={close}
-                    inFlow
+                    wordedTray
                   />
                 ) : (
                   <CeremonyShell

@@ -105,7 +105,6 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     render(
       <MemoryRouter>
         <StatusNoticeCard
-          inFlow={false}
           notice={{
             id: "tutorial.pause.session",
             kind: "status",
