@@ -154,6 +154,7 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
   const before = started.ctx.mailer.outbox.length;
   for (const unsafe of [
     "https://evil.example/OpenSesame/device",
+    origin,
     `${origin}/other-app`,
     `${origin}/OpenSesame/device?access_token=secret`,
     `${origin}/OpenSesame/device#fragment`,
@@ -195,7 +196,7 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
       email: "unsafe@example.test",
-      callbackURL: callback,
+      callbackURL: origin,
     }),
   });
   expect(downgrade.status).toBe(426);
@@ -221,7 +222,7 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
       email: "unsafe@example.test",
-      callbackURL: callback,
+      callbackURL: origin,
     }),
   });
   expect(sampled.status).toBe(426);

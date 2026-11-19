@@ -39,7 +39,10 @@ separate application/recipient budget so it cannot consume public capacity.
 Deploy Pages with `magic-link-pkce-v1` support before deploying the Identity
 route that requires it. Keep that Pages release live for at least the configured
 HTML/service-worker cache lifetime, then deploy Identity. A cached older Pages
-client sends neither challenge nor state; Identity answers `426` with
+client sends neither challenge nor state and uses its historical
+`callbackURL: pageOrigin()` shape. Identity recognizes that root callback only
+for an allowlisted matching `Origin` and only for this refusal; a modern request
+cannot use it as a callback. Identity answers `426` with
 `client_upgrade_required`, `requiredProtocol: magic-link-pkce-v1`, and
 `action: reload`, emits the structured `magic_link_client_upgrade_required`
 event, sends no email, and does not charge a send budget. The response is

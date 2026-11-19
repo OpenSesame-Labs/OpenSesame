@@ -113,20 +113,64 @@ export function resetMagicLinkUpgradeTelemetryForTest(): void {
   suppressedUpgradeEvents = 0;
 }
 
+function isHistoricalPagesRequest(
+  ctx: AppContext,
+  callbackURL: string | undefined,
+  origin: string | undefined,
+): boolean {
+  return (
+    origin !== undefined &&
+    ctx.config.corsOrigins.includes(origin) &&
+    callbackURL === origin
+  );
+}
+
+type MagicRequestAdmission =
+  | { kind: "invalid" }
+  | { kind: "upgrade" }
+  | { kind: "approved"; callback: URL; codeChallenge: string; state: string };
+
+function classifyMagicRequest(
+  ctx: AppContext,
+  callbackURL: string | undefined,
+  origin: string | undefined,
+  codeChallenge: string | undefined,
+  state: string | undefined,
+): MagicRequestAdmission {
+  const callback =
+    origin && callbackURL
+      ? approvedMagicCallback(ctx, callbackURL, origin)
+      : undefined;
+  if (!codeChallenge || !state)
+    return callback || isHistoricalPagesRequest(ctx, callbackURL, origin)
+      ? { kind: "upgrade" }
+      : { kind: "invalid" };
+  if (
+    !callback ||
+    !validMagicChallenge(codeChallenge) ||
+    !MAGIC_STATE.test(state)
+  )
+    return { kind: "invalid" };
+  return { kind: "approved", callback, codeChallenge, state };
+}
+
 function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
   routes.post("/sign-in/magic-link", async (c) => {
     const parsed = requestSchema.safeParse(
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
-    const { email, callbackURL, codeChallenge, state } = parsed.data;
-    const origin = c.req.header("origin");
-    const callback =
-      origin && callbackURL
-        ? approvedMagicCallback(ctx, callbackURL, origin)
-        : undefined;
-    if (!callback) return c.json({ error: "invalid_request" }, 400);
-    if (!codeChallenge || !state) {
+    const { email, callbackURL } = parsed.data;
+    const admission = classifyMagicRequest(
+      ctx,
+      callbackURL,
+      c.req.header("origin"),
+      parsed.data.codeChallenge,
+      parsed.data.state,
+    );
+    if (admission.kind === "invalid")
+      return c.json({ error: "invalid_request" }, 400);
+    if (admission.kind === "upgrade") {
       recordLegacyClient(ctx);
       c.header("cache-control", "no-store");
       return c.json(
@@ -138,8 +182,7 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
         426,
       );
     }
-    if (!validMagicChallenge(codeChallenge) || !MAGIC_STATE.test(state))
-      return c.json({ error: "invalid_request" }, 400);
+    const { callback, codeChallenge, state } = admission;
     if (
       (await chargeMagicLinkBudget(
         ctx,
