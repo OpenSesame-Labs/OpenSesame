@@ -297,7 +297,11 @@ function signatureMatches(supplied: Buffer, expected: string): boolean {
   return supplied.length === bytes.length && timingSafeEqual(supplied, bytes);
 }
 
-/** When false (default), the wire JSON keeps a plaintext verifier for mixed-version rollouts. */
+/**
+ * A present pepper always seals the PKCE verifier as `verifierEnc`.
+ * `sealVerifierOnWire: false` is the explicit rollout-off shape used by tests
+ * and by `OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER=false`.
+ */
 export type FederatedPendingEncodeOptions = {
   sealVerifierOnWire?: boolean;
 };
@@ -307,7 +311,8 @@ export function encodePending(
   secret?: string,
   options?: FederatedPendingEncodeOptions,
 ): string {
-  const sealVerifierOnWire = options?.sealVerifierOnWire === true;
+  // Omit or true seals. Only an explicit false writes a plaintext verifier.
+  const sealVerifierOnWire = options?.sealVerifierOnWire !== false;
   const body =
     secret && sealVerifierOnWire ? wirePendingBody(pending, secret) : pending;
   const payload = Buffer.from(JSON.stringify(body), "utf8").toString(

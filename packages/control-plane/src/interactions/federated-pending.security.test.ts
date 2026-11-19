@@ -105,7 +105,16 @@ function existingSealedCookie(value: PendingFederatedAuth): string {
   return encodePending(value, secret, { sealVerifierOnWire: true });
 }
 
+function wireJson(cookie: string): {
+  verifier?: string;
+  verifierEnc?: string;
+} {
+  const payload = cookie.slice(0, cookie.lastIndexOf("."));
+  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+}
+
 const sealOnWire = { sealVerifierOnWire: true as const };
+const rolloutOff = { sealVerifierOnWire: false as const };
 
 describe("signed federated state integrity", () => {
   it("round-trips a signed state with its organization and upstream context", () => {
@@ -120,20 +129,24 @@ describe("signed federated state integrity", () => {
     expect(encodePending(pending, secret, sealOnWire)).toBe(cookie);
   });
 
-  it("keeps a plaintext verifier on the wire by default for mixed-version rollouts", () => {
+  it("seals the verifier on the wire when a pepper is present", () => {
     const cookie = encodePending(pending, secret);
-    const payload = cookie.slice(0, cookie.lastIndexOf("."));
-    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    expect(wire.verifier).toBe(pending.verifier);
-    expect(wire).not.toHaveProperty("verifierEnc");
-  });
-
-  it("never places a raw verifier when sealVerifierOnWire is enabled", () => {
-    const cookie = encodePending(pending, secret, sealOnWire);
-    const payload = cookie.slice(0, cookie.lastIndexOf("."));
-    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const wire = wireJson(cookie);
     expect(wire).not.toHaveProperty("verifier");
     expect(wire.verifierEnc).toEqual(expect.any(String));
+    expect(encodePending(pending, secret, sealOnWire)).toBe(cookie);
+    expect(decodePending(cookie, secret)).toEqual(pending);
+  });
+
+  it("keeps a plaintext verifier only when rollout sealing is explicitly off", () => {
+    const cookie = encodePending(pending, secret, rolloutOff);
+    const wire = wireJson(cookie);
+    expect(wire.verifier).toBe(pending.verifier);
+    expect(wire).not.toHaveProperty("verifierEnc");
+    expect(decodePending(cookie, secret)).toEqual(pending);
+    expect(
+      decodePending(alterPayload(cookie, { verifier: "changed" }), secret),
+    ).toBeUndefined();
   });
 
   it("rejects a tampered verifier seal", () => {
