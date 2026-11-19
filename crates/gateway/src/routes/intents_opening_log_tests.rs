@@ -61,10 +61,16 @@ async fn http_trace_does_not_record_the_private_response() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
     let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
         .await
         .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "unexpected response: {}",
+        String::from_utf8_lossy(&bytes)
+    );
     let response: Value = serde_json::from_slice(&bytes).unwrap();
     let opening = response["intent_opening"]["opening"].as_str().unwrap();
     let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
