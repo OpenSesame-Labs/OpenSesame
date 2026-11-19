@@ -33,9 +33,9 @@ export type ListenerProvenance =
 export interface RequestEvidence {
   provenance: ListenerProvenance;
   /** The socket peer, when the handshake authenticated a client certificate. */
-  peer?: VerifiedPeer;
+  peer?: VerifiedPeer | undefined;
   /** The originating client behind an authenticated ingress, this request only. */
-  originating?: VerifiedPeer;
+  originating?: VerifiedPeer | undefined;
   /** Why originating evidence was refused, when the ingress forwarded some. */
   originatingError?: string;
   /** Resolve a service binding for this request (default deny). */
@@ -55,6 +55,8 @@ export interface RecordEvidenceInput {
   originatingError?: string;
   bindings: ServiceBindingSet;
   clock?: () => Date;
+  /** False after the listener's trust generation changes. */
+  isCurrent?: () => boolean;
 }
 
 /** Record evidence for a request. Called once, by the dispatcher. */
@@ -63,9 +65,38 @@ export function recordRequestEvidence(
   input: RecordEvidenceInput,
 ): RequestEvidence {
   const clock = input.clock ?? (() => new Date());
+  const current = () => input.isCurrent?.() ?? true;
   const record: RequestEvidence = {
     provenance: input.provenance,
+    get peer() {
+      return current() && input.peer?.usableAt(clock())
+        ? input.peer
+        : undefined;
+    },
+    get originating() {
+      const now = clock();
+      return current() &&
+        input.peer?.usableAt(now) &&
+        input.originating?.usableAt(now)
+        ? input.originating
+        : undefined;
+    },
     admit(purpose, operation, now = clock()) {
+      if (!current() || (input.peer && !input.peer.usableAt(now))) {
+        return { ok: false, code: "evidence_expired" };
+      }
+      if (
+        input.provenance.kind === "tls" &&
+        input.provenance.policy === "trusted_ingress" &&
+        !input.originating
+      ) {
+        return {
+          ok: false,
+          code: input.originatingError
+            ? "forwarded_evidence_unverified"
+            : "peer_not_bound",
+        };
+      }
       // Behind a trusted ingress the acting identity is the originating
       // client; the ingress leaf authenticates only the forwarding hop.
       const acting = input.originating ?? input.peer;
@@ -90,8 +121,6 @@ export function recordRequestEvidence(
       );
     },
   };
-  if (input.peer) record.peer = input.peer;
-  if (input.originating) record.originating = input.originating;
   if (input.originatingError) record.originatingError = input.originatingError;
   evidence.set(req, record);
   return record;
