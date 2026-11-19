@@ -125,7 +125,9 @@ The filters show *Needs attention*, *Online* and *Offline*.
 - its tags.
 
 The sheet then shows the key and the `tailscale up --auth-key=…` command
-once, each with a copy key; the copy clears the clipboard afterwards. The key
+once, each with a copy key; the app attempts to clear the copy after the chosen
+delay or on lock. Browser permissions and clipboard history can prevent that
+cleanup. The key
 is kept nowhere: not in the page, and not on the daemon. To revoke an unused
 key, use the Auth keys panel.
 

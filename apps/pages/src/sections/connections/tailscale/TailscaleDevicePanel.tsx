@@ -2,9 +2,12 @@ import { FieldShell } from "../../../components/FieldShell.js";
 import { FormCommit } from "../../../components/FormCommit.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconCopy } from "../../../components/Icons.js";
+import { useCopySecret } from "../../../lib/vault/hooks.js";
 import { TailscaleStatus } from "./TailscaleConfiguration.js";
 import type { TailscaleEditor } from "./useTailscaleApp.js";
+
 function IssuedKey({ model }: { model: TailscaleEditor }) {
+  const copySecret = useCopySecret();
   const key = model.key;
   if (!key) return null;
   return (
@@ -25,9 +28,7 @@ function IssuedKey({ model }: { model: TailscaleEditor }) {
             <IconKey
               label="Copy Tailscale device auth key"
               onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(key.key)
-                  .catch(() => undefined);
+                void copySecret(key.key);
               }}
             >
               <IconCopy size={17} />

@@ -3,9 +3,18 @@ import { configureHost } from "@opensesame/app-core/host.js";
 import { HONEY_TOKEN_KEY } from "@opensesame/app-core/lib/honey-tokens.js";
 import { kvDelete } from "@opensesame/app-core/lib/kv.js";
 import { createTestHost } from "@opensesame/app-core/test-host.js";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { vaultHooksSeams } from "../../../lib/vault/hooks.js";
+import {
+  clearCopiedSecret,
+  vaultHooksSeams,
+} from "../../../lib/vault/hooks.js";
 import { HoneyTokensPanel } from "./HoneyTokensPanel.js";
 
 const original = { ...vaultHooksSeams };
@@ -23,6 +32,34 @@ afterEach(() => {
 });
 
 describe("HoneyTokensPanel", () => {
+  it("clears a copied decoy token when the vault locks", async () => {
+    let clipboard = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: vi.fn(async (value: string) => {
+          clipboard = value;
+        }),
+        readText: vi.fn(async () => clipboard),
+      },
+    });
+    Object.defineProperty(navigator, "permissions", {
+      configurable: true,
+      value: { query: vi.fn(async () => ({ state: "granted" })) },
+    });
+    render(<HoneyTokensPanel notices={[]} />);
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "CI decoy" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Issue token" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Copy CI decoy" }),
+    );
+    await waitFor(() => expect(clipboard).toMatch(/^osr_hny_/u));
+    clearCopiedSecret();
+    await waitFor(() => expect(clipboard).toBe(""));
+  });
+
   it("issues and revokes a token, and shows the public id status", async () => {
     render(<HoneyTokensPanel notices={[]} />);
     fireEvent.change(screen.getByLabelText("Name"), {

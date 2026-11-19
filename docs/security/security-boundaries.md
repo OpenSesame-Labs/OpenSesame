@@ -31,6 +31,14 @@
 14. **Combined exposure vs individual artifacts** — review what the same observer
     can obtain across routes and modules. The [exposure matrix](exposure-matrix.md)
     forbids unsafe combinations and binds the declared controls to reviewed source.
+15. **Browser clipboard** — sensitive copy controls share one coordinator that
+    attempts cleanup after the configured delay and on vault lock. Timed cleanup
+    compares the current clipboard when read permission is already granted;
+    when it cannot safely read or write, the app warns that manual replacement
+    is needed. Lock may attempt a blind clear if reading is unavailable, which can
+    replace a newer clipboard value. Browser focus, permission, closing the tab,
+    clipboard history, other processes, and the non-atomic read/write interface
+    mean cleanup cannot be guaranteed or erase prior copies from history.
 
 Implementation and checkpoint evidence:
 [Host authority review](audits/2026-09-08-host-authority.md). Pending verification
