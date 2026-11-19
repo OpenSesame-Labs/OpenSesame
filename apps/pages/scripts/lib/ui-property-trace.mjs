@@ -10,28 +10,16 @@ export function checkExploration(result, target, width, mutant) {
 }
 
 /** Check that exploration actually attempted each switch scenario. */
-function checkCoverage(trace, scenarios, label) {
+export function switchCoverage(trace) {
   const lines = trace.trim().split("\n");
   const last = JSON.parse(lines.at(-1) ?? "null");
   const coverage = last?.snapshots?.find(
     (snapshot) => snapshot.name === "state",
   )?.value?.coverage;
-  for (const scenario of scenarios) {
+  for (const scenario of ["accepted", "rejected", "disabled"]) {
     if (!Number.isInteger(coverage?.[scenario]) || coverage[scenario] < 1) {
-      throw new Error(`Bombadil did not exercise ${scenario} ${label}`);
+      throw new Error(`Bombadil did not exercise ${scenario} switch attempts`);
     }
   }
   return coverage;
-}
-
-export function switchCoverage(trace) {
-  return checkCoverage(
-    trace,
-    ["accepted", "rejected", "disabled"],
-    "switch attempts",
-  );
-}
-
-export function tabsCoverage(trace) {
-  return checkCoverage(trace, ["left", "right", "home", "end"], "tab keys");
 }
