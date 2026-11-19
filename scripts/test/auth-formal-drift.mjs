@@ -27,6 +27,8 @@ const authC1Paths = [
   "packages/app-core/src/lib/browser-pairing.ts",
   "packages/app-core/src/lib/guest-auth.ts",
   "packages/app-core/src/lib/federation.ts",
+  "packages/app-core/src/lib/federation-publication.ts",
+  "packages/app-core/src/lib/settings.ts",
   "packages/app-core/src/lib/claims/transport.ts",
   "packages/app-core/src/lib/claims/ceremony.ts",
   "packages/control-plane/src/app.ts",

@@ -12,6 +12,8 @@ const paths = [
   "packages/app-core/src/lib/browser-pairing.ts",
   "packages/app-core/src/lib/guest-auth.ts",
   "packages/app-core/src/lib/federation.ts",
+  "packages/app-core/src/lib/federation-publication.ts",
+  "packages/app-core/src/lib/settings.ts",
   "packages/app-core/src/lib/claims/transport.ts",
   "packages/app-core/src/lib/claims/ceremony.ts",
   "packages/control-plane/src/app.ts",
@@ -49,6 +51,16 @@ export function seedAuthC1(root) {
 }
 
 export function rejectAuthC1Drift(root, check) {
+  for (const path of [
+    "packages/app-core/src/lib/federation-publication.ts",
+    "packages/app-core/src/lib/settings.ts",
+  ]) {
+    const target = join(root, path);
+    const reviewed = readFileSync(target);
+    writeFileSync(target, "unreviewed drift\n");
+    assert.match(check().stderr, /AUTH-C1 source drift/);
+    writeFileSync(target, reviewed);
+  }
   const first = paths[0];
   const source = join(root, first);
   const reviewed = readFileSync(source);

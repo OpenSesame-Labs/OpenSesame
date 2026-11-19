@@ -1,4 +1,10 @@
 /** Canonical saved-generation publication and one-use handoff from the actual verified exchange. */
+import {
+  type BoundaryValue,
+  isJsonObject,
+  isString,
+  overlapCast,
+} from "@opensesame/os-domain";
 import type { CompletedSignIn } from "./federation-contract.js";
 import { FederationError } from "./federation-error.js";
 import type { FederationExchangeContext } from "./federation-exchange.js";
@@ -13,7 +19,19 @@ import {
   clearFederationSessionJson,
   writeFederationSessionJson,
 } from "./federation-session-store.js";
+import {
+  type IdentitySession,
+  identitySessionEpoch,
+  remoteIdentityApi,
+  restoreSession,
+} from "./identity.js";
+import {
+  flushBearerRevokes,
+  queueIdentityRevoke,
+  rememberBearerRevoke,
+} from "./identity-token-proof.js";
 import { rememberLastSignIn } from "./last-sign-in.js";
+import { localNetworkFetch } from "./local-network-fetch.js";
 import { onVaultLock } from "./vault/lock-events.js";
 
 type CompletionOwner = Readonly<{
@@ -161,4 +179,92 @@ export function consumeBrokeredPublication(
   };
   assertCurrent();
   return Object.freeze({ generation: original.published, assertCurrent });
+}
+
+async function readAdoptionResponse(
+  response: Response,
+): Promise<BoundaryValue> {
+  try {
+    return overlapCast(await response.json());
+  } catch (error) {
+    if (response.ok) throw error;
+    return undefined;
+  }
+}
+
+/** Adopt a brokered token only for its original owner, retiring any unusable response. */
+export async function adoptBrokeredSessionDefault(
+  accessToken: string,
+  expectedGeneration?: FederationSessionGeneration,
+  assertOriginal: () => void = () => undefined,
+): Promise<IdentitySession> {
+  assertOriginal();
+  const generation = expectedGeneration ?? federationSessionGeneration();
+  const sessionEpoch = identitySessionEpoch();
+  assertGeneration(generation);
+  const base = remoteIdentityApi();
+  if (!base) {
+    throw new FederationError(
+      "no_identity_api",
+      "No sign-in service is connected, so this sign-in cannot be adopted.",
+    );
+  }
+  let response: Response;
+  try {
+    response = await localNetworkFetch(
+      `${base}/v1/principals/federated-session`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // Never allow an ambient cookie to answer in place of this token.
+        credentials: "omit",
+        body: JSON.stringify({ accessToken }),
+      },
+    );
+  } catch {
+    throw new FederationError(
+      "identity_unavailable",
+      `Could not reach the sign-in service at ${base} to finish signing in.`,
+    );
+  }
+  const body = await readAdoptionResponse(response);
+  const issued =
+    isJsonObject(body) && isString(body.accessToken)
+      ? body.accessToken
+      : undefined;
+  try {
+    assertOriginal();
+    if (!response.ok) {
+      throw new FederationError(
+        "session_adoption_failed",
+        response.status === 401
+          ? "That sign-in expired before it could be adopted. Try again."
+          : `The sign-in service refused the sign-in (${response.status}).`,
+      );
+    }
+    if (!isJsonObject(body) || !isString(body.principalId) || !issued) {
+      throw new FederationError(
+        "session_adoption_failed",
+        "The sign-in service returned an unusable session.",
+      );
+    }
+    assertGeneration(generation);
+    const session: IdentitySession = {
+      principalId: body.principalId,
+      accessToken: issued,
+      issuerOrigin: new URL(base).origin,
+      issuerBase: base,
+      ...(isString(body.expiresAt) ? { expiresAt: body.expiresAt } : undefined),
+    };
+    restoreSession(session, sessionEpoch, base);
+    return session;
+  } catch (error) {
+    if (issued) {
+      rememberBearerRevoke(issued, base);
+      queueIdentityRevoke(async () => {
+        await flushBearerRevokes(base);
+      });
+    }
+    throw error;
+  }
 }

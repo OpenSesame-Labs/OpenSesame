@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { configureHost } from "../host.js";
 import { createTestHost } from "../test-host.js";
 import { resetAmbientAuthSeams } from "./ambient-auth-seam.js";
+import { beginSignIn, clearSession, discover } from "./federation.js";
 import type {
   BeginSignInOptions,
   TrustedUpstream,
@@ -14,7 +15,7 @@ import {
   holdStartLoader,
 } from "./federation-exchange.test-support.js";
 import { clearPendingSignIn, peekPending } from "./federation-pending.js";
-import { beginSignIn, clearSession, discover } from "./federation.js";
+import { saveSettings } from "./settings.js";
 
 const closes: (() => Promise<void>)[] = [];
 beforeEach(() => {
@@ -174,6 +175,22 @@ it.each(["signout", "configuration"] as const)(
     expect(new URL(host.href()).pathname).toBe("/signin");
   },
 );
+it("refuses a settings A to B to A change during held discovery", async () => {
+  const { host, issuer, upstream } = await setup();
+  const held = issuer.holdDiscovery();
+  const starting = beginSignIn(upstream);
+  await held.arrived;
+  const original = issuer.settings.identityApi;
+  issuer.settings.identityApi = "https://other.example";
+  saveSettings(issuer.settings);
+  issuer.settings.identityApi = original;
+  saveSettings(issuer.settings);
+  held.release();
+  await expect(starting).rejects.toMatchObject({ code: "invalid_request" });
+  expect(issuer.requests).toEqual(["GET /.well-known/openid-configuration"]);
+  expect(peekPending().pending).toBeNull();
+  expect(new URL(host.href()).pathname).toBe("/signin");
+});
 it.each(["issuer", "incomplete"] as const)(
   "retains the actual discovery %s refusal before pending state or navigation",
   async (fault) => {

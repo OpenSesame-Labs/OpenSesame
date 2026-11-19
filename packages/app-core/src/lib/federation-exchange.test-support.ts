@@ -9,8 +9,8 @@ import { configureHost } from "../host.js";
 import type { PagePort, WebStorage } from "../ports.js";
 import { createTestHost } from "../test-host.js";
 import { resetAmbientAuthSeams } from "./ambient-auth-seam.js";
-import { storePending } from "./federation-pending.js";
 import { federationExchangeSeams, federationStartSeams } from "./federation.js";
+import { storePending } from "./federation-pending.js";
 import { loadSettings, settingsSeams } from "./settings.js";
 
 export type TokenFault =
@@ -189,6 +189,9 @@ type IssuerWire = Readonly<{
   brokered: boolean;
   accessToken: string;
   adoptionWait: () => Promise<void>;
+  adoptionResponse: Record<string, string>;
+  adoptionStatus: { value: number };
+  revoked: string[];
 }>;
 async function requestBody(request: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
@@ -217,17 +220,18 @@ function issuerServer(wire: IssuerWire) {
       assert.equal(request.method, "POST");
       assert.equal(request.headers.cookie, undefined);
       const body = await requestBody(request);
+      if (request.url === "/v1/principals/provisional/revoke") {
+        wire.revoked.push(request.headers.authorization ?? "");
+        response.end("{}");
+        return;
+      }
       if (request.url === "/v1/principals/federated-session") {
         assert.equal(wire.brokered, true);
         assert.equal(forms.length, 1);
         assert.deepEqual(JSON.parse(body), { accessToken: wire.accessToken });
         await wire.adoptionWait();
-        response.end(
-          JSON.stringify({
-            principalId: "principal-signed-operator",
-            accessToken: "adopted-opaque-session",
-          }),
-        );
+        response.statusCode = wire.adoptionStatus.value;
+        response.end(JSON.stringify(wire.adoptionResponse));
         return;
       }
       assert.equal(request.url, "/token");
@@ -281,6 +285,22 @@ function configuredIssuerSettings(issuer: string, mode: "public" | "brokered") {
   return settings;
 }
 
+function storeIssuerPending(issuer: string): void {
+  storePending({
+    upstreamId: "identity:callback",
+    issuer,
+    state: STATE,
+    nonce: NONCE,
+    verifier: VERIFIER,
+    tokenEndpoint: `${issuer}/token`,
+    jwksUri: `${issuer}/jwks`,
+    scope: "openid profile",
+    clientId: CLIENT,
+    redirectUri: "https://app.example.test/registered-callback",
+    returnTo: "/vault?keep=1",
+  });
+}
+
 export async function exchangeIssuer(
   fault: TokenFault = "none",
   mode: "public" | "brokered" = "public",
@@ -306,6 +326,12 @@ export async function exchangeIssuer(
   const control = responseControl();
   const adoption = responseControl();
   const accessToken = crypto.randomUUID();
+  const revoked: string[] = [];
+  const adoptionStatus = { value: 200 };
+  const adoptionResponse = {
+    principalId: "principal-signed-operator",
+    accessToken: "adopted-opaque-session",
+  };
   const server = issuerServer({
     token: () => token,
     jwks: JSON.stringify({ keys: [jwk] }),
@@ -317,6 +343,9 @@ export async function exchangeIssuer(
     brokered: mode === "brokered",
     accessToken,
     adoptionWait: () => adoption.wait(),
+    adoptionResponse,
+    adoptionStatus,
+    revoked,
   });
   await once(server.listen(0, "127.0.0.1"), "listening");
   const { port } = z
@@ -342,24 +371,15 @@ export async function exchangeIssuer(
     .setExpirationTime(fault === "expired" ? now - 3600 : now + 600)
     .sign(fault === "signature" ? foreign.privateKey : keys.privateKey);
   const settings = configuredIssuerSettings(issuer, mode);
-  storePending({
-    upstreamId: "identity:callback",
-    issuer,
-    state: STATE,
-    nonce: NONCE,
-    verifier: VERIFIER,
-    tokenEndpoint: `${issuer}/token`,
-    jwksUri: `${issuer}/jwks`,
-    scope: "openid profile",
-    clientId: CLIENT,
-    redirectUri: "https://app.example.test/registered-callback",
-    returnTo: "/vault?keep=1",
-  });
+  storeIssuerPending(issuer);
   return {
     issuer,
     discovery,
     holdDiscovery: () => control.hold(),
     holdAdoption: () => adoption.hold(),
+    adoptionResponse,
+    adoptionStatus,
+    revoked,
     accessToken,
     requests,
     forms,
