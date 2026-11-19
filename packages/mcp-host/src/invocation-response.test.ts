@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
+  MAX_FREEZE_INTENT_RESPONSE_BYTES,
   MAX_INVOCATION_RESPONSE_BYTES,
+  readFreezeIntentResponse,
   readInvocationResponse,
 } from "./invocation-response.js";
 
@@ -30,6 +32,21 @@ describe("bounded invocation response", () => {
     const response = new Response(body, { headers: { "content-length": "1" } });
     await expect(readInvocationResponse(response)).rejects.toThrow("limit");
     expect(cancel).toHaveBeenCalled();
+  });
+
+  it("accepts a freeze response larger than the receipt invoke cap", async () => {
+    const payload = "x".repeat(MAX_INVOCATION_RESPONSE_BYTES + 1024);
+    const body = JSON.stringify({
+      intent_id: "i-1",
+      intent_digest: "sha256:abc",
+      canonical_arguments: { blob: payload },
+    });
+    const response = new Response(body, {
+      headers: { "content-type": "application/json" },
+    });
+    await expect(readFreezeIntentResponse(response)).resolves.toEqual(
+      JSON.parse(body),
+    );
   });
 
   it("times out and cancels a stalled body", async () => {

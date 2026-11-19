@@ -36,5 +36,8 @@ export function projectInvocationResponse(
   const receipt = agentReceipt.safeParse(body);
   if (!receipt.success) return { outcome: "indeterminate" };
   const { outcome, id } = receipt.data;
+  if (outcome === "succeeded" && id === undefined) {
+    return { outcome: "indeterminate" };
+  }
   return id === undefined ? { outcome } : { outcome, id };
 }

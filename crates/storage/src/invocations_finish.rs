@@ -128,7 +128,7 @@ impl Db {
         let updated = sqlx::query(
             "UPDATE invocations SET state = ?, body_json = ?, updated_at = ? WHERE id = ? AND intent_id = ? AND state = 'executing' AND body_json = ?",
         )
-        .bind(format!("{:?}", invocation.state).to_lowercase())
+        .bind(invocation.state.as_sql_value())
         .bind(new_body)
         .bind(invocation.updated_at.to_rfc3339())
         .bind(invocation.id.to_string())
