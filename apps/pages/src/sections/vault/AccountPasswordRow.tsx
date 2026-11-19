@@ -26,6 +26,56 @@ type Copying = {
   copy: (key: string, value: string) => Promise<void>;
 };
 
+function PasswordActions({
+  out,
+  copyRef,
+  copying,
+  fieldKey,
+  guide,
+  revealed,
+  onToggle,
+}: {
+  out: ReturnType<typeof handoff>;
+  copyRef: (element: HTMLButtonElement | null) => void;
+  copying: Copying;
+  fieldKey: string;
+  guide: boolean;
+  revealed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <RevealButton revealed={revealed} label="password" onToggle={onToggle} />
+      {out && out.now !== "" ? (
+        <CopyButton
+          value={out.now}
+          label="password"
+          fieldKey={fieldKey}
+          copied={copying.copied}
+          failed={copying.failed}
+          guideRef={guide ? copyRef : undefined}
+          guideActivation={guide ? "item.copy-password" : undefined}
+          onCopy={copying.copy}
+        />
+      ) : null}
+      {out && out.later !== "" ? (
+        <CopyButton
+          value={out.later}
+          label="rest of password"
+          fieldKey={`${fieldKey}:rest`}
+          copied={copying.copied}
+          failed={copying.failed}
+          guideRef={guide && out.now === "" ? copyRef : undefined}
+          guideActivation={
+            guide && out.now === "" ? "item.copy-password" : undefined
+          }
+          onCopy={copying.copy}
+        />
+      ) : null}
+    </>
+  );
+}
+
 /**
  * A password reached the clipboard from this row: the moment autofill
  * would have saved the trip (ADR 0221). A failed copy never sets `copied`.
@@ -100,44 +150,35 @@ export function AccountPasswordRow({
   const shown =
     whole ??
     (produced.status === "slotted" ? `${produced.head}${produced.tail}` : "");
+  const empty = produced.status === "slotted" && shown === "";
   return (
     <FieldRow
       label={title}
       actions={
-        <>
-          <RevealButton
+        !empty ? (
+          <PasswordActions
+            out={out}
+            copyRef={copyRef}
+            copying={copying}
+            fieldKey={key}
+            guide={guide}
             revealed={revealed}
-            label="password"
             onToggle={() => setRevealed((on) => !on)}
           />
-          <CopyButton
-            value={out?.now ?? ""}
-            label="password"
-            fieldKey={key}
-            copied={copying.copied}
-            failed={copying.failed}
-            guideRef={guide ? copyRef : undefined}
-            guideActivation={guide ? "item.copy-password" : undefined}
-            onCopy={copying.copy}
-          />
-          {out !== null && out.later !== "" ? (
-            <CopyButton
-              value={out.later}
-              label="rest of password"
-              fieldKey={`${key}:rest`}
-              copied={copying.copied}
-              failed={copying.failed}
-              onCopy={copying.copy}
-            />
-          ) : null}
-        </>
+        ) : null
       }
     >
-      <ConcealedValue
-        value={revealed ? shown : ""}
-        label="password"
-        revealed={revealed}
-      />
+      {empty ? (
+        <span className="hint">
+          No generated characters to copy. Select Edit to change this password.
+        </span>
+      ) : (
+        <ConcealedValue
+          value={revealed ? shown : ""}
+          label="password"
+          revealed={revealed}
+        />
+      )}
       {revealed && whole !== null ? <StrengthBar password={whole} /> : null}
       {update}
     </FieldRow>

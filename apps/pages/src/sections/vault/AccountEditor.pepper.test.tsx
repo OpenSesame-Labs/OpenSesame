@@ -1,9 +1,5 @@
 /** @vitest-environment jsdom */
-import {
-  describeGuideTargets,
-  isMountedGuideTarget,
-  resolveGuideTargetElement,
-} from "@opensesame/app-core/tutorial/registry/targets.js";
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import {
   passwordMethod,
   pepperBinding,
@@ -28,32 +24,22 @@ import {
 describe("account editor: pepper (ADR 0174)", () => {
   installEditorHarness();
 
-  it("tracks the option for authored guides without exposing it to model context", async () => {
+  it("only exposes the pepper guide target while password options are open", async () => {
     open("/vault/new/account");
     const password = block("Password");
     const options = password.getByRole("button", { name: "Password options" });
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
+    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
     await showOptions(password);
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
     expect(resolveGuideTargetElement("editor.pepper")).toBe(
       password.getByText("Include pepper").closest("label"),
     );
-    expect(
-      describeGuideTargets("/vault").some(
-        (target) => target.id === "editor.pepper-enabled",
-      ),
-    ).toBe(false);
+    const target = resolveGuideTargetElement("editor.pepper-options");
+    expect(target?.contains(password.getByLabelText("Include pepper"))).toBe(
+      true,
+    );
+    expect(target?.contains(password.getByLabelText("Pepper goes"))).toBe(true);
     await userEvent.click(options);
-    expect(password.queryByLabelText("Include pepper")).toBeNull();
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
-    await userEvent.click(options);
-    await userEvent.click(password.getByLabelText("Include pepper"));
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(false);
-    await userEvent.click(options);
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(false);
-    await userEvent.click(options);
-    await userEvent.click(password.getByLabelText("Include pepper"));
-    expect(isMountedGuideTarget("editor.pepper-enabled")).toBe(true);
+    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
   });
 
   it("has Include pepper on at the end by default, never asks for one, and draws where it goes only while it is on", async () => {
@@ -115,6 +101,16 @@ describe("account editor: pepper (ADR 0174)", () => {
     expect(method.generator.id).toBe("derived");
     expect(method.secret).not.toBe(shown);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("allows a pepper to replace the whole password outside a tutorial", async () => {
+    open("/vault/new/account");
+    const password = block("Password");
+    await showOptions(password);
+    await userEvent.type(password.getByLabelText("Pepper goes"), "0:");
+    await userEvent.click(screen.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(saveItem).toHaveBeenCalled());
+    expect(passwordOf(saved()).pepperAt).toBe("0:");
   });
 
   it("takes a Python-style position, and marks one that is not, keeping the last good one", async () => {

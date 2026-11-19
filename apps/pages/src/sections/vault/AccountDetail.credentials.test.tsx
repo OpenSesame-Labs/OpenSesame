@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { Folder, VaultItem } from "@opensesame/vault-core";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -24,6 +25,7 @@ const store = vi.hoisted(() => ({
 const copySecret = vi.hoisted(() => vi.fn());
 
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, {
   useVault: () => vault.current,
@@ -32,8 +34,9 @@ Object.assign(vaultHooksSeams, {
 });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
-import { ItemDetail } from "./ItemDetail.js";
 import { makeAccount } from "./account.test-support.js";
+import { slottedAccount } from "./account-pepper.test-support.js";
+import { ItemDetail } from "./ItemDetail.js";
 
 function renderAt(id: string) {
   return render(
@@ -46,7 +49,7 @@ function renderAt(id: string) {
   );
 }
 
-describe("an API key and a token on an account's page", () => {
+describe("account credentials", () => {
   beforeEach(() => {
     vault.current = { items: [], folders: [] };
     copySecret.mockResolvedValue("copied");
@@ -68,6 +71,33 @@ describe("an API key and a token on an account's page", () => {
       ],
     };
   };
+
+  it("copies the generated portion and targets it when pepper is first", async () => {
+    vault.current = { items: [slottedAccount("abcdefghij", "0")], folders: [] };
+    renderAt("itm_slot");
+    expect(screen.queryByRole("button", { name: "Copy password" })).toBeNull();
+    const rest = screen.getByRole("button", { name: "Copy rest of password" });
+    expect(resolveGuideTargetElement("item.copy-password")).toBe(rest);
+    await userEvent.click(rest);
+    await waitFor(() => expect(copySecret).toHaveBeenCalledWith("abcdefghij"));
+  });
+
+  it("offers editing instead of copying when pepper replaces every generated character", () => {
+    vault.current = {
+      items: [slottedAccount("abcdefghij", "0:")],
+      folders: [],
+    };
+    renderAt("itm_slot");
+    expect(screen.getByText(/No generated characters to copy/)).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /Copy .*password/ }),
+    ).toBeNull();
+    const edit = screen.getByRole("link", { name: "Edit" });
+    expect(edit.getAttribute("href")).toBe("/vault/itm_slot/edit");
+    expect(resolveGuideTargetElement("item.edit")).toBe(edit);
+    expect(edit.getAttribute("data-guide-pepper-recovery")).toBe("edit");
+    expect(copySecret).not.toHaveBeenCalled();
+  });
 
   it("draws an API key as two rows like a username and password: its header, then its value", async () => {
     vault.current = { items: [keyed("ak_secret")], folders: [] };

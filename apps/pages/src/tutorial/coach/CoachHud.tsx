@@ -39,6 +39,7 @@ import {
   Meter,
   Ring,
   canReturn,
+  coachMessage,
   counterOf,
   viewportDockStyle,
 } from "./CoachParts.js";
@@ -75,6 +76,7 @@ function displayedTour(
   firstVault: boolean,
   requiredAction: boolean,
   ready: boolean,
+  recovery: "edit" | "options" | "pepper" | "",
 ): GuideTourView {
   const gateTarget =
     tour.target?.startsWith("unlock.") || tour.target === "setup.default";
@@ -85,18 +87,9 @@ function displayedTour(
         ? 2
         : 0
     : 0;
-  let message = tour.message;
-  if (requiredAction && ready && !tour.action) {
-    if (tour.target === "editor.password-options")
-      message = "Password options are open. Select Next.";
-    else if (tour.target === "editor.pepper")
-      message = "Pepper is off. Select Next.";
-    else if (tour.target === "unlock.seal-pin")
-      message = "PIN is selected. Select Next.";
-  }
   return {
     ...tour,
-    message,
+    message: coachMessage(tour, requiredAction, ready, recovery),
     step: tour.step + offset,
     count: firstVault ? 16 : tour.count,
   };
@@ -311,7 +304,12 @@ function Coach({
     );
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
-  const layout = useCoachLayout(guide.runId, tour, cardRef);
+  const layout = useCoachLayout(
+    guide.runId,
+    tour,
+    cardRef,
+    firstVault || guide.goal === "vault.item.first",
+  );
   const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
   const awaitingAction =
@@ -332,7 +330,13 @@ function Coach({
     requiredAction,
     ready,
     canBack,
-    displayTour: displayedTour(tour, firstVault, requiredAction, ready),
+    displayTour: displayedTour(
+      tour,
+      firstVault,
+      requiredAction,
+      ready,
+      layout.recovery,
+    ),
     constrained,
     narrow,
     short,
@@ -346,7 +350,7 @@ function Coach({
       data-coach-step={tour.step}
       data-coach-kind={tour.kind}
       data-coach-status={guide.status}
-      data-coach-target={tour.target ?? ""}
+      data-coach-target={layout.target ?? ""}
       data-coach-degraded={missing ? "true" : "false"}
     >
       <Dim hole={hole} viewport={viewport} gliding={gliding} />

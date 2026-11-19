@@ -48,6 +48,9 @@ export async function revisitIncompletePin(page, step, check) {
 
 /** A late layout reset should be repaired, but a person's scroll should stay. */
 export async function checkLateSealScroll(page, step, check) {
+  // Exercise a reset after the old correction window has elapsed.
+  if (process.env.TUTORIALS_LATE_SCROLL === "1")
+    await page.waitForTimeout(3000);
   const reset = await page.evaluate(() => {
     const target = document.querySelector(
       '[data-guide-targets~="unlock.seal"]',

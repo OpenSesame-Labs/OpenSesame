@@ -37,15 +37,14 @@ const PASSWORD_STEPS = [
   'focus "item.editor.name" "Name the account. Select Next." side=bottom',
   'focus "editor.password-options" "Open Password options." side=top',
   'wait target "editor.pepper" event=appear timeout=60000',
-  'focus "editor.pepper" "Turn off Include pepper to copy the complete password." side=top',
-  'wait target "editor.pepper-enabled" event=disappear timeout=60000',
+  'focus "editor.pepper-options" "Keep pepper on for extra protection; add your own secret when using the password. Turn it off to copy the whole password. Select Next." side=top',
   'focus "editor.generate-password" "Select Generate another password." side=top',
   'wait target "editor.generate-password" event=activate timeout=60000',
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
   'wait target "item.copy-password" event=appear timeout=60000',
-  'focus "item.copy-password" "Select Copy password." side=bottom',
+  'focus "item.copy-password" "Select the highlighted copy button. If pepper is on, add your secret at its chosen position and copy the rest if needed." side=bottom',
   'wait target "item.copy-password" event=activate timeout=60000',
-  'success "Password copied. Your account is saved in your vault."',
+  'success "Copied. Pepper off: this is the full password. Pepper on: add your secret at its chosen position and copy the rest if needed."',
   "end",
 ] as const;
 

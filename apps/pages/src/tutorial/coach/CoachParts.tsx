@@ -31,6 +31,28 @@ export const APERTURE_PAD = 6;
 
 export const CLOSING_TEXT = "Tutorial complete.";
 
+/** Describe a recovery control when the original action cannot yet succeed. */
+export function coachMessage(
+  tour: GuideTourView,
+  requiredAction: boolean,
+  ready: boolean,
+  recovery: "edit" | "options" | "pepper" | "",
+): string | null {
+  if (recovery === "edit")
+    return "There is no generated password to copy. Select Edit.";
+  if (recovery === "options")
+    return "Open Password options to change the pepper position.";
+  if (recovery === "pepper")
+    return "Set the pepper position to end or turn off Include pepper.";
+  if (requiredAction && ready && !tour.action) {
+    if (tour.target === "editor.password-options")
+      return "Password options are open. Select Next.";
+    if (tour.target === "unlock.seal-pin")
+      return "PIN is selected. Select Next.";
+  }
+  return tour.message;
+}
+
 export function padded(box: Box): Box {
   return {
     left: box.left - APERTURE_PAD,
@@ -318,7 +340,7 @@ export function canReturn(
       tour.count === 8 &&
       [
         "editor.password-options",
-        "editor.pepper",
+        "editor.pepper-options",
         "editor.generate-password",
         "item.editor.save",
       ].includes(tour.target ?? "")
