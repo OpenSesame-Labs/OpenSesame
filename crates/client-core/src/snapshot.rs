@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ClientCoreError, SyncBlob, SyncCursor, SyncStore};
+use crate::{ClientCoreError, DeviceKey, SyncBlob, SyncCursor, SyncStore};
 
 /// Portable offline backup of opaque sync ciphertext.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -137,29 +137,18 @@ impl SyncStore {
         )
     }
 
-    /// Merge a ciphertext snapshot (last-writer-wins by epoch). Never decrypts.
+    /// Authenticate and merge a ciphertext snapshot by epoch.
     ///
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn import_ciphertext_snapshot(
         &mut self,
+        key: &DeviceKey,
         snapshot: &CiphertextSyncSnapshot,
     ) -> Result<usize, ClientCoreError> {
         snapshot.validate()?;
-        let mut applied = 0usize;
-        for blob in &snapshot.blobs {
-            match self.entries.get(&blob.id) {
-                Some((ep, _)) if *ep >= blob.epoch => {}
-                _ => {
-                    self.entries
-                        .insert(blob.id.clone(), (blob.epoch, blob.ciphertext.clone()));
-                    self.cursor.epoch = self.cursor.epoch.max(blob.epoch);
-                    applied += 1;
-                }
-            }
-        }
-        Ok(applied)
+        self.apply_authenticated(key, &snapshot.blobs)
     }
 
     /// All entries as opaque sync blobs (server / Host view).
@@ -262,15 +251,10 @@ mod tests {
 
         let parsed = CiphertextSyncSnapshot::from_json(&json).unwrap();
         let mut other = SyncStore::new("dev-b");
-        let n = other.import_ciphertext_snapshot(&parsed).unwrap();
+        let n = other.import_ciphertext_snapshot(&key, &parsed).unwrap();
         assert!(n >= 1);
         assert!(other.entries.contains_key("project:p1:note"));
-        let opened = crate::open(
-            &key,
-            &other.entries.get("project:p1:note").unwrap().1,
-            b"project:p1:note",
-        )
-        .unwrap();
+        let opened = crate::open_sync_blob(&key, &parsed.blobs[0]).unwrap();
         assert_eq!(opened, b"offline-secret-xyz");
     }
 
