@@ -74,7 +74,13 @@ pub(crate) fn parse_attachment_manifest(
     if manifest.filename.len() > MAX_FILENAME_BYTES {
         return Err(StoreError::Crypto("manifest filename too long".into()));
     }
-    let declared: u64 = manifest.chunks.iter().map(|c| c.pt_bytes).sum();
+    let mut declared = 0u64;
+    for chunk in &manifest.chunks {
+        declared = declared.checked_add(chunk.pt_bytes).ok_or_else(|| {
+            StoreError::Crypto("manifest chunk sizes overflow".into())
+        })?;
+        super::object_relative(&chunk.digest)?;
+    }
     if declared != manifest.total_bytes {
         return Err(StoreError::Crypto("manifest size mismatch".into()));
     }
