@@ -33,6 +33,8 @@ export const HostChallenge = z
 type Challenge = z.infer<typeof HostChallenge>;
 export type HostAuthorizationPending = {
   principalId: string;
+  membershipIncarnation: string;
+  authorityRevision: string;
   challenge: Challenge;
   webauthnChallenge: string;
   transactionDigest: string;
@@ -100,16 +102,36 @@ export function hostSigningJwk(ctx: AppContext) {
   return key;
 }
 
-async function activeOrganizationMembership(
+async function activeVersionedMembership(
   ctx: AppContext,
   organizationId: string,
   principalId: string,
 ) {
   const [organization, membership] = await Promise.all([
     ctx.stores.organizations.get(organizationId),
-    ctx.stores.organizationMemberships.find(organizationId, principalId),
+    ctx.stores.organizationMemberships.findVersioned(
+      organizationId,
+      principalId,
+    ),
   ]);
-  return organization?.state === "active" ? membership : undefined;
+  return organization?.state === "active" && !membership?.withdrawal
+    ? membership
+    : undefined;
+}
+
+type VersionedMembership = Awaited<
+  ReturnType<AppContext["stores"]["organizationMemberships"]["findVersioned"]>
+>;
+
+function retainsCapturedAuthority(
+  pending: HostAuthorizationPending,
+  membership: VersionedMembership,
+): membership is NonNullable<VersionedMembership> {
+  return Boolean(
+    membership &&
+      membership.incarnation === pending.membershipIncarnation &&
+      membership.authorityRevision === pending.authorityRevision,
+  );
 }
 
 export async function beginHostAuthorization(
@@ -130,7 +152,7 @@ export async function beginHostAuthorization(
     challenge.expires_at * 1000 > now + 300_000
   )
     throw new Error("Host challenge refused");
-  const membership = await activeOrganizationMembership(
+  const membership = await activeVersionedMembership(
     ctx,
     challenge.organization_id,
     principalId,
@@ -160,6 +182,8 @@ export async function beginHostAuthorization(
   }
   await ctx.stores.hostAuthorizations.set(authorizationId, {
     principalId,
+    membershipIncarnation: membership.incarnation,
+    authorityRevision: membership.authorityRevision,
     challenge,
     webauthnChallenge: issued.challenge,
     transactionDigest,
@@ -233,14 +257,14 @@ export async function completeHostAuthorization(
   });
   if (!result.ok || result.principalId !== principalId)
     throw new Error("Host authorization refused");
-  const membership = await activeOrganizationMembership(
+  const membership = await activeVersionedMembership(
     ctx,
     pending.challenge.organization_id,
     principalId,
   );
   const now = Math.floor(ctx.clock().getTime() / 1000);
   if (
-    !membership ||
+    !retainsCapturedAuthority(pending, membership) ||
     now >= pending.challenge.expires_at ||
     !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)
   )
@@ -249,7 +273,9 @@ export async function completeHostAuthorization(
   const key = await importJWK(jwk, "RS256");
   const assertion = await new SignJWT({
     ...pending.challenge,
-    organization_role: membership.role,
+    organization_role: membership.membership.role,
+    membership_incarnation: membership.incarnation,
+    authority_revision: membership.authorityRevision,
     auth_time: now,
     amr: ["webauthn"],
     assurance: "phishing_resistant",
