@@ -16,6 +16,7 @@ type Props = {
   onChange: (next: SecretBackendItemInput) => void;
 };
 function SecretField({ draft, editing, busy, onChange }: Props) {
+  const copySecret = useCopySecret();
   const [revealed, setRevealed] = useState(false);
   const copySecret = useCopySecret();
   return (
