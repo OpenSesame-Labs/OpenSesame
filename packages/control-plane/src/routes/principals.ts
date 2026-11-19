@@ -212,12 +212,7 @@ principalRoutes.post(
         }
 
         const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-        await saveProvisional(
-          ctx.stores,
-          provisionalSession,
-          accessToken,
-          await principalSessionEpoch(ctx.stores, principal.id),
-        );
+        await saveCurrent(ctx.stores, provisionalSession, accessToken);
 
         setCookie(c, ctx.config.provisionalCookieName, accessToken, {
           httpOnly: true,
@@ -668,6 +663,5 @@ principalRoutes.get("/mapping/resolve", async (c) => {
 import {
   removeOrphanTokens,
   revokeSessionTokens,
-  saveProvisional,
+  saveCurrent,
 } from "../repos/session-storage.js";
-import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
