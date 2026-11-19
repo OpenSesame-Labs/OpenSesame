@@ -84,7 +84,6 @@ function GeneratedFile({
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [failed, setFailed] = useState("");
-  const copySecret = useCopySecret();
   useEffect(() => {
     if (!copied && !downloaded) return;
     const timer = setTimeout(() => {

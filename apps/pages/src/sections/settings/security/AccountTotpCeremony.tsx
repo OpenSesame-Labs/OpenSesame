@@ -126,7 +126,6 @@ function TotpScanCard({
 }) {
   const copySecret = useCopySecret();
   const [copied, setCopied] = useState(false);
-  const copySecret = useCopySecret();
   const secret = uri ? secretOf(uri) : "";
   const copyLabel = copied ? "Copied" : "Copy setup key";
   const alts: CeremonyAlt[] = uri
