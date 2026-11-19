@@ -123,12 +123,7 @@ function fireActivation(id: GuideTargetId): void {
   for (const listener of [...listeners]) listener();
 }
 
-/**
- * Report that the person activated `id` by a road that is not a click or a
- * key on its element: a control chosen by a drag (the Add button's slide to
- * Import or Export). Only a target mounted with `activation: "manual"` should
- * be reported this way; like the passive listeners it observes and does nothing.
- */
+/** Report a completed action for a target mounted with manual activation. */
 export function reportGuideActivation(id: GuideTargetId): void {
   fireActivation(id);
 }
@@ -136,9 +131,8 @@ export function reportGuideActivation(id: GuideTargetId): void {
 export type MountOptions = Readonly<{
   /**
    * How the element is activated. `click` (the default) is a click or Enter /
-   * Space on it. `manual` is a control that is not activated by either — its
-   * own code reports it with `reportGuideActivation` — so a tap on the element
-   * that does something else cannot complete a step that waits for the drag.
+   * Space on it. With `manual`, the control reports a completed action through
+   * `reportGuideActivation`, including actions that can fail or use a drag.
    */
   activation?: "click" | "manual";
 }>;
