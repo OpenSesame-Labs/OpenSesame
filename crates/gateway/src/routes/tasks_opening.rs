@@ -78,11 +78,13 @@ pub async fn recover(State(st): State<AppState>, headers: HeaderMap, request: Re
     if !caller.owns(&intent.principal_id) || !caller.in_organization(&intent.organization_id) {
         return unavailable();
     }
-    let boot = match super::tasks::execution_bootstrap_for_organization(
+    let boot = match super::tasks::active_execution_bootstrap_for_organization(
         &st,
         &intent.organization_id,
         &intent.principal_id,
-    ) {
+    )
+    .await
+    {
         Ok(boot) => boot,
         Err(_) => return unavailable(),
     };

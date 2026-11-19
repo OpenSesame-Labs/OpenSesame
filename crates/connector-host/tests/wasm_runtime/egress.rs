@@ -9,7 +9,7 @@ use opensesame_domain::{
 use opensesame_time::{Duration as TimeDuration, Utc};
 use std::sync::Mutex;
 
-const HTTP_GUEST: &str = include_str!("wasm_runtime_egress.wat");
+const HTTP_GUEST: &str = include_str!("egress.wat");
 
 #[derive(Debug, PartialEq)]
 struct Recorded {
