@@ -16,6 +16,8 @@ import {
   TUTORIAL_PAUSE_NOTICE,
   TUTORIAL_QUEUE_LIMIT,
   completeQueuedTutorial,
+  dequeueTutorial,
+  dropQueueNotice,
   listQueuedTutorials,
   queueTutorial,
   resumeTutorialFromNotice,
@@ -96,6 +98,10 @@ export function postQueuedTutorialNotice(
       body: "Queued.",
       sticky: true,
       choice: { label: RESUME_WALKTHROUGH, run: resume },
+      onDismiss: () => {
+        dequeueTutorial(goalId);
+        dropQueueNotice(goalId);
+      },
     });
   }
   setStatusNotice({
