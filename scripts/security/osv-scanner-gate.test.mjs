@@ -25,6 +25,7 @@ function fixture(t) {
     "scripts/audit/osv-scanner-gate.sh",
     "scripts/audit/native-toolchain-sbom.py",
     "scripts/lib/audit-directory.sh",
+    "scripts/lib/json-boundary.mjs",
     "scripts/security/assert-no-advisories.mjs",
   ])
     copyFileSync(join(root, file), join(repo, file));
