@@ -27,7 +27,14 @@ impl StoreRoot {
         let rel = Self::entry_relative(name, "osseal")?;
         let opened = open_osseal_for_path(&confined_read(&self.path, &rel)?, key, name, None)?;
         let plaintext = Zeroizing::new(opened.plaintext);
-        let next = self.next_trusted_revision(name, &self.path.join(&rel), key, opened.revision)?;
+        let next = self.next_entry_revision_after(
+            name,
+            &self.path.join(&rel),
+            key,
+            opened.revision,
+            Some(&plaintext),
+            true,
+        )?;
         let sealed = seal_osseal(&plaintext, key, name, next)?;
         // If interrupted, the previous ciphertext remains whole and this
         // explicit recovery can be repeated; no rollback is performed.
