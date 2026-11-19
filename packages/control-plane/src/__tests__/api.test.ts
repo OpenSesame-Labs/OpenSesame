@@ -1175,7 +1175,6 @@ describe("control-plane API", () => {
       headers: { ...owner.auth, "content-type": "application/json" },
       body: JSON.stringify({ principalId: member.principalId, role: "member" }),
     });
-
     const requests: Array<{ url: string; body: Record<string, string> }> = [];
     const rolesSeenByHost: Array<string | undefined> = [];
     const timeout = vi.spyOn(AbortSignal, "timeout");
@@ -1264,9 +1263,9 @@ describe("control-plane API", () => {
         ),
       ).toHaveLength(2);
       expect(host).toHaveBeenCalledTimes(4);
-      expect(rolesSeenByHost).toEqual(["admin", undefined]);
+      expect(rolesSeenByHost).toEqual(["member", "admin"]);
       expect(requests.map(({ url }) => new URL(url).pathname)).toEqual([
-        "/tenant/api/v1/device/approve",
+        "/tenant/api/v1/device/approve-membership",
         "/tenant/api/v1/sessions/revoke",
         "/tenant/api/v1/sessions/revoke",
       ]);
@@ -1520,7 +1519,7 @@ describe("control-plane API", () => {
         expect((await mutation).status).toBe(method === "PATCH" ? 200 : 204);
         await mutationReachedHost;
         expect(hostUrls.map((url) => new URL(url).pathname)).toEqual([
-          "/api/v1/device/approve",
+          "/api/v1/device/approve-membership",
           "/api/v1/sessions/revoke",
         ]);
       } finally {
