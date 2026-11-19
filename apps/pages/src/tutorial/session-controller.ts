@@ -9,16 +9,9 @@ import {
   completeQueuedTutorial,
 } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import {
-  HELP_TOPICS,
-  guideGoal,
-} from "@opensesame/app-core/tutorial/registry/goals.js";
+import { HELP_TOPICS } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
-import {
-  GUIDE_OVERLAY_ROUTES,
-  type GuideRouteId,
-  guideRouteWithin,
-} from "@opensesame/app-core/tutorial/registry/routes.js";
+import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
 import type { GuideCancelReason } from "@opensesame/guide-runtime";
@@ -39,6 +32,10 @@ import type {
 } from "./session.js";
 import { noteGrounding, walkthroughsFor } from "./session-grounding.js";
 import { emptyView } from "./session-view.js";
+import {
+  createQueuedResumeHandlers,
+  type PendingQueuedResume,
+} from "./session-queued-resume.js";
 import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,
@@ -58,11 +55,7 @@ export function createSupportController(
   let loading: Promise<SupportEngine | null> | null = null;
   let stopGuideFeed: (() => void) | null = null;
   let navigator: ((route: GuideRouteId) => boolean) | null = null;
-  let pendingQueuedResume: {
-    goalId: string;
-    guide: string;
-    homeRoute: string;
-  } | null = null;
+  let pendingQueuedResume: PendingQueuedResume | null = null;
   let unbindResume: (() => void) | null = null;
   let entries = 0;
   let cancelled = false;
@@ -241,21 +234,21 @@ export function createSupportController(
     await runProgram(program, origin);
   }
 
-  function queuedResumeRouteOk(homeRoute: string): boolean {
-    if (homeRoute === "") return !GUIDE_OVERLAY_ROUTES.has(state.route);
-    return guideRouteWithin(state.route, homeRoute);
-  }
-
-  function beginQueuedWalkthrough(
-    goalId: string,
-    guide: string,
-    homeRoute: string,
-  ): boolean {
-    if (state.guide !== null) return false;
-    if (!queuedResumeRouteOk(homeRoute)) return false;
-    const beginAuthored = (loaded: SupportEngine) => {
-      if (state.guide !== null) return false;
-      if (!queuedResumeRouteOk(homeRoute)) return false;
+  const {
+    flushPendingQueuedResume,
+    resumeQueuedWalkthrough: resumeQueuedWalkthroughImpl,
+  } = createQueuedResumeHandlers({
+    getState: () => state,
+    getEngine: () => engine,
+    ensureEngine,
+    getNavigator: () => navigator,
+    getPending: () => pendingQueuedResume,
+    setPending: (value) => {
+      pendingQueuedResume = value;
+    },
+    guideRunning: () => state.guide !== null,
+    notifyFailure,
+    runAuthoredProgram: (loaded, guide) => {
       const program = loaded.compileAuthored(guide);
       if (!program) {
         notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
@@ -263,30 +256,8 @@ export function createSupportController(
       }
       void runProgram(program, "authored");
       return true;
-    };
-    if (engine) {
-      if (!beginAuthored(engine)) return false;
-      completeQueuedTutorial(goalId);
-      return true;
-    }
-    void ensureEngine().then((loaded) => {
-      if (!loaded) {
-        notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-        return;
-      }
-      if (!beginAuthored(loaded)) return;
-      completeQueuedTutorial(goalId);
-    });
-    return true;
-  }
-
-  function flushPendingQueuedResume(): void {
-    if (!pendingQueuedResume) return;
-    const { goalId, guide, homeRoute } = pendingQueuedResume;
-    if (!queuedResumeRouteOk(homeRoute)) return;
-    pendingQueuedResume = null;
-    beginQueuedWalkthrough(goalId, guide, homeRoute);
-  }
+    },
+  });
 
   function clearSessionForLock(): void {
     generation += 1;
@@ -351,18 +322,8 @@ export function createSupportController(
         }
       };
     },
-    resumeQueuedWalkthrough(goalId: string, guide: string, homeRoute: string) {
-      if (guideGoal(goalId) === null) return false;
-      if (GUIDE_OVERLAY_ROUTES.has(homeRoute)) return false;
-      if (state.guide !== null) return false;
-      const onHome = queuedResumeRouteOk(homeRoute);
-      if (!onHome) {
-        if (!navigator?.(homeRoute)) return false;
-        pendingQueuedResume = { goalId, guide, homeRoute };
-        void ensureEngine();
-        return true;
-      }
-      return beginQueuedWalkthrough(goalId, guide, homeRoute);
+    resumeQueuedWalkthrough(goalId, guide, homeRoute) {
+      return resumeQueuedWalkthroughImpl(goalId, guide, homeRoute);
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);
