@@ -297,7 +297,7 @@ async fn at_spiffe_outage_socket_gone_withdraws_at_max_stale_then_recovers_on_re
         .unwrap();
     let retain_until = status.retain_until.expect("bounded retention");
     let outage_since = status.outage_since.expect("outage start");
-    assert!(retain_until <= outage_since + chrono::Duration::milliseconds(400));
+    assert!(retain_until <= outage_since + opensesame_time::Duration::milliseconds(400));
     assert!(
         retain_until < status.not_after.unwrap(),
         "max_stale is shorter than not_after"
@@ -354,7 +354,7 @@ async fn no_identity_issued_means_no_generation_and_no_fallback() {
     assert_eq!(status.last_error.as_deref(), Some("svid_not_issued"));
     assert!(sink.events().is_empty(), "{:?}", sink.events());
     assert_eq!(
-        status.credential_status(chrono::Utc::now()),
+        status.credential_status(opensesame_time::Utc::now()),
         opensesame_domain::CredentialStatus::Unconfigured
     );
     handle.stop().await;

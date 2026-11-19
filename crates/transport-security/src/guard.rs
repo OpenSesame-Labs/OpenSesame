@@ -18,7 +18,7 @@ use axum::extract::{Request, State};
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_domain::transport::TransportError;
 
 use crate::generations::TransportGenerations;

@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use opensesame_domain::{TransportError, TrustProfileKind, TrustProfileRef};
 use opensesame_transport_security::{
     GenerationCandidate, SourceOwner, TlsIdentity, TransportGenerations, TrustBundle,

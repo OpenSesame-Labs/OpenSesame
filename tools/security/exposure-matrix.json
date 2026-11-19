@@ -898,7 +898,7 @@
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx",
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry \u00b7 cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy."
     },
     {
       "id": "local-vault-activation",
@@ -3083,14 +3083,14 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "a70eae24",
-      "bbb90ca5",
-      "9f4232b0",
-      "36299734",
-      "b2311c1a",
-      "2a72743b",
-      "c0ad2e13",
-      "a5cea69b"
+      "a5c4c82b",
+      "b35bfd33",
+      "ea7a64f6",
+      "99946ef8",
+      "ffde971e",
+      "eaaa1c11",
+      "730143d4",
+      "2fdffad1"
     ],
     "crates/gateway/src/transport/status.rs": [
       "f0bc7198",
@@ -7223,34 +7223,34 @@
       "0f2a2798"
     ],
     "crates/transport-security/src/generations.rs": [
-      "33f89372",
-      "40d6a07f",
-      "e8a1ab53",
-      "8a491912",
-      "b990b110",
-      "fdda9c46",
-      "b2e3a41c",
-      "e55eb36e"
+      "1b478c5f",
+      "6cee3d11",
+      "92726d5a",
+      "4451496e",
+      "cff294c6",
+      "f1174ab5",
+      "b3b1f9c8",
+      "44c6d29e"
     ],
     "crates/transport-security/src/source_lifetime.rs": [
-      "7c3005c1",
-      "07018eae",
-      "6d958a82",
-      "4676dd8c",
-      "2c644e93",
-      "f60cded7",
-      "61fb679d",
-      "95fe7c13"
+      "49ca6377",
+      "c7bd1f51",
+      "dc7ec80f",
+      "3de2afd0",
+      "5ef82de4",
+      "165073fd",
+      "2fcbb059",
+      "1737fbd3"
     ],
     "crates/transport-security/src/source_lifetime_tests.rs": [
-      "c3c82bed",
-      "965d5b89",
-      "36d5f2f9",
-      "a7e1a3b6",
-      "b0eac468",
-      "3079dd51",
-      "98c1a813",
-      "bc6e7a3b"
+      "b4ae3455",
+      "45dd68d0",
+      "51587ba6",
+      "650f323a",
+      "cd1a8b77",
+      "95d7745e",
+      "bc0a68c9",
+      "51b8353e"
     ],
     "crates/transport-security/src/source_trust.rs": [
       "5d6d97f8",

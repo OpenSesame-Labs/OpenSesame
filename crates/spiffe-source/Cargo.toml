@@ -32,7 +32,7 @@ x509-parser = "0.18.1"
 rustls-webpki = { version = "0.103.13", default-features = false, features = ["aws-lc-rs", "std"] }
 rustls-pki-types = { version = "1.15.1", features = ["std"] }
 base64 = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 secrecy = { workspace = true }

@@ -6,7 +6,7 @@ mod policy;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_domain::TransportError;
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi};
 use opensesame_spiffe_source::sink::TransportGenerationsSink;

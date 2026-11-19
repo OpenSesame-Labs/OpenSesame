@@ -42,7 +42,7 @@ async fn an_empty_snapshot_withdraws_the_only_identity_then_recovers() {
         .unwrap();
     assert_eq!(status.phase, SourcePhase::Withdrawn);
     assert_eq!(
-        status.credential_status(chrono::Utc::now()),
+        status.credential_status(opensesame_time::Utc::now()),
         opensesame_domain::CredentialStatus::Expired { generation: 1 }
     );
     assert_eq!(
@@ -225,7 +225,7 @@ async fn dropping_the_handle_stops_further_generation_activation() {
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let mut status = handle.status();
