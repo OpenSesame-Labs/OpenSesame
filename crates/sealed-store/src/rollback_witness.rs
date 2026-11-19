@@ -94,7 +94,7 @@ mod entry_commitment;
 mod entry_commitment_tests;
 
 impl StoreRoot {
-    fn migration_entry_witness(
+    pub(super) fn migration_entry_witness(
         &self,
         name: &str,
         revision: u64,
