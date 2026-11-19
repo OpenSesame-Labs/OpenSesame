@@ -10,6 +10,7 @@ describe("Host organization authority OpenAPI", () => {
   it("documents organization-bound session and revocation claims", () => {
     for (const fragment of [
       "  /device/approve:",
+      "  /device/approve-membership:",
       "  /sessions/revoke:",
       "security: [{ HostOperatorBearer: [] }, { HostOperatorHeader: [] }]",
       "organization_id: { type: string }",
