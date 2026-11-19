@@ -11,6 +11,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { expectInTray } from "../components/tray.test-support.js";
 import { UnlockScreen } from "./UnlockScreen.js";
 import {
   continueAsGuest,
@@ -39,9 +40,7 @@ describe("UnlockScreen — guest unlock", () => {
       screen.getByRole("button", { name: "Skip to the guest vault" }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByText(FRESH_GUEST_SIGN_OUT_MESSAGE)).toBeTruthy(),
-    );
+    await expectInTray(FRESH_GUEST_SIGN_OUT_MESSAGE);
     expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
   });
 
