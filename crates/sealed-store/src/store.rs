@@ -360,7 +360,18 @@ impl StoreRoot {
                     reopened.plaintext
                 }
             }
-            FormatHint::Gpg => gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?,
+            FormatHint::Gpg => {
+                if let Some(key) = key {
+                    let witness = self.entry_witness(name, key)?;
+                    if witness.deleted {
+                        return Err(StoreError::NotFound(name.into()));
+                    }
+                    return Err(StoreError::Crypto(format!(
+                        "witnessed native entry {name} has no .osseal; restore it instead of using foreign-format fallback"
+                    )));
+                }
+                gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?
+            }
             FormatHint::Age => {
                 let id = age_identity.ok_or_else(|| {
                     StoreError::Age("OPENSESAME_AGE_IDENTITY required for .age entries".into())
