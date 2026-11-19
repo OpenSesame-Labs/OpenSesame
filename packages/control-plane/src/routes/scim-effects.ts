@@ -34,6 +34,10 @@ type DeprovisionTarget = {
   principalId: string;
   incarnation: string;
   completed: boolean;
+  legacyOrphan?: {
+    authorityRevision: string;
+    withdrawalId: string;
+  };
 };
 
 type DeprovisionJournal = { cycle: string; targets: DeprovisionTarget[] };
@@ -60,7 +64,28 @@ export function deprovisionJournal(
       typeof completed !== "boolean"
     )
       return undefined;
-    parsed.push({ principalId, incarnation, completed });
+    const legacyOrphan = Reflect.get(target, "legacyOrphan");
+    if (legacyOrphan !== undefined) {
+      if (
+        !legacyOrphan ||
+        typeof legacyOrphan !== "object" ||
+        Array.isArray(legacyOrphan)
+      )
+        return undefined;
+      const authorityRevision = Reflect.get(legacyOrphan, "authorityRevision");
+      const withdrawalId = Reflect.get(legacyOrphan, "withdrawalId");
+      if (
+        typeof authorityRevision !== "string" ||
+        typeof withdrawalId !== "string"
+      )
+        return undefined;
+      parsed.push({
+        principalId,
+        incarnation,
+        completed,
+        legacyOrphan: { authorityRevision, withdrawalId },
+      });
+    } else parsed.push({ principalId, incarnation, completed });
   }
   return { cycle, targets: parsed };
 }
@@ -251,13 +276,51 @@ export async function deprovision(
     );
   for (const target of journal.targets) {
     if (target.completed) continue;
-    await removeDirectoryMembership(ctx, {
-      organizationId: organization.id,
-      principalId: target.principalId,
-      incarnation: target.incarnation,
-      correlationId,
-      reason: "scim_deactivated",
-    });
+    if (target.legacyOrphan) {
+      const { revokeOrganizationMembership } = await import(
+        "./organization-revocation.js"
+      );
+      await revokeOrganizationMembership(ctx, {
+        organizationId: organization.id,
+        principalId: target.principalId,
+        correlationId,
+        reason: "scim_deactivated",
+        revokeSessionsWithoutMembership: true,
+      });
+      const { hostApiEndpoint } = await import("../services/host-endpoint.js");
+      const url = hostApiEndpoint(
+        ctx.config.hostApiUrl,
+        "api/v1/sessions/revoke",
+      );
+      if (!url) throw new Error("Host session revocation is unavailable");
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-opensesame-operator": ctx.config.operatorToken,
+        },
+        body: JSON.stringify({
+          organization_id: organization.id,
+          principal_id: target.principalId,
+          membership_incarnation: target.incarnation,
+          authority_revision: target.legacyOrphan.authorityRevision,
+          withdrawal_id: target.legacyOrphan.withdrawalId,
+        }),
+        redirect: "error",
+        signal: AbortSignal.timeout(5_000),
+      });
+      await response.body?.cancel();
+      if (!response.ok)
+        throw new Error("Host session revocation is unavailable");
+    } else {
+      await removeDirectoryMembership(ctx, {
+        organizationId: organization.id,
+        principalId: target.principalId,
+        incarnation: target.incarnation,
+        correlationId,
+        reason: "scim_deactivated",
+      });
+    }
     await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
       const current = await tx.stores.scim.users.getVersioned(
         organization.id,
@@ -299,17 +362,31 @@ export async function prepareDeprovision(
   correlationId: string,
 ): Promise<ScimUserRecord> {
   const targets: DeprovisionTarget[] = [];
-  for (const principalId of await principalsForUser(
-    ctx,
-    organization,
-    user,
-    false,
-  )) {
+  const resolved = await principalsForUser(ctx, organization, user, false);
+  const legacy = user.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
+  const legacyPrincipals = Array.isArray(legacy)
+    ? legacy.filter(
+        (value): value is string => isString(value) && value.length > 0,
+      )
+    : [];
+  for (const principalId of new Set([...resolved, ...legacyPrincipals])) {
     const membership = await ctx.stores.organizationMemberships.findVersioned(
       organization.id,
       principalId,
     );
-    if (!membership) continue;
+    if (!membership) {
+      if (legacyPrincipals.includes(principalId))
+        targets.push({
+          principalId,
+          incarnation: randomUUID(),
+          completed: false,
+          legacyOrphan: {
+            authorityRevision: randomUUID(),
+            withdrawalId: randomUUID(),
+          },
+        });
+      continue;
+    }
     const prepared = await prepareDirectoryRemoval(ctx, {
       organizationId: organization.id,
       principalId,

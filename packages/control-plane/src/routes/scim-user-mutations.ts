@@ -17,7 +17,7 @@ export type UserPatch = {
 };
 
 type MutationResult =
-  | { error: "not_found" | "legacy" | "conflict" }
+  | { error: "not_found" | "conflict" }
   | { user: ScimUserRecord; updated: ScimUserRecord };
 
 export async function patchScimUser(
@@ -61,9 +61,24 @@ async function prepareUserPatch(
   );
   if (!current) return { error: "not_found" as const };
   const user = current.user;
+  if (!user.active && !deprovisionJournal(user)) {
+    const recovered = await prepareDeprovision(
+      tx,
+      organization,
+      user,
+      correlationId,
+    );
+    const replaced = await tx.stores.scim.users.replaceIfRevision(
+      organization.id,
+      userId,
+      current.revision,
+      recovered,
+    );
+    if (!replaced) throw new Error("SCIM user changed concurrently");
+    return { resume: replaced.user };
+  }
   const inactive = inactivePatchDisposition(user, patch);
   if (inactive === "resume") return { resume: user };
-  if (inactive === "legacy") return { error: "legacy" };
   if (patch.userName && patch.userName !== user.userName) {
     const clash = await tx.stores.scim.users.findByUserName(
       organization.id,
@@ -87,14 +102,14 @@ async function prepareUserPatch(
 function inactivePatchDisposition(
   user: ScimUserRecord,
   patch: UserPatch,
-): "resume" | "legacy" | undefined {
+): "resume" | undefined {
   if (user.active) return undefined;
   const journal = deprovisionJournal(user);
   if (patch.active === true)
     return journal?.targets.some((target) => !target.completed)
       ? "resume"
       : undefined;
-  return journal ? undefined : "legacy";
+  return undefined;
 }
 
 function nextUser(
@@ -130,8 +145,21 @@ export async function deleteScimUser(
       if (!current) return { error: "not_found" as const };
       const user = current.user;
       if (!user.active) {
-        if (!deprovisionJournal(user)) return { error: "legacy" as const };
-        return { user, updated: user };
+        if (deprovisionJournal(user)) return { user, updated: user };
+        const recovered = await prepareDeprovision(
+          tx,
+          organization,
+          user,
+          correlationId,
+        );
+        const replaced = await tx.stores.scim.users.replaceIfRevision(
+          organization.id,
+          userId,
+          current.revision,
+          recovered,
+        );
+        if (!replaced) throw new Error("SCIM user changed concurrently");
+        return { user, updated: replaced.user };
       }
       const next = await prepareDeprovision(
         tx,
