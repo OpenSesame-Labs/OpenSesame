@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import gate from "../../../../../spec/conformance/cli-app-integration.json" with {
   type: "json",
 };
+import {
+  cliAppIntegrationPolicy,
+  isCliAppApprovalBlocked,
+} from "./policy-runtime.js";
 import { CliAppIntegrationStore } from "./session.js";
 
 describe("cli app integration session store", () => {
@@ -11,6 +15,11 @@ describe("cli app integration session store", () => {
       const store = new CliAppIntegrationStore(() => now);
       const terminalSessionId = caseRow.terminalSessionId;
       const verb = "reveal";
+      // Keep lifecycle cases for the eventual provenance-backed implementation.
+      if (!gate.approvalAvailable) {
+        expect(store.ensure(terminalSessionId, verb).status).toBe("denied");
+        return;
+      }
       if (caseRow.action === "approve") {
         const pending = store.ensure(terminalSessionId, verb);
         expect(pending.status).toBe("pending");
@@ -51,11 +60,40 @@ describe("cli app integration session store", () => {
     });
   }
 
-  it("refuses approve for a mismatched terminal session", () => {
+  it("refuses approve while app approval is paused", () => {
     const store = new CliAppIntegrationStore();
     const pending = store.ensure("term-x", "reveal");
     expect(store.approve(pending.requestId ?? "", "term-y").status).toBe(
-      "wrongSession",
+      "denied",
     );
+  });
+
+  it("refuses all verbs and existing session state while app approval is paused", () => {
+    expect(cliAppIntegrationPolicy.approvalAvailable).toBe(
+      gate.approvalAvailable,
+    );
+    expect(isCliAppApprovalBlocked()).toBe(!gate.approvalAvailable);
+    const store = new CliAppIntegrationStore(() => 1_000);
+    const approved = Reflect.get(store, "approved");
+    expect(approved).toBeInstanceOf(Map);
+    if (!(approved instanceof Map)) throw new Error("missing approved store");
+    approved.set("term", {
+      terminalSessionId: "term",
+      approvedAtMs: 1_000,
+      lastActivityMs: 1_000,
+    });
+    for (const verb of [
+      "run",
+      "pass-reveal",
+      "read",
+      "reveal",
+      "env-resolve",
+      "unknown",
+    ]) {
+      expect(store.ensure("term", verb).status).toBe("denied");
+    }
+    expect(store.listPending()).toEqual([]);
+    expect(store.checkApproved("term")).toBe("denied");
+    expect(store.approve("existing", "term").status).toBe("denied");
   });
 });

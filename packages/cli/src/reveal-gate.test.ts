@@ -1,3 +1,4 @@
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { describe, expect, it } from "vitest";
 import gate from "../../../spec/conformance/cli-reveal-gate.json" with {
   type: "json",
@@ -84,10 +85,12 @@ describe("cli reveal gate — agent env markers are not a gate", () => {
       env: envWithMarkers(),
       appIntegration: denyPort,
     };
-    await expect(assertHumanReveal(request)).rejects.toThrow(/denied/i);
+    await expect(assertHumanReveal(request)).rejects.toThrow(
+      isCliAppApprovalBlocked() ? /temporarily unavailable/i : /denied/i,
+    );
   });
 
-  it("reveals with app integration approval even when markers are set", async () => {
+  it("gates an approving port even when markers are set", async () => {
     const approvePort: CliAppIntegrationPort = {
       ensureReveal: async () => "approve",
     };
@@ -96,7 +99,13 @@ describe("cli reveal gate — agent env markers are not a gate", () => {
       env: envWithMarkers(),
       appIntegration: approvePort,
     };
-    await expect(assertHumanReveal(request)).resolves.toBeUndefined();
+    if (isCliAppApprovalBlocked()) {
+      await expect(assertHumanReveal(request)).rejects.toThrow(
+        /temporarily unavailable/i,
+      );
+    } else {
+      await expect(assertHumanReveal(request)).resolves.toBeUndefined();
+    }
   });
 
   it("refuses without approval when markers are absent", async () => {
@@ -113,7 +122,9 @@ describe("cli reveal gate — agent env markers are not a gate", () => {
         ...terminalRead,
         appIntegration: denyPort,
       };
-      await expect(assertHumanReveal(request)).rejects.toThrow(/denied/i);
+      await expect(assertHumanReveal(request)).rejects.toThrow(
+        isCliAppApprovalBlocked() ? /temporarily unavailable/i : /denied/i,
+      );
     } finally {
       for (const [name, previous] of saved) {
         restoreEnv(name, previous);

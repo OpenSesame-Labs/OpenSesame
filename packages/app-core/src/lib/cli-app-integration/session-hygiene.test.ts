@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { cliAppIntegrationPolicy } from "./policy-runtime.js";
 import { CliAppIntegrationStore } from "./session.js";
+
+function paused(store: CliAppIntegrationStore): boolean {
+  if (cliAppIntegrationPolicy.approvalAvailable) return false;
+  expect(store.ensure("pause-check", "read").status).toBe("denied");
+  return true;
+}
 
 describe("CliAppIntegrationStore hygiene", () => {
   it("keeps every pending request up to the cap", () => {
     const store = new CliAppIntegrationStore(() => 1_000);
+    if (paused(store)) return;
     const first = store.ensure("term-a", "read");
     const second = store.ensure("term-b", "read");
     expect(store.listPending().map((row) => row.requestId)).toEqual([
@@ -35,6 +43,7 @@ describe("CliAppIntegrationStore hygiene", () => {
 
   it("coalesces same verb and reference", () => {
     const store = new CliAppIntegrationStore();
+    if (paused(store)) return;
     const first = store.ensure("term-a", "reveal", "x");
     const second = store.ensure("term-a", "reveal", "x");
     expect(first.requestId).toBe(second.requestId);
@@ -43,6 +52,7 @@ describe("CliAppIntegrationStore hygiene", () => {
   it("rate limits ensure for one terminal session", () => {
     let now = 0;
     const store = new CliAppIntegrationStore(() => now);
+    if (paused(store)) return;
     for (let i = 0; i < 8; i += 1) {
       expect(store.ensure("term-a", "reveal").status).toBe("pending");
       now += 1;

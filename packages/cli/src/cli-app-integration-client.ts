@@ -1,4 +1,5 @@
 import { cliAppIntegrationPolicy } from "@opensesame/app-core/lib/cli-app-integration/index.js";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { ephemeralTerminalCorrelationId } from "@opensesame/app-core/lib/cli-app-integration/terminal-session.js";
 import {
   type BoundaryValue,
@@ -12,6 +13,7 @@ export type CliAppIntegrationDecision =
   | "approve"
   | "deny"
   | "unavailable"
+  | "blockedApproval"
   | "expired"
   | "timedOut";
 
@@ -64,7 +66,11 @@ async function pollEnsure(
     const status = readString(body.status);
     if (status === "approved") return "approve";
     if (status === "expired") return "expired";
-    if (status === "denied") return "deny";
+    if (status === "denied") {
+      return readString(body.reason) === "authenticator_provenance_unavailable"
+        ? "blockedApproval"
+        : "deny";
+    }
     if (status === "wrongSession") return "deny";
     await new Promise((resolve) => {
       setTimeout(resolve, cliAppIntegrationPolicy.pollIntervalMs);
@@ -76,6 +82,7 @@ async function pollEnsure(
 export function createCliAppIntegrationPort(): CliAppIntegrationPort {
   return {
     async ensureReveal(input) {
+      if (isCliAppApprovalBlocked()) return "blockedApproval";
       const base = daemonBase();
       if (!base) return "unavailable";
       try {

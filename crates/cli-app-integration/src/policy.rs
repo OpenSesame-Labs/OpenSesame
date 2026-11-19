@@ -34,6 +34,13 @@ pub(crate) fn daemon_pin_probe_verb() -> &'static str {
     policy().daemon_pin_probe_verb.as_str()
 }
 
+/// No app approval is available until authenticator provenance can be trusted.
+/// This is deliberately not configurable while no provenance verifier exists.
+#[must_use]
+pub const fn is_approval_blocked(_verb: &str) -> bool {
+    true
+}
+
 /// Random respond nonce for a pending approval row.
 pub(crate) fn respond_nonce() -> String {
     let mut raw = [0u8; 16];

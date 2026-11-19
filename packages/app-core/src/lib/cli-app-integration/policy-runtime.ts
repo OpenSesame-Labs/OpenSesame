@@ -1,4 +1,4 @@
-/** Runtime slice of `spec/conformance/cli-app-integration.json` (timing + daemon paths only). */
+/** Runtime slice of the CLI integration conformance policy. */
 export const cliAppIntegrationPolicy = {
   version: 1,
   idleTimeoutSeconds: 600,
@@ -6,6 +6,7 @@ export const cliAppIntegrationPolicy = {
   requestTimeoutSeconds: 120,
   pollIntervalMs: 500,
   daemonPinProbeVerb: "daemon-pin-probe",
+  approvalAvailable: false,
   daemonPaths: {
     ensure: "/v1/cli/app-integration/ensure",
     respond: "/v1/cli/app-integration/respond",
@@ -17,3 +18,8 @@ export const cliAppIntegrationPolicy = {
     pairingIssue: "/v1/operator/cli-app-integration/pair",
   },
 } as const;
+
+/** No app approval is available until authenticator provenance can be trusted. */
+export function isCliAppApprovalBlocked(): boolean {
+  return true;
+}

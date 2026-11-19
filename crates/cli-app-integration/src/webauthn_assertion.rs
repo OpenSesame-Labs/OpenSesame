@@ -12,6 +12,11 @@ struct ClientData {
     #[serde(rename = "type")]
     ty: String,
     challenge: String,
+    origin: String,
+    #[serde(rename = "crossOrigin", default)]
+    cross_origin: bool,
+    #[serde(rename = "topOrigin", default)]
+    top_origin: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,8 +54,18 @@ fn challenge_matches(client_challenge_b64: &str, expected_digest: &[u8; 32]) -> 
     inner.len() == 32 && inner.as_slice() == expected_digest
 }
 
-fn user_verified(auth_data: &[u8]) -> bool {
-    auth_data.len() >= 33 && auth_data[32] & 0x04 != 0
+fn expected_rp_hash(origin: &str) -> Option<[u8; 32]> {
+    if !crate::pairing_code::is_pairable_origin(origin) {
+        return None;
+    }
+    let url = url::Url::parse(origin).ok()?;
+    let hostname = url.host_str()?;
+    Some(Sha256::digest(hostname.as_bytes()).into())
+}
+
+fn valid_auth_data(auth_data: &[u8], expected_rp_hash: &[u8; 32]) -> bool {
+    // WebAuthn requires both user presence (UP) and user verification (UV).
+    auth_data.len() >= 37 && &auth_data[..32] == expected_rp_hash && auth_data[32] & 0x05 == 0x05
 }
 
 fn sign_count(auth_data: &[u8]) -> Option<u32> {
@@ -77,11 +92,20 @@ pub fn verify_passkey_assertion(
     if client_data.ty != "webauthn.get" {
         return None;
     }
+    if client_data.origin != stored.origin
+        || client_data.cross_origin
+        || client_data
+            .top_origin
+            .as_deref()
+            .is_some_and(|top| top != stored.origin.as_str())
+    {
+        return None;
+    }
     if !challenge_matches(&client_data.challenge, expected_challenge) {
         return None;
     }
     let auth_data = b64_decode(&wire.authenticator_data)?;
-    if !user_verified(&auth_data) {
+    if !valid_auth_data(&auth_data, &expected_rp_hash(&stored.origin)?) {
         return None;
     }
     let new_count = sign_count(&auth_data)?;
@@ -99,3 +123,15 @@ pub fn verify_passkey_assertion(
     }
     Some(new_count)
 }
+
+#[cfg(test)]
+#[path = "webauthn_assertion_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "webauthn_registration_tests.rs"]
+mod registration_tests;
+
+#[cfg(test)]
+#[path = "webauthn_high_risk_tests.rs"]
+mod high_risk_tests;

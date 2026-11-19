@@ -24,18 +24,36 @@ struct Fixture {
     session_cases: Vec<SessionCase>,
 }
 
+// Session lifecycle cases are dormant while all app approvals fail closed.
+fn session_paused(store: &mut CliAppIntegrationStore) -> bool {
+    if !crate::is_approval_blocked("read") {
+        return false;
+    }
+    assert_eq!(
+        store.ensure(ensure_params("pause-check", "read")),
+        ("denied".into(), None)
+    );
+    true
+}
+
 #[test]
 fn pin_probe_verb_is_omitted_from_pending_list() {
     let mut store = CliAppIntegrationStore::new();
     store.set_now_ms(1_000);
     let (_, req) = store.ensure(ensure_params("term-a", daemon_pin_probe_verb()));
-    assert!(req.is_some());
+    assert_eq!(
+        req.is_none(),
+        crate::is_approval_blocked(daemon_pin_probe_verb())
+    );
     assert!(store.list_pending().is_empty());
 }
 
 #[test]
 fn pending_queue_keeps_rows_and_coalesces_a_terminal() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     store.ensure(ensure_params("term-a", "read"));
     store.ensure(ensure_params("term-b", "read"));
@@ -49,6 +67,9 @@ fn pending_queue_keeps_rows_and_coalesces_a_terminal() {
 #[test]
 fn tcp_transport_consumes_approval_once() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let id = "tcp-attempt-1";
     let (_, req) = store.ensure(ensure_params_full(id, "read", false, "00", 1, 1, true));
@@ -191,6 +212,9 @@ fn conformance_session_cases() {
     let raw: Fixture = serde_json::from_str(SOURCE).unwrap();
     for scenario in raw.session_cases {
         let mut store = CliAppIntegrationStore::new();
+        if session_paused(&mut store) {
+            continue;
+        }
         store.set_now_ms(1_000_000);
         let pending = store.ensure(ensure_params_full(
             &scenario.terminal_session_id,
