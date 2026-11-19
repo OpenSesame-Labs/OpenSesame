@@ -45,10 +45,10 @@ test("shellAssetRelative strips query from absolute same-origin URLs", () => {
 
 test("dynamicImportRefsFromJs includes side-effect and minified export-from", () => {
   const source = 'import"./side.js";export{a}from"./peer.js";\n';
-  assert.deepEqual(new Set(dynamicImportRefsFromJs(source)), new Set([
-    "./side.js",
-    "./peer.js",
-  ]));
+  assert.deepEqual(
+    new Set(dynamicImportRefsFromJs(source)),
+    new Set(["./side.js", "./peer.js"]),
+  );
 });
 
 test("cssUrlRefsFromStylesheet collects relative font and asset urls", () => {
