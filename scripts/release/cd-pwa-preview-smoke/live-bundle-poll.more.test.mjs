@@ -18,7 +18,25 @@ import {
   shellAssetRefs,
   shellAssetRelative,
 } from "./live-bundle-poll.mjs";
-import { sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
+import {
+  fetchAbortTimeoutMs,
+  sharedCdnDeadlineEndMs,
+} from "./retry-budget.mjs";
+
+test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () => {
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 100, () => 95),
+    5,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 100, () => 50),
+    50,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 50, () => 60),
+    15_000,
+  );
+});
 
 test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {
   const stream = new ReadableStream({ pull() {} });

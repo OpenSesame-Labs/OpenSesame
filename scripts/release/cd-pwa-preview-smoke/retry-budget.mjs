@@ -33,6 +33,14 @@ export function remainingSharedCdnMs(env, nowMs = Date.now()) {
   return Math.max(0, sharedCdnDeadlineEndMs(env, nowMs) - nowMs);
 }
 
+/** Cap fetch abort at the remainder of the shared CDN window, or full timeout. */
+export function fetchAbortTimeoutMs(timeoutMs, bodyDeadlineAt, now) {
+  const at = now();
+  return bodyDeadlineAt > at
+    ? Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at))
+    : timeoutMs;
+}
+
 /** Same shared Pages CDN window for `cdnRetryBudget` and shell poll. */
 export function cdnPollBudget(env) {
   const deadlineMs = readBoundedInt(
