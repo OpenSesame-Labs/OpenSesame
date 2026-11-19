@@ -26,7 +26,15 @@ export async function putGroupRoleMappingAsOwner(
     async (actor, org) => {
       const verdict = await orgOwner(ctx.stores, actor, org, "not_deleted");
       if (!verdict.ok) throw new Error(`owner refused: ${verdict.error}`);
-      return putGroupRoleMapping(ctx, org, verdict.proof, groupId, role);
+      const result = await putGroupRoleMapping(
+        ctx,
+        actor,
+        org,
+        verdict.proof,
+        groupId,
+        role,
+      );
+      if (!result.ok) throw new Error(`owner refused: ${result.error}`);
     },
   );
 }
