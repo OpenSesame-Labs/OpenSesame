@@ -63,9 +63,7 @@ export function cdnPollBudget(env) {
 
 function hurlFitsDeadline(retries, intervalMs, maxTimeSec, deadlineMs) {
   const attempts = retries + 1;
-  return (
-    attempts * maxTimeSec * 1000 + retries * intervalMs <= deadlineMs
-  );
+  return attempts * maxTimeSec * 1000 + retries * intervalMs <= deadlineMs;
 }
 
 /** Hurl `--retry` is per request; keep retries inside one wall-clock CDN window. */
