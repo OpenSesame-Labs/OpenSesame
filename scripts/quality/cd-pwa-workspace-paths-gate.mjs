@@ -65,13 +65,11 @@ export function packageGlob(dir) {
  * @param {string} glob package dir glob such as `packages/foo/**`
  */
 export function pathCovers(filters, glob) {
-  const pkgRoot = glob.slice(0, -3);
   return filters.some((filter) => {
     if (filter === glob) return true;
     if (filter.endsWith("/**") && glob.startsWith(`${filter.slice(0, -3)}/`)) {
       return true;
     }
-    if (glob.endsWith("/**") && filter.startsWith(`${pkgRoot}/`)) return true;
     return false;
   });
 }
@@ -103,14 +101,23 @@ export function assertCdPwaPaths(repoRoot = root) {
   return { ok: true };
 }
 
-const result = assertCdPwaPaths(root);
-if (!result.ok) {
-  console.error("cd-pwa workspace path drift:");
-  for (const { name, glob } of result.missing) {
-    console.error(`  missing filter for ${name}: add "${glob}" to cd-pwa.yml paths`);
+function main() {
+  const result = assertCdPwaPaths(root);
+  if (!result.ok) {
+    console.error("cd-pwa workspace path drift:");
+    for (const { name, glob } of result.missing) {
+      console.error(
+        `  missing filter for ${name}: add "${glob}" to cd-pwa.yml paths`,
+      );
+    }
+    process.exit(1);
   }
-  process.exit(1);
+  console.log(
+    `cd-pwa workspace paths: OK (${productionClosure(typescriptComponents(root)).length} production packages in Pages closure)`,
+  );
 }
-console.log(
-  `cd-pwa workspace paths: OK (${productionClosure(typescriptComponents(root)).length} production packages in Pages closure)`,
-);
+
+const executed =
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (executed) main();

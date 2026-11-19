@@ -31,12 +31,9 @@ test("workflowPathFilters stops at the next top-level YAML key", () => {
   assert.deepEqual(workflowPathFilters(yaml), ["apps/pages/**"]);
 });
 
-test("pathCovers accepts parent globs and package subpaths", () => {
+test("pathCovers accepts exact and parent globs only", () => {
   assert.equal(pathCovers(["packages/**"], "packages/foo/**"), true);
-  assert.equal(
-    pathCovers(["packages/foo/src/**"], "packages/foo/**"),
-    true,
-  );
+  assert.equal(pathCovers(["packages/foo/src/**"], "packages/foo/**"), false);
   assert.equal(pathCovers(["packages/bar/**"], "packages/foo/**"), false);
 });
 
