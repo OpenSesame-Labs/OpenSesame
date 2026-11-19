@@ -4,7 +4,7 @@ mod common;
 
 use std::sync::{Arc, Barrier};
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 use common::*;
 use opensesame_domain::transport::{
     PeerIdentitySelector, TlsVersion, TransportError, TransportPolicy,

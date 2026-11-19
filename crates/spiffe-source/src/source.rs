@@ -17,7 +17,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use futures::StreamExt as _;
 use opensesame_domain::TransportError;
 use spiffe::transport::Endpoint;

@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
 
 use super::{GenerationLease, GenerationSink};

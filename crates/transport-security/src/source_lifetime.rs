@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use opensesame_domain::transport::{TransportError, TrustProfileRef};
 
 use super::{Generation, GenerationCandidate, TransportGenerations};

@@ -2,7 +2,7 @@
 //! `opensesame_transport_security::TransportGenerations` (see
 //! [`crate::sink::transport`]); tests use [`RecordingSink`].
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;

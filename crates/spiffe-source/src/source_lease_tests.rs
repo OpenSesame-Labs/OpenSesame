@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_domain::TransportError;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 use secrecy::ExposeSecret as _;

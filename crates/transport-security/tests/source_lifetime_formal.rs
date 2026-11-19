@@ -5,7 +5,7 @@ mod common;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 use opensesame_domain::TransportError;
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{GenerationCandidate, SourceOwner, TransportGenerations};

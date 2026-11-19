@@ -15,7 +15,7 @@ fn use_time_is_sampled_after_waiting_for_the_activation_lock() {
     serial.fence = Some(Fence {
         owner,
         epoch: 1,
-        deadline: Some(Utc::now() + chrono::Duration::minutes(1)),
+        deadline: Some(Utc::now() + opensesame_time::Duration::minutes(1)),
         monotonic_deadline: Some(Instant::now() + Duration::from_mins(1)),
         expired: false,
         trust: BTreeMap::new(),
@@ -30,7 +30,7 @@ fn use_time_is_sampled_after_waiting_for_the_activation_lock() {
         })
     });
     assert!(clock_rx.recv_timeout(Duration::from_millis(50)).is_err());
-    serial.fence.as_mut().unwrap().deadline = Some(Utc::now() - chrono::Duration::seconds(1));
+    serial.fence.as_mut().unwrap().deadline = Some(Utc::now() - opensesame_time::Duration::seconds(1));
     drop(serial);
     clock_rx.recv_timeout(Duration::from_secs(2)).unwrap();
     assert!(matches!(
@@ -53,7 +53,7 @@ fn monotonic_deadline_refuses_a_rollback_before_first_observation() {
     serial.fence = Some(Fence {
         owner,
         epoch: 1,
-        deadline: Some(now + chrono::Duration::minutes(1)),
+        deadline: Some(now + opensesame_time::Duration::minutes(1)),
         monotonic_deadline: Some(mono + Duration::from_mins(1)),
         expired: false,
         trust: BTreeMap::new(),
@@ -62,7 +62,7 @@ fn monotonic_deadline_refuses_a_rollback_before_first_observation() {
     drop(serial);
     assert!(matches!(
         generations.checked_current_with_clock(None, || (
-            now - chrono::Duration::hours(1),
+            now - opensesame_time::Duration::hours(1),
             mono + Duration::from_mins(1)
         )),
         Err(TransportError::EvidenceExpired)
@@ -83,7 +83,7 @@ fn monotonic_outage_bound_survives_rollback_before_tightening() {
     serial.fence = Some(Fence {
         owner: owner.clone(),
         epoch: 1,
-        deadline: Some(wall_at_observation + chrono::Duration::hours(2)),
+        deadline: Some(wall_at_observation + opensesame_time::Duration::hours(2)),
         monotonic_deadline: Some(monotonic_at_observation + Duration::from_hours(2)),
         expired: false,
         trust: BTreeMap::new(),
@@ -96,13 +96,13 @@ fn monotonic_outage_bound_survives_rollback_before_tightening() {
         .tighten_source_deadline_bounded(
             &owner,
             1,
-            wall_at_observation + chrono::Duration::seconds(30),
+            wall_at_observation + opensesame_time::Duration::seconds(30),
             monotonic_at_observation + Duration::from_secs(30),
         )
         .unwrap();
     assert!(matches!(
         generations.checked_current_with_clock(None, || (
-            wall_at_observation - chrono::Duration::hours(1),
+            wall_at_observation - opensesame_time::Duration::hours(1),
             monotonic_at_observation + Duration::from_secs(30)
         )),
         Err(TransportError::EvidenceExpired)
