@@ -399,7 +399,7 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       release = resolve;
     });
     let hostCalls = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
       if (!url.endsWith("/api/v1/sessions/revoke"))
         throw new Error(`unexpected fetch: ${url}`);
@@ -408,7 +408,17 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         reached();
         await gate;
       }
-      return new Response(JSON.stringify({ revoked: 1 }), { status: 200 });
+      const request = overlapCast(JSON.parse(String(init?.body)));
+      return new Response(
+        JSON.stringify({
+          revoked: 1,
+          durable: true,
+          withdrawal_id: request.withdrawal_id,
+          membership_incarnation: request.membership_incarnation,
+          authority_revision: request.authority_revision,
+        }),
+        { status: 200 },
+      );
     });
     const rolePush = patchScim(
       first.app,
