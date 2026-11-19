@@ -20,6 +20,12 @@ import {
   ensurePersonalOrganization,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
+import {
+  groupsPath,
+  mintScimToken,
+  patchScim,
+  usersPath,
+} from "./scim-test-helpers.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -138,6 +144,7 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     const response = await first.app.request("/v1/principals/provisional", {
       method: "POST",
     });
+
     expect(response.status).toBe(201);
     const person: { principalId: string; accessToken: string } = overlapCast(
       await response.json(),
@@ -321,4 +328,114 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       await first.ctx.stores.provisionalSessions.get(orderingSessionId),
     ).toBeUndefined();
   }, 60_000);
+
+  it("orders a SCIM role push against deactivation on another replica", async () => {
+    await first.ctx.systemPrincipalReady;
+    const response = await first.app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    expect(response.status).toBe(201);
+    const person: { principalId: string; accessToken: string } = overlapCast(
+      await response.json(),
+    );
+    const membership = await ensurePersonalOrganization(
+      first.ctx,
+      person.principalId,
+    );
+    const organization = await first.ctx.stores.organizations.get(
+      membership.organizationId,
+    );
+    if (!organization) throw new Error("organization missing");
+    await first.ctx.stores.organizations.set(organization.id, {
+      ...organization,
+      ssoIssuer: "https://scim-race.example",
+    });
+    await first.ctx.stores.organizationMemberships.upsert({
+      organizationId: organization.id,
+      principalId: first.ctx.systemOwnerPrincipalId,
+      role: "owner",
+      createdAt: first.ctx.clock(),
+      updatedAt: first.ctx.clock(),
+    });
+    const subject = `subject-${randomUUID()}`;
+    await first.ctx.repos.externalIdentities.create({
+      id: `xid_${randomUUID()}`,
+      principalId: person.principalId,
+      kind: "oidc",
+      issuer: "https://scim-race.example",
+      subject,
+      assurance: "verified",
+      linkedAt: first.ctx.clock(),
+      metadata: {},
+    });
+    const userId = `scim_${randomUUID()}`;
+    await first.ctx.stores.scim.users.create({
+      id: userId,
+      organizationId: organization.id,
+      userName: "race@example.test",
+      externalId: subject,
+      active: true,
+      raw: {},
+      createdAt: first.ctx.clock(),
+      updatedAt: first.ctx.clock(),
+    });
+    await first.ctx.stores.scim.mappings.put(
+      organization.id,
+      "admins",
+      "admin",
+    );
+    const { token } = await mintScimToken(
+      first.app,
+      organization.id,
+      person.accessToken,
+    );
+
+    let reached = () => {};
+    let release = () => {};
+    const firstHost = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let hostCalls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (!url.endsWith("/api/v1/sessions/revoke"))
+        throw new Error(`unexpected fetch: ${url}`);
+      hostCalls += 1;
+      if (hostCalls === 1) {
+        reached();
+        await gate;
+      }
+      return new Response(JSON.stringify({ revoked: 1 }), { status: 200 });
+    });
+    const rolePush = patchScim(
+      first.app,
+      groupsPath(organization.id, "admins"),
+      token,
+      [{ op: "add", path: "members", value: [{ value: userId }] }],
+    );
+    await firstHost;
+    const deactivated = await patchScim(
+      second.app,
+      usersPath(organization.id, `/${userId}`),
+      token,
+      [{ op: "replace", path: "active", value: false }],
+    );
+    expect(deactivated.status).toBe(200);
+    release();
+    expect((await rolePush).status).toBe(500);
+    const finalUser = await second.ctx.stores.scim.users.getById(
+      organization.id,
+      userId,
+    );
+    expect(finalUser?.active).toBe(false);
+    expect(
+      await second.ctx.stores.organizationMemberships.find(
+        organization.id,
+        person.principalId,
+      ),
+    ).toBeUndefined();
+  });
 });
