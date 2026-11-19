@@ -47,6 +47,32 @@ test("dynamicImportRefsFromJs keeps Vite assets/*.js literals dist-relative", ()
   assert.deepEqual(dynamicImportRefsFromJs(source), ["assets/app-root.js"]);
 });
 
+test("listStagedShellAssetPaths includes Vite dependency-table CSS for boot chunks", () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(
+      join(dist, "assets", "app-root.css"),
+      "body{color:CanvasText}\n",
+    );
+    writeFileSync(
+      join(dist, "assets", "main.js"),
+      'const __vite__mapDeps=()=>["assets/app-root.js","assets/app-root.css"];\n',
+    );
+    writeFileSync(join(dist, "assets", "app-root.js"), "export const x = 1;\n");
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/main.js"></script>',
+    );
+    const paths = listStagedShellAssetPaths(dist, pagesBase).map((p) =>
+      p.replace(`${dist}/`, ""),
+    );
+    assert.ok(paths.includes("assets/app-root.css"));
+    assert.ok(paths.includes("assets/app-root.js"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("listStagedShellAssetPaths includes Vite dependency-table assets under Pages base", () => {
   const { root, dist } = stageDist();
   try {
