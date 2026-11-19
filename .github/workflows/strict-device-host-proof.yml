@@ -1,0 +1,28 @@
+name: Strict device Host proof
+
+on:
+  push:
+    branches: [codex/strict-device-host-proof]
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: rust@1.99.0
+      - name: Run exact strict approval regressions
+        run: |
+          test "$(git rev-parse HEAD^)" = '06e1132e570be7da44f15e19b603345403820a99'
+          cargo test --locked -p opensesame-gateway routes::device::membership_tests
+          cargo test --locked -p opensesame-gateway middleware::browser_grants::tests
+          cargo test --locked -p opensesame-gateway middleware::agent_grants::tests
