@@ -28,11 +28,12 @@ function configureIdentity(cwd) {
   });
 }
 
-function commit(cwd, message, files = ["."]) {
-  execFileSync("git", ["add", ...files], { cwd });
+function commit(cwd, message, files = ["."], allowEmpty = false) {
+  if (files.length) execFileSync("git", ["add", ...files], { cwd });
+  const empty = allowEmpty ? ["--allow-empty"] : [];
   execFileSync(
     "git",
-    ["-c", "commit.gpgsign=false", "commit", "-qm", message],
+    ["-c", "commit.gpgsign=false", "commit", ...empty, "-qm", message],
     { cwd },
   );
 }
@@ -46,6 +47,12 @@ function writeCoverage(cwd, reviewed_attestation, sources) {
     join(cwd, "spec/formal/auth/coverage.json"),
     JSON.stringify({ version: 2, reviewed_attestation, sources }),
   );
+}
+
+function copyFixtureFile(root, path, source) {
+  const target = join(root, path);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, readFileSync(source));
 }
 
 function buildReviewedStack(t) {
@@ -69,11 +76,15 @@ function buildReviewedStack(t) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), `original ${path}\n`);
   }
-  const script = join(root, "scripts/test/auth-formal-drift.mjs");
-  mkdirSync(dirname(script), { recursive: true });
-  writeFileSync(
-    script,
-    readFileSync(new URL("./auth-formal-drift.mjs", import.meta.url)),
+  copyFixtureFile(
+    root,
+    "scripts/test/auth-formal-drift.mjs",
+    new URL("./auth-formal-drift.mjs", import.meta.url),
+  );
+  copyFixtureFile(
+    root,
+    "scripts/lib/json-boundary.mjs",
+    new URL("../lib/json-boundary.mjs", import.meta.url),
   );
   git("add", ".");
   git("-c", "commit.gpgsign=false", "commit", "-qm", "original sources");
@@ -103,46 +114,14 @@ function buildReviewedStack(t) {
     "activate baseline review",
   );
 
-  const reviewed = paths.map((path) => {
-    const content = `reviewed ${path}\n`;
-    const reviewed_blob = execFileSync(
-      "git",
-      ["hash-object", "-w", "--stdin"],
-      { cwd: root, input: content, encoding: "utf8" },
-    ).trim();
-    return {
-      base_blob: git("rev-parse", `${reviewedRevision}:${path}`),
-      content,
-      path,
-      reviewed_blob,
-      sha256: createHash("sha256").update(content).digest("hex"),
-    };
-  });
+  const reviewed = reviewedSources(root, "reviewed");
   const sources = reviewed.map(({ content: _content, ...entry }) => entry);
-  writeFileSync(
-    join(root, attestationPath),
-    JSON.stringify({ version: 1, sources }),
-  );
-  git("add", attestationPath);
-  git("-c", "commit.gpgsign=false", "commit", "-qm", "review source bytes");
+  writeAttestation(root, attestationPath, sources);
+  commit(root, "review source bytes", [attestationPath]);
   for (const { content, path } of reviewed)
     writeFileSync(join(root, path), content);
-  writeFileSync(
-    manifest,
-    JSON.stringify({
-      version: 2,
-      reviewed_attestation: attestationPath,
-      sources,
-    }),
-  );
-  git("add", ".");
-  git(
-    "-c",
-    "commit.gpgsign=false",
-    "commit",
-    "-qm",
-    "implement reviewed change",
-  );
+  writeCoverage(root, attestationPath, sources);
+  commit(root, "implement reviewed change");
   const full = check();
   assert.equal(full.status, 0, full.stderr);
 
@@ -330,11 +309,7 @@ function rejectUnvalidatedParentManifest({ check, parent, root }) {
   commit(forged, "forge parent manifest");
   writeAttestation(forged, forgedAttestation, sources);
   commit(forged, "post-hoc evidence", [forgedAttestation]);
-  execFileSync(
-    "git",
-    ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "-qm", "padding"],
-    { cwd: forged },
-  );
+  commit(forged, "padding", [], true);
   const successorEntries = reviewedSources(forged, "successor");
   const successorSources = successorEntries.map(
     ({ content: _content, ...entry }) => entry,

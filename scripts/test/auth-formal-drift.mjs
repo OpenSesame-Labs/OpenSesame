@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { isString } from "../lib/json-boundary.mjs";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const coverage = JSON.parse(
@@ -21,7 +22,7 @@ const revisionEvidence =
   coverage.version === 1 && /^[0-9a-f]{40}$/.test(coverage.reviewed_revision);
 const blobEvidence =
   coverage.version === 2 &&
-  typeof attestationPath === "string" &&
+  isString(attestationPath) &&
   attestationPathPattern.test(attestationPath);
 
 function gitJson(revision, path) {
@@ -36,7 +37,7 @@ function gitJson(revision, path) {
 function validV2Manifest(manifest) {
   return (
     manifest?.version === 2 &&
-    typeof manifest.reviewed_attestation === "string" &&
+    isString(manifest.reviewed_attestation) &&
     attestationPathPattern.test(manifest.reviewed_attestation) &&
     Array.isArray(manifest.sources) &&
     manifest.sources.length === paths.length &&
