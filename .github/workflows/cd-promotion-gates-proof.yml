@@ -71,6 +71,7 @@ jobs:
             scripts/release/cd-pwa-preview-smoke/prepare-vars.test.mjs \
             scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
             scripts/release/cd-pwa-preview-smoke/live-bundle-poll.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/live-bundle-poll.more.test.mjs \
             scripts/release/cd-pwa-preview-smoke/smoke-failure-evidence.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
             scripts/ci/pwa-install-profile-proof.test.mjs \

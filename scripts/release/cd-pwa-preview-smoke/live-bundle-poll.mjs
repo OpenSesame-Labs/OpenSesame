@@ -10,7 +10,10 @@ import { readString } from "../../lib/json-boundary.mjs";
 import { pollUntilDeadline } from "../cd-preview-smoke-registry.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
 import { cdnPollBudget, sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
+import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
+
+export { dynamicImportRefsFromJs } from "./shell-dynamic-imports.mjs";
 
 const MAX_SHELL_ASSET_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -86,13 +89,21 @@ export function listStagedShellAssetPaths(distDir, pagesBase) {
   const base = normalizePagesBase(pagesBase);
   const seen = new Set();
   const paths = [];
+  const htmlPaths = [];
   for (const ref of shellAssetRefs(readIndexHtml(root))) {
     const distRelative = shellAssetRelative(ref, base);
     if (distRelative === undefined || seen.has(distRelative)) continue;
     seen.add(distRelative);
-    paths.push(stagedFilePath(root, distRelative));
+    htmlPaths.push(stagedFilePath(root, distRelative));
   }
-  return paths;
+  return expandDynamicShellImports(
+    root,
+    base,
+    htmlPaths,
+    distRelativeOf,
+    stagedFilePath,
+    shellAssetRelative,
+  );
 }
 
 function distRelativeOf(distDir, abs) {
@@ -303,10 +314,11 @@ async function assertLiveShellAssets(
   now,
   matched,
   perChunkReadMs,
+  enforcePerAssetDeadline,
 ) {
   for (const asset of assets) {
     if (matched.has(asset.relative)) continue;
-    if (now() > bodyDeadlineAt) {
+    if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
       throw mismatch(asset.relative, "CDN poll deadline expired");
     }
     await assertLiveAsset(
@@ -359,6 +371,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
         now,
         matched,
         perChunkReadMs,
+        deadlineMs > 0,
       ),
     now,
   );
