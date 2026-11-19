@@ -185,12 +185,19 @@ test("release qualification refuses to lose a required suite", (t) => {
     assert.deepEqual(f.commands(), []);
   }
 });
-test("the independently pinned auth, OAuth, WebAuthn and clock contracts survive coordinated JSON weakening", (t) => {
+test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"],
   );
-  for (const id of ["auth", "oauth", "webauthn", "interaction-clock"]) {
+  for (const id of [
+    "auth",
+    "oauth",
+    "webauthn",
+    "interaction-clock",
+    "authority",
+    "dpop",
+  ]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
@@ -243,4 +250,17 @@ test("missing or failing axiom controls stop qualification before any suite", (t
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /axiom control tests failed/);
   assert.deepEqual(failing.commands(), []);
+});
+
+test("formal coverage pins use origin/main lineage and survive squash onto main", () => {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  delete env.NODE_OPTIONS;
+  const run = spawnSync(
+    process.execPath,
+    ["--test", "scripts/test/formal-coverage-squash.test.mjs"],
+    { cwd: root, encoding: "utf8", env },
+  );
+  assert.equal(run.status, 0, run.stderr || run.stdout);
 });
