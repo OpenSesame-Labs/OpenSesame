@@ -41,6 +41,7 @@ import {
   type PostgresAgentInstanceStore,
   PostgresAgentStore,
 } from "./repos/legacy-agent-postgres.js";
+import type { UpstreamLogoutOperation } from "./routes/backchannel-logout-journal.js";
 import {
   type CeremonySubjectStore,
   createMemoryCeremonySubjectStore,
@@ -99,20 +100,6 @@ export interface MfaCodeSendWindow {
   /** When each send in the window happened, epoch ms, oldest first. */
   sentAt: number[];
   expiresAt: number;
-}
-
-/** Crash-resumable effect set for one verified OIDC back-channel logout. */
-export interface UpstreamLogoutOperation {
-  operationKey: string;
-  issuer: string;
-  subject: string;
-  principalIds: string[];
-  /** Sessions live when the durable operation was prepared, for stable audit count. */
-  sessionIds: string[];
-  preparedSessionCount: number;
-  correlationId: string;
-  retainUntil: number;
-  completed: boolean;
 }
 
 export interface AppStores {
