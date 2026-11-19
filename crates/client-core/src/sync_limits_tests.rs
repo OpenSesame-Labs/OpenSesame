@@ -24,6 +24,9 @@ fn unknown_fields_are_rejected_during_deserialization() {
         "integrity": "00".repeat(64),
     });
     assert!(SyncStore::from_persisted_json(&DeviceKey::generate(), &persisted.to_string()).is_err());
+    let mut bad_cursor = snapshot(vec![]);
+    bad_cursor["cursor"]["extra"] = json!(1);
+    assert!(CiphertextSyncSnapshot::from_json(&bad_cursor.to_string()).is_err());
 }
 
 #[test]
