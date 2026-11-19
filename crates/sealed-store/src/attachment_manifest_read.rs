@@ -1,7 +1,5 @@
 //! Authenticate an attachment manifest against its outside rollback witness.
 use super::{attach_relative, parse_attachment_manifest, AttachmentManifest};
-use crate::envelope::{open_osseal_in_for_path, COLLECTION_ATTACHMENTS};
-use crate::path::confined_read;
 use crate::{ItemDataKey, StoreError, StoreRoot};
 
 impl StoreRoot {
@@ -10,20 +8,8 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
     ) -> Result<(AttachmentManifest, String), StoreError> {
-        let witness = self.attachment_witness(name, key)?;
-        if witness.deleted {
-            return Err(StoreError::NotFound(name.into()));
-        }
-        let relative = attach_relative(name)?;
-        let blob = confined_read(&self.path, &relative)?;
-        let (opened, bound_name) = open_osseal_in_for_path(
-            COLLECTION_ATTACHMENTS,
-            &blob,
-            key,
-            name,
-            Some(witness.revision),
-        )?;
-        Ok((parse_attachment_manifest(&opened.plaintext)?, bound_name))
+        let (plaintext, bound_name) = self.open_manifest_plaintext_verified(name, key)?;
+        Ok((parse_attachment_manifest(&plaintext)?, bound_name))
     }
 
     /// Caller already holds the store's exclusive lock.

@@ -150,7 +150,7 @@ pub(crate) fn rotate_store_root_with_callbacks(
             commit(
                 &store,
                 &staging,
-                &plan,
+                &mut plan,
                 keys,
                 key_json.as_bytes(),
                 &mut stranded,
@@ -187,8 +187,7 @@ pub(crate) fn rotate_store_root_with_callbacks(
     // Slot one and its marker already authenticate the committed key. Bind
     // resealed manifests, then restore redundancy. This I/O stays after
     // delivery so it cannot hold one-time keys back.
-    if let Some(witness) = plan.witness.as_mut() {
-        store.rebind_rotated_attachments(witness, &new_key)?;
+    if let Some(witness) = plan.witness.as_ref() {
         let _ = store.finish_rekeyed_witness(witness, &new_key);
     }
 
@@ -301,7 +300,7 @@ fn stage_attachments(
 fn commit(
     store: &StoreRoot,
     staging: &Path,
-    plan: &Plan,
+    plan: &mut Plan,
     (old_key, new_key): Keys<'_>,
     key_json: &[u8],
     stranded: &mut bool,
@@ -323,8 +322,9 @@ fn commit(
         verify_nothing_left_behind(root, plan)?;
         let witness = plan
             .witness
-            .as_ref()
+            .as_mut()
             .ok_or_else(|| StoreError::Crypto("rotation witness plan missing".into()))?;
+        store.rebind_rotated_attachments_prepared(witness, new_key, false)?;
         witness_rekey_started = true;
         store.write_rekeyed_witness(witness, new_key)?;
         // Revoke the old marker before committing the new key file. A crash

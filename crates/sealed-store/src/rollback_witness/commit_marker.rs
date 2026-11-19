@@ -101,8 +101,21 @@ impl StoreRoot {
         let marker = CommitMarker::for_witness(witness)?;
         if let Some(current) = self.read_commit_marker(store_id, key)? {
             current.require_active()?;
-            if marker.epoch < current.epoch
-                || (marker.epoch == current.epoch && !current.matches(witness)?)
+            if marker.epoch < current.epoch {
+                return Err(StoreError::Crypto(
+                    "cannot replace a committed rollback marker with older or different state"
+                        .into(),
+                ));
+            }
+            if marker.epoch == current.epoch
+                && !current.matches(witness)?
+                && self
+                    .load_witness(store_id, key)?
+                    .is_none_or(|baseline| {
+                        !super::attachments_rotation::rotation_prepared_witness_allows_pending(
+                            &baseline, witness,
+                        )
+                    })
             {
                 return Err(StoreError::Crypto(
                     "cannot replace a committed rollback marker with older or different state"
@@ -139,7 +152,16 @@ impl StoreRoot {
         let current = self.load_witness(store_id, key)?.ok_or_else(|| {
             StoreError::Crypto("rollback witness is missing during rotation".into())
         })?;
-        if !marker.matches(&current)? || !marker.matches(expected)? {
+        if !marker.matches(&current)? {
+            return Err(StoreError::Crypto(
+                "rollback witness changed during rotation".into(),
+            ));
+        }
+        if !marker.matches(expected)?
+            && !super::attachments_rotation::rotation_prepared_witness_allows_pending(
+                &current, expected,
+            )
+        {
             return Err(StoreError::Crypto(
                 "rollback witness changed during rotation".into(),
             ));
