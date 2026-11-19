@@ -26,9 +26,16 @@ mod persist_auth;
 pub mod snapshot;
 mod sync_apply;
 mod sync_auth;
+#[cfg(not(target_arch = "wasm32"))]
+mod sync_files;
+mod sync_limits;
 
 pub use sync_auth::{
     open_sync_blob, LEGACY_MIGRATION_CIPHERTEXT_MAX, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
+};
+pub use sync_limits::{
+    MAX_SYNC_BLOBS, MAX_SYNC_DEVICE_ID_BYTES, MAX_SYNC_JSON_BYTES, MAX_SYNC_PROJECT_ID_BYTES,
+    MAX_SYNC_TOTAL_BYTES,
 };
 
 pub use snapshot::{
@@ -76,10 +83,16 @@ pub struct SyncBlob {
 struct PersistedStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
+    #[serde(deserialize_with = "sync_limits::deserialize_cursor")]
     cursor: SyncCursor,
     /// Sealed entries only.
+    #[serde(deserialize_with = "sync_limits::deserialize_blobs")]
     blobs: Vec<SyncBlob>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "sync_limits::deserialize_integrity"
+    )]
     integrity: Option<String>,
 }
 
@@ -209,6 +222,7 @@ impl SyncStore {
         plaintext: &[u8],
     ) -> Result<SyncBlob, ClientCoreError> {
         let id = id.into();
+        sync_limits::validate_cursor(&self.cursor)?;
         let guard = self.checked_key(key)?;
         let epoch = self
             .cursor
@@ -217,6 +231,7 @@ impl SyncStore {
             .filter(|value| *value <= i64::MAX as u64)
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob(key, id, epoch, plaintext)?;
+        sync_limits::validate_capacity(&self.entries, std::slice::from_ref(&blob))?;
         self.entries
             .insert(blob.id.clone(), (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
@@ -308,7 +323,10 @@ impl SyncStore {
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
         self.remember_key(guard);
-        serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))
+        let json =
+            serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
+        sync_limits::check_json_size(json.len())?;
+        Ok(json)
     }
 
     ///
@@ -316,6 +334,7 @@ impl SyncStore {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn from_persisted_json(key: &DeviceKey, json: &str) -> Result<Self, ClientCoreError> {
+        sync_limits::check_json_size(json.len())?;
         let p: PersistedStore =
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         persist_auth::verify(key, &p)?;
@@ -333,10 +352,6 @@ impl SyncStore {
             ));
         }
         store.cursor.epoch = p.cursor.epoch;
-        store.remember_key(blake3::keyed_hash(
-            key.as_bytes(),
-            b"OpenSesame sync store key v2",
-        ));
         Ok(store)
     }
 

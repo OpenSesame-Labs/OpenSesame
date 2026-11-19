@@ -21,6 +21,7 @@ impl SyncStore {
         key: &DeviceKey,
         json: &str,
     ) -> Result<Self, ClientCoreError> {
+        crate::sync_limits::check_json_size(json.len())?;
         let legacy: PersistedStore = serde_json::from_str(json)
             .map_err(|error| ClientCoreError::Persist(error.to_string()))?;
         if legacy.version.is_some() || legacy.integrity.is_some() {
@@ -55,6 +56,8 @@ fn migrate(
     cursor: SyncCursor,
     blobs: Vec<SyncBlob>,
 ) -> Result<SyncStore, ClientCoreError> {
+    crate::sync_limits::validate_cursor(&cursor)?;
+    crate::sync_limits::validate_blobs(&blobs)?;
     if cursor.device_id.is_empty() || cursor.device_id.len() > 128 || cursor.epoch > i64::MAX as u64
     {
         return Err(ClientCoreError::Persist(
