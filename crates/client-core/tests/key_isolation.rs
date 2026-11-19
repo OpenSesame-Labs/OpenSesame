@@ -1,5 +1,5 @@
 //! Native client sync ciphertext is bound to its owner's key and item identity.
-use opensesame_client_core::{open, DeviceKey, SyncStore};
+use opensesame_client_core::{open_sync_blob, DeviceKey, SyncStore};
 
 #[test]
 fn independent_customer_keys_refuse_foreign_ciphertext_for_the_same_item_id() {
@@ -14,17 +14,19 @@ fn independent_customer_keys_refuse_foreign_ciphertext_for_the_same_item_id() {
         .put_local(&customer_b, "shared-item-id", b"customer-b-secret")
         .unwrap();
     assert_eq!(
-        open(&customer_a, &a.ciphertext, b"shared-item-id").unwrap(),
+        open_sync_blob(&customer_a, &a).unwrap(),
         b"customer-a-secret"
     );
     assert_eq!(
-        open(&customer_b, &b.ciphertext, b"shared-item-id").unwrap(),
+        open_sync_blob(&customer_b, &b).unwrap(),
         b"customer-b-secret"
     );
-    assert!(open(&customer_b, &a.ciphertext, b"shared-item-id").is_err());
-    assert!(open(&customer_a, &b.ciphertext, b"shared-item-id").is_err());
-    assert!(open(&customer_a, &a.ciphertext, b"different-item-id").is_err());
-    let mut tampered = a.ciphertext;
-    *tampered.last_mut().unwrap() ^= 1;
-    assert!(open(&customer_a, &tampered, b"shared-item-id").is_err());
+    assert!(open_sync_blob(&customer_b, &a).is_err());
+    assert!(open_sync_blob(&customer_a, &b).is_err());
+    let mut wrong_id = a.clone();
+    wrong_id.id = "different-item-id".into();
+    assert!(open_sync_blob(&customer_a, &wrong_id).is_err());
+    let mut tampered = a;
+    *tampered.ciphertext.last_mut().unwrap() ^= 1;
+    assert!(open_sync_blob(&customer_a, &tampered).is_err());
 }
