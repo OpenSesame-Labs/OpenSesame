@@ -135,20 +135,52 @@ function pushNoticeDefault(
   return notice;
 }
 
-/** The same words, to the letter: only a retry or act closure may differ. */
-function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
+function sameStatusCopy(existing: Notice, input: StatusNoticeInput): boolean {
   return (
     existing.tone === input.tone &&
     existing.title === input.title &&
     existing.body === input.body &&
     existing.ceremony === input.ceremony &&
     existing.ceremonyLabel === input.ceremonyLabel &&
-    existing.retryLabel === input.retryLabel &&
+    existing.retryLabel === input.retryLabel
+  );
+}
+
+function sameNoticeActs(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
     existing.act?.label === input.act?.label &&
-    existing.alt?.label === input.alt?.label &&
+    existing.alt?.label === input.alt?.label
+  );
+}
+
+function sameNoticeOpen(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
     existing.open?.to === input.open?.to &&
     existing.open?.label === input.open?.label
   );
+}
+
+/** The same words, to the letter: only a retry or act closure may differ. */
+function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
+    sameStatusCopy(existing, input) &&
+    sameNoticeActs(existing, input) &&
+    sameNoticeOpen(existing, input)
+  );
+}
+
+function hideDismissedTutorialToast(id: string): void {
+  if (id === "tutorial.pause.session" || id.startsWith("tutorial.queue.")) {
+    hideToast(id);
+  }
+}
+
+function dequeueTutorialNotice(id: string): void {
+  if (!id.startsWith("tutorial.queue.")) return;
+  const goalId = id.slice("tutorial.queue.".length);
+  void import("./tutorial-queue.js").then(({ dequeueTutorial }) => {
+    dequeueTutorial(goalId);
+  });
 }
 
 function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
@@ -283,15 +315,8 @@ export function restorePersistedTrayNotices(restored: Notice[]): void {
 
 export function dismissNotice(id: string): void {
   noticeSeams.dismissNotice(id);
-  if (id === "tutorial.pause.session" || id.startsWith("tutorial.queue.")) {
-    hideToast(id);
-  }
-  if (id.startsWith("tutorial.queue.")) {
-    const goalId = id.slice("tutorial.queue.".length);
-    void import("./tutorial-queue.js").then(({ dequeueTutorial }) => {
-      dequeueTutorial(goalId);
-    });
-  }
+  hideDismissedTutorialToast(id);
+  dequeueTutorialNotice(id);
 }
 
 export function clearNotices(): void {
