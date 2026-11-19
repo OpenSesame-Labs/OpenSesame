@@ -7,7 +7,7 @@ This suite records the decisions in
 [`outage.rs`](../../../crates/spiffe-source/src/outage.rs), and
 [`status.rs`](../../../crates/spiffe-source/src/status.rs). The governing
 contract is [ADR 0132 §12](../../../docs/adr/0132-optional-mtls-and-workload-identity.md),
-as refined by [ADR 0223](../../../docs/adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md).
+as refined by [ADR 0227](../../../docs/adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md).
 
 | Requirement | Lean theorem | Implementation evidence |
 |---|---|---|
