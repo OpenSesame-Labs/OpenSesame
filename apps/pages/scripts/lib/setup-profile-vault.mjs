@@ -341,28 +341,27 @@ export async function captureProfileAppliedVault(
     .first()
     .waitFor({ timeout: 25_000 });
 
-  if (
-    profileId === "default" ||
-    profileId === "full" ||
-    profileId === "custom"
-  ) {
+  let rail = await vaultRailMarkers(page);
+  if (profileId === "default" || profileId === "full") {
+    check(
+      rail.enableCore === 0,
+      `${profileId} vault: core item types active without remediation (${JSON.stringify(rail)})`,
+    );
+  } else if (profileId === "custom") {
     await enableCoreItemTypesIfOffered(page);
+    rail = await vaultRailMarkers(page);
+    check(
+      rail.card > 0 && rail.note > 0,
+      `custom vault: card and note filters visible in rail (${JSON.stringify(rail)})`,
+    );
   }
 
-  const rail = await vaultRailMarkers(page);
   const { features, markers: featureMarkers } = await captureFeaturesShot(
     page,
     dir,
   );
   const markers = { ...rail, ...featureMarkers };
   assertProfileVaultDom(profileId, markers, check);
-
-  if (profileId === "custom") {
-    check(
-      markers.card > 0 && markers.note > 0,
-      `custom vault: card and note filters visible in rail (${JSON.stringify(rail)})`,
-    );
-  }
 
   const applied = path.join(dir, "setup-profile-applied.png");
   await shotUnlockedApp(page, applied);
