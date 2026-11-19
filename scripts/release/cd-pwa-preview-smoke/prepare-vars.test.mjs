@@ -84,6 +84,9 @@ test("registry retry is a single attempt when publish already confirmed", () => 
 test("cdn retry budget stays bounded", () => {
   const budget = cdnRetryBudget({});
   assert.equal(budget.intervalMs, 2_000);
-  assert.equal(budget.retries, 60);
-  assert.equal(budget.maxTimeSec, 2);
+  const attempts = budget.retries + 1;
+  assert.ok(
+    attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
+      120_000,
+  );
 });

@@ -18,11 +18,15 @@ function readBoundedInt(value, fallback, label, min) {
 }
 
 /** Absolute deadline for the shared hurl + shell-poll CDN window. */
-export function sharedCdnDeadlineEndMs(env, nowMs = Date.now()) {
+export function sharedCdnDeadlineEndMs(env) {
   const { deadlineMs } = cdnPollBudget(env);
+  const startedRaw = readString(env.PWA_SMOKE_CDN_STARTED_MS);
+  if (startedRaw === undefined || startedRaw === "") {
+    throw new Error("PWA_SMOKE_CDN_STARTED_MS is required");
+  }
   const started = readBoundedInt(
     env.PWA_SMOKE_CDN_STARTED_MS,
-    nowMs,
+    undefined,
     "PWA_SMOKE_CDN_STARTED_MS",
     0,
   );
@@ -30,15 +34,14 @@ export function sharedCdnDeadlineEndMs(env, nowMs = Date.now()) {
 }
 
 export function remainingSharedCdnMs(env, nowMs = Date.now()) {
-  return Math.max(0, sharedCdnDeadlineEndMs(env, nowMs) - nowMs);
+  return Math.max(0, sharedCdnDeadlineEndMs(env) - nowMs);
 }
 
 /** Cap fetch abort at the remainder of the shared CDN window, or full timeout. */
 export function fetchAbortTimeoutMs(timeoutMs, bodyDeadlineAt, now) {
   const at = now();
-  return bodyDeadlineAt > at
-    ? Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at))
-    : timeoutMs;
+  if (bodyDeadlineAt <= at) return 1;
+  return Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at));
 }
 
 /** Same shared Pages CDN window for `cdnRetryBudget` and shell poll. */
@@ -58,15 +61,36 @@ export function cdnPollBudget(env) {
   return { deadlineMs, pollMs };
 }
 
+function hurlFitsDeadline(retries, intervalMs, maxTimeSec, deadlineMs) {
+  const attempts = retries + 1;
+  return (
+    attempts * maxTimeSec * 1000 + retries * intervalMs <= deadlineMs
+  );
+}
+
 /** Hurl `--retry` is per request; keep retries inside one wall-clock CDN window. */
 export function cdnRetryBudget(env) {
   const { deadlineMs, pollMs } = cdnPollBudget(env);
-  const retries = Math.floor(deadlineMs / pollMs);
-  const attempts = retries + 1;
-  const maxTimeSec = Math.max(
-    1,
-    Math.ceil(deadlineMs / 1000 / Math.max(1, attempts)),
-  );
+  let retries = Math.floor(deadlineMs / pollMs);
+  let maxTimeSec = 1;
+  while (retries >= 0) {
+    const attemptBudgetMs = deadlineMs - retries * pollMs;
+    const attempts = retries + 1;
+    if (attemptBudgetMs < attempts * 1000) {
+      if (retries === 0) {
+        maxTimeSec = Math.max(1, Math.floor(deadlineMs / 1000));
+        break;
+      }
+      retries -= 1;
+      continue;
+    }
+    maxTimeSec = Math.max(1, Math.floor(attemptBudgetMs / attempts / 1000));
+    if (!hurlFitsDeadline(retries, pollMs, maxTimeSec, deadlineMs)) {
+      retries -= 1;
+      continue;
+    }
+    break;
+  }
   return {
     retries,
     intervalMs: pollMs,

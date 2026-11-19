@@ -361,7 +361,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
   const deadlineEndMs =
     deps.cdnDeadlineEndMs ??
     (sharedStarted !== undefined
-      ? sharedCdnDeadlineEndMs(env, pollStartedAt)
+      ? sharedCdnDeadlineEndMs(env)
       : pollStartedAt + deadlineMs);
   const remainingMs = Math.max(0, deadlineEndMs - now());
   const matched = new Set();

@@ -34,7 +34,7 @@ test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () 
   );
   assert.equal(
     fetchAbortTimeoutMs(15_000, 50, () => 60),
-    15_000,
+    1,
   );
 });
 
@@ -308,7 +308,10 @@ test("pollLiveShellAssets honours shared CDN deadline between assets", async () 
 
 test("shared CDN deadline end is one window from PWA_SMOKE_CDN_STARTED_MS", () => {
   assert.equal(
-    sharedCdnDeadlineEndMs({ PWA_SMOKE_CDN_STARTED_MS: "1000" }, 5000),
+    sharedCdnDeadlineEndMs({
+      PWA_SMOKE_CDN_STARTED_MS: "1000",
+      PWA_SMOKE_CDN_DEADLINE_MS: "120000",
+    }),
     121_000,
   );
 });
