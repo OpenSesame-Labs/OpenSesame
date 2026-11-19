@@ -211,6 +211,39 @@ describe("parseSealedStore guards", () => {
       ),
     ).toBeNull();
   });
+
+  it("rejects ambiguous or invalid authenticated ciphertext", () => {
+    const header = {
+      version: 2,
+      integrity: "a".repeat(64),
+      cursor: { device_id: "d", epoch: 0 },
+    };
+    for (const ciphertext of [[-1], [256], [1.5], ["1"], null]) {
+      expect(
+        parseSealedStore(
+          JSON.stringify({
+            ...header,
+            blobs: [{ id: "b", epoch: 0, ciphertext }],
+          }),
+        ),
+      ).toBeNull();
+    }
+    expect(
+      parseSealedStore(
+        JSON.stringify({
+          ...header,
+          blobs: [
+            { id: "b", epoch: 0, ciphertext: [1], ciphertextB64: "AQ==" },
+          ],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseSealedStore(
+        store({ blobs: [{ id: "b", epoch: 0, ciphertext: [1] }] }),
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("sealed store IO against OPFS", () => {

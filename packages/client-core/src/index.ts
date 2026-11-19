@@ -1,5 +1,6 @@
 import {
   type BoundaryValue,
+  type JsonObject,
   isJsonObject,
   isNumber,
   isString,
@@ -151,6 +152,58 @@ function epoch(value: BoundaryValue): number | null {
   return value;
 }
 
+function sealedCiphertext(
+  blob: JsonObject,
+  version: number | undefined,
+): string | null {
+  const hasB64 = "ciphertextB64" in blob;
+  const hasBytes = "ciphertext" in blob;
+  if (hasB64 === hasBytes) return null;
+  if (hasB64) {
+    return isString(blob.ciphertextB64) && BASE64.test(blob.ciphertextB64)
+      ? blob.ciphertextB64
+      : null;
+  }
+  if (version === undefined || !Array.isArray(blob.ciphertext)) return null;
+  const bytes = new Uint8Array(blob.ciphertext.length);
+  for (let i = 0; i < blob.ciphertext.length; i += 1) {
+    const value = blob.ciphertext[i];
+    if (
+      !isNumber(value) ||
+      !Number.isInteger(value) ||
+      value < 0 ||
+      value > 255
+    )
+      return null;
+    bytes[i] = value;
+  }
+  return bytesToB64(bytes);
+}
+
+function sealedBlob(
+  entry: BoundaryValue,
+  version: number | undefined,
+): SealedStore["blobs"][number] | null {
+  if (!isTypeofObject(entry) || entry === null) return null;
+  const blob = overlapCast(entry);
+  for (const key of Object.keys(blob)) {
+    if (
+      key !== "id" &&
+      key !== "epoch" &&
+      key !== "ciphertextB64" &&
+      key !== "ciphertext"
+    )
+      return null;
+  }
+  const id = safeId(blob.id, MAX_BLOB_ID_LENGTH);
+  const blobEpoch = epoch(blob.epoch);
+  if (id === null || blobEpoch === null) return null;
+  const ciphertextB64 = sealedCiphertext(blob, version);
+  return ciphertextB64 === null
+    ? null
+    : { id, epoch: blobEpoch, ciphertextB64 };
+}
+
 /** Parse a sealed store, or null when the document is not one. */
 export function parseSealedStore(json: string): SealedStore | null {
   let parsed: unknown;
@@ -181,7 +234,8 @@ export function parseSealedStore(json: string): SealedStore | null {
   }
   let integrity: string | undefined;
   if ("integrity" in row) {
-    if (!isString(row.integrity) || !BLAKE3_HEX.test(row.integrity)) return null;
+    if (!isString(row.integrity) || !BLAKE3_HEX.test(row.integrity))
+      return null;
     integrity = row.integrity;
   }
   if ((version === undefined) !== (integrity === undefined)) return null;
@@ -199,51 +253,9 @@ export function parseSealedStore(json: string): SealedStore | null {
 
   const blobs: SealedStore["blobs"] = [];
   for (const entry of row.blobs) {
-    if (!isTypeofObject(entry) || entry === null) return null;
-    const blob = overlapCast(entry);
-    for (const key of Object.keys(blob)) {
-      if (
-        key !== "id" &&
-        key !== "epoch" &&
-        key !== "ciphertextB64" &&
-        key !== "ciphertext"
-      ) {
-        return null;
-      }
-    }
-    const id = safeId(blob.id, MAX_BLOB_ID_LENGTH);
-    const blobEpoch = epoch(blob.epoch);
-    if (id === null || blobEpoch === null) return null;
-    let ciphertextB64: string | null = null;
-    const hasB64 = "ciphertextB64" in blob;
-    const hasBytes = "ciphertext" in blob;
-    if (hasB64 === hasBytes) return null;
-    if (hasB64) {
-      if (!isString(blob.ciphertextB64) || !BASE64.test(blob.ciphertextB64)) {
-        return null;
-      }
-      ciphertextB64 = blob.ciphertextB64;
-    } else if (version === undefined) {
-      return null;
-    } else if (!Array.isArray(blob.ciphertext)) {
-      return null;
-    } else {
-      const bytes = new Uint8Array(blob.ciphertext.length);
-      for (let i = 0; i < blob.ciphertext.length; i += 1) {
-        const value = blob.ciphertext[i];
-        if (
-          !isNumber(value) ||
-          !Number.isInteger(value) ||
-          value < 0 ||
-          value > 255
-        ) {
-          return null;
-        }
-        bytes[i] = value;
-      }
-      ciphertextB64 = bytesToB64(bytes);
-    }
-    blobs.push({ id, epoch: blobEpoch, ciphertextB64 });
+    const blob = sealedBlob(entry, version);
+    if (blob === null) return null;
+    blobs.push(blob);
   }
   if (version !== undefined && integrity !== undefined) {
     return {
