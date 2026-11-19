@@ -1,7 +1,7 @@
 import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
 import type { PasswordMethod } from "@opensesame/vault-core";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import {
   IconEye,
@@ -9,6 +9,10 @@ import {
   IconRefresh,
   IconSettings,
 } from "../../components/Icons.js";
+import {
+  useGuideTarget,
+  useOptionalGuideTarget,
+} from "../../tutorial/registry/react.jsx";
 import {
   holdValue,
   regenerate,
@@ -29,20 +33,30 @@ export function PasswordControl({
   method,
   onEdit,
   options,
-  onGenerate,
 }: {
   method: PasswordMethod;
   onEdit: (next: PasswordMethod) => void;
   /** The key that opens the generator's options, and whether they are open. */
   options: { open: boolean; controls: string; onToggle: () => void };
-  /**
-   * Agent-driven reset for a saved account with a web login origin. Resolves
-   * true when the reset handoff handled the key (queued or prompted to
-   * configure); absent or false keeps the local regenerate.
-   */
-  onGenerate?: (() => Promise<boolean>) | undefined;
 }) {
   const [reveal, setReveal] = useState(false);
+  const generateRef = useGuideTarget<HTMLButtonElement>(
+    "editor.generate-password",
+  );
+  const optionsRef = useGuideTarget<HTMLButtonElement>(
+    "editor.password-options",
+  );
+  // The state marker must survive closing the options panel.
+  const enabledRef = useOptionalGuideTarget<HTMLButtonElement>(
+    method.pepper ? "editor.pepper-enabled" : undefined,
+  );
+  const bindOptions = useCallback(
+    (element: HTMLButtonElement | null) => {
+      optionsRef(element);
+      enabledRef(element);
+    },
+    [optionsRef, enabledRef],
+  );
   const { generator } = method;
   return (
     <div className="editor__inline editor__inline--adorned">
@@ -65,19 +79,15 @@ export function PasswordControl({
       {GENERATED.has(generator.id) ? (
         <IconKey
           label="Generate another password"
+          keyRef={generateRef}
           onClick={() => {
-            void (async () => {
-              if (onGenerate && (await onGenerate())) return;
-              const made =
-                generator.id === "derived"
-                  ? rotate(method)
-                  : regenerate(method);
-              if (made) {
-                onEdit(made);
-                setReveal(true);
-                signalRecommendation("password.generated");
-              }
-            })();
+            const made =
+              generator.id === "derived" ? rotate(method) : regenerate(method);
+            if (made) {
+              onEdit(made);
+              setReveal(true);
+              signalRecommendation("password.generated");
+            }
           }}
         >
           <IconRefresh size={17} />
@@ -85,6 +95,7 @@ export function PasswordControl({
       ) : null}
       <IconKey
         label="Password options"
+        keyRef={bindOptions}
         aria-expanded={options.open}
         aria-controls={options.controls}
         onClick={options.onToggle}

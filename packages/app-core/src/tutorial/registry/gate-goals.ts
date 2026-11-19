@@ -1,4 +1,6 @@
+import { FIRST_VAULT_GATE_GUIDE } from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
+import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
 
 /**
  * The tutorials of the screens in front of the shell: the front door, sign-in,
@@ -14,16 +16,19 @@ import type { GuideGoalDescriptor } from "./goal-types.js";
 export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
   {
     id: "gate.front-door",
-    title: "The front door: two roads and Skip",
+    title: "New password",
+    routes: ["/unlock/door"],
+    guide: FIRST_VAULT_GATE_GUIDE,
+  },
+  {
+    id: "gate.guest",
+    title: "Continue as a guest",
     routes: ["/unlock/door"],
     guide: [
       "guide/1",
-      'goal "gate.front-door"',
-      'say "A device with nothing on it opens on two roads and a way past them. Nothing here asks who you are, and nothing on it needs a server."',
-      'focus "unlock.setup" "Set up your own opens a few optional steps: what this installation runs, who can sign in, where it backs up. Every step can be skipped." side=bottom',
-      'focus "setup.join" "Join a session opens somebody else\'s live session from a link they shared. The two browsers trade codes and connect directly." side=bottom',
-      'focus "unlock.guest" "Skip opens a guest vault, sealed on this device and kept apart from any other vault on it. It is always one press away. Sealing without an account is the sign-in road, not this one." side=bottom',
-      'success "Choose a road when you are ready. Nothing is stored until you do."',
+      'goal "gate.guest"',
+      'focus "unlock.guest" "Select Skip to start a temporary guest vault. Its items are deleted when it locks, unless you add a vault key first." side=bottom',
+      'success "To keep items between sessions, add a vault key in Settings."',
       "end",
     ].join("\n"),
   },
@@ -34,23 +39,23 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.join"',
-      'say "Joining connects this browser to somebody\'s live session. You need the link its owner shared and, for an invite, the code they gave you another way. A shared link opens joining by itself."',
-      'focus "setup.join" "Press it to join. Send the owner the request code this page makes and paste back their reply code, or let the carrier the link names pass them, and the two browsers connect." side=bottom',
-      'say "The first time, it asks you to turn on Live sessions: a short review of what that adds, and nothing loads until you agree. What the owner shares stays in this tab until the session ends."',
+      'say "Get the session link from its owner. You may also need a separate code."',
+      'focus "setup.join" "Select Join a session, then follow the prompts. Exchange codes with the owner if asked." side=bottom',
+      'say "Enable Live sessions if prompted. Keep this tab open during the session."',
       "end",
     ].join("\n"),
   },
   {
     id: "gate.sign-in",
-    title: "Sign in, or seal this device without an account",
+    title: "Sign in or create a local vault",
     routes: ["/unlock/signin"],
     guide: [
       "guide/1",
       'goal "gate.sign-in"',
-      'say "First run leads with who you are. Signing in attaches an account to this device. It never replaces the key that seals the vault, and an account is optional."',
-      'focus "unlock.signin" "Choose a provider. Each one signs you in there and brings you back here. Where an organization\'s sign-in is on offer, type its address instead." side=top',
-      'focus "unlock.local-only" "Use without an account seals a vault on this device alone: no account, no sync and no account recovery. You choose a passkey or a PIN next." side=top',
-      'success "Either way the vault is sealed on this device before anything is stored in it."',
+      'say "Sign in or create a local vault. You will choose a separate key to protect it."',
+      'focus "unlock.signin" "Choose a sign-in provider, or enter your organization\'s address if that option is available." side=top',
+      'focus "unlock.local-only" "Select Use without an account for a local vault. Account recovery is unavailable." side=top',
+      'success "Protect the vault with a passkey or PIN before adding items."',
       "end",
     ].join("\n"),
   },
@@ -58,16 +63,29 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.unlock",
     title: "Open this device's vault",
     routes: ["/unlock/form"],
-    guide: [
-      "guide/1",
-      'goal "gate.unlock"',
-      'say "Unlock opens this device\'s vault with a key you enrolled. The key is checked in this browser, not by a server: the vault is decrypted here."',
-      'focus "unlock.methods" "Each tab is a key this vault has: a passkey or a PIN, or a master password an older vault still holds. Pick the one you have." side=bottom',
-      'focus "unlock.secret" "Type the key for the tab you picked. The eye in the field shows what you typed. Nothing is checked until you press the key below." side=bottom',
-      'focus "unlock.submit" "This opens the vault. If you enrolled a second step, a code is asked for next: from your authenticator app, by email or text, or one of your recovery codes." side=top',
-      'success "Once the vault is open, Settings, then Security, lists every key and second step."',
-      "end",
-    ].join("\n"),
+    get guide() {
+      const creating =
+        isKnownGuidePredicate("vault.key-enrolled") &&
+        !readGuidePredicate("vault.key-enrolled");
+      return [
+        "guide/1",
+        'goal "gate.unlock"',
+        creating
+          ? 'say "Protect your new vault with a passkey or a PIN. Your vault is encrypted on this device."'
+          : 'say "Use an enrolled key to unlock your vault."',
+        creating
+          ? 'focus "unlock.methods" "Keep PIN selected for this walkthrough." side=bottom'
+          : 'focus "unlock.methods" "Keep the selected method for this walkthrough." side=bottom',
+        creating
+          ? 'focus "unlock.secret" "Enter a PIN, then enter it again in Confirm PIN. Read and accept the recovery notice below." side=bottom'
+          : 'focus "unlock.secret" "Enter the credential for the selected method." side=bottom',
+        creating
+          ? 'focus "unlock.submit" "Select Seal with PIN to create the vault." side=top'
+          : 'focus "unlock.submit" "Select Unlock. If you set up a second step, enter its code when asked." side=top',
+        'success "You can review vault keys and second steps in Settings → Security."',
+        "end",
+      ].join("\n");
+    },
   },
   {
     id: "gate.unlock.passkey",
@@ -76,37 +94,37 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.unlock.passkey"',
-      'say "A passkey opens the vault with this device\'s own authenticator: a fingerprint, a face, a security key or the screen lock. There is no secret to type."',
-      'focus "unlock.passkey" "This is the passkey tab. With it picked, the key below asks the browser for the passkey." side=bottom',
-      'focus "unlock.submit" "Press it and approve on the device. If you enrolled a second step, a code is asked for next." side=top',
-      'success "Another tab on the strip is another key. Any one of them opens the same vault."',
+      'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
+      'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
+      'focus "unlock.submit" "For a new vault, accept the recovery notice. Then select this button and approve the passkey prompt." side=top',
+      'success "If you enrolled a second step, enter its code when asked."',
       "end",
     ].join("\n"),
   },
   {
     id: "gate.unlock.account",
-    title: "Who is signed in on the unlock screen",
+    title: "Manage the account on the unlock screen",
     routes: ["/unlock/form", "/unlock/passkey"],
     requires: ["vault.key-enrolled"],
     guide: [
       "guide/1",
       'goal "gate.unlock.account"',
-      'say "The unlock screen answers two questions apart: who is signed in, and which key opens the vault. Signing in never unlocks anything. Only a key does."',
-      'focus "unlock.account" "This menu names the account, or the guest, this device is signed in as. It lists the other vaults on this device, and offers Sign in and Sign out for the account." side=bottom',
-      'success "Sign in here attaches an account. The key to the vault is still the one you enrolled."',
+      'say "Your account and your vault key are separate. Signing in does not unlock the vault."',
+      'focus "unlock.account" "Open this menu to see the current account, switch vaults, or sign in or out." side=bottom',
+      'success "Signing in attaches an account. Use your vault key to unlock the vault."',
       "end",
     ].join("\n"),
   },
   {
     id: "gate.setup.choose",
-    title: "Choose how to set this device up",
+    title: "Choose a setup",
     routes: ["/setup/choose"],
     guide: [
       "guide/1",
       'goal "gate.setup.choose"',
-      'say "Setup is optional. Nothing has to be answered before you can use the app, and Skip all leaves everything as it is."',
-      'focus "setup.configurations" "Default is the one to take if you are not sure: passwords, passkeys, cards and notes, plus sign-in, connections and access. Minimal holds plain secrets and files only, with no password type until you turn one on. Full turns everything on, and Custom lets you pick individual capabilities." side=bottom',
-      'success "Whatever you choose here can be changed later in Settings, then Features."',
+      'say "Choose a setup or select Skip all. You can change features later."',
+      'focus "setup.default" "Select Default to use the recommended features." side=bottom',
+      'success "Change these choices later in Settings → Features."',
       "end",
     ].join("\n"),
   },
@@ -117,9 +135,9 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.setup"',
-      'say "Setup is a tab for each concern, and every tab can be skipped. What you answer is written as you answer it, so backing out loses nothing."',
-      'focus "setup.tabs" "The first tab is what this installation runs: a draft you review, then apply. The tabs after it belong to features that are on, such as connectors and who can sign in." side=bottom',
-      'focus "setup.finish" "Finish records the roads you took and returns to sign-in. Skip this step moves on, and Skip all in the bar leaves every tab you have not opened as it was." side=top',
+      'say "Configure the available features, or skip any tab."',
+      'focus "setup.tabs" "Use these tabs to configure features, connections and sign-in." side=bottom',
+      'focus "setup.finish" "Select Finish to save your choices, Skip this step to continue, or Skip all to finish setup." side=top',
       "end",
     ].join("\n"),
   },
@@ -130,21 +148,21 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.setup.ways"',
-      'say "This tab is the allowlist of sign-in roads: brokered providers, an operator\'s own issuers and, if there is one, an Identity service."',
-      'focus "setup.ways" "Each road you add here appears on the sign-in screen. Removing all of them is a local-only vault." side=bottom',
-      'hint "setup.finish" "Finish records the roads and returns to sign-in." side=top',
+      'say "Choose which sign-in providers this installation offers."',
+      'focus "setup.ways" "Add the providers you want to show on the sign-in screen. You can also use a vault without an account." side=bottom',
+      'hint "setup.finish" "Select Finish to save your choices and return to sign-in." side=top',
       "end",
     ].join("\n"),
   },
   {
     id: "gate.setup.connectors",
-    title: "Bring connectors across by reference",
+    title: "Import existing connections",
     routes: ["/setup/connectors"],
     guide: [
       "guide/1",
       'goal "gate.setup.connectors"',
-      'say "A connector arrives by reference, never by credential. Connectors already authorized in a Nango-compatible directory come across without their tokens."',
-      'focus "setup.connectors" "Name the directory\'s endpoint and key, then Sync. The key is sealed in the vault, or held in memory until a vault exists to seal it." side=bottom',
+      'say "Import existing connection references from a Nango-compatible directory. Tokens are not imported."',
+      'focus "setup.connectors" "Enter the directory endpoint and key, then select Sync." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -156,8 +174,8 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.setup.keep"',
-      'say "The vault is stored on this device, and a browser may clear a tab\'s storage when the device runs short of room. An installed app is not treated that way."',
-      'focus "setup.keep" "This offer has no wrong answer, and nothing else in setup depends on it." side=top',
+      'say "Installing OpenSesame lets you open it like an app. Your vault remains stored on this device, so keep a backup."',
+      'focus "setup.keep" "Choose whether to install the app. You can continue setup either way." side=top',
       "end",
     ].join("\n"),
   },
@@ -169,7 +187,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
       "guide/1",
       'goal "gate.broker.consent"',
       'say "A static site asked OpenSesame to sign you in. This window is OpenSesame\'s own: the site never sees your vault, only an identity assertion you choose to release."',
-      'focus "broker.consent" "The card says which site is asking and for which scopes. If you are not signed in yet it asks you to sign in first. Allow releases the assertion to that site only, Deny sends it a refusal, and Use a different account signs this one out first." side=bottom',
+      'focus "broker.consent" "Review the requesting site and permissions. Select Allow or Deny, or sign in with a different account." side=bottom',
       'success "You can close this window when it says Done."',
       "end",
     ].join("\n"),
@@ -181,8 +199,8 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "gate.federation.return"',
-      'say "You are back from an identity provider. This screen finishes that sign-in and sends you on. It takes a moment and needs nothing from you."',
-      'focus "federation.return" "While it works it says Finishing sign-in. If the provider\'s answer cannot be used it says so here, with Back to sign-in to start again." side=bottom',
+      'say "Wait while sign-in finishes."',
+      'focus "federation.return" "If sign-in fails, select Back to sign-in and try again." side=bottom',
       'success "A sign-in that finished takes you back to where you started."',
       "end",
     ].join("\n"),

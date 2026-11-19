@@ -1238,6 +1238,12 @@
   }
 }
 
+@media (max-width: 900px) and (max-height: 220px) {
+  .editor:focus-within .editor__actions {
+    position: static;
+  }
+}
+
 .drop-card__link {
   overflow-wrap: anywhere;
 }
@@ -1295,6 +1301,12 @@
 }
 
 /* —— Phone polish ———————————————————————————————————————————— */
+
+@media (pointer: coarse), (max-width: 900px) {
+  .editor__pepper-check {
+    min-height: 2.75rem;
+  }
+}
 
 @media (max-width: 900px) {
   /* A password's own keys (reveal, copy) sit in the row's key column; its

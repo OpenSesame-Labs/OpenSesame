@@ -1,3 +1,4 @@
+import { noteScreenAnswered } from "@opensesame/app-core/lib/guidance.js";
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
@@ -55,6 +56,7 @@ import {
   type SupportTransport,
   loadBrowserEngine,
 } from "./engine.js";
+import { useFirstVaultHandoff } from "./first-vault-handoff.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
 import { emptyView } from "./session-view.js";
 import { SupportContext } from "./support-context.js";
@@ -372,6 +374,7 @@ export function createSupportController(
       return;
     }
     if (outcome.kind === "completed") {
+      noteScreenAnswered(state.route);
       const closing = state.guide?.message;
       if (closing) push("note", closing, []);
     }
@@ -606,17 +609,14 @@ export function SupportProvider({
 
   useEffect(() => () => controller.destroy(), [controller]);
 
-  // Subscribed here rather than at construction: the controller then has no
-  // side effect of its own, so React creating and discarding one (as it does
-  // in StrictMode) cannot leave a handler behind holding this session's keys.
   useEffect(
     () => supportSessionSeams.onLock(() => controller.lock()),
     [controller],
   );
 
   useSupportRouteSync(controller, override);
+  useFirstVaultHandoff(controller);
 
-  // WebMCP guidance tools bind only while unlocked (no help on title/unlock).
   const { status: vaultStatus } = useVault();
   useEffect(() => {
     if (vaultStatus !== "unlocked") return;

@@ -20,6 +20,43 @@ import {
   walkSteps,
 } from "./tutorial-walk.mjs";
 
+/** The returned focus must be a rendered control, not the page or a hidden node. */
+export function hasUsableFocus() {
+  function concealed(node) {
+    const style = getComputedStyle(node);
+    return (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      style.opacity === "0" ||
+      node.hidden ||
+      node.hasAttribute("inert") ||
+      node.getAttribute("aria-hidden") === "true"
+    );
+  }
+  function centerHits(node) {
+    const box = node.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) return false;
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
+    const hit = document.elementFromPoint(x, y);
+    return hit !== null && (node.contains(hit) || hit.contains(node));
+  }
+  const element = document.activeElement;
+  if (
+    !(element instanceof HTMLElement) ||
+    element === document.body ||
+    element === document.documentElement ||
+    !element.isConnected
+  )
+    return false;
+  for (let node = element; node; node = node.parentElement) {
+    if (concealed(node)) return false;
+  }
+  return centerHits(element);
+}
+
 /** Back goes back, and Replay begins again; then Done, and where focus went. */
 async function finishTour(ctx, page, id, phone, total, shot) {
   const { check, out } = ctx;
@@ -49,12 +86,18 @@ async function finishTour(ctx, page, id, phone, total, shot) {
     (await tutorialDialog(page).count()) === 0,
     `${id}: Done closes the tutorial`,
   );
+  // A framework's effect cleanup can restore focus just after the card is
+  // detached. Wait for that handoff instead of checking between the two.
+  await page
+    .waitForFunction(hasUsableFocus, null, { timeout: 5000 })
+    .catch(() => {});
+  const usableFocus = await page.evaluate(hasUsableFocus);
   const focus = await page.evaluate(
     () => document.activeElement?.tagName ?? "none",
   );
   check(
-    focus !== "BODY" && focus !== "none",
-    `${id}: focus is handed back, not dropped on the page (${focus})`,
+    usableFocus,
+    `${id}: focus is handed back to a visible control (${focus})`,
   );
 }
 
@@ -170,8 +213,11 @@ async function guarded(ctx, page, what, run) {
   } catch (error) {
     ctx.check(
       false,
-      `${what}: threw — ${String(error.message).split("\n")[0]}`,
+      `${what}: threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
     );
+    await page
+      .screenshot({ path: `${ctx.out}/${what}-error.png` })
+      .catch(() => {});
     await page.keyboard.press("Escape").catch(() => {});
   }
 }

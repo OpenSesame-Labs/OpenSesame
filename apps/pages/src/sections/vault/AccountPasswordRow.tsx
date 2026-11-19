@@ -60,7 +60,9 @@ export function AccountPasswordRow({
   guide: boolean;
   onSave: (method: PasswordMethod) => Promise<void>;
 }) {
-  const copyRef = useGuideTarget<HTMLButtonElement>("item.copy-password");
+  const copyRef = useGuideTarget<HTMLButtonElement>("item.copy-password", {
+    activation: "manual",
+  });
   const [revealed, setRevealed] = useState(false);
   const produced = producePassword(method);
   const key = `password:${method.id}`;
@@ -115,6 +117,7 @@ export function AccountPasswordRow({
             copied={copying.copied}
             failed={copying.failed}
             guideRef={guide ? copyRef : undefined}
+            guideActivation={guide ? "item.copy-password" : undefined}
             onCopy={copying.copy}
           />
           {out !== null && out.later !== "" ? (

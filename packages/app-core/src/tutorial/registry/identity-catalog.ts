@@ -11,8 +11,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   // ── Identity administration ─────────────────────────────────────────
   {
     id: "identity.agents",
-    description:
-      "The Agents branch: register proof-bound agents, rename them and revoke registrations you own.",
+    description: "Register, rename or revoke agent registrations you own.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.agent.register",
@@ -20,15 +19,14 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.people",
     description:
-      "The People branch: who you are here, the identities linked to you, the access you hold, and the members of your organizations.",
+      "Review your identity, linked identities, access and organization members.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.whoami",
   },
   {
     id: "identity.providers",
-    description:
-      "The Providers branch: the identity providers registered to vouch for people in this deployment.",
+    description: "Review identity providers registered for this deployment.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.admin",
@@ -36,7 +34,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.devices",
     description:
-      "The Devices branch: the tailnet's machines, when a daemon is paired for device management, and the browsers and installs that have unlocked this vault.",
+      "Review browsers and installations that unlocked this vault, and tailnet devices when a daemon is paired.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.device.approve",
@@ -44,15 +42,14 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.service-accounts",
     description:
-      "The Applications branch: register OIDC clients, manage exact redirect URIs and revoke client registrations.",
+      "Register OIDC applications, manage redirect URIs and revoke registrations.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.admin",
   },
   {
     id: "identity.organization",
-    description:
-      "The Organizations branch: the organization this session acts in, and its settings.",
+    description: "Review the current organization and its settings.",
     role: "navigation",
     routes: ["/identity"],
     capabilityId: "identity.admin",
@@ -60,7 +57,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.org-signin",
     description:
-      "The Sign-in upstream panel under Organizations: the OIDC issuer or SAML IdP an organization's people sign in through, with its email domains and provisioning tokens below. Only an owner can change them.",
+      "Review the organization’s sign-in provider, email domains and provisioning tokens. Only an owner can change them.",
     role: "action",
     routes: ["/identity"],
     capabilityId: "identity.org_signin.upstream.manage",
@@ -68,7 +65,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.register-idp",
     description:
-      "Opens the ceremony that registers an identity provider, either from the shipped enterprise presets or as a custom OIDC issuer.",
+      "Register an identity provider using a preset or a custom OIDC issuer.",
     role: "ceremony",
     routes: ["/identity"],
     capabilityId: "identity.admin",
@@ -77,7 +74,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.identity",
     description:
-      "Rail entry that opens Identity, where accounts, upstream providers and linked identities are managed.",
+      "Open Identity to manage accounts, providers and linked identities.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",

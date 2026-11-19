@@ -19,6 +19,7 @@
 
 import { PIN } from "./pages-journey.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
+import { hasUsableFocus } from "./tutorial-walker.mjs";
 
 /** What the key is measured by, read in the page: its box, its name, and what it touches. */
 function measureKey() {
@@ -61,6 +62,12 @@ function measureKey() {
     // short of its size for a moment, and the floor is about the key.
     width: key.offsetWidth,
     height: key.offsetHeight,
+    bounds: {
+      left: box.left,
+      top: box.top,
+      right: box.right,
+      bottom: box.bottom,
+    },
     label: key.getAttribute("aria-label"),
     title: key.getAttribute("title"),
     inViewport:
@@ -90,7 +97,7 @@ async function tabReaches(page) {
 }
 
 /** The key as a person finds it on this screen. */
-async function keyChecks({ check, phone, say }, page, label) {
+async function keyChecks({ check, phone, say, out }, page, label) {
   // The capability that draws the key activates after the screen it sits on
   // (a popup's route can register first), so give it the time a person's
   // first look would, and fail only when it never comes.
@@ -109,7 +116,15 @@ async function keyChecks({ check, phone, say }, page, label) {
     m.width >= floor && m.height >= floor,
     `${label}: the key is at least ${floor}px (${m.width}x${m.height})`,
   );
-  check(m.inViewport, `${label}: the key is inside the screen`);
+  check(
+    m.inViewport,
+    `${label}: the key is inside the screen (${JSON.stringify(m.bounds)})`,
+  );
+  if (!m.inViewport && process.env.TUTORIALS_SHOTS === "1") {
+    await page.screenshot({
+      path: `${out}/${label.replace(/[^a-z0-9]+/gi, "-")}-support-error.png`,
+    });
+  }
   check(
     !m.floating,
     `${label}: the key sits in the screen's own chrome, not floating over it`,
@@ -145,12 +160,15 @@ function walkerFor(env, page) {
   return async function walkHere(label, wanted) {
     setWhere(`${width}px ${label}`);
     await keyChecks(
-      { check, phone, say: env.helpers.say },
+      { check, phone, say: env.helpers.say, out: env.out },
       page,
       `${width}px ${label}`,
     );
     const rows = await offered(page, check, `${width}px ${label}`, wanted);
     for (const row of rows) {
+      // This tutorial changes screens and creates a vault; its own browser
+      // walk exercises the actual actions on a fresh page.
+      if (row.id === "gate.front-door") continue;
       if (wants(row.id)) await walkGate(page, row, { phone, width });
     }
   };
@@ -170,10 +188,14 @@ async function escapeOnTheDoor(check, page) {
       () => false,
     );
   check(gone, "door: Escape on the card ends the tutorial");
+  await page
+    .waitForFunction(hasUsableFocus, null, { timeout: 5000 })
+    .catch(() => {});
+  const usableFocus = await page.evaluate(hasUsableFocus);
   const held = await page.evaluate(
     () => document.activeElement?.tagName ?? "none",
   );
-  check(held !== "BODY", `door: focus is handed back after Escape (${held})`);
+  check(usableFocus, `door: focus is handed back after Escape (${held})`);
 }
 
 /** The door of a device with nothing on it, and its one help key. */
@@ -258,14 +280,23 @@ export async function gatePass(env) {
   const { width, newPage, origin, base } = env;
   const { page, context } = await newPage(width);
   const walkHere = walkerFor(env, page);
-  await doorGate(env, page, walkHere);
-  await setupGate(env, page, walkHere);
-  await sealGate(page, walkHere);
-  // Unlock: the vault just sealed, on a fresh load, which locks it.
-  await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
-  await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
-  await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
-  await context.close();
+  try {
+    await doorGate(env, page, walkHere);
+    await setupGate(env, page, walkHere);
+    await sealGate(page, walkHere);
+    // Unlock: the vault just sealed, on a fresh load, which locks it.
+    await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
+    await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
+    await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
+  } catch (error) {
+    if (env.out)
+      await page
+        .screenshot({ path: `${env.out}/${width}-gate-error.png` })
+        .catch(() => {});
+    throw error;
+  } finally {
+    await context.close();
+  }
 }
 
 /**
