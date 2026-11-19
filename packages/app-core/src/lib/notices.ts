@@ -166,10 +166,11 @@ function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
     kind: "status",
     createdAt: existing?.createdAt ?? new Date().toISOString(),
   };
+  const created = existing === undefined;
   notices = [...notices.filter((item) => item.id !== input.id), notice];
   // Standing page conditions update the badge. They are not arrivals: opening
   // the bell sheet here covers the page the person is already using.
-  emit();
+  emit(created ? notice : undefined);
   return notice;
 }
 

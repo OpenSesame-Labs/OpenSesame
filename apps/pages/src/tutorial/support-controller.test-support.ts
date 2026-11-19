@@ -29,8 +29,8 @@ export function stubSupportController(
   const opened: (SupportTab | undefined)[] = [];
   const stops = {
     count: 0,
-    reason: "user",
-  } satisfies { count: number; reason: GuideCancelReason };
+    reason: "user" as GuideCancelReason,
+  };
   const nothing = () => undefined;
   const support: SupportController = {
     subscribe(listener) {
@@ -66,6 +66,8 @@ export function stubSupportController(
     },
     lock: nothing,
     destroy: nothing,
+    bindTutorialResume: () => () => undefined,
+    resumeQueuedWalkthrough: () => false,
   };
   return {
     support,
