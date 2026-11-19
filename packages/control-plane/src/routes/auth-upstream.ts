@@ -86,6 +86,32 @@ const proofSchema = z.object({
  * client does not have to learn which surface it is talking to.
  */
 const MINT_REFUSALS = new Set(["rate_limited", "provisional_capacity"]);
+const UPGRADE_TELEMETRY_WINDOW_MS = 60_000;
+let nextUpgradeTelemetryAt = 0;
+let suppressedUpgradeEvents = 0;
+
+function recordLegacyClient(ctx: AppContext): void {
+  const now = ctx.clock().getTime();
+  if (now < nextUpgradeTelemetryAt) {
+    suppressedUpgradeEvents += 1;
+    return;
+  }
+  ctx.log.warn(
+    {
+      event: "magic_link_client_upgrade_required",
+      requiredProtocol: "magic-link-pkce-v1",
+      suppressedSinceLast: suppressedUpgradeEvents,
+    },
+    "legacy magic-link request refused",
+  );
+  suppressedUpgradeEvents = 0;
+  nextUpgradeTelemetryAt = now + UPGRADE_TELEMETRY_WINDOW_MS;
+}
+
+export function resetMagicLinkUpgradeTelemetryForTest(): void {
+  nextUpgradeTelemetryAt = 0;
+  suppressedUpgradeEvents = 0;
+}
 
 function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
   routes.post("/sign-in/magic-link", async (c) => {
@@ -94,14 +120,14 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
     );
     if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
     const { email, callbackURL, codeChallenge, state } = parsed.data;
+    const origin = c.req.header("origin");
+    const callback =
+      origin && callbackURL
+        ? approvedMagicCallback(ctx, callbackURL, origin)
+        : undefined;
+    if (!callback) return c.json({ error: "invalid_request" }, 400);
     if (!codeChallenge || !state) {
-      ctx.log.warn(
-        {
-          event: "magic_link_client_upgrade_required",
-          requiredProtocol: "magic-link-pkce-v1",
-        },
-        "legacy magic-link request refused",
-      );
+      recordLegacyClient(ctx);
       c.header("cache-control", "no-store");
       return c.json(
         {
@@ -112,16 +138,7 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
         426,
       );
     }
-    const origin = c.req.header("origin");
-    const callback =
-      origin && callbackURL
-        ? approvedMagicCallback(ctx, callbackURL, origin)
-        : undefined;
-    if (
-      !callback ||
-      !validMagicChallenge(codeChallenge) ||
-      !MAGIC_STATE.test(state)
-    )
+    if (!validMagicChallenge(codeChallenge) || !MAGIC_STATE.test(state))
       return c.json({ error: "invalid_request" }, 400);
     if (
       (await chargeMagicLinkBudget(

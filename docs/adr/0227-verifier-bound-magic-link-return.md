@@ -43,10 +43,15 @@ client sends neither challenge nor state; Identity answers `426` with
 `client_upgrade_required`, `requiredProtocol: magic-link-pkce-v1`, and
 `action: reload`, emits the structured `magic_link_client_upgrade_required`
 event, sends no email, and does not charge a send budget. The response is
-`Cache-Control: no-store`. Operators should watch that event through the cache
-drain and pause the Identity rollout if it remains material. Rollback restores
-the newer Pages build first; it must never restore the bearer-returning legacy
-exchange.
+`Cache-Control: no-store`. The event is emitted only after origin and callback
+validation, at most once per process per minute; the next emitted event includes
+the number suppressed in the preceding window. This limiter is deliberately
+separate from mail admission. Operators should watch that sampled signal through
+the cache drain and pause the Identity rollout if it remains material. Cached
+legacy Pages does not understand the JSON reload hint and shows its existing
+generic HTTP 426 error, so deployment order—not the hint—is the user-facing
+compatibility control. Rollback restores the newer Pages build first; it must
+never restore the bearer-returning legacy exchange.
 
 ## Consequences
 
