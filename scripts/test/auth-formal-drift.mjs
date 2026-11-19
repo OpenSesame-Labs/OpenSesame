@@ -7,7 +7,9 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 const coverage = JSON.parse(
   readFileSync(`${root}/spec/formal/auth/coverage.json`, "utf8"),
 );
-const attestationPath = "spec/formal/auth/reviewed-sources.json";
+const attestationPath = coverage.reviewed_attestation;
+const attestationPathPattern =
+  /^spec\/formal\/auth\/reviewed-sources(?:-[a-z0-9-]+)?\.json$/;
 const paths = [
   "packages/control-plane/src/middleware/auth.ts",
   "packages/control-plane/src/proofs/verified-principal.ts",
@@ -18,7 +20,82 @@ const paths = [
 const revisionEvidence =
   coverage.version === 1 && /^[0-9a-f]{40}$/.test(coverage.reviewed_revision);
 const blobEvidence =
-  coverage.version === 2 && coverage.reviewed_attestation === attestationPath;
+  coverage.version === 2 &&
+  typeof attestationPath === "string" &&
+  attestationPathPattern.test(attestationPath);
+
+function gitJson(revision, path) {
+  return JSON.parse(
+    execFileSync("git", ["show", `${revision}:${path}`], {
+      cwd: root,
+      encoding: "utf8",
+    }),
+  );
+}
+
+function validV2Manifest(manifest) {
+  return (
+    manifest?.version === 2 &&
+    typeof manifest.reviewed_attestation === "string" &&
+    attestationPathPattern.test(manifest.reviewed_attestation) &&
+    Array.isArray(manifest.sources) &&
+    manifest.sources.length === paths.length &&
+    paths.every(
+      (path, index) =>
+        manifest.sources[index]?.path === path &&
+        /^[0-9a-f]{40}$/.test(manifest.sources[index]?.base_blob) &&
+        /^[0-9a-f]{40}$/.test(manifest.sources[index]?.reviewed_blob),
+    )
+  );
+}
+
+function validatePreviousCoverage(parent, previousCoverage) {
+  if (previousCoverage.version !== 2) return;
+  if (!validV2Manifest(previousCoverage))
+    throw new Error("auth-formal: invalid prior covered-source manifest");
+  let previousAttestation;
+  try {
+    previousAttestation = gitJson(
+      parent,
+      previousCoverage.reviewed_attestation,
+    );
+  } catch {
+    throw new Error(
+      "auth-formal: prior reviewed-source attestation unavailable",
+    );
+  }
+  if (
+    previousAttestation.version !== 1 ||
+    JSON.stringify(previousAttestation.sources) !==
+      JSON.stringify(previousCoverage.sources)
+  ) {
+    throw new Error(
+      "auth-formal: prior manifest does not match its reviewed-source attestation",
+    );
+  }
+  for (const entry of previousCoverage.sources) {
+    const sourceBlob = execFileSync(
+      "git",
+      ["rev-parse", `${parent}:${entry.path}`],
+      { cwd: root, encoding: "utf8" },
+    ).trim();
+    if (sourceBlob !== entry.reviewed_blob)
+      throw new Error(
+        `auth-formal: prior manifest did not validate source ${entry.path}`,
+      );
+    const reviewed = execFileSync(
+      "git",
+      ["cat-file", "blob", entry.reviewed_blob],
+      {
+        cwd: root,
+      },
+    );
+    if (createHash("sha256").update(reviewed).digest("hex") !== entry.sha256)
+      throw new Error(
+        `auth-formal: prior reviewed source digest mismatch for ${entry.path}`,
+      );
+  }
+}
 
 function reviewedBlobBefore(attestationCommit, previousCoverage, entry) {
   const recorded = previousCoverage.sources?.find(
@@ -90,6 +167,7 @@ if (blobEvidence) {
       "git",
       [
         "diff-tree",
+        "-m",
         "--root",
         "--no-commit-id",
         "--name-only",
@@ -107,18 +185,16 @@ if (blobEvidence) {
     }
     let previousCoverage;
     try {
-      previousCoverage = JSON.parse(
-        execFileSync(
-          "git",
-          ["show", `${reviewedCommit}^:spec/formal/auth/coverage.json`],
-          { cwd: root, encoding: "utf8" },
-        ),
+      previousCoverage = gitJson(
+        `${reviewedCommit}^`,
+        "spec/formal/auth/coverage.json",
       );
     } catch {
       throw new Error(
         "auth-formal: reviewed-source attestation lacks prior coverage evidence",
       );
     }
+    validatePreviousCoverage(`${reviewedCommit}^`, previousCoverage);
     for (const entry of attestation.sources) {
       let priorBlob;
       try {
