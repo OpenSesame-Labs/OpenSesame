@@ -4798,6 +4798,7 @@ dependencies = [
  "hyper-util",
  "opensesame-domain",
  "opensesame-time",
+ "opensesame-transport-security",
  "rcgen",
  "reqwest",
  "rustls",
