@@ -84,4 +84,6 @@ export interface AppContext {
    * the first auto-admission.
    */
   systemPrincipalReady: Promise<void>;
+  /** Durable security work recovered before non-liveness requests are served. */
+  securityRecoveryReady: Promise<void>;
 }
